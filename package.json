@@ -38,7 +38,7 @@
     "@vercel/analytics": "1.6.1",
     "better-sqlite3": "^12.6.2",
     "drizzle-orm": "^0.45.1",
-    "esbuild": "^0.25.0",
+    "esbuild": "^0.27.3",
     "lucide-react": "^0.563.0",
     "next": "15.5.12",
     "next-auth": "^4.24.13",
