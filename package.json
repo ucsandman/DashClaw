@@ -44,7 +44,7 @@
     "next-auth": "^4.24.13",
     "openai": "^6.22.0",
     "react": "^18",
-    "react-dom": "^18",
+    "react-dom": "^19",
     "react-grid-layout": "^2.2.2",
     "recharts": "^2.9.0",
     "redis": "^4.7.1",
