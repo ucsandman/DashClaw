@@ -1,5 +1,7 @@
 # DashClaw: One-Clipboard Setup (Connect An Agent Machine)
 
+> **Tip:** The fastest way to generate this prompt with your dashboard URL pre-filled is the **Copy Agent Prompt** button on the API Keys page (`/api-keys`) or the onboarding checklist.
+
 You are helping a non-technical user connect an agent to their self-hosted DashClaw dashboard.
 
 Rules:

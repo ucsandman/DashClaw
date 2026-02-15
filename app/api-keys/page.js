@@ -8,6 +8,7 @@ import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
+import ConnectAgentButton from '../components/ConnectAgentButton';
 
 export default function ApiKeysPage() {
   const { data: session } = useSession();
@@ -178,15 +179,18 @@ export default function ApiKeysPage() {
       subtitle="Manage your workspace API keys"
       breadcrumbs={['Dashboard', 'API Keys']}
       actions={
-        isAdmin ? (
-          <button
-            onClick={() => { setShowCreateForm(true); setNewKey(null); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand/90 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus size={14} />
-            Generate New Key
-          </button>
-        ) : null
+        <div className="flex items-center gap-2">
+          <ConnectAgentButton />
+          {isAdmin && (
+            <button
+              onClick={() => { setShowCreateForm(true); setNewKey(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand/90 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus size={14} />
+              Generate New Key
+            </button>
+          )}
+        </div>
       }
     >
       {/* Error banner */}
@@ -219,6 +223,7 @@ export default function ApiKeysPage() {
                     {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
                     {copied ? 'Copied' : 'Copy'}
                   </button>
+                  <ConnectAgentButton className="flex-shrink-0" />
                 </div>
               </div>
               <button

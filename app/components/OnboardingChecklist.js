@@ -5,6 +5,7 @@ import { Building2, KeyRound, Terminal, Rocket, CheckCircle2, Copy, Check, Alert
 import { Card, CardContent } from './ui/Card';
 import { ProgressBar } from './ui/ProgressBar';
 import { Badge } from './ui/Badge';
+import ConnectAgentButton from './ConnectAgentButton';
 
 const STEPS = [
   { id: 'workspace', label: 'Create your workspace', icon: Building2 },
@@ -336,6 +337,7 @@ await claw.createAction({
                   copied={copied}
                   onCopy={copyToClipboard}
                 />
+                <ConnectAgentButton label="Copy Full Setup Prompt" />
               </div>
             )}
           </StepRow>

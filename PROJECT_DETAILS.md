@@ -59,6 +59,7 @@ app/
 ├── lib/auth.js                # NextAuth config (GitHub + Google, JWT, user upsert)
 ├── lib/billing.js             # Cost estimation (tokens -> USD)
 ├── lib/usage.js               # Usage meters + quota checks
+├── lib/connectPrompt.js       # Generates markdown connect prompt for agent sessions
 ├── lib/colors.js              # Agent color hashing, action type icon map
 ├── lib/audit.js               # Fire-and-forget activity logging (logActivity)
 ├── lib/signals.js             # Shared signal computation (computeSignals)
@@ -72,6 +73,7 @@ app/
 │   ├── NotificationCenter.js  # Alert bell + notification dropdown
 │   ├── DraggableDashboard.js  # Fixed 4-column widget grid (+ onboarding checklist)
 │   ├── OnboardingChecklist.js # 4-step guided onboarding (workspace, key, SDK, first action)
+│   ├── ConnectAgentButton.js  # One-click copy-paste agent connect prompt generator
 │   ├── WaitlistForm.js        # Email capture form (client component)
 │   ├── SecurityDetailPanel.js  # Slide-out detail drawer (signal + action detail)
 │   ├── AssumptionGraph.js     # SVG+HTML trace visualization (parent chain, assumptions, loops)
