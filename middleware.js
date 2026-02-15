@@ -1195,6 +1195,11 @@ export async function middleware(request) {
       return NextResponse.next();
     }
 
+    // Landing page is always public
+    if (pathname === '/') {
+      return NextResponse.next();
+    }
+
     // All other matched page routes — require session
     if (!token) {
       return NextResponse.redirect(new URL('/login', request.url));
