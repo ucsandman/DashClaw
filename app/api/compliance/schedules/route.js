@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSchedule, listSchedules } from '../../../../lib/compliance/exporter.js';
+import { createSchedule, listSchedules } from '../../../lib/compliance/exporter.js';
 
 export async function GET(request) {
   try {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getExport, deleteExport } from '../../../../../lib/compliance/exporter.js';
+import { getExport, deleteExport } from '../../../../lib/compliance/exporter.js';
 
 export async function GET(request, { params }) {
   try {

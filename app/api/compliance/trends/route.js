@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getComplianceTrends } from '../../../../lib/compliance/exporter.js';
+import { getComplianceTrends } from '../../../lib/compliance/exporter.js';
 
 export async function GET(request) {
   try {
