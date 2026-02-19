@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 56" width="840" height="168">
+  <defs>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="0.4" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="280" height="56" fill="#0a0a0a"/>
+
+  <!-- Shield icon scaled up 2.1x, vertically centered -->
+  <g transform="translate(8, 4) scale(2.1)">
+    <path
+      d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"
+      fill="#0d0d0d"
+      stroke="#F97316"
+      stroke-width="0.85"
+      stroke-linejoin="round"
+      stroke-linecap="round"
+      filter="url(#glow)"
+    />
+    <line x1="9.75"  y1="8.3" x2="10.45" y2="16.1" stroke="#F97316" stroke-width="0.85" stroke-linecap="round" filter="url(#glow)"/>
+    <line x1="11.95" y1="8.3" x2="12.65" y2="16.1" stroke="#F97316" stroke-width="0.85" stroke-linecap="round" filter="url(#glow)"/>
+    <line x1="14.15" y1="8.3" x2="14.85" y2="16.1" stroke="#F97316" stroke-width="0.85" stroke-linecap="round" filter="url(#glow)"/>
+  </g>
+
+  <!-- Wordmark: Dash white, Claw orange -->
+  <text
+    x="66" y="37"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-weight="900"
+    font-size="28"
+    letter-spacing="-0.8"
+    fill="#FFFFFF"
+  >Dash</text>
+  <text
+    x="148" y="37"
+    font-family="'Arial Black', 'Helvetica Neue', sans-serif"
+    font-weight="900"
+    font-size="28"
+    letter-spacing="-0.8"
+    fill="#F97316"
+  >Claw</text>
+</svg>

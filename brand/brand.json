@@ -1,0 +1,44 @@
+{
+  "name": "DashClaw",
+  "tagline": "Agent Decision Infrastructure",
+  "domain": "dashclaw.dev",
+  "version": "1.9.1",
+  "generated": "2026-02-19",
+  "logo": {
+    "style": "outline-claw",
+    "description": "Lucide Shield outline in orange on dark background, three centered diagonal claw strokes inside",
+    "base_path": "M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z",
+    "claw_lines": [
+      { "x1": 9.75,  "y1": 8.3, "x2": 10.45, "y2": 16.1 },
+      { "x1": 11.95, "y1": 8.3, "x2": 12.65, "y2": 16.1 },
+      { "x1": 14.15, "y1": 8.3, "x2": 14.85, "y2": 16.1 }
+    ],
+    "stroke_width": 0.85,
+    "viewbox": "0 0 24 24",
+    "files": {
+      "icon_svg": "logo.svg",
+      "icon_transparent_svg": "logo-transparent.svg",
+      "wordmark_svg": "logo-wordmark.svg",
+      "icon_png_512": "icons/icon-512x512.png",
+      "icon_circular": "icons/logo-circular.png"
+    },
+    "min_size_px": 16,
+    "clear_space": "10% of asset width on all sides"
+  },
+  "colors": {
+    "primary":      { "name": "Brand Orange",  "hex": "#F97316", "rgb": [249, 115, 22],  "hsl": "24 95% 53%",  "usage": "Logo, borders, CTAs, highlights, claw marks" },
+    "primary_dark": { "name": "Orange Dark",   "hex": "#EA580C", "rgb": [234, 88, 12],   "hsl": "21 90% 48%",  "usage": "Hover states, pressed buttons" },
+    "bg":           { "name": "Near Black",    "hex": "#0A0A0A", "rgb": [10, 10, 10],    "hsl": "0 0% 4%",     "usage": "Primary background, logo background" },
+    "surface":      { "name": "Dark Surface",  "hex": "#111111", "rgb": [17, 17, 17],    "hsl": "0 0% 7%",     "usage": "Card backgrounds, secondary surfaces" },
+    "success":      { "name": "Terminal Green","hex": "#22C55E", "rgb": [34, 197, 94],   "hsl": "142 71% 45%", "usage": "Healthy agents, success states" },
+    "danger":       { "name": "Alert Red",     "hex": "#EF4444", "rgb": [239, 68, 68],   "hsl": "0 84% 60%",   "usage": "Risk signals, errors, blocked actions" },
+    "text":         { "name": "White",         "hex": "#FFFFFF", "rgb": [255, 255, 255], "hsl": "0 0% 100%",   "usage": "Primary text on dark backgrounds" },
+    "muted":        { "name": "Zinc",          "hex": "#71717A", "rgb": [113, 113, 122], "hsl": "240 4% 46%",  "usage": "Secondary text, captions, metadata" },
+    "border":       { "name": "Subtle Border", "hex": "#FFFFFF0F","opacity": 0.06,       "usage": "Borders, dividers" }
+  },
+  "typography": {
+    "display": { "family": "Inter", "weight": 700, "tracking": "-0.04em", "usage": "Headlines, hero text" },
+    "body":    { "family": "Inter", "weight": 400, "size_base": "14px",   "usage": "UI copy, descriptions" },
+    "mono":    { "family": "JetBrains Mono", "fallback": "Fira Code, Consolas, monospace", "usage": "Code, SDK examples, terminal output" }
+  }
+}
