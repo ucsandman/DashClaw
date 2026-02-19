@@ -23,6 +23,7 @@ import OnboardingChecklist from './OnboardingChecklist';
 import CapabilityHighlightsCard from './CapabilityHighlightsCard';
 import RecentMessagesCard from './RecentMessagesCard';
 import FleetPresenceCard from './FleetPresenceCard';
+import EvalScoreCard from './EvalScoreCard';
 
 const CARD_COMPONENTS = {
   'risk-signals': RiskSignalsCard,
@@ -42,6 +43,7 @@ const CARD_COMPONENTS = {
   'integrations': IntegrationsCard,
   'inspiration': InspirationCard,
   'activity-timeline': ActivityTimeline,
+  'eval-scores': EvalScoreCard,
 };
 
 const SHARED_CONSTRAINTS = { maxW: 4, maxH: 8, minW: 1, minH: 2 };
@@ -65,6 +67,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'inspiration',       x: 3, y: 12, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'recent-messages',   x: 2, y: 15, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'fleet-presence',    x: 0, y: 17, w: 2, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'eval-scores',       x: 0, y: 20, w: 2, h: 3, ...SHARED_CONSTRAINTS },
   ],
   md: [
     { i: 'risk-signals',      x: 0, y: 0,  w: 1, h: 2, ...SHARED_CONSTRAINTS },
@@ -84,6 +87,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'inspiration',       x: 1, y: 24, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'recent-messages',   x: 0, y: 27, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'fleet-presence',    x: 0, y: 30, w: 2, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'eval-scores',       x: 0, y: 33, w: 2, h: 3, ...SHARED_CONSTRAINTS },
   ],
   sm: [
     { i: 'risk-signals',      x: 0, y: 0,  w: 1, h: 2, ...SHARED_CONSTRAINTS },
@@ -103,6 +107,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'inspiration',       x: 0, y: 41, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'recent-messages',   x: 0, y: 44, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'fleet-presence',    x: 0, y: 47, w: 1, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'eval-scores',       x: 0, y: 50, w: 1, h: 3, ...SHARED_CONSTRAINTS },
   ],
 };
 

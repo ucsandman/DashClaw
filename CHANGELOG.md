@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.5] - 2026-02-19
+
+### Added
+- **Evaluation Framework (Phase 1A & 1B)**: A complete system for measuring and scoring agent decision quality.
+- **Evaluations Dashboard**: New full-page interface for managing evaluation scores, scorers, and batch runs.
+- **Scoring Engine**: Support for Regex, Keyword, Numeric Range, Custom Expression, and LLM-as-judge (AI) scorers.
+- **Evaluations Widget**: Draggable dashboard widget with score distribution charts and average quality metrics.
+- **Evaluation SDKs**: Added `evaluate()`, `createScorer()`, and `runEval()` to both Node.js and Python SDKs.
+- **Batch Eval Runs**: Capability to run batch evaluations against historical agent actions.
+- **Demo Integration**: Comprehensive evaluation fixtures and demo routes for testing the framework without a live backend.
+
 ## [1.9.4] - 2026-02-19
 
 ### Added

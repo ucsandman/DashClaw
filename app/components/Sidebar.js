@@ -32,6 +32,7 @@ const navGroups = [
       { href: '/workspace', icon: FolderKanban, label: 'Workspace' },
       { href: '/routing', icon: Network, label: 'Task Routing' },
       { href: '/compliance', icon: Scale, label: 'Compliance' },
+      { href: '/evaluations', icon: BarChart3, label: 'Evaluations' },
     ],
   },
   {

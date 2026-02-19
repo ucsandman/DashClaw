@@ -1171,6 +1171,23 @@ export async function middleware(request) {
         return response;
       }
 
+      // -- Evaluations demo endpoints --
+      if (pathname === '/api/evaluations') {
+        return demoJson(request, { scores: fixtures.evalScores, total: fixtures.evalScores.length });
+      }
+      if (pathname === '/api/evaluations/scorers') {
+        return demoJson(request, { scorers: fixtures.evalScorers, llm_available: false });
+      }
+      if (pathname === '/api/evaluations/runs') {
+        return demoJson(request, { runs: fixtures.evalRuns });
+      }
+      if (pathname === '/api/evaluations/stats') {
+        return demoJson(request, fixtures.evalStats);
+      }
+      if (pathname === '/api/settings/llm-status') {
+        return demoJson(request, { available: false, provider: null, model: null });
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1606,6 +1623,8 @@ export const config = {
     '/compliance/:path*',
     '/evaluations',
     '/evaluations/:path*',
+    '/api/evaluations/:path*',
+    '/api/settings/llm-status',
     '/invite/:path*',
     '/login',
   ],
