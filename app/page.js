@@ -4,7 +4,7 @@ import {
   ExternalLink, BookOpen, FolderKanban, MessageSquare, ArrowLeftRight,
   Brain, ScanSearch, HeartPulse, Newspaper, Package, UsersRound,
   Webhook, Clock, Compass, Building2, Terminal, BarChart3,
-  Scale, Network, FileCheck,
+  Scale, Network, FileCheck, Download, SlidersHorizontal, Radio,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -33,17 +33,27 @@ const coreFeatures = [
     title: 'Human-in-the-Loop Decision Gates',
     description: 'Approval workflows pause risky decisions for human review. Agents request permission, not forgiveness.',
   },
+  {
+    icon: FileCheck,
+    title: 'Built-in Evaluation Framework',
+    description: '5 built-in scorer types (regex, keywords, numeric range, custom, optional LLM judge) to track output quality automatically.',
+  },
+  {
+    icon: Zap,
+    title: 'Learning Velocity & Maturity',
+    description: 'Track how fast your agents are improving. 6-level maturity model from Novice to Master based on real performance data.',
+  },
 ];
 
 const platformFeatures = [
-  { icon: Package, title: 'Drop-In SDKs', description: 'Connect any agent in minutes. Zero-dependency Node.js and Python clients with native adapters for CrewAI, AutoGen, and LangChain.' },
-  { icon: ShieldAlert, title: 'Human-in-the-Loop Approvals', description: 'Sensitive operations pause until a human signs off. Your agents ask permission, not forgiveness.' },
+  { icon: Package, title: 'Drop-In SDKs', description: 'Connect any agent in minutes. Zero-dependency Node.js and Python clients with native adapters for OpenClaw, CrewAI, AutoGen, and LangChain.' },
+  { icon: Newspaper, title: 'Prompt Registry', description: 'Version-controlled prompt templates with mustache variables and instant rollback. Stop hardcoding prompts in your agent code.' },
+  { icon: MessageSquare, title: 'User Feedback Loop', description: 'Collect structured ratings with auto-sentiment detection and 6-category auto-tagging. Close the loop between users and agents.' },
+  { icon: Radio, title: 'Behavioral Drift Detection', description: 'Statistical baselines and z-score alerts catch when agent behavior deviates from the norm. Detect logic drift early.' },
+  { icon: Download, title: 'Compliance Export Bundles', description: 'One-click exports for SOC 2, NIST AI RMF, EU AI Act, and ISO 42001. All your governance evidence, packaged.' },
+  { icon: SlidersHorizontal, title: 'Scoring Profiles', description: 'User-defined weighted quality scoring with auto-calibration from real data. Risk templates replace hardcoded agent risk numbers with transparent, editable rules.' },
   { icon: Shield, title: 'Verified Agent Identity', description: 'Know which agent took which action. RSA signature verification ensures accountability at every step.' },
   { icon: Brain, title: 'Keep Agent Memory Clean', description: 'Detect stale facts, repetition loops, and context bloat before they cause bad decisions.' },
-  { icon: ScanSearch, title: 'Automatic Secret Redaction', description: 'API keys, tokens, and credentials are stripped from messages before they ever hit storage.' },
-  { icon: ArrowLeftRight, title: 'Seamless Session Handoffs', description: 'Never lose decision continuity between sessions. Structured handoff documents preserve context and reasoning.' },
-  { icon: CircleDot, title: 'Complete Decision Accountability', description: 'Track every unresolved dependency, pending approval, and blocker across your entire agent fleet.' },
-  { icon: Eye, title: 'Catch Assumptions Before They Drift', description: 'Log what agents assume, validate against outcomes, and surface contradictions before they compound.' },
 ];
 
 const operationalFeatures = [
@@ -52,7 +62,7 @@ const operationalFeatures = [
   { icon: Clock, title: 'Full Audit Trail', description: 'Every action is logged with actor, timestamp, and reasoning: ready for compliance audits and debugging.' },
   { icon: Compass, title: 'Ship in 10 Minutes', description: 'Four steps: create workspace, generate key, install SDK, send first action. That\'s it.' },
   { icon: Building2, title: 'Built for Multi-Tenant', description: 'Full org isolation out of the box. Each team gets their own agents, keys, and settings.' },
-  { icon: Terminal, title: '20+ CLI Tools', description: 'Run agent ops locally with Python CLI tools. Push results to the dashboard when you\'re ready.' },
+  { icon: Terminal, title: '30+ CLI Tools', description: 'Run agent ops locally with Python CLI tools. Push results to the dashboard when you\'re ready.' },
 ];
 
 const signals = [
@@ -165,6 +175,10 @@ export default function LandingPage() {
             Your agents are making decisions right now. Can you prove what they decided,
             what they assumed, and whether they followed policy? Guard what they do before they do it.
           </p>
+          <div className="mt-4 flex items-center justify-center gap-6 text-sm text-zinc-500 font-medium">
+            <span className="flex items-center gap-1.5"><Zap size={14} className="text-brand" /> 177+ SDK methods</span>
+            <span className="flex items-center gap-1.5"><BookOpen size={14} className="text-brand" /> 29 categories</span>
+          </div>
           <p className="mt-3 text-sm text-zinc-500">Open-source. Self-hosted. Built for teams shipping AI agents to production.</p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2 text-xs">
             <span className="rounded-full border border-[rgba(255,255,255,0.12)] bg-[#111] px-3 py-1 text-zinc-300">Policy guard</span>
@@ -222,13 +236,14 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Secure your first agent in 5 minutes</h2>
-            <p className="mt-3 text-zinc-400">Three steps from install to full decision governance.</p>
+            <p className="mt-3 text-zinc-400">Four steps from install to full decision governance.</p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
-              { step: '1', title: 'Install the SDK', code: 'npm install dashclaw\n# or\npip install dashclaw', desc: 'Zero dependencies. Works with Node.js and Python agents.' },
-              { step: '2', title: 'Initialize your agent', code: "const claw = new DashClaw({\n  apiKey: '...',\n  agentId: 'my-agent',\n})", desc: 'One constructor. Your API key scopes all data.' },
-              { step: '3', title: 'Guard it live', code: "with claw.track(action='deploy'):\n  # ... decisions stream to\n  # dashboard in real-time", desc: 'Decisions, policy checks, and signals stream in real-time.' },
+              { step: '1', title: 'Instrument in 60 seconds', code: 'npm install dashclaw\n# or\npip install dashclaw', desc: 'Zero dependencies. Works with Node.js and Python agents.' },
+              { step: '2', title: 'Guard before you act', code: "const decision = await dc.guard({\n  actionType: 'deploy',\n  riskScore: 85,\n});", desc: 'Intervene with real-time policy checks.' },
+              { step: '3', title: 'Score with your own quality bar', code: "// Define what \"good\" means for your use case\nawait dc.createScoringProfile({\n  name: 'deploy-quality',\n  action_type: 'deploy',\n  dimensions: [\n    { name: 'Speed', weight: 0.3, data_source: 'duration_ms',\n      scale: [\n        { label: 'excellent', operator: 'lt', value: 30000, score: 100 },\n        { label: 'poor', operator: 'gte', value: 120000, score: 20 },\n      ]},\n    { name: 'Reliability', weight: 0.4, data_source: 'confidence',\n      scale: [\n        { label: 'excellent', operator: 'gte', value: 0.9, score: 100 },\n        { label: 'poor', operator: 'lt', value: 0.7, score: 25 },\n      ]},\n  ],\n});\n\n// Or let DashClaw suggest thresholds from your real data\nconst suggestions = await dc.autoCalibrate({ lookback_days: 30 });", desc: 'Custom weighted quality scoring with auto-calibration.' },
+              { step: '4', title: 'Record and Learn', code: "with claw.track(action='deploy'):\n  # ... decisions stream to\n  # dashboard in real-time", desc: 'Decisions, policy checks, and signals stream in real-time.' },
             ].map((item) => (
               <div key={item.step} className="p-5 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
                 <span className="w-7 h-7 rounded-full bg-brand/20 text-brand text-xs font-bold flex items-center justify-center mb-3">{item.step}</span>
@@ -279,6 +294,46 @@ export default function LandingPage() {
                 </div>
               );
             })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 4.5 What Makes DashClaw Different ── */}
+      <section className="py-20 px-6 border-t border-[rgba(255,255,255,0.06)]">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">What makes DashClaw different?</h2>
+            <p className="mt-3 text-zinc-400">Governance that doesn't slow you down.</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
+              <h3 className="text-lg font-semibold text-white">No-Code Policy Engine</h3>
+              <p className="text-sm text-zinc-400 mt-2">
+                Define guardrails in natural language and enforce them across all agents instantly.
+                No hardcoded checks or messy conditional logic.
+              </p>
+            </div>
+            <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
+              <h3 className="text-lg font-semibold text-white">Learning Velocity</h3>
+              <p className="text-sm text-zinc-400 mt-2">
+                DashClaw doesn't just log actions; it tracks how fast your agents are improving
+                and where they're still struggling.
+              </p>
+            </div>
+            <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
+              <h3 className="text-lg font-semibold text-white">Financial Attribution</h3>
+              <p className="text-sm text-zinc-400 mt-2">
+                Every dollar spent on tokens is attributed to a specific decision and goal.
+                Know exactly what your AI budget is buying.
+              </p>
+            </div>
+            <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
+              <h3 className="text-lg font-semibold text-white">Operator-Defined Quality</h3>
+              <p className="text-sm text-zinc-400 mt-2">
+                You define what "good" means. Weighted multi-dimensional scoring with auto-calibration
+                from your real data. Risk templates replace guesswork with transparent rules.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -421,11 +476,11 @@ export default function LandingPage() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(249,115,22,0.08)] border border-[rgba(249,115,22,0.2)] text-brand text-xs font-medium mb-4">
                 <Package size={12} />
-                95+ methods across 21+ categories
+                177+ methods across 29 categories
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">One SDK. Full decision governance.</h2>
               <p className="mt-3 text-zinc-400 leading-relaxed">
-                Install from npm or pip. Zero dependencies. Native adapters for <span className="text-zinc-200 font-semibold">CrewAI</span>, <span className="text-zinc-200 font-semibold">AutoGen</span>, and <span className="text-zinc-200 font-semibold">LangChain</span>.
+                Install from npm or pip. Zero dependencies. Native adapters for <span className="text-zinc-200 font-semibold">OpenClaw</span>, <span className="text-zinc-200 font-semibold">CrewAI</span>, <span className="text-zinc-200 font-semibold">AutoGen</span>, and <span className="text-zinc-200 font-semibold">LangChain</span>.
                 Decision recording, policy enforcement, assumption tracking, handoffs, messaging, and more.
               </p>
               <div className="mt-6 flex flex-wrap gap-3">
@@ -576,7 +631,7 @@ export default function LandingPage() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[rgba(249,115,22,0.08)] border border-[rgba(249,115,22,0.2)] text-brand text-xs font-medium mb-4">
               <Terminal size={12} />
-              20+ Python CLI tools
+              30+ Python CLI tools
             </div>
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Local Agent Toolkit</h2>
             <p className="mt-3 text-zinc-400 max-w-xl mx-auto">

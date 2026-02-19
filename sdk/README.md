@@ -2,9 +2,9 @@
 
 Full reference for the DashClaw SDK (Node.js). For Python, see the [Python SDK docs](../sdk-python/README.md).
 
-DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, assumption tracking, and compliance mapping. It proves what your agents decided and why.
+DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, evaluation, and compliance mapping. It proves what your agents decided and why.
 
-Install, configure, and govern your AI agents with 95+ methods across 21+ categories including action recording, behavior guard, context management, session handoffs, security scanning, agent messaging, agent pairing, identity binding, organization management, webhooks, policy testing, compliance, task routing, and more.
+Install, configure, and govern your AI agents with 177+ methods across 29 categories including action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more. Native adapters for **OpenClaw**, **CrewAI**, **AutoGen**, and **LangChain**.
 
 ---
 
@@ -311,6 +311,268 @@ Get root-cause trace for an action, including its assumptions, open loops, paren
 | actionId | string | Yes | The action_id to trace |
 
 **Returns:** `Promise<{ action: Object, trace: Object }>`
+
+---
+
+## Evaluation Framework
+
+Track output quality automatically with 5 built-in scorer types. No LLM required for most scorers.
+
+### claw.createScorer({ name, scorerType, config, description })
+Create a new evaluation scorer.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Scorer name |
+| scorerType | string | Yes | regex, keywords, numeric_range, custom_function, or llm_judge |
+| config | Object | Yes | Configuration for the scorer |
+| description | string | No | Purpose of this scorer |
+
+**Returns:** `Promise<Object>`
+
+**Example:**
+```javascript
+await claw.createScorer({
+  name: 'JSON Validator',
+  scorerType: 'regex',
+  config: { pattern: '^\\{.*\\}$' },
+});
+```
+
+### claw.getScorers()
+List all available scorers.
+
+**Returns:** `Promise<{ scorers: Object[], llm_available: boolean }>`
+
+### claw.getEvalRuns(filters?)
+List evaluation runs with status and result summaries.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| status | string | No | running, completed, failed |
+| limit | number | No | Max results |
+
+**Returns:** `Promise<{ runs: Object[] }>`
+
+### claw.getEvalStats(filters?)
+Get aggregate evaluation statistics across scorers and agents.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| agent_id | string | No | Filter by agent |
+| scorer_name | string | No | Filter by scorer |
+| days | number | No | Lookback period |
+
+**Returns:** `Promise<Object>`
+
+---
+
+## Prompt Management
+
+Version-controlled prompt templates with mustache variable rendering.
+
+### claw.createPromptTemplate({ name, content, category })
+Create a new prompt template.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Template name |
+| content | string | Yes | Template content with {{variables}} |
+| category | string | No | Optional grouping category |
+
+**Returns:** `Promise<Object>`
+
+### claw.getPromptTemplate(templateId)
+Get a template by ID, including its current active version.
+
+**Returns:** `Promise<Object>`
+
+### claw.renderPrompt({ template_id, variables, action_id })
+Render a template with variables on the server. Optionally link to an action for usage tracking.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| template_id | string | Yes | Template ID |
+| variables | Object | Yes | Mustache variables |
+| action_id | string | No | Link to an action |
+
+**Returns:** `Promise<{ rendered: string }>`
+
+### claw.listPromptVersions(templateId)
+List all versions of a prompt template.
+
+**Returns:** `Promise<Object[]>`
+
+### claw.activatePromptVersion(templateId, versionId)
+Set a specific version as the active one for a template.
+
+**Returns:** `Promise<Object>`
+
+---
+
+## User Feedback
+
+Collect and analyze human feedback on agent actions.
+
+### claw.submitFeedback({ action_id, agent_id, rating, comment, category, tags })
+Submit feedback for a specific action.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| action_id | string | Yes | Action ID |
+| agent_id | string | No | Agent ID |
+| rating | number | Yes | Rating 1-5 |
+| comment | string | No | Optional text feedback |
+| category | string | No | Optional category |
+| tags | string[] | No | Optional tags |
+
+**Returns:** `Promise<Object>`
+
+### claw.getFeedback(feedbackId)
+Retrieve a single feedback entry.
+
+**Returns:** `Promise<Object>`
+
+### claw.getFeedbackStats({ agent_id })
+Get feedback statistics, including average rating and sentiment trends.
+
+**Returns:** `Promise<Object>`
+
+---
+
+## Behavioral Drift
+
+Monitor agent behavior deviations from statistical baselines using z-scores.
+
+### claw.computeDriftBaselines({ agent_id, lookback_days })
+Establish statistical baselines for an agent's behavior metrics.
+
+**Returns:** `Promise<Object>`
+
+### claw.detectDrift({ agent_id, window_days })
+Run drift detection against the established baselines.
+
+**Returns:** `Promise<Object>`
+
+### claw.listDriftAlerts(filters?)
+List behavioral drift alerts with severity and status.
+
+**Returns:** `Promise<Object[]>`
+
+---
+
+## Compliance Exports
+
+Generate evidence packages for SOC 2, NIST AI RMF, EU AI Act, and ISO 42001.
+
+### claw.createComplianceExport({ name, frameworks, format, window_days })
+Generate a compliance export bundle.
+
+**Returns:** `Promise<Object>`
+
+### claw.getComplianceExport(exportId)
+Get the status and details of a compliance export.
+
+**Returns:** `Promise<Object>`
+
+### claw.listComplianceExports({ limit })
+List recent compliance exports.
+
+**Returns:** `Promise<Object[]>`
+
+---
+
+## Learning Analytics
+
+Track agent improvement velocity, maturity levels, and learning curves per skill.
+
+### claw.getLearningVelocity({ agent_id })
+Get agent improvement rate over time.
+
+**Returns:** `Promise<Object>`
+
+### claw.getMaturityLevels()
+Get the 6-level maturity model distribution for the agent.
+
+**Returns:** `Promise<Object>`
+
+### claw.getLearningCurves({ agent_id, action_type })
+Get performance improvement curves for a specific skill/action type.
+
+**Returns:** `Promise<Object>`
+
+---
+
+## Scoring Profiles
+
+User-defined weighted quality scoring with 3 composite methods, 8 data sources, risk templates, and auto-calibration. Zero LLM required.
+
+### claw.createScoringProfile({ name, action_type, composite_method, dimensions })
+Create a scoring profile with optional inline dimensions.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| name | string | Yes | Profile name |
+| action_type | string | No | Filter to specific action type (null = all) |
+| composite_method | string | No | weighted_average (default), minimum, or geometric_mean |
+| dimensions | Array | No | Inline dimension definitions (name, data_source, weight, scale) |
+
+**Returns:** `Promise<Object>`
+
+**Example:**
+```javascript
+const profile = await dc.createScoringProfile({
+  name: 'deploy-quality',
+  action_type: 'deploy',
+  composite_method: 'weighted_average',
+  dimensions: [
+    { name: 'Speed', data_source: 'duration_ms', weight: 0.3,
+      scale: [
+        { label: 'excellent', operator: 'lt', value: 30000, score: 100 },
+        { label: 'good', operator: 'lt', value: 60000, score: 75 },
+        { label: 'poor', operator: 'gte', value: 60000, score: 20 },
+      ]},
+    { name: 'Reliability', data_source: 'confidence', weight: 0.7,
+      scale: [
+        { label: 'excellent', operator: 'gte', value: 0.9, score: 100 },
+        { label: 'poor', operator: 'lt', value: 0.7, score: 25 },
+      ]},
+  ],
+});
+```
+
+### claw.scoreWithProfile(profile_id, action)
+Score a single action against a profile. Returns composite score + per-dimension breakdown.
+
+**Parameters:**
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| profile_id | string | Yes | Profile to score against |
+| action | Object | Yes | Action data object |
+
+**Returns:** `Promise<Object>`
+
+### claw.batchScoreWithProfile(profile_id, actions)
+Score multiple actions at once. Returns per-action results + summary.
+
+**Returns:** `Promise<Object>`
+
+### claw.createRiskTemplate({ name, base_risk, rules })
+Create a rule-based risk template. Replaces hardcoded agent risk numbers.
+
+**Returns:** `Promise<Object>`
+
+### claw.autoCalibrate({ action_type, lookback_days })
+Analyze historical action data to suggest scoring thresholds from percentile distribution.
+
+**Returns:** `Promise<Object>`
 
 ---
 
