@@ -3,7 +3,7 @@
  * Full-featured agent toolkit for the DashClaw platform.
  * Zero-dependency ESM SDK. Requires Node 18+ (native fetch).
  *
- * 96+ methods across 22+ categories:
+ * 178+ methods across 30+ categories:
  * - Action Recording (7)
  * - Loops & Assumptions (7)
  * - Signals (1)
@@ -26,6 +26,14 @@
  * - Compliance Engine (5)
  * - Task Routing (10)
  * - Real-Time Events (1)
+ * - Evaluations (12)
+ * - Scorer Management (8)
+ * - Eval Runs (6)
+ * - Scoring Profiles (17)
+ * - Learning Analytics (6)
+ * - Behavioral Drift (9)
+ * - Prompt Management (12)
+ * - Feedback Loops (10)
  */
 
 class DashClaw {
