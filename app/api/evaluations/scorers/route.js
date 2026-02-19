@@ -80,7 +80,7 @@ export async function POST(request) {
     const response = { id, name, scorer_type, created_at: now };
 
     if (scorer_type === 'llm_judge' && !isLLMAvailable()) {
-      response.warning = 'AI provider not configured. This scorer won't execute until an AI API key is set (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_AI_API_KEY).';
+      response.warning = 'AI provider not configured. This scorer won\'t execute until an AI API key is set (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_AI_API_KEY).';
     }
 
     return NextResponse.json(response, { status: 201 });

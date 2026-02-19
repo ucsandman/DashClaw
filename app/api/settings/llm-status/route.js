@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../lib/org.js';
-import { isLLMAvailable, getLLMProviderInfo } from '../../../../lib/llm.js';
+import { getOrgId } from '../../../lib/org.js';
+import { isLLMAvailable, getLLMProviderInfo } from '../../../lib/llm.js';
 
 /**
  * GET /api/settings/llm-status   Check if an AI provider is configured.

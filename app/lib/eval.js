@@ -156,14 +156,14 @@ async function _executeLLMJudge(config, action) {
     };
   }
 
-  const template = config.prompt_template || 'Rate the quality of this agent action from 0.0 to 1.0.
+  const template = config.prompt_template || `Rate the quality of this agent action from 0.0 to 1.0.
 
 Action: {action_type}
 Goal: {declared_goal}
 Outcome: {outcome}
 Status: {status}
 
-Respond with JSON: { "score": number, "label": string, "reasoning": string }';
+Respond with JSON: { "score": number, "label": string, "reasoning": string }`;
 
   const prompt = template
     .replace('{action_type}', action.action_type || '')
