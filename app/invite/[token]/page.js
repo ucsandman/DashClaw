@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
-import { Shield, Check, Clock, AlertTriangle, Ban, Users } from 'lucide-react';
+import { Check, Clock, AlertTriangle, Ban, Users, Shield } from 'lucide-react';
+import DashClawLogo from '../../components/DashClawLogo';
 
 export default function InviteAcceptPage() {
   const { token } = useParams();
@@ -72,7 +73,7 @@ export default function InviteAcceptPage() {
     return (
       <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center px-4">
         <div className="w-full max-w-sm text-center">
-          <Shield size={32} className="text-brand mx-auto mb-4" />
+          <DashClawLogo size={32} className="mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">Sign in Required</h1>
           <p className="text-sm text-zinc-400 mb-6">You need to sign in before accepting this invite.</p>
           <a

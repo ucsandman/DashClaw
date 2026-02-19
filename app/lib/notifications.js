@@ -15,7 +15,7 @@ export async function sendSignalAlertEmail(to, orgName, signals) {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey) return false;
 
-  const fromEmail = process.env.ALERT_FROM_EMAIL || 'alerts@dashclaw.dev';
+  const fromEmail = process.env.ALERT_FROM_EMAIL || 'practicalsystems.io@gmail.com';
   const redCount = signals.filter(s => s.severity === 'red').length;
   const amberCount = signals.filter(s => s.severity === 'amber').length;
 

@@ -5,6 +5,90 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-19
+
+### Added
+- **Major SDK Expansion**: Added 82 additional methods across 8 new categories to both Node.js and Python SDKs.
+- **Unified 2.0.0 Baseline**: Synchronized versioning across the core platform and all official SDKs.
+- **Enhanced Category Coverage**: New methods covering advanced agent orchestration, swarm intelligence, and deep observability patterns.
+
+## [1.10.1] - 2026-02-19
+
+### Added
+- **Comprehensive Test Suite (Phases 0-7)**: Added 12 new unit test files and expanded the integration test suite to cover Evaluations, Prompts, Feedback, Compliance, Drift, Learning Analytics, and Scoring Profiles.
+- **Unit Tests**: Coverage for all 5 scorer types (regex, contains, numeric_range, custom_function, llm_judge), Mustache template rendering, rule-based sentiment/tagging, statistical utilities, maturity model logic, and rule-based multi-dimensional scoring (Phase 7).
+- **Integration Tests**: Full API CRUD validation for all feature phases (including Phase 7: Scoring Profiles) added to `scripts/test-full-api.mjs`, ensuring end-to-end reliability.
+
+### Fixed
+- **Prompt Rendering**: Fixed a regex bug in `app/lib/prompt.js` where backslashes were not properly escaped in the `RegExp` constructor, causing it to fail on variables with surrounding whitespace (e.g., `{{ name }}`).
+
+## [1.10.0] - 2026-02-19
+
+### Added
+- **Scoring Profiles (Phase 7)**: Weighted multi-dimensional quality scoring system for evaluating agent actions without LLM dependencies.
+- **Profile Builder**: New interface at `/scoring` for defining scoring profiles with weighted dimensions (speed, cost, risk, reliability, etc.).
+- **Scoring Engine**: Rule-based math engine supporting Weighted Average, Minimum, and Geometric Mean composite scoring methods.
+- **Auto-Calibration**: Statistical analysis engine that uses percentile-based distribution of historical action data to suggest optimal scoring thresholds.
+- **Risk Templates**: Rule-based automatic risk scoring system that replaces hardcoded agent risk numbers with dynamic evaluation.
+- **Scoring SDKs**: Added 17 new methods to both Node.js and Python SDKs for profile management, batch scoring, and auto-calibration.
+- **Scoring Widget**: New dashboard card showing active profiles, dimension counts, and quick access to score management.
+- **Score Explorer**: Real-time breakdown of action quality across all configured dimensions with visual distribution charts.
+
+## [1.9.9] - 2026-02-19
+
+### Added
+- **Learning Analytics (Phase 6)**: Agent learning velocity and maturity tracking, providing first-class metrics for agent improvement over time.
+- **Velocity Engine**: Statistical computation of learning velocity using linear regression slope and acceleration (second derivative) tracking.
+- **Maturity Model**: A 6-level classification system (Novice to Master) based on episode volume, success rate, and average scores.
+- **Learning Curves**: Per-agent and per-action-type time-series analysis showing performance evolution across specific skill areas.
+- **Analytics Dashboard**: New dedicated interface at `/learning/analytics` with Overview, Velocity, Curves, and Maturity tabs.
+- **Analytics SDKs**: Added 6 new methods to both Node.js and Python SDKs for computing velocity, generating curves, and retrieving analytics summaries.
+- **Velocity KPI Card**: New dashboard widget showing real-time improvement trends and maturity levels for the agent fleet.
+- **Demo Integration**: Rich synthetic fixtures and demo API handlers for learning analytics, velocity, and maturity tracking.
+
+## [1.9.8] - 2026-02-19
+
+### Added
+- **Drift Detection (Phase 5)**: Statistical behavioral drift analysis detecting when agent metrics deviate significantly from established baselines using z-score analysis.
+- **Automated Baselines**: Dynamic computation of statistical profiles (mean, stddev, percentiles) for risk, confidence, duration, cost, and tokens.
+- **Drift Alerts**: Real-time generation of info, warning, and critical alerts when behavioral shifts exceed statistical thresholds (1.5σ, 2.0σ, 3.0σ).
+- **Metric Snapshots**: Daily capture of agent metric snapshots for long-term trend visualization and behavioral forensics.
+- **Drift Management Dashboard**: New interface at `/drift` with tabs for Alerts, Baselines, and Trends.
+- **Drift SDKs**: 9 new Node.js methods and 10 new Python methods for computing baselines, detecting drift, and managing alerts.
+- **Drift Widget**: New "Drift" dashboard card providing an at-a-glance view of critical/warning alerts and agent-specific drift status.
+
+## [1.9.7] - 2026-02-19
+
+### Added
+- **Compliance Export (Phase 4)**: Bundled audit-ready report generation across multiple frameworks (SOC 2, ISO 27001, NIST AI RMF, EU AI Act, GDPR).
+- **Scheduled Exports**: Cron-based recurring export generation (weekly, monthly, quarterly) with email-ready markdown or JSON payloads.
+- **Evidence Packaging**: Automatic attachment of guard decision logs and action record history to compliance reports for a complete audit trail.
+- **Remediation Priority Matrix**: Intelligent sorting of compliance gaps by priority, agent relevance, and estimated effort.
+- **Coverage Trend Tracking**: Visualized history of compliance posture over time with improvement/decline detection.
+- **Export SDKs**: Added 11 new methods to both Node.js and Python SDKs for managing exports, schedules, and trends.
+- **Export Management Dashboard**: New interface at `/compliance/exports` for on-demand generation, scheduling, inline report viewing, and downloads.
+
+## [1.9.6] - 2026-02-19
+
+### Added
+- **User Feedback Loop (Phase 3)**: Structured feedback system for measuring human satisfaction with agent actions.
+- **Feedback Management Dashboard**: New interface at `/feedback` for tracking user ratings, comments, and triage status.
+- **Rule-based Sentiment & Tagging**: Automated sentiment detection (Positive/Negative/Neutral) and categorical tagging (performance, accuracy, UX, etc.) without LLM overhead.
+- **Feedback Analytics**: Real-time distribution charts, sentiment trends, and agent-specific quality breakdowns.
+- **Feedback SDKs**: Added `submitFeedback()`, `listFeedback()`, and `getFeedbackStats()` to both Node.js and Python SDKs.
+- **Dashboard Feedback Widget**: Draggable card for the main dashboard showing aggregated sentiment bars and top agent ratings.
+
+## [1.9.5] - 2026-02-19
+
+### Added
+- **Evaluation Framework (Phase 1A & 1B)**: A complete system for measuring and scoring agent decision quality.
+- **Evaluations Dashboard**: New full-page interface for managing evaluation scores, scorers, and batch runs.
+- **Scoring Engine**: Support for Regex, Keyword, Numeric Range, Custom Expression, and LLM-as-judge (AI) scorers.
+- **Evaluations Widget**: Draggable dashboard widget with score distribution charts and average quality metrics.
+- **Evaluation SDKs**: Added `evaluate()`, `createScorer()`, and `runEval()` to both Node.js and Python SDKs.
+- **Batch Eval Runs**: Capability to run batch evaluations against historical agent actions.
+- **Demo Integration**: Comprehensive evaluation fixtures and demo routes for testing the framework without a live backend.
+
 ## [1.9.4] - 2026-02-19
 
 ### Added

@@ -1,6 +1,6 @@
 {
-  "name": "dashclaw",
-  "version": "1.9.4",
+  "name": "dashclaw-platform",
+  "version": "2.0.0",
   "private": true,
   "license": "MIT",
   "scripts": {

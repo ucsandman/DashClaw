@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `102`
-- Stable routes: `43`
+- Total routes: `142`
+- Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `43`
+- Experimental routes: `82`
 
 ## Routes
 
@@ -41,10 +41,16 @@ doc-type: architecture
 | `/api/bug-hunter` | `GET, POST` | `experimental` | `(default)` | `app/api/bug-hunter/route.js` |
 | `/api/calendar` | `GET, POST` | `experimental` | `/api/calendar` | `app/api/calendar/route.js` |
 | `/api/compliance/evidence` | `GET` | `experimental` | `(default)` | `app/api/compliance/evidence/route.js` |
+| `/api/compliance/exports` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/exports/route.js` |
+| `/api/compliance/exports/{exportId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/route.js` |
+| `/api/compliance/exports/{exportId}/download` | `GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/download/route.js` |
 | `/api/compliance/frameworks` | `GET` | `experimental` | `(default)` | `app/api/compliance/frameworks/route.js` |
 | `/api/compliance/gaps` | `GET` | `experimental` | `(default)` | `app/api/compliance/gaps/route.js` |
 | `/api/compliance/map` | `GET` | `experimental` | `(default)` | `app/api/compliance/map/route.js` |
 | `/api/compliance/report` | `GET` | `experimental` | `(default)` | `app/api/compliance/report/route.js` |
+| `/api/compliance/schedules` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/schedules/route.js` |
+| `/api/compliance/schedules/{scheduleId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/compliance/schedules/[scheduleId]/route.js` |
+| `/api/compliance/trends` | `GET` | `experimental` | `(default)` | `app/api/compliance/trends/route.js` |
 | `/api/content` | `GET, POST` | `experimental` | `/api/content` | `app/api/content/route.js` |
 | `/api/context/points` | `GET, POST` | `stable` | `/api/context` | `app/api/context/points/route.js` |
 | `/api/context/threads` | `GET, POST` | `stable` | `/api/context` | `app/api/context/threads/route.js` |
@@ -57,6 +63,20 @@ doc-type: architecture
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.js` |
 | `/api/digest` | `GET` | `experimental` | `(default)` | `app/api/digest/route.js` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.js` |
+| `/api/drift/alerts` | `GET, POST` | `experimental` | `(default)` | `app/api/drift/alerts/route.js` |
+| `/api/drift/alerts/{alertId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/drift/alerts/[alertId]/route.js` |
+| `/api/drift/metrics` | `GET` | `experimental` | `(default)` | `app/api/drift/metrics/route.js` |
+| `/api/drift/snapshots` | `GET` | `experimental` | `(default)` | `app/api/drift/snapshots/route.js` |
+| `/api/drift/stats` | `GET` | `experimental` | `(default)` | `app/api/drift/stats/route.js` |
+| `/api/evaluations` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/route.js` |
+| `/api/evaluations/runs` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/runs/route.js` |
+| `/api/evaluations/runs/{runId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/evaluations/runs/[runId]/route.js` |
+| `/api/evaluations/scorers` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/scorers/route.js` |
+| `/api/evaluations/scorers/{scorerId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/evaluations/scorers/[scorerId]/route.js` |
+| `/api/evaluations/stats` | `GET` | `experimental` | `(default)` | `app/api/evaluations/stats/route.js` |
+| `/api/feedback` | `GET, POST` | `experimental` | `(default)` | `app/api/feedback/route.js` |
+| `/api/feedback/stats` | `GET` | `experimental` | `(default)` | `app/api/feedback/stats/route.js` |
+| `/api/feedback/{feedbackId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/feedback/[feedbackId]/route.js` |
 | `/api/goals` | `GET, POST` | `experimental` | `(default)` | `app/api/goals/route.js` |
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.js` |
 | `/api/handoffs` | `GET, POST` | `stable` | `/api/handoffs` | `app/api/handoffs/route.js` |
@@ -66,6 +86,10 @@ doc-type: architecture
 | `/api/invite/{token}` | `GET, POST` | `stable` | `/api/invite` | `app/api/invite/[token]/route.js` |
 | `/api/keys` | `DELETE, GET, POST` | `stable` | `/api/keys` | `app/api/keys/route.js` |
 | `/api/learning` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/route.js` |
+| `/api/learning/analytics/curves` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/curves/route.js` |
+| `/api/learning/analytics/maturity` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/maturity/route.js` |
+| `/api/learning/analytics/summary` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/summary/route.js` |
+| `/api/learning/analytics/velocity` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/velocity/route.js` |
 | `/api/learning/recommendations` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/route.js` |
 | `/api/learning/recommendations/events` | `POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/events/route.js` |
 | `/api/learning/recommendations/metrics` | `GET` | `experimental` | `/api/learning` | `app/api/learning/recommendations/metrics/route.js` |
@@ -92,7 +116,14 @@ doc-type: architecture
 | `/api/policies/test` | `POST` | `stable` | `/api/policies` | `app/api/policies/test/route.js` |
 | `/api/preferences` | `GET, POST` | `experimental` | `(default)` | `app/api/preferences/route.js` |
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.js` |
+| `/api/prompts/render` | `POST` | `experimental` | `(default)` | `app/api/prompts/render/route.js` |
+| `/api/prompts/runs` | `GET` | `experimental` | `(default)` | `app/api/prompts/runs/route.js` |
 | `/api/prompts/server-setup/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/server-setup/raw/route.js` |
+| `/api/prompts/stats` | `GET` | `experimental` | `(default)` | `app/api/prompts/stats/route.js` |
+| `/api/prompts/templates` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/route.js` |
+| `/api/prompts/templates/{templateId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/route.js` |
+| `/api/prompts/templates/{templateId}/versions` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/route.js` |
+| `/api/prompts/templates/{templateId}/versions/{versionId}` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/[versionId]/route.js` |
 | `/api/relationships` | `GET, POST` | `experimental` | `/api/relationships` | `app/api/relationships/route.js` |
 | `/api/routing/agents` | `GET, POST` | `experimental` | `(default)` | `app/api/routing/agents/route.js` |
 | `/api/routing/agents/{agentId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/routing/agents/[agentId]/route.js` |
@@ -102,10 +133,19 @@ doc-type: architecture
 | `/api/routing/tasks/{taskId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/routing/tasks/[taskId]/route.js` |
 | `/api/routing/tasks/{taskId}/complete` | `POST` | `experimental` | `(default)` | `app/api/routing/tasks/[taskId]/complete/route.js` |
 | `/api/schedules` | `GET` | `experimental` | `/api/schedules` | `app/api/schedules/route.js` |
+| `/api/scoring/calibrate` | `POST` | `experimental` | `(default)` | `app/api/scoring/calibrate/route.js` |
+| `/api/scoring/profiles` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/profiles/route.js` |
+| `/api/scoring/profiles/{profileId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/route.js` |
+| `/api/scoring/profiles/{profileId}/dimensions` | `POST` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/route.js` |
+| `/api/scoring/profiles/{profileId}/dimensions/{dimensionId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.js` |
+| `/api/scoring/risk-templates` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/risk-templates/route.js` |
+| `/api/scoring/risk-templates/{templateId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/risk-templates/[templateId]/route.js` |
+| `/api/scoring/score` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/score/route.js` |
 | `/api/security/prompt-injection` | `GET, POST` | `beta` | `/api/security` | `app/api/security/prompt-injection/route.js` |
 | `/api/security/scan` | `POST` | `beta` | `/api/security` | `app/api/security/scan/route.js` |
 | `/api/security/status` | `GET` | `beta` | `/api/security` | `app/api/security/status/route.js` |
 | `/api/settings` | `DELETE, GET, POST` | `stable` | `/api/settings` | `app/api/settings/route.js` |
+| `/api/settings/llm-status` | `GET` | `stable` | `/api/settings` | `app/api/settings/llm-status/route.js` |
 | `/api/settings/test` | `POST` | `stable` | `/api/settings` | `app/api/settings/test/route.js` |
 | `/api/setup/status` | `GET` | `beta` | `/api/setup` | `app/api/setup/status/route.js` |
 | `/api/snippets` | `DELETE, GET, POST` | `stable` | `/api/snippets` | `app/api/snippets/route.js` |

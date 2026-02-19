@@ -1171,6 +1171,162 @@ export async function middleware(request) {
         return response;
       }
 
+      // -- Evaluations demo endpoints --
+      if (pathname === '/api/evaluations') {
+        return demoJson(request, { scores: fixtures.evalScores, total: fixtures.evalScores.length });
+      }
+      if (pathname === '/api/evaluations/scorers') {
+        return demoJson(request, { scorers: fixtures.evalScorers, llm_available: false });
+      }
+      if (pathname === '/api/evaluations/runs') {
+        return demoJson(request, { runs: fixtures.evalRuns });
+      }
+      if (pathname === '/api/evaluations/stats') {
+        return demoJson(request, fixtures.evalStats);
+      }
+      if (pathname === '/api/settings/llm-status') {
+        return demoJson(request, { available: false, provider: null, model: null });
+      }
+
+      // -- Compliance Export demo endpoints --
+      if (pathname === '/api/compliance/exports') {
+        if (request.method === 'POST') {
+          return demoJson(request, { id: 'ce_demo_new' }, 201);
+        }
+        return demoJson(request, { exports: [
+          { id: 'ce_demo_001', name: 'Q4 SOC 2 Audit Package', frameworks: '["soc2","iso27001"]', format: 'markdown', window_days: 90, status: 'completed', file_size_bytes: 24680, requested_by: 'user', started_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 8500).toISOString(), created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'ce_demo_002', name: 'NIST AI RMF Review', frameworks: '["nist-ai-rmf"]', format: 'markdown', window_days: 30, status: 'completed', file_size_bytes: 12340, requested_by: 'user', started_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 5200).toISOString(), created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'ce_demo_003', name: 'Weekly Compliance Snapshot', frameworks: '["soc2"]', format: 'markdown', window_days: 7, status: 'completed', file_size_bytes: 8920, requested_by: 'scheduled', started_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 3100).toISOString(), created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+      if (pathname.match(/^\/api\/compliance\/exports\/[^/]+$/)) {
+        return demoJson(request, { id: pathname.split('/').pop(), name: 'Demo Export', status: 'completed', report_content: '# SOC 2 Compliance Report -- Agent Operations\n\n**Project:** org-demo  \n**Generated:** ' + new Date().toISOString() + '  \n**Risk Level:** LOW\n\n## Executive Summary\n\n| Metric | Value |\n|---|---|\n| Framework | SOC 2 |\n| Total Controls | 12 |\n| Covered | 9 |\n| Partial | 2 |\n| Gaps | 1 |\n| **Coverage** | **83%** |\n\n## Enforcement Evidence\n\n**Window:** 30 days  \n**Total Guard Decisions:** 847  \n**Blocked:** 23  \n**Action Records:** 1,204' });
+      }
+      if (pathname === '/api/compliance/schedules') {
+        if (request.method === 'POST') return demoJson(request, { id: 'csch_demo_new' }, 201);
+        return demoJson(request, { schedules: [
+          { id: 'csch_demo_001', name: 'Weekly SOC 2 Snapshot', frameworks: '["soc2"]', format: 'markdown', window_days: 7, cron_expression: '0 9 * * 1', enabled: true, last_run_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'csch_demo_002', name: 'Monthly Full Audit', frameworks: '["soc2","iso27001","nist-ai-rmf"]', format: 'markdown', window_days: 30, cron_expression: '0 9 1 * *', enabled: true, last_run_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+      if (pathname === '/api/compliance/trends') {
+        return demoJson(request, { trends: [
+          { framework: 'soc2', coverage_percentage: 83, covered: 9, partial: 2, gaps: 1, risk_level: 'LOW', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'soc2', coverage_percentage: 79, covered: 8, partial: 3, gaps: 1, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'soc2', coverage_percentage: 75, covered: 8, partial: 2, gaps: 2, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'iso27001', coverage_percentage: 71, covered: 7, partial: 3, gaps: 4, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'iso27001', coverage_percentage: 64, covered: 6, partial: 3, gaps: 5, risk_level: 'HIGH', created_at: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+
+      // -- Prompt Management demo endpoints --
+      if (pathname === '/api/prompts/templates') {
+        return demoJson(request, { templates: fixtures.promptTemplates });
+      }
+      if (pathname.match(/^\/api\/prompts\/templates\/[^/]+$/)) {
+        const id = pathname.split('/').pop();
+        const tmpl = fixtures.promptTemplates.find(t => t.id === id);
+        return tmpl ? demoJson(request, tmpl) : demoJson(request, { error: 'Not found' }, 404);
+      }
+      if (pathname.match(/^\/api\/prompts\/templates\/[^/]+\/versions$/)) {
+        const templateId = pathname.split('/')[4];
+        const versions = fixtures.promptVersions[templateId] || [];
+        return demoJson(request, { versions });
+      }
+      if (pathname === '/api/prompts/render') {
+        return demoJson(request, { rendered: 'Analyze the following agent decision and rate quality 1-10.\n\nAgent: ClawdBot\nAction: deploy\nGoal: Deploy latest build\nOutcome: Success\n\nCriteria:\n- Goal alignment\n- Risk awareness\n- Efficiency\n\nProvide a structured assessment.', version_id: 'pv_demo_001_3', template_id: 'pt_demo_001', version: 3, parameters: ['agent_name', 'action_type', 'declared_goal', 'outcome'] });
+      }
+      if (pathname === '/api/prompts/runs') {
+        return demoJson(request, { runs: fixtures.promptRuns });
+      }
+      if (pathname === '/api/prompts/stats') {
+        return demoJson(request, fixtures.promptStats);
+      }
+
+      // -- Feedback demo endpoints --
+      if (pathname === '/api/feedback') {
+        if (request.method === 'GET') {
+          const url = new URL(request.url);
+          let entries = fixtures.feedbackEntries;
+          const sentiment = url.searchParams.get('sentiment');
+          const resolved = url.searchParams.get('resolved');
+          if (sentiment) entries = entries.filter(e => e.sentiment === sentiment);
+          if (resolved === 'false') entries = entries.filter(e => !e.resolved);
+          if (resolved === 'true') entries = entries.filter(e => e.resolved);
+          return demoJson(request, { feedback: entries, total: entries.length });
+        }
+        return demoJson(request, { id: 'fb_demo_new', sentiment: 'neutral', tags: [] }, 201);
+      }
+      if (pathname.match(/^\/api\/feedback\/stats$/)) {
+        return demoJson(request, fixtures.feedbackStats);
+      }
+      if (pathname.match(/^\/api\/feedback\/[^/]+$/)) {
+        const id = pathname.split('/').pop();
+        const fb = fixtures.feedbackEntries.find(e => e.id === id);
+        return fb ? demoJson(request, fb) : demoJson(request, { error: 'Not found' }, 404);
+      }
+
+      // -- Drift Detection demo endpoints --
+      if (pathname === '/api/drift/alerts') {
+        if (request.method === 'POST') {
+          return demoJson(request, { baselines_computed: 5, alerts_generated: 2, results: [], alerts: [] }, 201);
+        }
+        return demoJson(request, { alerts: fixtures.driftAlerts, total: fixtures.driftAlerts.length });
+      }
+      if (pathname.match(/^\/api\/drift\/alerts\/[^/]+$/)) {
+        return demoJson(request, { ...fixtures.driftAlerts[0], acknowledged: true });
+      }
+      if (pathname === '/api/drift/stats') {
+        return demoJson(request, fixtures.driftStats);
+      }
+      if (pathname === '/api/drift/snapshots') {
+        return demoJson(request, { snapshots: fixtures.driftSnapshots });
+      }
+      if (pathname === '/api/drift/metrics') {
+        return demoJson(request, { metrics: [
+          { id: 'risk_score', label: 'Risk Score' },
+          { id: 'confidence', label: 'Confidence' },
+          { id: 'duration_ms', label: 'Duration (ms)' },
+          { id: 'cost_estimate', label: 'Cost Estimate' },
+          { id: 'tokens_total', label: 'Total Tokens' },
+          { id: 'learning_score', label: 'Learning Score' },
+        ] });
+      }
+
+      // -- Learning Analytics demo endpoints --
+      if (pathname === '/api/learning/analytics/summary') {
+        return demoJson(request, fixtures.learningAnalyticsSummary);
+      }
+      if (pathname === '/api/learning/analytics/velocity') {
+        if (request.method === 'POST') return demoJson(request, { agents_computed: 3, results: [] }, 201);
+        return demoJson(request, { velocity: fixtures.learningVelocity });
+      }
+      if (pathname === '/api/learning/analytics/curves') {
+        if (request.method === 'POST') return demoJson(request, { curves_computed: 18, results: [] }, 201);
+        return demoJson(request, { curves: fixtures.learningCurves });
+      }
+      if (pathname === '/api/learning/analytics/maturity') {
+        return demoJson(request, { levels: [
+          { level: 'novice', min_episodes: 0, min_success_rate: 0, min_avg_score: 0 },
+          { level: 'developing', min_episodes: 10, min_success_rate: 0.4, min_avg_score: 40 },
+          { level: 'competent', min_episodes: 50, min_success_rate: 0.6, min_avg_score: 55 },
+          { level: 'proficient', min_episodes: 150, min_success_rate: 0.75, min_avg_score: 65 },
+          { level: 'expert', min_episodes: 500, min_success_rate: 0.85, min_avg_score: 75 },
+          { level: 'master', min_episodes: 1000, min_success_rate: 0.92, min_avg_score: 85 },
+        ] });
+      }
+
+      // -- Scoring demo endpoints --
+      if (pathname === '/api/scoring/profiles') {
+        return demoJson(request, { profiles: fixtures.scoringProfiles });
+      }
+      if (pathname === '/api/scoring/risk-templates') {
+        return demoJson(request, { templates: fixtures.riskTemplates });
+      }
+      if (pathname === '/api/scoring/score') {
+        return demoJson(request, { scores: [] });
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1604,6 +1760,26 @@ export const config = {
     '/routing/:path*',
     '/compliance',
     '/compliance/:path*',
+    '/drift',
+    '/drift/:path*',
+    '/learning/analytics',
+    '/learning/analytics/:path*',
+    '/api/learning/analytics/:path*',
+    '/api/drift/:path*',
+    '/api/compliance/exports/:path*',
+    '/api/compliance/schedules/:path*',
+    '/api/compliance/trends',
+    '/api/scoring/:path*',
+    '/evaluations',
+    '/evaluations/:path*',
+    '/api/evaluations/:path*',
+    '/feedback',
+    '/feedback/:path*',
+    '/api/feedback/:path*',
+    '/prompts',
+    '/prompts/:path*',
+    '/api/prompts/:path*',
+    '/api/settings/llm-status',
     '/invite/:path*',
     '/login',
   ],

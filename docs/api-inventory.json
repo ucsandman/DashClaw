@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 102,
-    "stable_routes": 43,
+    "total_routes": 142,
+    "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 43
+    "experimental_routes": 82
   },
   "routes": [
     {
@@ -235,6 +235,35 @@
       "file": "app/api/compliance/evidence/route.js"
     },
     {
+      "path": "/api/compliance/exports",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/route.js"
+    },
+    {
+      "path": "/api/compliance/exports/{exportId}",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/[exportId]/route.js"
+    },
+    {
+      "path": "/api/compliance/exports/{exportId}/download",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/[exportId]/download/route.js"
+    },
+    {
       "path": "/api/compliance/frameworks",
       "methods": [
         "GET"
@@ -269,6 +298,35 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/compliance/report/route.js"
+    },
+    {
+      "path": "/api/compliance/schedules",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/schedules/route.js"
+    },
+    {
+      "path": "/api/compliance/schedules/{scheduleId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/schedules/[scheduleId]/route.js"
+    },
+    {
+      "path": "/api/compliance/trends",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/trends/route.js"
     },
     {
       "path": "/api/content",
@@ -383,6 +441,142 @@
       "file": "app/api/docs/raw/route.js"
     },
     {
+      "path": "/api/drift/alerts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/alerts/route.js"
+    },
+    {
+      "path": "/api/drift/alerts/{alertId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/alerts/[alertId]/route.js"
+    },
+    {
+      "path": "/api/drift/metrics",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/metrics/route.js"
+    },
+    {
+      "path": "/api/drift/snapshots",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/snapshots/route.js"
+    },
+    {
+      "path": "/api/drift/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/stats/route.js"
+    },
+    {
+      "path": "/api/evaluations",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/route.js"
+    },
+    {
+      "path": "/api/evaluations/runs",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/runs/route.js"
+    },
+    {
+      "path": "/api/evaluations/runs/{runId}",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/runs/[runId]/route.js"
+    },
+    {
+      "path": "/api/evaluations/scorers",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/scorers/route.js"
+    },
+    {
+      "path": "/api/evaluations/scorers/{scorerId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/scorers/[scorerId]/route.js"
+    },
+    {
+      "path": "/api/evaluations/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/stats/route.js"
+    },
+    {
+      "path": "/api/feedback",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/feedback/route.js"
+    },
+    {
+      "path": "/api/feedback/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/feedback/stats/route.js"
+    },
+    {
+      "path": "/api/feedback/{feedbackId}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/feedback/[feedbackId]/route.js"
+    },
+    {
       "path": "/api/goals",
       "methods": [
         "GET",
@@ -471,6 +665,44 @@
       "maturity": "experimental",
       "matched_prefix": "/api/learning",
       "file": "app/api/learning/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/curves",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/curves/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/maturity",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/maturity/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/summary",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/summary/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/velocity",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/velocity/route.js"
     },
     {
       "path": "/api/learning/recommendations",
@@ -724,6 +956,24 @@
       "file": "app/api/prompts/agent-connect/raw/route.js"
     },
     {
+      "path": "/api/prompts/render",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/render/route.js"
+    },
+    {
+      "path": "/api/prompts/runs",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/runs/route.js"
+    },
+    {
       "path": "/api/prompts/server-setup/raw",
       "methods": [
         "GET"
@@ -731,6 +981,56 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/prompts/server-setup/raw/route.js"
+    },
+    {
+      "path": "/api/prompts/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/stats/route.js"
+    },
+    {
+      "path": "/api/prompts/templates",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}/versions",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/versions/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}/versions/{versionId}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/versions/[versionId]/route.js"
     },
     {
       "path": "/api/relationships",
@@ -820,6 +1120,85 @@
       "file": "app/api/schedules/route.js"
     },
     {
+      "path": "/api/scoring/calibrate",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/calibrate/route.js"
+    },
+    {
+      "path": "/api/scoring/profiles",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/profiles/route.js"
+    },
+    {
+      "path": "/api/scoring/profiles/{profileId}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/profiles/[profileId]/route.js"
+    },
+    {
+      "path": "/api/scoring/profiles/{profileId}/dimensions",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/profiles/[profileId]/dimensions/route.js"
+    },
+    {
+      "path": "/api/scoring/profiles/{profileId}/dimensions/{dimensionId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.js"
+    },
+    {
+      "path": "/api/scoring/risk-templates",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/risk-templates/route.js"
+    },
+    {
+      "path": "/api/scoring/risk-templates/{templateId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/risk-templates/[templateId]/route.js"
+    },
+    {
+      "path": "/api/scoring/score",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/scoring/score/route.js"
+    },
+    {
       "path": "/api/security/prompt-injection",
       "methods": [
         "GET",
@@ -857,6 +1236,15 @@
       "maturity": "stable",
       "matched_prefix": "/api/settings",
       "file": "app/api/settings/route.js"
+    },
+    {
+      "path": "/api/settings/llm-status",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "stable",
+      "matched_prefix": "/api/settings",
+      "file": "app/api/settings/llm-status/route.js"
     },
     {
       "path": "/api/settings/test",

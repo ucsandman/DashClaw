@@ -111,7 +111,7 @@ export async function generateOpenApiSpec(rootDir = process.cwd()) {
     openapi: '3.0.3',
     info: {
       title: 'DashClaw Critical Stable API',
-      version: '1.5.0',
+      version: '2.0.0',
       description:
         'Generated OpenAPI spec for critical stable DashClaw endpoints. Source: app/api/**/route.js',
     },

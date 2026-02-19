@@ -3,7 +3,7 @@
  * Full-featured agent toolkit for the DashClaw platform.
  * Zero-dependency ESM SDK. Requires Node 18+ (native fetch).
  *
- * 96+ methods across 22+ categories:
+ * 178+ methods across 30+ categories:
  * - Action Recording (7)
  * - Loops & Assumptions (7)
  * - Signals (1)
@@ -26,6 +26,14 @@
  * - Compliance Engine (5)
  * - Task Routing (10)
  * - Real-Time Events (1)
+ * - Evaluations (12)
+ * - Scorer Management (8)
+ * - Eval Runs (6)
+ * - Scoring Profiles (17)
+ * - Learning Analytics (6)
+ * - Behavioral Drift (9)
+ * - Prompt Management (12)
+ * - Feedback Loops (10)
  */
 
 class DashClaw {
@@ -112,7 +120,27 @@ class DashClaw {
     }
   }
 
-  async _request(path, method, body) {
+  async _request(pathOrMethod, methodOrPath, body, params) {
+    let path, method;
+    if (typeof pathOrMethod === 'string' && pathOrMethod.startsWith('/')) {
+      path = pathOrMethod;
+      method = methodOrPath || 'GET';
+    } else {
+      method = pathOrMethod;
+      path = methodOrPath;
+    }
+
+    if (params) {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null) qs.append(k, String(v));
+      }
+      const qsStr = qs.toString();
+      if (qsStr) {
+        path += (path.includes('?') ? '&' : '?') + qsStr;
+      }
+    }
+
     const url = `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
@@ -2276,6 +2304,459 @@ class DashClaw {
       agent_id: this.agentId,
       ...state,
     });
+  }
+
+  // ----------------------------------------------
+  // Category: Evaluations
+  // ----------------------------------------------
+
+  /**
+   * Create an evaluation score for an action.
+   * @param {Object} params
+   * @param {string} params.actionId - Action record ID
+   * @param {string} params.scorerName - Name of the scorer
+   * @param {number} params.score - Score between 0.0 and 1.0
+   * @param {string} [params.label] - Category label (e.g., 'correct', 'incorrect')
+   * @param {string} [params.reasoning] - Explanation of the score
+   * @param {string} [params.evaluatedBy] - 'auto', 'human', or 'llm_judge'
+   * @param {Object} [params.metadata] - Additional metadata
+   * @returns {Promise<Object>}
+   */
+  async createScore({ actionId, scorerName, score, label, reasoning, evaluatedBy, metadata }) {
+    return this._request('/api/evaluations', 'POST', {
+      action_id: actionId,
+      scorer_name: scorerName,
+      score,
+      label,
+      reasoning,
+      evaluated_by: evaluatedBy,
+      metadata,
+    });
+  }
+
+  /**
+   * List evaluation scores with optional filters.
+   * @param {Object} [filters] - { action_id, scorer_name, evaluated_by, min_score, max_score, limit, offset, agent_id }
+   * @returns {Promise<{ scores: Object[], total: number }>}
+   */
+  async getScores(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations?${params}`, 'GET');
+  }
+
+  /**
+   * Create a reusable scorer definition.
+   * @param {Object} params
+   * @param {string} params.name - Scorer name (unique per org)
+   * @param {string} params.scorerType - 'regex', 'contains', 'numeric_range', 'custom_function', or 'llm_judge'
+   * @param {Object} params.config - Scorer configuration
+   * @param {string} [params.description] - Description
+   * @returns {Promise<Object>}
+   */
+  async createScorer({ name, scorerType, config, description }) {
+    return this._request('/api/evaluations/scorers', 'POST', {
+      name,
+      scorer_type: scorerType,
+      config,
+      description,
+    });
+  }
+
+  /**
+   * List all scorers for this org.
+   * @returns {Promise<{ scorers: Object[], llm_available: boolean }>}
+   */
+  async getScorers() {
+    return this._request('/api/evaluations/scorers', 'GET');
+  }
+
+  /**
+   * Update a scorer.
+   * @param {string} scorerId
+   * @param {Object} updates - { name?, description?, config? }
+   * @returns {Promise<Object>}
+   */
+  async updateScorer(scorerId, updates) {
+    return this._request(`/api/evaluations/scorers/${scorerId}`, 'PATCH', updates);
+  }
+
+  /**
+   * Delete a scorer.
+   * @param {string} scorerId
+   * @returns {Promise<Object>}
+   */
+  async deleteScorer(scorerId) {
+    return this._request(`/api/evaluations/scorers/${scorerId}`, 'DELETE');
+  }
+
+  /**
+   * Create and start an evaluation run.
+   * @param {Object} params
+   * @param {string} params.name - Run name
+   * @param {string} params.scorerId - Scorer to use
+   * @param {Object} [params.actionFilters] - Filters for which actions to evaluate
+   * @returns {Promise<Object>}
+   */
+  async createEvalRun({ name, scorerId, actionFilters }) {
+    return this._request('/api/evaluations/runs', 'POST', {
+      name,
+      scorer_id: scorerId,
+      action_filters: actionFilters,
+    });
+  }
+
+  /**
+   * List evaluation runs.
+   * @param {Object} [filters] - { status, limit, offset }
+   * @returns {Promise<{ runs: Object[] }>}
+   */
+  async getEvalRuns(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations/runs?${params}`, 'GET');
+  }
+
+  /**
+   * Get details of an evaluation run.
+   * @param {string} runId
+   * @returns {Promise<{ run: Object, distribution: Object[] }>}
+   */
+  async getEvalRun(runId) {
+    return this._request(`/api/evaluations/runs/${runId}`, 'GET');
+  }
+
+  /**
+   * Get aggregate evaluation statistics.
+   * @param {Object} [filters] - { agent_id, scorer_name, days }
+   * @returns {Promise<Object>}
+   */
+  async getEvalStats(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations/stats?${params}`, 'GET');
+  }
+
+  // -----------------------------------------------
+  // Prompt Management
+  // -----------------------------------------------
+
+  async listPromptTemplates({ category } = {}) {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this._request(`/api/prompts/templates${params}`, 'GET');
+  }
+
+  async createPromptTemplate({ name, description, category }) {
+    return this._request('/api/prompts/templates', 'POST', { name, description, category });
+  }
+
+  async getPromptTemplate(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'GET');
+  }
+
+  async updatePromptTemplate(templateId, fields) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'PATCH', fields);
+  }
+
+  async deletePromptTemplate(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'DELETE');
+  }
+
+  async listPromptVersions(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions`, 'GET');
+  }
+
+  async createPromptVersion(templateId, { content, model_hint, parameters, changelog }) {
+    return this._request(`/api/prompts/templates/${templateId}/versions`, 'POST', { content, model_hint, parameters, changelog });
+  }
+
+  async getPromptVersion(templateId, versionId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'GET');
+  }
+
+  async activatePromptVersion(templateId, versionId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'POST');
+  }
+
+  async renderPrompt({ template_id, version_id, variables, action_id, agent_id, record }) {
+    return this._request('/api/prompts/render', 'POST', { template_id, version_id, variables, action_id, agent_id, record });
+  }
+
+  async listPromptRuns({ template_id, version_id, limit } = {}) {
+    const params = new URLSearchParams();
+    if (template_id) params.set('template_id', template_id);
+    if (version_id) params.set('version_id', version_id);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/prompts/runs${qs}`, 'GET');
+  }
+
+  async getPromptStats({ template_id } = {}) {
+    const params = template_id ? `?template_id=${encodeURIComponent(template_id)}` : '';
+    return this._request(`/api/prompts/stats${params}`, 'GET');
+  }
+
+  // -----------------------------------------------
+  // User Feedback
+  // -----------------------------------------------
+
+  async submitFeedback({ action_id, agent_id, rating, comment, category, tags, metadata }) {
+    return this._request('/api/feedback', 'POST', { action_id, agent_id, rating, comment, category, tags, metadata, source: 'sdk' });
+  }
+
+  async listFeedback({ action_id, agent_id, category, sentiment, resolved, limit, offset } = {}) {
+    const params = new URLSearchParams();
+    if (action_id) params.set('action_id', action_id);
+    if (agent_id) params.set('agent_id', agent_id);
+    if (category) params.set('category', category);
+    if (sentiment) params.set('sentiment', sentiment);
+    if (resolved !== undefined) params.set('resolved', String(resolved));
+    if (limit) params.set('limit', String(limit));
+    if (offset) params.set('offset', String(offset));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/feedback${qs}`, 'GET');
+  }
+
+  async getFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'GET');
+  }
+
+  async resolveFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'PATCH', { resolved_by: 'sdk' });
+  }
+
+  async deleteFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'DELETE');
+  }
+
+  async getFeedbackStats({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/feedback/stats${params}`, 'GET');
+  }
+
+  // -----------------------------------------------
+  // Compliance Export
+  // -----------------------------------------------
+
+  async createComplianceExport({ name, frameworks, format, window_days, include_evidence, include_remediation, include_trends }) {
+    return this._request('/api/compliance/exports', 'POST', { name, frameworks, format, window_days, include_evidence, include_remediation, include_trends });
+  }
+
+  async listComplianceExports({ limit } = {}) {
+    const params = limit ? `?limit=${limit}` : '';
+    return this._request(`/api/compliance/exports${params}`, 'GET');
+  }
+
+  async getComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}`, 'GET');
+  }
+
+  async downloadComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}/download`, 'GET');
+  }
+
+  async deleteComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}`, 'DELETE');
+  }
+
+  async createComplianceSchedule({ name, frameworks, format, window_days, cron_expression, include_evidence, include_remediation, include_trends }) {
+    return this._request('/api/compliance/schedules', 'POST', { name, frameworks, format, window_days, cron_expression, include_evidence, include_remediation, include_trends });
+  }
+
+  async listComplianceSchedules() {
+    return this._request('/api/compliance/schedules', 'GET');
+  }
+
+  async updateComplianceSchedule(scheduleId, fields) {
+    return this._request(`/api/compliance/schedules/${scheduleId}`, 'PATCH', fields);
+  }
+
+  async deleteComplianceSchedule(scheduleId) {
+    return this._request(`/api/compliance/schedules/${scheduleId}`, 'DELETE');
+  }
+
+  async getComplianceTrends({ framework, limit } = {}) {
+    const params = new URLSearchParams();
+    if (framework) params.set('framework', framework);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/compliance/trends${qs}`, 'GET');
+  }
+
+  // -----------------------------------------------
+  // Drift Detection
+  // -----------------------------------------------
+
+  async computeDriftBaselines({ agent_id, lookback_days } = {}) {
+    return this._request('/api/drift/alerts', 'POST', { action: 'compute_baselines', agent_id, lookback_days });
+  }
+
+  async detectDrift({ agent_id, window_days } = {}) {
+    return this._request('/api/drift/alerts', 'POST', { action: 'detect', agent_id, window_days });
+  }
+
+  async recordDriftSnapshots() {
+    return this._request('/api/drift/alerts', 'POST', { action: 'record_snapshots' });
+  }
+
+  async listDriftAlerts({ agent_id, severity, acknowledged, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (severity) params.set('severity', severity);
+    if (acknowledged !== undefined) params.set('acknowledged', String(acknowledged));
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/drift/alerts${qs}`, 'GET');
+  }
+
+  async acknowledgeDriftAlert(alertId) {
+    return this._request(`/api/drift/alerts/${alertId}`, 'PATCH');
+  }
+
+  async deleteDriftAlert(alertId) {
+    return this._request(`/api/drift/alerts/${alertId}`, 'DELETE');
+  }
+
+  async getDriftStats({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/drift/stats${params}`, 'GET');
+  }
+
+  async getDriftSnapshots({ agent_id, metric, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (metric) params.set('metric', metric);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/drift/snapshots${qs}`, 'GET');
+  }
+
+  async getDriftMetrics() {
+    return this._request('/api/drift/metrics', 'GET');
+  }
+
+  // -----------------------------------------------
+  // Learning Analytics
+  // -----------------------------------------------
+
+  async computeLearningVelocity({ agent_id, lookback_days, period } = {}) {
+    return this._request('/api/learning/analytics/velocity', 'POST', { agent_id, lookback_days, period });
+  }
+
+  async getLearningVelocity({ agent_id, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/learning/analytics/velocity${qs}`, 'GET');
+  }
+
+  async computeLearningCurves({ agent_id, lookback_days } = {}) {
+    return this._request('/api/learning/analytics/curves', 'POST', { agent_id, lookback_days });
+  }
+
+  async getLearningCurves({ agent_id, action_type, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (action_type) params.set('action_type', action_type);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/learning/analytics/curves${qs}`, 'GET');
+  }
+
+  async getLearningAnalyticsSummary({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/learning/analytics/summary${params}`, 'GET');
+  }
+
+  async getMaturityLevels() {
+    return this._request('/api/learning/analytics/maturity', 'GET');
+  }
+
+  // --- Scoring Profiles -----------------------------------
+
+  async createScoringProfile(data) {
+    return this._request('POST', '/api/scoring/profiles', data);
+  }
+
+  async listScoringProfiles(params = {}) {
+    return this._request('GET', '/api/scoring/profiles', null, params);
+  }
+
+  async getScoringProfile(profileId) {
+    return this._request('GET', `/api/scoring/profiles/${profileId}`);
+  }
+
+  async updateScoringProfile(profileId, data) {
+    return this._request('PATCH', `/api/scoring/profiles/${profileId}`, data);
+  }
+
+  async deleteScoringProfile(profileId) {
+    return this._request('DELETE', `/api/scoring/profiles/${profileId}`);
+  }
+
+  async addScoringDimension(profileId, data) {
+    return this._request('POST', `/api/scoring/profiles/${profileId}/dimensions`, data);
+  }
+
+  async updateScoringDimension(profileId, dimensionId, data) {
+    return this._request('PATCH', `/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`, data);
+  }
+
+  async deleteScoringDimension(profileId, dimensionId) {
+    return this._request('DELETE', `/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`);
+  }
+
+  async scoreWithProfile(profileId, action) {
+    return this._request('POST', '/api/scoring/score', { profile_id: profileId, action });
+  }
+
+  async batchScoreWithProfile(profileId, actions) {
+    return this._request('POST', '/api/scoring/score', { profile_id: profileId, actions });
+  }
+
+  async getProfileScores(params = {}) {
+    return this._request('GET', '/api/scoring/score', null, params);
+  }
+
+  async getProfileScoreStats(profileId) {
+    return this._request('GET', '/api/scoring/score', null, { profile_id: profileId, view: 'stats' });
+  }
+
+  // --- Risk Templates ------------------------------------
+
+  async createRiskTemplate(data) {
+    return this._request('POST', '/api/scoring/risk-templates', data);
+  }
+
+  async listRiskTemplates(params = {}) {
+    return this._request('GET', '/api/scoring/risk-templates', null, params);
+  }
+
+  async updateRiskTemplate(templateId, data) {
+    return this._request('PATCH', `/api/scoring/risk-templates/${templateId}`, data);
+  }
+
+  async deleteRiskTemplate(templateId) {
+    return this._request('DELETE', `/api/scoring/risk-templates/${templateId}`);
+  }
+
+  // --- Auto-Calibration ----------------------------------
+
+  async autoCalibrate(options = {}) {
+    return this._request('POST', '/api/scoring/calibrate', options);
   }
 }
 

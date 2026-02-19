@@ -14,8 +14,8 @@ Baseline parity for critical SDK capabilities, derived from:
 
 ## Snapshot Summary
 
-- Node public methods: `98+`
-- Python public methods: `98+`
+- Node public methods: `125+`
+- Python public methods: `125+`
 - Current parity (method-level, normalized by Node surface): `100%`
 
 ## WS5 M2 Critical Domain Delta (February 14, 2026)
@@ -113,9 +113,11 @@ Current shared contract cases covered by the harness:
 | Webhooks | 5 | 5 | Full parity |
 | Bulk Sync | 1 | 1 | Full parity |
 | Policy Testing | 3 | 3 | Full parity |
-| Compliance Engine | 5 | 5 | Full parity |
+| Compliance Engine | 16 | 16 | Full parity |
 | Task Routing | 10 | 10 | Full parity |
 | Agent Schedules | 2 | 2 | Full parity |
+| Evaluations | 10 | 10 | Full parity |
+| User Feedback | 6 | 6 | Full parity |
 | Real-Time Events | 1 | 0 | Node only |
 
 ## Confirmed Missing Python Methods

@@ -1,16 +1,18 @@
 import Link from 'next/link';
 import {
   ArrowRight, Github, ExternalLink, BookOpen,
-  Terminal, Zap, CircleDot, Eye, ShieldAlert, Shield, BarChart3,
-  ChevronRight, Network, FileCheck, Scale, Radio, Users
+  Terminal, Zap, CircleDot, Eye, ShieldAlert, BarChart3,
+  ChevronRight, Network, FileCheck, Scale, Radio, Users,
+  Newspaper, MessageSquare, Download, SlidersHorizontal, Shield
 } from 'lucide-react';
+import DashClawLogo from '../components/DashClawLogo';
 import CopyDocsButton from '../components/CopyDocsButton';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
 export const metadata = {
   title: 'DashClaw SDK Documentation',
-  description: 'Full reference for the DashClaw SDK. Install, configure, and govern your AI agents with 95+ methods across 21 categories covering action recording, behavior guard, context management, session handoffs, security scanning, policy testing, compliance, task routing, webhooks, identity binding, and more.',
+  description: 'Full reference for the DashClaw SDK. Install, configure, and govern your AI agents with 177+ methods across 29 categories covering action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more.',
 };
 
 /* ─── helpers ─── */
@@ -108,6 +110,52 @@ const navItems = [
   { href: '#getActions', label: 'getActions', indent: true },
   { href: '#getAction', label: 'getAction', indent: true },
   { href: '#getActionTrace', label: 'getActionTrace', indent: true },
+  { href: '#evaluation-framework', label: 'Evaluation Framework' },
+  { href: '#createScorer', label: 'createScorer', indent: true },
+  { href: '#listScorers', label: 'listScorers', indent: true },
+  { href: '#scoreOutput', label: 'scoreOutput', indent: true },
+  { href: '#getOutputScores', label: 'getOutputScores', indent: true },
+  { href: '#batchScoreOutputs', label: 'batchScoreOutputs', indent: true },
+  { href: '#prompt-management', label: 'Prompt Management' },
+  { href: '#createPromptTemplate', label: 'createPromptTemplate', indent: true },
+  { href: '#getPromptTemplate', label: 'getPromptTemplate', indent: true },
+  { href: '#renderPrompt', label: 'renderPrompt', indent: true },
+  { href: '#listPromptVersions', label: 'listPromptVersions', indent: true },
+  { href: '#rollbackPrompt', label: 'rollbackPrompt', indent: true },
+  { href: '#user-feedback', label: 'User Feedback' },
+  { href: '#submitFeedback', label: 'submitFeedback', indent: true },
+  { href: '#getFeedback', label: 'getFeedback', indent: true },
+  { href: '#getFeedbackStats', label: 'getFeedbackStats', indent: true },
+  { href: '#behavioral-drift', label: 'Behavioral Drift' },
+  { href: '#createDriftBaseline', label: 'createDriftBaseline', indent: true },
+  { href: '#checkDrift', label: 'checkDrift', indent: true },
+  { href: '#getDriftAlerts', label: 'getDriftAlerts', indent: true },
+  { href: '#compliance-exports', label: 'Compliance Exports' },
+  { href: '#createComplianceExport', label: 'createComplianceExport', indent: true },
+  { href: '#getComplianceExport', label: 'getComplianceExport', indent: true },
+  { href: '#listComplianceExports', label: 'listComplianceExports', indent: true },
+  { href: '#learning-analytics', label: 'Learning Analytics' },
+  { href: '#getLearningVelocity', label: 'getLearningVelocity', indent: true },
+  { href: '#getAgentMaturity', label: 'getAgentMaturity', indent: true },
+  { href: '#getSkillLearningCurve', label: 'getSkillLearningCurve', indent: true },
+  { href: '#scoring-profiles', label: 'Scoring Profiles' },
+  { href: '#createScoringProfile', label: 'createScoringProfile', indent: true },
+  { href: '#listScoringProfiles', label: 'listScoringProfiles', indent: true },
+  { href: '#getScoringProfile', label: 'getScoringProfile', indent: true },
+  { href: '#updateScoringProfile', label: 'updateScoringProfile', indent: true },
+  { href: '#deleteScoringProfile', label: 'deleteScoringProfile', indent: true },
+  { href: '#addScoringDimension', label: 'addScoringDimension', indent: true },
+  { href: '#updateScoringDimension', label: 'updateScoringDimension', indent: true },
+  { href: '#deleteScoringDimension', label: 'deleteScoringDimension', indent: true },
+  { href: '#scoreWithProfile', label: 'scoreWithProfile', indent: true },
+  { href: '#batchScoreWithProfile', label: 'batchScoreWithProfile', indent: true },
+  { href: '#getProfileScores', label: 'getProfileScores', indent: true },
+  { href: '#getProfileScoreStats', label: 'getProfileScoreStats', indent: true },
+  { href: '#createRiskTemplate', label: 'createRiskTemplate', indent: true },
+  { href: '#listRiskTemplates', label: 'listRiskTemplates', indent: true },
+  { href: '#updateRiskTemplate', label: 'updateRiskTemplate', indent: true },
+  { href: '#deleteRiskTemplate', label: 'deleteRiskTemplate', indent: true },
+  { href: '#autoCalibrate', label: 'autoCalibrate', indent: true },
   { href: '#loops-assumptions', label: 'Loops & Assumptions' },
   { href: '#registerOpenLoop', label: 'registerOpenLoop', indent: true },
   { href: '#resolveOpenLoop', label: 'resolveOpenLoop', indent: true },
@@ -250,8 +298,8 @@ export default function DocsPage() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">SDK Documentation</h1>
           </div>
           <p className="text-zinc-400 max-w-2xl leading-relaxed">
-            Full reference for the DashClaw SDK. 95+ methods across 21 categories to govern your AI agents with
-            action recording, decision governance, context management, session handoffs, security scanning, policy testing, compliance, task routing, webhooks, identity binding, and more.
+            Full reference for the DashClaw SDK. 177+ methods across 29 categories to govern your AI agents with
+            action recording, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more.
           </p>
           <CopyDocsButton />
         </div>
@@ -574,6 +622,469 @@ console.log('Approved status:', approval.action.status);`}
               returns="Promise<{ action: Object, trace: Object }>"
               example={`const { trace } = await claw.getActionTrace('act_abc123');
 // trace includes: assumptions, open_loops, parent_chain, related_actions`}
+            />
+          </section>
+
+          {/* ── Evaluation Framework ── */}
+          <section id="evaluation-framework" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <FileCheck size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Evaluation Framework</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Track output quality automatically with 5 built-in scorer types. No LLM required for most scorers.
+            </p>
+
+            <MethodEntry
+              id="createScorer"
+              signature="claw.createScorer({ name, scorerType, config, description })"
+              description="Create a new evaluation scorer."
+              params={[
+                { name: 'name', type: 'string', required: true, desc: 'Scorer name' },
+                { name: 'scorerType', type: 'string', required: true, desc: 'regex, keywords, numeric_range, custom_function, or llm_judge' },
+                { name: 'config', type: 'object', required: true, desc: 'Configuration for the scorer' },
+                { name: 'description', type: 'string', required: false, desc: 'Purpose of this scorer' },
+              ]}
+              returns="Promise<Object>"
+              example={`await claw.createScorer({
+  name: 'JSON Validator',
+  scorerType: 'regex',
+  config: { pattern: '^\\{.*\\}$' },
+});`}
+            />
+
+            <MethodEntry
+              id="listScorers"
+              signature="claw.getScorers()"
+              description="List all available scorers."
+              returns="Promise<{ scorers: Object[], llm_available: boolean }>"
+            />
+
+            <MethodEntry
+              id="getOutputScores"
+              signature="claw.getEvalRuns(filters?)"
+              description="List evaluation runs with status and result summaries."
+              params={[
+                { name: 'status', type: 'string', required: false, desc: 'running, completed, failed' },
+                { name: 'limit', type: 'number', required: false, desc: 'Max results' },
+              ]}
+              returns="Promise<{ runs: Object[] }>"
+            />
+
+            <MethodEntry
+              id="batchScoreOutputs"
+              signature="claw.getEvalStats(filters?)"
+              description="Get aggregate evaluation statistics across scorers and agents."
+              params={[
+                { name: 'agent_id', type: 'string', required: false, desc: 'Filter by agent' },
+                { name: 'scorer_name', type: 'string', required: false, desc: 'Filter by scorer' },
+                { name: 'days', type: 'number', required: false, desc: 'Lookback period' },
+              ]}
+              returns="Promise<Object>"
+            />
+          </section>
+
+          {/* ── Prompt Management ── */}
+          <section id="prompt-management" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <Newspaper size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Prompt Management</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Version-controlled prompt templates with mustache variable rendering.
+            </p>
+
+            <MethodEntry
+              id="createPromptTemplate"
+              signature="claw.createPromptTemplate({ name, content, category })"
+              description="Create a new prompt template."
+              params={[
+                { name: 'name', type: 'string', required: true, desc: 'Template name' },
+                { name: 'content', type: 'string', required: true, desc: 'Template content with {{variables}}' },
+                { name: 'category', type: 'string', required: false, desc: 'Optional grouping category' },
+              ]}
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getPromptTemplate"
+              signature="claw.getPromptTemplate(templateId)"
+              description="Get a template by ID, including its current active version."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="renderPrompt"
+              signature="claw.renderPrompt({ template_id, variables, action_id })"
+              description="Render a template with variables on the server. Optionally link to an action for usage tracking."
+              params={[
+                { name: 'template_id', type: 'string', required: true, desc: 'Template ID' },
+                { name: 'variables', type: 'object', required: true, desc: 'Mustache variables' },
+                { name: 'action_id', type: 'string', required: false, desc: 'Link to an action' },
+              ]}
+              returns="Promise<{ rendered: string }>"
+            />
+
+            <MethodEntry
+              id="listPromptVersions"
+              signature="claw.listPromptVersions(templateId)"
+              description="List all versions of a prompt template."
+              returns="Promise<Object[]>"
+            />
+
+            <MethodEntry
+              id="rollbackPrompt"
+              signature="claw.activatePromptVersion(templateId, versionId)"
+              description="Set a specific version as the active one for a template."
+              returns="Promise<Object>"
+            />
+          </section>
+
+          {/* ── User Feedback ── */}
+          <section id="user-feedback" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <MessageSquare size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">User Feedback</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Collect and analyze human feedback on agent actions.
+            </p>
+
+            <MethodEntry
+              id="submitFeedback"
+              signature="claw.submitFeedback({ actionId, rating, comment })"
+              description="Submit feedback for a specific action."
+              params={[
+                { name: 'actionId', type: 'string', required: true, desc: 'Action ID' },
+                { name: 'rating', type: 'number', required: true, desc: 'Rating 1-5' },
+                { name: 'comment', type: 'string', required: false, desc: 'Optional text feedback' },
+              ]}
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getFeedback"
+              signature="claw.getFeedback(feedbackId)"
+              description="Retrieve a single feedback entry."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getFeedbackStats"
+              signature="claw.getFeedbackStats({ agent_id })"
+              description="Get feedback statistics, including average rating and sentiment trends."
+              returns="Promise<Object>"
+            />
+          </section>
+
+          {/* ── Behavioral Drift ── */}
+          <section id="behavioral-drift" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <Radio size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Behavioral Drift</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Monitor agent behavior deviations from statistical baselines using z-scores.
+            </p>
+
+            <MethodEntry
+              id="createDriftBaseline"
+              signature="claw.computeDriftBaselines({ agent_id, lookback_days })"
+              description="Establish statistical baselines for an agent's behavior metrics."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="checkDrift"
+              signature="claw.detectDrift({ agent_id, window_days })"
+              description="Run drift detection against the established baselines."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getDriftAlerts"
+              signature="claw.listDriftAlerts(filters?)"
+              description="List behavioral drift alerts with severity and status."
+              returns="Promise<Object[]>"
+            />
+          </section>
+
+          {/* ── Compliance Exports ── */}
+          <section id="compliance-exports" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <Download size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Compliance Exports</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Generate evidence packages for SOC 2, NIST AI RMF, EU AI Act, and ISO 42001.
+            </p>
+
+            <MethodEntry
+              id="createComplianceExport"
+              signature="claw.createComplianceExport({ name, frameworks, format, window_days })"
+              description="Generate a compliance export bundle."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getComplianceExport"
+              signature="claw.getComplianceExport(exportId)"
+              description="Get the status and details of a compliance export."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="listComplianceExports"
+              signature="claw.listComplianceExports({ limit })"
+              description="List recent compliance exports."
+              returns="Promise<Object[]>"
+            />
+          </section>
+
+          {/* ── Learning Analytics ── */}
+          <section id="learning-analytics" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <Zap size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Learning Analytics</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              Track agent improvement velocity, maturity levels, and learning curves per skill.
+            </p>
+
+            <MethodEntry
+              id="getLearningVelocity"
+              signature="claw.getLearningVelocity({ agent_id })"
+              description="Get agent improvement rate over time."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getAgentMaturity"
+              signature="claw.getMaturityLevels()"
+              description="Get the 6-level maturity model distribution for the agent."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="getSkillLearningCurve"
+              signature="claw.getLearningCurves({ agent_id, action_type })"
+              description="Get performance improvement curves for a specific skill/action type."
+              returns="Promise<Object>"
+            />
+          </section>
+
+          {/* ── Scoring Profiles ── */}
+          <section id="scoring-profiles" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
+                <SlidersHorizontal size={16} className="text-brand" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">Scoring Profiles</h2>
+            </div>
+            <p className="text-sm text-zinc-400 mb-4">
+              User-defined weighted quality scoring with 3 composite methods, 8 data sources,
+              risk templates, and auto-calibration. Zero LLM required.
+            </p>
+
+            <MethodEntry
+              id="createScoringProfile"
+              signature="claw.createScoringProfile({ name, action_type, composite_method, dimensions })"
+              description="Create a scoring profile with optional inline dimensions."
+              params={[
+                { name: 'name', type: 'string', required: true, desc: 'Profile name' },
+                { name: 'description', type: 'string', required: false, desc: 'Profile description' },
+                { name: 'action_type', type: 'string', required: false, desc: 'Filter to specific action type (null = all)' },
+                { name: 'composite_method', type: 'string', required: false, desc: 'weighted_average (default), minimum, or geometric_mean' },
+                { name: 'dimensions', type: 'array', required: false, desc: 'Inline dimension definitions (name, data_source, weight, scale)' },
+              ]}
+              returns="Promise<Object>"
+              example={`const profile = await dc.createScoringProfile({
+  name: 'deploy-quality',
+  action_type: 'deploy',
+  composite_method: 'weighted_average',
+  dimensions: [
+    { name: 'Speed', data_source: 'duration_ms', weight: 0.3,
+      scale: [
+        { label: 'excellent', operator: 'lt', value: 30000, score: 100 },
+        { label: 'good', operator: 'lt', value: 60000, score: 75 },
+        { label: 'poor', operator: 'gte', value: 60000, score: 20 },
+      ]},
+    { name: 'Reliability', data_source: 'confidence', weight: 0.7,
+      scale: [
+        { label: 'excellent', operator: 'gte', value: 0.9, score: 100 },
+        { label: 'poor', operator: 'lt', value: 0.7, score: 25 },
+      ]},
+  ],
+});`}
+            />
+
+            <MethodEntry
+              id="listScoringProfiles"
+              signature="claw.listScoringProfiles(filters?)"
+              description="List all scoring profiles for the organization."
+              returns="Promise<Object[]>"
+            />
+
+            <MethodEntry
+              id="getScoringProfile"
+              signature="claw.getScoringProfile(profileId)"
+              description="Get a single scoring profile with its dimensions."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="updateScoringProfile"
+              signature="claw.updateScoringProfile(profileId, updates)"
+              description="Update a scoring profile's metadata."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="deleteScoringProfile"
+              signature="claw.deleteScoringProfile(profileId)"
+              description="Delete a scoring profile and all its scores."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="addScoringDimension"
+              signature="claw.addScoringDimension(profileId, dimension)"
+              description="Add a new weighted dimension to a profile."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="updateScoringDimension"
+              signature="claw.updateScoringDimension(profileId, dimensionId, updates)"
+              description="Update an existing dimension's weight or scale."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="deleteScoringDimension"
+              signature="claw.deleteScoringDimension(profileId, dimensionId)"
+              description="Remove a dimension from a profile."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="scoreWithProfile"
+              signature="claw.scoreWithProfile(profile_id, action)"
+              description="Score a single action against a profile. Returns composite score + per-dimension breakdown."
+              params={[
+                { name: 'profile_id', type: 'string', required: true, desc: 'Profile to score against' },
+                { name: 'action', type: 'object', required: true, desc: 'Action data object' },
+              ]}
+              returns="Promise<Object>"
+              example={`const result = await dc.scoreWithProfile('sp_abc123', {
+  duration_ms: 25000, confidence: 0.95, cost_estimate: 0.008,
+});
+// result.composite_score = 92.5
+// result.dimensions = [{ dimension_name: 'Speed', score: 100, label: 'excellent' }, ...]`}
+            />
+
+            <MethodEntry
+              id="batchScoreWithProfile"
+              signature="claw.batchScoreWithProfile(profile_id, actions)"
+              description="Score multiple actions at once. Returns per-action results + summary."
+              params={[
+                { name: 'profile_id', type: 'string', required: true, desc: 'Profile to score against' },
+                { name: 'actions', type: 'array', required: true, desc: 'Array of action data objects' },
+              ]}
+              returns="Promise<Object>"
+              example={`const batch = await dc.batchScoreWithProfile('sp_abc123', [
+  { duration_ms: 500, confidence: 0.98 },
+  { duration_ms: 10000, confidence: 0.5 },
+]);
+// batch.summary = { total: 2, scored: 2, avg_score: 72.3 }`}
+            />
+
+            <MethodEntry
+              id="getProfileScores"
+              signature="claw.getProfileScores(profileId, filters?)"
+              description="List historical scores generated for a profile."
+              returns="Promise<Object[]>"
+            />
+
+            <MethodEntry
+              id="getProfileScoreStats"
+              signature="claw.getProfileScoreStats(profile_id)"
+              description="Get aggregate statistics for a profile's scores."
+              params={[
+                { name: 'profile_id', type: 'string', required: true, desc: 'Profile ID' },
+              ]}
+              returns="Promise<Object>"
+              example={`const stats = await dc.getProfileScoreStats('sp_abc123');
+// { total_scores: 142, avg_score: 78.3, min_score: 23, max_score: 99, stddev_score: 12.5 }`}
+            />
+
+            <MethodEntry
+              id="createRiskTemplate"
+              signature="claw.createRiskTemplate({ name, base_risk, rules })"
+              description="Create a rule-based risk template. Replaces hardcoded agent risk numbers."
+              params={[
+                { name: 'name', type: 'string', required: true, desc: 'Template name' },
+                { name: 'base_risk', type: 'number', required: false, desc: 'Starting risk score (0-100)' },
+                { name: 'rules', type: 'array', required: false, desc: 'Array of { condition, add } rules' },
+              ]}
+              returns="Promise<Object>"
+              example={`const template = await dc.createRiskTemplate({
+  name: 'Production Safety',
+  base_risk: 20,
+  rules: [
+    { condition: "metadata.environment == 'production'", add: 25 },
+    { condition: "metadata.modifies_data == true", add: 15 },
+    { condition: "metadata.irreversible == true", add: 30 },
+  ],
+});`}
+            />
+
+            <MethodEntry
+              id="listRiskTemplates"
+              signature="claw.listRiskTemplates()"
+              description="List all risk templates for the organization."
+              returns="Promise<Object[]>"
+            />
+
+            <MethodEntry
+              id="updateRiskTemplate"
+              signature="claw.updateRiskTemplate(templateId, updates)"
+              description="Update a risk template's rules or base risk."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="deleteRiskTemplate"
+              signature="claw.deleteRiskTemplate(templateId)"
+              description="Delete a risk template."
+              returns="Promise<Object>"
+            />
+
+            <MethodEntry
+              id="autoCalibrate"
+              signature="claw.autoCalibrate({ action_type, lookback_days })"
+              description="Analyze historical action data to suggest scoring thresholds from percentile distribution."
+              params={[
+                { name: 'action_type', type: 'string', required: false, desc: 'Filter to action type (null = all)' },
+                { name: 'lookback_days', type: 'number', required: false, desc: 'Days to analyze (default: 30)' },
+              ]}
+              returns="Promise<Object>"
+              example={`const cal = await dc.autoCalibrate({ lookback_days: 30, action_type: 'deploy' });
+// cal.suggestions[0] = { metric: 'duration_ms', sample_size: 480,
+//   distribution: { p25: 3000, p50: 8000, p75: 20000 },
+//   suggested_scale: [...] }`}
             />
           </section>
 
@@ -1746,7 +2257,7 @@ schedules.forEach(s => console.log(s.name, s.cron_expression));`}
           <section id="identity-binding" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
-                <Shield size={16} className="text-brand" />
+                <DashClawLogo size={16} />
               </div>
               <h2 className="text-2xl font-bold tracking-tight">Identity Binding</h2>
             </div>

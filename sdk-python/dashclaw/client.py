@@ -75,7 +75,23 @@ class DashClaw:
         if auto_recommend not in ["off", "warn", "enforce"]:
             raise ValueError("auto_recommend must be one of: off, warn, enforce")
 
-    def _request(self, path, method="GET", body=None):
+    def _request(self, path_or_method, method_or_path=None, body=None, params=None, json_payload=None, **kwargs):
+        # Support both (path, method, body) and (method, path, json=...) signatures
+        if path_or_method.startswith("/"):
+            path = path_or_method
+            method = method_or_path or "GET"
+        else:
+            method = path_or_method
+            path = method_or_path
+
+        # Support 'json' as a keyword argument (renamed to json_payload in signature to avoid conflict with json module)
+        if "json" in kwargs:
+            json_payload = kwargs.pop("json")
+
+        if params:
+            query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+            path = f"{path}&{query}" if "?" in path else f"{path}?{query}"
+
         url = f"{self.base_url}{path}"
         headers = {
             "Content-Type": "application/json",
@@ -83,14 +99,17 @@ class DashClaw:
         }
         
         data = None
-        if body is not None:
-            data = json.dumps(body).encode("utf-8")
+        payload = json_payload if json_payload is not None else body
+        if payload is not None:
+            import json as json_mod
+            data = json_mod.dumps(payload).encode("utf-8")
 
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         
         try:
             with urllib.request.urlopen(req, timeout=30) as response:
-                return json.loads(response.read().decode("utf-8"))
+                import json as json_mod
+                return json_mod.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             try:
                 error_data = json.loads(e.read().decode("utf-8"))
@@ -1225,6 +1244,395 @@ class DashClaw:
     def sync_state(self, state):
         payload = {"agent_id": self.agent_id, **state}
         return self._request("/api/sync", method="POST", body=payload)
+
+    # -----------------------------------------------
+    # Prompt Management
+    # -----------------------------------------------
+
+    def list_prompt_templates(self, category: str = None) -> dict:
+        """List all prompt templates, optionally filtered by category."""
+        params = f"?category={category}" if category else ""
+        return self._request(f"/api/prompts/templates{params}", "GET")
+
+    def create_prompt_template(self, name: str, description: str = "", category: str = "general") -> dict:
+        """Create a new prompt template."""
+        return self._request("/api/prompts/templates", "POST", body={"name": name, "description": description, "category": category})
+
+    def get_prompt_template(self, template_id: str) -> dict:
+        """Get a prompt template by ID."""
+        return self._request(f"/api/prompts/templates/{template_id}", "GET")
+
+    def update_prompt_template(self, template_id: str, **fields) -> dict:
+        """Update a prompt template (name, description, category)."""
+        return self._request(f"/api/prompts/templates/{template_id}", "PATCH", body=fields)
+
+    def delete_prompt_template(self, template_id: str) -> dict:
+        """Delete a prompt template and all its versions."""
+        return self._request(f"/api/prompts/templates/{template_id}", "DELETE")
+
+    def list_prompt_versions(self, template_id: str) -> dict:
+        """List all versions for a template."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions", "GET")
+
+    def create_prompt_version(self, template_id: str, content: str, model_hint: str = "", parameters: list = None, changelog: str = "") -> dict:
+        """Create a new version for a template."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions", "POST", body={
+            "content": content,
+            "model_hint": model_hint,
+            "parameters": parameters or [],
+            "changelog": changelog,
+        })
+
+    def get_prompt_version(self, template_id: str, version_id: str) -> dict:
+        """Get a specific version."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions/{version_id}", "GET")
+
+    def activate_prompt_version(self, template_id: str, version_id: str) -> dict:
+        """Activate a specific version (deactivates all others for that template)."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions/{version_id}", "POST")
+
+    def render_prompt(self, template_id: str = None, version_id: str = None, variables: dict = None, action_id: str = None, agent_id: str = None, record: bool = False) -> dict:
+        """Render a prompt template with variables. Optionally record as a prompt run."""
+        return self._request("/api/prompts/render", "POST", body={
+            "template_id": template_id,
+            "version_id": version_id,
+            "variables": variables or {},
+            "action_id": action_id,
+            "agent_id": agent_id,
+            "record": record,
+        })
+
+    def list_prompt_runs(self, template_id: str = None, version_id: str = None, limit: int = 50) -> dict:
+        """List prompt execution runs."""
+        params = []
+        if template_id:
+            params.append(f"template_id={template_id}")
+        if version_id:
+            params.append(f"version_id={version_id}")
+        if limit:
+            params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request(f"/api/prompts/runs{qs}", "GET")
+
+    def get_prompt_stats(self, template_id: str = None) -> dict:
+        """Get prompt usage statistics."""
+        params = f"?template_id={template_id}" if template_id else ""
+        return self._request(f"/api/prompts/stats{params}", "GET")
+
+    # ----------------------------------------------
+    # Category: Evaluations
+    # ----------------------------------------------
+
+    def create_score(self, action_id, scorer_name, score, label=None, reasoning=None, evaluated_by=None, metadata=None):
+        """Create an evaluation score for an action."""
+        return self._request("/api/evaluations", "POST", body={
+            "action_id": action_id,
+            "scorer_name": scorer_name,
+            "score": score,
+            "label": label,
+            "reasoning": reasoning,
+            "evaluated_by": evaluated_by,
+            "metadata": metadata,
+        })
+
+    def get_scores(self, **filters):
+        """List evaluation scores with optional filters."""
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations?{query}" if query else "/api/evaluations"
+        return self._request(path, "GET")
+
+    def create_scorer(self, name, scorer_type, config=None, description=None):
+        """Create a reusable scorer definition."""
+        return self._request("/api/evaluations/scorers", "POST", body={
+            "name": name,
+            "scorer_type": scorer_type,
+            "config": config,
+            "description": description,
+        })
+
+    def get_scorers(self):
+        """List all scorers for this org."""
+        return self._request("/api/evaluations/scorers", "GET")
+
+    def update_scorer(self, scorer_id, **updates):
+        """Update a scorer."""
+        return self._request(f"/api/evaluations/scorers/{scorer_id}", "PATCH", body=updates)
+
+    def delete_scorer(self, scorer_id):
+        """Delete a scorer."""
+        return self._request(f"/api/evaluations/scorers/{scorer_id}", "DELETE")
+
+    def create_eval_run(self, name, scorer_id, action_filters=None):
+        """Create and start an evaluation run."""
+        return self._request("/api/evaluations/runs", "POST", body={
+            "name": name,
+            "scorer_id": scorer_id,
+            "action_filters": action_filters,
+        })
+
+    def get_eval_runs(self, **filters):
+        """List evaluation runs."""
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations/runs?{query}" if query else "/api/evaluations/runs"
+        return self._request(path, "GET")
+
+    def get_eval_run(self, run_id):
+        """Get details of an evaluation run."""
+        return self._request(f"/api/evaluations/runs/{run_id}", "GET")
+
+    def get_eval_stats(self, **filters):
+        """Get aggregate evaluation statistics."""
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations/stats?{query}" if query else "/api/evaluations/stats"
+        return self._request(path, "GET")
+
+    # -----------------------------------------------
+    # User Feedback
+    # -----------------------------------------------
+
+    def submit_feedback(self, rating: int = None, comment: str = "", action_id: str = None, agent_id: str = None, category: str = "general", tags: list = None, metadata: dict = None) -> dict:
+        """Submit user feedback, optionally tied to an action trace."""
+        return self._request("POST", "/api/feedback", body={
+            "action_id": action_id,
+            "agent_id": agent_id,
+            "rating": rating,
+            "comment": comment,
+            "category": category,
+            "tags": tags or [],
+            "metadata": metadata or {},
+            "source": "sdk",
+        })
+
+    def list_feedback(self, action_id: str = None, agent_id: str = None, category: str = None, sentiment: str = None, resolved: bool = None, limit: int = 50, offset: int = 0) -> dict:
+        """List feedback entries with optional filters."""
+        params = []
+        if action_id: params.append(f"action_id={action_id}")
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if category: params.append(f"category={category}")
+        if sentiment: params.append(f"sentiment={sentiment}")
+        if resolved is not None: params.append(f"resolved={str(resolved).lower()}")
+        if limit: params.append(f"limit={limit}")
+        if offset: params.append(f"offset={offset}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/feedback{qs}")
+
+    def get_feedback(self, feedback_id: str) -> dict:
+        """Get a specific feedback entry."""
+        return self._request("GET", f"/api/feedback/{feedback_id}")
+
+    def resolve_feedback(self, feedback_id: str) -> dict:
+        """Mark feedback as resolved."""
+        return self._request("PATCH", f"/api/feedback/{feedback_id}", body={"resolved_by": "sdk"})
+
+    def delete_feedback(self, feedback_id: str) -> dict:
+        """Delete a feedback entry."""
+        return self._request("DELETE", f"/api/feedback/{feedback_id}")
+
+    def get_feedback_stats(self, agent_id: str = None) -> dict:
+        """Get feedback statistics with breakdowns by category, agent, and rating."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/feedback/stats{params}")
+
+    # -----------------------------------------------
+    # Compliance Export
+    # -----------------------------------------------
+
+    def create_compliance_export(self, frameworks: list, name: str = "Compliance Export", format: str = "markdown", window_days: int = 30, include_evidence: bool = True, include_remediation: bool = True, include_trends: bool = False) -> dict:
+        """Generate a compliance export for one or more frameworks."""
+        return self._request("POST", "/api/compliance/exports", body={
+            "name": name, "frameworks": frameworks, "format": format, "window_days": window_days,
+            "include_evidence": include_evidence, "include_remediation": include_remediation, "include_trends": include_trends,
+        })
+
+    def list_compliance_exports(self, limit: int = 20) -> dict:
+        """List compliance export records."""
+        return self._request("GET", f"/api/compliance/exports?limit={limit}")
+
+    def get_compliance_export(self, export_id: str) -> dict:
+        """Get a specific compliance export with full report content."""
+        return self._request("GET", f"/api/compliance/exports/{export_id}")
+
+    def download_compliance_export(self, export_id: str) -> str:
+        """Download the raw report content for an export."""
+        return self._request("GET", f"/api/compliance/exports/{export_id}/download")
+
+    def delete_compliance_export(self, export_id: str) -> dict:
+        """Delete a compliance export."""
+        return self._request("DELETE", f"/api/compliance/exports/{export_id}")
+
+    def create_compliance_schedule(self, frameworks: list, cron_expression: str, name: str = "Scheduled Export", **kwargs) -> dict:
+        """Create a recurring compliance export schedule."""
+        return self._request("POST", "/api/compliance/schedules", body={
+            "name": name, "frameworks": frameworks, "cron_expression": cron_expression, **kwargs,
+        })
+
+    def list_compliance_schedules(self) -> dict:
+        """List compliance export schedules."""
+        return self._request("GET", "/api/compliance/schedules")
+
+    def update_compliance_schedule(self, schedule_id: str, **fields) -> dict:
+        """Update a compliance schedule (toggle enabled, rename)."""
+        return self._request("PATCH", f"/api/compliance/schedules/{schedule_id}", body=fields)
+
+    def delete_compliance_schedule(self, schedule_id: str) -> dict:
+        """Delete a compliance schedule."""
+        return self._request("DELETE", f"/api/compliance/schedules/{schedule_id}")
+
+    def get_compliance_trends(self, framework: str = None, limit: int = 30) -> dict:
+        """Get compliance coverage trend data from snapshots."""
+        params = []
+        if framework: params.append(f"framework={framework}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/compliance/trends{qs}")
+
+    # -----------------------------------------------
+    # Drift Detection
+    # -----------------------------------------------
+
+    def compute_drift_baselines(self, agent_id: str = None, lookback_days: int = 30) -> dict:
+        """Compute statistical baselines from historical agent data."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "compute_baselines", "agent_id": agent_id, "lookback_days": lookback_days})
+
+    def detect_drift(self, agent_id: str = None, window_days: int = 7) -> dict:
+        """Run drift detection comparing recent window to baseline."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "detect", "agent_id": agent_id, "window_days": window_days})
+
+    def record_drift_snapshots(self) -> dict:
+        """Record daily metric snapshots for trend visualization."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "record_snapshots"})
+
+    def list_drift_alerts(self, agent_id: str = None, severity: str = None, acknowledged: bool = None, limit: int = 50) -> dict:
+        """List drift alerts with optional filters."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if severity: params.append(f"severity={severity}")
+        if acknowledged is not None: params.append(f"acknowledged={str(acknowledged).lower()}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/drift/alerts{qs}")
+
+    def acknowledge_drift_alert(self, alert_id: str) -> dict:
+        """Acknowledge a drift alert."""
+        return self._request("PATCH", f"/api/drift/alerts/{alert_id}")
+
+    def delete_drift_alert(self, alert_id: str) -> dict:
+        """Delete a drift alert."""
+        return self._request("DELETE", f"/api/drift/alerts/{alert_id}")
+
+    def get_drift_stats(self, agent_id: str = None) -> dict:
+        """Get drift detection statistics."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/drift/stats{params}")
+
+    def get_drift_snapshots(self, agent_id: str = None, metric: str = None, limit: int = 30) -> dict:
+        """Get metric trend snapshots."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if metric: params.append(f"metric={metric}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/drift/snapshots{qs}")
+
+    def get_drift_metrics(self) -> dict:
+        """List available drift detection metrics."""
+        return self._request("GET", "/api/drift/metrics")
+
+    # -----------------------------------------------
+    # Learning Analytics
+    # -----------------------------------------------
+
+    def compute_learning_velocity(self, agent_id: str = None, lookback_days: int = 30, period: str = "daily") -> dict:
+        """Compute learning velocity (rate of score improvement) for agents."""
+        return self._request("POST", "/api/learning/analytics/velocity", json={"agent_id": agent_id, "lookback_days": lookback_days, "period": period})
+
+    def get_learning_velocity(self, agent_id: str = None, limit: int = 30) -> dict:
+        """Get computed velocity data."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/learning/analytics/velocity{qs}")
+
+    def compute_learning_curves(self, agent_id: str = None, lookback_days: int = 60) -> dict:
+        """Compute learning curves per action type."""
+        return self._request("POST", "/api/learning/analytics/curves", json={"agent_id": agent_id, "lookback_days": lookback_days})
+
+    def get_learning_curves(self, agent_id: str = None, action_type: str = None, limit: int = 50) -> dict:
+        """Get learning curve data."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if action_type: params.append(f"action_type={action_type}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/learning/analytics/curves{qs}")
+
+    def get_learning_analytics_summary(self, agent_id: str = None) -> dict:
+        """Get comprehensive learning analytics summary."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/learning/analytics/summary{params}")
+
+    def get_maturity_levels(self) -> dict:
+        """Get the maturity level definitions."""
+        return self._request("GET", "/api/learning/analytics/maturity")
+
+    # --- Scoring Profiles -----------------------------------
+
+    def create_scoring_profile(self, **kwargs):
+        return self._request("POST", "/api/scoring/profiles", json=kwargs)
+
+    def list_scoring_profiles(self, **params):
+        return self._request("GET", "/api/scoring/profiles", params=params)
+
+    def get_scoring_profile(self, profile_id):
+        return self._request("GET", f"/api/scoring/profiles/{profile_id}")
+
+    def update_scoring_profile(self, profile_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/profiles/{profile_id}", json=kwargs)
+
+    def delete_scoring_profile(self, profile_id):
+        return self._request("DELETE", f"/api/scoring/profiles/{profile_id}")
+
+    def add_scoring_dimension(self, profile_id, **kwargs):
+        return self._request("POST", f"/api/scoring/profiles/{profile_id}/dimensions", json=kwargs)
+
+    def update_scoring_dimension(self, profile_id, dimension_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}", json=kwargs)
+
+    def delete_scoring_dimension(self, profile_id, dimension_id):
+        return self._request("DELETE", f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}")
+
+    def score_with_profile(self, profile_id, action):
+        return self._request("POST", "/api/scoring/score", json={"profile_id": profile_id, "action": action})
+
+    def batch_score_with_profile(self, profile_id, actions):
+        return self._request("POST", "/api/scoring/score", json={"profile_id": profile_id, "actions": actions})
+
+    def get_profile_scores(self, **params):
+        return self._request("GET", "/api/scoring/score", params=params)
+
+    def get_profile_score_stats(self, profile_id):
+        return self._request("GET", "/api/scoring/score", params={"profile_id": profile_id, "view": "stats"})
+
+    # --- Risk Templates ------------------------------------
+
+    def create_risk_template(self, **kwargs):
+        return self._request("POST", "/api/scoring/risk-templates", json=kwargs)
+
+    def list_risk_templates(self, **params):
+        return self._request("GET", "/api/scoring/risk-templates", params=params)
+
+    def update_risk_template(self, template_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/risk-templates/{template_id}", json=kwargs)
+
+    def delete_risk_template(self, template_id):
+        return self._request("DELETE", f"/api/scoring/risk-templates/{template_id}")
+
+    # --- Auto-Calibration ----------------------------------
+
+    def auto_calibrate(self, **options):
+        return self._request("POST", "/api/scoring/calibrate", json=options)
+
 
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { BookOpen, Zap, Lightbulb, Sparkles, FileText, RotateCw, CheckCircle2, XCircle, AlertTriangle, Clock, Power, BarChart3, TrendingUp } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
@@ -220,13 +221,18 @@ export default function LearningDashboard() {
       subtitle={`Decisions, Outcomes & Lessons${lastUpdated ? ` -- Updated ${lastUpdated}` : ''}`}
       breadcrumbs={['Dashboard', 'Learning']}
       actions={
-        <button
-          onClick={fetchData}
-          className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-surface-tertiary border border-[rgba(255,255,255,0.06)] rounded-lg hover:border-[rgba(255,255,255,0.12)] transition-colors duration-150 flex items-center gap-1.5"
-        >
-          <RotateCw size={14} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/learning/analytics" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-hover transition-colors">
+            <Zap size={14} /> Analytics
+          </Link>
+          <button
+            onClick={fetchData}
+            className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-surface-tertiary border border-[rgba(255,255,255,0.06)] rounded-lg hover:border-[rgba(255,255,255,0.12)] transition-colors duration-150 flex items-center gap-1.5"
+          >
+            <RotateCw size={14} />
+            Refresh
+          </button>
+        </div>
       }
     >
       {/* Stats Overview */}
