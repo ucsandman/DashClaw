@@ -1226,5 +1226,66 @@ class DashClaw:
         payload = {"agent_id": self.agent_id, **state}
         return self._request("/api/sync", method="POST", body=payload)
 
+    # ----------------------------------------------
+    # Category: Evaluations
+    # ----------------------------------------------
+
+    def create_score(self, action_id, scorer_name, score, label=None, reasoning=None, evaluated_by=None, metadata=None):
+        """Create an evaluation score for an action."""
+        return self._request("POST", "/api/evaluations", {
+            "action_id": action_id,
+            "scorer_name": scorer_name,
+            "score": score,
+            "label": label,
+            "reasoning": reasoning,
+            "evaluated_by": evaluated_by,
+            "metadata": metadata,
+        })
+
+    def get_scores(self, **filters):
+        """List evaluation scores with optional filters."""
+        return self._request("GET", "/api/evaluations", params=filters)
+
+    def create_scorer(self, name, scorer_type, config=None, description=None):
+        """Create a reusable scorer definition."""
+        return self._request("POST", "/api/evaluations/scorers", {
+            "name": name,
+            "scorer_type": scorer_type,
+            "config": config,
+            "description": description,
+        })
+
+    def get_scorers(self):
+        """List all scorers for this org."""
+        return self._request("GET", "/api/evaluations/scorers")
+
+    def update_scorer(self, scorer_id, **updates):
+        """Update a scorer."""
+        return self._request("PATCH", f"/api/evaluations/scorers/{scorer_id}", updates)
+
+    def delete_scorer(self, scorer_id):
+        """Delete a scorer."""
+        return self._request("DELETE", f"/api/evaluations/scorers/{scorer_id}")
+
+    def create_eval_run(self, name, scorer_id, action_filters=None):
+        """Create and start an evaluation run."""
+        return self._request("POST", "/api/evaluations/runs", {
+            "name": name,
+            "scorer_id": scorer_id,
+            "action_filters": action_filters,
+        })
+
+    def get_eval_runs(self, **filters):
+        """List evaluation runs."""
+        return self._request("GET", "/api/evaluations/runs", params=filters)
+
+    def get_eval_run(self, run_id):
+        """Get details of an evaluation run."""
+        return self._request("GET", f"/api/evaluations/runs/{run_id}")
+
+    def get_eval_stats(self, **filters):
+        """Get aggregate evaluation statistics."""
+        return self._request("GET", "/api/evaluations/stats", params=filters)
+
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

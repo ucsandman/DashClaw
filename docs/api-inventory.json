@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 102,
-    "stable_routes": 43,
+    "total_routes": 109,
+    "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 43
+    "experimental_routes": 49
   },
   "routes": [
     {
@@ -381,6 +381,65 @@
       "maturity": "beta",
       "matched_prefix": "/api/docs",
       "file": "app/api/docs/raw/route.js"
+    },
+    {
+      "path": "/api/evaluations",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/route.js"
+    },
+    {
+      "path": "/api/evaluations/runs",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/runs/route.js"
+    },
+    {
+      "path": "/api/evaluations/runs/{runId}",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/runs/[runId]/route.js"
+    },
+    {
+      "path": "/api/evaluations/scorers",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/scorers/route.js"
+    },
+    {
+      "path": "/api/evaluations/scorers/{scorerId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/scorers/[scorerId]/route.js"
+    },
+    {
+      "path": "/api/evaluations/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/evaluations/stats/route.js"
     },
     {
       "path": "/api/goals",
@@ -857,6 +916,15 @@
       "maturity": "stable",
       "matched_prefix": "/api/settings",
       "file": "app/api/settings/route.js"
+    },
+    {
+      "path": "/api/settings/llm-status",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "stable",
+      "matched_prefix": "/api/settings",
+      "file": "app/api/settings/llm-status/route.js"
     },
     {
       "path": "/api/settings/test",

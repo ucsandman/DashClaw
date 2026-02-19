@@ -3149,6 +3149,47 @@
         "x-api-maturity": "stable"
       }
     },
+    "/api/settings/llm-status": {
+      "get": {
+        "operationId": "get_api_settings_llmstatus",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Validation or request error"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GET /api/settings/llm-status",
+        "tags": [
+          "settings"
+        ],
+        "x-api-maturity": "stable"
+      }
+    },
     "/api/settings/test": {
       "post": {
         "operationId": "post_api_settings_test",

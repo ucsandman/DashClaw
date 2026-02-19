@@ -67,6 +67,8 @@ app/
 ├── lib/guard.js               # Guard evaluation engine (evaluateGuard)
 ├── lib/webhooks.js            # Webhook HMAC signing, delivery, dispatch + guard webhook delivery
 ├── lib/notifications.js       # Email alerts via Resend
+├── lib/llm.js                 # LLM client with provider abstraction (OpenAI, Anthropic, Google)
+├── lib/eval.js                # Evaluation execution engine (regex, contains, llm_judge, etc.)
 ├── components/
 │   ├── ui/                    # Shared primitives (Card, Badge, Stat, ProgressBar, EmptyState, Skeleton)
 │   ├── Sidebar.js             # Persistent sidebar navigation (links to /dashboard)
@@ -333,6 +335,13 @@ function getSql() {
 - `GET /api/digest` - daily digest aggregation (GET: `?date`, `?agent_id`; aggregates from 7 tables, no storage)
 - `POST /api/security/scan` - content security scanning (18 regex patterns; returns findings + redacted text; optionally stores metadata)
 - `GET/POST /api/security/prompt-injection` - prompt injection scanning (POST: heuristic pattern detection for role overrides, delimiter injection, instruction smuggling, etc.; GET: list recent scans; optionally stores metadata)
+- `GET/POST /api/evaluations` - evaluation scores (GET: filtered list; POST: create single score)
+- `GET/POST /api/evaluations/scorers` - reusable scorer definitions (POST: admin only)
+- `PATCH/DELETE /api/evaluations/scorers/[scorerId]` - update/delete scorer (admin only)
+- `GET/POST /api/evaluations/runs` - batch evaluation runs (POST: admin only, executes async)
+- `GET/PATCH /api/evaluations/runs/[runId]` - run details, distribution stats + status update
+- `GET /api/evaluations/stats` - aggregate evaluation statistics (trends, by scorer, distribution)
+- `GET /api/settings/llm-status` - check if an AI provider is configured (OpenAI, Anthropic, or Google)
 - `GET/POST/PATCH /api/messages` - agent messages (GET: `?agent_id`, `?direction=inbox|sent|all`, `?type`, `?unread=true`, `?thread_id`; POST: send message; PATCH: batch read/archive)
 - `GET/POST/PATCH /api/messages/threads` - message threads (GET: `?status`, `?agent_id`; POST: create; PATCH: resolve/update)
 - `/api/messages/attachments` — GET: download attachment binary by ID

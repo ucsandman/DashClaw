@@ -2277,6 +2277,149 @@ class DashClaw {
       ...state,
     });
   }
+
+  // ----------------------------------------------
+  // Category: Evaluations
+  // ----------------------------------------------
+
+  /**
+   * Create an evaluation score for an action.
+   * @param {Object} params
+   * @param {string} params.actionId - Action record ID
+   * @param {string} params.scorerName - Name of the scorer
+   * @param {number} params.score - Score between 0.0 and 1.0
+   * @param {string} [params.label] - Category label (e.g., 'correct', 'incorrect')
+   * @param {string} [params.reasoning] - Explanation of the score
+   * @param {string} [params.evaluatedBy] - 'auto', 'human', or 'llm_judge'
+   * @param {Object} [params.metadata] - Additional metadata
+   * @returns {Promise<Object>}
+   */
+  async createScore({ actionId, scorerName, score, label, reasoning, evaluatedBy, metadata }) {
+    return this._request('/api/evaluations', 'POST', {
+      action_id: actionId,
+      scorer_name: scorerName,
+      score,
+      label,
+      reasoning,
+      evaluated_by: evaluatedBy,
+      metadata,
+    });
+  }
+
+  /**
+   * List evaluation scores with optional filters.
+   * @param {Object} [filters] - { action_id, scorer_name, evaluated_by, min_score, max_score, limit, offset, agent_id }
+   * @returns {Promise<{ scores: Object[], total: number }>}
+   */
+  async getScores(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations?${params}`, 'GET');
+  }
+
+  /**
+   * Create a reusable scorer definition.
+   * @param {Object} params
+   * @param {string} params.name - Scorer name (unique per org)
+   * @param {string} params.scorerType - 'regex', 'contains', 'numeric_range', 'custom_function', or 'llm_judge'
+   * @param {Object} params.config - Scorer configuration
+   * @param {string} [params.description] - Description
+   * @returns {Promise<Object>}
+   */
+  async createScorer({ name, scorerType, config, description }) {
+    return this._request('/api/evaluations/scorers', 'POST', {
+      name,
+      scorer_type: scorerType,
+      config,
+      description,
+    });
+  }
+
+  /**
+   * List all scorers for this org.
+   * @returns {Promise<{ scorers: Object[], llm_available: boolean }>}
+   */
+  async getScorers() {
+    return this._request('/api/evaluations/scorers', 'GET');
+  }
+
+  /**
+   * Update a scorer.
+   * @param {string} scorerId
+   * @param {Object} updates - { name?, description?, config? }
+   * @returns {Promise<Object>}
+   */
+  async updateScorer(scorerId, updates) {
+    return this._request(`/api/evaluations/scorers/${scorerId}`, 'PATCH', updates);
+  }
+
+  /**
+   * Delete a scorer.
+   * @param {string} scorerId
+   * @returns {Promise<Object>}
+   */
+  async deleteScorer(scorerId) {
+    return this._request(`/api/evaluations/scorers/${scorerId}`, 'DELETE');
+  }
+
+  /**
+   * Create and start an evaluation run.
+   * @param {Object} params
+   * @param {string} params.name - Run name
+   * @param {string} params.scorerId - Scorer to use
+   * @param {Object} [params.actionFilters] - Filters for which actions to evaluate
+   * @returns {Promise<Object>}
+   */
+  async createEvalRun({ name, scorerId, actionFilters }) {
+    return this._request('/api/evaluations/runs', 'POST', {
+      name,
+      scorer_id: scorerId,
+      action_filters: actionFilters,
+    });
+  }
+
+  /**
+   * List evaluation runs.
+   * @param {Object} [filters] - { status, limit, offset }
+   * @returns {Promise<{ runs: Object[] }>}
+   */
+  async getEvalRuns(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations/runs?${params}`, 'GET');
+  }
+
+  /**
+   * Get details of an evaluation run.
+   * @param {string} runId
+   * @returns {Promise<{ run: Object, distribution: Object[] }>}
+   */
+  async getEvalRun(runId) {
+    return this._request(`/api/evaluations/runs/${runId}`, 'GET');
+  }
+
+  /**
+   * Get aggregate evaluation statistics.
+   * @param {Object} [filters] - { agent_id, scorer_name, days }
+   * @returns {Promise<Object>}
+   */
+  async getEvalStats(filters = {}) {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(filters)) {
+      if (value !== undefined && value !== null && value !== '') {
+        params.set(key, String(value));
+      }
+    }
+    return this._request(`/api/evaluations/stats?${params}`, 'GET');
+  }
 }
 
 /**

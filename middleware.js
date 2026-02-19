@@ -1604,6 +1604,8 @@ export const config = {
     '/routing/:path*',
     '/compliance',
     '/compliance/:path*',
+    '/evaluations',
+    '/evaluations/:path*',
     '/invite/:path*',
     '/login',
   ],
