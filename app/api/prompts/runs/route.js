@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db.js';
 import { getOrgId } from '../../../lib/org.js';
+import { listPromptRuns } from '../../../lib/repositories/prompts.repository.js';
 
 export async function GET(request) {
   try {
@@ -11,38 +12,7 @@ export async function GET(request) {
     const versionId = searchParams.get('version_id');
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100);
 
-    let runs;
-    if (templateId) {
-      runs = await sql`
-        SELECT pr.*, pt.name AS template_name, pv.version
-        FROM prompt_runs pr
-        JOIN prompt_templates pt ON pt.id = pr.template_id
-        JOIN prompt_versions pv ON pv.id = pr.version_id
-        WHERE pr.org_id = ${orgId} AND pr.template_id = ${templateId}
-        ORDER BY pr.created_at DESC
-        LIMIT ${limit}
-      `;
-    } else if (versionId) {
-      runs = await sql`
-        SELECT pr.*, pt.name AS template_name, pv.version
-        FROM prompt_runs pr
-        JOIN prompt_templates pt ON pt.id = pr.template_id
-        JOIN prompt_versions pv ON pv.id = pr.version_id
-        WHERE pr.org_id = ${orgId} AND pr.version_id = ${versionId}
-        ORDER BY pr.created_at DESC
-        LIMIT ${limit}
-      `;
-    } else {
-      runs = await sql`
-        SELECT pr.*, pt.name AS template_name, pv.version
-        FROM prompt_runs pr
-        JOIN prompt_templates pt ON pt.id = pr.template_id
-        JOIN prompt_versions pv ON pv.id = pr.version_id
-        WHERE pr.org_id = ${orgId}
-        ORDER BY pr.created_at DESC
-        LIMIT ${limit}
-      `;
-    }
+    const runs = await listPromptRuns(sql, orgId, { templateId, versionId, limit });
 
     return NextResponse.json({ runs });
   } catch (err) {

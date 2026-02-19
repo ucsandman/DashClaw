@@ -6,6 +6,7 @@ import crypto from 'crypto';
 import { getSql } from '../../../lib/db.js';
 import { getOrgId, getOrgRole } from '../../../lib/org.js';
 import { isLLMAvailable } from '../../../lib/llm.js';
+import { listEvalScorers, createEvalScorer } from '../../../lib/repositories/evaluations.repository.js';
 
 function generateId(prefix) {
   return `${prefix}${crypto.randomBytes(12).toString('hex')}`;
@@ -21,14 +22,7 @@ export async function GET(request) {
     const sql = getSql();
     const orgId = getOrgId(request);
 
-    const scorers = await sql`
-      SELECT s.*,
-        (SELECT COUNT(*) FROM eval_scores WHERE scorer_id = s.id) AS total_scores,
-        (SELECT AVG(score) FROM eval_scores WHERE scorer_id = s.id) AS avg_score
-      FROM eval_scorers s
-      WHERE s.org_id = ${orgId}
-      ORDER BY s.created_at DESC
-    `;
+    const scorers = await listEvalScorers(sql, orgId);
 
     return NextResponse.json({
       scorers,
@@ -70,14 +64,15 @@ export async function POST(request) {
 
     const id = generateId('es_');
     const now = new Date().toISOString();
-    const configStr = config ? (typeof config === 'string' ? config : JSON.stringify(config)) : null;
 
-    await sql`
-      INSERT INTO eval_scorers (id, org_id, name, scorer_type, config, description, created_at, updated_at)
-      VALUES (${id}, ${orgId}, ${name}, ${scorer_type}, ${configStr}, ${description || null}, ${now}, ${now})
-    `;
-
-    const response = { id, name, scorer_type, created_at: now };
+    const response = await createEvalScorer(sql, orgId, {
+      id,
+      name,
+      scorer_type,
+      config,
+      description,
+      created_at: now,
+    });
 
     if (scorer_type === 'llm_judge' && !isLLMAvailable()) {
       response.warning = 'AI provider not configured. This scorer won\'t execute until an AI API key is set (OPENAI_API_KEY, ANTHROPIC_API_KEY, or GOOGLE_AI_API_KEY).';

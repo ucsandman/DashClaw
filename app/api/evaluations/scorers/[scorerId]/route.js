@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../../lib/db.js';
 import { getOrgId, getOrgRole } from '../../../../lib/org.js';
+import { updateEvalScorer, deleteEvalScorer } from '../../../../lib/repositories/evaluations.repository.js';
 
 export async function PATCH(request, { params }) {
   try {
@@ -20,7 +21,7 @@ export async function PATCH(request, { params }) {
     const updates = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.description !== undefined) updates.description = body.description;
-    if (body.config !== undefined) updates.config = typeof body.config === 'string' ? body.config : JSON.stringify(body.config);
+    if (body.config !== undefined) updates.config = body.config;
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
@@ -28,9 +29,7 @@ export async function PATCH(request, { params }) {
 
     updates.updated_at = new Date().toISOString();
 
-    const setClauses = Object.entries(updates).map(([k, v]) => `${k} = '${String(v).replace(/'/g, "''")}'`).join(', ');
-
-    await sql.query(`UPDATE eval_scorers SET ${setClauses} WHERE id = '${scorerId}' AND org_id = '${orgId}'`);
+    await updateEvalScorer(sql, orgId, scorerId, updates);
 
     return NextResponse.json({ updated: true });
   } catch (error) {
@@ -50,7 +49,7 @@ export async function DELETE(request, { params }) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
 
-    await sql`DELETE FROM eval_scorers WHERE id = ${scorerId} AND org_id = ${orgId}`;
+    await deleteEvalScorer(sql, orgId, scorerId);
 
     return NextResponse.json({ deleted: true });
   } catch (error) {

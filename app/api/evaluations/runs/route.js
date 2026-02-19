@@ -7,6 +7,7 @@ import { getSql } from '../../../lib/db.js';
 import { getOrgId, getOrgRole } from '../../../lib/org.js';
 import { executeEvalRun } from '../../../lib/eval.js';
 import { isLLMAvailable } from '../../../lib/llm.js';
+import { listEvalRuns, createEvalRun, getEvalScorer } from '../../../lib/repositories/evaluations.repository.js';
 
 function generateId(prefix) {
   return `${prefix}${crypto.randomBytes(12).toString('hex')}`;
@@ -26,26 +27,7 @@ export async function GET(request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    let runs;
-    if (status) {
-      runs = await sql`
-        SELECT er.*, es.name as scorer_name, es.scorer_type
-        FROM eval_runs er
-        LEFT JOIN eval_scorers es ON er.scorer_id = es.id
-        WHERE er.org_id = ${orgId} AND er.status = ${status}
-        ORDER BY er.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-    } else {
-      runs = await sql`
-        SELECT er.*, es.name as scorer_name, es.scorer_type
-        FROM eval_runs er
-        LEFT JOIN eval_scorers es ON er.scorer_id = es.id
-        WHERE er.org_id = ${orgId}
-        ORDER BY er.created_at DESC
-        LIMIT ${limit} OFFSET ${offset}
-      `;
-    }
+    const runs = await listEvalRuns(sql, orgId, { status, limit, offset });
 
     return NextResponse.json({ runs });
   } catch (error) {
@@ -76,9 +58,7 @@ export async function POST(request) {
     }
 
     // Verify scorer exists and check if it's llm_judge
-    const [scorer] = await sql`
-      SELECT * FROM eval_scorers WHERE id = ${scorer_id} AND org_id = ${orgId}
-    `;
+    const scorer = await getEvalScorer(sql, orgId, scorer_id);
 
     if (!scorer) {
       return NextResponse.json({ error: 'Scorer not found' }, { status: 404 });
@@ -93,12 +73,17 @@ export async function POST(request) {
     const id = generateId('er_');
     const now = new Date().toISOString();
 
-    await sql`
-      INSERT INTO eval_runs (id, org_id, name, scorer_id, status, filter_criteria, created_by, created_at)
-      VALUES (${id}, ${orgId}, ${name}, ${scorer_id}, 'pending', ${action_filters ? JSON.stringify(action_filters) : null}, ${role}, ${now})
-    `;
+    await createEvalRun(sql, orgId, {
+      id,
+      name,
+      scorer_id,
+      status: 'pending',
+      filter_criteria: action_filters,
+      created_by: role,
+      created_at: now,
+    });
 
-    // Execute async (don't await   let it run in background)
+    // Execute async (don't await - it run in background)
     executeEvalRun(sql, orgId, id).catch((err) => {
       console.error(`Eval run ${id} failed:`, err);
     });
