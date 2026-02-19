@@ -1159,6 +1159,191 @@ async function testLearningAnalytics() {
 }
 
 // ──────────────────────────────────────────────
+// Phase 7: Scoring Profiles
+// ──────────────────────────────────────────────
+
+async function testScoringProfiles() {
+  console.log('\n--- Phase 7: Scoring Profiles ---\n');
+
+  // Create a scoring profile with inline dimensions
+  let scoringProfileId;
+  {
+    const { data: res } = await request('POST', '/api/scoring/profiles', {
+      name: 'Integration Test Profile',
+      description: 'Created by test-full-api.mjs',
+      action_type: 'test_action',
+      composite_method: 'weighted_average',
+      dimensions: [
+        {
+          name: 'Speed',
+          data_source: 'duration_ms',
+          weight: 0.4,
+          scale: [
+            { label: 'excellent', operator: 'lt', value: 1000, score: 100 },
+            { label: 'good', operator: 'lt', value: 5000, score: 75 },
+            { label: 'poor', operator: 'gte', value: 5000, score: 20 },
+          ],
+        },
+        {
+          name: 'Confidence',
+          data_source: 'confidence',
+          weight: 0.6,
+          scale: [
+            { label: 'excellent', operator: 'gte', value: 0.9, score: 100 },
+            { label: 'good', operator: 'gte', value: 0.7, score: 75 },
+            { label: 'poor', operator: 'lt', value: 0.7, score: 25 },
+          ],
+        },
+      ],
+    });
+    assert(res.id, 'Profile should have an ID');
+    assert(res.id.startsWith('sp_'), 'Profile ID should start with sp_');
+    assert(res.dimensions?.length === 2, 'Profile should have 2 dimensions');
+    scoringProfileId = res.id;
+    console.log('  [PASS] POST /api/scoring/profiles - created with inline dimensions');
+  }
+
+  // List profiles
+  {
+    const { data: res } = await request('GET', '/api/scoring/profiles');
+    assert(Array.isArray(res.profiles), 'Should return profiles array');
+    const found = res.profiles.find(p => p.id === scoringProfileId);
+    assert(found, 'Created profile should be in list');
+    console.log('  [PASS] GET /api/scoring/profiles - lists profiles');
+  }
+
+  // Get single profile
+  {
+    const { data: res } = await request('GET', `/api/scoring/profiles/${scoringProfileId}`);
+    assert(res.name === 'Integration Test Profile', 'Profile name should match');
+    assert(res.dimensions?.length === 2, 'Should include dimensions');
+    console.log('  [PASS] GET /api/scoring/profiles/:id - returns profile with dimensions');
+  }
+
+  // Update profile
+  {
+    const { data: res } = await request('PATCH', `/api/scoring/profiles/${scoringProfileId}`, {
+      description: 'Updated by integration test',
+    });
+    assert(res.description === 'Updated by integration test', 'Description should be updated');
+    console.log('  [PASS] PATCH /api/scoring/profiles/:id - updates profile');
+  }
+
+  // Score a single action
+  {
+    const { data: res } = await request('POST', '/api/scoring/score', {
+      profile_id: scoringProfileId,
+      action: {
+        duration_ms: 800,
+        confidence: 0.95,
+      },
+    });
+    assert(typeof res.composite_score === 'number', 'Should return composite_score');
+    assert(res.composite_score > 90, 'Excellent action should score > 90');
+    assert(Array.isArray(res.dimensions), 'Should return dimension breakdown');
+    assert(res.dimensions.length === 2, 'Should have 2 dimension scores');
+    console.log(`  [PASS] POST /api/scoring/score (single) - scored ${res.composite_score}`);
+  }
+
+  // Batch score actions
+  {
+    const { data: res } = await request('POST', '/api/scoring/score', {
+      profile_id: scoringProfileId,
+      actions: [
+        { duration_ms: 500, confidence: 0.98 },
+        { duration_ms: 10000, confidence: 0.5 },
+        { duration_ms: 3000, confidence: 0.8 },
+      ],
+    });
+    assert(res.summary, 'Batch should return summary');
+    assert(res.summary.total === 3, 'Should process 3 actions');
+    assert(res.summary.scored === 3, 'All 3 should be scored');
+    assert(typeof res.summary.avg_score === 'number', 'Should compute avg_score');
+    console.log(`  [PASS] POST /api/scoring/score (batch) - avg ${res.summary.avg_score}`);
+  }
+
+  // Get profile score stats
+  {
+    const { data: res } = await request('GET', `/api/scoring/score?profile_id=${scoringProfileId}&view=stats`);
+    assert(typeof res.total_scores === 'number', 'Should return total_scores');
+    assert(res.total_scores >= 4, 'Should have at least 4 scores (1 single + 3 batch)');
+    assert(typeof res.avg_score === 'number', 'Should return avg_score');
+    console.log(`  [PASS] GET /api/scoring/score?view=stats - ${res.total_scores} scores, avg ${res.avg_score}`);
+  }
+
+  // Create a risk template
+  let riskTemplateId;
+  {
+    const { data: res } = await request('POST', '/api/scoring/risk-templates', {
+      name: 'Test Safety Rules',
+      action_type: 'deploy',
+      base_risk: 15,
+      rules: [
+        { condition: "metadata.environment == 'production'", add: 25 },
+        { condition: "metadata.modifies_data == true", add: 15 },
+        { condition: "metadata.irreversible == true", add: 30 },
+      ],
+    });
+    assert(res.id, 'Template should have an ID');
+    assert(res.id.startsWith('rt_'), 'Template ID should start with rt_');
+    assert(res.rules.length === 3, 'Should have 3 rules');
+    riskTemplateId = res.id;
+    console.log('  [PASS] POST /api/scoring/risk-templates - created');
+  }
+
+  // List risk templates
+  {
+    const { data: res } = await request('GET', '/api/scoring/risk-templates');
+    assert(Array.isArray(res.templates), 'Should return templates array');
+    const found = res.templates.find(t => t.id === riskTemplateId);
+    assert(found, 'Created template should be in list');
+    console.log('  [PASS] GET /api/scoring/risk-templates - lists templates');
+  }
+
+  // Update risk template
+  {
+    const { data: res } = await request('PATCH', `/api/scoring/risk-templates/${riskTemplateId}`, {
+      base_risk: 20,
+    });
+    assert(res.base_risk === 20, 'Base risk should be updated');
+    console.log('  [PASS] PATCH /api/scoring/risk-templates/:id - updated');
+  }
+
+  // Auto-calibrate
+  {
+    const { data: res } = await request('POST', '/api/scoring/calibrate', {
+      lookback_days: 30,
+    });
+    // May return 'ok' or 'insufficient_data' depending on test DB state
+    assert(res.status === 'ok' || res.status === 'insufficient_data', 'Should return valid status');
+    if (res.status === 'ok') {
+      assert(Array.isArray(res.suggestions), 'Should return suggestions array');
+      console.log(`  [PASS] POST /api/scoring/calibrate - ${res.suggestions.length} suggestions from ${res.count} actions`);
+    } else {
+      console.log(`  [PASS] POST /api/scoring/calibrate - insufficient data (${res.count} actions, need 10+)`);
+    }
+  }
+
+  // Cleanup - archive profile (soft delete)
+  {
+    const { data: res } = await request('PATCH', `/api/scoring/profiles/${scoringProfileId}`, {
+      status: 'archived',
+    });
+    assert(res.status === 'archived', 'Profile should be archived');
+    console.log('  [PASS] PATCH /api/scoring/profiles/:id - archived');
+  }
+
+  // Cleanup - delete risk template
+  {
+    const { data: res } = await request('DELETE', `/api/scoring/risk-templates/${riskTemplateId}`);
+    assert(res.deleted === true, 'Template should be deleted');
+    console.log('  [PASS] DELETE /api/scoring/risk-templates/:id - deleted');
+  }
+
+  console.log('\n--- Phase 7: All tests passed ---\n');
+}
+
+// ──────────────────────────────────────────────
 // Run all tests
 // ──────────────────────────────────────────────
 
@@ -1200,6 +1385,7 @@ async function main() {
     testComplianceExports,
     testDriftDetection,
     testLearningAnalytics,
+    testScoringProfiles,
   ];
 
   for (const phase of phases) {
