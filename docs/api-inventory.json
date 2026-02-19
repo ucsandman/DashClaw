@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 109,
+    "total_routes": 116,
     "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 49
+    "experimental_routes": 56
   },
   "routes": [
     {
@@ -783,6 +783,24 @@
       "file": "app/api/prompts/agent-connect/raw/route.js"
     },
     {
+      "path": "/api/prompts/render",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/render/route.js"
+    },
+    {
+      "path": "/api/prompts/runs",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/runs/route.js"
+    },
+    {
       "path": "/api/prompts/server-setup/raw",
       "methods": [
         "GET"
@@ -790,6 +808,56 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/prompts/server-setup/raw/route.js"
+    },
+    {
+      "path": "/api/prompts/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/stats/route.js"
+    },
+    {
+      "path": "/api/prompts/templates",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}/versions",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/versions/route.js"
+    },
+    {
+      "path": "/api/prompts/templates/{templateId}/versions/{versionId}",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/prompts/templates/[templateId]/versions/[versionId]/route.js"
     },
     {
       "path": "/api/relationships",

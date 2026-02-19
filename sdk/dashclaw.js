@@ -2420,6 +2420,65 @@ class DashClaw {
     }
     return this._request(`/api/evaluations/stats?${params}`, 'GET');
   }
+
+  // -----------------------------------------------
+  // Prompt Management
+  // -----------------------------------------------
+
+  async listPromptTemplates({ category } = {}) {
+    const params = category ? `?category=${encodeURIComponent(category)}` : '';
+    return this._request(`/api/prompts/templates${params}`, 'GET');
+  }
+
+  async createPromptTemplate({ name, description, category }) {
+    return this._request('/api/prompts/templates', 'POST', { name, description, category });
+  }
+
+  async getPromptTemplate(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'GET');
+  }
+
+  async updatePromptTemplate(templateId, fields) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'PATCH', fields);
+  }
+
+  async deletePromptTemplate(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}`, 'DELETE');
+  }
+
+  async listPromptVersions(templateId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions`, 'GET');
+  }
+
+  async createPromptVersion(templateId, { content, model_hint, parameters, changelog }) {
+    return this._request(`/api/prompts/templates/${templateId}/versions`, 'POST', { content, model_hint, parameters, changelog });
+  }
+
+  async getPromptVersion(templateId, versionId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'GET');
+  }
+
+  async activatePromptVersion(templateId, versionId) {
+    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'POST');
+  }
+
+  async renderPrompt({ template_id, version_id, variables, action_id, agent_id, record }) {
+    return this._request('/api/prompts/render', 'POST', { template_id, version_id, variables, action_id, agent_id, record });
+  }
+
+  async listPromptRuns({ template_id, version_id, limit } = {}) {
+    const params = new URLSearchParams();
+    if (template_id) params.set('template_id', template_id);
+    if (version_id) params.set('version_id', version_id);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/prompts/runs${qs}`, 'GET');
+  }
+
+  async getPromptStats({ template_id } = {}) {
+    const params = template_id ? `?template_id=${encodeURIComponent(template_id)}` : '';
+    return this._request(`/api/prompts/stats${params}`, 'GET');
+  }
 }
 
 /**

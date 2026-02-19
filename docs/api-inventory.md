@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `109`
+- Total routes: `116`
 - Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `49`
+- Experimental routes: `56`
 
 ## Routes
 
@@ -98,7 +98,14 @@ doc-type: architecture
 | `/api/policies/test` | `POST` | `stable` | `/api/policies` | `app/api/policies/test/route.js` |
 | `/api/preferences` | `GET, POST` | `experimental` | `(default)` | `app/api/preferences/route.js` |
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.js` |
+| `/api/prompts/render` | `POST` | `experimental` | `(default)` | `app/api/prompts/render/route.js` |
+| `/api/prompts/runs` | `GET` | `experimental` | `(default)` | `app/api/prompts/runs/route.js` |
 | `/api/prompts/server-setup/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/server-setup/raw/route.js` |
+| `/api/prompts/stats` | `GET` | `experimental` | `(default)` | `app/api/prompts/stats/route.js` |
+| `/api/prompts/templates` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/route.js` |
+| `/api/prompts/templates/{templateId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/route.js` |
+| `/api/prompts/templates/{templateId}/versions` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/route.js` |
+| `/api/prompts/templates/{templateId}/versions/{versionId}` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/[versionId]/route.js` |
 | `/api/relationships` | `GET, POST` | `experimental` | `/api/relationships` | `app/api/relationships/route.js` |
 | `/api/routing/agents` | `GET, POST` | `experimental` | `(default)` | `app/api/routing/agents/route.js` |
 | `/api/routing/agents/{agentId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/routing/agents/[agentId]/route.js` |

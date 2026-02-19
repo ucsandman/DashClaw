@@ -102,6 +102,7 @@ app/
 ├── compliance/                # Compliance mapping page (framework controls, gap analysis, evidence, reports)
 ├── approvals/                 # Human-in-the-loop approval queue page
 ├── swarm/                     # Swarm Intelligence dashboard (real-time neural web visualization)
+├── prompts/                   # Prompt template registry & versioning page
 ├── messages/                  # Agent communication hub (smart inbox, thread conversations, shared docs, SSE real-time)
 │   └── _components/           # Extracted sub-components (MessageList, ThreadConversation, SmartInbox, MarkdownBody, etc.)
 ├── workspace/                 # Agent workspace (digest, context, handoffs, snippets, preferences, memory)
@@ -146,6 +147,7 @@ app/
     ├── handoffs/              # Session handoffs API (GET/POST)
     ├── context/               # Context manager: points, threads, entries
     ├── snippets/              # Automation snippets CRUD + use counter
+    ├── prompts/               # Prompt management: templates, versions, runs, stats
     ├── swarm/graph            # Swarm graph data (nodes + links)
     ├── preferences/           # User preferences (observations, prefs, moods, approaches)
     ├── digest/                # Daily digest aggregation (GET only)
@@ -885,6 +887,8 @@ const claw = new DashClaw({
 **Dashboard Data (9)**: `reportTokenUsage()`, `recordDecision()`, `createGoal()`, `recordContent()`, `recordInteraction()`, `reportConnections()`, `createCalendarEvent()`, `recordIdea()`, `reportMemoryHealth()`
 
 **Session Handoffs (3)**: `createHandoff()`, `getHandoffs()`, `getLatestHandoff()`
+
+**Prompt Management (12)**: `listPromptTemplates()`, `createPromptTemplate()`, `getPromptTemplate()`, `updatePromptTemplate()`, `deletePromptTemplate()`, `listPromptVersions()`, `createPromptVersion()`, `getPromptVersion()`, `activatePromptVersion()`, `renderPrompt()`, `listPromptRuns()`, `getPromptStats()`
 
 **Context Manager (7)**: `captureKeyPoint()`, `getKeyPoints()`, `createThread()`, `addThreadEntry()`, `closeThread()`, `getThreads()`, `getContextSummary()`
 

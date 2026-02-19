@@ -620,6 +620,58 @@ const { summary } = await claw.getPreferenceSummary();
 const { approaches } = await claw.getApproaches({ limit: 20 });
 ```
 
+### Prompt Management (12 methods)
+
+```javascript
+// List prompt templates
+const { templates } = await claw.listPromptTemplates({ category: 'agent' });
+
+// Create a template
+const template = await claw.createPromptTemplate({
+  name: 'Code Reviewer',
+  description: 'Prompt for reviewing PRs',
+  category: 'agent',
+});
+
+// Get template details
+const t = await claw.getPromptTemplate('pt_xxx');
+
+// Update template
+await claw.updatePromptTemplate('pt_xxx', { description: 'Updated desc' });
+
+// Delete template
+await claw.deletePromptTemplate('pt_xxx');
+
+// List versions for a template
+const { versions } = await claw.listPromptVersions('pt_xxx');
+
+// Create a new immutable version
+const version = await claw.createPromptVersion('pt_xxx', {
+  content: 'Review this code: {{code}}',
+  model_hint: 'gpt-4o',
+  changelog: 'Initial version',
+});
+
+// Get a specific version
+const v = await claw.getPromptVersion('pt_xxx', 'pv_yyy');
+
+// Activate a version (sets is_active=true, deactivates others)
+await claw.activatePromptVersion('pt_xxx', 'pv_yyy');
+
+// Render a prompt with variables
+const { rendered, run_id } = await claw.renderPrompt({
+  template_id: 'pt_xxx',
+  variables: { code: 'console.log("hello")' },
+  record: true, // optionally track this usage
+});
+
+// List usage runs
+const { runs } = await claw.listPromptRuns({ template_id: 'pt_xxx', limit: 50 });
+
+// Get usage stats
+const stats = await claw.getPromptStats({ template_id: 'pt_xxx' });
+```
+
 ### Daily Digest (1 method)
 
 ```javascript
@@ -1600,6 +1652,7 @@ MOST USED METHODS:
   claw.rebuildRecommendations({ lookback_days?, min_samples? })
   claw.recommendAction({ action_type, declared_goal, ... })
   claw.createHandoff({ summary, key_decisions, open_tasks })
+  claw.renderPrompt({ template_id, variables, record: true })
   claw.syncState({ connections, memory, goals, learning, ... })
 
 GUARD MODES:

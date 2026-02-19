@@ -1188,6 +1188,30 @@ export async function middleware(request) {
         return demoJson(request, { available: false, provider: null, model: null });
       }
 
+      // -- Prompt Management demo endpoints --
+      if (pathname === '/api/prompts/templates') {
+        return demoJson(request, { templates: fixtures.promptTemplates });
+      }
+      if (pathname.match(/^\/api\/prompts\/templates\/[^/]+$/)) {
+        const id = pathname.split('/').pop();
+        const tmpl = fixtures.promptTemplates.find(t => t.id === id);
+        return tmpl ? demoJson(request, tmpl) : demoJson(request, { error: 'Not found' }, 404);
+      }
+      if (pathname.match(/^\/api\/prompts\/templates\/[^/]+\/versions$/)) {
+        const templateId = pathname.split('/')[4];
+        const versions = fixtures.promptVersions[templateId] || [];
+        return demoJson(request, { versions });
+      }
+      if (pathname === '/api/prompts/render') {
+        return demoJson(request, { rendered: 'Analyze the following agent decision and rate quality 1-10.\n\nAgent: ClawdBot\nAction: deploy\nGoal: Deploy latest build\nOutcome: Success\n\nCriteria:\n- Goal alignment\n- Risk awareness\n- Efficiency\n\nProvide a structured assessment.', version_id: 'pv_demo_001_3', template_id: 'pt_demo_001', version: 3, parameters: ['agent_name', 'action_type', 'declared_goal', 'outcome'] });
+      }
+      if (pathname === '/api/prompts/runs') {
+        return demoJson(request, { runs: fixtures.promptRuns });
+      }
+      if (pathname === '/api/prompts/stats') {
+        return demoJson(request, fixtures.promptStats);
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1624,6 +1648,9 @@ export const config = {
     '/evaluations',
     '/evaluations/:path*',
     '/api/evaluations/:path*',
+    '/prompts',
+    '/prompts/:path*',
+    '/api/prompts/:path*',
     '/api/settings/llm-status',
     '/invite/:path*',
     '/login',

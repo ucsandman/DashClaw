@@ -1226,13 +1226,87 @@ class DashClaw:
         payload = {"agent_id": self.agent_id, **state}
         return self._request("/api/sync", method="POST", body=payload)
 
+    # -----------------------------------------------
+    # Prompt Management
+    # -----------------------------------------------
+
+    def list_prompt_templates(self, category: str = None) -> dict:
+        """List all prompt templates, optionally filtered by category."""
+        params = f"?category={category}" if category else ""
+        return self._request(f"/api/prompts/templates{params}", "GET")
+
+    def create_prompt_template(self, name: str, description: str = "", category: str = "general") -> dict:
+        """Create a new prompt template."""
+        return self._request("/api/prompts/templates", "POST", body={"name": name, "description": description, "category": category})
+
+    def get_prompt_template(self, template_id: str) -> dict:
+        """Get a prompt template by ID."""
+        return self._request(f"/api/prompts/templates/{template_id}", "GET")
+
+    def update_prompt_template(self, template_id: str, **fields) -> dict:
+        """Update a prompt template (name, description, category)."""
+        return self._request(f"/api/prompts/templates/{template_id}", "PATCH", body=fields)
+
+    def delete_prompt_template(self, template_id: str) -> dict:
+        """Delete a prompt template and all its versions."""
+        return self._request(f"/api/prompts/templates/{template_id}", "DELETE")
+
+    def list_prompt_versions(self, template_id: str) -> dict:
+        """List all versions for a template."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions", "GET")
+
+    def create_prompt_version(self, template_id: str, content: str, model_hint: str = "", parameters: list = None, changelog: str = "") -> dict:
+        """Create a new version for a template."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions", "POST", body={
+            "content": content,
+            "model_hint": model_hint,
+            "parameters": parameters or [],
+            "changelog": changelog,
+        })
+
+    def get_prompt_version(self, template_id: str, version_id: str) -> dict:
+        """Get a specific version."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions/{version_id}", "GET")
+
+    def activate_prompt_version(self, template_id: str, version_id: str) -> dict:
+        """Activate a specific version (deactivates all others for that template)."""
+        return self._request(f"/api/prompts/templates/{template_id}/versions/{version_id}", "POST")
+
+    def render_prompt(self, template_id: str = None, version_id: str = None, variables: dict = None, action_id: str = None, agent_id: str = None, record: bool = False) -> dict:
+        """Render a prompt template with variables. Optionally record as a prompt run."""
+        return self._request("/api/prompts/render", "POST", body={
+            "template_id": template_id,
+            "version_id": version_id,
+            "variables": variables or {},
+            "action_id": action_id,
+            "agent_id": agent_id,
+            "record": record,
+        })
+
+    def list_prompt_runs(self, template_id: str = None, version_id: str = None, limit: int = 50) -> dict:
+        """List prompt execution runs."""
+        params = []
+        if template_id:
+            params.append(f"template_id={template_id}")
+        if version_id:
+            params.append(f"version_id={version_id}")
+        if limit:
+            params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request(f"/api/prompts/runs{qs}", "GET")
+
+    def get_prompt_stats(self, template_id: str = None) -> dict:
+        """Get prompt usage statistics."""
+        params = f"?template_id={template_id}" if template_id else ""
+        return self._request(f"/api/prompts/stats{params}", "GET")
+
     # ----------------------------------------------
     # Category: Evaluations
     # ----------------------------------------------
 
     def create_score(self, action_id, scorer_name, score, label=None, reasoning=None, evaluated_by=None, metadata=None):
         """Create an evaluation score for an action."""
-        return self._request("POST", "/api/evaluations", {
+        return self._request("/api/evaluations", "POST", body={
             "action_id": action_id,
             "scorer_name": scorer_name,
             "score": score,
@@ -1244,11 +1318,13 @@ class DashClaw:
 
     def get_scores(self, **filters):
         """List evaluation scores with optional filters."""
-        return self._request("GET", "/api/evaluations", params=filters)
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations?{query}" if query else "/api/evaluations"
+        return self._request(path, "GET")
 
     def create_scorer(self, name, scorer_type, config=None, description=None):
         """Create a reusable scorer definition."""
-        return self._request("POST", "/api/evaluations/scorers", {
+        return self._request("/api/evaluations/scorers", "POST", body={
             "name": name,
             "scorer_type": scorer_type,
             "config": config,
@@ -1257,19 +1333,19 @@ class DashClaw:
 
     def get_scorers(self):
         """List all scorers for this org."""
-        return self._request("GET", "/api/evaluations/scorers")
+        return self._request("/api/evaluations/scorers", "GET")
 
     def update_scorer(self, scorer_id, **updates):
         """Update a scorer."""
-        return self._request("PATCH", f"/api/evaluations/scorers/{scorer_id}", updates)
+        return self._request(f"/api/evaluations/scorers/{scorer_id}", "PATCH", body=updates)
 
     def delete_scorer(self, scorer_id):
         """Delete a scorer."""
-        return self._request("DELETE", f"/api/evaluations/scorers/{scorer_id}")
+        return self._request(f"/api/evaluations/scorers/{scorer_id}", "DELETE")
 
     def create_eval_run(self, name, scorer_id, action_filters=None):
         """Create and start an evaluation run."""
-        return self._request("POST", "/api/evaluations/runs", {
+        return self._request("/api/evaluations/runs", "POST", body={
             "name": name,
             "scorer_id": scorer_id,
             "action_filters": action_filters,
@@ -1277,15 +1353,19 @@ class DashClaw:
 
     def get_eval_runs(self, **filters):
         """List evaluation runs."""
-        return self._request("GET", "/api/evaluations/runs", params=filters)
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations/runs?{query}" if query else "/api/evaluations/runs"
+        return self._request(path, "GET")
 
     def get_eval_run(self, run_id):
         """Get details of an evaluation run."""
-        return self._request("GET", f"/api/evaluations/runs/{run_id}")
+        return self._request(f"/api/evaluations/runs/{run_id}", "GET")
 
     def get_eval_stats(self, **filters):
         """Get aggregate evaluation statistics."""
-        return self._request("GET", "/api/evaluations/stats", params=filters)
+        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
+        path = f"/api/evaluations/stats?{query}" if query else "/api/evaluations/stats"
+        return self._request(path, "GET")
 
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

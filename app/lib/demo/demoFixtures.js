@@ -1283,6 +1283,77 @@ function buildFixtures() {
     trends: [],
   };
 
+  const promptTemplates = [
+    {
+      id: 'pt_demo_001',
+      org_id: 'org_demo',
+      name: 'Decision Analysis',
+      description: 'Evaluates agent decision quality against defined criteria',
+      category: 'evaluation',
+      version_count: 3,
+      active_version: 3,
+      created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'pt_demo_002',
+      org_id: 'org_demo',
+      name: 'Risk Assessment',
+      description: 'Scores action risk level based on context and history',
+      category: 'system',
+      version_count: 2,
+      active_version: 2,
+      created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+    {
+      id: 'pt_demo_003',
+      org_id: 'org_demo',
+      name: 'Task Delegation',
+      description: 'Generates task breakdown and delegation instructions for agents',
+      category: 'agent',
+      version_count: 1,
+      active_version: 1,
+      created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+      updated_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString(),
+    },
+  ];
+
+  const promptVersions = {
+    'pt_demo_001': [
+      { id: 'pv_demo_001_3', org_id: 'org_demo', template_id: 'pt_demo_001', version: 3, content: 'Analyze the following agent decision and rate quality 1-10.\n\nAgent: {{agent_name}}\nAction: {{action_type}}\nGoal: {{declared_goal}}\nOutcome: {{outcome}}\n\nCriteria:\n- Goal alignment\n- Risk awareness\n- Efficiency\n\nProvide a structured assessment.', model_hint: 'gpt-4o-mini', parameters: '["agent_name","action_type","declared_goal","outcome"]', changelog: 'Added efficiency criterion', is_active: true, created_by: 'user', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: 'pv_demo_001_2', org_id: 'org_demo', template_id: 'pt_demo_001', version: 2, content: 'Analyze the following agent decision and rate quality 1-10.\n\nAgent: {{agent_name}}\nAction: {{action_type}}\nGoal: {{declared_goal}}\nOutcome: {{outcome}}\n\nCriteria:\n- Goal alignment\n- Risk awareness', model_hint: 'gpt-4o-mini', parameters: '["agent_name","action_type","declared_goal","outcome"]', changelog: 'Added risk awareness', is_active: false, created_by: 'user', created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+      { id: 'pv_demo_001_1', org_id: 'org_demo', template_id: 'pt_demo_001', version: 1, content: 'Analyze the following agent decision.\n\nAgent: {{agent_name}}\nAction: {{action_type}}\nGoal: {{declared_goal}}', model_hint: '', parameters: '["agent_name","action_type","declared_goal"]', changelog: 'Initial version', is_active: false, created_by: 'user', created_at: new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString() },
+    ],
+    'pt_demo_002': [
+      { id: 'pv_demo_002_2', org_id: 'org_demo', template_id: 'pt_demo_002', version: 2, content: 'Assess the risk level of this agent action.\n\nAction: {{action_type}}\nRisk Score: {{risk_score}}\nSystems: {{systems_touched}}\n\nClassify as: low, medium, high, critical.', model_hint: '', parameters: '["action_type","risk_score","systems_touched"]', changelog: 'Added systems touched', is_active: true, created_by: 'user', created_at: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString() },
+    ],
+    'pt_demo_003': [
+      { id: 'pv_demo_003_1', org_id: 'org_demo', template_id: 'pt_demo_003', version: 1, content: 'Break down this task for agent delegation.\n\nTask: {{task_description}}\nAvailable Agents: {{agent_list}}\nPriority: {{priority}}\n\nAssign subtasks and set deadlines.', model_hint: '', parameters: '["task_description","agent_list","priority"]', changelog: 'Initial version', is_active: true, created_by: 'user', created_at: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString() },
+    ],
+  };
+
+  const promptRuns = Array.from({ length: 20 }).map((_, i) => ({
+    id: `pr_demo_${String(i).padStart(3, '0')}`,
+    org_id: 'org_demo',
+    template_name: ['Decision Analysis', 'Risk Assessment', 'Task Delegation'][i % 3],
+    version: [3, 2, 1][i % 3],
+    agent_id: ['clawdbot', 'research-agent', ''][i % 3],
+    tokens_used: 150 + Math.floor(Math.random() * 300),
+    latency_ms: 50 + Math.floor(Math.random() * 200),
+    created_at: new Date(Date.now() - (20 - i) * 3 * 60 * 60 * 1000).toISOString(),
+  }));
+
+  const promptStats = {
+    overall: { total_runs: 847, unique_templates: 3, avg_tokens: 234, avg_latency_ms: 120, today_count: 18 },
+    by_template: [
+      { template_name: 'Decision Analysis', total_runs: 412, avg_tokens: 280, avg_latency_ms: 145 },
+      { template_name: 'Risk Assessment', total_runs: 289, avg_tokens: 195, avg_latency_ms: 98 },
+      { template_name: 'Task Delegation', total_runs: 146, avg_tokens: 210, avg_latency_ms: 115 },
+    ],
+    by_version: [],
+  };
+
   return {
     agents,
     actions,
@@ -1343,6 +1414,10 @@ function buildFixtures() {
     evalScores,
     evalRuns,
     evalStats,
+    promptTemplates,
+    promptVersions,
+    promptRuns,
+    promptStats,
   };
 }
 
