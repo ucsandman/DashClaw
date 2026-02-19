@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listMetrics } from '../../../../lib/drift.js';
+import { listMetrics } from '../../../lib/drift.js';
 
 export async function GET() {
   try {
