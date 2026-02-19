@@ -70,6 +70,7 @@ app/
 ├── lib/llm.js                 # LLM client with provider abstraction (OpenAI, Anthropic, Google)
 ├── lib/eval.js                # Evaluation execution engine (regex, contains, llm_judge, etc.)
 ├── lib/learningAnalytics.js   # Agent learning velocity & maturity tracking engine
+├── lib/scoringProfiles.js     # Rule-based multi-dimensional scoring engine (Phase 7)
 ├── components/
 │   ├── ui/                    # Shared primitives (Card, Badge, Stat, ProgressBar, EmptyState, Skeleton)
 │   ├── Sidebar.js             # Persistent sidebar navigation (links to /dashboard)
@@ -104,6 +105,7 @@ app/
 ├── approvals/                 # Human-in-the-loop approval queue page
 ├── swarm/                     # Swarm Intelligence dashboard (real-time neural web visualization)
 ├── prompts/                   # Prompt template registry & versioning page
+├── scoring/                   # Scoring profiles & risk templates page (Phase 7)
 ├── messages/                  # Agent communication hub (smart inbox, thread conversations, shared docs, SSE real-time)
 │   └── _components/           # Extracted sub-components (MessageList, ThreadConversation, SmartInbox, MarkdownBody, etc.)
 ├── workspace/                 # Agent workspace (digest, context, handoffs, snippets, preferences, memory)
@@ -150,6 +152,7 @@ app/
     ├── context/               # Context manager: points, threads, entries
     ├── snippets/              # Automation snippets CRUD + use counter
     ├── prompts/               # Prompt management: templates, versions, runs, stats
+    ├── scoring/               # Scoring profiles API (GET/POST/PATCH/DELETE) (Phase 7)
     ├── swarm/graph            # Swarm graph data (nodes + links)
     ├── preferences/           # User preferences (observations, prefs, moods, approaches)
     ├── digest/                # Daily digest aggregation (GET only)
@@ -163,7 +166,7 @@ app/
     └── messages/              # Agent messaging (messages, threads, shared docs)
 
 sdk/
-├── dashclaw.js                # DashClaw SDK (96+ methods across 22+ categories, zero deps, ESM)
+├── dashclaw.js                # DashClaw SDK (113+ methods across 23+ categories, zero deps, ESM)
 ├── index.cjs                  # CJS compatibility wrapper
 ├── package.json               # npm package config (name: dashclaw)
 ├── LICENSE                    # MIT
@@ -182,6 +185,7 @@ scripts/
 ├── test-actions.mjs           # Integration test suite (~175 assertions, 19 phases)
 ├── test-full-api.mjs          # Full API test suite (~186 assertions, 15 phases, all remaining routes)
 ├── migrate-multi-tenant.mjs   # Multi-tenant migration (idempotent)
+├── migrate-scoring-profiles.mjs # Scoring profiles migration (Phase 7)
 ├── create-org.mjs             # CLI: create org + admin API key
 ├── report-tokens.mjs          # CLI: parse Claude Code /status and POST to /api/tokens (disabled)
 ├── report-action.mjs          # CLI: create/update action records via API
@@ -286,18 +290,18 @@ function getSql() {
 
 ### UI/Design System
 - **Dark-only theme** - flat surfaces, no glassmorphism or gradients
-- **Design tokens** in `globals.css` as CSS custom properties (`--color-brand`, `--color-bg-primary`, `--color-border`, etc.)
-- **Tailwind extension** in `tailwind.config.js` maps CSS variables to utility classes (`bg-brand`, `bg-surface-secondary`, `text-zinc-300`, etc.)
-- **Shared primitives** in `app/components/ui/`: `Card`/`CardHeader`/`CardContent`, `Badge` (6 variants), `Stat`/`StatCompact`, `ProgressBar`, `EmptyState`, `Skeleton`/`CardSkeleton`/`ListSkeleton`
-- **Icons**: All via `lucide-react` - no emoji anywhere in rendered UI
-- **Navigation**: Persistent `Sidebar.js` (w-56 desktop, collapsible to w-14, hamburger on mobile)
-- **Page structure**: `PageLayout.js` wraps every page (breadcrumbs, sticky header, title/subtitle, action buttons, NotificationCenter, AgentFilterDropdown)
-- **Agent filter**: `AgentFilterContext.js` provides global agent filter; `AgentFilterDropdown.js` renders in PageLayout header. `AgentFilterProvider` is in `SessionWrapper.js` (global - persists across all pages). All data pages (Content, Goals, Learning, Relationships, Workflows, Security) pass `?agent_id=X` when filter is active.
-- **Agent colors**: `app/lib/colors.js` - `getAgentColor(agentId)` returns consistent hash-based color from 8-color palette
-- **Typography**: Inter font, `text-sm text-zinc-300` body, `text-xs text-zinc-500` labels, `font-mono text-xs` for timestamps/IDs, stat numbers max `text-2xl tabular-nums`
-- **Dashboard grid**: Draggable/resizable 4-column layout in `DraggableDashboard.js` using `react-grid-layout` v2 with `useContainerWidth` (measureBeforeMount). Layout persists to localStorage via `dashboardLayoutState.js` (layout version 2). "Reset Layout" button in page header clears saved positions. Mobile (< 768px) stacks cards in single column with drag/resize disabled. Most cards include a "View all →" link that navigates to the corresponding full-page view (e.g. `/actions`, `/goals`, `/security`, `/learning`, `/usage`, `/workspace`, `/relationships`, `/calendar`). Includes `ActivityTimeline` card (merged chronological view of actions, open loops, and learning events with real-time SSE updates).
-- **System status bar**: `SystemStatusBar.js` renders below the page header on every dashboard page. Fetches `/api/actions/signals`, computes system state from signal counts (STABLE/REVIEWING/DRIFTING/ELEVATED/ALERT), shows red/amber/all-clear indicators. Auto-refreshes every 30 seconds. Respects global agent filter.
-- **GoalsChart**: Summary stats (total, active, completed, avg progress) + top 5 goals with progress bars. No Recharts dependency — uses `StatCompact` and `ProgressBar` primitives.
+- **Design tokens** in \`globals.css\` as CSS custom properties (\`--color-brand\`, \`--color-bg-primary\`, \`--color-border\`, etc.)
+- **Tailwind extension** in \`tailwind.config.js\` maps CSS variables to utility classes (\`bg-brand\`, \`bg-surface-secondary\`, \`text-zinc-300\`, etc.)
+- **Shared primitives** in \`app/components/ui/\`: \`Card\`/\`CardHeader\`/\`CardContent\`, \`Badge\` (6 variants), \`Stat\`/\`StatCompact\`, \`ProgressBar\`, \`EmptyState\`, \`Skeleton\`/\`CardSkeleton\`/\`ListSkeleton\`
+- **Icons**: All via \`lucide-react\` - no emoji anywhere in rendered UI
+- **Navigation**: Persistent \`Sidebar.js\` (w-56 desktop, collapsible to w-14, hamburger on mobile)
+- **Page structure**: \`PageLayout.js\` wraps every page (breadcrumbs, sticky header, title/subtitle, action buttons, NotificationCenter, AgentFilterDropdown)
+- **Agent filter**: \`AgentFilterContext.js\` provides global agent filter; \`AgentFilterDropdown.js\` renders in PageLayout header. \`AgentFilterProvider\` is in \`SessionWrapper.js\` (global - persists across all pages). All data pages (Content, Goals, Learning, Relationships, Workflows, Security) pass \`?agent_id=X\` when filter is active.
+- **Agent colors**: \`app/lib/colors.js\` - \`getAgentColor(agentId)\` returns consistent hash-based color from 8-color palette
+- **Typography**: Inter font, \`text-sm text-zinc-300\` body, \`text-xs text-zinc-500\` labels, \`font-mono text-xs\` for timestamps/IDs, stat numbers max \`text-2xl tabular-nums\`
+- **Dashboard grid**: Draggable/resizable 4-column layout in \`DraggableDashboard.js\` using \`react-grid-layout\` v2 with \`useContainerWidth\` (measureBeforeMount). Layout persists to localStorage via \`dashboardLayoutState.js\` (layout version 2). "Reset Layout" button in page header clears saved positions. Mobile (< 768px) stacks cards in single column with drag/resize disabled. Most cards include a "View all →" link that navigates to the corresponding full-page view (e.g. \`/actions\`, \`/goals\`, \`/security\`, \`/learning\`, \`/usage\`, \`/workspace\`, \`/relationships\`, \`/calendar\`). Includes \`ActivityTimeline\` card (merged chronological view of actions, open loops, and learning events with real-time SSE updates).
+- **System status bar**: \`SystemStatusBar.js\` renders below the page header on every dashboard page. Fetches \`/api/actions/signals\`, computes system state from signal counts (STABLE/REVIEWING/DRIFTING/ELEVATED/ALERT), shows red/amber/all-clear indicators. Auto-refreshes every 30 seconds. Respects global agent filter.
+- **GoalsChart**: Summary stats (total, active, completed, avg progress) + top 5 goals with progress bars. No Recharts dependency — uses \`StatCompact\` and \`ProgressBar\` primitives.
 
 ## Detailed API Routes (POST-enabled)
 - `GET /api/agents` - list agents (discovered from action records plus other core tables like goals/decisions; supports `?include_connections=true`)
@@ -345,6 +349,13 @@ function getSql() {
 - `GET/POST /api/evaluations/runs` - batch evaluation runs (POST: admin only, executes async)
 - `GET/PATCH /api/evaluations/runs/[runId]` - run details, distribution stats + status update
 - `GET /api/evaluations/stats` - aggregate evaluation statistics (trends, by scorer, distribution)
+- `GET /api/scoring/profiles` - list scoring profiles (Phase 7)
+- `POST /api/scoring/profiles` - create scoring profile (inline dimensions supported)
+- `PATCH/DELETE /api/scoring/profiles/[profileId]` - manage scoring profile
+- `POST /api/scoring/profiles/[profileId]/dimensions` - add dimension to profile
+- `POST /api/scoring/score` - score actions against profile (single or batch)
+- `GET /api/scoring/risk-templates` - list risk templates
+- `POST /api/scoring/calibrate` - statistical auto-calibration from action data
 - `GET /api/settings/llm-status` - check if an AI provider is configured (OpenAI, Anthropic, or Google)
 - `GET/POST/PATCH /api/messages` - agent messages (GET: `?agent_id`, `?direction=inbox|sent|all`, `?type`, `?unread=true`, `?thread_id`; POST: send message; PATCH: batch read/archive)
 - `GET/POST/PATCH /api/messages/threads` - message threads (GET: `?status`, `?agent_id`; POST: create; PATCH: resolve/update)
@@ -418,7 +429,7 @@ function getSql() {
   - `GET/POST /api/actions/loops` - list + create open loops
   - `GET/PATCH /api/actions/loops/[loopId]` - single loop + resolve/cancel
   - `GET /api/actions/signals` - 7 risk signal types (autonomy_spike, high_impact_low_oversight, repeated_failures, stale_loop, assumption_drift, stale_assumption, stale_running_action)
-- SDK: `sdk/dashclaw.js` - 96+ methods across 22+ categories with full Node/Python parity (see `docs/client-setup-guide.md` for current method reference)
+- SDK: `sdk/dashclaw.js` - 113+ methods across 23+ categories with full Node/Python parity (see `docs/client-setup-guide.md` for current method reference)
 - Tests: `scripts/test-actions.mjs` - ~219 assertions across 19 phases (core actions/SDK)
 - Tests: `scripts/test-full-api.mjs` - ~186 assertions across 15 phases (all remaining API routes)
 - Post-mortem UI: interactive validate/invalidate assumptions, resolve/cancel loops, root-cause analysis
@@ -447,496 +458,127 @@ Token tracking is disabled in the dashboard UI pending a better approach. The AP
 
 ### Users Table (NextAuth)
 - `users` - OAuth users for dashboard access (managed by auth, not tenant-scoped)
-- Columns: `id` (TEXT `usr_` prefix), `org_id` (TEXT, default `org_default`), `email`, `name`, `image`, `provider`, `provider_account_id`, `role`, `created_at`, `last_login_at`
-- Unique index: `users_provider_account_unique` on `(provider, provider_account_id)`
-- Upserted on every login via `signIn` callback in `app/lib/auth.js`
-- Migration Step 15 in `migrate-multi-tenant.mjs`
+- Columns: `id` (TEXT `usr_` prefix), `org_id` (TEXT, default `org_default`), `email`, `name`, `image`, `provider`, `provider_account_id`, `role`, \`created_at\`, \`last_login_at\`
+- Unique index: \`users_provider_account_unique\` on \`(provider, provider_account_id)\`
+- Upserted on every login via \`signIn\` callback in \`app/lib/auth.js\`
+- Migration Step 15 in \`migrate-multi-tenant.mjs\`
 
 ### Agent ID on Data Tables
-- Step 16: `agent_id TEXT` added to `content`, `contacts`, `interactions`, `goals`, `milestones`, `workflows`, `executions`
+- Step 16: \`agent_id TEXT\` added to \`content\`, \`contacts\`, \`interactions\`, \`goals\`, \`milestones\`, \`workflows\`, \`executions\`
 - Nullable (legacy records get NULL), indexed per table
-- API routes for all 7 tables support `?agent_id=X` GET filter
-- POST endpoints for content, goals, relationships accept `agent_id` in body
-- SDK methods `createGoal()`, `recordContent()`, `recordInteraction()` auto-send `agent_id`
-- Signals API: post-filters assembled signals by `agent_id`
-- Assumptions API: adds `ar.agent_id` to dynamic WHERE clause
+- API routes for all 7 tables support \`?agent_id=X\` GET filter
+- POST endpoints for content, goals, relationships accept \`agent_id\` in body
+- SDK methods \`createGoal()\`, \`recordContent()\`, \`recordInteraction()\` auto-send \`agent_id\`
+- Signals API: post-filters assembled signals by \`agent_id\`
+- Assumptions API: adds \`ar.agent_id\` to dynamic WHERE clause
 
 ### Security Page
-- Route: `/security` (client component, behind auth middleware)
-- Fetches 3 endpoints: `/api/actions/signals`, `/api/actions?limit=100`, `/api/actions/assumptions?drift=true`
+- Route: \`/security\` (client component, behind auth middleware)
+- Fetches 3 endpoints: \`/api/actions/signals\`, \`/api/actions?limit=100\`, \`/api/actions/assumptions?drift=true\`
 - Stats bar: Active Signals, High-Risk (24h), Unscoped Actions, Invalidated Assumptions (7d)
 - Signal feed (left): clickable rows sorted by severity, opens SecurityDetailPanel
 - High-risk actions (right): actions with risk_score>=70 OR (unscoped AND irreversible)
-- SecurityDetailPanel: slide-out drawer from right, closes on Escape/backdrop click, supports `onDismiss` callback
-- Signal dismissal: client-side via localStorage (`dashclaw_dismissed_signals`), hash = `type:agent_id:action_id:loop_id:assumption_id`
+- SecurityDetailPanel: slide-out drawer from right, closes on Escape/backdrop click, supports \`onDismiss\` callback
+- Signal dismissal: client-side via localStorage (\`dashclaw_dismissed_signals\`), hash = \`type:agent_id:action_id:loop_id:assumption_id\`
 - Dismiss per-signal (X button), "Clear All" header action, "Show Dismissed" toggle with restore (Undo2) buttons
 - Stats bar reflects active (non-dismissed) signals only
 - Auto-refresh every 30 seconds; respects global agent filter
 - Sidebar: "Security" link with ShieldAlert icon in Operations group
 
 ## Team & Invites (Implemented)
-- Route: `/team` - manage workspace members, invite links, role changes
-- Table: `invites` (id `inv_` prefix, org_id, email, role, token, invited_by, status, accepted_by, expires_at, created_at)
+- Route: \`/team\` - manage workspace members, invite links, role changes
+- Table: \`invites\` (id \`inv_\` prefix, org_id, email, role, token, invited_by, status, accepted_by, expires_at, created_at)
 - Invite tokens: 64 hex chars, 7-day expiry, link-based (no email service needed)
-- API: `GET /api/team` - list members + org info (rejects `org_default`)
-- API: `GET/POST/DELETE /api/team/invite` - invite CRUD (admin only)
-- API: `PATCH/DELETE /api/team/[userId]` - role change + remove member (admin only; DELETE `?action=leave` for self-leave)
-- API: `GET/POST /api/invite/[token]` - public GET for invite details, POST to accept (requires auth)
-- Single org per user: users on `org_default` can accept; users on another org must leave first
-- Invite accept is race-safe (`WHERE status='pending'` in UPDATE)
-- Leave workspace: moves user back to `org_default`, hidden for last admin
+- API: \`GET /api/team\` - list members + org info (rejects \`org_default\`)
+- API: \`GET/POST/DELETE /api/team/invite\` - invite CRUD (admin only)
+- API: \`PATCH/DELETE /api/team/[userId]\` - role change + remove member (admin only; DELETE \`?action=leave\` for self-leave)
+- API: \`GET/POST /api/invite/[token]\` - public GET for invite details, POST to accept (requires auth)
+- Single org per user: users on \`org_default\` can accept; users on another org must leave first
+- Invite accept is race-safe (\`WHERE status='pending'\` in UPDATE)
+- Leave workspace: moves user back to \`org_default\`, hidden for last admin
 - Sidebar: "Team" link with UsersRound icon in System group
-- Migration Step 17 in `migrate-multi-tenant.mjs`
+- Migration Step 17 in \`migrate-multi-tenant.mjs\`
 
 ### Invites Table
-- `invites` - team invitation links
-- Columns: `id` (TEXT `inv_` prefix), `org_id`, `email` (nullable - NULL = open invite), `role` (admin/member), `token` (UNIQUE, 64 hex chars), `invited_by` (usr_ id), `status` (pending/accepted/revoked), `accepted_by` (usr_ id), `expires_at` (TEXT ISO), `created_at` (TEXT ISO)
-- Indexes: `idx_invites_token`, `idx_invites_org_id`, `idx_invites_status`
-- Migration Step 17 in `migrate-multi-tenant.mjs` + `ensureTable()` fallback in invite route
+- \`invites\` - team invitation links
+- Columns: \`id\` (TEXT \`inv_\` prefix), \`org_id\`, \`email\` (nullable - NULL = open invite), \`role\` (admin/member), \`token\` (UNIQUE, 64 hex chars), \`invited_by\` (usr_ id), \`status\` (pending/accepted/revoked), \`accepted_by\` (usr_ id), \`expires_at\` (TEXT ISO), \`created_at\` (TEXT ISO)
+- Indexes: \`idx_invites_token\`, \`idx_invites_org_id\`, \`idx_invites_status\`
+- Migration Step 17 in \`migrate-multi-tenant.mjs\` + \`ensureTable()\` fallback in invite route
 
 ### Usage Meters Table
-- `usage_meters` - atomic counters for billing quota enforcement (replaces live COUNTs)
-- Columns: `id` (SERIAL), `org_id`, `period` (TEXT: `'YYYY-MM'` for monthly or `'current'` for snapshots), `resource` (TEXT: `actions_per_month` | `agents` | `members` | `api_keys`), `count` (INTEGER), `last_reconciled_at` (TEXT), `updated_at` (TEXT)
-- Unique index: `usage_meters_org_period_resource_unique` on `(org_id, period, resource)` - enables atomic `INSERT ... ON CONFLICT DO UPDATE`
-- Monthly resources (`actions_per_month`, `agents`): period = `'2026-02'`; snapshot resources (`members`, `api_keys`): period = `'current'`
+- \`usage_meters\` - atomic counters for billing quota enforcement (replaces live COUNTs)
+- Columns: \`id\` (SERIAL), \`org_id\`, \`period\` (TEXT: \`'YYYY-MM'\` for monthly or \`'current'\` for snapshots), \`resource\` (TEXT: \`actions_per_month\` | \`agents\` | \`members\` | \`api_keys\`), \`count\` (INTEGER), \`last_reconciled_at\` (TEXT), \`updated_at\` (TEXT)
+- Unique index: \`usage_meters_org_period_resource_unique\` on \`(org_id, period, resource)\` - enables atomic \`INSERT ... ON CONFLICT DO UPDATE\`
+- Monthly resources (\`actions_per_month\`, \`agents\`): period = \`'2026-02'\`; snapshot resources (\`members\`, \`api_keys\`): period = \`'current'\`
 - Cold start: first request seeds meters from live COUNTs; subsequent requests read 1 row
-- Increments are fire-and-forget (don't block API responses); `GREATEST(0, count + delta)` prevents negative counters
-- Functions in `app/lib/usage.js`: `getCurrentPeriod()`, `incrementMeter()`, `checkQuotaFast()`, `seedMeters()` (private)
-- `getUsage()` reads from meters (1 query for up to 4 rows); `checkQuota()` delegates to `checkQuotaFast()`
-- Meter increment points: `POST /api/actions` (+actions, +agents if new), `POST/DELETE /api/keys` (+/-api_keys), `POST /api/invite/[token]` accept (+members), `DELETE /api/team/[userId]` (-members)
-- Migration Step 19 in `migrate-multi-tenant.mjs`
+- Increments are fire-and-forget (don't block API responses); \`GREATEST(0, count + delta)\` prevents negative counters
+- Functions in \`app/lib/usage.js\`: \`getCurrentPeriod()\`, \`incrementMeter()\`, \`checkQuotaFast()\`, \`seedMeters()\` (private)
+- \`getUsage()\` reads from meters (1 query for up to 4 rows); \`checkQuota()\` delegates to \`checkQuotaFast()\`
+- Meter increment points: \`POST /api/actions\` (+actions, +agents if new), \`POST/DELETE /api/keys\` (+/-api_keys), \`POST /api/invite/[token]\` accept (+members), \`DELETE /api/team/[userId]\` (-members)
+- Migration Step 19 in \`migrate-multi-tenant.mjs\`
 
 ## Activity Log (Implemented)
-- Route: `/activity` - audit trail of admin actions + system events
-- Table: `activity_logs` (id `al_` prefix, org_id, actor_id, actor_type, action, resource_type, resource_id, details JSON, ip_address, created_at)
-- Library: `app/lib/audit.js` - fire-and-forget `logActivity()` (same pattern as `incrementMeter()`)
-- API: `GET /api/activity` - paginated, filtered by action/actor_id/resource_type/before/after, JOINs users for actor name/image
+- Route: \`/activity\` - audit trail of admin actions + system events
+- Table: \`activity_logs\` (id \`al_\` prefix, org_id, actor_id, actor_type, action, resource_type, resource_id, details JSON, ip_address, created_at)
+- Library: \`app/lib/audit.js\` - fire-and-forget \`logActivity()\` (same pattern as \`incrementMeter()\`)
+- API: \`GET /api/activity\` - paginated, filtered by action/actor_id/resource_type/before/after, JOINs users for actor name/image
 - Stats: total events, today's events, unique actors
-- Actor types: `user`, `system`, `api_key`, `cron`
-- Audited events: `key.created`, `key.revoked`, `invite.created`, `invite.revoked`, `invite.accepted`, `role.changed`, `member.removed`, `member.left`, `setting.updated`, `setting.deleted`, `billing.checkout_started`, `webhook.created`, `webhook.deleted`, `webhook.tested`, `webhook.fired`, `signal.detected`, `alert.email_sent`
+- Actor types: \`user\`, \`system\`, \`api_key\`, \`cron\`
+- Audited events: \`key.created\`, \`key.revoked\`, \`invite.created\`, \`invite.revoked\`, \`invite.accepted\`, \`role.changed\`, \`member.removed\`, \`member.left\`, \`setting.updated\`, \`setting.deleted\`, \`billing.checkout_started\`, \`webhook.created\`, \`webhook.deleted\`, \`webhook.tested\`, \`webhook.fired\`, \`signal.detected\`, \`alert.email_sent\`
 - Indexes: org_id, created_at, action, actor_id
 - Sidebar: "Activity" link with Clock icon in System group (after Usage)
-- Migration Step 20 in `migrate-multi-tenant.mjs`
+- Migration Step 20 in \`migrate-multi-tenant.mjs\`
 
 ## Webhooks (Implemented)
-- Route: `/webhooks` - manage webhook endpoints for signal notifications
-- Tables: `webhooks` (id `wh_` prefix), `webhook_deliveries` (id `wd_` prefix)
-- Library: `app/lib/webhooks.js` - `signPayload()` (HMAC-SHA256), `deliverWebhook()`, `fireWebhooksForOrg()`
-- API: `GET/POST/DELETE /api/webhooks` (GET: all members; POST/DELETE: admin only)
-- API: `POST /api/webhooks/[webhookId]/test` - send test payload (admin only)
-- API: `GET /api/webhooks/[webhookId]/deliveries` - recent delivery history (last 20)
-- Webhook secret: 32-byte hex, shown once on creation, HMAC-SHA256 signature in `X-DashClaw-Signature` header
-- Event subscription: JSON array of signal types or `["all"]`
+- Route: \`/webhooks\` - manage webhook endpoints for signal notifications
+- Tables: \`webhooks\` (id \`wh_\` prefix), \`webhook_deliveries\` (id \`wd_\` prefix)
+- Library: \`app/lib/webhooks.js\` - \`signPayload()\` (HMAC-SHA256), \`deliverWebhook()\`, \`fireWebhooksForOrg()\`
+- API: \`GET/POST/DELETE /api/webhooks\` (GET: all members; POST/DELETE: admin only)
+- API: \`POST /api/webhooks/[webhookId]/test\` - send test payload (admin only)
+- API: \`GET /api/webhooks/[webhookId]/deliveries\` - recent delivery history (last 20)
+- Webhook secret: 32-byte hex, shown once on creation, HMAC-SHA256 signature in \`X-DashClaw-Signature\` header
+- Event subscription: JSON array of signal types or \`["all"]\`
 - Max 10 webhooks per org; auto-disabled after 10 consecutive failures
 - Delivery logging: status (pending/success/failed), response_status, response_body (truncated to 2000 chars), duration_ms
 - Sidebar: "Webhooks" link with Webhook icon in System group (after Activity)
-- Migration Steps 21-22 in `migrate-multi-tenant.mjs`
+- Migration Steps 21-22 in \`migrate-multi-tenant.mjs\`
 
 ## Email Alerts & Cron (Implemented)
-- Route: `/notifications` - email alert preferences per user
-- Tables: `notification_preferences` (id `np_` prefix, unique on org_id+user_id+channel), `signal_snapshots` (deduplication via signal_hash)
-- Library: `app/lib/signals.js` - `computeSignals()` extracted from signals API route (shared by API + cron)
-- Library: `app/lib/notifications.js` - `sendSignalAlertEmail()` via Resend SDK (no-op if `RESEND_API_KEY` not set)
-- API: `GET/POST /api/notifications` - user preference CRUD (email channel, signal type filters)
-- Cron endpoint: `GET /api/cron/signals` (run via any scheduler):
-  1. Auth via `Authorization: Bearer CRON_SECRET`
-  2. For each org: compute signals -> hash -> compare to `signal_snapshots` -> find NEW signals
-  3. Upsert all current signals into snapshots (update `last_seen_at`)
+- Route: \`/notifications\` - email alert preferences per user
+- Tables: \`notification_preferences\` (id \`np_\` prefix, unique on org_id+user_id+channel), \`signal_snapshots\` (deduplication via signal_hash)
+- Library: \`app/lib/signals.js\` - \`computeSignals()\` extracted from signals API route (shared by API + cron)
+- Library: \`app/lib/notifications.js\` - \`sendSignalAlertEmail()\` via Resend SDK (no-op if \`RESEND_API_KEY\` not set)
+- API: \`GET/POST /api/notifications\` - user preference CRUD (email channel, signal type filters)
+- Cron endpoint: \`GET /api/cron/signals\` (run via any scheduler):
+  1. Auth via \`Authorization: Bearer CRON_SECRET\`
+  2. For each org: compute signals -> hash -> compare to \`signal_snapshots\` -> find NEW signals
+  3. Upsert all current signals into snapshots (update \`last_seen_at\`)
   4. For new signals: fire webhooks, send emails to opted-in users, log activities
-- Signal hashing: MD5 of `type:agent_id:action_id:loop_id:assumption_id`
-- Scheduling: DashClaw does not ship a hosted scheduler in OSS. Configure any scheduler (GitHub Actions, system cron, Cloudflare, etc.) to call `/api/cron/*` with `Authorization: Bearer $CRON_SECRET`.
+- Signal hashing: MD5 of \`type:agent_id:action_id:loop_id:assumption_id\`
+- Scheduling: DashClaw does not ship a hosted scheduler in OSS. Configure any scheduler (GitHub Actions, system cron, Cloudflare, etc.) to call \`/api/cron/*\` with \`Authorization: Bearer \$CRON_SECRET\`.
 - Sidebar: "Notifications" link with Bell icon in System group (after Webhooks)
-- Migration Step 23 in `migrate-multi-tenant.mjs`
-- Env vars: `RESEND_API_KEY`, `ALERT_FROM_EMAIL` (default: `alerts@dashclaw.dev`), `CRON_SECRET`
-
-## Onboarding Flow (Implemented)
-- 4-step guided checklist displayed on dashboard via `OnboardingChecklist.js` (full-width, self-hides when complete)
-- **Step 1**: Create Workspace - text input, calls `POST /api/onboarding/workspace` (creates org, updates user)
-- **Step 2**: Generate API Key - button-triggered, calls `POST /api/onboarding/api-key`, shows raw key with copy button
-- **Step 3**: Install SDK - static code blocks with key pre-filled
-- **Step 4**: Send First Action - code snippet, polls `GET /api/onboarding/status` every 5s to detect first action
-- Status endpoint derives 3 booleans: `workspace_created` (org != org_default), `api_key_exists`, `first_action_sent`
-- Only users on `org_default` see workspace creation; auto-hides + reloads when all steps done
-- Workspace creation auto-generates slug from name, sets plan to `free`, promotes user to `admin`
-
-## API Keys Page (Implemented)
-- Route: `/api-keys` - manage workspace API keys
-- Lists active and revoked keys with creation/last-used dates
-- Generate new keys with labels (format: `oc_live_{32_hex}`, raw shown once)
-- Revoke keys with confirmation
-- Guards: shows alert if user still on `org_default` (no workspace yet)
-- Stats bar: Total, Active, Revoked counts
-- Backend: `GET/POST/DELETE /api/keys` (rejects `org_default` users; POST/DELETE admin only)
-- Sidebar: "API Keys" link with KeyRound icon in System group
-- **Role enforcement**: Generate/revoke buttons hidden for members; empty state shows "ask admin" message
-
-## SDK Documentation Page (Implemented)
-- Route: `/docs` - public server component (no auth required, not in middleware matcher)
-- Full reference for 95+ SDK methods organized into 21+ categories
-- Categories: Action Recording (7), Loops & Assumptions (7), Signals (1), Dashboard Data (9), Session Handoffs (3), Context Manager (7), Automation Snippets (4), User Preferences (6), Daily Digest (1), Security Scanning (2), Agent Messaging (9), Behavior Guard (2), Bulk Sync (1), Policy Testing (3), Compliance Engine (5), Task Routing (10), Agent Pairing (3), Identity Binding (2), Organization Management (5), Activity Logs (1), Webhooks (5), Real-Time Events (1)
-- Each method: signature, description, parameter table, return type, code example
-- Sticky side navigation with anchor links to all sections
-- Quick Start section (3 steps: copy SDK, init client, record first action)
-- Constructor reference (5 params), Error Handling section
-- Same visual shell as landing page (navbar, footer, dark background)
-- Landing page links: navbar "Docs", SDK section "View full SDK docs", footer "Docs"
-
-## JWT Org Refresh
-- `app/lib/auth.js` JWT callback periodically re-queries user's org_id/role (5-min TTL)
-- Ensures session picks up org changes (e.g., after workspace creation during onboarding)
-- Tracks `orgRefreshedAt` timestamp in token to avoid re-querying on every request
-
-## Multi-Tenancy
-
-### Tables
-- `organizations` - id (TEXT PK `org_`), name, slug (unique), plan
-- `api_keys` - id (TEXT PK `key_`), org_id (FK), key_hash (SHA-256), key_prefix, label, role, revoked_at
-- All 33 data tables have `org_id TEXT NOT NULL DEFAULT 'org_default'` + index
-
-### Key Format
-`oc_live_{32_hex_chars}` - stored as SHA-256 hash in `api_keys.key_hash`. First 8 chars in `key_prefix` for display.
-
-### Org Management API (admin only)
-- `GET/POST /api/orgs` - list/create orgs (POST returns raw API key - shown once)
-- `GET/PATCH /api/orgs/[orgId]` - get/update org
-- `GET/POST/DELETE /api/orgs/[orgId]/keys` - manage API keys
-
-### Resolution Flow
-1. No key + dev mode (no `DASHCLAW_API_KEY` set) -> `org_default` (admin)
-2. No key + production (no `DASHCLAW_API_KEY` set) -> 503
-3. No key + same-origin browser request (dashboard UI) -> `org_default` (admin)
-4. No key + external request -> 401
-5. Key matches `DASHCLAW_API_KEY` env -> `org_default` (admin, fast path)
-6. Key doesn't match env -> SHA-256 hash -> DB lookup -> org_id + role
-7. DB miss or revoked -> 401
-
-### SDK
-No code changes needed. The API key determines which organization's data you're accessing.
-
-### Migration (from single-tenant)
-```bash
-DATABASE_URL=... DASHCLAW_API_KEY=... node scripts/migrate-multi-tenant.mjs
-```
-
-## DashClaw Tables (Migration Steps 24-29)
-
-### Handoffs Table (Step 24)
-- `handoffs` - session handoff documents for agent continuity
-- Columns: `id` (TEXT `ho_` prefix), `org_id`, `agent_id`, `session_date`, `summary`, `key_decisions` (JSON TEXT), `open_tasks` (JSON TEXT), `mood_notes`, `next_priorities` (JSON TEXT), `created_at`
-- Indexes: org_id, agent_id, session_date
-
-### Context Tables (Steps 25-26)
-- `context_points` - key points captured during sessions
-- Columns: `id` (`cp_`), `org_id`, `agent_id`, `content`, `category` (decision|task|insight|question|general), `importance` (1-10), `session_date`, `compressed`, `created_at`
-- `context_threads` - named threads for tracking topics across entries
-- Columns: `id` (`ct_`), `org_id`, `agent_id`, `name`, `summary`, `status` (active|closed), `created_at`, `updated_at`
-- Unique: `(org_id, COALESCE(agent_id, ''), name)`
-- `context_entries` - entries within threads
-- Columns: `id` (`ce_`), `thread_id` FK, `org_id`, `content`, `entry_type`, `created_at`
-
-### Snippets Table (Step 27)
-- `snippets` - reusable code snippets
-- Columns: `id` (`sn_`), `org_id`, `agent_id`, `name`, `description`, `code`, `language`, `tags` (JSON TEXT), `use_count`, `created_at`, `last_used`
-- Unique: `(org_id, name)` - POST upserts on conflict
-
-### User Preference Tables (Step 28)
-- `user_observations` (`uo_`) - agent observations about users (observation, category, importance)
-- `user_preferences` (`up_`) - learned user preferences (preference, category, confidence)
-- `user_moods` (`um_`) - mood/energy tracking (mood, energy, notes)
-- `user_approaches` (`ua_`) - tracked approaches with success/fail counts. Unique: `(org_id, COALESCE(agent_id, ''), approach)`
-
-### Security Findings Table (Step 29)
-- `security_findings` (`sf_`) - metadata from security scans (never stores actual content)
-- Columns: `id`, `org_id`, `agent_id`, `content_hash` (SHA-256), `findings_count`, `critical_count`, `categories` (JSON TEXT), `scanned_at`
-
-## Agent Messaging Tables (Migration Steps 30-32)
-
-### Agent Messages Table (Step 30)
-- `agent_messages` (`msg_`) - async messages between agents with inbox semantics
-- Columns: `id`, `org_id`, `thread_id` (FK to message_threads), `from_agent_id`, `to_agent_id` (NULL = broadcast), `message_type` (action|info|lesson|question|status), `subject`, `body`, `urgent` (boolean), `status` (sent|read|archived), `doc_ref`, `read_by` (JSON array for broadcast tracking), `created_at`, `read_at`, `archived_at`
-- Indexes: org_id, (org_id, to_agent_id, status), thread_id, (org_id, from_agent_id)
-
-### message_attachments
-| Column | Type | Notes |
-|--------|------|-------|
-| id | TEXT PK | `att_<24hex>` |
-| org_id | TEXT | Organization |
-| message_id | TEXT | Parent message |
-| filename | TEXT | Original filename |
-| mime_type | TEXT | MIME type |
-| size_bytes | INTEGER | File size |
-| data | TEXT | Base64-encoded content |
-| created_at | TEXT | ISO timestamp |
-
-### Message Threads Table (Step 31)
-- `message_threads` (`mt_`) - multi-turn conversation threads
-- Columns: `id`, `org_id`, `name`, `participants` (JSON array of agent IDs, NULL = open), `status` (open|resolved|archived), `summary`, `created_by`, `created_at`, `updated_at`, `resolved_at`
-- Indexes: org_id, (org_id, status)
-
-### Shared Docs Table (Step 32)
-- `shared_docs` (`sd_`) - collaborative workspace documents
-- Columns: `id`, `org_id`, `name`, `content`, `created_by`, `last_edited_by`, `version` (auto-incrementing on upsert), `created_at`, `updated_at`
-- Indexes: org_id; UNIQUE (org_id, name) for upsert
-
-### Agent Capabilities Table (migrate-capabilities.mjs)
-- `agent_capabilities` (`ac_`) - discovered skills and tools for an agent
-- Columns: `id`, `org_id`, `agent_id`, `name`, `capability_type` (skill|tool), `description`, `source_path`, `file_count`, `metadata` (JSONB), `created_at`, `updated_at`
-- Indexes: org_id; UNIQUE (org_id, COALESCE(agent_id, ''), name, capability_type) for upsert
-- Populated by: adaptive bootstrap scanner (`scripts/bootstrap-agent.mjs`) and `POST /api/sync` (capabilities category)
-
-## Behavior Guard (Implemented)
-- Route: `/policies` - manage guard policies that govern agent behavior
-- Library: `app/lib/guard.js` - `evaluateGuard(orgId, context, sql, options)` core evaluation engine
-- Tables: `guard_policies` (gp_ prefix), `guard_decisions` (gd_ prefix)
-- 5 policy types: `risk_threshold`, `require_approval`, `block_action_type`, `rate_limit`, `webhook_check`
-- Guard evaluation: fetches active policies, evaluates local policies first, then webhook policies with snapshotted preliminary decision
-- Decisions: `allow` (200), `warn` (200), `block` (403), `require_approval` (403)
-- Optional signal check: `?include_signals=true` adds live risk signal warnings (expensive - 7 extra queries)
-- Guard decisions logged fire-and-forget (same pattern as `incrementMeter()`)
-- API: `POST /api/guard` (evaluate), `GET /api/guard` (recent decisions + 24h stats)
-- API: `GET/POST/PATCH/DELETE /api/policies` (CRUD - POST/PATCH/DELETE admin only)
-- API: `POST /api/policies/import` (import policy pack or raw YAML), `POST /api/policies/test` (run guardrails tests), `GET /api/policies/proof` (generate proof report)
-- UI: `/policies` page includes policy CRUD, guard decisions, policy pack import, test runner with per-policy expandable results, proof report generation (markdown/JSON with copy/download)
-- SDK: `claw.guard(context, options?)`, `claw.getGuardDecisions(filters?)`
-- Sidebar: Shield icon in Operations group (after Security)
-- Migration Step 33 in `migrate-multi-tenant.mjs`
-
-### Webhook-Based Intervention (Tier 2)
-- Policy type: `webhook_check` - calls customer HTTPS endpoint for custom decision logic
-- Rules: `url` (HTTPS required, SSRF-protected), `timeout_ms` (1000-10000, default 5000), `on_timeout` ('allow'|'block', default 'allow')
-- Customer endpoint receives: event, org_id, timestamp, context, preliminary_decision, matched_policies, reasons, warnings
-- Customer responds with: `{ decision, reasons, warnings }` - decision can only escalate severity (never downgrade)
-- Delivery logged to `webhook_deliveries` table (event_type `guard.evaluation`, webhook_id = policyId)
-- Library: `app/lib/webhooks.js` - `deliverGuardWebhook()` (no HMAC signing, policy-based)
-- SSRF protection: private IPs, localhost, link-local addresses blocked in validation
-- All webhook policies receive the same snapshotted preliminary decision (no order-dependency)
-
-### beforeAction SDK Hook (Tier 2)
-- Constructor params: `guardMode` ('off'|'warn'|'enforce'), `guardCallback` (function)
-- `createAction()` calls `_guardCheck()` before API request (also applies to `track()` which calls `createAction()`)
-- `off` (default): no guard check (backward compatible)
-- `warn`: logs console.warn if blocked/require_approval, proceeds anyway
-- `enforce`: throws `GuardBlockedError` if blocked/require_approval
-- Guard API failure is fail-open (logs warning, proceeds)
-- `GuardBlockedError` class: extends Error, properties: decision, reasons, warnings, matchedPolicies, riskScore
-- Exported from SDK: `import { GuardBlockedError } from 'dashclaw'`
-
-### Assumption Graph Visualization (Tier 2)
-- Component: `app/components/AssumptionGraph.js` - pure client, no external deps
-- SVG bezier connectors (underneath) + absolute-positioned HTML nodes (on top)
-- Center column: parent chain (oldest at top) + current action (bottom, brand border)
-- Left branches: assumptions as pills (green=validated, red=invalidated, amber=unvalidated)
-- Right branches: loops as pills (green=resolved, gray=cancelled, amber=open)
-- Bottom row: related actions (up to 5)
-- Click: assumptions/loops scroll to detail section, action nodes open in new tab
-- Renders on post-mortem page (`/actions/[actionId]`) between metrics and Root Cause Analysis
-
-### Guard Policies Table (Step 33)
-- `guard_policies` (`gp_`) - org-level rules governing agent behavior
-- Columns: `id`, `org_id`, `name`, `policy_type`, `rules` (JSON string), `active` (0/1), `created_by`, `created_at`, `updated_at`
-- UNIQUE index: `(org_id, name)`
-- Policy types: risk_threshold, require_approval, block_action_type, rate_limit, webhook_check
-
-### Guard Decisions Table (Step 33)
-- `guard_decisions` (`gd_`) - audit log of every guard evaluation
-- Columns: `id`, `org_id`, `agent_id`, `decision`, `reason`, `matched_policies` (JSON array), `context` (JSON), `risk_score`, `action_type`, `created_at`
-- Indexes: org_id, created_at, agent_id
-
-## Identity Binding (Tier 3)
-- **Concept**: Moves from string-based attribution to cryptographic node identity.
-- **Architecture**: Sign-on-Source (SDK), Verify-on-Sink (API).
-- **Database**:
-  - `agent_identities`: org_id, agent_id, public_key, algorithm.
-  - `action_records`: added `signature` (TEXT) and `verified` (BOOLEAN) columns.
-- **SDK**:
-  - Constructor accepts `privateKey` (Web Crypto API `CryptoKey`).
-  - `createAction` automatically signs payload if private key is present.
-  - Sends `_signature` field in POST body.
-- **API**:
-  - `POST /api/actions`: verifies signature against registered public key.
-  - `POST /api/identities`: register/rotate public keys (admin only; requires `x-api-key` resolving to role `admin`).
-  - `GET /api/identities`: list registered identities (same auth as other protected APIs; do not rely on caller-supplied `x-org-*` headers).
-- **UI**:
-  - `RecentActionsCard`: displays green ShieldCheck icon for verified actions.
-- **Migration**: `scripts/migrate-identity-binding.mjs`
- - **Utilities**:
-   - `scripts/generate-agent-keys.mjs <agent-id>`: prints a public PEM + private JWK you can wire into an agent.
-   - `scripts/register-identity.mjs --agent-id ... --public-key-file ...`: DB upsert helper (requires `DATABASE_URL`).
-
-## Messages Page (Implemented)
-- Route: `/messages` - agent communication nerve center with 4 tabs (Inbox, Sent, Threads, Docs)
-- **Smart Inbox**: auto-triages messages into "Needs Your Input" (question/action types), "Urgent", and "Everything Else" collapsible sections
-- **Thread Conversation View**: clicking a thread shows chronological chat timeline with agent avatars (using `getAgentColor` as className), inline reply bar with optimistic updates, auto-scroll to bottom
-- **Markdown Rendering**: message bodies and shared docs render markdown via `react-markdown` (bold, code, links, lists, blockquotes) — no innerHTML, XSS-safe by design
-- **Reply Flow**: messages with `thread_id` navigate to thread conversation; non-threaded messages open compose modal with prefilled To/Subject
-- **Real-time SSE**: `MESSAGE_CREATED`, `POLICY_UPDATED`, `TASK_ASSIGNED`, `TASK_COMPLETED` events broadcast instantly via `/api/stream`; 15s polling as fallback. SDK `events()` method provides SSE client for agents.
-- **Keyboard Navigation**: `j`/`k` navigate list, `r` reply, `e` archive, `Enter` open thread, `Esc` close detail panel (hint bar on desktop)
-- **Compose Modal**: supports `prefill` prop for reply pre-population (to, subject, type, thread_id)
-- Component architecture: page.js is ~250-line orchestrator importing 10 sub-components from `_components/` folder
-- Demo mode: conversation view works, reply bar disabled with tooltip, smart inbox works
-- Respects global agent filter across all fetches
-
-## Agent Workspace Page (Implemented)
-- Route: `/workspace` - single tabbed interface for agent operational state
-- 6 tabs: Overview (Digest), Context (Points + Threads), Handoffs, Snippets, Preferences, Memory
-- No backend changes - consumes existing DashClaw API routes
-- **Overview**: Daily digest with date picker, 7-stat grid (actions, decisions, lessons, content, ideas, interactions, goals), per-category item lists, quick links to Messages/Security
-- **Context**: Two-column layout - key points with category badges + importance pills (add form), threads with expandable entries (create form)
-- **Handoffs**: Timeline cards with expandable sections for key decisions, open tasks, next priorities, mood notes; JSON TEXT fields parsed with `safeParseJson()`
-- **Snippets**: Search (300ms debounce) + language filter dropdown, code blocks with copy/use buttons, optimistic use_count increment
-- **Preferences**: 2x2 summary grid with drill-down views for observations, preferences (confidence ProgressBar), moods (energy ProgressBar), approaches (success/fail ratios)
-- **Memory**: Health score hero (color-coded >=80 green, 50-79 yellow, <50 red), 8-metric grid (StatCompact), entities + topics two-column; "Org-wide" badge when agent filter active
-- Respects global agent filter, lazy tab loading, manual refresh button
-- Sidebar: FolderKanban icon in Operations group (after Messages)
-- Middleware matcher includes `/workspace` and `/workspace/:path*`
-
-## Deployment
-
-### Vercel (Production)
-- **URL**: http://localhost:3000
-- **Project**: `ucsandmans-projects/dash-claw`
-- **GitHub**: Connected - auto-deploys on push to `main`
-- **Region**: Washington, D.C. (iad1)
-
-### Vercel Environment Variables
-| Variable | Environment | Sensitive |
-|---|---|---|
-| `DATABASE_URL` | Production | Yes |
-| `DASHCLAW_API_KEY` | Production | Yes |
-| `ALLOWED_ORIGIN` | Production | No |
-| `NEXTAUTH_URL` | Production | No |
-| `NEXTAUTH_SECRET` | Production | Yes |
-| `GITHUB_ID` | Production | Yes |
-| `GITHUB_SECRET` | Production | Yes |
-| `GOOGLE_ID` | Production | Yes |
-| `GOOGLE_SECRET` | Production | Yes |
-| `RESEND_API_KEY` | Production (optional) | Yes |
-| `CRON_SECRET` | Production | Yes |
-| `ENCRYPTION_KEY` | Production | Yes |
-| `ENFORCE_AGENT_SIGNATURES` | Production (default: true in prod) | No |
-| `DASHCLAW_CLOSED_ENROLLMENT` | Production (optional) | No |
-| `TRUST_PROXY` | Production (optional) | No |
-| `DASHCLAW_GUARD_FALLBACK` | Production (optional) | No |
-
-### Deploy Commands
-```bash
-vercel deploy --prod --yes   # Manual deploy
-git push origin main         # Auto-deploy via GitHub integration
-```
-
-### Agent SDK Integration
-Agents connect to the deployed API - they only need the base URL and an API key:
-```js
-const claw = new DashClaw({
-  baseUrl: 'http://localhost:3000',
-  apiKey: process.env.DASHCLAW_API_KEY,
-  agentId: 'my-agent',
-  agentName: 'My Agent',
-});
-```
-Agents do NOT need `DATABASE_URL` - the API handles the database connection server-side.
-
-### DashClaw SDK (npm package - 96+ methods across 22+ categories)
-
-The SDK is published as `dashclaw` on npm. Class name is `DashClaw` (backward-compat alias `OpenClawAgent`).
-
-```bash
-npm install dashclaw
-```
-
-### DashClaw Python SDK (v1.0.0 - Zero Dependencies)
-
-A native Python implementation of the DashClaw toolkit. Supports both synchronous and context-manager based tracking.
-
-```bash
-# From the sdk-python directory
-pip install .
-```
-
-```python
-from dashclaw import DashClaw
-
-claw = DashClaw(
-    base_url='http://localhost:3000',
-    api_key=os.environ['DASHCLAW_API_KEY'],
-    agent_id='my-python-agent'
-)
-
-# Use as a context manager for automatic action recording
-with claw.track(action_type='build', declared_goal='Initialize project'):
-    # Your agent logic here
-    print("Agent is working...")
-```
-
-```javascript
-import { DashClaw } from 'dashclaw';
-// or: import { OpenClawAgent } from 'dashclaw';  // backward compat
-
-const claw = new DashClaw({
-  baseUrl: 'http://localhost:3000',
-  apiKey: process.env.DASHCLAW_API_KEY,
-  agentId: 'my-agent',
-  agentName: 'My Agent',
-});
-```
-
-**Action Recording (10)**: `createAction()`, `waitForApproval()`, `updateOutcome()`, `getActions()`, `getAction()`, `getActionTrace()`, `track()`, `heartbeat()`, `startHeartbeat()`, `stopHeartbeat()`
-
-**Loops & Assumptions (7)**: `registerOpenLoop()`, `resolveOpenLoop()`, `getOpenLoops()`, `registerAssumption()`, `getAssumption()`, `validateAssumption()`, `getDriftReport()`
-
-**Signals (1)**: `getSignals()`
-
-**Dashboard Data (9)**: `reportTokenUsage()`, `recordDecision()`, `createGoal()`, `recordContent()`, `recordInteraction()`, `reportConnections()`, `createCalendarEvent()`, `recordIdea()`, `reportMemoryHealth()`
-
-**Session Handoffs (3)**: `createHandoff()`, `getHandoffs()`, `getLatestHandoff()`
-
-**Prompt Management (12)**: `listPromptTemplates()`, `createPromptTemplate()`, `getPromptTemplate()`, `updatePromptTemplate()`, `deletePromptTemplate()`, `listPromptVersions()`, `createPromptVersion()`, `getPromptVersion()`, `activatePromptVersion()`, `renderPrompt()`, `listPromptRuns()`, `getPromptStats()`
-
-**Context Manager (7)**: `captureKeyPoint()`, `getKeyPoints()`, `createThread()`, `addThreadEntry()`, `closeThread()`, `getThreads()`, `getContextSummary()`
-
-**Automation Snippets (4)**: `saveSnippet()`, `getSnippets()`, `useSnippet()`, `deleteSnippet()`
-
-**User Preferences (6)**: `logObservation()`, `setPreference()`, `logMood()`, `trackApproach()`, `getPreferenceSummary()`, `getApproaches()`
-
-**Daily Digest (1)**: `getDailyDigest()`
-
-**Learning Analytics (6)**: `computeLearningVelocity()`, `getLearningVelocity()`, `computeLearningCurves()`, `getLearningCurves()`, `getLearningAnalyticsSummary()`, `getMaturityLevels()`
-
-**Security Scanning (2)**: `scanContent()`, `reportSecurityFinding()`
-
-**Agent Messaging (9)**: `sendMessage()`, `getInbox()`, `markRead()`, `archiveMessages()`, `broadcast()`, `createMessageThread()`, `getMessageThreads()`, `resolveMessageThread()`, `saveSharedDoc()`
-
-**Behavior Guard (2)**: `guard()`, `getGuardDecisions()` - `guardMode` constructor option enables auto guard check before `createAction()`/`track()`
-
-**Bulk Sync (1)**: `syncState()`
-
-**Policy Testing (3)**: `testPolicies()`, `getComplianceProof()`, `importPolicyPack()`
-
-**Compliance Engine (5)**: `getComplianceMap()`, `getComplianceGaps()`, `getComplianceReport()`, `getComplianceFrameworks()`, `getComplianceEvidence()`
-
-**Task Routing (10)**: `listRoutingAgents()`, `registerRoutingAgent()`, `getRoutingAgent()`, `updateRoutingAgent()`, `deleteRoutingAgent()`, `listRoutingTasks()`, `submitRoutingTask()`, `completeRoutingTask()`, `getRoutingStats()`, `getRoutingHealth()`
-
-**Agent Pairing (3)**: `createPairing()`, `createPairingFromPrivateJwk()`, `waitForPairing()`
-
-**Identity Binding (2)**: `registerIdentity()`, `getIdentities()`
-
-**Organization Management (5)**: `getOrg()`, `createOrg()`, `getOrgById()`, `updateOrg()`, `getOrgKeys()`
-
-**Activity Logs (1)**: `getActivityLogs()`
-
-**Webhooks (5)**: `getWebhooks()`, `createWebhook()`, `deleteWebhook()`, `testWebhook()`, `getWebhookDeliveries()`
-
-**Error Classes**: `GuardBlockedError` - thrown when `guardMode: 'enforce'` and guard blocks an action
-
-**Cost Analytics**: `reportTokenUsage()` - real-time financial tracking and cost accountability on the dashboard. TokenBudgetCard includes a "24h Projected" cost line that blends today's burn trajectory with historical daily average.
-
-## Agent Bootstrap System
-
-See [`docs/agent-bootstrap.md`](docs/agent-bootstrap.md) for full details on the 3-part hybrid bootstrap system:
-- **CLI Scanner** (`scripts/bootstrap-agent.mjs`) — mechanically scans agent workspace, pushes structured data
-- **Self-Discovery Prompt** (`scripts/bootstrap-prompt.md`) — paste to agent, it scans its own workspace + self-reports semantic data + pushes via `syncState()` autonomously
-- **Bulk Sync API** (`POST /api/sync`) — single endpoint for all data categories in one request
-
-**Recommended workflow**: Run the scanner first (handles files, connections, snippets, capabilities), then paste the prompt (handles relationships, reasoning, observations, communication style).
-
-The CLI scanner covers all 13 sync categories: `connections`, `memory`, `goals`, `learning`, `content`, `context_points`, `context_threads`, `snippets`, `relationships`, `capabilities`, `handoffs` (from daily logs), `inspiration` (from idea/bookmark files), and `preferences` (including `observations`, `moods`, and `approaches` sub-categories).
+- Migration Step 23 in \`migrate-multi-tenant.mjs\`
+- Env vars: \`RESEND_API_KEY\`, \`ALERT_FROM_EMAIL\` (default: \`alerts@dashclaw.dev\`), \`CRON_SECRET\`
+
+## Scoring Profiles (Implemented)
+- Route: `/scoring` - weighted multi-dimensional quality scoring & risk templates (Phase 7)
+- Tables: `scoring_profiles` (id `sp_`), `scoring_dimensions` (id `sd_`), `profile_scores` (id `ps_`), `risk_templates` (id `rt_`)
+- Library: `app/lib/scoringProfiles.js` - rule-based math engine, auto-calibration, and risk evaluator
+- API:
+  - `GET/POST /api/scoring/profiles` - list/create scoring profiles
+  - `GET/PATCH/DELETE /api/scoring/profiles/[profileId]` - profile management
+  - `POST /api/scoring/profiles/[profileId]/dimensions` - add scoring dimension
+  - `PATCH/DELETE /api/scoring/profiles/[profileId]/dimensions/[dimensionId]` - dimension management
+  - `POST /api/scoring/score` - score actions (single or batch) against a profile
+  - `GET /api/scoring/score` - retrieve scores and statistics
+  - `GET/POST /api/scoring/risk-templates` - list/create automatic risk templates
+  - `PATCH/DELETE /api/scoring/risk-templates/[templateId]` - template management
+  - `POST /api/scoring/calibrate` - statistical percentile analysis of historical action data
+- Features:
+  - **Zero LLM dependencies**: All scoring is deterministic rule-based math.
+  - **Composite Methods**: Supports `weighted_average`, `minimum`, and `geometric_mean`.
+  - **Auto-Calibration**: Suggests dimension scales based on p10/p25/p50/p75/p90 distribution of actual data.
+  - **Risk Templates**: Rules engine (`if metadata.env == 'prod' -> +20 risk`) to replace hardcoded agent scores.
+- Sidebar: "Scoring" link with SlidersHorizontal icon in Operations group (after Evaluations).
+- Widget: `ScoringProfileCard` dashboard widget for active profile monitoring.
+- Migration: `scripts/migrate-scoring-profiles.mjs`

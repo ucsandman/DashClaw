@@ -112,7 +112,27 @@ class DashClaw {
     }
   }
 
-  async _request(path, method, body) {
+  async _request(pathOrMethod, methodOrPath, body, params) {
+    let path, method;
+    if (typeof pathOrMethod === 'string' && pathOrMethod.startsWith('/')) {
+      path = pathOrMethod;
+      method = methodOrPath || 'GET';
+    } else {
+      method = pathOrMethod;
+      path = methodOrPath;
+    }
+
+    if (params) {
+      const qs = new URLSearchParams();
+      for (const [k, v] of Object.entries(params)) {
+        if (v !== undefined && v !== null) qs.append(k, String(v));
+      }
+      const qsStr = qs.toString();
+      if (qsStr) {
+        path += (path.includes('?') ? '&' : '?') + qsStr;
+      }
+    }
+
     const url = `${this.baseUrl}${path}`;
     const headers = {
       'Content-Type': 'application/json',
@@ -2655,6 +2675,80 @@ class DashClaw {
 
   async getMaturityLevels() {
     return this._request('/api/learning/analytics/maturity', 'GET');
+  }
+
+  // --- Scoring Profiles -----------------------------------
+
+  async createScoringProfile(data) {
+    return this._request('POST', '/api/scoring/profiles', data);
+  }
+
+  async listScoringProfiles(params = {}) {
+    return this._request('GET', '/api/scoring/profiles', null, params);
+  }
+
+  async getScoringProfile(profileId) {
+    return this._request('GET', `/api/scoring/profiles/${profileId}`);
+  }
+
+  async updateScoringProfile(profileId, data) {
+    return this._request('PATCH', `/api/scoring/profiles/${profileId}`, data);
+  }
+
+  async deleteScoringProfile(profileId) {
+    return this._request('DELETE', `/api/scoring/profiles/${profileId}`);
+  }
+
+  async addScoringDimension(profileId, data) {
+    return this._request('POST', `/api/scoring/profiles/${profileId}/dimensions`, data);
+  }
+
+  async updateScoringDimension(profileId, dimensionId, data) {
+    return this._request('PATCH', `/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`, data);
+  }
+
+  async deleteScoringDimension(profileId, dimensionId) {
+    return this._request('DELETE', `/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`);
+  }
+
+  async scoreWithProfile(profileId, action) {
+    return this._request('POST', '/api/scoring/score', { profile_id: profileId, action });
+  }
+
+  async batchScoreWithProfile(profileId, actions) {
+    return this._request('POST', '/api/scoring/score', { profile_id: profileId, actions });
+  }
+
+  async getProfileScores(params = {}) {
+    return this._request('GET', '/api/scoring/score', null, params);
+  }
+
+  async getProfileScoreStats(profileId) {
+    return this._request('GET', '/api/scoring/score', null, { profile_id: profileId, view: 'stats' });
+  }
+
+  // --- Risk Templates ------------------------------------
+
+  async createRiskTemplate(data) {
+    return this._request('POST', '/api/scoring/risk-templates', data);
+  }
+
+  async listRiskTemplates(params = {}) {
+    return this._request('GET', '/api/scoring/risk-templates', null, params);
+  }
+
+  async updateRiskTemplate(templateId, data) {
+    return this._request('PATCH', `/api/scoring/risk-templates/${templateId}`, data);
+  }
+
+  async deleteRiskTemplate(templateId) {
+    return this._request('DELETE', `/api/scoring/risk-templates/${templateId}`);
+  }
+
+  // --- Auto-Calibration ----------------------------------
+
+  async autoCalibrate(options = {}) {
+    return this._request('POST', '/api/scoring/calibrate', options);
   }
 }
 

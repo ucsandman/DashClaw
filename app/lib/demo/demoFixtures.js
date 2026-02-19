@@ -1645,6 +1645,42 @@ function buildFixtures() {
         { agent_id: 'deploy-bot', velocity: -0.4, acceleration: -0.6, maturity_score: 45, maturity_level: 'developing', score_delta: -3.2 },
       ],
     },
+
+    scoringProfiles: [
+      {
+        id: 'sp_demo001', org_id: 'org_demo', name: 'Production Deploy Quality', action_type: 'deploy', status: 'active',
+        composite_method: 'weighted_average',
+        dimensions: [
+          { id: 'sd_demo001', name: 'Speed', weight: 0.3, data_source: 'duration_ms', scale: [
+            { label: 'excellent', operator: 'lt', value: 30000, score: 100 },
+            { label: 'good', operator: 'lt', value: 60000, score: 75 },
+            { label: 'acceptable', operator: 'lt', value: 120000, score: 50 },
+            { label: 'poor', operator: 'gte', value: 120000, score: 20 },
+          ]},
+          { id: 'sd_demo002', name: 'Cost', weight: 0.3, data_source: 'cost_estimate', scale: [
+            { label: 'excellent', operator: 'lt', value: 0.01, score: 100 },
+            { label: 'good', operator: 'lt', value: 0.05, score: 75 },
+            { label: 'poor', operator: 'gte', value: 0.05, score: 30 },
+          ]},
+          { id: 'sd_demo003', name: 'Reliability', weight: 0.4, data_source: 'confidence', scale: [
+            { label: 'excellent', operator: 'gte', value: 90, score: 100 },
+            { label: 'good', operator: 'gte', value: 70, score: 75 },
+            { label: 'poor', operator: 'lt', value: 70, score: 25 },
+          ]},
+        ],
+      },
+    ],
+    riskTemplates: [
+      {
+        id: 'rt_demo001', org_id: 'org_demo', name: 'Production Safety', action_type: null, status: 'active',
+        base_risk: 20,
+        rules: [
+          { condition: "metadata.environment == 'production'", add: 20 },
+          { condition: "metadata.modifies_data == true", add: 15 },
+          { condition: "metadata.irreversible == true", add: 25 },
+        ],
+      },
+    ],
   };
 }
 

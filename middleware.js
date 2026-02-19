@@ -1316,6 +1316,17 @@ export async function middleware(request) {
         ] });
       }
 
+      // -- Scoring demo endpoints --
+      if (pathname === '/api/scoring/profiles') {
+        return demoJson(request, { profiles: fixtures.scoringProfiles });
+      }
+      if (pathname === '/api/scoring/risk-templates') {
+        return demoJson(request, { templates: fixtures.riskTemplates });
+      }
+      if (pathname === '/api/scoring/score') {
+        return demoJson(request, { scores: [] });
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1758,6 +1769,7 @@ export const config = {
     '/api/compliance/exports/:path*',
     '/api/compliance/schedules/:path*',
     '/api/compliance/trends',
+    '/api/scoring/:path*',
     '/evaluations',
     '/evaluations/:path*',
     '/api/evaluations/:path*',

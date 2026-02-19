@@ -75,7 +75,23 @@ class DashClaw:
         if auto_recommend not in ["off", "warn", "enforce"]:
             raise ValueError("auto_recommend must be one of: off, warn, enforce")
 
-    def _request(self, path, method="GET", body=None):
+    def _request(self, path_or_method, method_or_path=None, body=None, params=None, json_payload=None, **kwargs):
+        # Support both (path, method, body) and (method, path, json=...) signatures
+        if path_or_method.startswith("/"):
+            path = path_or_method
+            method = method_or_path or "GET"
+        else:
+            method = path_or_method
+            path = method_or_path
+
+        # Support 'json' as a keyword argument (renamed to json_payload in signature to avoid conflict with json module)
+        if "json" in kwargs:
+            json_payload = kwargs.pop("json")
+
+        if params:
+            query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+            path = f"{path}&{query}" if "?" in path else f"{path}?{query}"
+
         url = f"{self.base_url}{path}"
         headers = {
             "Content-Type": "application/json",
@@ -83,14 +99,17 @@ class DashClaw:
         }
         
         data = None
-        if body is not None:
-            data = json.dumps(body).encode("utf-8")
+        payload = json_payload if json_payload is not None else body
+        if payload is not None:
+            import json as json_mod
+            data = json_mod.dumps(payload).encode("utf-8")
 
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         
         try:
             with urllib.request.urlopen(req, timeout=30) as response:
-                return json.loads(response.read().decode("utf-8"))
+                import json as json_mod
+                return json_mod.loads(response.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             try:
                 error_data = json.loads(e.read().decode("utf-8"))
@@ -1556,6 +1575,63 @@ class DashClaw:
     def get_maturity_levels(self) -> dict:
         """Get the maturity level definitions."""
         return self._request("GET", "/api/learning/analytics/maturity")
+
+    # --- Scoring Profiles -----------------------------------
+
+    def create_scoring_profile(self, **kwargs):
+        return self._request("POST", "/api/scoring/profiles", json=kwargs)
+
+    def list_scoring_profiles(self, **params):
+        return self._request("GET", "/api/scoring/profiles", params=params)
+
+    def get_scoring_profile(self, profile_id):
+        return self._request("GET", f"/api/scoring/profiles/{profile_id}")
+
+    def update_scoring_profile(self, profile_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/profiles/{profile_id}", json=kwargs)
+
+    def delete_scoring_profile(self, profile_id):
+        return self._request("DELETE", f"/api/scoring/profiles/{profile_id}")
+
+    def add_scoring_dimension(self, profile_id, **kwargs):
+        return self._request("POST", f"/api/scoring/profiles/{profile_id}/dimensions", json=kwargs)
+
+    def update_scoring_dimension(self, profile_id, dimension_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}", json=kwargs)
+
+    def delete_scoring_dimension(self, profile_id, dimension_id):
+        return self._request("DELETE", f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}")
+
+    def score_with_profile(self, profile_id, action):
+        return self._request("POST", "/api/scoring/score", json={"profile_id": profile_id, "action": action})
+
+    def batch_score_with_profile(self, profile_id, actions):
+        return self._request("POST", "/api/scoring/score", json={"profile_id": profile_id, "actions": actions})
+
+    def get_profile_scores(self, **params):
+        return self._request("GET", "/api/scoring/score", params=params)
+
+    def get_profile_score_stats(self, profile_id):
+        return self._request("GET", "/api/scoring/score", params={"profile_id": profile_id, "view": "stats"})
+
+    # --- Risk Templates ------------------------------------
+
+    def create_risk_template(self, **kwargs):
+        return self._request("POST", "/api/scoring/risk-templates", json=kwargs)
+
+    def list_risk_templates(self, **params):
+        return self._request("GET", "/api/scoring/risk-templates", params=params)
+
+    def update_risk_template(self, template_id, **kwargs):
+        return self._request("PATCH", f"/api/scoring/risk-templates/{template_id}", json=kwargs)
+
+    def delete_risk_template(self, template_id):
+        return self._request("DELETE", f"/api/scoring/risk-templates/{template_id}")
+
+    # --- Auto-Calibration ----------------------------------
+
+    def auto_calibrate(self, **options):
+        return self._request("POST", "/api/scoring/calibrate", json=options)
 
 
 # Backward compatibility alias (Legacy)

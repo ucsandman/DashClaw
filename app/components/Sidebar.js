@@ -9,7 +9,7 @@ import {
   FileText, Users, UsersRound, BookOpen, Target, Plug, KeyRound,
   GitBranch, Settings, Bug, Calendar, BarChart3, Coins,
   Clock, Webhook, Bell, FolderKanban, Network, Scale, FileCode,
-  PanelLeftClose, PanelLeft, Menu, X, MessageCircle, Activity,
+  PanelLeftClose, PanelLeft, Menu, X, MessageCircle, Activity, SlidersHorizontal,
 } from 'lucide-react';
 
 const navGroups = [
@@ -33,6 +33,7 @@ const navGroups = [
       { href: '/routing', icon: Network, label: 'Task Routing' },
       { href: '/compliance', icon: Scale, label: 'Compliance' },
       { href: '/evaluations', icon: BarChart3, label: 'Evaluations' },
+      { href: '/scoring', icon: SlidersHorizontal, label: 'Scoring' },
       { href: '/prompts', icon: FileCode, label: 'Prompts' },
       { href: '/feedback', icon: MessageCircle, label: 'Feedback' },
       { href: '/drift', icon: Activity, label: 'Drift Detection' },

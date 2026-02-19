@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `134`
+- Total routes: `142`
 - Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `74`
+- Experimental routes: `82`
 
 ## Routes
 
@@ -133,6 +133,14 @@ doc-type: architecture
 | `/api/routing/tasks/{taskId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/routing/tasks/[taskId]/route.js` |
 | `/api/routing/tasks/{taskId}/complete` | `POST` | `experimental` | `(default)` | `app/api/routing/tasks/[taskId]/complete/route.js` |
 | `/api/schedules` | `GET` | `experimental` | `/api/schedules` | `app/api/schedules/route.js` |
+| `/api/scoring/calibrate` | `POST` | `experimental` | `(default)` | `app/api/scoring/calibrate/route.js` |
+| `/api/scoring/profiles` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/profiles/route.js` |
+| `/api/scoring/profiles/{profileId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/route.js` |
+| `/api/scoring/profiles/{profileId}/dimensions` | `POST` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/route.js` |
+| `/api/scoring/profiles/{profileId}/dimensions/{dimensionId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.js` |
+| `/api/scoring/risk-templates` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/risk-templates/route.js` |
+| `/api/scoring/risk-templates/{templateId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/risk-templates/[templateId]/route.js` |
+| `/api/scoring/score` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/score/route.js` |
 | `/api/security/prompt-injection` | `GET, POST` | `beta` | `/api/security` | `app/api/security/prompt-injection/route.js` |
 | `/api/security/scan` | `POST` | `beta` | `/api/security` | `app/api/security/scan/route.js` |
 | `/api/security/status` | `GET` | `beta` | `/api/security` | `app/api/security/status/route.js` |
