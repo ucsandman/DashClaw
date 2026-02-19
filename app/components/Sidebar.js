@@ -44,6 +44,7 @@ const navGroups = [
       { href: '/content', icon: FileText, label: 'Content' },
       { href: '/relationships', icon: Users, label: 'Relationships' },
       { href: '/learning', icon: BookOpen, label: 'Learning' },
+      { href: '/learning/analytics', icon: Zap, label: 'Learning Analytics' },
       { href: '/goals', icon: Target, label: 'Goals' },
       { href: '/tokens', icon: Coins, label: 'Token Budget' },
     ],

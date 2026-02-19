@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 130,
+    "total_routes": 134,
     "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 70
+    "experimental_routes": 74
   },
   "routes": [
     {
@@ -665,6 +665,44 @@
       "maturity": "experimental",
       "matched_prefix": "/api/learning",
       "file": "app/api/learning/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/curves",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/curves/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/maturity",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/maturity/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/summary",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/summary/route.js"
+    },
+    {
+      "path": "/api/learning/analytics/velocity",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/analytics/velocity/route.js"
     },
     {
       "path": "/api/learning/recommendations",

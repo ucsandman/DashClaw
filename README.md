@@ -27,6 +27,7 @@ Users fork the repo, deploy to Vercel free tier, and get a fully functional dash
 - `/dashboard` - operations dashboard (real data, requires auth)
 - `/swarm` - real-time swarm intelligence & neural web (visual fleet overview)
 - `/drift` - statistical behavioral drift analysis (Phase 5)
+- `/learning/analytics` - agent learning velocity & maturity tracking (Phase 6)
 - `/feedback` - user feedback loop & quality analytics (Phase 3)
 - `/compliance/exports` - bundled audit-ready reports & schedules (Phase 4)
 - `/prompts` - prompt template registry & versioning (immutable prompts)

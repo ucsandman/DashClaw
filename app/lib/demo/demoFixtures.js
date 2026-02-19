@@ -1569,6 +1569,82 @@ function buildFixtures() {
       stddev: [8 + i * 0.3, 300 + i * 15, 10 + i * 0.4][i % 3],
       sample_count: 10 + Math.floor(Math.random() * 15),
     })),
+    learningVelocity: [
+      {
+        id: 'lv_demo_001', org_id: 'org_demo', agent_id: 'clawdbot', period: 'daily',
+        period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        period_end: new Date().toISOString(),
+        episode_count: 247, avg_score: 71.5, success_rate: 0.82, score_delta: 12.3,
+        velocity: 1.8, acceleration: 0.3, maturity_score: 68, maturity_level: 'proficient',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'lv_demo_002', org_id: 'org_demo', agent_id: 'research-agent', period: 'daily',
+        period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        period_end: new Date().toISOString(),
+        episode_count: 89, avg_score: 63.2, success_rate: 0.71, score_delta: 8.1,
+        velocity: 0.9, acceleration: -0.1, maturity_score: 51, maturity_level: 'competent',
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'lv_demo_003', org_id: 'org_demo', agent_id: 'deploy-bot', period: 'daily',
+        period_start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString(),
+        period_end: new Date().toISOString(),
+        episode_count: 156, avg_score: 58.9, success_rate: 0.65, score_delta: -3.2,
+        velocity: -0.4, acceleration: -0.6, maturity_score: 45, maturity_level: 'developing',
+        created_at: new Date().toISOString(),
+      },
+    ],
+
+    learningCurves: Array.from({ length: 18 }).map((_, i) => {
+      const agents = ['clawdbot', 'clawdbot', 'research-agent'];
+      const types = ['deploy', 'security-check', 'research'];
+      const baseScores = [65, 70, 55];
+      return {
+        id: `lc_demo_${String(i).padStart(3, '0')}`,
+        org_id: 'org_demo',
+        agent_id: agents[i % 3],
+        action_type: types[i % 3],
+        window_start: new Date(Date.now() - (18 - i) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        window_end: new Date(Date.now() - (17 - i) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+        episode_count: 5 + Math.floor(Math.random() * 10),
+        avg_score: baseScores[i % 3] + i * 0.8,
+        success_rate: 0.6 + i * 0.015,
+        avg_duration_ms: 1200 - i * 30,
+        avg_cost: 0.05 - i * 0.001,
+        p25_score: baseScores[i % 3] - 10 + i * 0.5,
+        p75_score: baseScores[i % 3] + 10 + i * 0.9,
+        created_at: new Date(Date.now() - (18 - i) * 7 * 24 * 60 * 60 * 1000).toISOString(),
+      };
+    }),
+
+    learningAnalyticsSummary: {
+      overall: {
+        total_episodes: 492, avg_score: 65.2, success_count: 342, failure_count: 98,
+        pending_count: 52, avg_duration_ms: 1840, total_cost: 12.47, success_rate: 0.777,
+      },
+      by_agent: [
+        { agent_id: 'clawdbot', episode_count: 247, avg_score: 71.5, success_count: 203, failure_count: 30, avg_duration_ms: 1520, total_cost: 5.23, success_rate: 0.871, velocity: 1.8, acceleration: 0.3, maturity_level: 'proficient', maturity_score: 68 },
+        { agent_id: 'deploy-bot', episode_count: 156, avg_score: 58.9, success_count: 95, failure_count: 45, avg_duration_ms: 2100, total_cost: 4.81, success_rate: 0.679, velocity: -0.4, acceleration: -0.6, maturity_level: 'developing', maturity_score: 45 },
+        { agent_id: 'research-agent', episode_count: 89, avg_score: 63.2, success_count: 58, failure_count: 23, avg_duration_ms: 2340, total_cost: 2.43, success_rate: 0.716, velocity: 0.9, acceleration: -0.1, maturity_level: 'competent', maturity_score: 51 },
+      ],
+      by_action_type: [
+        { action_type: 'deploy', episode_count: 124, avg_score: 68.3, success_count: 98, failure_count: 18, success_rate: 0.845 },
+        { action_type: 'research', episode_count: 89, avg_score: 63.1, success_count: 58, failure_count: 23, success_rate: 0.716 },
+        { action_type: 'security-check', episode_count: 67, avg_score: 72.8, success_count: 59, failure_count: 5, success_rate: 0.922 },
+        { action_type: 'api', episode_count: 54, avg_score: 61.2, success_count: 35, failure_count: 14, success_rate: 0.714 },
+        { action_type: 'message', episode_count: 48, avg_score: 59.5, success_count: 30, failure_count: 12, success_rate: 0.714 },
+        { action_type: 'config', episode_count: 42, avg_score: 55.0, success_count: 24, failure_count: 13, success_rate: 0.649 },
+      ],
+      recommendations: {
+        total_recommendations: 23, active_recommendations: 18, avg_success_rate: 0.72, avg_rec_score: 64.5, avg_confidence: 71,
+      },
+      velocity: [
+        { agent_id: 'clawdbot', velocity: 1.8, acceleration: 0.3, maturity_score: 68, maturity_level: 'proficient', score_delta: 12.3 },
+        { agent_id: 'research-agent', velocity: 0.9, acceleration: -0.1, maturity_score: 51, maturity_level: 'competent', score_delta: 8.1 },
+        { agent_id: 'deploy-bot', velocity: -0.4, acceleration: -0.6, maturity_score: 45, maturity_level: 'developing', score_delta: -3.2 },
+      ],
+    },
   };
 }
 

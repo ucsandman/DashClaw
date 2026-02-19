@@ -1519,6 +1519,44 @@ class DashClaw:
         """List available drift detection metrics."""
         return self._request("GET", "/api/drift/metrics")
 
+    # -----------------------------------------------
+    # Learning Analytics
+    # -----------------------------------------------
+
+    def compute_learning_velocity(self, agent_id: str = None, lookback_days: int = 30, period: str = "daily") -> dict:
+        """Compute learning velocity (rate of score improvement) for agents."""
+        return self._request("POST", "/api/learning/analytics/velocity", json={"agent_id": agent_id, "lookback_days": lookback_days, "period": period})
+
+    def get_learning_velocity(self, agent_id: str = None, limit: int = 30) -> dict:
+        """Get computed velocity data."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/learning/analytics/velocity{qs}")
+
+    def compute_learning_curves(self, agent_id: str = None, lookback_days: int = 60) -> dict:
+        """Compute learning curves per action type."""
+        return self._request("POST", "/api/learning/analytics/curves", json={"agent_id": agent_id, "lookback_days": lookback_days})
+
+    def get_learning_curves(self, agent_id: str = None, action_type: str = None, limit: int = 50) -> dict:
+        """Get learning curve data."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if action_type: params.append(f"action_type={action_type}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/learning/analytics/curves{qs}")
+
+    def get_learning_analytics_summary(self, agent_id: str = None) -> dict:
+        """Get comprehensive learning analytics summary."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/learning/analytics/summary{params}")
+
+    def get_maturity_levels(self) -> dict:
+        """Get the maturity level definitions."""
+        return self._request("GET", "/api/learning/analytics/maturity")
+
 
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

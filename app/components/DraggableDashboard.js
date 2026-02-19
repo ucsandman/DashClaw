@@ -27,6 +27,7 @@ import EvalScoreCard from './EvalScoreCard';
 import PromptStatsCard from './PromptStatsCard';
 import FeedbackCard from './FeedbackCard';
 import DriftCard from './DriftCard';
+import VelocityCard from './VelocityCard';
 
 const CARD_COMPONENTS = {
   'risk-signals': RiskSignalsCard,
@@ -37,6 +38,7 @@ const CARD_COMPONENTS = {
   'projects': ProjectsCard,
   'goals': GoalsChart,
   'learning': LearningStatsCard,
+  'velocity': VelocityCard,
   'follow-ups': FollowUpsCard,
   'calendar': CalendarWidget,
   'context': ContextCard,
@@ -77,6 +79,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'prompt-stats',      x: 2, y: 18, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'feedback',          x: 4, y: 20, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'drift',             x: 0, y: 23, w: 2, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'velocity',          x: 2, y: 23, w: 2, h: 3, ...SHARED_CONSTRAINTS },
   ],
   md: [
     { i: 'risk-signals',      x: 0, y: 0,  w: 1, h: 2, ...SHARED_CONSTRAINTS },
@@ -100,6 +103,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'prompt-stats',      x: 0, y: 36, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'feedback',          x: 0, y: 39, w: 2, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'drift',             x: 0, y: 42, w: 2, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'velocity',          x: 0, y: 45, w: 2, h: 3, ...SHARED_CONSTRAINTS },
   ],
   sm: [
     { i: 'risk-signals',      x: 0, y: 0,  w: 1, h: 2, ...SHARED_CONSTRAINTS },
@@ -123,6 +127,7 @@ const DEFAULT_LAYOUTS = {
     { i: 'prompt-stats',      x: 0, y: 53, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'feedback',          x: 0, y: 56, w: 1, h: 3, ...SHARED_CONSTRAINTS },
     { i: 'drift',             x: 0, y: 59, w: 1, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'velocity',          x: 0, y: 62, w: 1, h: 3, ...SHARED_CONSTRAINTS },
   ],
 };
 

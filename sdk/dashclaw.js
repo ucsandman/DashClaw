@@ -2618,6 +2618,44 @@ class DashClaw {
   async getDriftMetrics() {
     return this._request('/api/drift/metrics', 'GET');
   }
+
+  // -----------------------------------------------
+  // Learning Analytics
+  // -----------------------------------------------
+
+  async computeLearningVelocity({ agent_id, lookback_days, period } = {}) {
+    return this._request('/api/learning/analytics/velocity', 'POST', { agent_id, lookback_days, period });
+  }
+
+  async getLearningVelocity({ agent_id, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/learning/analytics/velocity${qs}`, 'GET');
+  }
+
+  async computeLearningCurves({ agent_id, lookback_days } = {}) {
+    return this._request('/api/learning/analytics/curves', 'POST', { agent_id, lookback_days });
+  }
+
+  async getLearningCurves({ agent_id, action_type, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (action_type) params.set('action_type', action_type);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/learning/analytics/curves${qs}`, 'GET');
+  }
+
+  async getLearningAnalyticsSummary({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/learning/analytics/summary${params}`, 'GET');
+  }
+
+  async getMaturityLevels() {
+    return this._request('/api/learning/analytics/maturity', 'GET');
+  }
 }
 
 /**

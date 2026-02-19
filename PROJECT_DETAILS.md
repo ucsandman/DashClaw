@@ -69,6 +69,7 @@ app/
 ├── lib/notifications.js       # Email alerts via Resend
 ├── lib/llm.js                 # LLM client with provider abstraction (OpenAI, Anthropic, Google)
 ├── lib/eval.js                # Evaluation execution engine (regex, contains, llm_judge, etc.)
+├── lib/learningAnalytics.js   # Agent learning velocity & maturity tracking engine
 ├── components/
 │   ├── ui/                    # Shared primitives (Card, Badge, Stat, ProgressBar, EmptyState, Skeleton)
 │   ├── Sidebar.js             # Persistent sidebar navigation (links to /dashboard)
@@ -126,6 +127,7 @@ app/
     ├── health/                # DB connectivity check (public)
     ├── inspiration/           # Ideas + ratings
     ├── learning/              # Decisions + lessons
+    ├── learning/analytics/    # Learning velocity, curves, summary, maturity
     ├── memory/                # Memory operations
     ├── relationships/         # Contacts + interactions
     ├── schedules/             # Schedule management
@@ -897,6 +899,8 @@ const claw = new DashClaw({
 **User Preferences (6)**: `logObservation()`, `setPreference()`, `logMood()`, `trackApproach()`, `getPreferenceSummary()`, `getApproaches()`
 
 **Daily Digest (1)**: `getDailyDigest()`
+
+**Learning Analytics (6)**: `computeLearningVelocity()`, `getLearningVelocity()`, `computeLearningCurves()`, `getLearningCurves()`, `getLearningAnalyticsSummary()`, `getMaturityLevels()`
 
 **Security Scanning (2)**: `scanContent()`, `reportSecurityFinding()`
 

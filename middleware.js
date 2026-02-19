@@ -1293,6 +1293,29 @@ export async function middleware(request) {
         ] });
       }
 
+      // -- Learning Analytics demo endpoints --
+      if (pathname === '/api/learning/analytics/summary') {
+        return demoJson(request, fixtures.learningAnalyticsSummary);
+      }
+      if (pathname === '/api/learning/analytics/velocity') {
+        if (request.method === 'POST') return demoJson(request, { agents_computed: 3, results: [] }, 201);
+        return demoJson(request, { velocity: fixtures.learningVelocity });
+      }
+      if (pathname === '/api/learning/analytics/curves') {
+        if (request.method === 'POST') return demoJson(request, { curves_computed: 18, results: [] }, 201);
+        return demoJson(request, { curves: fixtures.learningCurves });
+      }
+      if (pathname === '/api/learning/analytics/maturity') {
+        return demoJson(request, { levels: [
+          { level: 'novice', min_episodes: 0, min_success_rate: 0, min_avg_score: 0 },
+          { level: 'developing', min_episodes: 10, min_success_rate: 0.4, min_avg_score: 40 },
+          { level: 'competent', min_episodes: 50, min_success_rate: 0.6, min_avg_score: 55 },
+          { level: 'proficient', min_episodes: 150, min_success_rate: 0.75, min_avg_score: 65 },
+          { level: 'expert', min_episodes: 500, min_success_rate: 0.85, min_avg_score: 75 },
+          { level: 'master', min_episodes: 1000, min_success_rate: 0.92, min_avg_score: 85 },
+        ] });
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1728,6 +1751,9 @@ export const config = {
     '/compliance/:path*',
     '/drift',
     '/drift/:path*',
+    '/learning/analytics',
+    '/learning/analytics/:path*',
+    '/api/learning/analytics/:path*',
     '/api/drift/:path*',
     '/api/compliance/exports/:path*',
     '/api/compliance/schedules/:path*',
