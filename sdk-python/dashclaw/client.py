@@ -1367,5 +1367,52 @@ class DashClaw:
         path = f"/api/evaluations/stats?{query}" if query else "/api/evaluations/stats"
         return self._request(path, "GET")
 
+    # -----------------------------------------------
+    # User Feedback
+    # -----------------------------------------------
+
+    def submit_feedback(self, rating: int = None, comment: str = "", action_id: str = None, agent_id: str = None, category: str = "general", tags: list = None, metadata: dict = None) -> dict:
+        """Submit user feedback, optionally tied to an action trace."""
+        return self._request("POST", "/api/feedback", body={
+            "action_id": action_id,
+            "agent_id": agent_id,
+            "rating": rating,
+            "comment": comment,
+            "category": category,
+            "tags": tags or [],
+            "metadata": metadata or {},
+            "source": "sdk",
+        })
+
+    def list_feedback(self, action_id: str = None, agent_id: str = None, category: str = None, sentiment: str = None, resolved: bool = None, limit: int = 50, offset: int = 0) -> dict:
+        """List feedback entries with optional filters."""
+        params = []
+        if action_id: params.append(f"action_id={action_id}")
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if category: params.append(f"category={category}")
+        if sentiment: params.append(f"sentiment={sentiment}")
+        if resolved is not None: params.append(f"resolved={str(resolved).lower()}")
+        if limit: params.append(f"limit={limit}")
+        if offset: params.append(f"offset={offset}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/feedback{qs}")
+
+    def get_feedback(self, feedback_id: str) -> dict:
+        """Get a specific feedback entry."""
+        return self._request("GET", f"/api/feedback/{feedback_id}")
+
+    def resolve_feedback(self, feedback_id: str) -> dict:
+        """Mark feedback as resolved."""
+        return self._request("PATCH", f"/api/feedback/{feedback_id}", body={"resolved_by": "sdk"})
+
+    def delete_feedback(self, feedback_id: str) -> dict:
+        """Delete a feedback entry."""
+        return self._request("DELETE", f"/api/feedback/{feedback_id}")
+
+    def get_feedback_stats(self, agent_id: str = None) -> dict:
+        """Get feedback statistics with breakdowns by category, agent, and rating."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/feedback/stats{params}")
+
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

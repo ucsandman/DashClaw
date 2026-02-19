@@ -26,6 +26,7 @@ Users fork the repo, deploy to Vercel free tier, and get a fully functional dash
 - `/demo` - demo sandbox (fake data, read-only, no login)
 - `/dashboard` - operations dashboard (real data, requires auth)
 - `/swarm` - real-time swarm intelligence & neural web (visual fleet overview)
+- `/feedback` - user feedback loop & quality analytics (Phase 3)
 - `/prompts` - prompt template registry & versioning (immutable prompts)
 - `/docs` - SDK + platform docs (public)
 - `/self-host` - get started guide (Vercel + Neon setup)

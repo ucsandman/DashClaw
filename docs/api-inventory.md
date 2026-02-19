@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `116`
+- Total routes: `119`
 - Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `56`
+- Experimental routes: `59`
 
 ## Routes
 
@@ -63,6 +63,9 @@ doc-type: architecture
 | `/api/evaluations/scorers` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/scorers/route.js` |
 | `/api/evaluations/scorers/{scorerId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/evaluations/scorers/[scorerId]/route.js` |
 | `/api/evaluations/stats` | `GET` | `experimental` | `(default)` | `app/api/evaluations/stats/route.js` |
+| `/api/feedback` | `GET, POST` | `experimental` | `(default)` | `app/api/feedback/route.js` |
+| `/api/feedback/stats` | `GET` | `experimental` | `(default)` | `app/api/feedback/stats/route.js` |
+| `/api/feedback/{feedbackId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/feedback/[feedbackId]/route.js` |
 | `/api/goals` | `GET, POST` | `experimental` | `(default)` | `app/api/goals/route.js` |
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.js` |
 | `/api/handoffs` | `GET, POST` | `stable` | `/api/handoffs` | `app/api/handoffs/route.js` |

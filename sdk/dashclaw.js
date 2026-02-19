@@ -2479,6 +2479,44 @@ class DashClaw {
     const params = template_id ? `?template_id=${encodeURIComponent(template_id)}` : '';
     return this._request(`/api/prompts/stats${params}`, 'GET');
   }
+
+  // -----------------------------------------------
+  // User Feedback
+  // -----------------------------------------------
+
+  async submitFeedback({ action_id, agent_id, rating, comment, category, tags, metadata }) {
+    return this._request('/api/feedback', 'POST', { action_id, agent_id, rating, comment, category, tags, metadata, source: 'sdk' });
+  }
+
+  async listFeedback({ action_id, agent_id, category, sentiment, resolved, limit, offset } = {}) {
+    const params = new URLSearchParams();
+    if (action_id) params.set('action_id', action_id);
+    if (agent_id) params.set('agent_id', agent_id);
+    if (category) params.set('category', category);
+    if (sentiment) params.set('sentiment', sentiment);
+    if (resolved !== undefined) params.set('resolved', String(resolved));
+    if (limit) params.set('limit', String(limit));
+    if (offset) params.set('offset', String(offset));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/feedback${qs}`, 'GET');
+  }
+
+  async getFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'GET');
+  }
+
+  async resolveFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'PATCH', { resolved_by: 'sdk' });
+  }
+
+  async deleteFeedback(feedbackId) {
+    return this._request(`/api/feedback/${feedbackId}`, 'DELETE');
+  }
+
+  async getFeedbackStats({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/feedback/stats${params}`, 'GET');
+  }
 }
 
 /**

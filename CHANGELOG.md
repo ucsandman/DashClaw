@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.6] - 2026-02-19
+
+### Added
+- **User Feedback Loop (Phase 3)**: Structured feedback system for measuring human satisfaction with agent actions.
+- **Feedback Management Dashboard**: New interface at `/feedback` for tracking user ratings, comments, and triage status.
+- **Rule-based Sentiment & Tagging**: Automated sentiment detection (Positive/Negative/Neutral) and categorical tagging (performance, accuracy, UX, etc.) without LLM overhead.
+- **Feedback Analytics**: Real-time distribution charts, sentiment trends, and agent-specific quality breakdowns.
+- **Feedback SDKs**: Added `submitFeedback()`, `listFeedback()`, and `getFeedbackStats()` to both Node.js and Python SDKs.
+- **Dashboard Feedback Widget**: Draggable card for the main dashboard showing aggregated sentiment bars and top agent ratings.
+
 ## [1.9.5] - 2026-02-19
 
 ### Added

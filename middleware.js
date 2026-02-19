@@ -1212,6 +1212,29 @@ export async function middleware(request) {
         return demoJson(request, fixtures.promptStats);
       }
 
+      // -- Feedback demo endpoints --
+      if (pathname === '/api/feedback') {
+        if (request.method === 'GET') {
+          const url = new URL(request.url);
+          let entries = fixtures.feedbackEntries;
+          const sentiment = url.searchParams.get('sentiment');
+          const resolved = url.searchParams.get('resolved');
+          if (sentiment) entries = entries.filter(e => e.sentiment === sentiment);
+          if (resolved === 'false') entries = entries.filter(e => !e.resolved);
+          if (resolved === 'true') entries = entries.filter(e => e.resolved);
+          return demoJson(request, { feedback: entries, total: entries.length });
+        }
+        return demoJson(request, { id: 'fb_demo_new', sentiment: 'neutral', tags: [] }, 201);
+      }
+      if (pathname.match(/^\/api\/feedback\/stats$/)) {
+        return demoJson(request, fixtures.feedbackStats);
+      }
+      if (pathname.match(/^\/api\/feedback\/[^/]+$/)) {
+        const id = pathname.split('/').pop();
+        const fb = fixtures.feedbackEntries.find(e => e.id === id);
+        return fb ? demoJson(request, fb) : demoJson(request, { error: 'Not found' }, 404);
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1648,6 +1671,9 @@ export const config = {
     '/evaluations',
     '/evaluations/:path*',
     '/api/evaluations/:path*',
+    '/feedback',
+    '/feedback/:path*',
+    '/api/feedback/:path*',
     '/prompts',
     '/prompts/:path*',
     '/api/prompts/:path*',

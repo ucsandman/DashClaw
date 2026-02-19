@@ -1354,6 +1354,87 @@ function buildFixtures() {
     by_version: [],
   };
 
+  const feedbackEntries = Array.from({ length: 25 }).map((_, i) => {
+    const sentiments = ['positive', 'positive', 'positive', 'neutral', 'negative'];
+    const categories = ['quality', 'performance', 'accuracy', 'general', 'safety', 'ux'];
+    const comments = [
+      'Agent handled the deployment perfectly, zero issues',
+      'Response was a bit slow but accurate',
+      'Wrong file was modified, had to roll back',
+      'Good job on the risk assessment',
+      'Confusing output format, hard to parse',
+      'Fast and reliable, exactly what I needed',
+      'Security check missed an obvious vulnerability',
+      'Great improvement over last week',
+      'Token usage seems excessive for this simple task',
+      'Crashed midway through the operation',
+    ];
+    const tagSets = [
+      ['accuracy', 'reliability'], ['performance'], ['accuracy'],
+      ['accuracy'], ['ux'], ['performance', 'reliability'],
+      ['security'], ['accuracy'], ['cost'], ['reliability'],
+    ];
+    const rating = [5, 4, 2, 4, 3, 5, 1, 5, 3, 1][i % 10];
+    return {
+      id: `fb_demo_${String(i).padStart(3, '0')}`,
+      org_id: 'org_demo',
+      action_id: i % 3 === 0 ? `act_demo_${String(i % 10).padStart(3, '0')}` : '',
+      agent_id: ['clawdbot', 'research-agent', 'deploy-bot'][i % 3],
+      source: 'user',
+      rating,
+      sentiment: sentiments[i % 5],
+      category: categories[i % 6],
+      comment: comments[i % 10],
+      tags: JSON.stringify(tagSets[i % 10]),
+      metadata: '{}',
+      resolved: i < 10,
+      resolved_at: i < 10 ? new Date(Date.now() - (10 - i) * 60 * 60 * 1000).toISOString() : null,
+      resolved_by: i < 10 ? 'user' : '',
+      created_by: 'user',
+      created_at: new Date(Date.now() - (25 - i) * 3 * 60 * 60 * 1000).toISOString(),
+    };
+  });
+
+  const feedbackStats = {
+    overall: {
+      total_feedback: 156,
+      avg_rating: 3.72,
+      positive_count: 82,
+      negative_count: 31,
+      neutral_count: 43,
+      unresolved_count: 15,
+      today_count: 8,
+    },
+    by_category: [
+      { category: 'quality', count: 42, avg_rating: 4.1 },
+      { category: 'performance', count: 35, avg_rating: 3.5 },
+      { category: 'accuracy', count: 28, avg_rating: 3.2 },
+      { category: 'general', count: 22, avg_rating: 3.8 },
+      { category: 'safety', count: 16, avg_rating: 3.9 },
+      { category: 'ux', count: 13, avg_rating: 3.1 },
+    ],
+    by_agent: [
+      { agent_id: 'clawdbot', count: 68, avg_rating: 4.0, positive: 40, negative: 8 },
+      { agent_id: 'research-agent', count: 52, avg_rating: 3.6, positive: 25, negative: 12 },
+      { agent_id: 'deploy-bot', count: 36, avg_rating: 3.4, positive: 17, negative: 11 },
+    ],
+    rating_distribution: [
+      { rating: 5, count: 38 },
+      { rating: 4, count: 44 },
+      { rating: 3, count: 32 },
+      { rating: 2, count: 24 },
+      { rating: 1, count: 18 },
+    ],
+    top_tags: [
+      { tag: 'accuracy', count: 45 },
+      { tag: 'performance', count: 38 },
+      { tag: 'reliability', count: 32 },
+      { tag: 'ux', count: 18 },
+      { tag: 'security', count: 14 },
+      { tag: 'cost', count: 9 },
+    ],
+  };
+
   return {
     agents,
     actions,
@@ -1418,6 +1499,8 @@ function buildFixtures() {
     promptVersions,
     promptRuns,
     promptStats,
+    feedbackEntries,
+    feedbackStats,
   };
 }
 
