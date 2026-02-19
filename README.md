@@ -1,68 +1,81 @@
-# [DashClaw](https://dashclaw.io): AI Agent Decision Infrastructure
+<div align="center">
+  <img src="public/images/logo-circular.png" alt="DashClaw" width="120" />
+  <h1>DashClaw</h1>
+  <p><strong>AI Agent Decision Infrastructure</strong></p>
+  <p>The self-hosted control plane that proves what your AI agents decided and why.<br/>Enforce policies before agents act. Track every assumption. Maintain full decision accountability.</p>
 
-DashClaw is the control plane that proves what your AI agents decided and why. It combines a public site, an operator dashboard, and an API surface so you can enforce policies before agents act, track assumptions, and maintain full decision accountability (approvals, compliance mapping, rate limits, webhooks).
+  <a href="https://dashclaw.io"><img src="https://img.shields.io/badge/website-dashclaw.io-orange?style=flat-square" alt="Website" /></a>
+  <a href="https://dashclaw.io/docs"><img src="https://img.shields.io/badge/docs-SDK%20%26%20API-blue?style=flat-square" alt="Docs" /></a>
+  <a href="https://github.com/ucsandman/DashClaw/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="License" /></a>
+  <a href="https://www.npmjs.com/package/dashclaw"><img src="https://img.shields.io/npm/v/dashclaw?style=flat-square&color=orange" alt="npm" /></a>
+  <a href="https://pypi.org/project/dashclaw/"><img src="https://img.shields.io/pypi/v/dashclaw?style=flat-square&color=orange" alt="PyPI" /></a>
 
-Screenshots live in `public/images/screenshots/`.
+  <br /><br />
 
-## How It Works
+  <img src="public/images/github-social-preview.png" alt="DashClaw - Agent Decision Infrastructure" width="600" />
+</div>
 
-DashClaw is a single codebase that serves two roles:
+<br />
 
-| | **dashclaw.io** (marketing) | **Your deployment** (self-hosted) |
-|---|---|---|
-| **Landing page** | Marketing site with demo | Same landing page, "Dashboard" goes to your real dashboard |
-| **Dashboard button** | Opens demo (fixture data, no login) | Opens real dashboard (GitHub OAuth login) |
-| **Data** | Hardcoded fixtures | Your Postgres database |
-| **DASHCLAW_MODE** | `demo` | `self_host` (default) |
+> **Zero LLM required.** Every feature works out of the box without an API key. Optional LLM integration available for advanced scoring.
 
-Both modes use the same "Dashboard" button linking to `/dashboard`. The middleware decides what happens based on `DASHCLAW_MODE`: demo mode skips auth and serves fixtures, self_host mode requires login and hits your database.
+---
 
-Users fork the repo, deploy to Vercel free tier, and get a fully functional dashboard at `your-app.vercel.app`. The "Dashboard" button takes them straight to their authenticated dashboard.
+## Why DashClaw
 
-## Product Surfaces
+Most observability tools tell you *what* your agents did. DashClaw tells you *what they decided, why, and whether they should have.*
 
-- `/` - landing page (marketing on dashclaw.io, homepage on self-hosted)
-- `/practical-systems` - about the team behind DashClaw (public)
-- `/demo` - demo sandbox (fake data, read-only, no login)
-- `/dashboard` - operations dashboard (real data, requires auth)
-- `/swarm` - real-time swarm intelligence & neural web (visual fleet overview)
-- `/scoring` - multi-dimensional quality scoring & risk templates (Phase 7)
-- `/drift` - statistical behavioral drift analysis (Phase 5)
-- `/learning/analytics` - agent learning velocity & maturity tracking (Phase 6)
-- `/feedback` - user feedback loop & quality analytics (Phase 3)
-- `/compliance/exports` - bundled audit-ready reports & schedules (Phase 4)
-- `/prompts` - prompt template registry & versioning (immutable prompts)
-- `/docs` - SDK + platform docs (public)
-- `/self-host` - get started guide (Vercel + Neon setup)
+- **No-code policy enforcement** -- behavior guards that block risky actions before they happen
+- **Full decision audit trail** -- every approval, override, and outcome tracked
+- **Self-hosted** -- your data never leaves your infrastructure
+- **Zero-dependency SDKs** -- Node.js and Python, no vendor lock-in
 
-## Repo Layout
+<br />
 
-- `app/`: Next.js App Router pages, dashboard UI, API routes, shared libraries
-- `sdk/`: Node.js SDK (`dashclaw`)
-- `sdk-python/`: Python SDK (`dashclaw`)
-- `agent-tools/`: local Python CLI tool suite (optional dashboard sync)
-- `scripts/`: migrations, CI guardrails, OpenAPI + inventory generators
-- `docs/`: RFCs, runbooks, parity matrix, governance docs
-- `PROJECT_DETAILS.md`: deep architecture and behavior reference (canonical)
-
-## Deployment Options
-
-DashClaw runs anywhere Node.js runs. Pick the setup that fits your needs:
-
-| | **Local (Docker)** | **Cloud (Vercel + Neon)** |
-|---|---|---|
-| **Best for** | Development, privacy, maximum speed | Remote access from anywhere (phone, laptop) |
-| **Database** | Docker Postgres (direct TCP, fastest) | Neon free tier (serverless, no infra to manage) |
-| **Hosting** | Your machine (`localhost:3000`) | Vercel free tier (`your-app.vercel.app`) |
-| **Cost** | Free | Free |
-
-You can also mix and match: run Vercel with a self-hosted Postgres, or run locally with a Neon database. DashClaw auto-detects your database type and uses the optimal driver.
+<table>
+  <tr>
+    <td align="center" width="25%">
+      <strong>🛡️ Governance</strong><br />
+      <sub>No-code guards, approval chains, compliance mapping</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>📊 Quality & Eval</strong><br />
+      <sub>5 scorer types, scoring profiles, weighted composites</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>🧠 Learning</strong><br />
+      <sub>Velocity tracking, maturity models, per-skill curves</sub>
+    </td>
+    <td align="center" width="25%">
+      <strong>🔍 Observability</strong><br />
+      <sub>Decision trails, drift detection, cost tracking</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <strong>📝 Prompt Mgmt</strong><br />
+      <sub>Version control, variable rendering, usage analytics</sub>
+    </td>
+    <td align="center">
+      <strong>💬 Feedback</strong><br />
+      <sub>User feedback loop, sentiment analysis, triage</sub>
+    </td>
+    <td align="center">
+      <strong>📋 Compliance</strong><br />
+      <sub>Multi-framework export, evidence packaging, schedules</sub>
+    </td>
+    <td align="center">
+      <strong>🔒 Security</strong><br />
+      <sub>AES-256 encryption, multi-tenant isolation, OIDC</sub>
+    </td>
+  </tr>
+</table>
 
 ---
 
 ## Quick Start
 
-Prereqs: **Node.js 20+** ([nodejs.org](https://nodejs.org/))
+**Prerequisites:** Node.js 20+
 
 ```bash
 git clone https://github.com/ucsandman/DashClaw.git
@@ -70,150 +83,230 @@ cd DashClaw
 node scripts/setup.mjs
 ```
 
-That's it. The setup script handles everything interactively:
+The interactive setup handles everything:
 
-1. **Database**: choose Docker (local), Neon (cloud), or paste any Postgres URL
-2. **Deployment**: local only or cloud (Vercel/Railway/etc.)
-3. **Secrets**: auto-generates API key, auth secrets, encryption key
-4. **Dependencies**: runs `npm install`
-5. **Migrations**: creates all database tables (with progress spinners)
-6. **Build**: builds the Next.js app
+1. **Database** -- Docker (local), Neon (cloud), or any Postgres URL
+2. **Secrets** -- auto-generates API key, auth secrets, encryption key
+3. **Migrations** -- creates all tables with progress spinners
+4. **Build** -- compiles the Next.js app
 
-When it finishes, it prints your agent connection snippet and (for cloud deployments) the exact Vercel env vars to copy-paste.
+When it finishes, you get a ready-to-use agent connection snippet.
 
-**Note:** You also need at least one OAuth provider (GitHub or Google) for dashboard login. See [OAuth Setup](#oauth-setup) below.
+> Platform installers also available: `./install-windows.bat` or `bash ./install-mac.sh`
 
-### Platform-specific installers
+---
 
-These just check for Node.js and call `setup.mjs`:
+## Connect Your Agent
 
-```bash
-# Windows
-./install-windows.bat
+**Node.js**
+```javascript
+import DashClaw from 'dashclaw';
 
-# Mac / Linux
-bash ./install-mac.sh
+const dc = new DashClaw({
+  baseUrl: 'https://your-app.vercel.app',
+  apiKey: 'oc_live_...'
+});
+
+// Track a decision
+await dc.createAction({
+  agentId: 'my-agent',
+  type: 'api_call',
+  input: { endpoint: '/users', method: 'POST' },
+  output: { status: 201 }
+});
+
+// Enforce a policy
+const decision = await dc.checkGuard({
+  agentId: 'my-agent',
+  action: 'send_email',
+  context: { recipient_count: 500 }
+});
+// decision.allowed = false (bulk email blocked by guard)
 ```
 
-### Or: `npm run setup`
+**Python**
+```python
+from dashclaw import DashClaw
 
-If you already have dependencies installed:
+dc = DashClaw(
+    base_url="https://your-app.vercel.app",
+    api_key="oc_live_..."
+)
 
-```bash
-npm run setup
+dc.create_action(
+    agent_id="my-agent",
+    type="api_call",
+    input={"endpoint": "/users", "method": "POST"},
+    output={"status": 201}
+)
 ```
 
 ---
 
-## Testing
+## How It Works
 
-DashClaw includes a comprehensive test suite covering both unit logic and full API integration.
+DashClaw is a single Next.js codebase that serves two roles:
 
-### Unit Tests (Vitest)
+| | **dashclaw.io** (marketing) | **Your deployment** (self-hosted) |
+|---|---|---|
+| **Landing page** | Marketing site with demo | Same page, "Dashboard" goes to your real dashboard |
+| **Dashboard** | Demo with fixture data, no login | Real dashboard with GitHub/Google/OIDC OAuth |
+| **Data** | Hardcoded fixtures | Your Postgres database |
+| **`DASHCLAW_MODE`** | `demo` | `self_host` (default) |
 
-Unit tests cover pure logic, statistical utilities, and template rendering.
+---
 
-```bash
-npm test
-```
+## Product Surfaces
 
-### Integration Tests
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page |
+| `/dashboard` | Operations dashboard (requires auth) |
+| `/swarm` | Real-time swarm intelligence & neural web |
+| `/docs` | SDK + platform documentation |
+| `/self-host` | Getting started guide |
+| `/demo` | Demo sandbox (read-only, no login) |
 
-Integration tests exercise the full API surface against a running server.
+---
 
-1. Start the development server: `npm run dev`
-2. In another terminal, run the test suite:
+## Deploy to Cloud
+
+The fastest path: **Vercel free tier + Neon free tier**. Accessible from any device, auto-HTTPS.
+
+1. Create a free database at [neon.tech](https://neon.tech)
+2. Fork this repo to your GitHub
+3. Import at [vercel.com/new](https://vercel.com/new)
+4. Generate secrets:
    ```bash
-   node scripts/test-full-api.mjs
+   node -e "const c=require('crypto');console.log('NEXTAUTH_SECRET='+c.randomBytes(32).toString('base64url'));console.log('DASHCLAW_API_KEY=oc_live_'+c.randomBytes(24).toString('hex'));console.log('ENCRYPTION_KEY='+c.randomBytes(32).toString('base64url').slice(0,32));console.log('CRON_SECRET='+c.randomBytes(32).toString('hex'))"
    ```
+5. Set environment variables in Vercel:
+
+   | Variable | Value |
+   |----------|-------|
+   | `DATABASE_URL` | Your Neon connection string |
+   | `NEXTAUTH_URL` | `https://your-app.vercel.app` |
+   | `NEXTAUTH_SECRET` | From step 4 |
+   | `DASHCLAW_API_KEY` | From step 4 (`oc_live_` prefix required) |
+   | `ENCRYPTION_KEY` | From step 4 |
+   | `CRON_SECRET` | From step 4 |
+   | `GITHUB_ID` + `GITHUB_SECRET` | From [OAuth setup](#oauth-setup) |
+
+6. Deploy. Tables are created automatically on first request.
+7. Visit your app -> **Dashboard** -> sign in with GitHub
+
+> Also works on Railway, Fly.io, Render, or any host that runs Node.js.
+
+---
+
+## Deployment Options
+
+| | **Local (Docker)** | **Cloud (Vercel + Neon)** |
+|---|---|---|
+| **Best for** | Development, privacy, max speed | Remote access from anywhere |
+| **Database** | Docker Postgres (direct TCP) | Neon free tier (serverless) |
+| **Hosting** | `localhost:3000` | `your-app.vercel.app` |
+| **Cost** | Free | Free |
+
+Mix and match: Vercel + self-hosted Postgres, or local + Neon. DashClaw auto-detects your database type.
 
 ---
 
 ## OAuth Setup
 
-The dashboard requires GitHub and/or Google OAuth for login.
+The dashboard requires at least one OAuth provider.
 
-### GitHub OAuth
+<details>
+<summary><strong>GitHub OAuth</strong></summary>
 
-1. Go to [github.com/settings/developers](https://github.com/settings/developers) → **New OAuth App**
-2. Set the callback URL:
+1. Go to [github.com/settings/developers](https://github.com/settings/developers) -> **New OAuth App**
+2. Callback URL:
    - Local: `http://localhost:3000/api/auth/callback/github`
    - Cloud: `https://your-app.vercel.app/api/auth/callback/github`
-3. Add `GITHUB_ID` and `GITHUB_SECRET` to your `.env.local` (local) or Vercel env vars (cloud)
+3. Add `GITHUB_ID` and `GITHUB_SECRET` to your env
 
-### Google OAuth (optional)
+</details>
+
+<details>
+<summary><strong>Google OAuth (optional)</strong></summary>
 
 1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-2. Set the callback URL:
+2. Callback URL:
    - Local: `http://localhost:3000/api/auth/callback/google`
    - Cloud: `https://your-app.vercel.app/api/auth/callback/google`
 3. Add `GOOGLE_ID` and `GOOGLE_SECRET`
 
-### OIDC Provider (Authentik, Keycloak, etc.)
+</details>
 
-1.  Set the callback URL in your provider to: `https://your-app.vercel.app/api/auth/callback/oidc`
-2.  Add `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, and `OIDC_CLIENT_SECRET` to your environment variables.
-3.  (Optional) Add `OIDC_DISPLAY_NAME` to customize the login button text.
+<details>
+<summary><strong>OIDC (Authentik, Keycloak, etc.)</strong></summary>
 
-See [OIDC Setup Guide](docs/OIDC_SETUP.md) for detailed instructions.
+1. Callback URL: `https://your-app.vercel.app/api/auth/callback/oidc`
+2. Add `OIDC_ISSUER_URL`, `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`
+3. Optional: `OIDC_DISPLAY_NAME` to customize the login button
 
-If you see "redirect_uri is not associated with this application", your OAuth app is missing the callback URL.
+See [OIDC Setup Guide](docs/OIDC_SETUP.md) for details.
 
----
-
-## Deploy to Cloud (Vercel + Neon): Recommended
-
-The fastest path: Vercel free tier + Neon free tier. Accessible from any device, auto-HTTPS.
-
-1. Create a free database at [neon.tech](https://neon.tech) and copy the connection string
-2. Fork this repo to your GitHub account
-3. Go to [vercel.com/new](https://vercel.com/new) and import your fork
-4. Generate your secrets (run once in any terminal, copy the output):
-   ```bash
-   node -e "const c=require('crypto');console.log('NEXTAUTH_SECRET='+c.randomBytes(32).toString('base64url'));console.log('DASHCLAW_API_KEY=oc_live_'+c.randomBytes(24).toString('hex'));console.log('ENCRYPTION_KEY='+c.randomBytes(32).toString('base64url').slice(0,32));console.log('CRON_SECRET='+c.randomBytes(32).toString('hex'))"
-   ```
-5. Add environment variables in Vercel:
-   - `DATABASE_URL`: your Neon connection string
-   - `NEXTAUTH_URL`: `https://your-app.vercel.app`
-   - `NEXTAUTH_SECRET`: from step 4 (encrypts login sessions)
-   - `DASHCLAW_API_KEY`: from step 4 (authenticates your agents; `oc_live_` prefix is required). This is the initial bootstrap admin key — you can manage additional keys from the dashboard at `/api-keys` after you sign in
-   - `ENCRYPTION_KEY`: from step 4 (encrypts sensitive settings in DB)
-   - `CRON_SECRET`: from step 4 (authenticates scheduled jobs)
-   - `REALTIME_BACKEND`: `redis` (for live updates on Vercel)
-   - `REDIS_URL`: your Upstash Redis connection string
-   - `REALTIME_ENFORCE_REDIS`: `true`
-   - `GITHUB_ID` + `GITHUB_SECRET`: from GitHub OAuth setup (see above)
-6. Deploy. Tables are created automatically on first request
-7. Visit `your-app.vercel.app` → click **Dashboard** → sign in with GitHub
-
-**Do not** set `DASHCLAW_MODE=demo` on your deployment. That is only for dashclaw.io. The default (`self_host`) is what you want.
-
-Other cloud hosts (Railway, Fly.io, Render, your own VPS) also work. DashClaw is a standard Next.js app.
+</details>
 
 ---
 
-## Bootstrap An Existing Agent
+## Bootstrap an Existing Agent
 
-Import an agent's entire workspace (goals, memory, decisions, skills, tools, relationships) into the dashboard:
+Import an agent's entire workspace into the dashboard:
 
 ```bash
-# Preview what will be imported (no writes)
-node scripts/bootstrap-agent.mjs --dir "/path/to/agent" --agent-id "my-agent" --dry-run
+# Preview (dry run)
+node scripts/bootstrap-agent.mjs \
+  --dir "/path/to/agent" \
+  --agent-id "my-agent" \
+  --dry-run
 
-# Push to local dashboard
-node scripts/bootstrap-agent.mjs --dir "/path/to/agent" --agent-id "my-agent" --local
-
-# Push to cloud dashboard
-node scripts/bootstrap-agent.mjs --dir "/path/to/agent" --agent-id "my-agent" --base-url "https://your-app.vercel.app" --api-key "oc_live_..."
+# Push to cloud
+node scripts/bootstrap-agent.mjs \
+  --dir "/path/to/agent" \
+  --agent-id "my-agent" \
+  --base-url "https://your-app.vercel.app" \
+  --api-key "oc_live_..."
 ```
 
-The adaptive scanner auto-discovers and classifies files: identity, skills, tools, relationships, config, creative works, and more. No hardcoded paths needed.
-
-More details: `docs/agent-bootstrap.md`.
+The adaptive scanner auto-discovers and classifies files: identity, skills, tools, relationships, config, creative works, and more. No hardcoded paths needed. See [docs/agent-bootstrap.md](docs/agent-bootstrap.md).
 
 ---
 
-## CI/Quality Gates
+## Repo Layout
+
+```
+app/            Next.js App Router -- pages, dashboard, API routes, shared libs
+sdk/            Node.js SDK (dashclaw)
+sdk-python/     Python SDK + CLI tools (dashclaw)
+agent-tools/    Local Python CLI suite (optional dashboard sync)
+scripts/        Migrations, CI guardrails, OpenAPI + inventory generators
+docs/           RFCs, runbooks, parity matrix, governance docs
+```
+
+---
+
+## Scheduled Jobs
+
+DashClaw exposes cron endpoints under `/api/cron/*` for maintenance and automation. Use any scheduler (GitHub Actions, system cron, Cloudflare Workers, etc.):
+
+```bash
+curl -fsS \
+  -H "Authorization: Bearer $CRON_SECRET" \
+  "https://YOUR_HOST/api/cron/signals"
+```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `/api/cron/signals` | Compute signals, fire webhooks, send alerts |
+| `/api/cron/memory-maintenance` | Memory health maintenance |
+| `/api/cron/learning-recommendations` | Rebuild learning recommendations |
+| `/api/cron/learning-episodes-backfill` | Backfill learning episodes |
+
+---
+
+## CI / Quality Gates
 
 ```bash
 npm run lint
@@ -226,60 +319,50 @@ npm run sdk:integration
 npm run sdk:integration:python
 ```
 
-## Security Notes (Self-Host)
+---
 
-- In production, if `DASHCLAW_API_KEY` is not set, the `/api/*` surface fails closed with `503` in `middleware.js`.
-- Rate limiting is enforced in middleware for `/api/*` (including unauthenticated public API routes).
-  - Tuning: `DASHCLAW_RATE_LIMIT_WINDOW_MS`, `DASHCLAW_RATE_LIMIT_MAX`
-  - Dev only: `DASHCLAW_DISABLE_RATE_LIMIT=true`
+## Security
 
-More: `docs/SECURITY.md`.
+- API surface fails closed with `503` if `DASHCLAW_API_KEY` is not set in production
+- Rate limiting enforced on all `/api/*` routes (tunable via `DASHCLAW_RATE_LIMIT_*` env vars)
+- AES-256 encryption for sensitive settings
+- Multi-tenant isolation by default
 
-## Scheduled Jobs (Optional)
+See [docs/SECURITY.md](docs/SECURITY.md).
 
-DashClaw exposes cron endpoints under `/api/cron/*` for maintenance and automation, but the OSS repo does not ship Vercel cron schedules (paid feature). You can still run scheduled behavior by using any scheduler (GitHub Actions, system cron, Cloudflare, etc.) to call these endpoints with:
+---
 
-- Header: `Authorization: Bearer $CRON_SECRET`
+## Documentation
 
-Endpoints:
+| Resource | Description |
+|----------|-------------|
+| [**PROJECT_DETAILS.md**](PROJECT_DETAILS.md) | Canonical architecture & behavior reference |
+| [**QUICK-START.md**](QUICK-START.md) | Non-coding setup guide |
+| [**docs/client-setup-guide.md**](docs/client-setup-guide.md) | SDK & operator reference |
+| [**docs/agent-bootstrap.md**](docs/agent-bootstrap.md) | Agent import & bootstrap |
+| [**CONTRIBUTING.md**](CONTRIBUTING.md) | Contribution guidelines |
 
-- `GET /api/cron/signals` (compute new signals, fire webhooks, send alert emails)
-- `GET /api/cron/memory-maintenance` (memory health maintenance)
-- `GET /api/cron/learning-recommendations` (rebuild learning recommendations)
-- `GET /api/cron/learning-episodes-backfill` (backfill learning episodes)
-- `POST /api/drift/alerts` (with `{"action": "detect"}` to run periodic drift analysis)
+---
 
-Example (bash):
+## Community
 
-```bash
-curl -fsS -H "Authorization: Bearer $CRON_SECRET" "https://YOUR_HOST/api/cron/signals"
-```
+<div align="center">
 
-Example (PowerShell):
+  <a href="https://dashclaw.io">Website</a> &bull;
+  <a href="https://dashclaw.io/docs">Documentation</a> &bull;
+  <a href="https://github.com/ucsandman/DashClaw/issues">Issues</a>
 
-```powershell
-Invoke-RestMethod -Headers @{ Authorization = "Bearer $env:CRON_SECRET" } -Method GET "http://localhost:3000/api/cron/signals"
-```
+</div>
 
-## Analytics (Optional)
-
-DashClaw includes Vercel Web Analytics (`@vercel/analytics`):
-
-- Enabled automatically on Vercel deployments (`VERCEL=1`)
-- Opt-in on non-Vercel hosts: `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS=true`
-
-## Documentation Map
-
-- Canonical architecture and behavior: `PROJECT_DETAILS.md`
-- Non-coding setup: `QUICK-START.md`
-- SDK/operator reference: `docs/client-setup-guide.md`
-- Agent import/bootstrap: `docs/agent-bootstrap.md`
-- Documentation governance: `docs/documentation-governance.md`
-
-## Contributing
-
-See `CONTRIBUTING.md`.
+---
 
 ## License
 
-MIT (`LICENSE`).
+[MIT](LICENSE) -- use it however you want.
+
+<div align="center">
+  <br />
+  <img src="public/images/github-social-preview-ps.png" alt="Practical Systems" width="600" />
+  <br />
+  <sub>Built by <a href="https://practicalsystems.io">Practical Systems</a></sub>
+</div>
