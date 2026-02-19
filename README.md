@@ -21,7 +21,7 @@
 
 ---
 
-## Why DashClaw
+## Why [DashClaw](https://dashclaw.io)
 
 Most observability tools tell you *what* your agents did. DashClaw tells you *what they decided, why, and whether they should have.*
 
