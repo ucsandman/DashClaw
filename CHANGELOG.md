@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.1] - 2026-02-19
+
+### Added
+- **Comprehensive Test Suite (Phases 0-6)**: Added 10 new unit test files and expanded the integration test suite to cover Evaluations, Prompts, Feedback, Compliance, Drift, and Learning Analytics.
+- **Unit Tests**: Coverage for all 5 scorer types (regex, contains, numeric_range, custom_function, llm_judge), Mustache template rendering, rule-based sentiment/tagging, statistical utilities, and maturity model logic.
+- **Integration Tests**: Full API CRUD validation for all new feature phases added to `scripts/test-full-api.mjs`, ensuring end-to-end reliability.
+
+### Fixed
+- **Prompt Rendering**: Fixed a regex bug in `app/lib/prompt.js` where backslashes were not properly escaped in the `RegExp` constructor, causing it to fail on variables with surrounding whitespace (e.g., `{{ name }}`).
+
 ## [1.10.0] - 2026-02-19
 
 ### Added

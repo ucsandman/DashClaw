@@ -105,6 +105,30 @@ npm run setup
 
 ---
 
+## Testing
+
+DashClaw includes a comprehensive test suite covering both unit logic and full API integration.
+
+### Unit Tests (Vitest)
+
+Unit tests cover pure logic, statistical utilities, and template rendering.
+
+```bash
+npm test
+```
+
+### Integration Tests
+
+Integration tests exercise the full API surface against a running server.
+
+1. Start the development server: `npm run dev`
+2. In another terminal, run the test suite:
+   ```bash
+   node scripts/test-full-api.mjs
+   ```
+
+---
+
 ## OAuth Setup
 
 The dashboard requires GitHub and/or Google OAuth for login.

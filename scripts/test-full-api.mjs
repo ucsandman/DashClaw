@@ -921,6 +921,243 @@ async function testOrgManagement() {
   assert(s3 === 200 || s3 === 403, `GET /api/team/invite returns 200 or 403 (got ${s3})`);
 }
 
+// 
+// Phase: Evaluations (Phase 0+1)
+// 
+
+async function testEvaluations() {
+  console.log('\n Evaluations ');
+
+  // GET /api/evaluations/types  list scorer types
+  const { status: s1, data: d1 } = await request('GET', '/api/evaluations/types');
+  assert(s1 === 200, `GET /api/evaluations/types returns 200 (got ${s1})`);
+  assert(Array.isArray(d1.types), 'Returns types array');
+  assert(d1.types.length >= 5, `Has at least 5 scorer types (got ${d1.types.length})`);
+
+  // POST /api/evaluations/scorers  create scorer
+  const { status: s2, data: d2 } = await request('POST', '/api/evaluations/scorers', {
+    name: `test-scorer-${Date.now()}`,
+    scorer_type: 'contains',
+    config: { keywords: ['hello', 'world'] },
+  });
+  assert(s2 === 201, `POST /api/evaluations/scorers returns 201 (got ${s2})`);
+  assert(d2.id, 'Scorer has an id');
+  const scorerId = d2.id;
+
+  // GET /api/evaluations/scorers  list
+  const { status: s3, data: d3 } = await request('GET', '/api/evaluations/scorers');
+  assert(s3 === 200, 'GET /api/evaluations/scorers returns 200');
+  assert(Array.isArray(d3.scorers), 'Returns scorers array');
+  assert(d3.scorers.some(s => s.id === scorerId), 'Created scorer appears in list');
+
+  // POST /api/evaluations/scores  score something
+  const { status: s4, data: d4 } = await request('POST', '/api/evaluations/scores', {
+    scorer_id: scorerId,
+    output: 'hello world this is a test',
+    metadata: { agent_id: 'test-agent' },
+  });
+  assert(s4 === 201, `POST /api/evaluations/scores returns 201 (got ${s4})`);
+  assert(typeof d4.score === 'number', `Score is a number: ${d4.score}`);
+  assert(d4.score === 1, `Contains scorer returns 1 for matching output (got ${d4.score})`);
+
+  // GET /api/evaluations/scores  list scores
+  const { status: s5, data: d5 } = await request('GET', '/api/evaluations/scores?limit=5');
+  assert(s5 === 200, 'GET /api/evaluations/scores returns 200');
+  assert(Array.isArray(d5.scores), 'Returns scores array');
+
+  // DELETE /api/evaluations/scorers  cleanup
+  const { status: s6 } = await request('DELETE', `/api/evaluations/scorers/${scorerId}`);
+  assert(s6 === 200, `DELETE scorer returns 200 (got ${s6})`);
+}
+
+// 
+// Phase: Prompts (Phase 2)
+// 
+
+async function testPrompts() {
+  console.log('\n Prompts ');
+
+  // POST /api/prompts/templates  create template
+  const { status: s1, data: d1 } = await request('POST', '/api/prompts/templates', {
+    name: `test-prompt-${Date.now()}`,
+    content: 'Hello {{name}}, welcome to {{place}}!',
+    variables: ['name', 'place'],
+  });
+  assert(s1 === 201, `POST /api/prompts/templates returns 201 (got ${s1})`);
+  assert(d1.id, 'Template has an id');
+  const templateId = d1.id;
+
+  // GET /api/prompts/templates  list
+  const { status: s2, data: d2 } = await request('GET', '/api/prompts/templates');
+  assert(s2 === 200, 'GET /api/prompts/templates returns 200');
+  assert(Array.isArray(d2.templates), 'Returns templates array');
+
+  // POST /api/prompts/render  render template
+  const { status: s3, data: d3 } = await request('POST', '/api/prompts/render', {
+    template_id: templateId,
+    variables: { name: 'Test', place: 'DashClaw' },
+  });
+  assert(s3 === 200, `POST /api/prompts/render returns 200 (got ${s3})`);
+  assert(d3.rendered === 'Hello Test, welcome to DashClaw!', `Rendered correctly: ${d3.rendered}`);
+
+  // GET /api/prompts/stats  usage stats
+  const { status: s4 } = await request('GET', '/api/prompts/stats');
+  assert(s4 === 200, 'GET /api/prompts/stats returns 200');
+
+  // DELETE  cleanup
+  const { status: s5 } = await request('DELETE', `/api/prompts/templates/${templateId}`);
+  assert(s5 === 200, `DELETE template returns 200 (got ${s5})`);
+}
+
+// 
+// Phase: Feedback (Phase 3)
+// 
+
+async function testFeedback() {
+  console.log('\n Feedback ');
+
+  // POST /api/feedback  create feedback
+  const { status: s1, data: d1 } = await request('POST', '/api/feedback', {
+    rating: 4,
+    comment: 'Great performance, very fast response',
+    action_id: `test-action-${Date.now()}`,
+    agent_id: 'test-agent',
+  });
+  assert(s1 === 201, `POST /api/feedback returns 201 (got ${s1})`);
+  assert(d1.id, 'Feedback has an id');
+  const feedbackId = d1.id;
+
+  // GET /api/feedback  list
+  const { status: s2, data: d2 } = await request('GET', '/api/feedback?limit=5');
+  assert(s2 === 200, 'GET /api/feedback returns 200');
+  assert(Array.isArray(d2.feedback), 'Returns feedback array');
+
+  // GET /api/feedback/stats  stats
+  const { status: s3, data: d3 } = await request('GET', '/api/feedback/stats');
+  assert(s3 === 200, 'GET /api/feedback/stats returns 200');
+  assert(typeof d3.total_feedback === 'number' || d3.stats, 'Stats returned');
+
+  // PATCH /api/feedback/:id  resolve
+  const { status: s4 } = await request('PATCH', `/api/feedback/${feedbackId}`, { resolved: true });
+  assert(s4 === 200, `PATCH /api/feedback/:id returns 200 (got ${s4})`);
+
+  // DELETE  cleanup
+  const { status: s5 } = await request('DELETE', `/api/feedback/${feedbackId}`);
+  assert(s5 === 200, `DELETE feedback returns 200 (got ${s5})`);
+}
+
+// 
+// Phase: Compliance Exports (Phase 4)
+// 
+
+async function testComplianceExports() {
+  console.log('\n Compliance Exports ');
+
+  // GET /api/compliance/exports  list (empty initially)
+  const { status: s1, data: d1 } = await request('GET', '/api/compliance/exports');
+  assert(s1 === 200, `GET /api/compliance/exports returns 200 (got ${s1})`);
+  assert(Array.isArray(d1.exports), 'Returns exports array');
+
+  // POST /api/compliance/exports  create export
+  const { status: s2, data: d2 } = await request('POST', '/api/compliance/exports', {
+    name: `test-export-${Date.now()}`,
+    frameworks: ['soc2'],
+    window_days: 7,
+  });
+  assert(s2 === 201, `POST /api/compliance/exports returns 201 (got ${s2})`);
+  assert(d2.id, 'Export has an id');
+
+  // POST  validation: missing frameworks
+  const { status: s3 } = await request('POST', '/api/compliance/exports', { name: 'No frameworks' });
+  assert(s3 === 400, `POST without frameworks returns 400 (got ${s3})`);
+
+  // GET /api/compliance/trends
+  const { status: s4 } = await request('GET', '/api/compliance/trends');
+  assert(s4 === 200, `GET /api/compliance/trends returns 200 (got ${s4})`);
+
+  // GET /api/compliance/schedules
+  const { status: s5, data: d5 } = await request('GET', '/api/compliance/schedules');
+  assert(s5 === 200, `GET /api/compliance/schedules returns 200 (got ${s5})`);
+  assert(Array.isArray(d5.schedules), 'Returns schedules array');
+}
+
+// 
+// Phase: Drift Detection (Phase 5)
+// 
+
+async function testDriftDetection() {
+  console.log('\n Drift Detection ');
+
+  // GET /api/drift/metrics  list metrics
+  const { status: s1, data: d1 } = await request('GET', '/api/drift/metrics');
+  assert(s1 === 200, `GET /api/drift/metrics returns 200 (got ${s1})`);
+  assert(Array.isArray(d1.metrics), 'Returns metrics array');
+  assert(d1.metrics.length >= 6, `At least 6 metrics (got ${d1.metrics.length})`);
+
+  // GET /api/drift/alerts  list alerts
+  const { status: s2, data: d2 } = await request('GET', '/api/drift/alerts');
+  assert(s2 === 200, `GET /api/drift/alerts returns 200 (got ${s2})`);
+  assert(Array.isArray(d2.alerts), 'Returns alerts array');
+
+  // GET /api/drift/stats
+  const { status: s3, data: d3 } = await request('GET', '/api/drift/stats');
+  assert(s3 === 200, `GET /api/drift/stats returns 200 (got ${s3})`);
+  assert(d3.overall !== undefined, 'Stats include overall');
+
+  // GET /api/drift/snapshots
+  const { status: s4 } = await request('GET', '/api/drift/snapshots');
+  assert(s4 === 200, `GET /api/drift/snapshots returns 200 (got ${s4})`);
+
+  // POST /api/drift/alerts  compute baselines (may have no data)
+  const { status: s5, data: d5 } = await request('POST', '/api/drift/alerts', { action: 'compute_baselines' });
+  assert(s5 === 201, `POST compute_baselines returns 201 (got ${s5})`);
+  assert(typeof d5.baselines_computed === 'number', 'Returns baselines_computed count');
+
+  // POST /api/drift/alerts  detect drift
+  const { status: s6, data: d6 } = await request('POST', '/api/drift/alerts', { action: 'detect' });
+  assert(s6 === 201, `POST detect returns 201 (got ${s6})`);
+  assert(typeof d6.alerts_generated === 'number', 'Returns alerts_generated count');
+}
+
+// 
+// Phase: Learning Analytics (Phase 6)
+// 
+
+async function testLearningAnalytics() {
+  console.log('\n Learning Analytics ');
+
+  // GET /api/learning/analytics/summary
+  const { status: s1, data: d1 } = await request('GET', '/api/learning/analytics/summary');
+  assert(s1 === 200, `GET /api/learning/analytics/summary returns 200 (got ${s1})`);
+  assert(d1.overall !== undefined, 'Summary includes overall');
+  assert(Array.isArray(d1.by_agent), 'Summary includes by_agent array');
+  assert(Array.isArray(d1.by_action_type), 'Summary includes by_action_type array');
+
+  // GET /api/learning/analytics/maturity
+  const { status: s2, data: d2 } = await request('GET', '/api/learning/analytics/maturity');
+  assert(s2 === 200, `GET /api/learning/analytics/maturity returns 200 (got ${s2})`);
+  assert(Array.isArray(d2.levels), 'Returns levels array');
+  assert(d2.levels.length === 6, `6 maturity levels (got ${d2.levels.length})`);
+
+  // POST /api/learning/analytics/velocity  compute
+  const { status: s3, data: d3 } = await request('POST', '/api/learning/analytics/velocity', { lookback_days: 30 });
+  assert(s3 === 201, `POST velocity returns 201 (got ${s3})`);
+  assert(typeof d3.agents_computed === 'number', 'Returns agents_computed count');
+
+  // GET /api/learning/analytics/velocity
+  const { status: s4 } = await request('GET', '/api/learning/analytics/velocity');
+  assert(s4 === 200, `GET velocity returns 200 (got ${s4})`);
+
+  // POST /api/learning/analytics/curves  compute
+  const { status: s5, data: d5 } = await request('POST', '/api/learning/analytics/curves', { lookback_days: 60 });
+  assert(s5 === 201, `POST curves returns 201 (got ${s5})`);
+  assert(typeof d5.curves_computed === 'number', 'Returns curves_computed count');
+
+  // GET /api/learning/analytics/curves
+  const { status: s6 } = await request('GET', '/api/learning/analytics/curves');
+  assert(s6 === 200, `GET curves returns 200 (got ${s6})`);
+}
+
 // ──────────────────────────────────────────────
 // Run all tests
 // ──────────────────────────────────────────────
@@ -957,6 +1194,12 @@ async function main() {
     testCronRoutes,
     testMiscEndpoints,
     testOrgManagement,
+    testEvaluations,
+    testPrompts,
+    testFeedback,
+    testComplianceExports,
+    testDriftDetection,
+    testLearningAnalytics,
   ];
 
   for (const phase of phases) {

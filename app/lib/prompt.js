@@ -178,7 +178,7 @@ export function renderPrompt(content, variables = {}) {
   // Simple Mustache-style {{variable}} replacement
   let rendered = content;
   for (const [key, value] of Object.entries(variables)) {
-    const regex = new RegExp(`\{\{\s*${key}\s*\}\}`, 'g');
+    const regex = new RegExp(`\\{\\{\\s*${key}\\s*\\}\\}`, 'g');
     rendered = rendered.replace(regex, String(value));
   }
   return rendered;
