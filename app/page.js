@@ -303,7 +303,7 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">What makes DashClaw different?</h2>
-            <p className="mt-3 text-zinc-400">Governance that doesn't slow you down.</p>
+            <p className="mt-3 text-zinc-400">Governance that doesn&apos;t slow you down.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
@@ -316,8 +316,8 @@ export default function LandingPage() {
             <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
               <h3 className="text-lg font-semibold text-white">Learning Velocity</h3>
               <p className="text-sm text-zinc-400 mt-2">
-                DashClaw doesn't just log actions; it tracks how fast your agents are improving
-                and where they're still struggling.
+                DashClaw doesn&apos;t just log actions; it tracks how fast your agents are improving
+                and where they&apos;re still struggling.
               </p>
             </div>
             <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
@@ -330,7 +330,7 @@ export default function LandingPage() {
             <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
               <h3 className="text-lg font-semibold text-white">Operator-Defined Quality</h3>
               <p className="text-sm text-zinc-400 mt-2">
-                You define what "good" means. Weighted multi-dimensional scoring with auto-calibration
+                You define what &quot;good&quot; means. Weighted multi-dimensional scoring with auto-calibration
                 from your real data. Risk templates replace guesswork with transparent rules.
               </p>
             </div>
