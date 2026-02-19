@@ -1,10 +1,11 @@
 import Link from 'next/link';
 import {
   ArrowRight, Github, ExternalLink, BookOpen,
-  Terminal, Zap, CircleDot, Eye, ShieldAlert, Shield, BarChart3,
+  Terminal, Zap, CircleDot, Eye, ShieldAlert, BarChart3,
   ChevronRight, Network, FileCheck, Scale, Radio, Users,
-  Newspaper, MessageSquare, Download, SlidersHorizontal
+  Newspaper, MessageSquare, Download, SlidersHorizontal, Shield
 } from 'lucide-react';
+import DashClawLogo from '../components/DashClawLogo';
 import CopyDocsButton from '../components/CopyDocsButton';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
@@ -2256,7 +2257,7 @@ schedules.forEach(s => console.log(s.name, s.cron_expression));`}
           <section id="identity-binding" className="scroll-mt-20 pt-12 border-t border-[rgba(255,255,255,0.06)]">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center">
-                <Shield size={16} className="text-brand" />
+                <DashClawLogo size={16} />
               </div>
               <h2 className="text-2xl font-bold tracking-tight">Identity Binding</h2>
             </div>

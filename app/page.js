@@ -1,11 +1,13 @@
 import Link from 'next/link';
 import {
-  Zap, ShieldAlert, Shield, CircleDot, Eye, ArrowRight, Github,
+  Zap, ShieldAlert, CircleDot, Eye, ArrowRight, Github,
   ExternalLink, BookOpen, FolderKanban, MessageSquare, ArrowLeftRight,
   Brain, ScanSearch, HeartPulse, Newspaper, Package, UsersRound,
   Webhook, Clock, Compass, Building2, Terminal, BarChart3,
   Scale, Network, FileCheck, Download, SlidersHorizontal, Radio,
+  Shield,
 } from 'lucide-react';
+import DashClawLogo from './components/DashClawLogo';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
 import HeroScreenshot from './components/HeroScreenshot';
@@ -19,7 +21,7 @@ const coreFeatures = [
     description: 'Every action recorded with reasoning, assumptions, and policy compliance. A live decision ledger streams everything so you can prove why any agent acted.',
   },
   {
-    icon: Shield,
+    icon: DashClawLogo,
     title: 'Enforce Policies Before Agents Act',
     description: 'Semantic guard policies intercept intent before execution. Natural language rules evaluated in real time. No hard-coded checks to maintain.',
   },
@@ -52,7 +54,7 @@ const platformFeatures = [
   { icon: Radio, title: 'Behavioral Drift Detection', description: 'Statistical baselines and z-score alerts catch when agent behavior deviates from the norm. Detect logic drift early.' },
   { icon: Download, title: 'Compliance Export Bundles', description: 'One-click exports for SOC 2, NIST AI RMF, EU AI Act, and ISO 42001. All your governance evidence, packaged.' },
   { icon: SlidersHorizontal, title: 'Scoring Profiles', description: 'User-defined weighted quality scoring with auto-calibration from real data. Risk templates replace hardcoded agent risk numbers with transparent, editable rules.' },
-  { icon: Shield, title: 'Verified Agent Identity', description: 'Know which agent took which action. RSA signature verification ensures accountability at every step.' },
+  { icon: DashClawLogo, title: 'Verified Agent Identity', description: 'Know which agent took which action. RSA signature verification ensures accountability at every step.' },
   { icon: Brain, title: 'Keep Agent Memory Clean', description: 'Detect stale facts, repetition loops, and context bloat before they cause bad decisions.' },
 ];
 
@@ -115,7 +117,7 @@ const shippedHighlights = [
     href: '/learning',
   },
   {
-    icon: Shield,
+    icon: DashClawLogo,
     title: 'Data Layer You Can Trust',
     description: 'SQL drift checks and contract tests run in CI. No silent regressions reach production.',
     href: '/docs',
@@ -396,7 +398,7 @@ export default function LandingPage() {
           <div className="rounded-2xl bg-gradient-to-b from-[rgba(249,115,22,0.06)] to-transparent p-8 sm:p-12 border border-[rgba(249,115,22,0.12)]">
             <div className="text-center mb-10">
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[rgba(249,115,22,0.3)] bg-[rgba(249,115,22,0.08)] text-brand text-xs font-medium mb-4">
-                <Shield size={12} />
+                <DashClawLogo size={12} />
                 AI Governance Suite
               </div>
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">The only agent platform with built-in compliance</h2>

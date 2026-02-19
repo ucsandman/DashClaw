@@ -558,7 +558,7 @@ Token tracking is disabled in the dashboard UI pending a better approach. The AP
 - Scheduling: DashClaw does not ship a hosted scheduler in OSS. Configure any scheduler (GitHub Actions, system cron, Cloudflare, etc.) to call \`/api/cron/*\` with \`Authorization: Bearer \$CRON_SECRET\`.
 - Sidebar: "Notifications" link with Bell icon in System group (after Webhooks)
 - Migration Step 23 in \`migrate-multi-tenant.mjs\`
-- Env vars: \`RESEND_API_KEY\`, \`ALERT_FROM_EMAIL\` (default: \`alerts@dashclaw.dev\`), \`CRON_SECRET\`
+- Env vars: \`RESEND_API_KEY\`, \`ALERT_FROM_EMAIL\` (default: \`practicalsystems.io@gmail.com\`), \`CRON_SECRET\`
 
 ## Scoring Profiles (Implemented)
 - Route: `/scoring` - weighted multi-dimensional quality scoring & risk templates (Phase 7)

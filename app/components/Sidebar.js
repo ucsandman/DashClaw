@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isDemoMode } from '../lib/isDemoMode';
 import {
-  LayoutDashboard, Radar, Zap, CircleDot, ShieldAlert, Shield, MessageSquare,
+  LayoutDashboard, Radar, Zap, CircleDot, ShieldAlert, MessageSquare,
   FileText, Users, UsersRound, BookOpen, Target, Plug, KeyRound,
   GitBranch, Settings, Bug, Calendar, BarChart3, Coins,
   Clock, Webhook, Bell, FolderKanban, Network, Scale, FileCode,
   PanelLeftClose, PanelLeft, Menu, X, MessageCircle, Activity, SlidersHorizontal,
+  Shield,
 } from 'lucide-react';
+import DashClawLogo from './DashClawLogo';
 
 const navGroups = [
   {
@@ -107,12 +109,12 @@ export default function Sidebar() {
             className="flex items-center gap-2.5 hover:opacity-90 transition-opacity"
             title="Back to dashclaw.io"
           >
-            <Shield size={20} className="text-brand flex-shrink-0" />
+            <DashClawLogo size={20} />
             {!collapsed && <span className="text-lg font-semibold text-white">DashClaw</span>}
           </a>
         ) : (
           <Link href="/dashboard" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-            <Shield size={20} className="text-brand flex-shrink-0" />
+            <DashClawLogo size={20} />
             {!collapsed && <span className="text-lg font-semibold text-white">DashClaw</span>}
           </Link>
         )}

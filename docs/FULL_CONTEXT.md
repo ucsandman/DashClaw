@@ -934,7 +934,7 @@ GOOGLE_ID + GOOGLE_SECRET   # Google OAuth
 ### Optional Features
 ```
 RESEND_API_KEY         # Email alerts (resend.com)
-ALERT_FROM_EMAIL       # default: alerts@dashclaw.dev
+ALERT_FROM_EMAIL       # default: practicalsystems.io@gmail.com
 CRON_SECRET            # Bearer token for /api/cron/* endpoints
 ```
 

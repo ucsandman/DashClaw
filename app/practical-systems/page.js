@@ -1,8 +1,9 @@
 import Link from 'next/link';
 import {
-  Building2, UsersRound, Zap, ArrowRight, ExternalLink, Shield,
-  Activity, CheckCircle2, ChevronRight, Rocket, Code, Laptop
+  Building2, UsersRound, Zap, ArrowRight, ExternalLink,
+  Activity, CheckCircle2, ChevronRight, Rocket, Code, Laptop, Shield
 } from 'lucide-react';
+import DashClawLogo from '../components/DashClawLogo';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 
@@ -68,7 +69,7 @@ export default function PracticalSystemsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="p-6 rounded-xl bg-[#111] border border-[rgba(255,255,255,0.06)]">
                 <div className="w-10 h-10 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center mb-4">
-                  <Shield size={20} className="text-brand" />
+                  <DashClawLogo size={20} />
                 </div>
                 <h3 className="text-white font-semibold mb-2">Strategic Advisory</h3>
                 <p className="text-sm text-zinc-500">Expert guidance on AI adoption and integration.</p>
@@ -131,7 +132,7 @@ export default function PracticalSystemsPage() {
         <div className="max-w-4xl mx-auto">
           <div className="rounded-3xl bg-[#111] border border-[rgba(249,115,22,0.15)] p-10 sm:p-16 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-10">
-              <Shield size={120} className="text-brand" />
+              <DashClawLogo size={120} />
             </div>
             <div className="relative z-10">
               <h2 className="text-3xl font-bold tracking-tight mb-6">DashClaw Is Our Infrastructure</h2>

@@ -1,7 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { Shield, Github, BookOpen, Eye, Terminal, ExternalLink } from 'lucide-react';
+import { Github, BookOpen, Eye, Terminal, ExternalLink } from 'lucide-react';
+import DashClawLogo from './DashClawLogo';
 
 export default function PublicFooter() {
   return (
@@ -9,7 +10,7 @@ export default function PublicFooter() {
       <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6">
         <div className="flex flex-col gap-2">
           <div className="flex items-center gap-2">
-            <Shield size={16} className="text-brand" />
+            <DashClawLogo size={16} />
             <span className="text-sm text-zinc-400 font-medium">DashClaw</span>
           </div>
           <div className="text-xs text-zinc-600">

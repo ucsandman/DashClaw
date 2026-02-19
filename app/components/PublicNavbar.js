@@ -4,7 +4,8 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { Shield, Github, ChevronDown, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Github, ChevronDown, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import DashClawLogo from './DashClawLogo';
 
 const galleryPreview = [
   { title: 'Mission Control', file: 'Mission Control.png' },
@@ -38,7 +39,7 @@ export default function PublicNavbar() {
     <nav className="fixed top-0 w-full z-50 border-b border-[rgba(255,255,255,0.06)] bg-[#0a0a0a]/80 backdrop-blur-sm">
       <div className="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2.5 hover:opacity-90 transition-opacity">
-          <Shield size={20} className="text-brand" />
+          <DashClawLogo size={20} />
           <span className="text-lg font-semibold text-white">DashClaw</span>
         </Link>
         <div className="hidden sm:flex items-center gap-6 text-sm text-zinc-400">
