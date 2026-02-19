@@ -48,11 +48,7 @@ export async function generateExport(request, exportId) {
       try {
         framework = loadFramework(frameworkId);
       } catch {
-        sections.push(`## ${frameworkId}
-
-Framework not found. Skipping.
-
-`);
+        sections.push(`## ${frameworkId}\n\nFramework not found. Skipping.\n\n`);
         continue;
       }
 
@@ -70,14 +66,14 @@ Framework not found. Skipping.
 
       // Add remediation if requested
       if (exportRecord.include_remediation && gapAnalysis.remediation_plan.length > 0) {
-        frameworkReport += '
+        frameworkReport += `
 ## Remediation Priority Matrix
 
-';
-        frameworkReport += '| Priority | Control | Status | Relevance | Effort |
-';
-        frameworkReport += '|----------|---------|--------|-----------|--------|
-';
+`;
+        frameworkReport += `| Priority | Control | Status | Relevance | Effort |
+`;
+        frameworkReport += `|----------|---------|--------|-----------|--------|
+`;
         for (const item of gapAnalysis.remediation_plan) {
           frameworkReport += `| ${item.priority} | ${item.control_id} -- ${item.title} | ${item.status} | ${item.agent_relevance} | ${item.estimated_effort} |
 `;
@@ -136,24 +132,11 @@ Estimated Total Effort: ${gapAnalysis.summary.estimated_total_effort}
     }
 
     // Combine all sections
-    const separator = format === 'json' ? '
-' : '
----
-
-';
+    const separator = format === 'json' ? '\n' : '\n---\n\n';
     let fullReport = '';
     if (format === 'markdown') {
-      const header = `# Compliance Export
-
-`;
-      const meta = `**Organization:** org-${orgId}  
-**Generated:** ${new Date().toISOString()}  
-**Frameworks:** ${frameworks.join(', ')}  
-**Evidence Window:** ${windowDays} days
-
----
-
-`;
+      const header = `# Compliance Export\n\n`;
+      const meta = `**Organization:** org-${orgId}  \n**Generated:** ${new Date().toISOString()}  \n**Frameworks:** ${frameworks.join(', ')}  \n**Evidence Window:** ${windowDays} days\n\n---\n\n`;
       fullReport = header + meta + sections.join(separator);
     } else {
       fullReport = sections.join(separator);
@@ -176,60 +159,53 @@ Estimated Total Effort: ${gapAnalysis.summary.estimated_total_effort}
 }
 
 function buildEvidenceSection(evidence, format) {
-  let section = '
+  let section = `
 # Enforcement Evidence
 
-';
-  section += `**Window:** ${evidence.window_days} days  
 `;
-  section += `**Total Guard Decisions:** ${evidence.guard_decisions_total}  
-`;
-  section += `**Blocked:** ${evidence.guard_decisions_blocked}  
-`;
-  section += `**Action Records:** ${evidence.action_records_total}
-
-`;
+  section += `**Window:** ${evidence.window_days} days  \n`;
+  section += `**Total Guard Decisions:** ${evidence.guard_decisions_total}  \n`;
+  section += `**Blocked:** ${evidence.guard_decisions_blocked}  \n`;
+  section += `**Action Records:** ${evidence.action_records_total}\n\n`;
 
   if (evidence.guard_breakdown && evidence.guard_breakdown.length > 0) {
-    section += '## Guard Decision Breakdown
+    section += `## Guard Decision Breakdown
 
-';
-    section += '| Action Type | Decision | Count |
-';
-    section += '|-------------|----------|-------|
-';
+`;
+    section += `| Action Type | Decision | Count |
+`;
+    section += `|-------------|----------|-------|
+`;
     for (const row of evidence.guard_breakdown) {
       section += `| ${row.action_type || '--'} | ${row.decision} | ${row.count} |
 `;
     }
-    section += '
-';
+    section += '\n';
   }
 
   if (evidence.action_breakdown && evidence.action_breakdown.length > 0) {
-    section += '## Action Record Breakdown
+    section += `## Action Record Breakdown
 
-';
-    section += '| Action Type | Count |
-';
-    section += '|-------------|-------|
-';
+`;
+    section += `| Action Type | Count |
+`;
+    section += `|-------------|-------|
+`;
     for (const row of evidence.action_breakdown) {
       section += `| ${row.action_type || '--'} | ${row.count} |
 `;
     }
-    section += '
-';
+    section += '\n';
   }
 
   return section;
 }
 
 function buildTrendSection(snapshots, format) {
-  let section = '
+  let section = `
 # Compliance Trends
 
-';
+`;
 
   // Group by framework
   const byFramework = {};
@@ -242,17 +218,16 @@ function buildTrendSection(snapshots, format) {
     section += `## ${fw.toUpperCase()}
 
 `;
-    section += '| Date | Coverage | Covered | Partial | Gaps | Risk |
-';
-    section += '|------|----------|---------|---------|------|------|
-';
+    section += `| Date | Coverage | Covered | Partial | Gaps | Risk |
+`;
+    section += `|------|----------|---------|---------|------|------|
+`;
     for (const snap of snaps.slice(0, 10)) {
       const date = new Date(snap.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
       section += `| ${date} | ${snap.coverage_percentage}% | ${snap.covered} | ${snap.partial} | ${snap.gaps} | ${snap.risk_level} |
 `;
     }
-    section += '
-';
+    section += '\n';
 
     // Calculate trend direction
     if (snaps.length >= 2) {
@@ -260,9 +235,7 @@ function buildTrendSection(snapshots, format) {
       const previous = snaps[1].coverage_percentage;
       const delta = latest - previous;
       const arrow = delta > 0 ? 'Improving' : delta < 0 ? 'Declining' : 'Stable';
-      section += `**Trend:** ${arrow} (${delta > 0 ? '+' : ''}${delta}% since last snapshot)
-
-`;
+      section += `**Trend:** ${arrow} (${delta > 0 ? '+' : ''}${delta}% since last snapshot)\n\n`;
     }
   }
 
