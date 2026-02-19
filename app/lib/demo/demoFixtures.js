@@ -1501,6 +1501,74 @@ function buildFixtures() {
     promptStats,
     feedbackEntries,
     feedbackStats,
+    driftAlerts: [
+      {
+        id: 'da_demo_001', org_id: 'org_demo', agent_id: 'clawdbot', metric: 'risk_score', severity: 'critical',
+        drift_type: 'shift', baseline_mean: 28.5, baseline_stddev: 8.2, current_mean: 52.3, current_stddev: 12.1,
+        z_score: 2.9, pct_change: 83.5, sample_count: 24, direction: 'increasing',
+        description: 'Risk Score for clawdbot has increased by 83.5% (z-score: 2.9). Baseline mean: 28.5, current mean: 52.3.',
+        acknowledged: false, created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'da_demo_002', org_id: 'org_demo', agent_id: 'research-agent', metric: 'duration_ms', severity: 'warning',
+        drift_type: 'shift', baseline_mean: 1250, baseline_stddev: 340, current_mean: 2100, current_stddev: 520,
+        z_score: 2.5, pct_change: 68.0, sample_count: 18, direction: 'increasing',
+        description: 'Duration (ms) for research-agent has increased by 68.0% (z-score: 2.5). Baseline mean: 1250, current mean: 2100.',
+        acknowledged: false, created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'da_demo_003', org_id: 'org_demo', agent_id: 'clawdbot', metric: 'confidence', severity: 'warning',
+        drift_type: 'shift', baseline_mean: 72.0, baseline_stddev: 10.5, current_mean: 51.0, current_stddev: 15.3,
+        z_score: -2.0, pct_change: -29.2, sample_count: 30, direction: 'decreasing',
+        description: 'Confidence for clawdbot has decreased by 29.2% (z-score: -2.0). Baseline mean: 72.0, current mean: 51.0.',
+        acknowledged: true, acknowledged_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+        created_at: new Date(Date.now() - 12 * 60 * 60 * 1000).toISOString(),
+      },
+      {
+        id: 'da_demo_004', org_id: 'org_demo', agent_id: 'deploy-bot', metric: 'tokens_total', severity: 'info',
+        drift_type: 'shift', baseline_mean: 850, baseline_stddev: 200, current_mean: 1180, current_stddev: 280,
+        z_score: 1.65, pct_change: 38.8, sample_count: 15, direction: 'increasing',
+        description: 'Total Tokens for deploy-bot has increased by 38.8% (z-score: 1.65). Baseline mean: 850, current mean: 1180.',
+        acknowledged: false, created_at: new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString(),
+      },
+    ],
+    driftStats: {
+      overall: {
+        total_alerts: 47, critical_count: 8, warning_count: 21, info_count: 18,
+        unacknowledged: 12, today_count: 4,
+      },
+      by_metric: [
+        { metric: 'risk_score', count: 14, avg_z_score: 2.4 },
+        { metric: 'duration_ms', count: 11, avg_z_score: 2.1 },
+        { metric: 'confidence', count: 9, avg_z_score: 1.9 },
+        { metric: 'tokens_total', count: 7, avg_z_score: 1.7 },
+        { metric: 'cost_estimate', count: 4, avg_z_score: 2.6 },
+        { metric: 'learning_score', count: 2, avg_z_score: 1.6 },
+      ],
+      by_agent: [
+        { agent_id: 'clawdbot', count: 22, critical: 5, warning: 10 },
+        { agent_id: 'research-agent', count: 15, critical: 2, warning: 8 },
+        { agent_id: 'deploy-bot', count: 10, critical: 1, warning: 3 },
+      ],
+      recent_baselines: [
+        { agent_id: 'clawdbot', metric: 'risk_score', mean: 28.5, stddev: 8.2, sample_count: 156, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { agent_id: 'clawdbot', metric: 'confidence', mean: 72.0, stddev: 10.5, sample_count: 156, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { agent_id: 'clawdbot', metric: 'duration_ms', mean: 980, stddev: 290, sample_count: 156, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { agent_id: 'research-agent', metric: 'duration_ms', mean: 1250, stddev: 340, sample_count: 98, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        { agent_id: 'research-agent', metric: 'tokens_total', mean: 1100, stddev: 250, sample_count: 98, created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+      ],
+    },
+    driftSnapshots: Array.from({ length: 14 }).map((_, i) => ({
+      id: `ds_demo_${String(i).padStart(3, '0')}`,
+      org_id: 'org_demo',
+      agent_id: ['clawdbot', 'research-agent'][i % 2],
+      metric: ['risk_score', 'duration_ms', 'confidence'][i % 3],
+      period: 'daily',
+      period_start: new Date(Date.now() - (14 - i) * 24 * 60 * 60 * 1000).toISOString(),
+      mean: [28 + i * 1.5, 1200 + i * 60, 72 - i * 1.2][i % 3],
+      stddev: [8 + i * 0.3, 300 + i * 15, 10 + i * 0.4][i % 3],
+      sample_count: 10 + Math.floor(Math.random() * 15),
+    })),
   };
 }
 

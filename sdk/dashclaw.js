@@ -2566,6 +2566,58 @@ class DashClaw {
     const qs = params.toString() ? `?${params.toString()}` : '';
     return this._request(`/api/compliance/trends${qs}`, 'GET');
   }
+
+  // -----------------------------------------------
+  // Drift Detection
+  // -----------------------------------------------
+
+  async computeDriftBaselines({ agent_id, lookback_days } = {}) {
+    return this._request('/api/drift/alerts', 'POST', { action: 'compute_baselines', agent_id, lookback_days });
+  }
+
+  async detectDrift({ agent_id, window_days } = {}) {
+    return this._request('/api/drift/alerts', 'POST', { action: 'detect', agent_id, window_days });
+  }
+
+  async recordDriftSnapshots() {
+    return this._request('/api/drift/alerts', 'POST', { action: 'record_snapshots' });
+  }
+
+  async listDriftAlerts({ agent_id, severity, acknowledged, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (severity) params.set('severity', severity);
+    if (acknowledged !== undefined) params.set('acknowledged', String(acknowledged));
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/drift/alerts${qs}`, 'GET');
+  }
+
+  async acknowledgeDriftAlert(alertId) {
+    return this._request(`/api/drift/alerts/${alertId}`, 'PATCH');
+  }
+
+  async deleteDriftAlert(alertId) {
+    return this._request(`/api/drift/alerts/${alertId}`, 'DELETE');
+  }
+
+  async getDriftStats({ agent_id } = {}) {
+    const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
+    return this._request(`/api/drift/stats${params}`, 'GET');
+  }
+
+  async getDriftSnapshots({ agent_id, metric, limit } = {}) {
+    const params = new URLSearchParams();
+    if (agent_id) params.set('agent_id', agent_id);
+    if (metric) params.set('metric', metric);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/drift/snapshots${qs}`, 'GET');
+  }
+
+  async getDriftMetrics() {
+    return this._request('/api/drift/metrics', 'GET');
+  }
 }
 
 /**

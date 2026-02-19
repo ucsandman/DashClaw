@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `125`
+- Total routes: `130`
 - Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `65`
+- Experimental routes: `70`
 
 ## Routes
 
@@ -63,6 +63,11 @@ doc-type: architecture
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.js` |
 | `/api/digest` | `GET` | `experimental` | `(default)` | `app/api/digest/route.js` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.js` |
+| `/api/drift/alerts` | `GET, POST` | `experimental` | `(default)` | `app/api/drift/alerts/route.js` |
+| `/api/drift/alerts/{alertId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/drift/alerts/[alertId]/route.js` |
+| `/api/drift/metrics` | `GET` | `experimental` | `(default)` | `app/api/drift/metrics/route.js` |
+| `/api/drift/snapshots` | `GET` | `experimental` | `(default)` | `app/api/drift/snapshots/route.js` |
+| `/api/drift/stats` | `GET` | `experimental` | `(default)` | `app/api/drift/stats/route.js` |
 | `/api/evaluations` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/route.js` |
 | `/api/evaluations/runs` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/runs/route.js` |
 | `/api/evaluations/runs/{runId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/evaluations/runs/[runId]/route.js` |

@@ -1266,6 +1266,33 @@ export async function middleware(request) {
         return fb ? demoJson(request, fb) : demoJson(request, { error: 'Not found' }, 404);
       }
 
+      // -- Drift Detection demo endpoints --
+      if (pathname === '/api/drift/alerts') {
+        if (request.method === 'POST') {
+          return demoJson(request, { baselines_computed: 5, alerts_generated: 2, results: [], alerts: [] }, 201);
+        }
+        return demoJson(request, { alerts: fixtures.driftAlerts, total: fixtures.driftAlerts.length });
+      }
+      if (pathname.match(/^\/api\/drift\/alerts\/[^/]+$/)) {
+        return demoJson(request, { ...fixtures.driftAlerts[0], acknowledged: true });
+      }
+      if (pathname === '/api/drift/stats') {
+        return demoJson(request, fixtures.driftStats);
+      }
+      if (pathname === '/api/drift/snapshots') {
+        return demoJson(request, { snapshots: fixtures.driftSnapshots });
+      }
+      if (pathname === '/api/drift/metrics') {
+        return demoJson(request, { metrics: [
+          { id: 'risk_score', label: 'Risk Score' },
+          { id: 'confidence', label: 'Confidence' },
+          { id: 'duration_ms', label: 'Duration (ms)' },
+          { id: 'cost_estimate', label: 'Cost Estimate' },
+          { id: 'tokens_total', label: 'Total Tokens' },
+          { id: 'learning_score', label: 'Learning Score' },
+        ] });
+      }
+
       if (pathname === '/api/guard') {
         return demoJson(request, demoGuard(fixtures, url));
       }
@@ -1699,6 +1726,9 @@ export const config = {
     '/routing/:path*',
     '/compliance',
     '/compliance/:path*',
+    '/drift',
+    '/drift/:path*',
+    '/api/drift/:path*',
     '/api/compliance/exports/:path*',
     '/api/compliance/schedules/:path*',
     '/api/compliance/trends',

@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 125,
+    "total_routes": 130,
     "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 65
+    "experimental_routes": 70
   },
   "routes": [
     {
@@ -439,6 +439,53 @@
       "maturity": "beta",
       "matched_prefix": "/api/docs",
       "file": "app/api/docs/raw/route.js"
+    },
+    {
+      "path": "/api/drift/alerts",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/alerts/route.js"
+    },
+    {
+      "path": "/api/drift/alerts/{alertId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/alerts/[alertId]/route.js"
+    },
+    {
+      "path": "/api/drift/metrics",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/metrics/route.js"
+    },
+    {
+      "path": "/api/drift/snapshots",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/snapshots/route.js"
+    },
+    {
+      "path": "/api/drift/stats",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/drift/stats/route.js"
     },
     {
       "path": "/api/evaluations",

@@ -1467,5 +1467,58 @@ class DashClaw:
         qs = f"?{'&'.join(params)}" if params else ""
         return self._request("GET", f"/api/compliance/trends{qs}")
 
+    # -----------------------------------------------
+    # Drift Detection
+    # -----------------------------------------------
+
+    def compute_drift_baselines(self, agent_id: str = None, lookback_days: int = 30) -> dict:
+        """Compute statistical baselines from historical agent data."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "compute_baselines", "agent_id": agent_id, "lookback_days": lookback_days})
+
+    def detect_drift(self, agent_id: str = None, window_days: int = 7) -> dict:
+        """Run drift detection comparing recent window to baseline."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "detect", "agent_id": agent_id, "window_days": window_days})
+
+    def record_drift_snapshots(self) -> dict:
+        """Record daily metric snapshots for trend visualization."""
+        return self._request("POST", "/api/drift/alerts", json={"action": "record_snapshots"})
+
+    def list_drift_alerts(self, agent_id: str = None, severity: str = None, acknowledged: bool = None, limit: int = 50) -> dict:
+        """List drift alerts with optional filters."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if severity: params.append(f"severity={severity}")
+        if acknowledged is not None: params.append(f"acknowledged={str(acknowledged).lower()}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/drift/alerts{qs}")
+
+    def acknowledge_drift_alert(self, alert_id: str) -> dict:
+        """Acknowledge a drift alert."""
+        return self._request("PATCH", f"/api/drift/alerts/{alert_id}")
+
+    def delete_drift_alert(self, alert_id: str) -> dict:
+        """Delete a drift alert."""
+        return self._request("DELETE", f"/api/drift/alerts/{alert_id}")
+
+    def get_drift_stats(self, agent_id: str = None) -> dict:
+        """Get drift detection statistics."""
+        params = f"?agent_id={agent_id}" if agent_id else ""
+        return self._request("GET", f"/api/drift/stats{params}")
+
+    def get_drift_snapshots(self, agent_id: str = None, metric: str = None, limit: int = 30) -> dict:
+        """Get metric trend snapshots."""
+        params = []
+        if agent_id: params.append(f"agent_id={agent_id}")
+        if metric: params.append(f"metric={metric}")
+        if limit: params.append(f"limit={limit}")
+        qs = f"?{'&'.join(params)}" if params else ""
+        return self._request("GET", f"/api/drift/snapshots{qs}")
+
+    def get_drift_metrics(self) -> dict:
+        """List available drift detection metrics."""
+        return self._request("GET", "/api/drift/metrics")
+
+
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw

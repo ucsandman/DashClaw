@@ -26,6 +26,7 @@ Users fork the repo, deploy to Vercel free tier, and get a fully functional dash
 - `/demo` - demo sandbox (fake data, read-only, no login)
 - `/dashboard` - operations dashboard (real data, requires auth)
 - `/swarm` - real-time swarm intelligence & neural web (visual fleet overview)
+- `/drift` - statistical behavioral drift analysis (Phase 5)
 - `/feedback` - user feedback loop & quality analytics (Phase 3)
 - `/compliance/exports` - bundled audit-ready reports & schedules (Phase 4)
 - `/prompts` - prompt template registry & versioning (immutable prompts)
@@ -220,6 +221,7 @@ Endpoints:
 - `GET /api/cron/memory-maintenance` (memory health maintenance)
 - `GET /api/cron/learning-recommendations` (rebuild learning recommendations)
 - `GET /api/cron/learning-episodes-backfill` (backfill learning episodes)
+- `POST /api/drift/alerts` (with `{"action": "detect"}` to run periodic drift analysis)
 
 Example (bash):
 
