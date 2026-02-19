@@ -14,7 +14,7 @@ function log(msg, color = '') {
 async function release() {
   const rootDir = process.cwd();
   
-  log(`🚀 Starting Unified SDK Release (v1.5.0)...`, YELLOW);
+  log(`🚀 Starting Unified SDK Release (v2.0.0)...`, YELLOW);
 
   // --- 1. Node.js SDK (npm) ---
   try {
