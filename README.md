@@ -27,6 +27,7 @@ Users fork the repo, deploy to Vercel free tier, and get a fully functional dash
 - `/dashboard` - operations dashboard (real data, requires auth)
 - `/swarm` - real-time swarm intelligence & neural web (visual fleet overview)
 - `/feedback` - user feedback loop & quality analytics (Phase 3)
+- `/compliance/exports` - bundled audit-ready reports & schedules (Phase 4)
 - `/prompts` - prompt template registry & versioning (immutable prompts)
 - `/docs` - SDK + platform docs (public)
 - `/self-host` - get started guide (Vercel + Neon setup)

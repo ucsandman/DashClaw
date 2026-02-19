@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `119`
+- Total routes: `125`
 - Stable routes: `44`
 - Beta routes: `16`
-- Experimental routes: `59`
+- Experimental routes: `65`
 
 ## Routes
 
@@ -41,10 +41,16 @@ doc-type: architecture
 | `/api/bug-hunter` | `GET, POST` | `experimental` | `(default)` | `app/api/bug-hunter/route.js` |
 | `/api/calendar` | `GET, POST` | `experimental` | `/api/calendar` | `app/api/calendar/route.js` |
 | `/api/compliance/evidence` | `GET` | `experimental` | `(default)` | `app/api/compliance/evidence/route.js` |
+| `/api/compliance/exports` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/exports/route.js` |
+| `/api/compliance/exports/{exportId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/route.js` |
+| `/api/compliance/exports/{exportId}/download` | `GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/download/route.js` |
 | `/api/compliance/frameworks` | `GET` | `experimental` | `(default)` | `app/api/compliance/frameworks/route.js` |
 | `/api/compliance/gaps` | `GET` | `experimental` | `(default)` | `app/api/compliance/gaps/route.js` |
 | `/api/compliance/map` | `GET` | `experimental` | `(default)` | `app/api/compliance/map/route.js` |
 | `/api/compliance/report` | `GET` | `experimental` | `(default)` | `app/api/compliance/report/route.js` |
+| `/api/compliance/schedules` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/schedules/route.js` |
+| `/api/compliance/schedules/{scheduleId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/compliance/schedules/[scheduleId]/route.js` |
+| `/api/compliance/trends` | `GET` | `experimental` | `(default)` | `app/api/compliance/trends/route.js` |
 | `/api/content` | `GET, POST` | `experimental` | `/api/content` | `app/api/content/route.js` |
 | `/api/context/points` | `GET, POST` | `stable` | `/api/context` | `app/api/context/points/route.js` |
 | `/api/context/threads` | `GET, POST` | `stable` | `/api/context` | `app/api/context/threads/route.js` |

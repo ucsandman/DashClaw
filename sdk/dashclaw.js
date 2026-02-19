@@ -2517,6 +2517,55 @@ class DashClaw {
     const params = agent_id ? `?agent_id=${encodeURIComponent(agent_id)}` : '';
     return this._request(`/api/feedback/stats${params}`, 'GET');
   }
+
+  // -----------------------------------------------
+  // Compliance Export
+  // -----------------------------------------------
+
+  async createComplianceExport({ name, frameworks, format, window_days, include_evidence, include_remediation, include_trends }) {
+    return this._request('/api/compliance/exports', 'POST', { name, frameworks, format, window_days, include_evidence, include_remediation, include_trends });
+  }
+
+  async listComplianceExports({ limit } = {}) {
+    const params = limit ? `?limit=${limit}` : '';
+    return this._request(`/api/compliance/exports${params}`, 'GET');
+  }
+
+  async getComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}`, 'GET');
+  }
+
+  async downloadComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}/download`, 'GET');
+  }
+
+  async deleteComplianceExport(exportId) {
+    return this._request(`/api/compliance/exports/${exportId}`, 'DELETE');
+  }
+
+  async createComplianceSchedule({ name, frameworks, format, window_days, cron_expression, include_evidence, include_remediation, include_trends }) {
+    return this._request('/api/compliance/schedules', 'POST', { name, frameworks, format, window_days, cron_expression, include_evidence, include_remediation, include_trends });
+  }
+
+  async listComplianceSchedules() {
+    return this._request('/api/compliance/schedules', 'GET');
+  }
+
+  async updateComplianceSchedule(scheduleId, fields) {
+    return this._request(`/api/compliance/schedules/${scheduleId}`, 'PATCH', fields);
+  }
+
+  async deleteComplianceSchedule(scheduleId) {
+    return this._request(`/api/compliance/schedules/${scheduleId}`, 'DELETE');
+  }
+
+  async getComplianceTrends({ framework, limit } = {}) {
+    const params = new URLSearchParams();
+    if (framework) params.set('framework', framework);
+    if (limit) params.set('limit', String(limit));
+    const qs = params.toString() ? `?${params.toString()}` : '';
+    return this._request(`/api/compliance/trends${qs}`, 'GET');
+  }
 }
 
 /**

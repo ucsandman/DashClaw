@@ -1188,6 +1188,37 @@ export async function middleware(request) {
         return demoJson(request, { available: false, provider: null, model: null });
       }
 
+      // -- Compliance Export demo endpoints --
+      if (pathname === '/api/compliance/exports') {
+        if (request.method === 'POST') {
+          return demoJson(request, { id: 'ce_demo_new' }, 201);
+        }
+        return demoJson(request, { exports: [
+          { id: 'ce_demo_001', name: 'Q4 SOC 2 Audit Package', frameworks: '["soc2","iso27001"]', format: 'markdown', window_days: 90, status: 'completed', file_size_bytes: 24680, requested_by: 'user', started_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000 + 8500).toISOString(), created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'ce_demo_002', name: 'NIST AI RMF Review', frameworks: '["nist-ai-rmf"]', format: 'markdown', window_days: 30, status: 'completed', file_size_bytes: 12340, requested_by: 'user', started_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000 + 5200).toISOString(), created_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'ce_demo_003', name: 'Weekly Compliance Snapshot', frameworks: '["soc2"]', format: 'markdown', window_days: 7, status: 'completed', file_size_bytes: 8920, requested_by: 'scheduled', started_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(), completed_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000 + 3100).toISOString(), created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+      if (pathname.match(/^\/api\/compliance\/exports\/[^/]+$/)) {
+        return demoJson(request, { id: pathname.split('/').pop(), name: 'Demo Export', status: 'completed', report_content: '# SOC 2 Compliance Report -- Agent Operations\n\n**Project:** org-demo  \n**Generated:** ' + new Date().toISOString() + '  \n**Risk Level:** LOW\n\n## Executive Summary\n\n| Metric | Value |\n|---|---|\n| Framework | SOC 2 |\n| Total Controls | 12 |\n| Covered | 9 |\n| Partial | 2 |\n| Gaps | 1 |\n| **Coverage** | **83%** |\n\n## Enforcement Evidence\n\n**Window:** 30 days  \n**Total Guard Decisions:** 847  \n**Blocked:** 23  \n**Action Records:** 1,204' });
+      }
+      if (pathname === '/api/compliance/schedules') {
+        if (request.method === 'POST') return demoJson(request, { id: 'csch_demo_new' }, 201);
+        return demoJson(request, { schedules: [
+          { id: 'csch_demo_001', name: 'Weekly SOC 2 Snapshot', frameworks: '["soc2"]', format: 'markdown', window_days: 7, cron_expression: '0 9 * * 1', enabled: true, last_run_at: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString() },
+          { id: 'csch_demo_002', name: 'Monthly Full Audit', frameworks: '["soc2","iso27001","nist-ai-rmf"]', format: 'markdown', window_days: 30, cron_expression: '0 9 1 * *', enabled: true, last_run_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString(), created_at: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+      if (pathname === '/api/compliance/trends') {
+        return demoJson(request, { trends: [
+          { framework: 'soc2', coverage_percentage: 83, covered: 9, partial: 2, gaps: 1, risk_level: 'LOW', created_at: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'soc2', coverage_percentage: 79, covered: 8, partial: 3, gaps: 1, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'soc2', coverage_percentage: 75, covered: 8, partial: 2, gaps: 2, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'iso27001', coverage_percentage: 71, covered: 7, partial: 3, gaps: 4, risk_level: 'MEDIUM', created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString() },
+          { framework: 'iso27001', coverage_percentage: 64, covered: 6, partial: 3, gaps: 5, risk_level: 'HIGH', created_at: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString() },
+        ] });
+      }
+
       // -- Prompt Management demo endpoints --
       if (pathname === '/api/prompts/templates') {
         return demoJson(request, { templates: fixtures.promptTemplates });
@@ -1668,6 +1699,9 @@ export const config = {
     '/routing/:path*',
     '/compliance',
     '/compliance/:path*',
+    '/api/compliance/exports/:path*',
+    '/api/compliance/schedules/:path*',
+    '/api/compliance/trends',
     '/evaluations',
     '/evaluations/:path*',
     '/api/evaluations/:path*',

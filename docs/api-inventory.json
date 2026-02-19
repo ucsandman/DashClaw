@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 119,
+    "total_routes": 125,
     "stable_routes": 44,
     "beta_routes": 16,
-    "experimental_routes": 59
+    "experimental_routes": 65
   },
   "routes": [
     {
@@ -235,6 +235,35 @@
       "file": "app/api/compliance/evidence/route.js"
     },
     {
+      "path": "/api/compliance/exports",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/route.js"
+    },
+    {
+      "path": "/api/compliance/exports/{exportId}",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/[exportId]/route.js"
+    },
+    {
+      "path": "/api/compliance/exports/{exportId}/download",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/exports/[exportId]/download/route.js"
+    },
+    {
       "path": "/api/compliance/frameworks",
       "methods": [
         "GET"
@@ -269,6 +298,35 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/compliance/report/route.js"
+    },
+    {
+      "path": "/api/compliance/schedules",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/schedules/route.js"
+    },
+    {
+      "path": "/api/compliance/schedules/{scheduleId}",
+      "methods": [
+        "DELETE",
+        "PATCH"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/schedules/[scheduleId]/route.js"
+    },
+    {
+      "path": "/api/compliance/trends",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/compliance/trends/route.js"
     },
     {
       "path": "/api/content",

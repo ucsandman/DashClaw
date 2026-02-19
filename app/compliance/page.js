@@ -172,6 +172,11 @@ export default function CompliancePage() {
       title="Compliance"
       subtitle="Map policies to regulatory frameworks and track control coverage"
       breadcrumbs={['Compliance']}
+      actions={
+        <Link href="/compliance/exports" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-hover transition-colors">
+          <FileDown size={14} /> Exports
+        </Link>
+      }
     >
       {isDemo && (
         <div className="mb-4 p-3 rounded-lg bg-zinc-500/10 border border-zinc-500/20 text-zinc-300 text-sm flex items-center gap-2">
