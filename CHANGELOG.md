@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-19
+
+### Added
+- **Major SDK Expansion**: Added 82 additional methods across 8 new categories to both Node.js and Python SDKs.
+- **Unified 2.0.0 Baseline**: Synchronized versioning across the core platform and all official SDKs.
+- **Enhanced Category Coverage**: New methods covering advanced agent orchestration, swarm intelligence, and deep observability patterns.
+
 ## [1.10.1] - 2026-02-19
 
 ### Added

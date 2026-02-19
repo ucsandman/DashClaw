@@ -4,7 +4,7 @@ Full reference for the DashClaw SDK (Node.js). For Python, see the [Python SDK d
 
 DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, evaluation, and compliance mapping. It proves what your agents decided and why.
 
-Install, configure, and govern your AI agents with 177+ methods across 29 categories including action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more. Native adapters for **OpenClaw**, **CrewAI**, **AutoGen**, and **LangChain**.
+Install, configure, and govern your AI agents with 178+ methods across 30+ categories including action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more. Native adapters for **OpenClaw**, **CrewAI**, **AutoGen**, and **LangChain**.
 
 ---
 

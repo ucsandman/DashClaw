@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dashclaw
-Version: 1.9.4
+Version: 2.0.0
 Summary: Python SDK for the DashClaw AI agent decision infrastructure platform
 Home-page: https://github.com/ucsandman/DashClaw
 Author: Wes Sander

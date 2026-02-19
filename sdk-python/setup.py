@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="dashclaw",
-    version="1.9.4",
+    version="2.0.0",
     description="Python SDK for the DashClaw AI agent decision infrastructure platform",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
