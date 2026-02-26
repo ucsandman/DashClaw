@@ -74,7 +74,7 @@
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.0.1",
     "drizzle-kit": "^0.31.9",
-    "eslint": "^8",
+    "eslint": "^10",
     "eslint-config-next": "^15.5.12",
     "husky": "^9.1.7",
     "jsdom": "^28.1.0",
