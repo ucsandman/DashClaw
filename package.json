@@ -62,7 +62,7 @@
   "dependencies": {
     "@e965/xlsx": "^0.20.3",
     "@modelcontextprotocol/server": "^2.0.0-alpha.2",
-    "@neondatabase/serverless": "^1.0.2",
+    "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "2.0.1",
     "@xyflow/react": "^12.10.2",
     "better-sqlite3": "^12.9.0",
@@ -76,8 +76,8 @@
     "html2pdf.js": "^0.14.0",
     "js-yaml": "^4.1.0",
     "lucide-react": "0.577.0",
-    "next": "^16.2.3",
-    "next-auth": "^4.24.13",
+    "next": "^16.2.4",
+    "next-auth": "^4.24.14",
     "openai": "^6.34.0",
     "postgres": "^3.4.9",
     "react": "^18",
@@ -86,8 +86,8 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "redis": "^4.7.1",
-    "resend": "^6.11.0",
-    "stripe": "^22.0.1",
+    "resend": "^6.12.0",
+    "stripe": "^22.0.2",
     "zod": "^4.3.6"
   },
   "overrides": {
