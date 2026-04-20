@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:a1f824d6b2d5e5e8e45fa07ccb620fcea398a9dc",
+  "timestamp": "sha1:1b4fa071fa7d40282039ba2ace82abe56fde725e",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2490,9 +2490,6 @@
       "name": "DASHCLAW_API_KEY",
       "required": true,
       "files": [
-        ".claude/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
         "app/api/keys/reveal/route.js",
@@ -2579,9 +2576,6 @@
       "name": "DASHCLAW_BASE_URL",
       "required": false,
       "files": [
-        ".claude/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "app/docs/page.js",
         "app/guides/openai-agents-sdk/page.js",
         "app/landingData.js",
@@ -2795,9 +2789,11 @@
         "scripts/auto-migrate.mjs",
         "scripts/backfill-embeddings.mjs",
         "scripts/backfill-learning-episodes.mjs",
+        "scripts/backfill-null-model-cost.mjs",
         "scripts/cleanup-actions.mjs",
         "scripts/cleanup-org-default.mjs",
         "scripts/create-org.mjs",
+        "scripts/diagnose-cost-attribution.mjs",
         "scripts/emergency-reset.mjs",
         "scripts/init-self-host-env.mjs",
         "scripts/migrate-action-model-column.mjs",
