@@ -1,0 +1,16 @@
+{
+  "id": "wk-20260420-184941-004",
+  "tier": 3,
+  "title": "Add tests for 90 untested API route(s)",
+  "description": "Routes without tests: api/prompts/server-setup/raw, api/prompts/render, api/prompts/templates/[templateId], api/prompts/templates/[templateId]/versions, api/prompts/templates/[templateId]/versions/[versionId]",
+  "affected_files": [
+    "api/prompts/server-setup/raw",
+    "api/prompts/render",
+    "api/prompts/templates/[templateId]",
+    "api/prompts/templates/[templateId]/versions",
+    "api/prompts/templates/[templateId]/versions/[versionId]"
+  ],
+  "metric": "test_health.untested_routes",
+  "status": "proposed",
+  "created_at": "2026-04-20T18:49:41.069582+00:00"
+}
