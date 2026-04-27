@@ -8,6 +8,10 @@ ENV_REF_RE = re.compile(r"process\.env\.([A-Z_][A-Z0-9_]*)")
 SKIP_DIRS = {
     "node_modules", ".next", "dist", ".git", "__pycache__",
     ".organism", "coverage", "_archive",
+    # Generated outputs of livingcode-refresh — including them creates a
+    # feedback loop where shape.json gains/loses entries depending on
+    # whether a refresh has run since the last clone.
+    ".claude",
 }
 SCAN_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs"}
 

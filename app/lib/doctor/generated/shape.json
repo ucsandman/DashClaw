@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:98ebcae770ee25c509bfb5d131b4fdb95efd681b",
+  "timestamp": "sha1:0f2c77d2856357641da63b3d22458c4d6dca96d9",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2526,9 +2526,6 @@
       "name": "DASHCLAW_API_KEY",
       "required": true,
       "files": [
-        ".claude/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -2617,9 +2614,6 @@
       "name": "DASHCLAW_BASE_URL",
       "required": false,
       "files": [
-        ".claude/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".claude/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "app/docs/page.js",
         "app/guides/openai-agents-sdk/page.js",
         "app/landingData.js",
