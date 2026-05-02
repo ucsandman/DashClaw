@@ -84,7 +84,7 @@
     "lucide-react": "0.577.0",
     "next": "^16.2.4",
     "next-auth": "^4.24.14",
-    "openai": "^6.34.0",
+    "openai": "^6.35.0",
     "postgres": "^3.4.9",
     "react": "^18",
     "react-dom": "^18",
@@ -92,10 +92,10 @@
     "react-markdown": "^10.1.0",
     "recharts": "^3.8.1",
     "redis": "^4.7.1",
-    "resend": "^6.12.0",
-    "stripe": "^22.0.2",
+    "resend": "^6.12.2",
+    "stripe": "^22.1.0",
     "tweetnacl": "^1.0.3",
-    "zod": "^4.3.6"
+    "zod": "^4.4.2"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {
@@ -108,13 +108,13 @@
     "@playwright/test": "^1.59.1",
     "@testing-library/react": "^16.3.2",
     "@vitejs/plugin-react": "^6.0.1",
-    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/coverage-v8": "^4.1.5",
     "acorn": "^8.16.0",
     "autoprefixer": "^10.5.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.1",
     "eslint-config-next": "^15.5.15",
-    "jsdom": "^29.0.2",
+    "jsdom": "^29.1.1",
     "postcss": "^8",
     "tailwindcss": "^3.3.0",
     "vitest": "^4.1.0"
