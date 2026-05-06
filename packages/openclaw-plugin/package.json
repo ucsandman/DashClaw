@@ -55,7 +55,7 @@
     "typescript": "^5.4.0"
   },
   "overrides": {
-    "axios": "^1.15.0",
+    "axios": "^1.16.0",
     "tar": "^7.5.11",
     "protobufjs": "^7.5.5"
   }
