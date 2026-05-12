@@ -1,0 +1,200 @@
+{
+  "organism": "dashclaw",
+  "timestamp": "2026-05-12T23:12:07.482271+00:00",
+  "collector_status": {
+    "git_stats": "ok",
+    "test_health": "ok",
+    "code_quality": "ok",
+    "dependency_health": "ok",
+    "ci_health": "ok"
+  },
+  "git_stats": {
+    "commits_7d": 11,
+    "commits_30d": 50,
+    "active_branches": 2,
+    "stale_branches": 0,
+    "bus_factor": 1,
+    "top_contributors_30d": [
+      {
+        "name": "Wes Sander",
+        "commits": 44
+      },
+      {
+        "name": "dependabot[bot]",
+        "commits": 5
+      },
+      {
+        "name": "piiiico",
+        "commits": 1
+      }
+    ],
+    "files_changed_7d": 35
+  },
+  "test_health": {
+    "js_tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0
+    },
+    "python_tests": {
+      "total": 0,
+      "passed": 0,
+      "failed": 0
+    },
+    "test_file_ratio": 0.18004045853000675,
+    "untested_routes": [
+      "api/model-strategies/[strategyId]",
+      "api/doctor/fix",
+      "api/identities",
+      "api/identities/[agentId]",
+      "api/agents/connections",
+      "api/agents/[agentId]",
+      "api/auth/[...nextauth]",
+      "api/auth/local",
+      "api/team",
+      "api/team/[userId]",
+      "api/team/invite",
+      "api/actions/loops",
+      "api/actions/loops/[loopId]",
+      "api/actions/[actionId]",
+      "api/actions/[actionId]/trace",
+      "api/compliance/schedules",
+      "api/compliance/schedules/[scheduleId]",
+      "api/compliance/exports/[exportId]",
+      "api/compliance/exports/[exportId]/download",
+      "api/cron/policy-suggestions",
+      "api/cron/learning-episodes-backfill",
+      "api/cron/memory-maintenance",
+      "api/cron/integration-health",
+      "api/cron/reset-meters",
+      "api/policies/simulate",
+      "api/orgs",
+      "api/orgs/[orgId]",
+      "api/capabilities/[capabilityId]",
+      "api/capabilities/[capabilityId]/access/[ruleId]",
+      "api/hosted/workspaces",
+      "api/hosted/workspaces/[workspaceId]",
+      "api/hosted/cleanup",
+      "api/workflows/templates/[templateId]",
+      "api/workflows/templates/[templateId]/duplicate",
+      "api/workflows/templates/[templateId]/execute",
+      "api/workflows/templates/[templateId]/runs/[runActionId]",
+      "api/workflows/templates/[templateId]/runs/[runActionId]/cancel",
+      "api/approvals/[actionId]",
+      "api/settings",
+      "api/settings/llm-status",
+      "api/billing/checkout",
+      "api/billing/portal",
+      "api/sessions",
+      "api/sessions/[sessionId]",
+      "api/session/effective",
+      "api/assumptions/[assumptionId]",
+      "api/swarm/link",
+      "api/drift/snapshots",
+      "api/drift/alerts/[alertId]",
+      "api/prompts/agent-connect/raw",
+      "api/prompts/server-setup/raw",
+      "api/prompts/render",
+      "api/prompts/templates/[templateId]",
+      "api/prompts/templates/[templateId]/versions",
+      "api/prompts/templates/[templateId]/versions/[versionId]",
+      "api/prompts/sdk-coverage/raw",
+      "api/scoring/profiles/[profileId]",
+      "api/scoring/profiles/[profileId]/dimensions",
+      "api/scoring/profiles/[profileId]/dimensions/[dimensionId]",
+      "api/scoring/calibrate",
+      "api/scoring/risk-templates",
+      "api/scoring/risk-templates/[templateId]",
+      "api/scoring/score",
+      "api/knowledge/collections/[collectionId]",
+      "api/knowledge/collections/[collectionId]/search",
+      "api/knowledge/collections/[collectionId]/items",
+      "api/knowledge/collections/[collectionId]/sync",
+      "api/messages/attachments",
+      "api/messages/threads/[threadId]",
+      "api/webhooks/[webhookId]/deliveries",
+      "api/webhooks/stripe",
+      "api/setup/migrate",
+      "api/pairings",
+      "api/pairings/[pairingId]",
+      "api/pairings/[pairingId]/approve",
+      "api/keys/reveal",
+      "api/docs/raw",
+      "api/artifacts/evidence-bundle",
+      "api/artifacts/[artifactId]",
+      "api/stream",
+      "api/learning/lessons",
+      "api/learning/suggestions",
+      "api/learning/recommendations/[recommendationId]",
+      "api/learning/analytics/curves",
+      "api/learning/analytics/maturity",
+      "api/evaluations",
+      "api/evaluations/scorers",
+      "api/evaluations/scorers/[scorerId]",
+      "api/evaluations/runs/[runId]"
+    ]
+  },
+  "code_quality": {
+    "files_over_300_lines": 109,
+    "largest_files": [
+      {
+        "path": "sdk/legacy/dashclaw-v1.js",
+        "lines": 2934
+      },
+      {
+        "path": "app/docs/page.js",
+        "lines": 2165
+      },
+      {
+        "path": "middleware.js",
+        "lines": 1379
+      },
+      {
+        "path": "app/decisions/[actionId]/page.js",
+        "lines": 1193
+      },
+      {
+        "path": "app/workspace/page.js",
+        "lines": 1184
+      },
+      {
+        "path": "schema/schema.js",
+        "lines": 1072
+      },
+      {
+        "path": "sdk/dashclaw.js",
+        "lines": 1006
+      },
+      {
+        "path": "app/page.js",
+        "lines": 934
+      },
+      {
+        "path": "app/lib/demo/fixtures/feature-agents.js",
+        "lines": 901
+      },
+      {
+        "path": "app/lib/demo/demoMiddleware.js",
+        "lines": 884
+      }
+    ],
+    "eslint_status": "fail",
+    "python_files_over_300": 33,
+    "todo_count": 1,
+    "archive_size_kb": 151
+  },
+  "dependency_health": {
+    "js_dependencies": 44,
+    "js_outdated": 30,
+    "js_vulnerabilities": 2,
+    "python_dependencies": 0,
+    "lockfile_age_days": 0
+  },
+  "ci_health": {
+    "pass_rate_30d": 0.0,
+    "last_10_runs": [],
+    "last_failure_reason": null,
+    "slowest_gate": null,
+    "gate_count": 0
+  }
+}
