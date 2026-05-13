@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:02dfff0781049699630654be4ef73505cd84d6a4",
+  "timestamp": "sha1:8e319290039be902fa71fae509988f17776ea634",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2595,9 +2595,6 @@
         "graphify-pilot/app/self-host/SetupTabs.js",
         "mcp-server/bin/dashclaw-mcp.js",
         "middleware.js",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
@@ -2669,9 +2666,6 @@
         "graphify-pilot/app/self-host/SetupTabs.js",
         "graphify-pilot/app/settings/components/ConnectNextStepPanel.js",
         "packages/openclaw-plugin/src/index.ts",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",

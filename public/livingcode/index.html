@@ -48,7 +48,7 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:02dfff0781049699630654be4ef73505cd84d6a4 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:8e319290039be902fa71fae509988f17776ea634 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">183</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
@@ -241,32 +241,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>TWITTER_API_SECRET</code></td><td class="sig">Social</td></tr>
     <tr><td><code>VERCEL_PROJECT_ID</code></td><td class="sig">Development</td></tr>
     <tr><td><code>VERCEL_TOKEN</code></td><td class="sig">Development</td></tr></tbody></table></details></section>
-
-<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 175)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,4.0 316.0,4.0"/></svg></figure>
-<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure>
-<figure><figcaption>Tables over time <span class="sig">(73 → 73)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure></section>
-
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>8</b> routes added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/actions/[actionId]/outcome <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/cron/outcome-sweep <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/discord/interactions <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/cleanup <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/workspaces <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/workspaces/[workspaceId] <span class="sig">New route: DELETE, GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/monetization/verified-integrations-count <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/session/effective <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_ALERTS_DISCORD <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_MAX_ORG_ATTACHMENT_BYTES <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_NEW_CONNECT_WEBHOOK <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_APPROVER_ORG_ID <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_APPROVER_USER_ID <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_BOT_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_PUBLIC_KEY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: HOSTED_CLEANUP_SECRET <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: HOSTED_SMOKE_BASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: INTEGRATION_DATABASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: NEXT_PUBLIC_TURNSTILE_SITE_KEY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: TEST_BASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: X <span class="sig">New env var (optional, undocumented)</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.js</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.js</td></tr>
