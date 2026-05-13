@@ -82,7 +82,7 @@
     "html2pdf.js": "^0.14.0",
     "js-yaml": "^4.1.0",
     "lucide-react": "0.577.0",
-    "next": "^16.2.4",
+    "next": "^16.2.6",
     "next-auth": "^4.24.14",
     "openai": "^6.35.0",
     "postgres": "^3.4.9",
