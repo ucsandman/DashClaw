@@ -1,0 +1,22 @@
+{
+  "name": "dashclaw",
+  "version": "2.15.0",
+  "description": "DashClaw governance, integration, troubleshooting, and platform intelligence for Claude Code.",
+  "author": {
+    "name": "DashClaw",
+    "email": "team@dashclaw.io",
+    "url": "https://dashclaw.io"
+  },
+  "homepage": "https://dashclaw.io/docs",
+  "repository": "https://github.com/ucsandman/DashClaw",
+  "license": "MIT",
+  "keywords": [
+    "dashclaw",
+    "governance",
+    "mcp",
+    "agent-safety",
+    "approval"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp-claude.json"
+}
