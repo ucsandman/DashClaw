@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:ecee0f86578955b4210135f79d14c5ade2a18ab8",
+  "timestamp": "sha1:2ae0e246e40dd8fb03c09c84b483542040c5a8e9",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2547,11 +2547,6 @@
       "name": "AGENT_ONLINE_WINDOW_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/agents.repository.test.js",
-        ".worktrees/codex-parity/app/api/agents/route.js",
-        ".worktrees/codex-parity/app/lib/repositories/agents.repository.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/agents/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/repositories/agents.repository.js",
         "__tests__/unit/agents.repository.test.js",
         "app/api/agents/route.js",
         "app/lib/repositories/agents.repository.js",
@@ -2564,7 +2559,6 @@
       "name": "AGENT_PRIVATE_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/generate-agent-keys.mjs",
         "scripts/generate-agent-keys.mjs"
       ],
       "in_env_example": false
@@ -2573,8 +2567,6 @@
       "name": "AGENT_PRIVATE_KEY_JWK",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/connectGuide.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/connectGuide.js",
         "app/lib/connectGuide.js",
         "graphify-pilot/app/lib/connectGuide.js"
       ],
@@ -2584,8 +2576,6 @@
       "name": "ALERT_FROM_EMAIL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/notifications.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/notifications.js",
         "app/lib/notifications.js",
         "graphify-pilot/app/lib/notifications.js"
       ],
@@ -2595,8 +2585,6 @@
       "name": "ALLOWED_ORIGIN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/middleware.js",
         "graphify-pilot/app/lib/validateEnv.js",
         "middleware.js"
       ],
@@ -2606,10 +2594,6 @@
       "name": "ANTHROPIC_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/examples/claude-code-review-agent/index.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
-        ".worktrees/codex-parity/scripts/upload-skill.mjs",
         "app/lib/llm.js",
         "examples/claude-code-review-agent/index.js",
         "graphify-pilot/app/lib/llm.js",
@@ -2621,7 +2605,6 @@
       "name": "API_INVENTORY_VERIFIED_DATE",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/generate-api-inventory.mjs",
         "scripts/generate-api-inventory.mjs"
       ],
       "in_env_example": false
@@ -2630,7 +2613,6 @@
       "name": "API_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/examples/claude-code-review-agent/index.js",
         "examples/claude-code-review-agent/index.js"
       ],
       "in_env_example": false
@@ -2639,7 +2621,6 @@
       "name": "BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/test-realtime.mjs",
         "scripts/test-realtime.mjs"
       ],
       "in_env_example": false
@@ -2648,7 +2629,6 @@
       "name": "CI",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/playwright.config.js",
         "playwright.config.js"
       ],
       "in_env_example": false
@@ -2657,7 +2637,6 @@
       "name": "CONVERGENCE_BENCH_CONCURRENCY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2666,7 +2645,6 @@
       "name": "CONVERGENCE_BENCH_ITERATIONS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2675,7 +2653,6 @@
       "name": "CONVERGENCE_REPLAY_CONNECT_TIMEOUT_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2684,7 +2661,6 @@
       "name": "CONVERGENCE_RETRY_429_MAX",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2693,7 +2669,6 @@
       "name": "CONVERGENCE_RETRY_429_WAIT_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2702,7 +2677,6 @@
       "name": "CONVERGENCE_SSE_SEND_COUNT",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2711,7 +2685,6 @@
       "name": "CONVERGENCE_VERBOSE",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
         "scripts/collect-platform-convergence-evidence.mjs"
       ],
       "in_env_example": false
@@ -2720,32 +2693,6 @@
       "name": "CRON_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/cron-auth.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-cache-crater.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-outcome-sweep.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-routing-maintenance.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-admin.test.js",
-        ".worktrees/codex-parity/app/api/cron/code-session-cache-crater/route.js",
-        ".worktrees/codex-parity/app/api/cron/code-session-weekly-memo/route.js",
-        ".worktrees/codex-parity/app/api/cron/integration-health/route.js",
-        ".worktrees/codex-parity/app/api/cron/learning-episodes-backfill/route.js",
-        ".worktrees/codex-parity/app/api/cron/learning-recommendations/route.js",
-        ".worktrees/codex-parity/app/api/cron/memory-maintenance/route.js",
-        ".worktrees/codex-parity/app/api/cron/outcome-sweep/route.js",
-        ".worktrees/codex-parity/app/api/cron/policy-suggestions/route.js",
-        ".worktrees/codex-parity/app/api/cron/reset-meters/route.js",
-        ".worktrees/codex-parity/app/api/cron/routing-maintenance/route.js",
-        ".worktrees/codex-parity/app/api/cron/signals/route.js",
-        ".worktrees/codex-parity/app/api/hosted/cleanup/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/integration-health/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/learning-episodes-backfill/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/learning-recommendations/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/memory-maintenance/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/policy-suggestions/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/routing-maintenance/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/cron/signals/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "__tests__/unit/cron-auth.test.js",
         "__tests__/unit/cron-cache-crater.route.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
@@ -2779,12 +2726,6 @@
       "name": "DASHCLAW_AGENT_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/connectPrompt.js",
-        ".worktrees/codex-parity/app/self-host/SetupTabs.js",
-        ".worktrees/codex-parity/examples/first-governed-action.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/connectPrompt.js",
-        ".worktrees/codex-parity/mcp-server/bin/dashclaw-mcp.js",
-        ".worktrees/codex-parity/scripts/test-sdk-live.mjs",
         "app/lib/connectPrompt.js",
         "app/self-host/SetupTabs.js",
         "examples/first-governed-action.js",
@@ -2798,8 +2739,6 @@
       "name": "DASHCLAW_ALERTS_DISCORD",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/discord-approvals.test.js",
-        ".worktrees/codex-parity/app/lib/discordApprovals.js",
         "__tests__/unit/discord-approvals.test.js",
         "app/lib/discordApprovals.js"
       ],
@@ -2809,8 +2748,6 @@
       "name": "DASHCLAW_ALERTS_TELEGRAM",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/telegram-approvals.test.js",
-        ".worktrees/codex-parity/app/lib/telegramApprovals.js",
         "__tests__/unit/telegram-approvals.test.js",
         "app/lib/telegramApprovals.js"
       ],
@@ -2820,73 +2757,6 @@
       "name": "DASHCLAW_API_KEY",
       "required": true,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/connect-complete-discord-alert.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/middleware-trial-enforcement.test.js",
-        ".worktrees/codex-parity/app/api/keys/reveal/route.js",
-        ".worktrees/codex-parity/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/app/api/setup/ping/route.js",
-        ".worktrees/codex-parity/app/components/OnboardingChecklist.js",
-        ".worktrees/codex-parity/app/docs/page.js",
-        ".worktrees/codex-parity/app/guides/openai-agents-sdk/page.js",
-        ".worktrees/codex-parity/app/landingData.js",
-        ".worktrees/codex-parity/app/lib/connectPrompt.js",
-        ".worktrees/codex-parity/app/lib/demo/fixtures/journey-agents.js",
-        ".worktrees/codex-parity/app/lib/demo/fixtures/persona-agents.js",
-        ".worktrees/codex-parity/app/lib/demo/fixtures/tutorial-threads.js",
-        ".worktrees/codex-parity/app/lib/setup/auth-gate.js",
-        ".worktrees/codex-parity/app/lib/starterSnippet.js",
-        ".worktrees/codex-parity/app/self-host/SetupTabs.js",
-        ".worktrees/codex-parity/examples/agent-chat-complete.js",
-        ".worktrees/codex-parity/examples/anthropic-governed-agent/index.js",
-        ".worktrees/codex-parity/examples/approval-flow.js",
-        ".worktrees/codex-parity/examples/claude-code-review-agent/index.js",
-        ".worktrees/codex-parity/examples/first-governed-action.js",
-        ".worktrees/codex-parity/examples/guard-and-act.js",
-        ".worktrees/codex-parity/examples/kimi_dashclaw_test.js",
-        ".worktrees/codex-parity/examples/loop-monitoring.js",
-        ".worktrees/codex-parity/examples/openai-agents-governed/index.js",
-        ".worktrees/codex-parity/examples/openai-deploy-pipeline/index.js",
-        ".worktrees/codex-parity/examples/openai-governed-agent/index.js",
-        ".worktrees/codex-parity/examples/swarm-research-task.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/setup/ping/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/components/OnboardingChecklist.js",
-        ".worktrees/codex-parity/graphify-pilot/app/components/QuickStart.js",
-        ".worktrees/codex-parity/graphify-pilot/app/docs/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/guides/openai-agents-sdk/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/landingData.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/connectGuide.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/connectPrompt.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/demo/fixtures/journey-agents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/demo/fixtures/persona-agents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/demo/fixtures/tutorial-threads.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/readiness/sdkCheck.mjs",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/self-host/SetupTabs.js",
-        ".worktrees/codex-parity/mcp-server/bin/dashclaw-mcp.js",
-        ".worktrees/codex-parity/middleware.js",
-        ".worktrees/codex-parity/public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".worktrees/codex-parity/public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".worktrees/codex-parity/scripts/auto-migrate.mjs",
-        ".worktrees/codex-parity/scripts/bootstrap-agent.mjs",
-        ".worktrees/codex-parity/scripts/collect-platform-convergence-evidence.mjs",
-        ".worktrees/codex-parity/scripts/demo-agent.mjs",
-        ".worktrees/codex-parity/scripts/fuzz-api.mjs",
-        ".worktrees/codex-parity/scripts/migrate-multi-tenant.mjs",
-        ".worktrees/codex-parity/scripts/patch-demo-capability-endpoints.mjs",
-        ".worktrees/codex-parity/scripts/report-action.mjs",
-        ".worktrees/codex-parity/scripts/report-tokens.mjs",
-        ".worktrees/codex-parity/scripts/seed-demo-capabilities.mjs",
-        ".worktrees/codex-parity/scripts/smoke-hosted.mjs",
-        ".worktrees/codex-parity/scripts/telegram-setup-wizard.mjs",
-        ".worktrees/codex-parity/scripts/telegram-verify-loop.mjs",
-        ".worktrees/codex-parity/scripts/test-actions.mjs",
-        ".worktrees/codex-parity/scripts/test-full-api.mjs",
-        ".worktrees/codex-parity/scripts/test-presence.mjs",
-        ".worktrees/codex-parity/scripts/test-realtime.mjs",
-        ".worktrees/codex-parity/scripts/test-sdk-live.mjs",
-        ".worktrees/codex-parity/verify.js",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -2936,6 +2806,7 @@
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
+        "public/downloads/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "scripts/auto-migrate.mjs",
@@ -2964,12 +2835,6 @@
       "name": "DASHCLAW_API_KEY_ORG",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/middleware.js",
-        ".worktrees/codex-parity/scripts/auto-migrate.mjs",
-        ".worktrees/codex-parity/scripts/migrate-multi-tenant.mjs",
         "app/api/auth/local/route.js",
         "app/api/setup/migrate/route.js",
         "graphify-pilot/app/api/setup/migrate/route.js",
@@ -2983,40 +2848,6 @@
       "name": "DASHCLAW_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/docs/page.js",
-        ".worktrees/codex-parity/app/guides/openai-agents-sdk/page.js",
-        ".worktrees/codex-parity/app/landingData.js",
-        ".worktrees/codex-parity/app/lib/demo/fixtures/journey-agents.js",
-        ".worktrees/codex-parity/app/lib/demo/fixtures/persona-agents.js",
-        ".worktrees/codex-parity/app/lib/starterSnippet.js",
-        ".worktrees/codex-parity/app/self-host/SetupTabs.js",
-        ".worktrees/codex-parity/examples/agent-chat-complete.js",
-        ".worktrees/codex-parity/examples/anthropic-governed-agent/index.js",
-        ".worktrees/codex-parity/examples/approval-flow.js",
-        ".worktrees/codex-parity/examples/claude-code-review-agent/index.js",
-        ".worktrees/codex-parity/examples/first-governed-action.js",
-        ".worktrees/codex-parity/examples/guard-and-act.js",
-        ".worktrees/codex-parity/examples/kimi_dashclaw_test.js",
-        ".worktrees/codex-parity/examples/loop-monitoring.js",
-        ".worktrees/codex-parity/examples/openai-agents-governed/index.js",
-        ".worktrees/codex-parity/examples/openai-deploy-pipeline/index.js",
-        ".worktrees/codex-parity/examples/openai-governed-agent/index.js",
-        ".worktrees/codex-parity/examples/swarm-research-task.js",
-        ".worktrees/codex-parity/graphify-pilot/app/components/QuickStart.js",
-        ".worktrees/codex-parity/graphify-pilot/app/docs/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/guides/openai-agents-sdk/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/landingData.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/connectGuide.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/demo/fixtures/journey-agents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/demo/fixtures/persona-agents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/self-host/SetupTabs.js",
-        ".worktrees/codex-parity/graphify-pilot/app/settings/components/ConnectNextStepPanel.js",
-        ".worktrees/codex-parity/packages/openclaw-plugin/src/index.ts",
-        ".worktrees/codex-parity/public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".worktrees/codex-parity/public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".worktrees/codex-parity/scripts/demo-agent.mjs",
-        ".worktrees/codex-parity/scripts/fuzz-api.mjs",
-        ".worktrees/codex-parity/verify.js",
         "app/docs/page.js",
         "app/guides/openai-agents-sdk/page.js",
         "app/landingData.js",
@@ -3049,6 +2880,7 @@
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
+        "public/downloads/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "scripts/demo-agent.mjs",
@@ -3061,9 +2893,6 @@
       "name": "DASHCLAW_CLOSED_ENROLLMENT",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/actions.route.test.js",
-        ".worktrees/codex-parity/app/api/actions/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/actions/route.js",
         "__tests__/unit/actions.route.test.js",
         "app/api/actions/route.js",
         "graphify-pilot/app/api/actions/route.js"
@@ -3074,10 +2903,6 @@
       "name": "DASHCLAW_DB_DRIVER",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/db.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/db.js",
-        ".worktrees/codex-parity/middleware.js",
-        ".worktrees/codex-parity/scripts/_db.mjs",
         "app/lib/db.js",
         "graphify-pilot/app/lib/db.js",
         "middleware.js",
@@ -3089,9 +2914,6 @@
       "name": "DASHCLAW_DB_POOL_MAX",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/db.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/db.js",
-        ".worktrees/codex-parity/scripts/_db.mjs",
         "app/lib/db.js",
         "graphify-pilot/app/lib/db.js",
         "scripts/_db.mjs"
@@ -3102,7 +2924,6 @@
       "name": "DASHCLAW_DISABLE_RATE_LIMIT",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -3111,8 +2932,6 @@
       "name": "DASHCLAW_GUARD_FALLBACK",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/guard.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/guard.js",
         "app/lib/guard.js",
         "graphify-pilot/app/lib/guard.js"
       ],
@@ -3122,14 +2941,6 @@
       "name": "DASHCLAW_HOSTED",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/integration/hosted/end-to-end.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/flag.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/publicConfig.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-admin.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-provision.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/flag.js",
-        ".worktrees/codex-parity/app/lib/hosted/publicConfig.js",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/flag.test.js",
@@ -3145,10 +2956,6 @@
       "name": "DASHCLAW_LOCAL_ADMIN_PASSWORD",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/app/login/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/login/page.js",
         "app/api/auth/local/route.js",
         "app/login/page.js",
         "graphify-pilot/app/api/auth/local/route.js",
@@ -3160,7 +2967,6 @@
       "name": "DASHCLAW_MAX_ORG_ATTACHMENT_BYTES",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/messages/route.js",
         "app/api/messages/route.js"
       ],
       "in_env_example": false
@@ -3169,14 +2975,6 @@
       "name": "DASHCLAW_MODE",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/guard-agent-attribution.test.js",
-        ".worktrees/codex-parity/__tests__/unit/guard.route.test.js",
-        ".worktrees/codex-parity/app/api/setup/ping/route.js",
-        ".worktrees/codex-parity/app/lib/selfHost.js",
-        ".worktrees/codex-parity/app/settings/page.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/setup/ping/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/settings/page.js",
-        ".worktrees/codex-parity/middleware.js",
         "__tests__/unit/guard-agent-attribution.test.js",
         "__tests__/unit/guard.route.test.js",
         "app/api/setup/ping/route.js",
@@ -3192,9 +2990,6 @@
       "name": "DASHCLAW_NEW_CONNECT_WEBHOOK",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/connect-complete-discord-alert.test.js",
-        ".worktrees/codex-parity/app/api/actions/route.js",
-        ".worktrees/codex-parity/app/lib/notification-adapters/discord.js",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "app/api/actions/route.js",
         "app/lib/notification-adapters/discord.js"
@@ -3205,7 +3000,6 @@
       "name": "DASHCLAW_RATE_LIMIT_MAX",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -3214,7 +3008,6 @@
       "name": "DASHCLAW_RATE_LIMIT_WINDOW_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -3223,14 +3016,6 @@
       "name": "DASHCLAW_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/mcp/route.js",
-        ".worktrees/codex-parity/mcp-server/bin/dashclaw-mcp.js",
-        ".worktrees/codex-parity/packages/openclaw-plugin/src/index.ts",
-        ".worktrees/codex-parity/scripts/patch-demo-capability-endpoints.mjs",
-        ".worktrees/codex-parity/scripts/seed-demo-capabilities.mjs",
-        ".worktrees/codex-parity/scripts/test-presence.mjs",
-        ".worktrees/codex-parity/scripts/test-sdk-live.mjs",
-        ".worktrees/codex-parity/scripts/verify-demo-e2e.mjs",
         "app/api/mcp/route.js",
         "mcp-server/bin/dashclaw-mcp.js",
         "packages/openclaw-plugin/src/index.ts",
@@ -3246,92 +3031,6 @@
       "name": "DATABASE_URL",
       "required": true,
       "files": [
-        ".worktrees/codex-parity/__tests__/integration/hosted/end-to-end.test.js",
-        ".worktrees/codex-parity/__tests__/unit/actions.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/agents-heartbeat.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/agents.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/bootstrap-first-user-admin.test.js",
-        ".worktrees/codex-parity/__tests__/unit/compliance-evidence.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/compliance-exports.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/compliance-gaps.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/compliance-map.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/compliance-report.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-auth.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-outcome-sweep.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/cron-routing-maintenance.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/guard-agent-attribution.test.js",
-        ".worktrees/codex-parity/__tests__/unit/guard.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/health-tables.test.js",
-        ".worktrees/codex-parity/__tests__/unit/health.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/middleware-trial-enforcement.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-admin.test.js",
-        ".worktrees/codex-parity/__tests__/unit/keys.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/learning-recommendation-detail.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/learning-recommendation-events.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/learning-recommendation-metrics.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/learning-recommendations.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/policies-import.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/policies-proof.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/policies-test.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/policies.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/prompt-injection-guard.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-agents-detail.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-agents.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-stats.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-tasks-complete.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-tasks-detail.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/routing-tasks.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/security-status.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/webhooks.route.test.js",
-        ".worktrees/codex-parity/app/api/security/status/route.js",
-        ".worktrees/codex-parity/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/db.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/drizzle.config.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/security/status/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/setup/migrate/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/db.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/middleware.js",
-        ".worktrees/codex-parity/scripts/_db.mjs",
-        ".worktrees/codex-parity/scripts/auto-migrate.mjs",
-        ".worktrees/codex-parity/scripts/backfill-code-session-cache-cost.mjs",
-        ".worktrees/codex-parity/scripts/backfill-embeddings.mjs",
-        ".worktrees/codex-parity/scripts/backfill-learning-episodes.mjs",
-        ".worktrees/codex-parity/scripts/backfill-null-model-cost.mjs",
-        ".worktrees/codex-parity/scripts/cleanup-actions.mjs",
-        ".worktrees/codex-parity/scripts/cleanup-org-default.mjs",
-        ".worktrees/codex-parity/scripts/create-org.mjs",
-        ".worktrees/codex-parity/scripts/diagnose-cost-attribution.mjs",
-        ".worktrees/codex-parity/scripts/emergency-reset.mjs",
-        ".worktrees/codex-parity/scripts/init-self-host-env.mjs",
-        ".worktrees/codex-parity/scripts/migrate-action-model-column.mjs",
-        ".worktrees/codex-parity/scripts/migrate-action-records-compat.mjs",
-        ".worktrees/codex-parity/scripts/migrate-agent-pairings.mjs",
-        ".worktrees/codex-parity/scripts/migrate-api-keys-compat.mjs",
-        ".worktrees/codex-parity/scripts/migrate-behavioral-ai.mjs",
-        ".worktrees/codex-parity/scripts/migrate-compliance-export.mjs",
-        ".worktrees/codex-parity/scripts/migrate-cost-analytics.mjs",
-        ".worktrees/codex-parity/scripts/migrate-drift.mjs",
-        ".worktrees/codex-parity/scripts/migrate-evaluations.mjs",
-        ".worktrees/codex-parity/scripts/migrate-feedback.mjs",
-        ".worktrees/codex-parity/scripts/migrate-hitl-metadata.mjs",
-        ".worktrees/codex-parity/scripts/migrate-identity-binding.mjs",
-        ".worktrees/codex-parity/scripts/migrate-learning-analytics.mjs",
-        ".worktrees/codex-parity/scripts/migrate-learning-loop-mvp.mjs",
-        ".worktrees/codex-parity/scripts/migrate-multi-tenant.mjs",
-        ".worktrees/codex-parity/scripts/migrate-policy-agent-scope.mjs",
-        ".worktrees/codex-parity/scripts/migrate-prompts.mjs",
-        ".worktrees/codex-parity/scripts/migrate-token-budgets.mjs",
-        ".worktrees/codex-parity/scripts/poll-github-traffic.mjs",
-        ".worktrees/codex-parity/scripts/promote-founder-to-admin.mjs",
-        ".worktrees/codex-parity/scripts/rebuild-learning-recommendations.mjs",
-        ".worktrees/codex-parity/scripts/register-identity.mjs",
-        ".worktrees/codex-parity/scripts/repair-stale-running-actions.mjs",
-        ".worktrees/codex-parity/scripts/setup.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions.route.test.js",
         "__tests__/unit/agents-heartbeat.route.test.js",
@@ -3425,10 +3124,6 @@
       "name": "DISABLE_PROMPT_INJECTION_SCAN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/guard.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/guard.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/guard.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/guard.js",
@@ -3440,8 +3135,6 @@
       "name": "DISCORD_APPROVER_ORG_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/discord-interactions-route.test.js",
-        ".worktrees/codex-parity/app/api/discord/interactions/route.js",
         "__tests__/unit/discord-interactions-route.test.js",
         "app/api/discord/interactions/route.js"
       ],
@@ -3451,10 +3144,6 @@
       "name": "DISCORD_APPROVER_USER_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/discord-approvals.test.js",
-        ".worktrees/codex-parity/__tests__/unit/discord-interactions-route.test.js",
-        ".worktrees/codex-parity/app/api/discord/interactions/route.js",
-        ".worktrees/codex-parity/app/lib/discordApprovals.js",
         "__tests__/unit/discord-approvals.test.js",
         "__tests__/unit/discord-interactions-route.test.js",
         "app/api/discord/interactions/route.js",
@@ -3466,10 +3155,6 @@
       "name": "DISCORD_BOT_TOKEN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/connect-complete-discord-alert.test.js",
-        ".worktrees/codex-parity/__tests__/unit/discord-approvals.test.js",
-        ".worktrees/codex-parity/__tests__/unit/discord-interactions-route.test.js",
-        ".worktrees/codex-parity/app/lib/discordApprovals.js",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/discord-approvals.test.js",
         "__tests__/unit/discord-interactions-route.test.js",
@@ -3481,8 +3166,6 @@
       "name": "DISCORD_PUBLIC_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/discord-interactions-route.test.js",
-        ".worktrees/codex-parity/app/api/discord/interactions/route.js",
         "__tests__/unit/discord-interactions-route.test.js",
         "app/api/discord/interactions/route.js"
       ],
@@ -3492,14 +3175,6 @@
       "name": "ENCRYPTION_KEY",
       "required": true,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/security-status.route.test.js",
-        ".worktrees/codex-parity/app/api/security/status/route.js",
-        ".worktrees/codex-parity/app/api/settings/route.js",
-        ".worktrees/codex-parity/app/lib/encryption.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/security/status/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/settings/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/encryption.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "__tests__/unit/security-status.route.test.js",
         "app/api/security/status/route.js",
         "app/api/settings/route.js",
@@ -3515,9 +3190,6 @@
       "name": "ENFORCE_AGENT_SIGNATURES",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/actions.route.test.js",
-        ".worktrees/codex-parity/app/api/actions/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/actions/route.js",
         "__tests__/unit/actions.route.test.js",
         "app/api/actions/route.js",
         "graphify-pilot/app/api/actions/route.js"
@@ -3528,8 +3200,6 @@
       "name": "GITHUB_CLIENT_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3539,8 +3209,6 @@
       "name": "GITHUB_CLIENT_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3550,8 +3218,6 @@
       "name": "GITHUB_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3561,7 +3227,6 @@
       "name": "GITHUB_REPO_NAME",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/poll-github-traffic.mjs",
         "scripts/poll-github-traffic.mjs"
       ],
       "in_env_example": false
@@ -3570,7 +3235,6 @@
       "name": "GITHUB_REPO_OWNER",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/poll-github-traffic.mjs",
         "scripts/poll-github-traffic.mjs"
       ],
       "in_env_example": false
@@ -3579,8 +3243,6 @@
       "name": "GITHUB_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3590,7 +3252,6 @@
       "name": "GITHUB_TOKEN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/poll-github-traffic.mjs",
         "scripts/poll-github-traffic.mjs"
       ],
       "in_env_example": false
@@ -3599,8 +3260,6 @@
       "name": "GOOGLE_AI_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
         "app/lib/llm.js",
         "graphify-pilot/app/lib/llm.js"
       ],
@@ -3610,8 +3269,6 @@
       "name": "GOOGLE_CLIENT_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3621,8 +3278,6 @@
       "name": "GOOGLE_CLIENT_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3632,8 +3287,6 @@
       "name": "GOOGLE_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3643,8 +3296,6 @@
       "name": "GOOGLE_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -3654,8 +3305,6 @@
       "name": "GUARD_LLM_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
         "app/lib/llm.js",
         "graphify-pilot/app/lib/llm.js"
       ],
@@ -3665,15 +3314,6 @@
       "name": "GUARD_LLM_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/guard-engine.test.js",
-        ".worktrees/codex-parity/app/lib/embeddings.js",
-        ".worktrees/codex-parity/app/lib/guard.js",
-        ".worktrees/codex-parity/app/lib/knowledge-ingest.js",
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/embeddings.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/knowledge-ingest.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
-        ".worktrees/codex-parity/scripts/test-semantic-guard.mjs",
         "__tests__/unit/guard-engine.test.js",
         "app/lib/embeddings.js",
         "app/lib/guard.js",
@@ -3690,8 +3330,6 @@
       "name": "GUARD_LLM_MODEL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
         "app/lib/llm.js",
         "graphify-pilot/app/lib/llm.js"
       ],
@@ -3701,8 +3339,6 @@
       "name": "GUARD_WEBHOOK_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/webhooks.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/webhooks.js",
         "app/lib/webhooks.js",
         "graphify-pilot/app/lib/webhooks.js"
       ],
@@ -3712,9 +3348,6 @@
       "name": "HOSTED_CLEANUP_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-admin.test.js",
-        ".worktrees/codex-parity/app/api/hosted/cleanup/route.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/hosted/cleanup/route.js"
@@ -3725,9 +3358,6 @@
       "name": "HOSTED_PROVISION_MAX_PER_IP_PER_DAY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/flag.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-provision.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/flag.js",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",
         "app/lib/hosted/flag.js"
@@ -3738,7 +3368,6 @@
       "name": "HOSTED_SMOKE_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/smoke-hosted.mjs",
         "scripts/smoke-hosted.mjs"
       ],
       "in_env_example": false
@@ -3747,8 +3376,6 @@
       "name": "HOSTED_TRIAL_ACTION_CAP",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/flag.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/flag.js",
         "__tests__/unit/hosted/flag.test.js",
         "app/lib/hosted/flag.js"
       ],
@@ -3758,8 +3385,6 @@
       "name": "HOSTED_TRIAL_DAYS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/flag.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/flag.js",
         "__tests__/unit/hosted/flag.test.js",
         "app/lib/hosted/flag.js"
       ],
@@ -3769,7 +3394,6 @@
       "name": "INTEGRATION_DATABASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/integration/hosted/end-to-end.test.js"
       ],
       "in_env_example": false
@@ -3778,7 +3402,6 @@
       "name": "MEMORY_DIR",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/agent-tools/tools/memory-diff.js",
         "agent-tools/tools/memory-diff.js"
       ],
       "in_env_example": false
@@ -3787,7 +3410,6 @@
       "name": "MOONSHOT_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/examples/kimi_dashclaw_test.js",
         "examples/kimi_dashclaw_test.js"
       ],
       "in_env_example": false
@@ -3796,12 +3418,6 @@
       "name": "NEXTAUTH_SECRET",
       "required": true,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/health-tables.test.js",
-        ".worktrees/codex-parity/__tests__/unit/health.route.test.js",
-        ".worktrees/codex-parity/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/middleware.js",
         "__tests__/unit/health-tables.test.js",
         "__tests__/unit/health.route.test.js",
         "app/api/auth/local/route.js",
@@ -3815,19 +3431,6 @@
       "name": "NEXTAUTH_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/security-headers.test.js",
-        ".worktrees/codex-parity/__tests__/unit/webhooks.approval.test.js",
-        ".worktrees/codex-parity/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/app/api/team/invite/route.js",
-        ".worktrees/codex-parity/app/lib/notifications.js",
-        ".worktrees/codex-parity/app/lib/webhooks.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/team/invite/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/notifications.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/webhooks.js",
-        ".worktrees/codex-parity/next.config.js",
-        ".worktrees/codex-parity/scripts/patch-demo-capability-endpoints.mjs",
-        ".worktrees/codex-parity/scripts/seed-demo-capabilities.mjs",
-        ".worktrees/codex-parity/scripts/test-presence.mjs",
         "__tests__/unit/security-headers.test.js",
         "__tests__/unit/webhooks.approval.test.js",
         "app/api/auth/local/route.js",
@@ -3848,8 +3451,6 @@
       "name": "NEXT_PUBLIC_APP_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/billing/checkout/route.js",
-        ".worktrees/codex-parity/app/api/billing/portal/route.js",
         "app/api/billing/checkout/route.js",
         "app/api/billing/portal/route.js"
       ],
@@ -3859,10 +3460,6 @@
       "name": "NEXT_PUBLIC_DASHCLAW_MODE",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/components/UserMenu.js",
-        ".worktrees/codex-parity/app/lib/isDemoMode.js",
-        ".worktrees/codex-parity/graphify-pilot/app/components/UserMenu.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/isDemoMode.js",
         "app/components/UserMenu.js",
         "app/lib/isDemoMode.js",
         "graphify-pilot/app/components/UserMenu.js",
@@ -3874,7 +3471,6 @@
       "name": "NEXT_PUBLIC_DASHCLAW_VERSION",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/components/Sidebar.js",
         "app/components/Sidebar.js"
       ],
       "in_env_example": false
@@ -3883,8 +3479,6 @@
       "name": "NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/layout.js",
-        ".worktrees/codex-parity/graphify-pilot/app/layout.js",
         "app/layout.js",
         "graphify-pilot/app/layout.js"
       ],
@@ -3894,8 +3488,6 @@
       "name": "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/publicConfig.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/publicConfig.js",
         "__tests__/unit/hosted/publicConfig.test.js",
         "app/lib/hosted/publicConfig.js"
       ],
@@ -3905,29 +3497,6 @@
       "name": "NODE_ENV",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/actions.route.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/turnstile.test.js",
-        ".worktrees/codex-parity/__tests__/unit/security-headers.test.js",
-        ".worktrees/codex-parity/app/api/auth/config/route.js",
-        ".worktrees/codex-parity/app/api/health/route.js",
-        ".worktrees/codex-parity/app/api/settings/route.js",
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/db.js",
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/app/lib/hosted/turnstile.js",
-        ".worktrees/codex-parity/app/lib/readiness/workflow.mjs",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/auth/config/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/auth/local/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/health/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/settings/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/db.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/readiness/workflow.mjs",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/middleware.js",
-        ".worktrees/codex-parity/next.config.js",
         "__tests__/unit/actions.route.test.js",
         "__tests__/unit/hosted/turnstile.test.js",
         "__tests__/unit/security-headers.test.js",
@@ -3958,10 +3527,6 @@
       "name": "OIDC_AUTHORIZATION_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -3973,10 +3538,6 @@
       "name": "OIDC_CLIENT_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -3988,10 +3549,6 @@
       "name": "OIDC_CLIENT_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -4003,8 +3560,6 @@
       "name": "OIDC_DISPLAY_NAME",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
         "app/lib/auth.js",
         "graphify-pilot/app/lib/auth.js"
       ],
@@ -4014,10 +3569,6 @@
       "name": "OIDC_ISSUER_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -4029,10 +3580,6 @@
       "name": "OIDC_TOKEN_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -4044,10 +3591,6 @@
       "name": "OIDC_USERINFO_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/auth.js",
-        ".worktrees/codex-parity/app/lib/validateEnv.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/auth.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validateEnv.js",
         "app/lib/auth.js",
         "app/lib/validateEnv.js",
         "graphify-pilot/app/lib/auth.js",
@@ -4059,15 +3602,6 @@
       "name": "OPENAI_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/embeddings.js",
-        ".worktrees/codex-parity/app/lib/guard.js",
-        ".worktrees/codex-parity/app/lib/knowledge-ingest.js",
-        ".worktrees/codex-parity/app/lib/llm.js",
-        ".worktrees/codex-parity/examples/openai-deploy-pipeline/index.js",
-        ".worktrees/codex-parity/examples/openai-governed-agent/index.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/embeddings.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/knowledge-ingest.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/llm.js",
         "app/lib/embeddings.js",
         "app/lib/guard.js",
         "app/lib/knowledge-ingest.js",
@@ -4084,9 +3618,6 @@
       "name": "ORG_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/seed-fixitforme-workflow.js",
-        ".worktrees/codex-parity/scripts/seed-research-capability.js",
-        ".worktrees/codex-parity/scripts/seed-research-capability.mjs",
         "scripts/seed-fixitforme-workflow.js",
         "scripts/seed-research-capability.js",
         "scripts/seed-research-capability.mjs"
@@ -4097,7 +3628,6 @@
       "name": "PORT",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/run-demo.mjs",
         "scripts/run-demo.mjs"
       ],
       "in_env_example": false
@@ -4106,7 +3636,6 @@
       "name": "PW_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/playwright.config.js",
         "playwright.config.js"
       ],
       "in_env_example": false
@@ -4115,7 +3644,6 @@
       "name": "PW_SMOKE_PORT",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/playwright.config.js",
         "playwright.config.js"
       ],
       "in_env_example": false
@@ -4124,9 +3652,6 @@
       "name": "PYTHON",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/livingcode-refresh.mjs",
-        ".worktrees/codex-parity/scripts/run-python-unittest.mjs",
-        ".worktrees/codex-parity/scripts/run-sdk-live-python.mjs",
         "scripts/livingcode-refresh.mjs",
         "scripts/run-python-unittest.mjs",
         "scripts/run-sdk-live-python.mjs"
@@ -4137,8 +3662,6 @@
       "name": "PYTHONPATH",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/run-python-unittest.mjs",
-        ".worktrees/codex-parity/scripts/run-sdk-live-python.mjs",
         "scripts/run-python-unittest.mjs",
         "scripts/run-sdk-live-python.mjs"
       ],
@@ -4148,8 +3671,6 @@
       "name": "REALTIME_BACKEND",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4159,8 +3680,6 @@
       "name": "REALTIME_ENFORCE_REDIS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4170,8 +3689,6 @@
       "name": "REALTIME_MAX_LISTENERS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4181,8 +3698,6 @@
       "name": "REALTIME_MEMORY_MAX_LISTENERS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4192,10 +3707,6 @@
       "name": "REALTIME_REDIS_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/app/lib/marketingEvents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
-        ".worktrees/codex-parity/scripts/export-marketing-events.mjs",
         "app/lib/events.js",
         "app/lib/marketingEvents.js",
         "graphify-pilot/app/lib/events.js",
@@ -4207,8 +3718,6 @@
       "name": "REALTIME_REPLAY_MAX_EVENTS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4218,8 +3727,6 @@
       "name": "REALTIME_REPLAY_WINDOW_SECONDS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
         "app/lib/events.js",
         "graphify-pilot/app/lib/events.js"
       ],
@@ -4229,10 +3736,6 @@
       "name": "REDIS_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/events.js",
-        ".worktrees/codex-parity/app/lib/marketingEvents.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/events.js",
-        ".worktrees/codex-parity/scripts/export-marketing-events.mjs",
         "app/lib/events.js",
         "app/lib/marketingEvents.js",
         "graphify-pilot/app/lib/events.js",
@@ -4244,8 +3747,6 @@
       "name": "RESEARCH_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/seed-research-capability.js",
-        ".worktrees/codex-parity/scripts/seed-research-capability.mjs",
         "scripts/seed-research-capability.js",
         "scripts/seed-research-capability.mjs"
       ],
@@ -4255,8 +3756,6 @@
       "name": "RESEARCH_API_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/seed-research-capability.js",
-        ".worktrees/codex-parity/scripts/seed-research-capability.mjs",
         "scripts/seed-research-capability.js",
         "scripts/seed-research-capability.mjs"
       ],
@@ -4266,8 +3765,6 @@
       "name": "RESEND_API_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/lib/notifications.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/notifications.js",
         "app/lib/notifications.js",
         "graphify-pilot/app/lib/notifications.js"
       ],
@@ -4277,7 +3774,6 @@
       "name": "SERVICE_NAME",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/examples/openai-deploy-pipeline/index.js",
         "examples/openai-deploy-pipeline/index.js"
       ],
       "in_env_example": false
@@ -4286,7 +3782,6 @@
       "name": "STARTUP_SMOKE_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/startup-smoke.mjs",
         "scripts/startup-smoke.mjs"
       ],
       "in_env_example": false
@@ -4295,7 +3790,6 @@
       "name": "STARTUP_SMOKE_INTERVAL_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/startup-smoke.mjs",
         "scripts/startup-smoke.mjs"
       ],
       "in_env_example": false
@@ -4304,7 +3798,6 @@
       "name": "STARTUP_SMOKE_TIMEOUT_MS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/scripts/startup-smoke.mjs",
         "scripts/startup-smoke.mjs"
       ],
       "in_env_example": false
@@ -4313,8 +3806,6 @@
       "name": "STRIPE_PRICE_BUSINESS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/billing/checkout/route.js",
-        ".worktrees/codex-parity/app/api/webhooks/stripe/route.js",
         "app/api/billing/checkout/route.js",
         "app/api/webhooks/stripe/route.js"
       ],
@@ -4324,8 +3815,6 @@
       "name": "STRIPE_PRICE_PRO",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/billing/checkout/route.js",
-        ".worktrees/codex-parity/app/api/webhooks/stripe/route.js",
         "app/api/billing/checkout/route.js",
         "app/api/webhooks/stripe/route.js"
       ],
@@ -4335,11 +3824,6 @@
       "name": "STRIPE_SECRET_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/billing/checkout/route.js",
-        ".worktrees/codex-parity/app/api/billing/portal/route.js",
-        ".worktrees/codex-parity/app/api/usage/route.js",
-        ".worktrees/codex-parity/app/api/webhooks/stripe/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/usage/route.js",
         "app/api/billing/checkout/route.js",
         "app/api/billing/portal/route.js",
         "app/api/usage/route.js",
@@ -4352,7 +3836,6 @@
       "name": "STRIPE_WEBHOOK_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/api/webhooks/stripe/route.js",
         "app/api/webhooks/stripe/route.js"
       ],
       "in_env_example": false
@@ -4361,7 +3844,6 @@
       "name": "TARGET_ENV",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/examples/openai-deploy-pipeline/index.js",
         "examples/openai-deploy-pipeline/index.js"
       ],
       "in_env_example": false
@@ -4370,10 +3852,6 @@
       "name": "TELEGRAM_ADMIN_CHAT_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/telegram-approvals.test.js",
-        ".worktrees/codex-parity/__tests__/unit/telegram-webhook-route.test.js",
-        ".worktrees/codex-parity/app/api/telegram/webhook/route.js",
-        ".worktrees/codex-parity/app/lib/telegramApprovals.js",
         "__tests__/unit/telegram-approvals.test.js",
         "__tests__/unit/telegram-webhook-route.test.js",
         "app/api/telegram/webhook/route.js",
@@ -4385,8 +3863,6 @@
       "name": "TELEGRAM_APPROVER_ORG_ID",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/telegram-webhook-route.test.js",
-        ".worktrees/codex-parity/app/api/telegram/webhook/route.js",
         "__tests__/unit/telegram-webhook-route.test.js",
         "app/api/telegram/webhook/route.js"
       ],
@@ -4396,11 +3872,6 @@
       "name": "TELEGRAM_BOT_TOKEN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/telegram-approvals.test.js",
-        ".worktrees/codex-parity/__tests__/unit/telegram-webhook-route.test.js",
-        ".worktrees/codex-parity/app/api/telegram/webhook/route.js",
-        ".worktrees/codex-parity/app/lib/telegramApprovals.js",
-        ".worktrees/codex-parity/scripts/telegram-register-webhook.mjs",
         "__tests__/unit/telegram-approvals.test.js",
         "__tests__/unit/telegram-webhook-route.test.js",
         "app/api/telegram/webhook/route.js",
@@ -4413,9 +3884,6 @@
       "name": "TELEGRAM_WEBHOOK_SECRET",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/telegram-webhook-route.test.js",
-        ".worktrees/codex-parity/app/api/telegram/webhook/route.js",
-        ".worktrees/codex-parity/scripts/telegram-register-webhook.mjs",
         "__tests__/unit/telegram-webhook-route.test.js",
         "app/api/telegram/webhook/route.js",
         "scripts/telegram-register-webhook.mjs"
@@ -4426,7 +3894,6 @@
       "name": "TEST_BASE_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/integration/hosted/end-to-end.test.js"
       ],
       "in_env_example": false
@@ -4435,7 +3902,6 @@
       "name": "TRUST_PROXY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -4444,11 +3910,6 @@
       "name": "TURNSTILE_SECRET_KEY",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/hosted/check-hosted-ready.test.mjs",
-        ".worktrees/codex-parity/__tests__/unit/hosted/publicConfig.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/turnstile.test.js",
-        ".worktrees/codex-parity/__tests__/unit/hosted/workspace-provision.test.js",
-        ".worktrees/codex-parity/app/lib/hosted/turnstile.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/publicConfig.test.js",
         "__tests__/unit/hosted/turnstile.test.js",
@@ -4461,7 +3922,6 @@
       "name": "UPSTASH_REDIS_REST_TOKEN",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -4470,7 +3930,6 @@
       "name": "UPSTASH_REDIS_REST_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/middleware.js",
         "middleware.js"
       ],
       "in_env_example": false
@@ -4479,9 +3938,6 @@
       "name": "VERCEL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/app/layout.js",
-        ".worktrees/codex-parity/graphify-pilot/app/layout.js",
-        ".worktrees/codex-parity/middleware.js",
         "app/layout.js",
         "graphify-pilot/app/layout.js",
         "middleware.js"
@@ -4492,10 +3948,6 @@
       "name": "VERCEL_URL",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/webhooks.approval.test.js",
-        ".worktrees/codex-parity/app/api/mcp/route.js",
-        ".worktrees/codex-parity/app/lib/webhooks.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/webhooks.js",
         "__tests__/unit/webhooks.approval.test.js",
         "app/api/mcp/route.js",
         "app/lib/webhooks.js",
@@ -4507,11 +3959,6 @@
       "name": "WEBHOOK_ALLOWED_DOMAINS",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/__tests__/unit/security-status.route.test.js",
-        ".worktrees/codex-parity/app/api/security/status/route.js",
-        ".worktrees/codex-parity/app/lib/validate.js",
-        ".worktrees/codex-parity/graphify-pilot/app/api/security/status/route.js",
-        ".worktrees/codex-parity/graphify-pilot/app/lib/validate.js",
         "__tests__/unit/security-status.route.test.js",
         "app/api/security/status/route.js",
         "app/lib/validate.js",
@@ -4524,7 +3971,6 @@
       "name": "X",
       "required": false,
       "files": [
-        ".worktrees/codex-parity/vitest.config.js",
         "vitest.config.js"
       ],
       "in_env_example": false

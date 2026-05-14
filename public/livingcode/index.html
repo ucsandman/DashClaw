@@ -48,7 +48,7 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:ecee0f86578955b4210135f79d14c5ade2a18ab8 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:2ae0e246e40dd8fb03c09c84b483542040c5a8e9 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">203</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
@@ -249,61 +249,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>TWITTER_API_SECRET</code></td><td class="sig">Social</td></tr>
     <tr><td><code>VERCEL_PROJECT_ID</code></td><td class="sig">Development</td></tr>
     <tr><td><code>VERCEL_TOKEN</code></td><td class="sig">Development</td></tr></tbody></table></details></section>
-
-<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 175)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,4.0 316.0,4.0"/></svg></figure>
-<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure>
-<figure><figcaption>Tables over time <span class="sig">(73 → 73)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure></section>
-
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>14</b> env_vars added, <b>28</b> routes added, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/actions/[actionId]/outcome <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/alerts <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/alerts/read-all <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/ingest-jsonl <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/ingest-live <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/manifests/[manifestId] <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/memos <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/memos/regenerate <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/projects <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/projects/[projectId]/sessions <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId] <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/autopsy <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/insights <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/optimal-files/manifest <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/optimal-files/preview <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/code-sessions/subagent-roi <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/cron/code-session-cache-crater <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/cron/code-session-weekly-memo <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/cron/outcome-sweep <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/discord/interactions <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/cleanup <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/workspaces <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/workspaces/[workspaceId] <span class="sig">New route: DELETE, GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/learning/code-signals <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/marketing/event <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/monetization/verified-integrations-count <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/session/effective <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>env_vars</b>: API_INVENTORY_VERIFIED_DATE <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_ALERTS_DISCORD <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_MAX_ORG_ATTACHMENT_BYTES <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_NEW_CONNECT_WEBHOOK <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_APPROVER_ORG_ID <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_APPROVER_USER_ID <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_BOT_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DISCORD_PUBLIC_KEY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: HOSTED_CLEANUP_SECRET <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: HOSTED_SMOKE_BASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: INTEGRATION_DATABASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: NEXT_PUBLIC_TURNSTILE_SITE_KEY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: TEST_BASE_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: X <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>tables</b>: code_optimal_file_manifests <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_projects <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_session_alerts <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_session_memos <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_session_messages <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_session_signals <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_session_tool_uses <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: code_sessions <span class="sig">New table in schema</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.js</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.js</td></tr>

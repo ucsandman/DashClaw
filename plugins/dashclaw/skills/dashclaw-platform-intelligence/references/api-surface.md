@@ -153,9 +153,13 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 | `/api/actions/[actionId]/graph` | GET | `getActionGraph` | `get_action_graph` |
 | `/api/actions/[actionId]/messages` | GET | `getActionMessages` | `get_action_messages` |
 | `/api/actions/[actionId]/trace` | GET | `getActionTrace` | `get_action_trace` |
+| `/api/actions/[actionId]/outcome` | GET, POST | `getActionOutcome`, `reportActionOutcome` (+ `reportActionSuccess` / `reportActionFailure` / `reportActionPartial`) | `get_action_outcome`, `report_action_outcome` (+ `report_action_success` / `report_action_failure` / `report_action_partial`) |
 | `/api/actions/costs` | GET | `getActionCosts` | `get_action_costs` |
 | `/api/actions/loops` | GET, POST | see Loops and Assumptions | — |
 | `/api/actions/stats` | GET | `getActionStats` | `get_action_stats` |
+| `/api/cron/outcome-sweep` | GET (Bearer `CRON_SECRET`) | — | — |
+
+**Durable execution finality (v2.13.3+):** `POST /api/actions/[actionId]/outcome` records a terminal `outcome_status` — one of `completed`, `partial`, `failed` — that is independent from the legacy PATCH lifecycle status. Outcomes are one-shot: the first call wins, every subsequent POST returns `409 { error: "outcome already set", current_status }`. `GET /api/actions/[actionId]/outcome` returns the current outcome plus an `elapsed_ms` derived field, so agents can poll before retry to avoid double-execution. The Node + Python SDKs ship matching `deriveIdempotencyKey` / `derive_idempotency_key` helpers; passing `idempotency_key` on `POST /api/actions` short-circuits duplicate creates to `{ idempotent_replay: true }`. Pending outcomes age into `lost_confirmation` via `/api/cron/outcome-sweep` (daily on Vercel Hobby, hourly externally if you wire it up); the sweep emits a `signal.detected` event of type `lost_confirmation` and fires webhooks for orgs subscribed to that event. Per-org timeout via the `DASHCLAW_OUTCOME_TIMEOUT_MINUTES` setting (default 15, clamped `[1, 1440]`). Full spec: `docs/architecture/durable-execution-finality.md`.
 
 `getPendingApprovals` / `get_pending_approvals` — queries actions with `status=pending_approval`.
 

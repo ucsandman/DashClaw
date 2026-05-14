@@ -15,10 +15,13 @@
  *   - public/downloads/dashclaw-platform-intelligence.zip.manifest (zip-idempotence marker)
  *   - ${USERPROFILE}/.claude/skills/dashclaw-platform-intelligence/   (global Claude Code skill)
  *   - .claude/skills/dashclaw-platform-intelligence/                   (project-local, gitignored)
+ *   - plugins/dashclaw/skills/dashclaw-platform-intelligence/          (committed plugin distribution)
  *
- * The website copy is the source of truth. Global and project-local copies
- * mirror SKILL.md + references/ + scripts/ via mirrorSubdir (idempotent,
- * prunes deleted files).
+ * The website copy is the source of truth. Global, project-local, and plugin
+ * copies mirror SKILL.md + references/ + scripts/ via mirrorSubdir
+ * (idempotent, prunes deleted files). The plugin copy is committed so users
+ * installing the DashClaw plugin from this repo get the latest skill content
+ * without a separate publish step.
  *
  * Zero new npm deps — relies on Python being on PATH (livingcode) and Node stdlib.
  * Production reads only the committed JSON, so Vercel never needs Python.
@@ -61,6 +64,11 @@ const GLOBAL_SKILL_DIR = resolve(homedir(), '.claude', 'skills', 'dashclaw-platf
 // auto-loads when working in this project. Kept in sync with the website copy
 // (public/downloads/...) which is the source of truth.
 const PROJECT_SKILL_DIR = resolve(REPO_ROOT, '.claude', 'skills', 'dashclaw-platform-intelligence');
+// Plugin distribution skill dir. Committed alongside the rest of the
+// plugins/dashclaw/ tree so `dashclaw install` / `hermes plugin install`
+// pick up the live livingcode-derived SKILL.md and companion files. Treated
+// as a regen target — never edit by hand; edit the website source instead.
+const PLUGIN_SKILL_DIR = resolve(REPO_ROOT, 'plugins', 'dashclaw', 'skills', 'dashclaw-platform-intelligence');
 const MCP_INVENTORY_PATH = resolve(REPO_ROOT, 'mcp-server', 'lib', 'routes-inventory.generated.json');
 const DASHBOARD_PATH = resolve(REPO_ROOT, 'public', 'livingcode', 'index.html');
 
@@ -76,7 +84,7 @@ const DASHBOARD_SIG_LINE = /^(<div class="sig" id="sig">Shape signature: )([^<]+
 const SOURCE_PATH_RE = /^(app\/api\/|app\/lib\/|schema\/schema\.js$|middleware\.js$|livingcode\/|public\/downloads\/dashclaw-platform-intelligence\/(references|scripts)\/)/;
 // Paths that are themselves generated output — staging these doesn't count as
 // a source change that should trigger a refresh.
-const GENERATED_PATH_RE = /^(app\/lib\/doctor\/generated\/|public\/downloads\/dashclaw-platform-intelligence\/SKILL\.md$|public\/downloads\/dashclaw-platform-intelligence\.zip(\.manifest)?$)/;
+const GENERATED_PATH_RE = /^(app\/lib\/doctor\/generated\/|public\/downloads\/dashclaw-platform-intelligence\/SKILL\.md$|public\/downloads\/dashclaw-platform-intelligence\.zip(\.manifest)?$|plugins\/dashclaw\/skills\/dashclaw-platform-intelligence\/)/;
 
 function isSourceChange(path) {
   const normalised = path.replace(/\\/g, '/');
@@ -397,6 +405,15 @@ async function main() {
   }
   mirrorSubdir(WEBSITE_SKILL_DIR, PROJECT_SKILL_DIR, 'references', 'skill-references (project)');
   mirrorSubdir(WEBSITE_SKILL_DIR, PROJECT_SKILL_DIR, 'scripts', 'skill-scripts (project)');
+
+  // Mirror to plugins/dashclaw/skills/dashclaw-platform-intelligence/ so the
+  // committed plugin distribution stays in lockstep with the website source
+  // of truth. Failures here ARE surfaced (unlike the global/project mirrors)
+  // because the plugin copy is committed — a drift here would land in users'
+  // installs.
+  writeIfChanged(join(PLUGIN_SKILL_DIR, 'SKILL.md'), skillContent, 'skill (plugin)');
+  mirrorSubdir(WEBSITE_SKILL_DIR, PLUGIN_SKILL_DIR, 'references', 'skill-references (plugin)');
+  mirrorSubdir(WEBSITE_SKILL_DIR, PLUGIN_SKILL_DIR, 'scripts', 'skill-scripts (plugin)');
 
   refreshSkillZip(WEBSITE_SKILL_DIR, WEBSITE_SKILL_ZIP, WEBSITE_SKILL_MANIFEST);
 
