@@ -129,6 +129,32 @@ describe('buildConfigTomlBlock', () => {
     });
     assert.match(custom, /approval_policy = "untrusted"/);
   });
+
+  it('omits the notify line by default', () => {
+    assert.doesNotMatch(built, /^notify =/m);
+  });
+
+  it('emits a notify line when includeNotify=true', () => {
+    const withNotify = buildConfigTomlBlock({
+      mcpServerPath: '/tmp/mcp.js',
+      hooksDir: '/tmp/hooks',
+      includeNotify: true,
+      dashclawCliPath: '/usr/local/bin/dashclaw.js',
+    });
+    assert.match(withNotify, /^notify = \["node", "\/usr\/local\/bin\/dashclaw\.js", "codex", "notify"\]/m);
+  });
+
+  it('throws when includeNotify is true but cli path is missing', () => {
+    assert.throws(
+      () =>
+        buildConfigTomlBlock({
+          mcpServerPath: '/tmp/mcp.js',
+          hooksDir: '/tmp/hooks',
+          includeNotify: true,
+        }),
+      /dashclawCliPath/,
+    );
+  });
 });
 
 describe('buildAgentsMdBlock', () => {
@@ -337,6 +363,30 @@ describe('installCodex (end-to-end)', () => {
     // Return shape sanity
     assert.equal(result.config.path, path.join(codexHomeDir, 'config.toml'));
     assert.equal(result.agentsMd.path, path.join(projectDir, 'AGENTS.md'));
+  });
+
+  it('wires the notify line when includeNotify=true', async () => {
+    const codexHomeDir = makeTempDir('dc-codex-home-');
+    const projectDir = makeTempDir('dc-codex-proj-');
+    const env = { CODEX_HOME: codexHomeDir };
+
+    await installCodex({
+      repoRoot: REPO_ROOT,
+      projectDir,
+      env,
+      includeNotify: true,
+      logger: silentLogger,
+    });
+
+    const config = fs.readFileSync(path.join(codexHomeDir, 'config.toml'), 'utf8');
+    assert.match(config, /notify = \["node",.*"codex", "notify"\]/);
+    // CLI path must point at the actual dashclaw.js in the repo. We compare
+    // the FILE basenames (cross-platform) and assert the notify line mentions
+    // dashclaw.js at all.
+    assert.ok(
+      config.includes('dashclaw.js'),
+      'notify line should reference dashclaw.js',
+    );
   });
 
   it('is fully idempotent across two runs', async () => {

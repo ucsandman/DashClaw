@@ -177,19 +177,35 @@ export function buildConfigTomlBlock({
   mcpServerPath,
   hooksDir,
   approvalPolicy = 'on-request',
+  includeNotify = false,
+  dashclawCliPath = null,
 }) {
   const py = pythonCommand();
   const pre = join(hooksDir, 'dashclaw_pretool.py');
   const post = join(hooksDir, 'dashclaw_posttool.py');
   const stop = join(hooksDir, 'dashclaw_stop.py');
 
-  return [
+  const lines = [
     MANAGED_START,
     '#',
     '# Re-run `dashclaw install codex` to refresh this block. Edits made',
     '# between these markers will be overwritten on next install.',
     '',
     `approval_policy = ${tomlString(approvalPolicy)}`,
+  ];
+
+  if (includeNotify) {
+    if (!dashclawCliPath) {
+      throw new Error('dashclawCliPath is required when includeNotify=true');
+    }
+    // Codex's notify config takes a list of strings: argv prefix. Codex
+    // appends the JSON payload as the final argument when it fires.
+    lines.push(
+      `notify = ["node", ${tomlString(dashclawCliPath)}, "codex", "notify"]`,
+    );
+  }
+
+  lines.push(
     '',
     '[mcp_servers.dashclaw]',
     `command = ${tomlString(py)}`,
@@ -213,7 +229,9 @@ export function buildConfigTomlBlock({
     'type = "command"',
     `command = ${tomlString(`${py} ${stop}`)}`,
     MANAGED_END,
-  ].join('\n');
+  );
+
+  return lines.join('\n');
 }
 
 function pythonCommand() {
@@ -300,12 +318,16 @@ export function mergeConfigToml({
   mcpServerPath,
   hooksDir,
   approvalPolicy,
+  includeNotify = false,
+  dashclawCliPath = null,
 }) {
   const before = existsSync(configPath) ? readFileSync(configPath, 'utf8') : '';
   const block = buildConfigTomlBlock({
     mcpServerPath,
     hooksDir,
     approvalPolicy,
+    includeNotify,
+    dashclawCliPath,
   });
   const after = replaceManagedBlock(before, block);
   mkdirSync(dirname(configPath), { recursive: true });
@@ -336,6 +358,7 @@ export async function installCodex({
   projectDir = process.cwd(),
   baseUrl,
   approvalPolicy = 'on-request',
+  includeNotify = false,
   env = process.env,
   logger = console,
 }) {
@@ -345,9 +368,13 @@ export async function installCodex({
 
   const hooksSrc = join(repoRoot, 'hooks');
   const mcpServerPath = join(repoRoot, 'mcp-server', 'bin', 'dashclaw-mcp.js');
+  const dashclawCliPath = join(repoRoot, 'cli', 'bin', 'dashclaw.js');
 
   if (!existsSync(mcpServerPath)) {
     throw new Error(`MCP server entrypoint missing: ${mcpServerPath}`);
+  }
+  if (includeNotify && !existsSync(dashclawCliPath)) {
+    throw new Error(`dashclaw CLI not found at ${dashclawCliPath} — can't wire notify`);
   }
 
   const hooksDst = codexHooksDir(env);
@@ -363,6 +390,8 @@ export async function installCodex({
     mcpServerPath,
     hooksDir: hooksDst,
     approvalPolicy,
+    includeNotify,
+    dashclawCliPath: includeNotify ? dashclawCliPath : null,
   });
 
   logger.info(`Merging governance protocol → ${agentsMdPath}`);

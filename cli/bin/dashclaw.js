@@ -15,6 +15,7 @@ import { runIngest, defaultClaudeProjectsDir } from '../lib/code/ingest.js';
 import { runMemo } from '../lib/code/memo.js';
 import { runApply } from '../lib/code/apply.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
+import { runCodexNotify } from '../lib/codex/notify.js';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -69,6 +70,9 @@ ${bold('Usage:')}
   dashclaw install codex                 Provision DashClaw governance into Codex CLI
     --project <path>                     Project to receive AGENTS.md (default: cwd)
     --approval-policy <p>                Codex approval_policy (default: on-request)
+    --include-notify                     Also wire Codex's notify config to dashclaw codex notify
+  dashclaw codex notify '<json>'         Record a Codex turn-complete event
+                                         (called by Codex's notify config; always exits 0)
   dashclaw logout                        Remove saved config (~/.dashclaw/config.json)
   dashclaw help                          Show this help
 
@@ -356,6 +360,7 @@ const REPO_ROOT = resolve(__dirname, '..', '..');
 async function cmdInstallCodex() {
   const projectDir = getFlag('--project') || process.cwd();
   const approvalPolicy = getFlag('--approval-policy') || 'on-request';
+  const includeNotify = args.includes('--include-notify');
 
   try {
     const result = await installCodex({
@@ -363,6 +368,7 @@ async function cmdInstallCodex() {
       projectDir,
       baseUrl,
       approvalPolicy,
+      includeNotify,
       logger: console,
     });
 
@@ -388,6 +394,38 @@ async function cmdInstall() {
     default:
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
                     'Try: dashclaw install codex [--project <path>] [--approval-policy <p>]');
+      process.exit(1);
+  }
+}
+
+// -- codex subcommand group --------------------------------------------------
+//
+// `dashclaw codex notify '<json>'` is invoked by Codex's legacy notify config.
+// It records a turn-complete action_record in DashClaw. ALWAYS exits 0 so
+// Codex never sees an error from the spawn.
+
+async function cmdCodexNotify() {
+  // Skip the leading 'codex' and 'notify' tokens — runCodexNotify reads the
+  // JSON payload from the LAST argv slot (per Codex's notify contract).
+  const notifyArgv = args.slice(1); // includes 'notify' and the payload
+  await runCodexNotify({
+    argv: notifyArgv,
+    baseUrl,
+    apiKey,
+    agentId: agentId || 'codex',
+    logger: console,
+  });
+  process.exit(0);
+}
+
+async function cmdCodex() {
+  const sub = args[1];
+  switch (sub) {
+    case 'notify':
+      return cmdCodexNotify();
+    default:
+      console.error(`Unknown subcommand: dashclaw codex ${sub || '(missing)'}\n` +
+                    'Try: dashclaw codex notify \'<json>\'   (called by Codex notify config)');
       process.exit(1);
   }
 }
@@ -488,7 +526,10 @@ const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
-const COMMANDS_OPTIONAL_CONFIG = new Set(['install']);
+// `codex notify` also opt-in: if no config, the notify fail-softs to skipped
+// rather than erroring (Codex never sees the error anyway — it spawns with
+// stdio nulled).
+const COMMANDS_OPTIONAL_CONFIG = new Set(['install', 'codex']);
 
 async function main() {
   if (COMMANDS_NEEDING_CONFIG.has(command)) {
@@ -531,6 +572,9 @@ async function main() {
       break;
     case 'install':
       await cmdInstall();
+      break;
+    case 'codex':
+      await cmdCodex();
       break;
     case 'help':
     case '--help':
