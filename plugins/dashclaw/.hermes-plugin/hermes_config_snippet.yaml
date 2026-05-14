@@ -1,0 +1,67 @@
+# DashClaw shell-hook declarations for Hermes Agent.
+#
+# Append this block to ~/.hermes/config.yaml (or merge into an existing
+# `hooks:` block). The install scripts under scripts/install-hermes-plugin.*
+# do this for you and substitute the absolute path for ${DASHCLAW_REPO}.
+#
+# All hooks read JSON from stdin and emit JSON to stdout. They require the
+# same env vars the Claude Code / Codex installations use:
+#   DASHCLAW_BASE_URL, DASHCLAW_API_KEY, DASHCLAW_AGENT_ID (default "hermes"),
+#   DASHCLAW_WORKSPACE, DASHCLAW_PERMISSION_MODE, DASHCLAW_GUARD_TIMEOUT,
+#   DASHCLAW_APPROVAL_TIMEOUT, DASHCLAW_GUARD_UNAVAILABLE_POLICY.
+#
+# Consent: first invocation of each (event, command) pair prompts you
+# unless you set `hooks_auto_accept: true` or run `hermes --accept-hooks`.
+
+hooks:
+  # 1. PreToolUse equivalent — block / require_approval / record.
+  pre_tool_call:
+    - matcher: "^(Bash|Edit|Write|MultiEdit|terminal|str_replace_editor|create_file)$"
+      command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_pretool_hermes.py"
+      timeout: 60
+
+  # 2. PostToolUse equivalent — outcome recording, MCP health update.
+  post_tool_call:
+    - matcher: "^(Bash|Edit|Write|MultiEdit|terminal|str_replace_editor|create_file)$"
+      command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_posttool_hermes.py"
+      timeout: 30
+
+  # 3. Per-turn live ingest — pushes turn structure to /api/code-sessions/ingest-live.
+  post_llm_call:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_postllm_hermes.py"
+      timeout: 15
+
+  # 4. Per-turn governance context injection — surfaces pending approvals
+  #    and active policies to the model. Cached for 5 minutes to keep the
+  #    hot path fast (see DASHCLAW_PRELLM_REFRESH).
+  pre_llm_call:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_pre_llm_hermes.py"
+      timeout: 5
+
+  # 5. Session-start cache warm — pre-fetches policy state so the first
+  #    pre_llm_call injection has fresh data without a network round-trip.
+  on_session_start:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_on_session_start_hermes.py"
+      timeout: 10
+
+  # 6. Session-end finalize — triggers the optimizer + alerts pass on the
+  #    completed live-ingested session.
+  on_session_end:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_on_session_end_hermes.py"
+      timeout: 15
+
+  # 7. Tool-result redaction — strips API keys, JWTs, and private keys from
+  #    tool output before the model sees it. Never blocks.
+  transform_tool_result:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_transform_tool_result_hermes.py"
+      timeout: 5
+
+  # 8. Subagent ROI — records every delegate_task child exit as a DashClaw
+  #    action with action_type=subagent for the subagent-roi dashboards.
+  subagent_stop:
+    - command: "python ${DASHCLAW_REPO}/.hermes/hooks/dashclaw_subagent_stop_hermes.py"
+      timeout: 10
+
+# Set to true once you have reviewed and approved the commands above so
+# Hermes does not re-prompt on every fresh session.
+hooks_auto_accept: false

@@ -1,0 +1,21 @@
+name: dashclaw
+version: "2.13.3"
+description: |
+  DashClaw governance, integration, troubleshooting, and platform
+  intelligence for Hermes Agent. Adds guard checks, action recording,
+  governed capability invocation, approval waits, policy discovery,
+  per-turn governance-context injection, secret redaction in tool output,
+  subagent ROI tracking, and live code-session ingest.
+author: DashClaw
+license: MIT
+homepage: https://dashclaw.io/docs
+repository: https://github.com/ucsandman/DashClaw
+
+keywords:
+  - dashclaw
+  - governance
+  - mcp
+  - agent-safety
+  - approval
+  - cost-attribution
+  - secret-redaction

@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:ecee0f86578955b4210135f79d14c5ade2a18ab8`
+**Shape snapshot:** `sha1:0f2c77d2856357641da63b3d22458c4d6dca96d9`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -29,9 +29,9 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 
 ## At a Glance
 
-- **203** active API routes across **50** categories
-- **4** required + **120** optional environment variables
-- **81** database tables
+- **181** active API routes across **48** categories
+- **4** required + **119** optional environment variables
+- **73** database tables
 
 ## API Surface
 
@@ -42,7 +42,6 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 - `GET` `/api/actions/[actionId]/artifacts`
 - `GET` `/api/actions/[actionId]/graph`
 - `GET` `/api/actions/[actionId]/messages`
-- `GET, POST` `/api/actions/[actionId]/outcome`
 - `GET` `/api/actions/[actionId]/trace`
 - `GET` `/api/actions/costs`
 - `GET, POST` `/api/actions/loops`
@@ -104,25 +103,6 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 - `POST` `/api/capabilities/[capabilityId]/test`
 - `GET` `/api/capabilities/health`
 
-### `code-sessions`
-
-- `GET` `/api/code-sessions/alerts`
-- `POST` `/api/code-sessions/alerts/read-all`
-- `POST` `/api/code-sessions/ingest-jsonl`
-- `POST` `/api/code-sessions/ingest-live`
-- `GET` `/api/code-sessions/manifests/[manifestId]`
-- `GET` `/api/code-sessions/memos`
-- `POST` `/api/code-sessions/memos/regenerate`
-- `GET` `/api/code-sessions/projects`
-- `GET` `/api/code-sessions/projects/[projectId]/sessions`
-- `GET` `/api/code-sessions/sessions/[sessionId]`
-- `GET` `/api/code-sessions/sessions/[sessionId]/autopsy`
-- `GET` `/api/code-sessions/sessions/[sessionId]/insights`
-- `POST` `/api/code-sessions/sessions/[sessionId]/optimal-files/manifest`
-- `POST` `/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview`
-- `POST` `/api/code-sessions/sessions/[sessionId]/optimal-files/preview`
-- `GET` `/api/code-sessions/subagent-roi`
-
 ### `compliance`
 
 - `GET` `/api/compliance/evidence`
@@ -139,13 +119,10 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 
 ### `cron`
 
-- `GET` `/api/cron/code-session-cache-crater`
-- `GET` `/api/cron/code-session-weekly-memo`
 - `GET` `/api/cron/integration-health`
 - `GET` `/api/cron/learning-episodes-backfill`
 - `GET` `/api/cron/learning-recommendations`
 - `GET` `/api/cron/memory-maintenance`
-- `GET` `/api/cron/outcome-sweep`
 - `GET` `/api/cron/policy-suggestions`
 - `GET` `/api/cron/reset-meters`
 - `POST` `/api/cron/routing-maintenance`
@@ -226,17 +203,12 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 - `GET` `/api/learning/analytics/maturity`
 - `GET` `/api/learning/analytics/summary`
 - `GET, POST` `/api/learning/analytics/velocity`
-- `GET` `/api/learning/code-signals`
 - `GET` `/api/learning/lessons`
 - `GET, POST` `/api/learning/recommendations`
 - `PATCH` `/api/learning/recommendations/[recommendationId]`
 - `POST` `/api/learning/recommendations/events`
 - `GET` `/api/learning/recommendations/metrics`
 - `GET, POST` `/api/learning/suggestions`
-
-### `marketing`
-
-- `POST` `/api/marketing/event`
 
 ### `mcp`
 
@@ -392,10 +364,10 @@ If the snapshot below disagrees with a live query, **trust the live query**.
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 137 file(s)
-- **`DATABASE_URL`** - referenced in 172 file(s)
-- **`ENCRYPTION_KEY`** - referenced in 16 file(s)
-- **`NEXTAUTH_SECRET`** - referenced in 12 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 68 file(s)
+- **`DATABASE_URL`** - referenced in 83 file(s)
+- **`ENCRYPTION_KEY`** - referenced in 8 file(s)
+- **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
 ## Optional Environment Variables
 
@@ -407,7 +379,6 @@ These have fallbacks or only activate specific features.
 - `ALERT_FROM_EMAIL` *(undocumented)*
 - `ALLOWED_ORIGIN` *(undocumented)*
 - `ANTHROPIC_API_KEY` *(undocumented)*
-- `API_INVENTORY_VERIFIED_DATE` *(undocumented)*
 - `API_SECRET` *(undocumented)*
 - `BASE_URL` *(undocumented)*
 - `CI` *(undocumented)*
@@ -524,7 +495,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 81 tables defined in `schema/schema.js` (Drizzle ORM):
+All 73 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -539,14 +510,6 @@ All 81 tables defined in `schema/schema.js` (Drizzle ORM):
 - `api_keys`
 - `assumptions`
 - `calendar_events`
-- `code_optimal_file_manifests`
-- `code_projects`
-- `code_session_alerts`
-- `code_session_memos`
-- `code_session_messages`
-- `code_session_signals`
-- `code_session_tool_uses`
-- `code_sessions`
 - `compliance_snapshots`
 - `contacts`
 - `content`
@@ -721,10 +684,6 @@ Per-org settings stored in the `settings` table. Set via `PUT /api/settings/:key
 - `PREDICTIVE_RISK_ENABLED`
 - `PREDICTIVE_RISK_THRESHOLD`
 
-### docs/architecture/durable-execution-finality.md.
-
-- `DASHCLAW_OUTCOME_TIMEOUT_MINUTES`
-
 ## Realtime & Webhook Events
 
 Every mutation that Mission Control reflects and every webhook delivery is keyed on these event strings. Subscribe via `GET /api/events` (SSE) or register a webhook with the matching `events: [...]` array.
@@ -757,7 +716,6 @@ These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNa
 - `green_insufficient`
 - `integration_health_changed`
 - `integration_mismatch`
-- `lost_confirmation`
 - `mcp_degraded`
 - `stale_action`
 - `test`

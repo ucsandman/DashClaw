@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:128def22696b91fb347a45c6c8c34d577770818b · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:ecee0f86578955b4210135f79d14c5ade2a18ab8 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">202</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">203</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">120</div><div class="k">Optional env vars</div></div>
@@ -254,10 +254,11 @@ p.kicker b{color:var(--accent-deep)}
 <figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure>
 <figure><figcaption>Tables over time <span class="sig">(73 → 73)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 160.0,44.0 316.0,44.0"/></svg></figure></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>14</b> env_vars added, <b>27</b> routes added, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/actions/[actionId]/outcome <span class="sig">New route: GET, POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>14</b> env_vars added, <b>28</b> routes added, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/actions/[actionId]/outcome <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/alerts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/alerts/read-all <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/ingest-jsonl <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/code-sessions/ingest-live <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/manifests/[manifestId] <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/memos <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/memos/regenerate <span class="sig">New route: POST</span></li>
@@ -343,9 +344,10 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.js</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.js</td></tr>
     <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.js</td></tr></tbody></table></details>
-<details><summary>/code-sessions/* (15)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.js</td></tr>
+<details><summary>/code-sessions/* (16)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.js</td></tr>
     <tr data-path="/api/code-sessions/alerts/read-all"><td><code>/api/code-sessions/alerts/read-all</code></td><td>POST</td><td class="sig">app/api/code-sessions/alerts/read-all/route.js</td></tr>
     <tr data-path="/api/code-sessions/ingest-jsonl"><td><code>/api/code-sessions/ingest-jsonl</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-jsonl/route.js</td></tr>
+    <tr data-path="/api/code-sessions/ingest-live"><td><code>/api/code-sessions/ingest-live</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-live/route.js</td></tr>
     <tr data-path="/api/code-sessions/manifests/[manifestId]"><td><code>/api/code-sessions/manifests/[manifestId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/manifests/[manifestId]/route.js</td></tr>
     <tr data-path="/api/code-sessions/memos"><td><code>/api/code-sessions/memos</code></td><td>GET</td><td class="sig">app/api/code-sessions/memos/route.js</td></tr>
     <tr data-path="/api/code-sessions/memos/regenerate"><td><code>/api/code-sessions/memos/regenerate</code></td><td>POST</td><td class="sig">app/api/code-sessions/memos/regenerate/route.js</td></tr>

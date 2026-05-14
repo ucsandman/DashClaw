@@ -249,6 +249,119 @@ export async function upsertSessionWithChildren(sql, orgId, parsed, { projectId,
   };
 }
 
+/**
+ * Append a single live turn to a code session. Used by /api/code-sessions/ingest-live
+ * from Hermes Agent's post_llm_call hook (and any other agent that pushes turns
+ * incrementally instead of dumping a full JSONL transcript).
+ *
+ * Semantics vs upsertSessionWithChildren:
+ *  - Parent row token counts are ADDED to (not replaced). First call inserts
+ *    a row; subsequent calls sum the deltas via ON CONFLICT DO UPDATE.
+ *  - Child rows are APPENDED, never wiped. One message row per call plus N
+ *    tool_use rows.
+ *  - parser_version is held at 2 to match the JSONL pipeline.
+ *
+ * @param {*} sql tagged-template SQL client (Neon HTTP path)
+ * @param {string} orgId
+ * @param {object} turn
+ * @param {string} turn.sessionUuid                   required
+ * @param {string} turn.projectId                     required (caller upserts project first)
+ * @param {string} [turn.model]
+ * @param {object} [turn.usage]                       { input_tokens, output_tokens, cache_creation_input_tokens, cache_read_input_tokens } — any subset
+ * @param {Array}  [turn.toolCalls]                   [{ name, tool_use_id, target }]
+ * @param {string} [turn.assistantPreview]            first ~500 chars of assistant text
+ * @param {string} [turn.turnTimestamp]               ISO-8601
+ * @returns {{ sessionId: string, turnIndex: number, insertedToolUses: number }}
+ */
+export async function appendLiveTurn(sql, orgId, turn = {}) {
+  const sessionUuid = turn.sessionUuid;
+  const projectId = turn.projectId;
+  if (!sessionUuid) throw new Error('appendLiveTurn: sessionUuid is required');
+  if (!projectId) throw new Error('appendLiveTurn: projectId is required');
+
+  const usage = turn.usage && typeof turn.usage === 'object' ? turn.usage : {};
+  const inputDelta = Number(usage.input_tokens) || 0;
+  const outputDelta = Number(usage.output_tokens) || 0;
+  const cacheCreationDelta = Number(usage.cache_creation_input_tokens ?? usage.cache_creation_tokens) || 0;
+  const cacheReadDelta = Number(usage.cache_read_input_tokens ?? usage.cache_read_tokens) || 0;
+
+  const customPricing = await _resolveOrgPricing(sql, orgId);
+  const costDelta = estimateCost(
+    inputDelta,
+    outputDelta,
+    turn.model || null,
+    customPricing,
+    { cache_creation_tokens: cacheCreationDelta, cache_read_tokens: cacheReadDelta },
+  );
+
+  const newSessionId = sessionTextId();
+  const startedAt = turn.turnTimestamp || null;
+
+  // Step 1: upsert parent. On conflict, ADD deltas instead of replacing.
+  const parentRows = await sql`
+    INSERT INTO code_sessions (
+      id, org_id, project_id, session_uuid, source,
+      started_at, ended_at, message_count, model_primary,
+      input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+      cost_usd, parser_version
+    ) VALUES (
+      ${newSessionId}, ${orgId}, ${projectId}, ${sessionUuid}, 'hook',
+      ${startedAt}, ${startedAt}, ${1}, ${turn.model || null},
+      ${inputDelta}, ${outputDelta}, ${cacheReadDelta}, ${cacheCreationDelta},
+      ${costDelta}, ${2}
+    )
+    ON CONFLICT (org_id, session_uuid) DO UPDATE SET
+      ended_at = COALESCE(EXCLUDED.ended_at, code_sessions.ended_at),
+      message_count = code_sessions.message_count + 1,
+      model_primary = COALESCE(EXCLUDED.model_primary, code_sessions.model_primary),
+      input_tokens = code_sessions.input_tokens + EXCLUDED.input_tokens,
+      output_tokens = code_sessions.output_tokens + EXCLUDED.output_tokens,
+      cache_read_tokens = code_sessions.cache_read_tokens + EXCLUDED.cache_read_tokens,
+      cache_creation_tokens = code_sessions.cache_creation_tokens + EXCLUDED.cache_creation_tokens,
+      cost_usd = code_sessions.cost_usd + EXCLUDED.cost_usd,
+      updated_at = NOW()
+    RETURNING id, message_count
+  `;
+  const persistedId = parentRows[0]?.id;
+  const turnIndex = Number(parentRows[0]?.message_count) || 1;
+
+  // Step 2: append one assistant message row for this turn.
+  const messageRows = await sql`
+    INSERT INTO code_session_messages (
+      session_id, role, model, timestamp,
+      input_tokens, output_tokens, cache_read_tokens, cache_creation_tokens,
+      cost_usd, text_preview
+    ) VALUES (
+      ${persistedId}, 'assistant', ${turn.model || null}, ${startedAt},
+      ${inputDelta}, ${outputDelta}, ${cacheReadDelta}, ${cacheCreationDelta},
+      ${costDelta}, ${turn.assistantPreview || null}
+    )
+    RETURNING id
+  `;
+  const messageId = messageRows[0]?.id || null;
+
+  // Step 3: append tool_use rows for this turn.
+  const toolCalls = Array.isArray(turn.toolCalls) ? turn.toolCalls : [];
+  let insertedToolUses = 0;
+  for (const t of toolCalls) {
+    if (!t || !t.name) continue;
+    const targetText = (t.target && typeof t.target === 'object')
+      ? JSON.stringify(t.target).slice(0, 300)
+      : (typeof t.target === 'string' ? t.target.slice(0, 300) : null);
+    await sql`
+      INSERT INTO code_session_tool_uses (
+        session_id, message_id, name, target, timestamp, tool_use_id
+      ) VALUES (
+        ${persistedId}, ${messageId}, ${t.name}, ${targetText},
+        ${startedAt}, ${t.tool_use_id || null}
+      )
+    `;
+    insertedToolUses += 1;
+  }
+
+  return { sessionId: persistedId, turnIndex, insertedToolUses };
+}
+
 // ---------------------------------------------------------------------------
 // Reads
 // ---------------------------------------------------------------------------
