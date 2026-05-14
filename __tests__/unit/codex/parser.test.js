@@ -5,7 +5,7 @@
 // for user/assistant/reasoning/function_call/function_call_output, and
 // event_msg for session_configured and token_count).
 
-import { describe, it } from 'node:test';
+import { describe, it } from 'vitest';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
