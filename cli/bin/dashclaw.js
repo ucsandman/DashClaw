@@ -14,6 +14,11 @@ import { resolveConfig, clearConfigFile, configPath } from '../lib/config.js';
 import { runIngest, defaultClaudeProjectsDir } from '../lib/code/ingest.js';
 import { runMemo } from '../lib/code/memo.js';
 import { runApply } from '../lib/code/apply.js';
+import {
+  runCodexIngest,
+  defaultCodexSessionsDir,
+  defaultCodexOutDir,
+} from '../lib/code/ingest-codex.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 
@@ -60,6 +65,10 @@ ${bold('Usage:')}
     --category <list>                    Filter checks (e.g., database,config)
   dashclaw code ingest [--dry-run]       Backfill Claude Code transcripts from ~/.claude/projects
     --projects-dir <path>                Override the default scan directory
+  dashclaw code ingest-codex [--dry-run] Backfill Codex transcripts from ~/.codex/sessions
+    --sessions-dir <path>                Override the default scan directory
+    --out <dir>                          Local output dir (default ~/.dashclaw/codex-sessions)
+    --endpoint <url>                     POST to <url> instead of writing local (advanced)
   dashclaw code memo --project=<slug>    Print the latest weekly memo for a project
     --save                               Also write to ./memos/<weekTag>-<slug>.md
   dashclaw code apply <manifestId>       Apply an Optimal Files manifest (Phase 6+ feature)
@@ -432,6 +441,44 @@ async function cmdCodex() {
 
 // -- code subcommand group ---------------------------------------------------
 
+async function cmdCodeIngestCodex() {
+  const dryRun = args.includes('--dry-run');
+  const sessionsDir = getFlag('--sessions-dir') || defaultCodexSessionsDir();
+  const outDir = getFlag('--out') || defaultCodexOutDir();
+  const endpoint = getFlag('--endpoint') || null;
+  console.log(`Scanning ${sessionsDir} ...`);
+  const results = await runCodexIngest({
+    sessionsDir,
+    outDir,
+    endpoint,
+    apiKey,
+    dryRun,
+    logger: console,
+  });
+  if (!results.length) {
+    console.log('No sessions to ingest.');
+    return;
+  }
+  let written = 0, ingested = 0, dryRunCount = 0, skipped = 0, errors = 0;
+  for (const r of results) {
+    if (r.status === 'written_local') written++;
+    else if (r.status === 'ingested') ingested++;
+    else if (r.status === 'dry_run') dryRunCount++;
+    else if (r.status === 'skipped') skipped++;
+    else if (r.status === 'error') {
+      errors++;
+      console.error(`  ${red('error')} ${r.file}: ${r.reason}${r.detail ? ' — ' + r.detail : ''}`);
+    }
+  }
+  console.log();
+  console.log(`Done. Written: ${written}  Ingested: ${ingested}  Dry-run: ${dryRunCount}  Skipped: ${skipped}  Errors: ${errors}`);
+  if (!endpoint && written > 0) {
+    console.log(dim(`  Local sessions saved under ${outDir}.`));
+    console.log(dim(`  Server-side codex ingest will be wired in a follow-up phase.`));
+  }
+  if (errors > 0) process.exit(2);
+}
+
 async function cmdCodeIngest() {
   const dryRun = args.includes('--dry-run');
   const projectsDir = getFlag('--projects-dir') || defaultClaudeProjectsDir();
@@ -507,6 +554,8 @@ async function cmdCode() {
   switch (sub) {
     case 'ingest':
       return cmdCodeIngest();
+    case 'ingest-codex':
+      return cmdCodeIngestCodex();
     case 'memo':
       return cmdCodeMemo();
     case 'apply':
@@ -514,6 +563,7 @@ async function cmdCode() {
     default:
       console.error(`Unknown subcommand: dashclaw code ${sub || '(missing)'}\n` +
                     'Try: dashclaw code ingest [--dry-run]\n' +
+                    '     dashclaw code ingest-codex [--dry-run] [--out <dir>] [--endpoint <url>]\n' +
                     '     dashclaw code memo --project=<slug> [--save]\n' +
                     '     dashclaw code apply <manifestId> --dest=<dir> [--yes]');
       process.exit(1);
