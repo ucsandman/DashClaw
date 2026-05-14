@@ -182,6 +182,28 @@ if tool not in ["Bash","Edit","Write","MultiEdit"]:
 # Guard check via DashClaw API
 # block/approve/allow based on policy`
   },
+  {
+    id: 'codex',
+    name: 'Codex',
+    label: 'PreToolUse hook + MCP',
+    code: `# One command wires it all into ~/.codex/config.toml
+$ dashclaw install codex --project .
+
+# Managed block written to ~/.codex/config.toml:
+approval_policy = "on-request"
+
+[mcp_servers.dashclaw]
+command = "python"
+args = [".../dashclaw-mcp.js", "--agent-id", "codex"]
+
+[[hooks.PreToolUse]]
+matcher = "Bash|Edit|Write|MultiEdit"
+[[hooks.PreToolUse.hooks]]
+type = "command"
+command = "python ~/.codex/hooks/dashclaw/dashclaw_pretool.py"
+
+# Same hooks. Same audit ledger. agent_id = codex.`
+  },
 ];
 
 export const operationalFeatures = [
