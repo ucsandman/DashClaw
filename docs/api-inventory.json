@@ -46,10 +46,10 @@
     ]
   },
   "summary": {
-    "total_routes": 250,
+    "total_routes": 249,
     "stable_routes": 42,
     "beta_routes": 23,
-    "experimental_routes": 185
+    "experimental_routes": 184
   },
   "routes": [
     {
@@ -902,15 +902,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/code-sessions/ingest-jsonl/route.js"
-    },
-    {
-      "path": "/api/code-sessions/ingest-live",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/ingest-live/route.js"
     },
     {
       "path": "/api/code-sessions/manifests/{manifestId}",
