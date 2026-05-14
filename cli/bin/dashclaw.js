@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'child_process';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { DashClaw } from 'dashclaw';
 import {
   bold, dim, inverse, colorByRisk, clearScreen,
@@ -12,6 +14,7 @@ import { resolveConfig, clearConfigFile, configPath } from '../lib/config.js';
 import { runIngest, defaultClaudeProjectsDir } from '../lib/code/ingest.js';
 import { runMemo } from '../lib/code/memo.js';
 import { runApply } from '../lib/code/apply.js';
+import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -63,6 +66,9 @@ ${bold('Usage:')}
     --yes                                Overwrite existing files when manifest says so
     --allow-redactions                   Write files that contain redacted secret patterns
     --overwrite                          Clobber existing .NEW side-by-side files
+  dashclaw install codex                 Provision DashClaw governance into Codex CLI
+    --project <path>                     Project to receive AGENTS.md (default: cwd)
+    --approval-policy <p>                Codex approval_policy (default: on-request)
   dashclaw logout                        Remove saved config (~/.dashclaw/config.json)
   dashclaw help                          Show this help
 
@@ -341,6 +347,51 @@ async function cmdApprovals() {
   });
 }
 
+// -- install subcommand group ------------------------------------------------
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// cli/bin/ -> cli/ -> repo root
+const REPO_ROOT = resolve(__dirname, '..', '..');
+
+async function cmdInstallCodex() {
+  const projectDir = getFlag('--project') || process.cwd();
+  const approvalPolicy = getFlag('--approval-policy') || 'on-request';
+
+  try {
+    const result = await installCodex({
+      repoRoot: REPO_ROOT,
+      projectDir,
+      baseUrl,
+      approvalPolicy,
+      logger: console,
+    });
+
+    console.log();
+    console.log(`  ${green('Done.')} DashClaw governance is wired into Codex.`);
+    console.log(`  ${dim('Hooks:')}  ${result.hooks.hooksDst}`);
+    console.log(`  ${dim('Config:')} ${result.config.path}${result.config.backup ? dim(' (backup: ' + result.config.backup + ')') : ''}`);
+    console.log(`  ${dim('AGENTS:')} ${result.agentsMd.path}${result.agentsMd.backup ? dim(' (backup: ' + result.agentsMd.backup + ')') : ''}`);
+    console.log();
+    console.log(`  Next: open a new Codex session in ${projectDir} and run a governed tool call.`);
+    console.log(`  Codex requires you to trust new hooks; it will prompt on first use.`);
+  } catch (err) {
+    console.error(`Error: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+async function cmdInstall() {
+  const target = args[1];
+  switch (target) {
+    case 'codex':
+      return cmdInstallCodex();
+    default:
+      console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
+                    'Try: dashclaw install codex [--project <path>] [--approval-policy <p>]');
+      process.exit(1);
+  }
+}
+
 // -- code subcommand group ---------------------------------------------------
 
 async function cmdCodeIngest() {
@@ -434,6 +485,10 @@ async function cmdCode() {
 // -- Router -------------------------------------------------------------------
 
 const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code']);
+// `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
+// require the user to have already configured API keys. If config happens to
+// be present, install will pick up baseUrl for the AGENTS.md instance link.
+const COMMANDS_OPTIONAL_CONFIG = new Set(['install']);
 
 async function main() {
   if (COMMANDS_NEEDING_CONFIG.has(command)) {
@@ -446,6 +501,13 @@ async function main() {
     baseUrl = config.baseUrl;
     apiKey = config.apiKey;
     agentId = config.agentId;
+  } else if (COMMANDS_OPTIONAL_CONFIG.has(command)) {
+    const config = await resolveConfig({ interactive: false }).catch(() => null);
+    if (config) {
+      baseUrl = config.baseUrl;
+      apiKey = config.apiKey;
+      agentId = config.agentId;
+    }
   }
 
   switch (command) {
@@ -466,6 +528,9 @@ async function main() {
       break;
     case 'code':
       await cmdCode();
+      break;
+    case 'install':
+      await cmdInstall();
       break;
     case 'help':
     case '--help':
