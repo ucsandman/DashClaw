@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `249`
+- Total routes: `250`
 - Stable routes: `42`
 - Beta routes: `23`
-- Experimental routes: `184`
+- Experimental routes: `185`
 
 ## Routes
 
@@ -111,6 +111,7 @@ doc-type: architecture
 | `/api/code-sessions/alerts` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/alerts/route.js` |
 | `/api/code-sessions/alerts/read-all` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/alerts/read-all/route.js` |
 | `/api/code-sessions/ingest-jsonl` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/ingest-jsonl/route.js` |
+| `/api/code-sessions/ingest-live` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/ingest-live/route.js` |
 | `/api/code-sessions/manifests/{manifestId}` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/manifests/[manifestId]/route.js` |
 | `/api/code-sessions/memos` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/memos/route.js` |
 | `/api/code-sessions/memos/regenerate` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/memos/regenerate/route.js` |
