@@ -1,6 +1,6 @@
 {
   "organism": "dashclaw",
-  "timestamp": "2026-05-13T00:29:59.582151+00:00",
+  "timestamp": "2026-05-18T13:11:55.840869+00:00",
   "collector_status": {
     "git_stats": "ok",
     "test_health": "ok",
@@ -9,26 +9,22 @@
     "ci_health": "ok"
   },
   "git_stats": {
-    "commits_7d": 12,
-    "commits_30d": 50,
+    "commits_7d": 51,
+    "commits_30d": 51,
     "active_branches": 2,
     "stale_branches": 0,
     "bus_factor": 1,
     "top_contributors_30d": [
       {
         "name": "Wes Sander",
-        "commits": 44
-      },
-      {
-        "name": "dependabot[bot]",
-        "commits": 5
+        "commits": 49
       },
       {
         "name": "piiiico",
-        "commits": 1
+        "commits": 2
       }
     ],
-    "files_changed_7d": 33
+    "files_changed_7d": 1255
   },
   "test_health": {
     "js_tests": {
@@ -41,9 +37,10 @@
       "passed": 0,
       "failed": 0
     },
-    "test_file_ratio": 0.18004045853000675,
+    "test_file_ratio": 0.28014505893019037,
     "untested_routes": [
       "api/model-strategies/[strategyId]",
+      "api/skills/scans/[id]",
       "api/doctor/fix",
       "api/identities",
       "api/identities/[agentId]",
@@ -62,8 +59,11 @@
       "api/compliance/schedules/[scheduleId]",
       "api/compliance/exports/[exportId]",
       "api/compliance/exports/[exportId]/download",
+      "api/cron/code-session-weekly-memo",
+      "api/cron/jti-sweep",
       "api/cron/policy-suggestions",
       "api/cron/learning-episodes-backfill",
+      "api/cron/code-session-cache-crater",
       "api/cron/memory-maintenance",
       "api/cron/integration-health",
       "api/cron/reset-meters",
@@ -75,19 +75,36 @@
       "api/hosted/workspaces",
       "api/hosted/workspaces/[workspaceId]",
       "api/hosted/cleanup",
+      "api/code-sessions/ingest-jsonl",
+      "api/code-sessions/projects",
+      "api/code-sessions/ingest-live",
+      "api/code-sessions/sessions/[sessionId]",
+      "api/code-sessions/sessions/[sessionId]/autopsy",
+      "api/code-sessions/sessions/[sessionId]/optimal-files/manifest",
+      "api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview",
+      "api/code-sessions/sessions/[sessionId]/optimal-files/preview",
+      "api/code-sessions/alerts/read-all",
+      "api/code-sessions/memos",
+      "api/code-sessions/memos/regenerate",
+      "api/code-sessions/manifests/[manifestId]",
       "api/workflows/templates/[templateId]",
       "api/workflows/templates/[templateId]/duplicate",
       "api/workflows/templates/[templateId]/execute",
       "api/workflows/templates/[templateId]/runs/[runActionId]",
       "api/workflows/templates/[templateId]/runs/[runActionId]/cancel",
+      "api/workflows/templates/[templateId]/launch",
       "api/approvals/[actionId]",
+      "api/handoffs/latest",
+      "api/handoffs/[id]",
+      "api/handoffs/[id]/consume",
       "api/settings",
       "api/settings/llm-status",
       "api/billing/checkout",
       "api/billing/portal",
-      "api/sessions",
       "api/sessions/[sessionId]",
       "api/session/effective",
+      "api/secrets/rotation-due",
+      "api/secrets/[id]",
       "api/assumptions/[assumptionId]",
       "api/swarm/link",
       "api/drift/snapshots",
@@ -124,6 +141,7 @@
       "api/artifacts/[artifactId]",
       "api/stream",
       "api/learning/lessons",
+      "api/learning/code-signals",
       "api/learning/suggestions",
       "api/learning/recommendations/[recommendationId]",
       "api/learning/analytics/curves",
@@ -135,7 +153,7 @@
     ]
   },
   "code_quality": {
-    "files_over_300_lines": 109,
+    "files_over_300_lines": 127,
     "largest_files": [
       {
         "path": "sdk/legacy/dashclaw-v1.js",
@@ -143,50 +161,50 @@
       },
       {
         "path": "app/docs/page.js",
-        "lines": 2165
+        "lines": 2305
       },
       {
         "path": "middleware.js",
-        "lines": 1379
+        "lines": 1417
+      },
+      {
+        "path": "schema/schema.js",
+        "lines": 1295
       },
       {
         "path": "app/decisions/[actionId]/page.js",
-        "lines": 1193
+        "lines": 1206
       },
       {
         "path": "app/workspace/page.js",
         "lines": 1184
       },
       {
-        "path": "schema/schema.js",
-        "lines": 1072
-      },
-      {
         "path": "sdk/dashclaw.js",
-        "lines": 1006
+        "lines": 1123
       },
       {
-        "path": "app/page.js",
-        "lines": 934
+        "path": "app/lib/repositories/actions.repository.js",
+        "lines": 1067
+      },
+      {
+        "path": "app/lib/demo/demoMiddleware.js",
+        "lines": 944
       },
       {
         "path": "app/lib/demo/fixtures/feature-agents.js",
         "lines": 901
-      },
-      {
-        "path": "app/lib/demo/demoMiddleware.js",
-        "lines": 884
       }
     ],
     "eslint_status": "fail",
-    "python_files_over_300": 33,
+    "python_files_over_300": 22,
     "todo_count": 1,
     "archive_size_kb": 151
   },
   "dependency_health": {
     "js_dependencies": 44,
     "js_outdated": 30,
-    "js_vulnerabilities": 2,
+    "js_vulnerabilities": 0,
     "python_dependencies": 0,
     "lockfile_age_days": 0
   },
