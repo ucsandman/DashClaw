@@ -1,6 +1,6 @@
 {
   "organism": "dashclaw",
-  "timestamp": "2026-05-25T13:13:35.973634+00:00",
+  "timestamp": "2026-06-01T13:02:00.038509+00:00",
   "collector_status": {
     "git_stats": "ok",
     "test_health": "ok",
@@ -9,22 +9,26 @@
     "ci_health": "ok"
   },
   "git_stats": {
-    "commits_7d": 0,
-    "commits_30d": 51,
+    "commits_7d": 59,
+    "commits_30d": 73,
     "active_branches": 2,
     "stale_branches": 0,
     "bus_factor": 1,
     "top_contributors_30d": [
       {
         "name": "Wes Sander",
-        "commits": 49
+        "commits": 66
+      },
+      {
+        "name": "dependabot[bot]",
+        "commits": 6
       },
       {
         "name": "piiiico",
-        "commits": 2
+        "commits": 1
       }
     ],
-    "files_changed_7d": 1255
+    "files_changed_7d": 74
   },
   "test_health": {
     "js_tests": {
@@ -37,7 +41,7 @@
       "passed": 0,
       "failed": 0
     },
-    "test_file_ratio": 0.28014505893019037,
+    "test_file_ratio": 0.289544235924933,
     "untested_routes": [
       "api/model-strategies/[strategyId]",
       "api/skills/scans/[id]",
@@ -51,7 +55,6 @@
       "api/team",
       "api/team/[userId]",
       "api/team/invite",
-      "api/actions/loops",
       "api/actions/loops/[loopId]",
       "api/actions/[actionId]",
       "api/actions/[actionId]/trace",
@@ -76,20 +79,15 @@
       "api/hosted/workspaces/[workspaceId]",
       "api/hosted/cleanup",
       "api/code-sessions/ingest-jsonl",
-      "api/code-sessions/projects",
       "api/code-sessions/ingest-live",
       "api/code-sessions/sessions/[sessionId]",
       "api/code-sessions/sessions/[sessionId]/autopsy",
-      "api/code-sessions/sessions/[sessionId]/optimal-files/manifest",
       "api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview",
       "api/code-sessions/sessions/[sessionId]/optimal-files/preview",
-      "api/code-sessions/alerts/read-all",
-      "api/code-sessions/memos",
       "api/code-sessions/memos/regenerate",
       "api/code-sessions/manifests/[manifestId]",
       "api/workflows/templates/[templateId]",
       "api/workflows/templates/[templateId]/duplicate",
-      "api/workflows/templates/[templateId]/execute",
       "api/workflows/templates/[templateId]/runs/[runActionId]",
       "api/workflows/templates/[templateId]/runs/[runActionId]/cancel",
       "api/workflows/templates/[templateId]/launch",
@@ -153,7 +151,7 @@
     ]
   },
   "code_quality": {
-    "files_over_300_lines": 127,
+    "files_over_300_lines": 131,
     "largest_files": [
       {
         "path": "sdk/legacy/dashclaw-v1.js",
@@ -161,15 +159,15 @@
       },
       {
         "path": "app/docs/page.js",
-        "lines": 2305
+        "lines": 2462
       },
       {
         "path": "middleware.js",
-        "lines": 1417
+        "lines": 1424
       },
       {
         "path": "schema/schema.js",
-        "lines": 1295
+        "lines": 1304
       },
       {
         "path": "app/decisions/[actionId]/page.js",
@@ -181,7 +179,7 @@
       },
       {
         "path": "sdk/dashclaw.js",
-        "lines": 1123
+        "lines": 1145
       },
       {
         "path": "app/lib/repositories/actions.repository.js",
@@ -204,7 +202,7 @@
   "dependency_health": {
     "js_dependencies": 44,
     "js_outdated": 30,
-    "js_vulnerabilities": 3,
+    "js_vulnerabilities": 0,
     "python_dependencies": 0,
     "lockfile_age_days": 0
   },
