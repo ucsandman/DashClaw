@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:5e65b89a2a6387282f387448b7a18aeeda909aa6",
+  "timestamp": "sha1:7748c0a49838013bb92756f0c669d3d24cb5b63c",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2784,16 +2784,7 @@
       "files": [
         "app/lib/llm.js",
         "examples/claude-code-review-agent/index.js",
-        "examples/governed-chat-harness/index.js",
         "scripts/upload-skill.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "ANTHROPIC_MODEL",
-      "required": false,
-      "files": [
-        "examples/governed-chat-harness/index.js"
       ],
       "in_env_example": false
     },
@@ -2938,7 +2929,6 @@
         "app/lib/connectPrompt.js",
         "app/self-host/SetupTabs.js",
         "examples/first-governed-action.js",
-        "examples/governed-chat-harness/index.js",
         "mcp-server/bin/dashclaw-mcp.js",
         "scripts/branch-finish.mjs",
         "scripts/seed-branch-finish-loop.mjs",
@@ -2999,7 +2989,6 @@
         "examples/approval-flow.js",
         "examples/claude-code-review-agent/index.js",
         "examples/first-governed-action.js",
-        "examples/governed-chat-harness/index.js",
         "examples/guard-and-act.js",
         "examples/kimi_dashclaw_test.js",
         "examples/loop-monitoring.js",
@@ -3067,7 +3056,6 @@
         "examples/approval-flow.js",
         "examples/claude-code-review-agent/index.js",
         "examples/first-governed-action.js",
-        "examples/governed-chat-harness/index.js",
         "examples/guard-and-act.js",
         "examples/kimi_dashclaw_test.js",
         "examples/loop-monitoring.js",
@@ -3147,14 +3135,6 @@
       "required": false,
       "files": [
         "app/lib/guard.js"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "DASHCLAW_GUARD_UNAVAILABLE_POLICY",
-      "required": false,
-      "files": [
-        "examples/governed-chat-harness/index.js"
       ],
       "in_env_example": false
     },
