@@ -15,10 +15,11 @@ const NEW_TOOLS = [
   'dashclaw_learning_log',
   'dashclaw_learning_query',
   'dashclaw_decisions_recent',
+  'dashclaw_assumption_record',
 ];
 
 describe('MCP toolkit tools', () => {
-  it('all 13 new toolkit tools are defined', () => {
+  it('all 14 new toolkit tools are defined', () => {
     const names = TOOL_DEFINITIONS.map((t) => t.name);
     for (const tool of NEW_TOOLS) {
       expect(names).toContain(tool);

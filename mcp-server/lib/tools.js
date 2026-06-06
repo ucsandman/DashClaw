@@ -343,6 +343,23 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'dashclaw_assumption_record',
+    description:
+      'Record an assumption you are acting on — something you treat as true but have not verified ' +
+      '(e.g. "staging tests passed", "no active legal hold on this record"). Attach it to the action ' +
+      'whose decision rests on it so operators can later validate or refute it and staleness drift is ' +
+      'tracked. Call right after the action that depends on the belief.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        action_id: { type: 'string', description: 'Parent action id the assumption underpins (from dashclaw_record)' },
+        assumption: { type: 'string', description: 'The belief being treated as true' },
+        basis: { type: 'string', description: 'Why you believe it (optional)' },
+      },
+      required: ['action_id', 'assumption'],
+    },
+  },
+  {
     name: 'dashclaw_learning_log',
     description:
       'Log a decision + outcome to the learning database. Use after making a non-obvious decision ' +
@@ -730,6 +747,19 @@ export function createToolHandlers(client) {
         body: JSON.stringify({
           status: 'resolved',
           resolution: args.resolution || 'Closed by agent via dashclaw_loop_close',
+        }),
+      });
+      const data = await res.json();
+      return JSON.stringify(data);
+    },
+
+    async dashclaw_assumption_record(args) {
+      const res = await client.fetch('/api/assumptions', {
+        method: 'POST',
+        body: JSON.stringify({
+          action_id: args.action_id,
+          assumption: args.assumption,
+          basis: args.basis,
         }),
       });
       const data = await res.json();
