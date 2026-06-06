@@ -10,9 +10,19 @@ factual heads-up.
 
 ## One-time setup (per clone or worktree)
 
+`npm install` runs this automatically via the `prepare` script. To run it
+explicitly (or after `npm ci --omit=dev`, which skips devDeps):
+
 ```bash
-node --import tsx scripts/living-merge/install.ts
+npm run living-merge:install     # node --import tsx scripts/living-merge/install.ts
 ```
+
+> ⚠️ **Until install has run on a clone/worktree, the merge driver is not
+> registered.** A merge or pull touching a generated path would then fall back
+> to git's built-in 3-way merge and CAN write conflict markers into a generated
+> file — the exact failure this feature prevents. Run `npm install` (or the
+> command above) before your first merge. `npm run living-merge:check` verifies
+> it's active (exit 1 = not installed yet).
 
 Idempotent (a second run reports `0 changed`). It configures the things git and
 Claude can't carry in committed files:
@@ -56,8 +66,9 @@ post-merge / post-rewrite hook immediately re-derives it from the merged source.
 | `.husky/post-merge`, `.husky/post-rewrite` | Re-derive projections after any merge (incl. fast-forward / `pull`) or rebase / amend. |
 | `scripts/living-merge/rebase-onto-main.ts` | Rebase the current branch onto main + regenerate + stage (start-of-work and pre-landing). |
 | `scripts/living-merge/overlap-signal.ts` | SessionStart hook: surfaces AUTHORED-file overlap with other active worktrees as factual context (generated files filtered out). |
-| `scripts/living-merge/install.ts` | Idempotent setup (above). |
+| `scripts/living-merge/install.ts` + `prepare.mjs` | Idempotent setup (above); `prepare.mjs` auto-runs install on `npm install`. |
 | `scripts/living-merge/selftest-merge.ts` | Automated proof: divergent generated-file merge → no conflict markers → self-heals. |
+| `scripts/living-merge/selftest-overlap.ts` | Automated proof: overlap signal fires for an authored co-edit, silent for a generated one. |
 
 ## Generated vs authored (the boundary)
 
@@ -70,6 +81,24 @@ under each skill, lockfiles, and `.claude/CODEBASE_MAP.md`. Marking any of those
 `merge=regenerate` would silently discard hand edits, so they stay protected and
 a co-edit raises the overlap signal instead. See `manifest.ts` for the exact
 list; `__tests__/unit/living-merge-manifest.test.ts` guards the boundary.
+
+## Limitations (known, by design)
+
+- **Fast-forward merges / `git pull` (FF)** don't create a merge commit and so
+  don't fire `post-merge` — generated files aren't auto-regenerated. Landing
+  goes through `rebase-onto-main.ts` (which regenerates), and a FF pull of an
+  already-consistent main needs none, so this is safe in the intended flow.
+- **`git cherry-pick`** doesn't fire `post-merge`/`post-rewrite`. The driver
+  still prevents conflict markers, but run
+  `node scripts/living-merge/regenerate-all.mjs` afterward if the cherry-pick
+  touched source.
+- **modify/delete conflicts** on a generated path (one side deletes it, the
+  other modifies it) resolve at git's tree level *before* the merge driver runs,
+  so they surface as a normal conflict needing human resolution. This is rare
+  (it means a generator was removed on one side) and is intentionally left to you.
+- If a regenerate **fails** inside a hook (e.g. Python/livingcode not on PATH),
+  the hook exits non-zero and prints the error. The merge already happened, so
+  fix the toolchain and re-run `regenerate-all` to refresh the projections.
 
 ## Reverting
 

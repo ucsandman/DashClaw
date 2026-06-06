@@ -92,7 +92,14 @@ function ensureSessionHook(): void {
   const file = join(dir, 'settings.json');
   let settings: any = {};
   if (existsSync(file)) {
-    try { settings = JSON.parse(readFileSync(file, 'utf8')); } catch { settings = {}; }
+    try {
+      settings = JSON.parse(readFileSync(file, 'utf8'));
+    } catch {
+      // Never clobber an existing settings.json we can't parse — that would
+      // silently destroy the user's other hooks. Abort loudly instead.
+      process.stderr.write(`[living-merge] ${file} is not valid JSON — fix it before running install (refusing to overwrite).\n`);
+      process.exit(1);
+    }
   }
   settings.hooks ??= {};
   settings.hooks.SessionStart ??= [];

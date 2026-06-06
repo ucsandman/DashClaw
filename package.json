@@ -72,7 +72,10 @@
     "backfill:embeddings": "node --import tsx scripts/backfill-embeddings.mjs",
     "release:sdks": "node scripts/release-sdks.mjs",
     "traffic:poll": "node scripts/_run-with-env.mjs scripts/poll-github-traffic.mjs",
-    "pre-commit": "node scripts/run-pre-commit-checks.mjs"
+    "pre-commit": "node scripts/run-pre-commit-checks.mjs",
+    "prepare": "node scripts/living-merge/prepare.mjs",
+    "living-merge:install": "node --import tsx scripts/living-merge/install.ts",
+    "living-merge:check": "node --import tsx scripts/living-merge/install.ts --check"
   },
   "dependencies": {
     "@e965/xlsx": "^0.20.3",

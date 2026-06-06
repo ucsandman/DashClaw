@@ -44,6 +44,7 @@ describe('living-merge manifest — AUTHORED files MUST stay protected', () => {
     'plugins/dashclaw/.claude-plugin/plugin.json',
     'plugins/dashclaw/hooks/hooks.json',
     'hooks/dashclaw_pretool.py', // canonical source, NOT the plugin mirror
+    'app/lib/doctor/generated/README.md', // hand-authored README living INSIDE the generated/ dir
     'public/downloads/dashclaw-platform-intelligence/references/api-surface.md',
     'public/downloads/dashclaw-platform-intelligence/scripts/query.mjs',
     'public/downloads/dashclaw-governance/SKILL.md',
@@ -65,6 +66,10 @@ describe('living-merge manifest — boundary invariants', () => {
   it('generates the platform-intelligence SKILL.md but protects its references/', () => {
     expect(isGenerated('public/downloads/dashclaw-platform-intelligence/SKILL.md')).toBe(true);
     expect(isGenerated('public/downloads/dashclaw-platform-intelligence/references/x.md')).toBe(false);
+  });
+  it('protects the hand-authored README.md inside the generated/ dir', () => {
+    expect(isGenerated('app/lib/doctor/generated/README.md')).toBe(false);
+    expect(isGenerated('app/lib/doctor/generated/shape.json')).toBe(true);
   });
   it('has no empty patterns', () => {
     expect(GENERATED_PATTERNS.every((p) => p.length > 0)).toBe(true);

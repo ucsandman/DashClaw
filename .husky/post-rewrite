@@ -1,6 +1,8 @@
 #!/bin/sh
 # living-merge: re-derive generated projections after history is rewritten
 # (git rebase / git commit --amend), so the working tree matches the rewritten
-# source. Logic lives in a cross-platform Node script (no bash-isms).
-node scripts/living-merge/regenerate-all.mjs --quiet || \
-  echo "[living-merge] post-rewrite regenerate failed; run: node scripts/living-merge/regenerate-all.mjs" >&2
+# source. NOTE: git cherry-pick does NOT fire this hook — after cherry-picking a
+# commit that touches source, run `node scripts/living-merge/regenerate-all.mjs`
+# manually. Cross-platform Node script (no bash-isms); fails loud on a broken
+# regenerate (a non-zero exit surfaces the failure rather than swallowing it).
+node scripts/living-merge/regenerate-all.mjs --quiet

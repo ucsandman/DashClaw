@@ -40,7 +40,11 @@ export const REGENERATE_COMMAND = [
  */
 export const GENERATED_PATTERNS: readonly string[] = [
   // ── LivingCode shape model (python `livingcode emit`) ──────────────────────
-  'app/lib/doctor/generated/**',
+  // NB: list the 3 generated files explicitly — app/lib/doctor/generated/ also
+  // contains a HAND-AUTHORED README.md, which must NOT be merge=regenerate.
+  'app/lib/doctor/generated/shape.json',
+  'app/lib/doctor/generated/last-snapshot.json',
+  'app/lib/doctor/generated/checks-from-shape.mjs',
   'mcp-server/lib/routes-inventory.generated.json',
   // ── Living dashboard (python `livingcode emit dashboard`) ──────────────────
   'public/livingcode/index.html',

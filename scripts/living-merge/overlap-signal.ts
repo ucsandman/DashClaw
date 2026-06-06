@@ -97,4 +97,10 @@ function main(): void {
   if (text) process.stdout.write(text + '\n');
 }
 
-main();
+// A SessionStart hook must NEVER block a session: swallow any error, exit 0.
+try {
+  main();
+} catch (e) {
+  process.stderr.write(`[living-merge] overlap-signal error (ignored): ${e instanceof Error ? e.message : String(e)}\n`);
+}
+process.exit(0);
