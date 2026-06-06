@@ -12,6 +12,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { parseJsonArray as safeJsonArray } from '../lib/parseJson';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { useRealtime } from '../hooks/useRealtime';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -48,10 +49,10 @@ export default function ApprovalsPage() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
 
-  const fetchPending = useCallback(async () => {
+  const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
     try {
-      setLoading(true);
-      const res = await fetch('/api/actions?status=pending_approval&limit=50');
+      if (!opts?.silent) setLoading(true);
+      const res = await fetch('/api/actions?status=pending_approval&limit=50', { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
@@ -64,9 +65,17 @@ export default function ApprovalsPage() {
 
   useEffect(() => {
     fetchPending();
-    const interval = setInterval(fetchPending, 10000); // Polling for new approvals
+    const interval = setInterval(() => fetchPending({ silent: true }), 10000); // Fallback poll
     return () => clearInterval(interval);
   }, [fetchPending]);
+
+  // Realtime: clear instantly when an approval is resolved anywhere (another
+  // channel, the widget, /approve) rather than waiting up to 10s for the poll.
+  useRealtime((event) => {
+    if (event === 'action.created' || event === 'action.updated' || event === 'guard.decision.created') {
+      fetchPending({ silent: true });
+    }
+  });
 
   const handleDecision = async (actionId: string, decision: string) => {
     try {
@@ -102,7 +111,7 @@ export default function ApprovalsPage() {
       maturity="stable"
       actions={
         <button
-          onClick={fetchPending}
+          onClick={() => fetchPending()}
           className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
           aria-label="Refresh pending approvals"
         >

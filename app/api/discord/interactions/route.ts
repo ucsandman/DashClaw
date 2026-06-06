@@ -8,6 +8,7 @@ import {
   getActionSummary,
   recordApproval,
 } from '../../../lib/repositories/actions.repository.js';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
 
 // Discord REST base; v10 per RESEARCH §Standard Stack.
 const DISCORD_API = 'https://discord.com/api/v10';
@@ -125,6 +126,12 @@ async function resolveApproval(
 
   await editOriginal(appId, interactionToken,
     buildResolvedText(action, isApprove ? 'APPROVED' : 'DENIED', actionId));
+
+  // Clear the approval message in every OTHER channel (Telegram) — this Discord
+  // message was just edited inline above, so resolvedVia skips it.
+  await clearApprovalNotifications(sql, {
+    orgId, actionId, decision: isApprove ? 'allow' : 'deny', resolvedBy: userId, resolvedVia: 'discord',
+  });
 }
 
 async function editOriginal(appId: string, interactionToken: string, content: string) {

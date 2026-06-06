@@ -1,7 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getSql } from '../../../lib/db.js';
 import { getOrgId, getOrgRole, getUserId } from '../../../lib/org.js';
 import { logActivity } from '../../../lib/audit.js';
@@ -9,6 +9,7 @@ import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
 import { redactAny } from '../../../lib/security.js';
 import { recordApproval, getActionStatus, getActionSummary } from '../../../lib/repositories/actions.repository.js';
 import { fireWebhooksForApproval } from '../../../lib/webhooks.js';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
 
 
 /**
@@ -83,6 +84,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       orgId,
       action: updatedAction
     });
+
+    // Clear the approval message in every external channel (Discord/Telegram)
+    // so a resolution here doesn't leave a stale "approve me" message elsewhere.
+    after(() => clearApprovalNotifications(sql, {
+      orgId, actionId, decision, resolvedBy: userId, resolvedVia: 'dashboard',
+    }));
 
     // Fetch full action for webhook payload (getActionStatus only returns status + agent_id)
     const fullAction = await getActionSummary(sql, orgId, actionId);

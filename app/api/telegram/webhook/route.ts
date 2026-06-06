@@ -8,6 +8,7 @@ import {
   getActionSummary,
   recordApproval,
 } from '../../../lib/repositories/actions.repository.js';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const FETCH_TIMEOUT_MS = 1500;
@@ -159,6 +160,9 @@ export async function POST(request: Request) {
     }
     await editMessage(chat_id, message_id,
       buildResolvedText(action, '✅ Approved by Telegram admin', action_id));
+    await clearApprovalNotifications(sql, {
+      orgId, actionId: action_id, decision: 'allow', resolvedBy: userId, resolvedVia: 'telegram',
+    });
     return ok();
   }
 
@@ -184,5 +188,8 @@ export async function POST(request: Request) {
   }
   await editMessage(chat_id, message_id,
     buildResolvedText(action, '❌ Denied by Telegram admin', action_id));
+  await clearApprovalNotifications(sql, {
+    orgId, actionId: action_id, decision: 'deny', resolvedBy: userId, resolvedVia: 'telegram',
+  });
   return ok();
 }

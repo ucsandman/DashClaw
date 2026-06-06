@@ -10,6 +10,9 @@
  *   cache entry is invalidated (user may have toggled DM permissions).
  */
 
+import { recordSentApprovalNotification } from './approvalNotifications.js';
+import type { SqlTag } from './types/db';
+
 interface ApprovalAction {
   action_id?: string | null;
   agent_id?: string | null;
@@ -129,7 +132,7 @@ async function openDmChannel(approverUserId: string, token: string): Promise<str
   return channelId;
 }
 
-async function sendApprovalMessage(action: ApprovalAction): Promise<void> {
+async function sendApprovalMessage(action: ApprovalAction, sql?: SqlTag, orgId?: string): Promise<void> {
   const token = process.env.DISCORD_BOT_TOKEN as string;
   const approverUserId = process.env.DISCORD_APPROVER_USER_ID as string;
 
@@ -152,6 +155,26 @@ async function sendApprovalMessage(action: ApprovalAction): Promise<void> {
     // 403 often means the user has DMs disabled or blocked the bot. Clear
     // the cached channel id so the next call re-opens.
     if (res.status === 403) dmChannelCache.delete(approverUserId);
+    return;
+  }
+
+  // Capture the sent message id so a resolution in ANOTHER channel/surface can
+  // edit this message to a resolved state ("clears everywhere"). Best-effort.
+  if (sql && orgId && action.action_id) {
+    try {
+      const data = await res.json();
+      if (data?.id) {
+        await recordSentApprovalNotification(sql, {
+          orgId,
+          actionId: action.action_id,
+          channel: 'discord',
+          messageId: String(data.id),
+          channelRef: channelId,
+        });
+      }
+    } catch {
+      // response parse / record is best-effort
+    }
   }
 }
 
@@ -160,19 +183,19 @@ async function sendApprovalMessage(action: ApprovalAction): Promise<void> {
  * Returns a promise so callers can hand it to after() or await it — never
  * rejects (errors are logged and swallowed).
  * @param action - the action record
- * @param _sql - db handle (reserved for v1.1 per-agent routing)
- * @param _orgId - org id (reserved for v1.1 per-agent routing)
+ * @param sql - db handle; when provided, the sent message id is recorded for cross-channel clearing
+ * @param orgId - org id for the recorded notification
  */
 export async function fireDiscordApproval(
   action: ApprovalAction,
-  _sql?: unknown,
-  _orgId?: string
+  sql?: SqlTag,
+  orgId?: string
 ): Promise<void> {
   if (!isEnabled()) return;
   if (action?.status !== 'pending_approval') return;
 
   try {
-    await sendApprovalMessage(action);
+    await sendApprovalMessage(action, sql, orgId);
   } catch (err) {
     console.warn('[DiscordApprovals] Failed to send approval:', (err as Error)?.message);
   }

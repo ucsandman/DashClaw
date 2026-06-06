@@ -36,6 +36,10 @@ vi.mock('@/lib/isDemoMode', () => ({
   isDemoMode: () => false,
 }));
 
+vi.mock('@/hooks/useRealtime', () => ({
+  useRealtime: () => {},
+}));
+
 const READ_ONLY_TEXT = /Only administrators can approve or deny actions/i;
 
 function makeFetch({ effective }) {

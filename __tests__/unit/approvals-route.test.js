@@ -15,6 +15,10 @@ const mockGetActionStatus = vi.fn();
 const mockGetActionSummary = vi.fn();
 const mockFireWebhooksForApproval = vi.fn(() => Promise.resolve());
 
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, after: () => {} };
+});
 vi.mock('../../app/lib/db.js', () => ({ getSql: () => mockGetSql }));
 vi.mock('../../app/lib/org.js', () => ({
   getOrgId: (...a) => mockGetOrgId(...a),

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:5e5c3a888ffae21b61415bfabb924ea63762d8f3",
+  "timestamp": "sha1:891c60d3a81646ab6524090646284a4face2b620",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3699,9 +3699,11 @@
       "name": "DISCORD_BOT_TOKEN",
       "required": false,
       "files": [
+        "__tests__/unit/approval-notifications.test.js",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/discord-approvals.test.js",
         "__tests__/unit/discord-interactions-route.test.js",
+        "app/lib/approvalNotifications.ts",
         "app/lib/discordApprovals.ts"
       ],
       "in_env_example": false
@@ -4393,9 +4395,11 @@
       "name": "TELEGRAM_BOT_TOKEN",
       "required": false,
       "files": [
+        "__tests__/unit/approval-notifications.test.js",
         "__tests__/unit/telegram-approvals.test.js",
         "__tests__/unit/telegram-webhook-route.test.js",
         "app/api/telegram/webhook/route.ts",
+        "app/lib/approvalNotifications.ts",
         "app/lib/telegramApprovals.ts",
         "scripts/telegram-register-webhook.mjs"
       ],
@@ -4558,6 +4562,11 @@
     },
     {
       "name": "api_keys",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
+    },
+    {
+      "name": "approval_notifications",
       "file_path": "schema/schema.js",
       "domain": "governance"
     },

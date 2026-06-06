@@ -17,6 +17,7 @@ const TABLES = [
   "agent_schedules",
   "agent_sessions",
   "api_keys",
+  "approval_notifications",
   "assumptions",
   "calendar_events",
   "code_optimal_file_manifests",

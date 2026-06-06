@@ -1401,3 +1401,21 @@ export const postureSnapshots = pgTable('posture_snapshots', {
 }, (t) => ({
   orgCreatedIdx: index('idx_posture_snapshots_org_created').on(t.orgId, t.createdAt),
 }));
+
+// @domain governance
+// Approval notification registry: one row per external-channel message sent for
+// a pending_approval action. On resolution (via any channel/surface) the
+// fan-out edits/clears the message in every other channel and stamps
+// `clearedAt`. Ephemeral operational data; cascades with the org.
+export const approvalNotifications = pgTable('approval_notifications', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  actionId: text('action_id').notNull(),
+  channel: text('channel').notNull(),
+  messageId: text('message_id').notNull(),
+  channelRef: text('channel_ref'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  clearedAt: timestamp('cleared_at', { withTimezone: true }),
+}, (t) => ({
+  actionIdx: index('idx_approval_notifications_action').on(t.orgId, t.actionId),
+}));
