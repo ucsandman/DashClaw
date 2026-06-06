@@ -1469,6 +1469,8 @@ export const config = {
     '/approvals/:path*',
     '/approve',
     '/approve/:path*',
+    '/widget',
+    '/widget/:path*',
     '/actions',
     '/actions/:path*',
     '/decisions',

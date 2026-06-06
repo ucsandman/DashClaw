@@ -1,6 +1,7 @@
 import React from 'react';
+import type { ConnectionState } from '../connection.js';
 
-export type ConnectionState = 'live' | 'reconnecting' | 'offline';
+export type { ConnectionState };
 
 interface ConnMeta {
   label: string;
