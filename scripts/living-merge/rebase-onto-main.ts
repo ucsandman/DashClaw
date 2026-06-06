@@ -23,7 +23,8 @@ const GEN_PATHSPECS = GENERATED_PATTERNS.map((p) => (p.endsWith('/**') ? p.slice
 
 function argValue(flag: string, fallback: string): string {
   const i = process.argv.indexOf(flag);
-  return i >= 0 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
+  const v = i >= 0 ? process.argv[i + 1] : undefined;
+  return v ?? fallback;
 }
 const MAIN = argValue('--main', 'main');
 const REMOTE = argValue('--remote', 'origin');

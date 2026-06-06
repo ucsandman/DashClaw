@@ -15,8 +15,8 @@ describe('computeAuthoredOverlap', () => {
     const others = [wt('/wt/b', 'feat-b', ['app/api/guard/route.ts', 'README.md'])];
     const hits = computeAuthoredOverlap(['app/api/guard/route.ts', 'app/foo.ts'], others, '/wt/a');
     expect(hits).toHaveLength(1);
-    expect(hits[0].sharedAuthoredFiles).toEqual(['app/api/guard/route.ts']);
-    expect(hits[0].branch).toBe('feat-b');
+    expect(hits[0]!.sharedAuthoredFiles).toEqual(['app/api/guard/route.ts']);
+    expect(hits[0]!.branch).toBe('feat-b');
   });
 
   it('reports NOTHING when the only shared file is GENERATED', () => {
@@ -30,7 +30,7 @@ describe('computeAuthoredOverlap', () => {
     const others = [wt('/wt/b', 'feat-b', ['public/livingcode/index.html', 'middleware.js'])];
     const hits = computeAuthoredOverlap(['public/livingcode/index.html', 'middleware.js'], others, '/wt/a');
     expect(hits).toHaveLength(1);
-    expect(hits[0].sharedAuthoredFiles).toEqual(['middleware.js']); // index.html filtered out
+    expect(hits[0]!.sharedAuthoredFiles).toEqual(['middleware.js']); // index.html filtered out
   });
 
   it("excludes the session's own worktree", () => {
