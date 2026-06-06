@@ -1,6 +1,10 @@
 const LAYOUT_STORAGE_KEY = 'dashclaw_dashboard_layouts';
 const NAMED_LAYOUTS_KEY = 'dashclaw_named_layouts';
-const LAYOUT_VERSION = 9;
+// Bumped 9 → 10: a prior min height of 2 rows (160px) let cards be dragged/saved
+// small enough to clip their content. Raising minH to 3 only stops *new* shrinks;
+// bumping the version discards already-saved layouts so returning users get the
+// roomier defaults instead of a stuck collapsed grid.
+const LAYOUT_VERSION = 10;
 
 type LayoutStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 

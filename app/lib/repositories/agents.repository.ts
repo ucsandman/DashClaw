@@ -28,7 +28,9 @@ function isMissingTable(err: unknown): boolean {
 
 /**
  * Returns true when the agent_id has any trace of belonging to the org:
- * a presence record, an identity record, a pairing, or a recorded action.
+ * a presence record, an identity record, a pairing, a recorded action, or a
+ * message it has sent in this org (so you can reply to a messaging-only agent
+ * that has never produced a governed action).
  * Used as a tenant-ownership gate on user-supplied agent_id fields —
  * messages/feedback/etc — to prevent cross-org spoofing.
  */
@@ -59,6 +61,16 @@ export async function agentExistsInOrg(
   try {
     const rows = await sql`
       SELECT 1 FROM action_records WHERE org_id = ${orgId} AND agent_id = ${agentId} LIMIT 1
+    `;
+    if (rows.length > 0) return true;
+  } catch (err) { if (!isMissingTable(err)) throw err; }
+  // An agent that has only ever sent a message (no governed action, pairing, or
+  // presence row) still legitimately belongs to this org for messaging — without
+  // this branch, replying to such an agent 403'd with "to_agent_id not found".
+  // Still org-scoped, so it is not a cross-tenant spoofing vector.
+  try {
+    const rows = await sql`
+      SELECT 1 FROM agent_messages WHERE org_id = ${orgId} AND from_agent_id = ${agentId} LIMIT 1
     `;
     if (rows.length > 0) return true;
   } catch (err) { if (!isMissingTable(err)) throw err; }

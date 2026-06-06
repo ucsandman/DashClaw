@@ -39,6 +39,7 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
   const [attachments, setAttachments] = useState<any[]>([]);
   const [attachError, setAttachError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -54,6 +55,7 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
     if (!show) {
       setAttachments([]);
       setAttachError(null);
+      setSendError(null);
       setDragging(false);
     }
   }, [show]);
@@ -104,6 +106,7 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
   async function handleSend() {
     if (!body.trim()) return;
     setSending(true);
+    setSendError(null);
     try {
       const payload: any = {
         from_agent_id: filterAgentId || 'dashboard',
@@ -130,8 +133,11 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
       setThreadId('');
       setAttachments([]);
       onClose();
-    } catch {
-      // Error handled by parent
+    } catch (err) {
+      // Surface the failure in the still-open modal instead of closing silently
+      // — the reply path used to swallow this, so a rejected send looked like a
+      // no-op to the operator.
+      setSendError((err as Error)?.message || 'Failed to send message');
     } finally {
       setSending(false);
     }
@@ -154,6 +160,12 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
             <X size={16} />
           </button>
         </div>
+
+        {sendError && (
+          <div className="mb-3 rounded-md border border-error/40 bg-error-subtle px-3 py-2 text-xs text-error">
+            {sendError}
+          </div>
+        )}
 
         <div className="space-y-3">
           <div>

@@ -211,7 +211,13 @@ export default function Sidebar() {
       >
         {navGroups.map((group) => {
           const isCollapsible = Boolean(group.collapsible);
-          const itemsVisible = !isCollapsible || labsOpen;
+          // Auto-expand a collapsible group when the active route lives inside it,
+          // so the highlighted item is never hidden in a collapsed section.
+          // (Navigating straight to a Labs route — e.g. Quality/scoring — used to
+          // leave no sidebar item highlighted at all.)
+          const hasActiveChild = isCollapsible && group.items.some((it) => isActive(it.href));
+          const expanded = labsOpen || hasActiveChild;
+          const itemsVisible = !isCollapsible || expanded;
           const HeaderIcon = group.headerIcon;
           const groupId = isCollapsible ? `nav-group-${group.label.toLowerCase()}` : undefined;
           return (
@@ -220,7 +226,7 @@ export default function Sidebar() {
                 <button
                   type="button"
                   onClick={toggleLabs}
-                  aria-expanded={labsOpen}
+                  aria-expanded={expanded}
                   aria-controls={groupId}
                   title={collapsed ? group.label : undefined}
                   className={
@@ -241,7 +247,7 @@ export default function Sidebar() {
                         size={12}
                         aria-hidden="true"
                         className={`shrink-0 transition-transform duration-150 motion-reduce:transition-none ${
-                          labsOpen ? 'rotate-0' : '-rotate-90'
+                          expanded ? 'rotate-0' : '-rotate-90'
                         }`}
                       />
                     </>

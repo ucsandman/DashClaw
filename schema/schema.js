@@ -1170,7 +1170,7 @@ export const agentSessions = pgTable('agent_sessions', {
   agent_id: text('agent_id').notNull(),
   workspace: text('workspace'),
   branch: text('branch'),
-  status: text('status').notNull().default('spawning'),
+  status: text('status').notNull().default('running'),
   status_since: timestamp('status_since', { withTimezone: true }).defaultNow(),
   blocked_reason: text('blocked_reason'),
   green_level: text('green_level'),

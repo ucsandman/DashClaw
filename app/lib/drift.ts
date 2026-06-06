@@ -333,21 +333,25 @@ export async function listAlerts(request: Request, { agent_id, severity, acknowl
   const lim = Math.min(parseInt(String(limit || '50'), 10), 200);
   const off = parseInt(String(offset || '0'), 10);
 
-  if (agent_id && severity) {
-    return sql`SELECT * FROM drift_alerts WHERE org_id = ${orgId} AND agent_id = ${agent_id} AND severity = ${severity} ORDER BY created_at DESC LIMIT ${lim} OFFSET ${off}`;
-  }
-  if (agent_id) {
-    return sql`SELECT * FROM drift_alerts WHERE org_id = ${orgId} AND agent_id = ${agent_id} ORDER BY created_at DESC LIMIT ${lim} OFFSET ${off}`;
-  }
-  if (severity) {
-    return sql`SELECT * FROM drift_alerts WHERE org_id = ${orgId} AND severity = ${severity} ORDER BY created_at DESC LIMIT ${lim} OFFSET ${off}`;
-  }
+  // Build the filter set dynamically so every combination is supported —
+  // including `metric`, which the UI sends but the previous fixed if-branches
+  // silently dropped (the metric dropdown looked active but never filtered).
+  const conditions: string[] = ['org_id = $1'];
+  const params: unknown[] = [orgId];
+  if (agent_id) { params.push(agent_id); conditions.push(`agent_id = $${params.length}`); }
+  if (severity) { params.push(severity); conditions.push(`severity = $${params.length}`); }
+  if (metric) { params.push(metric); conditions.push(`metric = $${params.length}`); }
   if (acknowledged !== undefined) {
-    const ack = acknowledged === 'true' || acknowledged === true;
-    return sql`SELECT * FROM drift_alerts WHERE org_id = ${orgId} AND acknowledged = ${ack} ORDER BY created_at DESC LIMIT ${lim} OFFSET ${off}`;
+    params.push(acknowledged === 'true' || acknowledged === true);
+    conditions.push(`acknowledged = $${params.length}`);
   }
+  params.push(lim); const limIdx = params.length;
+  params.push(off); const offIdx = params.length;
 
-  return sql`SELECT * FROM drift_alerts WHERE org_id = ${orgId} ORDER BY created_at DESC LIMIT ${lim} OFFSET ${off}`;
+  return sql.query(
+    `SELECT * FROM drift_alerts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${limIdx} OFFSET $${offIdx}`,
+    params,
+  );
 }
 
 export async function acknowledgeAlert(request: Request, alertId: string) {

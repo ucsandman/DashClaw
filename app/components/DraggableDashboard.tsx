@@ -56,7 +56,10 @@ const CARD_LABELS: Record<string, string> = {
   'integrations': 'Integrations'
 };
 
-const SHARED_CONSTRAINTS = { maxW: 4, maxH: 8, minW: 1, minH: 2 };
+// minH is 3 rows (≈272px), not 2: at 2 rows (160px) cards clipped their content
+// behind CardContent's overflow scroll, which is what made the dashboard look
+// like a grid of half-collapsed boxes.
+const SHARED_CONSTRAINTS = { maxW: 4, maxH: 8, minW: 1, minH: 3 };
 
 // Default layout positions EVERY card in CARD_COMPONENTS. The grid renders all
 // registered cards (filtered only by hiddenTiles), so any card omitted here is
@@ -83,10 +86,10 @@ const DEFAULT_LAYOUTS = {
 
     // Quality/observability tiles
     { i: 'eval-scores',       x: 0, y: 18, w: 2, h: 4, ...SHARED_CONSTRAINTS },
-    { i: 'learning',          x: 2, y: 18, w: 1, h: 3, ...SHARED_CONSTRAINTS },
-    { i: 'scoring',           x: 3, y: 18, w: 1, h: 3, ...SHARED_CONSTRAINTS },
-    { i: 'drift',             x: 2, y: 21, w: 1, h: 3, ...SHARED_CONSTRAINTS },
-    { i: 'prompt-stats',      x: 3, y: 21, w: 1, h: 3, ...SHARED_CONSTRAINTS },
+    { i: 'learning',          x: 2, y: 18, w: 1, h: 4, ...SHARED_CONSTRAINTS },
+    { i: 'scoring',           x: 3, y: 18, w: 1, h: 4, ...SHARED_CONSTRAINTS },
+    { i: 'drift',             x: 2, y: 22, w: 1, h: 4, ...SHARED_CONSTRAINTS },
+    { i: 'prompt-stats',      x: 3, y: 22, w: 1, h: 4, ...SHARED_CONSTRAINTS },
   ],
   md: [
     { i: 'fleet-presence',    x: 0, y: 0,  w: 2, h: 5, ...SHARED_CONSTRAINTS },
