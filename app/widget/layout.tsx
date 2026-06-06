@@ -9,6 +9,10 @@ import type { Metadata, Viewport } from 'next';
 export const metadata: Metadata = {
   title: 'DashClaw Status',
   description: 'At-a-glance agent posture and recent governed actions',
+  // Dedicated PWA manifest (start_url: /widget) so the widget installs as its
+  // own standalone app, distinct from the site/approve manifest. Overrides the
+  // root layout's site.webmanifest for /widget routes.
+  manifest: '/config/widget.webmanifest',
 };
 
 // theme-color is inherited from the root layout (app/layout.tsx); not repeated

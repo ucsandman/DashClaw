@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import Link from 'next/link';
 import { ArrowUpRight, AlertTriangle, AlertCircle } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
@@ -8,12 +8,22 @@ import { PosturePill, type PosturePillStatus } from './components/PosturePill';
 import { WidgetMetrics } from './components/WidgetMetrics';
 import { WidgetLog } from './components/WidgetLog';
 import { WidgetFooter } from './components/WidgetFooter';
+import { InstallButton } from './components/InstallButton';
 import { useWidgetSummary } from './useWidgetSummary';
 
 const EMPTY_METRICS = { activeAgents: 0, pendingApprovals: 0, elevated: 0, spend: null };
 
 export default function WidgetPage() {
   const { data, loading, error, connection, lastUpdated } = useWidgetSummary();
+
+  // Register the shared service worker so /widget is installable as a PWA
+  // (standalone desktop app). Best-effort — the widget works without it.
+  useEffect(() => {
+    if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Registration failures are non-fatal.
+    });
+  }, []);
 
   // Connection state (offline) overrides the server's operational posture.
   const status: PosturePillStatus = connection === 'offline' ? 'offline' : data?.status ?? 'calm';
@@ -30,6 +40,7 @@ export default function WidgetPage() {
           <span className="truncate text-xs font-semibold text-white">DashClaw</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
+          <InstallButton />
           <PosturePill status={status} />
           <Link
             href="/mission-control"

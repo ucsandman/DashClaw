@@ -1,47 +1,62 @@
 # DashClaw status widget (`/widget`)
 
-A tiny, glanceable agent cockpit — a status light, not a dashboard. Open it in a
-small always-on-top window and you can tell at a glance whether your agents are
+A tiny, glanceable agent cockpit — a status light, not a dashboard. Install it as
+a standalone desktop app and you can tell at a glance whether your agents are
 calm, busy, blocked, or need you, plus the last few governed actions.
 
-It is a **compact web route**, not a native desktop app (yet). It is built to be
-wrapped by a native always-on-top shell later (see [Follow-up](#follow-up-native-shell)).
+It ships **with your DashClaw deployment** (e.g. Vercel) at `/widget` and installs
+as a Progressive Web App (PWA) — no separate download, no build, no extra config.
 
-## What it is
+## Install it (easiest)
 
-- Route: `/widget` (chrome-free — no sidebar/app shell), ~320–340px wide, dark.
-- Data: one composed endpoint, `GET /api/widget/summary`, refreshed every 30s
-  and on live realtime events (it reuses the dashboard's existing SSE stream, so
-  it opens no extra connection).
-- Read-only. DashClaw is a governance runtime; the widget only *observes*. It
-  never approves, runs, or changes anything — open the full dashboard for that.
+1. Open your instance's widget: `https://<your-dashclaw-domain>/widget` (sign in
+   first — it's auth-gated like every dashboard page).
+2. Install it as an app:
+   - Click the **Install** button in the widget header (shown when your browser
+     supports install), **or**
+   - Use the browser's install control: Chrome/Edge show an **install icon (⊕)**
+     in the address bar → click → **Install**.
+3. It opens in its own standalone window. It auto-connects to the instance you
+   installed it from (same-origin session — no API key, nothing to configure).
 
-## How to open it
+> Supported in Chrome and Edge (desktop). Other browsers can still use the
+> app-mode or bookmark approach below.
 
-1. Start DashClaw (or use your deployed instance).
-2. Sign in, then navigate to `/widget` (e.g. `http://localhost:3000/widget`).
-   It is auth-gated like every other dashboard page; signed-out visits redirect
-   to `/login`.
+### Keep it always-on-top
 
-### Always-on-top
+The installed app is a normal OS window; pin it with a one-time OS toggle:
 
-The widget is designed to float. Two zero-install options:
+- **Windows**: [PowerToys → Always On Top](https://learn.microsoft.com/windows/powertoys/always-on-top) — focus the window and press `Win + Ctrl + T`.
+- **macOS**: a window manager (Rectangle Pro, Amethyst, …) "keep on top".
+- **Linux**: most window managers expose "Always on Top" in the window menu.
 
-**Browser app-mode window** (a frameless, single-purpose window):
+### Alternative: app-mode launcher (no install)
+
+Prefer a one-off frameless window instead of installing? Point a browser at your
+instance in app-mode (replace the domain):
 
 ```
 # Chrome
-chrome --app=http://localhost:3000/widget --window-size=360,640
+chrome --app=https://<your-dashclaw-domain>/widget --window-size=360,640
 
 # Edge
-msedge --app=http://localhost:3000/widget --window-size=360,640
+msedge --app=https://<your-dashclaw-domain>/widget --window-size=360,640
 ```
 
-**Keep it on top** with an OS utility:
+Save that as a `.bat` (Windows) / `.command` (macOS) / `.sh` (Linux) launcher for
+one-click open.
 
-- **Windows**: [PowerToys → Always On Top](https://learn.microsoft.com/windows/powertoys/always-on-top) (default hotkey `Win + Ctrl + T` over the focused window).
-- **macOS**: a window manager (Rectangle Pro, Amethyst, etc.) or a Fluid/again-style site-specific browser.
-- **Linux**: most window managers expose "Always on Top" in the window title-bar menu.
+## What it is
+
+- Route: `/widget` (chrome-free — no sidebar/app shell), ~340px wide, dark.
+- Installable PWA: `app/widget/layout.tsx` references `public/config/widget.webmanifest`
+  (`start_url: /widget`), and the page registers the shared service worker.
+- Data: one composed endpoint, `GET /api/widget/summary`, refreshed every 30s and
+  on live realtime events (it reuses the dashboard's existing SSE stream, so it
+  opens no extra connection).
+- Read-only. DashClaw is a governance runtime; the widget only *observes*. It
+  never approves, runs, or changes anything — open the full dashboard for that
+  (the ↗ button → `/mission-control`).
 
 ## Posture states
 
@@ -78,11 +93,10 @@ timestamp. Fields like `reasoning`, `authorization_scope`, `artifacts_created`,
 `side_effects`, `model`, `cost_estimate`, and raw error detail are deliberately
 dropped and asserted absent in tests.
 
-## Follow-up: native shell
+## Native shell (optional follow-up)
 
-A native always-on-top shell (Tauri or Electron) wrapping `/widget` is **not**
-built in this pass — the repo has no native tooling, and a web route plus the
-app-mode instructions above cover the need with zero new dependencies. When a
-native shell is wanted, point a frameless ~340px-wide, always-on-top window at
-`/widget`; the route is built to embed cleanly (own bare layout, no app chrome,
-single composed data endpoint).
+The PWA covers the common case (single hosted instance, zero install friction).
+A native Tauri/Electron shell is only worth building if you need **multiple
+instances in one app** or **built-in always-on-top** without an OS utility. The
+route is built to embed cleanly: point a frameless ~340px, always-on-top window
+at `/widget` with a configurable instance URL.
