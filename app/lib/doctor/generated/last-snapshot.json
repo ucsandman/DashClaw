@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:722fd7e235ae13f989e2f77b2a3ae76981b0a819",
+  "timestamp": "sha1:10f4db22306c8442351b071c788badd7575bfbaa",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1832,6 +1832,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/learning/code-signals/route.ts"
+    },
+    {
+      "path": "/api/learning/export",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/learning/export/route.ts"
     },
     {
       "path": "/api/learning/lessons",

@@ -35,6 +35,7 @@ export default function LearningDashboard() {
   const [suggestionError, setSuggestionError] = useState('');
   const [codeSignals, setCodeSignals] = useState<any>({ findings: [], period: '30d' });
   const [signalsPeriod, setSignalsPeriod] = useState('30d');
+  const [exporting, setExporting] = useState<string | null>(null);
 
   useRealtime((event: any, payload: any) => {
     if (event === 'decision.created') {
@@ -311,10 +312,36 @@ export default function LearningDashboard() {
     }
   };
 
+  // Generate an AGENTS.md / CLAUDE.md from what DashClaw has learned and download
+  // it client-side (the route returns markdown; we wrap it in a blob so the
+  // browser saves a file the agent can read on its next session).
+  const handleExport = useCallback(async (format: 'agents' | 'claude') => {
+    setExporting(format);
+    try {
+      const params = new URLSearchParams({ format });
+      if (agentId) params.set('agent_id', agentId);
+      const res = await fetch(`/api/learning/export?${params.toString()}`);
+      if (!res.ok) throw new Error('export failed');
+      const text = await res.text();
+      const url = URL.createObjectURL(new Blob([text], { type: 'text/markdown' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = format === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* best-effort download — never break the page over a failed export */
+    } finally {
+      setExporting(null);
+    }
+  }, [agentId]);
+
   return (
     <PageLayout
-      title="Learning Database"
-      subtitle={`Decisions, Outcomes & Lessons${lastUpdated ? ` -- Updated ${lastUpdated}` : ''}`}
+      title="Agent Learning"
+      subtitle={`What your agents have learned${lastUpdated ? ` — updated ${lastUpdated}` : ''}`}
       breadcrumbs={['Dashboard', 'Learning']}
       maturity="beta"
       actions={
@@ -332,6 +359,43 @@ export default function LearningDashboard() {
         </div>
       }
     >
+      {/* Purpose + the one action most people want: turn learnings into a file
+          their agents read on startup. */}
+      <Card hover={false} className="mb-6">
+        <CardContent className="pt-5">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="max-w-2xl">
+              <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+                <Sparkles size={15} className="text-brand" /> What DashClaw has learned about your agents
+              </h2>
+              <p className="mt-1.5 text-sm text-tertiary">
+                Every governed decision your agents record lands here, and DashClaw distills the
+                recurring ones into patterns — what works, what fails, and why. Turn it into an{' '}
+                <code className="rounded bg-surface-tertiary px-1 py-0.5 text-xs text-secondary">AGENTS.md</code> or{' '}
+                <code className="rounded bg-surface-tertiary px-1 py-0.5 text-xs text-secondary">CLAUDE.md</code>{' '}
+                your agents read on their next session.
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => handleExport('agents')}
+                disabled={exporting !== null}
+                className="flex items-center gap-1.5 rounded-lg bg-brand px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
+              >
+                <FileText size={14} /> {exporting === 'agents' ? 'Generating…' : 'Generate AGENTS.md'}
+              </button>
+              <button
+                onClick={() => handleExport('claude')}
+                disabled={exporting !== null}
+                className="flex items-center gap-1.5 rounded-lg bg-surface-tertiary border border px-3 py-2 text-xs font-medium text-secondary transition-colors duration-150 hover:text-white hover:border-hover disabled:opacity-50"
+              >
+                <FileText size={14} /> {exporting === 'claude' ? 'Generating…' : 'Generate CLAUDE.md'}
+              </button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card hover={false}>

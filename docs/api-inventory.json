@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 297,
+    "total_routes": 298,
     "stable_routes": 50,
     "beta_routes": 24,
-    "experimental_routes": 223
+    "experimental_routes": 224
   },
   "routes": [
     {
@@ -1762,6 +1762,15 @@
       "maturity": "experimental",
       "matched_prefix": "/api/learning",
       "file": "app/api/learning/code-signals/route.ts"
+    },
+    {
+      "path": "/api/learning/export",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/learning",
+      "file": "app/api/learning/export/route.ts"
     },
     {
       "path": "/api/learning/lessons",

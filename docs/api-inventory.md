@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `297`
+- Total routes: `298`
 - Stable routes: `50`
 - Beta routes: `24`
-- Experimental routes: `223`
+- Experimental routes: `224`
 
 ## Routes
 
@@ -203,6 +203,7 @@ doc-type: architecture
 | `/api/learning/analytics/summary` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/summary/route.ts` |
 | `/api/learning/analytics/velocity` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/velocity/route.ts` |
 | `/api/learning/code-signals` | `GET` | `experimental` | `/api/learning` | `app/api/learning/code-signals/route.ts` |
+| `/api/learning/export` | `GET` | `experimental` | `/api/learning` | `app/api/learning/export/route.ts` |
 | `/api/learning/lessons` | `GET` | `experimental` | `/api/learning` | `app/api/learning/lessons/route.ts` |
 | `/api/learning/recommendations` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/route.ts` |
 | `/api/learning/recommendations/events` | `POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/events/route.ts` |
