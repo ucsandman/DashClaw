@@ -2,11 +2,13 @@
 
 import { useState, useEffect } from 'react';
 import PageLayout from '../components/PageLayout';
+import ModesTab from './components/ModesTab';
 import ShieldsGrid from './components/ShieldsGrid';
 import CustomTab from './components/CustomTab';
 import ActivityTab from './components/ActivityTab';
 
 const TABS = [
+  { id: 'modes', label: 'Modes' },
   { id: 'shields', label: 'Shields' },
   { id: 'custom', label: 'Custom' },
   { id: 'activity', label: 'Activity' },
@@ -20,7 +22,7 @@ interface PolicyStats {
 }
 
 export default function PoliciesPage() {
-  const [activeTab, setActiveTab] = useState('shields');
+  const [activeTab, setActiveTab] = useState('modes');
   const [stats, setStats] = useState<PolicyStats>({ active: 0, blocks: 0, approvals: 0, agents: 0 });
 
   useEffect(() => {
@@ -87,6 +89,7 @@ export default function PoliciesPage() {
       </div>
 
       {/* Tab content */}
+      {activeTab === 'modes' && <ModesTab />}
       {activeTab === 'shields' && <ShieldsGrid />}
       {activeTab === 'custom' && <CustomTab />}
       {activeTab === 'activity' && <ActivityTab />}

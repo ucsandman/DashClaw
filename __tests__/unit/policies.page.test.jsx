@@ -97,19 +97,21 @@ describe('PoliciesPage', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders the shields tab by default with shield cards', async () => {
+  it('renders shield cards on the Shields tab', async () => {
     const { default: PoliciesPage } = await import('@/policies/page.jsx');
     render(<PoliciesPage />);
 
     // Page title
     expect(screen.getByText('Policies')).toBeTruthy();
 
-    // Tabs exist
+    // Tabs exist (Modes is the new first/default tab)
+    expect(screen.getByText('Modes')).toBeTruthy();
     expect(screen.getByText('Shields')).toBeTruthy();
     expect(screen.getByText('Custom')).toBeTruthy();
     expect(screen.getByText('Activity')).toBeTruthy();
 
-    // Shield cards render (wait for fetch)
+    // Switch to Shields, then shield cards render (wait for fetch)
+    fireEvent.click(screen.getByText('Shields'));
     expect(await screen.findByText('Deploy Gate')).toBeTruthy();
     expect(screen.getByText('High Risk Review')).toBeTruthy();
     expect(screen.getByText('Critical Risk Block')).toBeTruthy();
@@ -130,7 +132,8 @@ describe('PoliciesPage', () => {
     const { default: PoliciesPage } = await import('@/policies/page.jsx');
     render(<PoliciesPage />);
 
-    // Default is Shields tab
+    // Switch to Shields tab → shield cards
+    fireEvent.click(screen.getByText('Shields'));
     expect(await screen.findByText('Deploy Gate')).toBeTruthy();
 
     // Switch to Activity tab
