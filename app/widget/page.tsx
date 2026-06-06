@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, AlertTriangle, AlertCircle } from 'lucide-react';
+import { ArrowUpRight, AlertTriangle, AlertCircle, PictureInPicture2 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
 import { PosturePill, type PosturePillStatus } from './components/PosturePill';
 import { WidgetMetrics } from './components/WidgetMetrics';
@@ -25,11 +25,27 @@ export default function WidgetPage() {
   const [decidedIds, setDecidedIds] = useState<Set<string>>(new Set());
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // True when this page is itself the popped-out floating window (opened via
+  // window.open) — we hide the pop-out button there to avoid spawning more.
+  const [isPopout, setIsPopout] = useState(false);
 
   // Register the shared service worker so /widget is installable as a PWA.
   useEffect(() => {
     if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return;
     navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    setIsPopout(typeof window !== 'undefined' && window.opener != null);
+  }, []);
+
+  // Pop the widget out into a small floating window. Reuses the named window, so
+  // clicking again focuses the existing float instead of spawning duplicates.
+  // (Browsers can't set always-on-top from JS — pin the float with an OS tool,
+  // e.g. PowerToys Win+Ctrl+T, or use the native desktop app.)
+  const popOut = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    window.open('/widget', 'dashclaw-widget', 'popup,width=380,height=720');
   }, []);
 
   useEffect(() => () => {
@@ -93,9 +109,23 @@ export default function WidgetPage() {
           <div className="flex shrink-0 items-center gap-1.5">
             <InstallButton />
             <PosturePill status={status} />
+            {!isPopout ? (
+              <button
+                type="button"
+                onClick={popOut}
+                aria-label="Pop out into a floating window"
+                title="Pop out into a floating window — pin it always-on-top with PowerToys (Win+Ctrl+T)"
+                className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border text-tertiary transition-colors hover:border-border-hover hover:text-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                <PictureInPicture2 size={13} aria-hidden="true" />
+              </button>
+            ) : null}
             <Link
               href="/mission-control"
-              aria-label="Open Mission Control dashboard"
+              target={isPopout ? '_blank' : undefined}
+              rel={isPopout ? 'noopener noreferrer' : undefined}
+              aria-label="Open the full dashboard"
+              title="Open the full dashboard"
               className="inline-flex h-6 w-6 items-center justify-center rounded-md border border-border text-tertiary transition-colors hover:border-border-hover hover:text-secondary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
             >
               <ArrowUpRight size={13} aria-hidden="true" />

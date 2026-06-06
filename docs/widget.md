@@ -22,9 +22,18 @@ as a Progressive Web App (PWA) — no separate download, no build, no extra conf
 > Supported in Chrome and Edge (desktop). Other browsers can still use the
 > app-mode or bookmark approach below.
 
+### Float it (pop out)
+
+Click the **pop-out icon (⧉)** in the widget header to open it in a small,
+minimal-chrome floating window you can park anywhere on screen. The separate ↗
+icon opens the full dashboard. (Inside the floating window the pop-out icon is
+hidden so you don't spawn duplicates.)
+
 ### Keep it always-on-top
 
-The installed app is a normal OS window; pin it with a one-time OS toggle:
+Browsers can't set always-on-top from a web page, so pin the floating (or
+installed) window with a one-time OS toggle. The planned native desktop app adds
+a built-in always-on-top toggle (and a tray icon + native approve notifications).
 
 - **Windows**: [PowerToys → Always On Top](https://learn.microsoft.com/windows/powertoys/always-on-top) — focus the window and press `Win + Ctrl + T`.
 - **macOS**: a window manager (Rectangle Pro, Amethyst, …) "keep on top".
