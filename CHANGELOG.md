@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.1] — 2026-06-06
+
+### Added
+
+- **living-merge** — dev-workflow tooling so multiple Claude Code sessions in parallel git worktrees can all push to `main` without ever conflicting on generated files. Generated projections (doctor shape, MCP inventory, the livingcode dashboard, the platform-intelligence `SKILL.md` + bundle zips + plugin skill/hook mirrors, and `docs/` api-inventory + openapi) get a `merge=regenerate` git driver that keeps one side (never writes conflict markers) plus `post-merge`/`post-rewrite` hooks that re-derive them via a single `regenerate-all` wrapper, so `main` stays self-consistent regardless of merge order. Hand-authored files stay protected — a SessionStart hook surfaces cross-worktree AUTHORED-file overlap as factual context. One-time setup: `npm run living-merge:install` (runs automatically via the `prepare` script on `npm install`). No platform or SDK surface change — SDKs republish at 4.4.1 per the unified-version model. See `docs/living-merge.md`.
+
 ## [4.4.0] — 2026-06-06
 
 ### Added

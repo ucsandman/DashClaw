@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.0",
+    "current_version": "4.4.1",
     "next_bump": "none",
-    "reason": "4.4.0 — minor (additive). Ships two platform features: Policy Modes (named operating contracts that compile to guard-policy packs; 8-mode catalog + GET /api/policies/modes, POST .../preview, POST .../import; /policies Modes tab) and a live status widget (chrome-free /widget + composed GET /api/widget/summary, read-only observability). No SDK method change — Node surface stays 126, byte-identical to 4.3.1, republishes at 4.4.0 per the unified-version model. Self-dep stays ^4.0.0 (minor within the major).",
-    "domains": ["platform", "ui", "docs"]
+    "reason": "4.4.1 — patch (internal dev tooling). Ships living-merge: a merge=regenerate git driver + post-merge/post-rewrite hooks + a cross-worktree authored-overlap SessionStart signal so parallel git worktrees never conflict on generated files. No platform or SDK surface change — Node surface stays 126, byte-identical to 4.4.0, republishes at 4.4.1 per the unified-version model. Self-dep stays ^4.0.0 (patch within the major).",
+    "domains": ["devtools", "docs"]
   },
   "python": {
-    "current_version": "4.4.0",
+    "current_version": "4.4.1",
     "next_bump": "none",
-    "reason": "4.4.0 — minor (additive). Platform features Policy Modes + live status widget. No Python SDK change — surface stays 224, byte-identical to 4.3.1, republishes at 4.4.0 per the unified-version model.",
-    "domains": ["platform", "ui", "docs"]
+    "reason": "4.4.1 — patch (internal dev tooling). living-merge dev workflow (git merge driver + hooks + overlap signal). No Python SDK change — surface stays 224, byte-identical to 4.4.0, republishes at 4.4.1 per the unified-version model.",
+    "domains": ["devtools", "docs"]
   }
 }
