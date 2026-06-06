@@ -113,7 +113,9 @@ export function hookBlocks(python = 'python') {
   return {
     PreToolUse: [
       {
-        matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*',
+        // Skill is included so the auto skill-scan in dashclaw_pretool.py fires
+        // when a skill is loaded (secret + dangerous-pattern detection, warn-only).
+        matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*',
         hooks: [
           {
             type: 'command',

@@ -165,6 +165,10 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
       .toBe('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py"');
   });
 
+  it('matches the Skill tool so the auto skill-scan fires on skill load', () => {
+    expect(hookBlocks().PreToolUse[0].matcher).toContain('Skill');
+  });
+
   it('bakes the chosen interpreter into every hook command when one is passed', () => {
     expect(globalStopCommand('C:\\Projects\\DashClaw', 'python3'))
       .toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py"');
