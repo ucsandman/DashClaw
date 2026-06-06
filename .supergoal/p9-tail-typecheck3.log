@@ -1,2 +1,0 @@
-app/integrations/page.tsx(340,9): error TS7022: 'editingConfig' implicitly has type 'any' because it does not have a type annotation and is referenced directly or indirectly in its own initializer.
-app/integrations/page.tsx(341,34): error TS2448: Block-scoped variable 'editingConfig' used before its declaration.

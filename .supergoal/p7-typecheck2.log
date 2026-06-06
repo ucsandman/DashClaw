@@ -1,4 +1,0 @@
-app/lib/repositories/finops.repository.ts(24,27): error TS2365: Operator '+' cannot be applied to types '{}' and 'number'.
-app/lib/repositories/finops.repository.ts(25,35): error TS2322: Type 'CostAggregationResult' is not assignable to type 'AgentSpendAggregation'.
-  Types of property 'total_cost_usd' are incompatible.
-    Type 'unknown' is not assignable to type 'number'.

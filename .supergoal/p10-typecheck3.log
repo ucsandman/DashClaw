@@ -1,2 +1,0 @@
-app/api/cron/signals/route.ts(137,140): error TS2352: Conversion of type 'Record<string, unknown>[]' to type 'SettingRow[]' may be a mistake because neither type sufficiently overlaps with the other. If this was intentional, convert the expression to 'unknown' first.
-  Type 'Record<string, unknown>' is missing the following properties from type 'SettingRow': key, value

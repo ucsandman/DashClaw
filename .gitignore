@@ -81,6 +81,7 @@ scorecard.png
 findings.json
 /conductor/
 /plans/
+.supergoal/
 
 # Internal docs (not for public repo)
 docs/FAILED_SWARM_LOG.md

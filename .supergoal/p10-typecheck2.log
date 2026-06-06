@@ -1,4 +1,0 @@
-app/api/cron/signals/route.ts(137,140): error TS2345: Argument of type 'Record<string, unknown>[]' is not assignable to parameter of type 'SettingRow[]'.
-  Type 'Record<string, unknown>' is missing the following properties from type 'SettingRow': key, value
-app/lib/notification-adapters/email.ts(36,54): error TS2345: Argument of type 'GovernanceSignal[]' is not assignable to parameter of type 'Signal[]'.
-  Property 'type' is missing in type 'GovernanceSignal' but required in type 'Signal'.

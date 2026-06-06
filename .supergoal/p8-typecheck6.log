@@ -1,6 +1,0 @@
-app/api/policies/simulate/route.ts(50,43): error TS2345: Argument of type '{ id: string; name: string; policy_type: any; }' is not assignable to parameter of type 'PolicyRow'.
-  Property 'rules' is missing in type '{ id: string; name: string; policy_type: any; }' but required in type 'PolicyRow'.
-app/api/policies/test/route.ts(87,41): error TS2345: Argument of type '{ id: string; name: string; policy_type: any; }' is not assignable to parameter of type 'PolicyRow'.
-  Property 'rules' is missing in type '{ id: string; name: string; policy_type: any; }' but required in type 'PolicyRow'.
-app/api/policies/test/route.ts(132,46): error TS2345: Argument of type 'Record<string, any>' is not assignable to parameter of type 'GuardrailPolicy'.
-  Type 'Record<string, any>' is missing the following properties from type 'GuardrailPolicy': id, applies_to, rule
