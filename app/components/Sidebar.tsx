@@ -20,8 +20,8 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   label: string;
-  /** Open in a new tab (e.g. the chrome-free /widget pops out instead of replacing the dashboard). */
-  newTab?: boolean;
+  /** Pop out into a small floating window (window.open) instead of navigating — used by the chrome-free /widget. */
+  popout?: boolean;
 }
 
 interface NavGroup {
@@ -62,7 +62,7 @@ const navGroups: NavGroup[] = [
       { href: '/code-sessions', icon: Terminal, label: 'Code Sessions' },
       { href: '/analytics', icon: TrendingUp, label: 'Analytics' },
       { href: '/activity', icon: Activity, label: 'Activity' },
-      { href: '/widget', icon: AppWindow, label: 'Status Widget', newTab: true },
+      { href: '/widget', icon: AppWindow, label: 'Status Widget', popout: true },
       { href: '/compliance/exports', icon: Download, label: 'Compliance' },
     ],
   },
@@ -155,11 +155,17 @@ export default function Sidebar() {
       <Link
         key={item.href}
         href={item.href}
-        target={item.newTab ? '_blank' : undefined}
-        rel={item.newTab ? 'noopener noreferrer' : undefined}
         aria-current={active ? 'page' : undefined}
-        onClick={() => setMobileOpen(false)}
-        title={item.newTab ? `${item.label} (opens in a new window)` : collapsed ? item.label : undefined}
+        onClick={(e) => {
+          if (item.popout) {
+            // Float the chrome-free widget instead of navigating the dashboard
+            // to it (or opening an awkward full browser tab).
+            e.preventDefault();
+            window.open(item.href, 'dashclaw-widget', 'popup,width=380,height=720');
+          }
+          setMobileOpen(false);
+        }}
+        title={item.popout ? `${item.label} (opens in a floating window)` : collapsed ? item.label : undefined}
         className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
           active
             ? 'bg-white/5 text-white'
