@@ -12,6 +12,13 @@ vi.mock('node:dns/promises', () => ({
 }));
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: (v) => ({ clean: true, redacted: v, findings: [] }) }));
 vi.stubGlobal('fetch', mockFetch);
+// webhooks.js now imports fetch from undici (so its pinned undici Agent
+// dispatcher is honored); route that import to the same mock while keeping the
+// real Agent so buildPinnedDispatcher still works.
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, fetch: (...args) => mockFetch(...args) };
+});
 
 import { fireWebhooksForApproval } from '@/lib/webhooks.js';
 

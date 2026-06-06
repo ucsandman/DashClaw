@@ -6,7 +6,7 @@
 import crypto from 'crypto';
 import dns from 'node:dns/promises';
 import net from 'node:net';
-import { Agent as UndiciAgent } from 'undici';
+import { Agent as UndiciAgent, fetch } from 'undici';
 import { scanSensitiveData } from './security.js';
 
 /** SQL client usable as a tagged template (Neon/postgres shape). */
@@ -249,7 +249,7 @@ export async function deliverWebhook({
       body: payloadStr,
       signal: controller.signal,
       dispatcher,
-    } as RequestInit);
+    } as Parameters<typeof fetch>[1]);
 
     clearTimeout(timeout);
     responseStatus = res.status;
@@ -339,7 +339,7 @@ export async function deliverGuardWebhook({
       body: payloadStr,
       signal: controller.signal,
       dispatcher,
-    } as RequestInit);
+    } as Parameters<typeof fetch>[1]);
 
     clearTimeout(timeout);
     responseStatus = res.status;

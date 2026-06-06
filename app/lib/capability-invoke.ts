@@ -6,6 +6,14 @@
 
 import { mapRequest, mapResponse } from './mapping.js';
 import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks.js';
+// Use undici's fetch rather than the Node global. The global fetch is backed by
+// Node's *internal* undici (v5/v6 on Node < 24), a different instance than the
+// standalone `undici` package that buildPinnedDispatcher's Agent comes from.
+// Handing a v7 Agent to the global fetch as `dispatcher` throws a bare
+// "TypeError: fetch failed" with no .cause — exactly the opaque error operators
+// saw on "Run test". Importing fetch from undici keeps fetch + Agent on the
+// same instance. Mirrors the existing undici import in webhooks.ts.
+import { fetch } from 'undici';
 
 export const RISK_SCORE_MAP: Record<string, number> = {
   low: 20,
@@ -149,7 +157,7 @@ async function singleAttempt({
       ...(bodylessMethod ? {} : { body: JSON.stringify(mappedBody) }),
       signal: controller.signal,
       dispatcher,
-    } as RequestInit);
+    } as Parameters<typeof fetch>[1]);
 
     clearTimeout(timer);
     const elapsedMs = Date.now() - start;
@@ -165,7 +173,9 @@ async function singleAttempt({
       };
     }
 
-    const rawData = await response.json().catch(() => null);
+    // undici's fetch types response.json() as Promise<unknown> (the DOM global
+    // typed it any); annotate so mapResponse still type-checks after the import.
+    const rawData = await response.json().catch(() => null) as Record<string, unknown> | null;
     if (rawData === null) {
       return {
         success: false,

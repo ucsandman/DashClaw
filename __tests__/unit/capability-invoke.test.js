@@ -11,6 +11,15 @@ vi.mock('../../app/lib/webhooks.js', () => ({
   buildPinnedDispatcher: vi.fn(() => undefined),
 }));
 
+// capability-invoke.js now imports fetch from undici (so the pinned undici Agent
+// dispatcher is honored — Node's built-in fetch is a different undici instance
+// that rejects a standalone Agent). Route that import to global.fetch, which
+// these tests stub per-case, so the existing assertions keep working.
+vi.mock('undici', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, fetch: (...args) => global.fetch(...args) };
+});
+
 import {
   invokeCapability,
   resolveAuth,
