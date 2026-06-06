@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:ce16c721a3e7eee7a8e1a9fc6d60d4a6614ae49c · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:a046bf223509079568fa50f7f62564a99639f8eb · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">246</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">247</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">137</div><div class="k">Optional env vars</div></div>
@@ -180,7 +180,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>8</b> env_vars added, <b>34</b> routes added, <b>1</b> routes changed, <b>6</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>8</b> env_vars added, <b>35</b> routes added, <b>1</b> routes changed, <b>6</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
@@ -210,6 +210,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/summary <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/reputation/leaderboard <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/reputation/verify <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/widget/summary <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/providers <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/providers/[id] <span class="sig">New route: GET, PATCH</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/providers/[id]/endpoints <span class="sig">New route: GET, POST</span></li>
@@ -462,6 +463,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/webhooks/[webhookId]/deliveries"><td><code>/api/webhooks/[webhookId]/deliveries</code></td><td>GET</td><td class="sig">app/api/webhooks/[webhookId]/deliveries/route.ts</td></tr>
     <tr data-path="/api/webhooks/[webhookId]/test"><td><code>/api/webhooks/[webhookId]/test</code></td><td>POST</td><td class="sig">app/api/webhooks/[webhookId]/test/route.ts</td></tr>
     <tr data-path="/api/webhooks/stripe"><td><code>/api/webhooks/stripe</code></td><td>POST</td><td class="sig">app/api/webhooks/stripe/route.ts</td></tr></tbody></table></details>
+<details><summary>/widget/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/widget/summary"><td><code>/api/widget/summary</code></td><td>GET</td><td class="sig">app/api/widget/summary/route.ts</td></tr></tbody></table></details>
 <details><summary>/workflows/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workflows/draft"><td><code>/api/workflows/draft</code></td><td>POST</td><td class="sig">app/api/workflows/draft/route.ts</td></tr>
     <tr data-path="/api/workflows/templates"><td><code>/api/workflows/templates</code></td><td>GET, POST</td><td class="sig">app/api/workflows/templates/route.ts</td></tr>
     <tr data-path="/api/workflows/templates/[templateId]"><td><code>/api/workflows/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/workflows/templates/[templateId]/route.ts</td></tr>

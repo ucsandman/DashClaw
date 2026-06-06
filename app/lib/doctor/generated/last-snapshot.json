@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:ce16c721a3e7eee7a8e1a9fc6d60d4a6614ae49c",
+  "timestamp": "sha1:a046bf223509079568fa50f7f62564a99639f8eb",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2817,6 +2817,15 @@
       "file_path": "app/api/webhooks/stripe/route.ts"
     },
     {
+      "path": "/api/widget/summary",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/widget/summary/route.ts"
+    },
+    {
       "path": "/api/workflows/draft",
       "methods": [
         "POST"
@@ -3808,6 +3817,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-engine.test.js",
+        "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
         "app/lib/guard.ts",
         "app/lib/knowledge-ingest.ts",
