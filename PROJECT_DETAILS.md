@@ -51,6 +51,7 @@ As of this verification, generated API inventory reports **297 routes**: **50 st
 | Surface | Path | Purpose |
 |:---|:---|:---|
 | Mission Control | `/mission-control` | Strategic posture, interventions, live decision stream, runtime summary, and operations feed. |
+| Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, and a live recent-action log. Read-only; 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
 | Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Setup | `/setup` | Readiness verification, instance health, setup proof, and migration helper entry points. |
@@ -119,6 +120,7 @@ These modules consume core runtime data and add operator value without changing 
 | Model strategies | `/api/model-strategies/*` | Provider/model routing, fallback chains, BYOK credentials, budgets, and completions. |
 | Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions and workflow steps, plus evidence bundles. |
 | Operations | `/api/operations/feed`, `/api/operations/summary` | Mission Control operational feed and runtime metrics. |
+| Status Widget | `GET /api/widget/summary` | One composed, read-only summary (overall posture + active-agents / pending-approvals / signals / recent-spend counts + sanitized recent-action log + top signal) for the `/widget` cockpit. Partial-failure tolerant; composed from existing repositories (no new tables, no direct SQL). Experimental. |
 | Compliance | `/api/compliance/*` | Evidence, mappings, gaps, reports, schedules, and exports. |
 | Evaluations | `/api/evaluations/*` | Scorers, runs, stats, evaluation outputs, and side-effect-free scorer preview (`/api/evaluations/scorers/preview` dry-runs a scorer config without writing an `eval_scores` row). |
 | Scoring | `/api/scoring/*` | Risk profiles, dimensions, templates, calibration, and scoring. |
