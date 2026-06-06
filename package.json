@@ -73,7 +73,7 @@
     "release:sdks": "node scripts/release-sdks.mjs",
     "traffic:poll": "node scripts/_run-with-env.mjs scripts/poll-github-traffic.mjs",
     "pre-commit": "node scripts/run-pre-commit-checks.mjs",
-    "prepare": "node scripts/living-merge/prepare.mjs",
+    "prepare": "node -e \"const f='scripts/living-merge/prepare.mjs';require('fs').existsSync(f)&&require('child_process').spawnSync(process.execPath,[f],{stdio:'inherit'})\"",
     "living-merge:install": "node --import tsx scripts/living-merge/install.ts",
     "living-merge:check": "node --import tsx scripts/living-merge/install.ts --check"
   },
