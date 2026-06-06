@@ -192,6 +192,7 @@ describe('buildWidgetSummary', () => {
     expect(Object.keys(out).sort()).toEqual([
       'generatedAt',
       'metrics',
+      'pendingApprovals',
       'recentActions',
       'signals',
       'status',
@@ -230,5 +231,30 @@ describe('buildWidgetSummary', () => {
       now,
     });
     expect(out.recentActions.length).toBeLessThanOrEqual(10);
+  });
+
+  it('exposes a sanitized pendingApprovals list from pendingActions', () => {
+    const out = buildWidgetSummary({
+      recent: { actions: [], stats: {} },
+      pendingApprovals: 2,
+      pendingActions: [
+        {
+          action_id: 'p1',
+          agent_name: 'bot',
+          action_type: 'email_send',
+          declared_goal: 'send refund',
+          status: 'pending_approval',
+          reasoning: 'secret chain of thought',
+        },
+      ],
+      signals: [],
+      spendUsd: null,
+      agents: [],
+      now,
+    });
+    expect(out.pendingApprovals).toHaveLength(1);
+    expect(out.pendingApprovals[0].actionId).toBe('p1');
+    expect(out.pendingApprovals[0]).not.toHaveProperty('reasoning');
+    expect(out.metrics.pendingApprovals).toBe(2);
   });
 });

@@ -36,7 +36,7 @@ export async function GET(request: Request) {
         mark();
         return { actions: [], total: 0, stats: {} };
       }),
-      listActions(sql, orgId, { status: 'pending_approval', limit: 1 }).catch(() => {
+      listActions(sql, orgId, { status: 'pending_approval', limit: 8 }).catch(() => {
         mark();
         return { actions: [], total: 0, stats: {} };
       }),
@@ -57,6 +57,7 @@ export async function GET(request: Request) {
     const summary = buildWidgetSummary({
       recent,
       pendingApprovals: pending?.total ?? 0,
+      pendingActions: pending?.actions ?? [],
       signals,
       spendUsd: cost ? Number(cost.total_cost_usd) : null,
       agents,

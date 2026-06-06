@@ -37,7 +37,21 @@ beforeEach(() => {
   mockGetSql.mockReturnValue({});
   mockListActions.mockImplementation((_sql, _orgId, filters = {}) => {
     if (filters.status === 'pending_approval') {
-      return Promise.resolve({ actions: [], total: 3, stats: {} });
+      return Promise.resolve({
+        actions: [
+          {
+            action_id: 'p1',
+            agent_name: 'bot',
+            action_type: 'email_send',
+            output_summary: 'Send refund confirmation',
+            status: 'pending_approval',
+            risk_score: '80',
+            reasoning: 'secret chain of thought',
+          },
+        ],
+        total: 3,
+        stats: {},
+      });
     }
     return Promise.resolve({
       actions: [
@@ -83,11 +97,14 @@ describe('GET /api/widget/summary', () => {
       'degraded',
       'generatedAt',
       'metrics',
+      'pendingApprovals',
       'recentActions',
       'signals',
       'status',
       'topSignals',
     ]);
+    expect(body.pendingApprovals).toHaveLength(1);
+    expect(body.pendingApprovals[0]).not.toHaveProperty('reasoning');
     expect(body.status).toBe('elevated'); // red signal present
     expect(body.metrics.pendingApprovals).toBe(3);
     expect(body.metrics.spend).toBe(4.25);

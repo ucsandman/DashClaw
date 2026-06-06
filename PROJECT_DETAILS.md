@@ -51,7 +51,7 @@ As of this verification, generated API inventory reports **297 routes**: **50 st
 | Surface | Path | Purpose |
 |:---|:---|:---|
 | Mission Control | `/mission-control` | Strategic posture, interventions, live decision stream, runtime summary, and operations feed. |
-| Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, and a live recent-action log. Read-only; 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
+| Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, a live recent-action log, and inline Approve/Deny for pending approvals (operator decisions resolved via `/api/approvals/[actionId]`, cleared across all channels). 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
 | Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Setup | `/setup` | Readiness verification, instance health, setup proof, and migration helper entry points. |

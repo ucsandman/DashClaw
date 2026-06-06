@@ -150,7 +150,7 @@ Client request hits middleware.js
 | `/connect` | 8-minute "first governed action" onboarding (MCP + agent bootstrap paths) |
 | `/setup` | Readiness verification and instance health |
 | `/mission-control` | Strategic fleet overview (reactive timeline + live log) |
-| `/widget` | Installable PWA status widget — chrome-free glanceable cockpit: overall posture, key counts, top signal, live recent-action log (read-only, always-on-top-ready; backed by `GET /api/widget/summary`) |
+| `/widget` | Installable PWA status widget — chrome-free glanceable cockpit: overall posture, key counts, top signal, live recent-action log, and inline Approve/Deny for pending approvals (resolves via `/api/approvals`, clears across all channels; always-on-top-ready; backed by `GET /api/widget/summary`) |
 | `/dashboard` | Draggable widget dashboard (real-time reactive cards) |
 | `/workspace` | Per-agent workspace (digest, context, handoffs, snippets, preferences, memory) |
 | `/approve` | Mobile PWA approval surface (optimized for on-call operator on phone) |

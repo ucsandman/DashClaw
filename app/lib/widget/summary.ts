@@ -159,6 +159,7 @@ export function countActiveAgents(
 export interface BuildWidgetSummaryInput {
   recent: { actions?: unknown; stats?: Record<string, unknown> | null } | null;
   pendingApprovals: number | string | null;
+  pendingActions?: unknown;
   signals: readonly RawSignal[];
   spendUsd: number | null;
   agents: ReadonlyArray<{ last_active?: string | null }>;
@@ -175,6 +176,7 @@ export interface WidgetSummary {
     spend: number | null;
   };
   signals: { red: number; amber: number; total: number };
+  pendingApprovals: WidgetAction[];
   recentActions: WidgetAction[];
   topSignals: WidgetSignal[];
 }
@@ -198,6 +200,7 @@ export function buildWidgetSummary(input: BuildWidgetSummaryInput): WidgetSummar
   });
 
   const spend = input.spendUsd == null || !Number.isFinite(Number(input.spendUsd)) ? null : Number(input.spendUsd);
+  const pendingActions: RawAction[] = Array.isArray(input.pendingActions) ? (input.pendingActions as RawAction[]) : [];
 
   return {
     status,
@@ -209,6 +212,7 @@ export function buildWidgetSummary(input: BuildWidgetSummaryInput): WidgetSummar
       spend,
     },
     signals: counts,
+    pendingApprovals: pendingActions.slice(0, 8).map((a) => sanitizeRecentAction(a)),
     recentActions: actions.slice(0, 10).map((a) => sanitizeRecentAction(a)),
     topSignals: pickTopSignals(signals, 2),
   };

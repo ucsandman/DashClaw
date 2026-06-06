@@ -54,9 +54,12 @@ one-click open.
 - Data: one composed endpoint, `GET /api/widget/summary`, refreshed every 30s and
   on live realtime events (it reuses the dashboard's existing SSE stream, so it
   opens no extra connection).
-- Read-only. DashClaw is a governance runtime; the widget only *observes*. It
-  never approves, runs, or changes anything — open the full dashboard for that
-  (the ↗ button → `/mission-control`).
+- Operator decisions only. The widget shows pending approvals with inline
+  **Approve / Deny** — these are *your* human governance decisions, resolved
+  through the same `/api/approvals/[actionId]` path as every other surface, and
+  they clear the approval **everywhere** (dashboard, Discord, Telegram) at once.
+  The buttons are admin-gated. The widget never acts AS an agent and exposes no
+  agent tools — for everything else, open the full dashboard (↗ → `/mission-control`).
 
 ## Posture states
 
@@ -77,6 +80,8 @@ shows the live connection separately: **Live** / **Reconnecting** / **Offline**.
 
 ## What it shows
 
+- **Pending approvals**: each waiting action with inline Approve / Deny — decide
+  without leaving your desktop; the approval then clears from every channel.
 - **Metrics**: active agents (acted in the last 15m), pending approvals,
   attention signals, and recent (24h) spend.
 - **Top signal**: the single most important risk signal, if any.
