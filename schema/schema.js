@@ -1033,6 +1033,23 @@ export const scheduledJobs = pgTable('scheduled_jobs', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+// eval_scorers — reusable scorer definitions. Historically created only by the
+// standalone scripts/migrate-evaluations.mjs, so it was missing from the drizzle
+// chain (and from here); see drizzle/0025. Columns/types mirror that script.
+export const evalScorers = pgTable('eval_scorers', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  name: text('name').notNull(),
+  scorerType: text('scorer_type').notNull(),
+  config: text('config'),
+  description: text('description'),
+  createdBy: text('created_by'),
+  createdAt: text('created_at'),
+  updatedAt: text('updated_at'),
+}, (table) => ({
+  orgNameUnique: uniqueIndex('idx_eval_scorers_org_name').on(table.orgId, table.name),
+}));
+
 export const evalScores = pgTable('eval_scores', {
   id: text('id').primaryKey(),
   orgId: text('org_id').notNull(),

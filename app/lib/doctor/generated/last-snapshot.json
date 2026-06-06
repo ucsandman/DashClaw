@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:891c60d3a81646ab6524090646284a4face2b620",
+  "timestamp": "sha1:722fd7e235ae13f989e2f77b2a3ae76981b0a819",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4682,6 +4682,11 @@
     },
     {
       "name": "eval_runs",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "eval_scorers",
       "file_path": "schema/schema.js",
       "domain": null
     },

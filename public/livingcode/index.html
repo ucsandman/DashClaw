@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:891c60d3a81646ab6524090646284a4face2b620 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:722fd7e235ae13f989e2f77b2a3ae76981b0a819 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">250</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">137</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">92</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">93</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">10</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (92)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (93)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -96,6 +96,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>drift_snapshots</code></td><td class="sig">—</td></tr>
     <tr><td><code>entities</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_runs</code></td><td class="sig">—</td></tr>
+    <tr><td><code>eval_scorers</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_scores</code></td><td class="sig">—</td></tr>
     <tr><td><code>executions</code></td><td class="sig">—</td></tr>
     <tr><td><code>feedback</code></td><td class="sig">—</td></tr>
@@ -181,7 +182,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>8</b> env_vars added, <b>38</b> routes added, <b>1</b> routes changed, <b>7</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>8</b> env_vars added, <b>38</b> routes added, <b>1</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
@@ -229,6 +230,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: S <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_PROJECT_PRODUCTION_URL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>tables</b>: approval_notifications <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: eval_scorers <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: oauth_access_tokens <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: oauth_authorization_codes <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: oauth_clients <span class="sig">New table in schema</span></li>

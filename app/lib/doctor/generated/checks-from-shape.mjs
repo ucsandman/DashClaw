@@ -41,6 +41,7 @@ const TABLES = [
   "drift_snapshots",
   "entities",
   "eval_runs",
+  "eval_scorers",
   "eval_scores",
   "executions",
   "feedback",
