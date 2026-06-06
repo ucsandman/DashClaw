@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.2] — 2026-06-06
+
+### Changed
+
+- **UI readability + brightness lift** — a site-wide pass, at the token layer, to pull the dark theme out of the flat near-black/low-contrast register that made dense surfaces (the Policies page in particular) hard to read. The surface ramp was raised off pitch-black with a faint cool-slate undertone and stepped further apart for real depth (`bg-primary #0a0a0a → #0e1014`, through `#272b32`); `border` opacity lifted so card and panel edges read. Secondary/tertiary body text was brightened to clear WCAG AA with headroom (`text-secondary #a1a1aa → #c2c2cc` ≈ 10.8:1, `text-tertiary #808088 → #9b9ba8` ≈ 6.9:1). The small type steps were enlarged (`text-xs` 12→13px, `text-sm` 14→15px) so everyday copy stops whispering, and the Policies authoring helper text was lifted off its 10/11px `text-disabled`/`text-tertiary` sizing. On-doctrine signs of life: a soft brand glow on the active nav item and brand-tinted text selection. Still dark-mode only, orange still reserved as a signal. Design context (`.impeccable.md`, `DESIGN.md`, `PRODUCT.md`) updated to match. No platform or SDK surface change — SDKs republish at 4.4.2 per the unified-version model.
+
 ## [4.4.1] — 2026-06-06
 
 ### Added

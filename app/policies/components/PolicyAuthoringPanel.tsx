@@ -36,7 +36,7 @@ function PolicyAgentScope({ agentIds, setAgentIds, agents }: PolicyAgentScopePro
         >
           All Agents
         </button>
-        <span className="text-[10px] text-disabled">or pick specific agents:</span>
+        <span className="text-xs text-tertiary">or pick specific agents:</span>
       </div>
       {agents.length > 0 ? (
         <div className="flex flex-wrap gap-2">
@@ -56,7 +56,7 @@ function PolicyAgentScope({ agentIds, setAgentIds, agents }: PolicyAgentScopePro
           ))}
         </div>
       ) : (
-        <p className="text-[10px] text-disabled">No agents discovered yet. Policies will apply to all agents by default.</p>
+        <p className="text-xs text-tertiary">No agents discovered yet. Policies will apply to all agents by default.</p>
       )}
     </div>
   );

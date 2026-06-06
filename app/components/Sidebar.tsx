@@ -168,7 +168,7 @@ export default function Sidebar() {
         title={item.popout ? `${item.label} (opens in a floating window)` : collapsed ? item.label : undefined}
         className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
           active
-            ? 'bg-white/5 text-white'
+            ? 'bg-brand-subtle text-white'
             : 'text-secondary hover:bg-white/5 hover:text-white'
         }`}
       >

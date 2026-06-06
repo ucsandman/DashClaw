@@ -308,7 +308,7 @@ export default function PolicyRuleBuilderSection({
               <option value="allow">Allow (Fail Open - Recommended)</option>
               <option value="block">Block (Fail Closed)</option>
             </select>
-            <p className="text-[10px] text-tertiary mt-1">
+            <p className="text-xs text-tertiary mt-1">
               To enable this, set <code className="text-secondary">GUARD_LLM_KEY</code> (or OPENAI_API_KEY) in your environment variables.
             </p>
           </div>
@@ -317,7 +317,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'non_fabrication' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Verifies the action&apos;s outbound content against a source-of-truth: every amount, date,
             percentage, and registered ID must trace to an allowed fact, and no forbidden pattern may
             appear. Attach <code className="text-secondary">content</code> and{' '}
@@ -373,7 +373,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'behavioral_anomaly' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Compares each action against the agent&apos;s recent history using embedding similarity.
             Requires embeddings — set <code className="text-secondary">OPENAI_API_KEY</code>. The policy
             stays dormant until the agent has at least the baseline number of recorded actions.
@@ -427,7 +427,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'permission_escalation' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Compares the permission a tool requires against the agent&apos;s approved pairing level.
             The policy is inert until enforcement is turned on.
           </p>
@@ -461,7 +461,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'green_contract' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Gates the selected actions until the agent reports a test status at or above the required
             level. A missing test status fails the contract.
           </p>
@@ -504,7 +504,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'branch_freshness' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Blocks the selected actions when the agent&apos;s working branch is in one of the chosen
             states and is too many commits behind its base.
           </p>
@@ -565,7 +565,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'protected_path' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Warns or requires approval when an action&apos;s target path matches one of these globs.
             Patterns support <code className="text-secondary">**</code> (any depth) and{' '}
             <code className="text-secondary">*</code> (one segment). The Policy Coach pre-fills these
@@ -603,7 +603,7 @@ export default function PolicyRuleBuilderSection({
 
       {form.type === 'x402_spend_limit' && (
         <div className="space-y-4">
-          <p className="text-[11px] text-tertiary">
+          <p className="text-xs text-tertiary">
             Governs x402 capability purchases: blocks spend over the hard cap, routes purchases at or
             above the approval threshold to human review, and enforces provider allow/block lists.
             Leave a field blank to skip that control. Providers may be listed by display name or by

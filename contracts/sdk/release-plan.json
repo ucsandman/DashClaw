@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.1",
+    "current_version": "4.4.2",
     "next_bump": "none",
-    "reason": "4.4.1 — patch (internal dev tooling). Ships living-merge: a merge=regenerate git driver + post-merge/post-rewrite hooks + a cross-worktree authored-overlap SessionStart signal so parallel git worktrees never conflict on generated files. No platform or SDK surface change — Node surface stays 126, byte-identical to 4.4.0, republishes at 4.4.1 per the unified-version model. Self-dep stays ^4.0.0 (patch within the major).",
-    "domains": ["devtools", "docs"]
+    "reason": "4.4.2 — patch (UI readability/brightness lift). Token-layer theme pass: surfaces raised off pitch-black with a cool-slate undertone, secondary/tertiary text brightened to clear WCAG AA with headroom, small type steps enlarged, soft brand glow on active nav + brand text selection, Policies authoring helper text lifted. No platform or SDK surface change — Node surface stays 126, byte-identical to 4.4.1, republishes at 4.4.2 per the unified-version model. Self-dep stays ^4.0.0 (patch within the major).",
+    "domains": ["ui", "docs"]
   },
   "python": {
-    "current_version": "4.4.1",
+    "current_version": "4.4.2",
     "next_bump": "none",
-    "reason": "4.4.1 — patch (internal dev tooling). living-merge dev workflow (git merge driver + hooks + overlap signal). No Python SDK change — surface stays 224, byte-identical to 4.4.0, republishes at 4.4.1 per the unified-version model.",
-    "domains": ["devtools", "docs"]
+    "reason": "4.4.2 — patch (UI readability/brightness lift). Platform-only theme pass. No Python SDK change — surface stays 224, byte-identical to 4.4.1, republishes at 4.4.2 per the unified-version model.",
+    "domains": ["ui", "docs"]
   }
 }

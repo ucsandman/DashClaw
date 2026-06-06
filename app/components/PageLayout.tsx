@@ -34,7 +34,7 @@ export default function PageLayout({ title, subtitle, breadcrumbs, actions, matu
           <div className="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-6 py-3 sm:py-4">
             <div className="min-w-0">
               {breadcrumbs && (
-                <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                <nav aria-label="Breadcrumb" className="mb-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                   {breadcrumbs.map((crumb: React.ReactNode, i: number) => (
                     <span key={i} className="flex items-center gap-1.5">
                       {i > 0 && <span aria-hidden="true" className="text-zinc-700">/</span>}
@@ -48,7 +48,7 @@ export default function PageLayout({ title, subtitle, breadcrumbs, actions, matu
               <div className="flex items-center gap-2">
                 <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-white truncate">{title}</h1>
                 {maturity && MATURITY_BADGE[maturity] && (
-                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-[0.08em] border shrink-0 ${MATURITY_BADGE[maturity].color}`}>
+                  <span className={`px-1.5 py-0.5 rounded text-[11px] font-semibold uppercase tracking-[0.08em] border shrink-0 ${MATURITY_BADGE[maturity].color}`}>
                     {MATURITY_BADGE[maturity].label}
                   </span>
                 )}

@@ -10,22 +10,27 @@
   --color-brand-subtle: rgba(249, 115, 22, 0.12);
   --color-brand-hover: #fb923c;
 
-  /* Surfaces */
-  --color-bg-primary: #0a0a0a;
-  --color-bg-secondary: #111111;
-  --color-bg-tertiary: #1a1a1a;
-  --color-bg-elevated: #222222;
+  /* Surfaces — lifted off pitch-black with a faint cool-slate undertone so the
+     canvas reads as a deliberate dark instrument panel, not a flat black void.
+     Stepped further apart than before so layered surfaces actually separate. */
+  --color-bg-primary: #0e1014;
+  --color-bg-secondary: #15171c;
+  --color-bg-tertiary: #1d2026;
+  --color-bg-elevated: #272b32;
 
-  /* Borders */
-  --color-border: rgba(255, 255, 255, 0.06);
-  --color-border-hover: rgba(255, 255, 255, 0.12);
+  /* Borders — lifted so card and panel edges are visible instead of mushing
+     into the background. */
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-border-hover: rgba(255, 255, 255, 0.14);
   --color-border-active: rgba(249, 115, 22, 0.4);
 
-  /* Text */
+  /* Text — brightened so secondary/tertiary copy stops whispering. Contrast on
+     --color-bg-primary actually rises despite the lighter canvas:
+     secondary ≈ 10.8:1, tertiary ≈ 6.9:1 (was 4.6:1 — comfortably clears AA now). */
   --color-text-primary: #fafafa;
-  --color-text-secondary: #a1a1aa;
-  --color-text-tertiary: #808088; /* WCAG AA — 4.6:1 on --color-bg-primary (was #71717a / 4.1:1, fail) */
-  --color-text-disabled: #52525b;
+  --color-text-secondary: #c2c2cc;
+  --color-text-tertiary: #9b9ba8;
+  --color-text-disabled: #5c5c66;
 
   /* Semantic status */
   --color-success: #22c55e;
@@ -43,6 +48,13 @@
 body {
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
+}
+
+/* Brand-tinted text selection — a small sign of life on an otherwise neutral
+   canvas, and an on-doctrine use of brand orange (deliberate, not decorative). */
+::selection {
+  background: rgba(249, 115, 22, 0.28);
+  color: #fff;
 }
 
 /* Accessibility floor (per .impeccable.md principle #6) */

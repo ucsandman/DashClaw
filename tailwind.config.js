@@ -75,6 +75,15 @@ module.exports = {
         sans: ['var(--font-inter)', 'system-ui', '-apple-system', 'sans-serif'],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
       },
+      // Type-scale floor. The product leans on `text-xs`/`text-sm` for the bulk of
+      // its body and label copy; Tailwind's stock 12px/14px read as cramped on a
+      // dense dark UI. Nudge the small steps up (with a touch more leading for air)
+      // so everyday copy is comfortably readable. Larger steps keep their defaults.
+      fontSize: {
+        xs: ['0.8125rem', { lineHeight: '1.125rem' }], // 13px (was 12px)
+        sm: ['0.9375rem', { lineHeight: '1.375rem' }], // 15px (was 14px)
+        base: ['1rem', { lineHeight: '1.5rem' }], // 16px
+      },
     },
   },
   plugins: [],
