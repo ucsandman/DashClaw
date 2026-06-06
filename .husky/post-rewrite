@@ -1,0 +1,6 @@
+#!/bin/sh
+# living-merge: re-derive generated projections after history is rewritten
+# (git rebase / git commit --amend), so the working tree matches the rewritten
+# source. Logic lives in a cross-platform Node script (no bash-isms).
+node scripts/living-merge/regenerate-all.mjs --quiet || \
+  echo "[living-merge] post-rewrite regenerate failed; run: node scripts/living-merge/regenerate-all.mjs" >&2

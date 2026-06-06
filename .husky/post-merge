@@ -1,0 +1,8 @@
+#!/bin/sh
+# living-merge: re-derive generated projections after a merge (this hook fires
+# for normal merges, fast-forward merges, and `git pull`), so the working tree
+# is always self-consistent with the merged source. The merge=regenerate driver
+# kept generated files conflict-free; this overwrites them with a correct
+# regeneration. Logic lives in a cross-platform Node script (no bash-isms).
+node scripts/living-merge/regenerate-all.mjs --quiet || \
+  echo "[living-merge] post-merge regenerate failed; run: node scripts/living-merge/regenerate-all.mjs" >&2
