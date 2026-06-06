@@ -173,7 +173,7 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**293 routes**: 47 stable, 24 beta, 222 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**297 routes**: 50 stable, 24 beta, 223 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Skills — governance protocol + live platform reference
 

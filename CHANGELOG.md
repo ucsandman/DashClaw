@@ -13,9 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.0] — 2026-06-06
+
 ### Added
 
 - **Policy Modes** — named operating contracts that compile to packs of ordinary guard policies, so operators pick a posture ("Claude Code Mode", "SOC 2 Mode", …) instead of authoring policy types by hand. Ships an 8-mode built-in catalog (`app/lib/policy-modes/`), three routes (`GET /api/policies/modes`, `POST /api/policies/modes/preview`, `POST /api/policies/modes/import`), and a "Modes" tab on `/policies` with per-mode preview (generated policy list, decision legend, best-effort friction simulation) and an admin-gated **Apply**. Mode-generated policies are tagged with `_mode` inside their rules JSON (mirrors the existing `_shield` tag — no schema migration) and applied as active. Claude Code Mode won't interrupt routine coding (reads/edits/bash/test/build) while pausing for money (x402), external comms, deploys, migrations, destructive ops, protected paths, and runaway loops. Raw YAML import and existing policy flows are unchanged. SOC 2 / Enterprise modes use careful, non-hype language and make no compliance guarantee. See `docs/policy-modes.md`.
+- **Live status widget** — a chrome-free, embeddable `/widget` surface showing fleet posture, key metrics, a recent decision log, and a footer, backed by a composed `GET /api/widget/summary` (pure normalization over existing posture/metrics/log sources). Updates live via polling + realtime with an explicit connection-state indicator. Read-only observability — never an agent tool and never calls a model. Includes a usage doc and a privacy-assertion test.
 
 ## [4.3.1] — 2026-06-06
 

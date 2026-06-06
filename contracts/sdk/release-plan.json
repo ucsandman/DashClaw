@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.3.1",
+    "current_version": "4.4.0",
     "next_bump": "none",
-    "reason": "4.3.1 — patch. Fixes the Optimal Files `dashclaw code apply` pipeline end-to-end: the manifest builder now backfills file content into every plan entry (manifests were saved content-less, so apply wrote nothing), and the CLI parses `--dest=value` plus lazy-loads the codex parser (a static TS import was crashing every command). Platform + CLI only; no SDK change — Node surface stays 126, byte-identical to 4.3.0, republishes at 4.3.1 per the unified-version model. Self-dep stays ^4.0.0 (patch within the major).",
-    "domains": ["platform", "cli", "docs"]
+    "reason": "4.4.0 — minor (additive). Ships two platform features: Policy Modes (named operating contracts that compile to guard-policy packs; 8-mode catalog + GET /api/policies/modes, POST .../preview, POST .../import; /policies Modes tab) and a live status widget (chrome-free /widget + composed GET /api/widget/summary, read-only observability). No SDK method change — Node surface stays 126, byte-identical to 4.3.1, republishes at 4.4.0 per the unified-version model. Self-dep stays ^4.0.0 (minor within the major).",
+    "domains": ["platform", "ui", "docs"]
   },
   "python": {
-    "current_version": "4.3.1",
+    "current_version": "4.4.0",
     "next_bump": "none",
-    "reason": "4.3.1 — patch. Platform + CLI fix for the Optimal Files apply pipeline. No Python SDK change — surface stays 224; byte-identical to 4.3.0, republishes at 4.3.1 per the unified-version model.",
-    "domains": ["platform", "cli", "docs"]
+    "reason": "4.4.0 — minor (additive). Platform features Policy Modes + live status widget. No Python SDK change — surface stays 224, byte-identical to 4.3.1, republishes at 4.4.0 per the unified-version model.",
+    "domains": ["platform", "ui", "docs"]
   }
 }
