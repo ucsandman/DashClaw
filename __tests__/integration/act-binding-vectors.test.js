@@ -7,7 +7,7 @@
  * would land on the same bytes. These vectors close that gap: each tuple has
  * a frozen canonical form and a frozen `sha256:` digest, locked in CI.
  *
- * Six cases, chosen to cover the canonicalization surface:
+ * Nine cases, chosen to cover the canonicalization surface:
  *
  *   1. ASCII read tuple — baseline.
  *   2. ASCII delete tuple — action variation, distinct digest.
@@ -17,6 +17,11 @@
  *      drops NFC normalization, (3) and (4) part ways and this test fails.
  *   5. Quote + backslash escaping in target and goal.
  *   6. Embedded control character (literal newline) in goal.
+ *   7. U+2028 LINE SEPARATOR in goal — left RAW (see profile note below).
+ *   8. Astral / surrogate-pair code point (U+1F600) in goal — 4-byte UTF-8,
+ *      emitted raw, exercises the surrogate path the BMP café cases don't.
+ *   9. NFKC-unstable ligature (U+FB03 ﬃ) in goal — preserved verbatim, NOT
+ *      compatibility-folded to "ffi". Locks that the profile is NFC, not NFKC.
  *
  * Each case asserts BOTH the canonical string AND the digest. Splitting the two
  * means a future regression points at *which half* drifted: an unintended
@@ -24,9 +29,18 @@
  * digest change (different algorithm, different encoding) shows up as a digest
  * mismatch while the canonical bytes still line up.
  *
+ * Profile note — these bytes are V8 `JSON.stringify` of NFC-normalized,
+ * lex-ordered, string-only values: a JCS-*compatible* profile, NOT strict
+ * RFC 8785. The two diverge exactly where vectors 7–9 sit; an independent
+ * issuer must match V8's choices, not the RFC literally — non-ASCII is emitted
+ * as raw UTF-8 (not `\uXXXX`; contrast Python `ensure_ascii` / Go's default),
+ * and U+2028/U+2029 are left raw (RFC 8785 §3.2.2.2 would escape them). Vectors
+ * 7–9 freeze those divergence points so a foreign issuer that drifts there
+ * fails loudly instead of silently producing a mismatching digest.
+ *
  * The vectors were independently re-derived from the act-binding.ts module
  * header spec by a hand-rolled lex-ordered string builder that doesn't rely
- * on V8 insertion-order enumeration. 6/6 agree byte-for-byte.
+ * on V8 insertion-order enumeration. 9/9 agree byte-for-byte.
  *
  * Changing any expected value in this file is a wire-format break. If a future
  * change forces it, bump `urn:dashclaw:act-binding`'s `typ` suffix
@@ -119,6 +133,51 @@ const VECTORS = [
       '{"action":"log.write","goal":"line1\\nline2","target":"app.log"}',
     hash: 'sha256:Rn2KBAu2PX4OAL_ziqCja2zDfvfyoMQoDU3XzwBJLbw',
   },
+  {
+    // U+2028 LINE SEPARATOR in goal. V8 JSON.stringify leaves it RAW; strict
+    // RFC 8785 §3.2.2.2 would escape it. This freezes V8's choice.
+    name: 'vec.unicode.line-separator',
+    tuple: {
+      action: 'doc.append',
+      target: 'notes.md',
+      goal: 'first paragraph' + String.fromCodePoint(0x2028) + 'second paragraph',
+    },
+    canonical:
+      '{"action":"doc.append","goal":"first paragraph' +
+      String.fromCodePoint(0x2028) +
+      'second paragraph","target":"notes.md"}',
+    hash: 'sha256:rmerdIKjQaau84rHrvBma0UebaBWcDV8CRFRfgksqQI',
+  },
+  {
+    // U+1F600 (astral, a UTF-16 surrogate pair). Emitted as raw 4-byte UTF-8,
+    // not \uXXXX — exercises the encoding path the BMP café vectors don't.
+    name: 'vec.unicode.astral-emoji',
+    tuple: {
+      action: 'chat.react',
+      target: 'thread/42',
+      goal: 'react with ' + String.fromCodePoint(0x1f600),
+    },
+    canonical:
+      '{"action":"chat.react","goal":"react with ' +
+      String.fromCodePoint(0x1f600) +
+      '","target":"thread/42"}',
+    hash: 'sha256:DXpt4dK3TfXt8MsO0-1_V3CBUrx93Uw-pipnd_xcUsQ',
+  },
+  {
+    // U+FB03 (ﬃ ligature): NFC-stable, so preserved verbatim. NFKC would fold
+    // it to "ffi" — this vector locks that the profile is NFC, not NFKC.
+    name: 'vec.unicode.nfkc-stable',
+    tuple: {
+      action: 'search.run',
+      target: 'reports',
+      goal: 'find the ' + String.fromCodePoint(0xfb03) + ' ligature',
+    },
+    canonical:
+      '{"action":"search.run","goal":"find the ' +
+      String.fromCodePoint(0xfb03) +
+      ' ligature","target":"reports"}',
+    hash: 'sha256:lRn09hG0drGKo5br-CYp52TJP-CT4EfDBTWYVno65YY',
+  },
 ];
 
 describe('act-binding frozen interop vectors (Phase 2c)', () => {
@@ -146,5 +205,26 @@ describe('act-binding frozen interop vectors (Phase 2c)', () => {
     expect(computeActBindingHash(precomposed.tuple)).toBe(
       computeActBindingHash(decomposed.tuple),
     );
+  });
+
+  it('U+2028 is left raw, not escaped (V8 JSON.stringify, not strict RFC 8785)', () => {
+    const v = VECTORS.find((x) => x.name === 'vec.unicode.line-separator');
+    const canonical = canonicalizeActionTuple(v.tuple);
+    expect(canonical).toContain(String.fromCodePoint(0x2028)); // raw separator survives
+    expect(canonical).not.toContain('\\u2028'); // the strict-RFC-8785 escape is absent
+  });
+
+  it('astral code point is emitted as raw UTF-8, not \\uXXXX', () => {
+    const v = VECTORS.find((x) => x.name === 'vec.unicode.astral-emoji');
+    const canonical = canonicalizeActionTuple(v.tuple);
+    expect(canonical).toContain(String.fromCodePoint(0x1f600)); // raw emoji
+    expect(canonical).not.toContain('\\u'); // no escape sequence at all
+  });
+
+  it('NFKC-unstable ligature is preserved (NFC), not folded to "ffi" (NFKC)', () => {
+    const v = VECTORS.find((x) => x.name === 'vec.unicode.nfkc-stable');
+    const canonical = canonicalizeActionTuple(v.tuple);
+    expect(canonical).toContain(String.fromCodePoint(0xfb03)); // ﬃ kept verbatim
+    expect(canonical).not.toContain('ffi'); // NFKC compatibility fold did NOT happen
   });
 });
