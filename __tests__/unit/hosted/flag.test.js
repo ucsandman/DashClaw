@@ -25,10 +25,12 @@ describe('hosted flag', () => {
     delete process.env.HOSTED_TRIAL_DAYS;
     delete process.env.HOSTED_TRIAL_ACTION_CAP;
     delete process.env.HOSTED_PROVISION_MAX_PER_IP_PER_DAY;
+    delete process.env.HOSTED_MAX_ACTIVE_TRIALS;
     expect(hostedConfig()).toEqual({
       trialDays: 30,
       trialActionCap: 10000,
       maxProvisionsPerIpPerDay: 5,
+      maxActiveTrials: 500,
     });
   });
 
@@ -40,7 +42,18 @@ describe('hosted flag', () => {
       trialDays: 7,
       trialActionCap: 500,
       maxProvisionsPerIpPerDay: 2,
+      maxActiveTrials: 500,
     });
+  });
+
+  it('maxActiveTrials defaults to 500 when HOSTED_MAX_ACTIVE_TRIALS is unset', () => {
+    delete process.env.HOSTED_MAX_ACTIVE_TRIALS;
+    expect(hostedConfig().maxActiveTrials).toBe(500);
+  });
+
+  it('maxActiveTrials reads HOSTED_MAX_ACTIVE_TRIALS env var', () => {
+    process.env.HOSTED_MAX_ACTIVE_TRIALS = '25';
+    expect(hostedConfig().maxActiveTrials).toBe(25);
   });
 
   it('hostedConfig rejects non-numeric overrides and falls back to default', () => {

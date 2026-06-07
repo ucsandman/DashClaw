@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:010b8822a12e83d16a0dae14320dff61156135c8",
+  "timestamp": "sha1:4c7440e03b548699d301f7ed95942faf8e77e2df",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3904,6 +3904,15 @@
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/hosted/cleanup/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "HOSTED_MAX_ACTIVE_TRIALS",
+      "required": false,
+      "files": [
+        "__tests__/unit/hosted/flag.test.js",
+        "app/lib/hosted/flag.ts"
       ],
       "in_env_example": false
     },
