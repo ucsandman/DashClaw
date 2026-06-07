@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { X, Paperclip } from 'lucide-react';
+import { X, Paperclip, Reply } from 'lucide-react';
 
 const ALLOWED_MIME_TYPES = [
   'image/png', 'image/jpeg', 'image/gif', 'image/webp',
@@ -164,6 +164,14 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
         {sendError && (
           <div className="mb-3 rounded-md border border-error/40 bg-error-subtle px-3 py-2 text-xs text-error">
             {sendError}
+          </div>
+        )}
+
+        {prefill?.to && (
+          <div className="mb-3 flex items-center gap-1.5 rounded-md border border-brand/20 bg-brand/5 px-3 py-2 text-xs text-secondary">
+            <Reply size={12} className="text-brand" aria-hidden="true" />
+            Replying to <span className="font-medium text-white">{prefill.to}</span>
+            {prefill.type && <span className="text-tertiary">· {prefill.type}</span>}
           </div>
         )}
 

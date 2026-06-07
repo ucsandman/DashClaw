@@ -524,6 +524,7 @@ export default function MessagesPage() {
                   {selectedType === 'message' && (
                     <MessageDetail
                       message={selected}
+                      outbound={tab === 'sent'}
                       onMarkRead={handleMarkRead}
                       onArchive={handleArchive}
                       onReply={handleReply}

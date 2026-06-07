@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MessageSquare, AlertCircle, Eye, Archive, Reply, Hash, Copy, FileType } from 'lucide-react';
+import { MessageSquare, AlertCircle, Eye, Archive, Reply, Hash, Copy, FileType, Check, CheckCheck } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
 import { getAgentColor } from '../../lib/colors';
 import { isDemoMode } from '../../lib/isDemoMode';
@@ -9,13 +9,16 @@ import AttachmentChips from './AttachmentChips';
 
 interface MessageDetailProps {
   message: any;
+  // When true (the Sent tab), show a delivery/read receipt — this is an
+  // outbound message, so "read" means the recipient read it, not the viewer.
+  outbound?: boolean;
   onMarkRead?: (id: any) => void;
   onArchive?: (id: any) => void;
   onReply?: (message: any) => void;
   onViewThread?: (threadId: any) => void;
 }
 
-export default function MessageDetail({ message, onMarkRead, onArchive, onReply, onViewThread }: MessageDetailProps) {
+export default function MessageDetail({ message, outbound, onMarkRead, onArchive, onReply, onViewThread }: MessageDetailProps) {
   const isDemo = isDemoMode();
   const fromAgentId = message.from_agent_id || message.sender_id || 'unknown';
   const toAgentId = message.to_agent_id ?? null;
@@ -70,6 +73,22 @@ export default function MessageDetail({ message, onMarkRead, onArchive, onReply,
           <FileType size={10} /> {copyState === 'plain' ? 'Copied!' : 'Copy Plain Text'}
         </button>
       </div>
+      {outbound && (
+        <div className="mb-2 flex items-center gap-1.5 text-xs">
+          {message.read_at || message.is_read ? (
+            <span className="inline-flex items-center gap-1 text-success">
+              <CheckCheck size={12} /> Read{message.read_at ? ` ${timeAgo(message.read_at)}` : ''}
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-tertiary">
+              <Check size={12} /> Delivered · awaiting read
+            </span>
+          )}
+          {toAgentId === null && Array.isArray(message.read_by) && message.read_by.length > 0 && (
+            <span className="text-tertiary">· read by {message.read_by.length}</span>
+          )}
+        </div>
+      )}
       <div className="text-xs text-disabled mb-3">
         {new Date(message.created_at).toLocaleString()}
         {message.read_at && ` · Read ${timeAgo(message.read_at)}`}
