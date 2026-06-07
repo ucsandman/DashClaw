@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.5] — 2026-06-07
+
+### Fixed
+
+- **`npm run dev` no longer 500s on every route.** `next dev` defaulted to Turbopack, which does not apply the webpack `.js`→`.ts` `extensionAlias`, so `middleware.js` could not resolve its `demoFixtures`/`demoMiddleware` imports and every request returned 500 — local testing was effectively broken. The dev script now runs `next dev --webpack -p 3000`, matching the production build toolchain; all 73 page routes verified rendering clean (0 console errors, 0 network failures). The production build was always `next build --webpack` and was unaffected.
+- **`/capabilities/[capabilityId]` — two `react-hooks/exhaustive-deps` warnings cleared.** `CapabilityAccessTab` now memoizes its loader via `useCallback`; the detail page drops a dead default parameter (all call sites already pass it) and documents an intentional refresh-only-on-`capabilityId`-change effect. Behavior unchanged.
+- **`recent-digest` unit test — fixed a `TS2532` possibly-undefined indexed access** under `noUncheckedIndexedAccess`, restoring a clean `npm run typecheck`.
+
+SDKs republish at 4.4.5 per the unified-version model (no SDK surface change — Node 126 / Python 224, byte-identical to 4.4.4).
+
 ## [4.4.4] — 2026-06-06
 
 ### Changed

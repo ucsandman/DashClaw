@@ -78,7 +78,7 @@ export default function CapabilityDetailPage({ params }: { params?: { capability
     }
   }, [capabilityId]);
 
-  const loadHistory = useCallback(async (filters: HistoryFilters = historyFilters) => {
+  const loadHistory = useCallback(async (filters: HistoryFilters) => {
     const params = new URLSearchParams();
     if (filters.actionType && filters.actionType !== 'all') {
       params.set('action_type', filters.actionType);
@@ -128,6 +128,9 @@ export default function CapabilityDetailPage({ params }: { params?: { capability
   useEffect(() => {
     hasInitializedHistory.current = false;
     handleRefresh();
+    // Remount only on capabilityId change; including handleRefresh would re-run on every
+    // filter change and double-fetch (the filter effect below already handles that).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [capabilityId]);
 
   useEffect(() => {

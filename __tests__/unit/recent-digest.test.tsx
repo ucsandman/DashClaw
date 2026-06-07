@@ -36,7 +36,7 @@ describe('RecentDigest', () => {
     expect(screen.getByText('BLOCK').className).toContain('text-error');
     expect(screen.getByText('REQUIRE_APPROVAL').className).toContain('text-warning');
     expect(screen.getByText('WARN').className).toContain('text-warning');
-    expect(screen.getAllByText('ALLOW')[0].className).toContain('text-tertiary');
+    expect(screen.getAllByText('ALLOW')[0]!.className).toContain('text-tertiary');
   });
 
   it('renders the HH:MM time', () => {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ShieldCheck, Plus, Trash2 } from 'lucide-react';
 
 const ACCESS_PILL: Record<string, { label: string; color: string }> = {
@@ -29,7 +29,7 @@ export default function CapabilityAccessTab({ capabilityId }: CapabilityAccessTa
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
 
-  async function loadRules() {
+  const loadRules = useCallback(async () => {
     try {
       const res = await fetch(`/api/capabilities/${capabilityId}/access`);
       if (res.ok) {
@@ -39,9 +39,9 @@ export default function CapabilityAccessTab({ capabilityId }: CapabilityAccessTa
     } catch { /* ignore */ } finally {
       setLoading(false);
     }
-  }
+  }, [capabilityId]);
 
-  useEffect(() => { loadRules(); }, [capabilityId]);
+  useEffect(() => { loadRules(); }, [loadRules]);
 
   async function handleCreate() {
     setSaving(true);
