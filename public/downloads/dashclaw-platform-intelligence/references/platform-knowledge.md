@@ -38,10 +38,10 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Next.js 16 (App Router), JavaScript, Tailwind CSS 3
 - Postgres (TCP via `postgres`, serverless via `@neondatabase/serverless`)
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
-- **Version:** the platform and both SDKs share one version — currently **4.3.0** (Node + Python; see `CHANGELOG.md`).
+- **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
   - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 126 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
-  - **Node v1 — full platform legacy** (`sdk/legacy/dashclaw-v1.js`, 187 methods), re-exported as `dashclaw/legacy` for older integrations (see `docs/sdk-parity.md`).
+  - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
   - **Python — full platform** (`sdk-python/dashclaw/client.py`, 224 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
@@ -317,7 +317,7 @@ When you need current data from the codebase, read these:
 | SDK parity matrix | `docs/sdk-parity.md` |
 | SDK README (copy-as-markdown source) | `sdk/README.md` |
 | Node v2 SDK source | `sdk/dashclaw.js` |
-| Node v1 legacy SDK source | `sdk/legacy/dashclaw-v1.js` |
+| Node v1 legacy SDK source (DEPRECATED) | `sdk/legacy/dashclaw-v1.js` |
 | Python SDK source | `sdk-python/dashclaw/client.py` |
 | Middleware (auth chain) | `middleware.js` |
 | Sidebar navigation | `app/components/Sidebar.js` |

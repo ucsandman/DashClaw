@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:bf58669647d3f95ebb570a913c3940d67a6814c2",
+  "timestamp": "sha1:010b8822a12e83d16a0dae14320dff61156135c8",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3562,6 +3562,14 @@
       "files": [
         "__tests__/unit/reputation.repository.test.js",
         "app/lib/integrity/server-key.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_SUPPRESS_LEGACY_WARNING",
+      "required": false,
+      "files": [
+        "sdk/legacy/dashclaw-v1.js"
       ],
       "in_env_example": false
     },

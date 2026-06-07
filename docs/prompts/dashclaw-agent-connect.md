@@ -133,24 +133,25 @@ High-level flow:
 
 Node example (private JWK in memory).
 
-> **Important:** `createPairingFromPrivateJwk` and `waitForPairing` only exist
-> on the **legacy** SDK surface — they are not available on the canonical
-> `dashclaw` import. Use the `dashclaw/legacy` subpath for pairing flows:
+> **Important:** `createPairingFromPrivateJwk` and `waitForPairing` currently exist
+> **only** on the `dashclaw/legacy` surface — they are not yet on the canonical
+> `dashclaw` import. `dashclaw/legacy` is **deprecated** (removed in v5.0.0), so these
+> pairing methods must be promoted to the canonical SDK before then; until they are,
+> pairing flows require the legacy subpath:
 
 ```js
-// Pairing flows require the v1 legacy SDK subpath.
 import { DashClaw } from 'dashclaw/legacy';
 
-const clawLegacy = new DashClaw({
+const claw = new DashClaw({
   baseUrl: process.env.DASHCLAW_BASE_URL,
   apiKey: process.env.DASHCLAW_API_KEY,
   agentId: process.env.DASHCLAW_AGENT_ID,
 });
 
 // privateKeyJwk: the agent's RSA private key (JWK)
-const { pairing, pairing_url } = await clawLegacy.createPairingFromPrivateJwk(privateKeyJwk);
+const { pairing, pairing_url } = await claw.createPairingFromPrivateJwk(privateKeyJwk);
 console.log('Approve this agent:', pairing_url);
-await clawLegacy.waitForPairing(pairing.id);
+await claw.waitForPairing(pairing.id);
 ```
 
 After approval, send a signed action and confirm the dashboard marks it verified.

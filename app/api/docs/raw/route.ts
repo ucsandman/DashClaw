@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     if (includeLegacy) {
       const legacyPath = resolve(process.cwd(), 'sdk', 'legacy', 'dashclaw-v1.js');
       const legacyContent = readFileSync(legacyPath, 'utf8');
-      content += '\n\n---\n\n## Legacy SDK (v1) Full Source\n\nThe complete v1 SDK source with all 178+ methods across 30 categories:\n\n```javascript\n' + legacyContent + '\n```\n';
+      content += '\n\n---\n\n## Legacy SDK (v1) Full Source — DEPRECATED\n\nThe complete v1 SDK source (deprecated legacy surface; do not build new work against it):\n\n```javascript\n' + legacyContent + '\n```\n';
     }
 
     return new Response(content, {

@@ -277,7 +277,7 @@ DashClaw currently exposes a canonical Node SDK surface plus a legacy compatibil
 
 **Node** is designed for most agents — fast, minimal, covers the governance loop and common workflows. **Python** is the enterprise/power-user surface with compliance reporting, execution graph traversal, and framework-native integrations.
 
-**Policy:** new product work should target the main `dashclaw` client first. `dashclaw/legacy` exists for compatibility with older integrations and older method shapes.
+**Policy:** new product work should target the main `dashclaw` client first. `dashclaw/legacy` is DEPRECATED (removed in v5.0.0); it exists only for compatibility with older integrations and older method shapes — do not target it for new work.
 
 See:
 
@@ -452,12 +452,12 @@ if (result.recommendation === 'block') {
 
 ## Agent Identity
 
-Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing is available in the v1 legacy SDK; the REST endpoints are callable directly from any HTTP client.
+Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing currently lives **only** on the deprecated `dashclaw/legacy` SDK (removed in v5.0.0 — it must be promoted to the canonical SDK before then); the REST endpoints are callable directly from any HTTP client.
 
 ### Create Pairing
 
 ```javascript
-// Node SDK (v1 legacy)
+// Node SDK — pairing is on the deprecated dashclaw/legacy subpath (removed in v5.0.0)
 import { DashClaw } from 'dashclaw/legacy';
 const claw = new DashClaw({ baseUrl, apiKey, agentId });
 
@@ -678,7 +678,9 @@ Set `DASHCLAW_BASE_URL`, `DASHCLAW_API_KEY`, and optionally `DASHCLAW_HOOK_MODE=
 
 ## Legacy SDK (v1)
 
-`dashclaw/legacy` is a compatibility layer for older integrations. It is not the preferred target for new feature design.
+> **DEPRECATED — removed in v5.0.0.** Do not target `dashclaw/legacy` for new work; migrate to the canonical `dashclaw` client.
+
+`dashclaw/legacy` is a deprecated compatibility layer for older integrations, slated for removal in v5.0.0. It is not the preferred target for new feature design.
 
 Use it only when you need methods that have not yet been promoted into the canonical SDK surface.
 

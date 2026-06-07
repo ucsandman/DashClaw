@@ -1587,7 +1587,7 @@ const { decision, verification_status } = await claw.guard({
               returns="{ pairing: { id, status, agent_name, created_at } }"
               example={
                 <CodeBlock title="Create pairing request">
-{`// Node SDK (v1 legacy)
+{`// Node SDK — pairing is on the deprecated dashclaw/legacy subpath
 import { DashClaw } from 'dashclaw/legacy';
 const claw = new DashClaw({ baseUrl, apiKey, agentId });
 

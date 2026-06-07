@@ -1,4 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+// DEPRECATED SURFACE UNDER TEST: `dashclaw/legacy` (dashclaw-v1.js) is deprecated
+// and scheduled for removal in v5.0.0. These tests prove the deprecated-but-live
+// legacy surface still functions — do not extend the legacy SDK; build new work
+// against the canonical client.
 import { DashClaw } from '../../sdk/legacy/dashclaw-v1.js';
 
 function mockFetch(data = {}, ok = true, status = 200) {

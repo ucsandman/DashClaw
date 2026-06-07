@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.5",
+    "current_version": "4.4.6",
     "next_bump": "none",
-    "reason": "4.4.5 is a platform-only maintenance patch from a /dashclaw-quality find-and-fix sweep. Fixes `npm run dev` (it 500'd on every route — `next dev` defaulted to Turbopack, which can't apply the webpack `.js`->`.ts` extensionAlias, so middleware.js failed to resolve its demo imports; dev now runs `next dev --webpack -p 3000` to match the build toolchain). Also clears two react-hooks/exhaustive-deps warnings in /capabilities/[capabilityId] and a TS2532 in the recent-digest unit test. No SDK surface change — Node SDK unchanged at 126 (byte-identical to 4.4.4) and republishes at 4.4.5 per the unified-version model. Self-dep stays ^4.2.0 (within the major).",
+    "reason": "4.4.6 deprecates the published dashclaw/legacy Node subpath (milestone 1 of 2; removal lands at the v5.0.0 major). Non-breaking: the ./legacy export + code are intact (verified via npm pack). Adds a one-time runtime deprecation warning covering both ESM import and CJS require (opt out with DASHCLAW_SUPPRESS_LEGACY_WARNING=1) plus an @deprecated tag, marks every doc/parity surface 'removed in v5.0.0', reconciles the drifting legacy method counts, and keeps the pairing examples on dashclaw/legacy (pairing is legacy-only and must be promoted to canonical before v5). Canonical Node SDK surface unchanged at 126 (byte-identical to 4.4.5) and republishes at 4.4.6 per the unified-version model. Self-dep stays ^4.2.0 (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.4.5",
+    "current_version": "4.4.6",
     "next_bump": "none",
-    "reason": "4.4.5 is a platform-only maintenance patch from a /dashclaw-quality find-and-fix sweep (fixed `npm run dev` 500-on-every-route by switching dev to `next dev --webpack`, plus two exhaustive-deps warnings and one test TS error). No new SDK surface. Python SDK unchanged at 224 (byte-identical to 4.4.4) and republishes at 4.4.5 per the unified-version model.",
+    "reason": "4.4.6 deprecates the Node-only dashclaw/legacy subpath (removal at v5.0.0). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.4.5) and republishes at 4.4.6 per the unified-version model.",
     "domains": ["platform"]
   }
 }

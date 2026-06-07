@@ -20,7 +20,7 @@ Execution checklist:
 - Enumerate public methods in:
   - `sdk/dashclaw.js`
   - `sdk-python/dashclaw/client.py`
-  - `sdk/legacy/dashclaw-v1.js` (v1 legacy surface -- 178+ methods across 30 categories, available via `dashclaw/legacy`)
+  - `sdk/legacy/dashclaw-v1.js` (DEPRECATED v1 legacy surface across 30 categories, available via `dashclaw/legacy`; removed in v5.0.0)
 - Group by domain (actions, presence, loops, assumptions, approvals, guard, learning, drift, scoring, prompts, feedback, routing, messaging, webhooks, compliance, CLI approval channel, Claude Code hooks, etc.).
 
 2. Build a coverage matrix

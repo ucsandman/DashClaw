@@ -10,7 +10,8 @@
  *
  * Background: an audit on 2026-05-13 found the on-page Node snippet
  * importing the canonical 'dashclaw' package but calling APIs that exist
- * only on the legacy 'dashclaw/legacy' surface (guardMode constructor
+ * only on the DEPRECATED 'dashclaw/legacy' surface (removed in v5.0.0)
+ * (guardMode constructor
  * option, scoreOutput/score_output methods, outputSummary/output_summary
  * outcome field, camelCase body fields). The snippet would not run as
  * written. This test pins the cleaned versions in place so the same

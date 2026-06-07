@@ -63,7 +63,7 @@ Canonical target:
 
 Compatibility policy:
 
-- `dashclaw/legacy` may provide compatibility wrappers only.
+- `dashclaw/legacy` may provide compatibility wrappers only. (now DEPRECATED — removed in v5.0.0)
 - No new capability feature begins in `legacy`.
 - Python should align to the same route contracts and method semantics, even if namespace convergence happens later.
 

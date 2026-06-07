@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-06-06
+last-verified: 2026-06-07
 doc-type: architecture
 ---
 
@@ -218,7 +218,7 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Surface | Entry point | Version or role |
 |:---|:---|:---|
 | Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; primary SDK for new work (version tracked in `sdk/package.json`). |
-| Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | Compatibility layer for older integrations. |
+| Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
 The canonical Node SDK currently exposes **126 public methods** in `sdk/dashclaw.js` and the Python SDK **224** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:

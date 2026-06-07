@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.6] — 2026-06-07
+
+### Deprecated
+
+- The `dashclaw/legacy` Node SDK subpath (`sdk/legacy/dashclaw-v1.js`) is deprecated and will be **REMOVED in v5.0.0**. It still works for now; loading it (via either `import 'dashclaw/legacy'` or `require('dashclaw/legacy')`) emits a one-time runtime warning (opt out with `DASHCLAW_SUPPRESS_LEGACY_WARNING=1`). Migrate to the canonical `dashclaw` import. Pairing methods (`createPairing`, `createPairingFromPrivateJwk`, `waitForPairing`) currently live only on legacy and must be promoted to the canonical SDK before v5.0.0. Drifting legacy method counts in the docs were reconciled. The published `./legacy` export is unchanged — this release is non-breaking.
+
 ## [4.4.5] — 2026-06-07
 
 ### Fixed

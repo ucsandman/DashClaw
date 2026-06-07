@@ -2,11 +2,11 @@
   "id": "wk-20260409-190201-003",
   "tier": 3,
   "title": "Split sdk/legacy/dashclaw-v1.js (2927 lines)",
-  "description": "Exceeds organism.json max_file_length of 300 by 9.8x.",
+  "description": "Exceeds organism.json max_file_length of 300 by 9.8x. Cancelled — sdk/legacy/dashclaw-v1.js is DEPRECATED and removed in v5.0.0; do not split.",
   "affected_files": [
     "sdk/legacy/dashclaw-v1.js"
   ],
   "metric": "code_quality.largest_files",
-  "status": "proposed",
+  "status": "cancelled",
   "created_at": "2026-04-09T19:02:01.155023+00:00"
 }

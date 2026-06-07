@@ -3,7 +3,7 @@
  * Full-featured agent toolkit for the DashClaw platform.
  * Zero-dependency ESM SDK. Requires Node 18+ (native fetch).
  *
- * 178+ methods across 30+ categories:
+ * Full legacy platform surface across 30+ categories:
  * - Action Recording (7)
  * - Loops & Assumptions (7)
  * - Signals (1)
@@ -36,6 +36,21 @@
  * - Feedback Loops (10)
  */
 
+// One-time runtime deprecation notice. Covers BOTH entry paths: ESM `import 'dashclaw/legacy'`
+// resolves here directly, and CJS `require('dashclaw/legacy')` lazy-imports this module via
+// index-v1.cjs. ES modules evaluate once per process, so this warns exactly once.
+// Opt out with DASHCLAW_SUPPRESS_LEGACY_WARNING=1.
+if (!(typeof process !== 'undefined' && process.env && process.env.DASHCLAW_SUPPRESS_LEGACY_WARNING)) {
+  console.warn(
+    "[dashclaw] The 'dashclaw/legacy' SDK is deprecated and will be REMOVED in v5.0.0. " +
+      "Migrate to the canonical 'dashclaw' import. " +
+      "(Set DASHCLAW_SUPPRESS_LEGACY_WARNING=1 to silence this warning.)"
+  );
+}
+
+/**
+ * @deprecated since 4.4.x — the dashclaw/legacy SDK is removed in v5.0.0; use the canonical 'dashclaw' import.
+ */
 class DashClaw {
   /**
    * @param {Object} options

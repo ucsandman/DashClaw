@@ -45,7 +45,7 @@ For Python, the long-term goal is the same conceptual canonical surface, even if
 
 ### 3.2 Legacy rule
 
-`dashclaw/legacy` is a compatibility layer, not a product-design surface.
+`dashclaw/legacy` is a compatibility layer, not a product-design surface. (now DEPRECATED — removed in v5.0.0)
 
 It may:
 

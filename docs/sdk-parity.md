@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-06-06
+last-verified: 2026-06-07
 doc-type: architecture
 ---
 
@@ -17,7 +17,7 @@ The canonical SDK policy is defined in:
 In short:
 
 - `dashclaw` is the canonical SDK surface for new product work.
-- `dashclaw/legacy` is a compatibility layer for older integrations.
+- `dashclaw/legacy` is a **DEPRECATED** compatibility layer for older integrations; it will be removed in v5.0.0.
 - Python remains broader today, but should converge around the same platform model and HTTP contracts.
 
 ## What This Document Tracks
@@ -38,7 +38,7 @@ The `/api/hosted/*` route family (provisioning, admin inspect/delete, cleanup sw
 | Surface | Entry point | Role |
 |---|---|---|
 | Canonical Node SDK | `sdk/dashclaw.js` / `import { DashClaw } from 'dashclaw'` | Primary SDK surface for new work |
-| Legacy Node SDK | `sdk/legacy/dashclaw-v1.js` / `import { DashClaw } from 'dashclaw/legacy'` | Compatibility layer for older integrations |
+| Legacy Node SDK | `sdk/legacy/dashclaw-v1.js` / `import { DashClaw } from 'dashclaw/legacy'` | DEPRECATED compatibility layer; removed in v5.0.0 |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad current surface; should converge toward the same canonical platform model |
 
 ## Canonical Node Surface
@@ -163,7 +163,7 @@ Critical-domain contract coverage is validated against a shared harness:
 ## Version Compatibility Policy
 
 - Canonical Node SDK (`sdk/dashclaw.js`): primary target for new product work.
-- Legacy Node SDK (`sdk/legacy/dashclaw-v1.js`): compatibility maintenance only.
+- Legacy Node SDK (`sdk/legacy/dashclaw-v1.js`): DEPRECATED — frozen compatibility maintenance only; removed in v5.0.0.
 - Python SDK (`sdk-python/dashclaw/client.py`): broad surface; converge by domain over time.
 - Node SDK requires Node 18+. Python SDK supports Python 3.7+.
 

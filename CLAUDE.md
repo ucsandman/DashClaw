@@ -35,7 +35,7 @@ Read these for depth instead of duplicating them here:
 ## Tech stack
 
 - Node 20+, Next.js 16 (App Router), Postgres (Neon recommended).
-- Versions live in their manifests (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`, `plugins/dashclaw/.claude-plugin/plugin.json`) and are injected into UI strings via `next.config.js`. **Never hardcode a version number in this file** - `npm run version:check` fails the build if you do. The platform and both SDKs (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`) share **one version** - bump them together with `npm run version:set <x.y.z>`, enforced by `npm run version:sync:check` (the `plugin.json` bundle keeps its own version). A `dashclaw/legacy` SDK subpath exists for older integrations (`docs/sdk-parity.md`).
+- Versions live in their manifests (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`, `plugins/dashclaw/.claude-plugin/plugin.json`) and are injected into UI strings via `next.config.js`. **Never hardcode a version number in this file** - `npm run version:check` fails the build if you do. The platform and both SDKs (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml`) share **one version** - bump them together with `npm run version:set <x.y.z>`, enforced by `npm run version:sync:check` (the `plugin.json` bundle keeps its own version). A DEPRECATED `dashclaw/legacy` SDK subpath exists for older integrations (removed in v5.0.0; see `docs/sdk-parity.md`).
 
 ## Commands
 
