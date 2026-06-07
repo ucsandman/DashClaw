@@ -66,7 +66,8 @@ describe('mintOrgApiKey', () => {
 
   it('accepts custom label/role/scope options', async () => {
     const sql = fakeSql([]);
-    await mintOrgApiKey(sql, 'org_abc', { label: 'custom', role: 'viewer', scope: 'read' });
+    await mintOrgApiKey(sql, 'org_x', { label: 'cli', role: 'viewer', scope: 'readonly' });
     expect(sql.calls.length).toBe(1);
+    expect(sql.calls[0].vals).toEqual(expect.arrayContaining(['cli', 'viewer', 'readonly']));
   });
 });

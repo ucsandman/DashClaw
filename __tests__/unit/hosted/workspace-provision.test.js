@@ -39,6 +39,16 @@ describe('hosted-workspace repository', () => {
     ).rejects.toThrow(/db down/);
   });
 
+  it('provisionHostedWorkspace cleans up org when api_key insert fails (3-call invariant)', async () => {
+    sql.mockResolvedValueOnce([]); // org INSERT succeeds
+    sql.mockRejectedValueOnce(new Error('key fail')); // api_key INSERT fails
+    sql.mockResolvedValueOnce([]); // best-effort DELETE cleanup
+    await expect(
+      provisionHostedWorkspace(sql, { trialDays: 30, trialActionCap: 10000 }),
+    ).rejects.toThrow(/key fail/);
+    expect(sql.mock.calls.length).toBe(3);
+  });
+
   it('getHostedWorkspace returns null when not found', async () => {
     sql.mockResolvedValueOnce([]);
     expect(await getHostedWorkspace(sql, 'org_missing')).toBeNull();
