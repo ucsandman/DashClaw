@@ -190,7 +190,7 @@ export default function AgentsFleetPage() {
                   {filteredAgents.map((agent) => {
                     const dotColor = statusDotMap[agent.status] || statusDotMap.unknown;
                     return (
-                      <tr key={agent.agent_id} className="transition-colors hover:bg-white/[0.02]">
+                      <tr key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} data-entity-status={agent.status} className="transition-colors hover:bg-white/[0.02]">
                         <td className="px-6 py-4">
                           <Link href={`/agents/${encodeURIComponent(agent.agent_id)}`} className="group/name flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white/[0.03] text-secondary">

@@ -42,7 +42,7 @@ function WorkflowCard({ t, selected, selectionMode, onToggleSelect, onDelete }: 
   const [deleting, setDeleting] = useState(false);
 
   const cardContent = (
-    <Card className={`h-full transition-colors ${selected ? 'border-brand/40 ring-1 ring-brand/40' : ''}`}>
+    <Card className={`h-full transition-colors ${selected ? 'border-brand/40 ring-1 ring-brand/40' : ''}`} data-entity-type="workflow" data-entity-id={t.template_id} data-entity-status={t.status}>
       <CardContent className="p-5">
         <div className="mb-2 flex items-start justify-between gap-3">
           <div className="min-w-0">

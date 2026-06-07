@@ -288,7 +288,7 @@ export default function AuditLogPage() {
                 const details = parseDetails(log.details);
 
                 return (
-                  <div key={log.id} className="flex items-start gap-4 py-4">
+                  <div key={log.id} data-entity-type="auditEvent" data-entity-id={log.id} className="flex items-start gap-4 py-4">
                     {/* Icon */}
                     <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-tertiary">
                       <ActionIcon size={14} className="text-secondary" aria-hidden="true" />

@@ -5,13 +5,23 @@ interface CardProps {
   className?: string;
   hover?: boolean;
   ref?: React.Ref<HTMLElement>;
+  // Forwarded to the root element so list rows can tag themselves for the
+  // site-wide right-click context menu (resolved by `[data-entity-type]`).
+  'data-entity-type'?: string;
+  'data-entity-id'?: string;
+  'data-entity-status'?: string;
+  onContextMenu?: React.MouseEventHandler<HTMLDivElement>;
 }
 
-export function Card({ children, className = '', hover = true }: CardProps) {
+export function Card({ children, className = '', hover = true, ref, ...rest }: CardProps) {
+  // `ref` is intentionally not applied — Card has never forwarded it, and
+  // several callers pass a (currently inert) sizing ref; preserve that.
+  void ref;
   return (
     <div
       className={`group/card flex flex-col overflow-hidden bg-surface-secondary border border-border rounded-xl outline-none ${hover ? 'transition-colors duration-150 hover:border-border-hover' : ''} ${className}`}
       tabIndex={0}
+      {...rest}
     >
       {children}
     </div>

@@ -466,7 +466,7 @@ export default function WebhooksPage() {
             const webhookDeliveries = deliveries[webhook.id] || [];
 
             return (
-              <Card key={webhook.id}>
+              <Card key={webhook.id} data-entity-type="webhook" data-entity-id={webhook.id} data-entity-status={webhook.active ? 'active' : 'disabled'}>
                 <CardContent className="py-4">
                   <div className="mb-3 flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">

@@ -26,6 +26,9 @@ function MessageRow({ msg, onSelect, selectedId, onReply, onMarkRead, onArchive 
   return (
     <div
       onClick={() => onSelect(msg)}
+      data-entity-type="message"
+      data-entity-id={msg.id}
+      data-entity-status={msg.status}
       className={`group flex items-start gap-3 py-2.5 px-1 cursor-pointer transition-colors rounded-sm ${
         isUnread ? 'border-l-2 border-brand' : 'border-l-2 border-transparent'
       } ${

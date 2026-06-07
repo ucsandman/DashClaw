@@ -88,4 +88,39 @@ describe('ContextMenuProvider — augment-only interception', () => {
     });
     expect(document.body.querySelector('[role="menu"]')).toBeNull();
   });
+
+  it('ArrowDown moves focus and Enter activates (then closes)', async () => {
+    const { container } = render(
+      <ContextMenuProvider>
+        <div data-entity-type="decision" data-entity-id="act_4">row</div>
+      </ContextMenuProvider>,
+    );
+    dispatchContextMenu(container.querySelector('[data-entity-type]')!);
+    const items = [...document.body.querySelectorAll('[role="menuitem"]')];
+    expect(items.length).toBeGreaterThan(1);
+    act(() => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
+    });
+    // second item is now the active (tabIndex 0) item
+    expect(items[1]?.getAttribute('tabindex')).toBe('0');
+    // Enter runs the (async) action then closes — flush the microtask via async act.
+    await act(async () => {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="menu"]')).toBeNull();
+  });
+
+  it('mousedown outside closes the menu', () => {
+    const { container } = render(
+      <ContextMenuProvider>
+        <div data-entity-type="decision" data-entity-id="act_5">row</div>
+      </ContextMenuProvider>,
+    );
+    dispatchContextMenu(container.querySelector('[data-entity-type]')!);
+    expect(document.body.querySelector('[role="menu"]')).toBeTruthy();
+    act(() => {
+      document.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    });
+    expect(document.body.querySelector('[role="menu"]')).toBeNull();
+  });
 });

@@ -347,7 +347,7 @@ export default function ApiKeysPage() {
               const isConfirmingRevoke = revokingId === key.id;
 
               return (
-                <div key={key.id} className="flex items-center gap-4 px-5 py-4">
+                <div key={key.id} data-entity-type="apiKey" data-entity-id={key.id} data-entity-status={key.revoked_at ? 'revoked' : 'active'} className="flex items-center gap-4 px-5 py-4">
                   {/* Key icon + prefix */}
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${isRevoked ? 'border-border bg-surface-tertiary' : 'border-brand/20 bg-brand/10'}`}>

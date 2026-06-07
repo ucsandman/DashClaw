@@ -390,7 +390,7 @@ export default function SecretsPage() {
           {secrets.map((secret) => {
             const status = dueStatus(secret.next_rotation_due);
             return (
-              <Card key={secret.id}>
+              <Card key={secret.id} data-entity-type="secret" data-entity-id={secret.id} data-entity-status={status.label}>
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">

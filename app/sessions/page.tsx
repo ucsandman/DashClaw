@@ -191,7 +191,7 @@ export default function SessionsPage() {
                 </thead>
                 <tbody className="divide-y divide-white/5">
                   {filtered.map((session) => (
-                    <tr key={session.id} className="hover:bg-white/[0.02] transition-colors group">
+                    <tr key={session.id} data-entity-type="session" data-entity-id={session.id} data-entity-status={session.status} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium capitalize ${statusBadge[session.status] || 'bg-zinc-500/20 text-secondary'}`}>
                           {session.status}

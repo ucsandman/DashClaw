@@ -41,6 +41,9 @@ export default function MessageList({ messages, onSelect, selectedId, isSent, on
           return (
             <div
               key={msg.id}
+              data-entity-type="message"
+              data-entity-id={msg.id}
+              data-entity-status={msg.status}
               onClick={() => onSelect(msg)}
               className={`group flex items-start gap-3 py-3 px-1 cursor-pointer transition-colors rounded-sm ${
                 msg.id === selectedId ? 'bg-white/[0.04]' : 'hover:bg-white/[0.02]'

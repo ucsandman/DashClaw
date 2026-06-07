@@ -212,7 +212,7 @@ function FindingRow({ f, onReview }: { f: Finding; onReview: (f: Finding) => voi
   const sev = SEVERITY_META[f.severity];
   const badge = STATUS_BADGE[f.status];
   return (
-    <div className="flex items-start gap-3 border-t border-border px-4 py-3 first:border-t-0">
+    <div className="flex items-start gap-3 border-t border-border px-4 py-3 first:border-t-0" data-entity-type="postureFinding" data-entity-id={f.key} data-entity-status={f.status}>
       <span className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${sev.cls}`}>
         {sev.label}
       </span>

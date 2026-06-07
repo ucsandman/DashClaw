@@ -83,7 +83,7 @@ export default function CapabilityRegistryCard({
   const modeLabel = capabilityMode === 'runnable_http' ? 'Runnable HTTP' : 'Registry only';
 
   return (
-    <Card className="h-full" hover={false}>
+    <Card className="h-full" hover={false} data-entity-type="capability" data-entity-id={capability.capability_id} data-entity-status={capability.status}>
       <CardContent className="p-5">
         <div className="mb-3 flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">

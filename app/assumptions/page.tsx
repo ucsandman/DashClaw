@@ -142,7 +142,7 @@ export default function AssumptionsPage() {
             const cfg = STATUS_CONFIG[status]!;
             const StatusIcon = cfg.icon;
             return (
-              <Card key={a.id} hover={false}>
+              <Card key={a.id} data-entity-type="assumption" data-entity-id={a.id} data-entity-status={status} hover={false}>
                 <div className="flex items-start gap-4 p-4">
                   <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
                     <StatusIcon size={18} aria-hidden="true" />

@@ -451,6 +451,9 @@ export default function DriftPage() {
                     return (
                       <div
                         key={alert.id}
+                        data-entity-type="drift"
+                        data-entity-id={alert.id}
+                        data-entity-status={alert.severity}
                         className={`rounded-lg border px-3 py-3 ${
                           alert.acknowledged
                             ? 'border-border bg-surface-tertiary opacity-75'

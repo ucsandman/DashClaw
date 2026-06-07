@@ -147,7 +147,7 @@ export default function ApprovalsPage() {
               const isProcessing = processingId === action.action_id;
               const riskColor = action.risk_score >= 70 ? 'text-error' : 'text-warning';
               return (
-                <Card key={action.action_id} hover={false}>
+                <Card key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} hover={false}>
                   <CardContent className="pt-5">
                     <div className="flex flex-col gap-6 md:flex-row">
                       {/* Action Content */}

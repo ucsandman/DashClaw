@@ -43,7 +43,7 @@ function CollectionCard({ c, onDelete }: CollectionCardProps) {
   const [deleting, setDeleting] = useState(false);
 
   return (
-    <Card className="h-full">
+    <Card className="h-full" data-entity-type="knowledge" data-entity-id={c.collection_id} data-entity-status={c.ingestion_status}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-start gap-2 min-w-0">

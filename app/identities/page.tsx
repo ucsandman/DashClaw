@@ -273,7 +273,7 @@ export default function IdentitiesPage() {
                 const isExpired = remaining === 'Expired';
 
                 return (
-                  <div key={pairing.id} className="px-5 py-4 flex items-center gap-4">
+                  <div key={pairing.id} data-entity-type="identity" data-entity-id={pairing.id} data-entity-status={isExpired ? 'expired' : 'pending'} className="px-5 py-4 flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-warning-subtle flex items-center justify-center flex-shrink-0">
                       <Fingerprint size={14} className="text-warning" />
                     </div>
@@ -361,7 +361,7 @@ export default function IdentitiesPage() {
                 const permLevel = identity.permission_level || 'readonly';
 
                 return (
-                  <div key={identity.agent_id} className="px-5 py-4 flex items-center gap-4">
+                  <div key={identity.agent_id} data-entity-type="identity" data-entity-id={identity.agent_id} data-entity-status={identity.permission_level || 'readonly'} className="px-5 py-4 flex items-center gap-4">
                     <div className="w-8 h-8 rounded-lg bg-status-success/10 flex items-center justify-center flex-shrink-0">
                       <Fingerprint size={14} className="text-success" />
                     </div>
