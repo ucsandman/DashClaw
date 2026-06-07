@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.3",
+    "current_version": "4.4.4",
     "next_bump": "none",
-    "reason": "4.4.3 ships the /policies information-architecture redesign: the flat four-tab bar (Modes/Shields/Custom/Activity) is replaced by a guided zero-state front door (recommends Claude Code Mode, shows compiled allow/warn/require-approval/block behavior + an interruption forecast, applies with inline agent scope + spend cap in one action) and a consolidated populated console (which modes/policies govern which agents + an apply/change-mode action), with Shields, Custom (authoring/import/AI-generate/simulate/test/proof), and the Activity feed demoted intact into an Advanced disclosure. Pure UX reorganization that reuses the existing modes engine, guard, and /api/policies (scope/cap via the existing PATCH); no new routes, SDK methods, MCP tools, guard policies, or schema. Node SDK surface unchanged at 126 (byte-identical to 4.4.2) and republishes at 4.4.3 per the unified-version model. Self-dep stays ^4.0.0 (within the major).",
+    "reason": "4.4.4 ships the /policies posture cockpit — a read-first steady-state console (status line, signal-only enforcement summary with the full rules on demand, flat shields with live fired counts, recent-decisions digest, drawer-based mode apply with impact preview) that supersedes the 4.4.3 front-door/console iteration and removes the agent chip wall (scope shows as one read-only line; on-demand scope editing is a fast-follow). Adds the read-only GET /api/policies/summary endpoint (plus getDecisionCountsByPolicy/getDecisionOutcomeCounts repo queries and the pure buildPolicySummary lib); Activity links to /decisions and custom authoring moves to /policies/rules; 13 superseded components retired; no schema migration. Node SDK surface unchanged at 126 (byte-identical to 4.4.3) and republishes at 4.4.4 per the unified-version model. Self-dep stays ^4.0.0 (within the major).",
     "domains": ["ui"]
   },
   "python": {
-    "current_version": "4.4.3",
+    "current_version": "4.4.4",
     "next_bump": "none",
-    "reason": "4.4.3 ships the /policies information-architecture redesign (UI-only reorganization, no new platform/SDK surface). Python SDK surface unchanged at 224 (byte-identical to 4.4.2) and republishes at 4.4.3 per the unified-version model.",
+    "reason": "4.4.4 ships the /policies posture cockpit (read-first console + drawer mode-apply, chip wall removed) plus the read-only GET /api/policies/summary endpoint. UI + one read-only route; no new SDK surface. Python SDK surface unchanged at 224 (byte-identical to 4.4.3) and republishes at 4.4.4 per the unified-version model.",
     "domains": ["ui"]
   }
 }

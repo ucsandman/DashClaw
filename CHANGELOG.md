@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.4] — 2026-06-06
+
+### Changed
+
+- **`/policies` — posture cockpit** — the page now opens read-first on what is governing the fleet right now, superseding the 4.4.3 front-door/console iteration (and its `Modes · Shields · Custom · Activity` lineage). It shows a status line (active mode, interruption level, agent count, pending approvals), a signal-only enforcement summary (`N warn · N require approval · N block · everything else allowed`, with the full compiled rules behind *View rules*), a flat shields list carrying live `fired N×` counts, and a recent-decisions digest. Applying or changing a mode moves into a focused right-drawer with an impact preview; the 50-agent "applies to" chip wall is gone — scope shows as one read-only line (on-demand scope *editing* is a fast-follow). Activity now links out to `/decisions`; custom rule authoring moves to `/policies/rules`. Reuses the existing modes engine, guard, shields, and `/api/policies`; 13 superseded components retired; no schema migration. SDKs republish at 4.4.4 per the unified-version model.
+
+### Added
+
+- **`GET /api/policies/summary`** — a read-only endpoint that synthesizes the cockpit's posture: current mode(s) (from `_mode` tags), enforcement rule buckets, the compiled rule list, shield states, 30-day decision outcomes, and per-policy `fired N×` counts (via a defensive `matched_policies` unnest that degrades to zero on error so the page always renders). Routes 298 → 299 (51 stable). No new SDK methods, MCP tools, or schema.
+
 ## [4.4.3] — 2026-06-06
 
 ### Changed
