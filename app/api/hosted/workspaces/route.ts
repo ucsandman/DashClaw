@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { isHostedMode, hostedConfig } from '../../../lib/hosted/flag.js';
 import { verifyTurnstile } from '../../../lib/hosted/turnstile.js';
 import { createRateLimiter } from '../../../lib/hosted/rate-limit.js';
-import { provisionHostedWorkspace } from '../../../lib/repositories/hosted-workspace.repository.js';
+import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository.js';
 import { getSql } from '../../../lib/db.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -83,6 +83,10 @@ export async function POST(request: Request) {
   const cfg = hostedConfig();
   try {
     const sql = getSql();
+    const active = await countActiveTrials(sql);
+    if (active >= cfg.maxActiveTrials) {
+      return NextResponse.json({ error: 'Trials are full', full: true }, { status: 503 });
+    }
     const result = await provisionHostedWorkspace(sql, {
       trialDays: cfg.trialDays,
       trialActionCap: cfg.trialActionCap,

@@ -140,9 +140,10 @@ describe('POST /api/hosted/workspaces', () => {
   it('returns 200 + api key when happy path (turnstile bypassed in dev)', async () => {
     process.env.DASHCLAW_HOSTED = 'true';
     delete process.env.TURNSTILE_SECRET_KEY;
-    // Provision calls: org insert + key insert
-    routeSqlMock.mockResolvedValueOnce([]);
-    routeSqlMock.mockResolvedValueOnce([]);
+    // Calls: countActiveTrials SELECT, org insert, key insert
+    routeSqlMock.mockResolvedValueOnce([{ count: 0 }]); // countActiveTrials → under cap
+    routeSqlMock.mockResolvedValueOnce([]);              // org insert
+    routeSqlMock.mockResolvedValueOnce([]);              // key insert
     const res = await POST(makeRequest({ body: {} }));
     expect(res.status).toBe(200);
     const body = await res.json();
@@ -163,12 +164,26 @@ describe('POST /api/hosted/workspaces', () => {
     // implicitly via the VERCEL env var; tests have to set it explicitly.
     process.env.TRUST_PROXY = 'true';
     delete process.env.TURNSTILE_SECRET_KEY;
-    routeSqlMock.mockResolvedValueOnce([]);
-    routeSqlMock.mockResolvedValueOnce([]);
+    // Calls for first POST: countActiveTrials SELECT, org insert, key insert
+    routeSqlMock.mockResolvedValueOnce([{ count: 0 }]); // countActiveTrials → under cap
+    routeSqlMock.mockResolvedValueOnce([]);              // org insert
+    routeSqlMock.mockResolvedValueOnce([]);              // key insert
     await POST(makeRequest({ ip: '9.9.9.9' })); // first — ok
-    routeSqlMock.mockResolvedValueOnce([]);
-    routeSqlMock.mockResolvedValueOnce([]);
+    // Second POST is rate-limited before reaching the DB; no DB mocks needed
     const res = await POST(makeRequest({ ip: '9.9.9.9' })); // second — blocked
     expect(res.status).toBe(429);
+  });
+
+  it('returns 503 trials-full when active trials >= cap, without provisioning', async () => {
+    process.env.DASHCLAW_HOSTED = 'true';
+    process.env.HOSTED_MAX_ACTIVE_TRIALS = '1';
+    delete process.env.TURNSTILE_SECRET_KEY;            // dev bypass
+    routeSqlMock.mockResolvedValueOnce([{ count: 1 }]); // countActiveTrials SELECT → active = 1
+    const res = await POST(makeRequest({ body: {} }));
+    expect(res.status).toBe(503);
+    const body = await res.json();
+    expect(body.full).toBe(true);
+    // provisioning never ran: only the count query was issued (no org/key INSERT)
+    expect(routeSqlMock.mock.calls.length).toBe(1);
   });
 });
