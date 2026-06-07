@@ -2,8 +2,16 @@
 // Imports only the PolicyMode *type* from the lib (erased at build) — never the
 // compiler/friction runtime (which pulls server-only deps).
 import type { PolicyMode } from '../../lib/policy-modes/catalog';
+import type {
+  PolicySummary,
+  PolicySummaryMode,
+  PolicySummaryRule,
+  PolicySummaryShield,
+  RuleBucket,
+} from '../../lib/policy-modes/summary';
 
 export type { PolicyMode };
+export type { PolicySummary, PolicySummaryMode, PolicySummaryRule, PolicySummaryShield, RuleBucket };
 
 export interface PolicyModeSummary extends PolicyMode {
   policy_count: number;
@@ -71,5 +79,11 @@ export async function importMode(modeId: string): Promise<ModeImportResult> {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.error || `Apply failed (${res.status})`);
   }
+  return res.json();
+}
+
+export async function fetchSummary(): Promise<PolicySummary> {
+  const res = await fetch('/api/policies/summary');
+  if (!res.ok) throw new Error(`Failed to load posture (${res.status})`);
   return res.json();
 }

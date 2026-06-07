@@ -164,6 +164,70 @@ export async function getGuardDecisionStats(
   };
 }
 
+/**
+ * Per-policy fire counts over the last `days` days, keyed by `guard_policies.id`.
+ * `guard_decisions.matched_policies` is a JSON-array TEXT column holding the ids of
+ * every policy that fired on a decision (see `applyResult` in app/lib/guard.ts).
+ * Read-only; no schema change. Defensive: only array-shaped JSON text is unnested,
+ * so malformed/null rows are skipped rather than throwing on the `::jsonb` cast.
+ * Numeric strings are coerced (Neon HTTP driver returns counts as strings).
+ */
+export async function getDecisionCountsByPolicy(
+  sql: SqlClient,
+  orgId: string,
+  days = 30
+): Promise<Record<string, { fired: number; lastFiredAt: string | null }>> {
+  const rows = await sql.query(
+    `SELECT sub.policy_id AS policy_id,
+            COUNT(*)::int AS cnt,
+            MAX(sub.fired_at) AS last_fired
+     FROM (
+       SELECT jsonb_array_elements_text(matched_policies::jsonb) AS policy_id,
+              created_at::timestamptz AS fired_at
+       FROM guard_decisions
+       WHERE org_id = $1
+         AND created_at::timestamptz > NOW() - make_interval(days => $2::int)
+         AND matched_policies IS NOT NULL
+         AND matched_policies LIKE '[%'
+     ) sub
+     GROUP BY sub.policy_id`,
+    [orgId, days]
+  );
+  const out: Record<string, { fired: number; lastFiredAt: string | null }> = {};
+  for (const r of rows as Array<{ policy_id: string; cnt: number | string; last_fired: string | null }>) {
+    if (typeof r.policy_id !== 'string') continue;
+    out[r.policy_id] = { fired: Number(r.cnt) || 0, lastFiredAt: r.last_fired ?? null };
+  }
+  return out;
+}
+
+/**
+ * Org-wide decision OUTCOME counts over the last `days` days, by nominal decision.
+ * `allow` is derived (total − warn − require_approval − block) and floored at 0.
+ * Read-only; no schema change.
+ */
+export async function getDecisionOutcomeCounts(
+  sql: SqlClient,
+  orgId: string,
+  days = 30
+): Promise<{ total: number; allow: number; warn: number; require_approval: number; block: number }> {
+  const result = await sql.query(
+    `SELECT COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE decision = 'warn')::int AS warn,
+            COUNT(*) FILTER (WHERE decision = 'require_approval')::int AS require_approval,
+            COUNT(*) FILTER (WHERE decision = 'block')::int AS block
+     FROM guard_decisions
+     WHERE org_id = $1 AND created_at::timestamptz > NOW() - make_interval(days => $2::int)`,
+    [orgId, days]
+  );
+  const row = result[0] || {};
+  const total = parseInt((row.total as string | undefined) || '0', 10);
+  const warn = parseInt((row.warn as string | undefined) || '0', 10);
+  const require_approval = parseInt((row.require_approval as string | undefined) || '0', 10);
+  const block = parseInt((row.block as string | undefined) || '0', 10);
+  return { total, allow: Math.max(0, total - warn - require_approval - block), warn, require_approval, block };
+}
+
 export async function insertPolicy(
   sql: SqlTag,
   orgId: string,
