@@ -10,7 +10,7 @@ Policy Modes let you pick a **named operating contract** for an agent — "Claud
    - carries a `_mode: <id>` tag **inside its rules JSON** — mirroring the existing `_shield` tag, so mode-generated policies are recognizable **without a schema migration**,
    - is named `[<Mode Name>] <title>` and applied **active**.
 3. **Preview** — `POST /api/policies/modes/preview { mode_id }` returns the generated policy list, a decision summary, and a **best-effort friction simulation** (replays the mode's deterministic policies against recent action history). It writes nothing.
-4. **Apply (import)** — `POST /api/policies/modes/import { mode_id }` (admin only) compiles the mode and inserts each policy via the normal repository, skipping any whose name already exists (dedup).
+4. **Apply (import)** — `POST /api/policies/modes/import { mode_id }` (admin only) compiles the mode and inserts each policy via the normal repository. Applying a mode is **idempotent**: a policy whose name already exists is **reactivated and refreshed** to the mode's current compiled definition (so re-applying a mode whose policies were toggled off turns them back on), not silently skipped. The response reports `imported` (new) and `reactivated` (pre-existing) counts.
 
 ### API
 
@@ -18,7 +18,7 @@ Policy Modes let you pick a **named operating contract** for an agent — "Claud
 |---|---|---|---|
 | `/api/policies/modes` | `GET` | org member | List the mode catalog; each entry includes `policy_count`. |
 | `/api/policies/modes/preview` | `POST` | org member | `{ mode_id }` → `{ mode, policies, summary, friction }`. No writes. Unknown `mode_id` → `400`. |
-| `/api/policies/modes/import` | `POST` | **admin** | `{ mode_id }` → compiles + inserts (active, `_mode`-tagged, dedup). `201`. Unknown `mode_id` → `400`; non-admin → `403`. |
+| `/api/policies/modes/import` | `POST` | **admin** | `{ mode_id }` → compiles + inserts (active, `_mode`-tagged); existing-by-name policies are reactivated + refreshed (idempotent apply). `201`. Unknown `mode_id` → `400`; non-admin → `403`. |
 
 ### UI
 

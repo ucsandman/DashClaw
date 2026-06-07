@@ -103,7 +103,14 @@ export default function ModeDrawer({ open, onClose, onApplied }: ModeDrawerProps
     setApplying(true);
     setApplyError(null);
     try {
-      await importMode(selectedId);
+      const result = await importMode(selectedId);
+      // Don't report a silent success: if nothing was created or reactivated
+      // and the server returned errors, surface them instead of closing the
+      // drawer back onto a still-ungoverned cockpit.
+      const applied = (result.imported ?? 0) + (result.reactivated ?? 0);
+      if (applied === 0 && result.errors?.length) {
+        throw new Error(result.errors[0]);
+      }
       onApplied();
       onClose();
     } catch (e) {

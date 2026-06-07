@@ -1,12 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockSql, mockInsertPolicy, mockFindPolicyByName, mockListActions, mockEvaluatePolicy } = vi.hoisted(() => ({
+const { mockSql, mockInsertPolicy, mockFindPolicyByName, mockReactivateModePolicy, mockListActions, mockEvaluatePolicy } = vi.hoisted(() => ({
   mockSql: Object.assign(
     vi.fn(async () => []),
     { query: vi.fn(async () => []) },
   ),
   mockInsertPolicy: vi.fn(),
   mockFindPolicyByName: vi.fn(),
+  mockReactivateModePolicy: vi.fn(),
   mockListActions: vi.fn(),
   mockEvaluatePolicy: vi.fn(),
 }));
@@ -15,6 +16,7 @@ vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   insertPolicy: mockInsertPolicy,
   findPolicyByName: mockFindPolicyByName,
+  reactivateModePolicy: mockReactivateModePolicy,
 }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({ listActionsForSimulation: mockListActions }));
 vi.mock('@/lib/guard.js', () => ({ evaluatePolicy: mockEvaluatePolicy }));
@@ -35,6 +37,7 @@ beforeEach(() => {
   mockListActions.mockResolvedValue([]);
   mockEvaluatePolicy.mockResolvedValue(null);
   mockInsertPolicy.mockResolvedValue({ id: 'gp_x', active: 1 });
+  mockReactivateModePolicy.mockResolvedValue({ id: 'existing', active: 1 });
 });
 
 const adminHeaders = { 'x-org-id': 'org_1', 'x-org-role': 'admin' };
@@ -130,6 +133,7 @@ describe('POST /api/policies/modes/import', () => {
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.imported).toBe(9);
+    expect(data.reactivated).toBe(0);
     expect(data.skipped).toBe(0);
     expect(mockInsertPolicy).toHaveBeenCalledTimes(9);
 
@@ -144,7 +148,7 @@ describe('POST /api/policies/modes/import', () => {
     expect(JSON.parse(firstArgs.rules)._mode).toBe('claude-code');
   });
 
-  it('skips policies whose name already exists (dedup)', async () => {
+  it('reactivates (does NOT skip) a policy whose name already exists, refreshing its rules', async () => {
     mockFindPolicyByName.mockImplementation(async (_sql: unknown, _org: unknown, name: string) =>
       name.includes('Block extreme-risk') ? [{ id: 'existing' }] : [],
     );
@@ -155,8 +159,39 @@ describe('POST /api/policies/modes/import', () => {
     expect(res.status).toBe(201);
     const data = await res.json();
     expect(data.imported).toBe(8);
-    expect(data.skipped).toBe(1);
+    expect(data.reactivated).toBe(1);
+    expect(data.skipped).toBe(0);
     expect(mockInsertPolicy).toHaveBeenCalledTimes(8);
+    expect(mockReactivateModePolicy).toHaveBeenCalledTimes(1);
+
+    const [, , id, payload] = mockReactivateModePolicy.mock.calls[0] as [
+      unknown,
+      unknown,
+      string,
+      { policyType: string; rules: string },
+    ];
+    expect(id).toBe('existing');
+    expect(payload.policyType).toBe('risk_threshold');
+    expect(JSON.parse(payload.rules)._mode).toBe('claude-code');
+  });
+
+  // Regression: the /policies cockpit empty-state bug. An org whose mode policies
+  // all exist but were toggled OFF must, on re-apply, have ALL of them turned
+  // back on — not silently skipped (which left governed=false / "No governance
+  // active" despite a successful apply).
+  it('re-applying a mode whose policies all already exist reactivates every one', async () => {
+    mockFindPolicyByName.mockResolvedValue([{ id: 'existing' }]);
+    const res = await IMPORT(makeRequest('http://localhost/api/policies/modes/import', {
+      headers: adminHeaders,
+      body: { mode_id: 'claude-code' },
+    }));
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.imported).toBe(0);
+    expect(data.reactivated).toBe(9);
+    expect(data.skipped).toBe(0);
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+    expect(mockReactivateModePolicy).toHaveBeenCalledTimes(9);
   });
 
   it('rejects non-admin with 403', async () => {

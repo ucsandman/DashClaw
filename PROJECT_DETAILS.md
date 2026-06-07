@@ -93,7 +93,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/generate` | Iterative natural-language policy generator | Dry-run returns `{ drafts, assumptions, clarifications }` and never dead-ends; accepts answered clarifications to refine. Authored from Policies → Custom → AI generator. |
 | `/api/policies/modes` | Policy Modes catalog | `GET` lists the built-in operating modes (Claude Code, OpenClaw, SOC 2, …); each compiles to a pack of ordinary guard policies. See `docs/policy-modes.md`. |
 | `/api/policies/modes/preview` | Preview a mode | `POST { mode_id }` → generated policy list + decision summary + best-effort friction simulation. No writes; unknown mode → 400. |
-| `/api/policies/modes/import` | Apply a mode | `POST { mode_id }` (admin) compiles the mode into normal guard policies (active, `_mode`-tagged in rules, dedup-by-name). Mirrors `/api/policies/import`. |
+| `/api/policies/modes/import` | Apply a mode | `POST { mode_id }` (admin) compiles the mode into normal guard policies (active, `_mode`-tagged in rules); re-applying reactivates + refreshes existing-by-name policies (idempotent). Mirrors `/api/policies/import`. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |

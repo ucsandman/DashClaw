@@ -44,6 +44,8 @@ export interface ModePreview {
 export interface ModeImportResult {
   mode_id: string;
   imported: number;
+  /** Pre-existing mode policies turned back on + refreshed (idempotent apply). */
+  reactivated: number;
   skipped: number;
   errors: string[];
   policies: Array<Record<string, unknown>>;

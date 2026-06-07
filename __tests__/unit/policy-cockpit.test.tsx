@@ -47,8 +47,8 @@ describe('PolicyCockpit', () => {
   it('renders a calm empty state when ungoverned (not a settings dump)', async () => {
     mockFetchSummary.mockResolvedValue({ ...baseSummary, governed: false });
     render(<PolicyCockpit />);
-    await waitFor(() => screen.getByText(/No governance active/i));
-    screen.getByText(/Apply your first mode/i);
+    await waitFor(() => screen.getByText(/No mode applied/i));
+    screen.getByRole('button', { name: /Apply a mode/i });
     expect(screen.queryByTestId('posture-header')).toBeNull();
   });
 
@@ -56,7 +56,7 @@ describe('PolicyCockpit', () => {
     mockFetchSummary.mockRejectedValue(new Error('boom'));
     render(<PolicyCockpit />);
     await waitFor(() => screen.getByText(/Couldn.t load posture/i));
-    expect(screen.queryByText(/No governance active/i)).toBeNull();
+    expect(screen.queryByText(/No mode applied/i)).toBeNull();
     expect(screen.queryByTestId('posture-header')).toBeNull();
   });
 });

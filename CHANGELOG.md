@@ -13,6 +13,15 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.5.1] — 2026-06-07
+
+### Fixed
+
+- **Applying a policy mode is now idempotent — re-applying a mode actually turns it back on.** `POST /api/policies/modes/import` previously deduped by name and *skipped* any policy that already existed, without reactivating it. So an org whose mode policies had been toggled off (e.g. all of Claude Code Mode's policies sitting at `active=0`) could click **Apply Claude Code Mode** and get a silent no-op: HTTP 201 "success", but nothing turned on, so the `/policies` cockpit stayed on its empty state ("No governance active"). Existing-by-name mode policies are now **reactivated and refreshed** to the mode's current compiled definition instead of skipped; the response reports both `imported` (new) and `reactivated` (pre-existing) counts. The mode-apply drawer no longer reports a silent success — if nothing was created or reactivated and the server returned errors, it surfaces them.
+- **`/policies` empty state redesigned.** The bare centered-text "No governance active" message is now a calm, on-brand empty-state card (shield icon, "No mode applied" headline, a one-line explanation, and a real primary CTA) per `.impeccable.md`.
+
+SDKs republish at 4.5.1 per the unified-version model (no SDK surface change — Node 126 / Python 224, byte-identical to 4.5.0).
+
 ## [4.5.0] — 2026-06-07
 
 ### Added

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { ShieldOff } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
 import { SHIELDS, matchShieldsToPolicies, buildShieldPayload } from '../lib/shields';
@@ -113,11 +114,24 @@ export default function PolicyCockpit() {
   if (!summary.governed) {
     return (
       <>
-        <div className="py-16 text-center">
-          <p className="text-tertiary">No governance active. Your agents run unchecked.</p>
-          <button onClick={() => setDrawerOpen(true)} className="mt-3 text-brand hover:underline">
-            Apply your first mode &rsaquo;
-          </button>
+        <div className="mx-auto max-w-md py-16">
+          <div className="flex flex-col items-center rounded-xl border border-border bg-surface-secondary px-8 py-10 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full border border-border bg-surface-tertiary text-tertiary">
+              <ShieldOff size={22} aria-hidden="true" />
+            </div>
+            <h2 className="mt-5 text-base font-semibold text-primary">No mode applied</h2>
+            <p className="mt-2 text-sm text-secondary">
+              Your agents are running unchecked. A mode gates the actions that matter —
+              paid spend, deploys, destructive ops, and protected paths — in one decision.
+            </p>
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              className="mt-6 rounded-lg border border-brand/40 bg-brand/10 px-4 py-2 text-xs font-medium text-brand transition-colors hover:border-brand/60 hover:bg-brand/15 motion-reduce:transition-none"
+            >
+              Apply a mode
+            </button>
+          </div>
         </div>
         <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
       </>

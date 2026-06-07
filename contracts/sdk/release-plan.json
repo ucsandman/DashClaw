@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.5.0",
+    "current_version": "4.5.1",
     "next_bump": "none",
-    "reason": "4.5.0 ships the Instant Hosted Trial feature: on a hosted instance (DASHCLAW_HOSTED=true) a visitor signs in with Google and is auto-provisioned an isolated, usage-capped governed trial workspace, then connects Claude via a keyless OAuth connector on a stripped /connect?hosted= screen. Adds the GET /api/hosted/capacity route (300 routes total) and a fail-closed HOSTED_MAX_ACTIVE_TRIALS global cost circuit breaker; authenticated sessions now bypass the cookie-driven demo. Platform-side feature — no Node SDK surface change (unchanged at 126, byte-identical to 4.4.6); republishes at 4.5.0 per the unified-version model. Self-dep stays ^4.x (within the major).",
+    "reason": "4.5.1 is a platform-only fix: applying a policy mode (POST /api/policies/modes/import) is now idempotent — existing-by-name mode policies are reactivated + refreshed instead of silently skipped, so re-applying a mode whose policies were toggled off turns them back on (previously left the /policies cockpit stuck on 'No governance active'). Also redesigns the /policies empty state. No Node SDK surface change (unchanged at 126, byte-identical to 4.5.0); republishes at 4.5.1 per the unified-version model. Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.5.0",
+    "current_version": "4.5.1",
     "next_bump": "none",
-    "reason": "4.5.0 ships the Instant Hosted Trial feature (Google sign-in auto-provisions a capped governed trial; new GET /api/hosted/capacity route; HOSTED_MAX_ACTIVE_TRIALS cost circuit breaker; authenticated-session demo bypass). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.4.6) and republishes at 4.5.0 per the unified-version model.",
+    "reason": "4.5.1 is a platform-only fix: policy-mode apply is now idempotent (reactivate + refresh existing-by-name policies instead of skipping) plus a /policies empty-state redesign. No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.5.0) and republishes at 4.5.1 per the unified-version model.",
     "domains": ["platform"]
   }
 }
