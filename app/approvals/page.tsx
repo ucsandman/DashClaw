@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, Check, X, Clock, User, Zap,
-  RefreshCw, Info,
+  RefreshCw, Info, Ban,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -13,6 +13,11 @@ import { isDemoMode } from '../lib/isDemoMode';
 import { parseJsonArray as safeJsonArray } from '../lib/parseJson';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -103,6 +108,40 @@ export default function ApprovalsPage() {
   const isDemo = isDemoMode();
   const canDecide = isAdmin && !isDemo;
 
+  const selection = useSelection<any>(pendingActions, (a) => a.action_id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleBulkApprove = async () => {
+    const ids = selection.selectedIds;
+    const { ok } = await bulkAction(ids, (id) =>
+      fetch(`/api/approvals/${id}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decision: 'allow' }),
+      })
+    );
+    setPendingActions((prev) => prev.filter((a) => !ok.includes(a.action_id)));
+    selection.clear();
+  };
+
+  const handleBulkDeny = async () => {
+    const ids = selection.selectedIds;
+    const { ok } = await bulkAction(ids, (id) =>
+      fetch(`/api/approvals/${id}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decision: 'deny' }),
+      })
+    );
+    setPendingActions((prev) => prev.filter((a) => !ok.includes(a.action_id)));
+    selection.clear();
+  };
+
+  const bulkActions = isAdmin ? [
+    { id: 'approve', label: 'Approve', icon: Check, onClick: handleBulkApprove },
+    { id: 'deny', label: 'Deny', icon: Ban, onClick: handleBulkDeny, danger: true },
+  ] : [];
+
   return (
     <PageLayout
       title="Approval Queue"
@@ -110,14 +149,17 @@ export default function ApprovalsPage() {
       breadcrumbs={['Operations', 'Approvals']}
       maturity="stable"
       actions={
-        <button
-          onClick={() => fetchPending()}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
-          aria-label="Refresh pending approvals"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <>
+          <button
+            onClick={() => fetchPending()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
+            aria-label="Refresh pending approvals"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+          <BulkActionBar count={selection.count} actions={bulkActions} onClear={selection.clear} />
+        </>
       }
     >
       <div className="mx-auto max-w-5xl">
@@ -130,6 +172,17 @@ export default function ApprovalsPage() {
           <Banner icon={ShieldAlert} tone="warning" title="Read-only access">
             Only administrators can approve or deny actions. You are currently viewing as a member.
           </Banner>
+        )}
+
+        {pendingActions.length > 0 && isAdmin && (
+          <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+            <span>Select all</span>
+          </div>
         )}
 
         {pendingActions.length === 0 ? (
@@ -149,6 +202,15 @@ export default function ApprovalsPage() {
               return (
                 <Card key={action.action_id} data-entity-type="decision" data-entity-id={action.action_id} data-entity-status={action.status} hover={false}>
                   <CardContent className="pt-5">
+                    {isAdmin && (
+                      <div className="mb-3">
+                        <SelectCheckbox
+                          checked={selection.isSelected(action.action_id)}
+                          onToggle={(e) => { e.stopPropagation(); selection.selectClick(action.action_id, e.shiftKey); }}
+                          label={`Select ${action.declared_goal || action.action_id}`}
+                        />
+                      </div>
+                    )}
                     <div className="flex flex-col gap-6 md:flex-row">
                       {/* Action Content */}
                       <div className="flex-1 space-y-4">

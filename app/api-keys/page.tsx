@@ -9,6 +9,11 @@ import { EmptyState } from '../components/ui/EmptyState';
 import ConnectAgentButton from '../components/ConnectAgentButton';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { API_KEY_ROLE_OPTIONS } from '../lib/apiKeyRoles';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 export default function ApiKeysPage() {
   const { isAdmin } = useEffectiveRole();
@@ -123,6 +128,23 @@ export default function ApiKeysPage() {
   const activeKeys = keys.filter((k) => !k.revoked_at);
   const revokedKeys = keys.filter((k) => k.revoked_at);
 
+  const selection = useSelection<any>(keys, (k) => k.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleBulkRevoke = async () => {
+    if (!window.confirm(`Revoke ${selection.count} key${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const ids = selection.selectedIds;
+    const { ok } = await bulkAction(ids, (id) =>
+      fetch(`/api/keys?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+    );
+    setKeys((prev) => prev.filter((k) => !ok.includes(k.id)));
+    selection.clear();
+  };
+
+  const bulkActions = isAdmin ? [
+    { id: 'revoke', label: 'Revoke', icon: Ban, onClick: handleBulkRevoke, danger: true },
+  ] : [];
+
 
   // Loading state
   if (loading) {
@@ -169,6 +191,7 @@ export default function ApiKeysPage() {
               Generate new key
             </button>
           )}
+          <BulkActionBar count={selection.count} actions={bulkActions} onClear={selection.clear} />
         </div>
       }
     >
@@ -317,6 +340,18 @@ export default function ApiKeysPage() {
         </Card>
       )}
 
+      {/* Select-all toolbar — only visible when there are keys */}
+      {keys.length > 0 && isAdmin && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
+          <SelectCheckbox
+            checked={selection.allSelected}
+            onToggle={() => selection.toggleAll()}
+            label="Select all"
+          />
+          <span>Select all</span>
+        </div>
+      )}
+
       {/* Key list */}
       {keys.length === 0 ? (
         <Card hover={false}>
@@ -348,6 +383,13 @@ export default function ApiKeysPage() {
 
               return (
                 <div key={key.id} data-entity-type="apiKey" data-entity-id={key.id} data-entity-status={key.revoked_at ? 'revoked' : 'active'} className="flex items-center gap-4 px-5 py-4">
+                  {isAdmin && (
+                    <SelectCheckbox
+                      checked={selection.isSelected(key.id)}
+                      onToggle={(e) => { e.stopPropagation(); selection.selectClick(key.id, e.shiftKey); }}
+                      label={`Select ${key.label || 'API key'}`}
+                    />
+                  )}
                   {/* Key icon + prefix */}
                   <div className="flex min-w-0 flex-1 items-center gap-3">
                     <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border ${isRevoked ? 'border-border bg-surface-tertiary' : 'border-brand/20 bg-brand/10'}`}>

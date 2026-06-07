@@ -7,6 +7,11 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 const sourceIcons: Record<string, React.ElementType> = {
   files: FileText,
@@ -159,6 +164,21 @@ export default function KnowledgePage() {
     }
   }, [fetchCollections]);
 
+  const selection = useSelection<any>(collections, (c) => c.collection_id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  async function bulkDelete() {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selection.count} collection${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const { ok } = await bulkAction(selection.selectedIds, (id) => fetch(`/api/knowledge/collections/${id}`, { method: 'DELETE' }));
+    setCollections((prev) => prev.filter((x) => !ok.includes(x.collection_id)));
+    selection.clear();
+  }
+
+  const BULK_ACTIONS = [
+    { id: 'delete', label: 'Delete', icon: Trash2, onClick: bulkDelete, danger: true },
+  ];
+
   const createStarter = async () => {
     setCreating(true);
     setError(null);
@@ -192,20 +212,23 @@ export default function KnowledgePage() {
       breadcrumbs={['Studio', 'Knowledge']}
       maturity="beta"
       actions={
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => { setLoading(true); fetchCollections(); }}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-border rounded-lg transition-colors"
-          >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
-          <Link
-            href="/knowledge/new"
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-brand hover:bg-brand/90 rounded-lg transition-colors"
-          >
-            <Plus size={14} /> New Collection
-          </Link>
-        </div>
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => { setLoading(true); fetchCollections(); }}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-border rounded-lg transition-colors"
+            >
+              <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+            <Link
+              href="/knowledge/new"
+              className="flex items-center gap-2 px-3 py-1.5 text-sm text-white bg-brand hover:bg-brand/90 rounded-lg transition-colors"
+            >
+              <Plus size={14} /> New Collection
+            </Link>
+          </div>
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       {error && (
@@ -231,11 +254,30 @@ export default function KnowledgePage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {collections.map((c) => (
-            <CollectionCard key={c.collection_id} c={c} onDelete={handleDelete} />
-          ))}
-        </div>
+        <>
+          <div className="mb-3 flex items-center gap-2">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+            <span className="text-xs text-tertiary">Select all</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {collections.map((c) => (
+              <div key={c.collection_id} className="relative">
+                <div className="absolute top-2 left-2 z-10">
+                  <SelectCheckbox
+                    checked={selection.isSelected(c.collection_id)}
+                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(c.collection_id, e.shiftKey); }}
+                    label={`Select ${c.name || c.collection_id}`}
+                  />
+                </div>
+                <CollectionCard c={c} onDelete={handleDelete} />
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </PageLayout>
   );

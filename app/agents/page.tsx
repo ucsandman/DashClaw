@@ -5,13 +5,17 @@ import Link from 'next/link';
 import {
   Users, ShieldCheck, ShieldAlert,
   Search, Filter, RotateCw, ChevronRight, Brain,
-  CheckCircle2, XCircle, Info, Lock,
+  CheckCircle2, XCircle, Info, Lock, Copy,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 
 const statusDotMap: Record<string, string> = {
   active: 'bg-status-success',
@@ -63,6 +67,9 @@ export default function AgentsFleetPage() {
     return matchesSearch;
   });
 
+  const selection = useSelection<any>(filteredAgents, (a) => a.agent_id);
+  useSelectAllHotkey(selection.toggleAll);
+
   const stats = {
     total: agents.length,
     active: agents.filter(a => a.status === 'active' || a.status === 'online').length,
@@ -84,13 +91,25 @@ export default function AgentsFleetPage() {
       subtitle="Fleet-wide observability and permission governance"
       breadcrumbs={['Command', 'Agents']}
       actions={
-        <button
-          onClick={() => { setLoading(true); fetchAgents(); }}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
-        >
-          <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <>
+          <BulkActionBar
+            count={selection.count}
+            actions={[{
+              id: 'copy',
+              label: 'Copy IDs',
+              icon: Copy,
+              onClick: () => { navigator.clipboard?.writeText(selection.selectedIds.join('\n')); },
+            }]}
+            onClear={selection.clear}
+          />
+          <button
+            onClick={() => { setLoading(true); fetchAgents(); }}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
+          >
+            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </>
       }
     >
       {/* Stats rail */}
@@ -179,6 +198,7 @@ export default function AgentsFleetPage() {
               <table className="w-full border-collapse text-left">
                 <thead>
                   <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                    <th className="px-6 py-4 w-8"><SelectCheckbox checked={selection.allSelected} onToggle={() => selection.toggleAll()} label="Select all" /></th>
                     <th className="px-6 py-4">Agent</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Governance</th>
@@ -191,6 +211,7 @@ export default function AgentsFleetPage() {
                     const dotColor = statusDotMap[agent.status] || statusDotMap.unknown;
                     return (
                       <tr key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} data-entity-status={agent.status} className="transition-colors hover:bg-white/[0.02]">
+                        <td className="px-3"><SelectCheckbox checked={selection.isSelected(agent.agent_id)} onToggle={(e) => { e.stopPropagation(); selection.selectClick(agent.agent_id, e.shiftKey); }} label="Select row" /></td>
                         <td className="px-6 py-4">
                           <Link href={`/agents/${encodeURIComponent(agent.agent_id)}`} className="group/name flex items-center gap-3">
                             <div className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white/[0.03] text-secondary">

@@ -4,12 +4,16 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Activity, RotateCw, ChevronRight, Circle,
-  CheckCircle, Play, PauseCircle, Flag, XCircle,
+  CheckCircle, Play, PauseCircle, Flag, XCircle, Copy,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 
 function timeAgo(dateString: string) {
   const seconds = Math.floor((Date.now() - new Date(dateString).getTime()) / 1000);
@@ -85,6 +89,9 @@ export default function SessionsPage() {
     return s.status === filterStatus;
   });
 
+  const selection = useSelection<any>(filtered, (s) => s.id);
+  useSelectAllHotkey(selection.toggleAll);
+
   const stats = {
     total: sessions.length,
     running: sessions.filter((s) => s.status === 'running').length,
@@ -99,13 +106,25 @@ export default function SessionsPage() {
       breadcrumbs={['Observe', 'Sessions']}
       maturity="beta"
       actions={
-        <button
-          onClick={() => { setLoading(true); fetchSessions(); }}
-          className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-white/[0.06] rounded-lg hover:border-white/[0.12] transition-colors duration-150"
-        >
-          <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
-          Refresh
-        </button>
+        <>
+          <BulkActionBar
+            count={selection.count}
+            actions={[{
+              id: 'copy',
+              label: 'Copy IDs',
+              icon: Copy,
+              onClick: () => { navigator.clipboard?.writeText(selection.selectedIds.join('\n')); },
+            }]}
+            onClear={selection.clear}
+          />
+          <button
+            onClick={() => { setLoading(true); fetchSessions(); }}
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-white/[0.06] rounded-lg hover:border-white/[0.12] transition-colors duration-150"
+          >
+            <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </>
       }
     >
       {/* Stats */}
@@ -180,6 +199,7 @@ export default function SessionsPage() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="border-b border-white/5 text-[10px] uppercase tracking-widest text-tertiary font-semibold">
+                    <th className="px-6 py-4 w-8"><SelectCheckbox checked={selection.allSelected} onToggle={() => selection.toggleAll()} label="Select all" /></th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Agent</th>
                     <th className="px-6 py-4">Workspace</th>
@@ -192,6 +212,7 @@ export default function SessionsPage() {
                 <tbody className="divide-y divide-white/5">
                   {filtered.map((session) => (
                     <tr key={session.id} data-entity-type="session" data-entity-id={session.id} data-entity-status={session.status} className="hover:bg-white/[0.02] transition-colors group">
+                      <td className="px-3"><SelectCheckbox checked={selection.isSelected(session.id)} onToggle={(e) => { e.stopPropagation(); selection.selectClick(session.id, e.shiftKey); }} label="Select row" /></td>
                       <td className="px-6 py-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium capitalize ${statusBadge[session.status] || 'bg-zinc-500/20 text-secondary'}`}>
                           {session.status}

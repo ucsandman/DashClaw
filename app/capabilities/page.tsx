@@ -2,12 +2,17 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
-import { Wrench, Plus, Search, RotateCw } from 'lucide-react';
+import { Wrench, Plus, Search, RotateCw, Trash2 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { EmptyState } from '../components/ui/EmptyState';
 import CapabilityRegistrySummary from './components/CapabilityRegistrySummary';
 import CapabilityRegistryFilters from './components/CapabilityRegistryFilters';
 import CapabilityRegistryCard from './components/CapabilityRegistryCard';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 const RISK_LEVELS = ['all', 'low', 'medium', 'high', 'critical'];
 
@@ -157,6 +162,21 @@ export default function CapabilitiesPage() {
     }
   }, [fetchCapabilities]);
 
+  const selection = useSelection<any>(filteredCapabilities, (c) => c.capability_id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  async function bulkDelete() {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selection.count} ${selection.count === 1 ? 'capability' : 'capabilities'}? This cannot be undone.`)) return;
+    const { ok } = await bulkAction(selection.selectedIds, (id) => fetch(`/api/capabilities/${id}`, { method: 'DELETE' }));
+    setCapabilities((prev) => prev.filter((x) => !ok.includes(x.capability_id)));
+    selection.clear();
+  }
+
+  const BULK_ACTIONS = [
+    { id: 'delete', label: 'Delete', icon: Trash2, onClick: bulkDelete, danger: true },
+  ];
+
   return (
     <PageLayout
       title="Capability Registry"
@@ -164,20 +184,23 @@ export default function CapabilitiesPage() {
       breadcrumbs={['Studio', 'Capabilities']}
       maturity="stable"
       actions={(
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchCapabilities}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
-          >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
-          </button>
-          <Link
-            href="/capabilities/new"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-sm font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15"
-          >
-            <Plus size={14} /> Register capability
-          </Link>
-        </div>
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={fetchCapabilities}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
+            >
+              <RotateCw size={14} className={loading ? 'animate-spin' : ''} /> Refresh
+            </button>
+            <Link
+              href="/capabilities/new"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-sm font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15"
+            >
+              <Plus size={14} /> Register capability
+            </Link>
+          </div>
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       )}
     >
       <CapabilityRegistrySummary counts={summaryCounts} />
@@ -254,17 +277,35 @@ export default function CapabilitiesPage() {
           }
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filteredCapabilities.map((capability) => (
-            <CapabilityRegistryCard
-              key={capability.capability_id}
-              capability={capability}
-              onRunTest={handleRunTest}
-              onDelete={handleDelete}
-              testStatus={testStatus[capability.capability_id]}
+        <>
+          <div className="mb-3 flex items-center gap-2">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
             />
-          ))}
-        </div>
+            <span className="text-xs text-tertiary">Select all</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredCapabilities.map((capability) => (
+              <div key={capability.capability_id} className="relative">
+                <div className="absolute top-2 left-2 z-10">
+                  <SelectCheckbox
+                    checked={selection.isSelected(capability.capability_id)}
+                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(capability.capability_id, e.shiftKey); }}
+                    label={`Select ${capability.name || capability.capability_id}`}
+                  />
+                </div>
+                <CapabilityRegistryCard
+                  capability={capability}
+                  onRunTest={handleRunTest}
+                  onDelete={handleDelete}
+                  testStatus={testStatus[capability.capability_id]}
+                />
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </PageLayout>
   );

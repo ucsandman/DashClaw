@@ -75,4 +75,18 @@ describe('useSelection', () => {
     act(() => result.current.toggleAll());
     expect(result.current.count).toBe(0);
   });
+
+  it('selectClick toggles without shift and tracks the anchor for a shift-range', () => {
+    const { result } = renderHook(() => useSelection(rows, getId));
+    act(() => result.current.selectClick('b')); // anchor = b
+    expect(result.current.isSelected('b')).toBe(true);
+    act(() => result.current.selectClick('d', true)); // shift → b..d
+    expect(result.current.selectedSet).toEqual(new Set(['b', 'c', 'd']));
+  });
+
+  it('selectClick with shift but no prior anchor just toggles', () => {
+    const { result } = renderHook(() => useSelection(rows, getId));
+    act(() => result.current.selectClick('c', true));
+    expect(result.current.selectedSet).toEqual(new Set(['c']));
+  });
 });

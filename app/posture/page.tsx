@@ -1,11 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
 import {
   ShieldCheck, ShieldAlert, ShieldX, RefreshCw, AlertTriangle,
-  ChevronRight, X, FileText, Clock, CheckCircle2,
+  ChevronRight, X, FileText, Clock, CheckCircle2, ShieldOff,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { bulkAction } from '../lib/bulkAction';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types (mirror the /api/posture + /api/posture/findings response shapes)
@@ -208,11 +213,24 @@ function evidenceLine(f: Finding): string {
   return `${n} ${noun}`;
 }
 
-function FindingRow({ f, onReview }: { f: Finding; onReview: (f: Finding) => void }) {
+function FindingRow({
+  f,
+  onReview,
+  selected,
+  onToggleSelect,
+}: {
+  f: Finding;
+  onReview: (f: Finding) => void;
+  selected: boolean;
+  onToggleSelect: (e: MouseEvent) => void;
+}) {
   const sev = SEVERITY_META[f.severity];
   const badge = STATUS_BADGE[f.status];
   return (
     <div className="flex items-start gap-3 border-t border-border px-4 py-3 first:border-t-0" data-entity-type="postureFinding" data-entity-id={f.key} data-entity-status={f.status}>
+      <span className="mt-0.5 shrink-0">
+        <SelectCheckbox checked={selected} onToggle={onToggleSelect} label={`Select ${f.title}`} size={15} />
+      </span>
       <span className={`mt-0.5 shrink-0 rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${sev.cls}`}>
         {sev.label}
       </span>
@@ -378,6 +396,9 @@ export default function PosturePage() {
   const [scanning, setScanning] = useState(false);
   const [active, setActive] = useState<Finding | null>(null);
   const [resolving, setResolving] = useState(false);
+  const openFindings = findings?.findings ?? [];
+  const selection = useSelection<Finding>(openFindings, (f) => f.key);
+  useSelectAllHotkey(selection.toggleAll);
 
   const load = useCallback(async () => {
     try {
@@ -426,6 +447,19 @@ export default function PosturePage() {
     }
   }, [active, load]);
 
+  async function bulkResolve(action: 'snooze' | 'accept_risk') {
+    if (selection.count === 0) return;
+    const { ok } = await bulkAction(selection.selectedIds, (key) =>
+      fetch(`/api/posture/findings/${encodeURIComponent(key)}/resolve`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action }),
+      }),
+    );
+    selection.clear();
+    if (ok.length) await load();
+  }
+
   return (
     <PageLayout
       title="Governance posture"
@@ -433,15 +467,25 @@ export default function PosturePage() {
       breadcrumbs={['Governance', 'Posture']}
       maturity="beta"
       actions={
-        <button
-          type="button"
-          onClick={rescan}
-          disabled={scanning || loading}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-primary disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
-        >
-          <RefreshCw size={13} className={scanning ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
-          {scanning ? 'Scanning…' : 'Rescan'}
-        </button>
+        <>
+          <button
+            type="button"
+            onClick={rescan}
+            disabled={scanning || loading}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-primary disabled:opacity-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50"
+          >
+            <RefreshCw size={13} className={scanning ? 'animate-spin motion-reduce:animate-none' : ''} aria-hidden="true" />
+            {scanning ? 'Scanning…' : 'Rescan'}
+          </button>
+          <BulkActionBar
+            count={selection.count}
+            actions={[
+              { id: 'snooze', label: 'Snooze', icon: Clock, onClick: () => bulkResolve('snooze') },
+              { id: 'accept', label: 'Accept risk', icon: ShieldOff, onClick: () => bulkResolve('accept_risk'), danger: true },
+            ]}
+            onClear={selection.clear}
+          />
+        </>
       }
     >
       {loading && !posture ? (
@@ -453,12 +497,28 @@ export default function PosturePage() {
 
           <div className="rounded-xl border border-border bg-surface-secondary">
             <div className="flex items-center justify-between px-4 py-3">
-              <span className="text-[10px] font-semibold uppercase tracking-widest text-tertiary">Next — prioritized remediation queue</span>
+              <span className="flex items-center gap-2">
+                {openFindings.length > 0 && (
+                  <SelectCheckbox checked={selection.allSelected} onToggle={() => selection.toggleAll()} label="Select all findings" size={15} />
+                )}
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-tertiary">Next — prioritized remediation queue</span>
+              </span>
               <span className="text-xs tabular-nums text-tertiary">{findings?.findings.length ?? 0} open</span>
             </div>
             {findings && findings.findings.length > 0 ? (
               <div className="border-t border-border">
-                {findings.findings.map((f) => <FindingRow key={f.key} f={f} onReview={setActive} />)}
+                {findings.findings.map((f) => (
+                  <FindingRow
+                    key={f.key}
+                    f={f}
+                    onReview={setActive}
+                    selected={selection.isSelected(f.key)}
+                    onToggleSelect={(e) => {
+                      e.stopPropagation();
+                      selection.selectClick(f.key, e.shiftKey);
+                    }}
+                  />
+                ))}
               </div>
             ) : (
               <div className="border-t border-border px-4 py-10 text-center text-sm text-tertiary">

@@ -7,6 +7,8 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 
 const statusVariant: Record<string, string> = {
   draft: 'default',
@@ -21,12 +23,6 @@ function timeAgo(dateString?: string | null): string {
   if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
   if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
   return `${Math.floor(seconds / 86400)}d ago`;
-}
-
-function toggleSelection(selectedIds: string[], templateId: string): string[] {
-  return selectedIds.includes(templateId)
-    ? selectedIds.filter((id) => id !== templateId)
-    : [...selectedIds, templateId];
 }
 
 interface WorkflowCardProps {
@@ -146,8 +142,10 @@ export default function WorkflowsPage() {
   const [templates, setTemplates] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const selection = useSelection<any>(templates, (t) => t.template_id);
+  const selectedIds = selection.selectedIds;
   const [deleting, setDeleting] = useState(false);
+  useSelectAllHotkey(selection.toggleAll, selectionMode);
   const [statusFilter, setStatusFilter] = useState('all');
 
   const fetchTemplates = useCallback(async () => {
@@ -200,14 +198,14 @@ export default function WorkflowsPage() {
 
       const deletedIds = selectedIds.filter((_, index) => results[index]?.ok);
       setTemplates((prev) => prev.filter((template) => !deletedIds.includes(template.template_id)));
-      setSelectedIds([]);
+      selection.clear();
       setSelectionMode(false);
     } finally {
       setDeleting(false);
     }
   }
 
-  const allSelected = templates.length > 0 && selectedIds.length === templates.length;
+  const allSelected = selection.allSelected;
 
   return (
     <PageLayout
@@ -240,7 +238,7 @@ export default function WorkflowsPage() {
             type="button"
             onClick={() => {
               setSelectionMode((value) => !value);
-              setSelectedIds([]);
+              selection.clear();
             }}
             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
           >
@@ -272,7 +270,7 @@ export default function WorkflowsPage() {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setSelectedIds(allSelected ? [] : templates.map((template) => template.template_id))}
+                  onClick={() => selection.toggleAll()}
                   className="rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
                 >
                   {allSelected ? 'Clear all' : 'Select all'}
@@ -341,7 +339,7 @@ export default function WorkflowsPage() {
               t={t}
               selected={selectedIds.includes(t.template_id)}
               selectionMode={selectionMode}
-              onToggleSelect={(id) => setSelectedIds((prev) => toggleSelection(prev, id))}
+              onToggleSelect={(id) => selection.selectClick(id)}
               onDelete={handleDelete}
             />
           ))}

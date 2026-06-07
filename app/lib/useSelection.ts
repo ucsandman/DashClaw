@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export interface UseSelection {
   /** Currently selected ids, insertion order. */
@@ -15,6 +15,12 @@ export interface UseSelection {
   count: number;
   /** Select the contiguous range of items between two ids (shift-click). */
   selectRange: (fromId: string, toId: string) => void;
+  /**
+   * Row-click handler that toggles one id, or — with shift held — selects the
+   * range from the last clicked id. Tracks the anchor internally so pages don't
+   * each re-implement it.
+   */
+  selectClick: (id: string, shiftKey?: boolean) => void;
   /** Replace the selection with an explicit id list. */
   setSelected: (ids: string[]) => void;
 }
@@ -73,6 +79,19 @@ export function useSelection<T>(items: T[], getId: (item: T) => string): UseSele
 
   const setSelected = useCallback((arr: string[]) => setSelectedSet(new Set(arr)), []);
 
+  const anchorRef = useRef<string | null>(null);
+  const selectClick = useCallback(
+    (id: string, shiftKey = false) => {
+      if (shiftKey && anchorRef.current) {
+        selectRange(anchorRef.current, id);
+      } else {
+        toggle(id);
+        anchorRef.current = id;
+      }
+    },
+    [selectRange, toggle],
+  );
+
   const selectedIds = useMemo(() => [...selectedSet], [selectedSet]);
 
   return {
@@ -85,6 +104,7 @@ export function useSelection<T>(items: T[], getId: (item: T) => string): UseSele
     allSelected,
     count: selectedSet.size,
     selectRange,
+    selectClick,
     setSelected,
   };
 }

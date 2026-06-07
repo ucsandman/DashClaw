@@ -15,6 +15,8 @@ import {
 } from '../lib/homepageDemoActions';
 import { formatCost, formatTokens } from '../lib/formatCost';
 import { useAgentFilter } from '../lib/AgentFilterContext';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
 import MessageTrail from '../components/MessageTrail';
@@ -73,8 +75,11 @@ export default function DecisionsLedger() {
   const [clearing, setClearing] = useState(false);
   const [sweeping, setSweeping] = useState(false);
   const [deletingId, setDeletingId] = useState<any>(null);
-  const [selectedActions, setSelectedActions] = useState<Set<any>>(new Set());
+  const selection = useSelection<any>(actions, (a) => a.action_id);
+  const selectedActions = selection.selectedSet;
+  const clearSelection = selection.clear;
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  useSelectAllHotkey(selection.toggleAll);
 
   const [filterAgent, setFilterAgent] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -141,9 +146,9 @@ export default function DecisionsLedger() {
 
   useEffect(() => {
     setLoading(true);
-    setSelectedActions(new Set());
+    clearSelection();
     fetchActions();
-  }, [fetchActions]);
+  }, [fetchActions, clearSelection]);
 
   // Live updates — the SSE stream (/api/stream) already emits action.created /
   // action.updated for every governed decision (same source the Activity stream
@@ -248,7 +253,7 @@ export default function DecisionsLedger() {
         const data = await res.json();
         setActions(prev => prev.filter(a => !selectedActions.has(a.action_id)));
         setTotal(prev => Math.max(0, prev - (data.deleted || 0)));
-        setSelectedActions(new Set());
+        selection.clear();
         if (expandedId && selectedActions.has(expandedId)) setExpandedId(null);
       } else {
         const err = await res.json();
@@ -263,20 +268,10 @@ export default function DecisionsLedger() {
 
   const toggleSelectAction = (actionId: any, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSelectedActions(prev => {
-      const next = new Set(prev);
-      if (next.has(actionId)) next.delete(actionId); else next.add(actionId);
-      return next;
-    });
+    selection.selectClick(actionId, e.shiftKey);
   };
 
-  const toggleSelectAllActions = () => {
-    if (selectedActions.size === actions.length) {
-      setSelectedActions(new Set());
-    } else {
-      setSelectedActions(new Set(actions.map(a => a.action_id)));
-    }
-  };
+  const toggleSelectAllActions = () => selection.toggleAll();
 
   const toggleExpand = async (actionId: any) => {
     if (expandedId === actionId) {

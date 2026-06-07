@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  KeyRound, Plus, Trash2, RotateCw, AlertTriangle, Check,
+  KeyRound, Plus, Trash2, RotateCw, AlertTriangle, Check, RefreshCw,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -10,6 +10,11 @@ import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 // Surfaces governed_secrets rotation tracking:
 //   GET    /api/secrets[?agent_id=]        — list (org-wide by default)
@@ -57,6 +62,9 @@ export default function SecretsPage() {
   const [creating, setCreating] = useState(false);
 
   const [busyId, setBusyId] = useState<string | null>(null);
+
+  const selection = useSelection<any>(secrets, (s) => s.id);
+  useSelectAllHotkey(selection.toggleAll);
 
   const fetchSecrets = useCallback(async (scopeAgent: string) => {
     setLoading(true);
@@ -175,6 +183,34 @@ export default function SecretsPage() {
     }
   };
 
+  const handleBulkMarkRotated = async () => {
+    const ids = selection.selectedIds;
+    await bulkAction(ids, (id) =>
+      fetch(`/api/secrets/${id}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ last_rotated_at: new Date().toISOString() }),
+      })
+    );
+    selection.clear();
+    await fetchSecrets(scope);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!window.confirm(`Delete ${selection.count} rotation record${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const ids = selection.selectedIds;
+    const { ok } = await bulkAction(ids, (id) =>
+      fetch(`/api/secrets/${id}`, { method: 'DELETE' })
+    );
+    setSecrets((prev) => prev.filter((s) => !ok.includes(s.id)));
+    selection.clear();
+  };
+
+  const bulkActions = canEdit ? [
+    { id: 'mark-rotated', label: 'Mark rotated', icon: RefreshCw, onClick: handleBulkMarkRotated },
+    { id: 'delete', label: 'Delete', icon: Trash2, onClick: handleBulkDelete, danger: true },
+  ] : [];
+
   const stats = {
     total: secrets.length,
     due: due.length,
@@ -192,18 +228,21 @@ export default function SecretsPage() {
       title="Secret Rotation"
       subtitle="Track when agent and workspace secrets are due for rotation"
       actions={
-        canEdit && (
-          <button
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              setError(null);
-            }}
-            className={primaryBtn}
-          >
-            <Plus size={16} aria-hidden="true" />
-            Track a secret
-          </button>
-        )
+        <>
+          {canEdit && (
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                setError(null);
+              }}
+              className={primaryBtn}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Track a secret
+            </button>
+          )}
+          <BulkActionBar count={selection.count} actions={bulkActions} onClear={selection.clear} />
+        </>
       }
     >
       {isDemo && (
@@ -356,6 +395,18 @@ export default function SecretsPage() {
         </Card>
       )}
 
+      {/* Select-all toolbar — only visible when there are secrets */}
+      {!loading && secrets.length > 0 && canEdit && (
+        <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
+          <SelectCheckbox
+            checked={selection.allSelected}
+            onToggle={() => selection.toggleAll()}
+            label="Select all"
+          />
+          <span>Select all</span>
+        </div>
+      )}
+
       {/* Secret list */}
       {loading ? (
         <div className="space-y-4">
@@ -393,6 +444,13 @@ export default function SecretsPage() {
               <Card key={secret.id} data-entity-type="secret" data-entity-id={secret.id} data-entity-status={status.label}>
                 <CardContent className="py-4">
                   <div className="flex items-start justify-between gap-4">
+                    {canEdit && (
+                      <SelectCheckbox
+                        checked={selection.isSelected(secret.id)}
+                        onToggle={(e) => { e.stopPropagation(); selection.selectClick(secret.id, e.shiftKey); }}
+                        label={`Select ${secret.name}`}
+                      />
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex flex-wrap items-center gap-2">
                         <span className="font-mono text-sm text-white">{secret.name}</span>

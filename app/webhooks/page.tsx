@@ -12,6 +12,11 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { demoWebhooks, demoWebhookDeliveries } from '../lib/demoWebhooksData';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 const WEBHOOK_TEMPLATES = [
   {
@@ -240,6 +245,21 @@ export default function WebhooksPage() {
     failed: webhooks.filter((w) => w.failure_count > 0).length,
   };
 
+  const selection = useSelection<any>(webhooks, (w) => w.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  async function bulkDelete() {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selection.count} webhook${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const { ok } = await bulkAction(selection.selectedIds, (id) => fetch(`/api/webhooks?id=${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    setWebhooks((prev) => prev.filter((x) => !ok.includes(x.id)));
+    selection.clear();
+  }
+
+  const BULK_ACTIONS = [
+    { id: 'delete', label: 'Delete', icon: Trash2, onClick: bulkDelete, danger: true },
+  ];
+
   const formatTimestamp = (ts: any) => {
     if (!ts) return 'Never';
     const date = new Date(ts);
@@ -275,19 +295,22 @@ export default function WebhooksPage() {
       title="Webhooks"
       subtitle="Receive real-time notifications when security signals are detected"
       actions={
-        canEdit && (
-          <button
-            onClick={() => {
-              setShowAddForm(!showAddForm);
-              setError(null);
-              setNewSecret(null);
-            }}
-            className={primaryBtn}
-          >
-            <Plus size={16} aria-hidden="true" />
-            Add webhook
-          </button>
-        )
+        <>
+          {canEdit && (
+            <button
+              onClick={() => {
+                setShowAddForm(!showAddForm);
+                setError(null);
+                setNewSecret(null);
+              }}
+              className={primaryBtn}
+            >
+              <Plus size={16} aria-hidden="true" />
+              Add webhook
+            </button>
+          )}
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       {isDemo && (
@@ -458,7 +481,16 @@ export default function WebhooksPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
+        <>
+          <div className="mb-3 flex items-center gap-2">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+            <span className="text-xs text-tertiary">Select all</span>
+          </div>
+          <div className="space-y-4">
           {webhooks.map((webhook) => {
             const events = parseEvents(webhook.events);
             const testResult = testResults[webhook.id];
@@ -471,6 +503,11 @@ export default function WebhooksPage() {
                   <div className="mb-3 flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
                       <div className="mb-2 flex items-center gap-2">
+                        <SelectCheckbox
+                          checked={selection.isSelected(webhook.id)}
+                          onToggle={(e) => { e.stopPropagation(); selection.selectClick(webhook.id, e.shiftKey); }}
+                          label={`Select webhook ${webhook.url}`}
+                        />
                         <code className="block max-w-md truncate font-mono text-xs text-secondary">
                           {webhook.url}
                         </code>
@@ -606,7 +643,8 @@ export default function WebhooksPage() {
               </Card>
             );
           })}
-        </div>
+          </div>
+        </>
       )}
 
       {/* Admin guide */}
