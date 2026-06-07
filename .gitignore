@@ -83,6 +83,12 @@ findings.json
 /plans/
 .supergoal/
 
+# Self-improvement loop artifacts (weekly memory-self-review -> apply-self-review).
+# Transient, machine-local; the tracked specs/RFCs elsewhere in docs/superpowers/ are unaffected.
+docs/superpowers/applied/
+docs/superpowers/memory-self-review-PROPOSAL.md
+*.bak-apply-*
+
 # Internal docs (not for public repo)
 docs/FAILED_SWARM_LOG.md
 docs/DashClaw positioning shift.txt
