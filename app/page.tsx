@@ -9,6 +9,7 @@ import UseCases from './components/UseCases';
 import TrackedLink from './components/TrackedLink';
 import MarketingViewObserver from './components/MarketingViewObserver';
 import SetupBanner from './components/SetupBanner';
+import HostedTrialCTA from './components/HostedTrialCTA';
 
 import {
   coreFeatures,
@@ -50,6 +51,7 @@ export default function LandingPage() {
 
           {/* CTA row */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <HostedTrialCTA />
             <TrackedLink
               href="/self-host"
               event="marketing_hero_cta_clicked"
