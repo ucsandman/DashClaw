@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `299`
+- Total routes: `300`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `224`
+- Experimental routes: `225`
 
 ## Routes
 
@@ -180,6 +180,7 @@ doc-type: architecture
 | `/api/handoffs/{id}` | `GET` | `stable` | `/api/handoffs` | `app/api/handoffs/[id]/route.ts` |
 | `/api/handoffs/{id}/consume` | `POST` | `stable` | `/api/handoffs` | `app/api/handoffs/[id]/consume/route.ts` |
 | `/api/health` | `GET` | `stable` | `/api/health` | `app/api/health/route.ts` |
+| `/api/hosted/capacity` | `GET` | `experimental` | `(default)` | `app/api/hosted/capacity/route.ts` |
 | `/api/hosted/cleanup` | `POST` | `experimental` | `(default)` | `app/api/hosted/cleanup/route.ts` |
 | `/api/hosted/workspaces` | `GET, POST` | `experimental` | `(default)` | `app/api/hosted/workspaces/route.ts` |
 | `/api/hosted/workspaces/{workspaceId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/hosted/workspaces/[workspaceId]/route.ts` |

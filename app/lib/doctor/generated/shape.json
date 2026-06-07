@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:6f0f504f2c969718ab20c640a93dcd55b1721c30",
+  "timestamp": "sha1:0ccfae8317832d16a9090c614263b2d7a6693775",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1598,6 +1598,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/health/route.ts"
+    },
+    {
+      "path": "/api/hosted/capacity",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/hosted/capacity/route.ts"
     },
     {
       "path": "/api/hosted/cleanup",
@@ -3454,6 +3463,7 @@
       "files": [
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
+        "__tests__/unit/hosted/capacity.route.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/publicConfig.test.js",
@@ -3914,6 +3924,7 @@
       "required": false,
       "files": [
         "__tests__/unit/auth-hosted-signin.test.js",
+        "__tests__/unit/hosted/capacity.route.test.js",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",
         "app/lib/hosted/flag.ts"
