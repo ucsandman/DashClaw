@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.4.3] — 2026-06-06
+
+### Changed
+
+- **`/policies` redesign — a front door instead of four equal tabs** — the Policies page no longer opens on a flat `Modes · Shields · Custom · Activity` tab bar with no obvious starting point. With no policies yet it shows one guided screen (not a wizard): Claude Code Mode recommended, its compiled allow / warn / require-approval / block behavior and a real interruption forecast (replayed against your own action history via `previewMode().friction`, honest when there's no history), with agent scope and a spend cap inline and a single Apply. Once policies exist it becomes one consolidated console: a calm summary of which modes and policies govern which agents, plus an apply/change-mode action. Shields, custom authoring (raw YAML import, AI-generate, simulate, test, proof), and the decision Activity feed are demoted intact into a single labeled "Advanced" disclosure — every capability preserved, nothing competing with the primary action. Pure UX/information-architecture reorganization: reuses the existing modes engine, guard, and `/api/policies` (scope/cap applied through the existing `PATCH`); no new routes, SDK methods, MCP tools, guard policies, or schema. SDKs republish at 4.4.3 per the unified-version model.
+
 ## [4.4.2] — 2026-06-06
 
 ### Changed

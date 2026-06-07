@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.2",
+    "current_version": "4.4.3",
     "next_bump": "none",
-    "reason": "4.4.2 bundles the UI readability/brightness lift (token-layer theme pass) and the dashboard-issues resolution pass: capability/webhook undici fetch fix, dashboard layout self-heal, agent-session backfill (drizzle 0024), drift metric filter, Quality sidebar highlight, message-reply 403 fix, eval_scorers migration (0025), skill auto-scan, the learning AGENTS.md/CLAUDE.md export route, the dashclaw_assumption_record MCP tool (tools 28->29), and the messages facelift. Node SDK surface is unchanged at 126 (byte-identical to 4.4.1) and republishes at 4.4.2 per the unified-version model. Self-dep stays ^4.0.0 (within the major).",
-    "domains": ["ui", "docs"]
+    "reason": "4.4.3 ships the /policies information-architecture redesign: the flat four-tab bar (Modes/Shields/Custom/Activity) is replaced by a guided zero-state front door (recommends Claude Code Mode, shows compiled allow/warn/require-approval/block behavior + an interruption forecast, applies with inline agent scope + spend cap in one action) and a consolidated populated console (which modes/policies govern which agents + an apply/change-mode action), with Shields, Custom (authoring/import/AI-generate/simulate/test/proof), and the Activity feed demoted intact into an Advanced disclosure. Pure UX reorganization that reuses the existing modes engine, guard, and /api/policies (scope/cap via the existing PATCH); no new routes, SDK methods, MCP tools, guard policies, or schema. Node SDK surface unchanged at 126 (byte-identical to 4.4.2) and republishes at 4.4.3 per the unified-version model. Self-dep stays ^4.0.0 (within the major).",
+    "domains": ["ui"]
   },
   "python": {
-    "current_version": "4.4.2",
+    "current_version": "4.4.3",
     "next_bump": "none",
-    "reason": "4.4.2 bundles the UI readability/brightness lift and the dashboard-issues resolution pass (new platform route + dashclaw_assumption_record MCP tool + bug fixes + migrations 0024/0025). Python SDK surface is unchanged at 224 (byte-identical to 4.4.1) and republishes at 4.4.2 per the unified-version model.",
-    "domains": ["ui", "docs"]
+    "reason": "4.4.3 ships the /policies information-architecture redesign (UI-only reorganization, no new platform/SDK surface). Python SDK surface unchanged at 224 (byte-identical to 4.4.2) and republishes at 4.4.3 per the unified-version model.",
+    "domains": ["ui"]
   }
 }
