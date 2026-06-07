@@ -116,9 +116,9 @@ function OAuthConnectorCard({ hero = false }: OAuthConnectorCardProps) {
           </h2>
         </div>
         <p className="text-sm sm:text-base text-text-secondary max-w-2xl leading-relaxed">
-          Your trial instance is live. Paste its connector URL into Claude&apos;s{' '}
+          Paste your DashClaw instance&apos;s <code className="rounded border border-border bg-surface-primary px-1 py-0.5 font-mono text-[12px] text-text-secondary">/api/mcp</code> URL into Claude&apos;s{' '}
           <span className="text-text-primary">Add custom connector</span>, log in, and
-          authorize. There is no API key to copy — the OAuth handshake does it for you.
+          authorize. No API key needed — the OAuth handshake handles authentication.
         </p>
         <div className="mt-5">
           <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
@@ -159,22 +159,32 @@ function OAuthConnectorCard({ hero = false }: OAuthConnectorCardProps) {
   );
 }
 
+interface FullConnectGuideProps {
+  showBreadcrumb?: boolean;
+}
+
 /**
  * The full framework-agnostic runbook. This is the entire body the page has
  * always rendered; the non-hosted variant renders it verbatim, and the hosted
  * variant tucks it under an "Advanced (SDK / CLI)" disclosure.
+ *
+ * showBreadcrumb (default true) — set to false when rendering inside the
+ * hosted <details> disclosure, where the outer page already renders its own
+ * <nav aria-label="Breadcrumb">, to avoid two identically-named landmarks.
  */
-function FullConnectGuide() {
+function FullConnectGuide({ showBreadcrumb = true }: FullConnectGuideProps = {}) {
   return (
     <>
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-text-tertiary">
-        <Link href="/" className="transition-colors hover:text-text-secondary">
-          Home
-        </Link>
-        <ChevronRight size={14} aria-hidden="true" />
-        <span className="text-text-secondary">Connect an Agent</span>
-      </nav>
+      {/* Breadcrumb — omitted when a parent context already renders one */}
+      {showBreadcrumb && (
+        <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-text-tertiary">
+          <Link href="/" className="transition-colors hover:text-text-secondary">
+            Home
+          </Link>
+          <ChevronRight size={14} aria-hidden="true" />
+          <span className="text-text-secondary">Connect an Agent</span>
+        </nav>
+      )}
 
           {/* Hero */}
           <header className="mb-10">
@@ -645,7 +655,7 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                   </Link>{' '}
                   (shown once at creation), then follow the full runbook below.
                 </p>
-                <FullConnectGuide />
+                <FullConnectGuide showBreadcrumb={false} />
               </div>
             </details>
           </div>
