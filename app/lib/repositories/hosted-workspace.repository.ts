@@ -13,14 +13,61 @@ function generateApiKey(): { plaintext: string; keyHash: string; keyPrefix: stri
   return { plaintext, keyHash, keyPrefix };
 }
 
+export async function mintOrgApiKey(
+  sql: SqlTag,
+  orgId: string,
+  { label = 'trial', role = 'admin', scope = 'trial' }: { label?: string; role?: string; scope?: string } = {},
+): Promise<{ apiKey: string; keyPrefix: string }> {
+  const keyId = generateId('key');
+  const key = generateApiKey();
+  await sql`
+    INSERT INTO api_keys (id, org_id, key_hash, key_prefix, label, role, scope)
+    VALUES (${keyId}, ${orgId}, ${key.keyHash}, ${key.keyPrefix}, ${label}, ${role}, ${scope})
+  `;
+  return { apiKey: key.plaintext, keyPrefix: key.keyPrefix };
+}
+
+export async function applyHostedTrial(
+  sql: SqlTag,
+  orgId: string,
+  { trialDays, trialActionCap }: { trialDays: number; trialActionCap: number },
+): Promise<{ expiresAt: string }> {
+  const expiresAt = new Date(Date.now() + trialDays * 86_400_000).toISOString();
+  await sql`
+    UPDATE organizations
+    SET hosted_mode = TRUE, trial_ends_at = ${expiresAt}, trial_action_cap = ${trialActionCap}, trial_actions_used = 0
+    WHERE id = ${orgId}
+  `;
+  return { expiresAt };
+}
+
+export async function markTrialFull(sql: SqlTag, orgId: string): Promise<void> {
+  const past = new Date().toISOString();
+  await sql`
+    UPDATE organizations
+    SET hosted_mode = TRUE, trial_ends_at = ${past}, trial_action_cap = 0, trial_actions_used = 0
+    WHERE id = ${orgId}
+  `;
+}
+
+export async function countActiveTrials(
+  sql: SqlTag,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<number> {
+  const cutoff = now.toISOString();
+  const rows = await sql`
+    SELECT COUNT(*)::int AS count FROM organizations
+    WHERE hosted_mode = TRUE AND trial_action_cap > 0 AND trial_ends_at > ${cutoff}
+  `;
+  return Number(rows[0]?.count || 0);
+}
+
 export async function provisionHostedWorkspace(
   sql: SqlTag,
   { trialDays, trialActionCap, label = 'trial' }: { trialDays: number; trialActionCap: number; label?: string },
 ): Promise<{ orgId: string; apiKey: string; keyPrefix: string; expiresAt: string }> {
   const orgId = generateId('org');
-  const keyId = generateId('key');
   const slug = `trial-${orgId.slice(4, 12)}`;
-  const key = generateApiKey();
   const expiresAt = new Date(Date.now() + trialDays * 86_400_000).toISOString();
 
   await sql`
@@ -28,23 +75,14 @@ export async function provisionHostedWorkspace(
     VALUES (${orgId}, ${'Trial workspace'}, ${slug}, ${'free'}, TRUE, ${expiresAt}, ${trialActionCap}, 0)
   `;
   try {
-    await sql`
-      INSERT INTO api_keys (id, org_id, key_hash, key_prefix, label, role, scope)
-      VALUES (${keyId}, ${orgId}, ${key.keyHash}, ${key.keyPrefix}, ${label}, ${'admin'}, ${'trial'})
-    `;
+    const { apiKey, keyPrefix } = await mintOrgApiKey(sql, orgId, { label });
+    return { orgId, apiKey, keyPrefix, expiresAt };
   } catch (err) {
     // Best-effort cleanup — prevents orphaned trial orgs when key insert fails.
     // If this also fails, the sweep job will collect it once trial_ends_at passes.
     await sql`DELETE FROM organizations WHERE id = ${orgId} AND hosted_mode = TRUE`.catch(() => {});
     throw err;
   }
-
-  return {
-    orgId,
-    apiKey: key.plaintext,
-    keyPrefix: key.keyPrefix,
-    expiresAt,
-  };
 }
 
 export async function getHostedWorkspace(
