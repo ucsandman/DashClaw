@@ -121,6 +121,9 @@ Then deploy.
 
 ### Instant trial via Google sign-in (the prod flip)
 
+> **Quick checklist:** for the minimum Vercel env steps to switch this on, see
+> [`instant-trial-vercel-setup.md`](./instant-trial-vercel-setup.md). The detail below is the full context.
+
 Beyond the curl/`/connect` mint flow above, the hosted instance offers a zero-friction trial: a visitor clicks **"Govern your Claude — free"** on the landing page, signs in with Google, and is auto-provisioned an isolated, usage-capped trial workspace — no key to copy. They connect Claude through the keyless OAuth connector on the stripped `/connect?hosted=<orgId>` screen, and their actions stream to their own Mission Control. To enable it:
 
 - **`DASHCLAW_HOSTED=true`** (already required above) gates trial provisioning on sign-in, the public `GET /api/hosted/capacity` endpoint, and the landing CTA.
