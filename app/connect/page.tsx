@@ -86,21 +86,95 @@ function Eyebrow({ children }: EyebrowProps) {
   );
 }
 
-export default function ConnectPage() {
-  return (
-    <div className="min-h-screen bg-surface-primary text-text-primary">
-      <PublicNavbar />
+interface OAuthConnectorCardProps {
+  /**
+   * When true, renders the keyless hero variant used by the hosted-trial
+   * screen: larger heading, no example API key, framed as the first action.
+   * When false (default), renders the standard integration-surface card used
+   * inside the full runbook.
+   */
+  hero?: boolean;
+}
 
-      <main className="px-6 pb-20 pt-28">
-        <div className="mx-auto max-w-5xl">
-          {/* Breadcrumb */}
-          <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-text-tertiary">
-            <Link href="/" className="transition-colors hover:text-text-secondary">
-              Home
-            </Link>
-            <ChevronRight size={14} aria-hidden="true" />
-            <span className="text-text-secondary">Connect an Agent</span>
-          </nav>
+/**
+ * The OAuth custom connector. Keyless: paste the instance `/api/mcp` URL into
+ * Claude's Add custom connector, log in, authorize. Used both as the hosted
+ * hero and as one of the integration-surface cards in the full runbook, so the
+ * JSX lives in one place.
+ */
+function OAuthConnectorCard({ hero = false }: OAuthConnectorCardProps) {
+  if (hero) {
+    return (
+      <section
+        aria-label="Keyless connector"
+        className="rounded-2xl border border-border-active bg-surface-secondary p-6 sm:p-8 shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_30px_90px_rgba(0,0,0,0.55)]"
+      >
+        <div className="flex items-center gap-2 mb-3">
+          <KeyRound size={20} className="text-brand" aria-hidden="true" />
+          <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-text-primary">
+            Add DashClaw to Claude — no API key
+          </h2>
+        </div>
+        <p className="text-sm sm:text-base text-text-secondary max-w-2xl leading-relaxed">
+          Your trial instance is live. Paste its connector URL into Claude&apos;s{' '}
+          <span className="text-text-primary">Add custom connector</span>, log in, and
+          authorize. There is no API key to copy — the OAuth handshake does it for you.
+        </p>
+        <div className="mt-5">
+          <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
+          <p className="mt-3 text-xs text-text-tertiary leading-relaxed max-w-2xl">
+            In Claude, open <span className="text-text-secondary">Add custom connector</span>,
+            paste the URL, click Connect, log in, and Authorize. On plain chat, governance is
+            advisory — it records actions and prompts for approval, not a hard block.
+          </p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-surface-tertiary p-5 flex flex-col">
+      <div className="flex items-center gap-2 mb-3">
+        <KeyRound size={16} className="text-brand" aria-hidden="true" />
+        <h3 className="text-base font-semibold text-text-primary">Custom connector (Claude app — web / Desktop), OAuth, no key</h3>
+      </div>
+      <p className="text-sm text-text-secondary leading-relaxed mb-4">
+        No API key. Paste your instance URL into Claude&apos;s Add custom connector, then log in and authorize. Free tier allows one connector. On plain chat, governance is advisory — it records actions and prompts for approval, not a hard block.
+      </p>
+      <div className="mt-auto">
+        <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
+        <p className="mt-3 text-[11px] text-text-tertiary leading-relaxed">
+          In Claude, open Add custom connector, paste the URL, click Connect, log in, and Authorize.
+        </p>
+        <a
+          href="https://github.com/ucsandman/DashClaw/blob/main/docs/CLAUDE-DESKTOP-PLUGIN.md"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-brand hover:text-brand-hover transition-colors font-medium"
+        >
+          Claude app connector guide <ArrowRight size={12} aria-hidden="true" />
+        </a>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * The full framework-agnostic runbook. This is the entire body the page has
+ * always rendered; the non-hosted variant renders it verbatim, and the hosted
+ * variant tucks it under an "Advanced (SDK / CLI)" disclosure.
+ */
+function FullConnectGuide() {
+  return (
+    <>
+      {/* Breadcrumb */}
+      <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-text-tertiary">
+        <Link href="/" className="transition-colors hover:text-text-secondary">
+          Home
+        </Link>
+        <ChevronRight size={14} aria-hidden="true" />
+        <span className="text-text-secondary">Connect an Agent</span>
+      </nav>
 
           {/* Hero */}
           <header className="mb-10">
@@ -249,29 +323,7 @@ pip install dashclaw`}</CodeBlock>
               </div>
 
               {/* OAuth custom connector */}
-              <div className="rounded-xl border border-border bg-surface-tertiary p-5 flex flex-col">
-                <div className="flex items-center gap-2 mb-3">
-                  <KeyRound size={16} className="text-brand" aria-hidden="true" />
-                  <h3 className="text-base font-semibold text-text-primary">Custom connector (Claude app — web / Desktop), OAuth, no key</h3>
-                </div>
-                <p className="text-sm text-text-secondary leading-relaxed mb-4">
-                  No API key. Paste your instance URL into Claude&apos;s Add custom connector, then log in and authorize. Free tier allows one connector. On plain chat, governance is advisory — it records actions and prompts for approval, not a hard block.
-                </p>
-                <div className="mt-auto">
-                  <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
-                  <p className="mt-3 text-[11px] text-text-tertiary leading-relaxed">
-                    In Claude, open Add custom connector, paste the URL, click Connect, log in, and Authorize.
-                  </p>
-                  <a
-                    href="https://github.com/ucsandman/DashClaw/blob/main/docs/CLAUDE-DESKTOP-PLUGIN.md"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 text-xs text-brand hover:text-brand-hover transition-colors font-medium"
-                  >
-                    Claude app connector guide <ArrowRight size={12} aria-hidden="true" />
-                  </a>
-                </div>
-              </div>
+              <OAuthConnectorCard />
             </div>
           </section>
 
@@ -506,6 +558,111 @@ dashclaw doctor`}</CodeBlock>
               ))}
             </div>
           </section>
+    </>
+  );
+}
+
+interface ConnectPageProps {
+  searchParams?: Promise<{ hosted?: string }>;
+}
+
+export default async function ConnectPage({ searchParams }: ConnectPageProps = {}) {
+  const params = await searchParams;
+  const hosted = typeof params?.hosted === 'string' && params.hosted ? params.hosted : undefined;
+
+  if (hosted) {
+    return (
+      <div className="min-h-screen bg-surface-primary text-text-primary">
+        <PublicNavbar />
+
+        <main className="px-6 pb-20 pt-28">
+          <div className="mx-auto max-w-3xl">
+            {/* Breadcrumb */}
+            <nav aria-label="Breadcrumb" className="mb-8 flex items-center gap-2 text-sm text-text-tertiary">
+              <Link href="/" className="transition-colors hover:text-text-secondary">
+                Home
+              </Link>
+              <ChevronRight size={14} aria-hidden="true" />
+              <span className="text-text-secondary">Connect an Agent</span>
+            </nav>
+
+            {/* Hero */}
+            <header className="mb-8">
+              <Eyebrow>Your trial is ready</Eyebrow>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight leading-tight text-text-primary">
+                Connect Claude in two minutes.
+              </h1>
+              <p className="mt-4 text-lg text-text-secondary max-w-2xl leading-relaxed">
+                One keyless step gets your agent governed. No install, no key to manage — just
+                authorize the connector and watch governed actions land.
+              </p>
+            </header>
+
+            {/* Keyless connector — the only first-class step */}
+            <OAuthConnectorCard hero />
+
+            {/* Mission Control */}
+            <div className="mt-6 rounded-2xl border border-border bg-surface-secondary p-6 sm:p-8">
+              <div className="flex items-center gap-2 mb-2">
+                <ShieldCheck size={20} className="text-brand" aria-hidden="true" />
+                <h2 className="text-xl font-semibold tracking-tight text-text-primary">
+                  Watch it work
+                </h2>
+              </div>
+              <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
+                Once Claude acts, every governed decision shows up in Mission Control — the action,
+                the policy that fired, and anything waiting on your approval.
+              </p>
+              <Link
+                href="/mission-control"
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-hover transition-colors"
+              >
+                Open Mission Control <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
+
+            {/* Advanced — the full SDK / CLI runbook, collapsed */}
+            <details className="group mt-6 rounded-2xl border border-border bg-surface-secondary">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 p-6 sm:px-8">
+                <span className="flex items-center gap-2">
+                  <Terminal size={18} className="text-text-tertiary" aria-hidden="true" />
+                  <span className="text-base font-semibold text-text-primary">Advanced (SDK / CLI)</span>
+                </span>
+                <span className="flex items-center gap-1.5 text-sm text-text-tertiary">
+                  SDK, hooks, API keys, approval surfaces
+                  <ChevronRight
+                    size={16}
+                    aria-hidden="true"
+                    className="transition-transform group-open:rotate-90"
+                  />
+                </span>
+              </summary>
+              <div className="border-t border-border px-6 pb-2 sm:px-8">
+                <p className="mt-5 text-sm text-text-secondary leading-relaxed max-w-2xl">
+                  Prefer the SDK, hooks, or a CLI? Mint an API key from{' '}
+                  <Link href="/api-keys" className="text-brand hover:text-brand-hover transition-colors font-medium">
+                    API keys
+                  </Link>{' '}
+                  (shown once at creation), then follow the full runbook below.
+                </p>
+                <FullConnectGuide />
+              </div>
+            </details>
+          </div>
+        </main>
+
+        <PublicFooter />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-surface-primary text-text-primary">
+      <PublicNavbar />
+
+      <main className="px-6 pb-20 pt-28">
+        <div className="mx-auto max-w-5xl">
+          <FullConnectGuide />
         </div>
       </main>
 

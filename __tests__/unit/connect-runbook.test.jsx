@@ -10,22 +10,24 @@ vi.mock('@/components/PublicFooter', () => ({ default: () => null }));
 
 import ConnectPage from '@/connect/page.jsx';
 
-function renderPage() {
-  const element = ConnectPage();
+// ConnectPage is an async server component (Next 16 awaits searchParams).
+// Await it before rendering. No ?hosted= => the full runbook.
+async function renderPage() {
+  const element = await ConnectPage({ searchParams: Promise.resolve({}) });
   return renderToString(element);
 }
 
 describe('/connect runbook', () => {
-  it('does NOT contain multi-step wizard markers', () => {
-    const html = renderPage();
+  it('does NOT contain multi-step wizard markers', async () => {
+    const html = await renderPage();
     // "Step 1 of N" / "Step 2 of N" wizard framing
     expect(html).not.toMatch(/step\s*\d+\s*of\s*\d+/i);
     // The old "Golden path" wizard banner must not return
     expect(html).not.toMatch(/Golden path/i);
   });
 
-  it('exposes the four canonical runbook surfaces: install command, API key env var, an approval surface, and a Verify command', () => {
-    const html = renderPage();
+  it('exposes the four canonical runbook surfaces: install command, API key env var, an approval surface, and a Verify command', async () => {
+    const html = await renderPage();
     // 1. SDK or hooks install command is present somewhere on the page
     expect(html).toMatch(/npm install|pip install|cp hooks/i);
     // 2. The DASHCLAW_API_KEY env var name is the canonical token reference
