@@ -529,7 +529,23 @@ export async function middleware(request) {
   const normalizedHost = host.split(':')[0].toLowerCase();
   const isMarketingHost =
     normalizedHost === 'dashclaw.io' || normalizedHost.endsWith('.dashclaw.io');
-  if (mode === 'demo' || (demoCookie && isMarketingHost)) {
+  // Cookie-driven demo is only honored on marketing hosts and never overrides an
+  // explicit DASHCLAW_MODE=demo (that path forces demo for everyone, below).
+  const cookieDemo = demoCookie && isMarketingHost && mode !== 'demo';
+  // THE FIX (Instant Hosted Trial): a visitor who kicked the tires anonymously
+  // (got the dashclaw_demo cookie via /demo) and then signed in now has a real
+  // trial workspace. Resolve the auth principal LAZILY — only on the narrow
+  // cookie-demo path — so normal requests pay nothing. An authenticated
+  // principal (NextAuth token OR local-admin session) bypasses the demo and
+  // falls through to the real runtime. This covers BOTH page and API requests.
+  let demoBypassPrincipal = null;
+  if (cookieDemo) {
+    const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET }).catch(() => null);
+    demoBypassPrincipal = token || (await getLocalAdminSession(request));
+  }
+  const clearStaleDemoCookie = Boolean(cookieDemo && demoBypassPrincipal);
+  const serveDemoSandbox = mode === 'demo' || (cookieDemo && !demoBypassPrincipal);
+  if (serveDemoSandbox) {
     if (pathname.startsWith('/api/')) {
       if (request.method === 'OPTIONS') {
         return new NextResponse(null, { status: 204, headers: getCorsHeaders(request) });
@@ -1184,7 +1200,15 @@ export async function middleware(request) {
     requestHeaders.set('x-org-id', session.orgId || 'org_default');
     requestHeaders.set('x-org-role', session.role || 'member');
     requestHeaders.set('x-user-id', session.userId || (session.sub === 'local-admin' ? 'usr_local_admin' : session.sub || ''));
-    return NextResponse.next({ request: { headers: requestHeaders } });
+    const response = NextResponse.next({ request: { headers: requestHeaders } });
+    // Best-effort: an authenticated visitor still carrying the stale dashclaw_demo
+    // cookie (kicked the tires, then signed in) gets it cleared here, on the first
+    // page request. API requests already bypass demo via the principal check, so
+    // clearing it on any page navigation is enough to make the whole session clean.
+    if (clearStaleDemoCookie) {
+      response.cookies.delete('dashclaw_demo');
+    }
+    return response;
   }
 
   // Handle CORS preflight
