@@ -718,6 +718,104 @@ def _maybe_warn_demo_mode():
 
 
 # ---------------------------------------------------------------------------
+# Skill auto-scan (out-of-the-box protection)
+# ---------------------------------------------------------------------------
+# When the agent loads a Skill, scan its files for embedded secrets and
+# dangerous/injection patterns and WARN (never block — advisory by design, the
+# operator stays in control). Reuses POST /api/skills/scan, which dedupes by
+# content hash so repeat loads of an unchanged skill are cheap. Opt out with
+# DASHCLAW_SKILL_SCAN=0.
+
+_SKILL_SCAN_ENABLED = (os.environ.get("DASHCLAW_SKILL_SCAN") or "1") != "0"
+_SKILL_TEXT_EXTS = (".md", ".txt", ".py", ".js", ".mjs", ".ts", ".json",
+                    ".yaml", ".yml", ".sh", ".toml", ".rb", ".go")
+_SKILL_SCAN_MAX_FILE = 100_000      # per-file byte cap
+_SKILL_SCAN_MAX_TOTAL = 400_000     # total chars sent
+_SKILL_SCAN_MAX_FILES = 50
+
+
+def _resolve_skill_dir(skill_name):
+    """Best-effort: find the on-disk directory for a loaded skill, or None.
+
+    Only project- and user-level skill dirs are resolvable here; built-in or
+    plugin-bundled skills we can't locate are skipped (nothing to scan). The
+    leaf-name guard rejects path separators so a crafted skill name can't walk
+    outside the skills dir."""
+    leaf = (skill_name or "").split(":")[-1].strip()
+    if not leaf or "/" in leaf or "\\" in leaf or ".." in leaf:
+        return None
+    roots = []
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or WORKSPACE
+    if proj:
+        roots.append(os.path.join(proj, ".claude", "skills", leaf))
+    roots.append(os.path.join(os.path.expanduser("~"), ".claude", "skills", leaf))
+    for d in roots:
+        if os.path.isdir(d):
+            return d
+    return None
+
+
+def _collect_skill_files(skill_dir):
+    """Read the skill's text files into a {relpath: content} map (capped)."""
+    files = {}
+    total = 0
+    for root, _dirs, names in os.walk(skill_dir):
+        for n in names:
+            if not n.lower().endswith(_SKILL_TEXT_EXTS):
+                continue
+            fp = os.path.join(root, n)
+            try:
+                if os.path.getsize(fp) > _SKILL_SCAN_MAX_FILE:
+                    continue
+                with open(fp, encoding="utf-8", errors="replace") as f:
+                    content = f.read()
+            except Exception:
+                continue
+            rel = os.path.relpath(fp, skill_dir).replace("\\", "/")
+            files[rel] = content
+            total += len(content)
+            if total >= _SKILL_SCAN_MAX_TOTAL or len(files) >= _SKILL_SCAN_MAX_FILES:
+                return files
+    return files
+
+
+def scan_skill_and_warn(tool_input):
+    """Scan a loaded skill for secrets / dangerous patterns and warn.
+
+    Advisory only: prints to stderr, never blocks, never raises."""
+    if not _SKILL_SCAN_ENABLED:
+        return
+    try:
+        skill_name = (tool_input.get("skill") or tool_input.get("name")
+                      or tool_input.get("command") or "").strip()
+        if not skill_name:
+            return
+        skill_dir = _resolve_skill_dir(skill_name)
+        if not skill_dir:
+            return
+        files = _collect_skill_files(skill_dir)
+        if not files:
+            return
+        resp = api_request("POST", "/api/skills/scan",
+                           body={"skill_name": skill_name, "files": files})
+        findings = (resp or {}).get("findings") or []
+        if not findings:
+            return
+        high = any(f.get("severity") == "high" for f in findings)
+        rules = ", ".join(sorted({f.get("rule_id", "issue") for f in findings}))
+        sev_word = "secrets/dangerous code" if high else "suspicious patterns"
+        log("[DashClaw] ⚠ Skill '%s' flagged by auto-scan (%s: %s). Review before trusting it."
+            % (skill_name, sev_word, rules))
+        for f in findings[:6]:
+            loc = f.get("file") or ""
+            line = f.get("line")
+            where = (" — %s:%s" % (loc, line)) if loc else ""
+            log("   - [%s] %s%s" % (f.get("severity") or "warn", f.get("rule_id") or "finding", where))
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -750,6 +848,14 @@ def main():
 
     global _SESSION_ID
     _SESSION_ID = data.get("session_id") or ""
+
+    # Skill loads aren't governed actions, but DashClaw scans them for embedded
+    # secrets and dangerous/injection patterns and warns out of the box
+    # (advisory; never blocks). Handled before the governance flow because Skill
+    # is not in the governed-tool set.
+    if tool_name == "Skill":
+        scan_skill_and_warn(tool_input)
+        sys.exit(0)
 
     # Step 1: Classify the tool using the intel module
     tool_info = classify_tool(tool_name, tool_input)

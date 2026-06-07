@@ -19,6 +19,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 - **UI readability + brightness lift** — a site-wide pass, at the token layer, to pull the dark theme out of the flat near-black/low-contrast register that made dense surfaces (the Policies page in particular) hard to read. The surface ramp was raised off pitch-black with a faint cool-slate undertone and stepped further apart for real depth (`bg-primary #0a0a0a → #0e1014`, through `#272b32`); `border` opacity lifted so card and panel edges read. Secondary/tertiary body text was brightened to clear WCAG AA with headroom (`text-secondary #a1a1aa → #c2c2cc` ≈ 10.8:1, `text-tertiary #808088 → #9b9ba8` ≈ 6.9:1). The small type steps were enlarged (`text-xs` 12→13px, `text-sm` 14→15px) so everyday copy stops whispering, and the Policies authoring helper text was lifted off its 10/11px `text-disabled`/`text-tertiary` sizing. On-doctrine signs of life: a soft brand glow on the active nav item and brand-tinted text selection. Still dark-mode only, orange still reserved as a signal. Design context (`.impeccable.md`, `DESIGN.md`, `PRODUCT.md`) updated to match. No platform or SDK surface change — SDKs republish at 4.4.2 per the unified-version model.
 
+### Added
+
+- **Skill auto-scan (out of the box)** — the PreToolUse governance hook now scans a skill's files for embedded secrets and dangerous/injection patterns when it loads, warning the operator (advisory — never blocks; opt out with `DASHCLAW_SKILL_SCAN=0`). Reuses the existing scanner + content-hash cache. Re-run the hook install to pick up the new `Skill` matcher.
+- **`dashclaw_assumption_record` MCP tool** — agents can record an assumption an action rests on (validate/refute later), so the Assumptions ledger fills from real activity instead of staying demo-only. MCP tools 28 → 29 (Node/Python SDK method counts unchanged).
+- **Learning export** — `GET /api/learning/export?format=agents|claude` generates a downloadable `AGENTS.md` / `CLAUDE.md` from recorded decisions + learned recommendations; the `/learning` page gains one-click generate buttons, a purpose banner, and a clearer title.
+- **Messages facelift** — a "Replying to …" smart-reply banner and Sent-tab delivery/read receipts.
+
+### Fixed
+
+- **Capabilities "Run test" + webhook delivery** — call undici's `fetch` so the SSRF-pinned Agent dispatcher is honored; the global fetch's mismatched internal undici was throwing a causeless "fetch failed".
+- **Default dashboard** — saved card layouts no longer clip content: grid min-height raised (160 → 272px) and the layout version bumped so collapsed saved layouts self-heal to the roomier defaults.
+- **Agent Sessions** — abandoned rows stuck at `spawning` are swept to `closed` (migration `0024`) and the schema default aligned to `running`, so the page stops showing perpetual "spawning".
+- **Drift** — the alert `metric` filter now actually filters (it was accepted but silently dropped).
+- **Quality / Labs sidebar** — the collapsible Labs group auto-expands when the active route is inside it, so Quality (and siblings) highlight correctly.
+- **Messages** — replying to a messaging-only agent no longer 403s (`agentExistsInOrg` now counts a sent message as org membership), and send failures surface in the compose modal instead of being swallowed.
+- **Evaluations** — `eval_scorers` added to the drizzle migration chain (`0025`) so fresh deploys no longer 500 on the Scorers tab.
+
 ## [4.4.1] — 2026-06-06
 
 ### Added

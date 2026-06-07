@@ -618,7 +618,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**28 tools** in 10 groups:
+**29 tools** in 10 groups:
 
 - **Core governance (8):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`.
 - **Optimal files (2):** `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest` — Code Sessions optimizer output (root CLAUDE.md, path-scoped rules, hooks, skill packs).
@@ -626,7 +626,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Credential hygiene (3):** `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated` — check rotation due-dates before acting on tracked credentials.
 - **Skill safety (1):** `dashclaw_skill_scan` — static safety scan of untrusted skill files; results cached by content hash.
 - **Open loops (3):** `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close` — action-scoped commitments (the "I will X later" tracker).
-- **Learning + retrospection (3):** `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent` — log + query non-obvious decisions; recent governed-action ledger.
+- **Learning + retrospection (4):** `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — log + query non-obvious decisions; recent governed-action ledger; record an assumption an action rests on.
 - **Agent inbox (2):** `dashclaw_inbox_list`, `dashclaw_messages_mark_read`
 - **Behavior learning (1):** `dashclaw_behavior_suggestions`
 - **Governance posture (2, read-only):** `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score (6 dimensions + findings) and the next prioritized finding; read-only, drafting/remediation stays human-gated.
