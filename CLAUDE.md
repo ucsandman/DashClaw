@@ -52,6 +52,7 @@ CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ th
 - `npm run lint`
 - `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files)
 - `npx next build` - required for any change under `app/**`
+- For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
 
 CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook regenerates the doc/contract/livingcode artifacts for you (see "Generated artifacts").
 
@@ -59,6 +60,8 @@ CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `ve
 
 - **After pulling changes that touch `schema/schema.js` or `drizzle/*.sql`, run `npm run db:migrate`.** Otherwise your local DB stays on the old schema while middleware/routes expect new columns; the SQL fails silently, `resolveApiKey` returns null, and **every authenticated request 401s with "Invalid or missing API key."** Confusing symptom, one-command fix.
 - **No direct SQL in route files.** `app/api/**/route.js` must go through repositories (`app/lib/repositories/*.repository.js`); `npm run route-sql:check` blocks any increase in per-file direct SQL. Repositories are exempt.
+- **`.gitattributes` drifts silently.** living-merge install + CRLF normalization leave `.gitattributes` modified-but-unstaged, which silently blocks `git pull --rebase`, `git push`, and worktree ops. Before those, run `git status` and either `git add .gitattributes && git commit` or `git checkout -- .gitattributes` if the diff is LF/whitespace-only. Starting a session with `M .gitattributes` is the norm here, not an anomaly.
+- **Documented counts drift from code.** When adding any capability that affects a cited count (route, MCP tool/resource, SDK method, guard policy, shield), grep the old count across `README.md`, `PROJECT_DETAILS.md`, `docs/`, and spec files and update it in the same commit. `scripts/check-doc-counts.mjs --strict` is authoritative — run it before committing, not just at the push gate.
 
 ## Generated artifacts - never edit by hand
 
