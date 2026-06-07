@@ -1,6 +1,6 @@
 ---
 owner: Ops
-last-verified: 2026-05-13
+last-verified: 2026-06-07
 doc-type: runbook
 ---
 
@@ -109,12 +109,26 @@ Save all values.
 | `CRON_SECRET` | recommended | used by Vercel cron auth |
 | `HOSTED_TRIAL_DAYS` | optional | defaults to `30` |
 | `HOSTED_TRIAL_ACTION_CAP` | optional | defaults to `10000` |
+| `HOSTED_MAX_ACTIVE_TRIALS` | optional | global concurrent-trial cap (cost circuit breaker); defaults to `500` |
 | `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` | optional | defaults to `5` |
+| `GOOGLE_ID` | recommended | Google OAuth client ID — enables one-tap sign-in trials (see "Instant trial" below) |
+| `GOOGLE_SECRET` | recommended | Google OAuth client secret |
 | `NEXTAUTH_URL` | yes | final deployment URL |
 | `NEXTAUTH_SECRET` | yes | required by NextAuth |
 | `ALLOWED_ORIGIN` | recommended | set to your hosted app origin |
 
 Then deploy.
+
+### Instant trial via Google sign-in (the prod flip)
+
+Beyond the curl/`/connect` mint flow above, the hosted instance offers a zero-friction trial: a visitor clicks **"Govern your Claude — free"** on the landing page, signs in with Google, and is auto-provisioned an isolated, usage-capped trial workspace — no key to copy. They connect Claude through the keyless OAuth connector on the stripped `/connect?hosted=<orgId>` screen, and their actions stream to their own Mission Control. To enable it:
+
+- **`DASHCLAW_HOSTED=true`** (already required above) gates trial provisioning on sign-in, the public `GET /api/hosted/capacity` endpoint, and the landing CTA.
+- **`GOOGLE_ID` + `GOOGLE_SECRET`** — Google OAuth is the trial identity (so a user can return to their workspace). Set the OAuth redirect URI to `https://<your-host>/api/auth/callback/google`.
+- **`HOSTED_MAX_ACTIVE_TRIALS`** (default `500`) is the hard global cap on concurrent active trials — the cost circuit breaker. At the cap, new sign-ins land on a "trials are full" state and provision nothing (fail-closed, zero spend). Tune it to your infra budget. Note: `0` or blank falls back to `500` (the cap parser only accepts positive integers), so to effectively pause new trials, take the deployment down rather than setting the cap to `0`.
+- **Do NOT set `DASHCLAW_MODE=demo`.** Demo is cookie-driven: anonymous visitors who click "Run live demo" get fixtures, while an authenticated session bypasses demo and gets the real runtime. Setting `DASHCLAW_MODE=demo` as an env forces demo for **everyone** (including signed-in trial users) and breaks the trial. Leave it unset.
+- **Build-time note:** the landing page is statically prerendered and reads `DASHCLAW_HOSTED` at **build** time to decide its hero layout (which CTA is the primary). Vercel exposes project env vars to the build by default, so setting `DASHCLAW_HOSTED=true` as a **project** env (not a runtime-only override) is what makes the hosted hero render.
+- **Cleanup:** expired trials are reclaimed by `/api/hosted/cleanup` (see section 7). The repo's `.github/workflows/hosted-cleanup.yml` runs it daily — add the `DASHCLAW_BASE_URL` + `HOSTED_CLEANUP_SECRET` repo secrets to enable it. Expiry is also enforced at request time, so trials stop working on expiry even if cleanup lags.
 
 ---
 
@@ -249,4 +263,4 @@ Before calling the hosted deployment ready, verify all of this:
 
 ---
 
-Runbook last verified: 2026-05-13
+Runbook last verified: 2026-06-07
