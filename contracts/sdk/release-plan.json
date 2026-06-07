@@ -2,13 +2,13 @@
   "node": {
     "current_version": "4.4.2",
     "next_bump": "none",
-    "reason": "4.4.2 — patch (UI readability/brightness lift). Token-layer theme pass: surfaces raised off pitch-black with a cool-slate undertone, secondary/tertiary text brightened to clear WCAG AA with headroom, small type steps enlarged, soft brand glow on active nav + brand text selection, Policies authoring helper text lifted. No platform or SDK surface change — Node surface stays 126, byte-identical to 4.4.1, republishes at 4.4.2 per the unified-version model. Self-dep stays ^4.0.0 (patch within the major).",
+    "reason": "4.4.2 bundles the UI readability/brightness lift (token-layer theme pass) and the dashboard-issues resolution pass: capability/webhook undici fetch fix, dashboard layout self-heal, agent-session backfill (drizzle 0024), drift metric filter, Quality sidebar highlight, message-reply 403 fix, eval_scorers migration (0025), skill auto-scan, the learning AGENTS.md/CLAUDE.md export route, the dashclaw_assumption_record MCP tool (tools 28->29), and the messages facelift. Node SDK surface is unchanged at 126 (byte-identical to 4.4.1) and republishes at 4.4.2 per the unified-version model. Self-dep stays ^4.0.0 (within the major).",
     "domains": ["ui", "docs"]
   },
   "python": {
     "current_version": "4.4.2",
     "next_bump": "none",
-    "reason": "4.4.2 — patch (UI readability/brightness lift). Platform-only theme pass. No Python SDK change — surface stays 224, byte-identical to 4.4.1, republishes at 4.4.2 per the unified-version model.",
+    "reason": "4.4.2 bundles the UI readability/brightness lift and the dashboard-issues resolution pass (new platform route + dashclaw_assumption_record MCP tool + bug fixes + migrations 0024/0025). Python SDK surface is unchanged at 224 (byte-identical to 4.4.1) and republishes at 4.4.2 per the unified-version model.",
     "domains": ["ui", "docs"]
   }
 }
