@@ -3,6 +3,7 @@
 import React from 'react';
 import { SessionProvider } from 'next-auth/react';
 import { AgentFilterProvider } from '../lib/AgentFilterContext';
+import { ContextMenuProvider } from './context-menu/ContextMenuProvider';
 import { isDemoMode } from '../lib/isDemoMode';
 
 function DemoSessionProvider({ children }: { children?: React.ReactNode }) {
@@ -39,14 +40,18 @@ export default function SessionWrapper({ children }: { children?: React.ReactNod
   if (isDemoMode()) {
     return (
       <DemoSessionProvider>
-        <AgentFilterProvider>{children}</AgentFilterProvider>
+        <AgentFilterProvider>
+          <ContextMenuProvider>{children}</ContextMenuProvider>
+        </AgentFilterProvider>
       </DemoSessionProvider>
     );
   }
 
   return (
     <SessionProvider>
-      <AgentFilterProvider>{children}</AgentFilterProvider>
+      <AgentFilterProvider>
+        <ContextMenuProvider>{children}</ContextMenuProvider>
+      </AgentFilterProvider>
     </SessionProvider>
   );
 }
