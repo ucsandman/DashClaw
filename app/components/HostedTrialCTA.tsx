@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { signIn } from 'next-auth/react';
 import { ArrowRight } from 'lucide-react';
 
 type Capacity = { full: boolean; active: number; max: number };
@@ -44,11 +44,12 @@ export default function HostedTrialCTA() {
   }
 
   return (
-    <Link
-      href="/login"
+    <button
+      type="button"
+      onClick={() => signIn('google', { callbackUrl: '/connect?hosted=1' })}
       className="px-8 py-3 rounded-lg bg-brand text-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20"
     >
       Govern your Claude — free <ArrowRight size={18} aria-hidden="true" />
-    </Link>
+    </button>
   );
 }

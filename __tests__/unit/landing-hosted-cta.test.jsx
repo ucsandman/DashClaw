@@ -1,7 +1,11 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
 import HostedTrialCTA from '@/components/HostedTrialCTA';
+
+vi.mock('next-auth/react', () => ({ signIn: vi.fn() }));
+
+import { signIn } from 'next-auth/react';
 
 afterEach(() => {
   cleanup();
@@ -9,16 +13,17 @@ afterEach(() => {
 });
 
 describe('HostedTrialCTA', () => {
-  it('under cap: renders the sign-in CTA linking to /login', async () => {
+  it('under cap: clicking the CTA calls signIn with google and /connect?hosted=1', async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({ full: false, active: 0, max: 500 }) }),
     );
 
     render(<HostedTrialCTA />);
 
-    const cta = await screen.findByText(/Govern your Claude/i);
-    expect(cta).toBeTruthy();
-    expect(cta.closest('a')?.getAttribute('href')).toBe('/login');
+    const btn = await screen.findByRole('button', { name: /Govern your Claude/i });
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    expect(signIn).toHaveBeenCalledWith('google', { callbackUrl: '/connect?hosted=1' });
   });
 
   it('full: shows "Trials are full" and not the sign-in CTA', async () => {
