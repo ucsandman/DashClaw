@@ -3,6 +3,8 @@ import GoogleProvider from 'next-auth/providers/google';
 import crypto from 'crypto';
 import { getSql } from './db.js';
 import { getAuthConfig } from './authConfig.mjs';
+import { isHostedMode, hostedConfig } from './hosted/flag.js';
+import { applyHostedTrial, markTrialFull, countActiveTrials } from './repositories/hosted-workspace.repository.js';
 
 // SECURITY: In production, require real OAuth credentials. Dev mode may use mocks.
 const isProd = process.env.NODE_ENV === 'production';
@@ -141,6 +143,18 @@ export const authOptions: any = {
               VALUES (${personalOrgId}, ${personalOrgName}, ${personalOrgSlug}, 'free')
             `;
             targetOrgId = personalOrgId;
+
+            if (isHostedMode()) {
+              const cfg = hostedConfig();
+              const active = await countActiveTrials(sql, { now: new Date() });
+              if (active < cfg.maxActiveTrials) {
+                await applyHostedTrial(sql, personalOrgId, { trialDays: cfg.trialDays, trialActionCap: cfg.trialActionCap });
+              } else {
+                // Fail-closed: capacity full → inert org (cap 0, expired) so enforceHostedTrial
+                // 403s every write. Zero cost. The landing pre-check normally prevents reaching here.
+                await markTrialFull(sql, personalOrgId);
+              }
+            }
           }
 
           // New users are admin of their OWN workspace (org_default for the

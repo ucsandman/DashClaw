@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:0a14ab5b3f4b46eb48cdb739d7c9ee770a81849a",
+  "timestamp": "sha1:6f0f504f2c969718ab20c640a93dcd55b1721c30",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3453,6 +3453,7 @@
       "required": false,
       "files": [
         "__tests__/integration/hosted/end-to-end.test.js",
+        "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/publicConfig.test.js",
@@ -3603,6 +3604,7 @@
         "__tests__/unit/actions.route.test.js",
         "__tests__/unit/agents-heartbeat.route.test.js",
         "__tests__/unit/agents.route.test.js",
+        "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/bootstrap-first-user-admin.test.js",
         "__tests__/unit/compliance-evidence.route.test.js",
         "__tests__/unit/compliance-exports.route.test.js",
@@ -3911,6 +3913,7 @@
       "name": "HOSTED_MAX_ACTIVE_TRIALS",
       "required": false,
       "files": [
+        "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",
         "app/lib/hosted/flag.ts"
