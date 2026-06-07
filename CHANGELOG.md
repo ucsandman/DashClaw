@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.5.0] — 2026-06-07
+
+### Added
+
+- **Instant Hosted Trial.** On a hosted instance (`DASHCLAW_HOSTED=true`), a visitor clicks **"Govern your Claude — free"** on the landing page, signs in with Google, and is auto-provisioned an isolated, usage-capped governed trial workspace in seconds — no key to copy. They connect Claude through a keyless OAuth connector on a stripped **`/connect?hosted=`** "Add to Claude" screen, and their actions stream to their own Mission Control. New **`GET /api/hosted/capacity`** public endpoint (300 routes total: 51 stable / 24 beta / 225 experimental) powers a landing pre-check. New **`HOSTED_MAX_ACTIVE_TRIALS`** global concurrent-trial cap (default 500) is a fail-closed cost circuit breaker enforced on both the sign-in path and the anonymous provision route — at the cap, new sign-ins land on a "trials are full" state and provision nothing. The whole feature is **inert on self-host** (capacity 404s, the CTA is hidden, sign-in doesn't trial). Operator prod-flip documented in `docs/hosted-deployment-runbook.md`.
+
+### Changed
+
+- The landing hero demotes the "Self host the runtime" CTA to secondary when in hosted mode, keeping exactly one primary action per mode.
+
+### Security
+
+- **Authenticated sessions bypass the cookie-driven demo.** A visitor who kicked the tires anonymously (got the `dashclaw_demo` cookie via `/demo`) and then signed in now gets their real trial runtime instead of demo fixtures. Fails closed — only a cryptographically-verified NextAuth or local-admin principal bypasses demo; an unauthenticated/forged cookie still gets demo, and the `DASHCLAW_MODE=demo` env path (forces demo for everyone) is unchanged.
+
+SDKs republish at 4.5.0 per the unified-version model (no SDK surface change — Node 126 / Python 224, byte-identical to 4.4.6).
+
 ## [4.4.6] — 2026-06-07
 
 ### Deprecated

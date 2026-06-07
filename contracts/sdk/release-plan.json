@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.4.6",
+    "current_version": "4.5.0",
     "next_bump": "none",
-    "reason": "4.4.6 deprecates the published dashclaw/legacy Node subpath (milestone 1 of 2; removal lands at the v5.0.0 major). Non-breaking: the ./legacy export + code are intact (verified via npm pack). Adds a one-time runtime deprecation warning covering both ESM import and CJS require (opt out with DASHCLAW_SUPPRESS_LEGACY_WARNING=1) plus an @deprecated tag, marks every doc/parity surface 'removed in v5.0.0', reconciles the drifting legacy method counts, and keeps the pairing examples on dashclaw/legacy (pairing is legacy-only and must be promoted to canonical before v5). Canonical Node SDK surface unchanged at 126 (byte-identical to 4.4.5) and republishes at 4.4.6 per the unified-version model. Self-dep stays ^4.2.0 (within the major).",
+    "reason": "4.5.0 ships the Instant Hosted Trial feature: on a hosted instance (DASHCLAW_HOSTED=true) a visitor signs in with Google and is auto-provisioned an isolated, usage-capped governed trial workspace, then connects Claude via a keyless OAuth connector on a stripped /connect?hosted= screen. Adds the GET /api/hosted/capacity route (300 routes total) and a fail-closed HOSTED_MAX_ACTIVE_TRIALS global cost circuit breaker; authenticated sessions now bypass the cookie-driven demo. Platform-side feature — no Node SDK surface change (unchanged at 126, byte-identical to 4.4.6); republishes at 4.5.0 per the unified-version model. Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.4.6",
+    "current_version": "4.5.0",
     "next_bump": "none",
-    "reason": "4.4.6 deprecates the Node-only dashclaw/legacy subpath (removal at v5.0.0). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.4.5) and republishes at 4.4.6 per the unified-version model.",
+    "reason": "4.5.0 ships the Instant Hosted Trial feature (Google sign-in auto-provisions a capped governed trial; new GET /api/hosted/capacity route; HOSTED_MAX_ACTIVE_TRIALS cost circuit breaker; authenticated-session demo bypass). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.4.6) and republishes at 4.5.0 per the unified-version model.",
     "domains": ["platform"]
   }
 }

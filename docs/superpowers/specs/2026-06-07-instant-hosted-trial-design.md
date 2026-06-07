@@ -78,9 +78,13 @@ org-scoped Mission Control; the per-IP provision rate limit.
 When `isHostedMode()` is true and the callback creates a **new** personal org
 (non-founder path, `auth.ts:133-152`), additionally:
 - stamp trial fields: `hosted_mode=true`, `trial_ends_at = now + HOSTED_TRIAL_DAYS`,
-  `trial_action_cap = HOSTED_TRIAL_ACTION_CAP`, `trial_actions_used=0`;
-- mint one admin API key for the org.
-Idempotent: an existing org (returning user) is never re-trialed or given a second key.
+  `trial_action_cap = HOSTED_TRIAL_ACTION_CAP`, `trial_actions_used=0`.
+
+**As built (deviation from the original key-mint design):** the sign-in path stamps
+trial fields **only** — it does **not** mint an API key. Keys are hashed/shown-once and
+the OAuth connector (the dad-flow hero) needs none; SDK/CLI users mint their own key at
+`/api-keys`. The `mintOrgApiKey` helper is still extracted and reused by the anonymous
+`provisionHostedWorkspace` path. Idempotent: an existing org (returning user) is never re-trialed.
 Refactor the trial-stamp + key-mint logic out of `provisionHostedWorkspace` into a
 shared helper (e.g. `applyHostedTrial(sql, orgId, opts)` + `mintOrgApiKey(sql, orgId)`)
 used by both the anonymous endpoint and this path. **No new SQL in route files**
