@@ -10,6 +10,7 @@ import TrackedLink from './components/TrackedLink';
 import MarketingViewObserver from './components/MarketingViewObserver';
 import SetupBanner from './components/SetupBanner';
 import HostedTrialCTA from './components/HostedTrialCTA';
+import { isHostedMode } from './lib/hosted/flag.js';
 
 import {
   coreFeatures,
@@ -25,6 +26,7 @@ import {
 /* ─── page ─── */
 
 export default function LandingPage() {
+  const hosted = isHostedMode();
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary text-base">
       {/* ── 1. Navbar ── */}
@@ -55,7 +57,7 @@ export default function LandingPage() {
             <TrackedLink
               href="/self-host"
               event="marketing_hero_cta_clicked"
-              className="px-8 py-3 rounded-lg bg-brand text-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20"
+              className={hosted ? 'px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2' : 'px-8 py-3 rounded-lg bg-brand text-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20'}
             >
               Self host the runtime <ArrowRight size={18} aria-hidden="true" />
             </TrackedLink>
