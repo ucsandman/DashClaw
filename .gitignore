@@ -69,8 +69,19 @@ __pycache__/
 *.pyd
 *.egg-info/
 
-# Claude Code local settings
-.claude/
+# Claude Code: ignore machine-local state by default (settings.local.json,
+# worktrees/, agentlens session-notes, generated maps/inventory)...
+.claude/*
+# ...but track the reusable build tooling checked into the repo.
+!.claude/agents/
+!.claude/commands/
+!.claude/hooks/
+!.claude/rules/
+!.claude/skills/
+!.claude/workflows/
+# Keep packaged skill artifacts and Python caches out of git.
+.claude/skills/**/*.zip
+.claude/**/__pycache__/
 .desloppify/
 scorecard.png
 

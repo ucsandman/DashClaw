@@ -1,0 +1,40 @@
+"""HTTP retry helper shared by every DashClaw hook script.
+
+The Vercel and Neon cold start path can take 3 to 6 seconds combined,
+which exceeds the timeout each hook uses for a single request. Without
+retries, one cold start blocks a tool call, drops an action update, or
+loses a token attribution. Three attempts with exponential backoff absorb
+the common case while keeping the worst case bounded.
+
+Stdlib only. No third party dependencies.
+"""
+
+import time
+import urllib.request
+
+
+def request_with_retry(req, timeout, retries=2):
+    """urlopen the given Request with up to retries+1 attempts.
+
+    Returns the response body as bytes on success. Raises the final
+    exception when every attempt fails. Sleeps 0.4 seconds after the
+    first failure and 0.8 seconds after the second before retrying.
+
+    Worst case latency when the API is down: 1.2 seconds of sleep plus
+    one timeout per attempt. Best case when the first attempt succeeds:
+    same as a single urlopen call. Cold start case where one attempt
+    fails and the next succeeds: roughly 0.4 seconds of extra latency
+    on top of the successful attempt.
+    """
+    last_exc = None
+    for attempt in range(retries + 1):
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                return resp.read()
+        except Exception as exc:
+            last_exc = exc
+            if attempt < retries:
+                time.sleep(0.4 * (2 ** attempt))
+    if last_exc is not None:
+        raise last_exc
+    return b""

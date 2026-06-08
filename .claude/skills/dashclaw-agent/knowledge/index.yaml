@@ -1,0 +1,9 @@
+documents:
+  - path: api-reference.md
+    description: Core and extension API routes with request/response examples
+  - path: sdk-reference.md
+    description: V2 SDK methods for Node.js and Python
+  - path: legacy-sdk-reference.md
+    description: V1 legacy SDK — 187 methods across 31 categories
+  - path: architecture.md
+    description: System architecture, tech stack, data flow, and database schema
