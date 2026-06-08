@@ -45,6 +45,25 @@ interface LLMCompleteOptions {
 let _providerDetected = false;
 let _cachedProvider: DetectedProvider | null = null;
 
+/**
+ * Test-only: reset the module-level provider cache.
+ *
+ * The provider is detected once per process and intentionally never
+ * re-evaluated at runtime (production wants a stable provider). But vitest
+ * workers persist module state across test FILES, so a test that sets a
+ * provider key (e.g. ANTHROPIC_API_KEY in predictive-risk/guard-engine) and
+ * exercises the real `_detectProvider()` leaves a cached provider behind.
+ * That cache survives even after `unstubEnvs` (vitest.config) clears the env,
+ * so a later test sees `isLLMAvailable() === true` — the root cause of the
+ * eval-suite llm_judge/custom_function full-suite flake. The shared test setup
+ * (`__tests__/llm-cache-reset.setup.js`) calls this in afterEach to keep the
+ * cache from leaking across files. No-op effect on production paths.
+ */
+export function __resetLLMCache(): void {
+  _providerDetected = false;
+  _cachedProvider = null;
+}
+
 function _detectProvider(): DetectedProvider | null {
   if (_providerDetected) return _cachedProvider;
   _providerDetected = true;

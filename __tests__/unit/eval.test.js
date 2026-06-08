@@ -13,11 +13,20 @@ vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test' }));
 vi.mock('@/lib/llm.js', () => ({
   isLLMAvailable: mockIsLLMAvailable,
   tryLLMComplete: vi.fn(),
+  __resetLLMCache: vi.fn(),
 }));
 
 import {
   executeScorer,
 } from '@/lib/eval.js';
+
+// Re-assert LLM-unavailable before every test. Belt-and-suspenders with the
+// global llm-cache-reset setup: even if the module mock were bypassed on a
+// worker race, this keeps the llm_judge path deterministically "not configured"
+// so the eval suite can't pick up a leaked provider from another test file.
+beforeEach(() => {
+  mockIsLLMAvailable.mockReturnValue(false);
+});
 
 describe('executeScorer  regex', () => {
   const scorer = { scorer_type: 'regex', config: { pattern: 'hello\\s+world', flags: 'i' } };
