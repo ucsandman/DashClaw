@@ -19,6 +19,7 @@ export default function ClaudeCodeSpendPage() {
   const [period, setPeriod] = useState('30d');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [colors, setColors] = useState(FALLBACK_COLORS);
 
   useEffect(() => {
@@ -34,14 +35,27 @@ export default function ClaudeCodeSpendPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/finops/spend?lens=claude-code&period=${period}`);
-      if (res.ok) setData(await res.json());
-    } catch (err) {
-      console.error('Failed to load Claude Code spend:', err);
-    } finally {
-      setLoading(false);
+    setError(false);
+    // Reset so totals/chart can never show the previous period's numbers under the
+    // newly-selected period label while the switch is in flight or fails.
+    setData(null);
+    // One retry absorbs a Neon cold-start blip on the first request (mirrors /spend).
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/finops/spend?lens=claude-code&period=${period}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setData(await res.json());
+        setLoading(false);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+      }
     }
+    console.error('Failed to load Claude Code spend:', lastErr);
+    setError(true);
+    setLoading(false);
   }, [period]);
 
   useEffect(() => { load(); }, [load]);
@@ -74,8 +88,18 @@ export default function ClaudeCodeSpendPage() {
         </div>
       }
     >
-      {loading && !data ? (
+      {loading ? (
         <div className="text-sm text-tertiary">Loading…</div>
+      ) : error ? (
+        <div className="rounded-xl border border-border bg-surface-secondary p-8 text-center">
+          <div className="text-sm text-error mb-3">Failed to load Claude Code spend.</div>
+          <button
+            onClick={load}
+            className="px-3 py-1.5 text-xs rounded-md border border-border text-secondary hover:border-border-hover transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : data ? (
         <div className="space-y-6">
           <div className="rounded-lg border border-border bg-surface-secondary px-4 py-2.5 text-xs text-tertiary">
@@ -135,7 +159,7 @@ export default function ClaudeCodeSpendPage() {
           )}
         </div>
       ) : (
-        <div className="text-sm text-error">Failed to load Claude Code spend.</div>
+        <div className="text-sm text-tertiary">No Claude Code spend data.</div>
       )}
     </PageLayout>
   );

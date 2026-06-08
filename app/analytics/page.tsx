@@ -19,17 +19,30 @@ export default function AnalyticsPage() {
   const [days, setDays] = useState(30);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const fetchAnalytics = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/analytics?days=${days}`);
-      if (res.ok) setData(await res.json());
-    } catch (err) {
-      console.error('Failed to fetch analytics:', err);
-    } finally {
-      setLoading(false);
+    setError(false);
+    // Reset so a failed range switch can't leave the prior range's numbers showing
+    // under the newly-selected range label.
+    setData(null);
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/analytics?days=${days}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setData(await res.json());
+        setLoading(false);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+      }
     }
+    console.error('Failed to fetch analytics:', lastErr);
+    setError(true);
+    setLoading(false);
   }, [days]);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
@@ -62,7 +75,7 @@ export default function AnalyticsPage() {
         </div>
       }
     >
-      {loading && !data ? (
+      {loading ? (
         <div className="space-y-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-20 rounded-2xl" />)}
@@ -71,6 +84,16 @@ export default function AnalyticsPage() {
             <Skeleton className="h-64 rounded-2xl" />
             <Skeleton className="h-64 rounded-2xl" />
           </div>
+        </div>
+      ) : error ? (
+        <div className="rounded-2xl border border-border bg-surface-secondary py-12 text-center">
+          <div className="text-sm text-error mb-3">Failed to load analytics data.</div>
+          <button
+            onClick={fetchAnalytics}
+            className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+          >
+            Retry
+          </button>
         </div>
       ) : data ? (
         <div className="space-y-6">
@@ -105,7 +128,7 @@ export default function AnalyticsPage() {
           <TokenUsage tokens={data.tokens} />
         </div>
       ) : (
-        <div className="text-center py-12 text-sm text-tertiary">Failed to load analytics data.</div>
+        <div className="text-center py-12 text-sm text-tertiary">No analytics data.</div>
       )}
     </PageLayout>
   );

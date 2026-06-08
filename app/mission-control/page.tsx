@@ -11,6 +11,7 @@ import { isDemoMode } from '../lib/isDemoMode';
 import { computePosture } from '../components/SystemStatusBar';
 import { useMissionData } from './lib/useMissionData';
 import { buildInterventionList } from './lib/missionHelpers';
+import { signalDismissKey as getSignalHashShared } from '../lib/signal-hash';
 import { CommandStrip } from './components/CommandStrip';
 import { PostureScorecard } from './components/PostureScorecard';
 import { LiveLedger } from './components/LiveLedger';
@@ -91,8 +92,7 @@ export default function MissionControlPage() {
   /* ---------- Derived state ---------- */
 
   // Client-side dismissal filter shared with the Security page.
-  const getSignalHash = (s: any) =>
-    `${s.type || s.signal_type || ''}:${s.agent_id || ''}:${s.action_id || ''}:${s.loop_id || ''}:${s.assumption_id || ''}`;
+  const getSignalHash = getSignalHashShared;
 
   const dismissedSet = useMemo<Set<any>>(() => {
     if (typeof window === 'undefined') return new Set();
@@ -114,6 +114,14 @@ export default function MissionControlPage() {
     total: activeSignalList.length,
   };
   const posture = computePosture(signalCounts.red, signalCounts.amber);
+
+  // The live feed must hide the same signal instances dismissed in posture, so the ledger
+  // can't show CRITICAL rows while the header reads "All clear". Each feed signal item carries
+  // a `dismiss_key` (operations-feed mapSignals) matching the dismissedSet keys.
+  const visibleFeedItems = useMemo(
+    () => feedItems.filter((i: any) => !(i.category === 'signal' && i.dismiss_key && dismissedSet.has(i.dismiss_key))),
+    [feedItems, dismissedSet],
+  );
 
   const loopList = useMemo(() => loops?.loops || [], [loops]);
   const interventions = useMemo(() => buildInterventionList(pendingActions, loopList), [pendingActions, loopList]);
@@ -186,7 +194,7 @@ export default function MissionControlPage() {
           pendingActions={pendingActions}
           signalCounts={signalCounts}
           capabilityHealth={capabilityHealth}
-          feedItems={feedItems}
+          feedItems={visibleFeedItems}
           summary={summary}
           sortedAgents={sortedAgents}
           criticalAgentIds={criticalAgentIds}
@@ -197,7 +205,7 @@ export default function MissionControlPage() {
         />
         <LiveLedger
           interventions={interventions}
-          feedItems={feedItems}
+          feedItems={visibleFeedItems}
           agentId={agentId}
           activeCategory={activeCategory}
           onClearFilter={() => setActiveCategory(null)}

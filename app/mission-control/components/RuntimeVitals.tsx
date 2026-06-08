@@ -79,8 +79,14 @@ export function RuntimeVitals({ data }: { data: any }) {
         <MetricRow
           icon={Activity}
           label="Capabilities"
-          value={`${data.capabilities.healthy}/${data.capabilities.healthy + data.capabilities.degraded + data.capabilities.failing}`}
-          sub={data.capabilities.failing > 0 ? `${data.capabilities.failing} failing` : ''}
+          value={`${data.capabilities.healthy}/${data.capabilities.healthy + data.capabilities.degraded + data.capabilities.failing + (data.capabilities.untested || 0)}`}
+          sub={
+            data.capabilities.failing > 0
+              ? `${data.capabilities.failing} failing`
+              : (data.capabilities.untested || 0) > 0
+                ? `${data.capabilities.untested} untested`
+                : ''
+          }
           color={data.capabilities.failing > 0 ? 'text-error' : 'text-success'}
         />
       </div>

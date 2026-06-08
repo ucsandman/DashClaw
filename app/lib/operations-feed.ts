@@ -5,6 +5,7 @@
 
 import { computeSignals } from './signals.js';
 import { checkAllIntegrations } from './integration-health.js';
+import { signalDismissKey } from './signal-hash.js';
 import type { SqlTag } from './types/db';
 
 export const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };
@@ -25,6 +26,9 @@ export interface FeedItem {
   action_url: string;
   suggested_action: string;
   metadata?: Record<string, unknown>;
+  /** Per-instance dismissal key (signal items only) so the client can hide signals
+   *  dismissed in posture, keeping the feed and the "active signals" count in sync. */
+  dismiss_key?: string | null;
 }
 
 // ─── Mappers ───────────────────────────────────────────────────
@@ -90,6 +94,7 @@ export function mapSignals(signals: Row[] | null | undefined): FeedItem[] {
     detail: s.detail || '',
     source: 'signal',
     source_id: s.action_id || s.loop_id || s.assumption_id || null,
+    dismiss_key: signalDismissKey(s),
     agent_id: s.agent_id || null,
     timestamp: s.detected_at || null,
     action_url: s.agent_id ? `/agents/${encodeURIComponent(s.agent_id)}` : '/security',

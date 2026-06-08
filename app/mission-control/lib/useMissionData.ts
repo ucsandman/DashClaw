@@ -86,7 +86,9 @@ export function useMissionData(agentId: any): MissionData & { refresh: () => voi
         fetch(withParams('/api/actions', ['limit=12'])),
         fetch(withParams('/api/actions', ['status=pending_approval', 'limit=10'])),
         fetch(withParams('/api/actions/stats')),
-        fetch('/api/capabilities/health?limit=20'),
+        // limit high enough that the Capability Health denominator reflects the true org total
+        // (capabilityHealth.length) rather than a truncated page once an org has >20 capabilities.
+        fetch('/api/capabilities/health?limit=200'),
         // Feed stays UNSCOPED so global capability/integration health survive even
         // when an agent is selected (the feed drops agent_id:null items when scoped).
         fetch('/api/operations/feed?limit=50'),

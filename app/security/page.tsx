@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { filterSignalsBySeverity } from '../lib/security-filter';
+import { signalDismissKey } from '../lib/signal-hash';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -44,8 +45,7 @@ function SecurityDashboardInner() {
   });
   const [showDismissed, setShowDismissed] = useState(false);
 
-  const getSignalHash = (signal: any) =>
-    `${signal.type || signal.signal_type || ''}:${signal.agent_id || ''}:${signal.action_id || ''}:${signal.loop_id || ''}:${signal.assumption_id || ''}`;
+  const getSignalHash = signalDismissKey;
 
   const dismissSignal = (signal: any) => {
     const hash = getSignalHash(signal);

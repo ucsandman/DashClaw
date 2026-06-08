@@ -61,17 +61,24 @@ export default function SessionsPage() {
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
   const [lastUpdated, setLastUpdated] = useState('');
+  const [stale, setStale] = useState(false);
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch('/api/sessions?limit=100');
+      const res = await fetch('/api/sessions?limit=100', { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
         setLastUpdated(new Date().toLocaleTimeString());
+        setStale(false);
+      } else {
+        // Keep the last good list (don't flicker the poll), but mark it stale so the
+        // displayed data isn't silently presented as live.
+        setStale(true);
       }
     } catch (error) {
       console.error('Failed to fetch sessions:', error);
+      setStale(true);
     } finally {
       setLoading(false);
     }
@@ -171,7 +178,9 @@ export default function SessionsPage() {
           </button>
         ))}
         {lastUpdated && (
-          <span className="ml-auto text-[10px] text-disabled">Updated {lastUpdated}</span>
+          <span className={`ml-auto text-[10px] ${stale ? 'text-warning' : 'text-disabled'}`}>
+            {stale ? `Stale — last updated ${lastUpdated}` : `Updated ${lastUpdated}`}
+          </span>
         )}
       </div>
 

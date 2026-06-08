@@ -33,8 +33,9 @@ describe('GET /api/operations/summary', () => {
         [{ pending_count: 3, oldest_minutes: 45, avg_wait_minutes: 20 }],
         // workflow health
         [{ running: 2, failed_24h: 1, completed_24h: 15, avg_duration_ms: 5000 }],
-        // capability health
-        [{ healthy: 10, degraded: 2, failing: 1 }],
+        // capability health — 'untested' is its own bucket so the denominator
+        // (healthy+degraded+failing+untested) equals the true total.
+        [{ healthy: 10, degraded: 2, failing: 1, untested: 4 }],
       ],
     });
 
@@ -46,7 +47,7 @@ describe('GET /api/operations/summary', () => {
     expect(data.latency).toEqual({ p50_ms: 150, p95_ms: 800 });
     expect(data.approval_backlog).toEqual({ pending_count: 3, oldest_minutes: 45, avg_wait_minutes: 20 });
     expect(data.workflows).toEqual({ running: 2, failed_24h: 1, completed_24h: 15, avg_duration_ms: 5000 });
-    expect(data.capabilities).toEqual({ healthy: 10, degraded: 2, failing: 1 });
+    expect(data.capabilities).toEqual({ healthy: 10, degraded: 2, failing: 1, untested: 4 });
   });
 
   it('returns zero defaults when queries return empty', async () => {
@@ -68,7 +69,7 @@ describe('GET /api/operations/summary', () => {
     expect(data.latency).toEqual({ p50_ms: 0, p95_ms: 0 });
     expect(data.approval_backlog).toEqual({ pending_count: 0, oldest_minutes: 0, avg_wait_minutes: 0 });
     expect(data.workflows).toEqual({ running: 0, failed_24h: 0, completed_24h: 0, avg_duration_ms: 0 });
-    expect(data.capabilities).toEqual({ healthy: 0, degraded: 0, failing: 0 });
+    expect(data.capabilities).toEqual({ healthy: 0, degraded: 0, failing: 0, untested: 0 });
   });
 
   it('returns 500 on DB error', async () => {

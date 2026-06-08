@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.2] — 2026-06-08
+
+### Fixed
+
+- **Spend Overview / Your Claude Code / Analytics no longer get stuck on stale data.** A failed period/range fetch was swallowed (`if (res.ok) setData(...)` with an empty catch), so the page kept the previous period's numbers under the new period label and the initial load could dead-end on "Failed to load." These pages now reset on switch, retry once (absorbing a Neon cold-start), and surface an explicit error with a Retry instead of showing stale or misattributed figures.
+- **Mission Control "Latency p95" was the slowest single request, not the 95th percentile.** `operations/summary` computed `AVG(duration_ms)` as "p50" and `MAX(duration_ms)` as "p95"; it now uses real `PERCENTILE_CONT` (e.g. a 393s outlier-driven "p95" is now a true ~47s p95).
+- **Capability counts were inconsistent across Mission Control.** Runtime showed "6/6" while Capability Health showed "6/14" because never-invoked (`unknown`) capabilities fell through the summary buckets. Counts now partition every row with a distinct **untested** bucket, and Runtime/PostureScorecard treat untested as neutral (matching the canonical `deriveStatus` and the Capabilities page).
+- **The Approval Backlog tile silently read 0.** `AVG(timestamp_start::timestamptz)` has no Postgres implementation, so the query threw at plan time and the `safe()` wrapper zeroed the whole card. It now averages elapsed time correctly.
+- **Drift "Recent baselines" and "Alerts by metric" ignored the selected agent** — only the overall summary was agent-scoped; both now honor the agent filter.
+- **Drift / Evaluations / Learning Analytics no longer show a previous filter's results when a filtered refetch fails** — the stale slice is cleared and a non-blocking error/Retry banner is shown; the Sessions poll marks data stale on failure.
+- **The urgent-message marker never rendered** on the dashboard Recent Messages card (`msg.urgent === 1` tested a Postgres boolean against `1`); it now uses a truthy check.
+
+### Changed
+
+- **Signal dismissals are now per-instance and honored by the live feed.** The dismissal key includes the signal's `detected_at`, so dismissing an agent's heartbeat alert no longer suppresses every future silence; and the Mission Control live ledger hides the same dismissed instances, so posture ("All clear") and the feed can no longer contradict each other. (One-time effect: previously dismissed, still-active signals reappear once, then behave correctly.)
+
 ## [4.7.1] — 2026-06-08
 
 ### Fixed

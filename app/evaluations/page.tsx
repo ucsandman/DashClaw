@@ -131,6 +131,7 @@ export default function EvaluationsPage() {
   const [stats, setStats] = useState<EvalStats | null>(null);
   const [llmAvailable, setLlmAvailable] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [refreshError, setRefreshError] = useState(false);
 
   // Score filters (backend supports scorer_name / min_score / max_score + total).
   const [scoreBand, setScoreBand] = useState('all');
@@ -153,6 +154,7 @@ export default function EvaluationsPage() {
   // Fetch all data
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setRefreshError(false);
     try {
       if (isDemoMode()) {
         await new Promise((r) => setTimeout(r, 800));
@@ -179,10 +181,17 @@ export default function EvaluationsPage() {
         fetch(`/api/evaluations/stats${params}`),
       ]);
 
+      // Clear the filtered list on failure so stale rows can't masquerade as the new
+      // score-band/scorer result, and flag the error instead of swallowing it.
+      let failed = false;
       if (scoresRes.ok) {
         const d = await scoresRes.json();
         setScores(d.scores || []);
         setScoreTotal(typeof d.total === 'number' ? d.total : (d.scores || []).length);
+      } else {
+        setScores([]);
+        setScoreTotal(0);
+        failed = true;
       }
       if (scorersRes.ok) {
         const d = await scorersRes.json();
@@ -190,9 +199,11 @@ export default function EvaluationsPage() {
         setLlmAvailable(d.llm_available || false);
       }
       if (runsRes.ok) { const d = await runsRes.json(); setRuns(d.runs || []); }
-      if (statsRes.ok) { const d = await statsRes.json(); setStats(d); }
+      if (statsRes.ok) { const d = await statsRes.json(); setStats(d); } else { failed = true; }
+      setRefreshError(failed);
     } catch (err) {
       console.error('Failed to fetch evaluation data:', err);
+      setRefreshError(true);
     } finally {
       setLoading(false);
     }
@@ -342,6 +353,12 @@ export default function EvaluationsPage() {
       }
     >
       <div className="space-y-6">
+        {refreshError && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-error/30 bg-error-subtle px-4 py-2.5 text-xs text-error">
+            <span>Couldn&apos;t load the latest evaluation data — results may be incomplete.</span>
+            <button onClick={fetchData} className="rounded-md border border-error/30 px-2.5 py-1 font-medium transition-colors hover:bg-error/10">Retry</button>
+          </div>
+        )}
         {/* Instrument rail */}
         <div className="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary md:grid-cols-4">
           <div className="p-4">

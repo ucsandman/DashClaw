@@ -149,6 +149,7 @@ export default function DriftPage() {
   const [running, setRunning] = useState(false);
   // Outcome of the last "Run detection" so the button is never a silent no-op.
   const [runResult, setRunResult] = useState<RunResult | null>(null); // { tone: 'success'|'info'|'error', message }
+  const [refreshError, setRefreshError] = useState(false);
 
   // Alert filters (backend supports severity / acknowledged / metric).
   const [severity, setSeverity] = useState('all');
@@ -159,6 +160,7 @@ export default function DriftPage() {
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setRefreshError(false);
     try {
       if (isDemoMode()) {
         await new Promise((r) => setTimeout(r, 800));
@@ -181,11 +183,16 @@ export default function DriftPage() {
         fetch(`/api/drift/stats${params}`),
         fetch(`/api/drift/snapshots${params}${params ? '&' : '?'}limit=30`),
       ]);
-      if (alertsRes.ok) { const d = await alertsRes.json(); setAlerts(d.alerts || []); }
-      if (statsRes.ok) { const d = await statsRes.json(); setStats(d); }
-      if (snapshotsRes.ok) { const d = await snapshotsRes.json(); setSnapshots(d.snapshots || []); }
+      // Clear the slice on failure (don't leave the prior filter's/agent's data showing under
+      // the new filter) and flag the error so it isn't a silent swallow.
+      let failed = false;
+      if (alertsRes.ok) { const d = await alertsRes.json(); setAlerts(d.alerts || []); } else { setAlerts([]); failed = true; }
+      if (statsRes.ok) { const d = await statsRes.json(); setStats(d); } else { setStats(null); failed = true; }
+      if (snapshotsRes.ok) { const d = await snapshotsRes.json(); setSnapshots(d.snapshots || []); } else { setSnapshots([]); failed = true; }
+      setRefreshError(failed);
     } catch (err) {
       console.error('Failed to fetch drift data:', err);
+      setRefreshError(true);
     } finally {
       setLoading(false);
     }
@@ -318,6 +325,12 @@ export default function DriftPage() {
       }
     >
       <div className="space-y-6">
+        {refreshError && (
+          <div className="flex items-center justify-between gap-3 rounded-lg border border-error/30 bg-error-subtle px-4 py-2.5 text-xs text-error">
+            <span>Couldn&apos;t load the latest drift data — results may be incomplete.</span>
+            <button onClick={fetchData} className="rounded-md border border-error/30 px-2.5 py-1 font-medium transition-colors hover:bg-error/10">Retry</button>
+          </div>
+        )}
         {/* Instrument rail */}
         <div className="grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary md:grid-cols-5">
           <div className="p-4">

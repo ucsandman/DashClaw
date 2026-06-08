@@ -402,9 +402,14 @@ export async function getDriftStats(request: Request, { agent_id }: { agent_id?:
     `;
   }
 
+  // byMetric and baselines must honor the selected agent (byAgent stays global — it IS the
+  // cross-agent breakdown). Without this, picking one agent still showed every agent's metrics
+  // and the 20 newest baselines from other agents, contradicting the agent-scoped header.
+  const agentClause = agent_id ? sql`AND agent_id = ${agent_id}` : sql``;
+
   const byMetric = await sql`
     SELECT metric, COUNT(*) AS count, ROUND(AVG(ABS(z_score))::numeric, 2) AS avg_z_score
-    FROM drift_alerts WHERE org_id = ${orgId}
+    FROM drift_alerts WHERE org_id = ${orgId} ${agentClause}
     GROUP BY metric ORDER BY count DESC
   `;
 
@@ -418,7 +423,7 @@ export async function getDriftStats(request: Request, { agent_id }: { agent_id?:
 
   const baselines = await sql`
     SELECT agent_id, metric, mean, stddev, sample_count, created_at
-    FROM drift_baselines WHERE org_id = ${orgId}
+    FROM drift_baselines WHERE org_id = ${orgId} ${agentClause}
     ORDER BY created_at DESC LIMIT 20
   `;
 

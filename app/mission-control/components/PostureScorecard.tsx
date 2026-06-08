@@ -36,7 +36,14 @@ export function PostureScorecard(props: PostureScorecardProps) {
   const failures = categoryCount(feedItems, agentId, (i) => i.category === 'failure');
   const stale = categoryCount(feedItems, agentId, (i) => i.category === 'stale');
   const integrationDown = feedItems.filter((i) => i.source === 'integration').length;
-  const capUnhealthy = capabilityHealth.filter((c: any) => c.health_status && c.health_status !== 'healthy').length;
+  // Use the DERIVED status (deriveStatus → /api/capabilities/health), mirroring the
+  // Capabilities page: only failing/degraded are unhealthy. Never-invoked capabilities are
+  // 'untested' (neutral) — counting them as unhealthy (the old raw `health_status !== 'healthy'`)
+  // raised a false WARN for capabilities the rest of the app calls merely untested.
+  const capStatus = (c: any) => c.status || c.health_status;
+  const capUnhealthy = capabilityHealth.filter((c: any) => ['unhealthy', 'degraded', 'failing'].includes(capStatus(c))).length;
+  const capUntested = capabilityHealth.filter((c: any) => capStatus(c) === 'untested' || capStatus(c) === 'unknown').length;
+  const capHealthy = capabilityHealth.filter((c: any) => capStatus(c) === 'healthy').length;
   const capTotal = capabilityHealth.length;
 
   const rows: {
@@ -57,7 +64,12 @@ export function PostureScorecard(props: PostureScorecardProps) {
     },
     {
       key: 'health', icon: Wrench, label: 'Capability Health', count: capUnhealthy, href: '/capabilities',
-      level: capUnhealthy > 0 ? 'warn' : 'ok', statusWord: capTotal > 0 ? `${capTotal - capUnhealthy}/${capTotal} healthy` : 'none',
+      level: capUnhealthy > 0 ? 'warn' : 'ok',
+      statusWord: capUnhealthy > 0
+        ? `${capUnhealthy} unhealthy`
+        : capUntested > 0
+          ? `${capUntested} untested`
+          : capTotal > 0 ? `${capHealthy}/${capTotal} healthy` : 'none',
     },
     {
       key: 'health', icon: Plug, label: 'Integration Health', count: integrationDown, href: '/integrations',

@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.1",
+    "current_version": "4.7.2",
     "next_bump": "none",
-    "reason": "4.7.1 is a platform UI patch: the site-wide right-click context menu now covers the ENTIRE site — a generic fallback menu (Copy / Copy page link / Reload) appears over blank space, panels, headings, and untagged content, not only over tagged entity rows, so the native browser menu no longer surfaces there. Text-entry fields keep the native menu (browsers block programmatic Paste). No Node SDK surface change (unchanged at 126); republishes at 4.7.1 per the unified-version model. Self-dep stays ^4.x (within the major).",
+    "reason": "4.7.2 is a platform data-integrity patch: fixes a sweep of dashboard data-integration bugs — operations/summary now reports true p50/p95 latency (was AVG/MAX mislabeled) and partitions capability counts into a distinct 'untested' bucket (was 6/6 vs 6/14), the approval-backlog tile no longer silently zeros (AVG over timestamptz threw and was swallowed), drift stats honor the agent filter, Spend/Spend-Code/Analytics surface fetch errors instead of showing stale data, the urgent-message flag renders (boolean vs ===1), and signal dismissals are per-instance (timestamped) with the live feed honoring them so posture and feed agree. No Node SDK surface change (unchanged at 126); republishes at 4.7.2 per the unified-version model. Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.1",
+    "current_version": "4.7.2",
     "next_bump": "none",
-    "reason": "4.7.1 is a platform UI patch (site-wide context-menu fallback so the whole site is right-clickable, native menu no longer surfaces over untagged areas). No Python SDK change — Python surface unchanged at 224 and republishes at 4.7.1 per the unified-version model.",
+    "reason": "4.7.2 is a platform data-integrity patch (dashboard data-integration bug sweep — latency percentiles, capability untested bucket, approval-backlog fix, drift agent filter, error-surfacing on spend/analytics, urgent flag, per-instance signal dismissals). No Python SDK change — Python surface unchanged at 224 and republishes at 4.7.2 per the unified-version model.",
     "domains": ["platform"]
   }
 }

@@ -11,17 +11,32 @@ export default function SpendOverviewPage() {
   const [period, setPeriod] = useState('30d');
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
-    try {
-      const res = await fetch(`/api/finops/spend?period=${period}`);
-      if (res.ok) setData(await res.json());
-    } catch (err) {
-      console.error('Failed to load fleet spend:', err);
-    } finally {
-      setLoading(false);
+    setError(false);
+    // Reset so the headline/chart can never show the previous period's numbers
+    // under the newly-selected period label while the switch is in flight or fails.
+    setData(null);
+    // One retry absorbs a Neon cold-start blip on the first request (page mount),
+    // which otherwise surfaced as a sticky "Failed to load" with no recovery.
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/finops/spend?period=${period}`, { cache: 'no-store' });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        setData(await res.json());
+        setLoading(false);
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+      }
     }
+    console.error('Failed to load fleet spend:', lastErr);
+    setError(true);
+    setLoading(false);
   }, [period]);
 
   useEffect(() => { load(); }, [load]);
@@ -54,8 +69,18 @@ export default function SpendOverviewPage() {
         </div>
       }
     >
-      {loading && !data ? (
+      {loading ? (
         <div className="text-sm text-tertiary">Loading…</div>
+      ) : error ? (
+        <div className="rounded-xl border border-border bg-surface-secondary p-8 text-center">
+          <div className="text-sm text-error mb-3">Failed to load spend.</div>
+          <button
+            onClick={load}
+            className="px-3 py-1.5 text-xs rounded-md border border-border text-secondary hover:border-border-hover transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : data ? (
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -96,7 +121,7 @@ export default function SpendOverviewPage() {
           </div>
         </div>
       ) : (
-        <div className="text-sm text-error">Failed to load spend.</div>
+        <div className="text-sm text-tertiary">No spend data.</div>
       )}
     </PageLayout>
   );

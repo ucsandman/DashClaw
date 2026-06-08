@@ -118,7 +118,7 @@ export default function RecentMessagesCard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5">
                         {isUnread && <div className="w-1.5 h-1.5 rounded-full bg-brand flex-shrink-0" />}
-                        {msg.urgent === 1 && <AlertCircle size={11} className="text-error flex-shrink-0" />}
+                        {msg.urgent && <AlertCircle size={11} className="text-error flex-shrink-0" />}
                         <span className={`text-sm truncate ${isUnread ? 'font-semibold text-white' : 'text-secondary'}`}>
                           {msg.from_agent_id || 'Unknown'}
                         </span>

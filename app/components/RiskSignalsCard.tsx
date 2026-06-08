@@ -12,10 +12,7 @@ import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { useRealtime } from '../hooks/useRealtime';
 import { HelpIcon } from './HelpIcon';
 import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
-
-function getSignalHash(signal: any) {
-  return `${signal.type || signal.signal_type || ''}:${signal.agent_id || ''}:${signal.action_id || ''}:${signal.loop_id || ''}:${signal.assumption_id || ''}`;
-}
+import { signalDismissKey as getSignalHash } from '../lib/signal-hash';
 
 export default function RiskSignalsCard() {
   const [signals, setSignals] = useState<any[]>([]);

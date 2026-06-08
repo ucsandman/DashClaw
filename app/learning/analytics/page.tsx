@@ -74,9 +74,11 @@ export default function LearningAnalyticsPage() {
   const [loading, setLoading] = useState(true);
   const [computing, setComputing] = useState(false);
   const [computeError, setComputeError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
+    setRefreshError(false);
     try {
       const params = agentId ? `?agent_id=${agentId}` : '';
       const [summaryRes, velocityRes, curvesRes] = await Promise.all([
@@ -84,11 +86,16 @@ export default function LearningAnalyticsPage() {
         fetch(`/api/learning/analytics/velocity${params}${agentId ? '&' : '?'}limit=30`),
         fetch(`/api/learning/analytics/curves${params}${agentId ? '&' : '?'}limit=50`),
       ]);
-      if (summaryRes.ok) setSummary(await summaryRes.json());
-      if (velocityRes.ok) { const d = await velocityRes.json(); setVelocity(d.velocity || []); }
-      if (curvesRes.ok) { const d = await curvesRes.json(); setCurves(d.curves || []); }
+      // Clear slices on failure so a failed agent-scoped fetch can't leave the previous
+      // agent's maturity/velocity/curves showing under the new agent, and flag the error.
+      let failed = false;
+      if (summaryRes.ok) setSummary(await summaryRes.json()); else { setSummary(null); failed = true; }
+      if (velocityRes.ok) { const d = await velocityRes.json(); setVelocity(d.velocity || []); } else { setVelocity([]); failed = true; }
+      if (curvesRes.ok) { const d = await curvesRes.json(); setCurves(d.curves || []); } else { setCurves([]); failed = true; }
+      setRefreshError(failed);
     } catch (err) {
       console.error('Failed to fetch analytics:', err);
+      setRefreshError(true);
     } finally {
       setLoading(false);
     }
@@ -148,6 +155,12 @@ export default function LearningAnalyticsPage() {
         {computeError && (
           <div className="rounded-xl border border-error/20 bg-error-subtle px-4 py-3 text-sm text-error">
             {computeError}
+          </div>
+        )}
+        {refreshError && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-error/20 bg-error-subtle px-4 py-3 text-sm text-error">
+            <span>Couldn&apos;t load the latest analytics — results may be incomplete.</span>
+            <button onClick={fetchData} className="rounded-md border border-error/30 px-2.5 py-1 text-xs font-medium transition-colors hover:bg-error/10">Retry</button>
           </div>
         )}
 

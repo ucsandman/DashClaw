@@ -25,11 +25,15 @@ export async function GET(request: Request) {
           AND timestamp_start::timestamptz > NOW() - INTERVAL '24 hours'
       `),
 
-      // Decision latency — use AVG as fallback since PERCENTILE_CONT can fail on some configs
+      // Decision latency — true percentiles (the labels are p50/p95). Previously this
+      // returned AVG as "p50" and MAX as "p95", so the UI's "Latency p95" was actually
+      // the single slowest outlier (e.g. 393s vs a real p95 of ~47s). PERCENTILE_CONT is
+      // standard Postgres/Neon; the whole query stays wrapped in safe() so any config that
+      // rejected it degrades to 0 rather than breaking the card.
       safe(sql`
         SELECT
-          COALESCE(AVG(duration_ms), 0)::int AS p50,
-          COALESCE(MAX(duration_ms), 0)::int AS p95
+          COALESCE(PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY duration_ms), 0)::int AS p50,
+          COALESCE(PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms), 0)::int AS p95
         FROM action_records
         WHERE org_id = ${orgId}
           AND status = 'completed'
@@ -38,12 +42,15 @@ export async function GET(request: Request) {
           AND timestamp_start::timestamptz > NOW() - INTERVAL '24 hours'
       `),
 
-      // Approval backlog
+      // Approval backlog. avg_wait_minutes must average the elapsed time, NOT the
+      // timestamps: Postgres has no avg(timestamptz), so AVG(timestamp_start::timestamptz)
+      // threw at plan time and safe() swallowed the whole query — silently zeroing
+      // pending_count/oldest_minutes/avg_wait_minutes regardless of real backlog.
       safe(sql`
         SELECT
           COUNT(*)::int AS pending_count,
           COALESCE(EXTRACT(EPOCH FROM (NOW() - MIN(timestamp_start::timestamptz))) / 60, 0)::int AS oldest_minutes,
-          COALESCE(EXTRACT(EPOCH FROM (NOW() - AVG(timestamp_start::timestamptz))) / 60, 0)::int AS avg_wait_minutes
+          COALESCE(AVG(EXTRACT(EPOCH FROM (NOW() - timestamp_start::timestamptz))) / 60, 0)::int AS avg_wait_minutes
         FROM action_records
         WHERE org_id = ${orgId}
           AND status = 'pending_approval'
@@ -62,12 +69,17 @@ export async function GET(request: Request) {
           AND timestamp_start::timestamptz > NOW() - INTERVAL '24 hours'
       `),
 
-      // Capability health counts
+      // Capability health counts. The buckets must PARTITION every row so the
+      // "Capabilities X/Y" denominator (healthy+degraded+failing+untested) equals COUNT(*).
+      // 'unknown' = never-invoked capabilities; the canonical deriveStatus() (capability-health.ts)
+      // and the Capabilities page call these UNTESTED (neutral), NOT degraded — so they get their
+      // own bucket and are excluded from degraded, keeping all three surfaces consistent.
       safe(sql`
         SELECT
           COUNT(*) FILTER (WHERE health_status = 'healthy' OR health_status IS NULL)::int AS healthy,
-          COUNT(*) FILTER (WHERE health_status = 'degraded')::int AS degraded,
-          COUNT(*) FILTER (WHERE health_status = 'failing')::int AS failing
+          COUNT(*) FILTER (WHERE health_status = 'failing')::int AS failing,
+          COUNT(*) FILTER (WHERE health_status = 'unknown')::int AS untested,
+          COUNT(*) FILTER (WHERE health_status IS NOT NULL AND health_status NOT IN ('healthy', 'failing', 'unknown'))::int AS degraded
         FROM capabilities
         WHERE org_id = ${orgId}
       `),
@@ -97,6 +109,7 @@ export async function GET(request: Request) {
         healthy: capHealth[0]?.healthy || 0,
         degraded: capHealth[0]?.degraded || 0,
         failing: capHealth[0]?.failing || 0,
+        untested: capHealth[0]?.untested || 0,
       },
     });
   } catch (error) {

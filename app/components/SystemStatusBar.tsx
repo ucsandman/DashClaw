@@ -6,6 +6,7 @@ import { ShieldCheck } from 'lucide-react';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
 import { SEVERITY_ROUTE } from '../lib/security-filter';
+import { signalDismissKey as getSignalHash } from '../lib/signal-hash';
 
 // POSTURE LOGIC: Standardized across the platform.
 // Per .impeccable.md "calm under pressure": the bar does not pulse. A live
@@ -45,10 +46,7 @@ export default function SystemStatusBar() {
     }
   }, [fetchSignals]));
 
-  // APPLY DISMISSAL FILTER (Consistency with Mission Control)
-  const getSignalHash = (s: any) =>
-    `${s.type || s.signal_type || ''}:${s.agent_id || ''}:${s.action_id || ''}:${s.loop_id || ''}:${s.assumption_id || ''}`;
-
+  // APPLY DISMISSAL FILTER (Consistency with Mission Control + live feed)
   const activeSignals = useMemo(() => {
     if (!signals) return [];
     try {
