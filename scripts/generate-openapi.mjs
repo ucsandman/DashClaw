@@ -3,7 +3,14 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
 import { discoverApiRoutes } from './lib/api-route-inventory.mjs';
+
+// Read the live platform version from package.json rather than hardcoding it —
+// the OpenAPI spec's info.version must track the unified platform/SDK version
+// (bumped via `npm run version:set`), not drift on a stale literal.
+const require = createRequire(import.meta.url);
+const { version: PKG_VERSION } = require('../package.json');
 
 const METHODS_WITH_BODY = new Set(['POST', 'PUT', 'PATCH']);
 
@@ -111,7 +118,7 @@ export async function generateOpenApiSpec(rootDir = process.cwd()) {
     openapi: '3.0.3',
     info: {
       title: 'DashClaw Critical Stable API',
-      version: '2.0.0',
+      version: PKG_VERSION,
       description:
         'Generated OpenAPI spec for critical stable DashClaw endpoints. Source: app/api/**/route.js',
     },
