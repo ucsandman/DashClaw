@@ -199,11 +199,15 @@ export async function getPurchase(sql: SqlTag, orgId: string, actionId: string):
   return (rows[0] ?? null) as X402PurchaseRow | null;
 }
 
+// Generous safety cap on this unbounded list SELECT (mirrors the connections /
+// agent_presence caps from the query-perf phase). A single org's x402 purchases
+// stay well under 1000; the literal bound only guards against pathological table
+// growth dragging the query — it never truncates normal usage.
 export async function listPurchases(sql: SqlTag, orgId: string, { providerId }: { providerId?: string } = {}): Promise<X402PurchaseRow[]> {
   if (providerId) {
-    return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} AND provider_id = ${providerId} ORDER BY created_at DESC`) as unknown as X402PurchaseRow[];
+    return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} AND provider_id = ${providerId} ORDER BY created_at DESC LIMIT 1000`) as unknown as X402PurchaseRow[];
   }
-  return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} ORDER BY created_at DESC`) as unknown as X402PurchaseRow[];
+  return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} ORDER BY created_at DESC LIMIT 1000`) as unknown as X402PurchaseRow[];
 }
 
 export async function setPurchaseOutcome(sql: SqlTag, orgId: string, actionId: string, data: PurchaseOutcomeInput = {}): Promise<X402PurchaseRow | null> {

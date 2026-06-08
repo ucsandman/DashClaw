@@ -155,6 +155,16 @@ describe('x402 purchase repository', () => {
     expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1', 'prov_x']);
   });
 
+  it('listPurchases caps both branches with an explicit LIMIT', async () => {
+    sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
+    await listPurchases(sql, 'org_1', {});
+    expect(sqlText(sql.mock.calls[0])).toContain('LIMIT 1000');
+
+    sql.mockResolvedValueOnce([{ action_id: 'act_2' }]);
+    await listPurchases(sql, 'org_1', { providerId: 'prov_x' });
+    expect(sqlText(sql.mock.calls[1])).toContain('LIMIT 1000');
+  });
+
   it('setPurchaseOutcome records execution result + value score, org-scoped', async () => {
     sql.mockResolvedValueOnce([{ action_id: 'act_1', execution_status: 'succeeded', value_score: 0.8 }]);
     const row = await setPurchaseOutcome(sql, 'org_1', 'act_1', { execution_status: 'succeeded', value_score: 0.8, result_summary: 'ok' });

@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.7] — 2026-06-08
+
+### Fixed
+
+- **The `x402` purchase list query is now bounded.** `listPurchases` gained an explicit `LIMIT 1000` on both the all-purchases and per-provider branches, matching the connections / agent-presence caps — guarding the last unbounded growing-table scan from the query-perf sweep.
+
+### Changed
+
+- **`check-doc-counts` now gates the MCP governance tool count across the peripheral docs** (`mcp-server/README.md`, the `/docs` page, `examples/`, `docs/monetization-plan.md`), not just the root README. The count drift fixed in 4.7.6 now fails the build instead of slipping through review.
+
+_SDK note: platform/tooling release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
+
 ## [4.7.6] — 2026-06-08
 
 ### Fixed

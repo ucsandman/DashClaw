@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.6",
+    "current_version": "4.7.7",
     "next_bump": "none",
-    "reason": "4.7.6 is a docs-accuracy ship (supergoal Phase 7 / SHIP-3): reconciles the MCP governance tool count (docs said 26/28, live is 29) across mcp-server/README, examples, app/docs, and docs/monetization-plan, and adds the 3 tools that were missing from the README + /docs tool catalogs (assumption_record, posture, posture_next). No Node SDK source change (surface unchanged at 126): the version advances per the unified model but the SDKs are NOT republished — npm stays at 4.7.2 (last SDK release). Self-dep stays ^4.x.",
+    "reason": "4.7.7 is a hardening follow-up (post-supergoal NEEDS-WES resolution): caps the x402 listPurchases unbounded SELECT with LIMIT 1000 on both branches (mirrors the connections/agent_presence caps), and extends check-doc-counts to gate the MCP governance tool count across the peripheral docs that drifted in 4.7.6 (mcp-server/README, /docs page, examples, monetization-plan) so it can't silently drift again. No Node SDK source change (surface unchanged at 126): version advances per the unified model; SDKs NOT republished — npm stays at 4.7.2.",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.6",
+    "current_version": "4.7.7",
     "next_bump": "none",
-    "reason": "4.7.6 is a docs-accuracy ship (supergoal Phase 7 / SHIP-3): MCP governance tool count reconciled to 29 across docs + the 3 missing tools added to the README/docs catalogs. No Python SDK source change (surface unchanged at 224): the version advances per the unified model but the SDKs are NOT republished — PyPI stays at 4.7.2 (last SDK release).",
+    "reason": "4.7.7 is a hardening follow-up: x402 listPurchases LIMIT cap + check-doc-counts MCP-tool-count gating across peripheral docs. No Python SDK source change (surface unchanged at 224): version advances per the unified model; SDKs NOT republished — PyPI stays at 4.7.2.",
     "domains": ["platform"]
   }
 }

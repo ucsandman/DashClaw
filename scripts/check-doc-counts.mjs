@@ -94,6 +94,16 @@ const COUNT_CHECKS = [
     expected: [S.routes.total, S.routes.stable, S.routes.beta, S.routes.experimental] },
   { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', label: 'active route count',
     re: /\*\*(\d+) active routes\*\*/, expected: [S.routes.total] },
+  // MCP tool count across the peripheral docs that silently drifted to 26/28 while
+  // live was 29 (only the root README was gated before). Each checks the FIRST
+  // occurrence as a tripwire — a stale tool count now fails the build, not a review.
+  { file: 'mcp-server/README.md', label: 'MCP tool count (intro)', re: /Exposes (\d+) governance tools/, expected: [S.mcpTools] },
+  { file: 'mcp-server/README.md', label: 'MCP tool count (section)', re: /^## Tools \((\d+)\)/m, expected: [S.mcpTools] },
+  { file: 'app/docs/page.tsx', label: 'MCP tool count (intro)', re: /(\d+) governance tools across \d+ groups/, expected: [S.mcpTools] },
+  { file: 'app/docs/page.tsx', label: 'MCP tool count (section)', re: /Tools \((\d+)\)<\/h3>/, expected: [S.mcpTools] },
+  { file: 'examples/README.md', label: 'MCP tool count', re: /agent (\d+) governance tools/, expected: [S.mcpTools] },
+  { file: 'examples/managed-agent-mcp/README.md', label: 'MCP tool count', re: /(\d+) tools \+ \d+ resources/, expected: [S.mcpTools] },
+  { file: 'docs/monetization-plan.md', label: 'MCP tool count', re: /MCP server \((\d+) tools/, expected: [S.mcpTools] },
 ].filter(Boolean);
 
 // Freshness stamps: the date should be >= the file's last commit date. We never
