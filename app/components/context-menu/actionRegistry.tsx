@@ -66,6 +66,23 @@ function absoluteUrl(path: string): string {
   }
 }
 
+/**
+ * Visible text of the element under the cursor. `innerText` reflects rendered
+ * text (and respects line breaks) in a real browser; `textContent` is the
+ * jsdom/SSR fallback since jsdom doesn't implement `innerText`.
+ */
+function elementText(el: HTMLElement | null | undefined): string {
+  if (!el) return '';
+  let text = '';
+  try {
+    if (typeof el.innerText === 'string') text = el.innerText.trim();
+  } catch {
+    /* jsdom: innerText getter not implemented — fall through to textContent */
+  }
+  if (!text) text = (el.textContent ?? '').trim();
+  return text;
+}
+
 function promptReason(message: string): string | null {
   if (typeof window === 'undefined' || typeof window.prompt !== 'function') return null;
   const reason = window.prompt(message);
@@ -457,11 +474,14 @@ export function getFallbackActions(): MenuItem[] {
       id: 'copy',
       label: 'Copy',
       icon: Copy,
-      run: () => {
+      run: (ctx) => {
         const selection = typeof window !== 'undefined' ? String(window.getSelection() ?? '').trim() : '';
+        // Highlighted text wins; otherwise copy the visible text of the element
+        // under the cursor. Only fall back to the page link when there's genuinely
+        // no text to copy (that fallback is what "Copy page link" already does).
+        const underCursor = elementText(ctx.entity.el);
         const href = typeof window !== 'undefined' ? window.location.pathname : '/';
-        // Copy the highlighted text if there is any; otherwise fall back to the page link.
-        writeClipboard(selection || absoluteUrl(href));
+        writeClipboard(selection || underCursor || absoluteUrl(href));
       },
     },
     {

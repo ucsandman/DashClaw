@@ -7,11 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Versioning
 
-As of **4.0.0**, DashClaw uses **one version across the platform and both SDKs**. The Next.js app (`package.json`), the npm SDK (`sdk/package.json`), and the PyPI SDK (`sdk-python/pyproject.toml`) always share the same version — enforced by `npm run version:sync:check` in CI and the pre-commit hook. Bump all three together with `npm run version:set <x.y.z>`; every release ships the platform deploy and (re)publishes both SDK packages at that number.
+As of **4.0.0**, DashClaw uses **one version across the platform and both SDKs**. The Next.js app (`package.json`), the npm SDK (`sdk/package.json`), and the PyPI SDK (`sdk-python/pyproject.toml`) always share the same version — enforced by `npm run version:sync:check` in CI and the pre-commit hook. Bump all three together with `npm run version:set <x.y.z>`; every release ships the platform deploy and advances the shared version. Both SDK packages are (re)published at that number **only when the SDK source actually changed** — a platform-only release bumps the number but leaves npm/PyPI at the last SDK release (non-contiguous versions are expected).
 
 Through 3.x the platform and the SDKs versioned independently, which is why older entries below carry separate platform `[2.x]` numbers and `### SDK [3.0.0]`-style numbers, listed newest-first by release date. The `dashclaw` plugin bundle and CLI keep their own manifest versions and are prefixed with the package name.
 
 ## [Unreleased]
+
+## [4.7.3] — 2026-06-08
+
+### Fixed
+
+- **The site-wide right-click "Copy" copied the page URL instead of the text under the cursor**, making it a duplicate of "Copy page link". The fallback context-menu "Copy" now copies the highlighted selection if there is one, otherwise the visible text of the element you right-clicked, and only falls back to the page link when there's genuinely no text. (`app/components/context-menu/actionRegistry.tsx`)
+- **A right-click on an SVG icon or raw text node resolved to `<body>`**, so "Copy" would have grabbed the entire page's text. `pageTarget` now climbs to the nearest `HTMLElement` — the element actually under the cursor. (`app/components/context-menu/ContextMenuProvider.tsx`)
+
+_SDK note: platform-only release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
 
 ## [4.7.2] — 2026-06-08
 

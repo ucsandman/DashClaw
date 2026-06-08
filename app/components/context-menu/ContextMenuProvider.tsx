@@ -7,9 +7,21 @@ import { getActionsFor, getFallbackActions } from './actionRegistry';
 import { ContextMenu } from './ContextMenu';
 import type { EntityTarget, MenuItem } from './types';
 
+/**
+ * Climb from the event target to the nearest HTMLElement. A right-click can land
+ * on an SVG icon or a raw text node — neither is an HTMLElement, and defaulting
+ * those to <body> would make "Copy" grab the entire page. The HTML ancestor is
+ * the element the user actually clicked.
+ */
+function nearestHtmlElement(target: EventTarget | null): HTMLElement | null {
+  let node: Node | null = target instanceof Node ? target : null;
+  while (node && !(node instanceof HTMLElement)) node = node.parentNode;
+  return node instanceof HTMLElement ? node : null;
+}
+
 /** Synthetic target for a right-click that isn't over a tagged entity. */
 function pageTarget(el: EventTarget | null): EntityTarget {
-  const node = el instanceof HTMLElement ? el : null;
+  const node = nearestHtmlElement(el);
   return {
     type: 'page',
     id: typeof window !== 'undefined' ? window.location.pathname : '/',

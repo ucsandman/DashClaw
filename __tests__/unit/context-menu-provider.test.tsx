@@ -67,6 +67,24 @@ describe('ContextMenuProvider — site-wide interception', () => {
     expect(labels.join(' ')).toContain('Copy page link');
   });
 
+  it('fallback "Copy" copies the text under the cursor, not the page URL', async () => {
+    const writeText = globalThis.navigator.clipboard.writeText as ReturnType<typeof vi.fn>;
+    const { container } = render(
+      <ContextMenuProvider>
+        <div id="blank">just some text, no entity</div>
+      </ContextMenuProvider>,
+    );
+    dispatchContextMenu(container.querySelector('#blank')!);
+    const copyBtn = [...document.body.querySelectorAll('[role="menuitem"]')].find(
+      (b) => b.textContent === 'Copy',
+    ) as HTMLButtonElement;
+    expect(copyBtn).toBeTruthy();
+    await act(async () => {
+      copyBtn.click();
+    });
+    expect(writeText).toHaveBeenCalledWith('just some text, no entity');
+  });
+
   it('does NOT intercept over an input (native editing preserved)', () => {
     const { container } = render(
       <ContextMenuProvider>
