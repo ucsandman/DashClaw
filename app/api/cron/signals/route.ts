@@ -10,6 +10,7 @@ import { getSql } from '../../../lib/db.js';
 import crypto from 'crypto';
 import { timingSafeCompare } from '../../../lib/timing-safe.js';
 import { publishOrgEvent, EVENTS } from '../../../lib/events.js';
+import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/repositories/signals.repository.js';
 
 /**
  * Hash a signal into a stable identifier for deduplication.
@@ -82,26 +83,21 @@ export async function GET(request: Request) {
         // Hash each signal
         const currentHashes = signals.map((s) => ({ ...s, _hash: hashSignal(s as Parameters<typeof hashSignal>[0]) } as Record<string, any>));
 
-        // Load existing snapshots for this org
-        const existingSnapshots = await sql`
-          SELECT signal_hash FROM signal_snapshots WHERE org_id = ${org.id}
-        `;
-        const existingSet = new Set(existingSnapshots.map((s) => s.signal_hash as string));
+        // Load existing snapshots for this org, bounded to the current
+        // candidate hashes (the only ones membership is tested against).
+        const existingHashes = await getExistingSignalHashes(
+          sql,
+          orgId,
+          currentHashes.map((s: Record<string, any>) => s._hash as string)
+        );
+        const existingSet = new Set(existingHashes);
 
         // Find NEW signals (hash not in snapshot)
         const newSignals = currentHashes.filter((s: Record<string, any>) => !existingSet.has(s._hash));
 
-        // Upsert all current signals into snapshots
+        // Upsert all current signals into snapshots (one batched INSERT per chunk).
         const now = new Date().toISOString();
-        for (const s of currentHashes) {
-          await sql`
-            INSERT INTO signal_snapshots (org_id, signal_hash, signal_type, severity, agent_id, first_seen_at, last_seen_at)
-            VALUES (${org.id}, ${s._hash}, ${s.type}, ${s.severity}, ${s.agent_id || null}, ${now}, ${now})
-            ON CONFLICT (org_id, signal_hash) DO UPDATE SET
-              last_seen_at = ${now},
-              severity = ${s.severity}
-          `;
-        }
+        await upsertSignalSnapshots(sql, orgId, currentHashes as Parameters<typeof upsertSignalSnapshots>[2], now);
 
         if (newSignals.length === 0) {
           summary.orgs_processed++;

@@ -273,66 +273,90 @@ interface RecommendationInput {
   [k: string]: unknown;
 }
 
+// Columns in the learning_recommendations INSERT, in order.
+const LRECS_COLS = 14;
+
 export async function upsertLearningRecommendations(sql: SqlClient, orgId: string, recommendations: RecommendationInput[]): Promise<Record<string, unknown>[]> {
+  if (!recommendations.length) return [];
   const now = new Date().toISOString();
-  const saved: Record<string, unknown>[] = [];
 
+  // recommendations are unique by (agent_id, action_type) by construction
+  // (buildRecommendationsFromEpisodes groups on that key). De-dupe keeping the
+  // LAST occurrence anyway: a multi-row ON CONFLICT DO UPDATE errors if the same
+  // conflict key appears twice in one statement, and the prior per-row loop let
+  // the last write win. Generate one id per surviving row (discarded on update,
+  // exactly as before — id is not in the SET clause).
+  // NUL separator (built as plain ASCII, never appears in agent_id/action_type)
+  // keeps the composite key injective and faithful to the per-(agent_id,
+  // action_type) DB conflict key.
+  const SEP = String.fromCharCode(0);
+  const recKey = (agentId: unknown, actionType: unknown) => `${agentId}${SEP}${actionType}`;
+  const byKey = new Map<string, { rec: RecommendationInput; id: string }>();
   for (const rec of recommendations) {
-    const id = `lrec_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-    const rows = await sql`
-      INSERT INTO learning_recommendations (
-        id,
-        org_id,
-        agent_id,
-        action_type,
-        confidence,
-        sample_size,
-        top_sample_size,
-        success_rate,
-        avg_score,
-        hints,
-        guidance,
-        active,
-        computed_at,
-        updated_at
-      ) VALUES (
-        ${id},
-        ${orgId},
-        ${rec.agent_id},
-        ${rec.action_type},
-        ${rec.confidence},
-        ${rec.sample_size},
-        ${rec.top_sample_size},
-        ${rec.success_rate},
-        ${rec.avg_score},
-        ${JSON.stringify(rec.hints || {})},
-        ${JSON.stringify(rec.guidance || [])},
-        ${rec.active === false ? 0 : 1},
-        ${now},
-        ${now}
-      )
-      ON CONFLICT (org_id, agent_id, action_type)
-      DO UPDATE SET
-        confidence = EXCLUDED.confidence,
-        sample_size = EXCLUDED.sample_size,
-        top_sample_size = EXCLUDED.top_sample_size,
-        success_rate = EXCLUDED.success_rate,
-        avg_score = EXCLUDED.avg_score,
-        hints = EXCLUDED.hints,
-        guidance = EXCLUDED.guidance,
-        active = learning_recommendations.active,
-        computed_at = EXCLUDED.computed_at,
-        updated_at = EXCLUDED.updated_at
-      RETURNING *
-    `;
+    byKey.set(recKey(rec.agent_id, rec.action_type), { rec, id: `lrec_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}` });
+  }
+  const deduped = [...byKey.values()];
 
-    const saveRow = rows[0];
-    if (saveRow) {
+  const placeholders: string[] = [];
+  const params: unknown[] = [];
+  deduped.forEach(({ rec, id }, j) => {
+    const b = j * LRECS_COLS;
+    placeholders.push(`(${Array.from({ length: LRECS_COLS }, (_, k) => `$${b + k + 1}`).join(', ')})`);
+    params.push(
+      id,
+      orgId,
+      rec.agent_id,
+      rec.action_type,
+      rec.confidence,
+      rec.sample_size,
+      rec.top_sample_size,
+      rec.success_rate,
+      rec.avg_score,
+      JSON.stringify(rec.hints || {}),
+      JSON.stringify(rec.guidance || []),
+      rec.active === false ? 0 : 1,
+      now,
+      now
+    );
+  });
+
+  // EXCLUDED.x equals the value the old per-row statement interpolated; `active`
+  // still preserves the existing row's value (not EXCLUDED), unchanged.
+  const rows = await sql.query(
+    `INSERT INTO learning_recommendations (
+       id, org_id, agent_id, action_type, confidence, sample_size, top_sample_size,
+       success_rate, avg_score, hints, guidance, active, computed_at, updated_at
+     ) VALUES ${placeholders.join(', ')}
+     ON CONFLICT (org_id, agent_id, action_type)
+     DO UPDATE SET
+       confidence = EXCLUDED.confidence,
+       sample_size = EXCLUDED.sample_size,
+       top_sample_size = EXCLUDED.top_sample_size,
+       success_rate = EXCLUDED.success_rate,
+       avg_score = EXCLUDED.avg_score,
+       hints = EXCLUDED.hints,
+       guidance = EXCLUDED.guidance,
+       active = learning_recommendations.active,
+       computed_at = EXCLUDED.computed_at,
+       updated_at = EXCLUDED.updated_at
+     RETURNING *`,
+    params
+  );
+
+  // Multi-row RETURNING order is unspecified — re-map to input order by the
+  // conflict key so the returned array matches the prior per-row output.
+  const byReturnedKey = new Map<string, Record<string, unknown>>();
+  for (const row of rows) byReturnedKey.set(recKey(row.agent_id, row.action_type), row);
+
+  const saved: Record<string, unknown>[] = [];
+  for (const { rec } of deduped) {
+    const row = byReturnedKey.get(recKey(rec.agent_id, rec.action_type));
+    if (row) {
       saved.push({
-        ...saveRow,
-        hints: parseJson(saveRow.hints, {}),
-        guidance: parseJson(saveRow.guidance, []),
-        active: toBoolean(saveRow.active),
+        ...row,
+        hints: parseJson(row.hints, {}),
+        guidance: parseJson(row.guidance, []),
+        active: toBoolean(row.active),
       });
     }
   }
@@ -411,44 +435,61 @@ interface RecommendationEvent {
   [k: string]: unknown;
 }
 
+// Columns in the learning_recommendation_events INSERT, in order.
+const LREV_COLS = 9;
+
 export async function createLearningRecommendationEvents(sql: SqlClient, orgId: string, events: RecommendationEvent[] = []): Promise<Record<string, unknown>[]> {
+  if (!events.length) return [];
+
+  // Stamp an id + created_at per event (each event keeps its own timestamp,
+  // exactly as the per-row loop did). ON CONFLICT (org_id, event_key) DO NOTHING
+  // is duplicate-safe in a multi-row INSERT — Postgres silently skips intra-batch
+  // and pre-existing conflicts (no "affect row a second time" error, which only
+  // applies to DO UPDATE), matching the loop's "first write wins" behavior.
+  const prepared = events.map((event) => ({
+    id: `lrev_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`,
+    event,
+    created_at: event.created_at || new Date().toISOString(),
+  }));
+
+  const placeholders: string[] = [];
+  const params: unknown[] = [];
+  prepared.forEach(({ id, event, created_at }, j) => {
+    const b = j * LREV_COLS;
+    placeholders.push(`(${Array.from({ length: LREV_COLS }, (_, k) => `$${b + k + 1}`).join(', ')})`);
+    params.push(
+      id,
+      orgId,
+      event.recommendation_id || null,
+      event.agent_id || null,
+      event.action_id || null,
+      event.event_type,
+      event.event_key || null,
+      event.details ? JSON.stringify(event.details) : null,
+      created_at
+    );
+  });
+
+  const rows = await sql.query(
+    `INSERT INTO learning_recommendation_events (
+       id, org_id, recommendation_id, agent_id, action_id, event_type, event_key, details, created_at
+     ) VALUES ${placeholders.join(', ')}
+     ON CONFLICT (org_id, event_key)
+     DO NOTHING
+     RETURNING *`,
+    params
+  );
+
+  // DO NOTHING returns only rows actually inserted; nothing is updated, so each
+  // returned row keeps the id we generated. Map back to input order and drop
+  // skipped (conflicting) events, exactly as the per-row loop's `if (row)` did.
+  const insertedById = new Map<string, Record<string, unknown>>();
+  for (const row of rows) insertedById.set(row.id as string, row);
+
   const created: Record<string, unknown>[] = [];
-  for (const event of events) {
-    const id = `lrev_${crypto.randomUUID().replace(/-/g, '').slice(0, 24)}`;
-    const now = event.created_at || new Date().toISOString();
-    const rows = await sql`
-      INSERT INTO learning_recommendation_events (
-        id,
-        org_id,
-        recommendation_id,
-        agent_id,
-        action_id,
-        event_type,
-        event_key,
-        details,
-        created_at
-      ) VALUES (
-        ${id},
-        ${orgId},
-        ${event.recommendation_id || null},
-        ${event.agent_id || null},
-        ${event.action_id || null},
-        ${event.event_type},
-        ${event.event_key || null},
-        ${event.details ? JSON.stringify(event.details) : null},
-        ${now}
-      )
-      ON CONFLICT (org_id, event_key)
-      DO NOTHING
-      RETURNING *
-    `;
-    const row = rows[0];
-    if (row) {
-      created.push({
-        ...row,
-        details: parseJson(row.details, {}),
-      });
-    }
+  for (const { id } of prepared) {
+    const row = insertedById.get(id);
+    if (row) created.push({ ...row, details: parseJson(row.details, {}) });
   }
   return created;
 }

@@ -46,6 +46,11 @@ export async function ensureConnectionsTable(sql: SqlTag): Promise<void> {
   await sql`CREATE INDEX IF NOT EXISTS idx_agent_connections_agent_id ON agent_connections(agent_id)`;
 }
 
+// Generous safety cap on an unbounded SELECT. An org's distinct connections
+// (agents × providers) are far fewer than this; the bound only guards against
+// pathological table growth dragging the query.
+const LIST_LIMIT = 500;
+
 /**
  * List connections with optional filters
  */
@@ -57,13 +62,13 @@ export async function listConnections(
   // SECURITY: Use parameterized queries only — no sql.unsafe().
   let connections;
   if (agentId && provider) {
-    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND agent_id = ${agentId} AND provider = ${provider} ORDER BY updated_at DESC`;
+    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND agent_id = ${agentId} AND provider = ${provider} ORDER BY updated_at DESC LIMIT ${LIST_LIMIT}`;
   } else if (agentId) {
-    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND agent_id = ${agentId} ORDER BY updated_at DESC`;
+    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND agent_id = ${agentId} ORDER BY updated_at DESC LIMIT ${LIST_LIMIT}`;
   } else if (provider) {
-    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND provider = ${provider} ORDER BY updated_at DESC`;
+    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} AND provider = ${provider} ORDER BY updated_at DESC LIMIT ${LIST_LIMIT}`;
   } else {
-    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} ORDER BY updated_at DESC`;
+    connections = await sql`SELECT * FROM agent_connections WHERE org_id = ${orgId} ORDER BY updated_at DESC LIMIT ${LIST_LIMIT}`;
   }
 
   return connections || [];

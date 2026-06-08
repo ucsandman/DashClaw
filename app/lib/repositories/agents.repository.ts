@@ -201,8 +201,12 @@ export async function listAgentsForOrg(
 
   // Attach presence data (heartbeats)
   try {
+    // Cap presence rows: heartbeats grow with agent count; 1000 is far above any
+    // single org's live agent roster and only guards against unbounded scans.
+    // ORDER BY freshest-first so the cap (if ever hit) keeps the most relevant
+    // heartbeats deterministically rather than an arbitrary subset.
     const presence = await sql.query(
-      `SELECT * FROM agent_presence WHERE org_id = $1`,
+      `SELECT * FROM agent_presence WHERE org_id = $1 ORDER BY last_heartbeat_at DESC NULLS LAST LIMIT 1000`,
       [orgId]
     );
     const presenceMap: Record<string, Record<string, unknown>> = {};
