@@ -22,7 +22,7 @@ describe('bulkAction', () => {
   });
 
   it('calls the correct per-item route for each id', async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(res(true)));
+    const fetchMock = vi.fn((_url: string, _opts?: any) => Promise.resolve(res(true)));
     await bulkAction(['k1', 'k2'], (id) => fetchMock(`/api/keys?id=${id}`, { method: 'DELETE' }));
     expect(fetchMock).toHaveBeenCalledWith('/api/keys?id=k1', { method: 'DELETE' });
     expect(fetchMock).toHaveBeenCalledWith('/api/keys?id=k2', { method: 'DELETE' });

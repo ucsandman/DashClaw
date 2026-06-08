@@ -1,21 +1,21 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import type { ReactNode } from 'react';
 import { Activity, Clock, AlertTriangle, Workflow, Zap } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
 interface MetricRowProps {
   icon: LucideIcon;
   label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
+  value: ReactNode;
+  sub?: ReactNode;
   color?: string;
 }
 
 function MetricRow({ icon: Icon, label, value, sub, color = 'text-white' }: MetricRowProps) {
   return (
     <div className="flex items-center gap-2">
-      <Icon size={13} className="flex-shrink-0 text-tertiary" />
+      <Icon size={13} className="flex-shrink-0 text-tertiary" aria-hidden="true" />
       <span className="flex-1 text-[11px] text-tertiary">{label}</span>
       <span className={`text-xs font-semibold tabular-nums ${color}`}>{value}</span>
       {sub && <span className="text-[11px] tabular-nums text-tertiary">{sub}</span>}
@@ -24,62 +24,31 @@ function MetricRow({ icon: Icon, label, value, sub, color = 'text-white' }: Metr
 }
 
 function Header() {
-  return (
-    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Runtime</div>
-  );
+  return <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Runtime</div>;
 }
 
-export default function RuntimeSummaryCard() {
-  const [data, setData] = useState<any>(null);
-  const [error, setError] = useState(false);
-
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch('/api/operations/summary');
-        if (res.ok) {
-          setData(await res.json());
-          setError(false);
-        } else {
-          console.warn('[RuntimeSummary] API returned', res.status);
-          setError(true);
-        }
-      } catch (err: any) {
-        console.warn('[RuntimeSummary] Fetch failed:', err.message);
-        setError(true);
-      }
-    }
-    load();
-    const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
-  if (error && !data) {
-    return (
-      <div className="space-y-4 p-5">
-        <Header />
-        <div className="text-xs text-tertiary">Unable to load runtime metrics.</div>
-      </div>
-    );
-  }
-
+/** Prop-fed refactor of the old RuntimeSummaryCard — no own fetch/poll; `data` is the
+ *  `/api/operations/summary` slice from the coordinated store. */
+export function RuntimeVitals({ data }: { data: any }) {
   if (!data) {
     return (
-      <div className="space-y-4 p-5">
+      <div className="space-y-3">
         <Header />
-        <div className="text-sm text-tertiary">Loading…</div>
+        <div className="text-xs text-tertiary">Runtime metrics unavailable.</div>
       </div>
     );
   }
 
-  const approvalColor = data.approval_backlog.pending_count > 0
-    ? (data.approval_backlog.oldest_minutes > 240 ? 'text-error' : 'text-warning')
-    : 'text-success';
-
+  const approvalColor =
+    data.approval_backlog.pending_count > 0
+      ? data.approval_backlog.oldest_minutes > 240
+        ? 'text-error'
+        : 'text-warning'
+      : 'text-success';
   const workflowFailColor = data.workflows.failed_24h > 0 ? 'text-error' : 'text-success';
 
   return (
-    <div className="space-y-4 p-5">
+    <div className="space-y-3">
       <Header />
       <div className="space-y-2.5">
         <MetricRow icon={Zap} label="Throughput · 1h" value={data.throughput.last_1h} />
@@ -93,9 +62,11 @@ export default function RuntimeSummaryCard() {
           icon={AlertTriangle}
           label="Approval backlog"
           value={data.approval_backlog.pending_count}
-          sub={data.approval_backlog.pending_count > 0
-            ? `${data.approval_backlog.oldest_minutes}m oldest${data.approval_backlog.avg_wait_minutes != null ? ` · ${data.approval_backlog.avg_wait_minutes}m avg` : ''}`
-            : ''}
+          sub={
+            data.approval_backlog.pending_count > 0
+              ? `${data.approval_backlog.oldest_minutes}m oldest${data.approval_backlog.avg_wait_minutes != null ? ` · ${data.approval_backlog.avg_wait_minutes}m avg` : ''}`
+              : ''
+          }
           color={approvalColor}
         />
         <MetricRow
