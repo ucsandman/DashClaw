@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.5",
+    "current_version": "4.7.6",
     "next_bump": "none",
-    "reason": "4.7.5 is a platform hardening ship (supergoal sweep phases 3-5): P3 surfaced silent fetch failures across 14 pages/components + a stale-data fix; P4 batched the per-signal and learning N+1 INSERT loops into chunked multi-row INSERTs and capped unbounded SELECTs (new signals.repository); P5 wired the previously-ignored eval-stats agent_id/scorer_name filters, added ::timestamptz casts to TEXT created_at comparisons, and coerced numeric-as-string aggregates. No Node SDK source change (surface unchanged at 126): the version advances per the unified model but the SDKs are NOT republished — npm stays at 4.7.2 (last SDK release). Self-dep stays ^4.x (within the major).",
+    "reason": "4.7.6 is a docs-accuracy ship (supergoal Phase 7 / SHIP-3): reconciles the MCP governance tool count (docs said 26/28, live is 29) across mcp-server/README, examples, app/docs, and docs/monetization-plan, and adds the 3 tools that were missing from the README + /docs tool catalogs (assumption_record, posture, posture_next). No Node SDK source change (surface unchanged at 126): the version advances per the unified model but the SDKs are NOT republished — npm stays at 4.7.2 (last SDK release). Self-dep stays ^4.x.",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.5",
+    "current_version": "4.7.6",
     "next_bump": "none",
-    "reason": "4.7.5 is a platform hardening ship (supergoal sweep phases 3-5): silent-failure/stale-data UX sweep (P3), query-performance batching + LIMIT caps (P4), and repository correctness — eval-stats filter wiring, ::timestamptz casts, numeric coercion (P5). No Python SDK source change (surface unchanged at 224): the version advances per the unified model but the SDKs are NOT republished — PyPI stays at 4.7.2 (last SDK release).",
+    "reason": "4.7.6 is a docs-accuracy ship (supergoal Phase 7 / SHIP-3): MCP governance tool count reconciled to 29 across docs + the 3 missing tools added to the README/docs catalogs. No Python SDK source change (surface unchanged at 224): the version advances per the unified model but the SDKs are NOT republished — PyPI stays at 4.7.2 (last SDK release).",
     "domains": ["platform"]
   }
 }

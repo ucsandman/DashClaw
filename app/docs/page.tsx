@@ -122,7 +122,7 @@ function SectionNav({ items }: SectionNavProps) {
 const navItems = [
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (28)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (29)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -423,7 +423,7 @@ except Exception as e:
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (28)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (29)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -455,7 +455,8 @@ except Exception as e:
                       { group: 'Open loops', tool: 'dashclaw_loop_add', desc: 'Register action-scoped commitment', inputs: 'action_id, loop_type, description' },
                       { tool: 'dashclaw_loop_list', desc: 'List open/resolved loops', inputs: 'action_id, status, priority' },
                       { tool: 'dashclaw_loop_close', desc: 'Resolve an open loop', inputs: 'id, resolution' },
-                      { group: 'Learning + retrospection', tool: 'dashclaw_learning_log', desc: 'Log non-obvious decision + outcome', inputs: 'decision, context, outcome' },
+                      { group: 'Learning + retrospection', tool: 'dashclaw_assumption_record', desc: 'Record an unverified assumption underpinning an action', inputs: 'action_id, assumption, basis' },
+                      { tool: 'dashclaw_learning_log', desc: 'Log non-obvious decision + outcome', inputs: 'decision, context, outcome' },
                       { tool: 'dashclaw_learning_query', desc: 'Query prior decisions/lessons', inputs: 'query, agent_id, limit' },
                       { tool: 'dashclaw_decisions_recent', desc: 'Recent governed-action ledger', inputs: 'agent_id, action_type, decision, since' },
                       { group: 'Agent inbox', tool: 'dashclaw_inbox_list', desc: 'List inbox messages + unread count', inputs: 'agent_id, direction, unread, type, limit' },

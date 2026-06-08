@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.6] — 2026-06-08
+
+### Fixed
+
+- **MCP governance tool count corrected to 29 across the docs.** The MCP server exposes 29 governance tools (variously mis-documented as 26 or 28). Reconciled `mcp-server/README.md`, the `/docs` page, the `examples/`, and `docs/monetization-plan.md`, and added the three tools that were missing from the README + `/docs` tool catalogs: `dashclaw_assumption_record`, `dashclaw_posture`, and `dashclaw_posture_next`.
+
+_SDK note: docs-accuracy release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
+
 ## [4.7.5] — 2026-06-08
 
 ### Fixed
