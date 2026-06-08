@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.5] — 2026-06-08
+
+### Fixed
+
+- **Silent fetch failures across 14 pages and components now surface.** Data-loading errors that previously left a view blank or showing stale numbers now render an explicit error state with a retry, and a stale-data path in the learning code-signals view was corrected. A lint-level guard now blocks new empty `catch` blocks in the app tree.
+- **Evaluation stats now honor the `agent_id` and `scorer_name` filters.** `GET /api/evaluations/stats?agent_id=…` / `?scorer_name=…` previously ignored both parameters and returned org-wide aggregates; they now filter every aggregate (by-scorer, trends, distribution, overall).
+- **Time-range filters compare as timestamps, not strings.** Activity (`?before`/`?after`) and evaluation-score date filters now cast `created_at` to `timestamptz` for correct temporal comparison and day-bucketing regardless of stored format; a malformed `before`/`after` value now returns `400` instead of surfacing a database error as `500`.
+- **Aggregate stats are returned as numbers.** `listActions` `avg_risk`/`total_cost` and the swarm-graph node metrics are now coerced from Postgres' string-typed aggregates to numbers — fixing inflated swarm node sizes caused by string concatenation in the sizing math.
+
+### Changed
+
+- **Signal and learning writes are batched.** The per-signal snapshot upsert and the two learning-loop insert loops now issue one chunked multi-row `INSERT` per batch instead of one round-trip per row, and three unbounded list/aggregate `SELECT`s were given explicit `LIMIT`/candidate-set bounds — cutting database round-trips on the cron signal pass and the learning rebuild.
+
+_SDK note: platform hardening release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
+
 ## [4.7.4] — 2026-06-08
 
 ### Added
