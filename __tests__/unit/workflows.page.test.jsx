@@ -119,12 +119,11 @@ describe('WorkflowsPage', () => {
     fireEvent.click(screen.getByRole('button', { name: /delete selected \(1\)/i }));
 
     await waitFor(() => {
+      // Bulk delete fans out plain same-origin DELETEs; the server resolves the
+      // caller's role from the session (the old inert x-org-role header was removed).
       expect(global.fetch).toHaveBeenCalledWith(
         '/api/workflows/templates/wft_test',
-        expect.objectContaining({
-          method: 'DELETE',
-          headers: { 'x-org-role': 'admin' },
-        })
+        expect.objectContaining({ method: 'DELETE' })
       );
     });
 

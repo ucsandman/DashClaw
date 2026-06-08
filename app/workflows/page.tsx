@@ -192,7 +192,6 @@ export default function WorkflowsPage() {
       const results = await Promise.all(
         selectedIds.map((templateId) => fetch(`/api/workflows/templates/${templateId}`, {
           method: 'DELETE',
-          headers: { 'x-org-role': 'admin' },
         }))
       );
 

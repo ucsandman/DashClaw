@@ -21,12 +21,14 @@ describe('buildInterventionList', () => {
       [{ action_id: 'act_1', agent_id: 'a1', declared_goal: 'send email' }],
       [{ loop_id: 'lp_1', agent_id: 'a2', priority: 'critical', description: 'stuck' }],
     );
-    expect(list[0].kind).toBe('approval');
-    expect(list[0].source).toBe('action');
-    expect(list[0].sourceId).toBe('act_1');
-    expect(list[0].status).toBe('pending_approval');
-    expect(list[1].kind).toBe('loop');
-    expect(list[1].sourceId).toBe('lp_1');
+    expect(list).toHaveLength(2);
+    const [first, second] = list;
+    expect(first!.kind).toBe('approval');
+    expect(first!.source).toBe('action');
+    expect(first!.sourceId).toBe('act_1');
+    expect(first!.status).toBe('pending_approval');
+    expect(second!.kind).toBe('loop');
+    expect(second!.sourceId).toBe('lp_1');
   });
   it('drops non-urgent loops (not approval/critical/high)', () => {
     const list = buildInterventionList([], [{ loop_id: 'lp_2', priority: 'low', loop_type: 'note' }]);
