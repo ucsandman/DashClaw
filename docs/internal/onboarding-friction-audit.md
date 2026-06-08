@@ -326,11 +326,11 @@ because none were actually created. They will conclude the product is broken.
 recent activity**." But:
 - There is no page called "dashboard" (`/dashboard` redirects or 404s depending on
   state — need to verify separately).
-- "Recent activity" is `/activity` or the Operations Feed band on Mission Control,
+- "Recent activity" is `/activity` or the Live Governance Ledger on Mission Control,
   neither of which is named in any navigation the new user has seen yet.
 
 **Suggested fix:** Replace "dashboard and recent activity" with "**Mission Control**
-— the **Operations Feed** band at the bottom of the page will show your action within
+— the **Live Governance Ledger** (right column) will show your action within
 a few seconds." Name the exact UI surface, not an abstract noun.
 
 ---

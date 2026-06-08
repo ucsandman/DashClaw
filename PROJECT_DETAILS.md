@@ -50,7 +50,7 @@ As of this verification, generated API inventory reports **300 routes**: **51 st
 
 | Surface | Path | Purpose |
 |:---|:---|:---|
-| Mission Control | `/mission-control` | Strategic posture, interventions, live decision stream, runtime summary, and operations feed. |
+| Mission Control | `/mission-control` | Two-column instrument panel: a sticky Posture Scorecard (six governance-category status rows that double as filters, runtime vitals, fleet, spend) and a Live Governance Ledger — a multi-select Intervention Queue (inline + bulk approve/deny) over a capped, SSE-live event stream. One coordinated 30s poll with a debounced SSE reconcile (replaces the old three independent polls + the operations-feed band). |
 | Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, a live recent-action log, and inline Approve/Deny for pending approvals (operator decisions resolved via `/api/approvals/[actionId]`, cleared across all channels). 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
 | Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |

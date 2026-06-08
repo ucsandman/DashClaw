@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.6.0] — 2026-06-07
+
+### Added
+
+- **Site-wide right-click governance context menu.** Right-clicking any DashClaw item — a decision, agent, capability, session, secret, webhook, API key, posture finding, knowledge collection, assumption, loop, policy, or message — opens a token-styled menu with the governance actions for that entity (Approve/Deny, Validate/Invalidate, Resolve/Cancel, Delete/Revoke, Snooze/Accept-risk, Mark-rotated, View, Run guard…) plus generic Copy ID / Copy link / Open. It is **augment-only**: the menu appears only over a recognized `[data-entity-type]` item; right-clicking blank space, text, or an input keeps the native browser menu, so copy/paste/inspect are never hijacked. Fully keyboard-operable (Arrow/Enter/Escape, focus returns to the trigger), rendered in a viewport-collision-aware portal. One provider mounted in `SessionWrapper`; rows across ~16 surfaces carry `data-entity-type/id/status`.
+- **Site-wide multi-select + bulk actions.** A shared `useSelection` system (Set-based, shift-click range, `Ctrl/Cmd+A` select-all with an input guard) wired into 10 high-value list pages — decisions, sessions, approvals, agents, capabilities, secrets, api-keys, webhooks, posture, knowledge — with a `BulkActionBar` in the page header and confirm-gated destructive actions. Bulk operations fan out over the **existing per-item governed routes** via `Promise.all` (no new routes, no new direct SQL, no new authorization surface — each call is still admin/org-scoped server-side). The two prior ad-hoc selects (`/decisions`, `/workflows`) were unified onto the shared hook.
+
+### Changed
+
+- **Mission Control redesign — "Split Posture / Live Ledger."** The low-value, clunky, slow operations-feed band is gone. Mission Control is now a two-column instrument panel: a sticky **Posture Scorecard** (six governance-category status rows that double as ledger filters, runtime vitals, fleet, spend) and a **Live Governance Ledger** — a multi-select **Intervention Queue** (inline + bulk approve/deny) over a 40-row-capped, SSE-live event stream. Performance: the three independent 30s polls (page + feed + runtime) collapse into **one coordinated `Promise.allSettled`**, the SSE-triggered refetch is **debounced (~750 ms)** instead of a 7-fetch-per-event storm, the poll is paused on a hidden tab, and the in-memory feed is capped. All six feed categories (approvals, 24h failures, risk signals, capability health, integration health, stale loops) are preserved. The layout was selected by a four-candidate, judge-scored design tournament.
+
+### Security
+
+- Removed an inert `x-org-role: admin` header from the workflows bulk-delete fan-out. It was never honored (middleware strips client-supplied role headers and re-injects the authenticated principal), so this is a clarity fix, not a bypass — the bulk path enforces the same server-side admin gate as the single-item path.
+
+SDKs republish at 4.6.0 per the unified-version model (no SDK surface change — Node 126 / Python 224, byte-identical to 4.5.x).
+
 ## [4.5.1] — 2026-06-07
 
 ### Fixed

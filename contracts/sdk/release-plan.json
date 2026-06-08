@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.5.1",
+    "current_version": "4.6.0",
     "next_bump": "none",
-    "reason": "4.5.1 is a platform-only fix: applying a policy mode (POST /api/policies/modes/import) is now idempotent — existing-by-name mode policies are reactivated + refreshed instead of silently skipped, so re-applying a mode whose policies were toggled off turns them back on (previously left the /policies cockpit stuck on 'No governance active'). Also redesigns the /policies empty state. No Node SDK surface change (unchanged at 126, byte-identical to 4.5.0); republishes at 4.5.1 per the unified-version model. Self-dep stays ^4.x (within the major).",
+    "reason": "4.6.0 is a platform UI feature release: a site-wide right-click governance context menu (augment-only) on entity rows, site-wide multi-select + bulk actions across 10 high-value pages (reusing existing per-item governed routes via Promise.all — no new routes, no new direct SQL), and a Mission Control redesign ('Split Posture / Live Ledger') that replaces the operations-feed band and collapses three independent 30s polls into one coordinated, SSE-debounced fetch. No Node SDK surface change (unchanged at 126, byte-identical to 4.5.x); republishes at 4.6.0 per the unified-version model. Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.5.1",
+    "current_version": "4.6.0",
     "next_bump": "none",
-    "reason": "4.5.1 is a platform-only fix: policy-mode apply is now idempotent (reactivate + refresh existing-by-name policies instead of skipping) plus a /policies empty-state redesign. No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.5.0) and republishes at 4.5.1 per the unified-version model.",
+    "reason": "4.6.0 is a platform UI feature release (site-wide context menu + multi-select/bulk actions + Mission Control 'Split Posture / Live Ledger' redesign). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.5.x) and republishes at 4.6.0 per the unified-version model.",
     "domains": ["platform"]
   }
 }
