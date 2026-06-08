@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.3",
+    "current_version": "4.7.4",
     "next_bump": "none",
-    "reason": "4.7.3 is a platform-only UI bugfix: the site-wide right-click context menu's fallback 'Copy' now copies the text under the cursor (and the highlighted selection when present) instead of falling back to the page URL — which made it a duplicate of 'Copy page link'. Also fixes pageTarget to climb to the nearest HTMLElement so a right-click on an SVG icon/text node no longer resolves to <body> (which would copy the whole page). No Node SDK source change (surface unchanged at 126): the version advances per the unified model but the SDKs are NOT republished — npm stays at 4.7.2 (last SDK release). Self-dep stays ^4.x (within the major).",
+    "reason": "4.7.4 is a platform/test/tooling hardening ship (supergoal sweep phases 1-2): adds 5 missing API route unit tests (actions artifacts/trace/loop-detail/stats, activity) + a PERCENTILE_CONT regression guard, fixes the eval test-suite full-run flake (app/lib/llm.ts provider cache leaked across vitest workers — now reset between tests; full suite 10/10 green), and makes scripts/generate-openapi.mjs read info.version from package.json instead of a hardcoded 2.0.0. No Node SDK source change (surface unchanged at 126): the version advances per the unified model but the SDKs are NOT republished — npm stays at 4.7.2 (last SDK release). Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.3",
+    "current_version": "4.7.4",
     "next_bump": "none",
-    "reason": "4.7.3 is a platform-only UI bugfix (context-menu fallback 'Copy' now copies the under-cursor text instead of the page URL; pageTarget climbs to the nearest HTMLElement). No Python SDK source change (surface unchanged at 224): the version advances per the unified model but the SDKs are NOT republished — PyPI stays at 4.7.2 (last SDK release).",
+    "reason": "4.7.4 is a platform/test/tooling hardening ship (supergoal sweep phases 1-2): API route tests + eval flake fix (llm.ts provider-cache cross-worker leak) + OpenAPI generator reads version from package.json. No Python SDK source change (surface unchanged at 224): the version advances per the unified model but the SDKs are NOT republished — PyPI stays at 4.7.2 (last SDK release).",
     "domains": ["platform"]
   }
 }

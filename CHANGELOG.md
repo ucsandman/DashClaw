@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.4] — 2026-06-08
+
+### Added
+
+- **Route test coverage for five previously-untested endpoints** — `GET /api/actions/[actionId]/artifacts`, `.../trace`, `GET|PATCH /api/actions/loops/[loopId]`, `GET /api/actions/stats`, and `GET /api/activity` now have unit tests (27 cases) covering success, error, and filter paths.
+- **A PERCENTILE_CONT regression guard** for the operations-summary latency card, so the p50/p95 query can't silently revert to the old `AVG`/`MAX` mislabel.
+
+### Fixed
+
+- **The eval test suite no longer flakes under the full run.** `app/lib/llm.ts`'s module-level provider cache leaked across vitest worker files — a provider key set in one test left `isLLMAvailable()` true for later files, intermittently breaking the eval scorer suite (~1 in 3 full runs). The cache now resets between tests; the full suite is 10/10 green.
+
+### Changed
+
+- **The OpenAPI spec version is no longer hardcoded.** `scripts/generate-openapi.mjs` reads `info.version` from `package.json`, so the spec tracks the unified platform version (was frozen at `2.0.0`). Advanced the `PROJECT_DETAILS.md` freshness stamp.
+
+_SDK note: platform/test/tooling release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
+
 ## [4.7.3] — 2026-06-08
 
 ### Fixed
