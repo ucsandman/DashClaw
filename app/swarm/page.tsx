@@ -32,6 +32,7 @@ export default function SwarmTopologyPage() {
   const [zoom, setZoom] = useState(0.8);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isFocused, setIsFocused] = useState(false);
+  const [query, setQuery] = useState('');
 
   // Performance Refs
   const packetsRef = useRef<any[]>([]);
@@ -48,6 +49,7 @@ export default function SwarmTopologyPage() {
     warning: '#eab308',
     error: '#ef4444',
     nodeBody: '#111111',
+    bgPrimary: '#0e1014',
     label: '#fafafa',
     labelMuted: '#808088',
   });
@@ -56,7 +58,9 @@ export default function SwarmTopologyPage() {
     hoveredId: null,
     selectedLink: null,
     zoom: 0.8,
-    pan: { x: 0, y: 0 }
+    pan: { x: 0, y: 0 },
+    query: '',
+    matchIds: null,
   });
 
   // Action Inspection State
@@ -82,10 +86,24 @@ export default function SwarmTopologyPage() {
       warning: read('--color-warning', '#eab308'),
       error: read('--color-error', '#ef4444'),
       nodeBody: read('--color-bg-secondary', '#111111'),
+      bgPrimary: read('--color-bg-primary', '#0e1014'),
       label: read('--color-text-primary', '#fafafa'),
       labelMuted: read('--color-text-tertiary', '#808088'),
     };
   }, []);
+
+  // Agent search — match on name or id. Matched ids feed both the results
+  // list and the canvas (matches stay lit and labeled; everything else dims).
+  const normalizedQuery = query.trim().toLowerCase();
+  const matches = useMemo(() => {
+    if (!normalizedQuery) return [] as any[];
+    return (graphData.nodes as any[])
+      .filter((n) =>
+        String(n.name ?? '').toLowerCase().includes(normalizedQuery) ||
+        String(n.id ?? '').toLowerCase().includes(normalizedQuery))
+      .sort((a, b) => (b.risk || 0) - (a.risk || 0));
+  }, [normalizedQuery, graphData.nodes]);
+  const matchIdSet = useMemo(() => new Set(matches.map((m) => m.id)), [matches]);
 
   // Sync React state to render ref for high-performance canvas access
   useEffect(() => {
@@ -95,9 +113,11 @@ export default function SwarmTopologyPage() {
       hoveredId: hoveredAgentId,
       selectedLink,
       zoom,
-      pan
+      pan,
+      query: normalizedQuery,
+      matchIds: matchIdSet,
     };
-  }, [selectedAgentId, hoveredAgentId, selectedLink, zoom, pan]);
+  }, [selectedAgentId, hoveredAgentId, selectedLink, zoom, pan, normalizedQuery, matchIdSet]);
 
   const [agentContext, setAgentContext] = useState<any>({
     loading: false,
@@ -140,6 +160,8 @@ export default function SwarmTopologyPage() {
 
       // 1. Draw Links
       const sLink = renderStateRef.current.selectedLink;
+      const q = renderStateRef.current.query;
+      const matchIds = renderStateRef.current.matchIds;
 
       for (let i = 0; i < links.length; i++) {
         const link = links[i];
@@ -174,9 +196,14 @@ export default function SwarmTopologyPage() {
           ctx.lineWidth = 2;
         }
 
+        // While searching, fade links that don't touch a matched agent.
+        const linkDimmed = !!q && !!matchIds && !matchIds.has(s.id) && !matchIds.has(t.id);
+        ctx.globalAlpha = linkDimmed ? 0.08 : 1;
+
         ctx.moveTo(s.x, s.y);
         ctx.lineTo(t.x, t.y);
         ctx.stroke();
+        ctx.globalAlpha = 1;
       }
 
       // 2. Draw Packets (NO SHADOWS - Performance Killer)
@@ -204,41 +231,74 @@ export default function SwarmTopologyPage() {
       packetsRef.current = activePackets;
 
       // 3. Draw Nodes
-      const showLabels = nodes.length < 15;
+      const zoomedIn = z > 1.3;
+      const fewNodes = nodes.length < 15;
       for (let i = 0; i < nodes.length; i++) {
         const node = nodes[i];
         const isSel = selectedId === node.id;
         const isHov = hoveredId === node.id;
+        const isMatch = !!q && !!matchIds && matchIds.has(node.id);
+        const dimmed = !!q && !!matchIds && !isMatch && !isSel && !isHov;
 
-        // Focus ring (only for the actively selected / hovered node)
+        ctx.globalAlpha = dimmed ? 0.12 : 1;
+
+        const rCol = node.risk > 70 ? colors.error : node.risk > 40 ? colors.warning : colors.success;
+        // Node radius carries activity: busier agents read larger (node.val ≈ log of action count).
+        const baseR = 10 + Math.min(node.val || 0, 14) * 0.45;
+        const r = isSel ? baseR + 5 : baseR;
+
+        // Soft brand halo for the one agent in focus (selected/hovered only) — kept rare so orange stays a signal.
         if (isSel || isHov) {
           ctx.beginPath();
-          ctx.arc(node.x, node.y, 35, 0, Math.PI * 2);
-          const grad = ctx.createRadialGradient(node.x, node.y, 0, node.x, node.y, 35);
-          grad.addColorStop(0, withAlpha(colors.brand, 0.22));
+          ctx.arc(node.x, node.y, r + 22, 0, Math.PI * 2);
+          const grad = ctx.createRadialGradient(node.x, node.y, r, node.x, node.y, r + 22);
+          grad.addColorStop(0, withAlpha(colors.brand, isSel ? 0.3 : 0.18));
           grad.addColorStop(1, 'transparent');
           ctx.fillStyle = grad;
           ctx.fill();
         }
 
-        // Body
-        const rCol = node.risk > 70 ? colors.error : node.risk > 40 ? colors.warning : colors.success;
+        // Body: a filled, risk-tinted disc (not a hollow ring) so every agent reads at a glance.
         ctx.beginPath();
-        ctx.arc(node.x, node.y, isSel ? 18 : 12, 0, Math.PI * 2);
-        ctx.fillStyle = colors.nodeBody;
-        ctx.strokeStyle = isSel ? colors.brand : rCol;
-        ctx.lineWidth = isSel ? 4 : 3;
+        ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
+        ctx.fillStyle = withAlpha(rCol, 0.22);
         ctx.fill();
+        ctx.lineWidth = isSel ? 3 : 2;
+        ctx.strokeStyle = isSel ? colors.brand : rCol;
         ctx.stroke();
 
-        // Label
-        if (isSel || isHov || showLabels) {
-          ctx.font = '10px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace';
-          ctx.fillStyle = isSel ? colors.label : colors.labelMuted;
+        // Bright status core keeps the risk color legible inside the tinted disc.
+        ctx.beginPath();
+        ctx.arc(node.x, node.y, Math.max(3, r * 0.4), 0, Math.PI * 2);
+        ctx.fillStyle = rCol;
+        ctx.fill();
+
+        // Label: the focused agent, a search match, or everything once zoomed in.
+        if (isSel || isHov || isMatch || zoomedIn || fewNodes) {
+          const label = String(node.name);
+          ctx.font = '600 11px Inter, system-ui, -apple-system, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(node.name, node.x, node.y + 35);
+          ctx.textBaseline = 'middle';
+          const ly = node.y + r + 12;
+          const focused = isSel || isHov || isMatch;
+          if (focused) {
+            // A chip behind the focused label keeps it readable over the network.
+            const tw = ctx.measureText(label).width;
+            const chipW = tw + 12;
+            ctx.fillStyle = withAlpha(colors.bgPrimary, 0.85);
+            roundRect(ctx, node.x - chipW / 2, ly - 8, chipW, 16, 5);
+            ctx.fill();
+            ctx.fillStyle = colors.label;
+          } else {
+            ctx.fillStyle = colors.labelMuted;
+          }
+          ctx.fillText(label, node.x, ly);
         }
+
+        ctx.globalAlpha = 1;
       }
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'alphabetic';
 
       ctx.restore();
       frame = requestAnimationFrame(render);
@@ -376,6 +436,18 @@ export default function SwarmTopologyPage() {
     if (el) el.addEventListener('wheel', handleWheel, { passive: false });
     return () => el?.removeEventListener('wheel', handleWheel);
   }, [handleWheel]);
+
+  // Center the view on an agent and select it — used by the search results list.
+  const focusOnNode = useCallback((id: any) => {
+    const node = nodesMapRef.current.get(id);
+    if (!node) return;
+    const z = Math.max(renderStateRef.current.zoom, 1.5);
+    setZoom(z);
+    setPan({ x: -z * (node.x - 400), y: -z * (node.y - 300) });
+    setSelectedAgentId(id);
+    setSelectedLink(null);
+    setIsFocused(true);
+  }, [nodesMapRef]);
 
   // --- DATA FETCHING ---
 
@@ -803,15 +875,10 @@ export default function SwarmTopologyPage() {
               >
                 <canvas ref={canvasRef} width={800} height={600} className="h-full w-full select-none" />
                 {!isFocused && (
-                  <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center bg-surface-primary/40">
-                    <div className="flex flex-col items-center gap-4">
-                      <div className="flex h-14 w-14 items-center justify-center rounded-full border border-border">
-                        <MousePointer2 className="text-secondary" size={22} />
-                      </div>
-                      <div className="rounded-lg border border-border bg-surface-secondary px-4 py-2 text-[11px] font-medium text-secondary">
-                        Click to interact with the network
-                      </div>
-                    </div>
+                  <div className="pointer-events-none absolute inset-0 z-10 flex items-end justify-center bg-surface-primary/15 pb-6">
+                    <span className="flex items-center gap-2 rounded-full border border-border bg-surface-secondary/90 px-3.5 py-1.5 text-[11px] font-medium text-secondary backdrop-blur-sm">
+                      <MousePointer2 size={13} className="text-brand" /> Click to interact · scroll to zoom · drag to pan
+                    </span>
                   </div>
                 )}
                 <div className="absolute right-4 top-4 z-20 flex flex-col gap-2">
@@ -819,6 +886,87 @@ export default function SwarmTopologyPage() {
                   <button onClick={() => { setZoom(z => Math.max(0.1, z * 0.7)); }} title="Zoom out" aria-label="Zoom out" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-secondary text-secondary transition-colors hover:border-border-hover hover:text-white"><ZoomOut size={14} /></button>
                   <button onClick={() => { setZoom(0.8); setPan({ x: 0, y: 0 }); }} title="Reset view" aria-label="Reset view" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-secondary text-secondary transition-colors hover:border-border-hover hover:text-white"><RefreshCw size={14} /></button>
                   <button onClick={expand} title="Distribute network" aria-label="Distribute network" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-surface-secondary text-secondary transition-colors hover:border-border-hover hover:text-white"><Maximize2 size={14} /></button>
+                </div>
+
+                {/* Agent search — find an agent by name or ID, then jump to it. */}
+                <div
+                  className="absolute left-4 top-4 z-20 w-[248px]"
+                  onMouseDown={(e) => e.stopPropagation()}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="relative">
+                    <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-tertiary" />
+                    <input
+                      type="text"
+                      value={query}
+                      onChange={(e) => setQuery(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') { setQuery(''); (e.target as HTMLInputElement).blur(); }
+                        else if (e.key === 'Enter' && matches.length > 0) focusOnNode(matches[0].id);
+                      }}
+                      placeholder="Search agents…"
+                      aria-label="Search agents by name or ID"
+                      className="w-full rounded-lg border border-border bg-surface-secondary/95 py-2 pl-9 pr-8 text-sm text-white shadow-sm backdrop-blur-sm transition-colors hover:border-border-hover focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/20"
+                    />
+                    {query && (
+                      <button
+                        onClick={() => setQuery('')}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-tertiary transition-colors hover:text-white"
+                      >
+                        <X size={13} />
+                      </button>
+                    )}
+                  </div>
+
+                  {query && (
+                    <div className="mt-2 overflow-hidden rounded-lg border border-border bg-surface-secondary/95 shadow-lg backdrop-blur-sm">
+                      <div className="flex items-center justify-between border-b border-border px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-tertiary">
+                        <span>{matches.length === 0 ? 'No matches' : `${matches.length} ${matches.length === 1 ? 'match' : 'matches'}`}</span>
+                        <span className="tabular-nums">of {graphData.nodes.length}</span>
+                      </div>
+                      {matches.length > 0 && (
+                        <ul className="custom-scrollbar max-h-[260px] overflow-y-auto py-1">
+                          {matches.slice(0, 8).map((m: any) => {
+                            const dot = (m.risk || 0) > 70 ? 'bg-status-error' : (m.risk || 0) > 40 ? 'bg-status-warning' : 'bg-status-success';
+                            return (
+                              <li key={m.id}>
+                                <button
+                                  onClick={() => focusOnNode(m.id)}
+                                  className={`flex w-full items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-surface-tertiary ${selectedAgentId === m.id ? 'bg-surface-tertiary' : ''}`}
+                                >
+                                  <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block truncate text-xs font-medium text-white">{m.name}</span>
+                                    <span className="block truncate font-mono text-[10px] text-tertiary">{String(m.id).substring(0, 24)}</span>
+                                  </span>
+                                  <span className="shrink-0 font-mono text-[10px] tabular-nums text-tertiary">{(m.risk || 0).toFixed(0)}%</span>
+                                </button>
+                              </li>
+                            );
+                          })}
+                          {matches.length > 8 && (
+                            <li className="px-3 py-1.5 text-center text-[10px] text-tertiary">
+                              +{matches.length - 8} more — refine your search
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Risk legend — decodes the node status colors (paired with text per AA). */}
+                <div className="pointer-events-none absolute bottom-4 left-4 z-10 flex items-center gap-3 rounded-lg border border-border bg-surface-secondary/80 px-3 py-1.5 backdrop-blur-sm">
+                  {([
+                    ['bg-status-success', 'Healthy'],
+                    ['bg-status-warning', 'Elevated'],
+                    ['bg-status-error', 'Critical'],
+                  ] as const).map(([dot, label]) => (
+                    <span key={label} className="flex items-center gap-1.5 text-[10px] font-medium text-secondary">
+                      <span className={`h-2 w-2 rounded-full ${dot}`} /> {label}
+                    </span>
+                  ))}
                 </div>
               </div>
             </CardContent>
@@ -931,6 +1079,19 @@ export default function SwarmTopologyPage() {
       </div>
     </PageLayout>
   );
+}
+
+// Trace a rounded-rectangle path for the focused-node label chip. (Avoids
+// relying on the still-uneven ctx.roundRect support across target browsers.)
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const rad = Math.min(r, w / 2, h / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + rad, y);
+  ctx.arcTo(x + w, y, x + w, y + h, rad);
+  ctx.arcTo(x + w, y + h, x, y + h, rad);
+  ctx.arcTo(x, y + h, x, y, rad);
+  ctx.arcTo(x, y, x + w, y, rad);
+  ctx.closePath();
 }
 
 // Convert a `#rrggbb` token value into an rgba string at the given alpha so the
