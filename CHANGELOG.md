@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.8] — 2026-06-08
+
+### Fixed
+
+- **Fresh installs no longer break on `settings` / `learning_episodes` / `daily_totals` upserts.** The three UNIQUE indexes backing those `ON CONFLICT` upserts were only created by the standalone `migrate-multi-tenant.mjs` / `migrate-learning-loop-mvp.mjs` scripts — not by the `drizzle/*.sql` set that `auto-migrate.mjs` runs on every Vercel deploy. A fresh deploy got the tables but not the indexes, so those upserts threw _"no unique or exclusion constraint matching the ON CONFLICT specification."_ Added `drizzle/0026_onconflict_unique_indexes.sql` (idempotent `CREATE UNIQUE INDEX IF NOT EXISTS`); it auto-applies on the next deploy and is a no-op on existing instances.
+
+_SDK note: platform/migration release — no Node/Python SDK source change, so the SDKs are not republished; npm + PyPI stay at 4.7.2._
+
 ## [4.7.7] — 2026-06-08
 
 ### Fixed
