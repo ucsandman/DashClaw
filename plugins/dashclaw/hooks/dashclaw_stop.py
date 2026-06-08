@@ -23,6 +23,7 @@ import os
 import re
 import sys
 import tempfile
+import time
 import urllib.request
 import urllib.error
 
@@ -95,6 +96,13 @@ TRACK_TEXT_TURNS = (os.environ.get("DASHCLAW_TRACK_TEXT_TURNS") or "").strip() i
 # slice to POST /api/code-sessions/ingest-jsonl after the existing PATCH
 # loop. Fail-silent: any error inside the reporter is logged and swallowed.
 CODE_SESSIONS_ENABLED = (os.environ.get("DASHCLAW_CODE_SESSIONS_ENABLED") or "").strip().lower() in ("1", "true", "yes")
+# Policy Coach "learning in the background" — when the recorder is on, the Stop
+# hook pushes a SAFE aggregate snapshot (counts only, no raw behavior) to the
+# server so a hosted dashboard can show DashClaw is alive and learning. On by
+# default whenever the recorder is enabled; opt out with
+# DASHCLAW_BEHAVIOR_INSIGHTS=0. Throttled so it recomputes at most every 10 min.
+INSIGHTS_OPT_OUT = (os.environ.get("DASHCLAW_BEHAVIOR_INSIGHTS") or "").strip().lower() in ("0", "false", "no")
+_INSIGHTS_THROTTLE_SECONDS = 600
 
 # Session IDs come from untrusted stdin. Before we use one as a temp-file
 # suffix, replace anything outside this whitelist so a crafted session_id
@@ -443,6 +451,75 @@ def datetime_now_iso():
 
 
 # ---------------------------------------------------------------------------
+# Behavior insights push (safe aggregate → hosted dashboard)
+# ---------------------------------------------------------------------------
+
+def _insights_marker_path():
+    return os.path.join(tempfile.gettempdir(), "dashclaw_insights_push")
+
+
+def _insights_due():
+    """True when enough time has passed since the last push (or never pushed)."""
+    try:
+        with open(_insights_marker_path(), encoding="utf-8") as f:
+            last = float(f.read().strip())
+        return (time.time() - last) >= _INSIGHTS_THROTTLE_SECONDS
+    except Exception:
+        return True
+
+
+def _mark_insights_pushed():
+    try:
+        with open(_insights_marker_path(), "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except Exception:
+        pass
+
+
+def _post_insights(snapshot):
+    """POST the safe aggregate snapshot to /api/behavior/insights. Fail-silent."""
+    url = BASE_URL + "/api/behavior/insights"
+    data = json.dumps(snapshot).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=data,
+        headers={"Content-Type": "application/json", "x-api-key": API_KEY},
+        method="POST",
+    )
+    try:
+        request_with_retry(req, timeout=3)
+    except urllib.error.HTTPError as e:
+        _log_hook_error("POST /api/behavior/insights -> HTTP " + str(e.code))
+    except Exception as e:
+        _log_hook_error("POST /api/behavior/insights -> " + type(e).__name__ + ": " + str(e))
+
+
+def _maybe_push_insights():
+    """Push the SAFE aggregate snapshot so a hosted dashboard can show DashClaw
+    is learning. Gated on the recorder being on, the opt-out flag, and a
+    throttle so we don't recompute on every Stop. Raw behavior never leaves the
+    machine — only counts/tallies/signals/timestamps. Fail-silent."""
+    if INSIGHTS_OPT_OUT or not BASE_URL or not API_KEY:
+        return
+    try:
+        if not behavior_recorder.is_enabled():
+            return
+    except Exception:
+        return
+    if not _insights_due():
+        return
+    try:
+        snapshot = behavior_recorder.build_insights(os.environ.get("DASHCLAW_WORKSPACE"))
+    except Exception as e:
+        _log_hook_error("build_insights -> " + type(e).__name__ + ": " + str(e))
+        return
+    if not snapshot:
+        return
+    _post_insights(snapshot)
+    _mark_insights_pushed()
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -496,6 +573,11 @@ def main():
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)
+
+    # Behavior Learning: push the SAFE aggregate snapshot (counts only) so a
+    # hosted dashboard can show DashClaw is alive and learning. Throttled +
+    # fail-silent; raw behavior never leaves the machine.
+    _maybe_push_insights()
     sys.exit(0)
 
 

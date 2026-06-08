@@ -12,6 +12,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { redactSample } from './redaction.js';
+import { isHostedMode } from '../hosted/flag.js';
 
 // Behavior samples are parsed from JSONL on disk; their shape follows the
 // recorder contract but is treated as untrusted external data here.
@@ -32,6 +33,18 @@ export function resolveSamplesDir(): string {
 export function recorderEnabled(): boolean {
   const v = (process.env.DASHCLAW_BEHAVIOR_SAMPLES_ENABLED || '').trim().toLowerCase();
   return v === '1' || v === 'true' || v === 'yes';
+}
+
+/**
+ * True when this DashClaw server can NOT read the agents' behavior samples
+ * because it is a hosted/serverless deployment (the app's hosted flag, or any
+ * Vercel runtime). Samples are written to the LOCAL filesystem of the machine
+ * the agents run on and never leave it, so a remote dashboard always reads an
+ * empty directory — the Policy Coach must say so instead of claiming "nothing
+ * captured yet". Analysis only works when DashClaw runs on that same machine.
+ */
+export function isRemoteInstance(): boolean {
+  return isHostedMode() || Boolean(process.env.VERCEL);
 }
 
 async function listSampleFiles(dir: string): Promise<string[]> {
@@ -183,6 +196,7 @@ export async function sampleStatus() {
   }
   return {
     recorder_enabled: recorderEnabled(),
+    remote: isRemoteInstance(),
     dir,
     sample_count: samples.length,
     agent_count: agents.size,

@@ -57,6 +57,12 @@ export const VALID_SETTING_KEYS = [
   // DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var still overrides them.
   'BEHAVIOR_RECORDER_ENABLED',
   'BEHAVIOR_RECORDER_UNTIL',
+  // Policy Coach "learning in the background" insights — a SAFE aggregate
+  // snapshot (counts, per-agent tallies, signal totals, timestamps) the local
+  // agent machine pushes so a hosted dashboard can show that DashClaw is alive
+  // and learning. Never contains raw behavior (no command shapes, paths, or
+  // goals). Written by POST /api/behavior/insights, read by the hosted UI.
+  'BEHAVIOR_INSIGHTS_SNAPSHOT',
   // Auto-scan: when 'true', the guard hard-blocks an action whose outbound
   // content contains a detected secret/credential. Default (unset) = warn only.
   'DASHCLAW_AUTOSCAN_BLOCK',

@@ -76,9 +76,20 @@ DASHCLAW_BEHAVIOR_SAMPLES_DIR=C:/Users/you/.dashclaw/behavior-samples
 
 `.dashclaw/` is gitignored — sample data stays local and is never committed.
 
+### Hosted dashboards: the "learning in the background" summary
+
+Because samples are local-only, a **hosted** DashClaw (e.g. a Vercel deployment) can't read them — its serverless filesystem never sees your machine. Pointed at a hosted instance, the Policy Coach would otherwise show `0 samples` forever even while capture is working.
+
+To close that gap **without breaking the local-only promise**, when the recorder is on the Stop hook pushes a **SAFE AGGREGATE snapshot** to `POST /api/behavior/insights`:
+
+- **What syncs:** counts, per-agent tallies (count + destructive / protected-write / failed / tool-diversity), signal totals (destructive commands, protected-path writes, high-risk, failed, blocked, approvals), and timestamps. Plus an optional machine `host_label`.
+- **What never syncs:** command shapes, paths, goals, file content, or any raw behavioral detail. The push is built from an allowlist on the client (`behavior_recorder.build_insights`) **and** rebuilt field-by-field on the server (`app/api/behavior/insights`), so a malformed payload can't smuggle anything else into storage.
+- **Where the hosted UI shows it:** the Policy Coach renders a "DashClaw is learning in the background" panel (heartbeat + counts + per-agent tallies) with a link to open Policy Coach locally to review and adopt the actual policy drafts.
+- **Cadence & control:** throttled to recompute at most every ~10 minutes; on by default whenever the recorder is on; opt out with `DASHCLAW_BEHAVIOR_INSIGHTS=0`. Stored as a single org setting (`BEHAVIOR_INSIGHTS_SNAPSHOT`), not a behavior-sample row.
+
 ## Privacy model & guarantees
 
-- **Local only.** Samples are written to `.dashclaw/behavior-samples/` on the machine running the agent. Nothing is uploaded. The Policy Coach reads these files server-side on the same machine (self-hosted / local dev). There is no cloud sync in v1.
+- **Raw behavior is local only.** Samples are written to `.dashclaw/behavior-samples/` on the machine running the agent and are never uploaded. The Policy Coach reads these files server-side on the same machine (self-hosted / local dev). A hosted instance only ever receives the safe aggregate snapshot described above — counts, not behavior.
 - **No database row.** Samples are never persisted to Postgres. The only database writes Behavior Learning makes are when you **adopt** an enforceable suggestion — it creates an inactive `guard_policies` draft, exactly as the manual policy authoring flow does.
 - **Deterministic redaction before disk.** The recorder scrubs API keys, tokens, env-var assignments, JWTs, and private keys from command shapes and paths using the same pattern set as `app/lib/claude-code/optimal-files/secret-scan.js`. Paths are home-stripped and workspace-relativized. The server defensively re-redacts every sample on read (`app/lib/behavior/redaction.js`).
 - **No raw transcripts or message bodies.** A sample stores a redacted *command shape* (verbs/flags preserved, operands replaced with `<path>` / `<url>` / `<REDACTED:…>`), redacted read/write paths, and structured metadata — never the full command, file content, or prompt.

@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `300`
+- Total routes: `301`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `225`
+- Experimental routes: `226`
 
 ## Routes
 
@@ -101,6 +101,7 @@ doc-type: architecture
 | `/api/assumptions/{assumptionId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/assumptions/[assumptionId]/route.ts` |
 | `/api/auth/config` | `GET` | `beta` | `/api/auth` | `app/api/auth/config/route.ts` |
 | `/api/auth/local` | `DELETE, POST` | `beta` | `/api/auth` | `app/api/auth/local/route.ts` |
+| `/api/behavior/insights` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/insights/route.ts` |
 | `/api/behavior/recorder` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/recorder/route.ts` |
 | `/api/behavior/samples` | `GET` | `experimental` | `/api/behavior` | `app/api/behavior/samples/route.ts` |
 | `/api/behavior/simulate` | `POST` | `experimental` | `/api/behavior` | `app/api/behavior/simulate/route.ts` |

@@ -21,6 +21,7 @@ sessions, and the JS-side defensive re-redaction never disagree.
 import json
 import os
 import re
+import socket
 import tempfile
 import time
 import uuid
@@ -393,3 +394,173 @@ def record_stop(workspace=None):
                 pass
     except Exception:
         pass
+
+
+# ── Insights snapshot (safe aggregate for hosted display) ──────────────────────
+# The local machine is the only place that can read the (local-only) samples.
+# build_insights() distills them into a SAFE aggregate — counts, per-agent
+# tallies, signal totals, and timestamps — with NO command shapes, paths, or
+# goals. The Stop hook posts this to /api/behavior/insights so a hosted DashClaw
+# dashboard can show that DashClaw is alive and learning, without any raw
+# behavior ever leaving the machine.
+
+_DAY_FILE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}\.jsonl$")
+_INSIGHTS_MAX_AGENTS = 25
+_INSIGHTS_MAX_LINES = 200000  # hard ceiling so a runaway log can't stall the hook
+_HIGH_RISK_THRESHOLD = 70
+
+
+def _ts_seconds(sample):
+    try:
+        return datetime.fromisoformat(str(sample.get("ts", "")).replace("Z", "+00:00")).timestamp()
+    except Exception:
+        return 0.0
+
+
+def _pick_final_insight(a, b):
+    """Mirror the JS pickFinalSample: a finalized record supersedes a 'running'
+    one; among same-tier records the latest ts wins."""
+    a_running = a.get("outcome_status") == "running"
+    b_running = b.get("outcome_status") == "running"
+    if a_running != b_running:
+        return b if a_running else a
+    return b if _ts_seconds(b) >= _ts_seconds(a) else a
+
+
+def _read_recent_samples(workspace=None, window_days=7):
+    """Read recent JSONL samples (newest day-files first, capped). Stdlib only."""
+    directory = samples_dir(workspace)
+    try:
+        names = [n for n in os.listdir(directory) if _DAY_FILE_RE.match(n)]
+    except OSError:
+        return []
+    names.sort(reverse=True)  # newest day first
+    if window_days and window_days > 0:
+        names = names[:window_days]
+    out = []
+    for name in names:
+        path = os.path.join(directory, name)
+        try:
+            with open(path, encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        obj = json.loads(line)
+                    except Exception:
+                        continue
+                    if obj.get("event_id") and obj.get("agent_id"):
+                        out.append(obj)
+                        if len(out) >= _INSIGHTS_MAX_LINES:
+                            return out
+        except OSError:
+            continue
+    return out
+
+
+def build_insights(workspace=None, window_days=7):
+    """Compute the SAFE aggregate snapshot from local samples.
+
+    Returns a dict ready to POST to /api/behavior/insights, or None when there
+    are no samples. Counts only — never command shapes, paths, or goals."""
+    raw = _read_recent_samples(workspace, window_days)
+    if not raw:
+        return None
+
+    # Collapse running+finalized records that share an event_id so a pre/post
+    # pair counts once (matches the dashboard's merge-on-read semantics).
+    by_id = {}
+    for s in raw:
+        eid = str(s.get("event_id"))
+        existing = by_id.get(eid)
+        by_id[eid] = s if existing is None else _pick_final_insight(existing, s)
+    merged = list(by_id.values())
+    if not merged:
+        return None
+
+    agents = {}
+    signals = {
+        "destructive_commands": 0,
+        "protected_path_writes": 0,
+        "failed_actions": 0,
+        "high_risk_actions": 0,
+        "blocked": 0,
+        "approvals": 0,
+    }
+    oldest = None
+    newest = None
+
+    for s in merged:
+        agent_id = s.get("agent_id") or "unknown"
+        a = agents.get(agent_id)
+        if a is None:
+            a = {"agent_id": agent_id, "count": 0, "destructive": 0,
+                 "protected_writes": 0, "failed": 0, "_tools": set()}
+            agents[agent_id] = a
+        a["count"] += 1
+
+        ts = s.get("ts")
+        if ts:
+            if oldest is None or ts < oldest:
+                oldest = ts
+            if newest is None or ts > newest:
+                newest = ts
+
+        tool = s.get("tool")
+        if tool:
+            a["_tools"].add(tool)
+
+        if s.get("bash_intent") == "destructive":
+            a["destructive"] += 1
+            signals["destructive_commands"] += 1
+        if s.get("sensitive_path"):
+            a["protected_writes"] += 1
+            signals["protected_path_writes"] += 1
+
+        status = s.get("outcome_status")
+        if status == "failed":
+            a["failed"] += 1
+            signals["failed_actions"] += 1
+        elif status == "blocked":
+            signals["blocked"] += 1
+
+        if s.get("guard_decision") == "require_approval":
+            signals["approvals"] += 1
+
+        try:
+            if float(s.get("risk_score") or 0) >= _HIGH_RISK_THRESHOLD:
+                signals["high_risk_actions"] += 1
+        except (TypeError, ValueError):
+            pass
+
+    agent_list = [
+        {
+            "agent_id": a["agent_id"],
+            "count": a["count"],
+            "destructive": a["destructive"],
+            "protected_writes": a["protected_writes"],
+            "failed": a["failed"],
+            "tools": len(a["_tools"]),
+        }
+        for a in agents.values()
+    ]
+    agent_list.sort(key=lambda x: x["count"], reverse=True)
+    agent_list = agent_list[:_INSIGHTS_MAX_AGENTS]
+
+    try:
+        host_label = (socket.gethostname() or "")[:64] or None
+    except Exception:
+        host_label = None
+
+    return {
+        "schema_version": 1,
+        "host_label": host_label,
+        "window_days": window_days,
+        "sample_count": len(merged),
+        "agent_count": len(agents),
+        "oldest_ts": oldest,
+        "newest_ts": newest,
+        "signals": signals,
+        "agents": agent_list,
+    }

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:7350e6993846b3d3c2c275b507aa5d9c047394d6",
+  "timestamp": "sha1:9a4f2d19638803e1cce4560092b8d190f98d66b6",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -819,6 +819,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/auth/local/route.ts"
+    },
+    {
+      "path": "/api/behavior/insights",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/behavior/insights/route.ts"
     },
     {
       "path": "/api/behavior/recorder",
@@ -3278,12 +3288,6 @@
       "name": "DASHCLAW_API_KEY",
       "required": true,
       "files": [
-        ".agents/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".agents/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".agents/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -3359,12 +3363,6 @@
       "name": "DASHCLAW_BASE_URL",
       "required": false,
       "files": [
-        ".agents/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".agents/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".agents/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
-        ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "app/docs/page.tsx",
         "app/guides/openai-agents-sdk/page.tsx",
         "app/landingData.js",
@@ -4532,6 +4530,7 @@
       "files": [
         "app/api/hosted/workspaces/route.ts",
         "app/layout.tsx",
+        "app/lib/behavior/sample-store.ts",
         "middleware.js"
       ],
       "in_env_example": false

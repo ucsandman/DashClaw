@@ -65,6 +65,7 @@ export default function PolicyCoachPage() {
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [sampleCount, setSampleCount] = useState(0);
   const [recent, setRecent] = useState<any[]>([]); // recent redacted sample records
+  const [insights, setInsights] = useState<any>(null); // safe aggregate snapshot (hosted view)
   const initialCountRef = useRef<number | null>(null); // baseline for "captured this session"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -87,18 +88,21 @@ export default function PolicyCoachPage() {
     try {
       const params = new URLSearchParams();
       if (agentId) params.set('agent_id', agentId);
-      const [statusRes, sugRes, recRes, listRes] = await Promise.all([
+      const [statusRes, sugRes, recRes, listRes, insRes] = await Promise.all([
         fetch('/api/behavior/samples'),
         fetch(`/api/behavior/suggestions?${params.toString()}`),
         fetch('/api/behavior/recorder'),
         fetch('/api/behavior/samples?list=25'),
+        fetch('/api/behavior/insights'),
       ]);
       const statusData = await statusRes.json();
       const sugData = await sugRes.json();
       const recData = await recRes.json().catch(() => null);
       const listData = await listRes.json().catch(() => null);
+      const insData = await insRes.json().catch(() => null);
       if (recData && !recData.error) setRecorderCfg(recData);
       if (listData && Array.isArray(listData.samples)) setRecent(listData.samples);
+      if (insData && !insData.error) setInsights(insData.snapshot ?? null);
       if (statusData && !statusData.error) {
         setStatus(statusData);
         // Baseline the session count on first successful load so the live strip
@@ -127,14 +131,17 @@ export default function PolicyCoachPage() {
   // they land.
   const pollLive = useCallback(async () => {
     try {
-      const [statusRes, listRes] = await Promise.all([
+      const [statusRes, listRes, insRes] = await Promise.all([
         fetch('/api/behavior/samples'),
         fetch('/api/behavior/samples?list=25'),
+        fetch('/api/behavior/insights'),
       ]);
       const s = await statusRes.json().catch(() => null);
       const l = await listRes.json().catch(() => null);
+      const ins = await insRes.json().catch(() => null);
       if (s && !s.error) setStatus(s);
       if (l && Array.isArray(l.samples)) setRecent(l.samples);
+      if (ins && !ins.error) setInsights(ins.snapshot ?? null);
     } catch {
       // ignore — the next tick retries
     }
@@ -358,10 +365,18 @@ export default function PolicyCoachPage() {
 
       {loading ? (
         <div className="py-12 text-center text-sm text-tertiary">Analyzing local samples…</div>
+      ) : status?.remote && insights ? (
+        <InsightsPanel insights={insights} />
       ) : totalSamples === 0 ? (
         <Card hover={false}>
           <CardContent className="pt-5">
-            {recorderOn ? (
+            {status?.remote ? (
+              <EmptyState
+                icon={Database}
+                title="Samples stay on the machine your agents run on"
+                description="You're viewing a hosted DashClaw, which can't read the local-only samples your agents write to .dashclaw/behavior-samples/ — by design, they never leave your machine. Once your agents finish a session with the recorder on, a privacy-safe summary (counts only, no raw behavior) appears here so you can see DashClaw learning in the background. To review and adopt the policy drafts themselves, open Policy Coach from a DashClaw running locally (npm run dev) on that same machine."
+              />
+            ) : recorderOn ? (
               <EmptyState
                 icon={Activity}
                 title="Recorder on — nothing captured yet"
@@ -671,6 +686,103 @@ function RecentSamplesPanel({ samples }: { samples: any[] }) {
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Hosted "learning in the background" panel. Renders the SAFE aggregate snapshot
+ * the local machine pushed (counts only — no raw behavior). Shown when this is a
+ * remote/hosted instance that can't read the local samples directly.
+ */
+function InsightsPanel({ insights }: { insights: any }) {
+  const sig = insights.signals || {};
+  const agents: any[] = Array.isArray(insights.agents) ? insights.agents : [];
+  const tiles = [
+    { label: 'Actions observed', value: insights.sample_count ?? 0, icon: Database },
+    { label: 'Agents learning', value: insights.agent_count ?? agents.length, icon: Activity },
+    { label: 'High-risk flagged', value: sig.high_risk_actions ?? 0, icon: ShieldAlert },
+    { label: 'Protected writes', value: sig.protected_path_writes ?? 0, icon: Lock },
+  ];
+  return (
+    <div className="space-y-5">
+      <Card hover={false}>
+        <CardContent className="py-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 text-sm font-medium text-white">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-success" aria-hidden="true" />
+                DashClaw is learning in the background
+              </div>
+              <p className="mt-1 text-xs text-tertiary">
+                Watching your agents{insights.host_label ? <> on <span className="text-secondary">{insights.host_label}</span></> : null} and learning which protections to suggest. Last activity{' '}
+                <span className="text-secondary">{ageLabel(insights.newest_ts)}</span>
+                {insights.pushed_at ? <> · synced <span className="text-secondary">{ageLabel(insights.pushed_at)}</span></> : null}.
+              </p>
+            </div>
+            <Badge variant="brand" size="xs">aggregate · privacy-safe</Badge>
+          </div>
+          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {tiles.map((t) => <StatTile key={t.label} label={t.label} value={t.value} icon={t.icon} />)}
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <Card hover={false}>
+            <CardHeader title="What DashClaw is watching" icon={Sparkles} />
+            <CardContent className="pt-0">
+              <SignalRow label="Destructive commands" value={sig.destructive_commands ?? 0} tone="text-warning" />
+              <SignalRow label="Protected-path writes" value={sig.protected_path_writes ?? 0} tone="text-warning" />
+              <SignalRow label="High-risk actions" value={sig.high_risk_actions ?? 0} tone="text-warning" />
+              <SignalRow label="Failed actions" value={sig.failed_actions ?? 0} tone="text-error" />
+              <SignalRow label="Blocked by policy" value={sig.blocked ?? 0} tone="text-error" />
+              <SignalRow label="Sent for approval" value={sig.approvals ?? 0} tone="text-secondary" />
+            </CardContent>
+          </Card>
+        </div>
+        <div>
+          <Card hover={false}>
+            <CardHeader title="Agents observed" icon={Activity} count={agents.length} />
+            <CardContent className="pt-0">
+              {agents.length === 0 ? (
+                <div className="py-6 text-center text-xs text-tertiary">No agents observed yet.</div>
+              ) : (
+                <div className="space-y-3">
+                  {agents.map((a) => (
+                    <div key={a.agent_id} className="rounded-lg border border-border bg-surface-tertiary p-3">
+                      <div className="flex items-center justify-between">
+                        <span className="truncate font-mono text-xs text-white">{a.agent_id}</span>
+                        <span className="tabular-nums text-[11px] text-tertiary">{a.count} actions</span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        {a.destructive > 0 && <Badge variant="warning" size="xs">{a.destructive} destructive</Badge>}
+                        {a.protected_writes > 0 && <Badge variant="warning" size="xs">{a.protected_writes} protected</Badge>}
+                        {a.failed > 0 && <Badge variant="error" size="xs">{a.failed} failed</Badge>}
+                        {a.tools > 0 && <Badge variant="default" size="xs">{a.tools} tool{a.tools === 1 ? '' : 's'}</Badge>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <p className="px-1 text-[11px] leading-relaxed text-tertiary">
+        These are aggregate counts computed on the machine your agents run on — <span className="text-secondary">your raw behavior never leaves it</span>. To review the evidence-backed policy drafts and adopt them, open Policy Coach from a DashClaw running locally (<span className="font-mono text-secondary">npm run dev</span>) on that machine.
+      </p>
+    </div>
+  );
+}
+
+function SignalRow({ label, value, tone }: { label: string; value: number; tone: string }) {
+  return (
+    <div className="flex items-center justify-between border-b border-border py-2 last:border-0">
+      <span className="text-xs text-secondary">{label}</span>
+      <span className={`text-sm font-semibold tabular-nums ${tone}`}>{value}</span>
+    </div>
   );
 }
 
