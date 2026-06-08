@@ -204,9 +204,15 @@ export default function DriftPage() {
   useEffect(() => {
     if (isDemo) return;
     fetch('/api/drift/metrics')
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) {
+          console.warn('Failed to load drift metric catalog (endpoint=/api/drift/metrics): status', r.status);
+          return null;
+        }
+        return r.json();
+      })
       .then((d) => { if (d?.metrics) setMetricCatalog(d.metrics); })
-      .catch(() => {});
+      .catch((err) => { console.warn('Failed to load drift metric catalog (endpoint=/api/drift/metrics):', err); });
   }, [isDemo]);
 
   const handleRunDetection = async () => {

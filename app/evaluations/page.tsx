@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   BarChart3, Plus, Play, Trash2, Copy,
   AlertCircle, CheckCircle, XCircle, Clock, Filter, RefreshCw,
@@ -143,6 +143,16 @@ export default function EvaluationsPage() {
   const [runDetail, setRunDetail] = useState<RunDetail | null>(null);
   const [cancelingRunId, setCancelingRunId] = useState<string | null>(null);
 
+  // Inline toast for action failures (delete/cancel/detail)
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
   // Create scorer form
   const [showCreateScorer, setShowCreateScorer] = useState(false);
   const [newScorer, setNewScorer] = useState<NewScorer>({ name: '', scorer_type: 'regex', config: '{}', description: '' });
@@ -281,22 +291,24 @@ export default function EvaluationsPage() {
   const handleDeleteScorer = async (id: string) => {
     if (!confirm('Delete this scorer? Existing scores will be preserved.')) return;
     try {
-      await fetch(`/api/evaluations/scorers/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/evaluations/scorers/${id}`, { method: 'DELETE' });
+      if (!res.ok) { showToast('Delete scorer failed'); return; }
       fetchData();
-    } catch { /* ignore */ }
+    } catch { showToast('Delete scorer failed'); }
   };
 
   // Cancel a stuck (pending/running) run
   const handleCancelRun = async (id: string) => {
     setCancelingRunId(id);
     try {
-      await fetch(`/api/evaluations/runs/${id}`, {
+      const res = await fetch(`/api/evaluations/runs/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'failed' }),
       });
+      if (!res.ok) { showToast('Cancel run failed'); return; }
       fetchData();
-    } catch { /* ignore */ } finally {
+    } catch { showToast('Cancel run failed'); } finally {
       setCancelingRunId(null);
     }
   };
@@ -309,7 +321,8 @@ export default function EvaluationsPage() {
     try {
       const res = await fetch(`/api/evaluations/runs/${id}`);
       if (res.ok) setRunDetail(await res.json());
-    } catch { /* ignore */ }
+      else showToast('Failed to load run detail');
+    } catch { showToast('Failed to load run detail'); }
   };
 
   if (loading) {
@@ -353,6 +366,9 @@ export default function EvaluationsPage() {
       }
     >
       <div className="space-y-6">
+        {toast && (
+          <div className="fixed inset-x-4 bottom-4 z-30 rounded-lg border border-error/30 bg-error-subtle p-3 text-center text-sm text-error" role="alert">{toast}</div>
+        )}
         {refreshError && (
           <div className="flex items-center justify-between gap-3 rounded-lg border border-error/30 bg-error-subtle px-4 py-2.5 text-xs text-error">
             <span>Couldn&apos;t load the latest evaluation data — results may be incomplete.</span>

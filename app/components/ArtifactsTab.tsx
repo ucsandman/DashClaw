@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { FileJson, Package, ChevronDown, ChevronRight, Trash2, Copy, Check } from 'lucide-react';
 import MarkdownBody from '../messages/_components/MarkdownBody';
 
@@ -116,24 +116,30 @@ export default function ArtifactsTab({ actionId }: ArtifactsTabProps) {
   const [generating, setGenerating] = useState(false);
   const [bundleSummary, setBundleSummary] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`/api/actions/${actionId}/artifacts`);
-        if (res.ok) {
-          const data = await res.json();
-          setArtifacts(data.artifacts || []);
-        }
-      } catch {
-        /* ignore */
-      } finally {
-        setLoading(false);
+  const load = useCallback(async () => {
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/actions/${actionId}/artifacts`);
+      if (res.ok) {
+        const data = await res.json();
+        setArtifacts(data.artifacts || []);
+      } else {
+        setLoadError(true);
       }
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    load();
   }, [actionId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   async function handleGenerateBundle() {
     setGenerating(true);
@@ -189,6 +195,20 @@ export default function ArtifactsTab({ actionId }: ArtifactsTabProps) {
 
   if (loading) {
     return <div className="text-sm text-tertiary py-4">Loading artifacts...</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface-secondary py-12 text-center">
+        <div className="text-sm text-error mb-3">Failed to load artifacts.</div>
+        <button
+          onClick={load}
+          className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+        >
+          Retry
+        </button>
+      </div>
+    );
   }
 
   return (

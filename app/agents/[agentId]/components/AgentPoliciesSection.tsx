@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import Link from 'next/link';
 import { Badge } from '../../../components/ui/Badge';
 import { Shield, X, ToggleLeft, ToggleRight, ExternalLink } from 'lucide-react';
@@ -34,6 +34,14 @@ interface AgentPoliciesSectionProps {
 
 export default function AgentPoliciesSection({ agentId, policies, onRefresh }: AgentPoliciesSectionProps) {
   const [assigning, setAssigning] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const applicablePolicies = (policies || []).filter(p => {
     const ids = parseAgentIds(p);
@@ -51,7 +59,8 @@ export default function AgentPoliciesSection({ agentId, policies, onRefresh }: A
         body: JSON.stringify({ id: policy.id, agent_ids: newIds.length > 0 ? JSON.stringify(newIds) : null }),
       });
       if (res.ok) onRefresh?.();
-    } catch { /* ignore */ }
+      else showToast('Unassign policy failed');
+    } catch { showToast('Unassign policy failed'); }
     finally { setAssigning(false); }
   };
 
@@ -64,7 +73,8 @@ export default function AgentPoliciesSection({ agentId, policies, onRefresh }: A
         body: JSON.stringify({ id: policy.id, active: policy.active === 1 ? 0 : 1 }),
       });
       if (res.ok) onRefresh?.();
-    } catch { /* ignore */ }
+      else showToast('Toggle policy failed');
+    } catch { showToast('Toggle policy failed'); }
     finally { setAssigning(false); }
   };
 
@@ -118,6 +128,9 @@ export default function AgentPoliciesSection({ agentId, policies, onRefresh }: A
             );
           })}
         </div>
+      )}
+      {toast && (
+        <div className="fixed inset-x-4 bottom-4 z-30 rounded-lg border border-error/30 bg-error-subtle p-3 text-center text-sm text-error" role="alert">{toast}</div>
       )}
     </div>
   );

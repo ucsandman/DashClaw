@@ -17,18 +17,20 @@ export default function CodeSessionAlertsPanel() {
   const [alerts, setAlerts] = useState<any[]>([]);
   const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [marking, setMarking] = useState(false);
 
   const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     try {
       const res = await fetch('/api/code-sessions/alerts?limit=50');
-      if (res.ok) {
-        const data = await res.json();
-        setAlerts(data.alerts || []);
-        setUnread(data.unread_count || 0);
-      }
+      if (!res.ok) throw new Error(`alerts request failed: ${res.status}`);
+      const data = await res.json();
+      setAlerts(data.alerts || []);
+      setUnread(data.unread_count || 0);
     } catch {
-      // best-effort
+      setError(true);
     } finally {
       setLoading(false);
     }
@@ -48,8 +50,8 @@ export default function CodeSessionAlertsPanel() {
     }
   };
 
-  // Nothing to show (and nothing loading): stay out of the way.
-  if (!loading && alerts.length === 0) return null;
+  // Nothing to show (and nothing loading, no error): stay out of the way.
+  if (!loading && !error && alerts.length === 0) return null;
 
   return (
     <Card className="mb-6" hover={false}>
@@ -72,6 +74,16 @@ export default function CodeSessionAlertsPanel() {
       <CardContent className="p-0">
         {loading ? (
           <div className="px-5 py-4 text-sm text-tertiary">Loading alerts…</div>
+        ) : error ? (
+          <div className="px-5 py-8 text-center">
+            <div className="mb-3 text-sm text-error">Failed to load alerts.</div>
+            <button
+              onClick={load}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <ul className="divide-y divide-border">
             {alerts.map((a) => {

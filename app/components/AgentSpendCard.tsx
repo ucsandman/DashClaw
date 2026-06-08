@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { TrendingUp, TrendingDown } from 'lucide-react';
 import { formatCost } from '../lib/formatCost';
 
@@ -11,19 +11,31 @@ interface AgentSpendCardProps {
 export default function AgentSpendCard({ agentId }: AgentSpendCardProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
     const params = new URLSearchParams({ period: '30d' });
     if (agentId) params.set('agent_id', agentId);
 
-    fetch(`/api/actions/costs?${params}`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((json) => {
-        setData(json);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    try {
+      const res = await fetch(`/api/actions/costs?${params}`);
+      if (!res.ok) {
+        setError(true);
+        return;
+      }
+      setData(await res.json());
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, [agentId]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
 
   if (loading) {
     return (
@@ -31,6 +43,20 @@ export default function AgentSpendCard({ agentId }: AgentSpendCardProps) {
         <div className="h-3 w-20 animate-pulse rounded bg-white/[0.04]" />
         <div className="h-8 w-24 animate-pulse rounded bg-white/[0.04]" />
         <div className="h-3 w-16 animate-pulse rounded bg-white/[0.04]" />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-border bg-surface-secondary py-12 text-center">
+        <div className="text-sm text-error mb-3">Failed to load agent spend.</div>
+        <button
+          onClick={load}
+          className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+        >
+          Retry
+        </button>
       </div>
     );
   }

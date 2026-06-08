@@ -98,7 +98,9 @@ export default function MessagesPage() {
     fetch('/api/agents')
       .then(r => r.json())
       .then(d => setAgents(d.agents || []))
-      .catch(() => {});
+      .catch(err => {
+        console.warn('Failed to load agents for compose dropdown (page=messages):', err);
+      });
   }, []);
 
   // Initial fetch + polling
@@ -110,11 +112,18 @@ export default function MessagesPage() {
   }, [fetchAll]);
 
   // Refetch when tab switches between inbox/sent
+  const loadTabMessages = useCallback((targetTab: string) => {
+    if (targetTab !== 'inbox' && targetTab !== 'sent') return;
+    setError(null);
+    setMessages([]); // reset stale list while the new tab loads
+    fetchMessages(targetTab)
+      .then(d => setMessages(d.messages))
+      .catch(() => setError('Failed to load messages.'));
+  }, [fetchMessages]);
+
   useEffect(() => {
-    if (tab === 'inbox' || tab === 'sent') {
-      fetchMessages(tab).then(d => setMessages(d.messages)).catch(() => {});
-    }
-  }, [tab, fetchMessages]);
+    loadTabMessages(tab);
+  }, [tab, loadTabMessages]);
 
   // ── SSE real-time ─────────────────────────────────────────────
 
@@ -427,9 +436,17 @@ export default function MessagesPage() {
       {error && (
         <div role="alert" className="mb-4 flex items-center justify-between rounded-lg border border-error/30 bg-error-subtle p-3 text-sm text-error">
           <span>{error}</span>
-          <button onClick={() => setError(null)} aria-label="Dismiss error" className="rounded p-0.5 text-error transition-colors hover:bg-error-subtle hover:text-error">
-            <X size={14} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => (tab === 'inbox' || tab === 'sent' ? loadTabMessages(tab) : fetchAll())}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+            >
+              Retry
+            </button>
+            <button onClick={() => setError(null)} aria-label="Dismiss error" className="rounded p-0.5 text-error transition-colors hover:bg-error-subtle hover:text-error">
+              <X size={14} />
+            </button>
+          </div>
         </div>
       )}
 

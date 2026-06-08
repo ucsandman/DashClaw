@@ -98,6 +98,7 @@ export default function AgentRegistryPage() {
   const handleDeactivate = async () => {
     if (!detail?.registered_agent) return;
     const id = detail.registered_agent.entry_id;
+    setError(null);
     try {
       const res = await fetch(`/api/agents/registry/${id}`, {
         method: 'PATCH',
@@ -106,8 +107,9 @@ export default function AgentRegistryPage() {
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) applyUpdatedAgent(json.registered_agent);
+      else setError(json.error || 'Failed to deactivate agent');
     } catch {
-      /* leave the panel as-is on failure */
+      setError('Failed to deactivate agent');
     }
   };
 

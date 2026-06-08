@@ -34,6 +34,7 @@ export default function LearningDashboard() {
   const [suggestionBusy, setSuggestionBusy] = useState<number | null>(null);
   const [suggestionError, setSuggestionError] = useState('');
   const [codeSignals, setCodeSignals] = useState<any>({ findings: [], period: '30d' });
+  const [codeSignalsError, setCodeSignalsError] = useState(false);
   const [signalsPeriod, setSignalsPeriod] = useState('30d');
   const [exporting, setExporting] = useState<string | null>(null);
 
@@ -127,12 +128,32 @@ export default function LearningDashboard() {
   }, [fetchData]);
 
   // Code-optimizer signal aggregation (period-scoped).
-  useEffect(() => {
-    fetch(`/api/learning/code-signals?period=${signalsPeriod}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setCodeSignals({ findings: d.findings || [], period: d.period }); })
-      .catch(() => {});
+  const loadCodeSignals = useCallback(async () => {
+    // Clear prior-period data so stale findings never render under the new
+    // period label while the switch is in flight or fails.
+    setCodeSignals({ findings: [], period: signalsPeriod });
+    setCodeSignalsError(false);
+    // One retry absorbs a Neon cold-start blip (mirrors the Spend page).
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const res = await fetch(`/api/learning/code-signals?period=${signalsPeriod}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const d = await res.json();
+        setCodeSignals({ findings: d.findings || [], period: d.period });
+        return;
+      } catch (err) {
+        lastErr = err;
+        if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
+      }
+    }
+    console.warn('Failed to load code signals (signalsPeriod=', signalsPeriod, '):', lastErr);
+    setCodeSignalsError(true);
   }, [signalsPeriod]);
+
+  useEffect(() => {
+    loadCodeSignals();
+  }, [loadCodeSignals]);
 
   const suggestionReason = (s: any) => {
     if (s.trigger === 'critical_drift') return `Critical drift on ${s.evidence?.metric} (z=${s.evidence?.z_score})`;
@@ -715,6 +736,17 @@ export default function LearningDashboard() {
                 Saved ${codeSignals.findings.reduce((sum: number, f: any) => sum + (Number(f.total_savings_usd) || 0), 0).toFixed(2)}
               </span>
             </div>
+            {codeSignalsError && (
+              <div className="mb-3 flex items-center justify-between gap-3 text-xs text-error bg-error-subtle border border-error/30 rounded-md px-3 py-2">
+                <span>Failed to load code signals.</span>
+                <button
+                  onClick={loadCodeSignals}
+                  className="rounded-md border border-border px-2.5 py-1 text-secondary transition-colors hover:border-border-hover"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             <div className="space-y-2 max-h-[380px] overflow-y-auto">
               {codeSignals.findings.length === 0 ? (
                 <EmptyState icon={Code2} title="No code signals" description="Optimizer findings from ingested code sessions appear here." />

@@ -156,9 +156,15 @@ export default function PromptsPage() {
   useEffect(() => {
     const qs = runsTemplateFilter ? `?limit=30&template_id=${runsTemplateFilter}` : '?limit=30';
     fetch(`/api/prompts/runs${qs}`)
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (!r.ok) {
+          console.warn('Failed to load prompt runs (templateFilter=', runsTemplateFilter, '): status', r.status);
+          return null;
+        }
+        return r.json();
+      })
       .then((d) => { if (d) setRuns(d.runs || []); })
-      .catch(() => {});
+      .catch((err) => { console.warn('Failed to load prompt runs (templateFilter=', runsTemplateFilter, '):', err); });
   }, [runsTemplateFilter]);
 
   // Fetch versions for selected template

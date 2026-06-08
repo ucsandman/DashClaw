@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import {
@@ -64,6 +64,14 @@ export default function DecisionReplayPage() {
   const [pendingOps, setPendingOps] = useState<Record<string, any>>({});
   const [invalidateReasons, setInvalidateReasons] = useState<Record<string, string>>({});
   const [resolveTexts, setResolveTexts] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string) => {
+    setToast(msg);
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const fetchData = useCallback(async () => {
     // Reset message state synchronously so prior-decision header doesn't
@@ -251,8 +259,13 @@ export default function DecisionReplayPage() {
       if (res.ok) {
         const data = await res.json();
         setAssumptions(prev => prev.map(a => a.assumption_id === assumptionId ? data.assumption : a));
+      } else {
+        showToast('Validate assumption failed');
       }
-    } catch (err) { console.error('Failed to validate assumption:', err); }
+    } catch (err) {
+      console.error('Failed to validate assumption:', err);
+      showToast('Validate assumption failed');
+    }
     setPendingOps(prev => { const n = { ...prev }; delete n[assumptionId]; return n; });
   };
 
@@ -270,8 +283,13 @@ export default function DecisionReplayPage() {
         const data = await res.json();
         setAssumptions(prev => prev.map(a => a.assumption_id === assumptionId ? data.assumption : a));
         setInvalidateReasons(prev => { const n = { ...prev }; delete n[assumptionId]; return n; });
+      } else {
+        showToast('Invalidate assumption failed');
       }
-    } catch (err) { console.error('Failed to invalidate assumption:', err); }
+    } catch (err) {
+      console.error('Failed to invalidate assumption:', err);
+      showToast('Invalidate assumption failed');
+    }
     setPendingOps(prev => { const n = { ...prev }; delete n[assumptionId]; return n; });
   };
 
@@ -290,8 +308,13 @@ export default function DecisionReplayPage() {
         const data = await res.json();
         setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
         setResolveTexts(prev => { const n = { ...prev }; delete n[loopId]; return n; });
+      } else {
+        showToast('Resolve loop failed');
       }
-    } catch (err) { console.error('Failed to resolve loop:', err); }
+    } catch (err) {
+      console.error('Failed to resolve loop:', err);
+      showToast('Resolve loop failed');
+    }
     setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
   };
 
@@ -306,8 +329,13 @@ export default function DecisionReplayPage() {
       if (res.ok) {
         const data = await res.json();
         setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
+      } else {
+        showToast('Cancel loop failed');
       }
-    } catch (err) { console.error('Failed to cancel loop:', err); }
+    } catch (err) {
+      console.error('Failed to cancel loop:', err);
+      showToast('Cancel loop failed');
+    }
     setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
   };
 
@@ -419,6 +447,12 @@ export default function DecisionReplayPage() {
         </div>
       }
     >
+      {toast && (
+        <div className="fixed inset-x-4 bottom-4 z-30 rounded-lg border border-error/30 bg-error-subtle p-3 text-center text-sm text-error" role="alert">
+          {toast}
+        </div>
+      )}
+
       {/* ═══ Key Metrics ═══ */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <Card hover={false} className={`border ${getRiskColor(action.risk_score)}`}>

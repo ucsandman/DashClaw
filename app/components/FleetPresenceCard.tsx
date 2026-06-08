@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Activity, ShieldCheck, ShieldAlert, Cpu, Timer, Wifi, WifiOff } from 'lucide-react';
 import { Card, CardHeader, CardContent } from './ui/Card';
 import { Badge } from './ui/Badge';
@@ -13,6 +13,8 @@ import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
 export default function FleetPresenceCard() {
   const [agents, setAgents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const hasLoaded = useRef(false);
 
   // useCallback so handleRealtime closes over a stable reference rather than
   // capturing the inaugural fetchAgents — without this, the realtime handler
@@ -24,9 +26,21 @@ export default function FleetPresenceCard() {
       if (res.ok) {
         const data = await res.json();
         setAgents(data.agents || []);
+        setError(false);
+        hasLoaded.current = true;
+      } else if (!hasLoaded.current) {
+        // Initial load failed with no prior data — surface a visible error.
+        setError(true);
+      } else {
+        // Periodic refresh failed; keep prior data rather than blanking it.
+        console.warn('Failed to refresh fleet presence (status=', res.status, ')');
       }
     } catch (err) {
-      console.error('Failed to fetch agents presence:', err);
+      if (!hasLoaded.current) {
+        setError(true);
+      } else {
+        console.warn('Failed to refresh fleet presence:', err);
+      }
     } finally {
       setLoading(false);
     }
@@ -46,6 +60,28 @@ export default function FleetPresenceCard() {
   useRealtime(handleRealtime);
 
   if (loading) return <CardSkeleton />;
+
+  if (error) {
+    return (
+      <Card className="h-full">
+        <CardHeader
+          title={<span className="flex items-center">Agent Fleet Presence<HelpIcon sectionKey="fleet-presence" tip={HELP_TIPS['fleet-presence']} /></span>}
+          icon={Cpu}
+        />
+        <CardContent>
+          <div className="rounded-2xl border border-border bg-surface-secondary py-12 text-center">
+            <div className="text-sm text-error mb-3">Failed to load fleet presence.</div>
+            <button
+              onClick={fetchAgents}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+            >
+              Retry
+            </button>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const onlineAgents = agents.filter(a => a.presence_state === 'online');
   const staleAgents = agents.filter(a => a.presence_state === 'stale');

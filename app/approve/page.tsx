@@ -104,6 +104,7 @@ export default function ApprovePage() {
   const { isAdmin, authenticated, settled: sessionSettled } = useEffectiveRole();
   const [actions, setActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
@@ -118,6 +119,7 @@ export default function ApprovePage() {
   const canDecide = isAdmin && !isDemo;
 
   const fetchPending = useCallback(async () => {
+    setError(false);
     try {
       // Fetch pending actions and require_approval guard decisions in parallel.
       // The guard decisions supply the matched policy + reason that the actions
@@ -144,7 +146,8 @@ export default function ApprovePage() {
 
       setActions(enrichWithPolicyContext(rawActions, rawDecisions));
     } catch {
-      // Network / auth failure — surface via toast only on explicit user refresh.
+      // Network / auth failure — surface a visible error state with Retry.
+      setError(true);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -367,6 +370,8 @@ export default function ApprovePage() {
           )}
           {loading ? (
             <div className="text-sm text-tertiary">Loading pending actions…</div>
+          ) : error ? (
+            <div className="text-sm text-error">Failed to load pending actions.</div>
           ) : pendingCount === 0 ? (
             <div className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 size={16} />
@@ -385,6 +390,17 @@ export default function ApprovePage() {
             <SkeletonCard />
             <SkeletonCard />
             <SkeletonCard />
+          </div>
+        ) : error ? (
+          <div className="rounded-2xl border border-border bg-surface-secondary py-12 text-center">
+            <div className="mb-3 text-sm text-error">Failed to load pending actions.</div>
+            <button
+              type="button"
+              onClick={handleRefresh}
+              className="rounded-md border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover"
+            >
+              Retry
+            </button>
           </div>
         ) : pendingCount === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
