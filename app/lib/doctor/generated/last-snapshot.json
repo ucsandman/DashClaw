@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:0ccfae8317832d16a9090c614263b2d7a6693775",
+  "timestamp": "sha1:7350e6993846b3d3c2c275b507aa5d9c047394d6",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3278,6 +3278,12 @@
       "name": "DASHCLAW_API_KEY",
       "required": true,
       "files": [
+        ".agents/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
+        ".agents/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
+        ".agents/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -3353,6 +3359,12 @@
       "name": "DASHCLAW_BASE_URL",
       "required": false,
       "files": [
+        ".agents/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
+        ".agents/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
+        ".agents/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
+        ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "app/docs/page.tsx",
         "app/guides/openai-agents-sdk/page.tsx",
         "app/landingData.js",
@@ -3393,6 +3405,8 @@
       "name": "DASHCLAW_BEHAVIOR_SAMPLES_DIR",
       "required": false,
       "files": [
+        "__tests__/unit/behavior-sample-merge.test.ts",
+        "__tests__/unit/behavior-samples-route-list.test.ts",
         "app/lib/behavior/sample-store.ts"
       ],
       "in_env_example": false

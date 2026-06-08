@@ -10,7 +10,10 @@ import {
   demoWebhooks, demoWebhookDeliveries, demoWorkflows, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
   demoHandoffs, demoSnippets, demoPreferences, demoSwarmGraph, demoAgentConnections, demoActionTrace,
-  demoDecisionMetrics
+  demoDecisionMetrics,
+  demoSessions, demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
+  demoModelStrategies, demoReputationLeaderboard, demoPosture, demoPostureFindings, demoSpend,
+  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
 } from './app/lib/demo/demoMiddleware.js';
 import { getViewerContextFromCookieHeader } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost.js';
@@ -1151,6 +1154,47 @@ export async function middleware(request) {
         const pairing = all.find(p => p.id === pairingId) || null;
         if (!pairing) return demoJson(request, { error: 'Pairing not found' }, 404);
         return demoJson(request, { pairing });
+      }
+
+      // -- Sitewide-interactions-v2 gap pages: deterministic, read-only fixtures --
+      if (pathname === '/api/sessions') {
+        return demoJson(request, demoSessions(fixtures, url));
+      }
+      if (pathname === '/api/identities') {
+        return demoJson(request, demoIdentities(fixtures));
+      }
+      if (pathname === '/api/knowledge/collections') {
+        return demoJson(request, demoKnowledgeCollections());
+      }
+      if (pathname === '/api/keys') {
+        return demoJson(request, demoApiKeys());
+      }
+      if (pathname === '/api/secrets') {
+        return demoJson(request, demoSecrets());
+      }
+      if (pathname === '/api/model-strategies') {
+        return demoJson(request, demoModelStrategies());
+      }
+      if (pathname === '/api/reputation/leaderboard') {
+        return demoJson(request, demoReputationLeaderboard(fixtures));
+      }
+      if (pathname === '/api/posture') {
+        return demoJson(request, demoPosture());
+      }
+      if (pathname === '/api/posture/findings') {
+        return demoJson(request, demoPostureFindings());
+      }
+      if (pathname === '/api/finops/spend') {
+        return demoJson(request, demoSpend());
+      }
+      if (pathname === '/api/behavior/recorder') {
+        return demoJson(request, demoBehaviorRecorder());
+      }
+      if (pathname === '/api/behavior/samples') {
+        return demoJson(request, demoBehaviorSamples(fixtures, url));
+      }
+      if (pathname === '/api/behavior/suggestions') {
+        return demoJson(request, demoBehaviorSuggestions(fixtures));
       }
 
       return demoJson(request, { error: 'Demo mode: endpoint disabled.' }, 403);

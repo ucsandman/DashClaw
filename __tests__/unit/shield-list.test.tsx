@@ -56,4 +56,28 @@ describe('ShieldList', () => {
     // No ON rows.
     expect(screen.queryByLabelText('Disable Block secret exfil')).toBeNull();
   });
+
+  it('highlights the ?policy deep-link target by name (case-insensitive)', () => {
+    const { container } = render(<ShieldList shields={SHIELDS} onToggle={vi.fn()} highlight="block secret exfil" />);
+    const highlighted = container.querySelectorAll('[data-policy-highlight="true"]');
+    expect(highlighted.length).toBe(1);
+    expect(highlighted[0]!.textContent).toContain('Block secret exfil');
+  });
+
+  it('highlights the deep-link target by id', () => {
+    const { container } = render(<ShieldList shields={SHIELDS} onToggle={vi.fn()} highlight="s2" />);
+    const highlighted = container.querySelector('[data-policy-highlight="true"]');
+    expect(highlighted?.textContent).toContain('Quiet shield');
+  });
+
+  it('auto-reveals an OFF shield when it is the deep-link target', () => {
+    // Rate limiter (s3) is OFF (behind manage) — highlighting it must open the disclosure.
+    render(<ShieldList shields={SHIELDS} onToggle={vi.fn()} highlight="s3" />);
+    expect(screen.getByText('Rate limiter')).toBeTruthy();
+  });
+
+  it('highlights nothing when the param matches no shield', () => {
+    const { container } = render(<ShieldList shields={SHIELDS} onToggle={vi.fn()} highlight="nope" />);
+    expect(container.querySelectorAll('[data-policy-highlight="true"]').length).toBe(0);
+  });
 });

@@ -449,6 +449,8 @@ export default function IntegrationsPage() {
           return (
             <Card
               key={key}
+              data-entity-type="integration"
+              data-entity-id={key}
               className={isAdmin ? 'group cursor-pointer' : 'group'}
               hover={isAdmin}
             >

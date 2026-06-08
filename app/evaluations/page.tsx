@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  BarChart3, Plus, Play, Trash2,
+  BarChart3, Plus, Play, Trash2, Copy,
   AlertCircle, CheckCircle, XCircle, Clock, Filter, RefreshCw,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
@@ -10,6 +10,10 @@ import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
 import { demoEvalScorers, demoEvalScores, demoEvalRuns, demoEvalStats } from '../lib/demoEvaluationsData';
@@ -196,6 +200,16 @@ export default function EvaluationsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  const selection = useSelection<any>(scores, (s) => s.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleCopyIds = () => {
+    if (selection.count === 0) return;
+    if (typeof navigator !== 'undefined') navigator.clipboard?.writeText(selection.selectedIds.join('\n'));
+  };
+
+  const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
+
   // Create scorer handler
   const handleCreateScorer = async () => {
     try {
@@ -315,13 +329,16 @@ export default function EvaluationsPage() {
       breadcrumbs={['Operations', 'Evaluations']}
       maturity="beta"
       actions={
-        <button
-          onClick={fetchData}
-          aria-label="Refresh"
-          className="rounded-lg p-2 text-secondary transition-colors hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40"
-        >
-          <RefreshCw size={16} aria-hidden="true" />
-        </button>
+        <>
+          <button
+            onClick={fetchData}
+            aria-label="Refresh"
+            className="rounded-lg p-2 text-secondary transition-colors hover:bg-white/5 hover:text-white focus:outline-none focus:ring-2 focus:ring-brand/40"
+          >
+            <RefreshCw size={16} aria-hidden="true" />
+          </button>
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       <div className="space-y-6">
@@ -398,12 +415,28 @@ export default function EvaluationsPage() {
                     : 'Create a scorer and run an evaluation, or submit scores via the SDK.'}
                 />
               ) : (
-                <div className="space-y-2">
+                <>
+                  <div className="mb-3 flex items-center gap-2">
+                    <SelectCheckbox
+                      checked={selection.allSelected}
+                      onToggle={() => selection.toggleAll()}
+                      label="Select all"
+                    />
+                    <span className="text-xs text-tertiary">Select all</span>
+                  </div>
+                  <div className="space-y-2">
                   {scores.map(score => (
                     <div
                       key={score.id}
+                      data-entity-type="evaluation"
+                      data-entity-id={score.id}
                       className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-tertiary px-3 py-2"
                     >
+                      <SelectCheckbox
+                        checked={selection.isSelected(score.id)}
+                        onToggle={(e) => { e.stopPropagation(); selection.selectClick(score.id, e.shiftKey); }}
+                        label={`Select ${score.scorer_name ?? score.id}`}
+                      />
                       <div className="flex min-w-0 items-center gap-3">
                         <Badge variant={SCORE_VARIANT(score.score)} size="xs">{score.label || (score.score != null && score.score >= 0.5 ? 'pass' : 'fail')}</Badge>
                         <span className="truncate text-xs text-secondary">{score.scorer_name}</span>
@@ -415,7 +448,8 @@ export default function EvaluationsPage() {
                       </div>
                     </div>
                   ))}
-                </div>
+                  </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -496,6 +530,8 @@ export default function EvaluationsPage() {
                     {scorers.map(scorer => (
                       <div
                         key={scorer.id}
+                        data-entity-type="scorer"
+                        data-entity-id={scorer.id}
                         className="flex items-center justify-between gap-3 rounded-lg border border-border bg-surface-tertiary px-3 py-2"
                       >
                         <div className="flex min-w-0 items-center gap-3">

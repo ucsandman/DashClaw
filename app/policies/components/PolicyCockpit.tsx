@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ShieldOff } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
@@ -17,6 +18,9 @@ import ModeDrawer from './ModeDrawer';
  * in place or in a focused drawer; the page never opens as a settings dump.
  */
 export default function PolicyCockpit() {
+  const searchParams = useSearchParams();
+  // Deep-link target from an EntityLink (policy → /policies?policy=<id|name>).
+  const policyHighlight = searchParams.get('policy');
   const [summary, setSummary] = useState<PolicySummary | null>(null);
   const [recent, setRecent] = useState<RecentDecision[]>([]);
   const [loading, setLoading] = useState(true);
@@ -155,7 +159,7 @@ export default function PolicyCockpit() {
         rules={summary.rules}
         decisions30d={summary.decisions30d}
       />
-      <ShieldList shields={summary.shields} onToggle={handleShieldToggle} busyId={busyShield} />
+      <ShieldList shields={summary.shields} onToggle={handleShieldToggle} busyId={busyShield} highlight={policyHighlight} />
       <RecentDigest decisions={recent} />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
     </div>

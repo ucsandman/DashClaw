@@ -1,12 +1,14 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import {
   ShieldAlert, AlertTriangle, Zap, Eye, RotateCw,
   ChevronRight, CircleAlert, X as XIcon, EyeOff, Undo2,
   ShieldCheck, ShieldX, Info
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
+import { filterSignalsBySeverity } from '../lib/security-filter';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -19,8 +21,10 @@ import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { getAgentColor } from '../lib/colors';
 
-export default function SecurityDashboard() {
+function SecurityDashboardInner() {
   const { agentId } = useAgentFilter();
+  const searchParams = useSearchParams();
+  const severityParam = searchParams.get('severity');
   const [signals, setSignals] = useState<any[]>([]);
   const [highRiskActions, setHighRiskActions] = useState<any[]>([]);
   const [invalidatedAssumptions, setInvalidatedAssumptions] = useState<any[]>([]);
@@ -157,9 +161,11 @@ export default function SecurityDashboard() {
     setPanelType(null);
   };
 
-  // Split signals into active vs dismissed
-  const activeSignals = signals.filter(s => !dismissedSignals.has(getSignalHash(s)));
-  const dismissedList = signals.filter(s => dismissedSignals.has(getSignalHash(s)));
+  // Narrow by the ?severity=red|amber deep-link param (default: all), then split
+  // into active vs dismissed.
+  const severityFilteredSignals = filterSignalsBySeverity(signals, severityParam);
+  const activeSignals = severityFilteredSignals.filter(s => !dismissedSignals.has(getSignalHash(s)));
+  const dismissedList = severityFilteredSignals.filter(s => dismissedSignals.has(getSignalHash(s)));
 
   // Stats (use active signals only)
   const totalSignals = activeSignals.length;
@@ -368,6 +374,9 @@ export default function SecurityDashboard() {
                     return (
                       <div
                         key={`active-${idx}`}
+                        data-entity-type="signal"
+                        data-entity-id={signal.action_id || signal.assumption_id || signal.loop_id || `signal-${idx}`}
+                        data-entity-status={signal.severity}
                         className="w-full bg-surface-tertiary rounded-lg p-3.5 text-left hover:bg-white/[0.04] transition-colors duration-150 group flex items-start justify-between gap-2"
                       >
                         <button
@@ -507,5 +516,19 @@ export default function SecurityDashboard() {
       {/* Detail Panel */}
       <SecurityDetailPanel item={panelItem} type={panelType} onClose={closePanel} onDismiss={dismissSignal} />
     </PageLayout>
+  );
+}
+
+export default function SecurityDashboard() {
+  return (
+    <Suspense
+      fallback={
+        <PageLayout title="Security" subtitle="Decision Integrity & Risk Signals" breadcrumbs={['Dashboard', 'Security']} maturity="stable">
+          <ListSkeleton rows={6} />
+        </PageLayout>
+      }
+    >
+      <SecurityDashboardInner />
+    </Suspense>
   );
 }

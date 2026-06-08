@@ -982,3 +982,200 @@ export function demoDecisionMetrics(fixtures: DemoFixtures) {
     lastUpdated: new Date().toISOString()
   };
 }
+
+// ── Sitewide-interactions-v2 demo handlers (gap pages) ───────────────────────
+// Deterministic, READ-ONLY fixtures so no page renders empty in demo mode. Data
+// values use fixed timestamps (no Date.now()/random) so tests stay stable; only
+// the non-asserted `lastUpdated` metadata uses the live clock, matching the
+// existing demo handlers above.
+
+const DEMO_FALLBACK_AGENT_IDS = ['clawdbot', 'refund-support-agent', 'deploy-runner', 'data-pipeline'];
+
+function demoAgentIdList(fixtures: DemoFixtures): string[] {
+  const ids = Array.from(new Set((fixtures.actions || []).map((a) => a.agent_id).filter(Boolean)));
+  return ids.length ? ids.slice(0, 6) : DEMO_FALLBACK_AGENT_IDS;
+}
+
+export function demoSessions(fixtures: DemoFixtures, url: URL) {
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 200);
+  const statuses = ['running', 'completed', 'completed', 'blocked', 'failed'];
+  const sessions = demoAgentIdList(fixtures).flatMap((agentId, i) =>
+    [0, 1].map((j) => {
+      const n = i * 2 + j + 1;
+      const day = (n % 7) + 1;
+      const min = n % 6;
+      return {
+        id: `sess_demo_${n}`,
+        agent_id: agentId,
+        agent_name: agentId,
+        status: statuses[n % statuses.length],
+        workspace: 'demo-governance-workspace',
+        action_count: 3 + ((n * 7) % 18),
+        created_at: `2026-06-0${day}T08:0${min}:00.000Z`,
+        updated_at: `2026-06-0${day}T09:1${min}:00.000Z`,
+        last_activity: `2026-06-0${day}T09:1${min}:00.000Z`,
+      };
+    }),
+  ).slice(0, limit);
+  return { sessions, lastUpdated: new Date().toISOString() };
+}
+
+export function demoIdentities(fixtures: DemoFixtures) {
+  const levels = ['admin', 'readwrite', 'readonly'];
+  const identities = demoAgentIdList(fixtures).map((agentId, i) => ({
+    agent_id: agentId,
+    agent_name: agentId,
+    permission_level: levels[i % levels.length],
+    verified: true,
+    fingerprint: `fp_demo_${i + 1}`,
+    last_seen: `2026-06-0${(i % 7) + 1}T10:00:00.000Z`,
+    created_at: `2026-05-2${i % 9}T10:00:00.000Z`,
+  }));
+  return { identities, lastUpdated: new Date().toISOString() };
+}
+
+export function demoKnowledgeCollections() {
+  const names = ['Governance Playbook', 'Security Runbooks', 'API Contracts', 'Incident Postmortems'];
+  const sources = ['manual', 'github', 'manual', 'url'];
+  const docCounts = [12, 34, 8, 19];
+  const collections = [1, 2, 3, 4].map((n) => ({
+    collection_id: `col_demo_${n}`,
+    name: names[n - 1],
+    ingestion_status: 'ready',
+    source_type: sources[n - 1],
+    doc_count: docCounts[n - 1],
+    created_at: `2026-05-1${n}T12:00:00.000Z`,
+    last_synced_at: `2026-06-0${n}T12:00:00.000Z`,
+    tags: ['governance'],
+  }));
+  return { collections, lastUpdated: new Date().toISOString() };
+}
+
+export function demoApiKeys() {
+  const keys = [
+    { id: 'key_demo_1', name: 'CI Pipeline', prefix: 'dk_live_', revoked_at: null, created_at: '2026-04-01T00:00:00.000Z', last_used_at: '2026-06-07T08:00:00.000Z' },
+    { id: 'key_demo_2', name: 'Local Dev', prefix: 'dk_test_', revoked_at: null, created_at: '2026-05-12T00:00:00.000Z', last_used_at: '2026-06-05T14:00:00.000Z' },
+    { id: 'key_demo_3', name: 'Retired Key', prefix: 'dk_live_', revoked_at: '2026-05-20T00:00:00.000Z', created_at: '2026-03-01T00:00:00.000Z', last_used_at: '2026-05-19T00:00:00.000Z' },
+  ];
+  return { keys, lastUpdated: new Date().toISOString() };
+}
+
+export function demoSecrets() {
+  const secrets = [
+    { id: 'sec_demo_1', name: 'STRIPE_API_KEY', next_rotation_due: '2026-07-01T00:00:00.000Z', rotation_interval_days: 90, last_rotated_at: '2026-04-02T00:00:00.000Z' },
+    { id: 'sec_demo_2', name: 'OPENAI_API_KEY', next_rotation_due: '2026-06-15T00:00:00.000Z', rotation_interval_days: 30, last_rotated_at: '2026-05-16T00:00:00.000Z' },
+    { id: 'sec_demo_3', name: 'GITHUB_TOKEN', next_rotation_due: null, rotation_interval_days: 180, last_rotated_at: null },
+  ];
+  return { secrets, lastUpdated: new Date().toISOString() };
+}
+
+export function demoModelStrategies() {
+  const strategies = [
+    { strategy_id: 'str_demo_1', name: 'Cost-optimized', description: 'Cheap model first, escalate on failure', config: { primary: { provider: 'anthropic', model: 'claude-haiku-4-5' }, fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }] } },
+    { strategy_id: 'str_demo_2', name: 'Quality-first', description: 'Frontier model for heavy reasoning', config: { primary: { provider: 'anthropic', model: 'claude-opus-4-8' }, fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }] } },
+  ];
+  return { strategies, lastUpdated: new Date().toISOString() };
+}
+
+export function demoReputationLeaderboard(fixtures: DemoFixtures) {
+  const leaderboard = demoAgentIdList(fixtures).map((agentId, i) => ({
+    agent_id: agentId,
+    agent_name: agentId,
+    reputation_score: 92 - i * 7,
+    risk_score: 8 + i * 6,
+    total_actions: 220 - i * 30,
+    blocked_count: i,
+    rank: i + 1,
+  }));
+  return { leaderboard, lastUpdated: new Date().toISOString() };
+}
+
+export function demoPosture() {
+  const dimensions = [
+    { dimension: 'identity', score: 88, weight: 0.2 },
+    { dimension: 'enforcement', score: 76, weight: 0.2 },
+    { dimension: 'spend', score: 64, weight: 0.15 },
+    { dimension: 'auditability', score: 95, weight: 0.15 },
+    { dimension: 'approval', score: 82, weight: 0.15 },
+    { dimension: 'data_protection', score: 71, weight: 0.15 },
+  ];
+  const snapshots = [82, 80, 79, 81, 83].map((score, i) => ({ score, createdAt: `2026-06-0${i + 1}T00:00:00.000Z` }));
+  return {
+    score: 81,
+    status: 'needs_attention',
+    cappedBy: null,
+    dimensions,
+    summary: { totalUnits: 6, openFindings: 2, pointsRecoverable: 14 },
+    snapshots,
+    snapshotTs: '2026-06-07T00:00:00.000Z',
+  };
+}
+
+export function demoPostureFindings() {
+  const findings = [
+    { key: 'spend_no_cap', dimension: 'spend', severity: 'high', title: 'No spend cap on 2 agents', evidence: { observedCount: 2, exampleActionIds: ['act_demo_1', 'act_demo_2'] }, scoreDelta: -8, fix: { type: 'policy', policyType: 'spend_cap', deepLink: '/policies' }, status: 'open' },
+    { key: 'data_protection_paths', dimension: 'data_protection', severity: 'medium', title: 'Protected paths not gated', evidence: { observedCount: 3, exampleActionIds: ['act_demo_3'] }, scoreDelta: -6, fix: { type: 'policy', policyType: 'protected_path_approval', deepLink: '/policies' }, status: 'open' },
+  ];
+  return { findings, riskAccepted: [], counts: { open: 2, drafted: 0, resolved: 0, snoozed: 0, accepted_risk: 0 } };
+}
+
+export function demoSpend() {
+  const days = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05'];
+  const by_day = days.map((date, i) => ({ date, cost_usd: Number((4.2 + i * 0.8).toFixed(2)) }));
+  const x402_by_day = days.map((date, i) => ({ date, spend_usd: Number((0.5 + i * 0.2).toFixed(2)) }));
+  return {
+    fleet_total_usd: 31.4,
+    agent: { total_cost_usd: 27.9, by_day },
+    x402: { total_spend_usd: 3.5, by_day: x402_by_day },
+  };
+}
+
+export function demoBehaviorRecorder() {
+  return { enabled: true, until: '2026-06-30T00:00:00.000Z', effective: true };
+}
+
+const DEMO_BEHAVIOR_SAMPLES = [
+  { event_id: 'bse_demo_1', ts: '2026-06-07T09:00:00.000Z', agent_id: 'deploy-runner', agent_name: 'deploy-runner', tool: 'Bash', action_type: 'shell', command_shape: 'git push --force <path>', read_paths: [], write_paths: [], risk_score: 80, guard_decision: 'require_approval', outcome_status: 'completed' },
+  { event_id: 'bse_demo_2', ts: '2026-06-07T08:40:00.000Z', agent_id: 'clawdbot', agent_name: 'clawdbot', tool: 'Edit', action_type: 'file_write', command_shape: null, read_paths: [], write_paths: ['.env'], risk_score: 60, guard_decision: 'warn', outcome_status: 'completed' },
+  { event_id: 'bse_demo_3', ts: '2026-06-07T08:10:00.000Z', agent_id: 'clawdbot', agent_name: 'clawdbot', tool: 'Read', action_type: 'file_read', command_shape: null, read_paths: ['app/lib/config.ts'], write_paths: [], risk_score: 10, guard_decision: 'allow', outcome_status: 'completed' },
+  { event_id: 'bse_demo_4', ts: '2026-06-06T18:00:00.000Z', agent_id: 'deploy-runner', agent_name: 'deploy-runner', tool: 'Bash', action_type: 'shell', command_shape: 'rm -rf <path>', read_paths: [], write_paths: [], risk_score: 95, guard_decision: 'block', outcome_status: 'blocked' },
+  { event_id: 'bse_demo_5', ts: '2026-06-06T17:30:00.000Z', agent_id: 'data-pipeline', agent_name: 'data-pipeline', tool: 'Bash', action_type: 'shell', command_shape: 'curl <url>', read_paths: [], write_paths: [], risk_score: 35, guard_decision: 'allow', outcome_status: 'completed' },
+  { event_id: 'bse_demo_6', ts: '2026-06-06T16:00:00.000Z', agent_id: 'clawdbot', agent_name: 'clawdbot', tool: 'Bash', action_type: 'shell', command_shape: 'npm test', read_paths: [], write_paths: [], risk_score: 5, guard_decision: 'allow', outcome_status: 'running' },
+];
+
+export function demoBehaviorSamples(_fixtures: DemoFixtures, url: URL) {
+  const list = url.searchParams.get('list');
+  if (list !== null) {
+    const n = Math.min(Math.max(parseInt(list, 10) || 25, 1), 200);
+    const samples = DEMO_BEHAVIOR_SAMPLES.slice(0, n);
+    return { samples, count: samples.length };
+  }
+  return {
+    recorder_enabled: true,
+    dir: '.dashclaw/behavior-samples',
+    sample_count: 23,
+    agent_count: 3,
+    agents: [
+      { agent_id: 'clawdbot', count: 14 },
+      { agent_id: 'deploy-runner', count: 6 },
+      { agent_id: 'data-pipeline', count: 3 },
+    ],
+    oldest_ts: '2026-06-01T00:00:00.000Z',
+    newest_ts: '2026-06-07T09:00:00.000Z',
+    by_day: { '2026-06-07': 11, '2026-06-06': 12 },
+    ready: true,
+    min_samples: 8,
+  };
+}
+
+export function demoBehaviorSuggestions(_fixtures: DemoFixtures) {
+  const suggestions = [
+    { id: 'sug_demo_1', type: 'destructive_command_approval', agent_id: 'deploy-runner', severity: 'high', confidence: 88, enforceable: true, advisory: false, false_positive_risk: 'low', target: 'deploy-runner', expected_effect: 'Route destructive shell commands (rm -rf, git push --force) to human approval.', matching_sample_size: 6, sample_size: 9, evidence_examples: [{ event_id: 'bse_demo_1', command_shape: 'git push --force <path>', outcome_status: 'completed', risk_score: 80 }], rule: { action: 'require_approval', risk_threshold: 70 } },
+    { id: 'sug_demo_2', type: 'protected_path_approval', agent_id: 'clawdbot', severity: 'medium', confidence: 74, enforceable: true, advisory: false, false_positive_risk: 'medium', target: 'clawdbot', expected_effect: 'Require approval before writing to protected config paths (.env, config/**).', matching_sample_size: 4, sample_size: 14, evidence_examples: [{ event_id: 'bse_demo_2', write_path: '.env', outcome_status: 'completed', risk_score: 60 }], rule: { action: 'require_approval', paths: ['.env', 'config/**'] } },
+  ];
+  const agents = [
+    { agent_id: 'clawdbot', sample_size: 14, destructive_commands: 2, protected_touches: 4, failed: 1, models: ['claude-opus-4-8'], safe_envelope: { tools: ['Read', 'Grep', 'Edit'] }, last_ts: '2026-06-07T09:00:00.000Z' },
+    { agent_id: 'deploy-runner', sample_size: 9, destructive_commands: 6, protected_touches: 0, failed: 2, models: ['claude-sonnet-4-6'], safe_envelope: { tools: ['Bash'] }, last_ts: '2026-06-06T18:00:00.000Z' },
+  ];
+  return { suggestions, agents, sample_count: 23 };
+}

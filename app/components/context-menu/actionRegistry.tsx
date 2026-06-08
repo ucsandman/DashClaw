@@ -30,11 +30,21 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   capability: (id) => `/capabilities/${id}`,
   workflow: (id) => `/workflows/${id}`,
   knowledge: (id) => `/knowledge/${id}`,
+  // Policy has no detail route — deep-link to the cockpit and highlight the match.
+  // The id may be a free-form policy label, so encode it.
+  policy: (id) => `/policies?policy=${encodeURIComponent(id)}`,
+  codeSession: (id) => `/code-sessions/${id}`,
+  modelStrategy: (id) => `/model-strategies/${id}`,
 };
 
+/** Resolve a detail path from a bare (type, id) — used by EntityLink, which has no DOM target. */
+export function detailPathFor(type: string, id: string): string | null {
+  const fn = DETAIL_PATH[type];
+  return fn ? fn(id) : null;
+}
+
 export function detailHref(entity: EntityTarget): string | null {
-  const fn = DETAIL_PATH[entity.type];
-  return fn ? fn(entity.id) : null;
+  return detailPathFor(entity.type, entity.id);
 }
 
 async function writeClipboard(text: string): Promise<void> {
@@ -105,6 +115,9 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   message: messageActions,
   session: sessionActions,
   workflow: workflowActions,
+  modelStrategy: modelStrategyActions,
+  prompt: promptActions,
+  teamMember: teamMemberActions,
 };
 
 function decisionActions(entity: EntityTarget): MenuItem[] {
@@ -357,6 +370,51 @@ function sessionActions(entity: EntityTarget): MenuItem[] {
 
 function workflowActions(entity: EntityTarget): MenuItem[] {
   return [{ id: 'view', label: 'View workflow', icon: Eye, run: (ctx) => ctx.push(`/workflows/${entity.id}`) }];
+}
+
+function modelStrategyActions(entity: EntityTarget): MenuItem[] {
+  return [
+    {
+      id: 'delete',
+      label: 'Delete strategy',
+      icon: Trash2,
+      danger: true,
+      run: async (ctx) => {
+        await del(`/api/model-strategies/${enc(entity.id)}`);
+        ctx.refresh();
+      },
+    },
+  ];
+}
+
+function promptActions(entity: EntityTarget): MenuItem[] {
+  return [
+    {
+      id: 'delete',
+      label: 'Delete template',
+      icon: Trash2,
+      danger: true,
+      run: async (ctx) => {
+        await del(`/api/prompts/templates/${enc(entity.id)}`);
+        ctx.refresh();
+      },
+    },
+  ];
+}
+
+function teamMemberActions(entity: EntityTarget): MenuItem[] {
+  return [
+    {
+      id: 'remove',
+      label: 'Remove member',
+      icon: Trash2,
+      danger: true,
+      run: async (ctx) => {
+        await del(`/api/team/${enc(entity.id)}`);
+        ctx.refresh();
+      },
+    },
+  ];
 }
 
 /** Generic actions every entity gets: Copy ID always; Open + Copy link when a detail route exists. */

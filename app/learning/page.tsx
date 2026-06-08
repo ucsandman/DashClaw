@@ -488,7 +488,7 @@ export default function LearningDashboard() {
                 />
               ) : (
                 lessons.map((lesson) => (
-                  <div key={lesson.id} className="bg-surface-tertiary rounded-lg p-4">
+                  <div key={lesson.id} data-entity-type="lesson" data-entity-id={lesson.id} className="bg-surface-tertiary rounded-lg p-4">
                     <div className="text-sm font-medium text-white mb-2">{lesson.lesson}</div>
 
                     {lesson.source_decisions && (
@@ -557,7 +557,7 @@ export default function LearningDashboard() {
                 />
               ) : (
                 recommendations.map((rec) => (
-                  <div key={rec.id} className="bg-surface-tertiary rounded-lg p-4">
+                  <div key={rec.id} data-entity-type="recommendation" data-entity-id={rec.id} className="bg-surface-tertiary rounded-lg p-4">
                     <div className="flex items-center justify-between gap-3">
                       <div>
                         <div className="text-sm font-medium text-white">

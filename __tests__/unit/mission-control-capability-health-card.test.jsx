@@ -69,6 +69,10 @@ describe('MissionControlCapabilityHealthCard', () => {
     expect(urgentLinks[0].getAttribute('href')).toBe('/capabilities/cap_2');
     expect(urgentLinks[1].getAttribute('href')).toBe('/capabilities/cap_3');
     expect(urgentLinks[2].getAttribute('href')).toBe('/capabilities/cap_4');
+
+    // Right-click resolves each row as a capability entity (Phase 2 ref wiring).
+    expect(urgentLinks[0].getAttribute('data-entity-type')).toBe('capability');
+    expect(urgentLinks[0].getAttribute('data-entity-id')).toBe('cap_2');
   });
 
   it('renders a graceful unavailable state when capability health is missing', async () => {

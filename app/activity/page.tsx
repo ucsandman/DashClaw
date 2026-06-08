@@ -475,7 +475,7 @@ export default function GlobalActivityFeed() {
                       {group.events.map((evt: ActivityEvent) => {
                         const Icon = categoryIconMap[evt.category] || Activity;
                         return (
-                          <div key={evt.id} className="group relative p-4 transition-colors hover:bg-white/[0.02]">
+                          <div key={evt.id} data-entity-type="auditEvent" data-entity-id={evt.id} className="group relative p-4 transition-colors hover:bg-white/[0.02]">
                             <div className="flex items-start gap-4">
                               {/* Time & Icon */}
                               <div className="flex min-w-[60px] flex-col items-center gap-2 pt-1">

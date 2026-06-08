@@ -62,7 +62,7 @@ export default async function CodeSessionsProjectsPage() {
                   </thead>
                   <tbody className="divide-y divide-border">
                     {projects.map((p: any) => (
-                      <tr key={p.id} className="transition-colors hover:bg-white/[0.02]">
+                      <tr key={p.id} data-entity-type="codeSession" data-entity-id={p.id} className="transition-colors hover:bg-white/[0.02]">
                         <td className="px-6 py-4">
                           <Link
                             href={`/code-sessions/${p.id}`}

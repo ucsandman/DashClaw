@@ -65,8 +65,37 @@ function parseLines(text: string): Sample[] {
 }
 
 /**
- * Read samples, newest-first across day files. Optionally limit by recency
- * (days) and count.
+ * Pick the surviving record when two share an event_id. The recorder writes a
+ * "running" record at PreToolUse and a finalized one (completed/failed/
+ * interrupted) with the SAME event_id later — so a finalized record supersedes a
+ * "running" one; among same-tier records the latest ts wins.
+ */
+function pickFinalSample(a: Sample, b: Sample): Sample {
+  const aRunning = a.outcome_status === 'running';
+  const bRunning = b.outcome_status === 'running';
+  if (aRunning !== bRunning) return aRunning ? b : a;
+  return (Date.parse(b.ts) || 0) >= (Date.parse(a.ts) || 0) ? b : a;
+}
+
+/**
+ * Collapse records that share an event_id into one (last-write-wins, finalized
+ * over running). This keeps counts + analysis correct even when PostToolUse
+ * misses: a pre+post pair becomes one finalized record; a pre-only event stays a
+ * single "running"/"interrupted" record.
+ */
+function mergeByEventId(samples: Sample[]): Sample[] {
+  const byId = new Map<string, Sample>();
+  for (const s of samples) {
+    const id = String(s.event_id);
+    const existing = byId.get(id);
+    byId.set(id, existing ? pickFinalSample(existing, s) : s);
+  }
+  return [...byId.values()];
+}
+
+/**
+ * Read samples, newest-first across day files, MERGED by event_id. Optionally
+ * limit by recency (days) and count.
  */
 export async function readSamples({
   days = null,
@@ -78,7 +107,9 @@ export async function readSamples({
   const cap = Math.min(Number(limit) || MAX_SAMPLES, MAX_SAMPLES);
   const all: Sample[] = [];
   for (const file of files) {
-    if (all.length >= cap) break;
+    // Collect up to the hard ceiling (NOT the caller's cap) so merge-on-read
+    // sees every record for an event before the count is trimmed.
+    if (all.length >= MAX_SAMPLES) break;
     let text;
     try {
       text = await fs.readFile(file, 'utf-8');
@@ -90,9 +121,49 @@ export async function readSamples({
       all.push(s);
     }
   }
-  // Sort newest-first, then cap.
-  all.sort((a, b) => (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0));
-  return all.slice(0, cap);
+  // Merge duplicate event_ids, sort newest-first, then cap.
+  const merged = mergeByEventId(all);
+  merged.sort((a, b) => (Date.parse(b.ts) || 0) - (Date.parse(a.ts) || 0));
+  return merged.slice(0, cap);
+}
+
+/** A redacted, UI-safe projection of a recent sample for the Policy Coach browser. */
+export interface RecentSample {
+  event_id: string;
+  ts: string;
+  agent_id: string;
+  agent_name: string | null;
+  tool: string | null;
+  action_type: string | null;
+  command_shape: string | null;
+  read_paths: string[];
+  write_paths: string[];
+  risk_score: number | string | null;
+  guard_decision: string | null;
+  outcome_status: string | null;
+}
+
+/**
+ * Recent merged samples projected to a redacted, UI-safe field set for the
+ * "Recent samples" panel. Every record is already secret-scrubbed by
+ * readSamples (which redacts on parse); this only narrows the surface.
+ */
+export async function recentSamples(limit = 25): Promise<RecentSample[]> {
+  const samples = await readSamples({ limit });
+  return samples.map((s) => ({
+    event_id: String(s.event_id),
+    ts: s.ts,
+    agent_id: s.agent_id,
+    agent_name: s.agent_name ?? null,
+    tool: s.tool ?? null,
+    action_type: s.action_type ?? null,
+    command_shape: s.command_shape ?? null,
+    read_paths: Array.isArray(s.read_paths) ? s.read_paths : [],
+    write_paths: Array.isArray(s.write_paths) ? s.write_paths : [],
+    risk_score: s.risk_score ?? null,
+    guard_decision: s.guard_decision ?? null,
+    outcome_status: s.outcome_status ?? null,
+  }));
 }
 
 /** Lightweight status for the Policy Coach "sample status" panel. */

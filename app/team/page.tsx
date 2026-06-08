@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   UsersRound, Plus, Copy, Check, Ban, AlertTriangle,
-  ArrowRight, Shield, UserMinus, LogOut, Link2, Mail, Clock,
+  ArrowRight, Shield, UserMinus, LogOut, Link2, Mail, Clock, Trash2,
 } from 'lucide-react';
 import Image from 'next/image';
 import PageLayout from '../components/PageLayout';
@@ -13,6 +13,11 @@ import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
 import OrgNameEditor from './components/OrgNameEditor';
 import { isDemoMode } from '../lib/isDemoMode';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 export default function TeamPage() {
   const isDemo = isDemoMode();
@@ -213,6 +218,23 @@ export default function TeamPage() {
   const adminCount = data?.members?.filter((m: any) => m.role === 'admin').length || 0;
   const isLastAdmin = isAdmin && adminCount <= 1;
 
+  // Multi-select: only members an admin can actually remove (never self).
+  const selectableMembers = (data?.members || []).filter((m: any) => !m.is_self);
+  const selection = useSelection<any>(selectableMembers, (member) => member.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleBulkRemove = async () => {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Remove ${selection.count} member(s)? This cannot be undone.`)) return;
+    await bulkAction(selection.selectedIds, (id) => fetch(`/api/team/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    await fetchTeam();
+    selection.clear();
+  };
+
+  const BULK_ACTIONS = [
+    { id: 'remove', label: 'Remove', icon: Trash2, danger: true, onClick: handleBulkRemove },
+  ];
+
   if (loading) {
     return (
       <PageLayout title="Team" subtitle="Manage workspace members" breadcrumbs={['Dashboard', 'Team']}>
@@ -229,15 +251,18 @@ export default function TeamPage() {
       subtitle={data?.org ? `${data.org.name} workspace` : 'Manage workspace members'}
       breadcrumbs={['Dashboard', 'Team']}
       actions={
-        isAdmin && !isDemo ? (
-          <button
-            onClick={() => { setShowInviteForm(true); setNewInvite(null); }}
-            className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand/90 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            <Plus size={14} />
-            Invite Member
-          </button>
-        ) : null
+        <>
+          {isAdmin && !isDemo && (
+            <button
+              onClick={() => { setShowInviteForm(true); setNewInvite(null); }}
+              className="flex items-center gap-1.5 px-3 py-2 bg-brand hover:bg-brand/90 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <Plus size={14} />
+              Invite Member
+            </button>
+          )}
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       {data?.org && (
@@ -422,7 +447,14 @@ export default function TeamPage() {
 
       {/* Members list */}
       <Card hover={false}>
-        <div className="px-5 py-3 border-b border-border">
+        <div className="px-5 py-3 border-b border-border flex items-center gap-3">
+          {canEdit && selectableMembers.length > 0 && (
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all members"
+            />
+          )}
           <div className="text-sm font-medium text-secondary">Members</div>
         </div>
         {(!data?.members || data.members.length === 0) ? (
@@ -436,7 +468,14 @@ export default function TeamPage() {
         ) : (
           <div className="divide-y divide-border">
             {data.members.map((member: any) => (
-              <div key={member.id} className="px-5 py-4 flex items-center gap-4">
+              <div key={member.id} data-entity-type="teamMember" data-entity-id={member.id} className="px-5 py-4 flex items-center gap-4">
+                {canEdit && !member.is_self && (
+                  <SelectCheckbox
+                    checked={selection.isSelected(member.id)}
+                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(member.id, e.shiftKey); }}
+                    label={`Select ${member.name || member.email || member.id}`}
+                  />
+                )}
                 {/* Avatar */}
                 <div className="flex-shrink-0">
                   {member.image ? (

@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Bell, AlertTriangle, CheckCircle2, Info, XCircle } from 'lucide-react';
+import Link from 'next/link';
+import { Bell, AlertTriangle, CheckCircle2, Info, XCircle, Check, Ban } from 'lucide-react';
 import { useRealtime } from '../hooks/useRealtime';
+import { useEffectiveRole } from '../hooks/useEffectiveRole';
 
 interface NotificationItem {
   id: number;
@@ -13,11 +15,57 @@ interface NotificationItem {
   read: boolean;
 }
 
+interface PendingApproval {
+  action_id: string;
+  agent_id?: string;
+  agent_name?: string;
+  declared_goal?: string;
+  action_type?: string;
+  risk_score?: number | string;
+}
+
 export default function NotificationCenter() {
+  const { isAdmin } = useEffectiveRole();
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
+  const [decidingId, setDecidingId] = useState<string | null>(null);
   const [permission, setPermission] = useState('default');
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement | null>(null);
+
+  // Live pending approvals — the same data /approvals + the InterventionQueue
+  // act on. Read for any authenticated org member (server-side auth + org scope);
+  // only admins get the inline Approve/Deny controls.
+  const fetchPending = useCallback(async () => {
+    try {
+      const res = await fetch('/api/actions?status=pending_approval&limit=20', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      setPendingApprovals(Array.isArray(data.actions) ? data.actions : []);
+    } catch {
+      // Non-fatal — the bell just won't show pending approvals this cycle.
+    }
+  }, []);
+
+  useEffect(() => { fetchPending(); }, [fetchPending]);
+
+  const decide = useCallback(async (actionId: string, decision: 'allow' | 'deny') => {
+    setDecidingId(actionId);
+    // Optimistic removal — reconciled by the fetchPending() in finally.
+    setPendingApprovals((prev) => prev.filter((a) => a.action_id !== actionId));
+    try {
+      await fetch(`/api/approvals/${actionId}`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      });
+    } catch {
+      // swallow — fetchPending() below restores the true server state
+    } finally {
+      setDecidingId(null);
+      fetchPending();
+    }
+  }, [fetchPending]);
 
   useEffect(() => {
     if (typeof window !== 'undefined' && 'Notification' in window) {
@@ -101,7 +149,12 @@ export default function NotificationCenter() {
       const signalType = (payload?.type || 'risk signal').replace(/_/g, ' ');
       addNotification('error', `${signalType} detected`, 'Risk signal');
     }
-  }, [addNotification]));
+
+    // Keep the pending-approvals list + badge fresh as actions arrive or resolve.
+    if (event === 'action.created' || event === 'action.updated') {
+      fetchPending();
+    }
+  }, [addNotification, fetchPending]));
 
   const markAllRead = () => {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })));
@@ -112,6 +165,8 @@ export default function NotificationCenter() {
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
+  const pendingCount = pendingApprovals.length;
+  const badgeCount = unreadCount + pendingCount;
 
   const getTypeIcon = (type: string) => {
     switch (type) {
@@ -126,18 +181,20 @@ export default function NotificationCenter() {
     <div className="relative" ref={containerRef}>
       <button
         onClick={() => setIsOpen(!isOpen)}
-        aria-label={unreadCount > 0 ? `Notifications · ${unreadCount} unread` : 'Notifications'}
+        aria-label={badgeCount > 0
+          ? `Notifications · ${unreadCount} unread${pendingCount > 0 ? `, ${pendingCount} pending approval${pendingCount === 1 ? '' : 's'}` : ''}`
+          : 'Notifications'}
         aria-expanded={isOpen}
         aria-haspopup="dialog"
         className="relative rounded-lg p-2 transition-colors duration-150 hover:bg-white/5 focus:outline-none focus:ring-2 focus:ring-brand/40"
       >
         <Bell size={18} className="text-secondary" aria-hidden="true" />
-        {unreadCount > 0 && (
+        {badgeCount > 0 && (
           <span
             aria-hidden="true"
             className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full border border-surface-primary bg-status-error px-1 text-[10px] font-semibold tabular-nums text-white"
           >
-            {unreadCount}
+            {badgeCount}
           </span>
         )}
       </button>
@@ -164,6 +221,70 @@ export default function NotificationCenter() {
               </button>
             </div>
           </div>
+
+          {pendingCount > 0 && (
+            <div className="border-b border-border">
+              <div className="flex items-center justify-between px-4 py-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-warning">
+                  Pending approvals · {pendingCount}
+                </span>
+                <Link
+                  href="/approvals"
+                  onClick={() => setIsOpen(false)}
+                  className="text-xs text-brand transition-colors hover:text-brand-hover"
+                >
+                  View all &rarr;
+                </Link>
+              </div>
+              <div className="max-h-48 divide-y divide-border overflow-y-auto">
+                {pendingApprovals.map((a) => (
+                  <div
+                    key={a.action_id}
+                    data-entity-type="decision"
+                    data-entity-id={a.action_id}
+                    data-entity-status="pending_approval"
+                    className="px-4 py-2.5"
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="truncate text-xs font-medium text-white">
+                          {a.declared_goal || a.action_type || 'Action'}
+                        </div>
+                        <div className="mt-0.5 flex items-center gap-2 text-[11px] text-tertiary">
+                          <span className="truncate">{a.agent_name || a.agent_id || 'agent'}</span>
+                          {a.risk_score != null && a.risk_score !== '' && (
+                            <span className="tabular-nums">risk {a.risk_score}</span>
+                          )}
+                        </div>
+                      </div>
+                      {isAdmin && (
+                        <div className="flex shrink-0 items-center gap-1">
+                          <button
+                            type="button"
+                            onClick={() => decide(a.action_id, 'allow')}
+                            disabled={decidingId === a.action_id}
+                            aria-label={`Approve ${a.declared_goal || a.action_id}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-success/30 px-2 py-1 text-[11px] font-medium text-success transition-colors hover:bg-success-subtle disabled:opacity-50"
+                          >
+                            <Check size={12} aria-hidden="true" /> Approve
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => decide(a.action_id, 'deny')}
+                            disabled={decidingId === a.action_id}
+                            aria-label={`Deny ${a.declared_goal || a.action_id}`}
+                            className="inline-flex items-center gap-1 rounded-md border border-error/30 px-2 py-1 text-[11px] font-medium text-error transition-colors hover:bg-error-subtle disabled:opacity-50"
+                          >
+                            <Ban size={12} aria-hidden="true" /> Deny
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div className="max-h-72 overflow-y-auto">
             {notifications.length === 0 ? (

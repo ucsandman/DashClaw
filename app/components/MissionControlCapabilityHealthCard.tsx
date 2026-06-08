@@ -90,6 +90,8 @@ export default function MissionControlCapabilityHealthCard({
                   <Link
                     key={capability.capability_id}
                     href={`/capabilities/${capability.capability_id}`}
+                    data-entity-type="capability"
+                    data-entity-id={capability.capability_id}
                     className="flex items-center gap-2 rounded-md px-1.5 py-1 transition-colors hover:bg-white/5 focus:bg-white/5 focus:outline-none"
                   >
                     <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${['unhealthy', 'failing'].includes(capability.status) ? 'bg-status-error' : capability.status === 'degraded' ? 'bg-status-warning' : 'bg-zinc-500/40'}`} />

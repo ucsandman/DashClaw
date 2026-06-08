@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
 import { getAgentColor } from '../lib/colors';
+import { EntityLink } from '../components/context-menu/EntityLink';
 import { isDemoMode } from '../lib/isDemoMode';
 import {
   getHomepageDemoActions,
@@ -549,9 +550,14 @@ export default function DecisionsLedger() {
                         <div className="min-w-0 flex-1">
                           <div className="mb-1.5 flex items-center gap-2">
                             <span className={`h-1.5 w-1.5 rounded-full ${statusDotMap[action.status] || 'bg-zinc-500'}`} />
-                            <span className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${getAgentColor(action.agent_id)}`}>
-                              {action.agent_name || action.agent_id}
-                            </span>
+                            <EntityLink
+                              type="agent"
+                              id={action.agent_id}
+                              name={action.agent_name || action.agent_id}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`rounded border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${getAgentColor(action.agent_id)}`}
+                            />
+
                             {action.model && (
                               <span className="rounded border border-white/10 px-1.5 py-0.5 text-[10px] font-medium text-tertiary" title="Model">{action.model}</span>
                             )}

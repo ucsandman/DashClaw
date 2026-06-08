@@ -9,6 +9,7 @@ import DashClawLogo from '../components/DashClawLogo';
 import { useRealtime } from '../hooks/useRealtime';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { isDemoMode } from '../lib/isDemoMode';
+import { EntityLink } from '../components/context-menu/EntityLink';
 
 function timeAgo(timestamp: any): string {
   if (!timestamp) return '';
@@ -412,7 +413,11 @@ export default function ApprovePage() {
                         {action.declared_goal || 'Untitled action'}
                       </h3>
                       <p className="mt-0.5 truncate text-sm text-secondary">
-                        {action.agent_name || action.agent_id || 'unknown agent'}
+                        {action.agent_id ? (
+                          <EntityLink type="agent" id={action.agent_id} name={action.agent_name || action.agent_id} />
+                        ) : (
+                          action.agent_name || 'unknown agent'
+                        )}
                       </p>
                     </div>
                     <div
@@ -438,9 +443,12 @@ export default function ApprovePage() {
                         <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                           <ShieldAlert size={10} className="text-brand" />
                           Triggered by
-                          <span className="ml-1 font-mono normal-case tracking-normal text-secondary">
-                            {action._matchedPolicy}
-                          </span>
+                          <EntityLink
+                            type="policy"
+                            id={action._matchedPolicy}
+                            name={action._matchedPolicy}
+                            className="ml-1 font-mono normal-case tracking-normal text-secondary"
+                          />
                         </div>
                       )}
                       {(action._guardReason || action.reasoning) && (

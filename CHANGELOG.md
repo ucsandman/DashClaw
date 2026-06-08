@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.0] — 2026-06-08
+
+Sitewide interactions v2 — the v4.6.0 context-menu + multi-select systems now cover **every** entity-bearing surface, every on-page reference is clickable, approvals are actionable from the notification bell, the demo site has no empty pages, and the Policy Coach behavior recorder is reliable.
+
+### Added
+
+- **Clickable references everywhere + a reusable `EntityLink` primitive.** A new `EntityLink` deep-links any entity to its destination (decision/agent/session/capability/workflow/knowledge detail routes, `codeSession`/`modelStrategy`, and `policy` → `/policies?policy=<id>` highlight), rendering a real `<Link>` when a destination exists and a still-right-clickable tagged `<span>` otherwise. Inline non-clickable renders were converted across `/decisions`, `/approvals`, `/approve`, and the Mission Control capability-health card. The top `SystemStatusBar` ticker's **Critical / Elevated** counts are now links to `/security?severity=red|amber`, and `/security` honors the `?severity` filter (with a canonical severity→route map). `/policies` accepts `?policy=<id|name>` and scrolls/highlights the matching shield (auto-revealing it if it's off).
+- **Context menu on every entity-bearing surface.** `data-entity-type/id/status` tags extended from the v4.6.0 set to the remaining gap pages and inline rows — activity, code-sessions, evaluations (scores + scorers), integrations, learning (lessons + recommendations), model-strategies, prompts, team, identities, security signals, the Policies cockpit (`ShieldList`/`RecentDigest`), and the agent-detail policies section. Tagged surfaces went from ~20 to ~34. Three new governance action sets back real per-item routes: **model-strategy delete, prompt-template delete, team-member remove**.
+- **Multi-select + bulk on every list page.** The shared `useSelection`/`SelectCheckbox`/`BulkActionBar` system was wired into six more lists — prompts, team, identities (mutating: delete / remove / revoke via the existing per-item routes), and audit-log, assumptions, evaluations (read-only **Copy IDs**, never a fabricated destructive route for an immutable log).
+- **Approve / deny from the notification bell.** `NotificationCenter` now surfaces live pending approvals (`GET /api/actions?status=pending_approval`) with inline **Approve / Deny** that reuse `POST /api/approvals/{id}` (same server-enforced admin + org gate as the approvals page — the client gate only hides the buttons), optimistic removal, a combined unread+pending badge that refreshes on `action.updated`, and a "View all → /approvals" link. Existing ephemeral SSE notifications are preserved.
+- **Demo data for every page.** Thirteen previously-empty demo endpoints now return deterministic, read-only fixtures (sessions, identities, knowledge collections, API keys, secrets, model strategies, the reputation leaderboard, posture + findings, FinOps spend, and the behavior recorder / samples / suggestions) so the demo site no longer renders blank pages. Policy Coach in demo mode showcases sample records + suggestions.
+- **Policy Coach is browseable + observable.** A live "Recent samples" panel (redacted tool / action / command-shape / paths / risk / guard-decision / outcome / age) backed by `GET /api/behavior/samples?list=N`, a live status strip (last-sample age, captured-this-session, auto-stop window), and an empty state that distinguishes "recorder off" from "on, nothing captured yet."
+
+### Fixed
+
+- **Behavior recorder reliability — the chronic Policy Coach `SAMPLES=0`.** Root cause: samples were only appended at `PostToolUse`, which misses ~96% of the time (and never on early stop). The recorder now **persists a `running` record at `PreToolUse`** and a new Stop/SessionEnd flush appends any orphaned pending sample as `interrupted`; `readSamples` **merges by `event_id`** (finalized/interrupted supersedes running) so counts and analysis stay correct even when `PostToolUse` never fires. Samples remain local-only and redacted.
+
+### Security
+
+- Adversarial security review of the full diff: 0 Critical / 0 High / 0 Medium. The `?list=` samples endpoint is auth-gated, bounded `[1,200]`, and redacted on read; bell approve/deny is server-enforced admin + org-scoped; demo handlers are pure read-only literals below the demo write-block; bulk fan-out adds no new IDOR (every per-item route stays org-scoped). Two pre-existing Lows (shared-tempdir recorder sweep; instance-global local-only samples endpoint) were recorded, not introduced by this release.
+
 ## [4.6.0] — 2026-06-07
 
 ### Added

@@ -7,6 +7,10 @@ import { render, screen, waitFor } from '@testing-library/react';
 // admin detection. These tests pin that contract and the settled-before-banner
 // hydration behavior.
 
+vi.mock('next/link', () => ({
+  default: ({ href, children, ...props }) => <a href={href} {...props}>{children}</a>,
+}));
+
 vi.mock('@/components/PageLayout', () => ({
   default: ({ title, children, actions }) => (
     <div>
@@ -125,5 +129,34 @@ describe('ApprovalsPage — session resolution', () => {
     render(<ApprovalsPage />);
 
     await waitFor(() => expect(screen.getByText(READ_ONLY_TEXT)).toBeTruthy());
+  });
+
+  it('renders the agent and action_id as EntityLinks to their destinations', async () => {
+    const PENDING = {
+      action_id: 'act_77', agent_id: 'agent_aa', agent_name: 'planner',
+      declared_goal: 'Deploy to prod', action_type: 'deploy', risk_score: 80,
+      status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+    };
+    global.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.startsWith('/api/actions')) return { ok: true, json: async () => ({ actions: [PENDING] }) };
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    const agentLink = await screen.findByText('planner');
+    expect(agentLink.tagName).toBe('A');
+    expect(agentLink.getAttribute('href')).toBe('/agents/agent_aa');
+    expect(agentLink.getAttribute('data-entity-type')).toBe('agent');
+
+    const actionLink = screen.getByText('act_77');
+    expect(actionLink.tagName).toBe('A');
+    expect(actionLink.getAttribute('href')).toBe('/decisions/act_77');
+    expect(actionLink.getAttribute('data-entity-type')).toBe('decision');
   });
 });

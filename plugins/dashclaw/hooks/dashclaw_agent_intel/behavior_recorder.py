@@ -310,10 +310,17 @@ def record_pre(tool_use_id, tool_name, tool_input, context, guard_resp, decision
             sample["outcome_status"] = "blocked"
             append_sample(sample, workspace)
             return
-        # Will execute (allow/warn/approved) → stash for PostToolUse to finalize.
-        sample["_start_ms"] = int(time.time() * 1000)
+        # Will execute (allow/warn/approved). Persist the "running" record NOW so
+        # the sample survives even if PostToolUse never fires (it misses ~96% of
+        # the time). PostToolUse later appends a finalized record with the SAME
+        # event_id; readSamples merges by event_id (finalized supersedes running).
+        append_sample(sample, workspace)
+        # Also stash a pending copy (with the start clock) so PostToolUse — or the
+        # Stop-hook flush — can finalize this exact event.
+        pending = dict(sample)
+        pending["_start_ms"] = int(time.time() * 1000)
         with open(_pending_path(tool_use_id), "w", encoding="utf-8") as f:
-            f.write(json.dumps(sample, ensure_ascii=False))
+            f.write(json.dumps(pending, ensure_ascii=False))
     except Exception:
         pass
 
@@ -344,5 +351,45 @@ def record_post(tool_use_id, status, outcome_metadata=None, action_id=None, work
         except OSError:
             pass
         _sweep_stale_pending()
+    except Exception:
+        pass
+
+
+def record_stop(workspace=None):
+    """Called by the Stop / SessionEnd hook.
+
+    Sweeps every pending sample that PreToolUse stashed but PostToolUse never
+    finalized (the ~96% PostToolUse-miss case, and any tool still 'running' when
+    the turn ended) and flushes it to the JSONL log as ``outcome_status:
+    "interrupted"`` — so an early stop no longer loses data. The PreToolUse-time
+    'running' record is already on disk; readSamples merges the two by event_id
+    (interrupted supersedes running). Fail-silent, local-only, no server needed.
+    """
+    if not is_enabled():
+        return
+    try:
+        tmp = tempfile.gettempdir()
+        try:
+            names = os.listdir(tmp)
+        except OSError:
+            return
+        for name in names:
+            if not name.startswith(_PENDING_PREFIX):
+                continue
+            path = os.path.join(tmp, name)
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    sample = json.loads(f.read())
+            except (OSError, ValueError):
+                continue
+            start_ms = sample.pop("_start_ms", None)
+            sample["outcome_status"] = "interrupted"
+            if start_ms:
+                sample["duration_ms"] = max(0, int(time.time() * 1000) - int(start_ms))
+            append_sample(sample, workspace)
+            try:
+                os.remove(path)
+            except OSError:
+                pass
     except Exception:
         pass

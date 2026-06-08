@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Brain, CheckCircle2, XCircle, Clock,
+  Brain, CheckCircle2, XCircle, Clock, Copy,
 } from 'lucide-react';
 import Link from 'next/link';
 import PageLayout from '../components/PageLayout';
@@ -13,6 +13,10 @@ import { ListSkeleton } from '../components/ui/Skeleton';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
 import { deriveAssumptionStatus, ASSUMPTION_FILTER_OPTIONS as FILTER_OPTIONS } from '../lib/assumptions-status';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 
 const STATUS_CONFIG: Record<string, { icon: React.ElementType; color: string; variant: string; label: string }> = {
   validated: { icon: CheckCircle2, color: 'text-success', variant: 'success', label: 'validated' },
@@ -64,6 +68,16 @@ export default function AssumptionsPage() {
     ? assumptions
     : assumptions.filter(a => deriveAssumptionStatus(a) === filter);
 
+  const selection = useSelection<any>(visibleAssumptions, (a) => a.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleCopyIds = () => {
+    if (selection.count === 0) return;
+    if (typeof navigator !== 'undefined') navigator.clipboard?.writeText(selection.selectedIds.join('\n'));
+  };
+
+  const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
+
   const stats = {
     total,
     validated: assumptions.filter(a => deriveAssumptionStatus(a) === 'validated').length,
@@ -76,6 +90,7 @@ export default function AssumptionsPage() {
       title="Assumptions"
       subtitle="Decision basis tracking — what agents believe while acting"
       breadcrumbs={['Governance', 'Assumptions']}
+      actions={<BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />}
     >
       {/* Instrument rail — one container, divided columns */}
       <div className="mb-8 grid grid-cols-2 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary md:grid-cols-5 md:divide-y-0">
@@ -137,6 +152,14 @@ export default function AssumptionsPage() {
         />
       ) : (
         <div className="space-y-3">
+          <div className="mb-3 flex items-center gap-2">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+            <span className="text-xs text-tertiary">Select all</span>
+          </div>
           {visibleAssumptions.map((a) => {
             const status = deriveAssumptionStatus(a);
             const cfg = STATUS_CONFIG[status]!;
@@ -144,6 +167,11 @@ export default function AssumptionsPage() {
             return (
               <Card key={a.id} data-entity-type="assumption" data-entity-id={a.id} data-entity-status={status} hover={false}>
                 <div className="flex items-start gap-4 p-4">
+                  <SelectCheckbox
+                    checked={selection.isSelected(a.id)}
+                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(a.id, e.shiftKey); }}
+                    label={`Select ${a.assumption ?? a.id}`}
+                  />
                   <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
                     <StatusIcon size={18} aria-hidden="true" />
                   </div>

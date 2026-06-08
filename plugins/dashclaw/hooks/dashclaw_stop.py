@@ -29,6 +29,7 @@ import urllib.error
 # Import the shared HTTP retry helper from the sibling intel package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
+from dashclaw_agent_intel import behavior_recorder
 
 # ---------------------------------------------------------------------------
 # Env loading — pretool/posttool load from .env.local + .env before reading
@@ -446,6 +447,14 @@ def datetime_now_iso():
 # ---------------------------------------------------------------------------
 
 def main():
+    # Behavior Learning: flush any pending samples whose PostToolUse never fired
+    # as 'interrupted' so early-stop doesn't lose data. Local-only + fail-silent,
+    # so it must run BEFORE the server-config early-exit below.
+    try:
+        behavior_recorder.record_stop(os.environ.get("DASHCLAW_WORKSPACE"))
+    except Exception:
+        pass
+
     if not BASE_URL or not API_KEY:
         sys.exit(0)
 

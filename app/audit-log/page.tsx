@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Clock, KeyRound, Mail, UsersRound, Settings,
-  ShieldAlert, Webhook, Filter, ChevronDown, User, Cog, BarChart3,
+  ShieldAlert, Webhook, Filter, ChevronDown, User, Cog, BarChart3, Copy,
 } from 'lucide-react';
 import Image from 'next/image';
 import PageLayout from '../components/PageLayout';
@@ -12,6 +12,10 @@ import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { demoAuditLogs, demoAuditStats } from '../lib/demoAuditData';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
 
 export default function AuditLogPage() {
   const [logs, setLogs] = useState<any[]>([]);
@@ -103,6 +107,16 @@ export default function AuditLogPage() {
       fetchLogs(false);
     }
   };
+
+  const selection = useSelection<any>(logs, (log) => log.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleCopyIds = () => {
+    if (selection.count === 0) return;
+    if (typeof navigator !== 'undefined') navigator.clipboard?.writeText(selection.selectedIds.join('\n'));
+  };
+
+  const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
 
   const getActionIcon = (action: string) => {
     if (action.startsWith('key.')) return KeyRound;
@@ -208,15 +222,18 @@ export default function AuditLogPage() {
       subtitle="Permanent record of system and administrative events"
       breadcrumbs={['Evidence', 'Audit log']}
       actions={
-        <button
-          onClick={() => setShowFilters(!showFilters)}
-          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
-          aria-expanded={showFilters}
-        >
-          <Filter size={14} aria-hidden="true" />
-          Filters
-          <ChevronDown size={12} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
-        </button>
+        <>
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
+            aria-expanded={showFilters}
+          >
+            <Filter size={14} aria-hidden="true" />
+            Filters
+            <ChevronDown size={12} className={`transition-transform ${showFilters ? 'rotate-180' : ''}`} aria-hidden="true" />
+          </button>
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       {/* Error banner */}
@@ -282,13 +299,30 @@ export default function AuditLogPage() {
               />
             </div>
           ) : (
-            <div className="divide-y divide-border">
+            <>
+              <div className="mb-2 flex items-center gap-2 border-b border-border pb-2">
+                <SelectCheckbox
+                  checked={selection.allSelected}
+                  onToggle={() => selection.toggleAll()}
+                  label="Select all"
+                />
+                <span className="text-xs text-tertiary">Select all</span>
+              </div>
+              <div className="divide-y divide-border">
               {logs.map((log) => {
                 const ActionIcon = getActionIcon(log.action);
                 const details = parseDetails(log.details);
 
                 return (
                   <div key={log.id} data-entity-type="auditEvent" data-entity-id={log.id} className="flex items-start gap-4 py-4">
+                    <div className="mt-1 flex h-8 shrink-0 items-center">
+                      <SelectCheckbox
+                        checked={selection.isSelected(log.id)}
+                        onToggle={(e) => { e.stopPropagation(); selection.selectClick(log.id, e.shiftKey); }}
+                        label={`Select ${formatActionLabel(log.action) ?? log.id}`}
+                      />
+                    </div>
+
                     {/* Icon */}
                     <div className="mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-tertiary">
                       <ActionIcon size={14} className="text-secondary" aria-hidden="true" />
@@ -368,7 +402,8 @@ export default function AuditLogPage() {
                   </div>
                 );
               })}
-            </div>
+              </div>
+            </>
           )}
 
           {/* Load More */}

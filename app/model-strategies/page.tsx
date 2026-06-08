@@ -47,7 +47,7 @@ function StrategyCard({ s, onDelete }: StrategyCardProps) {
   const fallbacks = s.config?.fallback || [];
 
   return (
-    <Card className="h-full">
+    <Card className="h-full" data-entity-type="modelStrategy" data-entity-id={s.strategy_id}>
       <CardContent className="p-5">
         <div className="flex items-start justify-between mb-2">
           <div className="min-w-0">

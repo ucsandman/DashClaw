@@ -93,7 +93,7 @@ export default function AgentPoliciesSection({ agentId, policies, onRefresh }: A
             const isGlobal = parseAgentIds(p).length === 0;
             const isActive = p.active === 1;
             return (
-              <div key={p.id} className={`flex items-center justify-between gap-3 rounded-lg bg-white/[0.02] px-3 py-2 ${isActive ? '' : 'opacity-60'}`}>
+              <div key={p.id} data-entity-type="policy" data-entity-id={p.id} data-entity-status={isActive ? 'active' : 'inactive'} className={`flex items-center justify-between gap-3 rounded-lg bg-white/[0.02] px-3 py-2 ${isActive ? '' : 'opacity-60'}`}>
                 <div className="flex items-center gap-2 min-w-0">
                   <Badge size="xs">{p.policy_type || p.type}</Badge>
                   <Badge variant={isActive ? 'success' : 'default'} size="xs">{isActive ? 'active' : 'inactive'}</Badge>

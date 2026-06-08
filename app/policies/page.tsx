@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import PageLayout from '../components/PageLayout';
 import PolicyCockpit from './components/PolicyCockpit';
 
@@ -9,7 +10,9 @@ export default function PoliciesPage() {
       breadcrumbs={['Governance', 'Policies']}
       maturity="stable"
     >
-      <PolicyCockpit />
+      <Suspense fallback={<div className="text-sm text-tertiary">Loading policy posture…</div>}>
+        <PolicyCockpit />
+      </Suspense>
     </PageLayout>
   );
 }

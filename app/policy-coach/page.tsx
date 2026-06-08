@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   ShieldAlert, Lock, RotateCw, AlertTriangle, Cpu, CheckCircle2,
@@ -36,6 +36,18 @@ function fmtTs(ts?: string): string {
   try { return new Date(ts).toLocaleString(); } catch { return ts; }
 }
 
+/** Compact relative age for the live "last sample" / recent-sample rows. */
+function ageLabel(ts?: string | null): string {
+  if (!ts) return '—';
+  const ms = Date.now() - Date.parse(ts);
+  if (Number.isNaN(ms)) return '—';
+  const s = Math.max(0, Math.floor(ms / 1000));
+  if (s < 60) return `${s}s ago`;
+  if (s < 3600) return `${Math.floor(s / 60)}m ago`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h ago`;
+  return `${Math.floor(s / 86400)}d ago`;
+}
+
 const primaryBtn = 'px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed inline-flex items-center gap-1.5';
 const secondaryBtn = 'px-3 py-1.5 text-xs font-medium text-secondary hover:text-white bg-surface-tertiary border border-border rounded-lg hover:border-border-hover transition-colors inline-flex items-center gap-1.5 disabled:opacity-40';
 
@@ -52,6 +64,8 @@ export default function PolicyCoachPage() {
   const [agents, setAgents] = useState<any[]>([]);
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [sampleCount, setSampleCount] = useState(0);
+  const [recent, setRecent] = useState<any[]>([]); // recent redacted sample records
+  const initialCountRef = useRef<number | null>(null); // baseline for "captured this session"
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [recorderCfg, setRecorderCfg] = useState<any>(null); // { enabled, until, effective }
@@ -73,16 +87,24 @@ export default function PolicyCoachPage() {
     try {
       const params = new URLSearchParams();
       if (agentId) params.set('agent_id', agentId);
-      const [statusRes, sugRes, recRes] = await Promise.all([
+      const [statusRes, sugRes, recRes, listRes] = await Promise.all([
         fetch('/api/behavior/samples'),
         fetch(`/api/behavior/suggestions?${params.toString()}`),
         fetch('/api/behavior/recorder'),
+        fetch('/api/behavior/samples?list=25'),
       ]);
       const statusData = await statusRes.json();
       const sugData = await sugRes.json();
       const recData = await recRes.json().catch(() => null);
+      const listData = await listRes.json().catch(() => null);
       if (recData && !recData.error) setRecorderCfg(recData);
-      if (statusData && !statusData.error) setStatus(statusData);
+      if (listData && Array.isArray(listData.samples)) setRecent(listData.samples);
+      if (statusData && !statusData.error) {
+        setStatus(statusData);
+        // Baseline the session count on first successful load so the live strip
+        // can show "captured this session".
+        if (initialCountRef.current === null) initialCountRef.current = statusData.sample_count || 0;
+      }
       if (sugData && !sugData.error) {
         setAgents(Array.isArray(sugData.agents) ? sugData.agents : []);
         setSuggestions(Array.isArray(sugData.suggestions) ? sugData.suggestions : []);
@@ -99,6 +121,30 @@ export default function PolicyCoachPage() {
   }, [agentId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Live refresh while the recorder is effective: refresh status + recent
+  // samples (lightweight — no loading flicker) so the panel reflects captures as
+  // they land.
+  const pollLive = useCallback(async () => {
+    try {
+      const [statusRes, listRes] = await Promise.all([
+        fetch('/api/behavior/samples'),
+        fetch('/api/behavior/samples?list=25'),
+      ]);
+      const s = await statusRes.json().catch(() => null);
+      const l = await listRes.json().catch(() => null);
+      if (s && !s.error) setStatus(s);
+      if (l && Array.isArray(l.samples)) setRecent(l.samples);
+    } catch {
+      // ignore — the next tick retries
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!recorderCfg?.effective) return;
+    const t = setInterval(pollLive, 15000);
+    return () => clearInterval(t);
+  }, [recorderCfg?.effective, pollLive]);
 
   const runSimulation = useCallback(async (suggestion: any, editedRule?: any) => {
     setBusy(suggestion.id);
@@ -220,6 +266,8 @@ export default function PolicyCoachPage() {
 
   const ready = status?.ready;
   const recorderOn = recorderCfg?.effective;
+  const totalSamples = status?.sample_count ?? sampleCount ?? 0;
+  const capturedThisSession = Math.max(0, (status?.sample_count ?? 0) - (initialCountRef.current ?? 0));
 
   return (
     <PageLayout
@@ -286,6 +334,21 @@ export default function PolicyCoachPage() {
         </CardContent>
       </Card>
 
+      {/* Live observability strip — visible while the recorder is effective. */}
+      {recorderOn && (
+        <div
+          aria-live="polite"
+          className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-tertiary"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-success" aria-hidden="true" /> Live
+          </span>
+          <span>Last sample: <span className="text-secondary">{ageLabel(status?.newest_ts)}</span></span>
+          <span>Captured this session: <span className="tabular-nums text-secondary">{capturedThisSession}</span></span>
+          {recorderCfg?.until && <span>Auto-stops: <span className="text-secondary">{fmtTs(recorderCfg.until)}</span></span>}
+        </div>
+      )}
+
       {notice && (
         <div className="mb-4 rounded-lg border border-success/20 bg-success-subtle px-4 py-2.5 text-xs text-success">{notice}</div>
       )}
@@ -295,17 +358,26 @@ export default function PolicyCoachPage() {
 
       {loading ? (
         <div className="py-12 text-center text-sm text-tertiary">Analyzing local samples…</div>
-      ) : sampleCount === 0 ? (
+      ) : totalSamples === 0 ? (
         <Card hover={false}>
           <CardContent className="pt-5">
-            <EmptyState
-              icon={Database}
-              title="No behavior samples yet"
-              description="Turn on the behavior recorder above, then run your agents normally — they capture redacted, local-only samples that DashClaw analyzes for evidence-backed suggestions. (Cooperating hooks honor the toggle on their next run; an explicit DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var also works.) Samples are written to .dashclaw/behavior-samples/ and never leave your machine."
-            />
+            {recorderOn ? (
+              <EmptyState
+                icon={Activity}
+                title="Recorder on — nothing captured yet"
+                description="The recorder is active, but no samples have landed yet. Run your agents normally — redacted, local-only samples appear here within a few tool calls, and this view refreshes live. Samples are written to .dashclaw/behavior-samples/ and never leave your machine."
+              />
+            ) : (
+              <EmptyState
+                icon={Power}
+                title="Recorder is off"
+                description="Turn on the behavior recorder above, then run your agents normally — they capture redacted, local-only samples that DashClaw analyzes for evidence-backed suggestions. (Cooperating hooks honor the toggle on their next run; an explicit DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var also works.) Samples are written to .dashclaw/behavior-samples/ and never leave your machine."
+              />
+            )}
           </CardContent>
         </Card>
       ) : (
+        <>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
           {/* Suggestions (main column) */}
           <div className="lg:col-span-2">
@@ -360,6 +432,9 @@ export default function PolicyCoachPage() {
             </p>
           </div>
         </div>
+
+        <RecentSamplesPanel samples={recent} />
+        </>
       )}
 
       {dismissing && (
@@ -551,6 +626,51 @@ function SuggestionCard({ s, sim, busy, onSimulate, onAdopt, onEdit, onDismiss }
         </button>
       </div>
     </div>
+  );
+}
+
+function RecentSamplesPanel({ samples }: { samples: any[] }) {
+  return (
+    <Card hover={false} className="mt-5">
+      <CardHeader title="Recent samples" icon={Database} count={samples.length} />
+      <CardContent className="pt-0">
+        {samples.length === 0 ? (
+          <div className="py-6 text-center text-xs text-tertiary">No samples captured yet.</div>
+        ) : (
+          <div className="divide-y divide-border">
+            {samples.map((s) => (
+              <div
+                key={s.event_id}
+                data-entity-type="behaviorSample"
+                data-entity-id={s.event_id}
+                data-entity-status={s.outcome_status}
+                className="flex items-center justify-between gap-3 py-2"
+              >
+                <div className="flex min-w-0 items-center gap-2">
+                  <Badge variant="default" size="xs">{s.tool || s.action_type || 'tool'}</Badge>
+                  <span className="truncate font-mono text-[11px] text-secondary">
+                    {s.command_shape || s.write_paths?.[0] || s.read_paths?.[0] || s.action_type || '—'}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-center gap-2 text-[11px] text-tertiary">
+                  {s.risk_score != null && <span className="tabular-nums">risk {s.risk_score}</span>}
+                  {s.guard_decision && (
+                    <Badge
+                      variant={s.guard_decision === 'block' ? 'error' : s.guard_decision === 'warn' || s.guard_decision === 'require_approval' ? 'warning' : 'default'}
+                      size="xs"
+                    >
+                      {s.guard_decision}
+                    </Badge>
+                  )}
+                  {s.outcome_status && <span>· {s.outcome_status}</span>}
+                  <span className="tabular-nums">{ageLabel(s.ts)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 

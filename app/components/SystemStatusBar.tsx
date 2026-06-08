@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
+import { SEVERITY_ROUTE } from '../lib/security-filter';
 
 // POSTURE LOGIC: Standardized across the platform.
 // Per .impeccable.md "calm under pressure": the bar does not pulse. A live
@@ -81,16 +82,24 @@ export default function SystemStatusBar() {
         {/* Signal Counts */}
         <div className="flex items-center gap-3">
           {redCount > 0 && (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tabular-nums text-error">
+            <Link
+              href={SEVERITY_ROUTE.red}
+              title="View critical signals"
+              className="flex items-center gap-1.5 rounded-sm text-[11px] font-medium tabular-nums text-error underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-status-error" />
               {redCount} Critical
-            </span>
+            </Link>
           )}
           {amberCount > 0 && (
-            <span className="flex items-center gap-1.5 text-[11px] font-medium tabular-nums text-warning">
+            <Link
+              href={SEVERITY_ROUTE.amber}
+              title="View elevated signals"
+              className="flex items-center gap-1.5 rounded-sm text-[11px] font-medium tabular-nums text-warning underline-offset-2 transition-colors hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            >
               <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-status-warning" />
               {amberCount} Elevated
-            </span>
+            </Link>
           )}
           {redCount === 0 && amberCount === 0 && (
             <span className="flex items-center gap-1.5 text-[11px] font-medium text-success">

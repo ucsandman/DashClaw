@@ -13,6 +13,11 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 const CATEGORIES = ['general', 'system', 'agent', 'tool', 'evaluation'];
 
@@ -214,6 +219,25 @@ export default function PromptsPage() {
     } catch { /* ignore */ }
   };
 
+  const selection = useSelection<Template>(templates, (t) => t.id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleBulkDelete = async () => {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selection.count} template${selection.count === 1 ? '' : 's'}? This cannot be undone.`)) return;
+    const { ok } = await bulkAction(selection.selectedIds, (id) => fetch(`/api/prompts/templates/${id}`, { method: 'DELETE' }));
+    if (selectedTemplate && ok.includes(selectedTemplate.id)) {
+      setSelectedTemplate(null);
+      setVersions([]);
+    }
+    fetchData();
+    selection.clear();
+  };
+
+  const BULK_ACTIONS = [
+    { id: 'delete', label: 'Delete', icon: Trash2, danger: true, onClick: handleBulkDelete },
+  ];
+
   // Edit template header (name/description/category)
   const handleEditTemplate = async () => {
     if (!selectedTemplate || !editForm.name.trim()) return;
@@ -305,9 +329,12 @@ export default function PromptsPage() {
       subtitle="Manage and version prompt templates"
       breadcrumbs={['Operations', 'Prompts']}
       actions={
-        <button onClick={fetchData} className="p-2 rounded-lg text-secondary hover:text-white hover:bg-white/5 transition-colors">
-          <RefreshCw size={16} />
-        </button>
+        <>
+          <button onClick={fetchData} className="p-2 rounded-lg text-secondary hover:text-white hover:bg-white/5 transition-colors">
+            <RefreshCw size={16} />
+          </button>
+          <BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />
+        </>
       }
     >
       <div className="p-6 space-y-6">
@@ -386,10 +413,21 @@ export default function PromptsPage() {
                   {templates.length === 0 ? (
                     <EmptyState icon={FileCode} title="No templates yet" description="Create a prompt template to start versioning." />
                   ) : (
-                    <div className="space-y-1">
+                    <>
+                      <div className="mb-2 flex items-center gap-2">
+                        <SelectCheckbox
+                          checked={selection.allSelected}
+                          onToggle={() => selection.toggleAll()}
+                          label="Select all"
+                        />
+                        <span className="text-xs text-tertiary">Select all</span>
+                      </div>
+                      <div className="space-y-1">
                       {templates.map(t => (
                         <div
                           key={t.id}
+                          data-entity-type="prompt"
+                          data-entity-id={t.id}
                           role="button"
                           tabIndex={0}
                           onClick={() => handleSelectTemplate(t)}
@@ -401,6 +439,11 @@ export default function PromptsPage() {
                           }}
                           className={`w-full flex items-center justify-between py-2 px-3 rounded-lg text-left transition-colors cursor-pointer focus:outline-none focus:border-brand ${selectedTemplate?.id === t.id ? 'bg-brand/10 border border-brand/30' : 'bg-surface-tertiary border border-border hover:border-border-hover'}`}
                         >
+                          <SelectCheckbox
+                            checked={selection.isSelected(t.id)}
+                            onToggle={(e) => { e.stopPropagation(); selection.selectClick(t.id, e.shiftKey); }}
+                            label={`Select ${t.name ?? t.id}`}
+                          />
                           <div className="min-w-0">
                             <div className="text-sm text-white font-medium truncate">{t.name}</div>
                             <div className="flex items-center gap-2 mt-0.5">
@@ -416,7 +459,8 @@ export default function PromptsPage() {
                           </div>
                         </div>
                       ))}
-                    </div>
+                      </div>
+                    </>
                   )}
                 </CardContent>
               </Card>

@@ -1,13 +1,18 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Fingerprint, Shield, CheckCircle, Clock, AlertTriangle } from 'lucide-react';
+import { Fingerprint, Shield, CheckCircle, Clock, AlertTriangle, Trash2 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { useSelection } from '../lib/useSelection';
+import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import { SelectCheckbox } from '../components/selection/SelectCheckbox';
+import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { bulkAction } from '../lib/bulkAction';
 
 const PERMISSION_LEVELS = ['readonly', 'workspace_write', 'prompt', 'allow', 'danger'];
 
@@ -161,6 +166,21 @@ export default function IdentitiesPage() {
     }
   };
 
+  const selection = useSelection<Identity>(identities, (identity) => identity.agent_id);
+  useSelectAllHotkey(selection.toggleAll);
+
+  const handleBulkRevoke = async () => {
+    if (selection.count === 0) return;
+    if (typeof window !== 'undefined' && !window.confirm(`Revoke ${selection.count} identity(s)? This cannot be undone.`)) return;
+    await bulkAction(selection.selectedIds, (id) => fetch(`/api/identities/${encodeURIComponent(id)}`, { method: 'DELETE' }));
+    await fetchAll();
+    selection.clear();
+  };
+
+  const BULK_ACTIONS = [
+    { id: 'revoke', label: 'Revoke', icon: Trash2, danger: true, onClick: handleBulkRevoke },
+  ];
+
   if (loading || !sessionSettled) {
     return (
       <PageLayout
@@ -202,6 +222,7 @@ export default function IdentitiesPage() {
       subtitle="Manage agent pairings and approved identities"
       breadcrumbs={['Dashboard', 'Agent Identities']}
       maturity="stable"
+      actions={<BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />}
     >
       {/* Error banner */}
       {error && (
@@ -336,6 +357,13 @@ export default function IdentitiesPage() {
       {/* Approved Identities */}
       <div>
         <div className="flex items-center gap-2 mb-3">
+          {identities.length > 0 && (
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => selection.toggleAll()}
+              label="Select all"
+            />
+          )}
           <Shield size={16} className="text-success" />
           <h2 className="text-sm font-medium text-secondary">Approved Identities</h2>
           {identities.length > 0 && (
@@ -362,6 +390,11 @@ export default function IdentitiesPage() {
 
                 return (
                   <div key={identity.agent_id} data-entity-type="identity" data-entity-id={identity.agent_id} data-entity-status={identity.permission_level || 'readonly'} className="px-5 py-4 flex items-center gap-4">
+                    <SelectCheckbox
+                      checked={selection.isSelected(identity.agent_id)}
+                      onToggle={(e) => { e.stopPropagation(); selection.selectClick(identity.agent_id, e.shiftKey); }}
+                      label={`Select ${identity.agent_name || identity.agent_id}`}
+                    />
                     <div className="w-8 h-8 rounded-lg bg-status-success/10 flex items-center justify-center flex-shrink-0">
                       <Fingerprint size={14} className="text-success" />
                     </div>

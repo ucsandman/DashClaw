@@ -18,6 +18,7 @@ import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
+import { EntityLink } from '../components/context-menu/EntityLink';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -218,7 +219,12 @@ export default function ApprovalsPage() {
                           <div className="min-w-0">
                             <div className="mb-2 flex flex-wrap items-center gap-2">
                               <Badge variant="warning">Awaiting Approval</Badge>
-                              <span className="font-mono text-[11px] text-tertiary">{action.action_id}</span>
+                              <EntityLink
+                                type="decision"
+                                id={action.action_id}
+                                name={action.action_id}
+                                className="font-mono text-[11px] text-tertiary"
+                              />
                             </div>
                             <h3 className="text-lg font-semibold text-white">{action.declared_goal}</h3>
                           </div>
@@ -237,7 +243,12 @@ export default function ApprovalsPage() {
                             <div className="flex items-center gap-2 text-tertiary">
                               <User size={14} />
                               <span>Agent</span>
-                              <span className="ml-auto text-secondary">{action.agent_name || action.agent_id}</span>
+                              <EntityLink
+                                type="agent"
+                                id={action.agent_id}
+                                name={action.agent_name || action.agent_id}
+                                className="ml-auto text-secondary"
+                              />
                             </div>
                             <div className="flex items-center gap-2 text-tertiary">
                               <Zap size={14} />

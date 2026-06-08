@@ -1,13 +1,21 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 
-const { mockFetchSummary } = vi.hoisted(() => ({ mockFetchSummary: vi.fn() }));
+const { mockFetchSummary, searchParamsRef } = vi.hoisted(() => ({
+  mockFetchSummary: vi.fn(),
+  searchParamsRef: { current: new URLSearchParams() },
+}));
 
+vi.mock('next/navigation', () => ({ useSearchParams: () => searchParamsRef.current }));
 vi.mock('@/policies/lib/modesClient', () => ({ fetchSummary: mockFetchSummary }));
 // Stub the leaf children so this test isolates the cockpit's orchestration.
 vi.mock('@/policies/components/PostureHeader', () => ({ default: () => <div data-testid="posture-header" /> }));
 vi.mock('@/policies/components/EnforcementSummary', () => ({ default: () => <div data-testid="enforcement-summary" /> }));
-vi.mock('@/policies/components/ShieldList', () => ({ default: () => <div data-testid="shield-list" /> }));
+vi.mock('@/policies/components/ShieldList', () => ({
+  default: ({ highlight }: { highlight?: string | null }) => (
+    <div data-testid="shield-list" data-highlight={highlight ?? ''} />
+  ),
+}));
 vi.mock('@/policies/components/RecentDigest', () => ({ default: () => <div data-testid="recent-digest" /> }));
 vi.mock('@/policies/components/ModeDrawer', () => ({
   default: ({ open }: { open: boolean }) => <div data-testid="mode-drawer" data-open={String(open)} />,
@@ -30,6 +38,7 @@ const baseSummary = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  searchParamsRef.current = new URLSearchParams();
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ decisions: [] }) })));
 });
 
@@ -58,5 +67,13 @@ describe('PolicyCockpit', () => {
     await waitFor(() => screen.getByText(/Couldn.t load posture/i));
     expect(screen.queryByText(/No mode applied/i)).toBeNull();
     expect(screen.queryByTestId('posture-header')).toBeNull();
+  });
+
+  it('passes the ?policy deep-link param through to ShieldList for highlighting', async () => {
+    searchParamsRef.current = new URLSearchParams('policy=spend-cap');
+    mockFetchSummary.mockResolvedValue(baseSummary);
+    render(<PolicyCockpit />);
+    await waitFor(() => screen.getByTestId('shield-list'));
+    expect(screen.getByTestId('shield-list').getAttribute('data-highlight')).toBe('spend-cap');
   });
 });
