@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.1] — 2026-06-08
+
+### Fixed
+
+- **The right-click context menu now covers the entire site, not just tagged entity rows.** Previously the menu was augment-only — it appeared over `[data-entity-type]` items and let the native browser menu surface everywhere else (blank space, panels, the governance-categories list, headings, untagged text). Now a generic **fallback menu** (Copy / Copy page link / Reload) opens on right-click anywhere on the app surface, so every part of the site is right-clickable with at least a Copy. Over a tagged entity you still get its full governance actions. The one exception is a text-entry field (input / textarea / contenteditable), which keeps the native menu because browsers block programmatic Paste and a custom menu cannot replicate it there.
+
 ## [4.7.0] — 2026-06-08
 
 Sitewide interactions v2 — the v4.6.0 context-menu + multi-select systems now cover **every** entity-bearing surface, every on-page reference is clickable, approvals are actionable from the notification bell, the demo site has no empty pages, and the Policy Coach behavior recorder is reliable.

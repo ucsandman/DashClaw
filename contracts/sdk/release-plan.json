@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.0",
+    "current_version": "4.7.1",
     "next_bump": "none",
-    "reason": "4.7.0 is a platform UI feature release (sitewide interactions v2): the v4.6.0 context-menu + multi-select systems extended to every entity-bearing surface, an EntityLink primitive making on-page references clickable, ticker severity deep-links, inline approve/deny from the notification bell (reusing the existing org-scoped POST /api/approvals/{id}), read-only demo fixtures so no page renders empty, and a Policy Coach behavior-recorder reliability fix. No Node SDK surface change (unchanged at 126, byte-identical to 4.6.x); republishes at 4.7.0 per the unified-version model. Self-dep stays ^4.x (within the major).",
+    "reason": "4.7.1 is a platform UI patch: the site-wide right-click context menu now covers the ENTIRE site — a generic fallback menu (Copy / Copy page link / Reload) appears over blank space, panels, headings, and untagged content, not only over tagged entity rows, so the native browser menu no longer surfaces there. Text-entry fields keep the native menu (browsers block programmatic Paste). No Node SDK surface change (unchanged at 126); republishes at 4.7.1 per the unified-version model. Self-dep stays ^4.x (within the major).",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.0",
+    "current_version": "4.7.1",
     "next_bump": "none",
-    "reason": "4.7.0 is a platform UI feature release (sitewide interactions v2: context menu + multi-select everywhere, clickable references + ticker, bell approve/deny, demo data backfill, Policy Coach recorder reliability fix). No Python SDK change — Python surface unchanged at 224 (byte-identical to 4.6.x) and republishes at 4.7.0 per the unified-version model.",
+    "reason": "4.7.1 is a platform UI patch (site-wide context-menu fallback so the whole site is right-clickable, native menu no longer surfaces over untagged areas). No Python SDK change — Python surface unchanged at 224 and republishes at 4.7.1 per the unified-version model.",
     "domains": ["platform"]
   }
 }

@@ -3,9 +3,20 @@
 import { createContext, useContext, useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { isEditableTarget, resolveEntityTarget } from './resolveEntityTarget';
-import { getActionsFor } from './actionRegistry';
+import { getActionsFor, getFallbackActions } from './actionRegistry';
 import { ContextMenu } from './ContextMenu';
 import type { EntityTarget, MenuItem } from './types';
+
+/** Synthetic target for a right-click that isn't over a tagged entity. */
+function pageTarget(el: EventTarget | null): EntityTarget {
+  const node = el instanceof HTMLElement ? el : null;
+  return {
+    type: 'page',
+    id: typeof window !== 'undefined' ? window.location.pathname : '/',
+    el: node ?? (typeof document !== 'undefined' ? document.body : (null as unknown as HTMLElement)),
+    data: node?.dataset ?? ({} as DOMStringMap),
+  };
+}
 
 interface OpenState {
   entity: EntityTarget;
@@ -40,18 +51,20 @@ export function ContextMenuProvider({ children }: { children?: React.ReactNode }
     setOpen({ entity, items, x: coords.x, y: coords.y });
   }, []);
 
-  // Single document-level right-click listener. Augment-only: we intercept ONLY
-  // when the cursor is over a registered DashClaw item; everything else (blank
-  // space, text, inputs) keeps the native browser menu.
+  // Single document-level right-click listener. The whole site is right-clickable:
+  // over a tagged DashClaw item we show its governance actions, and EVERYWHERE
+  // else (blank space, panels, headings, untagged text) we show a generic
+  // fallback menu with at least Copy. The one exception is a text-entry field
+  // (input/textarea/contenteditable), which keeps the native menu because
+  // browsers block programmatic Paste — a custom menu can't replicate it there.
   useEffect(() => {
     function onContextMenu(e: MouseEvent) {
       if (isEditableTarget(e.target)) return;
       const entity = resolveEntityTarget(e.target);
-      if (!entity) return;
-      const items = getActionsFor(entity);
+      const items = entity ? getActionsFor(entity) : getFallbackActions();
       if (items.length === 0) return;
       e.preventDefault();
-      setOpen({ entity, items, x: e.clientX, y: e.clientY });
+      setOpen({ entity: entity ?? pageTarget(e.target), items, x: e.clientX, y: e.clientY });
     }
     document.addEventListener('contextmenu', onContextMenu);
     return () => document.removeEventListener('contextmenu', onContextMenu);

@@ -29,7 +29,7 @@ function dispatchContextMenu(el: Element): MouseEvent {
   return evt;
 }
 
-describe('ContextMenuProvider — augment-only interception', () => {
+describe('ContextMenuProvider — site-wide interception', () => {
   it('preventDefault + opens the menu when right-clicking a DashClaw item', () => {
     const { container } = render(
       <ContextMenuProvider>
@@ -49,7 +49,7 @@ describe('ContextMenuProvider — augment-only interception', () => {
     expect(labels.join(' ')).toContain('View decision');
   });
 
-  it('does NOT preventDefault over blank space (native menu preserved)', () => {
+  it('opens a fallback menu (Copy + page actions) over blank / untagged space', () => {
     const { container } = render(
       <ContextMenuProvider>
         <div id="blank">just some text, no entity</div>
@@ -57,8 +57,14 @@ describe('ContextMenuProvider — augment-only interception', () => {
     );
     const blank = container.querySelector('#blank')!;
     const evt = dispatchContextMenu(blank);
-    expect(evt.defaultPrevented).toBe(false);
-    expect(document.body.querySelector('[role="menu"]')).toBeNull();
+    // Whole site is right-clickable now — the native menu is suppressed and a
+    // generic fallback menu opens with at least Copy.
+    expect(evt.defaultPrevented).toBe(true);
+    const menu = document.body.querySelector('[role="menu"]');
+    expect(menu).toBeTruthy();
+    const labels = [...document.body.querySelectorAll('[role="menuitem"]')].map((b) => b.textContent);
+    expect(labels.join(' ')).toContain('Copy');
+    expect(labels.join(' ')).toContain('Copy page link');
   });
 
   it('does NOT intercept over an input (native editing preserved)', () => {

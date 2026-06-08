@@ -444,4 +444,40 @@ export function getActionsFor(entity: EntityTarget): MenuItem[] {
   return all;
 }
 
+/**
+ * Generic page-level actions for a right-click that ISN'T over a specific entity
+ * (blank space, panels, headings, untagged content). Guarantees the menu is never
+ * empty so the whole site is right-clickable — at minimum a Copy. (Text-entry
+ * fields are the one exception: the provider lets them keep the native menu,
+ * because browsers block programmatic Paste and a custom menu can't replicate it.)
+ */
+export function getFallbackActions(): MenuItem[] {
+  return [
+    {
+      id: 'copy',
+      label: 'Copy',
+      icon: Copy,
+      run: () => {
+        const selection = typeof window !== 'undefined' ? String(window.getSelection() ?? '').trim() : '';
+        const href = typeof window !== 'undefined' ? window.location.pathname : '/';
+        // Copy the highlighted text if there is any; otherwise fall back to the page link.
+        writeClipboard(selection || absoluteUrl(href));
+      },
+    },
+    {
+      id: 'copy-link',
+      label: 'Copy page link',
+      icon: LinkIcon,
+      run: () => writeClipboard(typeof window !== 'undefined' ? window.location.href : ''),
+    },
+    {
+      id: 'reload',
+      label: 'Reload',
+      icon: RefreshCw,
+      separatorBefore: true,
+      run: (ctx) => ctx.refresh(),
+    },
+  ];
+}
+
 export type { ActionContext };
