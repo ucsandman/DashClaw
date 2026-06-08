@@ -20,6 +20,26 @@ export async function GET(request: Request) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
+    // before/after are compared as ::timestamptz below. Validate + canonicalize
+    // them here so a malformed value returns 400 (the intended contract) instead
+    // of letting Postgres throw 22007 and surfacing as a 500.
+    let beforeIso: string | null = null;
+    let afterIso: string | null = null;
+    if (before != null) {
+      const t = Date.parse(before);
+      if (Number.isNaN(t)) {
+        return NextResponse.json({ error: 'Invalid "before" timestamp' }, { status: 400 });
+      }
+      beforeIso = new Date(t).toISOString();
+    }
+    if (after != null) {
+      const t = Date.parse(after);
+      if (Number.isNaN(t)) {
+        return NextResponse.json({ error: 'Invalid "after" timestamp' }, { status: 400 });
+      }
+      afterIso = new Date(t).toISOString();
+    }
+
     // Build dynamic WHERE clause
     const conditions = ['al.org_id = $1'];
     const params: (string | number)[] = [orgId];
@@ -37,13 +57,15 @@ export async function GET(request: Request) {
       conditions.push(`al.resource_type = $${paramIdx++}`);
       params.push(resourceType);
     }
-    if (before) {
-      conditions.push(`al.created_at < $${paramIdx++}`);
-      params.push(before);
+    if (beforeIso) {
+      // created_at is TEXT — cast both sides to timestamptz for a temporal
+      // (not lexicographic) comparison that tolerates format drift.
+      conditions.push(`al.created_at::timestamptz < $${paramIdx++}::timestamptz`);
+      params.push(beforeIso);
     }
-    if (after) {
-      conditions.push(`al.created_at > $${paramIdx++}`);
-      params.push(after);
+    if (afterIso) {
+      conditions.push(`al.created_at::timestamptz > $${paramIdx++}::timestamptz`);
+      params.push(afterIso);
     }
 
     const where = conditions.join(' AND ');

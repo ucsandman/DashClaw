@@ -68,6 +68,24 @@ describe('GET /api/activity', () => {
     expect(logsParams).toContain('login');
   });
 
+  it('casts created_at to timestamptz for before/after and binds canonical ISO', async () => {
+    await GET(req('?before=2026-01-01T00:00:00Z&after=2025-01-01T00:00:00Z'));
+    const [logsText, logsParams] = mockSqlQuery.mock.calls[0];
+    expect(logsText).toContain('al.created_at::timestamptz < ');
+    expect(logsText).toContain('al.created_at::timestamptz > ');
+    expect(logsParams).toContain('2026-01-01T00:00:00.000Z');
+    expect(logsParams).toContain('2025-01-01T00:00:00.000Z');
+  });
+
+  it('returns 400 (not 500) for a malformed before/after timestamp', async () => {
+    const res = await GET(req('?before=not-a-date'));
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toContain('before');
+    // No SQL should run when validation fails.
+    expect(mockSqlQuery).not.toHaveBeenCalled();
+  });
+
   it('falls back to default stats when the stats query returns no rows', async () => {
     mockSqlQuery.mockReset();
     mockSqlQuery

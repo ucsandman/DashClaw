@@ -70,18 +70,25 @@ export async function GET(request: Request) {
       WHERE org_id = ${orgId}
       GROUP BY agent_id
     `;
-    const agentStats = await statsQuery as Array<{ agent_id: string; action_count?: number; avg_risk?: number; total_cost?: number }>;
-    const statsMap: Record<string, { action_count?: number; avg_risk?: number; total_cost?: number }> = Object.fromEntries(agentStats.map((s) => [s.agent_id, s]));
+    // Neon returns COUNT/AVG/SUM aggregates as strings — type them honestly.
+    const agentStats = await statsQuery as Array<{ agent_id: string; action_count?: number | string; avg_risk?: number | string; total_cost?: number | string }>;
+    const statsMap: Record<string, { action_count?: number | string; avg_risk?: number | string; total_cost?: number | string }> = Object.fromEntries(agentStats.map((s) => [s.agent_id, s]));
 
-    // Format for graph visualization (Nodes & Links)
-    const nodes = agents.map((a) => ({
-      id: a.agent_id,
-      name: a.name || a.agent_id,
-      actions: statsMap[a.agent_id]?.action_count || 0,
-      risk: parseFloat(String(statsMap[a.agent_id]?.avg_risk || 0)),
-      cost: parseFloat(String(statsMap[a.agent_id]?.total_cost || 0)),
-      val: Math.log10((statsMap[a.agent_id]?.action_count || 1) + 1) * 10 // Node size factor
-    }));
+    // Format for graph visualization (Nodes & Links). Coerce every aggregate to
+    // a real number first — otherwise the node-size math did string concatenation
+    // ('5' + 1 = '51'), wildly inflating node sizes.
+    const nodes = agents.map((a) => {
+      const stat = statsMap[a.agent_id];
+      const actionCount = Number(stat?.action_count) || 0;
+      return {
+        id: a.agent_id,
+        name: a.name || a.agent_id,
+        actions: actionCount,
+        risk: Number(stat?.avg_risk) || 0,
+        cost: Number(stat?.total_cost) || 0,
+        val: Math.log10((actionCount || 1) + 1) * 10 // Node size factor
+      };
+    });
 
     // Filter links to only include nodes we have
     const agentIds = new Set(nodes.map((n: { id: string }) => n.id));

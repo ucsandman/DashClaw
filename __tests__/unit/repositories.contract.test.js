@@ -33,7 +33,9 @@ describe('actions repository contract', () => {
       queryResponses: [
         [{ action_id: 'a1' }],
         [{ total: '2' }],
-        [{ total: '2', completed: '1' }],
+        // The real stats query always SELECTs avg_risk/total_cost (COALESCE);
+        // the repo coerces those Neon string aggregates to numbers.
+        [{ total: '2', completed: '1', avg_risk: '55.5', total_cost: '12.34' }],
       ],
     });
 
@@ -47,7 +49,7 @@ describe('actions repository contract', () => {
 
     expect(result.actions).toEqual([{ action_id: 'a1' }]);
     expect(result.total).toBe(2);
-    expect(result.stats).toEqual({ total: '2', completed: '1' });
+    expect(result.stats).toEqual({ total: '2', completed: '1', avg_risk: 55.5, total_cost: 12.34 });
     expect(sql.queryCalls).toHaveLength(3);
     expect(sql.queryCalls[0].text).toContain('FROM action_records');
     expect(sql.queryCalls[0].params).toEqual(['org_1', 'agent_1', 'running', 70, 10, 5]);

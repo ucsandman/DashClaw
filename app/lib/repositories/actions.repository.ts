@@ -98,6 +98,18 @@ interface ListActionsFilters {
   offset?: number | string;
 }
 
+// Neon returns numeric aggregates (AVG/SUM) as strings; coerce the two stats
+// the UI treats as numbers so callers receive numbers, not strings. COUNT-based
+// fields are left as-is (callers parse them where needed).
+function coerceActionStats(row: Row | undefined): Row {
+  const s = row || {};
+  return {
+    ...s,
+    avg_risk: Number(s.avg_risk) || 0,
+    total_cost: Number(s.total_cost) || 0,
+  };
+}
+
 export async function listActions(
   sql: SqlClient,
   orgId: string,
@@ -175,7 +187,7 @@ export async function listActions(
     return {
       actions,
       total: parseInt((countResult[0]?.total as string) || '0', 10),
-      stats: stats[0] || {},
+      stats: coerceActionStats(stats[0]),
     };
   }
 
@@ -233,7 +245,7 @@ export async function listActions(
   return {
     actions,
     total: parseInt((countResult[0]?.total as string) || '0', 10),
-    stats: stats[0] || {},
+    stats: coerceActionStats(stats[0]),
   };
 }
 

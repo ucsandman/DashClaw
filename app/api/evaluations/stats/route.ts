@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
     const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 
-    const stats = await getEvalStats(sql, orgId, { agentId, scorerName, cutoff } as Record<string, any>);
+    const stats = await getEvalStats(sql, orgId, { agentId, scorerName, cutoff });
 
     return NextResponse.json(stats);
   } catch (error) {

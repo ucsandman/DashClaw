@@ -299,6 +299,8 @@ export async function deleteEvalScorer(sql: SqlTag, orgId: string, scorerId: str
 
 interface GetEvalStatsFilters {
   cutoff?: string;
+  agentId?: string | null;
+  scorerName?: string | null;
 }
 
 export async function getEvalStats(
@@ -306,47 +308,66 @@ export async function getEvalStats(
   orgId: string,
   filters: GetEvalStatsFilters = {},
 ): Promise<{ overall: Row; by_scorer: Row[]; trends: Row[]; distribution: Row[] }> {
-  const { cutoff } = filters;
+  const { cutoff, agentId, scorerName } = filters;
   const now = new Date().toISOString();
 
+  // Notes on the SQL shape (all four aggregates share it):
+  // - eval_scores is aliased `es` and agentId joins action_records exactly like
+  //   listEvalScores, so ?agent_id filters by the action's agent.
+  // - scorerName filters es.scorer_name; both filters were previously ignored.
+  // - created_at is TEXT; compare as ::timestamptz (temporal, not lexicographic)
+  //   and bucket the day with TO_CHAR(... AT TIME ZONE 'UTC') so it is robust to
+  //   format drift and matches the prior LEFT(created_at,10) UTC-date output.
   const [byScorer, trends, distribution, [overall]] = await Promise.all([
     sql`
-      SELECT scorer_name, AVG(score) as avg_score, COUNT(*) as total_scores
-      FROM eval_scores
-      WHERE org_id = ${orgId} AND created_at >= ${cutoff}
-      GROUP BY scorer_name
+      SELECT es.scorer_name, AVG(es.score) as avg_score, COUNT(*) as total_scores
+      FROM eval_scores es
+      ${agentId ? sql`LEFT JOIN action_records ar ON es.action_id = ar.action_id AND ar.org_id = es.org_id` : sql``}
+      WHERE es.org_id = ${orgId} AND es.created_at::timestamptz >= ${cutoff}
+        ${scorerName ? sql`AND es.scorer_name = ${scorerName}` : sql``}
+        ${agentId ? sql`AND ar.agent_id = ${agentId}` : sql``}
+      GROUP BY es.scorer_name
       ORDER BY avg_score DESC
     `,
     sql`
       SELECT
-        LEFT(created_at, 10) as date,
-        AVG(score) as avg_score,
+        TO_CHAR(es.created_at::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD') as date,
+        AVG(es.score) as avg_score,
         COUNT(*) as count
-      FROM eval_scores
-      WHERE org_id = ${orgId} AND created_at >= ${cutoff}
-      GROUP BY LEFT(created_at, 10)
+      FROM eval_scores es
+      ${agentId ? sql`LEFT JOIN action_records ar ON es.action_id = ar.action_id AND ar.org_id = es.org_id` : sql``}
+      WHERE es.org_id = ${orgId} AND es.created_at::timestamptz >= ${cutoff}
+        ${scorerName ? sql`AND es.scorer_name = ${scorerName}` : sql``}
+        ${agentId ? sql`AND ar.agent_id = ${agentId}` : sql``}
+      GROUP BY TO_CHAR(es.created_at::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD')
       ORDER BY date ASC
     `,
     sql`
       SELECT
         CASE
-          WHEN score >= 0.8 THEN 'excellent'
-          WHEN score >= 0.5 THEN 'acceptable'
+          WHEN es.score >= 0.8 THEN 'excellent'
+          WHEN es.score >= 0.5 THEN 'acceptable'
           ELSE 'poor'
         END as bucket,
         COUNT(*) as count
-      FROM eval_scores
-      WHERE org_id = ${orgId} AND created_at >= ${cutoff}
+      FROM eval_scores es
+      ${agentId ? sql`LEFT JOIN action_records ar ON es.action_id = ar.action_id AND ar.org_id = es.org_id` : sql``}
+      WHERE es.org_id = ${orgId} AND es.created_at::timestamptz >= ${cutoff}
+        ${scorerName ? sql`AND es.scorer_name = ${scorerName}` : sql``}
+        ${agentId ? sql`AND ar.agent_id = ${agentId}` : sql``}
       GROUP BY bucket
     `,
     sql`
       SELECT
         COUNT(*) as total_scores,
-        AVG(score) as avg_score,
-        COUNT(DISTINCT scorer_name) as unique_scorers,
-        COUNT(CASE WHEN LEFT(created_at, 10) = LEFT(${now}, 10) THEN 1 END) as today_count
-      FROM eval_scores
-      WHERE org_id = ${orgId} AND created_at >= ${cutoff}
+        AVG(es.score) as avg_score,
+        COUNT(DISTINCT es.scorer_name) as unique_scorers,
+        COUNT(CASE WHEN TO_CHAR(es.created_at::timestamptz AT TIME ZONE 'UTC', 'YYYY-MM-DD') = LEFT(${now}, 10) THEN 1 END) as today_count
+      FROM eval_scores es
+      ${agentId ? sql`LEFT JOIN action_records ar ON es.action_id = ar.action_id AND ar.org_id = es.org_id` : sql``}
+      WHERE es.org_id = ${orgId} AND es.created_at::timestamptz >= ${cutoff}
+        ${scorerName ? sql`AND es.scorer_name = ${scorerName}` : sql``}
+        ${agentId ? sql`AND ar.agent_id = ${agentId}` : sql``}
     `,
   ]);
 
