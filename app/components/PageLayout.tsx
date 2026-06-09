@@ -25,9 +25,9 @@ interface PageLayoutProps {
 
 export default function PageLayout({ title, subtitle, breadcrumbs, actions, maturity, children }: PageLayoutProps) {
   return (
-    <div className="flex h-screen">
+    <div className="fixed inset-0 flex overflow-hidden bg-surface-primary">
       <Sidebar />
-      <main className="flex-1 overflow-auto">
+      <main className="min-w-0 flex-1 overflow-y-auto overflow-x-hidden">
         <DemoBanner />
         {/* Page header */}
         <header className="sticky top-0 z-10 bg-surface-primary/80 backdrop-blur-sm border-b border-border">
