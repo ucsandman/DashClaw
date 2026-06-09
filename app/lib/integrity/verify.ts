@@ -90,6 +90,12 @@ function wordBoundary(term: string, flags: string): RegExp {
 
 // MAX_PATTERN_LENGTH + assertSafePattern live in ./pattern-safety.js (shared with extract.ts).
 
+function firstMoneyAfterPrefix(text: string, prefix: string) {
+  const prefixIdx = text.indexOf(prefix);
+  if (prefixIdx === -1) return null;
+  return extractMoney(text.slice(prefixIdx + prefix.length))[0] ?? null;
+}
+
 /**
  * Check whether a required fact is satisfied by the candidate text.
  *
@@ -109,19 +115,96 @@ function isRequiredFactSatisfied(text: string, fact: RequiredFact): boolean {
 
   // Money-normalization fallback, only for slotted money facts: accept any
   // formatting variant of the same amount appearing in the same role-slot.
-  if (canonPrefix) {
-    const moneyNorm = normalizeMoney(fact.value);
-    if (moneyNorm !== fact.value.trim()) {
-      const prefixIdx = text.indexOf(canonPrefix);
-      if (prefixIdx !== -1) {
-        const afterPrefix = text.slice(prefixIdx + canonPrefix.length);
-        const firstMoney = extractMoney(afterPrefix)[0];
-        if (firstMoney && firstMoney.normalized === moneyNorm) return true;
+  if (!canonPrefix) return false;
+
+  const moneyNorm = normalizeMoney(fact.value);
+  if (moneyNorm === fact.value.trim()) return false;
+
+  return firstMoneyAfterPrefix(text, canonPrefix)?.normalized === moneyNorm;
+}
+
+function forbiddenRegex(pattern: ForbiddenPattern): RegExp {
+  const flags = pattern.flags ?? 'i';
+  const isBareWord = /^[\w\s]+$/.test(pattern.pattern);
+  return isBareWord ? wordBoundary(pattern.pattern, flags) : new RegExp(pattern.pattern, flags);
+}
+
+function addRequiredFactViolations(violations: Violation[], text: string, requiredFacts: RequiredFact[]) {
+  for (const fact of requiredFacts) {
+    if (fact.value.trim() === '') continue;
+    if (!isRequiredFactSatisfied(text, fact)) {
+      violations.push({ code: 'missing_required', label: fact.label });
+    }
+  }
+}
+
+function addForbiddenPatternViolations(
+  violations: Violation[],
+  text: string,
+  allowedValues: string[],
+  forbiddenPatterns: ForbiddenPattern[] = [],
+) {
+  for (const pattern of forbiddenPatterns) {
+    assertSafePattern(pattern.pattern); // fail closed on a ReDoS-prone caller pattern
+    const authorized = allowedValues.some((value) => forbiddenRegex(pattern).test(value));
+    if (forbiddenRegex(pattern).test(text) && !authorized) {
+      violations.push({ code: 'forbidden_match', label: pattern.label });
+    }
+  }
+}
+
+function addExtractedTokenViolations(
+  violations: Violation[],
+  text: string,
+  corpus: string,
+  label: string,
+  extractTokens: (input: string) => { raw: string; normalized: string }[],
+) {
+  const allowed = new Set(extractTokens(corpus).map((token) => token.normalized));
+  for (const token of extractTokens(text)) {
+    if (!allowed.has(token.normalized)) {
+      violations.push({ code: 'fabricated_fact', label, detail: token.raw });
+    }
+  }
+}
+
+function addRegisteredPatternViolations(
+  violations: Violation[],
+  text: string,
+  corpus: string,
+  patterns: ExtractPatternSpec[] = [],
+) {
+  for (const pattern of patterns) {
+    assertSafePattern(pattern.pattern); // fail closed on a ReDoS-prone caller pattern
+    const allowed = new Set(extractPattern(corpus, pattern.pattern).map((match) => canonicalizeText(match)));
+    for (const match of extractPattern(text, pattern.pattern)) {
+      if (!allowed.has(canonicalizeText(match))) {
+        violations.push({ code: 'fabricated_fact', label: pattern.label, detail: match });
       }
     }
   }
+}
 
-  return false;
+function addExtractViolations(
+  violations: Violation[],
+  text: string,
+  source: SourceOfTruth,
+  extractOptions: ExtractOptions,
+) {
+  const corpus = canonicalizeText(
+    [...source.allowedFacts, ...source.requiredFacts].map((fact) => fact.value).join('\n'),
+  );
+
+  if (extractOptions.money !== false) {
+    addExtractedTokenViolations(violations, text, corpus, 'money', extractMoney);
+  }
+  if (extractOptions.dates !== false) {
+    addExtractedTokenViolations(violations, text, corpus, 'date', extractDates);
+  }
+  if (extractOptions.percentages !== false) {
+    addExtractedTokenViolations(violations, text, corpus, 'percentage', extractPercentages);
+  }
+  addRegisteredPatternViolations(violations, text, corpus, extractOptions.patterns);
 }
 
 export function verify(candidate: string, source: SourceOfTruth): VerifyResult {
@@ -132,69 +215,17 @@ export function verify(candidate: string, source: SourceOfTruth): VerifyResult {
     // 1. Required facts: each must appear verbatim, with an optional role-slot
     //    (prefix/suffix) to prevent two same-typed values from swapping roles.
     //    Enforcement is unconditional: an absent required fact blocks.
-    for (const f of source.requiredFacts) {
-      if (f.value.trim() === '') continue;
-      if (!isRequiredFactSatisfied(text, f)) {
-        violations.push({ code: 'missing_required', label: f.label });
-      }
-    }
+    addRequiredFactViolations(violations, text, source.requiredFacts);
 
     // 2. Forbidden patterns: must not match unless an allowed fact authorizes them.
     //    Bare-word patterns are matched with word boundaries so "Cooper" does not
     //    match inside "Coopersville"; patterns with regex metacharacters are used as-is.
     const allowedValues = source.allowedFacts.map((a) => canonicalizeText(a.value));
-    for (const p of source.forbiddenPatterns ?? []) {
-      assertSafePattern(p.pattern); // fail closed on a ReDoS-prone caller pattern
-      const isBareWord = /^[\w\s]+$/.test(p.pattern);
-      const make = () =>
-        isBareWord ? wordBoundary(p.pattern, p.flags ?? 'i') : new RegExp(p.pattern, p.flags ?? 'i');
-      const authorized = allowedValues.some((v) => make().test(v));
-      if (make().test(text) && !authorized) {
-        violations.push({ code: 'forbidden_match', label: p.label });
-      }
-    }
+    addForbiddenPatternViolations(violations, text, allowedValues, source.forbiddenPatterns);
 
     // 3. Positive entailment: every extracted operational token must trace to an allowed fact.
     const ext = source.extract ?? { money: true, dates: true, percentages: true };
-    const corpus = canonicalizeText(
-      [...source.allowedFacts, ...source.requiredFacts].map((f) => f.value).join('\n'),
-    );
-
-    if (ext.money !== false) {
-      const allowed = new Set(extractMoney(corpus).map((m) => m.normalized));
-      for (const m of extractMoney(text)) {
-        if (!allowed.has(m.normalized)) {
-          violations.push({ code: 'fabricated_fact', label: 'money', detail: m.raw });
-        }
-      }
-    }
-    if (ext.dates !== false) {
-      const allowed = new Set(extractDates(corpus).map((d) => d.normalized));
-      for (const d of extractDates(text)) {
-        if (!allowed.has(d.normalized)) {
-          violations.push({ code: 'fabricated_fact', label: 'date', detail: d.raw });
-        }
-      }
-    }
-    if (ext.percentages !== false) {
-      const allowed = new Set(extractPercentages(corpus).map((p) => p.normalized));
-      for (const p of extractPercentages(text)) {
-        if (!allowed.has(p.normalized)) {
-          violations.push({ code: 'fabricated_fact', label: 'percentage', detail: p.raw });
-        }
-      }
-    }
-    for (const rp of ext.patterns ?? []) {
-      assertSafePattern(rp.pattern); // fail closed on a ReDoS-prone caller pattern
-      // Build the allowed set by extracting the same pattern from the corpus, so a
-      // fabricated token cannot pass merely by being a substring of an unrelated fact.
-      const allowed = new Set(extractPattern(corpus, rp.pattern).map((m) => canonicalizeText(m)));
-      for (const match of extractPattern(text, rp.pattern)) {
-        if (!allowed.has(canonicalizeText(match))) {
-          violations.push({ code: 'fabricated_fact', label: rp.label, detail: match });
-        }
-      }
-    }
+    addExtractViolations(violations, text, source, ext);
 
     return { verdict: violations.length === 0 ? 'pass' : 'block', violations };
   } catch (err) {

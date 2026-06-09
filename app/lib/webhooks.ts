@@ -117,16 +117,16 @@ export function buildPinnedDispatcher(validatedIps: string[]): UndiciAgent | und
   });
 }
 
-export async function safeUrlWithIps(url: string): Promise<string[]> {
+function assertWebhookUrlShape(url: string): string {
   const parsed = new URL(url);
   if (parsed.protocol !== 'https:') throw new Error('Webhook URL must use https');
   if (parsed.username || parsed.password) throw new Error('Webhook URL must not include credentials');
   const host = parsed.hostname;
   if (!host) throw new Error('Webhook URL hostname is required');
-  if (net.isIP(host)) {
-    if (isPrivateIp(host)) throw new Error('Webhook URL cannot target private or loopback IPs');
-    return [host];
-  }
+  return host;
+}
+
+async function resolvePublicAddresses(host: string): Promise<string[]> {
   const addrs = await dns.lookup(host, { all: true, verbatim: true });
   if (!Array.isArray(addrs) || addrs.length === 0) throw new Error('Webhook hostname did not resolve');
   for (const a of addrs) {
@@ -135,38 +135,63 @@ export async function safeUrlWithIps(url: string): Promise<string[]> {
   return addrs.map((a) => a.address).filter(Boolean);
 }
 
+export async function safeUrlWithIps(url: string): Promise<string[]> {
+  const host = assertWebhookUrlShape(url);
+  if (net.isIP(host)) {
+    if (isPrivateIp(host)) throw new Error('Webhook URL cannot target private or loopback IPs');
+    return [host];
+  }
+  return resolvePublicAddresses(host);
+}
+
+/** Reserved/private IPv4 ranges, checked against the first two octets. */
+const RESERVED_IPV4_RANGES: ((a: number, b: number) => boolean)[] = [
+  (a) => a === 0, // "this network"
+  (a) => a === 10,
+  (a) => a === 127,
+  (a, b) => a === 169 && b === 254, // link-local
+  (a, b) => a === 172 && b >= 16 && b <= 31,
+  (a, b) => a === 192 && b === 168,
+];
+
+function isValidIpv4Octet(n: number): boolean {
+  return Number.isFinite(n) && n >= 0 && n <= 255;
+}
+
+function isMalformedIpv4(parts: number[]): boolean {
+  if (parts.length !== 4) return true;
+  return parts.some((n) => !isValidIpv4Octet(n));
+}
+
+function isPrivateIpv4(ip: string): boolean {
+  const parts = ip.split('.').map((p) => parseInt(p, 10));
+  if (isMalformedIpv4(parts)) return true;
+
+  const [a, b] = parts;
+  return RESERVED_IPV4_RANGES.some((inRange) => inRange(a as number, b as number));
+}
+
+function isPrivateIpv6(ip: string): boolean {
+  const lower = ip.toLowerCase();
+  if (lower === '::' || lower === '::1') return true;
+  if (lower.startsWith('fe80:')) return true; // link-local
+  if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local
+
+  // Defend against IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1)
+  if (lower.startsWith('::ffff:')) {
+    const ipv4Part = lower.substring(7);
+    return isPrivateIp(ipv4Part);
+  }
+
+  return false;
+}
+
 function isPrivateIp(ip: string | undefined | null): boolean {
   if (!ip || typeof ip !== 'string') return true;
 
   const v = net.isIP(ip);
-  if (v === 4) {
-    const parts = ip.split('.').map((p) => parseInt(p, 10));
-    if (parts.length !== 4 || parts.some((n) => !Number.isFinite(n) || n < 0 || n > 255)) return true;
-
-    const [a, b] = parts;
-    if (a === 0) return true; // "this network"
-    if (a === 10) return true;
-    if (a === 127) return true;
-    if (a === 169 && b === 254) return true; // link-local
-    if (a === 172 && b !== undefined && b >= 16 && b <= 31) return true;
-    if (a === 192 && b === 168) return true;
-    return false;
-  }
-
-  if (v === 6) {
-    const lower = ip.toLowerCase();
-    if (lower === '::' || lower === '::1') return true;
-    if (lower.startsWith('fe80:')) return true; // link-local
-    if (lower.startsWith('fc') || lower.startsWith('fd')) return true; // unique local
-
-    // Defend against IPv4-mapped IPv6 addresses (e.g. ::ffff:127.0.0.1)
-    if (lower.startsWith('::ffff:')) {
-      const ipv4Part = lower.substring(7);
-      return isPrivateIp(ipv4Part);
-    }
-
-    return false;
-  }
+  if (v === 4) return isPrivateIpv4(ip);
+  if (v === 6) return isPrivateIpv6(ip);
 
   // Not an IP literal (shouldn't happen here)
   return true;
@@ -203,6 +228,103 @@ function signGuardWebhookPayload({
 }
 
 /**
+ * Validate the URL is safe, capture every validated IP, and pin DNS resolution
+ * to one of them so fetch's own lookup can't be swapped mid-flight by a
+ * DNS-rebinding attacker. We fetch the original URL (for TLS SNI + cert
+ * matching) but the connect-time resolution goes through the pinned
+ * dispatcher instead of the system resolver.
+ */
+async function postWithPinnedDns({
+  url,
+  headers,
+  body,
+  timeoutMs,
+}: {
+  url: string;
+  headers: Record<string, string>;
+  body: string;
+  timeoutMs: number;
+}): Promise<Awaited<ReturnType<typeof fetch>>> {
+  const validatedIps = await safeUrlWithIps(url);
+  const dispatcher = buildPinnedDispatcher(validatedIps);
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  const res = await fetch(url, {
+    method: 'POST',
+    redirect: 'manual', // SECURITY: prevent SSRF via redirects
+    headers,
+    body,
+    signal: controller.signal,
+    dispatcher,
+  } as Parameters<typeof fetch>[1]);
+
+  clearTimeout(timeout);
+  return res;
+}
+
+/** Map a fetch response to delivery status + (truncated) response body. */
+async function readWebhookResponse(
+  res: Awaited<ReturnType<typeof fetch>>,
+): Promise<{ status: string; responseBody: string }> {
+  if (res.status >= 300 && res.status < 400) {
+    return { status: 'failed', responseBody: 'Redirect blocked' };
+  }
+  let responseBody = await res.text().catch(() => '');
+  if (responseBody.length > 2000) responseBody = responseBody.substring(0, 2000);
+  return { status: res.ok ? 'success' : 'failed', responseBody };
+}
+
+/**
+ * Log a delivery attempt to webhook_deliveries — await so the audit row is
+ * committed before we tell the caller the delivery succeeded. A lost INSERT
+ * here would leave an operator investigating a missed webhook alert with no
+ * delivery attempt in the UI, unable to distinguish "never tried" from
+ * "tried and lost". Returns whether the row was committed.
+ */
+async function logWebhookDelivery({
+  deliveryId,
+  webhookId,
+  orgId,
+  eventType,
+  payloadStr,
+  status,
+  responseStatus,
+  responseBody,
+  now,
+  durationMs,
+  logPrefix,
+  sql,
+}: {
+  deliveryId: string;
+  webhookId: string;
+  orgId: string;
+  eventType: string;
+  payloadStr: string;
+  status: string;
+  responseStatus: number | null;
+  responseBody: string | null;
+  now: string;
+  durationMs: number;
+  logPrefix: string;
+  sql: SqlClient;
+}): Promise<boolean> {
+  const storedPayload = redactForStorage(payloadStr);
+  const storedResponseBody = redactForStorage(responseBody);
+  try {
+    await sql`
+      INSERT INTO webhook_deliveries (id, webhook_id, org_id, event_type, payload, status, response_status, response_body, attempted_at, duration_ms)
+      VALUES (${deliveryId}, ${webhookId}, ${orgId}, ${eventType}, ${storedPayload}, ${status}, ${responseStatus}, ${storedResponseBody}, ${now}, ${durationMs})
+    `;
+    return true;
+  } catch (err) {
+    console.error(`${logPrefix} Failed to log delivery:`, (err as Error)?.message);
+    return false;
+  }
+}
+
+/**
  * Deliver a webhook: POST payload to url, log result to webhook_deliveries.
  */
 export async function deliverWebhook({
@@ -225,20 +347,8 @@ export async function deliverWebhook({
   let responseBody: string | null = null;
 
   try {
-    // Validate URL is safe, capture every validated IP, and pin DNS resolution
-    // to one of them so fetch's own lookup can't be swapped mid-flight by a
-    // DNS-rebinding attacker. We fetch the original URL (for TLS SNI + cert
-    // matching) but the connect-time resolution goes through the pinned
-    // dispatcher instead of the system resolver.
-    const validatedIps = await safeUrlWithIps(url);
-    const dispatcher = buildPinnedDispatcher(validatedIps);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-
-    const res = await fetch(url, {
-      method: 'POST',
-      redirect: 'manual', // SECURITY: prevent SSRF via redirects
+    const res = await postWithPinnedDns({
+      url,
       headers: {
         'Content-Type': 'application/json',
         'X-DashClaw-Signature': signature,
@@ -247,21 +357,11 @@ export async function deliverWebhook({
         'User-Agent': 'DashClaw-Webhooks/1.0',
       },
       body: payloadStr,
-      signal: controller.signal,
-      dispatcher,
-    } as Parameters<typeof fetch>[1]);
+      timeoutMs: 10000, // 10s timeout
+    });
 
-    clearTimeout(timeout);
     responseStatus = res.status;
-
-    if (res.status >= 300 && res.status < 400) {
-      responseBody = 'Redirect blocked';
-      status = 'failed';
-    } else {
-      responseBody = await res.text().catch(() => '');
-      if (responseBody.length > 2000) responseBody = responseBody.substring(0, 2000);
-      status = res.ok ? 'success' : 'failed';
-    }
+    ({ status, responseBody } = await readWebhookResponse(res));
   } catch (err) {
     responseBody = (err as Error)?.message || 'Request failed';
     status = 'failed';
@@ -269,24 +369,52 @@ export async function deliverWebhook({
 
   const durationMs = Date.now() - start;
 
-  // Log delivery — await so the audit row is committed before we tell the
-  // caller the delivery succeeded. A lost INSERT here would leave an
-  // operator investigating a missed webhook alert with no delivery attempt
-  // in the UI, unable to distinguish "never tried" from "tried and lost".
-  const storedPayload = redactForStorage(payloadStr);
-  const storedResponseBody = redactForStorage(responseBody);
-  let deliveryLogged = true;
-  try {
-    await sql`
-      INSERT INTO webhook_deliveries (id, webhook_id, org_id, event_type, payload, status, response_status, response_body, attempted_at, duration_ms)
-      VALUES (${deliveryId}, ${webhookId}, ${orgId}, ${eventType}, ${storedPayload}, ${status}, ${responseStatus}, ${storedResponseBody}, ${now}, ${durationMs})
-    `;
-  } catch (err) {
-    console.error('[WEBHOOK] Failed to log delivery:', (err as Error)?.message);
-    deliveryLogged = false;
-  }
+  const deliveryLogged = await logWebhookDelivery({
+    deliveryId,
+    webhookId,
+    orgId,
+    eventType,
+    payloadStr,
+    status,
+    responseStatus,
+    responseBody,
+    now,
+    durationMs,
+    logPrefix: '[WEBHOOK]',
+    sql,
+  });
 
   return { success: status === 'success', status: responseStatus, delivery_logged: deliveryLogged };
+}
+
+/** Optional signing for guard webhooks (global secret). */
+function buildGuardHeaders(deliveryId: string, payloadStr: string): Record<string, string> {
+  const guardSecret = process.env.GUARD_WEBHOOK_SECRET || '';
+  const guardTs = String(Date.now());
+  const guardSig = guardSecret
+    ? signGuardWebhookPayload({ timestamp: guardTs, payload: payloadStr, secret: guardSecret })
+    : null;
+
+  return {
+    'Content-Type': 'application/json',
+    'X-DashClaw-Event': 'guard.evaluation',
+    'X-DashClaw-Delivery': deliveryId,
+    ...(guardSig ? { 'X-DashClaw-Timestamp': guardTs, 'X-DashClaw-Signature': `v1=${guardSig}` } : {}),
+    'User-Agent': 'DashClaw-Guard/1.0',
+  };
+}
+
+function guardFailureMessage(err: unknown): string {
+  if ((err as Error)?.name === 'AbortError') return 'Request timed out';
+  return (err as Error)?.message || 'Request failed';
+}
+
+function parseGuardResponse(responseBody: string): unknown {
+  try {
+    return JSON.parse(responseBody);
+  } catch {
+    return null; // non-JSON response treated as no-op
+  }
 }
 
 /**
@@ -312,53 +440,19 @@ export async function deliverGuardWebhook({
   let parsedResponse: unknown = null;
 
   try {
-    // Validate URL + capture validated IPs + pin DNS (see deliverWebhook).
-    const validatedIps = await safeUrlWithIps(url);
-    const dispatcher = buildPinnedDispatcher(validatedIps);
-
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), timeoutMs || 5000);
-
-    // Optional signing for guard webhooks (global secret).
-    const guardSecret = process.env.GUARD_WEBHOOK_SECRET || '';
-    const guardTs = String(Date.now());
-    const guardSig = guardSecret
-      ? signGuardWebhookPayload({ timestamp: guardTs, payload: payloadStr, secret: guardSecret })
-      : null;
-
-    const res = await fetch(url, {
-      method: 'POST',
-      redirect: 'manual', // SECURITY: prevent SSRF via redirects
-      headers: {
-        'Content-Type': 'application/json',
-        'X-DashClaw-Event': 'guard.evaluation',
-        'X-DashClaw-Delivery': deliveryId,
-        ...(guardSig ? { 'X-DashClaw-Timestamp': guardTs, 'X-DashClaw-Signature': `v1=${guardSig}` } : {}),
-        'User-Agent': 'DashClaw-Guard/1.0',
-      },
+    // Validate URL + capture validated IPs + pin DNS (see postWithPinnedDns).
+    const res = await postWithPinnedDns({
+      url,
+      headers: buildGuardHeaders(deliveryId, payloadStr),
       body: payloadStr,
-      signal: controller.signal,
-      dispatcher,
-    } as Parameters<typeof fetch>[1]);
+      timeoutMs: timeoutMs || 5000,
+    });
 
-    clearTimeout(timeout);
     responseStatus = res.status;
-    if (res.status >= 300 && res.status < 400) {
-      responseBody = 'Redirect blocked';
-      status = 'failed';
-    } else {
-      responseBody = await res.text().catch(() => '');
-      if (responseBody.length > 2000) responseBody = responseBody.substring(0, 2000);
-      status = res.ok ? 'success' : 'failed';
-
-      if (res.ok) {
-        try {
-          parsedResponse = JSON.parse(responseBody);
-        } catch { /* non-JSON response treated as no-op */ }
-      }
-    }
+    ({ status, responseBody } = await readWebhookResponse(res));
+    if (status === 'success') parsedResponse = parseGuardResponse(responseBody);
   } catch (err) {
-    responseBody = (err as Error)?.name === 'AbortError' ? 'Request timed out' : ((err as Error)?.message || 'Request failed');
+    responseBody = guardFailureMessage(err);
     status = 'failed';
   }
 
@@ -367,20 +461,68 @@ export async function deliverGuardWebhook({
   // Log delivery (use policyId as webhook_id for guard webhooks). Await so
   // the audit row is committed before the caller acts on the response — a
   // lost INSERT would hide the guard decision from replay and forensics.
-  const storedPayload = redactForStorage(payloadStr);
-  const storedResponseBody = redactForStorage(responseBody);
-  let deliveryLogged = true;
-  try {
-    await sql`
-      INSERT INTO webhook_deliveries (id, webhook_id, org_id, event_type, payload, status, response_status, response_body, attempted_at, duration_ms)
-      VALUES (${deliveryId}, ${policyId}, ${orgId}, ${'guard.evaluation'}, ${storedPayload}, ${status}, ${responseStatus}, ${storedResponseBody}, ${now}, ${durationMs})
-    `;
-  } catch (err) {
-    console.error('[GUARD WEBHOOK] Failed to log delivery:', (err as Error)?.message);
-    deliveryLogged = false;
-  }
+  const deliveryLogged = await logWebhookDelivery({
+    deliveryId,
+    webhookId: policyId,
+    orgId,
+    eventType: 'guard.evaluation',
+    payloadStr,
+    status,
+    responseStatus,
+    responseBody,
+    now,
+    durationMs,
+    logPrefix: '[GUARD WEBHOOK]',
+    sql,
+  });
 
   return { success: status === 'success', response: parsedResponse, status: responseStatus, delivery_logged: deliveryLogged };
+}
+
+/**
+ * Parse a webhook's `events` column, guarding the JSON.parse: a single
+ * malformed column would otherwise throw and short-circuit all remaining
+ * webhooks for the event being fired.
+ */
+function parseSubscribedEvents(raw: string): string[] {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return ['all'];
+  }
+}
+
+/** Filter signals this webhook cares about. */
+function filterRelevantSignals(
+  subscribedEvents: string[],
+  signals: { type?: string }[],
+): { type?: string }[] {
+  if (subscribedEvents.includes('all')) return signals;
+  return signals.filter((s) => subscribedEvents.includes(s.type as string));
+}
+
+/** Reset, increment, or disable-at-10 a webhook's failure_count after a delivery. */
+function updateWebhookFailureState(wh: WebhookRow, orgId: string, success: boolean, sql: SqlClient): void {
+  if (success) {
+    // Reset failure count on success
+    sql`UPDATE webhooks SET failure_count = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
+      console.warn(`[Webhooks] Failed to reset failure_count for webhook ${wh.id}:`, (err as Error)?.message);
+    });
+    return;
+  }
+
+  const newCount = (parseInt(wh.failure_count as string, 10) || 0) + 1;
+  if (newCount >= 10) {
+    // Disable webhook after 10 consecutive failures
+    sql`UPDATE webhooks SET failure_count = ${newCount}, active = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
+      console.warn(`[Webhooks] Failed to disable webhook ${wh.id} after ${newCount} failures:`, (err as Error)?.message);
+    });
+    return;
+  }
+
+  sql`UPDATE webhooks SET failure_count = ${newCount}, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
+    console.warn(`[Webhooks] Failed to update failure_count for webhook ${wh.id}:`, (err as Error)?.message);
+  });
 }
 
 /**
@@ -405,18 +547,8 @@ export async function fireWebhooksForOrg(
   const results: { webhookId: string; success: boolean; signalCount: number }[] = [];
 
   for (const wh of webhooks) {
-    let subscribedEvents: string[];
-    try {
-      subscribedEvents = JSON.parse(wh.events as string);
-    } catch {
-      subscribedEvents = ['all'];
-    }
-
-    // Filter signals this webhook cares about
-    const relevantSignals = subscribedEvents.includes('all')
-      ? signals
-      : signals.filter((s) => subscribedEvents.includes(s.type as string));
-
+    const subscribedEvents = parseSubscribedEvents(wh.events as string);
+    const relevantSignals = filterRelevantSignals(subscribedEvents, signals);
     if (relevantSignals.length === 0) continue;
 
     const payload = {
@@ -436,29 +568,36 @@ export async function fireWebhooksForOrg(
       sql,
     });
 
-    if (result.success) {
-      // Reset failure count on success
-      sql`UPDATE webhooks SET failure_count = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
-        console.warn(`[Webhooks] Failed to reset failure_count for webhook ${wh.id}:`, (err as Error)?.message);
-      });
-    } else {
-      const newCount = (parseInt(wh.failure_count as string, 10) || 0) + 1;
-      if (newCount >= 10) {
-        // Disable webhook after 10 consecutive failures
-        sql`UPDATE webhooks SET failure_count = ${newCount}, active = 0, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
-          console.warn(`[Webhooks] Failed to disable webhook ${wh.id} after ${newCount} failures:`, (err as Error)?.message);
-        });
-      } else {
-        sql`UPDATE webhooks SET failure_count = ${newCount}, last_triggered_at = ${new Date().toISOString()} WHERE id = ${wh.id} AND org_id = ${orgId}`.catch((err) => {
-          console.warn(`[Webhooks] Failed to update failure_count for webhook ${wh.id}:`, (err as Error)?.message);
-        });
-      }
-    }
+    updateWebhookFailureState(wh, orgId, result.success, sql);
 
     results.push({ webhookId: wh.id, success: result.success, signalCount: relevantSignals.length });
   }
 
   return results;
+}
+
+/** Build the payload shared by every webhook fired for one approval event. */
+function buildApprovalPayload(orgId: string, eventType: string, action: ApprovalAction) {
+  const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL
+    ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
+
+  return {
+    event: eventType,
+    org_id: orgId,
+    timestamp: new Date().toISOString(),
+    action: {
+      action_id: action.action_id,
+      agent_id: action.agent_id,
+      action_type: action.action_type,
+      declared_goal: action.declared_goal,
+      risk_score: action.risk_score,
+      status: action.status,
+      matched_policies: action.matched_policies || [],
+      reason: action.reason || '',
+    },
+    approval_url: `${baseUrl}/api/approvals/${action.action_id}`,
+    replay_url: `${baseUrl}/replay/${action.action_id}`,
+  };
 }
 
 /**
@@ -476,37 +615,10 @@ export async function fireWebhooksForApproval(
       WHERE org_id = ${orgId} AND active = 1
     `) as unknown as WebhookRow[];
 
-    const baseUrl = process.env.NEXTAUTH_URL || (process.env.VERCEL_URL
-      ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000');
-
-    const payload = {
-      event: eventType,
-      org_id: orgId,
-      timestamp: new Date().toISOString(),
-      action: {
-        action_id: action.action_id,
-        agent_id: action.agent_id,
-        action_type: action.action_type,
-        declared_goal: action.declared_goal,
-        risk_score: action.risk_score,
-        status: action.status,
-        matched_policies: action.matched_policies || [],
-        reason: action.reason || '',
-      },
-      approval_url: `${baseUrl}/api/approvals/${action.action_id}`,
-      replay_url: `${baseUrl}/replay/${action.action_id}`,
-    };
+    const payload = buildApprovalPayload(orgId, eventType, action);
 
     for (const wh of webhooks) {
-      // Guard the JSON.parse: a single malformed `events` column would
-      // throw and short-circuit all remaining webhooks for this approval.
-      // Mirrors the per-iteration try/catch in fireWebhooksForOrg.
-      let events: string[];
-      try {
-        events = JSON.parse(wh.events || '["all"]');
-      } catch {
-        events = ['all'];
-      }
+      const events = parseSubscribedEvents(wh.events || '["all"]');
       if (!events.includes('all') && !events.includes(eventType)) continue;
       deliverWebhook({
         webhookId: wh.id,

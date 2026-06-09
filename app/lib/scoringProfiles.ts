@@ -246,50 +246,55 @@ export async function deleteDimension(sql: SqlTag, orgId: string, dimensionId: s
 
 // --- Score Computation Engine -----------------------------
 
+/** Resolve a dotted path like "result.latency" against a source object. */
+function resolveFieldPath(source: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((obj, key) => (obj as Record<string, unknown> | null | undefined)?.[key], source);
+}
+
+function extractMetadataField(action: ActionInput, dimension: Dimension): unknown {
+  const field = dimension.data_config?.field as string | undefined;
+  if (!field) return null;
+  // Support nested paths like "result.latency"
+  return resolveFieldPath(action.metadata ?? {}, field) ?? null;
+}
+
+function runCustomFunction(action: ActionInput, dimension: Dimension): unknown {
+  const fn = dimension.data_config?.function_body as string | undefined;
+  if (!fn) return null;
+  // Run the org-supplied body in an isolated vm context. The sandbox
+  // exposes only `action` — the outer scope (process, require,
+  // filesystem access) is not reachable from within the script, so
+  // the body cannot exfiltrate env vars or issue arbitrary I/O. A
+  // short timeout prevents accidental or intentional loops.
+  try {
+    const context = vm.createContext({ action });
+    const script = new vm.Script(`(function(action){${fn}})(action)`);
+    return script.runInContext(context, { timeout: 100, displayErrors: false });
+  } catch {
+    return null;
+  }
+}
+
+const RAW_VALUE_EXTRACTORS: Record<string, (action: ActionInput, dimension: Dimension) => unknown> = {
+  duration_ms: (action) => action.duration_ms ?? action.metadata?.duration_ms ?? null,
+  cost_estimate: (action) => action.cost_estimate ?? action.metadata?.cost_estimate ?? null,
+  tokens_total: (action) => {
+    const sum = (action.prompt_tokens ?? 0) + (action.completion_tokens ?? 0);
+    return sum || (action.metadata?.tokens_total ?? null);
+  },
+  risk_score: (action) => action.risk_score ?? null,
+  confidence: (action) => action.confidence ?? action.metadata?.confidence ?? null,
+  eval_score: (action) => action.eval_score ?? action.metadata?.eval_score ?? null,
+  metadata_field: extractMetadataField,
+  custom_function: runCustomFunction,
+};
+
 /**
  * Extract a raw value from an action record based on a dimension's data_source.
  */
 function extractRawValue(action: ActionInput, dimension: Dimension): unknown {
-  switch (dimension.data_source) {
-    case 'duration_ms':
-      return action.duration_ms ?? action.metadata?.duration_ms ?? null;
-    case 'cost_estimate':
-      return action.cost_estimate ?? action.metadata?.cost_estimate ?? null;
-    case 'tokens_total': {
-      const sum = (action.prompt_tokens ?? 0) + (action.completion_tokens ?? 0);
-      return sum || (action.metadata?.tokens_total ?? null);
-    }
-    case 'risk_score':
-      return action.risk_score ?? null;
-    case 'confidence':
-      return action.confidence ?? action.metadata?.confidence ?? null;
-    case 'eval_score':
-      return action.eval_score ?? action.metadata?.eval_score ?? null;
-    case 'metadata_field': {
-      const field = dimension.data_config?.field as string | undefined;
-      if (!field) return null;
-      // Support nested paths like "result.latency"
-      return field.split('.').reduce<unknown>((obj, key) => (obj as Record<string, unknown> | null | undefined)?.[key], action.metadata ?? {}) ?? null;
-    }
-    case 'custom_function': {
-      const fn = dimension.data_config?.function_body as string | undefined;
-      if (!fn) return null;
-      // Run the org-supplied body in an isolated vm context. The sandbox
-      // exposes only `action` — the outer scope (process, require,
-      // filesystem access) is not reachable from within the script, so
-      // the body cannot exfiltrate env vars or issue arbitrary I/O. A
-      // short timeout prevents accidental or intentional loops.
-      try {
-        const context = vm.createContext({ action });
-        const script = new vm.Script(`(function(action){${fn}})(action)`);
-        return script.runInContext(context, { timeout: 100, displayErrors: false });
-      } catch {
-        return null;
-      }
-    }
-    default:
-      return null;
-  }
+  const extractor = RAW_VALUE_EXTRACTORS[dimension.data_source ?? ''];
+  return extractor ? extractor(action, dimension) : null;
 }
 
 interface DimensionScore {
@@ -312,29 +317,28 @@ interface DimensionScore {
  *   { label: "poor", operator: "gte", value: 120000, score: 20 },
  * ]
  */
+const SCALE_OPERATORS: Record<string, (val: string | number, target: number | number[] | string) => boolean> = {
+  lt: (val, target) => (val as number) < (target as number),
+  lte: (val, target) => (val as number) <= (target as number),
+  gt: (val, target) => (val as number) > (target as number),
+  gte: (val, target) => (val as number) >= (target as number),
+  eq: (val, target) => val === target || String(val) === String(target),
+  between: (val, target) => Array.isArray(target) && (val as number) >= (target[0] as number) && (val as number) <= (target[1] as number),
+  contains: (val, target) => typeof val === 'string' && val.toLowerCase().includes(String(target).toLowerCase()),
+};
+
+function matchesScaleRule(rawValue: unknown, rule: ScaleRule): boolean {
+  const val = typeof rawValue === 'string' ? rawValue : Number(rawValue);
+  const operator = SCALE_OPERATORS[rule.operator ?? ''];
+  return operator ? operator(val, rule.value as number | number[] | string) : false;
+}
+
 function scoreDimensionValue(rawValue: unknown, scale: ScaleRule[] | undefined): DimensionScore {
   if (rawValue === null || rawValue === undefined) return { score: null, label: 'no_data' };
   if (!Array.isArray(scale) || scale.length === 0) return { score: 50, label: 'unscaled' };
 
   for (const rule of scale) {
-    let matched = false;
-    const val = typeof rawValue === 'string' ? rawValue : Number(rawValue);
-    const target = rule.value as number | number[] | string;
-
-    switch (rule.operator) {
-      case 'lt': matched = (val as number) < (target as number); break;
-      case 'lte': matched = (val as number) <= (target as number); break;
-      case 'gt': matched = (val as number) > (target as number); break;
-      case 'gte': matched = (val as number) >= (target as number); break;
-      case 'eq': matched = val === target || String(val) === String(target); break;
-      case 'between': matched = Array.isArray(target) && (val as number) >= (target[0] as number) && (val as number) <= (target[1] as number); break;
-      case 'contains':
-        matched = typeof val === 'string' && val.toLowerCase().includes(String(target).toLowerCase());
-        break;
-      default: matched = false;
-    }
-
-    if (matched) {
+    if (matchesScaleRule(rawValue, rule)) {
       return { score: rule.score, label: rule.label || 'matched' };
     }
   }
@@ -391,17 +395,12 @@ export interface ScoreActionResult {
   dimensions: DimensionResult[];
 }
 
-/**
- * Score an action against a profile. Returns composite + per-dimension breakdown.
- */
-export async function scoreAction(sql: SqlTag, orgId: string, profileId: string, action: ActionInput): Promise<ScoreActionResult> {
-  const profile = await getProfile(sql, orgId, profileId);
-  if (!profile) throw new Error(`Profile ${profileId} not found`);
+function resolveActionId(action: ActionInput): string | null {
+  return action.action_id || action.id || null;
+}
 
-  const dimensions = profile.dimensions || [];
-  if (dimensions.length === 0) throw new Error('Profile has no dimensions');
-
-  const dimensionResults: DimensionResult[] = dimensions.map((dim) => {
+function scoreDimensions(action: ActionInput, dimensions: Dimension[]): DimensionResult[] {
+  return dimensions.map((dim) => {
     const rawValue = extractRawValue(action, dim);
     const { score, label } = scoreDimensionValue(rawValue, dim.scale);
     return {
@@ -413,29 +412,57 @@ export async function scoreAction(sql: SqlTag, orgId: string, profileId: string,
       label,
     };
   });
+}
 
-  const compositeScore = computeComposite(dimensionResults, profile.composite_method);
-  if (compositeScore === null) throw new Error('Could not compute composite score  --  no dimensions had data');
+interface ProfileScoreRecord {
+  orgId: string;
+  profileId: string;
+  action: ActionInput;
+  profile: Profile;
+  compositeScore: number;
+  dimensionResults: DimensionResult[];
+}
 
-  // Persist the score
+async function persistProfileScore(sql: SqlTag, record: ProfileScoreRecord): Promise<string> {
+  const { orgId, profileId, action, profile, compositeScore, dimensionResults } = record;
   const id = generateId('ps');
   await sql`
     INSERT INTO profile_scores (id, org_id, profile_id, action_id, agent_id, composite_score, dimension_scores, metadata)
     VALUES (
       ${id}, ${orgId}, ${profileId},
-      ${action.action_id || action.id || null},
+      ${resolveActionId(action)},
       ${action.agent_id || null},
       ${compositeScore},
       ${JSON.stringify(dimensionResults)},
       ${JSON.stringify({ profile_name: profile.name, action_type: action.action_type || null, ...(action.is_seed ? { is_seed: true } : {}) })}
     )
   `;
+  return id;
+}
+
+/**
+ * Score an action against a profile. Returns composite + per-dimension breakdown.
+ */
+export async function scoreAction(sql: SqlTag, orgId: string, profileId: string, action: ActionInput): Promise<ScoreActionResult> {
+  const profile = await getProfile(sql, orgId, profileId);
+  if (!profile) throw new Error(`Profile ${profileId} not found`);
+
+  const dimensions = profile.dimensions || [];
+  if (dimensions.length === 0) throw new Error('Profile has no dimensions');
+
+  const dimensionResults = scoreDimensions(action, dimensions);
+
+  const compositeScore = computeComposite(dimensionResults, profile.composite_method);
+  if (compositeScore === null) throw new Error('Could not compute composite score  --  no dimensions had data');
+
+  // Persist the score
+  const id = await persistProfileScore(sql, { orgId, profileId, action, profile, compositeScore, dimensionResults });
 
   return {
     id,
     profile_id: profileId,
     profile_name: profile.name,
-    action_id: action.action_id || action.id || null,
+    action_id: resolveActionId(action),
     composite_score: compositeScore,
     composite_method: profile.composite_method,
     dimensions: dimensionResults,
@@ -591,6 +618,21 @@ export async function deleteRiskTemplate(sql: SqlTag, orgId: string, templateId:
 /**
  * Compute automatic risk score for an action using matching risk templates.
  */
+function sumMatchedRuleRisk(rules: RiskTemplateRule[], action: ActionInput): number {
+  let added = 0;
+  for (const rule of rules) {
+    try {
+      // Simple expression evaluator for conditions
+      if (evaluateCondition(rule.condition, action)) {
+        added += rule.add || 0;
+      }
+    } catch {
+      // Skip malformed rules
+    }
+  }
+  return added;
+}
+
 export function computeAutoRisk(action: ActionInput, templates: RiskTemplate[]): number | null {
   // Find matching templates (by action_type or null = matches all)
   const matching = templates.filter((t) =>
@@ -602,19 +644,7 @@ export function computeAutoRisk(action: ActionInput, templates: RiskTemplate[]):
   // Use the most specific match (action_type match beats null)
   const template = matching.find((t) => t.action_type === action.action_type) || matching[0]!;
 
-  let risk = template.base_risk ?? 0;
-
-  for (const rule of (template.rules || [])) {
-    try {
-      // Simple expression evaluator for conditions
-      const matched = evaluateCondition(rule.condition, action);
-      if (matched) {
-        risk += rule.add || 0;
-      }
-    } catch {
-      // Skip malformed rules
-    }
-  }
+  const risk = (template.base_risk ?? 0) + sumMatchedRuleRisk(template.rules || [], action);
 
   return Math.max(0, Math.min(100, risk));
 }
@@ -629,36 +659,38 @@ export function computeAutoRisk(action: ActionInput, templates: RiskTemplate[]):
  * - "field <= value"
  * - "field contains value"
  */
+const CONDITION_PATTERNS: { regex: RegExp; fn: (a: unknown, b: unknown) => boolean }[] = [
+  { regex: /^(.+?)\s*==\s*(.+)$/, fn: (a, b) => String(a) === String(b) },
+  { regex: /^(.+?)\s*!=\s*(.+)$/, fn: (a, b) => String(a) !== String(b) },
+  { regex: /^(.+?)\s*>=\s*(.+)$/, fn: (a, b) => Number(a) >= Number(b) },
+  { regex: /^(.+?)\s*<=\s*(.+)$/, fn: (a, b) => Number(a) <= Number(b) },
+  { regex: /^(.+?)\s*>\s*(.+)$/, fn: (a, b) => Number(a) > Number(b) },
+  { regex: /^(.+?)\s*<\s*(.+)$/, fn: (a, b) => Number(a) < Number(b) },
+  { regex: /^(.+?)\s+contains\s+(.+)$/i, fn: (a, b) => String(a).toLowerCase().includes(String(b).toLowerCase().replace(/['"]/g, '')) },
+];
+
+/** Parse a condition target  --  handle booleans, null, and numbers. */
+function parseConditionTarget(raw: string): unknown {
+  const targetValue = raw.trim().replace(/^['"]|['"]$/g, '');
+  if (targetValue === 'true') return true;
+  if (targetValue === 'false') return false;
+  if (targetValue === 'null') return null;
+  if (!isNaN(targetValue as unknown as number) && targetValue !== '') return Number(targetValue);
+  return targetValue;
+}
+
 function evaluateCondition(condition: unknown, action: ActionInput): boolean {
   if (!condition || typeof condition !== 'string') return false;
 
-  const patterns: { regex: RegExp; fn: (a: unknown, b: unknown) => boolean }[] = [
-    { regex: /^(.+?)\s*==\s*(.+)$/, fn: (a, b) => String(a) === String(b) },
-    { regex: /^(.+?)\s*!=\s*(.+)$/, fn: (a, b) => String(a) !== String(b) },
-    { regex: /^(.+?)\s*>=\s*(.+)$/, fn: (a, b) => Number(a) >= Number(b) },
-    { regex: /^(.+?)\s*<=\s*(.+)$/, fn: (a, b) => Number(a) <= Number(b) },
-    { regex: /^(.+?)\s*>\s*(.+)$/, fn: (a, b) => Number(a) > Number(b) },
-    { regex: /^(.+?)\s*<\s*(.+)$/, fn: (a, b) => Number(a) < Number(b) },
-    { regex: /^(.+?)\s+contains\s+(.+)$/i, fn: (a, b) => String(a).toLowerCase().includes(String(b).toLowerCase().replace(/['"]/g, '')) },
-  ];
-
-  for (const { regex, fn } of patterns) {
+  for (const { regex, fn } of CONDITION_PATTERNS) {
     const match = condition.match(regex);
-    if (match) {
-      const fieldPath = (match[1] as string).trim();
-      let targetValue: unknown = (match[2] as string).trim().replace(/^['"]|['"]$/g, '');
+    if (!match) continue;
 
-      // Resolve field value from action
-      const fieldValue = fieldPath.split('.').reduce<unknown>((obj, key) => (obj as Record<string, unknown> | null | undefined)?.[key], action);
+    // Resolve field value from action
+    const fieldValue = resolveFieldPath(action, (match[1] as string).trim());
+    const targetValue = parseConditionTarget(match[2] as string);
 
-      // Parse target  --  handle booleans and numbers
-      if (targetValue === 'true') targetValue = true;
-      else if (targetValue === 'false') targetValue = false;
-      else if (targetValue === 'null') targetValue = null;
-      else if (!isNaN(targetValue as number) && targetValue !== '') targetValue = Number(targetValue);
-
-      return fn(fieldValue, targetValue);
-    }
+    return fn(fieldValue, targetValue);
   }
 
   return false;
@@ -702,6 +734,63 @@ interface AutoCalibrateResult {
  * - acceptable: middle 50% (p25-p75)
  * - poor: bottom 25% (<p25)
  */
+const METRIC_VALUE_READERS: Record<string, (a: Record<string, unknown>) => number> = {
+  duration_ms: (a) => Number(a.duration_ms),
+  cost_estimate: (a) => Number(a.cost_estimate),
+  tokens_total: (a) => (Number(a.tokens_in) || 0) + (Number(a.tokens_out) || 0),
+  risk_score: (a) => Number(a.risk_score),
+  confidence: (a) => Number(a.confidence),
+};
+
+// "Lower is better" metrics (duration, cost, tokens, risk)
+const LOWER_IS_BETTER_METRICS = ['duration_ms', 'cost_estimate', 'tokens_total', 'risk_score'];
+
+function collectMetricValues(actions: Record<string, unknown>[], metric: string): number[] {
+  const reader = METRIC_VALUE_READERS[metric];
+  if (!reader) return [];
+  return actions
+    .map(reader)
+    .filter((v) => !isNaN(v))
+    .sort((a, b) => a - b);
+}
+
+function percentileOf(values: number[], p: number): number {
+  const idx = Math.floor(values.length * p);
+  return values[Math.min(idx, values.length - 1)] as number;
+}
+
+function buildSuggestedScale(lowerIsBetter: boolean, p25: number, p50: number, p75: number): ScaleRule[] {
+  const round2 = (v: number): number => Math.round(v * 100) / 100;
+  const inBand = lowerIsBetter ? 'lte' : 'gte';
+  const outBand = lowerIsBetter ? 'gt' : 'lt';
+  const [best, mid, worst] = lowerIsBetter ? [p25, p50, p75] : [p75, p50, p25];
+  return [
+    { label: 'excellent', operator: inBand, value: round2(best as number), score: 100 },
+    { label: 'good', operator: inBand, value: round2(mid as number), score: 75 },
+    { label: 'acceptable', operator: inBand, value: round2(worst as number), score: 50 },
+    { label: 'poor', operator: outBand, value: round2(worst as number), score: 20 },
+  ];
+}
+
+function buildCalibrationSuggestion(metric: string, values: number[]): CalibrationSuggestion {
+  const p10 = percentileOf(values, 0.10);
+  const p25 = percentileOf(values, 0.25);
+  const p50 = percentileOf(values, 0.50);
+  const p75 = percentileOf(values, 0.75);
+  const p90 = percentileOf(values, 0.90);
+  const lowerIsBetter = LOWER_IS_BETTER_METRICS.includes(metric);
+
+  return {
+    metric,
+    data_source: metric,
+    lower_is_better: lowerIsBetter,
+    sample_size: values.length,
+    distribution: { p10, p25, p50, p75, p90, min: values[0] as number, max: values[values.length - 1] as number },
+    suggested_scale: buildSuggestedScale(lowerIsBetter, p25, p50, p75),
+    suggested_weight: getDefaultWeight(metric),
+  };
+}
+
 export async function autoCalibrate(sql: SqlTag, orgId: string, options: AutoCalibrateOptions = {}): Promise<AutoCalibrateResult> {
   const {
     action_type = null,
@@ -737,63 +826,9 @@ export async function autoCalibrate(sql: SqlTag, orgId: string, options: AutoCal
   const suggestions: CalibrationSuggestion[] = [];
 
   for (const metric of metrics) {
-    const values = actions
-      .map((a) => {
-        switch (metric) {
-          case 'duration_ms': return Number(a.duration_ms);
-          case 'cost_estimate': return Number(a.cost_estimate);
-          case 'tokens_total': return (Number(a.tokens_in) || 0) + (Number(a.tokens_out) || 0);
-          case 'risk_score': return Number(a.risk_score);
-          case 'confidence': return Number(a.confidence);
-          default: return null;
-        }
-      })
-      .filter((v): v is number => v !== null && v !== undefined && !isNaN(v))
-      .sort((a, b) => a - b);
-
+    const values = collectMetricValues(actions, metric);
     if (values.length < 5) continue;
-
-    const percentile = (p: number): number => {
-      const idx = Math.floor(values.length * p);
-      return values[Math.min(idx, values.length - 1)] as number;
-    };
-
-    const p10 = percentile(0.10);
-    const p25 = percentile(0.25);
-    const p50 = percentile(0.50);
-    const p75 = percentile(0.75);
-    const p90 = percentile(0.90);
-
-    // For "lower is better" metrics (duration, cost, tokens, risk)
-    const lowerIsBetter = ['duration_ms', 'cost_estimate', 'tokens_total', 'risk_score'].includes(metric);
-
-    let scale: ScaleRule[];
-    if (lowerIsBetter) {
-      scale = [
-        { label: 'excellent', operator: 'lte', value: Math.round(p25 * 100) / 100, score: 100 },
-        { label: 'good', operator: 'lte', value: Math.round(p50 * 100) / 100, score: 75 },
-        { label: 'acceptable', operator: 'lte', value: Math.round(p75 * 100) / 100, score: 50 },
-        { label: 'poor', operator: 'gt', value: Math.round(p75 * 100) / 100, score: 20 },
-      ];
-    } else {
-      // For "higher is better" metrics (confidence)
-      scale = [
-        { label: 'excellent', operator: 'gte', value: Math.round(p75 * 100) / 100, score: 100 },
-        { label: 'good', operator: 'gte', value: Math.round(p50 * 100) / 100, score: 75 },
-        { label: 'acceptable', operator: 'gte', value: Math.round(p25 * 100) / 100, score: 50 },
-        { label: 'poor', operator: 'lt', value: Math.round(p25 * 100) / 100, score: 20 },
-      ];
-    }
-
-    suggestions.push({
-      metric,
-      data_source: metric,
-      lower_is_better: lowerIsBetter,
-      sample_size: values.length,
-      distribution: { p10, p25, p50, p75, p90, min: values[0] as number, max: values[values.length - 1] as number },
-      suggested_scale: scale,
-      suggested_weight: getDefaultWeight(metric),
-    });
+    suggestions.push(buildCalibrationSuggestion(metric, values));
   }
 
   return {
@@ -848,6 +883,16 @@ interface SeedProfile extends Profile {
   dimensions: Dimension[];
 }
 
+/** Build a seed dimension from compact [label, operator, value, score] scale rows. */
+function seedDimension(name: string, dataSource: string, weight: number, scaleRows: [string, string, number, number][]): Dimension {
+  return {
+    name,
+    data_source: dataSource,
+    weight,
+    scale: scaleRows.map(([label, operator, value, score]) => ({ label, operator, value, score })),
+  };
+}
+
 const DEFAULT_SCORING_PROFILES: SeedProfile[] = [
   {
     name: 'General Action Quality',
@@ -855,50 +900,30 @@ const DEFAULT_SCORING_PROFILES: SeedProfile[] = [
     action_type: null,
     composite_method: 'weighted_average',
     dimensions: [
-      {
-        name: 'Risk Control',
-        data_source: 'risk_score',
-        weight: 0.35,
-        scale: [
-          { label: 'excellent', operator: 'lte', value: 20, score: 100 },
-          { label: 'good',      operator: 'lte', value: 40, score: 75 },
-          { label: 'acceptable',operator: 'lte', value: 65, score: 45 },
-          { label: 'poor',      operator: 'gt',  value: 65, score: 10 },
-        ],
-      },
-      {
-        name: 'Confidence',
-        data_source: 'confidence',
-        weight: 0.30,
-        scale: [
-          { label: 'excellent', operator: 'gte', value: 0.85, score: 100 },
-          { label: 'good',      operator: 'gte', value: 0.70, score: 75 },
-          { label: 'acceptable',operator: 'gte', value: 0.50, score: 45 },
-          { label: 'poor',      operator: 'lt',  value: 0.50, score: 10 },
-        ],
-      },
-      {
-        name: 'Speed',
-        data_source: 'duration_ms',
-        weight: 0.20,
-        scale: [
-          { label: 'excellent', operator: 'lte', value: 2000,  score: 100 },
-          { label: 'good',      operator: 'lte', value: 8000,  score: 75 },
-          { label: 'acceptable',operator: 'lte', value: 30000, score: 45 },
-          { label: 'poor',      operator: 'gt',  value: 30000, score: 10 },
-        ],
-      },
-      {
-        name: 'Cost Efficiency',
-        data_source: 'cost_estimate',
-        weight: 0.15,
-        scale: [
-          { label: 'excellent', operator: 'lte', value: 0.005, score: 100 },
-          { label: 'good',      operator: 'lte', value: 0.02,  score: 75 },
-          { label: 'acceptable',operator: 'lte', value: 0.10,  score: 45 },
-          { label: 'poor',      operator: 'gt',  value: 0.10,  score: 10 },
-        ],
-      },
+      seedDimension('Risk Control', 'risk_score', 0.35, [
+        ['excellent', 'lte', 20, 100],
+        ['good',      'lte', 40, 75],
+        ['acceptable','lte', 65, 45],
+        ['poor',      'gt',  65, 10],
+      ]),
+      seedDimension('Confidence', 'confidence', 0.30, [
+        ['excellent', 'gte', 0.85, 100],
+        ['good',      'gte', 0.70, 75],
+        ['acceptable','gte', 0.50, 45],
+        ['poor',      'lt',  0.50, 10],
+      ]),
+      seedDimension('Speed', 'duration_ms', 0.20, [
+        ['excellent', 'lte', 2000,  100],
+        ['good',      'lte', 8000,  75],
+        ['acceptable','lte', 30000, 45],
+        ['poor',      'gt',  30000, 10],
+      ]),
+      seedDimension('Cost Efficiency', 'cost_estimate', 0.15, [
+        ['excellent', 'lte', 0.005, 100],
+        ['good',      'lte', 0.02,  75],
+        ['acceptable','lte', 0.10,  45],
+        ['poor',      'gt',  0.10,  10],
+      ]),
     ],
   },
   {
@@ -907,26 +932,16 @@ const DEFAULT_SCORING_PROFILES: SeedProfile[] = [
     action_type: null,
     composite_method: 'minimum',
     dimensions: [
-      {
-        name: 'Risk Gate',
-        data_source: 'risk_score',
-        weight: 1.0,
-        scale: [
-          { label: 'excellent', operator: 'lte', value: 25, score: 100 },
-          { label: 'good',      operator: 'lte', value: 50, score: 70 },
-          { label: 'poor',      operator: 'gt',  value: 50, score: 0 },
-        ],
-      },
-      {
-        name: 'Confidence Gate',
-        data_source: 'confidence',
-        weight: 1.0,
-        scale: [
-          { label: 'excellent', operator: 'gte', value: 0.80, score: 100 },
-          { label: 'good',      operator: 'gte', value: 0.60, score: 70 },
-          { label: 'poor',      operator: 'lt',  value: 0.60, score: 0 },
-        ],
-      },
+      seedDimension('Risk Gate', 'risk_score', 1.0, [
+        ['excellent', 'lte', 25, 100],
+        ['good',      'lte', 50, 70],
+        ['poor',      'gt',  50, 0],
+      ]),
+      seedDimension('Confidence Gate', 'confidence', 1.0, [
+        ['excellent', 'gte', 0.80, 100],
+        ['good',      'gte', 0.60, 70],
+        ['poor',      'lt',  0.60, 0],
+      ]),
     ],
   },
 ];
@@ -939,47 +954,62 @@ const DEFAULT_SAMPLE_ACTIONS: ActionInput[] = [
   { action_type: 'file_write', risk_score: 35, confidence: 0.88, duration_ms: 600,   cost_estimate: 0.001 },
 ];
 
-/**
- * Seed default scoring profiles, risk templates, and sample scores for a new org.
- * Safe to call multiple times — skips already-existing records by name.
- */
-export async function seedDefaultData(sql: SqlTag, orgId: string): Promise<void> {
-  // Risk templates
+async function seedRiskTemplates(sql: SqlTag, orgId: string): Promise<void> {
   const existingTemplates = await listRiskTemplates(sql, orgId, {});
   const existingTemplateNames = new Set(existingTemplates.map((t) => t.name));
   for (const tmpl of DEFAULT_RISK_TEMPLATES) {
-    if (!existingTemplateNames.has(tmpl.name)) {
-      await createRiskTemplate(sql, orgId, tmpl);
-    }
+    if (existingTemplateNames.has(tmpl.name)) continue;
+    await createRiskTemplate(sql, orgId, tmpl);
   }
+}
 
-  // Scoring profiles
+async function seedOneProfile(sql: SqlTag, orgId: string, prof: SeedProfile): Promise<Profile> {
+  const { dimensions, ...profileData } = prof;
+  const profile = await createProfile(sql, orgId, profileData);
+  for (let i = 0; i < dimensions.length; i++) {
+    await addDimension(sql, orgId, profile.id as string, { ...dimensions[i], sort_order: i });
+  }
+  return profile;
+}
+
+/** Seed missing default profiles; returns the "General Action Quality" profile if present. */
+async function seedScoringProfiles(sql: SqlTag, orgId: string): Promise<Profile | null> {
   const existingProfiles = await listProfiles(sql, orgId, {});
   const existingProfileNames = new Set(existingProfiles.map((p) => p.name));
   let generalProfile: Profile | null = (existingProfiles.find((p) => p.name === DEFAULT_SCORING_PROFILES[0]!.name) as Profile | undefined) || null;
 
   for (const prof of DEFAULT_SCORING_PROFILES) {
     if (existingProfileNames.has(prof.name)) continue;
-    const { dimensions, ...profileData } = prof;
-    const profile = await createProfile(sql, orgId, profileData);
-    for (let i = 0; i < dimensions.length; i++) {
-      await addDimension(sql, orgId, profile.id as string, { ...dimensions[i], sort_order: i });
-    }
+    const profile = await seedOneProfile(sql, orgId, prof);
     if (prof.name === DEFAULT_SCORING_PROFILES[0]!.name) generalProfile = profile;
   }
 
+  return generalProfile;
+}
+
+async function seedSampleScores(sql: SqlTag, orgId: string, generalProfile: Profile): Promise<void> {
+  const rows = (await sql`
+    SELECT COUNT(*)::int AS count FROM profile_scores
+    WHERE org_id = ${orgId} AND profile_id = ${generalProfile.id}
+  `) as { count: number }[];
+  const { count } = rows[0] as { count: number };
+  if (count >= DEFAULT_SAMPLE_ACTIONS.length) return;
+
+  for (const action of DEFAULT_SAMPLE_ACTIONS) {
+    try { await scoreAction(sql, orgId, generalProfile.id as string, { ...action, is_seed: true }); } catch { /* skip */ }
+  }
+}
+
+/**
+ * Seed default scoring profiles, risk templates, and sample scores for a new org.
+ * Safe to call multiple times — skips already-existing records by name.
+ */
+export async function seedDefaultData(sql: SqlTag, orgId: string): Promise<void> {
+  await seedRiskTemplates(sql, orgId);
+  const generalProfile = await seedScoringProfiles(sql, orgId);
   // Sample scores against general profile only
   if (generalProfile) {
-    const rows = (await sql`
-      SELECT COUNT(*)::int AS count FROM profile_scores
-      WHERE org_id = ${orgId} AND profile_id = ${generalProfile.id}
-    `) as { count: number }[];
-    const { count } = rows[0] as { count: number };
-    if (count < DEFAULT_SAMPLE_ACTIONS.length) {
-      for (const action of DEFAULT_SAMPLE_ACTIONS) {
-        try { await scoreAction(sql, orgId, generalProfile.id as string, { ...action, is_seed: true }); } catch { /* skip */ }
-      }
-    }
+    await seedSampleScores(sql, orgId, generalProfile);
   }
 }
 
