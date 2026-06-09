@@ -1,12 +1,13 @@
-# DashClaw Plugin — Dual-Target
+# DashClaw Plugin — Multi-Target
 
 This tree ships DashClaw governance as a single plugin source that installs
-into two plugin ecosystems with separate manifest files:
+into three plugin ecosystems with separate manifest files:
 
 | Ecosystem    | Manifest                              | MCP config          | Agent identity recorded |
 | ------------ | ------------------------------------- | ------------------- | ----------------------- |
 | Codex CLI    | `.codex-plugin/plugin.json`           | `.mcp.json`         | `codex`                 |
 | Claude Code  | `.claude-plugin/plugin.json`          | `.mcp-claude.json`  | `claude-code`           |
+| Hermes Agent | `.hermes-plugin/plugin.yaml`          | `.mcp.json`         | `hermes`                |
 
 Both manifests reference the same shared content:
 
@@ -20,7 +21,7 @@ Both manifests reference the same shared content:
 The MCP configs differ only by the `--agent-id` passed to the bundled
 `@dashclaw/mcp-server`. Keeping the agent identity distinct per ecosystem
 gives DashClaw's analytics (`/agents`, Mission Control posture, decision
-ledger) clean separation between Codex sessions and Claude Code sessions.
+ledger) clean separation between Codex, Claude Code, and Hermes sessions.
 
 ## Hooks
 
@@ -37,6 +38,13 @@ authored `hooks.json` is not generated.
 
 The **Codex** manifest does not bundle hooks — Codex hooks are filesystem
 artifacts in `~/.codex/config.toml`. Use `dashclaw install codex`.
+
+The **Hermes Agent** surface ships under `.hermes-plugin/` with a
+`plugin.yaml`, installer README, config snippet, and eight shell-hook adapters:
+pre/post tool, pre/post LLM, session start/end, transform tool result, and
+subagent stop. Hermes shares the same `skills/` directory and MCP server as the
+Codex and Claude Code surfaces; the installer wires the hook block from
+`hermes_config_snippet.yaml` into `~/.hermes/config.yaml`.
 
 A standalone Claude Code installer (`node scripts/install-hooks.mjs`) remains
 available as an alternative for installing the hooks into `.claude/settings.json`

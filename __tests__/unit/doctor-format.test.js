@@ -32,6 +32,30 @@ describe('formatDoctorResult', () => {
     const output = formatDoctorResult(sample, { json: false });
     expect(output).toContain('3 passed');
   });
+
+  it('prints next action for warning and failing checks', () => {
+    const output = formatDoctorResult({
+      status: 'needs_attention',
+      summary: { pass: 0, warn: 1, fail: 0 },
+      checks: [
+        {
+          id: 'deploy_cors',
+          category: 'deployment',
+          status: 'warn',
+          title: 'CORS',
+          message: 'Origin is not set',
+          likelyCause: 'ALLOWED_ORIGIN is missing',
+          nextAction: 'Set ALLOWED_ORIGIN',
+          fix: null,
+        },
+      ],
+      timestamp: '2026-04-12T00:00:00Z',
+    });
+
+    expect(output).toContain('Origin is not set');
+    expect(output).toContain('Likely cause: ALLOWED_ORIGIN is missing');
+    expect(output).toContain('NEXT: Set ALLOWED_ORIGIN');
+  });
 });
 
 describe('formatFixResult', () => {
@@ -53,9 +77,17 @@ describe('formatManualSummary', () => {
 
   it('lists manual checks', () => {
     const output = formatManualSummary([
-      { id: 'x', message: 'Configure OAuth provider', status: 'warn' },
+      {
+        id: 'x',
+        message: 'Configure OAuth provider',
+        likelyCause: 'OAuth provider is partially configured',
+        nextAction: 'Add OAuth env vars',
+        status: 'warn',
+      },
     ]);
     expect(output).toContain('Manual action needed');
     expect(output).toContain('Configure OAuth provider');
+    expect(output).toContain('Likely cause: OAuth provider is partially configured');
+    expect(output).toContain('NEXT: Add OAuth env vars');
   });
 });

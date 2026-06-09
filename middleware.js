@@ -500,22 +500,14 @@ export async function middleware(request) {
     return response;
   }
 
-  // /demo is always a public entrypoint: it sets a non-secret cookie and forwards into the dashboard.
-  // This makes the live demo work even if the deployment forgot to set DASHCLAW_MODE=demo.
+  // /demo is always a public entrypoint. Keep it off auth-gated dashboard
+  // routes so first-time evaluators land on the interactive marketing demo.
   if (pathname === '/demo') {
     const leave = request.nextUrl.searchParams.get('leave') === '1';
-    const response = NextResponse.redirect(new URL('/mission-control', request.url));
+    const response = NextResponse.redirect(new URL('/#live-demo', request.url));
     
     if (leave) {
       response.cookies.delete('dashclaw_demo');
-    } else {
-      response.cookies.set('dashclaw_demo', '1', {
-        path: '/',
-        maxAge: 60 * 60 * 24, // 24h
-        sameSite: 'lax',
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-      });
     }
     
     addSecurityHeaders(response, request);

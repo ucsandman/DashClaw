@@ -24,6 +24,10 @@ describe('doctor hosted checks', () => {
         expect.objectContaining({ id: 'hosted_turnstile_site_key', status: 'warn' }),
       ])
     );
+    for (const check of checks.filter((check) => check.status === 'fail' || check.status === 'warn')) {
+      expect(check.likelyCause).toBeTruthy();
+      expect(check.nextAction).toBeTruthy();
+    }
   });
 
   it('passes when hosted essentials are configured', async () => {
@@ -55,6 +59,7 @@ describe('doctor hosted checks', () => {
         expect.objectContaining({ id: 'hosted_rate_limiter_backing', status: 'warn' }),
       ])
     );
+    expect(checks.find((check) => check.id === 'hosted_rate_limiter_backing').nextAction).toContain('UPSTASH_REDIS_REST_URL');
   });
 
   it('passes rate-limit check on long-lived server deployments', async () => {

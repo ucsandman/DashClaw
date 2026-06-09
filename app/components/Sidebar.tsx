@@ -331,13 +331,14 @@ export default function Sidebar() {
       )}
 
       {/* Desktop sidebar */}
-      <div
+      <aside
+        aria-label="Primary navigation"
         className={`sticky top-0 z-20 hidden h-screen shrink-0 flex-col border-r border-border bg-surface-secondary transition-all duration-200 md:flex ${
           collapsed ? 'w-14' : 'w-56'
         }`}
       >
         {sidebarContent}
-      </div>
+      </aside>
     </>
   );
 }

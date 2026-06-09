@@ -1,6 +1,6 @@
 ---
 owner: Ops
-last-verified: 2026-04-18
+last-verified: 2026-06-09
 doc-type: runbook
 ---
 
@@ -112,7 +112,7 @@ DASHCLAW_HOSTED=true DATABASE_URL=<neon-url> TURNSTILE_SECRET_KEY=<turnstile-sec
   HOSTED_CLEANUP_SECRET=<cleanup> npm run hosted:check-ready
 ```
 
-Expected: `status=ok`.
+Expected: `status=pass`. If optional safeguards are missing, the command exits 0 with `status=warn` and prints `NEXT:` on each warning line. `status=fail` exits non-zero and includes the required next action.
 
 Manually verify in a browser:
 - Open `https://your-deploy.vercel.app/connect`
@@ -161,6 +161,18 @@ Minimal recommended setup:
 - [ ] Vercel deployment log tail — check for `[HOSTED]` error lines after each release
 - [ ] Neon query console — inspect `organizations WHERE hosted_mode = true` weekly to spot anomalies
 - [ ] GitHub Actions → Hosted cleanup log — verify daily green runs
+- [ ] `GET /api/health` — poll after deploy and before announcing readiness
+- [ ] `GET /api/doctor` or local `npm run doctor` with production-equivalent env — compare Database, Deployment, and Hosted sections against the Vercel env
+
+### Observability map
+
+| Symptom | Inspect | Correlate with | Recovery |
+|---|---|---|---|
+| Hosted routes return 404 | Vercel function logs for `app/api/hosted/*`; `/api/hosted/capacity` response | `/api/doctor` Hosted section | Set `DASHCLAW_HOSTED=true` in Production and redeploy. |
+| Mint requests fail with 403 | Browser Network tab and `app/api/hosted/workspaces/route.js` logs | `/api/doctor` Hosted Turnstile checks | Fix Turnstile site/secret keys and allowed domains, then redeploy. |
+| Mint requests hit 429 | Vercel route/function insights for `/api/hosted/workspaces` request volume | Hosted rate-limit warning in `/api/doctor` | Tune `HOSTED_PROVISION_MAX_PER_IP_PER_DAY`; add Redis/Upstash for serverless shared limits if needed. |
+| Setup or dashboard shows DB missing | Vercel build/runtime logs and Neon connection state | `/setup`, `/api/health`, `/api/doctor` Database section | Run the setup migration path, verify `DATABASE_URL`, then redeploy if env changed. |
+| Cleanup falls behind | Vercel Cron or GitHub Actions run log | `/api/health` and cleanup route response | Check `CRON_SECRET` or `HOSTED_CLEANUP_SECRET`, then manually POST `/api/hosted/cleanup`. |
 
 Beyond minimal (future):
 - Sentry for error aggregation
@@ -175,7 +187,8 @@ If a release breaks hosted provisioning:
 
 1. Vercel dashboard → Deployments → pick the last known-good deploy → **Promote to Production**.
 2. If the schema migrated destructively, restore Neon from the most recent branch (Neon creates automatic branches on DDL). Step-by-step: Neon → Branches → "Reset to snapshot".
-3. File an issue describing the break and investigate locally with `DASHCLAW_HOSTED=true npm run dev`.
+3. If the break is env-only, revert the Vercel env var and redeploy rather than rolling code back.
+4. File an issue describing the break and investigate locally with `DASHCLAW_HOSTED=true npm run dev`.
 
 ---
 

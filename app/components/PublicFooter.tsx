@@ -14,7 +14,7 @@ export default function PublicFooter() {
             <DashClawLogo size={16} />
             <span className="text-sm text-text-secondary font-medium">DashClaw</span>
           </div>
-          <div className="text-xs text-text-disabled">
+          <div className="text-xs text-text-tertiary">
             Built by <Link href="/practical-systems" className="hover:text-brand transition-colors">Practical Systems</Link>
           </div>
         </div>

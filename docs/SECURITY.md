@@ -2,6 +2,72 @@
 
 This is the operator-facing security guide for DashClaw (self-host and cloud). It documents the security model, key controls, and how to run audits.
 
+## 2026-06-09 Launch Security Posture Sweep (ASVS 5.0.0)
+
+Scope: `middleware.js` public allowlist, stable/beta mutating API posture, centralized security headers, outbound fetch/SSRF defenses, secret/client-bundle exposure, and ASVS-oriented residual risks.
+
+### Public Route Allowlist Review
+
+`middleware.js` remains default-deny for `/api/*`: any API route outside `PUBLIC_ROUTES` requires a valid API key or authenticated session context before it reaches a handler. Public prefixes are intentionally narrow and either read-only, externally self-authenticating, or protocol-required.
+
+| Public prefix | Active surface | Why it is public | Route-local controls / residual risk |
+| --- | --- | --- | --- |
+| `/api/health` | Health check | Load balancers and operators need unauthenticated liveness. | Sanitizes DB/realtime errors to status labels and does not emit backend exception text. |
+| `/api/setup/status` | Setup readiness status | First-run self-host page needs setup state before auth exists. | Read-only projection from setup status helper. |
+| `/api/setup/proof` | Setup proof artifact | Operators and support can export setup proof; live-proof token upgrades detail where available. | `projectReadinessReport` projects based on authenticated viewer/live proof; response is `no-store`. |
+| `/api/setup/ping` | Authenticated setup ping | Agent/validator proof path must be callable before full UI auth. | Requires `x-api-key`; timing-safe env-key compare or active DB API key lookup; demo mode returns 403. |
+| `/api/setup/migrate` | Runtime migration fallback | First-run bootstrap may need to initialize the DB before auth tables exist. | Public only before initialization. After `org_default` exists, `isAuthorizedSetupWriter` requires an admin-scoped API key. Idempotent DDL uses repository/setup helpers. |
+| `/api/auth` | NextAuth/local auth endpoints | Auth protocol endpoints must be reachable to sign in. | Local password compare is timing-safe; issued local-admin JWT is scoped to `org_default` or configured org. |
+| `/api/cron/*` | Scheduled maintenance jobs | Vercel/cron callers cannot present app API-key middleware auth. | Each active cron route requires `Authorization: Bearer $CRON_SECRET`, fails closed when unset, and uses timing-safe comparison. Covered by `cron-auth` tests. |
+| `/api/telegram/webhook` | Telegram approval callback | Telegram must POST directly to the webhook. | Timing-safe `x-telegram-bot-api-secret-token`, admin chat allowlist, callback-data regex, fixed Telegram API host, and atomic approval update. |
+| `/api/discord/interactions` | Discord approval callback | Discord must POST directly to the interaction URL. | Ed25519 raw-body signature, timestamp anti-replay, sender allowlist, callback-data regex, fixed Discord API host, and async atomic approval update. |
+| `/api/docs/raw` | SDK markdown | Public documentation fetch for docs UI. | Reads fixed repo files only; optional legacy source is static and deprecated. |
+| `/api/integrity/jwks` | Public JWKS | Third parties need issuer public keys to verify proof receipts/bundles. | Serves public JWK members only; empty/error states return empty key set rather than a secret-bearing 500. |
+| `/api/integrity/verify` | Receipt/bundle verifier | Anyone holding an artifact should be able to verify it independently. | Stateless verification against published JWKS; bad input or internal errors return non-verification, not privileged data. |
+| `/api/oauth/*` | OAuth authorization server endpoints | OAuth metadata, DCR, authorize, and token endpoints are public by protocol. | DCR accepts only HTTPS redirects in production; authorize requires session, S256 PKCE, registered redirect URI, HTML escaping, same-origin consent POST; token consumes one-time codes and rotates refresh tokens. Set `DASHCLAW_URL` on self-host proxies with non-canonical Host headers. |
+| `/api/prompts/*/raw` | Static setup/connect prompt markdown | Public `/self-host` copy buttons need these without auth. | Only the three fixed `/raw` files are public. The broader `/api/prompts` surface remains default-deny for templates, versions, render, runs, and stats. |
+| `/api/marketing/*` | Anonymous funnel telemetry | Public marketing visitors have no session/API key. | Event names are allowlisted; properties are flat, type-limited, capped at 8 keys and 200 bytes/value; middleware rate limit and 2 MB body cap still apply; response does not reveal Redis state. |
+| `/practical-systems` | Public page | Marketing/content page. | Non-API page; no mutating handler. |
+| `/replay` | Public replay page | Shareable read-only replay route. | Non-API page prefix; API data access remains controlled by the underlying route handlers. |
+
+### Mutating API Posture
+
+Stable and beta mutating API routes remain protected by the middleware default-deny path unless they are one of the self-authenticating public protocol/webhook/cron/setup routes above. Route-level role gates continue to protect admin-only writes such as API-key creation/revocation, policy writes, team/org management, webhooks, identities, settings writes, and posture scan persistence. The Phase 4 verification set pins this posture with `guard.route`, `keys.route`, `knowledge-ingest`, `api-posture-scan`, and `cron-auth` tests.
+
+### Outbound URL / SSRF Review
+
+User- or tenant-controlled outbound URLs use the safe URL pattern:
+
+| Surface | Control |
+| --- | --- |
+| Webhook delivery and notification webhook adapters | `safeUrlWithIps` plus `buildPinnedDispatcher` pins the resolved public IPs before `fetch`. |
+| Capability invocation endpoints | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
+| Knowledge ingestion source URIs | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
+| Integration health checks and routing callbacks/agent endpoints | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
+| Settings connection tests, including custom webhook/Supabase origins | `assertSafeFetchUrl` / `safeFetch` with private-IP rejection and redirect handling. |
+| Remote JWKS verification | `assertSafeFetchUrl` before fetch; unsafe URLs are treated as verification failure. |
+
+Fixed vendor API calls are not request-host controlled: Telegram, Discord, Slack REST, Linear, GitHub, SendGrid, Stripe, Cloudflare Turnstile, OpenAI/Anthropic/provider APIs, PyPI, and local smoke/test scripts use constant or operator-supplied base URLs rather than anonymous request body hosts.
+
+### Secret and Client-Bundle Scan
+
+Phase 4 grep evidence:
+
+- High-confidence secret pattern scan found only synthetic fixtures/placeholders in tests, examples, docs, and CI smoke env (`sk-*`, `sk-ant-*`, `ghp_*`, `oc_live_*`). No live credential material was identified.
+- Suspicious client env scan for `NEXT_PUBLIC_*` names containing `SECRET`, `TOKEN`, `PASSWORD`, `PRIVATE`, or `API_KEY` returned zero matches.
+- Full `NEXT_PUBLIC_*` inventory is limited to public-safe mode, app URL, analytics flag, version strings, Stripe publishable key, and Turnstile site key.
+
+### ASVS 5.0.0 Mapping
+
+| Area | Status | Evidence | Residual risk / operator action |
+| --- | --- | --- | --- |
+| Authentication | Pass | API middleware default-deny, NextAuth/local auth, timing-safe local password and API-key compares, OAuth S256 PKCE and one-time auth-code consumption. | Operators must set strong `NEXTAUTH_SECRET`, `DASHCLAW_API_KEY`, `CRON_SECRET`, and provider OAuth credentials where used. |
+| Access control | Pass | Route-level `admin`/`member` gates for mutating APIs; setup migration becomes admin-key gated after initialization; public routes are narrow and documented above. | New mutating routes must be reviewed against `PUBLIC_ROUTES` and get role-gate tests before release. |
+| Input validation | Pass | Public telemetry allowlists events and caps properties; OAuth validates redirect URIs and same-origin consent; webhook callback IDs are regex-bounded; setup/API tests pin request shape. | Continue contract and route-inventory checks for generated or migrated route surfaces. |
+| SSRF | Pass | User-controlled outbound URLs use `safeUrlWithIps` plus pinned dispatcher or `assertSafeFetchUrl`/`safeFetch`. Fixed vendor calls are host constants. | Any new user-configured callback/endpoint must use the same helpers before fetch. |
+| Secrets/config | Pass | `.env.example` uses placeholders; env/readiness contracts document required and advisory vars; secret grep found no live committed credentials; no suspicious `NEXT_PUBLIC_*` server-secret leak. | Test fixtures intentionally include fake secret-shaped strings to exercise redaction scanners; secret scanners should classify them as fixtures. |
+| Audit/evidence | Pass | Guard decisions, action records, approval resolution, integrity receipts/JWKS, and setup proof artifacts remain available for verification. | Operators are responsible for key custody and retention policy for exported evidence bundles. |
+
 ## 2026-05-13 Durable Execution Finality (v2.13.3+)
 
 The five-state outcome machine and idempotency-key surface shipped in commits `25599c35` through `5407b6ca` add three security-relevant guarantees. Full design context: [`docs/architecture/durable-execution-finality.md`](./architecture/durable-execution-finality.md).

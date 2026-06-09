@@ -61,7 +61,7 @@ for (const page of ALL_PAGES) {
     });
 
     const response = await pw.goto(page.path, { waitUntil: 'domcontentloaded' });
-    // `/demo` 302-redirects to `/dashboard`; other routes return 200.
+    // `/demo` 302-redirects to the public live-demo anchor; other routes return 200.
     // Any 5xx means the server threw.
     const status = response?.status() ?? 0;
     expect(

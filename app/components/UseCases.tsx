@@ -134,7 +134,11 @@ export default function UseCases() {
             </div>
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-5">
-            <pre className="lg:col-span-3 p-5 text-xs leading-relaxed font-mono text-text-secondary bg-surface-primary border-b lg:border-b-0 lg:border-r border-border overflow-x-auto">
+            <pre
+              tabIndex={0}
+              aria-label={`${active.title} code example`}
+              className="lg:col-span-3 p-5 text-xs leading-relaxed font-mono text-text-secondary bg-surface-primary border-b lg:border-b-0 lg:border-r border-border overflow-x-auto"
+            >
               <code>{active.code}</code>
             </pre>
             <div className="lg:col-span-2 p-5">

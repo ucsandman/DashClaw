@@ -1,14 +1,14 @@
 {
   "node": {
-    "current_version": "4.7.8",
+    "current_version": "4.7.9",
     "next_bump": "none",
-    "reason": "4.7.8 ships the fresh-install fix migration drizzle/0026: 3 CREATE UNIQUE INDEX IF NOT EXISTS backing the settings / learning_episodes / daily_totals ON CONFLICT upserts. Those indexes were only created by the standalone migrate-multi-tenant.mjs / migrate-learning-loop-mvp.mjs scripts, not the drizzle/*.sql set auto-migrate.mjs runs on every Vercel deploy, so fresh deploys broke on those upserts. Idempotent (IF NOT EXISTS); auto-applies on deploy; no-op on existing instances. No Node SDK source change (surface unchanged at 126): version advances per the unified model; SDKs NOT republished — npm stays at 4.7.2.",
+    "reason": "4.7.9 is a platform-only production-readiness and Hacker News launch-prep release. It tightens public proof paths, setup contracts, security posture docs, hosted/doctor diagnostics, accessibility, smoke coverage, and launch evidence. No Node SDK source change (surface unchanged at 126): version advances per the unified model; SDKs NOT republished — npm stays at 4.7.2.",
     "domains": ["platform"]
   },
   "python": {
-    "current_version": "4.7.8",
+    "current_version": "4.7.9",
     "next_bump": "none",
-    "reason": "4.7.8 ships drizzle/0026 (3 missing ON CONFLICT unique indexes for settings / learning_episodes / daily_totals) so fresh Vercel deploys stop breaking on those upserts. Idempotent + auto-applied on deploy. No Python SDK source change (surface unchanged at 224): version advances per the unified model; SDKs NOT republished — PyPI stays at 4.7.2.",
+    "reason": "4.7.9 is a platform-only production-readiness and Hacker News launch-prep release. It tightens public proof paths, setup contracts, security posture docs, hosted/doctor diagnostics, accessibility, smoke coverage, and launch evidence. No Python SDK source change (surface unchanged at 224): version advances per the unified model; SDKs NOT republished — PyPI stays at 4.7.2.",
     "domains": ["platform"]
   }
 }

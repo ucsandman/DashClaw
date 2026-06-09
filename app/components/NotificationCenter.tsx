@@ -192,7 +192,7 @@ export default function NotificationCenter() {
         {badgeCount > 0 && (
           <span
             aria-hidden="true"
-            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full border border-surface-primary bg-status-error px-1 text-[10px] font-semibold tabular-nums text-white"
+            className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full border border-surface-primary bg-status-error px-1 text-[10px] font-semibold tabular-nums text-surface-primary"
           >
             {badgeCount}
           </span>

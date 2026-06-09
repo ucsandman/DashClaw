@@ -36,6 +36,29 @@ function normalizeConstraints(items = []) {
   return items.map(({ key, type, value }) => ({ key, type, value }));
 }
 
+function parseEnvExampleKeys(text = '') {
+  const keys = new Set();
+  const regex = /^#?\s*([A-Z][A-Z0-9_]+)=/gm;
+  let match;
+  while ((match = regex.exec(text)) !== null) {
+    keys.add(match[1]);
+  }
+  return keys;
+}
+
+function uniqueKeys(...lists) {
+  return [...new Set(lists.flat().filter(Boolean))];
+}
+
+async function loadEnvExampleText(rootDir) {
+  try {
+    return await readFile(path.join(rootDir, '.env.example'), 'utf8');
+  } catch (err) {
+    if (err?.code === 'ENOENT') return '';
+    throw err;
+  }
+}
+
 async function loadConsumerSources(rootDir, consumers = {}) {
   const sources = {};
   await Promise.all(Object.entries(consumers).map(async ([name, relativePath]) => {
@@ -65,6 +88,7 @@ export async function checkSetupEnvPrerequisites(contracts, runtimeSetup = null,
     selfHostGeneratedEnv: SELF_HOST_GENERATED_ENV_VARS,
     constraints: ENV_CONSTRAINTS.map(({ key, type, value }) => ({ key, type, value })),
     consumers: await loadConsumerSources(rootDir, setupContract?.consumers),
+    envExampleText: await loadEnvExampleText(rootDir),
   };
 
   const pairs = [
@@ -85,6 +109,22 @@ export async function checkSetupEnvPrerequisites(contracts, runtimeSetup = null,
     findings.push({
       code: 'setup_env_constraints_contract_drift',
       message: 'shared env constraints do not match contracts/setup/runtime-env-prerequisites.json',
+    });
+  }
+
+  const operatorDocRequired = uniqueKeys(
+    runtime.productionRequiredEnv,
+    runtime.productionAdvisoryEnv,
+    runtime.readinessRequiredEnv,
+    runtime.readinessAdvisoryEnv,
+    runtime.selfHostGeneratedEnv,
+  );
+  const envExampleKeys = parseEnvExampleKeys(runtime.envExampleText);
+  const missingOperatorDocs = operatorDocRequired.filter((key) => !envExampleKeys.has(key));
+  if (missingOperatorDocs.length > 0) {
+    findings.push({
+      code: 'setup_env_operator_doc_missing',
+      message: `production-relevant env vars missing from .env.example: ${missingOperatorDocs.join(', ')}`,
     });
   }
 

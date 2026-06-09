@@ -22,6 +22,8 @@ export async function runChecks({ env = process.env } = {}) {
       status: check.status,
       title: envVarName,
       message: check.detail,
+      likelyCause: check.likelyCause || '',
+      nextAction: check.nextAction || '',
       fix:
         check.status === 'fail' && fixInfo
           ? { type: 'auto', description: fixInfo.description, action: fixInfo.action }

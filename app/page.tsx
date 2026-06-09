@@ -33,6 +33,7 @@ export default function LandingPage() {
       <PublicNavbar />
       <SetupBanner />
 
+      <main>
       {/* ── 2. Hero ── */}
       <section className="pt-32 pb-20 px-6">
         <div className="max-w-3xl mx-auto text-center">
@@ -48,7 +49,7 @@ export default function LandingPage() {
 
           {/* Subhead */}
           <p className="mt-6 text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            DashClaw intercepts agent actions at the moment intent becomes a real-world call. In coding agents (Claude Code, Codex, Hermes) it can hard-block via lifecycle hooks; in chat-based clients it governs through approvals and a verifiable record. Enforce policies, require human approval, and prove every decision in one open source runtime.
+            DashClaw intercepts agent actions at the moment intent becomes a real-world call. In coding agents (Claude Code, Codex, Hermes) it can hard-block via lifecycle hooks; in chat-based clients it governs through approvals and a verifiable record. Intercept, enforce, record, approve, and verify every high-risk decision in one open source runtime.
           </p>
 
           {/* CTA row */}
@@ -57,7 +58,7 @@ export default function LandingPage() {
             <TrackedLink
               href="/self-host"
               event="marketing_hero_cta_clicked"
-              className={hosted ? 'px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2' : 'px-8 py-3 rounded-lg bg-brand text-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20'}
+              className={hosted ? 'px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2' : 'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20'}
             >
               Self host the runtime <ArrowRight size={18} aria-hidden="true" />
             </TrackedLink>
@@ -196,7 +197,11 @@ export default function LandingPage() {
                 <div className="w-2 h-2 rounded-full bg-status-error/60"></div>
                 <span className="text-xs font-mono text-text-tertiary">without DashClaw</span>
               </div>
-              <pre className="p-4 text-xs font-mono text-text-secondary leading-relaxed overflow-x-auto">{`await deleteFiles({
+              <pre
+                tabIndex={0}
+                aria-label="Ungoverned delete example"
+                className="p-4 text-xs font-mono text-text-secondary leading-relaxed overflow-x-auto"
+              >{`await deleteFiles({
   path: "/prod/data"
 });
 // No check. No record.
@@ -208,7 +213,11 @@ export default function LandingPage() {
                 <div className="w-2 h-2 rounded-full bg-status-success/60"></div>
                 <span className="text-xs font-mono text-brand">with DashClaw</span>
               </div>
-              <pre className="p-4 text-xs font-mono text-text-secondary leading-relaxed overflow-x-auto">{`const { decision } = await dc.guard({
+              <pre
+                tabIndex={0}
+                aria-label="DashClaw guard example"
+                className="p-4 text-xs font-mono text-text-secondary leading-relaxed overflow-x-auto"
+              >{`const { decision } = await dc.guard({
   action: "delete_files",
   resource: "/prod/data"
 });
@@ -261,7 +270,7 @@ if (decision === "allow") {
             <div className="hidden md:block"></div>
 
             <div className="relative p-8 rounded-2xl border-2 border-brand/30 bg-brand/5 text-center shadow-[0_0_40px_rgba(249,115,22,0.1)]">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-brand text-[10px] font-bold text-text-primary uppercase tracking-widest">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-brand text-[10px] font-bold text-surface-primary uppercase tracking-widest">
                 DashClaw Runtime
               </div>
               <div className="space-y-3">
@@ -490,7 +499,11 @@ if (decision === "allow") {
                   </div>
                   <span className="text-[10px] text-text-tertiary font-medium group-hover/qs:text-brand transition-colors">{qs.label}</span>
                 </div>
-                <div className="p-5 font-mono text-[11px] leading-relaxed text-text-secondary overflow-x-auto bg-black/40 h-full">
+                <div
+                  tabIndex={0}
+                  aria-label={`${qs.name} quickstart code`}
+                  className="p-5 font-mono text-[11px] leading-relaxed text-text-secondary overflow-x-auto bg-black/40 h-full"
+                >
                   <pre>{qs.code}</pre>
                 </div>
               </div>
@@ -526,7 +539,11 @@ if (decision === "allow") {
             </div>
             <div>
               <div className="text-xs text-text-tertiary font-mono mb-2 uppercase tracking-wider">SDK Example</div>
-              <div className="rounded-xl bg-surface-secondary border border-border p-5 font-mono text-sm overflow-x-auto shadow-2xl">
+              <div
+                tabIndex={0}
+                aria-label="SDK guard example"
+                className="rounded-xl bg-surface-secondary border border-border p-5 font-mono text-sm overflow-x-auto shadow-2xl"
+              >
                 <div className="text-text-tertiary mb-3">{'// 1. Initialize DashClaw'}</div>
                 <div>
                   <span className="text-purple-400">const</span>
@@ -742,7 +759,7 @@ if (decision === "allow") {
                     <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">{surface.label}</div>
                     <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">{surface.title}</h3>
                     <p className="text-xs text-text-secondary leading-relaxed mb-3">{surface.desc}</p>
-                    <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">{surface.example}</pre>
+                    <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">{surface.example}</pre>
                   </Link>
                 ))}
               </div>
@@ -762,7 +779,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Diagnostics</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">dashclaw doctor</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">Diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, and shape drift. Auto-fixes safe issues.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">dashclaw doctor</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">dashclaw doctor</pre>
                 </Link>
                 <Link
                   href="/approve"
@@ -771,7 +788,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">On-call</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">Mobile approvals</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">A PWA at <code className="font-mono text-text-primary">/approve</code> for approving high-risk actions from your phone. Same governance loop as the dashboard.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">https://&lt;instance&gt;/approve</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">https://&lt;instance&gt;/approve</pre>
                 </Link>
                 <Link
                   href="/self-host#approve-from-anywhere"
@@ -780,7 +797,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Messaging</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">Telegram approvals</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">Pending actions fan out to an admin Telegram chat with inline Approve / Reject. One tap on your phone resolves the action against the same endpoint as the dashboard.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">npm run telegram:setup</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">npm run telegram:setup</pre>
                 </Link>
                 <Link
                   href="/analytics"
@@ -789,7 +806,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Cost &amp; volume</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">Analytics dashboard</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">Hero stats with trend comparison, cost-trend and action-volume series, breakdowns by agent, action type, and model. Token usage by tier.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">GET /api/analytics?days=7</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">GET /api/analytics?days=7</pre>
                 </Link>
                 <Link
                   href="/spend"
@@ -798,7 +815,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Cost &amp; spend</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">Spend (FinOps)</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">Fleet spend rollup — agent LLM cost plus x402 capability purchases, with a separate Your-Claude-Code lens. 7/30/90-day trend.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">GET /api/finops/spend?lens=fleet</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">GET /api/finops/spend?lens=fleet</pre>
                 </Link>
                 <Link
                   href="/posture"
@@ -807,7 +824,7 @@ if (decision === "allow") {
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Governance health</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">Posture score</h3>
                   <p className="text-xs text-text-secondary leading-relaxed mb-3">A gaming-resistant score across six governance dimensions — what the fleet actually governs versus what it could. It rises only from policies proven to fire, never from drafts. Each gap becomes a prioritized finding you resolve as a draft, snooze, or accept.</p>
-                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono overflow-x-auto">GET /api/posture</pre>
+                  <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">GET /api/posture</pre>
                 </Link>
               </div>
             </div>
@@ -839,7 +856,7 @@ if (decision === "allow") {
           </div>
 
           <div className="rounded-2xl border border-border bg-surface-secondary overflow-hidden">
-            <div className="overflow-x-auto">
+            <div tabIndex={0} aria-label="DashClaw comparison table" className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="border-b border-border bg-surface-tertiary">
@@ -896,7 +913,7 @@ if (decision === "allow") {
             DashClaw lets agents move fast without giving up control. Intercept risky actions. Require approval when needed. Prove every decision afterward.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/self-host" className="px-6 py-2.5 rounded-lg bg-brand text-primary text-sm font-medium hover:bg-brand-hover transition-colors inline-flex items-center gap-2">
+            <Link href="/self-host" className="px-6 py-2.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors inline-flex items-center gap-2">
               Deploy DashClaw
             </Link>
             <Link href="/demo" className="px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2">
@@ -905,6 +922,8 @@ if (decision === "allow") {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* ── 10. Footer ── */}
       <PublicFooter />

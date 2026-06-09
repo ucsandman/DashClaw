@@ -98,7 +98,7 @@ export default function AgentSpendCard({ agentId }: AgentSpendCardProps) {
             {isPositiveTrend ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           </div>
         </div>
-        <div className="mt-0.5 text-[10px] text-disabled">est. at API list prices</div>
+        <div className="mt-0.5 text-[10px] text-tertiary">est. at API list prices</div>
       </div>
 
       {/* Sparkline */}
@@ -134,7 +134,7 @@ export default function AgentSpendCard({ agentId }: AgentSpendCardProps) {
       )}
 
       {totalCost === 0 && (
-        <div className="text-xs text-disabled">No cost data yet</div>
+        <div className="text-xs text-tertiary">No cost data yet</div>
       )}
     </div>
   );

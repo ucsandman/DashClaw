@@ -8,7 +8,15 @@ const GREEN = (s) => `${ESC}32m${s}${RESET}`;
 const YELLOW = (s) => `${ESC}33m${s}${RESET}`;
 const RED = (s) => `${ESC}31m${s}${RESET}`;
 
-const ICONS = { pass: GREEN('✓'), warn: YELLOW('⚠'), fail: RED('✗') };
+const ICONS = { pass: GREEN('✓'), warn: YELLOW('⚠'), fail: RED('✗'), skipped: DIM('-') };
+
+function getNextAction(check) {
+  return check.nextAction || check.fix?.description || '';
+}
+
+function getLikelyCause(check) {
+  return check.likelyCause || '';
+}
 
 const CATEGORY_LABELS = {
   database: 'Database',
@@ -51,6 +59,14 @@ export function formatDoctorResult(result, { json = false } = {}) {
       lines.push(`  ${icon} ${check.title}`);
       if (check.status !== 'pass') {
         lines.push(`    ${DIM(check.message)}`);
+        const likelyCause = getLikelyCause(check);
+        if ((check.status === 'warn' || check.status === 'fail') && likelyCause) {
+          lines.push(`    ${DIM(`Likely cause: ${likelyCause}`)}`);
+        }
+        const nextAction = getNextAction(check);
+        if ((check.status === 'warn' || check.status === 'fail') && nextAction) {
+          lines.push(`    ${DIM(`NEXT: ${nextAction}`)}`);
+        }
       }
     }
     lines.push('');
@@ -80,13 +96,17 @@ export function formatFixResult(result, { json = false } = {}) {
 
 /**
  * Format the manual-action summary.
- * @param {Array<{ status: string, message: string }>} manualChecks
+ * @param {Array<{ status: string, message: string, likelyCause?: string, nextAction?: string, fix?: object }>} manualChecks
  */
 export function formatManualSummary(manualChecks) {
   if (manualChecks.length === 0) return '';
   const lines = ['', ` ${BOLD('Manual action needed:')}`];
   for (const check of manualChecks) {
     lines.push(`  ${YELLOW('•')} ${check.message}`);
+    const likelyCause = getLikelyCause(check);
+    if (likelyCause) lines.push(`    ${DIM(`Likely cause: ${likelyCause}`)}`);
+    const nextAction = getNextAction(check);
+    if (nextAction) lines.push(`    ${DIM(`NEXT: ${nextAction}`)}`);
   }
   lines.push('');
   return lines.join('\n');

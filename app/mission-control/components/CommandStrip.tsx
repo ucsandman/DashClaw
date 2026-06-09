@@ -24,7 +24,7 @@ export function CommandStrip({ posture, fleetCount, healthStatus, interventionCo
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Posture</span>
           <div className={`inline-flex items-center gap-2 rounded-full border px-2.5 py-0.5 ${posture.bg} ${posture.border}`} role="status" aria-label={`Posture ${posture.label}`}>
             <div className={`h-1.5 w-1.5 rounded-full ${posture.color.replace('text-', 'bg-')} ${posture.pulse ? 'animate-pulse' : ''}`} />
-            <span className={`text-[11px] font-semibold uppercase tracking-[0.14em] ${posture.color}`}>{posture.label}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-primary">{posture.label}</span>
           </div>
         </div>
 

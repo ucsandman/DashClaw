@@ -35,7 +35,7 @@ export default function SelfHostPage() {
             <div>
               <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Self-host your own governance control plane</h1>
               <p className="mt-2 text-text-secondary max-w-2xl leading-relaxed">
-                Free to deploy. You own the data. Connect your first agent in under 10 minutes.
+                Free to deploy. You own the data. Run doctor, connect your first agent, and verify the first decision record in under 10 minutes.
               </p>
             </div>
           </div>
@@ -61,6 +61,16 @@ export default function SelfHostPage() {
             <Link href="/docs" className="hover:text-text-secondary transition-colors">SDK docs</Link>
             <span aria-hidden="true" className="text-text-disabled">·</span>
             <Link href="/setup" className="hover:text-text-secondary transition-colors">Check instance status</Link>
+          </div>
+          <div className="mt-5 rounded-xl border border-border bg-surface-secondary p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-text-tertiary">Expected proof after deploy</p>
+            <p className="mt-2 text-sm text-text-secondary leading-relaxed">
+              <code className="font-mono text-text-primary">npm run doctor</code> or{' '}
+              <code className="font-mono text-text-primary">dashclaw doctor</code> exits 0 or names the blocker. Your first governed action appears in{' '}
+              <code className="font-mono text-text-primary">/decisions</code>, held work appears in{' '}
+              <code className="font-mono text-text-primary">/approvals</code>, and{' '}
+              <code className="font-mono text-text-primary">/api/setup/live-proof</code> can capture setup evidence without exposing secrets.
+            </p>
           </div>
         </div>
       </section>

@@ -1,9 +1,57 @@
+import { spawnSync } from 'node:child_process';
+
 export function formatSetupStatusSummary(body = {}, status = null) {
   const http = status == null ? '' : `http=${status} `;
   const configured = body?.configured === true ? 'configured' : 'not_configured';
   const reason = body?.reason ? ` reason=${body.reason}` : '';
   const message = body?.message ? ` message="${body.message}"` : '';
   return `${http}${configured}${reason}${message}`.trim();
+}
+
+function normalizePort(port) {
+  const normalized = Number(port);
+  if (!Number.isInteger(normalized) || normalized < 1 || normalized > 65535) {
+    throw new Error(`Invalid port for startup smoke: ${port}`);
+  }
+  return String(normalized);
+}
+
+export function createStartServerSpawnConfig({
+  cwd = process.cwd(),
+  env = process.env,
+  platform = process.platform,
+  port = 3100,
+  comspec = 'cmd.exe',
+} = {}) {
+  const isWindows = platform === 'win32';
+  const smokePort = normalizePort(port);
+  const spawnEnv = { ...env, PORT: smokePort };
+
+  if (isWindows) {
+    return {
+      command: comspec,
+      args: ['/d', '/s', '/c', 'npm.cmd run start'],
+      options: {
+        cwd,
+        env: spawnEnv,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        detached: false,
+        shell: false,
+      },
+    };
+  }
+
+  return {
+    command: 'npm',
+    args: ['run', 'start'],
+    options: {
+      cwd,
+      env: spawnEnv,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
+      shell: false,
+    },
+  };
 }
 
 export async function waitForConfiguredSetup({
@@ -51,8 +99,16 @@ export function sendTerminationSignal({
   isDetached = false,
   platform = process.platform,
   killImpl = process.kill,
+  taskkillImpl = (pid) => {
+    spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
+  },
 } = {}) {
   if (!child) return;
+
+  if (platform === 'win32' && Number.isInteger(child.pid)) {
+    taskkillImpl(child.pid);
+    return;
+  }
 
   if (platform !== 'win32' && isDetached && Number.isInteger(child.pid)) {
     killImpl(-child.pid, signal);

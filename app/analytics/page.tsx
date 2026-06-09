@@ -27,7 +27,6 @@ export default function AnalyticsPage() {
     // Reset so a failed range switch can't leave the prior range's numbers showing
     // under the newly-selected range label.
     setData(null);
-    let lastErr: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
         const res = await fetch(`/api/analytics?days=${days}`, { cache: 'no-store' });
@@ -35,12 +34,10 @@ export default function AnalyticsPage() {
         setData(await res.json());
         setLoading(false);
         return;
-      } catch (err) {
-        lastErr = err;
+      } catch {
         if (attempt === 0) await new Promise((r) => setTimeout(r, 600));
       }
     }
-    console.error('Failed to fetch analytics:', lastErr);
     setError(true);
     setLoading(false);
   }, [days]);

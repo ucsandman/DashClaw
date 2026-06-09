@@ -1,11 +1,15 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
-import { shutdownChildProcess, waitForConfiguredSetup } from './lib/startup-smoke.mjs';
+import {
+  createStartServerSpawnConfig,
+  shutdownChildProcess,
+  waitForConfiguredSetup,
+} from './lib/startup-smoke.mjs';
 
 function parseArgs(argv) {
   const options = {
-    baseUrl: process.env.STARTUP_SMOKE_BASE_URL || 'http://127.0.0.1:3000',
+    baseUrl: process.env.STARTUP_SMOKE_BASE_URL || 'http://127.0.0.1:3100',
     timeoutMs: Number(process.env.STARTUP_SMOKE_TIMEOUT_MS || 45000),
     intervalMs: Number(process.env.STARTUP_SMOKE_INTERVAL_MS || 1000),
   };
@@ -18,6 +22,12 @@ function parseArgs(argv) {
   }
 
   return options;
+}
+
+function getPortFromBaseUrl(baseUrl) {
+  const url = new URL(baseUrl);
+  if (url.port) return Number(url.port);
+  return url.protocol === 'https:' ? 443 : 80;
 }
 
 function createLogBuffer(limit = 200) {
@@ -40,13 +50,8 @@ function createLogBuffer(limit = 200) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const setupStatusUrl = `${options.baseUrl.replace(/\/$/, '')}/api/setup/status`;
-  const command = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const child = spawn(command, ['run', 'start'], {
-    cwd: process.cwd(),
-    env: process.env,
-    stdio: ['ignore', 'pipe', 'pipe'],
-    detached: process.platform !== 'win32',
-  });
+  const startServer = createStartServerSpawnConfig({ port: getPortFromBaseUrl(options.baseUrl) });
+  const child = spawn(startServer.command, startServer.args, startServer.options);
 
   const stdoutBuffer = createLogBuffer();
   const stderrBuffer = createLogBuffer();
@@ -99,7 +104,7 @@ async function main() {
       child,
       hasExited: () => childExited,
       exitPromise,
-      isDetached: process.platform !== 'win32',
+      isDetached: startServer.options.detached === true,
     });
   }
 }

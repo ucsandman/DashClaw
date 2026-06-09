@@ -7,11 +7,13 @@
  *   npm run doctor
  *   npm run doctor -- --json
  *   npm run doctor -- --no-fix
+ *   npm run doctor -- --strict
  *   npm run doctor -- --category database,config
  */
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import readline from 'node:readline';
+import { doctorExitCode } from './lib/doctor-cli.mjs';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -37,6 +39,7 @@ const { formatDoctorResult, formatFixResult, formatManualSummary } = await impor
 const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');
 const noFix = args.includes('--no-fix');
+const strict = args.includes('--strict');
 const categoryIdx = args.indexOf('--category');
 const categories =
   categoryIdx !== -1 && args[categoryIdx + 1]
@@ -99,7 +102,7 @@ else if (result.summary.warn > 0 && result.status === 'healthy') result.status =
 // --- JSON mode ---
 if (jsonMode) {
   console.log(JSON.stringify(result, null, 2));
-  process.exit(result.status === 'healthy' ? 0 : 1);
+  process.exit(doctorExitCode(result, { strict }));
 }
 
 // --- Rich mode + auto-fix ---
@@ -129,4 +132,4 @@ if (!noFix) {
   console.log(formatManualSummary(manual));
 }
 
-process.exit(result.status === 'healthy' ? 0 : 1);
+process.exit(doctorExitCode(result, { strict }));

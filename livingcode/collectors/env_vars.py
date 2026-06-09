@@ -11,7 +11,7 @@ SKIP_DIRS = {
     # Generated outputs of livingcode-refresh — including them creates a
     # feedback loop where shape.json gains/loses entries depending on
     # whether a refresh has run since the last clone.
-    ".claude",
+    ".claude", ".gitnexus",
 }
 SCAN_EXTENSIONS = {".js", ".ts", ".jsx", ".tsx", ".mjs", ".cjs"}
 

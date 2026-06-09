@@ -126,6 +126,7 @@ secrets/
 .vercel
 .env*.local
 .gitnexus
+.repowise/
 .worktrees/
 
 # Organism state (ephemeral)

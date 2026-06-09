@@ -68,7 +68,11 @@ interface CodeBlockProps {
 
 function CodeBlock({ children }: CodeBlockProps) {
   return (
-    <pre className="overflow-x-auto rounded-xl border border-border bg-surface-primary p-4 text-xs leading-relaxed text-text-secondary font-mono">
+    <pre
+      tabIndex={0}
+      aria-label="Connection command snippet"
+      className="overflow-x-auto rounded-xl border border-border bg-surface-primary p-4 text-xs leading-relaxed text-text-secondary font-mono"
+    >
       {children}
     </pre>
   );
@@ -211,7 +215,7 @@ function FullConnectGuide({ showBreadcrumb = true }: FullConnectGuideProps = {})
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 shrink-0">
                   <Link
                     href="/self-host"
-                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-hover transition-colors"
+                    className="inline-flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-colors"
                   >
                     Self host the runtime <ArrowRight size={14} aria-hidden="true" />
                   </Link>
@@ -447,6 +451,13 @@ DISCORD_PUBLIC_KEY=<discord-app-public-key>`}</CodeBlock>
               <code className="font-mono text-text-primary">dashclaw doctor</code>{' '}
               from any terminal. Exit 0 means the instance is healthy and your SDK or surface is reachable. Then have your agent attempt a low risk action and watch it land in the dashboard inbox.
             </p>
+            <p className="mt-3 text-sm text-text-secondary max-w-2xl leading-relaxed">
+              Expected proof: <code className="font-mono text-text-primary">dashclaw doctor</code>{' '}
+              exits 0 or names the blocker, <code className="font-mono text-text-primary">/decisions</code>{' '}
+              shows the action record, <code className="font-mono text-text-primary">/approvals</code>{' '}
+              shows any held action, and <code className="font-mono text-text-primary">/api/setup/live-proof</code>{' '}
+              can capture setup evidence for onboarding or CI.
+            </p>
 
             <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="rounded-xl border border-border bg-surface-tertiary p-5">
@@ -625,7 +636,7 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
               </p>
               <Link
                 href="/mission-control"
-                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-white text-sm font-bold hover:bg-brand-hover transition-colors"
+                className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-colors"
               >
                 Open Mission Control <ArrowRight size={14} aria-hidden="true" />
               </Link>

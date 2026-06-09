@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { CheckCircle2, ArrowRight, Check, Ban } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
-import { getAgentColor } from '../../lib/colors';
 import { useSelection } from '../../lib/useSelection';
 import { bulkAction } from '../../lib/bulkAction';
 import { SelectCheckbox } from '../../components/selection/SelectCheckbox';
@@ -103,10 +102,16 @@ export function InterventionQueue({ items, onDecision, refresh }: InterventionQu
                   size={14}
                 />
               )}
-              <Badge variant={item.kind === 'approval' ? 'error' : 'warning'} size="xs">
-                {item.kind === 'approval' ? 'Approval' : 'Loop'}
-              </Badge>
-              <span className={`shrink-0 max-w-[7.5rem] truncate rounded border px-1.5 py-0.5 text-[10px] font-medium ${getAgentColor(item.agentId)}`}>
+              {item.kind === 'approval' ? (
+                <span className="inline-flex items-center rounded border border-error/20 bg-error-subtle px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                  Approval
+                </span>
+              ) : (
+                <Badge variant="warning" size="xs">
+                  Loop
+                </Badge>
+              )}
+              <span className="shrink-0 max-w-[7.5rem] truncate rounded border border-border bg-surface-tertiary px-1.5 py-0.5 text-[10px] font-medium text-secondary">
                 {(item.agentName || '').substring(0, 14) || item.agentId?.substring(0, 8) || 'system'}
               </span>
               <span className="min-w-0 flex-1 truncate text-xs text-secondary">{truncateText(item.description, 80)}</span>
@@ -120,7 +125,7 @@ export function InterventionQueue({ items, onDecision, refresh }: InterventionQu
                   </button>
                   <button
                     onClick={() => onDecision(item.sourceId, 'deny')}
-                    className="rounded-md border border-error/20 bg-error-subtle px-2 py-1 text-[11px] font-medium text-error transition-colors hover:border-error/40"
+                    className="rounded-md border border-error/20 bg-error-subtle px-2 py-1 text-[11px] font-medium text-primary transition-colors hover:border-error/40"
                   >
                     Deny
                   </button>

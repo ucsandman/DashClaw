@@ -78,9 +78,10 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
         <button
           onClick={onDismiss}
           className="absolute -top-3 -right-3 z-10 p-1.5 bg-surface-secondary border border-white/10 rounded-full text-tertiary hover:text-white opacity-0 group-hover/qs:opacity-100 transition-all shadow-xl"
+          aria-label="Dismiss quick start guide"
           title="Dismiss guide"
         >
-          <X size={14} />
+          <X size={14} aria-hidden="true" />
         </button>
       )}
       {/* 1. The Onboarding Card */}
@@ -98,9 +99,9 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
 
           <div className="space-y-6 mt-6">
             {/* Step 1: Install */}
-            <div className={`flex gap-4 transition-all duration-300 ${step < 1 ? 'opacity-40 grayscale' : ''}`}>
+            <div className="flex gap-4 transition-all duration-300">
               <div className="flex flex-col items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${step >= 1 ? 'bg-brand text-white' : 'bg-tertiary text-tertiary'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${step >= 1 ? 'bg-brand text-surface-primary' : 'bg-tertiary text-tertiary'}`}>
                   {step > 1 ? <CheckCircle2 size={14} /> : '1'}
                 </div>
                 <div className={`flex-1 w-px my-1 transition-colors ${step > 1 ? 'bg-brand/30' : 'bg-white/5'}`} />
@@ -116,17 +117,19 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
                       if (step === 1) setStep(2);
                     }}
                     className="absolute right-2 opacity-0 group-hover/term:opacity-100 transition-opacity p-1 hover:text-white"
+                    aria-label="Copy install command"
+                    title="Copy install command"
                   >
-                    <Copy size={10} />
+                    <Copy size={10} aria-hidden="true" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Step 2: Act */}
-            <div className={`flex gap-4 transition-all duration-300 ${step < 2 ? 'opacity-40 grayscale' : ''}`}>
+            <div className="flex gap-4 transition-all duration-300">
               <div className="flex flex-col items-center">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${step >= 2 ? 'bg-brand text-white' : 'bg-tertiary text-tertiary'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${step >= 2 ? 'bg-brand text-surface-primary' : 'bg-tertiary text-tertiary'}`}>
                   {step > 2 ? <CheckCircle2 size={14} /> : '2'}
                 </div>
                 <div className={`flex-1 w-px my-1 transition-colors ${step > 2 ? 'bg-brand/30' : 'bg-white/5'}`} />
@@ -134,22 +137,28 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
               <div className="flex-1 pb-4">
                 <div className="text-sm font-semibold text-white mb-1">Run Example</div>
                 <div className="relative group">
-                  <pre className={`bg-black/40 p-3 rounded border font-mono text-[10px] overflow-x-auto max-h-[140px] transition-colors ${step === 2 ? 'border-brand/30 text-secondary' : 'border-white/5 text-tertiary'}`}>
+                  <pre
+                    className={`bg-black/40 p-3 rounded border font-mono text-[10px] overflow-x-auto max-h-[140px] transition-colors ${step === 2 ? 'border-brand/30 text-secondary' : 'border-white/5 text-tertiary'}`}
+                    tabIndex={0}
+                    aria-label="Node starter snippet"
+                  >
                     {sdkCode}
                   </pre>
                   <button
                     onClick={handleCopy}
                     disabled={step < 2}
                     className="absolute top-2 right-2 p-1.5 bg-tertiary rounded border border-white/10 text-secondary hover:text-white transition-colors disabled:opacity-0"
+                    aria-label={copied ? 'Starter snippet copied' : 'Copy starter snippet'}
+                    title={copied ? 'Starter snippet copied' : 'Copy starter snippet'}
                   >
-                    {copied ? <CheckCircle2 size={12} className="text-success" /> : <Copy size={12} />}
+                    {copied ? <CheckCircle2 size={12} className="text-success" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Step 3: Success */}
-            <div className={`flex gap-4 transition-all duration-300 ${step < 3 ? 'opacity-40 grayscale' : ''}`}>
+            <div className="flex gap-4 transition-all duration-300">
               <div className="flex flex-col items-center">
                 <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-colors ${step === 3 ? 'bg-status-success text-black shadow-[0_0_15px_rgba(16,185,129,0.3)]' : 'bg-tertiary text-tertiary'}`}>
                   {step === 3 ? <Sparkles size={14} /> : '3'}
@@ -205,11 +214,13 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
                 <button
                   onClick={handleEnvCopy}
                   className="absolute top-2 right-2 p-1.5 bg-tertiary rounded border border-white/10 text-secondary hover:text-white transition-colors opacity-0 group-hover/env:opacity-100"
+                  aria-label={envCopied ? 'Environment block copied' : 'Copy environment block'}
+                  title={envCopied ? 'Environment block copied' : 'Copy environment block'}
                 >
-                  {envCopied ? <CheckCircle2 size={12} className="text-success" /> : <Copy size={12} />}
+                  {envCopied ? <CheckCircle2 size={12} className="text-success" aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                 </button>
               </div>
-              <p className="text-[10px] text-disabled mt-1.5 leading-relaxed">
+              <p className="text-[10px] text-tertiary mt-1.5 leading-relaxed">
                 {revealedKey ? (
                   <>
                     <span className="text-success">API key pre-filled from your instance.</span>{' '}
@@ -247,16 +258,18 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
                 <span className="text-xs font-semibold text-secondary uppercase tracking-wide">Run it</span>
               </div>
               <div className="flex items-center gap-2 bg-black/40 p-2 rounded border border-white/5 font-mono text-[11px] text-secondary group/run relative">
-                <span className="text-disabled">$</span>
+                <span className="text-tertiary">$</span>
                 <span>node --env-file=.env demo.js</span>
                 <button
                   onClick={() => navigator.clipboard.writeText('node --env-file=.env demo.js')}
                   className="absolute right-2 opacity-0 group-hover/run:opacity-100 transition-opacity p-1 hover:text-white"
+                  aria-label="Copy run command"
+                  title="Copy run command"
                 >
-                  <Copy size={10} />
+                  <Copy size={10} aria-hidden="true" />
                 </button>
               </div>
-              <p className="text-[10px] text-disabled mt-1.5">
+              <p className="text-[10px] text-tertiary mt-1.5">
                 Requires Node.js 20+. The <code className="text-tertiary">--env-file</code> flag loads your <code className="text-tertiary">.env</code> automatically.
               </p>
             </div>

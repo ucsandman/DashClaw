@@ -46,7 +46,6 @@ export const LABS_PAGES = [
   { path: '/drift', label: 'Drift detection' },
   { path: '/learning', label: 'Learning loop' },
   { path: '/prompts', label: 'Prompt registry' },
-  { path: '/feedback', label: 'User feedback' },
   { path: '/workflows', label: 'Workflow templates' },
   { path: '/model-strategies', label: 'Model strategies' },
   { path: '/knowledge', label: 'Knowledge collections' },

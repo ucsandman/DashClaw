@@ -77,6 +77,24 @@ After core checks pass, you can strengthen that view with live SDK proof:
 - Node: add `--capture-setup-proof` to the validator command and open the returned `/setup?proof=...` URL
 - Python: after a successful ping, run the helper snippet shown on `/setup` or in `docs/client-setup-guide.md` to POST the sanitized success payload to `/api/setup/live-proof`
 
+### Operational checks for self-host
+
+Before calling a Vercel or Docker self-host ready, verify these paths:
+
+- Migrations: the build runs `node scripts/auto-migrate.mjs && next build`; `/setup` reports missing tables and the migration action when a schema check fails.
+- Env requirements: keep the variables in Step 3 in the deployment environment and keep secret values out of logs; `npm run doctor` reports missing required settings with `NEXT:` guidance.
+- Health checks: poll `/api/health` for machine-readable runtime state and use `/api/doctor` or `npm run doctor` for diagnosis when health is degraded.
+- Logs: start with Vercel deployment/function logs, or Docker/stdout logs for self-host, then correlate the failing route with `/setup`, `/api/health`, and `/api/doctor`.
+- Rate limits: middleware applies API rate limiting; for high-traffic or multi-instance self-hosts, configure a shared store when the doctor reports that in-memory limits are not enough.
+- Rollback/recovery: on Vercel, promote the last known-good deployment; on Docker, restart the previous image. If only env changed, revert the env var and redeploy/restart. If a migration broke data, restore the database from the latest backup or Neon branch before retrying.
+
+| Symptom | Inspect first | Correlate with | Next action |
+|---|---|---|---|
+| `/dashboard` redirects or login fails | Auth env vars and Vercel/Docker logs | `/api/doctor` Auth and Deployment sections | Confirm `NEXTAUTH_URL`, `NEXTAUTH_SECRET`, and `DASHCLAW_LOCAL_ADMIN_PASSWORD`, then redeploy or restart. |
+| `/setup` reports missing tables | `/setup` Database section | `/api/health`, `/api/doctor` Database section | Run the setup migration action or rebuild with the same `DATABASE_URL`. |
+| Agent API calls return 401/403 | Route/function logs for the called API | `/connect` validator output and `/api/health` with the API key | Regenerate or copy the workspace API key, then rerun the validator. |
+| Health is degraded after deploy | `/api/health` response | `/api/doctor` and deployment logs for the same timestamp | Follow the doctor `NEXT:` line before changing code; most failures are env or DB reachability. |
+
 ---
 
 ## Step 4 — Sign In With Your Password

@@ -13,6 +13,7 @@ export async function runChecks({ env = process.env } = {}) {
       status: 'skipped',
       title: 'Hosted mode',
       message: 'DASHCLAW_HOSTED is unset — hosted provisioning routes return 404.',
+      nextAction: 'Set DASHCLAW_HOSTED=true only for managed hosted provisioning deployments.',
       fix: null,
     });
     return checks;
@@ -27,6 +28,10 @@ export async function runChecks({ env = process.env } = {}) {
     message: hasTurnstileSecret
       ? 'TURNSTILE_SECRET_KEY is set — CAPTCHA verification is active.'
       : 'DASHCLAW_HOSTED=true but TURNSTILE_SECRET_KEY is unset. Provisioning is abuse-vulnerable. Set TURNSTILE_SECRET_KEY from your Cloudflare Turnstile dashboard.',
+    likelyCause: hasTurnstileSecret ? '' : 'Hosted public provisioning is enabled without the server-side Turnstile verifier secret.',
+    nextAction: hasTurnstileSecret
+      ? ''
+      : 'Set TURNSTILE_SECRET_KEY from the Cloudflare Turnstile dashboard, then redeploy.',
     fix: null,
   });
 
@@ -39,6 +44,10 @@ export async function runChecks({ env = process.env } = {}) {
     message: hasTurnstileSiteKey
       ? 'NEXT_PUBLIC_TURNSTILE_SITE_KEY is set — the widget can render in the hosted trial UI.'
       : 'NEXT_PUBLIC_TURNSTILE_SITE_KEY is unset — the server still enforces Turnstile, but the widget will not render for public provisioning.',
+    likelyCause: hasTurnstileSiteKey ? '' : 'The public Turnstile widget key was not exposed to the hosted trial UI at build/runtime.',
+    nextAction: hasTurnstileSiteKey
+      ? ''
+      : 'Set NEXT_PUBLIC_TURNSTILE_SITE_KEY to the matching Cloudflare Turnstile site key, then redeploy.',
     fix: null,
   });
 
@@ -51,6 +60,10 @@ export async function runChecks({ env = process.env } = {}) {
     message: hasCleanupSecret
       ? 'A cleanup secret is configured — scheduled sweeps can authenticate.'
       : 'No cleanup secret is configured — cleanup remains limited to admin-authenticated requests until HOSTED_CLEANUP_SECRET or CRON_SECRET is set.',
+    likelyCause: hasCleanupSecret ? '' : 'No shared secret is available for a cron or external cleanup caller.',
+    nextAction: hasCleanupSecret
+      ? ''
+      : 'Set HOSTED_CLEANUP_SECRET or CRON_SECRET and configure the scheduled cleanup caller to send it.',
     fix: null,
   });
 
@@ -70,6 +83,12 @@ export async function runChecks({ env = process.env } = {}) {
       : hasSharedStore
         ? 'A shared store (Redis/Upstash) is configured — rate-limit state survives cold starts.'
         : 'Serverless platform detected and no shared store is configured — the per-IP provisioning rate limit resets on every cold start and provides little protection under real traffic. Rely on Turnstile as the primary defence or wire in Upstash/Redis.',
+    likelyCause: !isServerless || hasSharedStore
+      ? ''
+      : 'Serverless instances do not share the in-memory rate-limit map across cold starts.',
+    nextAction: !isServerless || hasSharedStore
+      ? ''
+      : 'Configure UPSTASH_REDIS_REST_URL or REDIS_URL before relying on per-IP rate limits in serverless production.',
     fix: null,
   });
 

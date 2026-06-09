@@ -2,7 +2,24 @@
   "mcpServers": {
     "anythink": {
       "command": "dotnet",
-      "args": ["run", "--project", "C:/Projects/anythink-cli/mcp", "--", "--profile", "dashclaw"]
+      "args": [
+        "run",
+        "--project",
+        "C:/Projects/anythink-cli/mcp",
+        "--",
+        "--profile",
+        "dashclaw"
+      ]
+    },
+    "repowise": {
+      "command": "repowise",
+      "args": [
+        "mcp",
+        "C:/Projects/DashClaw",
+        "--transport",
+        "stdio"
+      ],
+      "description": "repowise: codebase intelligence \u2014 docs, graph, git signals, dead code, decisions"
     }
   }
 }

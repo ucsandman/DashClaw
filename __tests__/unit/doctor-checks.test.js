@@ -131,5 +131,7 @@ describe('doctor/checks/config', () => {
 
     const url = checks.find((c) => c.id === 'env_NEXTAUTH_URL');
     expect(url.status).toBe('warn');
+    expect(url.likelyCause).toBeDefined();
+    expect(url.nextAction).toBeDefined();
   });
 });

@@ -35,8 +35,8 @@ function CheckList({ checks = [] }: { checks?: any[] }) {
     <ul className="space-y-3">
       {checks.map((check) => (
         <li key={check.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
+          <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
               <div className="text-sm font-medium text-primary">{check.label}</div>
               <div className="mt-1 text-sm text-secondary">{check.detail}</div>
               {check.subDetail ? (
@@ -78,7 +78,11 @@ function RecommendationList({ recommendations = [] }: { recommendations?: any[] 
             </ul>
           ) : null}
           {step.code ? (
-            <pre className="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-primary/80 p-3 text-xs text-secondary">
+            <pre
+              className="mt-3 overflow-x-auto rounded-xl border border-white/10 bg-primary/80 p-3 text-xs text-secondary"
+              tabIndex={0}
+              aria-label={`${step.title} command`}
+            >
               <code>{step.code}</code>
             </pre>
           ) : null}
@@ -133,8 +137,8 @@ export default async function SetupPage() {
           </div>
         </section>
 
-        <section className="grid gap-6 lg:grid-cols-[2fr_1fr]">
-          <div className="space-y-6">
+        <section className="grid min-w-0 gap-6 lg:grid-cols-[2fr_1fr]">
+          <div className="min-w-0 space-y-6">
             {view.sections.map((section: any) => (
               <article key={section.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -156,7 +160,7 @@ export default async function SetupPage() {
             ))}
           </div>
 
-          <aside className="space-y-6">
+          <div className="min-w-0 space-y-6" aria-label="Setup workflow and recommendations">
             <section className="rounded-2xl border border-white/10 bg-white/5 p-5">
               <h2 className="text-lg font-semibold text-primary">Workflow</h2>
               <div className="mt-4 space-y-3">
@@ -179,7 +183,7 @@ export default async function SetupPage() {
                 <RecommendationList recommendations={view.recommendations} />
               </div>
             </section>
-          </aside>
+          </div>
         </section>
       </div>
     </main>

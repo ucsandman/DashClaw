@@ -240,7 +240,11 @@ export default function LiveDemo() {
                 <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary mb-2">
                   SDK call
                 </div>
-                <pre className="text-sm leading-relaxed font-mono text-text-secondary bg-surface-primary border border-border rounded-lg p-4 overflow-x-auto">
+                <pre
+                  tabIndex={0}
+                  aria-label="Live demo SDK call"
+                  className="text-sm leading-relaxed font-mono text-text-secondary bg-surface-primary border border-border rounded-lg p-4 overflow-x-auto"
+                >
                   <code>{codePreview}</code>
                 </pre>
               </div>
@@ -253,8 +257,8 @@ export default function LiveDemo() {
                   'mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-lg text-base font-bold transition-all',
                   'focus:outline-none focus:ring-2 focus:ring-brand/60 focus:ring-offset-2 focus:ring-offset-surface-secondary',
                   isBusy
-                    ? 'bg-brand/60 text-white cursor-not-allowed'
-                    : 'bg-brand text-white hover:bg-brand-hover hover:scale-[1.02] shadow-lg shadow-brand/20',
+                    ? 'bg-brand/60 text-surface-primary cursor-not-allowed'
+                    : 'bg-brand text-surface-primary hover:bg-brand-hover hover:scale-[1.02] shadow-lg shadow-brand/20',
                 ].join(' ')}
               >
                 {isEvaluating ? (

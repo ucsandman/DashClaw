@@ -18,8 +18,10 @@ describe('assessHostedReadiness', () => {
     process.env.DATABASE_URL = 'postgres://user:pw@host/db';
     process.env.TURNSTILE_SECRET_KEY = 'turnstile-secret';
     process.env.DASHCLAW_API_KEY = 'oc_live_0123456789abcdef0123456789abcdef';
+    process.env.HOSTED_CLEANUP_SECRET = 'cleanup-secret';
+    process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY = 'site-key';
     const r = assessHostedReadiness();
-    expect(r.status).toBe('ok');
+    expect(r.status).toBe('pass');
     expect(r.failures).toEqual([]);
   });
 
@@ -30,7 +32,12 @@ describe('assessHostedReadiness', () => {
     process.env.DASHCLAW_API_KEY = 'oc_live_0123456789abcdef0123456789abcdef';
     const r = assessHostedReadiness();
     expect(r.status).toBe('fail');
-    expect(r.failures).toContain('TURNSTILE_SECRET_KEY missing');
+    expect(r.failures).toContainEqual(
+      expect.objectContaining({
+        message: 'TURNSTILE_SECRET_KEY missing',
+        nextAction: expect.any(String),
+      }),
+    );
   });
 
   it('warns when HOSTED_CLEANUP_SECRET and CRON_SECRET are both unset', () => {
@@ -41,7 +48,13 @@ describe('assessHostedReadiness', () => {
     delete process.env.HOSTED_CLEANUP_SECRET;
     delete process.env.CRON_SECRET;
     const r = assessHostedReadiness();
-    expect(r.warnings).toContain('no cleanup secret configured (HOSTED_CLEANUP_SECRET or CRON_SECRET) — cleanup route is admin-only');
+    expect(r.status).toBe('warn');
+    expect(r.warnings).toContainEqual(
+      expect.objectContaining({
+        message: 'no cleanup secret configured (HOSTED_CLEANUP_SECRET or CRON_SECRET) — cleanup route is admin-only',
+        nextAction: expect.any(String),
+      }),
+    );
   });
 
   it('fails on DATABASE_URL missing', () => {
@@ -49,7 +62,12 @@ describe('assessHostedReadiness', () => {
     delete process.env.DATABASE_URL;
     const r = assessHostedReadiness();
     expect(r.status).toBe('fail');
-    expect(r.failures).toContain('DATABASE_URL missing');
+    expect(r.failures).toContainEqual(
+      expect.objectContaining({
+        message: 'DATABASE_URL missing',
+        nextAction: expect.any(String),
+      }),
+    );
   });
 
   it('fails when DASHCLAW_API_KEY is missing or malformed', () => {
@@ -59,6 +77,11 @@ describe('assessHostedReadiness', () => {
     delete process.env.DASHCLAW_API_KEY;
     const r = assessHostedReadiness();
     expect(r.status).toBe('fail');
-    expect(r.failures).toContain('DASHCLAW_API_KEY missing');
+    expect(r.failures).toContainEqual(
+      expect.objectContaining({
+        message: 'DASHCLAW_API_KEY missing',
+        nextAction: expect.any(String),
+      }),
+    );
   });
 });

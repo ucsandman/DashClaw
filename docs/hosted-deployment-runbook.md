@@ -1,6 +1,6 @@
 ---
 owner: Ops
-last-verified: 2026-06-07
+last-verified: 2026-06-09
 doc-type: runbook
 ---
 
@@ -148,8 +148,12 @@ DASHCLAW_HOSTED=true DATABASE_URL=<neon-url> TURNSTILE_SECRET_KEY=<turnstile-sec
 Expected result:
 
 ```text
-[hosted:check-ready] status=ok
+[hosted:check-ready] status=pass
 ```
+
+If optional hosted safeguards are missing, the command exits 0 with `status=warn`
+and prints `NEXT:` on each warning line. Any `status=fail` line exits non-zero
+and includes the required next action.
 
 ### Smoke test
 
@@ -233,6 +237,21 @@ Minimum recommended monitoring:
 - hosted trial rows in `organizations` where `hosted_mode = true`
 - daily cleanup success
 - periodic `npm run hosted:smoke` against production
+- periodic `curl https://your-deploy.vercel.app/api/health` for machine-readable health
+- `npm run doctor` locally with production-equivalent env, or `GET /api/doctor` on the deployed instance when diagnosing runtime drift
+
+### Observability map
+
+| Production symptom | First signal | Vercel/function signal | DashClaw route to correlate | Next action |
+|---|---|---|---|---|
+| Provisioning returns 404 | `/api/hosted/capacity` returns 404 | Vercel Function logs for `app/api/hosted/*` show hosted mode disabled or no invocation | `/api/doctor` Hosted section, `npm run hosted:check-ready` | Confirm `DASHCLAW_HOSTED=true` is set for Production and redeploy. |
+| Provisioning returns 403 or Turnstile errors | Browser Network tab for `/api/hosted/workspaces` | Function logs for `app/api/hosted/workspaces/route.js`; look for `[HOSTED]` validation failures | `/api/doctor` Hosted section | Confirm `TURNSTILE_SECRET_KEY` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY` match the Cloudflare site and deployed domain. |
+| Provisioning returns 429 | Response status from `/api/hosted/workspaces` | Function logs for the hosted workspace route; Vercel route/function insights for request volume | `/api/doctor` Hosted rate-limiter check | Check `HOSTED_PROVISION_MAX_PER_IP_PER_DAY`; on serverless production, add `UPSTASH_REDIS_REST_URL` or `REDIS_URL` if per-IP limits need to survive cold starts. |
+| `/connect` shows no hosted trial CTA | Page source or browser render after deploy | Vercel build log; confirm env was present at build time | `/api/hosted/capacity`, `/api/doctor` | Redeploy after setting `DASHCLAW_HOSTED=true`; the landing and connect surfaces read the hosted flag during build. |
+| New workspaces do not appear in Mission Control | Database query for hosted rows and browser dashboard state | Function logs for provisioning and dashboard API routes | `/api/health`, `/api/doctor` Database section | Verify `DATABASE_URL`, run setup migrations from `/setup` if tables are missing, then retry provisioning. |
+| Cleanup did not run | Cron provider history | Vercel Cron or GitHub Actions log for `/api/hosted/cleanup` | `/api/health`; cleanup route response body | Confirm `CRON_SECRET` or `HOSTED_CLEANUP_SECRET` matches the caller header and rerun the cleanup request manually. |
+
+Basic health does not require paid Vercel Observability. Start with Vercel deployment logs, the affected route's function logs, `/api/health`, `/api/doctor`, and `/setup`. Vercel route/function insights are optional production aids for traffic volume and latency trends.
 
 ---
 
@@ -242,7 +261,8 @@ If hosted provisioning breaks:
 
 1. Promote the last known-good Vercel deployment
 2. Restore Neon if a destructive schema change slipped through
-3. Reproduce locally with:
+3. If only env changed, revert the Vercel env var and redeploy instead of rolling code back
+4. Reproduce locally with:
 
 ```bash
 DASHCLAW_HOSTED=true npm run dev

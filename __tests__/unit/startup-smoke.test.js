@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  createStartServerSpawnConfig,
   formatSetupStatusSummary,
   sendTerminationSignal,
   shutdownChildProcess,
@@ -78,6 +79,41 @@ describe('startup smoke runner', () => {
     expect(formatSetupStatusSummary({ configured: false, reason: 'connection_error' }, 500)).toContain('connection_error');
   });
 
+  it('uses cmd.exe without shell args when spawning npm start on Windows', () => {
+    const config = createStartServerSpawnConfig({
+      cwd: 'C:/Projects/DashClaw',
+      env: { NODE_ENV: 'production' },
+      platform: 'win32',
+      port: 3100,
+      comspec: 'C:\\Windows\\System32\\cmd.exe',
+    });
+
+    expect(config.command).toBe('C:\\Windows\\System32\\cmd.exe');
+    expect(config.args).toEqual(['/d', '/s', '/c', 'npm.cmd run start']);
+    expect(config.options.shell).toBe(false);
+    expect(config.options.detached).toBe(false);
+    expect(config.options.env.PORT).toBe('3100');
+  });
+
+  it('keeps process-group shutdown on POSIX npm start', () => {
+    const config = createStartServerSpawnConfig({
+      cwd: '/repo',
+      env: { NODE_ENV: 'production' },
+      platform: 'linux',
+      port: 3100,
+    });
+
+    expect(config.command).toBe('npm');
+    expect(config.options.shell).toBe(false);
+    expect(config.options.detached).toBe(true);
+    expect(config.options.env.PORT).toBe('3100');
+  });
+
+  it('rejects invalid startup smoke ports before spawning a shell command', () => {
+    expect(() => createStartServerSpawnConfig({ port: 'bad' })).toThrow(/invalid port/i);
+    expect(() => createStartServerSpawnConfig({ port: 70000 })).toThrow(/invalid port/i);
+  });
+
   it('waits for child shutdown after SIGTERM', async () => {
     const child = { kill: vi.fn() };
     let exited = false;
@@ -129,5 +165,20 @@ describe('startup smoke runner', () => {
     });
 
     expect(killImpl).toHaveBeenCalledWith(-4242, 'SIGTERM');
+  });
+
+  it('terminates the Windows process tree for cmd-launched npm start', () => {
+    const taskkillImpl = vi.fn();
+    const child = { pid: 4242, kill: vi.fn() };
+
+    sendTerminationSignal({
+      child,
+      signal: 'SIGTERM',
+      platform: 'win32',
+      taskkillImpl,
+    });
+
+    expect(taskkillImpl).toHaveBeenCalledWith(4242);
+    expect(child.kill).not.toHaveBeenCalled();
   });
 });

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "skills": {
+    "dashclaw-governance": {
+      "source": "ucsandman/DashClaw",
+      "sourceType": "github",
+      "skillPath": "plugins/dashclaw/skills/dashclaw-governance/SKILL.md",
+      "computedHash": "14313c0838a708019e5050e77d31ae720592d87ee3fbf89369f1c4b8610b5d19"
+    },
+    "dashclaw-platform-intelligence": {
+      "source": "ucsandman/DashClaw",
+      "sourceType": "github",
+      "skillPath": "plugins/dashclaw/skills/dashclaw-platform-intelligence/SKILL.md",
+      "computedHash": "3bd92e863412e3d5f271e8a04dade9ecdc32ff3586286f408226613f731effb6"
+    }
+  }
+}

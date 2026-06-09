@@ -20,7 +20,7 @@ function StepCard({ n, title, desc, icon: Icon, children }: StepCardProps) {
   return (
     <div className="rounded-xl bg-surface-secondary border border-border p-5">
       <div className="flex items-start gap-3">
-        <div className="w-9 h-9 rounded-lg bg-[rgba(249,115,22,0.1)] flex items-center justify-center shrink-0">
+        <div className="w-9 h-9 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
           {Icon ? <Icon size={18} className="text-brand" /> : null}
         </div>
         <div className="min-w-0">
@@ -42,7 +42,7 @@ export default function SetupTabs() {
   return (
     <div className="space-y-6">
       {/* Callout Banner */}
-      <div className="bg-[rgba(249,115,22,0.08)] border border-[rgba(249,115,22,0.2)] rounded-lg px-4 py-3">
+      <div className="bg-brand-subtle/40 border border-border-active rounded-lg px-4 py-3">
         <p className="text-sm text-secondary">
           No OAuth required to get started. Use Quick Start to deploy solo in under 10 minutes.
           Switch to Team Setup when you&apos;re ready to invite teammates.
@@ -104,7 +104,7 @@ export default function SetupTabs() {
             <li>Generate your secrets, then paste them into Vercel&apos;s environment variables:</li>
           </ol>
           <SecretGenerator />
-          <div className="mt-3 rounded-lg bg-[rgba(249,115,22,0.05)] border border-brand/10 px-4 py-3 text-xs text-secondary">
+          <div className="mt-3 rounded-lg bg-brand-subtle/20 border border-brand/20 px-4 py-3 text-xs text-secondary">
             <strong className="text-secondary">About the API key:</strong> <code className="font-mono text-secondary">DASHCLAW_API_KEY</code> is your bootstrap admin key — it authenticates agents and seeds your first organization. After you sign in, you can create and manage additional API keys from the dashboard at <code className="font-mono text-secondary">/api-keys</code>.
           </div>
           <p className="mt-2 text-xs text-tertiary">Tables are created automatically on first request.</p>

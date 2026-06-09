@@ -26,7 +26,7 @@ describe('/connect runbook', () => {
     expect(html).not.toMatch(/Golden path/i);
   });
 
-  it('exposes the four canonical runbook surfaces: install command, API key env var, an approval surface, and a Verify command', async () => {
+  it('exposes the canonical runbook surfaces and proof artifacts', async () => {
     const html = await renderPage();
     // 1. SDK or hooks install command is present somewhere on the page
     expect(html).toMatch(/npm install|pip install|cp hooks/i);
@@ -36,5 +36,9 @@ describe('/connect runbook', () => {
     expect(html).toMatch(/discord|telegram|mobile pwa|approvals/i);
     // 4. The verify command is present
     expect(html).toMatch(/dashclaw doctor/);
+    // 5. Proof artifacts point users to the durable records they should see
+    expect(html).toMatch(/\/decisions/);
+    expect(html).toMatch(/\/approvals/);
+    expect(html).toMatch(/\/api\/setup\/live-proof/);
   });
 });

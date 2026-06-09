@@ -44,6 +44,24 @@ describe('middleware demo auth bypass', () => {
     vi.stubEnv('DASHCLAW_MODE', 'self_host');
   });
 
+  it('/demo redirects to the public live demo anchor without setting a demo cookie', async () => {
+    getToken.mockResolvedValue(null);
+    const res = await middleware(req('/demo', { demoCookie: false }));
+
+    expect(res.headers.get('location')).toBe('http://localhost:3000/#live-demo');
+    expect(res.headers.get('set-cookie') || '').not.toMatch(/dashclaw_demo=1/);
+  });
+
+  it('/demo?leave=1 clears a stale demo cookie and redirects public', async () => {
+    getToken.mockResolvedValue(null);
+    const res = await middleware(req('/demo?leave=1'));
+
+    expect(res.headers.get('location')).toBe('http://localhost:3000/#live-demo');
+    const setCookie = res.headers.get('set-cookie') || '';
+    expect(setCookie).toMatch(/dashclaw_demo=/);
+    expect(setCookie).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+  });
+
   it('anonymous + demo cookie + dashclaw.io → serves DEMO fixtures', async () => {
     getToken.mockResolvedValue(null); // no NextAuth principal, no local-admin cookie
     const res = await middleware(req('/api/health'));

@@ -8,6 +8,7 @@ function checkNextAuthUrl(env, host) {
       label: 'NEXTAUTH_URL is not configured',
       status: 'fail',
       detail: 'Auth redirects will fail until this is set.',
+      likelyCause: 'NEXTAUTH_URL is missing from the deployment environment.',
       nextAction:
         'In Vercel → Settings → Environment Variables, set NEXTAUTH_URL to your deployment URL, then redeploy.',
     });
@@ -21,6 +22,7 @@ function checkNextAuthUrl(env, host) {
         label: 'NEXTAUTH_URL does not match deployment host',
         status: 'warn',
         detail: `Configured: ${configured.host} — current: ${host}`,
+        likelyCause: 'NEXTAUTH_URL points at a different host than the current request.',
         nextAction: `In Vercel, set NEXTAUTH_URL to https://${host} and redeploy.`,
       });
     }
@@ -36,6 +38,7 @@ function checkNextAuthUrl(env, host) {
       label: 'NEXTAUTH_URL does not match deployment host',
       status: 'warn',
       detail: 'Configured value is not a valid URL.',
+      likelyCause: 'NEXTAUTH_URL is present but cannot be parsed as an absolute URL.',
       nextAction: `In Vercel, set NEXTAUTH_URL to https://${host} and redeploy.`,
     });
   }
@@ -53,6 +56,7 @@ function checkRealtimeBackend(env) {
       status: 'warn',
       detail:
         'Running in-memory mode. Each serverless invocation has a fresh event bus — Mission Control will not show live decisions.',
+      likelyCause: 'The deployment is running on Vercel without Redis or Upstash configured for shared realtime state.',
       nextAction:
         'Create a free Upstash Redis instance at upstash.com and add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to Vercel environment variables.',
     });

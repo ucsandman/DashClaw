@@ -6,6 +6,7 @@ import { getEnvVar } from '../shape.mjs';
 // what the codebase actually reads. Both are optional (no fallback → warn).
 const NEXTAUTH_URL_VAR = getEnvVar('NEXTAUTH_URL')?.name || 'NEXTAUTH_URL';
 const ALLOWED_ORIGIN_VAR = getEnvVar('ALLOWED_ORIGIN')?.name || 'ALLOWED_ORIGIN';
+const EXPECTED_NEXTAUTH_URL = (host) => (host ? `https://${host}` : 'the public DashClaw URL');
 
 /**
  * @param {{ env?: object, host?: string }} options
@@ -22,6 +23,8 @@ export async function runChecks({ env = process.env, host = '' } = {}) {
       status: 'warn',
       title: 'NEXTAUTH_URL',
       message: 'Not set — OAuth callbacks may fail in production',
+      likelyCause: `${NEXTAUTH_URL_VAR} is missing from the deployment environment.`,
+      nextAction: `Set ${NEXTAUTH_URL_VAR} to ${EXPECTED_NEXTAUTH_URL(host)} and redeploy before enabling OAuth sign-in.`,
       fix: null,
     });
   } else if (host && !nextauthUrl.includes(host)) {
@@ -31,6 +34,8 @@ export async function runChecks({ env = process.env, host = '' } = {}) {
       status: 'warn',
       title: 'NEXTAUTH_URL',
       message: `Set to ${nextauthUrl} but current host is ${host} — possible mismatch`,
+      likelyCause: `${NEXTAUTH_URL_VAR} still points at a different host than the current deployment.`,
+      nextAction: `Update ${NEXTAUTH_URL_VAR} to https://${host}, then redeploy so callback URLs match the production host.`,
       fix: null,
     });
   } else {
@@ -53,6 +58,8 @@ export async function runChecks({ env = process.env, host = '' } = {}) {
       status: 'warn',
       title: 'CORS (ALLOWED_ORIGIN)',
       message: 'Not set — cross-origin agent requests may be blocked',
+      likelyCause: `${ALLOWED_ORIGIN_VAR} is unset, so browser clients from another origin will not receive an allow-origin response.`,
+      nextAction: `Set ${ALLOWED_ORIGIN_VAR} to the browser origin that will call DashClaw APIs, or document why same-origin use is intentional.`,
       fix: null,
     });
   } else {

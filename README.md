@@ -32,6 +32,13 @@
 
 <br />
 
+## 60-second proof path
+
+1. Read the loop: DashClaw intercepts risky agent intent, enforces policy, records the decision, routes approval when required, and verifies the final outcome.
+2. Run the local demo: `npx dashclaw-demo`. Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
+3. Self-host the runtime from the deploy guide, then run `npm run doctor` locally or `dashclaw doctor` against the hosted URL. Expected proof: the doctor command exits 0 or names the blocking setup item.
+4. Connect one agent with `DASHCLAW_BASE_URL` and `DASHCLAW_API_KEY`. Expected proof: one action appears in `/decisions`, any held action appears in `/approvals`, and `/api/setup/live-proof` can capture setup evidence for onboarding or CI.
+
 ## What DashClaw does
 
 | | |

@@ -2,7 +2,7 @@
 
 Governance and platform intelligence for your AI agents, packaged for one step install. It adds guard checks, action recording, approvals, policy discovery, and session tracking through the DashClaw MCP server, plus two skills that teach the agent how to operate and troubleshoot DashClaw.
 
-This is a dual target plugin: the same source installs into both Claude Code and Codex CLI, keeping the recorded agent identity separate per ecosystem.
+This is a multi-target plugin: the same source installs into Claude Code, Codex CLI, and Hermes Agent, keeping the recorded agent identity separate per ecosystem.
 
 ## What you get
 
@@ -39,6 +39,21 @@ Reload to activate, then confirm the MCP tools are live:
 ```text
 /reload-plugins
 /mcp
+```
+
+## Install (Codex and Hermes)
+
+Codex uses the `.codex-plugin/` manifest and `.mcp.json` config:
+
+```bash
+dashclaw install codex --project <path>
+```
+
+Hermes Agent uses the `.hermes-plugin/` manifest plus eight shell-hook adapters declared in `hermes_config_snippet.yaml`:
+
+```bash
+./scripts/install-hermes-plugin.sh
+# Windows: powershell -File scripts/install-hermes-plugin.ps1
 ```
 
 ## Configure
