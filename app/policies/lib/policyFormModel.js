@@ -100,110 +100,200 @@ export function createDefaultPolicyFormState() {
   return JSON.parse(JSON.stringify(DEFAULT_FORM_STATE));
 }
 
+// --- Small shared predicates/helpers (keep each compiler/summary builder flat) ---
+
+// A numeric/text field counts as "present" when it is neither '' nor null/undefined.
+const hasValue = (value) => value !== '' && value != null;
+
+// filter(Boolean) only — drops falsy entries without trimming (summary counts).
+const cleanList = (value) => (Array.isArray(value) ? value.filter(Boolean) : []);
+
+// trim each entry then drop empties (compile payload for the protected_path list).
+const cleanStringList = (value) =>
+  (Array.isArray(value) ? value.map((entry) => cleanString(entry)).filter(Boolean) : []);
+
+// Returns the cleaned provider list when the raw input has entries, else null so
+// the caller can omit the key entirely (preserves the original "set even when the
+// cleaned list is empty, but only when raw length > 0" behavior).
+function providerList(value) {
+  return Array.isArray(value) && value.length > 0
+    ? value.map((entry) => cleanString(entry)).filter(Boolean)
+    : null;
+}
+
+const pluralProviders = (count) => `${count} provider${count === 1 ? '' : 's'}`;
+
+// Capitalized leading verb shared by most summaries ("Block" / "Warn on" /
+// "Require approval for"). rate_limit uses a "when"-suffixed variant inline.
+function actionVerb(action) {
+  if (action === 'block') return 'Block';
+  if (action === 'warn') return 'Warn on';
+  return 'Require approval for';
+}
+
+function serializeAgentIds(agentIds) {
+  return Array.isArray(agentIds) && agentIds.length > 0 ? JSON.stringify(agentIds) : null;
+}
+
+function x402SummaryParts(form) {
+  const parts = [];
+  if (hasValue(form.maxSpendUsd)) parts.push(`block purchases over $${Number(form.maxSpendUsd)}`);
+  if (hasValue(form.approvalThreshold)) parts.push(`require approval at $${Number(form.approvalThreshold)}`);
+  const allowed = cleanList(form.allowedProviders);
+  const blocked = cleanList(form.blockedProviders);
+  if (allowed.length) parts.push(`only allow ${pluralProviders(allowed.length)}`);
+  if (blocked.length) parts.push(`block ${pluralProviders(blocked.length)}`);
+  return parts;
+}
+
+// --- Per-type handlers --------------------------------------------------------
+// One entry per policy type, co-locating the two type-specific concerns:
+//   compile(form)          -> the stored `rules` object
+//   summary(form, scoped)  -> the human-readable sentence
+// A single enumeration keeps both dispatchers flat (no per-function switch) and
+// avoids two parallel type tables drifting apart.
+const POLICY_TYPE_HANDLERS = {
+  risk_threshold: {
+    compile: (form) => ({ threshold: Number(form.threshold) || 0, action: form.action }),
+    summary: (form, scoped) =>
+      `${actionVerb(form.action)} actions when risk is ${Number(form.threshold) || 0} or higher${scoped}.`,
+  },
+  require_approval: {
+    compile: (form) => ({ action_types: form.actionTypes || [], action: 'require_approval' }),
+    summary: (form, scoped) => `Require approval for ${actionListText(form.actionTypes)} actions${scoped}.`,
+  },
+  block_action_type: {
+    compile: (form) => ({ action_types: form.actionTypes || [], action: 'block' }),
+    summary: (form, scoped) => `Block ${actionListText(form.actionTypes)} actions entirely${scoped}.`,
+  },
+  rate_limit: {
+    compile: (form) => ({
+      max_actions: Number(form.maxActions) || 1,
+      window_minutes: Number(form.windowMinutes) || 1,
+      action: form.action,
+    }),
+    summary: (form, scoped) =>
+      `${form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn when' : 'Require approval when'} an agent exceeds ${Number(form.maxActions) || 1} actions in ${Number(form.windowMinutes) || 1} minutes${scoped}.`,
+  },
+  webhook_check: {
+    compile: (form) => ({
+      url: cleanString(form.webhookUrl),
+      timeout_ms: Number(form.webhookTimeout) || 5000,
+      on_timeout: form.webhookOnTimeout || 'allow',
+    }),
+    summary: (form, scoped) => {
+      let host = cleanString(form.webhookUrl);
+      try {
+        host = new URL(form.webhookUrl).hostname;
+      } catch {
+        // keep raw string
+      }
+      return `Call ${host || 'the configured webhook'} before allowing the action. If the webhook times out, ${form.webhookOnTimeout || 'allow'} the action${scoped}.`;
+    },
+  },
+  semantic_check: {
+    compile: (form) => ({
+      instruction: cleanString(form.instruction),
+      fallback: form.fallback || 'allow',
+    }),
+    summary: (form, scoped) =>
+      `Use a semantic check to evaluate whether the action violates the instruction: "${cleanString(form.instruction)}"${scoped}.`,
+  },
+  non_fabrication: {
+    compile: (form) => ({
+      ...(Array.isArray(form.actionTypes) && form.actionTypes.length > 0
+        ? { action_types: form.actionTypes }
+        : {}),
+      content_path: cleanString(form.contentPath) || 'content',
+      source_path: cleanString(form.sourcePath) || 'source_of_truth',
+      on_violation: form.onViolation === 'require_approval' ? 'require_approval' : 'block',
+    }),
+    summary: (form, scoped) => {
+      const nfScope = Array.isArray(form.actionTypes) && form.actionTypes.length > 0
+        ? `${actionListText(form.actionTypes)} actions`
+        : 'any action';
+      return `${form.onViolation === 'require_approval' ? 'Require approval for' : 'Block'} ${nfScope} whose outbound content states a fact not traceable to its source-of-truth${scoped}.`;
+    },
+  },
+  behavioral_anomaly: {
+    compile: (form) => ({
+      similarity_threshold: Math.max(0, Math.min(1, Number(form.similarityThreshold) || 0)),
+      min_history: Math.max(1, Number(form.minHistory) || 5),
+      action: form.action,
+    }),
+    summary: (form, scoped) => {
+      const pct = Math.round((Number(form.similarityThreshold) || 0) * 100);
+      return `${actionVerb(form.action)} actions less than ${pct}% similar to the agent’s recent behavior, after ${Number(form.minHistory) || 5} baseline samples${scoped}. Requires embeddings (OpenAI key).`;
+    },
+  },
+  permission_escalation: {
+    compile: (form) => ({ enforce: !!form.enforce, action: form.action }),
+    summary: (form, scoped) =>
+      form.enforce
+        ? `${actionVerb(form.action)} actions whose required tool permission exceeds the agent’s approved pairing level${scoped}.`
+        : `Permission-escalation policy is configured but disabled — set Enforce to activate it${scoped}.`,
+  },
+  green_contract: {
+    compile: (form) => ({
+      action_types: form.actionTypes || [],
+      required_level: form.requiredLevel || 'workspace',
+      action: form.action,
+    }),
+    summary: (form, scoped) =>
+      `${actionVerb(form.action)} ${actionListText(form.actionTypes)} actions unless test status has reached “${form.requiredLevel || 'workspace'}”${scoped}.`,
+  },
+  branch_freshness: {
+    compile: (form) => ({
+      action_types: form.actionTypes || [],
+      freshness: Array.isArray(form.freshness) && form.freshness.length > 0
+        ? form.freshness
+        : ['stale', 'diverged'],
+      max_commits_behind: Math.max(0, Number(form.maxCommitsBehind) || 0),
+      action: form.action,
+    }),
+    summary: (form, scoped) => {
+      const states = (Array.isArray(form.freshness) ? form.freshness : ['stale', 'diverged']).join(' or ');
+      return `${actionVerb(form.action)} ${actionListText(form.actionTypes)} actions when the branch is ${states} and more than ${Number(form.maxCommitsBehind) || 0} commits behind${scoped}.`;
+    },
+  },
+  protected_path: {
+    compile: (form) => ({
+      paths: cleanStringList(form.protectedPaths),
+      action: form.action === 'block' || form.action === 'warn' ? form.action : 'require_approval',
+    }),
+    summary: (form, scoped) => {
+      const count = cleanList(form.protectedPaths).length;
+      return `${actionVerb(form.action)} actions that touch ${count > 0 ? `${count} protected path pattern${count === 1 ? '' : 's'}` : 'protected paths'}${scoped}.`;
+    },
+  },
+  x402_spend_limit: {
+    compile: (form) => {
+      const rules = {};
+      if (hasValue(form.maxSpendUsd)) rules.max_spend_usd = Number(form.maxSpendUsd);
+      if (hasValue(form.approvalThreshold)) rules.approval_threshold = Number(form.approvalThreshold);
+      const allowed = providerList(form.allowedProviders);
+      const blocked = providerList(form.blockedProviders);
+      if (allowed) rules.allowed_providers = allowed;
+      if (blocked) rules.blocked_providers = blocked;
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const parts = x402SummaryParts(form);
+      return `Govern x402 purchases: ${parts.length ? parts.join(', ') : 'record and govern spend'}${scoped}.`;
+    },
+  },
+};
+
+// --- Form state -> stored policy payload (compile) ---
+
 export function compilePolicyPayload(formState) {
   const form = {
     ...createDefaultPolicyFormState(),
     ...formState,
   };
 
-  let rules;
-
-  switch (form.type) {
-    case 'risk_threshold':
-      rules = { threshold: Number(form.threshold) || 0, action: form.action };
-      break;
-    case 'require_approval':
-      rules = { action_types: form.actionTypes || [], action: 'require_approval' };
-      break;
-    case 'block_action_type':
-      rules = { action_types: form.actionTypes || [], action: 'block' };
-      break;
-    case 'rate_limit':
-      rules = {
-        max_actions: Number(form.maxActions) || 1,
-        window_minutes: Number(form.windowMinutes) || 1,
-        action: form.action,
-      };
-      break;
-    case 'webhook_check':
-      rules = {
-        url: cleanString(form.webhookUrl),
-        timeout_ms: Number(form.webhookTimeout) || 5000,
-        on_timeout: form.webhookOnTimeout || 'allow',
-      };
-      break;
-    case 'semantic_check':
-      rules = {
-        instruction: cleanString(form.instruction),
-        fallback: form.fallback || 'allow',
-      };
-      break;
-    case 'non_fabrication':
-      rules = {
-        ...(Array.isArray(form.actionTypes) && form.actionTypes.length > 0
-          ? { action_types: form.actionTypes }
-          : {}),
-        content_path: cleanString(form.contentPath) || 'content',
-        source_path: cleanString(form.sourcePath) || 'source_of_truth',
-        on_violation: form.onViolation === 'require_approval' ? 'require_approval' : 'block',
-      };
-      break;
-    case 'behavioral_anomaly':
-      rules = {
-        similarity_threshold: Math.max(0, Math.min(1, Number(form.similarityThreshold) || 0)),
-        min_history: Math.max(1, Number(form.minHistory) || 5),
-        action: form.action,
-      };
-      break;
-    case 'permission_escalation':
-      rules = { enforce: !!form.enforce, action: form.action };
-      break;
-    case 'green_contract':
-      rules = {
-        action_types: form.actionTypes || [],
-        required_level: form.requiredLevel || 'workspace',
-        action: form.action,
-      };
-      break;
-    case 'branch_freshness':
-      rules = {
-        action_types: form.actionTypes || [],
-        freshness: Array.isArray(form.freshness) && form.freshness.length > 0
-          ? form.freshness
-          : ['stale', 'diverged'],
-        max_commits_behind: Math.max(0, Number(form.maxCommitsBehind) || 0),
-        action: form.action,
-      };
-      break;
-    case 'protected_path':
-      rules = {
-        paths: Array.isArray(form.protectedPaths)
-          ? form.protectedPaths.map((p) => cleanString(p)).filter(Boolean)
-          : [],
-        action: form.action === 'block' || form.action === 'warn' ? form.action : 'require_approval',
-      };
-      break;
-    case 'x402_spend_limit': {
-      const r = {};
-      if (form.maxSpendUsd !== undefined && form.maxSpendUsd !== null && form.maxSpendUsd !== '') {
-        r.max_spend_usd = Number(form.maxSpendUsd);
-      }
-      if (form.approvalThreshold !== undefined && form.approvalThreshold !== null && form.approvalThreshold !== '') {
-        r.approval_threshold = Number(form.approvalThreshold);
-      }
-      if (Array.isArray(form.allowedProviders) && form.allowedProviders.length > 0) {
-        r.allowed_providers = form.allowedProviders.map((p) => cleanString(p)).filter(Boolean);
-      }
-      if (Array.isArray(form.blockedProviders) && form.blockedProviders.length > 0) {
-        r.blocked_providers = form.blockedProviders.map((p) => cleanString(p)).filter(Boolean);
-      }
-      rules = r;
-      break;
-    }
-    default:
-      rules = {};
-      break;
-  }
+  const handler = POLICY_TYPE_HANDLERS[form.type];
+  const rules = handler ? handler.compile(form) : {};
 
   // Carry optional inline test recipes through unchanged so they persist into
   // the stored rules JSON and feed POST /api/policies/test.
@@ -215,11 +305,19 @@ export function compilePolicyPayload(formState) {
     name: cleanString(form.name),
     policy_type: form.type,
     rules: JSON.stringify(rules),
-    agent_ids: Array.isArray(form.agentIds) && form.agentIds.length > 0
-      ? JSON.stringify(form.agentIds)
-      : null,
+    agent_ids: serializeAgentIds(form.agentIds),
   };
 }
+
+// --- Stored policy -> form state (decompile) ---
+
+// `||` truthy-fallback, `??` nullish-fallback, and array-or-default — each kept
+// as a named helper so the field-by-field decode below stays flat (no inline
+// conditionals contributing to this function's complexity).
+const orVal = (value, fallback) => value || fallback;
+const coalesce = (value, fallback) => value ?? fallback;
+const arrOr = (value, fallback) => (Array.isArray(value) ? value : fallback);
+const enforceOf = (rules) => (rules.enforce !== undefined ? !!rules.enforce : DEFAULT_FORM_STATE.enforce);
 
 export function decompilePolicyForm(policy) {
   const rules = parseRules(policy);
@@ -229,34 +327,36 @@ export function decompilePolicyForm(policy) {
     ...createDefaultPolicyFormState(),
     name: cleanString(policy?.name),
     type: policyType,
-    action: rules.action || 'block',
-    threshold: rules.threshold ?? DEFAULT_FORM_STATE.threshold,
-    actionTypes: Array.isArray(rules.action_types) ? rules.action_types : [],
-    maxActions: rules.max_actions || DEFAULT_FORM_STATE.maxActions,
-    windowMinutes: rules.window_minutes || DEFAULT_FORM_STATE.windowMinutes,
-    webhookUrl: rules.url || '',
-    webhookTimeout: rules.timeout_ms || DEFAULT_FORM_STATE.webhookTimeout,
-    webhookOnTimeout: rules.on_timeout || DEFAULT_FORM_STATE.webhookOnTimeout,
-    instruction: rules.instruction || '',
-    fallback: rules.fallback || DEFAULT_FORM_STATE.fallback,
-    contentPath: rules.content_path || DEFAULT_FORM_STATE.contentPath,
-    sourcePath: rules.source_path || DEFAULT_FORM_STATE.sourcePath,
-    onViolation: rules.on_violation || DEFAULT_FORM_STATE.onViolation,
-    similarityThreshold: rules.similarity_threshold ?? DEFAULT_FORM_STATE.similarityThreshold,
-    minHistory: rules.min_history ?? DEFAULT_FORM_STATE.minHistory,
-    enforce: rules.enforce !== undefined ? !!rules.enforce : DEFAULT_FORM_STATE.enforce,
-    requiredLevel: rules.required_level || DEFAULT_FORM_STATE.requiredLevel,
-    freshness: Array.isArray(rules.freshness) ? rules.freshness : DEFAULT_FORM_STATE.freshness,
-    maxCommitsBehind: rules.max_commits_behind ?? DEFAULT_FORM_STATE.maxCommitsBehind,
-    protectedPaths: Array.isArray(rules.paths) ? rules.paths : DEFAULT_FORM_STATE.protectedPaths,
-    maxSpendUsd: rules.max_spend_usd ?? DEFAULT_FORM_STATE.maxSpendUsd,
-    approvalThreshold: rules.approval_threshold ?? DEFAULT_FORM_STATE.approvalThreshold,
-    allowedProviders: Array.isArray(rules.allowed_providers) ? rules.allowed_providers : DEFAULT_FORM_STATE.allowedProviders,
-    blockedProviders: Array.isArray(rules.blocked_providers) ? rules.blocked_providers : DEFAULT_FORM_STATE.blockedProviders,
-    tests: Array.isArray(rules.tests) ? rules.tests : [],
+    action: orVal(rules.action, 'block'),
+    threshold: coalesce(rules.threshold, DEFAULT_FORM_STATE.threshold),
+    actionTypes: arrOr(rules.action_types, []),
+    maxActions: orVal(rules.max_actions, DEFAULT_FORM_STATE.maxActions),
+    windowMinutes: orVal(rules.window_minutes, DEFAULT_FORM_STATE.windowMinutes),
+    webhookUrl: orVal(rules.url, ''),
+    webhookTimeout: orVal(rules.timeout_ms, DEFAULT_FORM_STATE.webhookTimeout),
+    webhookOnTimeout: orVal(rules.on_timeout, DEFAULT_FORM_STATE.webhookOnTimeout),
+    instruction: orVal(rules.instruction, ''),
+    fallback: orVal(rules.fallback, DEFAULT_FORM_STATE.fallback),
+    contentPath: orVal(rules.content_path, DEFAULT_FORM_STATE.contentPath),
+    sourcePath: orVal(rules.source_path, DEFAULT_FORM_STATE.sourcePath),
+    onViolation: orVal(rules.on_violation, DEFAULT_FORM_STATE.onViolation),
+    similarityThreshold: coalesce(rules.similarity_threshold, DEFAULT_FORM_STATE.similarityThreshold),
+    minHistory: coalesce(rules.min_history, DEFAULT_FORM_STATE.minHistory),
+    enforce: enforceOf(rules),
+    requiredLevel: orVal(rules.required_level, DEFAULT_FORM_STATE.requiredLevel),
+    freshness: arrOr(rules.freshness, DEFAULT_FORM_STATE.freshness),
+    maxCommitsBehind: coalesce(rules.max_commits_behind, DEFAULT_FORM_STATE.maxCommitsBehind),
+    protectedPaths: arrOr(rules.paths, DEFAULT_FORM_STATE.protectedPaths),
+    maxSpendUsd: coalesce(rules.max_spend_usd, DEFAULT_FORM_STATE.maxSpendUsd),
+    approvalThreshold: coalesce(rules.approval_threshold, DEFAULT_FORM_STATE.approvalThreshold),
+    allowedProviders: arrOr(rules.allowed_providers, DEFAULT_FORM_STATE.allowedProviders),
+    blockedProviders: arrOr(rules.blocked_providers, DEFAULT_FORM_STATE.blockedProviders),
+    tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };
 }
+
+// --- Form state -> human-readable summary ---
 
 export function buildPolicySummary(formState) {
   const form = {
@@ -265,66 +365,6 @@ export function buildPolicySummary(formState) {
   };
   const scoped = scopeText(form.agentIds);
 
-  switch (form.type) {
-    case 'risk_threshold':
-      return `${form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for'} actions when risk is ${Number(form.threshold) || 0} or higher${scoped}.`;
-    case 'require_approval':
-      return `Require approval for ${actionListText(form.actionTypes)} actions${scoped}.`;
-    case 'block_action_type':
-      return `Block ${actionListText(form.actionTypes)} actions entirely${scoped}.`;
-    case 'rate_limit':
-      return `${form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn when' : 'Require approval when'} an agent exceeds ${Number(form.maxActions) || 1} actions in ${Number(form.windowMinutes) || 1} minutes${scoped}.`;
-    case 'webhook_check': {
-      let host = cleanString(form.webhookUrl);
-      try {
-        host = new URL(form.webhookUrl).hostname;
-      } catch {
-        // keep raw string
-      }
-      return `Call ${host || 'the configured webhook'} before allowing the action. If the webhook times out, ${form.webhookOnTimeout || 'allow'} the action${scoped}.`;
-    }
-    case 'semantic_check':
-      return `Use a semantic check to evaluate whether the action violates the instruction: "${cleanString(form.instruction)}"${scoped}.`;
-    case 'non_fabrication': {
-      const nfScope = Array.isArray(form.actionTypes) && form.actionTypes.length > 0
-        ? `${actionListText(form.actionTypes)} actions`
-        : 'any action';
-      return `${form.onViolation === 'require_approval' ? 'Require approval for' : 'Block'} ${nfScope} whose outbound content states a fact not traceable to its source-of-truth${scoped}.`;
-    }
-    case 'behavioral_anomaly': {
-      const pct = Math.round((Number(form.similarityThreshold) || 0) * 100);
-      const verb = form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for';
-      return `${verb} actions less than ${pct}% similar to the agent’s recent behavior, after ${Number(form.minHistory) || 5} baseline samples${scoped}. Requires embeddings (OpenAI key).`;
-    }
-    case 'permission_escalation':
-      return form.enforce
-        ? `${form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for'} actions whose required tool permission exceeds the agent’s approved pairing level${scoped}.`
-        : `Permission-escalation policy is configured but disabled — set Enforce to activate it${scoped}.`;
-    case 'green_contract': {
-      const verb = form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for';
-      return `${verb} ${actionListText(form.actionTypes)} actions unless test status has reached “${form.requiredLevel || 'workspace'}”${scoped}.`;
-    }
-    case 'branch_freshness': {
-      const verb = form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for';
-      const states = (Array.isArray(form.freshness) ? form.freshness : ['stale', 'diverged']).join(' or ');
-      return `${verb} ${actionListText(form.actionTypes)} actions when the branch is ${states} and more than ${Number(form.maxCommitsBehind) || 0} commits behind${scoped}.`;
-    }
-    case 'protected_path': {
-      const verb = form.action === 'block' ? 'Block' : form.action === 'warn' ? 'Warn on' : 'Require approval for';
-      const count = Array.isArray(form.protectedPaths) ? form.protectedPaths.filter(Boolean).length : 0;
-      return `${verb} actions that touch ${count > 0 ? `${count} protected path pattern${count === 1 ? '' : 's'}` : 'protected paths'}${scoped}.`;
-    }
-    case 'x402_spend_limit': {
-      const parts = [];
-      if (form.maxSpendUsd !== '' && form.maxSpendUsd != null) parts.push(`block purchases over $${Number(form.maxSpendUsd)}`);
-      if (form.approvalThreshold !== '' && form.approvalThreshold != null) parts.push(`require approval at $${Number(form.approvalThreshold)}`);
-      const allowed = Array.isArray(form.allowedProviders) ? form.allowedProviders.filter(Boolean) : [];
-      const blocked = Array.isArray(form.blockedProviders) ? form.blockedProviders.filter(Boolean) : [];
-      if (allowed.length) parts.push(`only allow ${allowed.length} provider${allowed.length === 1 ? '' : 's'}`);
-      if (blocked.length) parts.push(`block ${blocked.length} provider${blocked.length === 1 ? '' : 's'}`);
-      return `Govern x402 purchases: ${parts.length ? parts.join(', ') : 'record and govern spend'}${scoped}.`;
-    }
-    default:
-      return 'Configure a policy rule.';
-  }
+  const handler = POLICY_TYPE_HANDLERS[form.type];
+  return handler ? handler.summary(form, scoped) : 'Configure a policy rule.';
 }

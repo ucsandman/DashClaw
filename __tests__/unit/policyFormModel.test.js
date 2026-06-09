@@ -236,3 +236,114 @@ describe('custom action types — form output matches Import on the guard-matche
     ).toContain('Require approval for marketplace_publish actions');
   });
 });
+
+// Characterization for every remaining policy type — locks exact compile
+// payloads (the persisted behavior) before the structural refactor.
+describe('policyFormModel — full-type characterization', () => {
+  const rulesOf = (form) => JSON.parse(compilePolicyPayload(form).rules);
+
+  it('compiles rate_limit', () => {
+    expect(rulesOf({ type: 'rate_limit', maxActions: 50, windowMinutes: 60, action: 'warn', agentIds: [] }))
+      .toEqual({ max_actions: 50, window_minutes: 60, action: 'warn' });
+  });
+
+  it('compiles block_action_type', () => {
+    expect(rulesOf({ type: 'block_action_type', actionTypes: ['deploy'], agentIds: [] }))
+      .toEqual({ action_types: ['deploy'], action: 'block' });
+  });
+
+  it('compiles webhook_check (trims url, defaults timeout/on_timeout)', () => {
+    expect(rulesOf({ type: 'webhook_check', webhookUrl: '  https://x.com/c  ', webhookTimeout: 3000, webhookOnTimeout: 'block', agentIds: [] }))
+      .toEqual({ url: 'https://x.com/c', timeout_ms: 3000, on_timeout: 'block' });
+    expect(rulesOf({ type: 'webhook_check', webhookUrl: 'https://y.com', agentIds: [] }))
+      .toEqual({ url: 'https://y.com', timeout_ms: 5000, on_timeout: 'allow' });
+  });
+
+  it('compiles behavioral_anomaly (clamps similarity 0..1, min_history >=1)', () => {
+    expect(rulesOf({ type: 'behavioral_anomaly', similarityThreshold: 0.8, minHistory: 10, action: 'warn', agentIds: [] }))
+      .toEqual({ similarity_threshold: 0.8, min_history: 10, action: 'warn' });
+    expect(rulesOf({ type: 'behavioral_anomaly', similarityThreshold: 5, minHistory: 0, action: 'block', agentIds: [] }))
+      .toEqual({ similarity_threshold: 1, min_history: 5, action: 'block' });
+  });
+
+  it('compiles permission_escalation', () => {
+    expect(rulesOf({ type: 'permission_escalation', enforce: true, action: 'block', agentIds: [] }))
+      .toEqual({ enforce: true, action: 'block' });
+  });
+
+  it('compiles green_contract', () => {
+    expect(rulesOf({ type: 'green_contract', actionTypes: ['deploy'], requiredLevel: 'org', action: 'block', agentIds: [] }))
+      .toEqual({ action_types: ['deploy'], required_level: 'org', action: 'block' });
+  });
+
+  it('compiles branch_freshness (defaults freshness, clamps commits behind)', () => {
+    expect(rulesOf({ type: 'branch_freshness', actionTypes: ['deploy'], freshness: ['stale'], maxCommitsBehind: 3, action: 'warn', agentIds: [] }))
+      .toEqual({ action_types: ['deploy'], freshness: ['stale'], max_commits_behind: 3, action: 'warn' });
+    expect(rulesOf({ type: 'branch_freshness', actionTypes: [], freshness: [], maxCommitsBehind: -2, action: 'block', agentIds: [] }))
+      .toEqual({ action_types: [], freshness: ['stale', 'diverged'], max_commits_behind: 0, action: 'block' });
+  });
+
+  it('compiles protected_path (filters blanks, coerces action)', () => {
+    expect(rulesOf({ type: 'protected_path', protectedPaths: ['auth/', '', 'secrets/'], action: 'warn', agentIds: [] }))
+      .toEqual({ paths: ['auth/', 'secrets/'], action: 'warn' });
+    expect(rulesOf({ type: 'protected_path', protectedPaths: ['x'], action: 'something', agentIds: [] }))
+      .toEqual({ paths: ['x'], action: 'require_approval' });
+  });
+
+  it('compiles x402_spend_limit (omits empty fields, key order preserved)', () => {
+    expect(rulesOf({ type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['p1'], blockedProviders: ['p2'], agentIds: [] }))
+      .toEqual({ max_spend_usd: 10, approval_threshold: 5, allowed_providers: ['p1'], blocked_providers: ['p2'] });
+    expect(rulesOf({ type: 'x402_spend_limit', maxSpendUsd: '', approvalThreshold: '', allowedProviders: [], blockedProviders: [], agentIds: [] }))
+      .toEqual({});
+  });
+
+  it('carries inline test recipes through as the last rules key', () => {
+    const payload = compilePolicyPayload({ type: 'risk_threshold', threshold: 50, action: 'warn', tests: [{ name: 't' }], agentIds: [] });
+    const parsed = JSON.parse(payload.rules);
+    expect(parsed.tests).toEqual([{ name: 't' }]);
+    expect(Object.keys(parsed)).toEqual(['threshold', 'action', 'tests']);
+  });
+
+  it('round-trips x402_spend_limit and behavioral_anomaly through decompile', () => {
+    const x402 = decompilePolicyForm({
+      policy_type: 'x402_spend_limit',
+      rules: JSON.stringify({ max_spend_usd: 25, approval_threshold: 10, allowed_providers: ['a'], blocked_providers: ['b'] }),
+      agent_ids: null,
+    });
+    expect(x402.type).toBe('x402_spend_limit');
+    expect(x402.maxSpendUsd).toBe(25);
+    expect(x402.approvalThreshold).toBe(10);
+    expect(x402.allowedProviders).toEqual(['a']);
+    expect(x402.blockedProviders).toEqual(['b']);
+
+    const ba = decompilePolicyForm({
+      policy_type: 'behavioral_anomaly',
+      rules: JSON.stringify({ similarity_threshold: 0.9, min_history: 7, action: 'warn' }),
+      agent_ids: JSON.stringify(['agt_x']),
+    });
+    expect(ba.similarityThreshold).toBe(0.9);
+    expect(ba.minHistory).toBe(7);
+    expect(ba.action).toBe('warn');
+    expect(ba.agentIds).toEqual(['agt_x']);
+  });
+
+  it('summarizes every type with the correct action verb and scope', () => {
+    expect(buildPolicySummary({ type: 'permission_escalation', enforce: true, action: 'warn', agentIds: ['a'] }))
+      .toBe('Warn on actions whose required tool permission exceeds the agent’s approved pairing level for 1 selected agent.');
+    expect(buildPolicySummary({ type: 'permission_escalation', enforce: false, agentIds: [] }))
+      .toContain('configured but disabled');
+    expect(buildPolicySummary({ type: 'green_contract', actionTypes: ['deploy'], requiredLevel: 'org', action: 'block', agentIds: [] }))
+      .toBe('Block deploy actions unless test status has reached “org”.');
+    expect(buildPolicySummary({ type: 'branch_freshness', actionTypes: ['deploy'], freshness: ['stale', 'diverged'], maxCommitsBehind: 2, action: 'require_approval', agentIds: [] }))
+      .toBe('Require approval for deploy actions when the branch is stale or diverged and more than 2 commits behind.');
+    expect(buildPolicySummary({ type: 'protected_path', protectedPaths: ['auth/', 'x'], action: 'block', agentIds: [] }))
+      .toBe('Block actions that touch 2 protected path patterns.');
+    expect(buildPolicySummary({ type: 'behavioral_anomaly', similarityThreshold: 0.75, minHistory: 5, action: 'block', agentIds: [] }))
+      .toContain('Block actions less than 75% similar');
+    expect(buildPolicySummary({ type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['a'], blockedProviders: [], agentIds: [] }))
+      .toBe('Govern x402 purchases: block purchases over $10, require approval at $5, only allow 1 provider.');
+    expect(buildPolicySummary({ type: 'x402_spend_limit', agentIds: [] }))
+      .toBe('Govern x402 purchases: record and govern spend.');
+    expect(buildPolicySummary({ type: 'unknown_type', agentIds: [] })).toBe('Configure a policy rule.');
+  });
+});
