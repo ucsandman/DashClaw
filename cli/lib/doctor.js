@@ -61,27 +61,36 @@ function nextStepFor(check, { noFix }) {
   return GUIDANCE[check.id] || null;
 }
 
-/**
- * Run doctor via the API and render results.
- * @param {{ baseUrl: string, apiKey: string, json?: boolean, noFix?: boolean, category?: string }} options
- */
-export async function runDoctor({ baseUrl, apiKey, json, noFix, category }) {
-  const base = baseUrl.replace(/\/+$/, '');
-  const headers = { 'Content-Type': 'application/json', 'x-api-key': apiKey };
-
+function doctorUrl(base, category) {
   let url = `${base}/api/doctor?include_fixes=true`;
   if (category) url += `&category=${encodeURIComponent(category)}`;
+  return url;
+}
 
+function doctorHeaders(apiKey) {
+  return { 'Content-Type': 'application/json', 'x-api-key': apiKey };
+}
+
+function exitFetchError(base, err) {
+  console.error(red(`\nError: Could not reach DashClaw at ${base}`));
+  console.error(dim(`  ${err.cause?.code || err.message}`));
+  console.error(dim(`  Check DASHCLAW_BASE_URL and confirm your instance is running.\n`));
+  process.exit(1);
+}
+
+async function fetchDoctorResult({ base, apiKey, category }) {
+  const headers = doctorHeaders(apiKey);
   let res;
   try {
-    res = await fetch(url, { headers });
+    res = await fetch(doctorUrl(base, category), { headers });
   } catch (err) {
-    console.error(red(`\nError: Could not reach DashClaw at ${base}`));
-    console.error(dim(`  ${err.cause?.code || err.message}`));
-    console.error(dim(`  Check DASHCLAW_BASE_URL and confirm your instance is running.\n`));
-    process.exit(1);
+    exitFetchError(base, err);
   }
+  await handleDoctorResponse(base, res);
+  return { result: await res.json(), headers };
+}
 
+async function handleDoctorResponse(base, res) {
   if (res.status === 401 || res.status === 403) {
     console.error(red(`\nError: API key rejected by ${base} (${res.status}).`));
     console.error(dim(`  Check DASHCLAW_API_KEY matches the key on your instance.\n`));
@@ -93,82 +102,100 @@ export async function runDoctor({ baseUrl, apiKey, json, noFix, category }) {
     console.error(red(`Doctor check failed (${res.status}): ${errText}`));
     process.exit(1);
   }
+}
 
-  const result = await res.json();
+function exitJson(result) {
+  console.log(JSON.stringify(result, null, 2));
+  process.exit(result.status === 'healthy' ? 0 : 1);
+}
 
-  if (json) {
-    console.log(JSON.stringify(result, null, 2));
-    process.exit(result.status === 'healthy' ? 0 : 1);
-  }
-
-  // --- Header ----------------------------------------------------------------
+function renderHeader(base) {
   const hostLabel = base.replace(/^https?:\/\//, '');
   console.log();
   console.log(`  ${BRAND('[DashClaw]')} ${bold('Doctor')}   ${dim(hostLabel)}`);
   console.log();
+}
 
-  // --- Grouped checks --------------------------------------------------------
+function groupChecks(checks) {
   const grouped = {};
-  for (const check of result.checks) {
+  for (const check of checks) {
     if (!grouped[check.category]) grouped[check.category] = [];
     grouped[check.category].push(check);
   }
+  return grouped;
+}
 
+function renderCheck(check, noFix) {
+  const icon = ICONS[check.status] || '?';
+  const titleStyled = check.status === 'pass' ? check.title : bold(check.title);
+  console.log(`  ${icon} ${titleStyled}`);
+
+  if (check.status !== 'pass') {
+    console.log(`    ${dim(check.message)}`);
+    const tip = nextStepFor(check, { noFix });
+    if (tip) {
+      console.log(`    ${dim('\u2192')} ${tip}`);
+    }
+  }
+}
+
+function renderGroupedChecks(checks, noFix) {
+  const grouped = groupChecks(checks);
   for (const cat of CATEGORY_ORDER) {
-    const checks = grouped[cat];
-    if (!checks || checks.length === 0) continue;
+    const categoryChecks = grouped[cat];
+    if (!categoryChecks || categoryChecks.length === 0) continue;
 
     console.log(`  ${bold(CATEGORY_LABELS[cat] || cat)}`);
-    for (const check of checks) {
-      const icon = ICONS[check.status] || '?';
-      const titleStyled = check.status === 'pass' ? check.title : bold(check.title);
-      console.log(`  ${icon} ${titleStyled}`);
-
-      if (check.status !== 'pass') {
-        console.log(`    ${dim(check.message)}`);
-        const tip = nextStepFor(check, { noFix });
-        if (tip) {
-          console.log(`    ${dim('\u2192')} ${tip}`);
-        }
-      }
+    for (const check of categoryChecks) {
+      renderCheck(check, noFix);
     }
     console.log();
   }
+}
 
-  // --- Auto-fix (remote fixes only; local-only fixes blocked by API) --------
+function autoFixableChecks(result) {
+  return result.checks.filter((c) => c.status === 'fail' && c.fix?.type === 'auto');
+}
+
+async function applyDoctorFix({ base, headers, check }) {
+  try {
+    const fixRes = await fetch(`${base}/api/doctor/fix`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ action: check.fix.action }),
+    });
+    const fixResult = await fixRes.json();
+    if (fixResult.applied) {
+      console.log(`  ${green('\u2192')} Fixed: ${fixResult.description}`);
+      return { fixed: 1, recheck: fixResult.recheck || null };
+    }
+    console.log(`  ${dim('\u2192')} Skipped: ${fixResult.description}`);
+  } catch (err) {
+    console.log(`  ${red('\u2717')} Fix "${check.fix.action}" failed: ${err.cause?.code || err.message}`);
+  }
+  return { fixed: 0, recheck: null };
+}
+
+async function applyAutoFixes({ base, headers, result, noFix }) {
   let fixCount = 0;
   let latestRecheck = null;
-  if (!noFix) {
-    const fixable = result.checks.filter((c) => c.status === 'fail' && c.fix?.type === 'auto');
-    if (fixable.length > 0) {
-      console.log(`  ${bold('Applying auto-fixes...')}`);
-      for (const check of fixable) {
-        try {
-          const fixRes = await fetch(`${base}/api/doctor/fix`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ action: check.fix.action }),
-          });
-          const fixResult = await fixRes.json();
-          if (fixResult.applied) {
-            console.log(`  ${green('\u2192')} Fixed: ${fixResult.description}`);
-            fixCount++;
-            if (fixResult.recheck) latestRecheck = fixResult.recheck;
-          } else {
-            console.log(`  ${dim('\u2192')} Skipped: ${fixResult.description}`);
-          }
-        } catch (err) {
-          console.log(`  ${red('\u2717')} Fix "${check.fix.action}" failed: ${err.cause?.code || err.message}`);
-        }
-      }
-      console.log();
-    }
+  if (noFix) return { fixCount, latestRecheck };
+
+  const fixable = autoFixableChecks(result);
+  if (fixable.length === 0) return { fixCount, latestRecheck };
+
+  console.log(`  ${bold('Applying auto-fixes...')}`);
+  for (const check of fixable) {
+    const outcome = await applyDoctorFix({ base, headers, check });
+    fixCount += outcome.fixed;
+    latestRecheck = outcome.recheck || latestRecheck;
   }
+  console.log();
+  return { fixCount, latestRecheck };
+}
 
-  // --- Summary ---------------------------------------------------------------
-  const reporting = latestRecheck || result;
+function renderSummary(reporting) {
   const { pass, warn, fail } = reporting.summary;
-
   console.log(hr());
   console.log();
 
@@ -179,31 +206,65 @@ export async function runDoctor({ baseUrl, apiKey, json, noFix, category }) {
   ];
   console.log(`  ${segments.join('   ' + dim('\u00b7') + '   ')}`);
   console.log();
+}
 
-  // --- Contextual footer -----------------------------------------------------
-  const healthy = reporting.status === 'healthy';
-
+function renderFixCount(fixCount) {
   if (fixCount > 0) {
     console.log(`  ${green('\u2713')} ${fixCount} issue${fixCount !== 1 ? 's' : ''} auto-fixed this run.`);
   }
+}
 
-  if (noFix) {
-    const autoFixable = result.checks.filter(
-      (c) => c.status !== 'pass' && c.fix?.type === 'auto',
-    ).length;
-    if (autoFixable > 0) {
-      console.log(
-        `  ${BRAND('\u2192')} ${autoFixable} issue${autoFixable !== 1 ? 's' : ''} can be auto-fixed. Run: ${bold('dashclaw doctor')}`,
-      );
-    }
+function renderNoFixHint(result, noFix) {
+  if (!noFix) return;
+  const autoFixable = result.checks.filter(
+    (c) => c.status !== 'pass' && c.fix?.type === 'auto',
+  ).length;
+  if (autoFixable > 0) {
+    console.log(
+      `  ${BRAND('\u2192')} ${autoFixable} issue${autoFixable !== 1 ? 's' : ''} can be auto-fixed. Run: ${bold('dashclaw doctor')}`,
+    );
   }
+}
 
+function renderHealthFooter(base, healthy) {
   if (!healthy) {
     console.log(`  ${dim('Docs:')} ${base}/setup`);
   } else {
     console.log(`  ${green('\u2713')} ${bold('All systems healthy')} — ${dim('ready to govern actions')}`);
   }
   console.log();
+}
+
+/**
+ * Run doctor via the API and render results.
+ * @param {{ baseUrl: string, apiKey: string, json?: boolean, noFix?: boolean, category?: string }} options
+ */
+export async function runDoctor({ baseUrl, apiKey, json, noFix, category }) {
+  const base = baseUrl.replace(/\/+$/, '');
+  const { result, headers } = await fetchDoctorResult({ base, apiKey, category });
+
+  if (json) {
+    exitJson(result);
+  }
+
+  // --- Header ----------------------------------------------------------------
+  renderHeader(base);
+
+  // --- Grouped checks --------------------------------------------------------
+  renderGroupedChecks(result.checks, noFix);
+
+  // --- Auto-fix (remote fixes only; local-only fixes blocked by API) --------
+  const { fixCount, latestRecheck } = await applyAutoFixes({ base, headers, result, noFix });
+
+  // --- Summary ---------------------------------------------------------------
+  const reporting = latestRecheck || result;
+  renderSummary(reporting);
+
+  // --- Contextual footer -----------------------------------------------------
+  const healthy = reporting.status === 'healthy';
+  renderFixCount(fixCount);
+  renderNoFixHint(result, noFix);
+  renderHealthFooter(base, healthy);
 
   process.exit(healthy ? 0 : 1);
 }

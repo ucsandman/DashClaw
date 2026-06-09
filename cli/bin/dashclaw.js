@@ -54,6 +54,17 @@ function getFlag(name) {
   return undefined;
 }
 
+function incrementCount(counts, key) {
+  counts[key] = (counts[key] || 0) + 1;
+}
+
+function runSubcommand(table, sub, errorMessage) {
+  const handler = table[sub];
+  if (handler) return handler();
+  console.error(errorMessage(sub));
+  process.exit(1);
+}
+
 // -- Commands -----------------------------------------------------------------
 
 async function cmdHelp() {
@@ -181,211 +192,192 @@ async function cmdDeny() {
   }
 }
 
-async function cmdApprovals() {
-  const claw = createClient();
-
-  let items = [];
-  let selected = 0;
-
-  async function fetchPending() {
-    try {
-      const result = await claw.getPendingApprovals(50);
-      items = result.actions || [];
-    } catch (err) {
-      console.error(`Error fetching approvals: ${err.message}`);
-      process.exit(1);
-    }
-  }
-
-  function render() {
-    clearScreen();
-    moveCursor(1, 1);
-    process.stdout.write(bold('DashClaw Approval Inbox') + '\n\n');
-
-    if (items.length === 0) {
-      process.stdout.write(dim('  No pending approvals.\n'));
-      process.stdout.write(dim('  Press R to refresh, Q to quit.\n'));
-    } else {
-      for (let i = 0; i < items.length; i++) {
-        const a = items[i];
-        const id = a.action_id || a.id || '?';
-        const type = a.action_type || '-';
-        const agent = a.agent_id || '-';
-        const goal = (a.declared_goal || '-').slice(0, 60);
-        const risk = a.risk_score != null ? colorByRisk(a.risk_score) : dim('-');
-
-        const line = `  [${i + 1}] ${type} | ${agent} | ${goal} | risk: ${risk}`;
-        process.stdout.write((i === selected ? inverse(line) : line) + '\n');
-      }
-    }
-
-    process.stdout.write('\n' + dim('  [A] Approve  [D] Deny  [R] Refresh  [O] Open Replay  [Q] Quit') + '\n');
-  }
-
-  function openReplay(actionId) {
-    const url = `${baseUrl}/replay/${actionId}`;
-    let parsed;
-    try {
-      parsed = new URL(url);
-    } catch {
-      process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
-      return;
-    }
-    const protocol = parsed.protocol;
-    if (protocol !== 'http:' && protocol !== 'https:') {
-      process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
-      return;
-    }
-    if (!parsed.hostname) {
-      process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
-      return;
-    }
-    if (/\s/.test(url)) {
-      process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
-      return;
-    }
-    // Disallow characters that are dangerous when passed through a shell
-    if (/[&|><^"'`]/.test(url)) {
-      process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
-      return;
-    }
-    try {
-      const platform = process.platform;
-      if (platform === 'darwin') {
-        execFileSync('open', [url]);
-      } else if (platform === 'win32') {
-        // Use PowerShell Start-Process instead of relying on cmd.exe parsing
-        execFileSync('powershell', ['-NoProfile', '-Command', 'Start-Process', url]);
-      } else {
-        execFileSync('xdg-open', [url]);
-      }
-    } catch (_) {
-      process.stdout.write(`\n  Could not open browser. URL: ${url}\n`);
-    }
-  }
-
-  await fetchPending();
-
-  // Open SSE stream for live push of new approval requests
-  let stream = null;
+async function fetchPendingApprovals(state) {
   try {
-    stream = claw.events()
-      .on('guard.decision.created', (data) => {
-        if (data.decision !== 'require_approval') return;
-        const exists = items.some((it) => (it.action_id || it.id) === data.action_id);
-        if (exists) return;
-        items.push(data);
-        render();
-      })
+    const result = await state.claw.getPendingApprovals(50);
+    state.items = result.actions || [];
+  } catch (err) {
+    console.error(`Error fetching approvals: ${err.message}`);
+    process.exit(1);
+  }
+}
+
+function approvalId(action) {
+  return action.action_id || action.id;
+}
+
+function renderApprovalRow(action, index, selected) {
+  const type = action.action_type || '-';
+  const agent = action.agent_id || '-';
+  const goal = (action.declared_goal || '-').slice(0, 60);
+  const risk = action.risk_score != null ? colorByRisk(action.risk_score) : dim('-');
+  const line = `  [${index + 1}] ${type} | ${agent} | ${goal} | risk: ${risk}`;
+  process.stdout.write((index === selected ? inverse(line) : line) + '\n');
+}
+
+function renderApprovals(state) {
+  clearScreen();
+  moveCursor(1, 1);
+  process.stdout.write(bold('DashClaw Approval Inbox') + '\n\n');
+
+  if (state.items.length === 0) {
+    process.stdout.write(dim('  No pending approvals.\n'));
+    process.stdout.write(dim('  Press R to refresh, Q to quit.\n'));
+  } else {
+    state.items.forEach((action, index) => renderApprovalRow(action, index, state.selected));
+  }
+
+  process.stdout.write('\n' + dim('  [A] Approve  [D] Deny  [R] Refresh  [O] Open Replay  [Q] Quit') + '\n');
+}
+
+function replayUrlIsSafe(url) {
+  let parsed;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  const protocolOk = parsed.protocol === 'http:' || parsed.protocol === 'https:';
+  return protocolOk && parsed.hostname && !/\s/.test(url) && !/[&|><^"'`]/.test(url);
+}
+
+function openReplay(actionId) {
+  const url = `${baseUrl}/replay/${actionId}`;
+  if (!replayUrlIsSafe(url)) {
+    process.stdout.write(`\n  Invalid URL, cannot open browser.\n`);
+    return;
+  }
+  try {
+    const platform = process.platform;
+    if (platform === 'darwin') {
+      execFileSync('open', [url]);
+    } else if (platform === 'win32') {
+      // Use PowerShell Start-Process instead of relying on cmd.exe parsing
+      execFileSync('powershell', ['-NoProfile', '-Command', 'Start-Process', url]);
+    } else {
+      execFileSync('xdg-open', [url]);
+    }
+  } catch (_) {
+    process.stdout.write(`\n  Could not open browser. URL: ${url}\n`);
+  }
+}
+
+function startApprovalStream(state) {
+  try {
+    state.stream = state.claw.events()
+      .on('guard.decision.created', (data) => handleApprovalPush(state, data))
       .on('error', () => {
-        moveCursor(items.length + 6, 1);
+        moveCursor(state.items.length + 6, 1);
         process.stdout.write(dim('  SSE stream error — live push unavailable, use R to refresh') + '\n');
       });
   } catch (_) {
     // SSE unavailable — inbox still works via manual refresh
   }
+}
 
-  // Set up raw mode for interactive input
+function handleApprovalPush(state, data) {
+  if (data.decision !== 'require_approval') return;
+  const exists = state.items.some((it) => approvalId(it) === data.action_id);
+  if (exists) return;
+  state.items.push(data);
+  renderApprovals(state);
+}
+
+function ensureApprovalTty() {
   if (!process.stdin.isTTY) {
     console.error('Error: Interactive mode requires a TTY. Use dashclaw approve/deny for non-interactive use.');
     process.exit(1);
   }
+}
 
+function selectedWithinItems(state) {
+  state.selected = Math.min(state.selected, Math.max(0, state.items.length - 1));
+}
+
+function setupApprovalTerminal(state) {
+  ensureApprovalTty();
   process.stdin.setRawMode(true);
   process.stdin.resume();
   process.stdin.setEncoding('utf8');
   hideCursor();
-
-  // Ensure cleanup on exit
-  function cleanup() {
-    if (stream) stream.close();
-    showCursor();
-    if (process.stdin.isTTY) process.stdin.setRawMode(false);
-    process.stdout.write('\n');
-  }
-  process.on('exit', cleanup);
+  process.on('exit', () => cleanupApprovalInbox(state));
   process.on('SIGINT', () => process.exit(0));
+}
 
-  render();
+function cleanupApprovalInbox(state) {
+  if (state.stream) state.stream.close();
+  showCursor();
+  if (process.stdin.isTTY) process.stdin.setRawMode(false);
+  process.stdout.write('\n');
+}
 
-  let busy = false;
+async function withApprovalBusy(state, fn) {
+  state.busy = true;
+  try {
+    await fn();
+  } finally {
+    state.busy = false;
+  }
+}
 
-  process.stdin.on('data', async (key) => {
-    if (busy) return;
+async function refreshApprovals(state) {
+  await fetchPendingApprovals(state);
+  selectedWithinItems(state);
+  renderApprovals(state);
+}
 
-    // Ctrl+C
-    if (key === '\x03') {
-      process.exit(0);
-    }
+async function decideApproval(state, decision) {
+  const actionId = approvalId(state.items[state.selected]);
+  try {
+    await state.claw.approveAction(actionId, decision);
+    state.items.splice(state.selected, 1);
+    selectedWithinItems(state);
+  } catch (err) {
+    moveCursor(state.items.length + 5, 1);
+    process.stdout.write(red(`  Error: ${err.message}`) + '\n');
+  }
+  renderApprovals(state);
+}
 
-    // Arrow keys: escape sequences
-    if (key === '\x1b[A') {
-      // Up
-      if (selected > 0) selected--;
-      render();
-      return;
-    }
-    if (key === '\x1b[B') {
-      // Down
-      if (selected < items.length - 1) selected++;
-      render();
-      return;
-    }
+function moveApprovalSelection(state, delta) {
+  const next = state.selected + delta;
+  state.selected = Math.max(0, Math.min(next, state.items.length - 1));
+  renderApprovals(state);
+}
 
-    const ch = key.toLowerCase();
+const EMPTY_APPROVAL_KEY_ACTIONS = {
+  q: () => process.exit(0),
+  r: (state) => withApprovalBusy(state, () => refreshApprovals(state)),
+};
 
-    if (ch === 'q') {
-      process.exit(0);
-    }
+const APPROVAL_KEY_ACTIONS = {
+  ...EMPTY_APPROVAL_KEY_ACTIONS,
+  a: (state) => withApprovalBusy(state, () => decideApproval(state, 'allow')),
+  d: (state) => withApprovalBusy(state, () => decideApproval(state, 'deny')),
+  o: (state) => openReplay(approvalId(state.items[state.selected])),
+};
 
-    if (ch === 'r') {
-      busy = true;
-      await fetchPending();
-      selected = Math.min(selected, Math.max(0, items.length - 1));
-      render();
-      busy = false;
-      return;
-    }
+function approvalActionFor(state, key) {
+  if (key === '\x03') return () => process.exit(0);
+  if (key === '\x1b[A') return () => moveApprovalSelection(state, -1);
+  if (key === '\x1b[B') return () => moveApprovalSelection(state, 1);
+  const actions = state.items.length === 0 ? EMPTY_APPROVAL_KEY_ACTIONS : APPROVAL_KEY_ACTIONS;
+  return actions[key.toLowerCase()];
+}
 
-    if (items.length === 0) return;
-    const current = items[selected];
-    const actionId = current.action_id || current.id;
+async function handleApprovalKey(state, key) {
+  if (state.busy) return;
+  const action = approvalActionFor(state, key);
+  if (action) return action(state);
+}
 
-    if (ch === 'a') {
-      busy = true;
-      try {
-        await claw.approveAction(actionId, 'allow');
-        items.splice(selected, 1);
-        selected = Math.min(selected, Math.max(0, items.length - 1));
-      } catch (err) {
-        moveCursor(items.length + 5, 1);
-        process.stdout.write(red(`  Error: ${err.message}`) + '\n');
-      }
-      render();
-      busy = false;
-      return;
-    }
-
-    if (ch === 'd') {
-      busy = true;
-      try {
-        await claw.approveAction(actionId, 'deny');
-        items.splice(selected, 1);
-        selected = Math.min(selected, Math.max(0, items.length - 1));
-      } catch (err) {
-        moveCursor(items.length + 5, 1);
-        process.stdout.write(red(`  Error: ${err.message}`) + '\n');
-      }
-      render();
-      busy = false;
-      return;
-    }
-
-    if (ch === 'o') {
-      openReplay(actionId);
-      return;
-    }
-  });
+async function cmdApprovals() {
+  const state = { claw: createClient(), items: [], selected: 0, busy: false, stream: null };
+  await fetchPendingApprovals(state);
+  startApprovalStream(state);
+  setupApprovalTerminal(state);
+  renderApprovals(state);
+  process.stdin.on('data', (key) => handleApprovalKey(state, key));
 }
 
 // -- install subcommand group ------------------------------------------------
@@ -456,15 +448,10 @@ async function cmdCodexNotify() {
 }
 
 async function cmdCodex() {
-  const sub = args[1];
-  switch (sub) {
-    case 'notify':
-      return cmdCodexNotify();
-    default:
-      console.error(`Unknown subcommand: dashclaw codex ${sub || '(missing)'}\n` +
-                    'Try: dashclaw codex notify \'<json>\'   (called by Codex notify config)');
-      process.exit(1);
-  }
+  return runSubcommand({
+    notify: cmdCodexNotify,
+  }, args[1], (sub) => `Unknown subcommand: dashclaw codex ${sub || '(missing)'}\n` +
+    'Try: dashclaw codex notify \'<json>\'   (called by Codex notify config)');
 }
 
 // -- code subcommand group ---------------------------------------------------
@@ -487,24 +474,27 @@ async function cmdCodeIngestCodex() {
     console.log('No sessions to ingest.');
     return;
   }
-  let written = 0, ingested = 0, dryRunCount = 0, skipped = 0, errors = 0;
-  for (const r of results) {
-    if (r.status === 'written_local') written++;
-    else if (r.status === 'ingested') ingested++;
-    else if (r.status === 'dry_run') dryRunCount++;
-    else if (r.status === 'skipped') skipped++;
-    else if (r.status === 'error') {
-      errors++;
-      console.error(`  ${red('error')} ${r.file}: ${r.reason}${r.detail ? ' — ' + r.detail : ''}`);
-    }
-  }
+  const counts = tallyCodexIngestResults(results);
   console.log();
-  console.log(`Done. Written: ${written}  Ingested: ${ingested}  Dry-run: ${dryRunCount}  Skipped: ${skipped}  Errors: ${errors}`);
-  if (!endpoint && written > 0) {
+  console.log(`Done. Written: ${counts.written_local}  Ingested: ${counts.ingested}  Dry-run: ${counts.dry_run}  Skipped: ${counts.skipped}  Errors: ${counts.error}`);
+  if (!endpoint && counts.written_local > 0) {
     console.log(dim(`  Local sessions saved under ${outDir}.`));
     console.log(dim(`  Server-side codex ingest will be wired in a follow-up phase.`));
   }
-  if (errors > 0) process.exit(2);
+  if (counts.error > 0) process.exit(2);
+}
+
+function tallyCodexIngestResults(results) {
+  const counts = { written_local: 0, ingested: 0, dry_run: 0, skipped: 0, error: 0 };
+  for (const r of results) {
+    incrementCount(counts, r.status);
+    if (r.status === 'error') console.error(formatCodexIngestError(r));
+  }
+  return counts;
+}
+
+function formatCodexIngestError(result) {
+  return `  ${red('error')} ${result.file}: ${result.reason}${result.detail ? ' — ' + result.detail : ''}`;
 }
 
 async function cmdCodeIngest() {
@@ -518,17 +508,17 @@ async function cmdCodeIngest() {
     dryRun,
   });
   if (!results.length) return;
-  let ingested = 0;
-  let skipped = 0;
-  let errors = 0;
+  const counts = { ingested: 0, skipped: 0, error: 0 };
   for (const r of results) {
-    if (r.status === 'ingested') ingested++;
-    else if (r.status === 'skipped_unchanged' || r.status === 'skipped' || r.status === 'dry_run') skipped++;
-    else if (r.status === 'error') errors++;
+    if (r.status === 'skipped_unchanged' || r.status === 'dry_run') {
+      incrementCount(counts, 'skipped');
+    } else {
+      incrementCount(counts, r.status);
+    }
   }
   console.log();
-  console.log(`Done. Ingested: ${ingested}  Skipped: ${skipped}  Errors: ${errors}`);
-  if (errors > 0) process.exit(2);
+  console.log(`Done. Ingested: ${counts.ingested}  Skipped: ${counts.skipped}  Errors: ${counts.error}`);
+  if (counts.error > 0) process.exit(2);
 }
 
 async function cmdCodeMemo() {
@@ -578,24 +568,16 @@ async function cmdCodeApply() {
 }
 
 async function cmdCode() {
-  const sub = args[1];
-  switch (sub) {
-    case 'ingest':
-      return cmdCodeIngest();
-    case 'ingest-codex':
-      return cmdCodeIngestCodex();
-    case 'memo':
-      return cmdCodeMemo();
-    case 'apply':
-      return cmdCodeApply();
-    default:
-      console.error(`Unknown subcommand: dashclaw code ${sub || '(missing)'}\n` +
-                    'Try: dashclaw code ingest [--dry-run]\n' +
-                    '     dashclaw code ingest-codex [--dry-run] [--out <dir>] [--endpoint <url>]\n' +
-                    '     dashclaw code memo --project=<slug> [--save]\n' +
-                    '     dashclaw code apply <manifestId> --dest=<dir> [--yes]');
-      process.exit(1);
-  }
+  return runSubcommand({
+    ingest: cmdCodeIngest,
+    'ingest-codex': cmdCodeIngestCodex,
+    memo: cmdCodeMemo,
+    apply: cmdCodeApply,
+  }, args[1], (sub) => `Unknown subcommand: dashclaw code ${sub || '(missing)'}\n` +
+    'Try: dashclaw code ingest [--dry-run]\n' +
+    '     dashclaw code ingest-codex [--dry-run] [--out <dir>] [--endpoint <url>]\n' +
+    '     dashclaw code memo --project=<slug> [--save]\n' +
+    '     dashclaw code apply <manifestId> --dest=<dir> [--yes]');
 }
 
 // -- prompts subcommand group ------------------------------------------------
@@ -839,34 +821,40 @@ function inboxClient() {
 }
 
 async function cmdInboxList() {
-  const unread = args.includes('--unread');
-  const limitFlag = getFlag('--limit');
   try {
-    const data = await apiRequest(inboxClient(), 'GET', '/api/messages', {
-      query: {
-        agent_id: agentId,
-        direction: 'inbox',
-        unread: unread ? 'true' : undefined,
-        limit: limitFlag,
-      },
-    });
-    const messages = data.messages || [];
-    if (messages.length === 0) {
-      console.log(dim('  No messages.'));
-    } else {
-      for (const m of messages) {
-        const readMark = m.is_read ? dim('read') : green('unread');
-        console.log(
-          `  ${bold(m.id)}  ${dim('from')} ${m.from_agent_id || '-'}  ${m.subject || dim('(no subject)')}  [${readMark}]`,
-        );
-      }
-    }
-    console.log();
-    console.log(dim(`  unread: ${data.unread_count ?? 0}`));
+    const data = await apiRequest(inboxClient(), 'GET', '/api/messages', { query: inboxListQuery() });
+    renderInboxList(data);
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
   }
+}
+
+function inboxListQuery() {
+  return {
+    agent_id: agentId,
+    direction: 'inbox',
+    unread: args.includes('--unread') ? 'true' : undefined,
+    limit: getFlag('--limit'),
+  };
+}
+
+function renderInboxList(data) {
+  const messages = data.messages || [];
+  if (messages.length === 0) {
+    console.log(dim('  No messages.'));
+  } else {
+    messages.forEach(renderInboxMessage);
+  }
+  console.log();
+  console.log(dim(`  unread: ${data.unread_count ?? 0}`));
+}
+
+function renderInboxMessage(message) {
+  const readMark = message.is_read ? dim('read') : green('unread');
+  console.log(
+    `  ${bold(message.id)}  ${dim('from')} ${message.from_agent_id || '-'}  ${message.subject || dim('(no subject)')}  [${readMark}]`,
+  );
 }
 
 async function cmdInboxUpdate(action) {
@@ -887,21 +875,14 @@ async function cmdInboxUpdate(action) {
 }
 
 async function cmdInbox() {
-  const sub = args[1];
-  switch (sub) {
-    case 'list':
-      return cmdInboxList();
-    case 'read':
-      return cmdInboxUpdate('read');
-    case 'archive':
-      return cmdInboxUpdate('archive');
-    default:
-      console.error(`Unknown subcommand: dashclaw inbox ${sub || '(missing)'}\n` +
-                    'Try: dashclaw inbox list [--unread] [--limit N]\n' +
-                    '     dashclaw inbox read <id> [<id> ...]\n' +
-                    '     dashclaw inbox archive <id> [<id> ...]');
-      process.exit(1);
-  }
+  return runSubcommand({
+    list: cmdInboxList,
+    read: () => cmdInboxUpdate('read'),
+    archive: () => cmdInboxUpdate('archive'),
+  }, args[1], (sub) => `Unknown subcommand: dashclaw inbox ${sub || '(missing)'}\n` +
+    'Try: dashclaw inbox list [--unread] [--limit N]\n' +
+    '     dashclaw inbox read <id> [<id> ...]\n' +
+    '     dashclaw inbox archive <id> [<id> ...]');
 }
 
 // -- behavior subcommand group -----------------------------------------------
@@ -918,17 +899,25 @@ function behaviorClient() {
 async function cmdBehaviorStatus() {
   try {
     const data = await apiRequest(behaviorClient(), 'GET', '/api/behavior/samples');
-    console.log(`  Recorder:   ${data.recorder_enabled ? green('on') : dim('off')}`);
-    console.log(`  Directory:  ${dim(data.dir || '-')}`);
-    console.log(`  Samples:    ${bold(String(data.sample_count ?? 0))}  ${dim('across')} ${data.agent_count ?? 0} ${dim('agent(s)')}`);
-    console.log(`  Window:     ${dim((data.oldest_ts || '-') + ' → ' + (data.newest_ts || '-'))}`);
-    console.log(`  Ready:      ${data.ready ? green('yes') : dim('no — need ' + (data.min_samples ?? 8) + '+ samples for an agent')}`);
-    for (const a of data.agents || []) {
-      console.log(`    ${a.agent_id}  ${dim(a.count + ' samples')}`);
-    }
+    renderBehaviorStatus(data);
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
+  }
+}
+
+function behaviorReadyLabel(data) {
+  return data.ready ? green('yes') : dim('no — need ' + (data.min_samples ?? 8) + '+ samples for an agent');
+}
+
+function renderBehaviorStatus(data) {
+  console.log(`  Recorder:   ${data.recorder_enabled ? green('on') : dim('off')}`);
+  console.log(`  Directory:  ${dim(data.dir || '-')}`);
+  console.log(`  Samples:    ${bold(String(data.sample_count ?? 0))}  ${dim('across')} ${data.agent_count ?? 0} ${dim('agent(s)')}`);
+  console.log(`  Window:     ${dim((data.oldest_ts || '-') + ' → ' + (data.newest_ts || '-'))}`);
+  console.log(`  Ready:      ${behaviorReadyLabel(data)}`);
+  for (const a of data.agents || []) {
+    console.log(`    ${a.agent_id}  ${dim(a.count + ' samples')}`);
   }
 }
 
@@ -958,18 +947,12 @@ async function cmdBehaviorSuggestions() {
 }
 
 async function cmdBehavior() {
-  const sub = args[1];
-  switch (sub) {
-    case 'status':
-      return cmdBehaviorStatus();
-    case 'suggestions':
-      return cmdBehaviorSuggestions();
-    default:
-      console.error(`Unknown subcommand: dashclaw behavior ${sub || '(missing)'}\n` +
-                    'Try: dashclaw behavior status\n' +
-                    '     dashclaw behavior suggestions [--agent-id X]');
-      process.exit(1);
-  }
+  return runSubcommand({
+    status: cmdBehaviorStatus,
+    suggestions: cmdBehaviorSuggestions,
+  }, args[1], (sub) => `Unknown subcommand: dashclaw behavior ${sub || '(missing)'}\n` +
+    'Try: dashclaw behavior status\n' +
+    '     dashclaw behavior suggestions [--agent-id X]');
 }
 
 // -- posture subcommand group ------------------------------------------------
@@ -993,31 +976,47 @@ function printFinding(f, indent = '   ') {
   console.log(dim(`${indent}    ${f.key}`));
 }
 
+function postureStatusLabel(status) {
+  if (status === 'healthy') return green(status);
+  if (status === 'at_risk') return red(status);
+  return status;
+}
+
+function renderPostureHeader(data) {
+  console.log();
+  console.log(`  ${bold('Governance posture')}  ${bold(String(data.score))}${dim('/100')}  ${postureStatusLabel(data.status)}` +
+    `${data.cappedBy ? '  ' + red('[capped: incident]') : ''}`);
+  console.log(dim(`  ${data.summary?.openFindings ?? 0} open · +${Math.round(data.summary?.pointsRecoverable ?? 0)} points recoverable`));
+  console.log();
+}
+
+function renderPostureDimensions(dimensions) {
+  for (const d of dimensions || []) {
+    const label = POSTURE_DIM_LABEL[d.dimension] || d.dimension;
+    const mark = d.score < 70 ? red('!') : ' ';
+    console.log(`   ${mark} ${label.padEnd(12)} ${String(d.score).padStart(3)}`);
+  }
+  console.log();
+}
+
+function renderPostureQueue(findings) {
+  console.log(dim(`  Next — ${findings.length} open`));
+  if (findings.length === 0) {
+    console.log(green('   Queue is clear — no open coverage gaps.'));
+    return;
+  }
+  for (const f of findings.slice(0, 5)) printFinding(f);
+  if (findings.length > 5) console.log(dim(`   … ${findings.length - 5} more`));
+}
+
 async function cmdPostureShow() {
   try {
     const client = postureClient();
     const [data, queue] = await Promise.all([fetchPosture(client), fetchFindings(client)]);
-    const status = data.status === 'healthy' ? green(data.status)
-      : data.status === 'at_risk' ? red(data.status) : data.status;
-    console.log();
-    console.log(`  ${bold('Governance posture')}  ${bold(String(data.score))}${dim('/100')}  ${status}` +
-      `${data.cappedBy ? '  ' + red('[capped: incident]') : ''}`);
-    console.log(dim(`  ${data.summary?.openFindings ?? 0} open · +${Math.round(data.summary?.pointsRecoverable ?? 0)} points recoverable`));
-    console.log();
-    for (const d of data.dimensions || []) {
-      const label = POSTURE_DIM_LABEL[d.dimension] || d.dimension;
-      const mark = d.score < 70 ? red('!') : ' ';
-      console.log(`   ${mark} ${label.padEnd(12)} ${String(d.score).padStart(3)}`);
-    }
-    console.log();
     const findings = queue.findings || [];
-    console.log(dim(`  Next — ${findings.length} open`));
-    if (findings.length === 0) {
-      console.log(green('   Queue is clear — no open coverage gaps.'));
-    } else {
-      for (const f of findings.slice(0, 5)) printFinding(f);
-      if (findings.length > 5) console.log(dim(`   … ${findings.length - 5} more`));
-    }
+    renderPostureHeader(data);
+    renderPostureDimensions(data.dimensions);
+    renderPostureQueue(findings);
     console.log();
   } catch (err) {
     console.error(`Error: ${err.message}`);
@@ -1088,7 +1087,13 @@ const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor
 // stdio nulled).
 const COMMANDS_OPTIONAL_CONFIG = new Set(['install', 'codex']);
 
-async function main() {
+function applyConfig(config) {
+  baseUrl = config.baseUrl;
+  apiKey = config.apiKey;
+  agentId = config.agentId;
+}
+
+async function loadCommandConfig() {
   if (COMMANDS_NEEDING_CONFIG.has(command)) {
     const config = await resolveConfig();
     if (!config) {
@@ -1096,68 +1101,46 @@ async function main() {
       console.error('Set them as env vars, save with an interactive first run, or use a .env file.');
       process.exit(1);
     }
-    baseUrl = config.baseUrl;
-    apiKey = config.apiKey;
-    agentId = config.agentId;
-  } else if (COMMANDS_OPTIONAL_CONFIG.has(command)) {
+    applyConfig(config);
+    return;
+  }
+  if (COMMANDS_OPTIONAL_CONFIG.has(command)) {
     const config = await resolveConfig({ interactive: false }).catch(() => null);
     if (config) {
-      baseUrl = config.baseUrl;
-      apiKey = config.apiKey;
-      agentId = config.agentId;
+      applyConfig(config);
     }
   }
+}
 
-  switch (command) {
-    case 'approvals':
-      await cmdApprovals();
-      break;
-    case 'approve':
-      await cmdApprove();
-      break;
-    case 'deny':
-      await cmdDeny();
-      break;
-    case 'doctor':
-      await cmdDoctor();
-      break;
-    case 'logout':
-      await cmdLogout();
-      break;
-    case 'code':
-      await cmdCode();
-      break;
-    case 'install':
-      await cmdInstall();
-      break;
-    case 'codex':
-      await cmdCodex();
-      break;
-    case 'prompts':
-      await cmdPrompts();
-      break;
-    case 'inbox':
-      await cmdInbox();
-      break;
-    case 'behavior':
-      await cmdBehavior();
-      break;
-    case 'posture':
-      await cmdPosture();
-      break;
-    case 'next':
-      await cmdNext();
-      break;
-    case 'help':
-    case '--help':
-    case '-h':
-      await cmdHelp();
-      break;
-    default:
-      console.error(`Unknown command: ${command}`);
-      await cmdHelp();
-      process.exit(1);
+const COMMAND_HANDLERS = {
+  approvals: cmdApprovals,
+  approve: cmdApprove,
+  deny: cmdDeny,
+  doctor: cmdDoctor,
+  logout: cmdLogout,
+  code: cmdCode,
+  install: cmdInstall,
+  codex: cmdCodex,
+  prompts: cmdPrompts,
+  inbox: cmdInbox,
+  behavior: cmdBehavior,
+  posture: cmdPosture,
+  next: cmdNext,
+  help: cmdHelp,
+  '--help': cmdHelp,
+  '-h': cmdHelp,
+};
+
+async function main() {
+  await loadCommandConfig();
+  const handler = COMMAND_HANDLERS[command];
+  if (handler) {
+    await handler();
+    return;
   }
+  console.error(`Unknown command: ${command}`);
+  await cmdHelp();
+  process.exit(1);
 }
 
 main();

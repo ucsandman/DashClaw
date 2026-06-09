@@ -108,22 +108,32 @@ function runQuiet(cmd, args, opts = {}) {
 function parseEnvFile(text) {
   const env = {};
   for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('#')) continue;
-    const idx = trimmed.indexOf('=');
-    if (idx === -1) continue;
-
-    const key = trimmed.slice(0, idx).trim();
-    let value = trimmed.slice(idx + 1).trim();
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
-      value = value.slice(1, -1).replace(/\\"/g, '"').replace(/\\'/g, "'");
-    }
-    env[key] = value;
+    const parsed = parseEnvLine(line);
+    if (parsed) env[parsed.key] = parsed.value;
   }
   return env;
+}
+
+function parseEnvLine(line) {
+  const trimmed = line.trim();
+  if (!isEnvAssignment(trimmed)) return null;
+  const idx = trimmed.indexOf('=');
+  return {
+    key: trimmed.slice(0, idx).trim(),
+    value: unquoteEnvValue(trimmed.slice(idx + 1).trim()),
+  };
+}
+
+function isEnvAssignment(line) {
+  return Boolean(line) && !line.startsWith('#') && line.includes('=');
+}
+
+function unquoteEnvValue(value) {
+  const quoted = (
+    (value.startsWith('"') && value.endsWith('"')) ||
+    (value.startsWith("'") && value.endsWith("'"))
+  );
+  return quoted ? value.slice(1, -1).replace(/\\"/g, '"').replace(/\\'/g, "'") : value;
 }
 
 function formatEnvValue(value) {
@@ -204,57 +214,65 @@ async function chooseDatabaseUrl(env) {
 
   if (!env.DATABASE_URL) {
     while (!env.DATABASE_URL) {
-      console.log('  You need a PostgreSQL database. Pick one:\n');
-
-      if (dockerInstalled) {
-        console.log('  [1] Local Docker (fastest for dev)');
-        console.log("      Requires Docker Desktop. We'll start it for you.\n");
-      } else {
-        console.log('  [1] Local Docker (unavailable)');
-        console.log('      Docker was not found on this machine. Use Neon or another Postgres URL instead.\n');
-      }
-
-      console.log('  [2] Neon (free cloud Postgres)');
-      console.log('      Sign up at https://neon.tech, create a project, copy the URL.\n');
-      console.log('  [3] Other Postgres');
-      console.log('      Paste any postgresql:// connection string.\n');
-
+      printDatabaseChoices(dockerInstalled);
       const choice = await ask('  Choose [1/2/3]: ');
-
-      if (choice === '1') {
-        if (!dockerInstalled) {
-          warn('Docker is not installed. Install Docker Desktop or choose Neon/Other Postgres.');
-          continue;
-        }
-
-        console.log('\n  Starting Docker Postgres...');
-        if (!run('docker', ['compose', 'up', '-d', 'db'])) {
-          warn('Docker was found, but DashClaw could not start the local database.');
-          console.log('  Next step: start Docker Desktop, then re-run this step or choose Neon/Other Postgres.');
-          continue;
-        }
-
-        env.DATABASE_URL = 'postgresql://dashclaw:dashclaw@localhost:5432/dashclaw';
-        ok('Local Postgres is running on localhost:5432');
-        break;
-      }
-
-      if (choice === '2' || choice === '3') {
-        const url = await ask('  Paste your PostgreSQL URL: ');
-        if (!url || !url.startsWith('postgresql://')) {
-          warn('Invalid URL. It must start with postgresql://');
-          continue;
-        }
-        env.DATABASE_URL = url;
-        ok('Database URL saved');
-        break;
-      }
-
-      warn('Invalid choice. Enter 1, 2, or 3.');
+      await applyDatabaseChoice(choice, env, dockerInstalled);
     }
   }
 
   return { dockerInstalled };
+}
+
+function printDatabaseChoices(dockerInstalled) {
+  console.log('  You need a PostgreSQL database. Pick one:\n');
+  printDockerChoice(dockerInstalled);
+  console.log('  [2] Neon (free cloud Postgres)');
+  console.log('      Sign up at https://neon.tech, create a project, copy the URL.\n');
+  console.log('  [3] Other Postgres');
+  console.log('      Paste any postgresql:// connection string.\n');
+}
+
+function printDockerChoice(dockerInstalled) {
+  if (dockerInstalled) {
+    console.log('  [1] Local Docker (fastest for dev)');
+    console.log("      Requires Docker Desktop. We'll start it for you.\n");
+  } else {
+    console.log('  [1] Local Docker (unavailable)');
+    console.log('      Docker was not found on this machine. Use Neon or another Postgres URL instead.\n');
+  }
+}
+
+async function applyDatabaseChoice(choice, env, dockerInstalled) {
+  if (choice === '1') return applyDockerDatabaseChoice(env, dockerInstalled);
+  if (choice === '2' || choice === '3') return applyPostgresUrlChoice(env);
+  warn('Invalid choice. Enter 1, 2, or 3.');
+}
+
+async function applyDockerDatabaseChoice(env, dockerInstalled) {
+  if (!dockerInstalled) {
+    warn('Docker is not installed. Install Docker Desktop or choose Neon/Other Postgres.');
+    return;
+  }
+
+  console.log('\n  Starting Docker Postgres...');
+  if (!run('docker', ['compose', 'up', '-d', 'db'])) {
+    warn('Docker was found, but DashClaw could not start the local database.');
+    console.log('  Next step: start Docker Desktop, then re-run this step or choose Neon/Other Postgres.');
+    return;
+  }
+
+  env.DATABASE_URL = 'postgresql://dashclaw:dashclaw@localhost:5432/dashclaw';
+  ok('Local Postgres is running on localhost:5432');
+}
+
+async function applyPostgresUrlChoice(env) {
+  const url = await ask('  Paste your PostgreSQL URL: ');
+  if (!url || !url.startsWith('postgresql://')) {
+    warn('Invalid URL. It must start with postgresql://');
+    return;
+  }
+  env.DATABASE_URL = url;
+  ok('Database URL saved');
 }
 
 async function maybeConfigureLocalAdminPassword(env) {
@@ -300,21 +318,15 @@ async function maybeConfigureLocalAdminPassword(env) {
   }
 }
 
-async function main() {
-  banner('DashClaw Setup');
+const TOTAL_SETUP_STEPS = 6;
 
-  const TOTAL = 6;
+function loadLocalEnv() {
   const envPath = '.env.local';
-  const hasEnv = fs.existsSync(envPath);
-  const env = hasEnv ? parseEnvFile(fs.readFileSync(envPath, 'utf8')) : {};
+  return fs.existsSync(envPath) ? parseEnvFile(fs.readFileSync(envPath, 'utf8')) : {};
+}
 
-  let dockerInstalled = false;
-  let buildOk = false;
-  let setupStatus = null;
-  const migrationResults = [];
-
-  step(1, TOTAL, 'Database connection');
-
+async function configureDatabase(env) {
+  step(1, TOTAL_SETUP_STEPS, 'Database connection');
   if (process.env.DATABASE_URL && process.env.DATABASE_URL !== env.DATABASE_URL) {
     env.DATABASE_URL = process.env.DATABASE_URL;
     ok(`Using DATABASE_URL from environment (${env.DATABASE_URL.replace(/\/\/[^@]+@/, '//***@').replace(/\?.*/, '')})`);
@@ -325,10 +337,12 @@ async function main() {
     if (change.toLowerCase() === 'y') delete env.DATABASE_URL;
   }
 
-  ({ dockerInstalled } = await chooseDatabaseUrl(env));
+  const { dockerInstalled } = await chooseDatabaseUrl(env);
+  return dockerInstalled;
+}
 
-  step(2, TOTAL, 'Deployment mode');
-
+async function configureDeploymentUrl(env) {
+  step(2, TOTAL_SETUP_STEPS, 'Deployment mode');
   let deployUrl = env.NEXTAUTH_URL;
   if (!deployUrl || deployUrl === 'http://localhost:3000') {
     console.log('  How will you access the dashboard?\n');
@@ -352,9 +366,11 @@ async function main() {
   } else {
     ok(`Dashboard URL: ${deployUrl}`);
   }
+  return deployUrl;
+}
 
-  step(3, TOTAL, 'Secrets and dashboard login');
-
+async function configureSecretsAndLogin(env, deployUrl) {
+  step(3, TOTAL_SETUP_STEPS, 'Secrets and dashboard login');
   if (!env.DASHCLAW_MODE) env.DASHCLAW_MODE = 'self_host';
   if (!env.NEXT_PUBLIC_DASHCLAW_MODE) env.NEXT_PUBLIC_DASHCLAW_MODE = env.DASHCLAW_MODE;
   env.NEXTAUTH_URL = deployUrl;
@@ -378,71 +394,23 @@ async function main() {
   }
   console.log(`\n  API key: ${redactSecret(env.DASHCLAW_API_KEY)}`);
   console.log(`  Dashboard URL: ${deployUrl}`);
+}
 
-  step(4, TOTAL, 'Installing dependencies');
-
+function installDependencies() {
+  step(4, TOTAL_SETUP_STEPS, 'Installing dependencies');
   if (!run('npm', ['install'])) {
     fail('npm install failed. Check your network connection and npm logs above.');
     process.exit(1);
   }
   ok('Dependencies installed');
+}
 
-  step(5, TOTAL, 'Running database migrations');
-
-  const migrations = SETUP_MIGRATION_SCRIPTS;
-  /*
-    // Core schema (order matters — multi-tenant adds org_id everywhere)
-    'scripts/migrate-multi-tenant.mjs',
-    'scripts/migrate-action-records-compat.mjs',
-    'scripts/migrate-cost-analytics.mjs',
-    'scripts/migrate-identity-binding.mjs',
-    'scripts/migrate-agent-pairings.mjs',
-    'scripts/migrate-capabilities.mjs',
-    'scripts/migrate-hitl-metadata.mjs',
-    // Governance features
-    'scripts/migrate-policy-agent-scope.mjs',
-    'scripts/migrate-behavioral-ai.mjs',
-    'scripts/migrate-token-budgets.mjs',
-    'scripts/migrate-prompt-injection.mjs',
-    // Intelligence features
-    'scripts/migrate-evaluations.mjs',
-    'scripts/migrate-scoring-profiles.mjs',
-    'scripts/migrate-prompts.mjs',
-    'scripts/migrate-feedback.mjs',
-    'scripts/migrate-learning-loop-mvp.mjs',
-    'scripts/migrate-learning-analytics.mjs',
-    // Operational features
-    'scripts/migrate-compliance-export.mjs',
-    'scripts/migrate-drift.mjs',
-    'scripts/migrate-agent-schedules.mjs',
-    'scripts/migrate-message-attachments.mjs',
-    'scripts/migrate-ideas-subscores.mjs',
-    'scripts/migrate-agent-messages-index.mjs',
-  */
+async function runMigrationsAndCheckSetup(env) {
+  step(5, TOTAL_SETUP_STEPS, 'Running database migrations');
   const migrationEnv = { ...process.env, ...env };
-  const frames = ['-', '\\', '|', '/'];
-
-  for (const script of migrations) {
-    const name = script.replace('scripts/', '').replace('.mjs', '');
-    const start = Date.now();
-    let frame = 0;
-    const spinner = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - start) / 1000);
-      process.stdout.write(`\r  ${frames[frame++ % frames.length]} Running ${name}... (${elapsed}s)`);
-    }, 100);
-
-    const result = await runAsync('node', [script], { env: migrationEnv });
-    clearInterval(spinner);
-
-    if (result.code === 0) {
-      process.stdout.write(`\r  [ok] ${name}${' '.repeat(30)}\n`);
-      migrationResults.push({ script, ok: true });
-    } else {
-      process.stdout.write(`\r  [fail] ${name}${' '.repeat(30)}\n`);
-      const firstLine = result.stderr.trim().split('\n')[0];
-      if (firstLine) console.log(`     ${firstLine}`);
-      migrationResults.push({ script, ok: false, error: firstLine || 'Migration failed' });
-    }
+  const migrationResults = [];
+  for (const script of SETUP_MIGRATION_SCRIPTS) {
+    migrationResults.push(await runMigrationScript(script, migrationEnv));
   }
 
   const migrationFailures = migrationResults.filter((result) => !result.ok);
@@ -453,26 +421,61 @@ async function main() {
   }
 
   const { getSetupStatus } = await import('../app/lib/setupStatus.mjs');
-  setupStatus = await getSetupStatus(migrationEnv);
+  const setupStatus = await getSetupStatus(migrationEnv);
+  return { migrationEnv, migrationResults, migrationFailures, setupStatus };
+}
 
-  step(6, TOTAL, 'Building the dashboard');
+async function runMigrationScript(script, migrationEnv) {
+  const frames = ['-', '\\', '|', '/'];
+  const name = script.replace('scripts/', '').replace('.mjs', '');
+  const start = Date.now();
+  let frame = 0;
+  const spinner = setInterval(() => {
+    const elapsed = Math.floor((Date.now() - start) / 1000);
+    process.stdout.write(`\r  ${frames[frame++ % frames.length]} Running ${name}... (${elapsed}s)`);
+  }, 100);
 
-  buildOk = run('npm', ['run', 'build'], { env: migrationEnv });
+  const result = await runAsync('node', [script], { env: migrationEnv });
+  clearInterval(spinner);
+  return formatMigrationResult(script, name, result);
+}
+
+function formatMigrationResult(script, name, result) {
+  if (result.code === 0) {
+    process.stdout.write(`\r  [ok] ${name}${' '.repeat(30)}\n`);
+    return { script, ok: true };
+  }
+  process.stdout.write(`\r  [fail] ${name}${' '.repeat(30)}\n`);
+  const firstLine = result.stderr.trim().split('\n')[0];
+  if (firstLine) console.log(`     ${firstLine}`);
+  return { script, ok: false, error: firstLine || 'Migration failed' };
+}
+
+function buildDashboard(migrationEnv) {
+  step(6, TOTAL_SETUP_STEPS, 'Building the dashboard');
+  const buildOk = run('npm', ['run', 'build'], { env: migrationEnv });
   if (buildOk) {
     ok('Build completed');
   } else {
     warn('Build failed. Fix the error above, then rerun npm run build.');
   }
+  return buildOk;
+}
 
+function setupReadiness({ env, setupStatus, buildOk }) {
   const authConfig = getAuthConfig(env);
-  const signInMethods = describeSignInMethods(authConfig);
   const databaseReady = Boolean(setupStatus?.configured);
   const signInReady = authConfig.hasAnySignInMethod;
-  const fullyReady = databaseReady && signInReady && buildOk;
-  const isCloud = deployUrl !== 'http://localhost:3000';
+  return {
+    authConfig,
+    signInMethods: describeSignInMethods(authConfig),
+    databaseReady,
+    signInReady,
+    fullyReady: databaseReady && signInReady && buildOk,
+  };
+}
 
-  banner(fullyReady ? 'Setup Complete' : 'Setup Not Finished Yet');
-
+function printSuccessSummary({ migrationResults, buildOk }) {
   console.log('  What succeeded:');
   ok('.env.local was written with generated secrets');
   ok('Dependencies installed');
@@ -480,7 +483,9 @@ async function main() {
     ok(`${migrationResults.filter((result) => result.ok).length}/${migrationResults.length} migration scripts completed`);
   }
   if (buildOk) ok('Next.js production build completed');
+}
 
+function printCurrentStatus({ setupStatus, databaseReady, signInReady, signInMethods, migrationFailures, buildOk }) {
   console.log('\n  Current status:');
   if (databaseReady) {
     ok('Database is reachable and core setup tables exist');
@@ -504,28 +509,48 @@ async function main() {
   if (!buildOk) {
     warn('Build step did not finish cleanly.');
   }
+}
 
+function printDatabaseNextSteps({ setupStatus, env, dockerInstalled, nextStepNumber }) {
+  if (setupStatus?.reason === 'connection_error') {
+    if (env.DATABASE_URL?.includes('localhost')) {
+      console.log(`  ${nextStepNumber}. Start or verify your local Postgres server.`);
+      if (dockerInstalled) {
+        console.log('     Command: docker compose up -d db');
+      }
+    } else {
+      console.log(`  ${nextStepNumber}. Verify that DATABASE_URL points to a reachable Postgres instance.`);
+    }
+    nextStepNumber += 1;
+  }
+
+  console.log(`  ${nextStepNumber}. Re-run the migration step after the database is reachable:`);
+  for (const command of buildSetupMigrationCommands()) {
+    console.log(`     ${command}`);
+  }
+  return nextStepNumber + 1;
+}
+
+function printReadyNextSteps({ deployUrl, signInMethods, nextStepNumber }) {
+  const isCloud = deployUrl !== 'http://localhost:3000';
+  if (isCloud) {
+    console.log(`  ${nextStepNumber}. Push this repo to GitHub, add the values from .env.local to your host, and deploy.`);
+    nextStepNumber += 1;
+    console.log(`  ${nextStepNumber}. Open ${deployUrl}/dashboard and sign in with ${signInMethods[0]}.`);
+  } else {
+    console.log(`  ${nextStepNumber}. Start the app locally.`);
+    console.log('     Command: npm run dev');
+    nextStepNumber += 1;
+    console.log(`  ${nextStepNumber}. Open http://localhost:3000/dashboard and sign in with ${signInMethods[0]}.`);
+  }
+}
+
+function printNextSteps({ databaseReady, signInReady, buildOk, setupStatus, env, dockerInstalled, deployUrl, signInMethods }) {
   console.log('\n  Next steps:');
   let nextStepNumber = 1;
 
   if (!databaseReady) {
-    if (setupStatus?.reason === 'connection_error') {
-      if (env.DATABASE_URL?.includes('localhost')) {
-        console.log(`  ${nextStepNumber}. Start or verify your local Postgres server.`);
-        if (dockerInstalled) {
-          console.log('     Command: docker compose up -d db');
-        }
-      } else {
-        console.log(`  ${nextStepNumber}. Verify that DATABASE_URL points to a reachable Postgres instance.`);
-      }
-      nextStepNumber += 1;
-    }
-
-    console.log(`  ${nextStepNumber}. Re-run the migration step after the database is reachable:`);
-    for (const command of buildSetupMigrationCommands()) {
-      console.log(`     ${command}`);
-    }
-    nextStepNumber += 1;
+    nextStepNumber = printDatabaseNextSteps({ setupStatus, env, dockerInstalled, nextStepNumber });
   }
 
   if (!signInReady) {
@@ -542,24 +567,38 @@ async function main() {
   }
 
   if (databaseReady && signInReady && buildOk) {
-    if (isCloud) {
-      console.log(`  ${nextStepNumber}. Push this repo to GitHub, add the values from .env.local to your host, and deploy.`);
-      nextStepNumber += 1;
-      console.log(`  ${nextStepNumber}. Open ${deployUrl}/dashboard and sign in with ${signInMethods[0]}.`);
-    } else {
-      console.log(`  ${nextStepNumber}. Start the app locally.`);
-      console.log('     Command: npm run dev');
-      nextStepNumber += 1;
-      console.log(`  ${nextStepNumber}. Open http://localhost:3000/dashboard and sign in with ${signInMethods[0]}.`);
-    }
+    printReadyNextSteps({ deployUrl, signInMethods, nextStepNumber });
   } else {
     console.log(`  ${nextStepNumber}. Re-run node scripts/setup.mjs after you fix the items above.`);
   }
+}
 
+function printAgentSnippet(env, deployUrl) {
   console.log('\n  Agent connection snippet:\n');
   console.log(`    DASHCLAW_BASE_URL=${deployUrl}`);
   console.log(`    DASHCLAW_API_KEY=${env.DASHCLAW_API_KEY}`);
   console.log('    DASHCLAW_AGENT_ID=my-agent\n');
+}
+
+function printSetupReport(context) {
+  const readiness = setupReadiness(context);
+  banner(readiness.fullyReady ? 'Setup Complete' : 'Setup Not Finished Yet');
+  printSuccessSummary(context);
+  printCurrentStatus({ ...context, ...readiness });
+  printNextSteps({ ...context, ...readiness });
+  printAgentSnippet(context.env, context.deployUrl);
+}
+
+async function main() {
+  banner('DashClaw Setup');
+  const env = loadLocalEnv();
+  const dockerInstalled = await configureDatabase(env);
+  const deployUrl = await configureDeploymentUrl(env);
+  await configureSecretsAndLogin(env, deployUrl);
+  installDependencies();
+  const migrationState = await runMigrationsAndCheckSetup(env);
+  const buildOk = buildDashboard(migrationState.migrationEnv);
+  printSetupReport({ env, deployUrl, dockerInstalled, buildOk, ...migrationState });
 }
 
 main();
