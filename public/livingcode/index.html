@@ -48,7 +48,7 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:7e480bbb34214161a76ab3479c09c80237000ff2 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:9a4f2d19638803e1cce4560092b8d190f98d66b6 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">254</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
@@ -164,85 +164,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>mcp_degraded</code></li>
     <li><code>stale_action</code></li>
     <li><code>test</code></li></ul></details></section>
-
-<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 212)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,39.2 212.0,39.2 316.0,4.0"/></svg></figure>
-<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,44.0 212.0,44.0 316.0,44.0"/></svg></figure>
-<figure><figcaption>Tables over time <span class="sig">(73 → 85)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,44.0 212.0,44.0 316.0,4.0"/></svg></figure></section>
-
-<section><h2>Health</h2><div class="grid">      <div class="cell"><div class="n">16</div><div class="k">Commits 7d</div></div>
-      <div class="cell danger"><div class="n">1</div><div class="k">Bus factor</div></div>
-      <div class="cell"><div class="n">Wes Sander</div><div class="k">Top contributor</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">JS tests</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">Python tests</div></div>
-      <div class="cell"><div class="n">0.28</div><div class="k">Test file ratio</div></div>
-      <div class="cell danger"><div class="n">111</div><div class="k">Untested routes</div></div>
-      <div class="cell"><div class="n">0</div><div class="k">Vulnerabilities</div></div>
-      <div class="cell"><div class="n">0d</div><div class="k">Lockfile age</div></div>
-      <div class="cell"><div class="n">100.0%</div><div class="k">CI pass 30d</div></div>
-      <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
-      <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
-
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>10</b> env_vars added, <b>42</b> routes added, <b>1</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry/[id]/capabilities <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/insights <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/recorder <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/samples <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/simulate <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/evaluations/scorers/preview <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/finops/spend <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/hosted/capacity <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/integrity/jwks <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/integrity/verify <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/invite/[token] <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/learning/export <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/authorize <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/metadata/authorization-server <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/metadata/protected-resource <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/register <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/token <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/policies/modes <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/policies/modes/import <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/policies/modes/preview <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/policies/summary <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/posture <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/posture/findings <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/posture/findings/[key]/resolve <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/posture/scan <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId] <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/events <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/receipt <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/recompute <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/summary <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/leaderboard <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/verify <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/widget/summary <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/x402/providers <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/x402/providers/[id] <span class="sig">New route: GET, PATCH</span></li>
-    <li><code>added</code> <b>routes</b>: /api/x402/providers/[id]/endpoints <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/x402/purchases <span class="sig">New route: GET, POST</span></li>
-    <li><code>changed</code> <b>routes</b>: /api/handoffs <span class="sig">Methods: POST -&gt; GET, POST</span></li>
-    <li><code>added</code> <b>env_vars</b>: ANTHROPIC_MODEL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_DIR <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_ENABLED <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_GUARD_UNAVAILABLE_POLICY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_PAIRING_TTL_MINUTES <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_SIGNING_KEY_JWK <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_SUPPRESS_LEGACY_WARNING <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: HOSTED_MAX_ACTIVE_TRIALS <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: S <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: VERCEL_PROJECT_PRODUCTION_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>tables</b>: approval_notifications <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: eval_scorers <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_access_tokens <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_authorization_codes <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_clients <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: posture_findings_state <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: posture_snapshots <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: server_signing_keys <span class="sig">New table in schema</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>
