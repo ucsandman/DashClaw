@@ -98,6 +98,28 @@ interface ListActionsFilters {
   offset?: number | string;
 }
 
+interface ParsedListActionsFilters {
+  agent_id?: string;
+  swarm_id?: string;
+  status?: string;
+  exclude_status?: string;
+  action_type?: string;
+  outcomeFilter: string | null;
+  parsedRiskMin: number | null;
+  parsedLimit: number;
+  parsedOffset: number;
+}
+
+interface ListActionSqlFragments {
+  agent: ReturnType<SqlClient>;
+  swarm: ReturnType<SqlClient>;
+  status: ReturnType<SqlClient>;
+  excludeStatus: ReturnType<SqlClient>;
+  actionType: ReturnType<SqlClient>;
+  riskMin: ReturnType<SqlClient>;
+  outcome: ReturnType<SqlClient>;
+}
+
 // Neon returns numeric aggregates (AVG/SUM) as strings; coerce the two stats
 // the UI treats as numbers so callers receive numbers, not strings. COUNT-based
 // fields are left as-is (callers parse them where needed).
@@ -110,11 +132,7 @@ function coerceActionStats(row: Row | undefined): Row {
   };
 }
 
-export async function listActions(
-  sql: SqlClient,
-  orgId: string,
-  filters: ListActionsFilters = {},
-): Promise<{ actions: Row[]; total: number; stats: Row }> {
+function parseListActionsFilters(filters: ListActionsFilters): ParsedListActionsFilters {
   const {
     agent_id,
     swarm_id,
@@ -126,46 +144,67 @@ export async function listActions(
     limit = 50,
     offset = 0,
   } = filters;
-  const VALID_OUTCOMES = new Set(['pending', 'completed', 'partial', 'failed', 'lost_confirmation']);
-  const outcomeFilter = VALID_OUTCOMES.has(outcome_status as string) ? outcome_status : null;
+  const validOutcomes = new Set(['pending', 'completed', 'partial', 'failed', 'lost_confirmation']);
+  return {
+    agent_id,
+    swarm_id,
+    status,
+    exclude_status,
+    action_type,
+    outcomeFilter: validOutcomes.has(outcome_status as string) ? (outcome_status as string) : null,
+    parsedRiskMin: Number.isFinite(Number(risk_min)) ? Number(risk_min) : null,
+    parsedLimit: Math.min(parseInt(limit as string, 10) || 50, 200),
+    parsedOffset: parseInt(offset as string, 10) || 0,
+  };
+}
 
-  const parsedRiskMin = Number.isFinite(Number(risk_min)) ? Number(risk_min) : null;
-  const parsedLimit = Math.min(parseInt(limit as string, 10) || 50, 200);
-  const parsedOffset = parseInt(offset as string, 10) || 0;
+function addQueryCondition(
+  conditions: string[],
+  params: unknown[],
+  condition: string,
+  value: unknown,
+): void {
+  conditions.push(`${condition} $${params.push(value)}`);
+}
 
-  // Test-contract compatibility path for sql mocks that only provide .query() responses.
-  if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
-    const conditions = ['org_id = $1'];
-    const params: unknown[] = [orgId];
+interface QueryConditionSpec {
+  active: boolean;
+  condition: string;
+  value: unknown;
+}
 
-    if (agent_id) {
-      conditions.push(`agent_id = $${params.push(agent_id)}`);
-    }
-    if (swarm_id) {
-      conditions.push(`swarm_id = $${params.push(swarm_id)}`);
-    }
-    if (status) {
-      conditions.push(`status = $${params.push(status)}`);
-    }
-    if (exclude_status && !status) {
-      conditions.push(`status != $${params.push(exclude_status)}`);
-    }
-    if (action_type) {
-      conditions.push(`action_type = $${params.push(action_type)}`);
-    }
-    if (parsedRiskMin != null) {
-      conditions.push(`risk_score >= $${params.push(parsedRiskMin)}`);
-    }
+function buildListActionsQueryParts(orgId: string, filters: ParsedListActionsFilters) {
+  const conditions = ['org_id = $1'];
+  const params: unknown[] = [orgId];
+  for (const spec of listActionQuerySpecs(filters)) {
+    if (spec.active) addQueryCondition(conditions, params, spec.condition, spec.value);
+  }
 
-    if (outcomeFilter) {
-      conditions.push(`outcome_status = $${params.push(outcomeFilter)}`);
-    }
+  return { conditions, params, where: `WHERE ${conditions.join(' AND ')}` };
+}
 
-    const where = `WHERE ${conditions.join(' AND ')}`;
-    const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error';
-    const query = `SELECT ${listCols} FROM action_records ${where} ORDER BY timestamp_start DESC LIMIT $${params.push(parsedLimit)} OFFSET $${params.push(parsedOffset)}`;
-    const countQuery = `SELECT COUNT(*) as total FROM action_records ${where}`;
-    const statsQuery = `
+function listActionQuerySpecs(filters: ParsedListActionsFilters): QueryConditionSpec[] {
+  return [
+    { active: !!filters.agent_id, condition: 'agent_id =', value: filters.agent_id },
+    { active: !!filters.swarm_id, condition: 'swarm_id =', value: filters.swarm_id },
+    { active: !!filters.status, condition: 'status =', value: filters.status },
+    { active: !!filters.exclude_status && !filters.status, condition: 'status !=', value: filters.exclude_status },
+    { active: !!filters.action_type, condition: 'action_type =', value: filters.action_type },
+    { active: filters.parsedRiskMin != null, condition: 'risk_score >=', value: filters.parsedRiskMin },
+    { active: !!filters.outcomeFilter, condition: 'outcome_status =', value: filters.outcomeFilter },
+  ];
+}
+
+async function listActionsViaQueryMock(
+  sql: SqlClient,
+  orgId: string,
+  filters: ParsedListActionsFilters,
+): Promise<{ actions: Row[]; total: number; stats: Row }> {
+  const { conditions, params, where } = buildListActionsQueryParts(orgId, filters);
+  const listCols = 'action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error';
+  const query = `SELECT ${listCols} FROM action_records ${where} ORDER BY timestamp_start DESC LIMIT $${params.push(filters.parsedLimit)} OFFSET $${params.push(filters.parsedOffset)}`;
+  const countQuery = `SELECT COUNT(*) as total FROM action_records ${where}`;
+  const statsQuery = `
       SELECT
         COUNT(*) as total,
         COUNT(*) FILTER (WHERE status = 'completed') as completed,
@@ -178,47 +217,63 @@ export async function listActions(
       FROM action_records ${where}
     `;
 
-    const [actions, countResult, stats] = await Promise.all([
-      sql.query(query, params),
-      sql.query(countQuery, params.slice(0, conditions.length)),
-      sql.query(statsQuery, params.slice(0, conditions.length)),
-    ]);
+  const [actions, countResult, stats] = await Promise.all([
+    sql.query(query, params),
+    sql.query(countQuery, params.slice(0, conditions.length)),
+    sql.query(statsQuery, params.slice(0, conditions.length)),
+  ]);
 
-    return {
-      actions,
-      total: parseInt((countResult[0]?.total as string) || '0', 10),
-      stats: coerceActionStats(stats[0]),
-    };
-  }
+  return {
+    actions,
+    total: parseInt((countResult[0]?.total as string) || '0', 10),
+    stats: coerceActionStats(stats[0]),
+  };
+}
 
+function listActionSqlFragments(
+  sql: SqlClient,
+  filters: ParsedListActionsFilters,
+): ListActionSqlFragments {
+  return {
+    agent: sqlFragment(sql, !!filters.agent_id, () => sql`AND agent_id = ${filters.agent_id}`),
+    swarm: sqlFragment(sql, !!filters.swarm_id, () => sql`AND swarm_id = ${filters.swarm_id}`),
+    status: sqlFragment(sql, !!filters.status, () => sql`AND status = ${filters.status}`),
+    excludeStatus: sqlFragment(sql, !!filters.exclude_status && !filters.status, () => sql`AND status != ${filters.exclude_status}`),
+    actionType: sqlFragment(sql, !!filters.action_type, () => sql`AND action_type = ${filters.action_type}`),
+    riskMin: sqlFragment(sql, filters.parsedRiskMin != null, () => sql`AND risk_score >= ${filters.parsedRiskMin}`),
+    outcome: sqlFragment(sql, !!filters.outcomeFilter, () => sql`AND outcome_status = ${filters.outcomeFilter}`),
+  };
+}
+
+function sqlFragment(
+  sql: SqlClient,
+  active: boolean,
+  build: () => ReturnType<SqlClient>,
+): ReturnType<SqlClient> {
+  return active ? build() : sql``;
+}
+
+async function listActionsViaTaggedSql(
+  sql: SqlClient,
+  orgId: string,
+  filters: ParsedListActionsFilters,
+): Promise<{ actions: Row[]; total: number; stats: Row }> {
+  const fragments = listActionSqlFragments(sql, filters);
+  const where = listActionsWhere(sql, orgId, fragments);
   const [actions, countResult, stats] = await Promise.all([
     sql`
       SELECT
         action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error
       FROM action_records
-      WHERE org_id = ${orgId}
-        ${agent_id ? sql`AND agent_id = ${agent_id}` : sql``}
-        ${swarm_id ? sql`AND swarm_id = ${swarm_id}` : sql``}
-        ${status ? sql`AND status = ${status}` : sql``}
-        ${exclude_status && !status ? sql`AND status != ${exclude_status}` : sql``}
-        ${action_type ? sql`AND action_type = ${action_type}` : sql``}
-        ${parsedRiskMin != null ? sql`AND risk_score >= ${parsedRiskMin}` : sql``}
-        ${outcomeFilter ? sql`AND outcome_status = ${outcomeFilter}` : sql``}
+      ${where}
       ORDER BY timestamp_start DESC
-      LIMIT ${parsedLimit}
-      OFFSET ${parsedOffset}
+      LIMIT ${filters.parsedLimit}
+      OFFSET ${filters.parsedOffset}
     `,
     sql`
       SELECT COUNT(*) as total
       FROM action_records
-      WHERE org_id = ${orgId}
-        ${agent_id ? sql`AND agent_id = ${agent_id}` : sql``}
-        ${swarm_id ? sql`AND swarm_id = ${swarm_id}` : sql``}
-        ${status ? sql`AND status = ${status}` : sql``}
-        ${exclude_status && !status ? sql`AND status != ${exclude_status}` : sql``}
-        ${action_type ? sql`AND action_type = ${action_type}` : sql``}
-        ${parsedRiskMin != null ? sql`AND risk_score >= ${parsedRiskMin}` : sql``}
-        ${outcomeFilter ? sql`AND outcome_status = ${outcomeFilter}` : sql``}
+      ${where}
     `,
     sql`
       SELECT
@@ -231,14 +286,7 @@ export async function listActions(
         COALESCE(AVG(risk_score), 0) as avg_risk,
         COALESCE(SUM(cost_estimate), 0) as total_cost
       FROM action_records
-      WHERE org_id = ${orgId}
-        ${agent_id ? sql`AND agent_id = ${agent_id}` : sql``}
-        ${swarm_id ? sql`AND swarm_id = ${swarm_id}` : sql``}
-        ${status ? sql`AND status = ${status}` : sql``}
-        ${exclude_status && !status ? sql`AND status != ${exclude_status}` : sql``}
-        ${action_type ? sql`AND action_type = ${action_type}` : sql``}
-        ${parsedRiskMin != null ? sql`AND risk_score >= ${parsedRiskMin}` : sql``}
-        ${outcomeFilter ? sql`AND outcome_status = ${outcomeFilter}` : sql``}
+      ${where}
     `,
   ]);
 
@@ -247,6 +295,77 @@ export async function listActions(
     total: parseInt((countResult[0]?.total as string) || '0', 10),
     stats: coerceActionStats(stats[0]),
   };
+}
+
+function listActionsWhere(
+  sql: SqlClient,
+  orgId: string,
+  fragments: ListActionSqlFragments,
+): ReturnType<SqlClient> {
+  return sql`
+      WHERE org_id = ${orgId}
+        ${fragments.agent}
+        ${fragments.swarm}
+        ${fragments.status}
+        ${fragments.excludeStatus}
+        ${fragments.actionType}
+        ${fragments.riskMin}
+        ${fragments.outcome}
+    `;
+}
+
+function clampRiskScore(value: unknown): number {
+  return Math.max(0, Math.min(Math.round(Number(value) || 0), 100));
+}
+
+function persistedRiskScore(
+  riskScore: unknown,
+  fallback: unknown,
+  finalFallback: unknown = 0,
+): unknown {
+  if (riskScore != null) return clampRiskScore(riskScore);
+  return fallback != null ? fallback : finalFallback;
+}
+
+function boolFlag(value: unknown, defaultValue = 0): number {
+  if (value === undefined) return defaultValue;
+  return value ? 1 : 0;
+}
+
+function jsonArrayValue(value: unknown): string {
+  return JSON.stringify(value || []);
+}
+
+function blockedReasonFromDecision(guardDecision: GuardDecision | null | undefined): string {
+  return guardDecision?.reason
+    || guardDecision?.reasons?.join('; ')
+    || 'Action blocked by policy';
+}
+
+function blockedErrorMessage(blockedReason: string, matchedPolicies: string[]): string {
+  return 'Blocked by policy: ' + blockedReason + (matchedPolicies.length > 0 ? ' [Policies: ' + matchedPolicies.join(', ') + ']' : '');
+}
+
+function orNull<T>(value: T | null | undefined): T | null {
+  return value || null;
+}
+
+function orDefault<T>(value: T | null | undefined, fallback: T): T {
+  return value || fallback;
+}
+
+export async function listActions(
+  sql: SqlClient,
+  orgId: string,
+  filters: ListActionsFilters = {},
+): Promise<{ actions: Row[]; total: number; stats: Row }> {
+  const parsed = parseListActionsFilters(filters);
+  // Test-contract compatibility path for sql mocks that only provide .query() responses.
+  if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
+    return listActionsViaQueryMock(sql, orgId, parsed);
+  }
+
+  return listActionsViaTaggedSql(sql, orgId, parsed);
 }
 
 export async function hasAgentAction(sql: SqlClient, orgId: string, agentId: string): Promise<boolean> {
@@ -339,27 +458,51 @@ interface CreateActionPayload {
   riskScore?: number | null;
 }
 
+function createActionInsertValues(payload: CreateActionPayload) {
+  const { data, riskScore, costEstimate, signature, verified, timestamp_start } = payload;
+  return {
+    agent_id: data.agent_id,
+    agent_name: orNull(data.agent_name),
+    swarm_id: orNull(data.swarm_id),
+    parent_action_id: orNull(data.parent_action_id),
+    action_type: data.action_type,
+    declared_goal: data.declared_goal,
+    reasoning: orNull(data.reasoning),
+    authorization_scope: orNull(data.authorization_scope),
+    trigger: orNull(data.trigger),
+    systems_touched: jsonArrayValue(data.systems_touched),
+    input_summary: orNull(data.input_summary),
+    reversible: boolFlag(data.reversible, 1),
+    risk_score: persistedRiskScore(riskScore, data.risk_score),
+    confidence: orDefault(data.confidence, 50),
+    recommendation_id: orNull(data.recommendation_id),
+    recommendation_applied: boolFlag(data.recommendation_applied),
+    recommendation_override_reason: orNull(data.recommendation_override_reason),
+    output_summary: orNull(data.output_summary),
+    side_effects: jsonArrayValue(data.side_effects),
+    artifacts_created: jsonArrayValue(data.artifacts_created),
+    error_message: orNull(data.error_message),
+    timestamp_start,
+    timestamp_end: orNull(data.timestamp_end),
+    duration_ms: orNull(data.duration_ms),
+    cost_estimate: costEstimate,
+    tokens_in: orDefault(data.tokens_in, 0),
+    tokens_out: orDefault(data.tokens_out, 0),
+    model: orNull(data.model),
+    signature,
+    verified,
+    idempotency_key: orNull(data.idempotency_key),
+    session_id: orNull(data.session_id),
+  };
+}
+
 export async function createActionRecord(sql: SqlClient, payload: CreateActionPayload): Promise<Row | null> {
   const {
     orgId,
     action_id,
-    data,
     actionStatus,
-    costEstimate,
-    signature,
-    verified,
-    timestamp_start,
-    riskScore,
   } = payload;
-
-  // SECURITY (R1): persist the server-authoritative risk score when the caller
-  // supplies it (guard decisions), so the ledger/alerts/analytics/dashboard
-  // present the value the guard actually decided on — not the forgeable
-  // client-asserted `data.risk_score`. Fall back to the client value only for
-  // legacy callers that don't pass `riskScore`.
-  const persistedRisk = riskScore != null
-    ? Math.max(0, Math.min(Math.round(Number(riskScore) || 0), 100))
-    : (data.risk_score || 0);
+  const values = createActionInsertValues(payload);
 
   const rows = await sql`
     INSERT INTO action_records (
@@ -375,39 +518,39 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
     ) VALUES (
       ${orgId},
       ${action_id},
-      ${data.agent_id},
-      ${data.agent_name || null},
-      ${data.swarm_id || null},
-      ${data.parent_action_id || null},
-      ${data.action_type},
-      ${data.declared_goal},
-      ${data.reasoning || null},
-      ${data.authorization_scope || null},
-      ${data.trigger || null},
-      ${JSON.stringify(data.systems_touched || [])},
-      ${data.input_summary || null},
+      ${values.agent_id},
+      ${values.agent_name},
+      ${values.swarm_id},
+      ${values.parent_action_id},
+      ${values.action_type},
+      ${values.declared_goal},
+      ${values.reasoning},
+      ${values.authorization_scope},
+      ${values.trigger},
+      ${values.systems_touched},
+      ${values.input_summary},
       ${actionStatus},
-      ${data.reversible !== undefined ? (data.reversible ? 1 : 0) : 1},
-      ${persistedRisk},
-      ${data.confidence || 50},
-      ${data.recommendation_id || null},
-      ${data.recommendation_applied ? 1 : 0},
-      ${data.recommendation_override_reason || null},
-      ${data.output_summary || null},
-      ${JSON.stringify(data.side_effects || [])},
-      ${JSON.stringify(data.artifacts_created || [])},
-      ${data.error_message || null},
-      ${timestamp_start},
-      ${data.timestamp_end || null},
-      ${data.duration_ms || null},
-      ${costEstimate},
-      ${data.tokens_in || 0},
-      ${data.tokens_out || 0},
-      ${data.model || null},
-      ${signature},
-      ${verified},
-      ${data.idempotency_key || null},
-      ${data.session_id || null}
+      ${values.reversible},
+      ${values.risk_score},
+      ${values.confidence},
+      ${values.recommendation_id},
+      ${values.recommendation_applied},
+      ${values.recommendation_override_reason},
+      ${values.output_summary},
+      ${values.side_effects},
+      ${values.artifacts_created},
+      ${values.error_message},
+      ${values.timestamp_start},
+      ${values.timestamp_end},
+      ${values.duration_ms},
+      ${values.cost_estimate},
+      ${values.tokens_in},
+      ${values.tokens_out},
+      ${values.model},
+      ${values.signature},
+      ${values.verified},
+      ${values.idempotency_key},
+      ${values.session_id}
     )
     RETURNING *
   `;
@@ -434,6 +577,13 @@ interface CreateBlockedActionPayload {
   riskScore?: number | null;
 }
 
+function blockedActionErrorFromPayload(payload: CreateBlockedActionPayload): string {
+  const { guardDecision } = payload;
+  const blockedReason = blockedReasonFromDecision(guardDecision);
+  const matchedPolicies = guardDecision?.matched_policies || [];
+  return blockedErrorMessage(blockedReason, matchedPolicies);
+}
+
 /**
  * Create a blocked action record for governance visibility.
  * Blocked actions are persisted to ensure they appear in the Decisions Ledger
@@ -453,72 +603,32 @@ export async function createBlockedActionRecord(
     timestamp_start,
     riskScore,
   } = payload;
-
-  // Build error message from guard decision
-  const blockedReason = guardDecision?.reason
-    || guardDecision?.reasons?.join('; ')
-    || 'Action blocked by policy';
-  const matchedPolicies = guardDecision?.matched_policies || [];
-
-  // SECURITY (R1): persist the server-authoritative risk. Prefer the explicit
-  // `riskScore` payload; otherwise the guard decision's own score; only then the
-  // client-asserted value. A blocked record showing risk 0 because the agent
-  // self-reported 0 is exactly the integrity gap this closes.
-  const persistedRisk = riskScore != null
-    ? Math.max(0, Math.min(Math.round(Number(riskScore) || 0), 100))
-    : (guardDecision?.risk_score != null
-        ? Math.max(0, Math.min(Math.round(Number(guardDecision.risk_score) || 0), 100))
-        : (data.risk_score || 0));
-
-  const rows = await sql`
-    INSERT INTO action_records (
-      org_id, action_id, agent_id, agent_name, swarm_id, parent_action_id,
-      action_type, declared_goal, reasoning, authorization_scope,
-      trigger, systems_touched, input_summary,
-      status, reversible, risk_score, confidence,
-      recommendation_id, recommendation_applied, recommendation_override_reason,
-      output_summary, side_effects, artifacts_created, error_message,
-      timestamp_start, timestamp_end, duration_ms, cost_estimate,
-      tokens_in, tokens_out,
-      signature, verified
-    ) VALUES (
-      ${orgId},
-      ${action_id},
-      ${data.agent_id},
-      ${data.agent_name || null},
-      ${data.swarm_id || null},
-      ${data.parent_action_id || null},
-      ${data.action_type},
-      ${data.declared_goal},
-      ${data.reasoning || null},
-      ${data.authorization_scope || null},
-      ${data.trigger || null},
-      ${JSON.stringify(data.systems_touched || [])},
-      ${data.input_summary || null},
-      ${'blocked'},
-      ${data.reversible !== undefined ? (data.reversible ? 1 : 0) : 1},
-      ${persistedRisk},
-      ${data.confidence || 50},
-      ${data.recommendation_id || null},
-      ${data.recommendation_applied ? 1 : 0},
-      ${data.recommendation_override_reason || null},
-      ${null},
-      ${'[]'},
-      ${'[]'},
-      ${'Blocked by policy: ' + blockedReason + (matchedPolicies.length > 0 ? ' [Policies: ' + matchedPolicies.join(', ') + ']' : '')},
-      ${timestamp_start},
-      ${timestamp_start},
-      ${0},
-      ${0},
-      ${data.tokens_in || 0},
-      ${data.tokens_out || 0},
-      ${signature},
-      ${verified}
-    )
-    RETURNING *
-  `;
-
-  return rows[0] || null;
+  const errorMessage = blockedActionErrorFromPayload(payload);
+  return createActionRecord(sql, {
+    orgId,
+    action_id,
+    data: {
+      ...data,
+      output_summary: null,
+      side_effects: [],
+      artifacts_created: [],
+      error_message: errorMessage,
+      timestamp_end: timestamp_start,
+      duration_ms: 0,
+      tokens_in: data.tokens_in,
+      tokens_out: data.tokens_out,
+    },
+    actionStatus: 'blocked',
+    costEstimate: 0,
+    signature,
+    verified,
+    timestamp_start,
+    riskScore: persistedRiskScore(
+      riskScore,
+      guardDecision?.risk_score != null ? clampRiskScore(guardDecision.risk_score) : null,
+      data.risk_score || 0,
+    ) as number,
+  });
 }
 
 interface InsertActionEmbeddingPayload {
@@ -591,101 +701,96 @@ interface UpdateActionOutcomeOptions {
   gateStatus?: string | null;
 }
 
-export async function updateActionOutcome(
-  sql: SqlClient,
-  orgId: string,
-  actionId: string,
-  outcome: Record<string, unknown>,
-  options: UpdateActionOutcomeOptions = {},
-): Promise<Row | null> {
-  // `gateStatus` (optional) — when set, the UPDATE only applies if the row's
-  // current status matches. Used by the Stop hook to close still-running
-  // actions without clobbering a terminal state PostToolUse just wrote. If the
-  // gate doesn't match, the UPDATE affects 0 rows and this returns null.
-  const { gateStatus } = options;
-  const gate = gateStatus ?? null;
+interface NormalizedOutcomePatch {
+  data: Record<string, unknown>;
+  fields: string[];
+}
 
-  // Verify existence and ownership
-  const existing = await sql`SELECT action_id FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId} LIMIT 1`;
-  if (existing.length === 0) return null;
-
+function normalizeOutcomePatch(outcome: Record<string, unknown>): NormalizedOutcomePatch {
   const data: Record<string, unknown> = { ...outcome };
-
-  // JSON stringify array/object fields
   if (data.side_effects !== undefined) data.side_effects = JSON.stringify(data.side_effects);
   if (data.artifacts_created !== undefined) data.artifacts_created = JSON.stringify(data.artifacts_created);
+  return {
+    data,
+    fields: Object.keys(data).filter(k => OUTCOME_FIELDS.includes(k)),
+  };
+}
 
-  const fields = Object.keys(data).filter(k => OUTCOME_FIELDS.includes(k));
-  if (fields.length === 0) return null;
-
-  // Test-contract compatibility path for sql mocks that only provide .query() responses.
-  if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
-    const setClauses = fields.map((f, i) => `${f} = $${i + 1}`);
-    const values = fields.map(f => data[f]);
-    // Implicit durable-finality outcome: when the legacy PATCH transitions
-    // `status` to a terminal value AND outcome_status is still pending,
-    // set outcome_status to the matching terminal state. Maps:
-    //   completed -> completed
-    //   failed | cancelled | blocked -> failed
-    // Respects the one-shot rule via `outcome_status = 'pending'` guard,
-    // so a real reportActionOutcome call cannot be overwritten. Re-uses the
-    // existing status param so no new query params are introduced.
-    const statusIndex = fields.indexOf('status');
-    if (statusIndex !== -1) {
-      const statusParam = `$${statusIndex + 1}`;
-      setClauses.push(
-        `outcome_status = CASE
+function appendImplicitOutcomeClauses(setClauses: string[], fields: string[]): void {
+  const statusIndex = fields.indexOf('status');
+  if (statusIndex === -1) return;
+  const statusParam = `$${statusIndex + 1}`;
+  setClauses.push(
+    `outcome_status = CASE
           WHEN outcome_status = 'pending' AND ${statusParam} = 'completed' THEN 'completed'
           WHEN outcome_status = 'pending' AND ${statusParam} IN ('failed', 'cancelled', 'blocked') THEN 'failed'
           ELSE outcome_status
         END`
-      );
-      setClauses.push(
-        `outcome_at = CASE
+  );
+  setClauses.push(
+    `outcome_at = CASE
           WHEN outcome_status = 'pending' AND ${statusParam} IN ('completed', 'failed', 'cancelled', 'blocked') THEN NOW()
           ELSE outcome_at
         END`
-      );
-    }
-    const baseWhere = `WHERE action_id = $${fields.length + 1} AND org_id = $${fields.length + 2}`;
-    const gateWhere = gateStatus ? ` AND status = $${fields.length + 3}` : '';
-    const query = `UPDATE action_records SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP ${baseWhere}${gateWhere} RETURNING *`;
-    const queryParams = gateStatus ? [...values, actionId, orgId, gateStatus] : [...values, actionId, orgId];
-    const updated = await sql.query(query, queryParams);
-    return updated[0] || null;
-  }
+  );
+}
 
-  // Single atomic UPDATE with all outcome fields at once. Most fields use
-  // COALESCE to preserve existing values when not provided. error_message
-  // is the exception: callers that revive a previously-failed action pass
-  // error_message: null to *clear* the old error, and COALESCE would silently
-  // keep the stale string. The CASE expression distinguishes "caller did not
-  // pass the field" (keep existing) from "caller passed null" (clear it).
-  // The final WHERE predicate is a no-op when `gate` is null, and an exact
-  // match otherwise — atomic compare-and-set on the status column.
+async function updateActionOutcomeViaQueryMock(
+  ctx: {
+    sql: SqlClient;
+    orgId: string;
+    actionId: string;
+    patch: NormalizedOutcomePatch;
+    gateStatus: string | null | undefined;
+  },
+): Promise<Row | null> {
+  const { sql, orgId, actionId, patch, gateStatus } = ctx;
+  const { data, fields } = patch;
+  const setClauses = fields.map((f, i) => `${f} = $${i + 1}`);
+  const values = fields.map(f => data[f]);
+  appendImplicitOutcomeClauses(setClauses, fields);
+  const baseWhere = `WHERE action_id = $${fields.length + 1} AND org_id = $${fields.length + 2}`;
+  const gateWhere = gateStatus ? ` AND status = $${fields.length + 3}` : '';
+  const query = `UPDATE action_records SET ${setClauses.join(', ')}, updated_at = CURRENT_TIMESTAMP ${baseWhere}${gateWhere} RETURNING *`;
+  const queryParams = gateStatus ? [...values, actionId, orgId, gateStatus] : [...values, actionId, orgId];
+  const updated = await sql.query(query, queryParams);
+  return updated[0] || null;
+}
+
+function outcomeValue(
+  data: Record<string, unknown>,
+  fields: string[],
+  field: string,
+): unknown {
+  return fields.includes(field) ? data[field] : null;
+}
+
+async function updateActionOutcomeViaTaggedSql(
+  ctx: {
+    sql: SqlClient;
+    orgId: string;
+    actionId: string;
+    patch: NormalizedOutcomePatch;
+    gate: string | null;
+  },
+): Promise<Row | null> {
+  const { sql, orgId, actionId, patch, gate } = ctx;
+  const { data, fields } = patch;
   const includeErrorMessage = fields.includes('error_message');
-  // Implicit durable-finality outcome on legacy PATCH. When the caller
-  // transitions `status` to a terminal value, we also set `outcome_status`
-  // to the matching terminal state, but only if outcome_status is still
-  // 'pending' (one-shot rule preserves explicit reportActionOutcome calls).
-  // Mapping: completed -> completed; failed | cancelled | blocked -> failed.
-  // `newStatus` is null when the caller did not pass a status field, in
-  // which case every CASE branch fails the `${newStatus} = 'x'` comparison
-  // (NULL = literal is NULL, not TRUE) and the ELSE preserves the column.
-  const newStatus = fields.includes('status') ? data.status : null;
+  const newStatus = outcomeValue(data, fields, 'status');
   const updated = await sql`
     UPDATE action_records SET
-      status            = COALESCE(${fields.includes('status') ? data.status : null}, status),
-      output_summary    = COALESCE(${fields.includes('output_summary') ? data.output_summary : null}, output_summary),
-      side_effects      = COALESCE(${fields.includes('side_effects') ? data.side_effects : null}, side_effects),
-      artifacts_created = COALESCE(${fields.includes('artifacts_created') ? data.artifacts_created : null}, artifacts_created),
+      status            = COALESCE(${outcomeValue(data, fields, 'status')}, status),
+      output_summary    = COALESCE(${outcomeValue(data, fields, 'output_summary')}, output_summary),
+      side_effects      = COALESCE(${outcomeValue(data, fields, 'side_effects')}, side_effects),
+      artifacts_created = COALESCE(${outcomeValue(data, fields, 'artifacts_created')}, artifacts_created),
       error_message     = CASE WHEN ${includeErrorMessage} THEN ${includeErrorMessage ? (data.error_message ?? null) : null}::text ELSE error_message END,
-      timestamp_end     = COALESCE(${fields.includes('timestamp_end') ? data.timestamp_end : null}, timestamp_end),
-      duration_ms       = COALESCE(${fields.includes('duration_ms') ? data.duration_ms : null}, duration_ms),
-      cost_estimate     = COALESCE(${fields.includes('cost_estimate') ? data.cost_estimate : null}, cost_estimate),
-      tokens_in         = COALESCE(${fields.includes('tokens_in') ? data.tokens_in : null}, tokens_in),
-      tokens_out        = COALESCE(${fields.includes('tokens_out') ? data.tokens_out : null}, tokens_out),
-      model             = COALESCE(${fields.includes('model') ? data.model : null}, model),
+      timestamp_end     = COALESCE(${outcomeValue(data, fields, 'timestamp_end')}, timestamp_end),
+      duration_ms       = COALESCE(${outcomeValue(data, fields, 'duration_ms')}, duration_ms),
+      cost_estimate     = COALESCE(${outcomeValue(data, fields, 'cost_estimate')}, cost_estimate),
+      tokens_in         = COALESCE(${outcomeValue(data, fields, 'tokens_in')}, tokens_in),
+      tokens_out        = COALESCE(${outcomeValue(data, fields, 'tokens_out')}, tokens_out),
+      model             = COALESCE(${outcomeValue(data, fields, 'model')}, model),
       outcome_status    = CASE
         WHEN outcome_status = 'pending' AND ${newStatus} = 'completed' THEN 'completed'
         WHEN outcome_status = 'pending' AND ${newStatus} IN ('failed', 'cancelled', 'blocked') THEN 'failed'
@@ -701,6 +806,50 @@ export async function updateActionOutcome(
     RETURNING *
   `;
   return updated[0] || null;
+}
+
+export async function updateActionOutcome(
+  ...args: [
+    sql: SqlClient,
+    orgId: string,
+    actionId: string,
+    outcome: Record<string, unknown>,
+    options?: UpdateActionOutcomeOptions,
+  ]
+): Promise<Row | null> {
+  const [sql, orgId, actionId, outcome, options = {}] = args;
+  // `gateStatus` (optional) — when set, the UPDATE only applies if the row's
+  // current status matches. Used by the Stop hook to close still-running
+  // actions without clobbering a terminal state PostToolUse just wrote. If the
+  // gate doesn't match, the UPDATE affects 0 rows and this returns null.
+  const { gateStatus } = options;
+  const gate = gateStatus ?? null;
+
+  // Verify existence and ownership
+  const existing = await sql`SELECT action_id FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId} LIMIT 1`;
+  if (existing.length === 0) return null;
+
+  const { data, fields } = normalizeOutcomePatch(outcome);
+  if (fields.length === 0) return null;
+
+  // Test-contract compatibility path for sql mocks that only provide .query() responses.
+  if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
+    return updateActionOutcomeViaQueryMock({
+      sql,
+      orgId,
+      actionId,
+      patch: { data, fields },
+      gateStatus,
+    });
+  }
+
+  return updateActionOutcomeViaTaggedSql({
+    sql,
+    orgId,
+    actionId,
+    patch: { data, fields },
+    gate,
+  });
 }
 
 interface ActionOutcomeShape {
@@ -926,6 +1075,31 @@ interface ActionTraceData {
   parentChain: Row[];
 }
 
+async function fetchParentChain(
+  sql: SqlClient,
+  orgId: string,
+  actionId: string,
+  initialParentId: unknown,
+): Promise<Row[]> {
+  const parentChain: Row[] = [];
+  let currentParentId = initialParentId;
+  const visited = new Set([actionId]);
+  while (currentParentId && !visited.has(currentParentId as string) && parentChain.length < 10) {
+    visited.add(currentParentId as string);
+    const parentResult = await sql`
+      SELECT action_id, agent_id, agent_name, action_type, declared_goal, status,
+             risk_score, timestamp_start, error_message, parent_action_id
+      FROM action_records WHERE action_id = ${currentParentId} AND org_id = ${orgId}
+    `;
+    if (parentResult.length === 0) break;
+    const parent = parentResult[0];
+    if (!parent) break;
+    parentChain.push(parent);
+    currentParentId = parent.parent_action_id;
+  }
+  return parentChain;
+}
+
 /**
  * Fetch all data required for an action trace (parent chain, assumptions, loops, related actions, sub-actions).
  */
@@ -972,23 +1146,7 @@ export async function getActionTraceData(
     `
   ]);
 
-  // Recursively build parent chain (limited to 10 generations to prevent infinite loops)
-  const parentChain: Row[] = [];
-  let currentParentId = action.parent_action_id;
-  const visited = new Set([actionId]);
-  while (currentParentId && !visited.has(currentParentId as string) && parentChain.length < 10) {
-    visited.add(currentParentId as string);
-    const parentResult = await sql`
-      SELECT action_id, agent_id, agent_name, action_type, declared_goal, status,
-             risk_score, timestamp_start, error_message, parent_action_id
-      FROM action_records WHERE action_id = ${currentParentId} AND org_id = ${orgId}
-    `;
-    if (parentResult.length === 0) break;
-    const parent = parentResult[0];
-    if (!parent) break;
-    parentChain.push(parent);
-    currentParentId = parent.parent_action_id;
-  }
+  const parentChain = await fetchParentChain(sql, orgId, actionId, action.parent_action_id);
 
   return {
     action,
@@ -1022,6 +1180,152 @@ interface GraphEdge {
   label: unknown;
 }
 
+interface GraphAccumulator {
+  nodes: GraphNode[];
+  edges: GraphEdge[];
+  pushNode: (node: GraphNode) => void;
+}
+
+function createGraphAccumulator(): GraphAccumulator {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  const seenNodes = new Set<string>();
+  return {
+    nodes,
+    edges,
+    pushNode(node: GraphNode) {
+      if (seenNodes.has(node.id)) return;
+      seenNodes.add(node.id);
+      nodes.push(node);
+    },
+  };
+}
+
+function toActionNode(a: Row, { isRoot = false }: { isRoot?: boolean } = {}): GraphNode {
+  return {
+    id: `action:${a.action_id}`,
+    type: 'action',
+    label: firstPresent(a.declared_goal, a.action_type, a.action_id),
+    status: valueOrDefault(a.status, 'unknown'),
+    riskScore: a.risk_score ?? null,
+    agentId: valueOrNull(a.agent_id),
+    agentName: valueOrNull(a.agent_name),
+    actionType: valueOrNull(a.action_type),
+    timestamp: valueOrNull(a.timestamp_start),
+    isRoot,
+    meta: {
+      error_message: valueOrNull(a.error_message),
+      parent_action_id: valueOrNull(a.parent_action_id),
+    },
+  };
+}
+
+function firstPresent(...values: unknown[]): unknown {
+  return values.find(Boolean) ?? null;
+}
+
+function valueOrNull(value: unknown): unknown {
+  return value || null;
+}
+
+function valueOrDefault(value: unknown, fallback: unknown): unknown {
+  return value || fallback;
+}
+
+function addParentChain(acc: GraphAccumulator, action: Row, parentChain: Row[]): void {
+  let childActionId = action.action_id;
+  for (const parent of parentChain || []) {
+    acc.pushNode(toActionNode(parent));
+    acc.edges.push({
+      id: `edge:pc:${parent.action_id}->${childActionId}`,
+      source: `action:${parent.action_id}`,
+      target: `action:${childActionId}`,
+      type: 'parent_child',
+      label: 'spawned',
+    });
+    childActionId = parent.action_id;
+  }
+}
+
+function addSubActions(acc: GraphAccumulator, action: Row, subActions: Row[]): void {
+  for (const sub of subActions || []) {
+    acc.pushNode(toActionNode(sub));
+    acc.edges.push({
+      id: `edge:pc:${action.action_id}->${sub.action_id}`,
+      source: `action:${action.action_id}`,
+      target: `action:${sub.action_id}`,
+      type: 'parent_child',
+      label: 'spawned',
+    });
+  }
+}
+
+function addRelatedActions(acc: GraphAccumulator, action: Row, relatedActions: Row[]): void {
+  for (const rel of relatedActions || []) {
+    acc.pushNode(toActionNode(rel));
+    acc.edges.push({
+      id: `edge:rel:${action.action_id}-${rel.action_id}`,
+      source: `action:${action.action_id}`,
+      target: `action:${rel.action_id}`,
+      type: 'related',
+      label: 'correlated',
+    });
+  }
+}
+
+function assumptionStatus(a: Row): string {
+  const invalidated = a.invalidated === 1 || a.invalidated === true;
+  const validated = a.validated === 1 || a.validated === true;
+  return invalidated ? 'invalidated' : validated ? 'validated' : 'unresolved';
+}
+
+function addAssumptions(acc: GraphAccumulator, action: Row, assumptions: Row[]): void {
+  for (const a of assumptions || []) {
+    const status = assumptionStatus(a);
+    acc.pushNode({
+      id: `assumption:${a.assumption_id}`,
+      type: 'assumption',
+      label: a.assumption || 'Assumption',
+      status,
+      meta: {
+        invalidated_reason: a.invalidated_reason || null,
+        drift_score: a.drift_score ?? null,
+        created_at: a.created_at || null,
+      },
+    });
+    acc.edges.push({
+      id: `edge:as:${a.assumption_id}->${action.action_id}`,
+      source: `assumption:${a.assumption_id}`,
+      target: `action:${action.action_id}`,
+      type: 'assumption_of',
+      label: status,
+    });
+  }
+}
+
+function addOpenLoops(acc: GraphAccumulator, action: Row, loops: Row[]): void {
+  for (const l of loops || []) {
+    acc.pushNode({
+      id: `loop:${l.loop_id}`,
+      type: 'loop',
+      label: firstPresent(l.description, l.loop_type, 'Open loop'),
+      status: valueOrDefault(l.status, 'open'),
+      meta: {
+        priority: valueOrNull(l.priority),
+        loop_type: valueOrNull(l.loop_type),
+        created_at: valueOrNull(l.created_at),
+      },
+    });
+    acc.edges.push({
+      id: `edge:lp:${l.loop_id}->${action.action_id}`,
+      source: `loop:${l.loop_id}`,
+      target: `action:${action.action_id}`,
+      type: 'loop_from',
+      label: valueOrDefault(l.priority, 'open'),
+    });
+  }
+}
+
 /**
  * Build a read-only graph payload (nodes + edges) for an action, reusing
  * trace data plus correlated governance artifacts. Powers the Execution Graph
@@ -1045,133 +1349,111 @@ export async function buildActionGraph(
   if (!trace) return null;
 
   const { action, assumptions, loops, relatedActions, subActions, parentChain } = trace;
-
-  const nodes: GraphNode[] = [];
-  const edges: GraphEdge[] = [];
-  const seenNodes = new Set<string>();
-
-  const pushNode = (node: GraphNode) => {
-    if (seenNodes.has(node.id)) return;
-    seenNodes.add(node.id);
-    nodes.push(node);
-  };
-
-  const toActionNode = (a: Row, { isRoot = false }: { isRoot?: boolean } = {}): GraphNode => ({
-    id: `action:${a.action_id}`,
-    type: 'action',
-    label: a.declared_goal || a.action_type || a.action_id,
-    status: a.status || 'unknown',
-    riskScore: a.risk_score ?? null,
-    agentId: a.agent_id || null,
-    agentName: a.agent_name || null,
-    actionType: a.action_type || null,
-    timestamp: a.timestamp_start || null,
-    isRoot,
-    meta: {
-      error_message: a.error_message || null,
-      parent_action_id: a.parent_action_id || null,
-    },
-  });
+  const acc = createGraphAccumulator();
 
   // Root action
-  pushNode(toActionNode(action, { isRoot: true }));
+  acc.pushNode(toActionNode(action, { isRoot: true }));
 
   // Parent chain — each parent spawned the next link toward the root
-  let childActionId = action.action_id;
-  for (const parent of parentChain || []) {
-    pushNode(toActionNode(parent));
-    edges.push({
-      id: `edge:pc:${parent.action_id}->${childActionId}`,
-      source: `action:${parent.action_id}`,
-      target: `action:${childActionId}`,
-      type: 'parent_child',
-      label: 'spawned',
-    });
-    childActionId = parent.action_id;
-  }
+  addParentChain(acc, action, parentChain);
 
   // Sub-actions (root spawned them)
-  for (const sub of subActions || []) {
-    pushNode(toActionNode(sub));
-    edges.push({
-      id: `edge:pc:${action.action_id}->${sub.action_id}`,
-      source: `action:${action.action_id}`,
-      target: `action:${sub.action_id}`,
-      type: 'parent_child',
-      label: 'spawned',
-    });
-  }
+  addSubActions(acc, action, subActions);
 
   // Related actions (same agent/systems in nearby time window)
-  for (const rel of relatedActions || []) {
-    pushNode(toActionNode(rel));
-    edges.push({
-      id: `edge:rel:${action.action_id}-${rel.action_id}`,
-      source: `action:${action.action_id}`,
-      target: `action:${rel.action_id}`,
-      type: 'related',
-      label: 'correlated',
-    });
-  }
+  addRelatedActions(acc, action, relatedActions);
 
   // Assumptions — edge flows from assumption into the action it supports
-  for (const a of assumptions || []) {
-    const invalidated = a.invalidated === 1 || a.invalidated === true;
-    const validated = a.validated === 1 || a.validated === true;
-    const status = invalidated ? 'invalidated' : validated ? 'validated' : 'unresolved';
-
-    pushNode({
-      id: `assumption:${a.assumption_id}`,
-      type: 'assumption',
-      label: a.assumption || 'Assumption',
-      status,
-      meta: {
-        invalidated_reason: a.invalidated_reason || null,
-        drift_score: a.drift_score ?? null,
-        created_at: a.created_at || null,
-      },
-    });
-    edges.push({
-      id: `edge:as:${a.assumption_id}->${action.action_id}`,
-      source: `assumption:${a.assumption_id}`,
-      target: `action:${action.action_id}`,
-      type: 'assumption_of',
-      label: status,
-    });
-  }
+  addAssumptions(acc, action, assumptions);
 
   // Open loops — edge flows from loop into the action it blocks/questions
-  for (const l of loops || []) {
-    pushNode({
-      id: `loop:${l.loop_id}`,
-      type: 'loop',
-      label: l.description || l.loop_type || 'Open loop',
-      status: l.status || 'open',
-      meta: {
-        priority: l.priority || null,
-        loop_type: l.loop_type || null,
-        created_at: l.created_at || null,
-      },
-    });
-    edges.push({
-      id: `edge:lp:${l.loop_id}->${action.action_id}`,
-      source: `loop:${l.loop_id}`,
-      target: `action:${action.action_id}`,
-      type: 'loop_from',
-      label: l.priority || 'open',
-    });
-  }
+  addOpenLoops(acc, action, loops);
 
   return {
     rootActionId: action.action_id,
-    nodes,
-    edges,
+    nodes: acc.nodes,
+    edges: acc.edges,
   };
 }
 
 interface ActionStatsResult {
   current: Row;
   previousTotal: unknown;
+}
+
+function defaultActionStats(): Row {
+  return { total: 0, completed: 0, failed: 0, blocked: 0, cancelled: 0, approval: 0 };
+}
+
+function actionStatsResult(currentResults: Row[], previousResults: Row[]): ActionStatsResult {
+  return {
+    current: currentResults[0] || defaultActionStats(),
+    previousTotal: previousResults[0]?.total || 0
+  };
+}
+
+async function getActionStatsViaQueryMock(
+  sql: SqlClient,
+  orgId: string,
+  agentId: string | null,
+): Promise<ActionStatsResult> {
+  const agentFilter = agentId ? ' AND agent_id = $2' : '';
+  const params = agentId ? [orgId, agentId] : [orgId];
+  const currentQuery = `
+      SELECT
+        COUNT(*)::int as total,
+        COUNT(*) FILTER (WHERE status='completed')::int as completed,
+        COUNT(*) FILTER (WHERE status='failed')::int as failed,
+        COUNT(*) FILTER (WHERE status='blocked')::int as blocked,
+        COUNT(*) FILTER (WHERE status='cancelled')::int as cancelled,
+        COUNT(*) FILTER (WHERE status='pending_approval')::int as approval
+      FROM action_records
+      WHERE org_id = $1 AND created_at > NOW() - INTERVAL '24 hours'${agentFilter}
+    `;
+  const previousQuery = `
+      SELECT COUNT(*)::int as total
+      FROM action_records
+      WHERE org_id = $1 AND created_at <= NOW() - INTERVAL '24 hours' AND created_at > NOW() - INTERVAL '48 hours'${agentFilter}
+    `;
+
+  const [currentResults, previousResults] = await Promise.all([
+    sql.query(currentQuery, params),
+    sql.query(previousQuery, params)
+  ]);
+
+  return actionStatsResult(currentResults, previousResults);
+}
+
+async function getActionStatsViaTaggedSql(
+  sql: SqlClient,
+  orgId: string,
+  agentId: string | null,
+): Promise<ActionStatsResult> {
+  const agentFilter = sqlFragment(sql, !!agentId, () => sql`AND agent_id = ${agentId}`);
+  const [currentResults, previousResults] = await Promise.all([
+    sql`
+          SELECT
+            COUNT(*)::int as total,
+            COUNT(*) FILTER (WHERE status='completed')::int as completed,
+            COUNT(*) FILTER (WHERE status='failed')::int as failed,
+            COUNT(*) FILTER (WHERE status='blocked')::int as blocked,
+            COUNT(*) FILTER (WHERE status='cancelled')::int as cancelled,
+            COUNT(*) FILTER (WHERE status='pending_approval')::int as approval
+          FROM action_records
+          WHERE org_id = ${orgId}
+            ${agentFilter}
+            AND created_at > NOW() - INTERVAL '24 hours'
+        `,
+    sql`
+          SELECT COUNT(*)::int as total
+          FROM action_records
+          WHERE org_id = ${orgId}
+            ${agentFilter}
+            AND created_at <= NOW() - INTERVAL '24 hours'
+            AND created_at > NOW() - INTERVAL '48 hours'
+        `
+  ]);
+  return actionStatsResult(currentResults, previousResults);
 }
 
 /**
@@ -1184,86 +1466,10 @@ export async function getActionStats(
 ): Promise<ActionStatsResult> {
   // Test-contract compatibility path for sql mocks
   if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
-    const agentFilter = agentId ? ' AND agent_id = $2' : '';
-    const params = agentId ? [orgId, agentId] : [orgId];
-    const currentQuery = `
-      SELECT
-        COUNT(*)::int as total,
-        COUNT(*) FILTER (WHERE status='completed')::int as completed,
-        COUNT(*) FILTER (WHERE status='failed')::int as failed,
-        COUNT(*) FILTER (WHERE status='blocked')::int as blocked,
-        COUNT(*) FILTER (WHERE status='cancelled')::int as cancelled,
-        COUNT(*) FILTER (WHERE status='pending_approval')::int as approval
-      FROM action_records
-      WHERE org_id = $1 AND created_at > NOW() - INTERVAL '24 hours'${agentFilter}
-    `;
-    const previousQuery = `
-      SELECT COUNT(*)::int as total
-      FROM action_records
-      WHERE org_id = $1 AND created_at <= NOW() - INTERVAL '24 hours' AND created_at > NOW() - INTERVAL '48 hours'${agentFilter}
-    `;
-
-    const [currentResults, previousResults] = await Promise.all([
-      sql.query(currentQuery, params),
-      sql.query(previousQuery, params)
-    ]);
-
-    return {
-      current: currentResults[0] || { total: 0, completed: 0, failed: 0, blocked: 0, cancelled: 0, approval: 0 },
-      previousTotal: previousResults[0]?.total || 0
-    };
+    return getActionStatsViaQueryMock(sql, orgId, agentId);
   }
 
-  const [currentResults, previousResults] = agentId
-    ? await Promise.all([
-        sql`
-          SELECT
-            COUNT(*)::int as total,
-            COUNT(*) FILTER (WHERE status='completed')::int as completed,
-            COUNT(*) FILTER (WHERE status='failed')::int as failed,
-            COUNT(*) FILTER (WHERE status='blocked')::int as blocked,
-            COUNT(*) FILTER (WHERE status='cancelled')::int as cancelled,
-            COUNT(*) FILTER (WHERE status='pending_approval')::int as approval
-          FROM action_records
-          WHERE org_id = ${orgId}
-            AND agent_id = ${agentId}
-            AND created_at > NOW() - INTERVAL '24 hours'
-        `,
-        sql`
-          SELECT COUNT(*)::int as total
-          FROM action_records
-          WHERE org_id = ${orgId}
-            AND agent_id = ${agentId}
-            AND created_at <= NOW() - INTERVAL '24 hours'
-            AND created_at > NOW() - INTERVAL '48 hours'
-        `
-      ])
-    : await Promise.all([
-        sql`
-          SELECT
-            COUNT(*)::int as total,
-            COUNT(*) FILTER (WHERE status='completed')::int as completed,
-            COUNT(*) FILTER (WHERE status='failed')::int as failed,
-            COUNT(*) FILTER (WHERE status='blocked')::int as blocked,
-            COUNT(*) FILTER (WHERE status='cancelled')::int as cancelled,
-            COUNT(*) FILTER (WHERE status='pending_approval')::int as approval
-          FROM action_records
-          WHERE org_id = ${orgId}
-            AND created_at > NOW() - INTERVAL '24 hours'
-        `,
-        sql`
-          SELECT COUNT(*)::int as total
-          FROM action_records
-          WHERE org_id = ${orgId}
-            AND created_at <= NOW() - INTERVAL '24 hours'
-            AND created_at > NOW() - INTERVAL '48 hours'
-        `
-      ]);
-
-  return {
-    current: currentResults[0] || { total: 0, completed: 0, failed: 0, blocked: 0, cancelled: 0, approval: 0 },
-    previousTotal: previousResults[0]?.total || 0
-  };
+  return getActionStatsViaTaggedSql(sql, orgId, agentId);
 }
 
 /**
