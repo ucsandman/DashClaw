@@ -78,18 +78,51 @@ function firstString(...candidates: unknown[]): string {
   return '';
 }
 
+function stringSetFromConfig(value: unknown): ReadonlySet<string> {
+  return new Set<string>(
+    Array.isArray(value)
+      ? value.filter((v): v is string => typeof v === 'string')
+      : []
+  );
+}
+
+function numberFromConfig(
+  value: unknown,
+  fallback: number,
+  allowNegative = true,
+): number {
+  if (typeof value !== 'number') return fallback;
+  if (!Number.isFinite(value)) return fallback;
+  if (!allowNegative && value < 0) return fallback;
+  return value;
+}
+
+function compileX402Pattern(pattern: string): RegExp | null {
+  try {
+    return new RegExp(pattern, 'i');
+  } catch {
+    console.warn(`[dashclaw-governance] invalid x402CommandPattern ignored: ${pattern}`);
+    return null;
+  }
+}
+
+function resolveX402Patterns(raw: unknown): RegExp[] {
+  const patterns =
+    Array.isArray(raw) && raw.length
+      ? raw.filter((v): v is string => typeof v === 'string')
+      : ['agentcash[\\s\\S]*?fetch']; // matches the agentcash CLI `fetch` AND wrappers like .../agentcash/fetch-json.mjs
+  return patterns
+    .map(compileX402Pattern)
+    .filter((r): r is RegExp => r !== null);
+}
+
 function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
   const cfg = raw ?? {};
   const env = typeof process !== 'undefined' && process?.env ? process.env : {};
 
   const failClosed = cfg.failClosed !== false; // default true
-  const riskScoreDefault =
-    typeof cfg.riskScoreDefault === 'number' ? cfg.riskScoreDefault : 50;
-  const highRiskTools = new Set<string>(
-    Array.isArray(cfg.highRiskTools)
-      ? cfg.highRiskTools.filter((v): v is string => typeof v === 'string')
-      : []
-  );
+  const riskScoreDefault = numberFromConfig(cfg.riskScoreDefault, 50);
+  const highRiskTools = stringSetFromConfig(cfg.highRiskTools);
 
   const dashclawUrl = firstString(
     cfg.dashclawUrl,
@@ -109,29 +142,13 @@ function resolveConfig(raw: Record<string, unknown> | undefined): PluginConfig {
   );
 
   const x402Enabled = cfg.x402Enabled !== false; // default true
-  const rawPatterns =
-    Array.isArray(cfg.x402CommandPatterns) && cfg.x402CommandPatterns.length
-      ? cfg.x402CommandPatterns.filter((v): v is string => typeof v === 'string')
-      : ['agentcash[\\s\\S]*?fetch']; // matches the agentcash CLI `fetch` AND wrappers like .../agentcash/fetch-json.mjs
-  const x402CommandPatterns = rawPatterns
-    .map((p) => {
-      try {
-        return new RegExp(p, 'i');
-      } catch {
-        console.warn(`[dashclaw-governance] invalid x402CommandPattern ignored: ${p}`);
-        return null;
-      }
-    })
-    .filter((r): r is RegExp => r !== null);
-  const x402ToolNames = new Set<string>(
-    Array.isArray(cfg.x402ToolNames)
-      ? cfg.x402ToolNames.filter((v): v is string => typeof v === 'string')
-      : []
+  const x402CommandPatterns = resolveX402Patterns(cfg.x402CommandPatterns);
+  const x402ToolNames = stringSetFromConfig(cfg.x402ToolNames);
+  const x402EstimatedCostUsd = numberFromConfig(
+    cfg.x402EstimatedCostUsd,
+    0.01,
+    false
   );
-  const x402EstimatedCostUsd =
-    typeof cfg.x402EstimatedCostUsd === 'number' && cfg.x402EstimatedCostUsd >= 0
-      ? cfg.x402EstimatedCostUsd
-      : 0.01;
   const x402AutoRegisterProviders = cfg.x402AutoRegisterProviders !== false; // default true
   const x402Debug =
     cfg.x402Debug === true ||
@@ -360,6 +377,44 @@ function extractCommand(params: Record<string, unknown> | undefined): string {
   return '';
 }
 
+function matchesX402(toolName: string, command: string, config: PluginConfig): boolean {
+  if (config.x402ToolNames.has(toolName)) return true;
+  return command.length > 0 && config.x402CommandPatterns.some((re) => re.test(command));
+}
+
+function resolveX402Url(
+  params: Record<string, unknown> | undefined,
+  command: string,
+): string {
+  const urlFromParams = String(params?.url ?? params?.endpoint ?? params?.uri ?? '');
+  return urlFromParams || command.match(/https?:\/\/[^\s'"`]+/)?.[0] || '';
+}
+
+function originFromUrl(url: string): string {
+  let origin = '';
+  try {
+    origin = url ? new URL(url).host : '';
+  } catch {
+    origin = '';
+  }
+  return origin || 'unknown-x402-provider';
+}
+
+function x402EstimateFromCommand(command: string): number | null {
+  const maxAmt = command.match(/--max-amount[=\s]+([0-9]*\.?[0-9]+)/);
+  return maxAmt ? Number(maxAmt[1]) : null;
+}
+
+function x402EstimateFromParams(params: Record<string, unknown> | undefined): number | null {
+  if (typeof params?.maxAmount === 'number') return params.maxAmount as number;
+  if (typeof params?.amount === 'number') return params.amount as number;
+  return null;
+}
+
+function normalizeX402Estimate(value: number | null, fallback: number): number {
+  return value !== null && Number.isFinite(value) && value >= 0 ? value : fallback;
+}
+
 function detectX402(
   toolName: string,
   params: Record<string, unknown> | undefined,
@@ -370,39 +425,17 @@ function detectX402(
   // Match against ANY tool's command (bash/exec, Codex `shell_command`, a wrapper
   // script) — the command pattern is the real filter — plus explicit tool names.
   const command = extractCommand(params);
-  const matchedByName = config.x402ToolNames.has(toolName);
-  const matchedByCommand =
-    command.length > 0 && config.x402CommandPatterns.some((re) => re.test(command));
-  if (!matchedByName && !matchedByCommand) return null;
-
-  // Resolve the target URL → origin host (the "provider").
-  const urlFromParams = String(
-    params?.url ?? params?.endpoint ?? params?.uri ?? ''
-  );
-  const urlFromCommand = command.match(/https?:\/\/[^\s'"`]+/)?.[0] ?? '';
-  const url = urlFromParams || urlFromCommand;
-  let origin = '';
-  try {
-    origin = url ? new URL(url).host : '';
-  } catch {
-    origin = '';
-  }
+  if (!matchesX402(toolName, command, config)) return null;
 
   // Pre-payment estimate: the agent's --max-amount ceiling, else an explicit
   // amount param, else the configured fallback. Conservative on purpose so the
   // guard evaluates the worst-case spend before the payment runs.
-  let estimate = config.x402EstimatedCostUsd;
-  const maxAmt = command.match(/--max-amount[=\s]+([0-9]*\.?[0-9]+)/);
-  if (maxAmt) {
-    estimate = Number(maxAmt[1]);
-  } else if (typeof params?.maxAmount === 'number') {
-    estimate = params.maxAmount as number;
-  } else if (typeof params?.amount === 'number') {
-    estimate = params.amount as number;
-  }
-  if (!Number.isFinite(estimate) || estimate < 0) estimate = config.x402EstimatedCostUsd;
-
-  return { origin: origin || 'unknown-x402-provider', url, estimate };
+  const url = resolveX402Url(params, command);
+  const estimate = normalizeX402Estimate(
+    x402EstimateFromCommand(command) ?? x402EstimateFromParams(params),
+    config.x402EstimatedCostUsd
+  );
+  return { origin: originFromUrl(url), url, estimate };
 }
 
 interface X402Receipt {
@@ -416,41 +449,53 @@ interface X402Receipt {
  * result is not a settled paid call (a free `check`, a 402-not-paid, or no
  * parseable payload), so we only record purchases that actually moved money.
  */
-function parseX402Receipt(result: unknown): X402Receipt | null {
+function unwrapX402ReceiptCandidate(result: unknown): unknown {
   // Unwrap common shell-result shapes ({ stdout }, { output }, { text }, …) to
   // the JSON string when the result isn't already the raw agentcash envelope.
-  let candidate: unknown = result;
   if (result && typeof result === 'object' && !Array.isArray(result)) {
     const o = result as Record<string, any>;
     if (!(o.data || o.metadata || o.costDollars)) {
-      candidate = o.stdout ?? o.output ?? o.text ?? o.result ?? o.content ?? result;
+      return o.stdout ?? o.output ?? o.text ?? o.result ?? o.content ?? result;
     }
   }
+  return result;
+}
 
-  let obj: unknown = candidate;
-  if (typeof candidate === 'string') {
-    try {
-      obj = JSON.parse(candidate);
-    } catch {
-      const block = candidate.match(/\{[\s\S]*\}/);
-      if (!block) return null;
-      try {
-        obj = JSON.parse(block[0]);
-      } catch {
-        return null;
-      }
-    }
+function parseJsonishX402Receipt(candidate: unknown): unknown {
+  if (typeof candidate !== 'string') return candidate;
+  return parseJsonObject(candidate) ?? parseJsonObject(extractJsonBlock(candidate));
+}
+
+function parseJsonObject(source: string | null): unknown {
+  if (!source) return null;
+  try {
+    return JSON.parse(source);
+  } catch {
+    return null;
   }
+}
+
+function extractJsonBlock(source: string): string | null {
+  return source.match(/\{[\s\S]*\}/)?.[0] ?? null;
+}
+
+function extractX402Spend(data: Record<string, any>, metadata: Record<string, any>): number {
+  let spend = Number(data?.costDollars?.total);
+  if (Number.isFinite(spend)) return spend;
+  const pm = String(metadata?.price ?? '').match(/([0-9]*\.?[0-9]+)/);
+  spend = pm ? Number(pm[1]) : NaN;
+  return Number.isFinite(spend) ? spend : NaN;
+}
+
+function parseX402Receipt(result: unknown): X402Receipt | null {
+  const candidate = unwrapX402ReceiptCandidate(result);
+  const obj = parseJsonishX402Receipt(candidate);
   if (!obj || typeof obj !== 'object') return null;
   const env = obj as Record<string, any>;
   const data = (env.data ?? env) as Record<string, any>;
   const metadata = (env.metadata ?? {}) as Record<string, any>;
 
-  let spend = Number(data?.costDollars?.total);
-  if (!Number.isFinite(spend)) {
-    const pm = String(metadata?.price ?? '').match(/([0-9]*\.?[0-9]+)/);
-    spend = pm ? Number(pm[1]) : NaN;
-  }
+  const spend = extractX402Spend(data, metadata);
   if (!Number.isFinite(spend) || spend <= 0) return null; // not a settled payment
 
   return {
@@ -474,37 +519,15 @@ async function resolveProviderId(
   config: PluginConfig,
   origin: string,
 ): Promise<string | undefined> {
-  if (
-    !config.x402AutoRegisterProviders ||
-    !origin ||
-    origin === 'unknown-x402-provider'
-  ) {
-    return undefined;
-  }
+  if (!shouldResolveProvider(config, origin)) return undefined;
   const cached = providerIdByOrigin.get(origin);
   if (cached) return cached;
 
   try {
-    const listed = await client.listProviders();
-    const providers: Array<Record<string, any>> = Array.isArray(listed)
-      ? (listed as Array<Record<string, any>>)
-      : ((listed as { providers?: Array<Record<string, any>> })?.providers ?? []);
-    const match = providers.find(
-      (p) =>
-        p?.name === origin ||
-        (typeof p?.base_url === 'string' && p.base_url.includes(origin))
-    );
-    let id: string | undefined = match?.provider_id ?? match?.id;
-    if (!id) {
-      const created = (await client.createProvider({
-        name: origin,
-        base_url: `https://${origin}`,
-        category: 'research',
-        default_currency: 'USDC',
-        metadata: { source: 'openclaw-x402' },
-      })) as Record<string, any>;
-      id = created?.provider?.provider_id ?? created?.provider_id ?? created?.id;
-    }
+    const providers = providerListFromResponse(await client.listProviders());
+    const id =
+      providerIdFromList(providers, origin) ??
+      (await createProviderId(client, origin));
     if (id) {
       providerIdByOrigin.set(origin, id);
       return id;
@@ -515,6 +538,45 @@ async function resolveProviderId(
     );
   }
   return undefined;
+}
+
+function shouldResolveProvider(config: PluginConfig, origin: string): boolean {
+  return (
+    config.x402AutoRegisterProviders &&
+    origin.length > 0 &&
+    origin !== 'unknown-x402-provider'
+  );
+}
+
+function providerListFromResponse(response: unknown): Array<Record<string, any>> {
+  if (Array.isArray(response)) return response as Array<Record<string, any>>;
+  return ((response as { providers?: Array<Record<string, any>> })?.providers ?? []);
+}
+
+function providerIdFromList(
+  providers: Array<Record<string, any>>,
+  origin: string,
+): string | undefined {
+  const match = providers.find(
+    (p) =>
+      p?.name === origin ||
+      (typeof p?.base_url === 'string' && p.base_url.includes(origin))
+  );
+  return match?.provider_id ?? match?.id;
+}
+
+async function createProviderId(
+  client: DashClaw,
+  origin: string,
+): Promise<string | undefined> {
+  const created = (await client.createProvider({
+    name: origin,
+    base_url: `https://${origin}`,
+    category: 'research',
+    default_currency: 'USDC',
+    metadata: { source: 'openclaw-x402' },
+  })) as Record<string, any>;
+  return created?.provider?.provider_id ?? created?.provider_id ?? created?.id;
 }
 
 // ---------------------------------------------------------------------------
@@ -569,24 +631,48 @@ function classifyBash(
   }
   const goal = `Bash: ${command.slice(0, 120)}`;
 
+  const patternClassification = classifyBashPattern(command, goal);
+  if (patternClassification) return patternClassification;
+
+  const firstToken = command.trim().split(/[\s|;&]/)[0].replace(/^.*[/\\]/, '');
+  return classifyCommandToken(firstToken, command, goal, defaultRisk);
+}
+
+function classifyBashPattern(
+  command: string,
+  goal: string,
+): ActionClassification | null {
   if (DESTRUCTIVE_PATTERN.test(command)) {
     return { actionType: 'security', riskScore: 90, reversible: false, systemsTouched: ['filesystem'], declaredGoal: goal };
   }
   if (DEPLOY_PATTERN.test(command)) {
     return { actionType: 'deploy', riskScore: 80, reversible: false, systemsTouched: ['production'], declaredGoal: goal };
   }
+  return null;
+}
 
-  const firstToken = command.trim().split(/[\s|;&]/)[0].replace(/^.*[/\\]/, '');
+function classifyGitCommand(
+  command: string,
+  goal: string,
+): ActionClassification {
+  const sub = command.match(/git\s+(\S+)/)?.[1] ?? '';
+  if (GIT_READONLY.has(sub)) {
+    return { actionType: 'review', riskScore: 10, reversible: true, systemsTouched: [], declaredGoal: goal };
+  }
+  if (sub === 'push') {
+    return { actionType: 'deploy', riskScore: 75, reversible: false, systemsTouched: [], declaredGoal: goal };
+  }
+  return { actionType: 'apply', riskScore: 30, reversible: true, systemsTouched: [], declaredGoal: goal };
+}
 
+function classifyCommandToken(
+  firstToken: string,
+  command: string,
+  goal: string,
+  defaultRisk: number,
+): ActionClassification {
   if (firstToken === 'git') {
-    const sub = command.match(/git\s+(\S+)/)?.[1] ?? '';
-    if (GIT_READONLY.has(sub)) {
-      return { actionType: 'review', riskScore: 10, reversible: true, systemsTouched: [], declaredGoal: goal };
-    }
-    if (sub === 'push') {
-      return { actionType: 'deploy', riskScore: 75, reversible: false, systemsTouched: [], declaredGoal: goal };
-    }
-    return { actionType: 'apply', riskScore: 30, reversible: true, systemsTouched: [], declaredGoal: goal };
+    return classifyGitCommand(command, goal);
   }
   if (READONLY_COMMANDS.has(firstToken)) {
     return { actionType: 'review', riskScore: 10, reversible: true, systemsTouched: [], declaredGoal: goal };
@@ -622,32 +708,89 @@ function classifyToolCall(
   config: PluginConfig,
 ): ActionClassification {
   const defaultRisk = config.highRiskTools.has(toolName) ? 85 : config.riskScoreDefault;
+  const classified = TOOL_CLASSIFIERS
+    .map((classify) => classify(toolName, params, defaultRisk))
+    .find((result): result is ActionClassification => result !== null);
+  return classified ?? classifyDefaultTool(toolName, params, defaultRisk);
+}
 
-  if (toolName === 'bash' || toolName === 'exec') {
-    return classifyBash(params?.command as string | undefined, defaultRisk);
-  }
-  if (toolName === 'write' || toolName === 'edit' || toolName === 'apply_patch') {
-    return classifyFile(toolName, params, defaultRisk);
-  }
-  if (['read', 'web_search', 'web_fetch', 'memory_search', 'memory_get', 'image'].includes(toolName)) {
-    const target = String(params?.file_path ?? params?.path ?? params?.query ?? '');
-    return {
-      actionType: 'review',
-      riskScore: Math.min(defaultRisk, 15),
-      reversible: true,
-      systemsTouched: [],
-      declaredGoal: `${toolName}: ${target.slice(0, 120) || '(unknown)'}`,
-    };
-  }
-  if (toolName === 'sessions_send') {
-    return {
-      actionType: 'message',
-      riskScore: defaultRisk,
-      reversible: false,
-      systemsTouched: [],
-      declaredGoal: `message: ${summarizeParams(params).slice(0, 120)}`,
-    };
-  }
+type ToolClassifier = (
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+) => ActionClassification | null;
+
+const WRITE_TOOLS = new Set(['write', 'edit', 'apply_patch']);
+const REVIEW_TOOLS = new Set([
+  'read',
+  'web_search',
+  'web_fetch',
+  'memory_search',
+  'memory_get',
+  'image',
+]);
+
+const TOOL_CLASSIFIERS: ToolClassifier[] = [
+  classifyShellTool,
+  classifyWriteTool,
+  classifyReviewTool,
+  classifyMessageTool,
+];
+
+function classifyShellTool(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+): ActionClassification | null {
+  return toolName === 'bash' || toolName === 'exec'
+    ? classifyBash(params?.command as string | undefined, defaultRisk)
+    : null;
+}
+
+function classifyWriteTool(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+): ActionClassification | null {
+  return WRITE_TOOLS.has(toolName) ? classifyFile(toolName, params, defaultRisk) : null;
+}
+
+function classifyReviewTool(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+): ActionClassification | null {
+  if (!REVIEW_TOOLS.has(toolName)) return null;
+  const target = String(params?.file_path ?? params?.path ?? params?.query ?? '');
+  return {
+    actionType: 'review',
+    riskScore: Math.min(defaultRisk, 15),
+    reversible: true,
+    systemsTouched: [],
+    declaredGoal: `${toolName}: ${target.slice(0, 120) || '(unknown)'}`,
+  };
+}
+
+function classifyMessageTool(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+): ActionClassification | null {
+  if (toolName !== 'sessions_send') return null;
+  return {
+    actionType: 'message',
+    riskScore: defaultRisk,
+    reversible: false,
+    systemsTouched: [],
+    declaredGoal: `message: ${summarizeParams(params).slice(0, 120)}`,
+  };
+}
+
+function classifyDefaultTool(
+  toolName: string,
+  params: Record<string, unknown> | undefined,
+  defaultRisk: number,
+): ActionClassification {
   return {
     actionType: 'other',
     riskScore: defaultRisk,
@@ -663,6 +806,666 @@ function isApproved(action: ActionRecord | undefined): boolean {
   return action.status === 'running' || action.status === 'completed';
 }
 
+type HookBlockResult = { block: true; blockReason: string };
+type HookResult = HookBlockResult | void;
+
+interface ToolCallEvent {
+  toolName: string;
+  params?: Record<string, unknown>;
+  toolCallId?: string;
+  runId?: string;
+  error?: string;
+  result?: unknown;
+  workspace?: unknown;
+  branch?: unknown;
+}
+
+interface LlmOutputEvent {
+  runId?: string;
+  model?: string;
+  usage?: {
+    input?: number;
+    output?: number;
+    cacheRead?: number;
+    cacheWrite?: number;
+  };
+}
+
+interface AgentEndContext {
+  runId?: string;
+}
+
+interface CreatedAction {
+  actionId?: string;
+  status?: string;
+}
+
+function registerGovernanceGate(api: OpenClawPluginApi, config: PluginConfig): void {
+  api.on('before_tool_call', async (event, _ctx) =>
+    handleBeforeToolCall(event as ToolCallEvent, config)
+  );
+}
+
+function registerTokenAttribution(api: OpenClawPluginApi, config: PluginConfig): void {
+  api.on('llm_output', async (event, _ctx) =>
+    handleLlmOutput(event as LlmOutputEvent, config)
+  );
+}
+
+function registerRunCleanup(api: OpenClawPluginApi, config: PluginConfig): void {
+  api.on('agent_end', async (_event, ctx) =>
+    handleAgentEnd(ctx as AgentEndContext | undefined, config)
+  );
+}
+
+function registerOutcomeRecorder(api: OpenClawPluginApi, config: PluginConfig): void {
+  api.on('after_tool_call', async (event, _ctx) =>
+    handleAfterToolCall(event as ToolCallEvent, config)
+  );
+}
+
+async function handleBeforeToolCall(
+  event: ToolCallEvent,
+  config: PluginConfig,
+): Promise<HookResult> {
+  const { toolName, params, toolCallId, runId } = event;
+  const key = callKey(toolName, toolCallId, runId);
+  const classification = classifyToolCall(toolName, params, config);
+
+  const client = getBeforeClient(config);
+  if ('result' in client) return client.result;
+
+  await maybeStartSession(event, client.value, config);
+
+  const x402Result = await handleX402Before({
+    toolName,
+    params,
+    key,
+    client: client.value,
+    config,
+  });
+  if (x402Result.handled) return x402Result.result;
+
+  const decision = await guardClassifiedAction(client.value, classification, config);
+  if ('result' in decision) return decision.result;
+
+  const block = blockResultForDecision(decision.value, toolName);
+  if (block) return block;
+
+  return openActionRecord({
+    client: client.value,
+    classification,
+    decision: decision.value,
+    toolName,
+    key,
+    runId,
+    config,
+  });
+}
+
+function getBeforeClient(
+  config: PluginConfig,
+): { value: DashClaw } | { result: HookResult } {
+  try {
+    return { value: getClient(config) };
+  } catch (err) {
+    const msg = errorMessage(err) || 'unknown error';
+    if (config.failClosed) {
+      return { result: { block: true, blockReason: `DashClaw config error: ${msg}` } };
+    }
+    console.warn(`[dashclaw-governance] config error (fail-open): ${msg}`);
+    return { result: undefined };
+  }
+}
+
+async function maybeStartSession(
+  event: ToolCallEvent,
+  client: DashClaw,
+  config: PluginConfig,
+): Promise<void> {
+  if (!event.runId) return;
+  const runState = getTokenTurn(event.runId);
+  if (runState.sessionStarted) return;
+
+  runState.sessionStarted = true; // guard before await — once per run
+  const workspace = typeof event.workspace === 'string' ? event.workspace : undefined;
+  const branch = typeof event.branch === 'string' ? event.branch : null;
+  try {
+    const res = await client.createSession(config.agentId, workspace, branch);
+    const sessionId =
+      (res as { session?: { id?: string }; id?: string }).session?.id ??
+      (res as { id?: string }).id;
+    if (sessionId) runState.sessionId = sessionId;
+  } catch (err) {
+    console.warn(
+      `[dashclaw-governance] createSession failed: ${errorMessage(err) || 'unknown'}`
+    );
+  }
+}
+
+interface X402BeforeContext {
+  toolName: string;
+  params?: Record<string, unknown>;
+  key: string;
+  client: DashClaw;
+  config: PluginConfig;
+}
+
+async function handleX402Before(
+  ctx: X402BeforeContext,
+): Promise<{ handled: false } | { handled: true; result?: HookBlockResult }> {
+  const x402 = detectX402(ctx.toolName, ctx.params, ctx.config);
+  if (!x402) return { handled: false };
+
+  const declaredGoal = `x402 purchase: ${x402.origin}`;
+  x402log(
+    ctx.config,
+    `gate: tool=${ctx.toolName} origin=${x402.origin} estimate=$${x402.estimate}`
+  );
+
+  const decision = await guardX402Purchase(ctx.client, ctx.config, x402, declaredGoal);
+  if (!decision.ok) {
+    if (decision.failOpen) rememberX402Pending(ctx.key, x402, declaredGoal);
+    return { handled: true, result: decision.result };
+  }
+
+  const block = blockResultForX402Decision(decision.value, x402);
+  if (block) return { handled: true, result: block };
+  warnOnX402Decision(ctx.config, decision.value, x402.origin);
+  rememberX402Pending(ctx.key, x402, declaredGoal);
+  return { handled: true };
+}
+
+async function guardX402Purchase(
+  client: DashClaw,
+  config: PluginConfig,
+  x402: X402Detection,
+  declaredGoal: string,
+): Promise<
+  | { ok: true; value: GuardDecision }
+  | { ok: false; result?: HookBlockResult; failOpen: boolean }
+> {
+  try {
+    return {
+      ok: true,
+      value: await client.guard({
+        action_type: 'x402_purchase',
+        provider: x402.origin,
+        cost_estimate: x402.estimate,
+        risk_score: 40,
+        declared_goal: declaredGoal,
+        reversible: false,
+        systems_touched: ['x402', x402.origin],
+      }),
+    };
+  } catch (err) {
+    const msg = errorMessage(err) || 'unknown error';
+    if (config.failClosed) {
+      return {
+        ok: false,
+        failOpen: false,
+        result: {
+          block: true,
+          blockReason: `DashClaw unreachable — x402 payment to ${x402.origin} blocked (fail-closed): ${msg}`,
+        },
+      };
+    }
+    console.warn(`[dashclaw-governance] x402 guard failed (fail-open): ${msg}`);
+    return { ok: false, failOpen: true };
+  }
+}
+
+function blockResultForX402Decision(
+  decision: GuardDecision,
+  x402: X402Detection,
+): HookBlockResult | undefined {
+  if (decision.decision !== 'block' && decision.decision !== 'require_approval') {
+    return undefined;
+  }
+  const why =
+    decision.decision === 'require_approval'
+      ? 'requires approval — adjust the x402_spend_limit policy threshold to allow it'
+      : decision.reason || 'blocked by x402 spend policy';
+  return {
+    block: true,
+    blockReason: `x402 payment to ${x402.origin} (~$${x402.estimate}) ${why}`,
+  };
+}
+
+function warnOnX402Decision(
+  config: PluginConfig,
+  decision: GuardDecision,
+  origin: string,
+): void {
+  if (decision.decision !== 'warn') return;
+  console.warn(
+    `[dashclaw-governance] WARN x402 ${origin}: ${decision.reason || 'flagged by policy'}`
+  );
+}
+
+function rememberX402Pending(
+  key: string,
+  x402: X402Detection,
+  declaredGoal: string,
+): void {
+  x402PendingByKey.set(key, {
+    origin: x402.origin,
+    declaredGoal,
+    estimate: x402.estimate,
+  });
+}
+
+async function guardClassifiedAction(
+  client: DashClaw,
+  classification: ActionClassification,
+  config: PluginConfig,
+): Promise<{ value: GuardDecision } | { result: HookResult }> {
+  try {
+    return {
+      value: await client.guard({
+        action_type: classification.actionType,
+        risk_score: classification.riskScore,
+        declared_goal: classification.declaredGoal,
+        reversible: classification.reversible,
+        systems_touched: classification.systemsTouched,
+      }),
+    };
+  } catch (err) {
+    const msg = errorMessage(err) || 'unknown error';
+    if (config.failClosed) {
+      return {
+        result: {
+          block: true,
+          blockReason: `DashClaw unreachable — fail-closed policy (${msg})`,
+        },
+      };
+    }
+    console.warn(`[dashclaw-governance] guard call failed (fail-open): ${msg}`);
+    return { result: undefined };
+  }
+}
+
+function blockResultForDecision(
+  decision: GuardDecision,
+  toolName: string,
+): HookBlockResult | undefined {
+  if (decision.decision === 'block') {
+    return {
+      block: true,
+      blockReason: decision.reason || 'Blocked by DashClaw policy',
+    };
+  }
+  if (decision.decision === 'warn') {
+    console.warn(
+      `[dashclaw-governance] WARN ${toolName}: ${decision.reason || 'flagged by policy'}`
+    );
+  }
+  return undefined;
+}
+
+interface OpenActionContext {
+  client: DashClaw;
+  classification: ActionClassification;
+  decision: GuardDecision;
+  toolName: string;
+  key: string;
+  runId?: string;
+  config: PluginConfig;
+}
+
+async function openActionRecord(ctx: OpenActionContext): Promise<HookResult> {
+  const created = await createGovernanceAction(ctx);
+  if ('result' in created) return created.result;
+
+  const approval = await waitForRequiredApproval(ctx.client, ctx.decision, created.value);
+  if (approval) return approval;
+  rememberPendingAction(ctx.key, created.value.actionId, ctx.runId);
+  return;
+}
+
+async function createGovernanceAction(
+  ctx: OpenActionContext,
+): Promise<{ value: CreatedAction } | { result: HookResult }> {
+  const { actionType, declaredGoal, riskScore, reversible, systemsTouched } =
+    ctx.classification;
+  try {
+    const created = await ctx.client.createAction({
+      action_type: actionType,
+      declared_goal: declaredGoal,
+      risk_score: riskScore,
+      reversible,
+      systems_touched: systemsTouched,
+      metadata: { openclaw_tool_name: ctx.toolName },
+    });
+    return {
+      value: {
+        actionId: created.action_id ?? created.action?.action_id ?? created.action?.id,
+        status: created.action?.status,
+      },
+    };
+  } catch (err) {
+    const msg = errorMessage(err) || 'unknown';
+    console.warn(`[dashclaw-governance] createAction failed: ${msg}`);
+    if (ctx.config.failClosed) {
+      return {
+        result: {
+          block: true,
+          blockReason: `DashClaw action record could not be opened — fail-closed policy (${msg})`,
+        },
+      };
+    }
+    return { result: undefined };
+  }
+}
+
+async function waitForRequiredApproval(
+  client: DashClaw,
+  decision: GuardDecision,
+  created: CreatedAction,
+): Promise<HookBlockResult | undefined> {
+  const needsApproval =
+    decision.decision === 'require_approval' ||
+    created.status === 'pending_approval';
+  if (!needsApproval || !created.actionId) return undefined;
+
+  try {
+    const { action } = await client.waitForApproval(created.actionId);
+    if (isApproved(action)) return undefined;
+    return {
+      block: true,
+      blockReason: action?.error_message || 'Action denied by operator',
+    };
+  } catch (err) {
+    return {
+      block: true,
+      blockReason: `Approval denied or wait failed: ${errorMessage(err) || 'denied'}`,
+    };
+  }
+}
+
+function rememberPendingAction(
+  key: string,
+  actionId: string | undefined,
+  runId: string | undefined,
+): void {
+  if (!actionId) return;
+  pendingActions.set(key, actionId);
+  if (runId) getTokenTurn(runId).turnActionIds.push(actionId);
+}
+
+async function handleLlmOutput(
+  event: LlmOutputEvent,
+  config: PluginConfig,
+): Promise<void> {
+  const { runId, model, usage } = event;
+  if (!runId) return;
+
+  const client = getClientForLlmOutput(config);
+  if (!client) return;
+
+  const state = getTokenTurn(runId);
+  if (state.pendingUsage) {
+    await distributePendingTokens(client, state);
+  }
+
+  const pendingUsage = tokenUsageFromEvent({
+    usage,
+    model,
+    config,
+    state,
+    runId,
+  });
+  if (pendingUsage) state.pendingUsage = pendingUsage;
+}
+
+function getClientForLlmOutput(config: PluginConfig): DashClaw | undefined {
+  try {
+    return getClient(config);
+  } catch (err) {
+    console.warn(
+      `[dashclaw-governance] llm_output dropped — client unavailable: ${errorMessage(err) || 'unknown'}`
+    );
+    return undefined;
+  }
+}
+
+interface TokenUsageContext {
+  usage: LlmOutputEvent['usage'];
+  model?: string;
+  config: PluginConfig;
+  state: TokenTurnState;
+  runId: string;
+}
+
+function tokenUsageFromEvent(ctx: TokenUsageContext): TokenTurnState['pendingUsage'] {
+  const { usage, model, config, state, runId } = ctx;
+  if (!usage) return undefined;
+  const cacheReadEffective = Math.round((usage.cacheRead ?? 0) * 0.1);
+  const tokens_in = (usage.input ?? 0) + (usage.cacheWrite ?? 0) + cacheReadEffective;
+  const tokens_out = usage.output ?? 0;
+  if (tokens_in <= 0 && tokens_out <= 0) return undefined;
+
+  const resolvedModel = model && model.length > 0 ? model : config.defaultModel;
+  warnOnceForMissingModel(resolvedModel, state, runId);
+  return { tokens_in, tokens_out, model: resolvedModel };
+}
+
+function warnOnceForMissingModel(
+  model: string,
+  state: TokenTurnState,
+  runId: string,
+): void {
+  if (model || state.warnedMissingModel) return;
+  console.warn(
+    `[dashclaw-governance] llm_output has no model for run ${runId} — ` +
+      `tokens will land on action records but cost_estimate will stay $0. ` +
+      `Set config.defaultModel or DASHCLAW_DEFAULT_MODEL to price these turns.`
+  );
+  state.warnedMissingModel = true;
+}
+
+async function handleAgentEnd(
+  ctx: AgentEndContext | undefined,
+  config: PluginConfig,
+): Promise<void> {
+  const runId = ctx?.runId;
+  if (!runId) return;
+  const state = tokenTurnByRun.get(runId);
+  if (!state) return;
+
+  const client = getClientForAgentEnd(config, state);
+  if (client && state.pendingUsage && state.turnActionIds.length > 0) {
+    await distributePendingTokens(client, state);
+  }
+  if (client && state.sessionId) {
+    await closeSession(client, state.sessionId);
+  }
+  tokenTurnByRun.delete(runId);
+}
+
+function getClientForAgentEnd(
+  config: PluginConfig,
+  state: TokenTurnState,
+): DashClaw | null {
+  try {
+    return getClient(config);
+  } catch (err) {
+    const lost = state.turnActionIds.length;
+    if ((state.pendingUsage && lost > 0) || state.sessionId) {
+      console.warn(
+        `[dashclaw-governance] agent_end cleanup dropped (client unavailable): ${lost} token action(s), session ${state.sessionId ?? 'none'}: ${errorMessage(err) || 'unknown'}`
+      );
+    }
+    return null;
+  }
+}
+
+async function closeSession(client: DashClaw, sessionId: string): Promise<void> {
+  try {
+    await client.updateSession(sessionId, { status: 'completed' });
+  } catch (err) {
+    console.warn(
+      `[dashclaw-governance] updateSession(end) failed for ${sessionId}: ${errorMessage(err) || 'unknown'}`
+    );
+  }
+}
+
+async function handleAfterToolCall(
+  event: ToolCallEvent,
+  config: PluginConfig,
+): Promise<void> {
+  const { toolName, toolCallId, runId } = event;
+  const key = callKey(toolName, toolCallId, runId);
+
+  const x402pending = x402PendingByKey.get(key);
+  if (x402pending) {
+    x402PendingByKey.delete(key);
+    await handleX402After(event, x402pending, config);
+    return;
+  }
+
+  await handleGenericAfterToolCall(key, event.error, config);
+}
+
+async function handleX402After(
+  event: ToolCallEvent,
+  pending: X402Pending,
+  config: PluginConfig,
+): Promise<void> {
+  const client = getClientForOutcome(config);
+  if (!client) return;
+  logX402ResultPreview(config, pending, event);
+
+  if (event.error) {
+    console.warn(`[dashclaw-governance] x402 call to ${pending.origin} failed: ${event.error}`);
+    return;
+  }
+  const receipt = parseX402Receipt(event.result);
+  logX402Receipt(config, receipt);
+  if (!receipt) return;
+
+  await recordX402Purchase(client, config, pending, receipt);
+}
+
+function getClientForOutcome(config: PluginConfig): DashClaw | undefined {
+  try {
+    return getClient(config);
+  } catch {
+    return undefined;
+  }
+}
+
+function logX402ResultPreview(
+  config: PluginConfig,
+  pending: X402Pending,
+  event: ToolCallEvent,
+): void {
+  if (!config.x402Debug) return;
+  x402log(
+    config,
+    `record: origin=${pending.origin} hasError=${!!event.error} resultType=${typeof event.result} resultPresent=${event.result !== undefined} preview=${resultPreview(event.result)}`
+  );
+}
+
+function resultPreview(result: unknown): string {
+  try {
+    return typeof result === 'string'
+      ? result.slice(0, 300)
+      : JSON.stringify(result)?.slice(0, 300) ?? '';
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+function logX402Receipt(config: PluginConfig, receipt: X402Receipt | null): void {
+  x402log(
+    config,
+    receipt
+      ? `parsed receipt: $${receipt.spend} tx=${receipt.txHash ?? 'none'}`
+      : `parse FAILED — no settled spend found in tool result (set x402Debug to inspect the shape)`
+  );
+}
+
+async function recordX402Purchase(
+  client: DashClaw,
+  config: PluginConfig,
+  pending: X402Pending,
+  receipt: X402Receipt,
+): Promise<void> {
+  try {
+    const providerId = await resolveProviderId(client, config, pending.origin);
+    const res = await client.recordPurchase({
+      agent_id: config.agentId,
+      provider: pending.origin,
+      declared_goal: pending.declaredGoal,
+      purchase_reason: `Paid x402 capability call to ${pending.origin}`,
+      context_gap: `Capability gated behind payment at ${pending.origin}`,
+      expected_value: `Paid result from ${pending.origin}`,
+      spend_amount: receipt.spend,
+      cost_estimate: receipt.spend,
+      currency: 'USDC',
+      payment_method: 'x402',
+      ...(providerId ? { provider_id: providerId } : {}),
+    });
+    await recordX402Receipt(client, pending, receipt, purchaseActionId(res));
+  } catch (err) {
+    console.warn(
+      `[dashclaw-governance] recordPurchase failed for ${pending.origin}: ${errorMessage(err) || 'unknown'}`
+    );
+  }
+}
+
+function purchaseActionId(res: any): string | undefined {
+  return res?.action?.action_id ?? res?.action_id ?? res?.action?.id;
+}
+
+async function recordX402Receipt(
+  client: DashClaw,
+  pending: X402Pending,
+  receipt: X402Receipt,
+  actionId: string | undefined,
+): Promise<void> {
+  if (!actionId || (!receipt.txHash && !receipt.requestId)) return;
+  await client
+    .recordPurchaseResult(String(actionId), {
+      summary: `x402 settled: $${receipt.spend} USDC at ${pending.origin}`,
+      data: {
+        origin: pending.origin,
+        transactionHash: receipt.txHash,
+        requestId: receipt.requestId,
+      },
+    })
+    .catch((err: unknown) => {
+      console.warn(
+        `[dashclaw-governance] recordPurchaseResult failed: ${errorMessage(err) || 'unknown'}`
+      );
+    });
+}
+
+async function handleGenericAfterToolCall(
+  key: string,
+  error: string | undefined,
+  config: PluginConfig,
+): Promise<void> {
+  const actionId = pendingActions.get(key);
+  if (!actionId) return;
+  pendingActions.delete(key);
+
+  const client = getClientForOutcome(config);
+  if (!client) return;
+
+  try {
+    await client.updateOutcome(actionId, {
+      status: error ? 'failed' : 'completed',
+      ...(error ? { error_message: error } : {}),
+    });
+  } catch (err) {
+    console.warn(
+      `[dashclaw-governance] updateOutcome failed: ${errorMessage(err) || 'unknown'}`
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Plugin entry
 // ---------------------------------------------------------------------------
@@ -676,440 +1479,11 @@ export default definePluginEntry({
   register(api: OpenClawPluginApi): void {
     const config = resolveConfig(api.pluginConfig);
 
-    // -----------------------------------------------------------------------
-    // Governance gate
-    // -----------------------------------------------------------------------
-    api.on('before_tool_call', async (event, _ctx) => {
-      const { toolName, params, toolCallId, runId } = event;
-      const key = callKey(toolName, toolCallId, runId);
+    registerGovernanceGate(api, config);
 
-      // Classify the tool call using the same vocabulary as DashClaw hooks
-      // so policies written for Claude Code also fire for OpenClaw calls.
-      const classification = classifyToolCall(toolName, params, config);
-      const { actionType, riskScore, reversible, systemsTouched, declaredGoal } = classification;
+    registerTokenAttribution(api, config);
+    registerRunCleanup(api, config);
 
-      let client: DashClaw;
-      try {
-        client = getClient(config);
-      } catch (err) {
-        const msg = errorMessage(err) || 'unknown error';
-        if (config.failClosed) {
-          return { block: true, blockReason: `DashClaw config error: ${msg}` };
-        }
-        console.warn(`[dashclaw-governance] config error (fail-open): ${msg}`);
-        return;
-      }
-
-      // Lazily open an Agent Session on the FIRST tool call of this run so the
-      // run appears under DashClaw's Agent Sessions (not just Code Sessions).
-      // Fail-safe: a session error NEVER blocks the tool call or the run.
-      if (runId) {
-        const runState = getTokenTurn(runId);
-        if (!runState.sessionStarted) {
-          runState.sessionStarted = true; // guard before await — once per run
-          const ev = event as unknown as { workspace?: unknown; branch?: unknown };
-          const workspace =
-            typeof ev.workspace === 'string' ? ev.workspace : undefined;
-          const branch = typeof ev.branch === 'string' ? ev.branch : null;
-          try {
-            const res = await client.createSession(config.agentId, workspace, branch);
-            const sessionId =
-              (res as { session?: { id?: string }; id?: string }).session?.id ??
-              (res as { id?: string }).id;
-            if (sessionId) runState.sessionId = sessionId;
-          } catch (err) {
-            console.warn(
-              `[dashclaw-governance] createSession failed: ${errorMessage(err) || 'unknown'}`
-            );
-          }
-        }
-      }
-
-      // x402 spend governance: if this tool call is a capability PAYMENT
-      // (e.g. an agentcash `fetch`), gate it on its own x402 path so
-      // x402_spend_limit policies can block an over-budget purchase BEFORE the
-      // payment runs. On allow, mark it pending so after_tool_call records the
-      // settled spend. This REPLACES the generic governance path for this call
-      // (no duplicate action record).
-      const x402 = detectX402(toolName, params, config);
-      if (x402) {
-        const x402Goal = `x402 purchase: ${x402.origin}`;
-        x402log(config, `gate: tool=${toolName} origin=${x402.origin} estimate=$${x402.estimate}`);
-        let x402Decision: GuardDecision;
-        try {
-          x402Decision = await client.guard({
-            action_type: 'x402_purchase',
-            provider: x402.origin,
-            cost_estimate: x402.estimate,
-            risk_score: 40,
-            declared_goal: x402Goal,
-            reversible: false,
-            systems_touched: ['x402', x402.origin],
-          });
-        } catch (err) {
-          const msg = errorMessage(err) || 'unknown error';
-          if (config.failClosed) {
-            return {
-              block: true,
-              blockReason: `DashClaw unreachable — x402 payment to ${x402.origin} blocked (fail-closed): ${msg}`,
-            };
-          }
-          // Fail-open: don't gate, but still record the settled spend after.
-          console.warn(`[dashclaw-governance] x402 guard failed (fail-open): ${msg}`);
-          x402PendingByKey.set(key, { origin: x402.origin, declaredGoal: x402Goal, estimate: x402.estimate });
-          return;
-        }
-
-        if (x402Decision.decision === 'block' || x402Decision.decision === 'require_approval') {
-          const why =
-            x402Decision.decision === 'require_approval'
-              ? 'requires approval — adjust the x402_spend_limit policy threshold to allow it'
-              : x402Decision.reason || 'blocked by x402 spend policy';
-          return {
-            block: true,
-            blockReason: `x402 payment to ${x402.origin} (~$${x402.estimate}) ${why}`,
-          };
-        }
-        if (x402Decision.decision === 'warn') {
-          console.warn(
-            `[dashclaw-governance] WARN x402 ${x402.origin}: ${x402Decision.reason || 'flagged by policy'}`
-          );
-        }
-        // Allowed → record after the payment settles.
-        x402PendingByKey.set(key, { origin: x402.origin, declaredGoal: x402Goal, estimate: x402.estimate });
-        return;
-      }
-
-      let decision: GuardDecision;
-      try {
-        decision = await client.guard({
-          action_type: actionType,
-          risk_score: riskScore,
-          declared_goal: declaredGoal,
-          reversible,
-          systems_touched: systemsTouched,
-        });
-      } catch (err) {
-        const msg = errorMessage(err) || 'unknown error';
-        if (config.failClosed) {
-          return {
-            block: true,
-            blockReason: `DashClaw unreachable — fail-closed policy (${msg})`,
-          };
-        }
-        console.warn(`[dashclaw-governance] guard call failed (fail-open): ${msg}`);
-        return;
-      }
-
-      // Hard stop on block — never open an action record for a forbidden call.
-      if (decision.decision === 'block') {
-        return {
-          block: true,
-          blockReason: decision.reason || 'Blocked by DashClaw policy',
-        };
-      }
-
-      if (decision.decision === 'warn') {
-        console.warn(
-          `[dashclaw-governance] WARN ${toolName}: ${decision.reason || 'flagged by policy'}`
-        );
-      }
-
-      // Open a governance record. The server re-evaluates policy at this
-      // point and is the authoritative source for HITL gating — even when
-      // guard returned `allow`, the server may still set `pending_approval`
-      // (for example, if the capability has `requires_approval=true`).
-      //
-      // NOTE: we MUST call `createAction` before `waitForApproval`, because
-      // `waitForApproval` polls `GET /api/actions/:id` — which is backed by
-      // the `action_records` table. `decision.action_id` from `guard()` is a
-      // row in the separate `guard_decisions` table (prefix `act_gd_`) and
-      // cannot be resolved by that endpoint.
-      let createdActionId: string | undefined;
-      let createdStatus: string | undefined;
-      try {
-        const created = await client.createAction({
-          action_type: actionType,
-          declared_goal: declaredGoal,
-          risk_score: riskScore,
-          reversible,
-          systems_touched: systemsTouched,
-          metadata: { openclaw_tool_name: toolName },
-        });
-        createdActionId =
-          created.action_id ?? created.action?.action_id ?? created.action?.id;
-        createdStatus = created.action?.status;
-      } catch (err) {
-        const msg = errorMessage(err) || 'unknown';
-        console.warn(`[dashclaw-governance] createAction failed: ${msg}`);
-        if (config.failClosed) {
-          return {
-            block: true,
-            blockReason: `DashClaw action record could not be opened — fail-closed policy (${msg})`,
-          };
-        }
-        // Fail-open: proceed without an action record. We cannot wait for
-        // approval (no ID to wait on) and outcome recording will be skipped.
-        return;
-      }
-
-      // If the server flagged this for human review, wait on the action
-      // record we just created. Either guard said `require_approval` OR the
-      // server upgraded the action to `pending_approval` independently — we
-      // trust the server's `action.status` over the guard advice.
-      const needsApproval =
-        decision.decision === 'require_approval' ||
-        createdStatus === 'pending_approval';
-
-      if (needsApproval && createdActionId) {
-        try {
-          const { action } = await client.waitForApproval(createdActionId);
-          if (!isApproved(action)) {
-            return {
-              block: true,
-              blockReason: action?.error_message || 'Action denied by operator',
-            };
-          }
-        } catch (err) {
-          return {
-            block: true,
-            blockReason: `Approval denied or wait failed: ${errorMessage(err) || 'denied'}`,
-          };
-        }
-      }
-
-      if (createdActionId) {
-        pendingActions.set(key, createdActionId);
-        // Track this action_id against the current run so the next
-        // `llm_output` can attribute token usage back to it.
-        if (runId) getTokenTurn(runId).turnActionIds.push(createdActionId);
-      }
-      return;
-    });
-
-    // -----------------------------------------------------------------------
-    // LLM token attribution — distribute the previous turn's usage across
-    // the tool calls it induced, then stash this turn's usage for the next
-    // boundary. Runs best-effort; failures never surface to the agent.
-    // -----------------------------------------------------------------------
-    api.on('llm_output', async (event, _ctx) => {
-      const { runId, model, usage } = event;
-      if (!runId) return;
-
-      let client: DashClaw;
-      try {
-        client = getClient(config);
-      } catch (err) {
-        // No client → skip attribution, don't disrupt the run. Log once per
-        // failure class so ops notice when token tracking is off (key
-        // rotation, base-URL typo) instead of silently losing every turn.
-        console.warn(
-          `[dashclaw-governance] llm_output dropped — client unavailable: ${errorMessage(err) || 'unknown'}`
-        );
-        return;
-      }
-
-      const state = getTokenTurn(runId);
-
-      // Distribute the PREVIOUS turn's usage before stashing the new one.
-      if (state.pendingUsage) {
-        await distributePendingTokens(client, state);
-      }
-
-      // Stash this turn's usage for attribution on the next llm_output
-      // (or agent_end). Cache reads are billed at ~10% of base input price, so
-      // we weight them at 0.1 before summing — the server's pricing table
-      // doesn't model the cache discount, so applying it here keeps the
-      // derived cost aligned with real billing. Cache writes stay at full
-      // price (close enough for 5m caching; slightly under-counts 1h).
-      if (usage) {
-        const cacheReadEffective = Math.round((usage.cacheRead ?? 0) * 0.1);
-        const tokens_in =
-          (usage.input ?? 0) + (usage.cacheWrite ?? 0) + cacheReadEffective;
-        const tokens_out = usage.output ?? 0;
-        if (tokens_in > 0 || tokens_out > 0) {
-          // Model resolution: real event value > configured default > empty.
-          // When both are empty, still stash the tokens so ops see activity,
-          // but log a one-time breadcrumb per run — otherwise the "tokens
-          // arrive but cost stays $0" failure mode is invisible.
-          const resolvedModel = (model && model.length > 0)
-            ? model
-            : config.defaultModel;
-          if (!resolvedModel && !state.warnedMissingModel) {
-            console.warn(
-              `[dashclaw-governance] llm_output has no model for run ${runId} — ` +
-              `tokens will land on action records but cost_estimate will stay $0. ` +
-              `Set config.defaultModel or DASHCLAW_DEFAULT_MODEL to price these turns.`
-            );
-            state.warnedMissingModel = true;
-          }
-          state.pendingUsage = { tokens_in, tokens_out, model: resolvedModel };
-        }
-      }
-    });
-
-    // -----------------------------------------------------------------------
-    // Run end — flush any remaining usage, then drop per-run state.
-    // -----------------------------------------------------------------------
-    api.on('agent_end', async (_event, ctx) => {
-      const runId = ctx?.runId;
-      if (!runId) return;
-      const state = tokenTurnByRun.get(runId);
-      if (!state) return;
-
-      let client: DashClaw | null = null;
-      try {
-        client = getClient(config);
-      } catch (err) {
-        // No client → can't flush tokens or close the session. Log both losses
-        // so ops can see what went unrecorded.
-        const lost = state.turnActionIds.length;
-        if ((state.pendingUsage && lost > 0) || state.sessionId) {
-          console.warn(
-            `[dashclaw-governance] agent_end cleanup dropped (client unavailable): ${lost} token action(s), session ${state.sessionId ?? 'none'}: ${errorMessage(err) || 'unknown'}`
-          );
-        }
-      }
-
-      if (client && state.pendingUsage && state.turnActionIds.length > 0) {
-        await distributePendingTokens(client, state);
-      }
-
-      // Close the Agent Session opened for this run. 'completed' is the
-      // terminal status the Sessions UI treats as finished. Fail-safe.
-      if (client && state.sessionId) {
-        try {
-          await client.updateSession(state.sessionId, { status: 'completed' });
-        } catch (err) {
-          console.warn(
-            `[dashclaw-governance] updateSession(end) failed for ${state.sessionId}: ${errorMessage(err) || 'unknown'}`
-          );
-        }
-      }
-
-      tokenTurnByRun.delete(runId);
-    });
-
-    // -----------------------------------------------------------------------
-    // Outcome recorder
-    // -----------------------------------------------------------------------
-    api.on('after_tool_call', async (event, _ctx) => {
-      const { toolName, toolCallId, runId, error } = event;
-      const key = callKey(toolName, toolCallId, runId);
-
-      // x402 spend governance: if this call was a gated x402 payment, record the
-      // settled spend (the agent has already paid). This is the sole record for
-      // the call — it does NOT go through the generic outcome path below.
-      const x402pending = x402PendingByKey.get(key);
-      if (x402pending) {
-        x402PendingByKey.delete(key);
-
-        let x402Client: DashClaw;
-        try {
-          x402Client = getClient(config);
-        } catch {
-          return;
-        }
-        if (config.x402Debug) {
-          let preview = '';
-          try {
-            preview =
-              typeof event.result === 'string'
-                ? event.result.slice(0, 300)
-                : JSON.stringify(event.result)?.slice(0, 300) ?? '';
-          } catch {
-            preview = '[unserializable]';
-          }
-          x402log(
-            config,
-            `record: origin=${x402pending.origin} hasError=${!!error} resultType=${typeof event.result} resultPresent=${event.result !== undefined} preview=${preview}`
-          );
-        }
-        if (error) {
-          // The payment tool errored → nothing settled to record.
-          console.warn(
-            `[dashclaw-governance] x402 call to ${x402pending.origin} failed: ${error}`
-          );
-          return;
-        }
-        const receipt = parseX402Receipt(event.result);
-        x402log(
-          config,
-          receipt
-            ? `parsed receipt: $${receipt.spend} tx=${receipt.txHash ?? 'none'}`
-            : `parse FAILED — no settled spend found in tool result (set x402Debug to inspect the shape)`
-        );
-        if (!receipt) {
-          // No settled-payment receipt (free check, 402-not-paid, or the gateway
-          // didn't deliver the tool result to the plugin) — nothing to record.
-          return;
-        }
-        try {
-          const providerId = await resolveProviderId(x402Client, config, x402pending.origin);
-          const res = await x402Client.recordPurchase({
-            agent_id: config.agentId,
-            provider: x402pending.origin,
-            declared_goal: x402pending.declaredGoal,
-            purchase_reason: `Paid x402 capability call to ${x402pending.origin}`,
-            context_gap: `Capability gated behind payment at ${x402pending.origin}`,
-            expected_value: `Paid result from ${x402pending.origin}`,
-            spend_amount: receipt.spend,
-            cost_estimate: receipt.spend,
-            currency: 'USDC',
-            payment_method: 'x402',
-            ...(providerId ? { provider_id: providerId } : {}),
-          });
-          const purchaseActionId =
-            res?.action?.action_id ??
-            (res as { action_id?: string })?.action_id ??
-            res?.action?.id;
-          if (purchaseActionId && (receipt.txHash || receipt.requestId)) {
-            await x402Client
-              .recordPurchaseResult(String(purchaseActionId), {
-                summary: `x402 settled: $${receipt.spend} USDC at ${x402pending.origin}`,
-                data: {
-                  origin: x402pending.origin,
-                  transactionHash: receipt.txHash,
-                  requestId: receipt.requestId,
-                },
-              })
-              .catch((err: unknown) => {
-                console.warn(
-                  `[dashclaw-governance] recordPurchaseResult failed: ${errorMessage(err) || 'unknown'}`
-                );
-              });
-          }
-        } catch (err) {
-          console.warn(
-            `[dashclaw-governance] recordPurchase failed for ${x402pending.origin}: ${errorMessage(err) || 'unknown'}`
-          );
-        }
-        return;
-      }
-
-      const actionId = pendingActions.get(key);
-      if (!actionId) return;
-      pendingActions.delete(key);
-
-      const status = error ? 'failed' : 'completed';
-
-      let client: DashClaw;
-      try {
-        client = getClient(config);
-      } catch {
-        return; // No client → cannot record; never break tool execution.
-      }
-
-      try {
-        await client.updateOutcome(actionId, {
-          status,
-          ...(error ? { error_message: error } : {}),
-        });
-      } catch (err) {
-        console.warn(
-          `[dashclaw-governance] updateOutcome failed: ${errorMessage(err) || 'unknown'}`
-        );
-      }
-    });
+    registerOutcomeRecorder(api, config);
   },
 });
