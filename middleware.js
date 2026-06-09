@@ -128,10 +128,17 @@ function getPathSegments(pathname) {
 // Get client IP for rate limiting.
 // SECURITY: In self-host deployments, x-forwarded-for may be attacker-controlled unless you trust your proxy.
 // SECURITY: Only trust proxy headers (x-forwarded-for, x-real-ip) when TRUST_PROXY is enabled.
+function isTrustProxyEnabled() {
+  return ['1', 'true', 'yes', 'on'].includes(String(process.env.TRUST_PROXY || process.env.VERCEL || '').toLowerCase());
+}
+
+function getForwardedIp(request) {
+  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
+}
+
 function getClientIp(request) {
-  const trustProxy = ['1', 'true', 'yes', 'on'].includes(String(process.env.TRUST_PROXY || process.env.VERCEL || '').toLowerCase());
-  const forwardedIp = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim();
-  let ip = (trustProxy ? (forwardedIp || request.headers.get('x-real-ip')) : null) ||
+  const forwardedIp = getForwardedIp(request);
+  let ip = (isTrustProxyEnabled() ? (forwardedIp || request.headers.get('x-real-ip')) : null) ||
            request.ip ||
            'unknown';
   if (ip === 'unknown' && process.env.NODE_ENV === 'development') {
@@ -275,6 +282,14 @@ function shouldAssumeOrgExistsOffline(orgId) {
   return isLocalPostgres && orgId === 'org_default';
 }
 
+// Self-host Postgres: migrations already created the org — trust the bootstrap.
+// Combined Lief (RyanTJoy commit 49c8ae3) + Elpolini (elpolini commit dbf5463) fix.
+function isTrustedSelfHostBootstrap() {
+  const dbUrl = process.env.DATABASE_URL || '';
+  const isNeon = dbUrl.includes('.neon.tech') || dbUrl.includes('neon.tech');
+  return !isNeon && isSelfHostModeEnabled();
+}
+
 async function verifyOrgExists(orgId) {
   const now = Date.now();
   const cached = orgExistsCache.get(orgId);
@@ -282,11 +297,7 @@ async function verifyOrgExists(orgId) {
     return cached.exists;
   }
 
-  // Self-host Postgres: migrations already created the org — trust the bootstrap.
-  // Combined Lief (RyanTJoy commit 49c8ae3) + Elpolini (elpolini commit dbf5463) fix.
-  const dbUrl = process.env.DATABASE_URL || '';
-  const isNeon = dbUrl.includes('.neon.tech') || dbUrl.includes('neon.tech');
-  if (!isNeon && isSelfHostModeEnabled()) {
+  if (isTrustedSelfHostBootstrap()) {
     orgExistsCache.set(orgId, { timestamp: now, exists: true });
     return true;
   }
@@ -536,16 +547,20 @@ function handleDemoEntry(request) {
 // - Block all writes (no secrets, no mutations).
 // Demo sandbox: cookie or explicit DASHCLAW_MODE=demo. Cookie only provides fixture data, never real data.
 // SECURITY: Only honor demo cookie when DASHCLAW_MODE=demo or on dashclaw.io to prevent self-host bypass
-async function resolveDemoState(request) {
-  const mode = getDashclawMode();
+// Cookie-driven demo is only honored on marketing hosts and never overrides an
+// explicit DASHCLAW_MODE=demo (that path forces demo for everyone, below).
+function isCookieDemoRequest(request, mode) {
   const demoCookie = isDemoCookieSet(request);
   const host = request.headers.get('host') || '';
   const normalizedHost = host.split(':')[0].toLowerCase();
   const isMarketingHost =
     normalizedHost === 'dashclaw.io' || normalizedHost.endsWith('.dashclaw.io');
-  // Cookie-driven demo is only honored on marketing hosts and never overrides an
-  // explicit DASHCLAW_MODE=demo (that path forces demo for everyone, below).
-  const cookieDemo = demoCookie && isMarketingHost && mode !== 'demo';
+  return demoCookie && isMarketingHost && mode !== 'demo';
+}
+
+async function resolveDemoState(request) {
+  const mode = getDashclawMode();
+  const cookieDemo = isCookieDemoRequest(request, mode);
   // THE FIX (Instant Hosted Trial): a visitor who kicked the tires anonymously
   // (got the dashclaw_demo cookie via /demo) and then signed in now has a real
   // trial workspace. Resolve the auth principal LAZILY — only on the narrow
@@ -927,128 +942,135 @@ function handleDemoPairingDetail({ request, fixtures, segments }) {
   return demoJson(request, { pairing });
 }
 
+// Table-entry factories: most demo routes are "call a fixture mapper, wrap it
+// in demoJson". These keep the table to one expression per route instead of
+// repeating the demoJson plumbing for every entry.
+const demoFixtureRoute = (fn) => ({ request, fixtures }) => demoJson(request, fn(fixtures));
+const demoFixtureUrlRoute = (fn) => ({ request, fixtures, url }) => demoJson(request, fn(fixtures, url));
+const demoPayloadRoute = (fn) => ({ request }) => demoJson(request, fn());
+const demoFixturePropRoute = (key) => ({ request, fixtures }) => demoJson(request, fixtures[key]);
+
 // Ordered demo route table. Each entry is [matcher, handler]; a string matcher
 // is an exact pathname, a function matcher receives (pathname, segments).
 // ORDER IS LOAD-BEARING: it reproduces the original if-cascade top-to-bottom,
 // including its shadowing quirks (see isDemoAgentDetailPath). Do not sort.
 const DEMO_API_ROUTES = [
   // Health
-  ['/api/health', ({ request }) => demoJson(request, demoHealthPayload())],
+  ['/api/health', demoPayloadRoute(demoHealthPayload)],
   // Agents + actions
-  ['/api/agents', ({ request, fixtures }) => demoJson(request, demoAgents(fixtures))],
+  ['/api/agents', demoFixtureRoute(demoAgents)],
   [isDemoAgentDetailPath, handleDemoAgentDetailRoute],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
   ['/api/actions/loops', handleDemoLoops],
-  [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions',
-    ({ request, fixtures, url }) => demoJson(request, demoAssumptions(fixtures, url))],
-  ['/api/actions/stats', ({ request, fixtures }) => demoJson(request, demoDecisionMetrics(fixtures))],
+  [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
+  ['/api/actions/stats', demoFixtureRoute(demoDecisionMetrics)],
   ['/api/actions/costs', handleDemoActionCosts],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'trace']), handleDemoActionTrace],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*']), handleDemoActionDetail],
   // Dashboard widgets
   ['/api/goals', ({ request, fixtures }) => demoJson(request, { goals: fixtures.goals, stats: { totalGoals: fixtures.goals.length }, lastUpdated: new Date().toISOString() })],
-  ['/api/learning', ({ request, fixtures, url }) => demoJson(request, demoLearning(fixtures, url))],
-  ['/api/learning/recommendations', ({ request, fixtures, url }) => demoJson(request, demoLearningRecommendations(fixtures, url))],
-  ['/api/learning/recommendations/metrics', ({ request, fixtures, url }) => demoJson(request, demoLearningRecommendationMetrics(fixtures, url))],
+  ['/api/learning', demoFixtureUrlRoute(demoLearning)],
+  ['/api/learning/recommendations', demoFixtureUrlRoute(demoLearningRecommendations)],
+  ['/api/learning/recommendations/metrics', demoFixtureUrlRoute(demoLearningRecommendationMetrics)],
   ['/api/relationships', handleDemoRelationships],
   ['/api/calendar', ({ request, fixtures }) => demoJson(request, { events: fixtures.events, lastUpdated: new Date().toISOString(), count: fixtures.events.length })],
   ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],
   ['/api/settings', ({ request, fixtures }) => demoJson(request, { settings: fixtures.settings })],
-  ['/api/policies', ({ request, fixtures }) => demoJson(request, demoPolicies(fixtures))],
+  ['/api/policies', demoFixtureRoute(demoPolicies)],
   ['/api/policies/proof', handleDemoPoliciesProof],
   // ── Routing demo endpoints ──
-  ['/api/routing/health', ({ request, fixtures }) => demoJson(request, fixtures.routingHealth)],
-  ['/api/routing/stats', ({ request, fixtures }) => demoJson(request, fixtures.routingStats)],
+  ['/api/routing/health', demoFixturePropRoute('routingHealth')],
+  ['/api/routing/stats', demoFixturePropRoute('routingStats')],
   ['/api/routing/agents', ({ request, fixtures }) => demoJson(request, { agents: fixtures.routingAgents })],
   ['/api/routing/tasks', ({ request, fixtures }) => demoJson(request, { tasks: fixtures.routingTasks })],
   // ── Compliance demo endpoints ──
   ['/api/compliance/frameworks', ({ request, fixtures }) => demoJson(request, { frameworks: fixtures.complianceFrameworks })],
   ['/api/compliance/map', handleDemoComplianceMap],
   ['/api/compliance/gaps', handleDemoComplianceGaps],
-  ['/api/compliance/evidence', ({ request, fixtures }) => demoJson(request, fixtures.complianceEvidence)],
+  ['/api/compliance/evidence', demoFixturePropRoute('complianceEvidence')],
   ['/api/compliance/report', buildDemoComplianceReport],
   // -- Evaluations demo endpoints --
   ['/api/evaluations', ({ request, fixtures }) => demoJson(request, { scores: fixtures.evalScores, total: fixtures.evalScores.length })],
   ['/api/evaluations/scorers', ({ request, fixtures }) => demoJson(request, { scorers: fixtures.evalScorers, llm_available: false })],
   ['/api/evaluations/runs', ({ request, fixtures }) => demoJson(request, { runs: fixtures.evalRuns })],
-  ['/api/evaluations/stats', ({ request, fixtures }) => demoJson(request, fixtures.evalStats)],
+  ['/api/evaluations/stats', demoFixturePropRoute('evalStats')],
   ['/api/settings/llm-status', ({ request }) => demoJson(request, { available: false, provider: null, model: null })],
   // -- Compliance Export demo endpoints --
   ['/api/compliance/exports', handleDemoComplianceExports],
   [(pathname) => /^\/api\/compliance\/exports\/[^/]+$/.test(pathname), handleDemoComplianceExportDetail],
   ['/api/compliance/schedules', handleDemoComplianceSchedules],
-  ['/api/compliance/trends', ({ request }) => demoJson(request, demoComplianceTrendsPayload())],
+  ['/api/compliance/trends', demoPayloadRoute(demoComplianceTrendsPayload)],
   // -- Prompt Management demo endpoints --
   ['/api/prompts/templates', ({ request, fixtures }) => demoJson(request, { templates: fixtures.promptTemplates })],
   [(pathname) => /^\/api\/prompts\/templates\/[^/]+$/.test(pathname), handleDemoPromptTemplateDetail],
   [(pathname) => /^\/api\/prompts\/templates\/[^/]+\/versions$/.test(pathname), handleDemoPromptVersions],
-  ['/api/prompts/render', ({ request }) => demoJson(request, demoPromptRenderPayload())],
+  ['/api/prompts/render', demoPayloadRoute(demoPromptRenderPayload)],
   ['/api/prompts/runs', ({ request, fixtures }) => demoJson(request, { runs: fixtures.promptRuns })],
-  ['/api/prompts/stats', ({ request, fixtures }) => demoJson(request, fixtures.promptStats)],
+  ['/api/prompts/stats', demoFixturePropRoute('promptStats')],
   // -- Feedback demo endpoints --
   ['/api/feedback', handleDemoFeedback],
-  [(pathname) => /^\/api\/feedback\/stats$/.test(pathname), ({ request, fixtures }) => demoJson(request, fixtures.feedbackStats)],
+  [(pathname) => /^\/api\/feedback\/stats$/.test(pathname), demoFixturePropRoute('feedbackStats')],
   [(pathname) => /^\/api\/feedback\/[^/]+$/.test(pathname), handleDemoFeedbackDetail],
   // -- Drift Detection demo endpoints --
   ['/api/drift/alerts', handleDemoDriftAlerts],
   [(pathname) => /^\/api\/drift\/alerts\/[^/]+$/.test(pathname), ({ request, fixtures }) => demoJson(request, { ...fixtures.driftAlerts[0], acknowledged: true })],
-  ['/api/drift/stats', ({ request, fixtures }) => demoJson(request, fixtures.driftStats)],
+  ['/api/drift/stats', demoFixturePropRoute('driftStats')],
   ['/api/drift/snapshots', ({ request, fixtures }) => demoJson(request, { snapshots: fixtures.driftSnapshots })],
-  ['/api/drift/metrics', ({ request }) => demoJson(request, demoDriftMetricsPayload())],
+  ['/api/drift/metrics', demoPayloadRoute(demoDriftMetricsPayload)],
   // -- Learning Analytics demo endpoints --
-  ['/api/learning/analytics/summary', ({ request, fixtures }) => demoJson(request, fixtures.learningAnalyticsSummary)],
+  ['/api/learning/analytics/summary', demoFixturePropRoute('learningAnalyticsSummary')],
   ['/api/learning/analytics/velocity', handleDemoLearningVelocity],
   ['/api/learning/analytics/curves', handleDemoLearningCurves],
-  ['/api/learning/analytics/maturity', ({ request }) => demoJson(request, demoLearningMaturityPayload())],
+  ['/api/learning/analytics/maturity', demoPayloadRoute(demoLearningMaturityPayload)],
   // -- Scoring demo endpoints --
   ['/api/scoring/profiles', ({ request, fixtures }) => demoJson(request, { profiles: fixtures.scoringProfiles })],
   ['/api/scoring/risk-templates', ({ request, fixtures }) => demoJson(request, { templates: fixtures.riskTemplates })],
   ['/api/scoring/score', ({ request }) => demoJson(request, { scores: [] })],
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
-  ['/api/messages', ({ request, fixtures, url }) => demoJson(request, demoMessages(fixtures, url))],
-  ['/api/messages/threads', ({ request, fixtures, url }) => demoJson(request, demoMessageThreads(fixtures, url))],
-  ['/api/messages/docs', ({ request, fixtures, url }) => demoJson(request, demoMessageDocs(fixtures, url))],
-  ['/api/content', ({ request, fixtures, url }) => demoJson(request, demoContent(fixtures, url))],
+  ['/api/messages', demoFixtureUrlRoute(demoMessages)],
+  ['/api/messages/threads', demoFixtureUrlRoute(demoMessageThreads)],
+  ['/api/messages/docs', demoFixtureUrlRoute(demoMessageDocs)],
+  ['/api/content', demoFixtureUrlRoute(demoContent)],
   // NOTE: unreachable in practice — isDemoAgentDetailPath above also matches
   // /api/agents/connections and wins. Kept to mirror the original cascade.
-  ['/api/agents/connections', ({ request, fixtures, url }) => demoJson(request, demoAgentConnections(fixtures, url))],
-  ['/api/team', ({ request, fixtures }) => demoJson(request, demoTeam(fixtures))],
-  ['/api/team/invite', ({ request, fixtures }) => demoJson(request, demoTeamInvites(fixtures))],
-  ['/api/activity', ({ request, fixtures, url }) => demoJson(request, demoActivity(fixtures, url))],
-  ['/api/webhooks', ({ request, fixtures }) => demoJson(request, demoWebhooks(fixtures))],
+  ['/api/agents/connections', demoFixtureUrlRoute(demoAgentConnections)],
+  ['/api/team', demoFixtureRoute(demoTeam)],
+  ['/api/team/invite', demoFixtureRoute(demoTeamInvites)],
+  ['/api/activity', demoFixtureUrlRoute(demoActivity)],
+  ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
-  ['/api/workflows', ({ request, fixtures, url }) => demoJson(request, demoWorkflows(fixtures, url))],
-  ['/api/schedules', ({ request, fixtures }) => demoJson(request, demoSchedules(fixtures))],
-  ['/api/digest', ({ request, fixtures, url }) => demoJson(request, demoDigest(fixtures, url))],
-  ['/api/context/points', ({ request, fixtures, url }) => demoJson(request, demoContextPoints(fixtures, url))],
-  ['/api/context/threads', ({ request, fixtures, url }) => demoJson(request, demoContextThreads(fixtures, url))],
+  ['/api/workflows', demoFixtureUrlRoute(demoWorkflows)],
+  ['/api/schedules', demoFixtureRoute(demoSchedules)],
+  ['/api/digest', demoFixtureUrlRoute(demoDigest)],
+  ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
+  ['/api/context/threads', demoFixtureUrlRoute(demoContextThreads)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'context', 'threads', '*']), handleDemoContextThreadDetail],
-  ['/api/handoffs', ({ request, fixtures, url }) => demoJson(request, demoHandoffs(fixtures, url))],
-  ['/api/snippets', ({ request, fixtures, url }) => demoJson(request, demoSnippets(fixtures, url))],
+  ['/api/handoffs', demoFixtureUrlRoute(demoHandoffs)],
+  ['/api/snippets', demoFixtureUrlRoute(demoSnippets)],
   ['/api/preferences', handleDemoPreferences],
   ['/api/memory', ({ request, fixtures }) => demoJson(request, { ...fixtures.memory, lastUpdated: new Date().toISOString() })],
-  ['/api/tokens', ({ request, fixtures }) => demoJson(request, demoTokens(fixtures))],
-  ['/api/usage', ({ request, fixtures }) => demoJson(request, fixtures.usage)],
-  ['/api/swarm/graph', ({ request, fixtures, url }) => demoJson(request, demoSwarmGraph(fixtures, url))],
-  ['/api/security/status', ({ request, fixtures }) => demoJson(request, fixtures.securityStatus)],
+  ['/api/tokens', demoFixtureRoute(demoTokens)],
+  ['/api/usage', demoFixturePropRoute('usage')],
+  ['/api/swarm/graph', demoFixtureUrlRoute(demoSwarmGraph)],
+  ['/api/security/status', demoFixturePropRoute('securityStatus')],
   ['/api/pairings', handleDemoPairings],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'pairings', '*']), handleDemoPairingDetail],
   // -- Sitewide-interactions-v2 gap pages: deterministic, read-only fixtures --
-  ['/api/sessions', ({ request, fixtures, url }) => demoJson(request, demoSessions(fixtures, url))],
-  ['/api/identities', ({ request, fixtures }) => demoJson(request, demoIdentities(fixtures))],
-  ['/api/knowledge/collections', ({ request }) => demoJson(request, demoKnowledgeCollections())],
-  ['/api/keys', ({ request }) => demoJson(request, demoApiKeys())],
-  ['/api/secrets', ({ request }) => demoJson(request, demoSecrets())],
-  ['/api/model-strategies', ({ request }) => demoJson(request, demoModelStrategies())],
-  ['/api/reputation/leaderboard', ({ request, fixtures }) => demoJson(request, demoReputationLeaderboard(fixtures))],
-  ['/api/posture', ({ request }) => demoJson(request, demoPosture())],
-  ['/api/posture/findings', ({ request }) => demoJson(request, demoPostureFindings())],
-  ['/api/finops/spend', ({ request }) => demoJson(request, demoSpend())],
-  ['/api/behavior/recorder', ({ request }) => demoJson(request, demoBehaviorRecorder())],
-  ['/api/behavior/samples', ({ request, fixtures, url }) => demoJson(request, demoBehaviorSamples(fixtures, url))],
-  ['/api/behavior/suggestions', ({ request, fixtures }) => demoJson(request, demoBehaviorSuggestions(fixtures))],
+  ['/api/sessions', demoFixtureUrlRoute(demoSessions)],
+  ['/api/identities', demoFixtureRoute(demoIdentities)],
+  ['/api/knowledge/collections', demoPayloadRoute(demoKnowledgeCollections)],
+  ['/api/keys', demoPayloadRoute(demoApiKeys)],
+  ['/api/secrets', demoPayloadRoute(demoSecrets)],
+  ['/api/model-strategies', demoPayloadRoute(demoModelStrategies)],
+  ['/api/reputation/leaderboard', demoFixtureRoute(demoReputationLeaderboard)],
+  ['/api/posture', demoPayloadRoute(demoPosture)],
+  ['/api/posture/findings', demoPayloadRoute(demoPostureFindings)],
+  ['/api/finops/spend', demoPayloadRoute(demoSpend)],
+  ['/api/behavior/recorder', demoPayloadRoute(demoBehaviorRecorder)],
+  ['/api/behavior/samples', demoFixtureUrlRoute(demoBehaviorSamples)],
+  ['/api/behavior/suggestions', demoFixtureRoute(demoBehaviorSuggestions)],
 ];
 
 async function dispatchDemoApiRoute(ctx) {
@@ -1059,6 +1081,18 @@ async function dispatchDemoApiRoute(ctx) {
     if (matches) return handler(ctx);
   }
   return demoJson(ctx.request, { error: 'Demo mode: endpoint disabled.' }, 403);
+}
+
+// Policy test/simulate runs are read-like (no mutation) — allow through demo write-block.
+function handleDemoPolicySimulations(request, pathname, method) {
+  if (method !== 'POST') return null;
+  if (pathname === '/api/policies/test') {
+    return demoJson(request, demoPolicyTest(getDemoFixtures()));
+  }
+  if (pathname === '/api/policies/simulate') {
+    return demoJson(request, demoPolicySimulate(getDemoFixtures(), {}));
+  }
+  return null;
 }
 
 // Early demo-mode gates that run before the route table, in cascade order:
@@ -1072,14 +1106,8 @@ async function runDemoPreDispatch(request, pathname, method, isRead) {
     return forwardWithHeaders(request);
   }
 
-  // Policy test runs are read-like (no mutation) — allow through demo write-block.
-  if (pathname === '/api/policies/test' && method === 'POST') {
-    return demoJson(request, demoPolicyTest(getDemoFixtures()));
-  }
-
-  if (pathname === '/api/policies/simulate' && method === 'POST') {
-    return demoJson(request, demoPolicySimulate(getDemoFixtures(), {}));
-  }
+  const policySimulation = handleDemoPolicySimulations(request, pathname, method);
+  if (policySimulation) return policySimulation;
 
   if (!isRead && !isDemoSimulationRequest(pathname, method)) {
     return demoJson(request, { error: 'Demo mode: write APIs are disabled.' }, 403);
@@ -1142,9 +1170,13 @@ function buildPageOrgHeaders(request, session) {
   return requestHeaders;
 }
 
+// Landing page and the setup flow are always public.
+function isPublicPagePath(pathname) {
+  return pathname === '/' || pathname === '/setup' || pathname.startsWith('/setup/');
+}
+
 async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
-  const isPublicSetupPage = pathname === '/setup' || pathname.startsWith('/setup/');
 
   // /login — redirect to dashboard if already logged in
   if (pathname === '/login') {
@@ -1152,12 +1184,7 @@ async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
     return NextResponse.next();
   }
 
-  // Landing page is always public
-  if (pathname === '/') {
-    return NextResponse.next();
-  }
-
-  if (isPublicSetupPage) {
+  if (isPublicPagePath(pathname)) {
     return NextResponse.next();
   }
 
@@ -1307,6 +1334,14 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
     sessionToken = localSession;
   }
 
+  setSessionPrincipalHeaders(requestHeaders, sessionToken);
+  // Use the canonical helper so HSTS in prod, the /replay/ frame-ancestors
+  // exception, and any future header policy live in one place. The
+  // inline triple-set was missing HSTS for same-origin dashboard calls.
+  return forwardWithHeaders(request, requestHeaders);
+}
+
+function setSessionPrincipalHeaders(requestHeaders, sessionToken) {
   const orgId = sessionToken.orgId || 'org_default';
   const role = sessionToken.role || 'member';
   const userId = sessionToken.userId || (sessionToken.sub === 'local-admin' ? 'usr_local_admin' : '');
@@ -1314,10 +1349,6 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
   requestHeaders.set('x-org-id', orgId);
   requestHeaders.set('x-org-role', role);
   requestHeaders.set('x-user-id', userId);
-  // Use the canonical helper so HSTS in prod, the /replay/ frame-ancestors
-  // exception, and any future header policy live in one place. The
-  // inline triple-set was missing HSTS for same-origin dashboard calls.
-  return forwardWithHeaders(request, requestHeaders);
 }
 
 // Fast path: DASHCLAW_API_KEY matches → configured org (default: org_default)
@@ -1351,12 +1382,12 @@ async function handleOperatorKey(request, requestHeaders) {
 }
 
 // Slow path: hash the key and look up in api_keys table
-async function handleDatabaseKey(request, pathname, requestHeaders, apiKey, ip) {
+async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   const keyHash = await hashApiKey(apiKey);
   const resolved = await resolveApiKey(keyHash);
 
   if (!resolved) {
-    console.warn(`[SECURITY] Unauthorized API access attempt: ${pathname} from ${ip}`);
+    console.warn(`[SECURITY] Unauthorized API access attempt: ${pathname} from ${getClientIp(request)}`);
     return securedJson(request,
       { error: 'Unauthorized - Invalid or missing API key' },
       { status: 401 }
@@ -1402,7 +1433,7 @@ async function authenticateProtectedApi(request, pathname, strippedApiRequestHea
 
   if (timingSafeEqual(apiKey, expectedKey)) return handleOperatorKey(request, requestHeaders);
 
-  return handleDatabaseKey(request, pathname, requestHeaders, apiKey, ip);
+  return handleDatabaseKey(request, pathname, requestHeaders, apiKey);
 }
 
 async function handleApiRequest(request, pathname) {
