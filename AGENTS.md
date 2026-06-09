@@ -107,16 +107,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-06-09 (commit 39d4aab7). Confidence: 100%.
+Last indexed: 2026-06-09 (commit 2c1e7c5c). Confidence: 100%.
 ### Architecture
-repo is a monorepo that powers a governed “agent + documentation” platform end-to-end by ingesting source code and contract/rule inputs, transforming them through policy/rule evaluation and agent orchestration, and producing governed agent outputs plus generated documentation artifacts served via an MCP server and SDKs for JavaScript and Python. Knowledge seed used by the Dashclaw agent skill. Rule definitions and evaluation entry for “claude-code” style governance. Contract loading/typing boundary for governed behaviors.
+repo is an agent-governance documentation and tooling monorepo that ingests repository content (source files, contracts, and policy/rules definitions), transforms it through governance-aware analysis and indexing, and outputs generated agent-ready artifacts—LLM-facing SDKs, an MCP server interface, and example governed agent workflows.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **front-end application-layer entry** of repowise’s… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-testing subsystem in repowise’s larger… | - |
 | `app/components` | The app/components module is the UI component layer of repowise’s web… | - |
-| `app/lib` | The app/lib subsystem is repowise’s service-layer “boundary and orchestration”… | - |
+| `app/lib` | The app/lib module is the core service layer for repowise’s indexing/guarding… | - |
 | `application` | The **Application (top-level)** subsystem is the entry-stage web/SDK… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -129,19 +129,19 @@ repo is a monorepo that powers a governed “agent + documentation” platform e
 - `mcp-server/lib/server.js`
 - `scripts/_load-env.mjs`
 - `scripts/living-merge/manifest.ts`
-- `app/lib/types/index.ts`
 - `app/lib/claude-code/rules/index.ts`
 - `scripts/lib/run-pre-commit-checks.mjs`
 - `livingcode/__main__.py`
 - `scripts/lib/startup-smoke.mjs`
+- `scripts/lib/contracts/load-contracts.mjs`
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `app/lib/readiness.mjs` | 99.9th percentile | 10 | Wes Sander |
-| `__tests__/unit/contracts.sdk-surface.test.js` | 99.8th percentile | 5 | Wes Sander |
-| `sdk/dashclaw.js` | 99.8th percentile | 18 | Wes Sander |
-| `livingcode/emitters/dashboard.py` | 99.7th percentile | 16 | Wes Sander |
-| `app/components/context-menu/actionRegistry.tsx` | 99.7th percentile | 5 | Wes Sander |
+| `app/lib/doctor/generated/shape.json` | 100.0th percentile | 65 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 65 | Wes Sander |
+| `public/livingcode/index.html` | 99.9th percentile | 68 | Wes Sander |
+| `app/lib/readiness.mjs` | 99.8th percentile | 10 | Wes Sander |
+| `hooks/dashclaw_agent_intel/behavior_recorder.py` | 99.8th percentile | 6 | Wes Sander |
 
 ### Repowise MCP Workflow
 

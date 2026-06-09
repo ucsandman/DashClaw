@@ -213,39 +213,47 @@ const ENDPOINT_PATCHES = [
   },
 ];
 
+async function fetchCapabilityByName(name) {
+  const search = await apiGet(
+    `/api/capabilities?search=${encodeURIComponent(name)}`,
+  );
+  return search.data?.capabilities?.find((c) => c.name === name);
+}
+
+async function syncCapabilityEndpoint(plan) {
+  const cap = await fetchCapabilityByName(plan.name);
+  if (!cap) {
+    warn(`${plan.name}: not found (skip)`);
+    return;
+  }
+  const schema = cap.invocation_schema || {};
+  if (schema.endpoint === plan.new) {
+    check(`${plan.name}: already on ${plan.new}`);
+    return;
+  }
+  if (schema.endpoint !== plan.old) {
+    info(`${plan.name}: custom endpoint ${schema.endpoint} — leaving alone`);
+    return;
+  }
+  const patchRes = await apiPatch(
+    `/api/capabilities/${cap.capability_id || cap.id}`,
+    { invocation_schema: { ...schema, endpoint: plan.new } },
+  );
+  if (!patchRes.ok) {
+    fail(`${plan.name}: PATCH failed (HTTP ${patchRes.status})`);
+    if (patchRes.data?.error) {
+      console.log(C.dim(`      ${patchRes.data.error}`));
+    }
+    process.exit(1);
+  }
+  check(`${plan.name}: ${plan.old} → ${plan.new}`);
+}
+
 async function syncCapabilityEndpoints() {
   phaseHeader('Sync Capability Endpoints');
 
   for (const plan of ENDPOINT_PATCHES) {
-    const search = await apiGet(
-      `/api/capabilities?search=${encodeURIComponent(plan.name)}`,
-    );
-    const cap = search.data?.capabilities?.find((c) => c.name === plan.name);
-    if (!cap) {
-      warn(`${plan.name}: not found (skip)`);
-      continue;
-    }
-    const schema = cap.invocation_schema || {};
-    if (schema.endpoint === plan.new) {
-      check(`${plan.name}: already on ${plan.new}`);
-      continue;
-    }
-    if (schema.endpoint !== plan.old) {
-      info(`${plan.name}: custom endpoint ${schema.endpoint} — leaving alone`);
-      continue;
-    }
-    const patchRes = await apiPatch(
-      `/api/capabilities/${cap.capability_id || cap.id}`,
-      { invocation_schema: { ...schema, endpoint: plan.new } },
-    );
-    if (!patchRes.ok) {
-      fail(`${plan.name}: PATCH failed (HTTP ${patchRes.status})`);
-      if (patchRes.data?.error) {
-        console.log(C.dim(`      ${patchRes.data.error}`));
-      }
-      process.exit(1);
-    }
-    check(`${plan.name}: ${plan.old} → ${plan.new}`);
+    await syncCapabilityEndpoint(plan);
   }
 }
 
@@ -257,37 +265,39 @@ const DEMO_CAPABILITIES = [
   'Publish Briefing',
 ];
 
+async function testCapability(name) {
+  const cap = await fetchCapabilityByName(name);
+  if (!cap) {
+    warn(`${name}: not found (skip)`);
+    return null;
+  }
+  const test = await apiPost(
+    `/api/capabilities/${cap.capability_id || cap.id}/test`,
+    {
+      payload: {},
+      declared_goal: `E2E verification: ${name}`,
+      agent_id: 'demo-e2e-verifier',
+    },
+  );
+  if (test.data?.success) {
+    const ms = test.data.elapsed_ms ? ` (${test.data.elapsed_ms}ms)` : '';
+    check(`${name}${ms}`);
+    return true;
+  }
+  const msg = test.data?.message || test.data?.error || `HTTP ${test.status}`;
+  fail(`${name}: ${msg}`);
+  return false;
+}
+
 async function testEachCapability() {
   phaseHeader('Individual Capability Tests');
   let passed = 0;
   let failed = 0;
 
   for (const name of DEMO_CAPABILITIES) {
-    const search = await apiGet(
-      `/api/capabilities?search=${encodeURIComponent(name)}`,
-    );
-    const cap = search.data?.capabilities?.find((c) => c.name === name);
-    if (!cap) {
-      warn(`${name}: not found (skip)`);
-      continue;
-    }
-    const test = await apiPost(
-      `/api/capabilities/${cap.capability_id || cap.id}/test`,
-      {
-        payload: {},
-        declared_goal: `E2E verification: ${name}`,
-        agent_id: 'demo-e2e-verifier',
-      },
-    );
-    if (test.data?.success) {
-      const ms = test.data.elapsed_ms ? ` (${test.data.elapsed_ms}ms)` : '';
-      check(`${name}${ms}`);
-      passed += 1;
-    } else {
-      const msg = test.data?.message || test.data?.error || `HTTP ${test.status}`;
-      fail(`${name}: ${msg}`);
-      failed += 1;
-    }
+    const result = await testCapability(name);
+    if (result === true) passed += 1;
+    else if (result === false) failed += 1;
   }
 
   return { passed, failed };
@@ -318,9 +328,7 @@ function healWorkflowSteps(steps) {
   return { steps: healed, changed };
 }
 
-async function executeWorkflow() {
-  phaseHeader('Daily Market Briefing Workflow');
-
+async function fetchBriefingTemplate() {
   const templates = await apiGet('/api/workflows/templates');
   const tmpl = templates.data?.templates?.find(
     (t) => t.name === 'Daily Market Briefing',
@@ -329,29 +337,69 @@ async function executeWorkflow() {
     fail(
       'Template "Daily Market Briefing" not found. Run `node scripts/seed-demo-capabilities.mjs` first.',
     );
-    return { success: false, steps: [] };
+    return null;
   }
+  return tmpl;
+}
+
+// Auto-heal known step-config drift before execution. This matches the
+// endpoint-drift auto-heal pattern used for the capability layer.
+async function migrateTemplateIfDrifted(templateId, steps) {
+  const heal = healWorkflowSteps(steps);
+  if (!heal.changed) return true;
+  info('Template has prompt/prompt_template drift — auto-healing ...');
+  const patchRes = await apiPatch(
+    `/api/workflows/templates/${templateId}`,
+    { steps: heal.steps },
+  );
+  if (!patchRes.ok) {
+    fail(`Failed to migrate workflow template (HTTP ${patchRes.status})`);
+    if (patchRes.data?.error) {
+      console.log(C.dim(`      ${patchRes.data.error}`));
+    }
+    return false;
+  }
+  check('Template migrated: prompt → prompt_template');
+  return true;
+}
+
+function reportWorkflowCompletion(exec) {
+  const totalMs = exec.data?.total_elapsed_ms;
+  if (exec.data?.success) {
+    const tms = totalMs ? ` in ${totalMs}ms` : '';
+    check(`Workflow completed${tms}`);
+    return;
+  }
+  const msg = exec.data?.error || `HTTP ${exec.status}`;
+  fail(`Workflow did not complete: ${msg}`);
+}
+
+function workflowStepMark(status) {
+  if (status === 'completed') return C.green('ok');
+  if (status === 'failed') return C.red('xx');
+  return C.yellow('..');
+}
+
+function printWorkflowStepStatuses(steps) {
+  for (const step of steps) {
+    const mark = workflowStepMark(step.status);
+    const ms = step.elapsed_ms ? ` (${step.elapsed_ms}ms)` : '';
+    const label = step.step_name || step.step_id || '<step>';
+    const suffix = step.error ? ` — ${C.dim(step.error)}` : '';
+    console.log(`      ${mark} ${label}${ms}${suffix}`);
+  }
+}
+
+async function executeWorkflow() {
+  phaseHeader('Daily Market Briefing Workflow');
+
+  const tmpl = await fetchBriefingTemplate();
+  if (!tmpl) return { success: false, steps: [] };
   const templateId = tmpl.template_id || tmpl.id;
   info(`Template: ${tmpl.name} (${templateId})`);
 
-  // Auto-heal known step-config drift before execution. This matches the
-  // endpoint-drift auto-heal pattern used for the capability layer.
-  const heal = healWorkflowSteps(tmpl.steps || []);
-  if (heal.changed) {
-    info('Template has prompt/prompt_template drift — auto-healing ...');
-    const patchRes = await apiPatch(
-      `/api/workflows/templates/${templateId}`,
-      { steps: heal.steps },
-    );
-    if (!patchRes.ok) {
-      fail(`Failed to migrate workflow template (HTTP ${patchRes.status})`);
-      if (patchRes.data?.error) {
-        console.log(C.dim(`      ${patchRes.data.error}`));
-      }
-      return { success: false, steps: [] };
-    }
-    check('Template migrated: prompt → prompt_template');
-  }
+  const migrated = await migrateTemplateIfDrifted(templateId, tmpl.steps || []);
+  if (!migrated) return { success: false, steps: [] };
 
   info('Executing workflow (up to 120s) ...');
 
@@ -365,29 +413,10 @@ async function executeWorkflow() {
   );
 
   const steps = exec.data?.steps || [];
-  const totalMs = exec.data?.total_elapsed_ms;
-
-  if (exec.data?.success) {
-    const tms = totalMs ? ` in ${totalMs}ms` : '';
-    check(`Workflow completed${tms}`);
-  } else {
-    const msg = exec.data?.error || `HTTP ${exec.status}`;
-    fail(`Workflow did not complete: ${msg}`);
-  }
+  reportWorkflowCompletion(exec);
 
   // Always print per-step status if we have it
-  for (const step of steps) {
-    const mark =
-      step.status === 'completed'
-        ? C.green('ok')
-        : step.status === 'failed'
-          ? C.red('xx')
-          : C.yellow('..');
-    const ms = step.elapsed_ms ? ` (${step.elapsed_ms}ms)` : '';
-    const label = step.step_name || step.step_id || '<step>';
-    const suffix = step.error ? ` — ${C.dim(step.error)}` : '';
-    console.log(`      ${mark} ${label}${ms}${suffix}`);
-  }
+  printWorkflowStepStatuses(steps);
 
   const runActionId = exec.data?.action_id || null;
   return { success: !!exec.data?.success, steps, templateId, runActionId };
@@ -401,85 +430,95 @@ async function executeWorkflow() {
 // briefing text, the HN stories, the webhook response, the published
 // resource id — the evidence the operator cares about.
 
+function pushTruncatedJson(lines, json, limit) {
+  const truncated =
+    json.length > limit ? json.slice(0, limit) + '\n      ... [truncated]' : json;
+  for (const l of truncated.split('\n')) lines.push(C.dim(`      ${l}`));
+}
+
+// LLM prompt step — print the briefing text verbatim with token counts.
+function renderPromptOutput(output, lines) {
+  const toks = [];
+  if (output.tokens_in !== undefined) toks.push(`${output.tokens_in} in`);
+  if (output.tokens_out !== undefined) toks.push(`${output.tokens_out} out`);
+  if (toks.length) lines.push(C.dim(`      tokens: ${toks.join(' → ')}`));
+  lines.push(C.dim('      ' + '─'.repeat(50)));
+  const text =
+    typeof output.text === 'string'
+      ? output.text
+      : output.content || JSON.stringify(output, null, 2);
+  for (const line of text.split('\n')) lines.push(`      ${line}`);
+  lines.push(C.dim('      ' + '─'.repeat(50)));
+  return true;
+}
+
+function searchResultTitle(r) {
+  return (
+    r.title ||
+    r.name ||
+    r.document_name ||
+    r.id ||
+    (typeof r === 'string' ? r.slice(0, 100) : JSON.stringify(r).slice(0, 100))
+  );
+}
+
+// Knowledge search — list the top matches. Falls back to the generic JSON
+// renderer when there are no matches to list.
+function renderKnowledgeSearchOutput(output, lines) {
+  const results = output.results || output.documents || output.matches || [];
+  if (!Array.isArray(results) || results.length === 0) return false;
+  lines.push(C.dim(`      ${results.length} matching document(s):`));
+  for (const r of results.slice(0, 5)) {
+    lines.push(`      · ${searchResultTitle(r)}`);
+  }
+  if (results.length > 5) {
+    lines.push(C.dim(`      ... and ${results.length - 5} more`));
+  }
+  return true;
+}
+
+// Capability invoke — show the whole response. The handler returns the
+// raw array for list-shaped responses (HN top stories) or the full
+// object for object-shaped ones (postman-echo, jsonplaceholder). We no
+// longer peek into output.data first because that was hiding the
+// postman-echo response body (which contains its own `data` field
+// that's the echoed payload, not the whole envelope).
+function renderCapabilityInvokeOutput(output, lines) {
+  if (Array.isArray(output)) {
+    lines.push(C.dim(`      array of ${output.length} items`));
+    const preview = JSON.stringify(output.slice(0, 10));
+    lines.push(`      ${preview}${output.length > 10 ? ' ...' : ''}`);
+    return true;
+  }
+  if (typeof output === 'object' && output !== null) {
+    pushTruncatedJson(lines, JSON.stringify(output, null, 2), 1500);
+    return true;
+  }
+  lines.push(`      ${output}`);
+  return true;
+}
+
+// Generic JSON fallback for unknown step types.
+function renderGenericOutput(output, lines) {
+  const json =
+    typeof output === 'string' ? output : JSON.stringify(output, null, 2);
+  pushTruncatedJson(lines, json, 1000);
+}
+
+const STEP_OUTPUT_RENDERERS = new Map([
+  ['prompt', renderPromptOutput],
+  ['knowledge_search', renderKnowledgeSearchOutput],
+  ['capability_invoke', renderCapabilityInvokeOutput],
+]);
+
 function renderStepOutput(step, lines) {
   if (!step.output) {
     lines.push(C.dim('      (no output captured)'));
     return;
   }
-
-  const output = step.output;
-
-  // LLM prompt step — print the briefing text verbatim with token counts.
-  if (step.step_type === 'prompt') {
-    const toks = [];
-    if (output.tokens_in !== undefined) toks.push(`${output.tokens_in} in`);
-    if (output.tokens_out !== undefined) toks.push(`${output.tokens_out} out`);
-    if (toks.length) lines.push(C.dim(`      tokens: ${toks.join(' → ')}`));
-    lines.push(C.dim('      ' + '─'.repeat(50)));
-    const text =
-      typeof output.text === 'string'
-        ? output.text
-        : output.content || JSON.stringify(output, null, 2);
-    for (const line of text.split('\n')) lines.push(`      ${line}`);
-    lines.push(C.dim('      ' + '─'.repeat(50)));
-    return;
-  }
-
-  // Knowledge search — list the top matches.
-  if (step.step_type === 'knowledge_search') {
-    const results = output.results || output.documents || output.matches || [];
-    if (Array.isArray(results) && results.length > 0) {
-      lines.push(C.dim(`      ${results.length} matching document(s):`));
-      for (const r of results.slice(0, 5)) {
-        const title =
-          r.title ||
-          r.name ||
-          r.document_name ||
-          r.id ||
-          (typeof r === 'string'
-            ? r.slice(0, 100)
-            : JSON.stringify(r).slice(0, 100));
-        lines.push(`      · ${title}`);
-      }
-      if (results.length > 5) {
-        lines.push(C.dim(`      ... and ${results.length - 5} more`));
-      }
-      return;
-    }
-  }
-
-  // Capability invoke — show the whole response. The handler returns the
-  // raw array for list-shaped responses (HN top stories) or the full
-  // object for object-shaped ones (postman-echo, jsonplaceholder). We no
-  // longer peek into output.data first because that was hiding the
-  // postman-echo response body (which contains its own `data` field
-  // that's the echoed payload, not the whole envelope).
-  if (step.step_type === 'capability_invoke') {
-    if (Array.isArray(output)) {
-      lines.push(C.dim(`      array of ${output.length} items`));
-      const preview = JSON.stringify(output.slice(0, 10));
-      lines.push(`      ${preview}${output.length > 10 ? ' ...' : ''}`);
-      return;
-    }
-    if (typeof output === 'object' && output !== null) {
-      const json = JSON.stringify(output, null, 2);
-      const truncated =
-        json.length > 1500
-          ? json.slice(0, 1500) + '\n      ... [truncated]'
-          : json;
-      for (const l of truncated.split('\n')) lines.push(C.dim(`      ${l}`));
-      return;
-    }
-    lines.push(`      ${output}`);
-    return;
-  }
-
-  // Generic JSON fallback for unknown step types.
-  const json =
-    typeof output === 'string' ? output : JSON.stringify(output, null, 2);
-  const truncated =
-    json.length > 1000 ? json.slice(0, 1000) + '\n      ... [truncated]' : json;
-  for (const l of truncated.split('\n')) lines.push(C.dim(`      ${l}`));
+  const renderer = STEP_OUTPUT_RENDERERS.get(step.step_type);
+  if (renderer && renderer(step.output, lines)) return;
+  renderGenericOutput(step.output, lines);
 }
 
 async function showWorkflowOutputs(templateId, runActionId) {
@@ -499,26 +538,30 @@ async function showWorkflowOutputs(templateId, runActionId) {
   }
 
   for (const step of run.steps) {
-    const label = step.step_name || step.step_id;
-    const typeInfo = `${step.step_type || '?'}, ${step.duration_ms || 0}ms`;
-    console.log('');
-    console.log(`  ${C.bold(label)} ${C.dim(`(${typeInfo})`)}`);
-
-    if (step.status !== 'completed') {
-      const msg = step.error_message ? `: ${step.error_message}` : '';
-      console.log(C.red(`      ${step.status}${msg}`));
-      continue;
-    }
-
-    const lines = [];
-    renderStepOutput(step, lines);
-    for (const line of lines) console.log(line);
+    printRunStep(step);
   }
+}
+
+function printRunStep(step) {
+  const label = step.step_name || step.step_id;
+  const typeInfo = `${step.step_type || '?'}, ${step.duration_ms || 0}ms`;
+  console.log('');
+  console.log(`  ${C.bold(label)} ${C.dim(`(${typeInfo})`)}`);
+
+  if (step.status !== 'completed') {
+    const msg = step.error_message ? `: ${step.error_message}` : '';
+    console.log(C.red(`      ${step.status}${msg}`));
+    return;
+  }
+
+  const lines = [];
+  renderStepOutput(step, lines);
+  for (const line of lines) console.log(line);
 }
 
 // ── Main ────────────────────────────────────────────────────────────────────
 
-async function main() {
+function printIntro() {
   console.log('');
   console.log(C.bold('DashClaw Demo E2E Verification'));
   console.log(C.dim('─'.repeat(60)));
@@ -541,15 +584,23 @@ async function main() {
   console.log(C.dim('  Note: the key will be visible as you type/paste. It is used'));
   console.log(C.dim('        only for this session and never written to disk.'));
   console.log('');
+}
 
-  API_KEY = await prompt('  DashClaw API key: ');
-  if (!API_KEY) {
+async function promptForApiKey() {
+  const key = await prompt('  DashClaw API key: ');
+  if (!key) {
     console.log('');
     console.error(C.red('  No API key provided. Exiting.'));
     console.log('');
     process.exit(1);
   }
   console.log('');
+  return key;
+}
+
+async function main() {
+  printIntro();
+  API_KEY = await promptForApiKey();
 
   await checkHealth();
   await ensureAnthropicKey();
@@ -564,6 +615,10 @@ async function main() {
     await showWorkflowOutputs(workflow.templateId, workflow.runActionId);
   }
 
+  printSummaryAndExit(capResults, workflow);
+}
+
+function printSummaryAndExit(capResults, workflow) {
   phaseHeader('Summary');
   console.log(
     `  Capability tests: ${
@@ -582,16 +637,15 @@ async function main() {
     console.log(C.bold(C.green('  DEMO VERIFIED END-TO-END')));
     console.log('');
     process.exit(0);
-  } else {
-    console.log(C.bold(C.red('  DEMO VERIFICATION FAILED')));
-    console.log(
-      C.dim(
-        '  Review the failing phase above, fix the underlying issue, and re-run.',
-      ),
-    );
-    console.log('');
-    process.exit(1);
   }
+  console.log(C.bold(C.red('  DEMO VERIFICATION FAILED')));
+  console.log(
+    C.dim(
+      '  Review the failing phase above, fix the underlying issue, and re-run.',
+    ),
+  );
+  console.log('');
+  process.exit(1);
 }
 
 main().catch((err) => {
