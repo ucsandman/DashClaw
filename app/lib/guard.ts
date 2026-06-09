@@ -138,27 +138,35 @@ interface Preliminary {
   matchedPolicies: string[];
 }
 
+// Additional risk from the systems an action touches (high vs moderate tiers).
+function systemsTouchedRisk(systemsTouched: unknown): number {
+  if (!Array.isArray(systemsTouched)) return 0;
+  const systems = systemsTouched.map((s) => (typeof s === 'string' ? s.toLowerCase() : ''));
+  let score = 0;
+  if (systems.some((s) => HIGH_RISK_SYSTEMS.includes(s))) score += 10;
+  if (systems.some((s) => MODERATE_RISK_SYSTEMS.includes(s))) score += 5;
+  return score;
+}
+
+// Additional risk from destructive/deployment/secret patterns in the declared goal.
+function declaredGoalRisk(declaredGoal: unknown): number {
+  if (typeof declaredGoal !== 'string') return 0;
+  let score = 0;
+  if (DESTRUCTIVE_GOAL_PATTERNS.test(declaredGoal)) score += 20;
+  if (DEPLOYMENT_GOAL_PATTERNS.test(declaredGoal)) score += 10;
+  if (SECRET_GOAL_PATTERNS.test(declaredGoal)) score += 15;
+  return score;
+}
+
 /**
  * Compute an authoritative risk score from structured guard context fields.
  * Returns an integer 0-100.
  */
 export function computeRiskScore(context: GuardEvalContext): number {
   let score = baseScore(context.action_type);
-
   if (context.reversible === false) score += 15;
-
-  if (Array.isArray(context.systems_touched)) {
-    const systems = context.systems_touched.map((s) => (typeof s === 'string' ? s.toLowerCase() : ''));
-    if (systems.some((s) => HIGH_RISK_SYSTEMS.includes(s))) score += 10;
-    if (systems.some((s) => MODERATE_RISK_SYSTEMS.includes(s))) score += 5;
-  }
-
-  if (typeof context.declared_goal === 'string') {
-    if (DESTRUCTIVE_GOAL_PATTERNS.test(context.declared_goal)) score += 20;
-    if (DEPLOYMENT_GOAL_PATTERNS.test(context.declared_goal)) score += 10;
-    if (SECRET_GOAL_PATTERNS.test(context.declared_goal)) score += 15;
-  }
-
+  score += systemsTouchedRisk(context.systems_touched);
+  score += declaredGoalRisk(context.declared_goal);
   return Math.max(0, Math.min(score, 100));
 }
 
@@ -168,20 +176,29 @@ function getByPath(obj: unknown, path: unknown): unknown {
   return path.split('.').reduce<unknown>((acc, key) => (acc == null ? undefined : (acc as Record<string, unknown>)[key]), obj);
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => v != null && typeof v === 'object';
+
+// Walk all but the last path segment, returning the parent record (or undefined
+// if any segment is missing or non-object).
+function navigateToParent(obj: unknown, keys: string[]): Record<string, unknown> | undefined {
+  let cur: unknown = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    const k = keys[i];
+    if (!isRecord(cur) || k === undefined) return undefined;
+    cur = cur[k];
+  }
+  return isRecord(cur) ? cur : undefined;
+}
+
 // Replace the leaf at `path` with `marker` if present. Used to keep raw
 // non_fabrication inputs out of the persisted guard_decisions.context row.
 function redactByPath(obj: unknown, path: unknown, marker: unknown): void {
   if (obj == null || typeof path !== 'string') return;
   const keys = path.split('.');
-  let cur: unknown = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const k = keys[i];
-    if (cur == null || typeof cur !== 'object' || k === undefined) return;
-    cur = (cur as Record<string, unknown>)[k];
-  }
+  const parent = navigateToParent(obj, keys);
   const leaf = keys[keys.length - 1];
-  if (leaf !== undefined && cur && typeof cur === 'object' && leaf in cur) {
-    (cur as Record<string, unknown>)[leaf] = marker;
+  if (parent && leaf !== undefined && leaf in parent) {
+    parent[leaf] = marker;
   }
 }
 
@@ -200,73 +217,98 @@ function redactAny(value: unknown, findings: unknown[]): unknown {
   return value;
 }
 
-/**
- * Evaluate guard policies for an incoming agent action.
- */
-export async function evaluateGuard(orgId: string, context: GuardEvalContext, sql: GuardSql, options: GuardOptions = {}) {
-  // SECURITY: orgId is the tenant boundary. Without this guard a caller bug
-  // that loses orgId (null/undefined/'') would cause Postgres to evaluate
-  // `WHERE org_id = NULL AND ...` which silently returns zero rows — guard
-  // would then approve every action because no policies matched.
-  if (!orgId || typeof orgId !== 'string') {
-    throw new Error('evaluateGuard: orgId is required and must be a string');
-  }
+// Mutable accumulator threaded through the guard phases below.
+interface GuardAccumulator {
+  reasons: string[];
+  warnings: string[];
+  matchedPolicies: string[];
+  nonFabEvidence: unknown[];
+  nonFabStripPaths: Set<string>;
+  highestDecision: string;
+}
 
-  // Phase 2b (issue #120): block replays before policy evaluation so the audit
-  // row records exactly why this call was blocked.
-  const replayProtection = (process.env.DASHCLAW_JTI_REPLAY_PROTECTION || 'best_effort').toLowerCase();
-  const replayStatusEarly = context.replay_status || 'not_applicable';
-  let replayBlockReason: string | null = null;
-  if (replayStatusEarly === 'replayed') {
-    replayBlockReason = `Replay detected: jti has been seen in a prior verified guard call within its exp window.`;
-  } else if (replayStatusEarly === 'exp_too_far') {
-    replayBlockReason = `Token exp exceeds the configured max TTL (DASHCLAW_JTI_MAX_TTL_SECONDS).`;
-  } else if (replayStatusEarly === 'unavailable' && replayProtection === 'required') {
-    replayBlockReason = `Replay store unreachable and DASHCLAW_JTI_REPLAY_PROTECTION=required.`;
-  } else if (replayStatusEarly === 'not_present' && replayProtection === 'required') {
-    replayBlockReason = `Verified token has no jti claim and DASHCLAW_JTI_REPLAY_PROTECTION=required.`;
+function newAccumulator(): GuardAccumulator {
+  return { reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), highestDecision: 'allow' };
+}
+
+function raiseDecision(acc: GuardAccumulator, action: string): void {
+  if (sevOf(action) > sevOf(acc.highestDecision)) acc.highestDecision = action;
+}
+
+function applyResult(result: PolicyResult, policy: PolicyRow, acc: GuardAccumulator): void {
+  if (result.action === 'warn') {
+    acc.warnings.push(`${policy.name}: ${result.reason}`);
+  } else if (result.action !== 'allow') {
+    acc.reasons.push(`${policy.name}: ${result.reason}`);
   }
-  if (replayBlockReason) {
+  if (result.extraWarnings) {
+    acc.warnings.push(...result.extraWarnings);
+  }
+  acc.matchedPolicies.push(policy.id);
+}
+
+// A block reason forces `block` (it always outranks a policy outcome) and is
+// prepended to the reason list. Mirrors the original replay/act override shape.
+function applyBlockOverride(acc: GuardAccumulator, reason: string | null): void {
+  if (!reason) return;
+  if (DECISION_SEVERITY.block >= sevOf(acc.highestDecision)) {
+    acc.highestDecision = 'block';
+  }
+  acc.reasons.unshift(reason);
+}
+
+// Flat (no else-if chain — those desugar to nested elses) replay reason lookup.
+function replayReasonFor(replayStatus: string): string | null {
+  const required = (process.env.DASHCLAW_JTI_REPLAY_PROTECTION || 'best_effort').toLowerCase() === 'required';
+  if (replayStatus === 'replayed') return `Replay detected: jti has been seen in a prior verified guard call within its exp window.`;
+  if (replayStatus === 'exp_too_far') return `Token exp exceeds the configured max TTL (DASHCLAW_JTI_MAX_TTL_SECONDS).`;
+  if (replayStatus === 'unavailable' && required) return `Replay store unreachable and DASHCLAW_JTI_REPLAY_PROTECTION=required.`;
+  if (replayStatus === 'not_present' && required) return `Verified token has no jti claim and DASHCLAW_JTI_REPLAY_PROTECTION=required.`;
+  return null;
+}
+
+// Phase 2b (issue #120): replay block decision, decided at the audit boundary.
+function computeReplayBlockReason(context: GuardEvalContext, orgId: string): string | null {
+  const replayStatus = context.replay_status || 'not_applicable';
+  const reason = replayReasonFor(replayStatus);
+  if (reason) {
     console.warn('[Guard] Replay-protection block:', {
-      reason: replayBlockReason,
-      replay_status: replayStatusEarly,
-      jti: context.jti || null,
-      agent_id: context.agent_id || null,
-      org_id: orgId,
+      reason, replay_status: replayStatus, jti: context.jti || null, agent_id: context.agent_id || null, org_id: orgId,
     });
   }
+  return reason;
+}
 
-  // Phase 2c (issue #121): action-binding block decision. Mirrors replay_status
-  // exactly — its own axis, decided here at the audit boundary, never re-checked.
+const ACT_BINDING_INCOMPLETE = ['not_present', 'unsupported_typ', 'ctx_incomplete'];
+
+// Phase 2c (issue #121): action-binding block decision. Mirrors replay_status —
+// its own axis, decided here at the audit boundary, never re-checked.
+function computeActBindingBlockReason(context: GuardEvalContext, orgId: string): string | null {
   const actBindingMode = getActBindingMode();
-  const actStatusEarly = context.act_status || 'not_applicable';
-  let actBlockReason: string | null = null;
-  if (actBindingMode !== 'off' && actStatusEarly === 'mismatch') {
-    actBlockReason = 'Action-binding mismatch: token committed to a different (action, target, goal) than this call.';
-  } else if (
-    actBindingMode === 'required' &&
-    (actStatusEarly === 'not_present' || actStatusEarly === 'unsupported_typ' || actStatusEarly === 'ctx_incomplete')
-  ) {
-    actBlockReason = `Action-binding ${actStatusEarly} and DASHCLAW_ACT_BINDING=required.`;
+  const actStatus = context.act_status || 'not_applicable';
+  let reason: string | null = null;
+  if (actBindingMode !== 'off' && actStatus === 'mismatch') {
+    reason = 'Action-binding mismatch: token committed to a different (action, target, goal) than this call.';
+  } else if (actBindingMode === 'required' && ACT_BINDING_INCOMPLETE.includes(actStatus)) {
+    reason = `Action-binding ${actStatus} and DASHCLAW_ACT_BINDING=required.`;
   }
-  if (actBlockReason) {
+  if (reason) {
     console.warn('[Guard] Action-binding block:', {
-      reason: actBlockReason,
-      act_status: actStatusEarly,
-      agent_id: context.agent_id || null,
-      org_id: orgId,
+      reason, act_status: actStatus, agent_id: context.agent_id || null, org_id: orgId,
     });
   }
+  return reason;
+}
 
+// Load active org policies and filter to those that apply to this agent
+// (null/empty agent_ids = all agents; malformed scope fails closed).
+async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgentId: string | null): Promise<PolicyRow[]> {
   const allPolicies = await sql`
     SELECT id, name, policy_type, rules, agent_ids
     FROM guard_policies
     WHERE org_id = ${orgId} AND active = 1
   `;
-
-  // Filter to policies that apply to this agent (null agent_ids = all agents)
-  const currentAgentId = context.agent_id || null;
-  const policies = (allPolicies as PolicyRow[]).filter((p) => {
+  return (allPolicies as PolicyRow[]).filter((p) => {
     if (!p.agent_ids) return true; // null/empty = applies to all
     try {
       const scoped = JSON.parse(p.agent_ids);
@@ -279,17 +321,16 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       return false;
     }
   });
+}
 
-  // Compute authoritative server-side risk score
-  const authoritativeRiskScore = computeRiskScore(context);
-  const agentRiskScore = context.risk_score != null ? Number(context.risk_score) : null;
-  // Use the higher of computed vs agent-reported (agents may have internal knowledge)
-  const effectiveRiskScore = agentRiskScore != null
-    ? Math.max(authoritativeRiskScore, Math.max(0, Math.min(agentRiskScore, 100)))
-    : authoritativeRiskScore;
-
-  // Predictive risk scoring — statistical analysis of historical behavior
-  let predictiveRisk: { total_adjustment?: number } | null = null;
+// Predictive risk scoring — statistical analysis of historical behavior.
+// Best-effort: never block guard on failure.
+async function computePredictiveRisk(
+  sql: GuardSql,
+  orgId: string,
+  context: GuardEvalContext,
+  effectiveRiskScore: number,
+): Promise<{ total_adjustment?: number } | null> {
   try {
     const { getPredictiveRisk } = await import('./predictive-risk.js');
     const { getSettings } = await import('./repositories/settings.repository.js');
@@ -299,27 +340,32 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     const prThreshold = parseInt(String(settingsList.find((s) => s.key === 'PREDICTIVE_RISK_THRESHOLD')?.value ?? ''), 10) || 60;
 
     if (context.agent_id && context.action_type) {
-      predictiveRisk = await getPredictiveRisk(
+      return await getPredictiveRisk(
         sql, orgId, context.agent_id, context.action_type, effectiveRiskScore,
-        { enabled: prEnabled, threshold: prThreshold }
+        { enabled: prEnabled, threshold: prThreshold },
       );
     }
+    return null;
   } catch (e) {
-    // Predictive risk is best-effort — never block guard on failure
     console.warn('[Guard] Predictive risk failed:', (e as Error).message);
+    return null;
   }
+}
 
-  // Apply statistical adjustment to risk score. Round to an integer.
-  const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
-  const adjustedRiskScore = Math.round(Math.max(0, Math.min(effectiveRiskScore + predictiveAdjustment, 100)));
+// Shared per-evaluation dependencies threaded through the guard phases.
+interface GuardPhaseDeps {
+  context: GuardEvalContext;
+  sql: GuardSql;
+  orgId: string;
+}
 
-  const reasons: string[] = [];
-  const warnings: string[] = [];
-  const matchedPolicies: string[] = [];
-  const nonFabEvidence: unknown[] = [];
-  const nonFabStripPaths = new Set<string>();
-  let highestDecision = 'allow';
-
+async function runLocalPolicies(
+  policies: PolicyRow[],
+  deps: GuardPhaseDeps,
+  adjustedRiskScore: number,
+  acc: GuardAccumulator,
+): Promise<void> {
+  const { context, sql, orgId } = deps;
   for (const policy of policies) {
     let rules: PolicyRules;
     try {
@@ -329,224 +375,722 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     }
 
     const result = await evaluatePolicy(policy, rules, context, sql, orgId, adjustedRiskScore);
-    if (result) {
-      applyResult(result, policy, reasons, warnings, matchedPolicies);
-      if (result.nonFabrication) {
-        nonFabEvidence.push(result.nonFabrication);
-        for (const p of result.stripPaths || []) nonFabStripPaths.add(p);
-      }
-      if (sevOf(result.action) > sevOf(highestDecision)) {
-        highestDecision = result.action;
-      }
+    if (!result) continue;
+    applyResult(result, policy, acc);
+    if (result.nonFabrication) {
+      acc.nonFabEvidence.push(result.nonFabrication);
+      for (const p of result.stripPaths || []) acc.nonFabStripPaths.add(p);
+    }
+    raiseDecision(acc, result.action);
+  }
+}
+
+// Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true).
+function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): void {
+  if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') return;
+  const textFields = [context.declared_goal, context.action_type].filter(Boolean) as string[];
+  for (const text of textFields) {
+    const scan = scanForPromptInjection(text);
+    if (scan.clean) continue;
+    const reason = `Prompt injection detected (${scan.risk_level}): ${scan.categories.join(', ')}`;
+    if (scan.recommendation === 'block') {
+      acc.reasons.push(reason);
+      acc.matchedPolicies.push('builtin:prompt_injection_scan');
+      raiseDecision(acc, 'block');
+    } else if (scan.recommendation === 'warn') {
+      acc.warnings.push(reason);
     }
   }
+}
 
-  // Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true)
-  if (process.env.DISABLE_PROMPT_INJECTION_SCAN !== 'true') {
-    const textFields = [context.declared_goal, context.action_type].filter(Boolean) as string[];
-    for (const text of textFields) {
-      const scan = scanForPromptInjection(text);
-      if (!scan.clean) {
-        const reason = `Prompt injection detected (${scan.risk_level}): ${scan.categories.join(', ')}`;
-        if (scan.recommendation === 'block') {
-          reasons.push(reason);
-          matchedPolicies.push('builtin:prompt_injection_scan');
-          if (DECISION_SEVERITY.block > sevOf(highestDecision)) {
-            highestDecision = 'block';
-          }
-        } else if (scan.recommendation === 'warn') {
-          warnings.push(reason);
-        }
-      }
-    }
-  }
-
-  // Process webhook_check policies (after local policies, so preliminary decision is known)
+// Process webhook_check policies after local policies, so the preliminary
+// decision (a snapshot of acc at this point) is known to the customer endpoint.
+async function runWebhookPolicies(
+  policies: PolicyRow[],
+  deps: GuardPhaseDeps,
+  acc: GuardAccumulator,
+): Promise<void> {
+  const { context, sql, orgId } = deps;
   const webhookPolicies = policies.filter((p) => p.policy_type === 'webhook_check');
   const preliminary: Preliminary = {
-    decision: highestDecision,
-    reasons: [...reasons],
-    warnings: [...warnings],
-    matchedPolicies: [...matchedPolicies],
+    decision: acc.highestDecision,
+    reasons: [...acc.reasons],
+    warnings: [...acc.warnings],
+    matchedPolicies: [...acc.matchedPolicies],
   };
   for (const policy of webhookPolicies) {
     let rules: PolicyRules;
     try { rules = JSON.parse(policy.rules); } catch { continue; }
 
     const webhookResult = await evaluateWebhookPolicy(policy, rules, context, orgId, sql, preliminary);
-    if (webhookResult) {
-      applyResult(webhookResult, policy, reasons, warnings, matchedPolicies);
-      if (sevOf(webhookResult.action) > sevOf(highestDecision)) {
-        highestDecision = webhookResult.action;
-      }
-    }
+    if (!webhookResult) continue;
+    applyResult(webhookResult, policy, acc);
+    raiseDecision(acc, webhookResult.action);
   }
+}
 
-  // Optionally check live signals
-  if (options.includeSignals && options.computeSignals) {
-    try {
-      const signals = await options.computeSignals(orgId, context.agent_id || null, sql);
-      for (const signal of signals) {
-        warnings.push(`Active signal: ${signal.type} — ${signal.label}`);
-      }
-    } catch {
-      // Signal check is best-effort
+async function runSignalChecks(
+  deps: GuardPhaseDeps,
+  options: GuardOptions,
+  acc: GuardAccumulator,
+): Promise<void> {
+  if (!options.includeSignals || !options.computeSignals) return;
+  const { context, sql, orgId } = deps;
+  try {
+    const signals = await options.computeSignals(orgId, context.agent_id || null, sql);
+    for (const signal of signals) {
+      acc.warnings.push(`Active signal: ${signal.type} — ${signal.label}`);
     }
+  } catch {
+    // Signal check is best-effort
   }
+}
 
-  const evaluated_at = new Date().toISOString();
-
-  const decisionId = `act_gd_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
-
-  // SECURITY: do not store raw secrets in guard decision context.
+// SECURITY: do not store raw secrets in guard decision context.
+function redactContextForLog(context: GuardEvalContext, nonFabStripPaths: Set<string>): unknown {
   const dlpFindings: unknown[] = [];
   const safeContextForLog = redactAny(context, dlpFindings);
   if (dlpFindings.length > 0) {
     console.warn(`[Guard] Redacted ${dlpFindings.length} sensitive pattern(s) from guard_decisions.context before storing.`);
   }
   for (const p of nonFabStripPaths) redactByPath(safeContextForLog, p, '[redacted:non_fabrication_input]');
-  const evidenceJson = nonFabEvidence.length > 0 ? JSON.stringify(nonFabEvidence) : null;
+  return safeContextForLog;
+}
 
-  const verificationStatus = context.verification_status || 'unverified';
-  const replayStatus = context.replay_status || 'not_applicable';
-  const jti = context.jti || null;
-  const actStatus = context.act_status || 'not_applicable';
-  const actHash = context.act_hash || null;
+interface GuardDecisionInsert {
+  decisionId: string;
+  orgId: string;
+  agentId: string | null;
+  agentName: string | null;
+  verificationStatus: string;
+  replayStatus: string;
+  jti: string | null;
+  actStatus: string;
+  actHash: string | null;
+  decision: string;
+  reason: string | null;
+  matchedPolicies: string[];
+  context: unknown;
+  evidence: string | null;
+  riskScore: number;
+  actionType: string | null;
+  createdAt: string;
+}
 
-  // If the replay pre-check decided to block, override the policy outcome.
-  if (replayBlockReason && DECISION_SEVERITY.block >= sevOf(highestDecision)) {
-    highestDecision = 'block';
-    reasons.unshift(replayBlockReason);
-  } else if (replayBlockReason) {
-    reasons.unshift(replayBlockReason);
-  }
-
-  // Phase 2c: same override shape as replay — binding evidence forces `block`.
-  if (actBlockReason && DECISION_SEVERITY.block >= sevOf(highestDecision)) {
-    highestDecision = 'block';
-    reasons.unshift(actBlockReason);
-  } else if (actBlockReason) {
-    reasons.unshift(actBlockReason);
-  }
-
-  // SECURITY (R2): the guard_decisions row IS the audit evidence — losing it
-  // means the platform cannot prove what it decided. Await it and fail loudly.
+// SECURITY (R2): the guard_decisions row IS the audit evidence — losing it means
+// the platform cannot prove what it decided. Await it and fail loudly.
+async function persistGuardDecision(sql: GuardSql, row: GuardDecisionInsert): Promise<void> {
   try {
     await sql`
       INSERT INTO guard_decisions (id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, decision, reason, matched_policies, context, evidence, risk_score, action_type, created_at)
       VALUES (
-        ${decisionId},
-        ${orgId},
-        ${context.agent_id || null},
-        ${context.agent_name || null},
-        ${verificationStatus},
-        ${replayStatus},
-        ${jti},
-        ${actStatus},
-        ${actHash},
-        ${highestDecision},
-        ${reasons.join('; ') || null},
-        ${JSON.stringify(matchedPolicies)},
-        ${JSON.stringify(safeContextForLog)},
-        ${evidenceJson},
-        ${adjustedRiskScore},
-        ${context.action_type || null},
-        ${evaluated_at}
+        ${row.decisionId},
+        ${row.orgId},
+        ${row.agentId},
+        ${row.agentName},
+        ${row.verificationStatus},
+        ${row.replayStatus},
+        ${row.jti},
+        ${row.actStatus},
+        ${row.actHash},
+        ${row.decision},
+        ${row.reason},
+        ${JSON.stringify(row.matchedPolicies)},
+        ${JSON.stringify(row.context)},
+        ${row.evidence},
+        ${row.riskScore},
+        ${row.actionType},
+        ${row.createdAt}
       )
     `;
   } catch (err) {
     console.error('[Guard] CRITICAL: failed to persist required guard_decisions audit row:', (err as Error)?.message || err);
-    const persistError = Object.assign(
+    throw Object.assign(
       new Error('Guard decision could not be durably recorded; refusing to return an unaudited decision.'),
       { code: 'GUARD_AUDIT_PERSIST_FAILED' },
     );
-    throw persistError;
   }
+}
 
-  void publishOrgEvent(EVENTS.GUARD_DECISION_CREATED, {
-    orgId,
-    decision: {
-      id: decisionId,
-      org_id: orgId,
-      agent_id: context.agent_id || null,
-      agent_name: context.agent_name || null,
-      verification_status: verificationStatus,
-      replay_status: replayStatus,
-      jti,
-      act_status: actStatus,
-      act_hash: actHash,
-      decision: highestDecision,
-      reason: reasons.join('; ') || null,
-      matched_policies: matchedPolicies,
-      context: safeContextForLog,
-      risk_score: adjustedRiskScore,
-      agent_risk_score: agentRiskScore,
-      action_type: context.action_type || null,
-      created_at: evaluated_at,
-    },
-  });
-
-  // Learning context — best-effort enrichment
-  const learningContext = await getLearningContext(sql, orgId, {
-    agentId: context.agent_id,
-    actionType: context.action_type,
-  });
-
-  // Recovery recipe evaluation — best-effort
-  let recovery: unknown = null;
+// Recovery recipe evaluation — best-effort enrichment for non-allow decisions.
+function buildRecovery(context: GuardEvalContext, reasons: string[], highestDecision: string): unknown {
   try {
-    if (highestDecision !== 'allow') {
-      const recentSignals: Array<{ type: string; severity: string; agent_id?: string | null }> = [];
-      if (context.intel?.branch?.freshness === 'stale') {
-        recentSignals.push({ type: 'branch_stale', severity: 'amber', agent_id: context.agent_id });
-      }
-      if (context.intel?.mcp?.healthy === false) {
-        recentSignals.push({ type: 'mcp_degraded', severity: 'amber', agent_id: context.agent_id });
-      }
-      if (reasons.some((r) => r.includes('Green contract'))) {
-        recentSignals.push({ type: 'green_insufficient', severity: 'red', agent_id: context.agent_id });
-      }
-      const recipes = evaluateRecoveryRecipes(recentSignals as Array<{ type: string; severity: string; agent_id: string }>);
-      if (recipes.length > 0) {
-        recovery = recipes[0];
-      }
+    if (highestDecision === 'allow') return null;
+    const recentSignals: Array<{ type: string; severity: string; agent_id?: string | null }> = [];
+    if (context.intel?.branch?.freshness === 'stale') {
+      recentSignals.push({ type: 'branch_stale', severity: 'amber', agent_id: context.agent_id });
     }
-  } catch (e) { /* recovery is best-effort */ }
+    if (context.intel?.mcp?.healthy === false) {
+      recentSignals.push({ type: 'mcp_degraded', severity: 'amber', agent_id: context.agent_id });
+    }
+    if (reasons.some((r) => r.includes('Green contract'))) {
+      recentSignals.push({ type: 'green_insufficient', severity: 'red', agent_id: context.agent_id });
+    }
+    const recipes = evaluateRecoveryRecipes(recentSignals as Array<{ type: string; severity: string; agent_id: string }>);
+    return recipes.length > 0 ? recipes[0] : null;
+  } catch {
+    return null; // recovery is best-effort
+  }
+}
 
+/**
+ * Evaluate guard policies for an incoming agent action.
+ */
+interface AuditStatuses {
+  verificationStatus: string;
+  replayStatus: string;
+  jti: string | null;
+  actStatus: string;
+  actHash: string | null;
+}
+
+function resolveAuditStatuses(context: GuardEvalContext): AuditStatuses {
   return {
-    decision: highestDecision,
-    decision_id: decisionId, // Canonical: the guard-evaluation id (act_gd_*).
-    action_id: decisionId, // DEPRECATED alias of decision_id (the evaluation id, NOT action_records id).
-    reason: reasons.join('; ') || null,
-    signals: [...warnings, ...reasons],
-    matched_policies: matchedPolicies,
-    ...(nonFabEvidence.length > 0 ? { non_fabrication: nonFabEvidence } : {}),
-    risk_score: adjustedRiskScore,
-    agent_risk_score: agentRiskScore,
-    verification_status: verificationStatus,
-    agent_id: context.agent_id || null,
-    agent_name: context.agent_name || null,
-    evaluated_at,
-    learning: learningContext || undefined,
-    ...(recovery ? { recovery } : {}),
-    ...(predictiveRisk ? { predictive_risk: predictiveRisk } : {}),
-    // Backward compatibility
-    reasons,
-    warnings,
+    verificationStatus: context.verification_status || 'unverified',
+    replayStatus: context.replay_status || 'not_applicable',
+    jti: context.jti || null,
+    actStatus: context.act_status || 'not_applicable',
+    actHash: context.act_hash || null,
   };
 }
 
-function applyResult(result: PolicyResult, policy: PolicyRow, reasons: string[], warnings: string[], matchedPolicies: string[]): void {
-  if (result.action === 'warn') {
-    warnings.push(`${policy.name}: ${result.reason}`);
-  } else if (result.action !== 'allow') {
-    reasons.push(`${policy.name}: ${result.reason}`);
-  }
-  if (result.extraWarnings) {
-    warnings.push(...result.extraWarnings);
-  }
-  matchedPolicies.push(policy.id);
+// Compute authoritative server-side risk; use the higher of computed vs
+// agent-reported (agents may have internal knowledge).
+function computeEffectiveRisk(context: GuardEvalContext): { agentRiskScore: number | null; effectiveRiskScore: number } {
+  const authoritativeRiskScore = computeRiskScore(context);
+  const agentRiskScore = context.risk_score != null ? Number(context.risk_score) : null;
+  const effectiveRiskScore = agentRiskScore != null
+    ? Math.max(authoritativeRiskScore, Math.max(0, Math.min(agentRiskScore, 100)))
+    : authoritativeRiskScore;
+  return { agentRiskScore, effectiveRiskScore };
 }
+
+// Everything the persist / event / result builders need, computed once.
+interface GuardFinalizeInput {
+  decisionId: string;
+  orgId: string;
+  context: GuardEvalContext;
+  acc: GuardAccumulator;
+  safeContextForLog: unknown;
+  evidenceJson: string | null;
+  statuses: AuditStatuses;
+  adjustedRiskScore: number;
+  agentRiskScore: number | null;
+  evaluatedAt: string;
+  learningContext: unknown;
+  recovery: unknown;
+  predictiveRisk: { total_adjustment?: number } | null;
+}
+
+function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
+  const { context, acc, statuses } = input;
+  return {
+    decisionId: input.decisionId,
+    orgId: input.orgId,
+    agentId: context.agent_id || null,
+    agentName: context.agent_name || null,
+    verificationStatus: statuses.verificationStatus,
+    replayStatus: statuses.replayStatus,
+    jti: statuses.jti,
+    actStatus: statuses.actStatus,
+    actHash: statuses.actHash,
+    decision: acc.highestDecision,
+    reason: acc.reasons.join('; ') || null,
+    matchedPolicies: acc.matchedPolicies,
+    context: input.safeContextForLog,
+    evidence: input.evidenceJson,
+    riskScore: input.adjustedRiskScore,
+    actionType: context.action_type || null,
+    createdAt: input.evaluatedAt,
+  };
+}
+
+function publishGuardDecisionEvent(input: GuardFinalizeInput): void {
+  const { context, acc, statuses } = input;
+  void publishOrgEvent(EVENTS.GUARD_DECISION_CREATED, {
+    orgId: input.orgId,
+    decision: {
+      id: input.decisionId,
+      org_id: input.orgId,
+      agent_id: context.agent_id || null,
+      agent_name: context.agent_name || null,
+      verification_status: statuses.verificationStatus,
+      replay_status: statuses.replayStatus,
+      jti: statuses.jti,
+      act_status: statuses.actStatus,
+      act_hash: statuses.actHash,
+      decision: acc.highestDecision,
+      reason: acc.reasons.join('; ') || null,
+      matched_policies: acc.matchedPolicies,
+      context: input.safeContextForLog,
+      risk_score: input.adjustedRiskScore,
+      agent_risk_score: input.agentRiskScore,
+      action_type: context.action_type || null,
+      created_at: input.evaluatedAt,
+    },
+  });
+}
+
+function buildGuardResult(input: GuardFinalizeInput) {
+  const { context, acc, statuses } = input;
+  return {
+    decision: acc.highestDecision,
+    decision_id: input.decisionId, // Canonical: the guard-evaluation id (act_gd_*).
+    action_id: input.decisionId, // DEPRECATED alias of decision_id (the evaluation id, NOT action_records id).
+    reason: acc.reasons.join('; ') || null,
+    signals: [...acc.warnings, ...acc.reasons],
+    matched_policies: acc.matchedPolicies,
+    ...(acc.nonFabEvidence.length > 0 ? { non_fabrication: acc.nonFabEvidence } : {}),
+    risk_score: input.adjustedRiskScore,
+    agent_risk_score: input.agentRiskScore,
+    verification_status: statuses.verificationStatus,
+    agent_id: context.agent_id || null,
+    agent_name: context.agent_name || null,
+    evaluated_at: input.evaluatedAt,
+    learning: input.learningContext || undefined,
+    ...(input.recovery ? { recovery: input.recovery } : {}),
+    ...(input.predictiveRisk ? { predictive_risk: input.predictiveRisk } : {}),
+    // Backward compatibility
+    reasons: acc.reasons,
+    warnings: acc.warnings,
+  };
+}
+
+export async function evaluateGuard(orgId: string, context: GuardEvalContext, sql: GuardSql, options: GuardOptions = {}) {
+  // SECURITY: orgId is the tenant boundary. Without this guard a caller bug
+  // that loses orgId (null/undefined/'') would cause Postgres to evaluate
+  // `WHERE org_id = NULL AND ...` which silently returns zero rows — guard
+  // would then approve every action because no policies matched.
+  if (!orgId || typeof orgId !== 'string') {
+    throw new Error('evaluateGuard: orgId is required and must be a string');
+  }
+
+  // Replay + action-binding pre-checks (decided at the audit boundary).
+  const replayBlockReason = computeReplayBlockReason(context, orgId);
+  const actBlockReason = computeActBindingBlockReason(context, orgId);
+
+  const policies = await loadApplicablePolicies(sql, orgId, context.agent_id || null);
+
+  const { agentRiskScore, effectiveRiskScore } = computeEffectiveRisk(context);
+  const predictiveRisk = await computePredictiveRisk(sql, orgId, context, effectiveRiskScore);
+  const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
+  const adjustedRiskScore = Math.round(Math.max(0, Math.min(effectiveRiskScore + predictiveAdjustment, 100)));
+
+  const deps: GuardPhaseDeps = { context, sql, orgId };
+  const acc = newAccumulator();
+  await runLocalPolicies(policies, deps, adjustedRiskScore, acc);
+  scanPromptInjection(context, acc);
+  await runWebhookPolicies(policies, deps, acc);
+  await runSignalChecks(deps, options, acc);
+
+  const evaluatedAt = new Date().toISOString();
+  const decisionId = `act_gd_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
+  const safeContextForLog = redactContextForLog(context, acc.nonFabStripPaths);
+  const evidenceJson = acc.nonFabEvidence.length > 0 ? JSON.stringify(acc.nonFabEvidence) : null;
+  const statuses = resolveAuditStatuses(context);
+
+  // Replay/act pre-checks override the policy outcome and prepend their reason.
+  applyBlockOverride(acc, replayBlockReason);
+  applyBlockOverride(acc, actBlockReason);
+
+  // Learning context — best-effort enrichment.
+  const learningContext = await getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type });
+  const recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
+
+  const input: GuardFinalizeInput = {
+    decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
+    adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext, recovery, predictiveRisk,
+  };
+
+  await persistGuardDecision(sql, buildGuardDecisionRow(input));
+  publishGuardDecisionEvent(input);
+  return buildGuardResult(input);
+}
+
+// Bundled arguments shared by every per-type policy evaluator.
+interface PolicyEvalArgs {
+  policy: PolicyRow;
+  rules: PolicyRules;
+  context: GuardEvalContext;
+  sql: GuardSql;
+  orgId: string;
+  effectiveRiskScore: number;
+}
+
+type PolicyEvaluator = (args: PolicyEvalArgs) => PolicyResult | null | Promise<PolicyResult | null>;
+
+// require_approval / block_action_type share action_type matching; only the
+// decision and reason wording differ.
+function matchActionType(
+  rules: PolicyRules,
+  context: GuardEvalContext,
+  action: string,
+  reason: (type: string) => string,
+): PolicyResult | null {
+  const actionTypes = rules.action_types || [];
+  if (context.action_type !== undefined && actionTypes.includes(context.action_type)) {
+    return { action, reason: reason(context.action_type) };
+  }
+  return null;
+}
+
+// ── non_fabrication evaluation (decomposed) ──
+
+function nonFabAppliesTo(rules: PolicyRules, context: GuardEvalContext): boolean {
+  const actionTypes = Array.isArray(rules.action_types) ? rules.action_types : null;
+  if (!actionTypes || actionTypes.length === 0) return true;
+  return context.action_type !== undefined && actionTypes.includes(context.action_type);
+}
+
+function nonFabConfig(rules: PolicyRules) {
+  const contentPath = (typeof rules.content_path === 'string' && rules.content_path) || 'content';
+  const sourcePath = (typeof rules.source_path === 'string' && rules.source_path) || 'source_of_truth';
+  const onViolation = rules.on_violation === 'require_approval' ? 'require_approval' : 'block';
+  return { contentPath, sourcePath, onViolation, stripPaths: [contentPath, sourcePath] };
+}
+
+function isValidSourceOfTruth(source: unknown): boolean {
+  const s = source as { allowedFacts?: unknown; requiredFacts?: unknown } | null;
+  return Boolean(
+    s && typeof s === 'object' && !Array.isArray(s) &&
+    Array.isArray(s.allowedFacts) && Array.isArray(s.requiredFacts),
+  );
+}
+
+async function signNonFabReceipt(
+  sql: GuardSql,
+  content: string,
+  source: unknown,
+  verifyResult: { verdict: string; violations: unknown[] },
+): Promise<unknown> {
+  try {
+    const key = await getServerSigningKey(sql);
+    return issueReceipt(
+      // verifyResult's violations carry { code, label } at runtime — the loose
+      // `unknown[]` here is wider than ReceiptViolation[].
+      verifyResult as Parameters<typeof issueReceipt>[0],
+      content,
+      // Only ever called after sourceValid confirms the SourceOfTruthLike shape.
+      source as Parameters<typeof issueReceipt>[2],
+      { kid: key.kid, privateKeyJwk: key.privateKeyJwk },
+      new Date().toISOString(),
+    );
+  } catch (e) {
+    console.warn('[Guard] non_fabrication receipt signing failed (verdict still enforced):', (e as Error).message);
+    return null;
+  }
+}
+
+function summarizeViolations(violations: Array<{ detail?: string; label: string; code: string }>): string {
+  return violations
+    .map((v) => (v.detail ? `${v.label}: ${v.detail}` : v.code === 'missing_required' ? `missing ${v.label}` : v.label))
+    .slice(0, 5)
+    .join(', ');
+}
+
+// Shared inputs for the two non_fabrication result builders.
+interface NonFabCtx {
+  policy: PolicyRow;
+  content: unknown;
+  source: unknown;
+  stripPaths: string[];
+  sql: GuardSql;
+}
+
+async function nonFabFailClosed({ policy, content, source, stripPaths, sql }: NonFabCtx, sourceValid: boolean): Promise<PolicyResult> {
+  const violations = [
+    sourceValid ? { code: 'invalid_content', label: 'content' } : { code: 'missing_source', label: 'source_of_truth' },
+  ];
+  const receipt = sourceValid && typeof content === 'string'
+    ? await signNonFabReceipt(sql, content, source, { verdict: 'block', violations })
+    : null;
+  return {
+    action: 'block',
+    reason: sourceValid
+      ? 'Non-fabrication: content is not verifiable text (fail-closed)'
+      : 'Non-fabrication: source-of-truth missing or malformed (fail-closed)',
+    nonFabrication: { policy_id: policy.id, verdict: 'block', violations, receipt },
+    stripPaths,
+  };
+}
+
+async function nonFabVerifiedResult({ policy, content, source, stripPaths, sql }: NonFabCtx, onViolation: string): Promise<PolicyResult> {
+  // `content` is a string and `source` the validated SourceOfTruth shape (checked by the caller).
+  const verifyResult = verify(content as string, source as unknown as SourceOfTruth);
+  const receipt = await signNonFabReceipt(sql, content as string, source, verifyResult);
+
+  if (verifyResult.verdict === 'pass') {
+    return {
+      action: 'allow',
+      reason: 'Non-fabrication: pass',
+      nonFabrication: { policy_id: policy.id, verdict: 'pass', violations: [], receipt },
+      stripPaths,
+    };
+  }
+
+  const summary = summarizeViolations(verifyResult.violations);
+  return {
+    action: onViolation,
+    reason: `Non-fabrication: ${verifyResult.violations[0]?.code} (${summary})`,
+    nonFabrication: { policy_id: policy.id, verdict: 'block', violations: verifyResult.violations, receipt },
+    stripPaths,
+  };
+}
+
+async function evaluateNonFabricationPolicy({ policy, rules, context, sql }: PolicyEvalArgs): Promise<PolicyResult | null> {
+  if (!nonFabAppliesTo(rules, context)) return null;
+
+  const { contentPath, sourcePath, onViolation, stripPaths } = nonFabConfig(rules);
+  const content = getByPath(context, contentPath);
+  if (content == null || content === '') return null;
+
+  const source = getByPath(context, sourcePath);
+  const sourceValid = isValidSourceOfTruth(source);
+  const ctx: NonFabCtx = { policy, content, source, stripPaths, sql };
+
+  if (typeof content !== 'string' || !sourceValid) {
+    return nonFabFailClosed(ctx, sourceValid);
+  }
+  return nonFabVerifiedResult(ctx, onViolation);
+}
+
+// ── behavioral_anomaly evaluation (decomposed) ──
+
+async function countAgentEmbeddings(sql: GuardSql, orgId: string, agentId: string): Promise<number | null> {
+  try {
+    const countRows = await sql`
+      SELECT COUNT(*)::int AS count
+      FROM action_embeddings
+      WHERE org_id = ${orgId} AND agent_id = ${agentId}
+    `;
+    return (countRows[0]?.count as number | undefined) ?? 0;
+  } catch (err) {
+    const msg = (err as Error)?.message;
+    if (msg?.includes('does not exist') || msg?.includes('vector')) {
+      console.warn('[Guard] action_embeddings missing or pgvector unavailable. Skipping anomaly detection.');
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function maxEmbeddingSimilarity(sql: GuardSql, embedding: unknown, orgId: string, agentId: string): Promise<number | null> {
+  const similarityQuery = `
+    SELECT 1 - (embedding <=> $1::vector) as similarity
+    FROM action_embeddings
+    WHERE org_id = $2 AND agent_id = $3
+    ORDER BY similarity DESC
+    LIMIT 1
+  `;
+  try {
+    const rows = await sql.query(similarityQuery, [JSON.stringify(embedding), orgId, agentId]);
+    if (rows.length === 0) return null;
+    return Number(rows[0]?.similarity);
+  } catch (err) {
+    const msg = (err as Error).message;
+    if (msg?.includes('vector') || msg?.includes('does not exist')) {
+      console.warn('[Guard] pgvector not enabled or table missing. Skipping anomaly detection.');
+      return null;
+    }
+    throw err;
+  }
+}
+
+async function hasEnoughEmbeddingHistory(sql: GuardSql, orgId: string, agentId: string, minHistory: number): Promise<boolean> {
+  const historyCount = await countAgentEmbeddings(sql, orgId, agentId);
+  return historyCount !== null && historyCount >= minHistory;
+}
+
+async function evaluateBehavioralAnomalyPolicy({ rules, context, sql, orgId }: PolicyEvalArgs): Promise<PolicyResult | null> {
+  if (!isEmbeddingsEnabled()) {
+    console.warn('[Guard] behavioral_anomaly policy skipped: No OpenAI API Key configured.');
+    return null;
+  }
+  const threshold = rules.similarity_threshold ?? 0.75;
+  const agentId = context.agent_id;
+  if (!agentId) return null;
+  if (!(await hasEnoughEmbeddingHistory(sql, orgId, agentId, rules.min_history ?? 5))) return null;
+
+  // GuardEvalContext's loosely-typed fields (systems_touched: unknown) are read
+  // defensively inside generateActionEmbedding; runtime shape is compatible.
+  const embedding = await generateActionEmbedding(context as Parameters<typeof generateActionEmbedding>[0]);
+  if (!embedding) return null;
+
+  const maxSimilarity = await maxEmbeddingSimilarity(sql, embedding, orgId, agentId);
+  if (maxSimilarity !== null && maxSimilarity < threshold) {
+    return {
+      action: rules.action || 'require_approval',
+      reason: `Behavioral Anomaly: Action similarity (${(maxSimilarity * 100).toFixed(1)}%) is below the safety threshold (${(threshold * 100).toFixed(0)}%).`,
+    };
+  }
+  return null;
+}
+
+// ── semantic_check evaluation ──
+
+// Result when the semantic check itself could not run (LLM returned nothing).
+function semanticFallbackResult(fallback: string): PolicyResult | null {
+  if (fallback === 'block') return { action: 'block', reason: 'Semantic check failed (fallback: block)' };
+  if (fallback === 'require_approval') return { action: 'require_approval', reason: 'Semantic check failed (fallback: require_approval)' };
+  return null; // fallback === 'allow' — pass-through
+}
+
+const hasGuardLlmKey = (): boolean => !!(process.env.GUARD_LLM_KEY || process.env.OPENAI_API_KEY);
+
+async function evaluateSemanticCheckPolicy({ context, rules }: PolicyEvalArgs): Promise<PolicyResult | null> {
+  const instruction = rules.instruction;
+  if (!instruction) return null;
+
+  const fallback = rules.fallback || process.env.DASHCLAW_GUARD_FALLBACK || 'allow';
+  const model = rules.model || 'gpt-4o-mini';
+
+  if (!hasGuardLlmKey()) {
+    console.warn('[Guard] semantic_check policy skipped: No GUARD_LLM_KEY or OPENAI_API_KEY configured. Requiring approval as safe fallback.');
+    return { action: 'require_approval', reason: 'Semantic check unavailable (no LLM key configured) — human review required' };
+  }
+
+  // checkSemanticGuardrail returns the parsed LLM JSON ({ allowed, reason }) or null.
+  const result = (await checkSemanticGuardrail(context, instruction, model)) as { allowed?: boolean; reason?: string } | null;
+
+  if (!result) return semanticFallbackResult(fallback);
+  if (result.allowed === false) return { action: 'block', reason: `Semantic Violation: ${result.reason}` };
+  return null;
+}
+
+// ── permission_escalation evaluation ──
+
+const PERM_RANK: Record<string, number> = { readonly: 0, workspace_write: 1, danger: 2, prompt: 3, allow: 4 };
+
+async function evaluatePermissionEscalationPolicy({ rules, context, sql, orgId }: PolicyEvalArgs): Promise<PolicyResult | null> {
+  if (!rules.enforce) return null;
+  const toolPerm = context.intel?.tool?.required_permission ?? context.tool?.required_permission;
+  if (!toolPerm) return null;
+  const pairingBaseId = baseAgentId(context.agent_id) || context.agent_id;
+  const [pairing] = await sql`
+    SELECT permission_level FROM agent_pairings
+    WHERE org_id = ${orgId} AND agent_id IN (${context.agent_id}, ${pairingBaseId}) AND status = 'approved'
+    ORDER BY (agent_id = ${context.agent_id}) DESC, created_at DESC LIMIT 1
+  `;
+  const agentLevel = (pairing?.permission_level as string | undefined) || 'danger';
+  if (rankOf(PERM_RANK, toolPerm, 0) > rankOf(PERM_RANK, agentLevel, 0)) {
+    return { action: rules.action || 'block', reason: `Permission escalation: agent has ${agentLevel}, tool requires ${toolPerm}` };
+  }
+  return null;
+}
+
+// ── x402_spend_limit evaluation ──
+
+const GREEN_RANK: Record<string, number> = { targeted: 0, package: 1, workspace: 2, merge_ready: 3 };
+
+const asArr = (v: unknown): string[] => (Array.isArray(v) ? v : []);
+
+function resolveX402Provider(context: GuardEvalContext): { provider: string; providerId: string | null } {
+  return { provider: context.provider || context.vendor || 'unknown', providerId: context.provider_id || null };
+}
+
+function x402Spend(context: GuardEvalContext): number {
+  return Number(context.cost_estimate ?? context.cost ?? 0) || 0;
+}
+
+function x402ProviderDecision(rules: PolicyRules, provider: string, providerId: string | null): PolicyResult | null {
+  const inList = (list: string[]): boolean => list.includes(provider) || (providerId != null && list.includes(providerId));
+  if (inList(asArr(rules.blocked_providers))) return { action: 'block', reason: `Provider "${provider}" is blocked by policy` };
+  const allowed = asArr(rules.allowed_providers);
+  if (allowed.length > 0 && !inList(allowed)) return { action: 'block', reason: `Provider "${provider}" not in approved list` };
+  return null;
+}
+
+function x402SpendDecision(rules: PolicyRules, spend: number): PolicyResult | null {
+  const maxSpend = rules.max_spend_usd ?? Infinity;
+  const approvalThreshold = rules.approval_threshold ?? Infinity;
+  if (spend > maxSpend) return { action: 'block', reason: `Spend $${spend.toFixed(4)} exceeds max $${maxSpend}` };
+  if (spend >= approvalThreshold) return { action: 'require_approval', reason: `Spend $${spend.toFixed(4)} >= approval threshold $${approvalThreshold}` };
+  return null;
+}
+
+function evaluateX402SpendLimitPolicy({ rules, context }: PolicyEvalArgs): PolicyResult | null {
+  if (context.action_type !== 'x402_purchase') return null;
+  const { provider, providerId } = resolveX402Provider(context);
+  return x402ProviderDecision(rules, provider, providerId) ?? x402SpendDecision(rules, x402Spend(context));
+}
+
+// One evaluator per policy type. evaluatePolicy is a thin dispatcher over this map.
+const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
+  risk_threshold: ({ rules, context, effectiveRiskScore }) => {
+    const threshold = rules.threshold ?? 80;
+    const riskScore = effectiveRiskScore != null
+      ? effectiveRiskScore
+      : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
+    if (riskScore >= threshold) {
+      return { action: rules.action || 'block', reason: `Risk score ${riskScore} >= threshold ${threshold}` };
+    }
+    return null;
+  },
+  require_approval: ({ rules, context }) =>
+    matchActionType(rules, context, 'require_approval', (t) => `Action type "${t}" requires approval`),
+  block_action_type: ({ rules, context }) =>
+    matchActionType(rules, context, 'block', (t) => `Action type "${t}" is blocked by policy`),
+  protected_path: ({ rules, context }) => {
+    const paths = Array.isArray(rules.paths) ? rules.paths : [];
+    if (paths.length === 0) return null;
+    const candidates: string[] = [];
+    if (typeof context.target === 'string' && context.target) candidates.push(context.target);
+    if (Array.isArray(context.write_paths)) candidates.push(...(context.write_paths as string[]));
+    const hit = candidates.find((p) => matchesProtectedPath(p, paths));
+    if (hit) return { action: rules.action || 'require_approval', reason: `Protected path touched: ${hit}` };
+    return null;
+  },
+  rate_limit: async ({ rules, context, sql, orgId }) => {
+    const maxActions = rules.max_actions || 50;
+    const windowMinutes = Math.max(1, Math.min(10080, parseInt(String(rules.window_minutes), 10) || 60));
+    const agentId = context.agent_id;
+    if (!agentId) return null;
+
+    const rows = await sql.query(
+      `SELECT COUNT(*) as cnt FROM action_records
+         WHERE org_id = $1 AND agent_id = $2
+         AND timestamp_start::timestamptz > NOW() - INTERVAL '1 minute' * $3`,
+      [orgId, agentId, windowMinutes],
+    );
+
+    const count = parseInt((rows[0]?.cnt as string) || '0', 10);
+    if (count >= maxActions) {
+      return { action: rules.action || 'warn', reason: `Agent performed ${count} actions in ${windowMinutes}min (limit: ${maxActions})` };
+    }
+    return null;
+  },
+  // Handled separately after the local policy loop.
+  webhook_check: () => null,
+  non_fabrication: evaluateNonFabricationPolicy,
+  behavioral_anomaly: evaluateBehavioralAnomalyPolicy,
+  semantic_check: evaluateSemanticCheckPolicy,
+  permission_escalation: evaluatePermissionEscalationPolicy,
+  green_contract: ({ rules, context }) => {
+    const actionTypes = rules.action_types || [];
+    if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
+    const observedLevel = context.intel?.green?.observed_level;
+    const requiredLevel = rules.required_level;
+    if (!observedLevel) {
+      return { action: rules.action || 'block', reason: `Green contract: no test status reported, ${requiredLevel} required` };
+    }
+    if (rankOf(GREEN_RANK, observedLevel, -1) < rankOf(GREEN_RANK, requiredLevel, 0)) {
+      return { action: rules.action || 'block', reason: `Green contract: observed ${observedLevel}, required ${requiredLevel}` };
+    }
+    return null;
+  },
+  branch_freshness: ({ rules, context }) => {
+    const actionTypes = rules.action_types || [];
+    if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
+    const branch = context.intel?.branch;
+    if (!branch) return null;
+    const triggerFreshness = rules.freshness || ['stale', 'diverged'];
+    if (triggerFreshness.includes(branch.freshness) && (branch.commits_behind ?? 0) > (rules.max_commits_behind ?? 0)) {
+      return { action: rules.action || 'block', reason: `Branch ${branch.name || 'unknown'} is ${branch.freshness} (${branch.commits_behind} commits behind)` };
+    }
+    return null;
+  },
+  x402_spend_limit: evaluateX402SpendLimitPolicy,
+};
 
 export async function evaluatePolicy(
   policy: PolicyRow,
@@ -556,349 +1100,17 @@ export async function evaluatePolicy(
   orgId: string,
   effectiveRiskScore: number,
 ): Promise<PolicyResult | null> {
-  switch (policy.policy_type) {
-    case 'risk_threshold': {
-      const threshold = rules.threshold ?? 80;
-      const riskScore = effectiveRiskScore != null
-        ? effectiveRiskScore
-        : Math.max(0, Math.min(Number(context.risk_score) || 0, 100));
-      if (riskScore >= threshold) {
-        return { action: rules.action || 'block', reason: `Risk score ${riskScore} >= threshold ${threshold}` };
-      }
-      return null;
-    }
-
-    case 'require_approval': {
-      const actionTypes = rules.action_types || [];
-      if (context.action_type !== undefined && actionTypes.includes(context.action_type)) {
-        return { action: 'require_approval', reason: `Action type "${context.action_type}" requires approval` };
-      }
-      return null;
-    }
-
-    case 'block_action_type': {
-      const actionTypes = rules.action_types || [];
-      if (context.action_type !== undefined && actionTypes.includes(context.action_type)) {
-        return { action: 'block', reason: `Action type "${context.action_type}" is blocked by policy` };
-      }
-      return null;
-    }
-
-    case 'protected_path': {
-      const paths = Array.isArray(rules.paths) ? rules.paths : [];
-      if (paths.length === 0) return null;
-      const candidates: string[] = [];
-      if (typeof context.target === 'string' && context.target) candidates.push(context.target);
-      if (Array.isArray(context.write_paths)) candidates.push(...(context.write_paths as string[]));
-      const hit = candidates.find((p) => matchesProtectedPath(p, paths));
-      if (hit) {
-        return { action: rules.action || 'require_approval', reason: `Protected path touched: ${hit}` };
-      }
-      return null;
-    }
-
-    case 'rate_limit': {
-      const maxActions = rules.max_actions || 50;
-      const windowMinutes = Math.max(1, Math.min(10080, parseInt(String(rules.window_minutes), 10) || 60));
-      const agentId = context.agent_id;
-      if (!agentId) return null;
-
-      const rows = await sql.query(
-        `SELECT COUNT(*) as cnt FROM action_records
-         WHERE org_id = $1 AND agent_id = $2
-         AND timestamp_start::timestamptz > NOW() - INTERVAL '1 minute' * $3`,
-        [orgId, agentId, windowMinutes]
-      );
-
-      const count = parseInt((rows[0]?.cnt as string) || '0', 10);
-      if (count >= maxActions) {
-        return { action: rules.action || 'warn', reason: `Agent performed ${count} actions in ${windowMinutes}min (limit: ${maxActions})` };
-      }
-      return null;
-    }
-
-    case 'webhook_check':
-      // Handled separately after local policy loop
-      return null;
-
-    case 'non_fabrication': {
-      const actionTypes = Array.isArray(rules.action_types) ? rules.action_types : null;
-      if (actionTypes && actionTypes.length > 0 && (context.action_type === undefined || !actionTypes.includes(context.action_type))) {
-        return null;
-      }
-
-      const contentPath = (typeof rules.content_path === 'string' && rules.content_path) || 'content';
-      const sourcePath = (typeof rules.source_path === 'string' && rules.source_path) || 'source_of_truth';
-      const onViolation = rules.on_violation === 'require_approval' ? 'require_approval' : 'block';
-      const stripPaths = [contentPath, sourcePath];
-
-      const content = getByPath(context, contentPath);
-      if (content == null || content === '') return null;
-
-      const issue = async (verifyResult: { verdict: string; violations: unknown[] }, source: unknown): Promise<unknown> => {
-        try {
-          const key = await getServerSigningKey(sql);
-          return issueReceipt(
-            // verifyResult's violations carry { code, label } at runtime — the loose
-            // `unknown[]` on the local lambda type is wider than ReceiptViolation[].
-            verifyResult as Parameters<typeof issueReceipt>[0],
-            String(content),
-            // issue() is only ever called after sourceValid confirms source has
-            // requiredFacts[]/allowedFacts[] (the SourceOfTruthLike shape).
-            source as Parameters<typeof issueReceipt>[2],
-            { kid: key.kid, privateKeyJwk: key.privateKeyJwk },
-            new Date().toISOString(),
-          );
-        } catch (e) {
-          console.warn('[Guard] non_fabrication receipt signing failed (verdict still enforced):', (e as Error).message);
-          return null;
-        }
-      };
-
-      const source = getByPath(context, sourcePath);
-      const sourceObj = source as { allowedFacts?: unknown; requiredFacts?: unknown } | null;
-      const sourceValid = Boolean(
-        sourceObj && typeof sourceObj === 'object' && !Array.isArray(sourceObj) &&
-        Array.isArray(sourceObj.allowedFacts) && Array.isArray(sourceObj.requiredFacts)
-      );
-
-      if (typeof content !== 'string' || !sourceValid) {
-        const verdict = {
-          verdict: 'block',
-          violations: [
-            sourceValid
-              ? { code: 'invalid_content', label: 'content' }
-              : { code: 'missing_source', label: 'source_of_truth' },
-          ],
-        };
-        const receipt = sourceValid && typeof content === 'string' ? await issue(verdict, source) : null;
-        return {
-          action: 'block',
-          reason: sourceValid
-            ? 'Non-fabrication: content is not verifiable text (fail-closed)'
-            : 'Non-fabrication: source-of-truth missing or malformed (fail-closed)',
-          nonFabrication: { policy_id: policy.id, verdict: 'block', violations: verdict.violations, receipt },
-          stripPaths,
-        };
-      }
-
-      // `sourceValid` (checked above) guarantees source has the SourceOfTruth shape
-      // (object with allowedFacts[] + requiredFacts[]) before we reach this point.
-      const verifyResult = verify(content, source as unknown as SourceOfTruth);
-      const receipt = await issue(verifyResult, source);
-
-      if (verifyResult.verdict === 'pass') {
-        return {
-          action: 'allow',
-          reason: 'Non-fabrication: pass',
-          nonFabrication: { policy_id: policy.id, verdict: 'pass', violations: [], receipt },
-          stripPaths,
-        };
-      }
-
-      const summary = verifyResult.violations
-        .map((v: { detail?: string; label: string; code: string }) => (v.detail ? `${v.label}: ${v.detail}` : v.code === 'missing_required' ? `missing ${v.label}` : v.label))
-        .slice(0, 5)
-        .join(', ');
-      return {
-        action: onViolation,
-        reason: `Non-fabrication: ${verifyResult.violations[0]?.code} (${summary})`,
-        nonFabrication: { policy_id: policy.id, verdict: 'block', violations: verifyResult.violations, receipt },
-        stripPaths,
-      };
-    }
-
-    case 'behavioral_anomaly': {
-      if (!isEmbeddingsEnabled()) {
-        console.warn('[Guard] behavioral_anomaly policy skipped: No OpenAI API Key configured.');
-        return null;
-      }
-      const threshold = rules.similarity_threshold ?? 0.75;
-      const minHistory = rules.min_history ?? 5;
-      const agentId = context.agent_id;
-      if (!agentId) return null;
-
-      let historyCount = 0;
-      try {
-        const countRows = await sql`
-          SELECT COUNT(*)::int AS count
-          FROM action_embeddings
-          WHERE org_id = ${orgId} AND agent_id = ${agentId}
-        `;
-        historyCount = (countRows[0]?.count as number | undefined) ?? 0;
-      } catch (err) {
-        const msg = (err as Error)?.message;
-        if (msg?.includes('does not exist') || msg?.includes('vector')) {
-          console.warn('[Guard] action_embeddings missing or pgvector unavailable. Skipping anomaly detection.');
-          return null;
-        }
-        throw err;
-      }
-      if (historyCount < minHistory) return null;
-
-      // GuardEvalContext's loosely-typed fields (systems_touched: unknown) are
-      // read defensively inside generateActionEmbedding; runtime shape is compatible.
-      const embedding = await generateActionEmbedding(context as Parameters<typeof generateActionEmbedding>[0]);
-      if (!embedding) return null;
-
-      const similarityQuery = `
-        SELECT 1 - (embedding <=> $1::vector) as similarity
-        FROM action_embeddings
-        WHERE org_id = $2 AND agent_id = $3
-        ORDER BY similarity DESC
-        LIMIT 1
-      `;
-
-      try {
-        const rows = await sql.query(similarityQuery, [JSON.stringify(embedding), orgId, agentId]);
-
-        if (rows.length === 0) {
-          return null;
-        }
-
-        const maxSimilarity = Number(rows[0]?.similarity);
-        if (maxSimilarity < threshold) {
-          return {
-            action: rules.action || 'require_approval',
-            reason: `Behavioral Anomaly: Action similarity (${(maxSimilarity * 100).toFixed(1)}%) is below the safety threshold (${(threshold * 100).toFixed(0)}%).`,
-          };
-        }
-      } catch (err) {
-        const msg = (err as Error).message;
-        if (msg?.includes('vector') || msg?.includes('does not exist')) {
-          console.warn('[Guard] pgvector not enabled or table missing. Skipping anomaly detection.');
-          return null;
-        }
-        throw err;
-      }
-      return null;
-    }
-
-    case 'semantic_check': {
-      const instruction = rules.instruction;
-      if (!instruction) return null;
-
-      const globalFallback = process.env.DASHCLAW_GUARD_FALLBACK || 'allow';
-      const fallback = rules.fallback || globalFallback;
-      const model = rules.model || 'gpt-4o-mini';
-
-      const hasLlmKey = !!(process.env.GUARD_LLM_KEY || process.env.OPENAI_API_KEY);
-      if (!hasLlmKey) {
-        console.warn('[Guard] semantic_check policy skipped: No GUARD_LLM_KEY or OPENAI_API_KEY configured. Requiring approval as safe fallback.');
-        return { action: 'require_approval', reason: 'Semantic check unavailable (no LLM key configured) — human review required' };
-      }
-
-      // checkSemanticGuardrail returns the parsed LLM JSON ({ allowed, reason }) or null.
-      const result = (await checkSemanticGuardrail(context, instruction, model)) as { allowed?: boolean; reason?: string } | null;
-
-      if (!result) {
-        if (fallback === 'block') {
-          return { action: 'block', reason: 'Semantic check failed (fallback: block)' };
-        }
-        if (fallback === 'require_approval') {
-          return { action: 'require_approval', reason: 'Semantic check failed (fallback: require_approval)' };
-        }
-        return null; // fallback === 'allow' — pass-through
-      }
-
-      if (result.allowed === false) {
-        return { action: 'block', reason: `Semantic Violation: ${result.reason}` };
-      }
-      return null;
-    }
-
-    case 'permission_escalation': {
-      if (!rules.enforce) return null;
-      const toolPerm = context.intel?.tool?.required_permission ?? context.tool?.required_permission;
-      if (!toolPerm) return null;
-      const pairingBaseId = baseAgentId(context.agent_id) || context.agent_id;
-      const [pairing] = await sql`
-        SELECT permission_level FROM agent_pairings
-        WHERE org_id = ${orgId} AND agent_id IN (${context.agent_id}, ${pairingBaseId}) AND status = 'approved'
-        ORDER BY (agent_id = ${context.agent_id}) DESC, created_at DESC LIMIT 1
-      `;
-      const agentLevel = (pairing?.permission_level as string | undefined) || 'danger';
-      const PERM_RANK: Record<string, number> = { readonly: 0, workspace_write: 1, danger: 2, prompt: 3, allow: 4 };
-      if (rankOf(PERM_RANK, toolPerm, 0) > rankOf(PERM_RANK, agentLevel, 0)) {
-        return { action: rules.action || 'block', reason: `Permission escalation: agent has ${agentLevel}, tool requires ${toolPerm}` };
-      }
-      return null;
-    }
-
-    case 'green_contract': {
-      const actionTypes = rules.action_types || [];
-      if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
-      const observedLevel = context.intel?.green?.observed_level;
-      const requiredLevel = rules.required_level;
-      const GREEN_RANK: Record<string, number> = { targeted: 0, package: 1, workspace: 2, merge_ready: 3 };
-      if (!observedLevel) {
-        return { action: rules.action || 'block', reason: `Green contract: no test status reported, ${requiredLevel} required` };
-      }
-      if (rankOf(GREEN_RANK, observedLevel, -1) < rankOf(GREEN_RANK, requiredLevel, 0)) {
-        return { action: rules.action || 'block', reason: `Green contract: observed ${observedLevel}, required ${requiredLevel}` };
-      }
-      return null;
-    }
-
-    case 'branch_freshness': {
-      const actionTypes = rules.action_types || [];
-      if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
-      const branch = context.intel?.branch;
-      if (!branch) return null;
-      const triggerFreshness = rules.freshness || ['stale', 'diverged'];
-      if (triggerFreshness.includes(branch.freshness)) {
-        const maxBehind = rules.max_commits_behind ?? 0;
-        if ((branch.commits_behind ?? 0) > maxBehind) {
-          return { action: rules.action || 'block', reason: `Branch ${branch.name || 'unknown'} is ${branch.freshness} (${branch.commits_behind} commits behind)` };
-        }
-      }
-      return null;
-    }
-
-    case 'x402_spend_limit': {
-      if (context.action_type !== 'x402_purchase') return null;
-      const maxSpend = rules.max_spend_usd ?? Infinity;
-      const approvalThreshold = rules.approval_threshold ?? Infinity;
-      const allowed = Array.isArray(rules.allowed_providers) ? rules.allowed_providers : [];
-      const blocked = Array.isArray(rules.blocked_providers) ? rules.blocked_providers : [];
-      const provider = context.provider || context.vendor || 'unknown';
-      const providerId = context.provider_id || null;
-      const inList = (list: string[]): boolean => list.includes(provider) || (providerId != null && list.includes(providerId));
-      const spend = Number(context.cost_estimate ?? context.cost ?? 0) || 0;
-
-      if (inList(blocked)) {
-        return { action: 'block', reason: `Provider "${provider}" is blocked by policy` };
-      }
-      if (allowed.length > 0 && !inList(allowed)) {
-        return { action: 'block', reason: `Provider "${provider}" not in approved list` };
-      }
-      if (spend > maxSpend) {
-        return { action: 'block', reason: `Spend $${spend.toFixed(4)} exceeds max $${maxSpend}` };
-      }
-      if (spend >= approvalThreshold) {
-        return { action: 'require_approval', reason: `Spend $${spend.toFixed(4)} >= approval threshold $${approvalThreshold}` };
-      }
-      return null;
-    }
-
-    default:
-      return null;
-  }
+  const evaluator = POLICY_EVALUATORS[policy.policy_type];
+  if (!evaluator) return null;
+  return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
 }
 
 /**
  * Evaluate a webhook_check policy by calling the customer's endpoint.
  * Customer decision can only upgrade severity (never downgrade).
  */
-export async function evaluateWebhookPolicy(
-  policy: PolicyRow,
-  rules: PolicyRules,
-  context: GuardEvalContext,
-  orgId: string,
-  sql: GuardSql,
-  preliminary: Preliminary,
-): Promise<PolicyResult | null> {
-  const payload = {
+function buildWebhookPayload(context: GuardEvalContext, orgId: string, preliminary: Preliminary) {
+  return {
     event: 'guard.evaluation',
     org_id: orgId,
     timestamp: new Date().toISOString(),
@@ -915,7 +1127,59 @@ export async function evaluateWebhookPolicy(
     reasons: preliminary.reasons,
     warnings: preliminary.warnings,
   };
+}
 
+function parseCustomerLists(resp: { reasons?: unknown; warnings?: unknown }, policyName: string) {
+  const customerReasons: string[] = Array.isArray(resp.reasons) ? resp.reasons : [];
+  const customerWarnings: string[] = Array.isArray(resp.warnings)
+    ? resp.warnings.map((w: string) => `${policyName} (webhook): ${w}`)
+    : [];
+  return { customerReasons, customerWarnings };
+}
+
+// A customer decision escalates only when it is a known severity strictly above
+// the preliminary decision (it can upgrade, never downgrade).
+function isWebhookEscalation(decision: string | undefined, preliminaryDecision: string): decision is string {
+  return !!decision && hasSev(decision) && sevOf(decision) > sevOf(preliminaryDecision);
+}
+
+// Interpret a webhook response. Customer decision can only upgrade severity
+// (never downgrade); otherwise pass through warnings as a warn-level result.
+function interpretWebhookResponse(
+  result: { success?: boolean; response?: unknown },
+  policy: PolicyRow,
+  preliminary: Preliminary,
+  onTimeout: string,
+): PolicyResult | null {
+  if (!result.success || !result.response) {
+    return onTimeout === 'block'
+      ? { action: 'block', reason: 'Webhook check failed or timed out (on_timeout: block)' }
+      : null; // fail-open
+  }
+
+  const resp = result.response as { decision?: string; reasons?: unknown; warnings?: unknown };
+  const { customerReasons, customerWarnings } = parseCustomerLists(resp, policy.name);
+
+  if (isWebhookEscalation(resp.decision, preliminary.decision)) {
+    const reason = customerReasons.length > 0 ? customerReasons.join('; ') : `Webhook escalated to ${resp.decision}`;
+    return { action: resp.decision, reason: `${policy.name} (webhook): ${reason}`, extraWarnings: customerWarnings };
+  }
+
+  if (customerWarnings.length > 0) {
+    return { action: 'warn', reason: customerWarnings[0] as string, extraWarnings: customerWarnings.slice(1) };
+  }
+  return null;
+}
+
+export async function evaluateWebhookPolicy(
+  policy: PolicyRow,
+  rules: PolicyRules,
+  context: GuardEvalContext,
+  orgId: string,
+  sql: GuardSql,
+  preliminary: Preliminary,
+): Promise<PolicyResult | null> {
+  const payload = buildWebhookPayload(context, orgId, preliminary);
   const timeoutMs = rules.timeout_ms || 5000;
   const onTimeout = rules.on_timeout || 'allow';
 
@@ -932,34 +1196,5 @@ export async function evaluateWebhookPolicy(
     sql,
   });
 
-  if (!result.success || !result.response) {
-    if (onTimeout === 'block') {
-      return { action: 'block', reason: 'Webhook check failed or timed out (on_timeout: block)' };
-    }
-    return null; // fail-open
-  }
-
-  const resp = result.response as { decision?: string; reasons?: unknown; warnings?: unknown };
-  const customerDecision = resp.decision;
-
-  const customerReasons: string[] = Array.isArray(resp.reasons) ? resp.reasons : [];
-  const customerWarnings: string[] = Array.isArray(resp.warnings)
-    ? resp.warnings.map((w: string) => `${policy.name} (webhook): ${w}`)
-    : [];
-
-  // Only accept valid decisions that are more restrictive than preliminary
-  if (customerDecision && hasSev(customerDecision)) {
-    if (sevOf(customerDecision) > sevOf(preliminary.decision)) {
-      const reason = customerReasons.length > 0
-        ? customerReasons.join('; ')
-        : `Webhook escalated to ${customerDecision}`;
-      return { action: customerDecision, reason: `${policy.name} (webhook): ${reason}`, extraWarnings: customerWarnings };
-    }
-  }
-
-  // Customer response doesn't escalate — return warnings only (as a warn-level result)
-  if (customerWarnings.length > 0) {
-    return { action: 'warn', reason: customerWarnings[0] as string, extraWarnings: customerWarnings.slice(1) };
-  }
-  return null;
+  return interpretWebhookResponse(result, policy, preliminary, onTimeout);
 }
