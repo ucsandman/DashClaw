@@ -395,8 +395,12 @@ class TestStopHook(unittest.TestCase):
         )
         self.assertEqual(code, 0, msg=err)
 
-        # Hook must not GET — server-side gating replaced the GET+PATCH pair.
-        gets = [r for r in self.log.get_all() if r["method"] == "GET"]
+        # Hook must not GET action status — server-side gating replaced the
+        # action GET+PATCH pair. The behavior-recorder config may still be read.
+        gets = [
+            r for r in self.log.get_all()
+            if r["method"] == "GET" and r["path"].startswith("/api/actions/")
+        ]
         self.assertEqual(gets, [], "Stop hook should no longer GET action status")
 
         patches = sorted(

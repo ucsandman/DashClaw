@@ -56,6 +56,25 @@ _SECRET_PATTERNS = [
 _server_config_cache = None
 
 
+def _fetch_recorder_config(base, key):
+    """Perform the actual HTTP GET for the recorder config. Returns a normalized
+    {"enabled": bool, "until": ...} dict, or {} on any failure. Stdlib only."""
+    try:
+        import urllib.request
+
+        req = urllib.request.Request(
+            base + "/api/behavior/recorder",
+            headers={"x-api-key": key, "accept": "application/json"},
+        )
+        with urllib.request.urlopen(req, timeout=1.5) as resp:
+            data = json.loads(resp.read().decode("utf-8"))
+        if isinstance(data, dict):
+            return {"enabled": bool(data.get("enabled")), "until": data.get("until")}
+    except Exception:
+        pass
+    return {}
+
+
 def _server_recorder_config():
     """Fetch the org's recorder config from the DashClaw server, once per
     process. Fail-safe: any error (no creds, unreachable, bad JSON, timeout)
@@ -68,22 +87,7 @@ def _server_recorder_config():
     key = os.environ.get("DASHCLAW_API_KEY") or ""
     if not base or not key:
         return _server_config_cache
-    try:
-        import urllib.request
-
-        req = urllib.request.Request(
-            base + "/api/behavior/recorder",
-            headers={"x-api-key": key, "accept": "application/json"},
-        )
-        with urllib.request.urlopen(req, timeout=1.5) as resp:
-            data = json.loads(resp.read().decode("utf-8"))
-        if isinstance(data, dict):
-            _server_config_cache = {
-                "enabled": bool(data.get("enabled")),
-                "until": data.get("until"),
-            }
-    except Exception:
-        _server_config_cache = {}
+    _server_config_cache = _fetch_recorder_config(base, key)
     return _server_config_cache
 
 
@@ -143,18 +147,49 @@ def redact_text(value):
     return out
 
 
+def _strip_home_prefix(p):
+    """Replace a leading home-directory prefix with ``~``."""
+    home = os.path.expanduser("~").replace("\\", "/")
+    if home and p.startswith(home):
+        return "~" + p[len(home):]
+    return p
+
+
+def _relativize_workspace(p, workspace=None):
+    """Make a path workspace-relative when it lives under the workspace root."""
+    ws = (workspace or os.environ.get("DASHCLAW_WORKSPACE") or "").replace("\\", "/")
+    if ws and p.startswith(ws):
+        return p[len(ws):].lstrip("/") or "."
+    return p
+
+
 def redact_path(path, workspace=None):
     """Normalize, home-strip, workspace-relativize, and scrub a path."""
     if not path:
         return None
     p = str(path).replace("\\", "/")
-    home = os.path.expanduser("~").replace("\\", "/")
-    if home and p.startswith(home):
-        p = "~" + p[len(home):]
-    ws = (workspace or os.environ.get("DASHCLAW_WORKSPACE") or "").replace("\\", "/")
-    if ws and p.startswith(ws):
-        p = p[len(ws):].lstrip("/") or "."
+    p = _strip_home_prefix(p)
+    p = _relativize_workspace(p, workspace)
     return redact_text(p)
+
+
+def _looks_like_path(tok):
+    """True for an operand that should be masked as ``<path>`` (a slash-bearing,
+    home-relative, or variable-expanded token)."""
+    return "/" in tok or "\\" in tok or tok.startswith("~") or tok.startswith("$")
+
+
+def _shape_token(tok):
+    """Reduce one command token to its secret-free shape."""
+    if tok.startswith("<REDACTED:"):
+        return tok
+    if tok.startswith("-"):
+        return tok.split("=")[0]  # keep flag name, drop value
+    if re.match(r"^https?://", tok):
+        return "<url>"
+    if _looks_like_path(tok):
+        return "<path>"
+    return tok
 
 
 def command_shape(command, workspace=None):
@@ -165,21 +200,8 @@ def command_shape(command, workspace=None):
     if not command:
         return None
     scrubbed = redact_text(command)
-    tokens = scrubbed.split()
-    shaped = []
-    for tok in tokens[:12]:
-        if tok.startswith("<REDACTED:"):
-            shaped.append(tok)
-        elif tok.startswith("-"):
-            shaped.append(tok.split("=")[0])  # keep flag name, drop value
-        elif re.match(r"^https?://", tok):
-            shaped.append("<url>")
-        elif "/" in tok or "\\" in tok or tok.startswith("~") or tok.startswith("$"):
-            shaped.append("<path>")
-        else:
-            shaped.append(tok)
-    out = " ".join(shaped)
-    return out[:120]
+    shaped = [_shape_token(tok) for tok in scrubbed.split()[:12]]
+    return " ".join(shaped)[:120]
 
 
 # ── Sample construction ───────────────────────────────────────────────────────
@@ -202,66 +224,147 @@ def _detect_model():
     return None
 
 
-def build_pre_sample(tool_name, tool_input, context, guard_resp, decision, workspace=None):
-    """Assemble the pre-execution portion of a sample dict (already redacted)."""
-    intel = (context or {}).get("intel") or {}
-    bash_intel = intel.get("bash") or {}
-    write_paths = []
-    read_paths = []
-
+def _resolve_sample_paths(tool_name, tool_input, context, workspace=None):
+    """Return ``(read_paths, write_paths)`` for the tool, each a redacted list
+    (0 or 1 entries). Mirrors the original elif ladder exactly."""
     if tool_name in _FILE_WRITE_TOOLS:
-        p = tool_input.get("file_path") or tool_input.get("path") or tool_input.get("notebook_path")
-        rp = redact_path(p, workspace)
-        if rp:
-            write_paths.append(rp)
-    elif tool_name in _FILE_READ_TOOLS:
-        p = tool_input.get("file_path") or tool_input.get("notebook_path")
-        rp = redact_path(p, workspace)
-        if rp:
-            read_paths.append(rp)
-    elif tool_name == "Bash" and context.get("target"):
-        rp = redact_path(context.get("target"), workspace)
-        if rp:
-            write_paths.append(rp)
-
-    cmd_shape = None
+        return [], _one_redacted_path(_first_value(tool_input, ("file_path", "path", "notebook_path")), workspace)
+    if tool_name in _FILE_READ_TOOLS:
+        return _one_redacted_path(_first_value(tool_input, ("file_path", "notebook_path")), workspace), []
     if tool_name == "Bash":
-        cmd_shape = command_shape(tool_input.get("command"), workspace)
+        return [], _one_redacted_path(context.get("target"), workspace)
+    return [], []
 
+
+def _first_value(source, keys):
+    for key in keys:
+        value = source.get(key)
+        if value:
+            return value
+    return None
+
+
+def _one_redacted_path(path, workspace=None):
+    rp = redact_path(path, workspace)
+    return [rp] if rp else []
+
+
+def _context_field(context, key, default=None):
+    value = context.get(key)
+    return default if value is None else value
+
+
+def _tool_category(context):
+    return ((context.get("tool") or {}).get("category")) or None
+
+
+def _sample_identity(context, workspace):
     ws = workspace or os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
     return {
+        "session_id": context.get("swarm_id") or None,
+        "agent_id": context.get("agent_id") or "claude-code",
+        "agent_name": context.get("agent_name") or None,
+        "project": os.path.basename(os.path.normpath(ws)) or None,
+    }
+
+
+def _command_shape_for(tool_name, tool_input, workspace=None):
+    return command_shape(tool_input.get("command"), workspace) if tool_name == "Bash" else None
+
+
+def _sample_static_fields(tool_name, context, workspace):
+    sample = {
         "schema_version": 1,
         "event_id": "bse_" + uuid.uuid4().hex[:16],
         "ts": _now_iso(),
         "source": "claude-code",
-        "session_id": context.get("swarm_id") or None,
-        "agent_id": context.get("agent_id") or "claude-code",
-        "agent_name": context.get("agent_name") or None,
         "model": _detect_model(),
-        "project": os.path.basename(os.path.normpath(ws)) or None,
         "tool": tool_name,
-        "tool_category": ((context.get("tool") or {}).get("category")) or None,
-        "action_type": context.get("action_type") or "other",
-        "command_shape": cmd_shape,
+        "tool_category": _tool_category(context),
+    }
+    sample.update(_sample_identity(context, workspace))
+    return sample
+
+
+def _sample_intel_fields(tool_name, tool_input, context, intel, workspace):
+    bash_intel = intel.get("bash") or {}
+    read_paths, write_paths = _resolve_sample_paths(tool_name, tool_input, context, workspace)
+    return {
+        "command_shape": _command_shape_for(tool_name, tool_input, workspace),
         "bash_intent": bash_intel.get("intent"),
         "read_paths": read_paths,
         "write_paths": write_paths,
-        "risk_score": context.get("risk_score"),
-        "reversible": context.get("reversible"),
+        "sensitive_path": bool((intel.get("file") or {}).get("sensitive_path")),
+    }
+
+
+def _sample_governance_fields(context, guard_resp, decision):
+    return {
+        "action_type": _context_field(context, "action_type", "other"),
+        "risk_score": _context_field(context, "risk_score"),
+        "reversible": _context_field(context, "reversible"),
         "guard_decision": decision or "allow",
         "matched_policies": (guard_resp or {}).get("matched_policies") or [],
+    }
+
+
+def _sample_outcome_fields():
+    return {
         "outcome_status": "running",
         "error_type": None,
         "duration_ms": None,
         "action_id": None,
-        "sensitive_path": bool((intel.get("file") or {}).get("sensitive_path")),
     }
+
+
+def build_pre_sample(tool_name, tool_input, context, guard_resp, decision, workspace=None):
+    """Assemble the pre-execution portion of a sample dict (already redacted)."""
+    intel = (context or {}).get("intel") or {}
+    sample = _sample_static_fields(tool_name, context, workspace)
+    sample.update(_sample_intel_fields(tool_name, tool_input, context, intel, workspace))
+    sample.update(_sample_governance_fields(context, guard_resp, decision))
+    sample.update(_sample_outcome_fields())
+    return sample
 
 
 # ── Pending bridge (pretool → posttool) ───────────────────────────────────────
 
 def _pending_path(tool_use_id):
     return os.path.join(tempfile.gettempdir(), _PENDING_PREFIX + (tool_use_id or "unknown"))
+
+
+def _load_pending(path):
+    """Read and JSON-decode a pending sample file. Returns the dict, or None when
+    the file is missing or unparseable."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.loads(f.read())
+    except (OSError, ValueError):
+        return None
+
+
+def _remove_quietly(path):
+    """Delete a file, swallowing OS errors."""
+    try:
+        os.remove(path)
+    except OSError:
+        pass
+
+
+def _elapsed_ms(start_ms):
+    """Milliseconds since ``start_ms`` (clamped at 0), or None when unset."""
+    if not start_ms:
+        return None
+    return max(0, int(time.time() * 1000) - int(start_ms))
+
+
+def _remove_if_stale(path, now):
+    """Remove a pending file if it is older than the TTL. Best-effort."""
+    try:
+        if now - os.path.getmtime(path) > _PENDING_TTL_SECONDS:
+            os.remove(path)
+    except OSError:
+        pass
 
 
 def _sweep_stale_pending():
@@ -273,12 +376,7 @@ def _sweep_stale_pending():
         for name in os.listdir(tmp):
             if not name.startswith(_PENDING_PREFIX):
                 continue
-            path = os.path.join(tmp, name)
-            try:
-                if now - os.path.getmtime(path) > _PENDING_TTL_SECONDS:
-                    os.remove(path)
-            except OSError:
-                pass
+            _remove_if_stale(os.path.join(tmp, name), now)
     except Exception:
         pass
 
@@ -333,24 +431,19 @@ def record_post(tool_use_id, status, outcome_metadata=None, action_id=None, work
         return
     try:
         path = _pending_path(tool_use_id)
-        try:
-            with open(path, "r", encoding="utf-8") as f:
-                sample = json.loads(f.read())
-        except (OSError, ValueError):
+        sample = _load_pending(path)
+        if sample is None:
             return
         start_ms = sample.pop("_start_ms", None)
         sample["outcome_status"] = "completed" if status == "completed" else "failed"
-        meta = outcome_metadata or {}
-        sample["error_type"] = meta.get("error_type")
-        if start_ms:
-            sample["duration_ms"] = max(0, int(time.time() * 1000) - int(start_ms))
+        sample["error_type"] = (outcome_metadata or {}).get("error_type")
+        elapsed = _elapsed_ms(start_ms)
+        if elapsed is not None:
+            sample["duration_ms"] = elapsed
         if action_id:
             sample["action_id"] = action_id
         append_sample(sample, workspace)
-        try:
-            os.remove(path)
-        except OSError:
-            pass
+        _remove_quietly(path)
         _sweep_stale_pending()
     except Exception:
         pass
@@ -377,23 +470,23 @@ def record_stop(workspace=None):
         for name in names:
             if not name.startswith(_PENDING_PREFIX):
                 continue
-            path = os.path.join(tmp, name)
-            try:
-                with open(path, "r", encoding="utf-8") as f:
-                    sample = json.loads(f.read())
-            except (OSError, ValueError):
-                continue
-            start_ms = sample.pop("_start_ms", None)
-            sample["outcome_status"] = "interrupted"
-            if start_ms:
-                sample["duration_ms"] = max(0, int(time.time() * 1000) - int(start_ms))
-            append_sample(sample, workspace)
-            try:
-                os.remove(path)
-            except OSError:
-                pass
+            _flush_interrupted(os.path.join(tmp, name), workspace)
     except Exception:
         pass
+
+
+def _flush_interrupted(path, workspace=None):
+    """Finalize one stranded pending sample as ``interrupted`` and remove it."""
+    sample = _load_pending(path)
+    if sample is None:
+        return
+    start_ms = sample.pop("_start_ms", None)
+    sample["outcome_status"] = "interrupted"
+    elapsed = _elapsed_ms(start_ms)
+    if elapsed is not None:
+        sample["duration_ms"] = elapsed
+    append_sample(sample, workspace)
+    _remove_quietly(path)
 
 
 # ── Insights snapshot (safe aggregate for hosted display) ──────────────────────
@@ -427,6 +520,38 @@ def _pick_final_insight(a, b):
     return b if _ts_seconds(b) >= _ts_seconds(a) else a
 
 
+def _parse_sample_line(line):
+    """Parse one JSONL line into a valid sample dict, or None when the line is
+    blank, unparseable, or missing the required event_id/agent_id keys."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        obj = json.loads(line)
+    except Exception:
+        return None
+    if obj.get("event_id") and obj.get("agent_id"):
+        return obj
+    return None
+
+
+def _append_day_samples(path, out):
+    """Append valid samples from one day-file into ``out`` (in place). Returns
+    True once the global line cap is reached so the caller can stop early."""
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                obj = _parse_sample_line(line)
+                if obj is None:
+                    continue
+                out.append(obj)
+                if len(out) >= _INSIGHTS_MAX_LINES:
+                    return True
+    except OSError:
+        pass
+    return False
+
+
 def _read_recent_samples(workspace=None, window_days=7):
     """Read recent JSONL samples (newest day-files first, capped). Stdlib only."""
     directory = samples_dir(workspace)
@@ -439,48 +564,24 @@ def _read_recent_samples(workspace=None, window_days=7):
         names = names[:window_days]
     out = []
     for name in names:
-        path = os.path.join(directory, name)
-        try:
-            with open(path, encoding="utf-8") as f:
-                for line in f:
-                    line = line.strip()
-                    if not line:
-                        continue
-                    try:
-                        obj = json.loads(line)
-                    except Exception:
-                        continue
-                    if obj.get("event_id") and obj.get("agent_id"):
-                        out.append(obj)
-                        if len(out) >= _INSIGHTS_MAX_LINES:
-                            return out
-        except OSError:
-            continue
+        if _append_day_samples(os.path.join(directory, name), out):
+            break
     return out
 
 
-def build_insights(workspace=None, window_days=7):
-    """Compute the SAFE aggregate snapshot from local samples.
-
-    Returns a dict ready to POST to /api/behavior/insights, or None when there
-    are no samples. Counts only — never command shapes, paths, or goals."""
-    raw = _read_recent_samples(workspace, window_days)
-    if not raw:
-        return None
-
-    # Collapse running+finalized records that share an event_id so a pre/post
-    # pair counts once (matches the dashboard's merge-on-read semantics).
+def _merge_by_event_id(raw):
+    """Collapse running+finalized records sharing an event_id so a pre/post pair
+    counts once (matches the dashboard's merge-on-read semantics)."""
     by_id = {}
     for s in raw:
         eid = str(s.get("event_id"))
         existing = by_id.get(eid)
         by_id[eid] = s if existing is None else _pick_final_insight(existing, s)
-    merged = list(by_id.values())
-    if not merged:
-        return None
+    return list(by_id.values())
 
-    agents = {}
-    signals = {
+
+def _empty_signals():
+    return {
         "destructive_commands": 0,
         "protected_path_writes": 0,
         "failed_actions": 0,
@@ -488,52 +589,85 @@ def build_insights(workspace=None, window_days=7):
         "blocked": 0,
         "approvals": 0,
     }
+
+
+def _get_or_create_agent(agents, agent_id):
+    """Fetch the running per-agent tally, creating it on first sight."""
+    a = agents.get(agent_id)
+    if a is None:
+        a = {"agent_id": agent_id, "count": 0, "destructive": 0,
+             "protected_writes": 0, "failed": 0, "_tools": set()}
+        agents[agent_id] = a
+    return a
+
+
+def _is_high_risk(sample):
+    """True when the sample's risk_score meets the high-risk threshold."""
+    try:
+        return float(sample.get("risk_score") or 0) >= _HIGH_RISK_THRESHOLD
+    except (TypeError, ValueError):
+        return False
+
+
+def _accumulate_tool(sample, agent):
+    tool = sample.get("tool")
+    if tool:
+        agent["_tools"].add(tool)
+
+
+def _accumulate_intent_signals(sample, agent, signals):
+    if sample.get("bash_intent") == "destructive":
+        agent["destructive"] += 1
+        signals["destructive_commands"] += 1
+    if sample.get("sensitive_path"):
+        agent["protected_writes"] += 1
+        signals["protected_path_writes"] += 1
+
+
+def _accumulate_status_signals(sample, agent, signals):
+    status = sample.get("outcome_status")
+    if status == "failed":
+        agent["failed"] += 1
+        signals["failed_actions"] += 1
+    elif status == "blocked":
+        signals["blocked"] += 1
+
+
+def _accumulate_guard_signals(sample, signals):
+    if sample.get("guard_decision") == "require_approval":
+        signals["approvals"] += 1
+    if _is_high_risk(sample):
+        signals["high_risk_actions"] += 1
+
+
+def _accumulate_sample(s, agents, signals):
+    """Fold one merged sample into the per-agent tallies and signal counters."""
+    a = _get_or_create_agent(agents, s.get("agent_id") or "unknown")
+    a["count"] += 1
+    _accumulate_tool(s, a)
+    _accumulate_intent_signals(s, a, signals)
+    _accumulate_status_signals(s, a, signals)
+    _accumulate_guard_signals(s, signals)
+
+
+def _ts_span(samples):
+    """Return ``(oldest_ts, newest_ts)`` across samples (lexicographic ISO
+    compare, matching the original)."""
     oldest = None
     newest = None
-
-    for s in merged:
-        agent_id = s.get("agent_id") or "unknown"
-        a = agents.get(agent_id)
-        if a is None:
-            a = {"agent_id": agent_id, "count": 0, "destructive": 0,
-                 "protected_writes": 0, "failed": 0, "_tools": set()}
-            agents[agent_id] = a
-        a["count"] += 1
-
+    for s in samples:
         ts = s.get("ts")
-        if ts:
-            if oldest is None or ts < oldest:
-                oldest = ts
-            if newest is None or ts > newest:
-                newest = ts
+        if not ts:
+            continue
+        if oldest is None or ts < oldest:
+            oldest = ts
+        if newest is None or ts > newest:
+            newest = ts
+    return oldest, newest
 
-        tool = s.get("tool")
-        if tool:
-            a["_tools"].add(tool)
 
-        if s.get("bash_intent") == "destructive":
-            a["destructive"] += 1
-            signals["destructive_commands"] += 1
-        if s.get("sensitive_path"):
-            a["protected_writes"] += 1
-            signals["protected_path_writes"] += 1
-
-        status = s.get("outcome_status")
-        if status == "failed":
-            a["failed"] += 1
-            signals["failed_actions"] += 1
-        elif status == "blocked":
-            signals["blocked"] += 1
-
-        if s.get("guard_decision") == "require_approval":
-            signals["approvals"] += 1
-
-        try:
-            if float(s.get("risk_score") or 0) >= _HIGH_RISK_THRESHOLD:
-                signals["high_risk_actions"] += 1
-        except (TypeError, ValueError):
-            pass
-
+def _build_agent_list(agents):
+    """Project the per-agent tallies into the public, count-sorted, capped list."""
     agent_list = [
         {
             "agent_id": a["agent_id"],
@@ -546,21 +680,45 @@ def build_insights(workspace=None, window_days=7):
         for a in agents.values()
     ]
     agent_list.sort(key=lambda x: x["count"], reverse=True)
-    agent_list = agent_list[:_INSIGHTS_MAX_AGENTS]
+    return agent_list[:_INSIGHTS_MAX_AGENTS]
 
+
+def _host_label():
+    """Best-effort, length-bounded hostname for the insights snapshot."""
     try:
-        host_label = (socket.gethostname() or "")[:64] or None
+        return (socket.gethostname() or "")[:64] or None
     except Exception:
-        host_label = None
+        return None
+
+
+def build_insights(workspace=None, window_days=7):
+    """Compute the SAFE aggregate snapshot from local samples.
+
+    Returns a dict ready to POST to /api/behavior/insights, or None when there
+    are no samples. Counts only — never command shapes, paths, or goals."""
+    raw = _read_recent_samples(workspace, window_days)
+    if not raw:
+        return None
+
+    merged = _merge_by_event_id(raw)
+    if not merged:
+        return None
+
+    agents = {}
+    signals = _empty_signals()
+    for s in merged:
+        _accumulate_sample(s, agents, signals)
+
+    oldest, newest = _ts_span(merged)
 
     return {
         "schema_version": 1,
-        "host_label": host_label,
+        "host_label": _host_label(),
         "window_days": window_days,
         "sample_count": len(merged),
         "agent_count": len(agents),
         "oldest_ts": oldest,
         "newest_ts": newest,
         "signals": signals,
-        "agents": agent_list,
+        "agents": _build_agent_list(agents),
     }

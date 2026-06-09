@@ -25,6 +25,28 @@ import urllib.error
 # Values already in the environment take precedence.
 # ---------------------------------------------------------------------------
 
+def _apply_env_line(line):
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return
+    key, _, val = line.partition("=")
+    key = key.strip()
+    val = val.strip().strip('"').strip("'")
+    if " #" in val:
+        val = val[:val.index(" #")].strip()
+    if key and key not in os.environ:
+        os.environ[key] = val
+
+
+def _apply_env_file(env_path):
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                _apply_env_line(line)
+    except FileNotFoundError:
+        return
+
+
 def _load_dotenv():
     # Test isolation escape hatch: when DASHCLAW_DISABLE_DOTENV is set, skip
     # the .env walk entirely so the subprocess only sees env vars the test
@@ -43,21 +65,7 @@ def _load_dotenv():
             if env_path in tried:
                 continue
             tried.add(env_path)
-            try:
-                with open(env_path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        key, _, val = line.partition("=")
-                        key = key.strip()
-                        val = val.strip().strip('"').strip("'")
-                        if " #" in val:
-                            val = val[:val.index(" #")].strip()
-                        if key and key not in os.environ:
-                            os.environ[key] = val
-            except FileNotFoundError:
-                continue
+            _apply_env_file(env_path)
         parent = os.path.dirname(current)
         if parent == current:
             break
@@ -182,6 +190,37 @@ def get_action(action_id):
 # Intel enrichment
 # ---------------------------------------------------------------------------
 
+def _bash_base_risk_score(bash_intel: dict, tool_info: dict) -> int:
+    """Risk scoring. Trust the per-command classifier for recognized intents; fall
+    back to the Bash tool's blunt base_risk only for an 'unknown' (unparseable)
+    command. The previous max(base_risk, score) pinned EVERY bash call to the 70
+    base, so a readonly `echo hello` reported 70 — defeating the semantic
+    classifier this module exists to provide."""
+    base_risk = tool_info["risk_profile"]["base_risk"]
+    if bash_intel["intent"] == "unknown":
+        return max(base_risk, bash_intel["risk_score"])
+    return bash_intel["risk_score"]
+
+
+def _contains_path_traversal(path: str) -> bool:
+    return ".." in path.replace("\\", "/").split("/")
+
+
+def _bash_path_boosts(risk_score: int, all_paths: list, redirect_targets: list) -> int:
+    """Apply traversal / sensitive / system-location boosts to a bash risk score."""
+    # Boost for path traversal in any target.
+    if any(_contains_path_traversal(path) for path in all_paths):
+        risk_score += 20
+    # Boost for sensitive targets (.env, keys, credentials).
+    if any(_is_sensitive_path(path) for path in all_paths):
+        risk_score += 15
+    # Escalate redirections that WRITE into a protected system location (e.g.
+    # `echo x > /etc/passwd`) — dangerous even though `echo` classifies as readonly.
+    if any(_is_system_path(path) for path in redirect_targets):
+        risk_score = max(risk_score, 75)
+    return risk_score
+
+
 def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
     """Run bash classifier and build enriched intel for a Bash tool call."""
     command = tool_input.get("command") or ""
@@ -190,17 +229,7 @@ def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
     # Map bash intent to action_type
     action_type = _INTENT_TO_ACTION.get(bash_intel["intent"], "other")
 
-    # Risk scoring. Trust the per-command classifier for recognized intents; fall
-    # back to the Bash tool's blunt base_risk only for an 'unknown' (unparseable)
-    # command. The previous max(base_risk, score) pinned EVERY bash call to the 70
-    # base, so a readonly `echo hello` reported 70 — defeating the semantic
-    # classifier this module exists to provide.
-    base_risk = tool_info["risk_profile"]["base_risk"]
-    intent = bash_intel["intent"]
-    if intent == "unknown":
-        risk_score = max(base_risk, bash_intel["risk_score"])
-    else:
-        risk_score = bash_intel["risk_score"]
+    risk_score = _bash_base_risk_score(bash_intel, tool_info)
 
     parsed = bash_intel.get("parsed", {})
     targets = parsed.get("targets", [])
@@ -213,22 +242,7 @@ def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
     if redirections and risk_score < 35:
         risk_score = 35
 
-    # Boost for path traversal in any target.
-    for path in all_paths:
-        if ".." in path.replace("\\", "/").split("/"):
-            risk_score += 20
-            break
-    # Boost for sensitive targets (.env, keys, credentials).
-    for path in all_paths:
-        if _is_sensitive_path(path):
-            risk_score += 15
-            break
-    # Escalate redirections that WRITE into a protected system location (e.g.
-    # `echo x > /etc/passwd`) — dangerous even though `echo` classifies as readonly.
-    for path in redirect_targets:
-        if _is_system_path(path):
-            risk_score = max(risk_score, 75)
-            break
+    risk_score = _bash_path_boosts(risk_score, all_paths, redirect_targets)
 
     risk_score = min(risk_score, 100)
 
@@ -478,23 +492,38 @@ def append_turn_action(session_id, action_id):
 # Decision handlers
 # ---------------------------------------------------------------------------
 
+def _extract_action_id(resp):
+    """Pull the action_id out of a create_action / get_action response shape."""
+    return (resp.get("action_id")
+            or (resp.get("action") or {}).get("action_id")
+            or "")
+
+
+def _record_running_action(handler, context, tool_use_id):
+    """Create a running action and route its id to the per-tool / per-turn logs.
+
+    Shared by handle_allow and handle_warn: on success it persists the id for
+    PostToolUse and token attribution; on a missing id or failed create it logs
+    the attribution gap so it never disappears silently. `handler` names the
+    caller for the log line."""
+    resp = create_action(context, status="running")
+    if not resp:
+        _log_hook_error(handler + ": create_action failed (None); tool proceeded without governance record")
+        return
+    action_id = _extract_action_id(resp)
+    if not action_id:
+        # Governance server returned a response but no action_id — the Stop
+        # hook will produce orphan_tokens for this turn. Log so ops can spot
+        # the attribution gap instead of the failure disappearing silently.
+        _log_hook_error(handler + ": create_action returned no action_id; response=" + str(resp)[:200])
+        return
+    write_action_id(tool_use_id, action_id)
+    append_turn_action(_SESSION_ID, action_id)
+
+
 def handle_allow(context, tool_use_id):
     """Record the action and exit 0."""
-    resp = create_action(context, status="running")
-    if resp:
-        action_id = (resp.get("action_id")
-                     or (resp.get("action") or {}).get("action_id")
-                     or "")
-        if action_id:
-            write_action_id(tool_use_id, action_id)
-            append_turn_action(_SESSION_ID, action_id)
-        else:
-            # Governance server returned a response but no action_id — the Stop
-            # hook will produce orphan_tokens for this turn. Log so ops can spot
-            # the attribution gap instead of the failure disappearing silently.
-            _log_hook_error("handle_allow: create_action returned no action_id; response=" + str(resp)[:200])
-    else:
-        _log_hook_error("handle_allow: create_action failed (None); tool proceeded without governance record")
+    _record_running_action("handle_allow", context, tool_use_id)
     sys.exit(0)
 
 
@@ -503,18 +532,7 @@ def handle_warn(guard_resp, context, tool_use_id):
     warnings = guard_resp.get("warnings") or guard_resp.get("reasons") or []
     msg = warnings[0] if warnings else "Policy warning"
     log("[DashClaw] Warning: " + msg)
-    resp = create_action(context, status="running")
-    if resp:
-        action_id = (resp.get("action_id")
-                     or (resp.get("action") or {}).get("action_id")
-                     or "")
-        if action_id:
-            write_action_id(tool_use_id, action_id)
-            append_turn_action(_SESSION_ID, action_id)
-        else:
-            _log_hook_error("handle_warn: create_action returned no action_id; response=" + str(resp)[:200])
-    else:
-        _log_hook_error("handle_warn: create_action failed (None); tool proceeded without governance record")
+    _record_running_action("handle_warn", context, tool_use_id)
     sys.exit(0)
 
 
@@ -540,19 +558,37 @@ def handle_block(guard_resp, context):
     sys.exit(2)
 
 
+def _wait_for_approval(action_id, tool_use_id):
+    """Poll get_action until approved, denied, or the deadline passes.
+
+    On approval: persist the id and exit 0. On denial: exit 2. On timeout:
+    return so the caller can block. Same polling cadence and decision rules as
+    before — only the nesting is flattened."""
+    deadline = time.time() + APPROVAL_TIMEOUT
+    while time.time() < deadline:
+        time.sleep(3)
+        action_resp = get_action(action_id)
+        if not action_resp:
+            continue
+        action = action_resp.get("action") or action_resp
+        status = action.get("status", "")
+        approved = bool(action.get("approved_by")) or status == "running"
+        if approved:
+            write_action_id(tool_use_id, action_id)
+            append_turn_action(_SESSION_ID, action_id)
+            sys.exit(0)
+        if status in ("failed", "cancelled"):
+            log("[DashClaw] Action denied by operator.")
+            sys.exit(2)
+
+
 def handle_require_approval(guard_resp, context, tool_use_id):
     """Create pending action, wait for approval, or block on timeout."""
     policies = guard_resp.get("matched_policies") or []
     policy = policies[0] if policies else "require_approval policy"
 
     resp = create_action(context, status="pending_approval")
-    if not resp:
-        log("[DashClaw] Could not create approval request, proceeding")
-        sys.exit(0)
-
-    action_id = (resp.get("action_id")
-                 or (resp.get("action") or {}).get("action_id")
-                 or "")
+    action_id = _extract_action_id(resp) if resp else ""
     if not action_id:
         log("[DashClaw] Could not create approval request, proceeding")
         sys.exit(0)
@@ -573,25 +609,7 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     log("Or visit the approval queue in your DashClaw dashboard.")
     log("Waiting for approval... (%ds timeout, then blocking)" % int(APPROVAL_TIMEOUT))
 
-    deadline = time.time() + APPROVAL_TIMEOUT
-    while time.time() < deadline:
-        time.sleep(3)
-        action_resp = get_action(action_id)
-        if not action_resp:
-            continue
-        action = action_resp.get("action") or action_resp
-        if action.get("approved_by"):
-            write_action_id(tool_use_id, action_id)
-            append_turn_action(_SESSION_ID, action_id)
-            sys.exit(0)
-        status = action.get("status", "")
-        if status == "running":
-            write_action_id(tool_use_id, action_id)
-            append_turn_action(_SESSION_ID, action_id)
-            sys.exit(0)
-        if status in ("failed", "cancelled"):
-            log("[DashClaw] Action denied by operator.")
-            sys.exit(2)
+    _wait_for_approval(action_id, tool_use_id)
 
     log("[DashClaw] Approval timeout. Blocking tool execution.")
     sys.exit(2)
@@ -734,6 +752,23 @@ _SKILL_SCAN_MAX_TOTAL = 400_000     # total chars sent
 _SKILL_SCAN_MAX_FILES = 50
 
 
+def _skill_leaf(skill_name):
+    """Return a safe skill leaf name, or None when the name is not filesystem-safe."""
+    leaf = (skill_name or "").split(":")[-1].strip()
+    if not leaf or any(sep in leaf for sep in ("/", "\\", "..")):
+        return None
+    return leaf
+
+
+def _skill_candidate_dirs(leaf):
+    roots = []
+    proj = os.environ.get("CLAUDE_PROJECT_DIR") or WORKSPACE
+    if proj:
+        roots.append(os.path.join(proj, ".claude", "skills", leaf))
+    roots.append(os.path.join(os.path.expanduser("~"), ".claude", "skills", leaf))
+    return roots
+
+
 def _resolve_skill_dir(skill_name):
     """Best-effort: find the on-disk directory for a loaded skill, or None.
 
@@ -741,18 +776,24 @@ def _resolve_skill_dir(skill_name):
     plugin-bundled skills we can't locate are skipped (nothing to scan). The
     leaf-name guard rejects path separators so a crafted skill name can't walk
     outside the skills dir."""
-    leaf = (skill_name or "").split(":")[-1].strip()
-    if not leaf or "/" in leaf or "\\" in leaf or ".." in leaf:
+    leaf = _skill_leaf(skill_name)
+    if not leaf:
         return None
-    roots = []
-    proj = os.environ.get("CLAUDE_PROJECT_DIR") or WORKSPACE
-    if proj:
-        roots.append(os.path.join(proj, ".claude", "skills", leaf))
-    roots.append(os.path.join(os.path.expanduser("~"), ".claude", "skills", leaf))
-    for d in roots:
+    for d in _skill_candidate_dirs(leaf):
         if os.path.isdir(d):
             return d
     return None
+
+
+def _read_skill_file(fp):
+    """Return a capped text file's content, or None when too big / unreadable."""
+    try:
+        if os.path.getsize(fp) > _SKILL_SCAN_MAX_FILE:
+            return None
+        with open(fp, encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except Exception:
+        return None
 
 
 def _collect_skill_files(skill_dir):
@@ -764,12 +805,8 @@ def _collect_skill_files(skill_dir):
             if not n.lower().endswith(_SKILL_TEXT_EXTS):
                 continue
             fp = os.path.join(root, n)
-            try:
-                if os.path.getsize(fp) > _SKILL_SCAN_MAX_FILE:
-                    continue
-                with open(fp, encoding="utf-8", errors="replace") as f:
-                    content = f.read()
-            except Exception:
+            content = _read_skill_file(fp)
+            if content is None:
                 continue
             rel = os.path.relpath(fp, skill_dir).replace("\\", "/")
             files[rel] = content
@@ -779,6 +816,36 @@ def _collect_skill_files(skill_dir):
     return files
 
 
+def _warn_skill_findings(skill_name, findings):
+    """Print the auto-scan summary + per-finding lines for a flagged skill."""
+    high = any(f.get("severity") == "high" for f in findings)
+    rules = ", ".join(sorted({f.get("rule_id", "issue") for f in findings}))
+    sev_word = "secrets/dangerous code" if high else "suspicious patterns"
+    log("[DashClaw] ⚠ Skill '%s' flagged by auto-scan (%s: %s). Review before trusting it."
+        % (skill_name, sev_word, rules))
+    for f in findings[:6]:
+        loc = f.get("file") or ""
+        line = f.get("line")
+        where = (" — %s:%s" % (loc, line)) if loc else ""
+        log("   - [%s] %s%s" % (f.get("severity") or "warn", f.get("rule_id") or "finding", where))
+
+
+def _skill_name_from_input(tool_input):
+    return (tool_input.get("skill") or tool_input.get("name")
+            or tool_input.get("command") or "").strip()
+
+
+def _skill_scan_files(skill_name):
+    skill_dir = _resolve_skill_dir(skill_name)
+    return _collect_skill_files(skill_dir) if skill_dir else {}
+
+
+def _skill_scan_findings(skill_name, files):
+    resp = api_request("POST", "/api/skills/scan",
+                       body={"skill_name": skill_name, "files": files})
+    return (resp or {}).get("findings") or []
+
+
 def scan_skill_and_warn(tool_input):
     """Scan a loaded skill for secrets / dangerous patterns and warn.
 
@@ -786,31 +853,16 @@ def scan_skill_and_warn(tool_input):
     if not _SKILL_SCAN_ENABLED:
         return
     try:
-        skill_name = (tool_input.get("skill") or tool_input.get("name")
-                      or tool_input.get("command") or "").strip()
+        skill_name = _skill_name_from_input(tool_input)
         if not skill_name:
             return
-        skill_dir = _resolve_skill_dir(skill_name)
-        if not skill_dir:
-            return
-        files = _collect_skill_files(skill_dir)
+        files = _skill_scan_files(skill_name)
         if not files:
             return
-        resp = api_request("POST", "/api/skills/scan",
-                           body={"skill_name": skill_name, "files": files})
-        findings = (resp or {}).get("findings") or []
+        findings = _skill_scan_findings(skill_name, files)
         if not findings:
             return
-        high = any(f.get("severity") == "high" for f in findings)
-        rules = ", ".join(sorted({f.get("rule_id", "issue") for f in findings}))
-        sev_word = "secrets/dangerous code" if high else "suspicious patterns"
-        log("[DashClaw] ⚠ Skill '%s' flagged by auto-scan (%s: %s). Review before trusting it."
-            % (skill_name, sev_word, rules))
-        for f in findings[:6]:
-            loc = f.get("file") or ""
-            line = f.get("line")
-            where = (" — %s:%s" % (loc, line)) if loc else ""
-            log("   - [%s] %s%s" % (f.get("severity") or "warn", f.get("rule_id") or "finding", where))
+        _warn_skill_findings(skill_name, findings)
     except Exception:
         pass
 
@@ -819,28 +871,181 @@ def scan_skill_and_warn(tool_input):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    # Exit silently when DashClaw isn't configured at all — someone who never set
-    # it up must never see hook noise. But if EXACTLY ONE of the two is present,
-    # the setup is half-done: surface a one-line reason so "nothing happened"
-    # is diagnosable instead of an invisible exit (the #1 setup trap).
-    if not BASE_URL or not API_KEY:
-        if BASE_URL or API_KEY:
-            missing = "DASHCLAW_API_KEY" if not API_KEY else "DASHCLAW_BASE_URL (or DASHCLAW_URL)"
-            log("[DashClaw] ⚠ Governance hook is half-configured — %s is not set, so this action was NOT governed." % missing)
+def _check_configured():
+    """Exit silently when DashClaw isn't configured at all — someone who never set
+    it up must never see hook noise. But if EXACTLY ONE of the two is present,
+    the setup is half-done: surface a one-line reason so "nothing happened"
+    is diagnosable instead of an invisible exit (the #1 setup trap)."""
+    if BASE_URL and API_KEY:
+        return
+    if BASE_URL or API_KEY:
+        missing = "DASHCLAW_API_KEY" if not API_KEY else "DASHCLAW_BASE_URL (or DASHCLAW_URL)"
+        log("[DashClaw] ⚠ Governance hook is half-configured — %s is not set, so this action was NOT governed." % missing)
+    sys.exit(0)
+
+
+def _read_hook_input():
+    """Parse stdin -- read as raw bytes and decode as UTF-8 to handle
+    Windows PowerShell which pipes UTF-8 BOM bytes through cp1252 stdin.
+    Exits 0 silently on any parse failure (never break the tool call)."""
+    try:
+        raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
+        return json.loads(raw) if raw else {}
+    except Exception:
         sys.exit(0)
+
+
+def _enrich_tool(tool_name, tool_input, tool_info):
+    """Build enriched intel context based on tool type."""
+    if tool_name == "Bash":
+        return _enrich_bash(tool_input, tool_info)
+    if tool_name in _FILE_TOOLS:
+        return _enrich_file(tool_name, tool_input, tool_info)
+    if tool_name.startswith("mcp__"):
+        return _enrich_mcp(tool_name, tool_input, tool_info)
+    return _enrich_default(tool_name, tool_input, tool_info)
+
+
+def _build_guard_context(tool_name, tool_info, enrichment):
+    """Assemble the guard context dict and forward the resolved target path."""
+    context = {
+        "action_type": enrichment["action_type"],
+        "agent_id": AGENT_ID,
+        "declared_goal": enrichment["declared_goal"],
+        "risk_score": enrichment["risk_score"],
+        "reversible": enrichment["reversible"],
+        "systems_touched": [tool_info["category"]],
+        "tool": {
+            "name": tool_name,
+            "category": tool_info["category"],
+            "required_permission": tool_info["required_permission"],
+        },
+        "intel": enrichment.get("intel", {}),
+    }
+    # Forward the resolved target path (file tools, bash redirects) so a
+    # protected_path guard policy can match it. Omitted when there is no path.
+    if enrichment.get("target"):
+        context["target"] = enrichment["target"]
+    return context
+
+
+def _outbound_content(tool_name, tool_input):
+    """Return the outbound file content for a file tool, or None."""
+    if tool_name == "Write":
+        return tool_input.get("content")
+    if tool_name == "Edit":
+        return tool_input.get("new_string")
+    if tool_name == "MultiEdit":
+        edits = tool_input.get("edits") or []
+        return "\n".join(str(e.get("new_string", "")) for e in edits if isinstance(e, dict))
+    if tool_name == "NotebookEdit":
+        return tool_input.get("new_source")
+    return None
+
+
+def _attach_autoscan_content(context, tool_name, tool_input):
+    """Auto-scan: forward the outbound file content so the guard can secret-scan
+    it (warn by default; hard-blocks only when the org sets DASHCLAW_AUTOSCAN_
+    BLOCK). Capped to the guard schema's content limit. Best-effort — a failure
+    here must never break the tool call."""
+    try:
+        content = _outbound_content(tool_name, tool_input)
+        if content:
+            context["content"] = str(content)[:50000]
+    except Exception:
+        pass
+
+
+def _subagent_values(data):
+    return data.get("agent_id"), data.get("agent_type")
+
+
+def _is_swarm_call(subagent_id, subagent_type, tool_name):
+    return bool(subagent_id or subagent_type or tool_name in ("Agent", "Task"))
+
+
+def _has_subagent_provenance(subagent_id, subagent_type):
+    return bool(subagent_id or subagent_type)
+
+
+def _agent_name_for(subagent_type):
+    return ("%s/%s" % (AGENT_ID, subagent_type)) if subagent_type else AGENT_ID
+
+
+def _apply_distinct_subagent_id(context, subagent_type):
+    if SUBAGENT_IDENTITY == "distinct" and subagent_type:
+        context["agent_id"] = "%s:%s" % (AGENT_ID, _subagent_id_segment(subagent_type))
+
+
+def _attach_subagent_provenance(context, data, tool_name):
+    """Sub-agent provenance. Claude Code puts agent_id / agent_type on hook stdin
+    ONLY when the call fires inside a sub-agent. We keep the governed agent_id =
+    the configured parent (sub-agents inherit the parent's pairing and policies,
+    matching Claude Code's own model) and record the sub-agent as provenance
+    DashClaw persists: a display name, a per-session swarm group, and intel. Spawn
+    calls (Agent/Task) are also tagged into the session swarm so the delegation
+    and the delegated work group together in the ledger."""
+    subagent_id, subagent_type = _subagent_values(data)
+    if _is_swarm_call(subagent_id, subagent_type, tool_name) and _SESSION_ID:
+        context["swarm_id"] = _SESSION_ID
+    if not _has_subagent_provenance(subagent_id, subagent_type):
+        return
+    # In `distinct` mode the sub-agent gets its own composed agent_id so it is a
+    # first-class fleet identity; the server falls back to the parent's pairing
+    # for permission inheritance. Default `provenance` mode keeps agent_id = parent.
+    _apply_distinct_subagent_id(context, subagent_type)
+    context["agent_name"] = _agent_name_for(subagent_type)
+    context["trigger"] = "subagent:%s" % (subagent_type or "unknown")
+    context["intel"]["subagent"] = {"agent_id": subagent_id, "agent_type": subagent_type}
+
+
+def _warn_secret_scan(guard_resp, decision):
+    """Auto-scan advisory: surface a visible warning when the guard detected a
+    secret in the outbound content, even on allow (warn-by-default). A 'block'
+    decision is handled by handle_block below."""
+    try:
+        scan = guard_resp.get("secret_scan") or {}
+        if scan.get("detected") and decision != "block":
+            cats = ", ".join(sorted({f.get("category", "secret") for f in scan.get("findings", [])})) or "secret"
+            log("[DashClaw] ⚠ Possible secret in this content (%s) — flagged by auto-scan. Review before it leaves your machine." % cats)
+    except Exception:
+        pass
+
+
+def _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision):
+    """Behavior Learning: passively record a redacted sample of this governed
+    tool call (opt-in via DASHCLAW_BEHAVIOR_SAMPLES_ENABLED; fully fail-silent).
+    For allow/warn/approval the pending sample is finalized by PostToolUse;
+    an enforce-mode block is recorded terminally here since PostToolUse won't fire."""
+    try:
+        behavior_recorder.record_pre(
+            tool_use_id, tool_name, tool_input, context, guard_resp, decision, HOOK_MODE, WORKSPACE
+        )
+    except Exception:
+        pass
+
+
+def _dispatch_decision(decision, guard_resp, context, tool_use_id):
+    """Route the guard decision to its handler. Each handler calls sys.exit."""
+    if decision == "warn":
+        handle_warn(guard_resp, context, tool_use_id)
+    elif decision == "block":
+        handle_block(guard_resp, context)
+    elif decision == "require_approval":
+        handle_require_approval(guard_resp, context, tool_use_id)
+    else:
+        # allow + any unknown decision both fall through to allow.
+        handle_allow(context, tool_use_id)
+
+
+def main():
+    _check_configured()
 
     # Surface a warning if the configured instance is in demo mode (todo-001).
     # Non-blocking: never exits or alters enforcement, only writes to stderr.
     _maybe_warn_demo_mode()
 
-    # Parse stdin -- read as raw bytes and decode as UTF-8 to handle
-    # Windows PowerShell which pipes UTF-8 BOM bytes through cp1252 stdin
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
-        data = json.loads(raw) if raw else {}
-    except Exception:
-        sys.exit(0)
+    data = _read_hook_input()
 
     tool_name = data.get("tool_name", "")
     tool_input = data.get("tool_input") or {}
@@ -865,76 +1070,12 @@ def main():
         sys.exit(0)
 
     # Step 3: Build enriched intel context based on tool type
-    if tool_name == "Bash":
-        enrichment = _enrich_bash(tool_input, tool_info)
-    elif tool_name in _FILE_TOOLS:
-        enrichment = _enrich_file(tool_name, tool_input, tool_info)
-    elif tool_name.startswith("mcp__"):
-        enrichment = _enrich_mcp(tool_name, tool_input, tool_info)
-    else:
-        enrichment = _enrich_default(tool_name, tool_input, tool_info)
+    enrichment = _enrich_tool(tool_name, tool_input, tool_info)
 
     # Step 4: Build guard context
-    context = {
-        "action_type": enrichment["action_type"],
-        "agent_id": AGENT_ID,
-        "declared_goal": enrichment["declared_goal"],
-        "risk_score": enrichment["risk_score"],
-        "reversible": enrichment["reversible"],
-        "systems_touched": [tool_info["category"]],
-        "tool": {
-            "name": tool_name,
-            "category": tool_info["category"],
-            "required_permission": tool_info["required_permission"],
-        },
-        "intel": enrichment.get("intel", {}),
-    }
-
-    # Forward the resolved target path (file tools, bash redirects) so a
-    # protected_path guard policy can match it. Omitted when there is no path.
-    if enrichment.get("target"):
-        context["target"] = enrichment["target"]
-
-    # Auto-scan: forward the outbound file content so the guard can secret-scan
-    # it (warn by default; hard-blocks only when the org sets DASHCLAW_AUTOSCAN_
-    # BLOCK). Capped to the guard schema's content limit. Best-effort — a failure
-    # here must never break the tool call.
-    try:
-        _content = None
-        if tool_name == "Write":
-            _content = tool_input.get("content")
-        elif tool_name == "Edit":
-            _content = tool_input.get("new_string")
-        elif tool_name == "MultiEdit":
-            _edits = tool_input.get("edits") or []
-            _content = "\n".join(str(e.get("new_string", "")) for e in _edits if isinstance(e, dict))
-        elif tool_name == "NotebookEdit":
-            _content = tool_input.get("new_source")
-        if _content:
-            context["content"] = str(_content)[:50000]
-    except Exception:
-        pass
-
-    # Sub-agent provenance. Claude Code puts agent_id / agent_type on hook stdin
-    # ONLY when the call fires inside a sub-agent. We keep the governed agent_id =
-    # the configured parent (sub-agents inherit the parent's pairing and policies,
-    # matching Claude Code's own model) and record the sub-agent as provenance
-    # DashClaw persists: a display name, a per-session swarm group, and intel. Spawn
-    # calls (Agent/Task) are also tagged into the session swarm so the delegation
-    # and the delegated work group together in the ledger.
-    subagent_id = data.get("agent_id")
-    subagent_type = data.get("agent_type")
-    if (subagent_id or subagent_type or tool_name in ("Agent", "Task")) and _SESSION_ID:
-        context["swarm_id"] = _SESSION_ID
-    if subagent_id or subagent_type:
-        # In `distinct` mode the sub-agent gets its own composed agent_id so it is a
-        # first-class fleet identity; the server falls back to the parent's pairing
-        # for permission inheritance. Default `provenance` mode keeps agent_id = parent.
-        if SUBAGENT_IDENTITY == "distinct" and subagent_type:
-            context["agent_id"] = "%s:%s" % (AGENT_ID, _subagent_id_segment(subagent_type))
-        context["agent_name"] = ("%s/%s" % (AGENT_ID, subagent_type)) if subagent_type else AGENT_ID
-        context["trigger"] = "subagent:%s" % (subagent_type or "unknown")
-        context["intel"]["subagent"] = {"agent_id": subagent_id, "agent_type": subagent_type}
+    context = _build_guard_context(tool_name, tool_info, enrichment)
+    _attach_autoscan_content(context, tool_name, tool_input)
+    _attach_subagent_provenance(context, data, tool_name)
 
     # Step 5: POST /api/guard with enriched context
     guard_resp = guard_check(context)
@@ -943,39 +1084,9 @@ def main():
 
     # Step 6: Handle decision
     decision = guard_resp.get("decision", "allow")
-
-    # Auto-scan advisory: surface a visible warning when the guard detected a
-    # secret in the outbound content, even on allow (warn-by-default). A 'block'
-    # decision is handled by handle_block below.
-    try:
-        _scan = guard_resp.get("secret_scan") or {}
-        if _scan.get("detected") and decision != "block":
-            _cats = ", ".join(sorted({f.get("category", "secret") for f in _scan.get("findings", [])})) or "secret"
-            log("[DashClaw] ⚠ Possible secret in this content (%s) — flagged by auto-scan. Review before it leaves your machine." % _cats)
-    except Exception:
-        pass
-
-    # Behavior Learning: passively record a redacted sample of this governed
-    # tool call (opt-in via DASHCLAW_BEHAVIOR_SAMPLES_ENABLED; fully fail-silent).
-    # For allow/warn/approval the pending sample is finalized by PostToolUse;
-    # an enforce-mode block is recorded terminally here since PostToolUse won't fire.
-    try:
-        behavior_recorder.record_pre(
-            tool_use_id, tool_name, tool_input, context, guard_resp, decision, HOOK_MODE, WORKSPACE
-        )
-    except Exception:
-        pass
-
-    if decision == "allow":
-        handle_allow(context, tool_use_id)
-    elif decision == "warn":
-        handle_warn(guard_resp, context, tool_use_id)
-    elif decision == "block":
-        handle_block(guard_resp, context)
-    elif decision == "require_approval":
-        handle_require_approval(guard_resp, context, tool_use_id)
-    else:
-        handle_allow(context, tool_use_id)
+    _warn_secret_scan(guard_resp, decision)
+    _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision)
+    _dispatch_decision(decision, guard_resp, context, tool_use_id)
 
 
 if __name__ == "__main__":

@@ -135,10 +135,21 @@ class TestGatingAndFailSilent(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         os.environ["DASHCLAW_BEHAVIOR_SAMPLES_DIR"] = self.tmp.name
+        self._old_base_url = os.environ.pop("DASHCLAW_BASE_URL", None)
+        self._old_url = os.environ.pop("DASHCLAW_URL", None)
+        self._old_api_key = os.environ.pop("DASHCLAW_API_KEY", None)
+        br._server_config_cache = None
 
     def tearDown(self):
         os.environ.pop("DASHCLAW_BEHAVIOR_SAMPLES_ENABLED", None)
         os.environ.pop("DASHCLAW_BEHAVIOR_SAMPLES_DIR", None)
+        if self._old_base_url is not None:
+            os.environ["DASHCLAW_BASE_URL"] = self._old_base_url
+        if self._old_url is not None:
+            os.environ["DASHCLAW_URL"] = self._old_url
+        if self._old_api_key is not None:
+            os.environ["DASHCLAW_API_KEY"] = self._old_api_key
+        br._server_config_cache = None
         self.tmp.cleanup()
 
     def test_disabled_records_nothing(self):

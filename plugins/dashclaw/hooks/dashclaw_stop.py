@@ -40,6 +40,28 @@ from dashclaw_agent_intel import behavior_recorder
 # the vars from the shell — which is most real Claude Code sessions.
 # ---------------------------------------------------------------------------
 
+def _apply_env_line(line):
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return
+    key, _, val = line.partition("=")
+    key = key.strip()
+    val = val.strip().strip('"').strip("'")
+    if " #" in val:
+        val = val[:val.index(" #")].strip()
+    if key and key not in os.environ:
+        os.environ[key] = val
+
+
+def _apply_env_file(env_path):
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                _apply_env_line(line)
+    except FileNotFoundError:
+        return
+
+
 def _load_dotenv():
     # Test isolation escape hatch: when DASHCLAW_DISABLE_DOTENV is set, skip
     # the .env walk entirely so the subprocess only sees env vars the test
@@ -58,21 +80,7 @@ def _load_dotenv():
             if env_path in tried:
                 continue
             tried.add(env_path)
-            try:
-                with open(env_path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        key, _, val = line.partition("=")
-                        key = key.strip()
-                        val = val.strip().strip('"').strip("'")
-                        if " #" in val:
-                            val = val[:val.index(" #")].strip()
-                        if key and key not in os.environ:
-                            os.environ[key] = val
-            except FileNotFoundError:
-                continue
+            _apply_env_file(env_path)
         parent = os.path.dirname(current)
         if parent == current:
             break
@@ -189,6 +197,17 @@ def _clear_turn_actions(session_id):
 # Transcript walk
 # ---------------------------------------------------------------------------
 
+def _parse_entry_line(line):
+    """Parse one transcript line into a dict, or None to skip it."""
+    line = line.strip()
+    if not line:
+        return None
+    try:
+        return json.loads(line)
+    except Exception:
+        return None
+
+
 def _load_entries(transcript_path):
     if not transcript_path or not os.path.exists(transcript_path):
         return []
@@ -196,13 +215,9 @@ def _load_entries(transcript_path):
     try:
         with open(transcript_path, encoding="utf-8") as f:
             for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    out.append(json.loads(line))
-                except Exception:
-                    continue
+                entry = _parse_entry_line(line)
+                if entry is not None:
+                    out.append(entry)
     except Exception:
         return []
     return out
@@ -233,48 +248,68 @@ def _index_after_last_user_prompt(entries):
     return 0
 
 
+def _resolve_turn_start(entries, last_uuid):
+    """Index of the first entry to attribute to this turn.
+
+    Starts just after `last_uuid` if found; otherwise falls back to the first
+    entry after the most recent real user prompt."""
+    if last_uuid:
+        for i, e in enumerate(entries):
+            if e.get("uuid") == last_uuid:
+                return i + 1
+    return _index_after_last_user_prompt(entries)
+
+
+def _usage_input_tokens(usage):
+    """Effective input-token count used for cost from one usage block:
+      - regular input tokens        full price
+      - cache_creation_input_tokens full price (~1.25x is close to 1x for 5m cache)
+      - cache_read_input_tokens     10% price — apply the discount here so
+                                    downstream cost derivation matches real billing"""
+    total = int(usage.get("input_tokens") or 0)
+    total += int(usage.get("cache_creation_input_tokens") or 0)
+    cache_read = int(usage.get("cache_read_input_tokens") or 0)
+    # Half-away-from-zero to match JS Math.round() in packages/openclaw-plugin/src/index.ts
+    # so the same transcript produces the same token totals across both paths.
+    # Python's built-in round() uses banker's rounding, which diverges on .5 boundaries.
+    total += int(cache_read * 0.1 + 0.5)
+    return total
+
+
+def _entry_uuid(entry):
+    return entry.get("uuid") or ""
+
+
+def _assistant_entry_usage(entry):
+    """Return (tokens_in, tokens_out, model) for an assistant entry."""
+    if entry.get("type") != "assistant":
+        return 0, 0, ""
+    msg = entry.get("message") or {}
+    usage = msg.get("usage") or {}
+    return (
+        _usage_input_tokens(usage),
+        int(usage.get("output_tokens") or 0),
+        msg.get("model") or "",
+    )
+
+
 def _collect_turn_usage(entries, last_uuid):
     """Sum token usage and pick a model from assistant entries since last_uuid.
 
     Returns (tokens_in, tokens_out, model, new_cursor_uuid).
     If last_uuid is missing or not found, starts from the last user prompt."""
-    start = -1
-    if last_uuid:
-        for i, e in enumerate(entries):
-            if e.get("uuid") == last_uuid:
-                start = i + 1
-                break
-    if start < 0:
-        start = _index_after_last_user_prompt(entries)
+    start = _resolve_turn_start(entries, last_uuid)
 
     tokens_in = 0
     tokens_out = 0
     model = ""
     new_cursor = last_uuid
     for e in entries[start:]:
-        if e.get("type") != "assistant":
-            if e.get("uuid"):
-                new_cursor = e["uuid"]
-            continue
-        msg = e.get("message") or {}
-        usage = msg.get("usage") or {}
-        # tokens_in is the "effective" input-token count used for cost:
-        #   - regular input tokens        full price
-        #   - cache_creation_input_tokens full price (~1.25x is close to 1x for 5m cache)
-        #   - cache_read_input_tokens     10% price — apply the discount here so
-        #                                 downstream cost derivation matches real billing
-        tokens_in += int(usage.get("input_tokens") or 0)
-        tokens_in += int(usage.get("cache_creation_input_tokens") or 0)
-        cache_read = int(usage.get("cache_read_input_tokens") or 0)
-        # Half-away-from-zero to match JS Math.round() in packages/openclaw-plugin/src/index.ts
-        # so the same transcript produces the same token totals across both paths.
-        # Python's built-in round() uses banker's rounding, which diverges on .5 boundaries.
-        tokens_in += int(cache_read * 0.1 + 0.5)
-        tokens_out += int(usage.get("output_tokens") or 0)
-        if not model and msg.get("model"):
-            model = msg["model"]
-        if e.get("uuid"):
-            new_cursor = e["uuid"]
+        new_cursor = _entry_uuid(e) or new_cursor
+        in_delta, out_delta, entry_model = _assistant_entry_usage(e)
+        tokens_in += in_delta
+        tokens_out += out_delta
+        model = model or entry_model
 
     return tokens_in, tokens_out, model, new_cursor
 
@@ -292,28 +327,37 @@ def _distribute(total, n):
     return [base + (1 if i < remainder else 0) for i in range(n)]
 
 
-def _post_action(body):
-    """POST /api/actions. Returns action_id on success, None on failure."""
-    if not BASE_URL or not API_KEY:
-        _log_hook_error(
-            "POST /api/actions -> skipped: missing " +
-            ("DASHCLAW_BASE_URL" if not BASE_URL else "") +
-            (" and " if not BASE_URL and not API_KEY else "") +
-            ("DASHCLAW_API_KEY" if not API_KEY else "") +
-            " (check .env.local)"
-        )
-        return None
-    url = BASE_URL + "/api/actions"
-    data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
+def _missing_config_suffix():
+    """The '... missing DASHCLAW_BASE_URL and DASHCLAW_API_KEY (check .env.local)'
+    tail shared by the POST/PATCH skip-logs. Only call when config is missing."""
+    return (
+        "skipped: missing " +
+        ("DASHCLAW_BASE_URL" if not BASE_URL else "") +
+        (" and " if not BASE_URL and not API_KEY else "") +
+        ("DASHCLAW_API_KEY" if not API_KEY else "") +
+        " (check .env.local)"
+    )
+
+
+def _build_action_request(url, body, method):
+    """Build a JSON urllib request with the standard DashClaw auth headers."""
+    return urllib.request.Request(
         url,
-        data=data,
+        data=json.dumps(body).encode("utf-8"),
         headers={
             "Content-Type": "application/json",
             "x-api-key": API_KEY,
         },
-        method="POST",
+        method=method,
     )
+
+
+def _post_action(body):
+    """POST /api/actions. Returns action_id on success, None on failure."""
+    if not BASE_URL or not API_KEY:
+        _log_hook_error("POST /api/actions -> " + _missing_config_suffix())
+        return None
+    req = _build_action_request(BASE_URL + "/api/actions", body, "POST")
     try:
         body_bytes = request_with_retry(req, timeout=3)
         payload = json.loads(body_bytes.decode("utf-8"))
@@ -360,31 +404,62 @@ def _create_text_only_action(tokens_in, tokens_out, model, session_id):
 def _patch_action(action_id, body):
     """PATCH /api/actions/{action_id}. Failures log and return; never block."""
     if not BASE_URL or not API_KEY:
-        _log_hook_error(
-            "PATCH " + action_id + " -> skipped: missing " +
-            ("DASHCLAW_BASE_URL" if not BASE_URL else "") +
-            (" and " if not BASE_URL and not API_KEY else "") +
-            ("DASHCLAW_API_KEY" if not API_KEY else "") +
-            " (check .env.local)"
-        )
+        _log_hook_error("PATCH " + action_id + " -> " + _missing_config_suffix())
         return
-    url = BASE_URL + "/api/actions/" + action_id
-    data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={
-            "Content-Type": "application/json",
-            "x-api-key": API_KEY,
-        },
-        method="PATCH",
-    )
+    req = _build_action_request(BASE_URL + "/api/actions/" + action_id, body, "PATCH")
     try:
         request_with_retry(req, timeout=3)
     except urllib.error.HTTPError as e:
         _log_hook_error("PATCH " + action_id + " -> HTTP " + str(e.code))
     except Exception as e:
         _log_hook_error("PATCH " + action_id + " -> " + type(e).__name__ + ": " + str(e))
+
+
+def _log_orphan_tokens(tokens_in, tokens_out, model, session_id, suffix=""):
+    """Log a turn's spend that couldn't be attributed to any action_id."""
+    _log_hook_error(
+        "orphan_tokens session=" + (session_id or "?")
+        + " tokens_in=" + str(tokens_in)
+        + " tokens_out=" + str(tokens_out)
+        + " model=" + (model or "unknown")
+        + suffix
+    )
+
+
+def _apply_text_only(tokens_in, tokens_out, model, session_id):
+    """Handle a turn with token usage but no action_ids (text-only assistant
+    turn). Either creates a synthetic `conversation` action (opt-in) or logs
+    the orphaned spend so ops can see it was dropped."""
+    if TRACK_TEXT_TURNS:
+        # Opt-in path: create a synthetic `conversation` action and let
+        # tokens land there. Cost is derived server-side from tokens + model.
+        created = _create_text_only_action(tokens_in, tokens_out, model, session_id)
+        if not created:
+            # POST failed — log so ops can see we dropped this turn's spend.
+            _log_orphan_tokens(
+                tokens_in, tokens_out, model, session_id,
+                " (TRACK_TEXT_TURNS=1 but POST /api/actions failed)",
+            )
+        return
+    # Default path: log and drop. Ops can enable tracking via
+    # DASHCLAW_TRACK_TEXT_TURNS=1 if they want these in the ledger.
+    _log_orphan_tokens(tokens_in, tokens_out, model, session_id)
+
+
+def _patch_body_for(in_part, out_part, model, has_tokens, ts_end):
+    """Build the conditional-close PATCH body for one action_id."""
+    body = {
+        "close_if_running": True,
+        "status": "completed",
+        "output_summary": "Auto-closed by Stop hook",
+        "timestamp_end": ts_end,
+    }
+    if has_tokens:
+        body["tokens_in"] = in_part
+        body["tokens_out"] = out_part
+        if model:
+            body["model"] = model
+    return body
 
 
 def _apply(action_ids, tokens_in, tokens_out, model, session_id=""):
@@ -402,45 +477,14 @@ def _apply(action_ids, tokens_in, tokens_out, model, session_id=""):
         # action_ids to attribute usage against.
         if not has_tokens:
             return
-        if TRACK_TEXT_TURNS:
-            # Opt-in path: create a synthetic `conversation` action and let
-            # tokens land there. Cost is derived server-side from tokens + model.
-            created = _create_text_only_action(tokens_in, tokens_out, model, session_id)
-            if not created:
-                # POST failed — log so ops can see we dropped this turn's spend.
-                _log_hook_error(
-                    "orphan_tokens session=" + (session_id or "?")
-                    + " tokens_in=" + str(tokens_in)
-                    + " tokens_out=" + str(tokens_out)
-                    + " model=" + (model or "unknown")
-                    + " (TRACK_TEXT_TURNS=1 but POST /api/actions failed)"
-                )
-            return
-        # Default path: log and drop. Ops can enable tracking via
-        # DASHCLAW_TRACK_TEXT_TURNS=1 if they want these in the ledger.
-        _log_hook_error(
-            "orphan_tokens session=" + (session_id or "?")
-            + " tokens_in=" + str(tokens_in)
-            + " tokens_out=" + str(tokens_out)
-            + " model=" + (model or "unknown")
-        )
+        _apply_text_only(tokens_in, tokens_out, model, session_id)
         return
     n = len(action_ids)
     in_parts = _distribute(tokens_in, n) if has_tokens else [0] * n
     out_parts = _distribute(tokens_out, n) if has_tokens else [0] * n
     ts_end = datetime_now_iso()
     for idx, aid in enumerate(action_ids):
-        body = {
-            "close_if_running": True,
-            "status": "completed",
-            "output_summary": "Auto-closed by Stop hook",
-            "timestamp_end": ts_end,
-        }
-        if has_tokens:
-            body["tokens_in"] = in_parts[idx]
-            body["tokens_out"] = out_parts[idx]
-            if model:
-                body["model"] = model
+        body = _patch_body_for(in_parts[idx], out_parts[idx], model, has_tokens, ts_end)
         _patch_action(aid, body)
 
 
@@ -494,6 +538,23 @@ def _post_insights(snapshot):
         _log_hook_error("POST /api/behavior/insights -> " + type(e).__name__ + ": " + str(e))
 
 
+def _recorder_enabled():
+    """True iff the behavior recorder reports it's on. Fail-silent → False."""
+    try:
+        return bool(behavior_recorder.is_enabled())
+    except Exception:
+        return False
+
+
+def _build_insights_snapshot():
+    """Build the SAFE aggregate snapshot, or None on failure/empty. Fail-silent."""
+    try:
+        return behavior_recorder.build_insights(os.environ.get("DASHCLAW_WORKSPACE"))
+    except Exception as e:
+        _log_hook_error("build_insights -> " + type(e).__name__ + ": " + str(e))
+        return None
+
+
 def _maybe_push_insights():
     """Push the SAFE aggregate snapshot so a hosted dashboard can show DashClaw
     is learning. Gated on the recorder being on, the opt-out flag, and a
@@ -501,18 +562,11 @@ def _maybe_push_insights():
     machine — only counts/tallies/signals/timestamps. Fail-silent."""
     if INSIGHTS_OPT_OUT or not BASE_URL or not API_KEY:
         return
-    try:
-        if not behavior_recorder.is_enabled():
-            return
-    except Exception:
+    if not _recorder_enabled():
         return
     if not _insights_due():
         return
-    try:
-        snapshot = behavior_recorder.build_insights(os.environ.get("DASHCLAW_WORKSPACE"))
-    except Exception as e:
-        _log_hook_error("build_insights -> " + type(e).__name__ + ": " + str(e))
-        return
+    snapshot = _build_insights_snapshot()
     if not snapshot:
         return
     _post_insights(snapshot)
@@ -523,7 +577,7 @@ def _maybe_push_insights():
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
+def _flush_pending_samples():
     # Behavior Learning: flush any pending samples whose PostToolUse never fired
     # as 'interrupted' so early-stop doesn't lose data. Local-only + fail-silent,
     # so it must run BEFORE the server-config early-exit below.
@@ -532,13 +586,51 @@ def main():
     except Exception:
         pass
 
+
+_STDIN_READ_ERROR = object()
+
+
+def _read_stdin_payload():
+    """Read+parse the Stop-hook JSON from stdin. Returns the parsed value, or
+    the _STDIN_READ_ERROR sentinel on a read/parse error (caller exits 0 on the
+    sentinel to preserve never-block). A successfully parsed-but-non-dict value
+    is returned as-is so downstream behavior is unchanged."""
+    try:
+        raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
+        return json.loads(raw) if raw else {}
+    except Exception:
+        return _STDIN_READ_ERROR
+
+
+def _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor):
+    """Ship the turn's JSONL slice to the code-sessions ingest endpoint when
+    opt-in via DASHCLAW_CODE_SESSIONS_ENABLED. Fail-silent."""
+    if not CODE_SESSIONS_ENABLED:
+        return
+    try:
+        from dashclaw_code_session_reporter import report_turn
+        report_turn(
+            base_url=BASE_URL,
+            api_key=API_KEY,
+            agent_id=AGENT_ID,
+            session_id=session_id,
+            transcript_path=transcript_path,
+            entries=entries,
+            previous_cursor=last_uuid,
+            new_cursor=new_cursor,
+        )
+    except Exception as e:
+        _log_hook_error("code_session_reporter -> " + type(e).__name__ + ": " + str(e))
+
+
+def main():
+    _flush_pending_samples()
+
     if not BASE_URL or not API_KEY:
         sys.exit(0)
 
-    try:
-        raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
-        data = json.loads(raw) if raw else {}
-    except Exception:
+    data = _read_stdin_payload()
+    if data is _STDIN_READ_ERROR:
         sys.exit(0)
 
     session_id = data.get("session_id") or ""
@@ -555,21 +647,7 @@ def main():
 
     _apply(action_ids, tokens_in, tokens_out, model, session_id)
 
-    if CODE_SESSIONS_ENABLED:
-        try:
-            from dashclaw_code_session_reporter import report_turn
-            report_turn(
-                base_url=BASE_URL,
-                api_key=API_KEY,
-                agent_id=AGENT_ID,
-                session_id=session_id,
-                transcript_path=transcript_path,
-                entries=entries,
-                previous_cursor=last_uuid,
-                new_cursor=new_cursor,
-            )
-        except Exception as e:
-            _log_hook_error("code_session_reporter -> " + type(e).__name__ + ": " + str(e))
+    _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor)
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)

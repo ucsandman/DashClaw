@@ -30,6 +30,28 @@ from dashclaw_agent_intel import behavior_recorder
 # Values already in the environment take precedence.
 # ---------------------------------------------------------------------------
 
+def _apply_env_line(line):
+    line = line.strip()
+    if not line or line.startswith("#") or "=" not in line:
+        return
+    key, _, val = line.partition("=")
+    key = key.strip()
+    val = val.strip().strip('"').strip("'")
+    if " #" in val:
+        val = val[:val.index(" #")].strip()
+    if key and key not in os.environ:
+        os.environ[key] = val
+
+
+def _apply_env_file(env_path):
+    try:
+        with open(env_path, encoding="utf-8") as f:
+            for line in f:
+                _apply_env_line(line)
+    except FileNotFoundError:
+        return
+
+
 def _load_dotenv():
     # Test isolation escape hatch: when DASHCLAW_DISABLE_DOTENV is set, skip
     # the .env walk entirely so the subprocess only sees env vars the test
@@ -48,21 +70,7 @@ def _load_dotenv():
             if env_path in tried:
                 continue
             tried.add(env_path)
-            try:
-                with open(env_path, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if not line or line.startswith("#") or "=" not in line:
-                            continue
-                        key, _, val = line.partition("=")
-                        key = key.strip()
-                        val = val.strip().strip('"').strip("'")
-                        if " #" in val:
-                            val = val[:val.index(" #")].strip()
-                        if key and key not in os.environ:
-                            os.environ[key] = val
-            except FileNotFoundError:
-                continue
+            _apply_env_file(env_path)
         parent = os.path.dirname(current)
         if parent == current:
             break
@@ -213,57 +221,64 @@ def _cleanup_temp(tool_use_id):
 # Main
 # ---------------------------------------------------------------------------
 
-def main():
-    _log("invoked", "pid=" + str(os.getpid()))
+def _parse_stdin():
+    """Read and parse the hook payload from stdin.
 
-    # Exit silently if DashClaw is not configured
-    if not BASE_URL or not API_KEY:
-        _log("exit_early", "no BASE_URL/API_KEY")
-        sys.exit(0)
+    Read raw bytes and decode as UTF-8 — sys.stdin.read() uses the platform
+    default (cp1252 on Windows) which corrupts any multi-byte character in
+    tool output before the JSON parse. Pretool already does this; posttool
+    was missed.
 
-    # Parse stdin
-    # Read raw bytes and decode as UTF-8 — sys.stdin.read() uses the platform
-    # default (cp1252 on Windows) which corrupts any multi-byte character in
-    # tool output before the JSON parse. Pretool already does this; posttool
-    # was missed.
+    On any parse failure, logs and exits 0 (never blocks).
+    """
     try:
         raw = sys.stdin.buffer.read().decode("utf-8-sig").strip()
-        data = json.loads(raw) if raw else {}
+        return json.loads(raw) if raw else {}
     except Exception as e:
         _log("exit_early", "stdin parse failed: " + type(e).__name__)
         sys.exit(0)
 
+
+def _require_configured():
+    """Exit silently if DashClaw is not configured."""
+    if BASE_URL and API_KEY:
+        return
+    _log("exit_early", "no BASE_URL/API_KEY")
+    sys.exit(0)
+
+
+def _require_tool_use(data):
+    """Return (tool_name, tool_use_id), exiting when the hook payload is unusable."""
     tool_name = data.get("tool_name") or ""
     tool_use_id = data.get("tool_use_id") or ""
-    if not tool_use_id:
-        _log("exit_early", "no tool_use_id (tool_name=" + tool_name + ")")
-        sys.exit(0)
+    if tool_use_id:
+        return tool_name, tool_use_id
+    _log("exit_early", "no tool_use_id (tool_name=" + tool_name + ")")
+    sys.exit(0)
 
-    # Find the action ID from the temp file written by PreToolUse
+
+def _require_action_id(tool_use_id, tool_name):
+    """Return the PreToolUse action id, or exit when this tool was not recorded."""
     action_id = _read_action_id(tool_use_id)
-    if not action_id:
-        _log("exit_early", "no action_id for tool_use_id=" + tool_use_id
-             + " tool_name=" + tool_name
-             + " (pretool didn't record — guard denied, un-governed tool, or pretool crashed)")
-        sys.exit(0)
+    if action_id:
+        return action_id
+    _log("exit_early", "no action_id for tool_use_id=" + tool_use_id
+         + " tool_name=" + tool_name
+         + " (pretool didn't record — guard denied, un-governed tool, or pretool crashed)")
+    sys.exit(0)
 
-    # Extract structured outcome from tool_response
-    tool_response = data.get("tool_response") or {}
-    status, output_summary, outcome_metadata = _extract_outcome(tool_response)
 
-    # PATCH the action with the outcome
-    timestamp_end = datetime.now(timezone.utc).isoformat()
-    body = {
+def _patch_body(status, output_summary, outcome_metadata):
+    return {
         "status": status,
         "output_summary": output_summary,
-        "timestamp_end": timestamp_end,
+        "timestamp_end": datetime.now(timezone.utc).isoformat(),
         "outcome_metadata": outcome_metadata,
     }
-    _patch_action(action_id, body)
-    _log("patched", "action_id=" + action_id + " status=" + status)
 
-    # Behavior Learning: finalize the pending sample stashed by PreToolUse with
-    # this outcome and append it to the local JSONL log (opt-in, fail-silent).
+
+def _record_behavior_post(tool_use_id, status, outcome_metadata, action_id):
+    """Finalize behavior sample; fail-silent because PostToolUse must never block."""
     try:
         behavior_recorder.record_post(
             tool_use_id, status, outcome_metadata, action_id,
@@ -271,6 +286,29 @@ def main():
         )
     except Exception:
         pass
+
+
+def main():
+    _log("invoked", "pid=" + str(os.getpid()))
+    _require_configured()
+
+    data = _parse_stdin()
+    tool_name, tool_use_id = _require_tool_use(data)
+
+    # Find the action ID from the temp file written by PreToolUse
+    action_id = _require_action_id(tool_use_id, tool_name)
+
+    # Extract structured outcome from tool_response
+    tool_response = data.get("tool_response") or {}
+    status, output_summary, outcome_metadata = _extract_outcome(tool_response)
+
+    # PATCH the action with the outcome
+    _patch_action(action_id, _patch_body(status, output_summary, outcome_metadata))
+    _log("patched", "action_id=" + action_id + " status=" + status)
+
+    # Behavior Learning: finalize the pending sample stashed by PreToolUse with
+    # this outcome and append it to the local JSONL log (opt-in, fail-silent).
+    _record_behavior_post(tool_use_id, status, outcome_metadata, action_id)
 
     # Clean up temp file
     _cleanup_temp(tool_use_id)
