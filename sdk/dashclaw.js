@@ -25,6 +25,175 @@ class GuardBlockedError extends Error {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Module-level private helpers — not exported, not part of the published API.
+// ---------------------------------------------------------------------------
+
+/**
+ * Serialize query params. Skips undefined/null values. Passing them straight
+ * into URLSearchParams serializes the literal strings "undefined"/"null",
+ * which the receiving routes treat as real filter values and match zero rows.
+ * Falsy-but-valid values (0, false, '') are preserved. Mirrors the v1 SDK
+ * behavior.
+ */
+function serializeQuery(params) {
+  if (!params) return '';
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null) qs.append(key, String(value));
+  }
+  return qs.toString();
+}
+
+/**
+ * Parse a response body defensively. A non-JSON error body (a Vercel
+ * 502/504/413 gateway page, a 429 rate-limit page) makes res.json() reject
+ * with a SyntaxError, which would propagate instead of the status-bearing
+ * error and lose res.status. Fall back to {} so the real status is thrown.
+ */
+async function parseJsonSafe(res) {
+  try {
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+/** Normalize a non-OK response into the SDK's thrown error shapes. */
+function throwRequestError(res, data) {
+  if (res.status === 403 && data.decision && data.decision.decision === 'block') {
+    throw new GuardBlockedError(data.decision);
+  }
+
+  // Prioritize reason (from governance blocks) over generic error field
+  const errorMessage = data.reason || data.error || `Request failed with status ${res.status}`;
+  const err = new Error(errorMessage);
+  err.status = res.status;
+  err.details = data.details;
+  err.decision = data;
+  throw err;
+}
+
+/** Read the decision body of a policy-blocked (403) SSE response. */
+async function readBlockedStreamDecision(res) {
+  const body = await parseJsonSafe(res);
+  return body.decision || { reason: 'SSE stream blocked by policy' };
+}
+
+/**
+ * Dispatch the accumulated SSE event (if any) and reset the parser state.
+ * Returns the parsed frame, or null for empty/unparseable events.
+ */
+function flushSSEFrame(state) {
+  const { event, data, id } = state;
+  state.event = null;
+  state.data = '';
+  state.id = null;
+  if (!event || !data) return null;
+  try {
+    return { event, data: JSON.parse(data), id };
+  } catch { /* ignore parse errors */ }
+  return null;
+}
+
+/**
+ * Consume one SSE line into the parser state. Returns a complete frame when
+ * a blank line dispatches an accumulated event, otherwise null.
+ */
+function consumeSSELine(state, line) {
+  if (line.startsWith('id: ')) {
+    state.id = line.slice(4).trim();
+    return null;
+  }
+  if (line.startsWith('event: ')) {
+    state.event = line.slice(7).trim();
+    return null;
+  }
+  if (line.startsWith('data: ')) {
+    state.data += line.slice(6);
+    return null;
+  }
+  if (line.startsWith(':')) return null; // SSE comment (heartbeat)
+  if (line !== '') return null;
+  return flushSSEFrame(state);
+}
+
+/** Buffer a decoded chunk and yield every complete SSE frame it finishes. */
+function* drainSSEBuffer(state, text) {
+  state.buffer += text;
+  const lines = state.buffer.split('\n');
+  state.buffer = lines.pop();
+  for (const line of lines) {
+    const frame = consumeSSELine(state, line);
+    if (frame) yield frame;
+  }
+}
+
+/**
+ * Classify an action's approval state.
+ * Returns { resolved: false } while waiting, { resolved: true, result } on
+ * approval, or { resolved: true, error } on denial.
+ */
+function evaluateApprovalState(action) {
+  if (action.approved_by) return { resolved: true, result: { action } };
+  if (action.status === 'failed' || action.status === 'cancelled') {
+    return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Operator denied the action.', action.status) };
+  }
+  return { resolved: false };
+}
+
+/** Evaluate an SSE frame against the awaited action id. */
+function evaluateApprovalFrame(frame, actionId) {
+  if (frame.event !== 'action.updated' || frame.data?.action_id !== actionId) {
+    return { resolved: false };
+  }
+  return evaluateApprovalState(frame.data);
+}
+
+/**
+ * Classify the pending-state transitions of one polling result, after the
+ * approve/deny outcomes have already been ruled out by evaluateApprovalState.
+ */
+function resolvePendingTransition(result, wasPending, actionId) {
+  const action = result.action;
+  if (wasPending && action.status !== 'pending_approval') {
+    return { error: new Error(`Action ${actionId} left pending_approval state without explicit approval metadata (Status: ${action.status})`) };
+  }
+  if (!wasPending && action.status === 'running') return { done: true, result };
+  return {};
+}
+
+/**
+ * Classify one polling result. Returns { done: true, result } when the wait
+ * is over, { error } when it must throw, or {} to keep polling.
+ */
+function resolvePollState(result, wasPending, actionId) {
+  const approval = evaluateApprovalState(result.action);
+  if (approval.error) return { error: approval.error };
+  if (approval.resolved) return { done: true, result };
+  return resolvePendingTransition(result, wasPending, actionId);
+}
+
+function approvalTimeoutError(actionId) {
+  return new Error(`Timed out waiting for approval of action ${actionId}`);
+}
+
+/** Stop the SSE wait: cancel the timeout guard and abort the stream. */
+function settleSSEWait(wait) {
+  clearTimeout(wait.timeoutId);
+  wait.controller.abort();
+}
+
+/**
+ * Errors that must propagate out of the SSE fast path instead of triggering
+ * the polling fallback: explicit denials, policy blocks, and timeouts.
+ */
+function isApprovalWaitFatal(err) {
+  return err instanceof ApprovalDeniedError
+    || err instanceof GuardBlockedError
+    || Boolean(err.message?.includes('Timed out'));
+}
+
 class DashClaw {
   /**
    * @param {Object} options
@@ -63,59 +232,53 @@ class DashClaw {
     };
   }
 
-  async _request(path, method = 'GET', body = null, params = null) {
-    let url = `${this.baseUrl}${path}`;
-    if (params) {
-      // Skip undefined/null values. Passing them straight into URLSearchParams
-      // serializes the literal strings "undefined"/"null", which the receiving
-      // routes treat as real filter values and match zero rows. Falsy-but-valid
-      // values (0, false, '') are preserved. Mirrors the v1 SDK behavior.
-      const qs = new URLSearchParams();
-      for (const [key, value] of Object.entries(params)) {
-        if (value !== undefined && value !== null) qs.append(key, String(value));
-      }
-      const s = qs.toString();
-      if (s) url += `?${s}`;
-    }
-
-    const headers = {
-      'Content-Type': 'application/json',
+  /** @private Authentication headers shared by JSON requests and the SSE stream. */
+  _authHeaders() {
+    return {
       'x-api-key': this.apiKey,
       ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {}),
     };
+  }
 
-    const res = await fetch(url, {
+  /** @private Join base URL, path, and serialized query params. */
+  _buildUrl(path, params) {
+    const qs = serializeQuery(params);
+    return `${this.baseUrl}${path}${qs ? `?${qs}` : ''}`;
+  }
+
+  async _request(path, method = 'GET', body = null, params = null) {
+    const res = await fetch(this._buildUrl(path, params), {
       method,
-      headers,
+      headers: {
+        'Content-Type': 'application/json',
+        ...this._authHeaders(),
+      },
       body: body ? JSON.stringify(body) : undefined
     });
 
-    // Parse the body defensively. A non-JSON error body (a Vercel 502/504/413
-    // gateway page, a 429 rate-limit page) makes res.json() reject with a
-    // SyntaxError, which would propagate instead of the status-bearing error
-    // below and lose res.status. Fall back to {} so the real status is thrown.
-    let data = {};
-    try {
-      data = await res.json();
-    } catch {
-      data = {};
-    }
-
-    if (!res.ok) {
-      if (res.status === 403 && data.decision && data.decision.decision === 'block') {
-        throw new GuardBlockedError(data.decision);
-      }
-
-      // Prioritize reason (from governance blocks) over generic error field
-      const errorMessage = data.reason || data.error || `Request failed with status ${res.status}`;
-      const err = new Error(errorMessage);
-      err.status = res.status;
-      err.details = data.details;
-      err.decision = data;
-      throw err;
-    }
-
+    const data = await parseJsonSafe(res);
+    if (!res.ok) throwRequestError(res, data);
     return data;
+  }
+
+  /** @private GET shorthand for thin endpoint wrappers. */
+  async _get(path, params = null) {
+    return this._request(path, 'GET', null, params);
+  }
+
+  /** @private POST shorthand for thin endpoint wrappers. */
+  async _post(path, body = null) {
+    return this._request(path, 'POST', body);
+  }
+
+  /** @private PATCH shorthand for thin endpoint wrappers. */
+  async _patch(path, body = null) {
+    return this._request(path, 'PATCH', body);
+  }
+
+  /** @private DELETE shorthand for thin endpoint wrappers. */
+  async _delete(path) {
+    return this._request(path, 'DELETE');
   }
 
   /**
@@ -148,7 +311,7 @@ class DashClaw {
    *   unknown_issuer — issuer not in DASHCLAW_ALLOWED_ISSUER (server config)
    */
   async guard(context) {
-    return this._request('/api/guard', 'POST', {
+    return this._post('/api/guard', {
       ...context,
       agent_id: context.agent_id || this.agentId,
       // Include agent_name for audit attribution if not already provided by caller
@@ -172,7 +335,7 @@ class DashClaw {
    * @param {string} [action.session_id] Session to attribute this action to.
    */
   async createAction(action) {
-    return this._request('/api/actions', 'POST', {
+    return this._post('/api/actions', {
       ...action,
       agent_id: this.agentId,
     });
@@ -182,7 +345,7 @@ class DashClaw {
    * PATCH /api/actions/:id — "X finished with result Y."
    */
   async updateOutcome(actionId, outcome) {
-    return this._request(`/api/actions/${actionId}`, 'PATCH', {
+    return this._patch(`/api/actions/${actionId}`, {
       ...outcome,
       timestamp_end: outcome.timestamp_end || new Date().toISOString()
     });
@@ -192,14 +355,14 @@ class DashClaw {
    * GET /api/actions/:id — Fetch a single action by ID.
    */
   async getAction(actionId) {
-    return this._request(`/api/actions/${actionId}`, 'GET');
+    return this._get(`/api/actions/${actionId}`);
   }
 
   /**
    * GET /api/actions?status=pending_approval — List actions awaiting approval.
    */
   async getPendingApprovals(limit = 20, offset = 0) {
-    return this._request('/api/actions', 'GET', null, {
+    return this._get('/api/actions', {
       status: 'pending_approval',
       limit,
       offset,
@@ -215,14 +378,14 @@ class DashClaw {
   async approveAction(actionId, decision, reasoning) {
     const body = { decision };
     if (reasoning) body.reasoning = reasoning;
-    return this._request(`/api/actions/${actionId}/approve`, 'POST', body);
+    return this._post(`/api/actions/${actionId}/approve`, body);
   }
 
   /**
    * POST /api/assumptions — "I believe Z is true while doing X."
    */
   async recordAssumption(assumption) {
-    return this._request('/api/assumptions', 'POST', assumption);
+    return this._post('/api/assumptions', assumption);
   }
 
   /**
@@ -230,60 +393,115 @@ class DashClaw {
    */
   async *_connectSSE(controller) {
     const res = await fetch(`${this.baseUrl}/api/stream`, {
-      headers: {
-        'x-api-key': this.apiKey,
-        ...(this.authToken ? { 'Authorization': `Bearer ${this.authToken}` } : {}),
-      },
+      headers: this._authHeaders(),
       signal: controller.signal,
     });
 
     if (res.status === 403) {
-      let body = {};
-      try { body = await res.json(); } catch { /* ignore */ }
-      throw new GuardBlockedError(body.decision || { reason: 'SSE stream blocked by policy' });
+      throw new GuardBlockedError(await readBlockedStreamDecision(res));
     }
     if (!res.ok || !res.body) return;
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
-    let buffer = '';
-    let currentEvent = null;
-    let currentData = '';
-    let currentId = null;
+    const state = { buffer: '', event: null, data: '', id: null };
 
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      yield* drainSSEBuffer(state, decoder.decode(value, { stream: true }));
+    }
+  }
 
-      const lines = buffer.split('\n');
-      buffer = lines.pop();
+  /**
+   * @private SSE fast path for waitForApproval. Resolves with the confirmed
+   * GET response on approval, null when the stream ends unresolved, and
+   * throws on denial or timeout.
+   */
+  async _waitForApprovalViaSSE(actionId, timeout, startTime) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeout);
+    const wait = { actionId, timeout, startTime, controller, timeoutId };
 
-      for (const line of lines) {
-        if (line.startsWith('id: ')) {
-          currentId = line.slice(4).trim();
-        } else if (line.startsWith('event: ')) {
-          currentEvent = line.slice(7).trim();
-        } else if (line.startsWith('data: ')) {
-          currentData += line.slice(6);
-        } else if (line.startsWith(':')) {
-          // SSE comment (heartbeat)
-        } else if (line === '' && currentEvent) {
-          if (currentData) {
-            try {
-              yield { event: currentEvent, data: JSON.parse(currentData), id: currentId };
-            } catch { /* ignore parse errors */ }
-          }
-          currentEvent = null;
-          currentData = '';
-          currentId = null;
-        } else if (line === '') {
-          currentEvent = null;
-          currentData = '';
-          currentId = null;
-        }
+    try {
+      return await this._scanApprovalStream(wait);
+    } finally {
+      clearTimeout(timeoutId);
+      if (!controller.signal.aborted) controller.abort();
+    }
+  }
+
+  /** @private Consume SSE frames until the awaited action resolves or times out. */
+  async _scanApprovalStream(wait) {
+    for await (const frame of this._connectSSE(wait.controller)) {
+      const check = evaluateApprovalFrame(frame, wait.actionId);
+      if (check.resolved) {
+        settleSSEWait(wait);
+        if (check.error) throw check.error;
+        return this._request(`/api/actions/${wait.actionId}`, 'GET');
+      }
+
+      if (Date.now() - wait.startTime >= wait.timeout) {
+        settleSSEWait(wait);
+        throw approvalTimeoutError(wait.actionId);
       }
     }
+    return null;
+  }
+
+  /** @private One-time console banner shown while polling for an approval. */
+  _printApprovalBanner(actionId, action) {
+    try {
+      const actionType = action.action_type || 'unknown';
+      const riskScore = action.risk_score != null ? String(action.risk_score) : '-';
+      const goal = action.declared_goal || '-';
+      const agent = action.agent_id || this.agentId;
+      const replayUrl = `${this.baseUrl}/replay/${actionId}`;
+
+      const lines = [
+        '╔══ DashClaw Approval Required ═════════════════════════╗',
+        `  Action ID:   ${actionId}`,
+        `  Agent:       ${agent}`,
+        `  Action:      ${actionType}`,
+        '  Policy:      require_approval',
+        `  Risk Score:  ${riskScore}`,
+        `  Goal:        ${goal}`,
+        '',
+        `  Replay:      ${replayUrl}`,
+        '',
+        '  Waiting for approval... (Ctrl+C to abort)',
+        '╚════════════════════════════════════════════════════╝',
+      ];
+      process.stdout.write('\n' + lines.join('\n') + '\n\n');
+    } catch (_) { /* rendering failure must not prevent wait */ }
+  }
+
+  /** @private Polling fallback for waitForApproval. */
+  async _pollForApproval(actionId, timeout, interval, startTime) {
+    let wasPending = false;
+    let printedBanner = false;
+
+    while (Date.now() - startTime < timeout) {
+      // Return the full GET response (action + open_loops + assumptions +
+      // message_summary) so the polling fallback resolves to the same shape as
+      // the SSE fast-path above and the Python SDK. Returning only { action }
+      // dropped the related collections whenever SSE was unavailable.
+      const result = await this._request(`/api/actions/${actionId}`, 'GET');
+
+      if (!printedBanner) {
+        printedBanner = true;
+        this._printApprovalBanner(actionId, result.action);
+      }
+
+      if (result.action.status === 'pending_approval') wasPending = true;
+
+      const state = resolvePollState(result, wasPending, actionId);
+      if (state.error) throw state.error;
+      if (state.done) return state.result;
+
+      await new Promise(r => setTimeout(r, interval));
+    }
+    throw approvalTimeoutError(actionId);
   }
 
   /**
@@ -292,106 +510,23 @@ class DashClaw {
   async waitForApproval(actionId, { timeout = 300000, interval = 5000 } = {}) {
     const startTime = Date.now();
 
-    const checkAction = (action) => {
-      if (action.approved_by) return { resolved: true, result: { action } };
-      if (action.status === 'failed' || action.status === 'cancelled') {
-        return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Operator denied the action.', action.status) };
-      }
-      return { resolved: false };
-    };
-
     // Try SSE first
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), timeout);
-
-      try {
-        for await (const frame of this._connectSSE(controller)) {
-          if (frame.event === 'action.updated' && frame.data?.action_id === actionId) {
-            const check = checkAction(frame.data);
-            if (check.resolved) {
-              clearTimeout(timeoutId);
-              controller.abort();
-              if (check.error) throw check.error;
-              const confirmed = await this._request(`/api/actions/${actionId}`, 'GET');
-              return confirmed;
-            }
-          }
-
-          if (Date.now() - startTime >= timeout) {
-            clearTimeout(timeoutId);
-            controller.abort();
-            throw new Error(`Timed out waiting for approval of action ${actionId}`);
-          }
-        }
-      } finally {
-        clearTimeout(timeoutId);
-        if (!controller.signal.aborted) controller.abort();
-      }
+      const confirmed = await this._waitForApprovalViaSSE(actionId, timeout, startTime);
+      if (confirmed) return confirmed;
     } catch (err) {
-      if (err instanceof ApprovalDeniedError || err instanceof GuardBlockedError || err.message?.includes('Timed out')) throw err;
+      if (isApprovalWaitFatal(err)) throw err;
       // SSE failed — fall through to polling
     }
 
-    // Polling fallback
-    let wasPending = false;
-    let printedBlock = false;
-
-    while (Date.now() - startTime < timeout) {
-      // Return the full GET response (action + open_loops + assumptions +
-      // message_summary) so the polling fallback resolves to the same shape as
-      // the SSE fast-path above and the Python SDK. Returning only { action }
-      // dropped the related collections whenever SSE was unavailable.
-      const result = await this._request(`/api/actions/${actionId}`, 'GET');
-      const action = result.action;
-
-      if (!printedBlock) {
-        printedBlock = true;
-        try {
-          const actionType = action.action_type || 'unknown';
-          const riskScore = action.risk_score != null ? String(action.risk_score) : '-';
-          const goal = action.declared_goal || '-';
-          const agent = action.agent_id || this.agentId;
-          const replayUrl = `${this.baseUrl}/replay/${actionId}`;
-
-          const lines = [
-            '\u2554\u2550\u2550 DashClaw Approval Required \u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557',
-            `  Action ID:   ${actionId}`,
-            `  Agent:       ${agent}`,
-            `  Action:      ${actionType}`,
-            '  Policy:      require_approval',
-            `  Risk Score:  ${riskScore}`,
-            `  Goal:        ${goal}`,
-            '',
-            `  Replay:      ${replayUrl}`,
-            '',
-            '  Waiting for approval... (Ctrl+C to abort)',
-            '\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d',
-          ];
-          process.stdout.write('\n' + lines.join('\n') + '\n\n');
-        } catch (_) { /* rendering failure must not prevent wait */ }
-      }
-
-      if (action.status === 'pending_approval') wasPending = true;
-      if (action.approved_by) return result;
-      if (action.status === 'failed' || action.status === 'cancelled') {
-        throw new ApprovalDeniedError(action.error_message || 'Operator denied the action.', action.status);
-      }
-      if (wasPending && action.status !== 'pending_approval') {
-        throw new Error(`Action ${actionId} left pending_approval state without explicit approval metadata (Status: ${action.status})`);
-      }
-      if (!wasPending && action.status === 'running') return result;
-
-      await new Promise(r => setTimeout(r, interval));
-    }
-    throw new Error(`Timed out waiting for approval of action ${actionId}`);
+    return this._pollForApproval(actionId, timeout, interval, startTime);
   }
 
   /**
    * POST /api/agents/heartbeat
    */
   async heartbeat(status = 'online', metadata = null) {
-    return this._request('/api/agents/heartbeat', 'POST', {
+    return this._post('/api/agents/heartbeat', {
       agent_id: this.agentId,
       status,
       metadata
@@ -402,7 +537,7 @@ class DashClaw {
    * POST /api/agents/connections
    */
   async reportConnections(connections) {
-    return this._request('/api/agents/connections', 'POST', {
+    return this._post('/api/agents/connections', {
       agent_id: this.agentId,
       connections
     });
@@ -412,7 +547,7 @@ class DashClaw {
    * POST /api/actions/loops
    */
   async registerOpenLoop(actionId, loopType, description, metadata = null) {
-    return this._request('/api/actions/loops', 'POST', {
+    return this._post('/api/actions/loops', {
       action_id: actionId,
       loop_type: loopType,
       description,
@@ -424,7 +559,7 @@ class DashClaw {
    * PATCH /api/actions/loops/:id
    */
   async resolveOpenLoop(loopId, status, resolution = null) {
-    return this._request(`/api/actions/loops/${loopId}`, 'PATCH', {
+    return this._patch(`/api/actions/loops/${loopId}`, {
       status,
       resolution
     });
@@ -434,14 +569,14 @@ class DashClaw {
    * GET /api/actions/signals
    */
   async getSignals() {
-    return this._request('/api/actions/signals');
+    return this._get('/api/actions/signals');
   }
 
   /**
    * GET /api/learning/analytics/velocity
    */
   async getLearningVelocity(lookbackDays = 30) {
-    return this._request('/api/learning/analytics/velocity', 'GET', null, {
+    return this._get('/api/learning/analytics/velocity', {
       agent_id: this.agentId,
       lookback_days: lookbackDays
     });
@@ -451,7 +586,7 @@ class DashClaw {
    * GET /api/learning/analytics/curves
    */
   async getLearningCurves(lookbackDays = 60) {
-    return this._request('/api/learning/analytics/curves', 'GET', null, {
+    return this._get('/api/learning/analytics/curves', {
       agent_id: this.agentId,
       lookback_days: lookbackDays
     });
@@ -461,7 +596,7 @@ class DashClaw {
    * GET /api/learning/lessons — Fetch consolidated lessons from scored outcomes.
    */
   async getLessons({ actionType, limit } = {}) {
-    return this._request('/api/learning/lessons', 'GET', null, {
+    return this._get('/api/learning/lessons', {
       agent_id: this.agentId,
       ...(actionType && { action_type: actionType }),
       ...(limit != null && { limit }),
@@ -472,7 +607,7 @@ class DashClaw {
    * POST /api/prompts/render
    */
   async renderPrompt({ template_id, version_id, variables, record = false }) {
-    return this._request('/api/prompts/render', 'POST', {
+    return this._post('/api/prompts/render', {
       template_id,
       version_id,
       variables,
@@ -485,7 +620,7 @@ class DashClaw {
    * POST /api/evaluations/scorers
    */
   async createScorer(name, scorer_type, config = null, description = null) {
-    return this._request('/api/evaluations/scorers', 'POST', {
+    return this._post('/api/evaluations/scorers', {
       name,
       scorer_type,
       config,
@@ -497,56 +632,56 @@ class DashClaw {
    * POST /api/scoring/profiles
    */
   async createScoringProfile(profile) {
-    return this._request('/api/scoring/profiles', 'POST', profile);
+    return this._post('/api/scoring/profiles', profile);
   }
 
   /**
    * GET /api/scoring/profiles
    */
   async listScoringProfiles(filters = {}) {
-    return this._request('/api/scoring/profiles', 'GET', null, filters);
+    return this._get('/api/scoring/profiles', filters);
   }
 
   /**
    * GET /api/scoring/profiles/:id
    */
   async getScoringProfile(profileId) {
-    return this._request(`/api/scoring/profiles/${profileId}`, 'GET');
+    return this._get(`/api/scoring/profiles/${profileId}`);
   }
 
   /**
    * PATCH /api/scoring/profiles/:id
    */
   async updateScoringProfile(profileId, updates) {
-    return this._request(`/api/scoring/profiles/${profileId}`, 'PATCH', updates);
+    return this._patch(`/api/scoring/profiles/${profileId}`, updates);
   }
 
   /**
    * DELETE /api/scoring/profiles/:id
    */
   async deleteScoringProfile(profileId) {
-    return this._request(`/api/scoring/profiles/${profileId}`, 'DELETE');
+    return this._delete(`/api/scoring/profiles/${profileId}`);
   }
 
   /**
    * POST /api/scoring/profiles/:id/dimensions
    */
   async addScoringDimension(profileId, dimension) {
-    return this._request(`/api/scoring/profiles/${profileId}/dimensions`, 'POST', dimension);
+    return this._post(`/api/scoring/profiles/${profileId}/dimensions`, dimension);
   }
 
   /**
    * PATCH /api/scoring/profiles/:id/dimensions/:dimId
    */
   async updateScoringDimension(profileId, dimensionId, updates) {
-    return this._request(`/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`, 'PATCH', updates);
+    return this._patch(`/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`, updates);
   }
 
   /**
    * DELETE /api/scoring/profiles/:id/dimensions/:dimId
    */
   async deleteScoringDimension(profileId, dimensionId) {
-    return this._request(`/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`, 'DELETE');
+    return this._delete(`/api/scoring/profiles/${profileId}/dimensions/${dimensionId}`);
   }
 
   /**
@@ -554,7 +689,7 @@ class DashClaw {
    */
   async scoreWithProfile(profileId, action) {
     if (Array.isArray(action)) throw new TypeError('scoreWithProfile expects a single action object; use batchScoreWithProfile for arrays');
-    return this._request('/api/scoring/score', 'POST', { profile_id: profileId, action });
+    return this._post('/api/scoring/score', { profile_id: profileId, action });
   }
 
   /**
@@ -562,56 +697,56 @@ class DashClaw {
    */
   async batchScoreWithProfile(profileId, actions) {
     if (!Array.isArray(actions)) throw new TypeError('batchScoreWithProfile expects an array of actions');
-    return this._request('/api/scoring/score', 'POST', { profile_id: profileId, actions });
+    return this._post('/api/scoring/score', { profile_id: profileId, actions });
   }
 
   /**
    * GET /api/scoring/score — list stored profile scores
    */
   async getProfileScores(filters = {}) {
-    return this._request('/api/scoring/score', 'GET', null, filters);
+    return this._get('/api/scoring/score', filters);
   }
 
   /**
    * GET /api/scoring/score?view=stats — aggregate stats for a profile
    */
   async getProfileScoreStats(profileId) {
-    return this._request('/api/scoring/score', 'GET', null, { profile_id: profileId, view: 'stats' });
+    return this._get('/api/scoring/score', { profile_id: profileId, view: 'stats' });
   }
 
   /**
    * POST /api/scoring/risk-templates
    */
   async createRiskTemplate(template) {
-    return this._request('/api/scoring/risk-templates', 'POST', template);
+    return this._post('/api/scoring/risk-templates', template);
   }
 
   /**
    * GET /api/scoring/risk-templates
    */
   async listRiskTemplates(filters = {}) {
-    return this._request('/api/scoring/risk-templates', 'GET', null, filters);
+    return this._get('/api/scoring/risk-templates', filters);
   }
 
   /**
    * PATCH /api/scoring/risk-templates/:id
    */
   async updateRiskTemplate(templateId, updates) {
-    return this._request(`/api/scoring/risk-templates/${templateId}`, 'PATCH', updates);
+    return this._patch(`/api/scoring/risk-templates/${templateId}`, updates);
   }
 
   /**
    * DELETE /api/scoring/risk-templates/:id
    */
   async deleteRiskTemplate(templateId) {
-    return this._request(`/api/scoring/risk-templates/${templateId}`, 'DELETE');
+    return this._delete(`/api/scoring/risk-templates/${templateId}`);
   }
 
   /**
    * POST /api/scoring/calibrate — analyze historical data and suggest dimension thresholds
    */
   async autoCalibrate(options = {}) {
-    return this._request('/api/scoring/calibrate', 'POST', options);
+    return this._post('/api/scoring/calibrate', options);
   }
 
   // ---------------------------------------------------------------------------
@@ -622,7 +757,7 @@ class DashClaw {
    * POST /api/messages — Send a message to another agent or the dashboard.
    */
   async sendMessage({ to, type, subject, body, threadId, urgent, actionId }) {
-    return this._request('/api/messages', 'POST', {
+    return this._post('/api/messages', {
       from_agent_id: this.agentId,
       to_agent_id: to,
       message_type: type,
@@ -658,33 +793,21 @@ class DashClaw {
    * GET /api/messages — Fetch this agent's inbox.
    */
   async getInbox({ type, unread, limit } = {}) {
-    return this._request('/api/messages', 'GET', null, {
-      agent_id: this.agentId,
-      direction: 'inbox',
-      ...(type && { type }),
-      ...(unread != null && { unread }),
-      ...(limit != null && { limit }),
-    });
+    return this.getMessages({ direction: 'inbox', type, unread, limit });
   }
 
   /**
    * GET /api/messages — Fetch messages this agent has sent.
    */
   async getSentMessages({ type, threadId, limit } = {}) {
-    return this._request('/api/messages', 'GET', null, {
-      agent_id: this.agentId,
-      direction: 'sent',
-      ...(type && { type }),
-      ...(threadId && { thread_id: threadId }),
-      ...(limit != null && { limit }),
-    });
+    return this.getMessages({ direction: 'sent', type, threadId, limit });
   }
 
   /**
    * GET /api/messages — Fetch this agent's messages with flexible filters.
    */
   async getMessages({ direction, type, unread, threadId, limit } = {}) {
-    return this._request('/api/messages', 'GET', null, {
+    return this._get('/api/messages', {
       agent_id: this.agentId,
       ...(direction && { direction }),
       ...(type && { type }),
@@ -698,7 +821,7 @@ class DashClaw {
    * GET /api/messages/:messageId — Fetch a single message by id.
    */
   async getMessage(messageId) {
-    return this._request(`/api/messages/${encodeURIComponent(messageId)}`, 'GET');
+    return this._get(`/api/messages/${encodeURIComponent(messageId)}`);
   }
 
   /**
@@ -709,7 +832,7 @@ class DashClaw {
    * @returns {Promise<{ updated: number }>}
    */
   async markRead(messageIds) {
-    return this._request('/api/messages', 'PATCH', {
+    return this._patch('/api/messages', {
       message_ids: messageIds,
       action: 'read',
       agent_id: this.agentId,
@@ -722,7 +845,7 @@ class DashClaw {
    * @returns {Promise<{ updated: number }>}
    */
   async archiveMessages(messageIds) {
-    return this._request('/api/messages', 'PATCH', {
+    return this._patch('/api/messages', {
       message_ids: messageIds,
       action: 'archive',
       agent_id: this.agentId,
@@ -737,7 +860,7 @@ class DashClaw {
    * POST /api/handoffs — Create a session handoff record.
    */
   async createHandoff(handoff) {
-    return this._request('/api/handoffs', 'POST', {
+    return this._post('/api/handoffs', {
       agent_id: this.agentId,
       ...handoff,
     });
@@ -747,7 +870,7 @@ class DashClaw {
    * GET /api/handoffs — Fetch the most recent handoff for this agent.
    */
   async getLatestHandoff() {
-    return this._request('/api/handoffs', 'GET', null, {
+    return this._get('/api/handoffs', {
       agent_id: this.agentId,
       latest: 'true',
     });
@@ -761,7 +884,7 @@ class DashClaw {
    * POST /api/security/prompt-injection — Scan text for prompt injection attacks.
    */
   async scanPromptInjection(text, { source } = {}) {
-    return this._request('/api/security/prompt-injection', 'POST', {
+    return this._post('/api/security/prompt-injection', {
       text,
       source,
       agent_id: this.agentId,
@@ -779,7 +902,7 @@ class DashClaw {
    * @param {string|null} [branch=null] - Optional git branch
    */
   async createSession(agentId, workspace, branch = null) {
-    return this._request('/api/sessions', 'POST', {
+    return this._post('/api/sessions', {
       agent_id: agentId || this.agentId,
       workspace,
       branch,
@@ -790,7 +913,7 @@ class DashClaw {
    * GET /api/sessions/:id — Fetch a single session by ID.
    */
   async getSession(sessionId) {
-    return this._request(`/api/sessions/${sessionId}`, 'GET');
+    return this._get(`/api/sessions/${sessionId}`);
   }
 
   /**
@@ -799,7 +922,7 @@ class DashClaw {
    * @param {Object} updates - Fields to update (status, green_level, branch_freshness, commits_behind, blocked_reason)
    */
   async updateSession(sessionId, updates) {
-    return this._request(`/api/sessions/${sessionId}`, 'PATCH', updates);
+    return this._patch(`/api/sessions/${sessionId}`, updates);
   }
 
   /**
@@ -807,14 +930,14 @@ class DashClaw {
    * @param {Object} [filters={}] - Query filters (agent_id, status, limit)
    */
   async listSessions(filters = {}) {
-    return this._request('/api/sessions', 'GET', null, filters);
+    return this._get('/api/sessions', filters);
   }
 
   /**
    * GET /api/sessions/:id/events — Fetch events for a session.
    */
   async getSessionEvents(sessionId) {
-    return this._request(`/api/sessions/${sessionId}/events`, 'GET');
+    return this._get(`/api/sessions/${sessionId}/events`);
   }
 
   // ---------------------------------------------------------------------------
@@ -825,7 +948,7 @@ class DashClaw {
    * GET /api/actions/:id/graph — Read-only execution graph (nodes + edges).
    */
   async getActionGraph(actionId) {
-    return this._request(`/api/actions/${actionId}/graph`, 'GET');
+    return this._get(`/api/actions/${actionId}/graph`);
   }
 
   // ---------------------------------------------------------------------------
@@ -847,7 +970,7 @@ class DashClaw {
    *   body for `current_status` before deciding what to do next.
    */
   async reportActionOutcome(actionId, payload) {
-    return this._request(`/api/actions/${actionId}/outcome`, 'POST', payload);
+    return this._post(`/api/actions/${actionId}/outcome`, payload);
   }
 
   /**
@@ -858,7 +981,7 @@ class DashClaw {
    * Use this BEFORE retrying any approved action to avoid double-execution.
    */
   async getActionOutcome(actionId) {
-    return this._request(`/api/actions/${actionId}/outcome`, 'GET');
+    return this._get(`/api/actions/${actionId}/outcome`);
   }
 
   /**
@@ -926,35 +1049,35 @@ class DashClaw {
    * @param {Object} [filters={}] - { status, limit, offset }
    */
   async listWorkflowTemplates(filters = {}) {
-    return this._request('/api/workflows/templates', 'GET', null, filters);
+    return this._get('/api/workflows/templates', filters);
   }
 
   /**
    * POST /api/workflows/templates — Create a workflow template.
    */
   async createWorkflowTemplate(data) {
-    return this._request('/api/workflows/templates', 'POST', data);
+    return this._post('/api/workflows/templates', data);
   }
 
   /**
    * GET /api/workflows/templates/:id — Fetch a single template.
    */
   async getWorkflowTemplate(templateId) {
-    return this._request(`/api/workflows/templates/${templateId}`, 'GET');
+    return this._get(`/api/workflows/templates/${templateId}`);
   }
 
   /**
    * PATCH /api/workflows/templates/:id — Partial update. Bumps version when steps change.
    */
   async updateWorkflowTemplate(templateId, patch) {
-    return this._request(`/api/workflows/templates/${templateId}`, 'PATCH', patch);
+    return this._patch(`/api/workflows/templates/${templateId}`, patch);
   }
 
   /**
    * POST /api/workflows/templates/:id/duplicate — Clone as a new draft.
    */
   async duplicateWorkflowTemplate(templateId, overrides = {}) {
-    return this._request(`/api/workflows/templates/${templateId}/duplicate`, 'POST', overrides);
+    return this._post(`/api/workflows/templates/${templateId}/duplicate`, overrides);
   }
 
   /**
@@ -962,7 +1085,7 @@ class DashClaw {
    * Resolves any linked model strategy into a snapshot at launch time.
    */
   async launchWorkflowTemplate(templateId, options = {}) {
-    return this._request(`/api/workflows/templates/${templateId}/launch`, 'POST', options);
+    return this._post(`/api/workflows/templates/${templateId}/launch`, options);
   }
 
   // ---------------------------------------------------------------------------
@@ -973,7 +1096,7 @@ class DashClaw {
    * GET /api/model-strategies — List model strategies.
    */
   async listModelStrategies() {
-    return this._request('/api/model-strategies', 'GET');
+    return this._get('/api/model-strategies');
   }
 
   /**
@@ -981,28 +1104,28 @@ class DashClaw {
    * @param {Object} data - { name, description, config: { primary, fallback, costSensitivity, ... } }
    */
   async createModelStrategy(data) {
-    return this._request('/api/model-strategies', 'POST', data);
+    return this._post('/api/model-strategies', data);
   }
 
   /**
    * GET /api/model-strategies/:id — Fetch a single strategy.
    */
   async getModelStrategy(strategyId) {
-    return this._request(`/api/model-strategies/${strategyId}`, 'GET');
+    return this._get(`/api/model-strategies/${strategyId}`);
   }
 
   /**
    * PATCH /api/model-strategies/:id — Partial update. Config patches merge over existing.
    */
   async updateModelStrategy(strategyId, patch) {
-    return this._request(`/api/model-strategies/${strategyId}`, 'PATCH', patch);
+    return this._patch(`/api/model-strategies/${strategyId}`, patch);
   }
 
   /**
    * DELETE /api/model-strategies/:id — Delete. Nulls soft refs on linked templates.
    */
   async deleteModelStrategy(strategyId) {
-    return this._request(`/api/model-strategies/${strategyId}`, 'DELETE');
+    return this._delete(`/api/model-strategies/${strategyId}`);
   }
 
   /**
@@ -1014,7 +1137,7 @@ class DashClaw {
    * @param {Object} [options={}] - { max_tokens, temperature, task_mode }
    */
   async completeWithStrategy(strategyId, messages, options = {}) {
-    return this._request(`/api/model-strategies/${strategyId}/complete`, 'POST', {
+    return this._post(`/api/model-strategies/${strategyId}/complete`, {
       messages,
       ...options,
     });
@@ -1033,28 +1156,28 @@ class DashClaw {
     if (filters.sourceType) params.source_type = filters.sourceType;
     if (filters.limit) params.limit = filters.limit;
     if (filters.offset) params.offset = filters.offset;
-    return this._request('/api/knowledge/collections', 'GET', null, params);
+    return this._get('/api/knowledge/collections', params);
   }
 
   /**
    * POST /api/knowledge/collections — Create a knowledge collection.
    */
   async createKnowledgeCollection(data) {
-    return this._request('/api/knowledge/collections', 'POST', data);
+    return this._post('/api/knowledge/collections', data);
   }
 
   /**
    * GET /api/knowledge/collections/:id — Fetch a single collection.
    */
   async getKnowledgeCollection(collectionId) {
-    return this._request(`/api/knowledge/collections/${collectionId}`, 'GET');
+    return this._get(`/api/knowledge/collections/${collectionId}`);
   }
 
   /**
    * PATCH /api/knowledge/collections/:id — Update collection metadata.
    */
   async updateKnowledgeCollection(collectionId, patch) {
-    return this._request(`/api/knowledge/collections/${collectionId}`, 'PATCH', patch);
+    return this._patch(`/api/knowledge/collections/${collectionId}`, patch);
   }
 
   /**
@@ -1062,21 +1185,21 @@ class DashClaw {
    * @param {Object} [filters={}] - { limit, offset }
    */
   async listKnowledgeCollectionItems(collectionId, filters = {}) {
-    return this._request(`/api/knowledge/collections/${collectionId}/items`, 'GET', null, filters);
+    return this._get(`/api/knowledge/collections/${collectionId}/items`, filters);
   }
 
   /**
    * POST /api/knowledge/collections/:id/items — Add an item. Bumps parent doc_count.
    */
   async addKnowledgeCollectionItem(collectionId, data) {
-    return this._request(`/api/knowledge/collections/${collectionId}/items`, 'POST', data);
+    return this._post(`/api/knowledge/collections/${collectionId}/items`, data);
   }
 
   /**
    * POST /api/knowledge/collections/:id/sync — Ingest pending items (chunk + embed).
    */
   async syncKnowledgeCollection(collectionId) {
-    return this._request(`/api/knowledge/collections/${collectionId}/sync`, 'POST', {});
+    return this._post(`/api/knowledge/collections/${collectionId}/sync`, {});
   }
 
   /**
@@ -1086,7 +1209,7 @@ class DashClaw {
    * @param {Object} [options={}] - { limit }
    */
   async searchKnowledgeCollection(collectionId, query, options = {}) {
-    return this._request(`/api/knowledge/collections/${collectionId}/search`, 'POST', {
+    return this._post(`/api/knowledge/collections/${collectionId}/search`, {
       query,
       ...options,
     });
@@ -1096,7 +1219,7 @@ class DashClaw {
    * DELETE /api/knowledge/collections/:id — Delete a collection (cascades items + chunks).
    */
   async deleteKnowledgeCollection(collectionId) {
-    return this._request(`/api/knowledge/collections/${collectionId}`, 'DELETE');
+    return this._delete(`/api/knowledge/collections/${collectionId}`);
   }
 
   // ---------------------------------------------------------------------------
@@ -1108,42 +1231,42 @@ class DashClaw {
    * @param {Object} [filters={}] - { category, risk_level, search, limit, offset }
    */
   async listCapabilities(filters = {}) {
-    return this._request('/api/capabilities', 'GET', null, filters);
+    return this._get('/api/capabilities', filters);
   }
 
   /**
    * POST /api/capabilities — Register a capability.
    */
   async createCapability(data) {
-    return this._request('/api/capabilities', 'POST', data);
+    return this._post('/api/capabilities', data);
   }
 
   /**
    * GET /api/capabilities/:id — Fetch a single capability.
    */
   async getCapability(capabilityId) {
-    return this._request(`/api/capabilities/${capabilityId}`, 'GET');
+    return this._get(`/api/capabilities/${capabilityId}`);
   }
 
   /**
    * PATCH /api/capabilities/:id — Update a capability.
    */
   async updateCapability(capabilityId, patch) {
-    return this._request(`/api/capabilities/${capabilityId}`, 'PATCH', patch);
+    return this._patch(`/api/capabilities/${capabilityId}`, patch);
   }
 
   /**
    * DELETE /api/capabilities/:id — Delete a capability.
    */
   async deleteCapability(capabilityId) {
-    return this._request(`/api/capabilities/${capabilityId}`, 'DELETE');
+    return this._delete(`/api/capabilities/${capabilityId}`);
   }
 
   /**
    * POST /api/capabilities/:id/invoke — Invoke a governed capability.
    */
   async invokeCapability(capabilityId, payload = {}) {
-    return this._request(`/api/capabilities/${capabilityId}/invoke`, 'POST', {
+    return this._post(`/api/capabilities/${capabilityId}/invoke`, {
       ...payload,
       agent_id: payload.agent_id || this.agentId,
     });
@@ -1153,7 +1276,7 @@ class DashClaw {
    * POST /api/capabilities/:id/test — Run a non-production capability validation call.
    */
   async testCapability(capabilityId, payload = {}) {
-    return this._request(`/api/capabilities/${capabilityId}/test`, 'POST', {
+    return this._post(`/api/capabilities/${capabilityId}/test`, {
       ...payload,
       agent_id: payload.agent_id || this.agentId,
     });
@@ -1163,21 +1286,21 @@ class DashClaw {
    * GET /api/capabilities/:id/health — Fetch derived capability health.
    */
   async getCapabilityHealth(capabilityId) {
-    return this._request(`/api/capabilities/${capabilityId}/health`, 'GET');
+    return this._get(`/api/capabilities/${capabilityId}/health`);
   }
 
   /**
    * GET /api/capabilities/health — List derived health summaries for matching capabilities.
    */
   async listCapabilityHealth(filters = {}) {
-    return this._request('/api/capabilities/health', 'GET', null, filters);
+    return this._get('/api/capabilities/health', filters);
   }
 
   /**
    * GET /api/capabilities/:id/history — Fetch recent test and invoke events for a capability.
    */
   async getCapabilityHistory(capabilityId, filters = {}) {
-    return this._request(`/api/capabilities/${capabilityId}/history`, 'GET', null, filters);
+    return this._get(`/api/capabilities/${capabilityId}/history`, filters);
   }
 
   // ---------------------------------------------------------------------------
@@ -1192,42 +1315,42 @@ class DashClaw {
    * @param {Object} [filters={}] - { category }
    */
   async listPromptTemplates(filters = {}) {
-    return this._request('/api/prompts/templates', 'GET', null, filters);
+    return this._get('/api/prompts/templates', filters);
   }
 
   /**
    * GET /api/prompts/templates/:id — Fetch a single template.
    */
   async getPromptTemplate(templateId) {
-    return this._request(`/api/prompts/templates/${templateId}`, 'GET');
+    return this._get(`/api/prompts/templates/${templateId}`);
   }
 
   /**
    * POST /api/prompts/templates — Create a template (admin). { name, description?, category? }
    */
   async createPromptTemplate(data) {
-    return this._request('/api/prompts/templates', 'POST', data);
+    return this._post('/api/prompts/templates', data);
   }
 
   /**
    * PATCH /api/prompts/templates/:id — Update a template (admin). { name?, description?, category? }
    */
   async updatePromptTemplate(templateId, patch) {
-    return this._request(`/api/prompts/templates/${templateId}`, 'PATCH', patch);
+    return this._patch(`/api/prompts/templates/${templateId}`, patch);
   }
 
   /**
    * DELETE /api/prompts/templates/:id — Delete a template + its versions/runs (admin).
    */
   async deletePromptTemplate(templateId) {
-    return this._request(`/api/prompts/templates/${templateId}`, 'DELETE');
+    return this._delete(`/api/prompts/templates/${templateId}`);
   }
 
   /**
    * GET /api/prompts/templates/:id/versions — List versions (newest first).
    */
   async listPromptVersions(templateId) {
-    return this._request(`/api/prompts/templates/${templateId}/versions`, 'GET');
+    return this._get(`/api/prompts/templates/${templateId}/versions`);
   }
 
   /**
@@ -1236,14 +1359,14 @@ class DashClaw {
    * @param {Object} data - { content, model_hint?, parameters?, changelog? }
    */
   async createPromptVersion(templateId, data) {
-    return this._request(`/api/prompts/templates/${templateId}/versions`, 'POST', data);
+    return this._post(`/api/prompts/templates/${templateId}/versions`, data);
   }
 
   /**
    * GET /api/prompts/templates/:id/versions/:versionId — Fetch a single version.
    */
   async getPromptVersion(templateId, versionId) {
-    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'GET');
+    return this._get(`/api/prompts/templates/${templateId}/versions/${versionId}`);
   }
 
   /**
@@ -1251,7 +1374,7 @@ class DashClaw {
    * Activating one version deactivates the others for that template.
    */
   async activatePromptVersion(templateId, versionId) {
-    return this._request(`/api/prompts/templates/${templateId}/versions/${versionId}`, 'POST');
+    return this._post(`/api/prompts/templates/${templateId}/versions/${versionId}`);
   }
 
   /**
@@ -1259,7 +1382,7 @@ class DashClaw {
    * @param {Object} [filters={}] - { template_id }
    */
   async getPromptStats(filters = {}) {
-    return this._request('/api/prompts/stats', 'GET', null, filters);
+    return this._get('/api/prompts/stats', filters);
   }
 
   /**
@@ -1267,7 +1390,7 @@ class DashClaw {
    * @param {Object} [filters={}] - { template_id, version_id, limit }
    */
   async listPromptRuns(filters = {}) {
-    return this._request('/api/prompts/runs', 'GET', null, filters);
+    return this._get('/api/prompts/runs', filters);
   }
 
   // ---------------------------------------------------------------------------
@@ -1281,7 +1404,7 @@ class DashClaw {
    * @returns {Promise<{ decision: Object }>}
    */
   async recordDecision(entry) {
-    return this._request('/api/learning', 'POST', {
+    return this._post('/api/learning', {
       ...entry,
       agent_id: entry.agent_id || this.agentId,
     });
@@ -1292,7 +1415,7 @@ class DashClaw {
    * @param {Object} [filters={}] - { agent_id, action_type, include_metrics, lookback_days, limit }
    */
   async getLearningRecommendations(filters = {}) {
-    return this._request('/api/learning/recommendations', 'GET', null, {
+    return this._get('/api/learning/recommendations', {
       ...filters,
       agent_id: filters.agent_id || this.agentId,
     });
@@ -1310,7 +1433,7 @@ class DashClaw {
    * @returns {Promise<{ summary: { total, matches, block, warn, require_approval, allow }, matches: Array, sample_size, window_days }>}
    */
   async simulatePolicy({ policy_type, rules, days } = {}) {
-    return this._request('/api/policies/simulate', 'POST', {
+    return this._post('/api/policies/simulate', {
       policy_type,
       rules,
       ...(days !== undefined ? { days } : {}),
@@ -1329,7 +1452,7 @@ class DashClaw {
    * @returns {Promise<{ preview: true, scorer_type, result: { score, label, reasoning, error } }>}
    */
   async previewScorer({ scorer_type, config, sample } = {}) {
-    return this._request('/api/evaluations/scorers/preview', 'POST', { scorer_type, config, sample });
+    return this._post('/api/evaluations/scorers/preview', { scorer_type, config, sample });
   }
 
   // ---------------------------------------------------------------------------
@@ -1341,7 +1464,7 @@ class DashClaw {
    * @returns {Promise<{ agent_id, vector, source }>}
    */
   async getAgentReputation(agentId) {
-    return this._request(`/api/reputation/agents/${agentId}`, 'GET');
+    return this._get(`/api/reputation/agents/${agentId}`);
   }
 
   /**
@@ -1350,7 +1473,7 @@ class DashClaw {
    * @param {Object} [filters] - { limit?, offset? }
    */
   async listAgentReputationEvents(agentId, filters = {}) {
-    return this._request(`/api/reputation/agents/${agentId}/events`, 'GET', null, filters);
+    return this._get(`/api/reputation/agents/${agentId}/events`, filters);
   }
 
   /**
@@ -1358,14 +1481,14 @@ class DashClaw {
    * evidence, persist the snapshot, and store a signed receipt.
    */
   async recomputeAgentReputation(agentId) {
-    return this._request(`/api/reputation/agents/${agentId}/recompute`, 'POST');
+    return this._post(`/api/reputation/agents/${agentId}/recompute`);
   }
 
   /**
    * GET /api/reputation/agents/:agentId/receipt — signed receipt for the vector.
    */
   async getAgentReputationReceipt(agentId) {
-    return this._request(`/api/reputation/agents/${agentId}/receipt`, 'GET');
+    return this._get(`/api/reputation/agents/${agentId}/receipt`);
   }
 
   /**
@@ -1374,7 +1497,7 @@ class DashClaw {
    * @param {Object} receipt - a signed reputation receipt
    */
   async verifyReputationReceipt(receipt) {
-    return this._request('/api/reputation/verify', 'POST', { receipt });
+    return this._post('/api/reputation/verify', { receipt });
   }
 
   // ---------------------------------------------------------------------------
@@ -1384,32 +1507,32 @@ class DashClaw {
 
   /** POST /api/agents/registry — register an external provider. */
   async registerAgent(data = {}) {
-    return this._request('/api/agents/registry', 'POST', data);
+    return this._post('/api/agents/registry', data);
   }
 
   /** GET /api/agents/registry — list registered agents. */
   async listRegisteredAgents(filters = {}) {
-    return this._request('/api/agents/registry', 'GET', null, filters);
+    return this._get('/api/agents/registry', filters);
   }
 
   /** GET /api/agents/registry/:id — registered agent detail. */
   async getRegisteredAgent(id) {
-    return this._request(`/api/agents/registry/${id}`, 'GET');
+    return this._get(`/api/agents/registry/${id}`);
   }
 
   /** PATCH /api/agents/registry/:id — update a registered agent. */
   async updateRegisteredAgent(id, patch = {}) {
-    return this._request(`/api/agents/registry/${id}`, 'PATCH', patch);
+    return this._patch(`/api/agents/registry/${id}`, patch);
   }
 
   /** POST /api/agents/registry/:id/capabilities — group a capability under the agent. */
   async addAgentCapability(id, capabilityId) {
-    return this._request(`/api/agents/registry/${id}/capabilities`, 'POST', { capability_id: capabilityId });
+    return this._post(`/api/agents/registry/${id}/capabilities`, { capability_id: capabilityId });
   }
 
   /** GET /api/agents/registry/:id/capabilities — capabilities grouped under the agent. */
   async listAgentCapabilities(id) {
-    return this._request(`/api/agents/registry/${id}/capabilities`, 'GET');
+    return this._get(`/api/agents/registry/${id}/capabilities`);
   }
 
   /**
@@ -1418,7 +1541,7 @@ class DashClaw {
    * @param {Object} args - { registered_agent_id, capability_id, agent_id?, payload?, declared_goal? }
    */
   async invokeRegisteredAgent({ registered_agent_id, capability_id, agent_id, payload, declared_goal } = {}) {
-    return this._request('/api/agents/invoke', 'POST', { registered_agent_id, capability_id, agent_id, payload, declared_goal });
+    return this._post('/api/agents/invoke', { registered_agent_id, capability_id, agent_id, payload, declared_goal });
   }
 
   // ---------------------------------------------------------------------------
@@ -1429,27 +1552,27 @@ class DashClaw {
 
   /** GET /api/x402/providers — list registered providers. */
   async listProviders(filters = {}) {
-    return this._request('/api/x402/providers', 'GET', null, filters);
+    return this._get('/api/x402/providers', filters);
   }
   /** POST /api/x402/providers — register a paid provider. */
   async createProvider(data = {}) {
-    return this._request('/api/x402/providers', 'POST', data);
+    return this._post('/api/x402/providers', data);
   }
   /** GET /api/x402/providers/:id — provider detail + endpoints. */
   async getProvider(id) {
-    return this._request(`/api/x402/providers/${id}`, 'GET');
+    return this._get(`/api/x402/providers/${id}`);
   }
   /** PATCH /api/x402/providers/:id — update a provider. */
   async updateProvider(id, patch = {}) {
-    return this._request(`/api/x402/providers/${id}`, 'PATCH', patch);
+    return this._patch(`/api/x402/providers/${id}`, patch);
   }
   /** GET /api/x402/providers/:id/endpoints — list a provider's endpoints. */
   async listProviderEndpoints(id) {
-    return this._request(`/api/x402/providers/${id}/endpoints`, 'GET');
+    return this._get(`/api/x402/providers/${id}/endpoints`);
   }
   /** POST /api/x402/providers/:id/endpoints — add an endpoint. */
   async createProviderEndpoint(id, data = {}) {
-    return this._request(`/api/x402/providers/${id}/endpoints`, 'POST', data);
+    return this._post(`/api/x402/providers/${id}/endpoints`, data);
   }
   /**
    * POST /api/x402/purchases — govern + record a paid acquisition.
@@ -1457,11 +1580,11 @@ class DashClaw {
    * Returns { action, purchase, decision }; branch on action.status (running | pending_approval).
    */
   async recordPurchase(data = {}) {
-    return this._request('/api/x402/purchases', 'POST', data);
+    return this._post('/api/x402/purchases', data);
   }
   /** GET /api/x402/purchases — list governed purchases. */
   async listPurchases(filters = {}) {
-    return this._request('/api/x402/purchases', 'GET', null, filters);
+    return this._get('/api/x402/purchases', filters);
   }
   /**
    * POST /api/artifacts — attach the x402 result snapshot to its purchase action.
@@ -1471,7 +1594,7 @@ class DashClaw {
    * @param {Object} result - { summary?, data?, url? }
    */
   async recordPurchaseResult(actionId, result = {}) {
-    return this._request('/api/artifacts', 'POST', {
+    return this._post('/api/artifacts', {
       artifact_type: 'x402_purchase_result',
       name: `x402 result ${actionId}`,
       description: result.summary || null,

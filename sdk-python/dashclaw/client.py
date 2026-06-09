@@ -94,48 +94,56 @@ class DashClaw:
         if "json" in kwargs:
             json_payload = kwargs.pop("json")
 
-        if params:
-            query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
-            path = f"{path}&{query}" if "?" in path else f"{path}?{query}"
+        url = f"{self.base_url}{self._append_query(path, params)}"
+        data = self._serialize_request_payload(body, json_payload)
+        req = urllib.request.Request(url, data=data, headers=self._build_request_headers(), method=method)
 
-        url = f"{self.base_url}{path}"
+        try:
+            with urllib.request.urlopen(req, timeout=30) as response:
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            self._raise_normalized_http_error(e)
+        except Exception as e:
+            raise DashClawError(f"Request failed: {str(e)}")
+
+    def _append_query(self, path, params):
+        if not params:
+            return path
+        query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
+        return f"{path}&{query}" if "?" in path else f"{path}?{query}"
+
+    def _build_request_headers(self):
         headers = {
             "Content-Type": "application/json",
             "x-api-key": self.api_key,
         }
         if self.auth_token:
             headers["Authorization"] = f"Bearer {self.auth_token}"
+        return headers
 
-        data = None
+    def _serialize_request_payload(self, body, json_payload):
         payload = json_payload if json_payload is not None else body
-        if payload is not None:
-            import json as json_mod
-            data = json_mod.dumps(payload).encode("utf-8")
+        if payload is None:
+            return None
+        return json.dumps(payload).encode("utf-8")
 
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        
+    def _raise_normalized_http_error(self, e):
+        """Translate an HTTPError into GuardBlockedError or DashClawError."""
         try:
-            with urllib.request.urlopen(req, timeout=30) as response:
-                import json as json_mod
-                return json_mod.loads(response.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            try:
-                error_data = json.loads(e.read().decode("utf-8"))
-                message = error_data.get("error", str(e))
-                details = error_data.get("details")
-                decision = error_data.get("decision")
-                
-                # Check for governance block
-                if e.code == 403 and decision and decision.get("decision") == "block":
-                    raise GuardBlockedError(decision)
-            except GuardBlockedError:
-                raise
-            except Exception:
-                message = str(e)
-                details = None
-            raise DashClawError(message, status=e.code, details=details)
-        except Exception as e:
-            raise DashClawError(f"Request failed: {str(e)}")
+            error_data = json.loads(e.read().decode("utf-8"))
+            message = error_data.get("error", str(e))
+            details = error_data.get("details")
+            decision = error_data.get("decision")
+
+            # Check for governance block
+            if e.code == 403 and decision and decision.get("decision") == "block":
+                raise GuardBlockedError(decision)
+        except GuardBlockedError:
+            raise
+        except Exception:
+            message = str(e)
+            details = None
+        raise DashClawError(message, status=e.code, details=details)
 
     def _is_restrictive_decision(self, decision):
         return isinstance(decision, dict) and decision.get("decision") in ["block", "require_approval"]
@@ -162,96 +170,86 @@ class DashClaw:
 
     def _auto_recommend(self, action_def):
         if self.auto_recommend == "off" or not isinstance(action_def, dict) or not action_def.get("action_type"):
-            return {"action": action_def, "recommendation": None, "adapted_fields": []}
+            return self._recommendation_passthrough(action_def)
 
         try:
             result = self.recommend_action(action_def)
         except Exception as e:
             print(f"[DashClaw] Recommendation fetch failed (proceeding): {str(e)}")
-            return {"action": action_def, "recommendation": None, "adapted_fields": []}
+            return self._recommendation_passthrough(action_def)
 
-        if self.recommendation_callback:
-            try:
-                self.recommendation_callback(result)
-            except Exception:
-                pass
+        self._notify_recommendation_callback(result)
 
         recommendation = result.get("recommendation")
         if not isinstance(recommendation, dict):
             return result
 
-        confidence = recommendation.get("confidence")
-        try:
-            confidence = float(confidence if confidence is not None else 0)
-        except Exception:
-            confidence = 0
+        confidence = self._coerce_recommendation_confidence(recommendation.get("confidence"))
 
+        override_reason = self._resolve_recommendation_override(result, action_def, confidence)
+        if override_reason:
+            return self._override_recommendation(result, action_def, recommendation, override_reason)
+
+        return self._apply_auto_recommendation(result, action_def, recommendation, confidence)
+
+    def _resolve_recommendation_override(self, result, action_def, confidence):
+        """Return the override reason that prevents auto-applying, or None to apply."""
         if confidence < self.recommendation_confidence_min:
-            override_reason = f"confidence_below_threshold:{confidence}<{self.recommendation_confidence_min}"
-            self._report_recommendation_event({
-                "recommendation_id": recommendation.get("id"),
-                "event_type": "overridden",
-                "details": {
-                    "action_type": action_def.get("action_type"),
-                    "reason": override_reason,
-                },
-            })
-            return {
-                **result,
-                "action": {
-                    **action_def,
-                    "recommendation_id": recommendation.get("id"),
-                    "recommendation_applied": False,
-                    "recommendation_override_reason": override_reason,
-                },
-            }
+            return f"confidence_below_threshold:{confidence}<{self.recommendation_confidence_min}"
 
-        guard_decision = None
-        try:
-            guard_decision = self.guard(self._build_guard_context(result.get("action") or action_def))
-        except Exception as e:
-            print(f"[DashClaw] Recommendation guard probe failed: {str(e)}")
-
+        guard_decision = self._probe_recommendation_guard(result, action_def)
         if self._is_restrictive_decision(guard_decision):
-            override_reason = f"guard_restrictive:{guard_decision.get('decision')}"
-            self._report_recommendation_event({
-                "recommendation_id": recommendation.get("id"),
-                "event_type": "overridden",
-                "details": {
-                    "action_type": action_def.get("action_type"),
-                    "reason": override_reason,
-                },
-            })
-            return {
-                **result,
-                "action": {
-                    **action_def,
-                    "recommendation_id": recommendation.get("id"),
-                    "recommendation_applied": False,
-                    "recommendation_override_reason": override_reason,
-                },
-            }
+            return f"guard_restrictive:{guard_decision.get('decision')}"
 
         if self.auto_recommend == "warn":
-            override_reason = "warn_mode_no_autoadapt"
-            self._report_recommendation_event({
-                "recommendation_id": recommendation.get("id"),
-                "event_type": "overridden",
-                "details": {
-                    "action_type": action_def.get("action_type"),
-                    "reason": override_reason,
-                },
-            })
-            return {
-                **result,
-                "action": {
-                    **action_def,
-                    "recommendation_id": recommendation.get("id"),
-                    "recommendation_applied": False,
-                    "recommendation_override_reason": override_reason,
-                },
-            }
+            return "warn_mode_no_autoadapt"
 
+        return None
+
+    def _recommendation_passthrough(self, action_def):
+        return {"action": action_def, "recommendation": None, "adapted_fields": []}
+
+    def _notify_recommendation_callback(self, result):
+        if not self.recommendation_callback:
+            return
+        try:
+            self.recommendation_callback(result)
+        except Exception:
+            pass
+
+    def _coerce_recommendation_confidence(self, confidence):
+        try:
+            return float(confidence if confidence is not None else 0)
+        except Exception:
+            return 0
+
+    def _probe_recommendation_guard(self, result, action_def):
+        try:
+            return self.guard(self._build_guard_context(result.get("action") or action_def))
+        except Exception as e:
+            print(f"[DashClaw] Recommendation guard probe failed: {str(e)}")
+            return None
+
+    def _override_recommendation(self, result, action_def, recommendation, override_reason):
+        self._report_recommendation_event({
+            "recommendation_id": recommendation.get("id"),
+            "event_type": "overridden",
+            "details": {
+                "action_type": action_def.get("action_type"),
+                "reason": override_reason,
+            },
+        })
+        return {
+            **result,
+            "action": {
+                **action_def,
+                "recommendation_id": recommendation.get("id"),
+                "recommendation_applied": False,
+                "recommendation_override_reason": override_reason,
+            },
+        }
+
+    def _apply_auto_recommendation(self, result, action_def, recommendation, confidence):
         self._report_recommendation_event({
             "recommendation_id": recommendation.get("id"),
             "event_type": "applied",
@@ -261,7 +259,6 @@ class DashClaw:
                 "confidence": confidence,
             },
         })
-
         return {
             **result,
             "action": {
@@ -347,7 +344,19 @@ class DashClaw:
         Connect to the SSE stream and listen for action.updated events.
         Returns the matching action data or None on failure (triggers polling fallback).
         """
-        import json as _json
+        resp = self._open_sse_stream(timeout)
+        if resp is None:
+            return None
+
+        try:
+            return self._listen_for_action_update(resp, action_id, timeout)
+        finally:
+            try:
+                resp.close()
+            except Exception:
+                pass
+
+    def _open_sse_stream(self, timeout):
         url = f"{self.base_url}/api/stream"
         headers = {
             "x-api-key": self.api_key,
@@ -359,57 +368,75 @@ class DashClaw:
         req = urllib.request.Request(url, headers=headers)
 
         try:
-            resp = urllib.request.urlopen(req, timeout=timeout)
+            return urllib.request.urlopen(req, timeout=timeout)
         except Exception:
             return None
 
+    def _read_sse_chunk(self, resp):
+        try:
+            chunk = resp.read(4096)
+        except Exception:
+            return None
+        if not chunk:
+            return None
+        return chunk.decode("utf-8", errors="replace")
+
+    def _listen_for_action_update(self, resp, action_id, timeout):
         buffer = ""
-        current_event = None
-        current_data = ""
+        state = {"event": None, "data": ""}
         start_time = time.time()
 
-        try:
-            while (time.time() - start_time) < timeout:
-                try:
-                    chunk = resp.read(4096)
-                except Exception:
-                    return None
-                if not chunk:
-                    return None
+        while (time.time() - start_time) < timeout:
+            chunk = self._read_sse_chunk(resp)
+            if chunk is None:
+                return None
 
-                buffer += chunk.decode("utf-8", errors="replace")
-                lines = buffer.split("\n")
-                buffer = lines.pop()
+            buffer += chunk
+            lines = buffer.split("\n")
+            buffer = lines.pop()
 
-                for line in lines:
-                    if line.startswith("id: "):
-                        pass
-                    elif line.startswith("event: "):
-                        current_event = line[7:].strip()
-                    elif line.startswith("data: "):
-                        current_data += line[6:]
-                    elif line.startswith(":"):
-                        pass  # SSE comment (heartbeat)
-                    elif line == "" and current_event:
-                        if current_data and current_event == "action.updated":
-                            try:
-                                data = _json.loads(current_data)
-                                if data.get("action_id") == action_id:
-                                    return data
-                            except Exception:
-                                pass
-                        current_event = None
-                        current_data = ""
-                    elif line == "":
-                        current_event = None
-                        current_data = ""
-        finally:
-            try:
-                resp.close()
-            except Exception:
-                pass
+            for line in lines:
+                match = self._consume_sse_line(line, state, action_id)
+                if match is not None:
+                    return match
 
         return None
+
+    def _consume_sse_line(self, line, state, action_id):
+        """Feed one SSE line into the parse state; return the matching event payload, if any."""
+        if line.startswith("id: ") or line.startswith(":"):
+            return None  # id lines unused; ":" = SSE comment (heartbeat)
+        if line.startswith("event: "):
+            state["event"] = line[7:].strip()
+            return None
+        if line.startswith("data: "):
+            state["data"] += line[6:]
+            return None
+        if line != "":
+            return None
+
+        # Blank line: dispatch the buffered event, then reset.
+        match = None
+        if state["event"] == "action.updated" and state["data"]:
+            match = self._parse_action_update(state["data"], action_id)
+        state["event"] = None
+        state["data"] = ""
+        return match
+
+    def _parse_action_update(self, raw_data, action_id):
+        try:
+            data = json.loads(raw_data)
+            if data.get("action_id") == action_id:
+                return data
+        except Exception:
+            pass
+        return None
+
+    def _left_pending_without_approval(self, was_pending, action):
+        return was_pending and action.get("status") != "pending_approval"
+
+    def _is_running_before_pending(self, was_pending, action):
+        return not was_pending and action.get("status") == "running"
 
     def _evaluate_wait_for_approval_action(self, action_id, res, was_pending=False):
         action = res.get("action", {}) if isinstance(res, dict) else {}
@@ -427,45 +454,45 @@ class DashClaw:
                 decision=action.get("status")
             )
 
-        if was_pending and action.get("status") != "pending_approval":
+        if self._left_pending_without_approval(was_pending, action):
             raise DashClawError(
                 f"Action {action_id} left pending_approval state without explicit approval metadata (Status: {action.get('status')})"
             )
 
-        if not was_pending and action.get("status") == "running":
+        if self._is_running_before_pending(was_pending, action):
             return res, was_pending
 
         return None, was_pending
 
-    def wait_for_approval(self, action_id, timeout=300, interval=5):
-        """Wait for human approval. Uses SSE for instant notification, falls back to polling."""
-        start_time = time.time()
+    def _wait_for_approval_via_sse(self, action_id, timeout, start_time):
+        """Try the SSE fast path. Returns (resolved, value); raises ApprovalDeniedError on denial."""
+        remaining = timeout - (time.time() - start_time)
+        if remaining <= 0:
+            return False, None
 
-        # Try SSE first
-        try:
-            remaining = timeout - (time.time() - start_time)
-            if remaining > 0:
-                sse_data = self._connect_sse(action_id, remaining)
-                if sse_data is not None:
-                    if sse_data.get("approved_by"):
-                        return self.get_action(action_id)
-                    if sse_data.get("status") in ["failed", "cancelled"]:
-                        raise ApprovalDeniedError(
-                            sse_data.get("error_message") or "Operator denied the action.",
-                            decision=sse_data.get("status")
-                        )
-        except ApprovalDeniedError:
-            raise
-        except Exception:
-            pass  # SSE failed — fall through to polling
+        sse_data = self._connect_sse(action_id, remaining)
+        if sse_data is None:
+            return False, None
 
+        if sse_data.get("approved_by"):
+            return True, self.get_action(action_id)
+
+        if sse_data.get("status") in ["failed", "cancelled"]:
+            raise ApprovalDeniedError(
+                sse_data.get("error_message") or "Operator denied the action.",
+                decision=sse_data.get("status")
+            )
+
+        return False, None
+
+    def _poll_for_approval(self, action_id, interval, deadline):
         was_pending = False
         res = self.get_action(action_id)
         resolved, was_pending = self._evaluate_wait_for_approval_action(action_id, res, was_pending)
         if resolved is not None:
             return resolved
 
-        while (time.time() - start_time) < timeout:
+        while time.time() < deadline:
             if interval > 0:
                 time.sleep(interval)
 
@@ -475,6 +502,22 @@ class DashClaw:
                 return resolved
 
         raise TimeoutError(f"[DashClaw] Timed out waiting for approval of action {action_id}")
+
+    def wait_for_approval(self, action_id, timeout=300, interval=5):
+        """Wait for human approval. Uses SSE for instant notification, falls back to polling."""
+        start_time = time.time()
+
+        # Try SSE first
+        try:
+            resolved, value = self._wait_for_approval_via_sse(action_id, timeout, start_time)
+            if resolved:
+                return value
+        except ApprovalDeniedError:
+            raise
+        except Exception:
+            pass  # SSE failed — fall through to polling
+
+        return self._poll_for_approval(action_id, interval, start_time + timeout)
 
     def update_outcome(self, action_id, status=None, **kwargs):
         """Update the outcome of an action."""
@@ -551,23 +594,25 @@ class DashClaw:
     def get_pending_approvals(self, limit=20, offset=0):
         return self.get_actions(status="pending_approval", limit=limit, offset=offset)
 
+    def _record_tracked_failure(self, action_id, start_time, error):
+        duration_ms = int((time.time() - start_time) * 1000)
+        try:
+            self.update_outcome(action_id, status="failed", duration_ms=duration_ms, error_message=str(error))
+        except Exception as outcome_err:
+            warnings.warn(f"[DashClaw] Failed to close action {action_id}: {outcome_err}")
+
     @contextmanager
     def track(self, action_type, declared_goal, **kwargs):
         start_time = time.time()
         res = self.create_action(action_type, declared_goal, **kwargs)
         action_id = res.get("action_id")
-        
+
         try:
             yield {"action_id": action_id}
             duration_ms = int((time.time() - start_time) * 1000)
             self.update_outcome(action_id, status="completed", duration_ms=duration_ms)
         except Exception as e:
-            duration_ms = int((time.time() - start_time) * 1000)
-            try:
-                self.update_outcome(action_id, status="failed", duration_ms=duration_ms, error_message=str(e))
-            except Exception as outcome_err:
-                import warnings
-                warnings.warn(f"[DashClaw] Failed to close action {action_id}: {outcome_err}")
+            self._record_tracked_failure(action_id, start_time, e)
             raise
 
     # --- Category 2: Decision Integrity (Loops & Assumptions) ---
@@ -705,13 +750,39 @@ class DashClaw:
         }
         return self._request("/api/learning/recommendations", method="POST", body=payload)
 
+    def _fetch_top_recommendation(self, action_type):
+        response = self.get_recommendations(action_type=action_type, limit=1)
+        recommendations = response.get("recommendations", [])
+        return recommendations[0] if recommendations else None
+
+    def _apply_risk_cap_hint(self, adapted, adapted_fields, hints):
+        risk_cap = hints.get("preferred_risk_cap")
+        if not isinstance(risk_cap, (int, float)):
+            return
+        current = adapted.get("risk_score")
+        if current is None or current > risk_cap:
+            adapted["risk_score"] = risk_cap
+            adapted_fields.append("risk_score")
+
+    def _apply_reversible_hint(self, adapted, adapted_fields, hints):
+        if hints.get("prefer_reversible") is True and adapted.get("reversible") is None:
+            adapted["reversible"] = True
+            adapted_fields.append("reversible")
+
+    def _apply_confidence_floor_hint(self, adapted, adapted_fields, hints):
+        confidence_floor = hints.get("confidence_floor")
+        if not isinstance(confidence_floor, (int, float)):
+            return
+        current = adapted.get("confidence")
+        if current is None or current < confidence_floor:
+            adapted["confidence"] = confidence_floor
+            adapted_fields.append("confidence")
+
     def recommend_action(self, action):
         if not isinstance(action, dict) or not action.get("action_type"):
             return {"action": action, "recommendation": None, "adapted_fields": []}
 
-        response = self.get_recommendations(action_type=action.get("action_type"), limit=1)
-        recommendations = response.get("recommendations", [])
-        recommendation = recommendations[0] if recommendations else None
+        recommendation = self._fetch_top_recommendation(action.get("action_type"))
         if not recommendation:
             return {"action": action, "recommendation": None, "adapted_fields": []}
 
@@ -719,23 +790,9 @@ class DashClaw:
         adapted_fields = []
         hints = recommendation.get("hints", {}) if isinstance(recommendation, dict) else {}
 
-        risk_cap = hints.get("preferred_risk_cap")
-        if isinstance(risk_cap, (int, float)):
-            current = adapted.get("risk_score")
-            if current is None or current > risk_cap:
-                adapted["risk_score"] = risk_cap
-                adapted_fields.append("risk_score")
-
-        if hints.get("prefer_reversible") is True and adapted.get("reversible") is None:
-            adapted["reversible"] = True
-            adapted_fields.append("reversible")
-
-        confidence_floor = hints.get("confidence_floor")
-        if isinstance(confidence_floor, (int, float)):
-            current = adapted.get("confidence")
-            if current is None or current < confidence_floor:
-                adapted["confidence"] = confidence_floor
-                adapted_fields.append("confidence")
+        self._apply_risk_cap_hint(adapted, adapted_fields, hints)
+        self._apply_reversible_hint(adapted, adapted_fields, hints)
+        self._apply_confidence_floor_hint(adapted, adapted_fields, hints)
 
         return {
             "action": adapted,
@@ -806,53 +863,57 @@ class DashClaw:
         if getattr(llm_client, "_dashclaw_wrapped", False):
             return llm_client
 
-        detected = provider
-        if not detected:
-            if hasattr(llm_client, "messages") and hasattr(getattr(llm_client, "messages"), "create"):
-                detected = "anthropic"
-            elif hasattr(llm_client, "chat") and hasattr(getattr(llm_client, "chat"), "completions"):
-                detected = "openai"
-
+        detected = provider or self._detect_llm_provider(llm_client)
         if not detected:
             raise ValueError(
                 "DashClaw.wrap_client: unable to detect provider. "
                 "Pass provider='anthropic' or provider='openai'."
             )
 
-        dashclaw_self = self
-
         if detected == "anthropic":
-            original = llm_client.messages.create
-
-            def wrapped_create(*args, **kwargs):
-                response = original(*args, **kwargs)
-                usage = getattr(response, "usage", None)
-                dashclaw_self._report_token_usage_from_llm(
-                    tokens_in=getattr(usage, "input_tokens", None) if usage else None,
-                    tokens_out=getattr(usage, "output_tokens", None) if usage else None,
-                    model=getattr(response, "model", None),
-                )
-                return response
-
-            llm_client.messages.create = wrapped_create
-
+            self._wrap_anthropic_create(llm_client)
         elif detected == "openai":
-            original = llm_client.chat.completions.create
-
-            def wrapped_create(*args, **kwargs):
-                response = original(*args, **kwargs)
-                usage = getattr(response, "usage", None)
-                dashclaw_self._report_token_usage_from_llm(
-                    tokens_in=getattr(usage, "prompt_tokens", None) if usage else None,
-                    tokens_out=getattr(usage, "completion_tokens", None) if usage else None,
-                    model=getattr(response, "model", None),
-                )
-                return response
-
-            llm_client.chat.completions.create = wrapped_create
+            self._wrap_openai_create(llm_client)
 
         llm_client._dashclaw_wrapped = True
         return llm_client
+
+    def _detect_llm_provider(self, llm_client):
+        if hasattr(llm_client, "messages") and hasattr(getattr(llm_client, "messages"), "create"):
+            return "anthropic"
+        if hasattr(llm_client, "chat") and hasattr(getattr(llm_client, "chat"), "completions"):
+            return "openai"
+        return None
+
+    def _wrap_anthropic_create(self, llm_client):
+        original = llm_client.messages.create
+
+        def wrapped_create(*args, **kwargs):
+            response = original(*args, **kwargs)
+            usage = getattr(response, "usage", None)
+            self._report_token_usage_from_llm(
+                tokens_in=getattr(usage, "input_tokens", None) if usage else None,
+                tokens_out=getattr(usage, "output_tokens", None) if usage else None,
+                model=getattr(response, "model", None),
+            )
+            return response
+
+        llm_client.messages.create = wrapped_create
+
+    def _wrap_openai_create(self, llm_client):
+        original = llm_client.chat.completions.create
+
+        def wrapped_create(*args, **kwargs):
+            response = original(*args, **kwargs)
+            usage = getattr(response, "usage", None)
+            self._report_token_usage_from_llm(
+                tokens_in=getattr(usage, "prompt_tokens", None) if usage else None,
+                tokens_out=getattr(usage, "completion_tokens", None) if usage else None,
+                model=getattr(response, "model", None),
+            )
+            return response
+
+        llm_client.chat.completions.create = wrapped_create
 
     def create_calendar_event(self, summary, start_time, **kwargs):
         """Create a calendar event."""
@@ -864,8 +925,11 @@ class DashClaw:
         payload = {"title": title, **kwargs}
         return self._request("/api/inspiration", method="POST", body=payload)
 
+    def _is_prebuilt_memory_payload(self, health, entities, topics):
+        return isinstance(health, dict) and "health" in health and entities is None and topics is None
+
     def report_memory_health(self, health, entities=None, topics=None):
-        if isinstance(health, dict) and "health" in health and entities is None and topics is None:
+        if self._is_prebuilt_memory_payload(health, entities, topics):
             payload = health
         else:
             payload = {"health": health, "entities": entities, "topics": topics}
@@ -2169,37 +2233,50 @@ class DashClaw:
             currency=currency,
             payment_method=payment_method,
         )
-        action = res.get("action") if isinstance(res, dict) else None
-        action_id = (action or {}).get("action_id") or (action or {}).get("id")
-        outcome = None
-        if action_id:
-            summary = f"x402 settled: ${spend} {currency} at {origin}"
-            outcome = self.report_action_success(action_id, summary)
-            if transaction_hash or request_id:
-                # Attach the receipt snapshot. Python has no standalone
-                # record_purchase_result; the artifact POST is inlined here.
-                self._request(
-                    "/api/artifacts",
-                    "POST",
-                    json={
-                        "artifact_type": "x402_purchase_result",
-                        "name": f"x402 result {action_id}",
-                        "description": summary,
-                        "content_json": {
-                            "origin": origin,
-                            "transactionHash": transaction_hash,
-                            "requestId": request_id,
-                        },
-                        "content_url": None,
-                        "source_action_id": action_id,
-                    },
-                )
+        action, purchase, decision = self._unwrap_x402_result(res)
+        summary = f"x402 settled: ${spend} {currency} at {origin}"
+        receipt = {
+            "origin": origin,
+            "transactionHash": transaction_hash,
+            "requestId": request_id,
+        }
+        outcome = self._settle_x402_action(action, summary, receipt)
         return {
             "action": action,
-            "purchase": res.get("purchase") if isinstance(res, dict) else None,
-            "decision": res.get("decision") if isinstance(res, dict) else None,
+            "purchase": purchase,
+            "decision": decision,
             "outcome": outcome,
         }
+
+    def _unwrap_x402_result(self, res):
+        if not isinstance(res, dict):
+            return None, None, None
+        return res.get("action"), res.get("purchase"), res.get("decision")
+
+    def _settle_x402_action(self, action, summary, receipt):
+        action_id = (action or {}).get("action_id") or (action or {}).get("id")
+        if not action_id:
+            return None
+        outcome = self.report_action_success(action_id, summary)
+        if receipt.get("transactionHash") or receipt.get("requestId"):
+            self._attach_x402_receipt(action_id, summary, receipt)
+        return outcome
+
+    def _attach_x402_receipt(self, action_id, summary, receipt):
+        # Attach the receipt snapshot. Python has no standalone
+        # record_purchase_result; the artifact POST is inlined here.
+        self._request(
+            "/api/artifacts",
+            "POST",
+            json={
+                "artifact_type": "x402_purchase_result",
+                "name": f"x402 result {action_id}",
+                "description": summary,
+                "content_json": receipt,
+                "content_url": None,
+                "source_action_id": action_id,
+            },
+        )
 
 
 # Backward compatibility alias (Legacy)
