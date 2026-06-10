@@ -36,7 +36,7 @@ async function main() {
   const { baseUrl, adminKey } = parseArgs(process.argv);
   if (!baseUrl) {
     console.error('FAIL: --base-url or HOSTED_SMOKE_BASE_URL required');
-    process.exit(1);
+    process.exitCode = 1; return;
   }
   const base = baseUrl.replace(/\/$/, '');
 
@@ -57,7 +57,7 @@ async function main() {
         'Smoke production via the browser mint on /connect instead (runbook §3).',
       );
     }
-    process.exit(1);
+    process.exitCode = 1; return;
   }
   const provisioned = await provisionRes.json();
   console.log(`[smoke] provisioned workspace=${provisioned.workspace_id}, api_key prefix=${provisioned.key_prefix}`);
@@ -69,7 +69,7 @@ async function main() {
   });
   if (healthRes.status !== 200) {
     console.error(`FAIL: /api/health returned ${healthRes.status}`);
-    process.exit(1);
+    process.exitCode = 1; return;
   }
   console.log('[smoke] /api/health OK');
 
@@ -90,10 +90,10 @@ async function main() {
   }
 
   console.log('[smoke] PASS');
-  process.exit(0);
+  process.exitCode = 0; return;
 }
 
 main().catch((err) => {
   console.error(`FAIL: ${err.message}`);
-  process.exit(1);
+  process.exitCode = 1; return;
 });
