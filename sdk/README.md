@@ -1143,7 +1143,7 @@ const settled = await claw.recordX402Purchase({
 
 > **Note:** `recordPurchaseResult` is Node-only. It is a convenience wrapper over `POST /api/artifacts` — Python callers post directly to that endpoint with `artifact_type: 'x402_purchase_result'` and `source_action_id` set to the `act_` id from `record_purchase`. (`recordX402Purchase` / `record_x402_purchase` exist in both SDKs and handle the receipt internally.)
 
-> **Operator surface (no SDK wrapper):** The platform also exposes `GET /api/finops/spend?lens=fleet|claude-code` — a read-only operator rollup that aggregates agent LLM cost + x402 purchases (Fleet lens) or Code Sessions cost (Claude-Code lens). It is a presentation layer backed by repository functions (`getFleetSpend` / `getClaudeCodeSpend`), **not** an SDK method, so it does not appear in the method count. Query it directly over HTTP.
+> **Operator surface (no SDK wrapper):** The platform also exposes `GET /api/finops/spend?lens=fleet|claude-code` — a read-only operator rollup that aggregates agent LLM cost + x402 purchases (Fleet lens) or Code Sessions cost (Claude-Code lens). It is a presentation layer backed by repository functions (`getFleetSpend` / `getClaudeCodeSpend`), **not** an SDK method, so it does not appear in the method count. Query it directly over HTTP — or from the terminal via `dashclaw cost [--lens fleet|claude-code] [--period 7d|30d|90d]` (`@dashclaw/cli`).
 
 ---
 

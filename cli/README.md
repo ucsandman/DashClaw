@@ -57,6 +57,18 @@ Deny a single action by ID.
 dashclaw deny act_01h... --reason "Outside change window"
 ```
 
+### `dashclaw cost`
+
+Spend readback from `GET /api/finops/spend` — your own Claude Code cost or the fleet rollup, straight from the terminal.
+
+```bash
+dashclaw cost                            # Claude Code spend, last 7 days (defaults)
+dashclaw cost --lens claude-code --period 30d
+dashclaw cost --lens fleet --period 90d  # agent LLM cost + x402 purchases
+```
+
+Outputs an aligned table (total, sessions, cache savings, by-project breakdown for the Claude-Code lens; Agent LLM / x402 / Total for the Fleet lens) plus a one-line summary. Unconfigured exits non-zero with a `dashclaw install claude` hint; bad `--lens`/`--period` values are rejected with usage text.
+
 ### `dashclaw doctor`
 
 Diagnose your DashClaw instance and auto-fix safe issues. Checks database, configuration, auth, deployment, SDK reachability, and governance.

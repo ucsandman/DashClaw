@@ -21,6 +21,7 @@ import {
 } from '../lib/code/ingest-codex.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { installClaude } from '../lib/claude/install.js';
+import { runCost } from '../lib/cost.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
 import { fetchPosture, fetchFindings, fetchNext, resolveFinding } from '../lib/posture.js';
@@ -122,6 +123,9 @@ ${bold('Usage:')}
   dashclaw behavior status               Behavior Learning sample status (local recorder)
   dashclaw behavior suggestions          Evidence-backed policy suggestions per agent
     --agent-id <id>                      Filter to one agent
+  dashclaw cost                          Spend readback from /api/finops/spend
+    --lens fleet|claude-code             Which rollup (default: claude-code)
+    --period 7d|30d|90d                  Window (default: 7d)
   dashclaw posture                       Governance posture score + remediation queue
   dashclaw posture resolve <key>         Draft a fix (inactive) | --snooze | --accept-risk
     --note "..."                         Attach a note to the resolution
@@ -417,6 +421,33 @@ async function cmdInstallCodex() {
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
+  }
+}
+
+async function cmdCost() {
+  const lens = getFlag('--lens') || 'claude-code';
+  const period = getFlag('--period') || '7d';
+
+  if (!baseUrl || !apiKey) {
+    console.error('Not configured. Run `dashclaw install claude` to set up,');
+    console.error('or set DASHCLAW_BASE_URL and DASHCLAW_API_KEY.');
+    process.exit(1);
+  }
+
+  try {
+    console.log(await runCost({ baseUrl, apiKey }, { lens, period }));
+  } catch (err) {
+    if (err.usage) {
+      console.error(err.message);
+    } else if (err.status === 401 || err.status === 403) {
+      console.error('API key was rejected (401/403). Re-run `dashclaw install claude` or check DASHCLAW_API_KEY.');
+    } else {
+      console.error(`Could not fetch spend from ${baseUrl}: ${err.message}`);
+      console.error('Check that the instance is running and reachable.');
+    }
+    // exitCode (not process.exit) so node drains the failed fetch socket —
+    // a hard exit here can trip a libuv teardown assert on Windows.
+    process.exitCode = 1;
   }
 }
 
@@ -1111,7 +1142,10 @@ const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor
 // `codex notify` also opt-in: if no config, the notify fail-softs to skipped
 // rather than erroring (Codex never sees the error anyway — it spawns with
 // stdio nulled).
-const COMMANDS_OPTIONAL_CONFIG = new Set(['install', 'codex']);
+// `cost` resolves config non-interactively and prints its own setup hint when
+// missing (the generic interactive prompt would be the wrong UX for a
+// read-only readback command).
+const COMMANDS_OPTIONAL_CONFIG = new Set(['install', 'codex', 'cost']);
 
 function applyConfig(config) {
   baseUrl = config.baseUrl;
@@ -1151,6 +1185,7 @@ const COMMAND_HANDLERS = {
   inbox: cmdInbox,
   behavior: cmdBehavior,
   posture: cmdPosture,
+  cost: cmdCost,
   next: cmdNext,
   help: cmdHelp,
   '--help': cmdHelp,

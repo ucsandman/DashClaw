@@ -1516,8 +1516,11 @@ export async function getCostAggregation(
   const [totals] = await sql`
     SELECT
       COALESCE(SUM(cost_estimate), 0)::real as total_cost_usd,
-      COALESCE(SUM(tokens_in), 0)::integer as total_tokens_in,
-      COALESCE(SUM(tokens_out), 0)::integer as total_tokens_out
+      -- bigint, not integer: org-lifetime token sums exceed 2^31 on real
+      -- fleets ("integer out of range", PG 22003). Neon returns bigint as a
+      -- string; coerced with Number() below.
+      COALESCE(SUM(tokens_in), 0)::bigint as total_tokens_in,
+      COALESCE(SUM(tokens_out), 0)::bigint as total_tokens_out
     FROM action_records
     WHERE org_id = ${orgId}
       AND created_at::timestamptz >= ${since}::timestamptz
@@ -1555,8 +1558,8 @@ export async function getCostAggregation(
 
   return {
     total_cost_usd: Number(totals?.total_cost_usd ?? 0),
-    total_tokens_in: totals?.total_tokens_in,
-    total_tokens_out: totals?.total_tokens_out,
+    total_tokens_in: Number(totals?.total_tokens_in ?? 0),
+    total_tokens_out: Number(totals?.total_tokens_out ?? 0),
     period,
     by_agent: byAgent,
     by_day: byDay,
