@@ -35,7 +35,7 @@ export function clearConfigFile() {
   return false;
 }
 
-function ask(question) {
+export function ask(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   return new Promise((res) => {
     rl.question(question, (answer) => {
@@ -45,7 +45,7 @@ function ask(question) {
   });
 }
 
-function askSecret(question) {
+export function askSecret(question) {
   return new Promise((res) => {
     const stdin = process.stdin;
     process.stdout.write(question);

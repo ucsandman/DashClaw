@@ -62,7 +62,7 @@ DashClaw meets agents where they already are. Every path lands on the same gover
 
 | If your agent is… | Use this path | Install |
 |---|---|---|
-| Claude Code | Plugin + hooks | `npm run hooks:install` |
+| Claude Code | Plugin + hooks | `npm i -g @dashclaw/cli && dashclaw install claude` |
 | Codex | Plugin | `dashclaw install codex --project <path>` |
 | Hermes Agent | Plugin (8 lifecycle hooks) | `bash scripts/install-hermes-plugin.sh` |
 | OpenClaw | OpenClaw plugin | `npm install @dashclaw/openclaw-plugin` |
@@ -82,9 +82,11 @@ Working end-to-end examples for each runtime live in [`examples/`](./examples/) 
 One plugin source, three ecosystems. Distributed via [`plugins/dashclaw/`](./plugins/dashclaw/). Each manifest ships the MCP server config, the `dashclaw-governance` protocol skill, the `dashclaw-platform-intelligence` reference skill, and a distinct `agent_id` so Mission Control separates sessions per host.
 
 ```bash
-# Claude Code — installer for hooks + plugin
-npm run hooks:install
-ln -s "$(pwd)/plugins/dashclaw" ~/.claude/plugins/dashclaw
+# Claude Code — no clone needed: the CLI downloads the hooks bundle from your
+# instance, wires ~/.claude/settings.json, and defaults to observe mode
+npm i -g @dashclaw/cli
+dashclaw install claude            # prompts for endpoint + API key
+dashclaw install claude --trial    # browser signup on a hosted instance, paste the key
 
 # Codex — installer wires manifest, hooks, and AGENTS.md governance protocol
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
@@ -95,7 +97,7 @@ bash scripts/install-hermes-plugin.sh        # macOS / Linux
 powershell -File scripts/install-hermes-plugin.ps1   # Windows
 ```
 
-For Claude Code specifically, the hook installer alone (without the plugin) governs Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` tool call with semantic classification, risk scoring, and per-turn token capture — no SDK calls in your agent code. Set `DASHCLAW_BASE_URL`, `DASHCLAW_API_KEY`, and optionally `DASHCLAW_HOOK_MODE=enforce`. Full details in [`hooks/README.md`](hooks/README.md).
+For Claude Code specifically, `dashclaw install claude` governs Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` tool call with semantic classification, risk scoring, and per-turn token capture — no SDK calls in your agent code, no repo clone. It starts in observe mode (decisions logged, nothing blocked); flip to enforce by setting `DASHCLAW_HOOK_MODE=enforce` in `~/.dashclaw/claude-hooks/.env`. Working from a checkout instead, `npm run hooks:install` does the same wiring. Full details in [`hooks/README.md`](hooks/README.md).
 
 **Verify it fires:** pipe a fake tool call through the hook — a clean exit (and a guard evaluation when DashClaw is reachable) confirms the wiring. Use `python3` if your system has no `python` on PATH; the installer picks the right one automatically.
 

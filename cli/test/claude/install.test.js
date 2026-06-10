@@ -1,0 +1,231 @@
+// cli/test/claude/install.test.js
+//
+// Tests for `dashclaw install claude`. All filesystem writes go to a temp
+// home dir; network + python probing + prompts are injected.
+
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+
+import {
+  installClaude,
+  preflight,
+  resolvePythonCommand,
+  buildHookEntries,
+  buildHookEnv,
+  mergeClaudeSettings,
+  isManagedHookEntry,
+} from '../../lib/claude/install.js';
+
+const silentLogger = { log() {}, error() {} };
+
+function makeTempHome() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'dashclaw-claude-install-'));
+}
+
+function okFetch() {
+  return async () => ({ ok: true, status: 200, json: async () => ({}) });
+}
+
+function pythonProbeWith(available) {
+  return (cmd) => (available.includes(cmd) ? { status: 0 } : { error: new Error('ENOENT'), status: null });
+}
+
+const BASE_OPTS = {
+  endpoint: 'http://localhost:9999',
+  apiKey: 'oc_live_testkey',
+  env: {},
+  fetchImpl: okFetch(),
+  pythonProbe: pythonProbeWith(['python3', 'python']),
+  logger: silentLogger,
+};
+
+describe('resolvePythonCommand', () => {
+  it('prefers python3 when both are available', () => {
+    assert.equal(resolvePythonCommand(pythonProbeWith(['python3', 'python'])), 'python3');
+  });
+
+  it('picks python3 when python is absent', () => {
+    assert.equal(resolvePythonCommand(pythonProbeWith(['python3'])), 'python3');
+  });
+
+  it('falls back to python when python3 is absent', () => {
+    assert.equal(resolvePythonCommand(pythonProbeWith(['python'])), 'python');
+  });
+
+  it('returns null when neither runs', () => {
+    assert.equal(resolvePythonCommand(pythonProbeWith([])), null);
+  });
+
+  it('skips a python3 that spawns but exits non-zero (Windows Store alias)', () => {
+    const probe = (cmd) => (cmd === 'python3' ? { status: 9009 } : { status: 0 });
+    assert.equal(resolvePythonCommand(probe), 'python');
+  });
+});
+
+describe('preflight', () => {
+  it('throws an actionable message when the instance is unreachable', async () => {
+    const failing = async () => { throw Object.assign(new Error('fetch failed'), { name: 'TypeError' }); };
+    await assert.rejects(
+      preflight('http://localhost:9999', 'k', { fetchImpl: failing }),
+      /Could not reach http:\/\/localhost:9999\/api\/health/,
+    );
+  });
+
+  it('throws when the API key is rejected (401)', async () => {
+    const fetchImpl = async (url) =>
+      url.includes('/api/health') ? { ok: true, status: 200 } : { ok: false, status: 401 };
+    await assert.rejects(preflight('http://x', 'bad-key', { fetchImpl }), /key was rejected/);
+  });
+});
+
+describe('installClaude', () => {
+  it('happy path: config + hook .env + settings written, observe default, python resolved', async () => {
+    const home = makeTempHome();
+    const result = await installClaude({ ...BASE_OPTS, homeDir: home, agentId: 'my-agent' });
+
+    // ~/.dashclaw/config.json for the CLI
+    const config = JSON.parse(fs.readFileSync(path.join(home, '.dashclaw', 'config.json'), 'utf8'));
+    assert.equal(config.baseUrl, 'http://localhost:9999');
+    assert.equal(config.apiKey, 'oc_live_testkey');
+    assert.equal(config.agentId, 'my-agent');
+
+    // Hook credentials in .env beside the scripts — observe by default.
+    const envText = fs.readFileSync(result.hookEnvPath, 'utf8');
+    assert.match(envText, /DASHCLAW_BASE_URL=http:\/\/localhost:9999/);
+    assert.match(envText, /DASHCLAW_API_KEY=oc_live_testkey/);
+    assert.match(envText, /DASHCLAW_HOOK_MODE=observe/);
+    assert.equal(result.hookMode, 'observe');
+
+    // Hook scripts copied (repo-checkout source in this test environment).
+    assert.ok(fs.existsSync(path.join(result.hooksDir, 'dashclaw_pretool.py')));
+    assert.ok(fs.existsSync(path.join(result.hooksDir, 'dashclaw_agent_intel', 'http_client.py')));
+
+    // Claude Code settings wired with the resolved python.
+    const settings = JSON.parse(fs.readFileSync(result.settingsPath, 'utf8'));
+    const pre = settings.hooks.PreToolUse.find(isManagedHookEntry);
+    assert.ok(pre, 'managed PreToolUse entry present');
+    assert.match(pre.hooks[0].command, /^python3 .*dashclaw_pretool\.py"$/);
+    assert.ok(settings.hooks.Stop.some(isManagedHookEntry));
+  });
+
+  it('preflight failure (unreachable) exits non-zero path: rejects and leaves NO config/hooks behind', async () => {
+    const home = makeTempHome();
+    const failing = async () => { throw Object.assign(new Error('ECONNREFUSED'), { name: 'TypeError' }); };
+    await assert.rejects(
+      installClaude({ ...BASE_OPTS, homeDir: home, fetchImpl: failing }),
+      /Could not reach/,
+    );
+    assert.equal(fs.existsSync(path.join(home, '.dashclaw', 'config.json')), false);
+    assert.equal(fs.existsSync(path.join(home, '.dashclaw', 'claude-hooks')), false);
+    assert.equal(fs.existsSync(path.join(home, '.claude', 'settings.json')), false);
+  });
+
+  it('preflight failure (401) rejects with an actionable message and writes nothing', async () => {
+    const home = makeTempHome();
+    const fetchImpl = async (url) =>
+      url.includes('/api/health') ? { ok: true, status: 200 } : { ok: false, status: 401 };
+    await assert.rejects(installClaude({ ...BASE_OPTS, homeDir: home, fetchImpl }), /key was rejected/);
+    assert.equal(fs.existsSync(path.join(home, '.dashclaw', 'config.json')), false);
+  });
+
+  it('resolves python3 when python is absent and writes it into settings', async () => {
+    const home = makeTempHome();
+    const result = await installClaude({
+      ...BASE_OPTS,
+      homeDir: home,
+      pythonProbe: pythonProbeWith(['python3']),
+    });
+    assert.equal(result.python, 'python3');
+    const settings = JSON.parse(fs.readFileSync(result.settingsPath, 'utf8'));
+    for (const event of ['PreToolUse', 'PostToolUse', 'Stop']) {
+      const entry = settings.hooks[event].find(isManagedHookEntry);
+      assert.match(entry.hooks[0].command, /^python3 /);
+    }
+  });
+
+  it('rejects when no python at all is available', async () => {
+    const home = makeTempHome();
+    await assert.rejects(
+      installClaude({ ...BASE_OPTS, homeDir: home, pythonProbe: pythonProbeWith([]) }),
+      /No python3 or python found/,
+    );
+  });
+
+  it('--trial without a key prints/opens the signup URL and accepts the pasted key', async () => {
+    const home = makeTempHome();
+    const opened = [];
+    const prompts = [];
+    const result = await installClaude({
+      ...BASE_OPTS,
+      endpoint: undefined,
+      apiKey: undefined,
+      trial: true,
+      homeDir: home,
+      env: { DASHCLAW_HOSTED_URL: 'https://hosted.example' },
+      openUrl: (url) => opened.push(url),
+      prompt: async (q) => { prompts.push(q); return 'should-not-be-used'; },
+      promptSecret: async (q) => { prompts.push(q); return 'oc_live_pasted_trial_key'; },
+    });
+
+    assert.deepEqual(opened, ['https://hosted.example/connect']);
+    assert.ok(prompts.some((q) => /trial API key/.test(q)), 'prompted for the pasted key');
+    assert.equal(result.endpoint, 'https://hosted.example');
+
+    const config = JSON.parse(fs.readFileSync(path.join(home, '.dashclaw', 'config.json'), 'utf8'));
+    assert.equal(config.apiKey, 'oc_live_pasted_trial_key');
+    assert.equal(config.baseUrl, 'https://hosted.example');
+  });
+
+  it('re-install replaces managed settings entries instead of duplicating them', async () => {
+    const home = makeTempHome();
+    await installClaude({ ...BASE_OPTS, homeDir: home });
+    const again = await installClaude({ ...BASE_OPTS, homeDir: home });
+    const settings = JSON.parse(fs.readFileSync(again.settingsPath, 'utf8'));
+    assert.equal(settings.hooks.PreToolUse.filter(isManagedHookEntry).length, 1);
+    assert.equal(settings.hooks.Stop.filter(isManagedHookEntry).length, 1);
+  });
+
+  it('preserves user-authored hook entries and other settings keys', async () => {
+    const home = makeTempHome();
+    const settingsPath = path.join(home, '.claude', 'settings.json');
+    fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
+    fs.writeFileSync(settingsPath, JSON.stringify({
+      model: 'opus',
+      hooks: { PreToolUse: [{ matcher: 'Bash', hooks: [{ type: 'command', command: 'my-own-hook.sh' }] }] },
+    }));
+
+    await installClaude({ ...BASE_OPTS, homeDir: home });
+    const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf8'));
+    assert.equal(settings.model, 'opus');
+    assert.ok(settings.hooks.PreToolUse.some((e) => e.hooks?.[0]?.command === 'my-own-hook.sh'));
+    assert.ok(settings.hooks.PreToolUse.some(isManagedHookEntry));
+    // Backup created once.
+    assert.ok(fs.existsSync(settingsPath + '.dashclaw-bak'));
+  });
+});
+
+describe('buildHookEntries / buildHookEnv', () => {
+  it('hook commands point at the hooks dir with the given python', () => {
+    const entries = buildHookEntries('/tmp/hooks', 'python3');
+    assert.match(entries.PreToolUse[0].hooks[0].command, /^python3 ".*dashclaw_pretool\.py"$/);
+    assert.equal(entries.PreToolUse[0].hooks[0].timeout, 3600000);
+    assert.equal(entries.Stop[0].matcher, undefined);
+  });
+
+  it('hook env defaults to observe mode', () => {
+    const env = buildHookEnv({ endpoint: 'http://x', apiKey: 'k', agentId: 'a' });
+    assert.match(env, /DASHCLAW_HOOK_MODE=observe/);
+  });
+});
+
+describe('mergeClaudeSettings', () => {
+  it('throws a readable error on malformed settings.json', () => {
+    const home = makeTempHome();
+    const settingsPath = path.join(home, 'settings.json');
+    fs.writeFileSync(settingsPath, '{not json');
+    assert.throws(() => mergeClaudeSettings(settingsPath, '/tmp/hooks', 'python3'), /not valid JSON/);
+  });
+});

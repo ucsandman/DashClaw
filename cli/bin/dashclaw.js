@@ -10,7 +10,7 @@ import {
   green, red,
 } from '../lib/render.js';
 import { runDoctor as runDoctorCommand } from '../lib/doctor.js';
-import { resolveConfig, clearConfigFile, configPath } from '../lib/config.js';
+import { resolveConfig, clearConfigFile, configPath, ask, askSecret } from '../lib/config.js';
 import { runIngest, defaultClaudeProjectsDir } from '../lib/code/ingest.js';
 import { runMemo } from '../lib/code/memo.js';
 import { runApply } from '../lib/code/apply.js';
@@ -20,6 +20,7 @@ import {
   defaultCodexOutDir,
 } from '../lib/code/ingest-codex.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
+import { installClaude } from '../lib/claude/install.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
 import { fetchPosture, fetchFindings, fetchNext, resolveFinding } from '../lib/posture.js';
@@ -92,6 +93,10 @@ ${bold('Usage:')}
     --yes                                Overwrite existing files when manifest says so
     --allow-redactions                   Write files that contain redacted secret patterns
     --overwrite                          Clobber existing .NEW side-by-side files
+  dashclaw install claude [--trial]      Provision DashClaw governance into Claude Code
+    --endpoint <url>                     Your DashClaw instance URL (or DASHCLAW_BASE_URL)
+    --key <key>                          API key (or DASHCLAW_API_KEY; --trial prompts via browser signup)
+    --agent-id <id>                      Agent id for governed actions (default: claude-code)
   dashclaw install codex                 Provision DashClaw governance into Codex CLI
     --project <path>                     Project to receive AGENTS.md (default: cwd)
     --approval-policy <p>                Codex approval_policy (default: on-request)
@@ -415,14 +420,35 @@ async function cmdInstallCodex() {
   }
 }
 
+async function cmdInstallClaude() {
+  try {
+    const result = await installClaude({
+      endpoint: getFlag('--endpoint') || baseUrl,
+      apiKey: getFlag('--key') || apiKey,
+      agentId: getFlag('--agent-id') || undefined,
+      trial: args.includes('--trial'),
+      prompt: ask,
+      promptSecret: askSecret,
+      logger: console,
+    });
+    console.log();
+    console.log(`  ${green('Done.')} Claude Code governance installed (mode: ${result.hookMode}).`);
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exit(1);
+  }
+}
+
 async function cmdInstall() {
   const target = args[1];
   switch (target) {
     case 'codex':
       return cmdInstallCodex();
+    case 'claude':
+      return cmdInstallClaude();
     default:
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
-                    'Try: dashclaw install codex [--project <path>] [--approval-policy <p>]');
+                    'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>]');
       process.exit(1);
   }
 }

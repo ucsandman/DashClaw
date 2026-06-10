@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py\"",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.cjs\" dashclaw_pretool.py",
             "timeout": 3600000
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_posttool.py\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.cjs\" dashclaw_posttool.py"
           }
         ]
       }
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python \"$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_stop.py\""
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.cjs\" dashclaw_stop.py"
           }
         ]
       }
