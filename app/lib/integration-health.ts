@@ -176,8 +176,15 @@ interface IntegrationHealthEntry extends HealthResult {
   checked_at: string;
 }
 
+// Module-level TTL cache so request paths (the operations feed) never await
+// live external probes. Same pattern as the middleware apiKeyCache.
+const HEALTH_CACHE_TTL_MS = 5 * 60_000;
+const healthCache = new Map<string, { results: Record<string, IntegrationHealthEntry>; expires: number }>();
+const inflightRefresh = new Map<string, Promise<Record<string, IntegrationHealthEntry>>>();
+
 /**
  * Check health of all configured integrations for an org.
+ * Probes run in parallel; the result refreshes the module cache.
  * Returns: { [provider]: { status, message, checked_at } }
  */
 export async function checkAllIntegrations(
@@ -187,16 +194,44 @@ export async function checkAllIntegrations(
   const settings = await getSettings(sql, orgId, { category: 'integration' });
   const creds = decryptSettings(settings as unknown as SettingRow[], orgId);
 
-  const results: Record<string, IntegrationHealthEntry> = {};
-  for (const [provider, checker] of Object.entries(HEALTH_CHECKERS)) {
-    try {
-      results[provider] = { ...await checker(creds), checked_at: new Date().toISOString() };
-    } catch (err) {
-      results[provider] = { status: 'error', message: (err as Error).message || 'Check failed', checked_at: new Date().toISOString() };
-    }
-  }
-
+  const entries = await Promise.all(
+    Object.entries(HEALTH_CHECKERS).map(async ([provider, checker]): Promise<[string, IntegrationHealthEntry]> => {
+      try {
+        return [provider, { ...await checker(creds), checked_at: new Date().toISOString() }];
+      } catch (err) {
+        return [provider, { status: 'error', message: (err as Error).message || 'Check failed', checked_at: new Date().toISOString() }];
+      }
+    }),
+  );
+  const results = Object.fromEntries(entries);
+  healthCache.set(orgId, { results, expires: Date.now() + HEALTH_CACHE_TTL_MS });
   return results;
+}
+
+/**
+ * Cache-only read for hot request paths. Returns the last-known results
+ * immediately (or {} when never checked) and, when the cache is stale or
+ * empty, kicks off ONE non-awaited background refresh per org.
+ */
+export function getCachedIntegrationHealth(
+  orgId: string,
+  sql: SqlClient,
+): Promise<Record<string, IntegrationHealthEntry>> {
+  const entry = healthCache.get(orgId);
+  if (entry && entry.expires > Date.now()) return Promise.resolve(entry.results);
+  if (!inflightRefresh.has(orgId)) {
+    const refresh = checkAllIntegrations(orgId, sql)
+      .catch(() => entry?.results ?? {})
+      .finally(() => inflightRefresh.delete(orgId));
+    inflightRefresh.set(orgId, refresh);
+  }
+  return Promise.resolve(entry?.results ?? {});
+}
+
+/** Test-only: clear the module cache between cases. */
+export function __resetIntegrationHealthCache(): void {
+  healthCache.clear();
+  inflightRefresh.clear();
 }
 
 export { HEALTH_CHECKERS };

@@ -16,6 +16,10 @@ const { buildSecurityHeaderRules } = require('./app/lib/next-config-headers.cjs'
 const nextConfig = {
   output: 'standalone',
   productionBrowserSourceMaps: false,
+  // Pin the workspace root: a stray package-lock.json one directory up
+  // (C:\Projects) otherwise makes Next infer the wrong root and warn on every
+  // dev/build run.
+  outputFileTracingRoot: __dirname,
   env: {
     // Platform version — surfaced in the Sidebar build stamp.
     NEXT_PUBLIC_DASHCLAW_VERSION: require('./package.json').version,
@@ -73,6 +77,7 @@ const nextConfig = {
   // Tries TS first, then falls back to the real JS/JSX file (existing imports
   // keep working). Turbopack (dev) prefers TS via resolveExtensions order.
   turbopack: {
+    root: __dirname,
     resolveExtensions: ['.ts', '.tsx', '.mts', '.js', '.jsx', '.mjs', '.cjs', '.json'],
   },
   webpack(config) {

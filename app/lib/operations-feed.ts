@@ -4,7 +4,7 @@
  */
 
 import { computeSignals } from './signals.js';
-import { checkAllIntegrations } from './integration-health.js';
+import { getCachedIntegrationHealth } from './integration-health.js';
 import { signalDismissKey } from './signal-hash.js';
 import type { SqlTag } from './types/db';
 
@@ -250,7 +250,8 @@ export async function buildOperationsFeed(
       ) sub
       WHERE status IN ('failing', 'degraded')
     `.catch(() => []),
-    checkAllIntegrations(orgId, sql).catch(() => ({})),
+    // Cache-only read — the feed request path never awaits live external probes.
+    getCachedIntegrationHealth(orgId, sql).catch(() => ({})),
     agentId
       ? sql`
           SELECT ol.loop_id, ol.description, ol.priority, ol.loop_type, ol.created_at, ol.action_id, ar.agent_id

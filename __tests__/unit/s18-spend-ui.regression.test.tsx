@@ -98,8 +98,10 @@ describe('SpendOverviewPage (§18.5 Spend page rendering)', () => {
     expect(screen.getByText('$100.00')).toBeTruthy();
     expect(screen.getByText('$23.45')).toBeTruthy();
 
-    // The chart container mounts and the Area binds the `total` series key.
-    expect(screen.getByTestId('chart-container')).toBeTruthy();
+    // The chart container mounts (async — the chart is behind next/dynamic so
+    // recharts stays out of the page's initial chunk) and the Area binds the
+    // `total` series key.
+    expect(await screen.findByTestId('chart-container')).toBeTruthy();
     expect(screen.getByTestId('area').getAttribute('data-key')).toBe('total');
 
     // The page's trend-shaping IIFE: agent + x402 merged by date, sorted asc,

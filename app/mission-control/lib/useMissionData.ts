@@ -47,21 +47,13 @@ const SSE_RECONCILE_MS = 750;
 const POLL_MS = 30_000;
 const FEED_CAP = 200;
 
-async function okJson(res: PromiseSettledResult<Response>): Promise<any | null> {
-  if (res.status !== 'fulfilled' || !res.value.ok) return null;
-  try {
-    return await res.value.json();
-  } catch {
-    return null;
-  }
-}
-
 /**
  * The single coordinated source of truth for Mission Control. Replaces the three
  * independent 30s polls (page-level fetchAll + OperationsFeed + RuntimeSummaryCard)
- * with ONE 30s heartbeat firing one Promise.allSettled, plus a single shared SSE
- * subscription whose bursts collapse into one debounced reconcile (no per-event
- * fetch storm). A backgrounded tab costs nothing (visibility-gated).
+ * with ONE 30s heartbeat whose endpoints each paint their own state slice as
+ * they land, plus a single shared SSE subscription whose bursts collapse into
+ * one debounced reconcile (no per-event fetch storm). A backgrounded tab costs
+ * nothing (visibility-gated).
  */
 export function useMissionData(agentId: any): MissionData & { refresh: () => void } {
   const [data, setData] = useState<MissionData>(EMPTY);
@@ -76,52 +68,42 @@ export function useMissionData(agentId: any): MissionData & { refresh: () => voi
       return `${base}${params.length ? `?${params.join('&')}` : ''}`;
     };
 
-    // ONE coordinated wave. allSettled (not all) so a slow/failed feed never
-    // blocks the fast posture slices — each consumer degrades independently.
-    const [signalsR, loopsR, healthR, actionsR, pendingR, metricsR, capR, feedR, summaryR] =
-      await Promise.allSettled([
-        fetch(withParams('/api/signals')),
-        fetch(withParams('/api/actions/loops', ['status=open', 'limit=20'])),
-        fetch('/api/health'),
-        fetch(withParams('/api/actions', ['limit=12'])),
-        fetch(withParams('/api/actions', ['status=pending_approval', 'limit=10'])),
-        fetch(withParams('/api/actions/stats')),
-        // limit high enough that the Capability Health denominator reflects the true org total
-        // (capabilityHealth.length) rather than a truncated page once an org has >20 capabilities.
-        fetch('/api/capabilities/health?limit=200'),
-        // Feed stays UNSCOPED so global capability/integration health survive even
-        // when an agent is selected (the feed drops agent_id:null items when scoped).
-        fetch('/api/operations/feed?limit=50'),
-        fetch('/api/operations/summary'),
-      ]);
+    // ONE coordinated wave, but each endpoint paints its own slice the moment
+    // it lands — the slow feed call never gates the fast posture/ledger slices.
+    // A failed fetch leaves its slice untouched (same degrade-independently
+    // semantics as before).
+    const slice = (input: string, apply: (json: any) => Partial<MissionData>, onFail?: () => Partial<MissionData>) =>
+      fetch(input)
+        .then(async (res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.json();
+        })
+        .then(
+          (json) => setData((prev) => ({ ...prev, loading: false, ...apply(json) })),
+          () => {
+            if (onFail) setData((prev) => ({ ...prev, loading: false, ...onFail() }));
+          },
+        );
 
-    const [signals, loops, health, actionsJson, pendingJson, metrics, cap, feed, summary] =
-      await Promise.all([
-        okJson(signalsR),
-        okJson(loopsR),
-        okJson(healthR),
-        okJson(actionsR),
-        okJson(pendingR),
-        okJson(metricsR),
-        okJson(capR),
-        okJson(feedR),
-        okJson(summaryR),
-      ]);
-
-    setData((prev) => ({
-      ...prev,
-      loading: false,
-      signals: signals ?? prev.signals,
-      loops: loops ?? prev.loops,
-      health: health ?? prev.health,
-      decisionMetrics: metrics ?? prev.decisionMetrics,
-      summary: summary ?? prev.summary,
-      actions: actionsJson ? actionsJson.actions || [] : prev.actions,
-      pendingActions: pendingJson ? pendingJson.actions || [] : prev.pendingActions,
-      capabilityHealth: cap ? cap.capabilities || [] : prev.capabilityHealth,
-      capabilityHealthError: cap ? null : 'Capability health unavailable',
-      feedItems: feed ? (feed.items || []).slice(0, FEED_CAP) : prev.feedItems,
-    }));
+    await Promise.allSettled([
+      slice(withParams('/api/signals'), (j) => ({ signals: j })),
+      slice(withParams('/api/actions/loops', ['status=open', 'limit=20']), (j) => ({ loops: j })),
+      slice('/api/health', (j) => ({ health: j })),
+      slice(withParams('/api/actions', ['limit=12']), (j) => ({ actions: j.actions || [] })),
+      slice(withParams('/api/actions', ['status=pending_approval', 'limit=10']), (j) => ({ pendingActions: j.actions || [] })),
+      slice(withParams('/api/actions/stats'), (j) => ({ decisionMetrics: j })),
+      // limit high enough that the Capability Health denominator reflects the true org total
+      // (capabilityHealth.length) rather than a truncated page once an org has >20 capabilities.
+      slice(
+        '/api/capabilities/health?limit=200',
+        (j) => ({ capabilityHealth: j.capabilities || [], capabilityHealthError: null }),
+        () => ({ capabilityHealthError: 'Capability health unavailable' }),
+      ),
+      // Feed stays UNSCOPED so global capability/integration health survive even
+      // when an agent is selected (the feed drops agent_id:null items when scoped).
+      slice('/api/operations/feed?limit=50', (j) => ({ feedItems: (j.items || []).slice(0, FEED_CAP) })),
+      slice('/api/operations/summary', (j) => ({ summary: j })),
+    ]);
   }, [agentId]);
 
   // ONE 30s heartbeat, visibility-gated. agentId change → one coordinated refetch.

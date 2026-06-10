@@ -78,4 +78,42 @@ describe('useMissionData — coordinated store', () => {
     });
     await waitFor(() => expect(feedCalls).toBe(2));
   });
+
+  it('paints posture/ledger slices before a slow feed resolves (per-slice paint)', async () => {
+    let resolveFeed;
+    global.fetch = vi.fn((url) => {
+      const u = String(url);
+      if (u.includes('/api/operations/feed')) {
+        // Feed hangs until we explicitly release it.
+        return new Promise((resolve) => {
+          resolveFeed = () =>
+            resolve({ ok: true, json: async () => ({ items: [{ id: 'feed_1', category: 'signal' }], counts: {} }) });
+        });
+      }
+      if (u.includes('/api/signals')) {
+        return Promise.resolve({ ok: true, json: async () => ({ signals: [{ type: 'autonomy_spike' }] }) });
+      }
+      if (u.includes('/api/actions?limit=12')) {
+        return Promise.resolve({ ok: true, json: async () => ({ actions: [{ action_id: 'act_1' }] }) });
+      }
+      return Promise.resolve({ ok: true, json: async () => bodyFor(u) });
+    });
+
+    const { result } = renderHook(() => useMissionData(null));
+
+    // Posture (signals) and ledger (actions) land while the feed is still pending.
+    await waitFor(() => {
+      expect(result.current.signals).toEqual({ signals: [{ type: 'autonomy_spike' }] });
+      expect(result.current.actions).toEqual([{ action_id: 'act_1' }]);
+    });
+    expect(result.current.loading).toBe(false);
+    expect(result.current.feedItems).toEqual([]);
+
+    // Releasing the feed fills its slice without disturbing the others.
+    await act(async () => {
+      resolveFeed();
+    });
+    await waitFor(() => expect(result.current.feedItems).toEqual([{ id: 'feed_1', category: 'signal' }]));
+    expect(result.current.signals).toEqual({ signals: [{ type: 'autonomy_spike' }] });
+  });
 });

@@ -1,13 +1,23 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import PageLayout from '../components/PageLayout';
 import { Skeleton } from '../components/ui/Skeleton';
 import HeroStats from './components/HeroStats';
-import CostTrendChart from './components/CostTrendChart';
-import ActionVolumeChart from './components/ActionVolumeChart';
 import BreakdownCard from './components/BreakdownCard';
 import TokenUsage from './components/TokenUsage';
+
+// recharts is ~360KB — load the chart cards on demand so it stays out of the
+// page's initial chunk. Placeholder mirrors the chart card footprint.
+const chartSkeleton = () => (
+  <div className="rounded-2xl border border-border bg-surface-secondary p-5">
+    <Skeleton className="h-3 w-24 mb-4" />
+    <Skeleton className="h-48 w-full" />
+  </div>
+);
+const CostTrendChart = dynamic(() => import('./components/CostTrendChart'), { ssr: false, loading: chartSkeleton });
+const ActionVolumeChart = dynamic(() => import('./components/ActionVolumeChart'), { ssr: false, loading: chartSkeleton });
 
 const RANGES = [
   { value: 7, label: '7d' },

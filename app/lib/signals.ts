@@ -58,7 +58,16 @@ export async function computeSignals(
     if (Number.isFinite(n) && n >= 1) spikeThreshold = Math.floor(n);
   } catch { /* settings table optional; keep default */ }
 
-  const [autonomySpikes, highImpact, repeatedFailures, staleLoops, assumptionDrift, staleAssumptions, staleRunning, stalePresence, stuckWorkflows, staleApprovals] = (await Promise.all([
+  // Wave 2 of 2: every remaining query runs in ONE parallel batch (the only
+  // real data dependency is spikeThreshold → autonomy-spike HAVING clause,
+  // satisfied by wave 1 above). Best-effort categories keep their original
+  // failure semantics via per-query catch handlers that resolve to null.
+  const warnNull = (label: string) => (e: unknown): null => {
+    console.warn(`[signals] ${label} category failed:`, (e as Error)?.message || e);
+    return null;
+  };
+
+  const [autonomySpikes, highImpact, repeatedFailures, staleLoops, assumptionDrift, staleAssumptions, staleRunning, stalePresence, stuckWorkflows, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions] = (await Promise.all([
     sql`
       SELECT agent_id, agent_name, COUNT(*) as action_count,
              MAX(timestamp_start::timestamptz) AS last_seen
@@ -179,10 +188,43 @@ export async function computeSignals(
         AND timestamp_start::timestamptz < NOW() - INTERVAL '1 hour'
       ORDER BY timestamp_start ASC
       LIMIT 10
-    `
-    // Tuple cast: each Promise.all result is a non-empty Row[]; a plain Row[][]
-    // makes destructured positions Row[] | undefined under noUncheckedIndexedAccess.
-  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[]];
+    `,
+    // Integration mismatch inputs — table may not exist yet; skip silently (null).
+    sql`SELECT DISTINCT provider, agent_id FROM agent_connections WHERE org_id = ${orgId} AND status = 'active'`.catch(() => null),
+    sql`SELECT provider, status, checked_at FROM integration_health WHERE org_id = ${orgId}`.catch(() => null),
+    // Stalled sessions — best-effort, silent on failure.
+    sql`
+      SELECT id, agent_id, status, last_activity, status_since
+      FROM agent_sessions
+      WHERE org_id = ${orgId}
+        AND status = 'running'
+        AND last_activity < NOW() - INTERVAL '2 hours'
+        ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+    `.catch(() => null),
+    // Guard-decision intel categories — best-effort, warn on failure.
+    sql`
+      SELECT id, agent_id, context, created_at FROM guard_decisions
+      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '1 hour'
+      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      ORDER BY created_at DESC LIMIT 20
+    `.catch(warnNull('branch_stale')),
+    sql`
+      SELECT id, agent_id, context, created_at FROM guard_decisions
+      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '30 minutes'
+      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      ORDER BY created_at DESC LIMIT 20
+    `.catch(warnNull('mcp_degraded')),
+    sql`
+      SELECT id, agent_id, context, reason, created_at FROM guard_decisions
+      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '1 hour'
+      AND decision IN ('block', 'warn')
+      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      ORDER BY created_at DESC LIMIT 10
+    `.catch(warnNull('green_insufficient')),
+    // Tuple cast: each Promise.all result is a non-empty Row[] (or null for a
+    // failed best-effort query); a plain array type makes destructured
+    // positions possibly-undefined under noUncheckedIndexedAccess.
+  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
 
   const signals: Signal[] = [];
 
@@ -325,12 +367,8 @@ export async function computeSignals(
   }
 
   // Integration mismatch: agent reports using a provider but credentials are missing or broken
-  try {
-    const [connections, health] = (await Promise.all([
-      sql`SELECT DISTINCT provider, agent_id FROM agent_connections WHERE org_id = ${orgId} AND status = 'active'`,
-      sql`SELECT provider, status, checked_at FROM integration_health WHERE org_id = ${orgId}`,
-      // Tuple cast: destructured positions are Row[], not Row[] | undefined.
-    ])) as [Row[], Row[]];
+  // (skipped when either prefetched query failed — integration_health table may not exist yet)
+  if (connections && health) {
     const healthMap: Record<string, Row> = Object.fromEntries(health.map((h) => [h.provider, h]));
     for (const conn of connections) {
       const entry = healthMap[conn.provider];
@@ -363,21 +401,11 @@ export async function computeSignals(
         }
       }
     }
-  } catch {
-    // integration_health table may not exist yet — skip silently
   }
 
   // Detect sessions in 'running' status with no activity for 2+ hours
   try {
-    const stalledSessions = (await sql`
-      SELECT id, agent_id, status, last_activity, status_since
-      FROM agent_sessions
-      WHERE org_id = ${orgId}
-        AND status = 'running'
-        AND last_activity < NOW() - INTERVAL '2 hours'
-        ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-    `) as Row[];
-    for (const sess of stalledSessions) {
+    for (const sess of stalledSessions || []) {
       const hoursStalled = Math.round((Date.now() - new Date(sess.last_activity).getTime()) / 3600000);
       signals.push({
         type: 'session_stalled',
@@ -394,14 +422,8 @@ export async function computeSignals(
 
   // Stale branch detection from recent guard decisions with intel
   try {
-    const recentDecisions = (await sql`
-      SELECT id, agent_id, context, created_at FROM guard_decisions
-      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '1 hour'
-      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-      ORDER BY created_at DESC LIMIT 20
-    `) as Row[];
     const seenAgents = new Set();
-    for (const dec of recentDecisions) {
+    for (const dec of recentDecisions || []) {
       try {
         const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
         const branch = ctx?.intel?.branch;
@@ -428,13 +450,7 @@ export async function computeSignals(
   // MCP server health from recent guard decisions with intel
   try {
     const seenServers = new Set();
-    const recentMcpDecisions = (await sql`
-      SELECT id, agent_id, context, created_at FROM guard_decisions
-      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '30 minutes'
-      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-      ORDER BY created_at DESC LIMIT 20
-    `) as Row[];
-    for (const dec of recentMcpDecisions) {
+    for (const dec of recentMcpDecisions || []) {
       try {
         const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
         const mcp = ctx?.intel?.mcp;
@@ -459,15 +475,8 @@ export async function computeSignals(
 
   // Green contract insufficiency from recent guard decisions
   try {
-    const greenDecisions = (await sql`
-      SELECT id, agent_id, context, reason, created_at FROM guard_decisions
-      WHERE org_id = ${orgId} AND created_at::timestamptz > NOW() - INTERVAL '1 hour'
-      AND decision IN ('block', 'warn')
-      ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-      ORDER BY created_at DESC LIMIT 10
-    `) as Row[];
     const seenGreenAgents = new Set();
-    for (const dec of greenDecisions) {
+    for (const dec of greenDecisions || []) {
       try {
         const reason = dec.reason || '';
         if (reason.includes('Green contract') && !seenGreenAgents.has(dec.agent_id)) {
