@@ -1,5 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "node scripts/auto-migrate.mjs && next build --webpack"
+  "buildCommand": "node scripts/auto-migrate.mjs && next build"
 }

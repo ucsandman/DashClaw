@@ -167,6 +167,14 @@ export const actionRecords = pgTable('action_records', {
     'action_records_outcome_status_check',
     sql`${table.outcomeStatus} IN ('pending', 'completed', 'partial', 'failed', 'lost_confirmation')`,
   ),
+  // Codified from scripts/migrate-multi-tenant.mjs (they existed only on
+  // live DBs migrated by that script — fresh installs were seq-scanning).
+  // Names match the live indexes exactly so drizzle/0027 is a no-op there.
+  orgIdIdx: index('idx_action_records_org_id').on(table.orgId),
+  orgActionIdIdx: index('idx_action_records_org_action_id').on(table.orgId, table.actionId),
+  orgAgentIdIdx: index('idx_action_records_org_agent_id').on(table.orgId, table.agentId),
+  orgTsIdx: index('idx_action_records_org_ts').on(table.orgId, table.timestampStart),
+  recommendationIdIdx: index('idx_action_records_recommendation_id').on(table.orgId, table.recommendationId),
 }));
 
 export const openLoops = pgTable('open_loops', {
