@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `301`
+- Total routes: `302`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `226`
+- Experimental routes: `227`
 
 ## Routes
 
@@ -283,6 +283,7 @@ doc-type: architecture
 | `/api/session/effective` | `GET` | `experimental` | `(default)` | `app/api/session/effective/route.ts` |
 | `/api/sessions` | `GET, POST` | `experimental` | `(default)` | `app/api/sessions/route.ts` |
 | `/api/sessions/{sessionId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/sessions/[sessionId]/route.ts` |
+| `/api/sessions/{sessionId}/actions` | `GET` | `experimental` | `(default)` | `app/api/sessions/[sessionId]/actions/route.ts` |
 | `/api/sessions/{sessionId}/events` | `GET` | `experimental` | `(default)` | `app/api/sessions/[sessionId]/events/route.ts` |
 | `/api/settings` | `DELETE, GET, POST` | `stable` | `/api/settings` | `app/api/settings/route.ts` |
 | `/api/settings/llm-status` | `GET` | `stable` | `/api/settings` | `app/api/settings/llm-status/route.ts` |

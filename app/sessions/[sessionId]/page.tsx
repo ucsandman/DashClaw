@@ -45,19 +45,32 @@ const eventIcons: Record<string, typeof Circle> = {
 
 const TERMINAL_STATUSES = ['finished', 'failed', 'closed', 'completed', 'cancelled'];
 
+const ACTIONS_PAGE_SIZE = 50;
+
+function fmtActionCost(value: unknown): string {
+  const n = Number(value) || 0;
+  if (n === 0) return '$0.00';
+  if (n < 0.01) return '<$0.01';
+  return `$${n.toFixed(2)}`;
+}
+
 export default function SessionDetailPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const [session, setSession] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
+  const [actions, setActions] = useState<any[]>([]);
+  const [actionsTotal, setActionsTotal] = useState(0);
+  const [actionsLoadingMore, setActionsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [patching, setPatching] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionRes, eventsRes] = await Promise.all([
+      const [sessionRes, eventsRes, actionsRes] = await Promise.all([
         fetch(`/api/sessions/${sessionId}`),
         fetch(`/api/sessions/${sessionId}/events`),
+        fetch(`/api/sessions/${sessionId}/actions?limit=${ACTIONS_PAGE_SIZE}`),
       ]);
 
       if (sessionRes.ok) {
@@ -68,12 +81,38 @@ export default function SessionDetailPage() {
         const eData = await eventsRes.json();
         setEvents(eData.events || []);
       }
+      if (actionsRes.ok) {
+        const aData = await actionsRes.json();
+        setActions(aData.actions || []);
+        setActionsTotal(Number(aData.total) || 0);
+      }
     } catch (error) {
       console.error('Failed to fetch session detail:', error);
     } finally {
       setLoading(false);
     }
   }, [sessionId]);
+
+  // Append the next page of session actions (newest-first, server-paginated).
+  const loadMoreActions = useCallback(async () => {
+    setActionsLoadingMore(true);
+    try {
+      const res = await fetch(
+        `/api/sessions/${sessionId}/actions?limit=${ACTIONS_PAGE_SIZE}&offset=${actions.length}`
+      );
+      if (res.ok) {
+        const data = await res.json();
+        setActions((prev) => [...prev, ...(data.actions || [])]);
+        setActionsTotal(Number(data.total) || 0);
+      } else {
+        setActionError('Failed to load more actions');
+      }
+    } catch {
+      setActionError('Failed to load more actions');
+    } finally {
+      setActionsLoadingMore(false);
+    }
+  }, [sessionId, actions.length]);
 
   // Status controls — the PATCH route was unreachable from the UI, so a
   // blocked/stalled session could never be resolved or finished here. Honors
@@ -239,7 +278,7 @@ export default function SessionDetailPage() {
         </Card>
         <Card hover={false}>
           <div className="p-4">
-            <div className="text-[10px] uppercase tracking-widest text-tertiary mb-1"># Events</div>
+            <div className="text-[10px] uppercase tracking-widest text-tertiary mb-1">Lifecycle events</div>
             <div className="text-sm font-medium text-white tabular-nums">{session.event_count ?? events.length}</div>
           </div>
         </Card>
@@ -264,10 +303,77 @@ export default function SessionDetailPage() {
         );
       })()}
 
-      {/* Event Timeline */}
+      {/* Actions ledger — the action_records attributed to this session via the
+          same predicate as the "# Actions" card, so list and count always agree. */}
+      <Card hover={false} className="mt-6">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-5 pt-5 pb-3">
+          <span className="text-sm font-medium text-secondary uppercase tracking-wider">Actions</span>
+          <span className="text-xs tabular-nums text-tertiary">
+            Showing {actions.length} of {actionsTotal}
+          </span>
+        </div>
+        <CardContent className="p-0">
+          {actions.length === 0 ? (
+            <div className="px-6 pb-6 text-xs text-tertiary">
+              No actions attributed to this session yet.
+            </div>
+          ) : (
+            <>
+              <ul className="divide-y divide-border">
+                {actions.map((a) => (
+                  <li key={a.action_id} data-entity-type="action" data-entity-id={a.action_id}>
+                    <Link
+                      href={`/decisions/${a.action_id}`}
+                      className="flex items-start gap-4 px-5 py-3 transition-colors hover:bg-white/[0.02]"
+                    >
+                      <span className="mt-0.5 min-w-[72px] font-mono text-[11px] tabular-nums text-tertiary">
+                        {a.created_at ? timeAgo(a.created_at) : '--'}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm text-secondary">
+                          {a.declared_goal || a.action_type || a.action_id}
+                        </span>
+                        {a.action_type && (
+                          <span className="mt-0.5 block font-mono text-[10px] text-tertiary">{a.action_type}</span>
+                        )}
+                      </span>
+                      <span className="flex shrink-0 items-center gap-3">
+                        <span className="font-mono text-[11px] tabular-nums text-tertiary" title="Risk score">
+                          {a.risk_score != null ? a.risk_score : '—'}
+                        </span>
+                        <span className="font-mono text-[11px] tabular-nums text-tertiary" title="Cost estimate">
+                          {fmtActionCost(a.cost_estimate)}
+                        </span>
+                        <span className={`rounded-md px-2 py-0.5 text-[10px] font-medium capitalize ${statusBadge[a.status] || 'bg-zinc-500/20 text-secondary'}`}>
+                          {a.outcome_status || a.status || 'unknown'}
+                        </span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              {actions.length < actionsTotal && (
+                <div className="border-t border-border px-5 py-3">
+                  <button
+                    type="button"
+                    onClick={loadMoreActions}
+                    disabled={actionsLoadingMore}
+                    className="text-xs font-medium text-brand transition-colors hover:text-brand/80 disabled:opacity-50"
+                  >
+                    {actionsLoadingMore ? 'Loading…' : `Load ${Math.min(ACTIONS_PAGE_SIZE, actionsTotal - actions.length)} more`}
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Lifecycle timeline — session status transitions (running/blocked/
+          finished…), not actions. Actions live in the ledger above. */}
       <Card hover={false} className="mt-6">
         <div className="px-5 pt-5 pb-3">
-          <span className="text-sm font-medium text-secondary uppercase tracking-wider">Event Timeline</span>
+          <span className="text-sm font-medium text-secondary uppercase tracking-wider">Lifecycle timeline</span>
         </div>
         <CardContent className="p-0">
           {events.length === 0 ? (

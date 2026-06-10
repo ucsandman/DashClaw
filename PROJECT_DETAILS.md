@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-06-08
+last-verified: 2026-06-10
 doc-type: architecture
 ---
 
@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification, generated API inventory reports **301 routes**: **51 stable**, **24 beta**, **226 experimental**.
+As of this verification, generated API inventory reports **302 routes**: **51 stable**, **24 beta**, **227 experimental**.
 
 ## Product boundary
 

@@ -19,13 +19,34 @@ declare global {
 // else is treated as live.
 export const TERMINAL_STATUSES = ['finished', 'failed', 'closed', 'completed', 'cancelled'];
 
-// Per-session aggregation over action_records. Two join paths are unioned:
-//   1. Direct: action_records.session_id = the session id (set by writers that
-//      know it — currently none in the platform, but the column is wired so
-//      SDK/MCP stamping can light this up without a query change).
+// The session↔action match predicate, shared by the aggregate counts and
+// getSessionActions so the "# Actions" card and the actions list can never
+// disagree. Expects `s` (agent_sessions) and `ar` (action_records) aliases in
+// scope. Two join paths are unioned:
+//   1. Direct: action_records.session_id = the session id (stamped by writers
+//      that know it — the MCP server auto-stamps it on dashclaw_record after
+//      dashclaw_session_start; see mcp-server/lib/tools.js).
 //   2. Fallback: same agent_id whose action_records.created_at falls inside the
 //      session's lifetime window [created_at, COALESCE(terminal updated_at, now())].
-//      This is what makes existing un-stamped sessions useful today.
+//      This is what makes existing un-stamped sessions useful today. Known
+//      behavior: an unstamped action is attributed to EVERY overlapping session
+//      of that agent (documented overcount; list intentionally matches count).
+function sessionActionMatchSql(sql: SqlClient) {
+  return sql`(
+    ar.session_id = s.id
+    OR (
+      ar.session_id IS NULL
+      AND ar.agent_id = s.agent_id
+      AND ar.created_at::timestamptz >= s.created_at
+      AND ar.created_at::timestamptz <= CASE
+        WHEN s.status = ANY(${TERMINAL_STATUSES}) THEN s.updated_at
+        ELSE NOW()
+      END
+    )
+  )`;
+}
+
+// Per-session aggregation over action_records via the shared match predicate.
 // cost_estimate is summed with COALESCE; the caller coerces the numeric result
 // with Number() (Neon returns numeric/real as strings).
 function sessionAggregateSql(sql: SqlClient) {
@@ -38,18 +59,7 @@ function sessionAggregateSql(sql: SqlClient) {
         COALESCE(MAX(ar.risk_score), 0)::int  AS max_risk
       FROM action_records ar
       WHERE ar.org_id = s.org_id
-        AND (
-          ar.session_id = s.id
-          OR (
-            ar.session_id IS NULL
-            AND ar.agent_id = s.agent_id
-            AND ar.created_at::timestamptz >= s.created_at
-            AND ar.created_at::timestamptz <= CASE
-              WHEN s.status = ANY(${TERMINAL_STATUSES}) THEN s.updated_at
-              ELSE NOW()
-            END
-          )
-        )
+        AND ${sessionActionMatchSql(sql)}
     ) agg ON TRUE
     LEFT JOIN LATERAL (
       SELECT
@@ -58,18 +68,7 @@ function sessionAggregateSql(sql: SqlClient) {
         ar.declared_goal  AS last_declared_goal
       FROM action_records ar
       WHERE ar.org_id = s.org_id
-        AND (
-          ar.session_id = s.id
-          OR (
-            ar.session_id IS NULL
-            AND ar.agent_id = s.agent_id
-            AND ar.created_at::timestamptz >= s.created_at
-            AND ar.created_at::timestamptz <= CASE
-              WHEN s.status = ANY(${TERMINAL_STATUSES}) THEN s.updated_at
-              ELSE NOW()
-            END
-          )
-        )
+        AND ${sessionActionMatchSql(sql)}
       ORDER BY ar.created_at DESC
       LIMIT 1
     ) last_action ON TRUE
@@ -347,11 +346,76 @@ export async function getSessionEvents(
 ): Promise<SessionRow[]> {
   await ensureTables(sql);
 
+  // Lifecycle events are few (one per status transition), but a PATCH loop
+  // could grow the table — defensive bound so the route can't return unbounded
+  // rows.
   const rows = await sql`
     SELECT * FROM session_events
     WHERE session_id = ${sessionId} AND org_id = ${orgId}
     ORDER BY seq ASC
+    LIMIT 500
   `;
 
   return rows;
+}
+
+export interface SessionActionsPage {
+  actions: SessionRow[];
+  total: number;
+}
+
+/**
+ * List the action_records attributed to a session, newest first, paginated.
+ *
+ * Uses sessionActionMatchSql — the exact predicate behind the "# Actions"
+ * aggregate — so the list total always equals the card count by construction.
+ */
+export async function getSessionActions(
+  sql: SqlClient,
+  sessionId: string,
+  orgId: string,
+  { limit = 50, offset = 0 }: { limit?: number | string | null; offset?: number | string | null } = {},
+): Promise<SessionActionsPage> {
+  await ensureTables(sql);
+
+  const safeLimit = Math.min(Math.max(parseInt(limit as string, 10) || 50, 1), 200);
+  const safeOffset = Math.max(parseInt(offset as string, 10) || 0, 0);
+
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM agent_sessions s
+    JOIN action_records ar
+      ON ar.org_id = s.org_id
+     AND ${sessionActionMatchSql(sql)}
+    WHERE s.id = ${sessionId} AND s.org_id = ${orgId}
+  `;
+
+  const rows = await sql`
+    SELECT
+      ar.action_id,
+      ar.agent_id,
+      ar.action_type,
+      ar.declared_goal,
+      ar.status,
+      ar.outcome_status,
+      ar.risk_score,
+      ar.cost_estimate,
+      ar.created_at
+    FROM agent_sessions s
+    JOIN action_records ar
+      ON ar.org_id = s.org_id
+     AND ${sessionActionMatchSql(sql)}
+    WHERE s.id = ${sessionId} AND s.org_id = ${orgId}
+    ORDER BY ar.created_at DESC
+    LIMIT ${safeLimit} OFFSET ${safeOffset}
+  `;
+
+  return {
+    actions: rows.map((r) => ({
+      ...r,
+      risk_score: r.risk_score == null ? null : Number(r.risk_score),
+      cost_estimate: Number(r.cost_estimate) || 0,
+    })),
+    total: Number(countRows[0]?.total) || 0,
+  };
 }

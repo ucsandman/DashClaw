@@ -6,7 +6,7 @@ import { getSql } from '../../lib/db';
 import { validateAssumption } from '../../lib/validate.js';
 import { getOrgId } from '../../lib/org';
 import { redactAny } from '../../lib/security';
-import { listAssumptions, createAssumption } from '../../lib/repositories/assumptions.repository';
+import { listAssumptions, createAssumption, getAssumptionsDriftCounts } from '../../lib/repositories/assumptions.repository';
 import { hasAction } from '../../lib/repositories/actions.repository';
 import crypto from 'crypto';
 
@@ -37,10 +37,12 @@ export async function GET(request: Request) {
     const assumptions = result.assumptions;
     const total = result.total;
 
-    // Drift scoring: calculate per-assumption risk score based on age and validation state
+    // Drift scoring: per-assumption risk score based on age and validation
+    // state. The summary comes from a whole-table aggregate under the same
+    // filters — deriving it from the returned page understated every tile
+    // once the table outgrew the page size (limit caps at 200).
     if (drift === 'true') {
       const now = Date.now();
-      let atRisk = 0;
       for (const asm of assumptions) {
         if (asm.validated === 1) {
           asm.drift_score = 0;
@@ -51,19 +53,25 @@ export async function GET(request: Request) {
           const createdAt = new Date(asm.created_at as string | number | Date).getTime();
           const daysOld = (now - createdAt) / (1000 * 60 * 60 * 24);
           asm.drift_score = Math.min(100, Math.round((daysOld / 30) * 100));
-          if ((asm.drift_score as number) >= 50) atRisk++;
         }
       }
+
+      const driftCounts = await getAssumptionsDriftCounts(sql, orgId, {
+        validated,
+        stale,
+        action_id,
+        agent_id,
+      });
 
       return NextResponse.json({
         assumptions,
         total,
         drift_summary: {
-          total,
-          at_risk: atRisk,
-          validated: assumptions.filter((a: Record<string, unknown>) => a.validated === 1).length,
-          invalidated: assumptions.filter((a: Record<string, unknown>) => a.invalidated === 1).length,
-          unvalidated: assumptions.filter((a: Record<string, unknown>) => a.validated === 0 && a.invalidated === 0).length
+          total: driftCounts.total,
+          at_risk: driftCounts.at_risk,
+          validated: driftCounts.validated,
+          invalidated: driftCounts.invalidated,
+          unvalidated: driftCounts.unvalidated,
         },
         lastUpdated: new Date().toISOString()
       });

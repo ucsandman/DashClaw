@@ -78,11 +78,14 @@ export default function AssumptionsPage() {
 
   const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
 
+  // Tiles read the API's whole-table drift_summary (computed under the same
+  // filters), falling back to counting fetched rows only when the summary is
+  // unavailable — counting the page understates everything past 200 rows.
   const stats = {
     total,
-    validated: assumptions.filter(a => deriveAssumptionStatus(a) === 'validated').length,
-    invalidated: assumptions.filter(a => deriveAssumptionStatus(a) === 'invalidated').length,
-    pending: assumptions.filter(a => deriveAssumptionStatus(a) === 'pending').length,
+    validated: driftSummary?.validated ?? assumptions.filter(a => deriveAssumptionStatus(a) === 'validated').length,
+    invalidated: driftSummary?.invalidated ?? assumptions.filter(a => deriveAssumptionStatus(a) === 'invalidated').length,
+    pending: driftSummary?.unvalidated ?? assumptions.filter(a => deriveAssumptionStatus(a) === 'pending').length,
   };
 
   return (
@@ -147,7 +150,7 @@ export default function AssumptionsPage() {
           icon={Brain}
           title={filter === 'all' ? 'No assumptions recorded' : `No ${filter === 'pending' ? 'awaiting-validation' : filter} assumptions`}
           description={filter === 'all'
-            ? 'Agents record assumptions using dc.recordAssumption() when making decisions based on uncertain information.'
+            ? 'Agents record assumptions using claw.recordAssumption() when making decisions based on uncertain information. Claude Code sessions auto-capture "ASSUMPTIONS I\'M MAKING:" blocks via the Stop hook.'
             : 'No assumptions match this filter. Switch to “All” to see every recorded assumption.'}
         />
       ) : (

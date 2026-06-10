@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 301,
+    "total_routes": 302,
     "stable_routes": 51,
     "beta_routes": 24,
-    "experimental_routes": 226
+    "experimental_routes": 227
   },
   "routes": [
     {
@@ -2519,6 +2519,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/sessions/[sessionId]/route.ts"
+    },
+    {
+      "path": "/api/sessions/{sessionId}/actions",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/sessions/[sessionId]/actions/route.ts"
     },
     {
       "path": "/api/sessions/{sessionId}/events",

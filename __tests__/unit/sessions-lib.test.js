@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createSqlMock } from '../helpers.js';
-import { updateSession, listSessions, getSession, TERMINAL_STATUSES } from '../../app/lib/sessions.js';
+import { updateSession, listSessions, getSession, getSessionActions, TERMINAL_STATUSES } from '../../app/lib/sessions.js';
 
 // ensureTables() is gated on a globalThis flag and fires CREATE TABLE/INDEX
 // round-trips on first call. Pin it true so each test exercises only the
@@ -57,10 +57,10 @@ describe('updateSession — terminal summary salvage', () => {
 describe('session aggregation shaping', () => {
   it('coerces numeric aggregate columns and prefers last_action_at for last_activity', async () => {
     const sql = createSqlMock({ taggedResponses: [
-      // First response is consumed by the embedded sessionAggregateSql() fragment
-      // (the interpolated LEFT JOIN LATERAL sub-template), which is evaluated
-      // before the outer SELECT. The second response is the actual row set.
-      [],
+      // The first three responses are consumed by embedded fragments, evaluated
+      // before the outer SELECT: sessionActionMatchSql x2 (one per lateral),
+      // then the sessionAggregateSql wrapper. The last response is the row set.
+      [], [], [],
       [{
         id: 'sess_1', org_id: 'org_1', agent_id: 'a', status: 'running',
         last_activity: '2026-06-01T00:00:00Z',
@@ -80,14 +80,14 @@ describe('session aggregation shaping', () => {
 
   it('getSession joins action_records and session_events for aggregates', async () => {
     const sql = createSqlMock({ taggedResponses: [
-      [], // embedded sessionAggregateSql() fragment
+      [], [], [], // embedded fragments: match predicate x2 + aggregate wrapper
       [{ id: 'sess_1', org_id: 'org_1', agent_id: 'a', status: 'completed', action_count: '2', total_cost: '0', max_risk: '0', event_count: '4' }],
     ] });
 
     const session = await getSession(sql, 'sess_1', 'org_1');
-    // The embedded aggregate fragment (first recorded call) carries the joins;
-    // the outer SELECT (last call) interpolates it as a placeholder.
-    const fragment = sql.taggedCalls[0];
+    // The embedded match-predicate fragments come first, then the aggregate
+    // wrapper (carrying the joins), then the outer SELECT.
+    const fragment = sql.taggedCalls[2];
     expect(fragment.text).toMatch(/LEFT JOIN LATERAL/);
     expect(fragment.text).toMatch(/action_records/);
     expect(fragment.text).toMatch(/session_events/);
@@ -95,6 +95,58 @@ describe('session aggregation shaping', () => {
     expect(outer.text).toMatch(/FROM agent_sessions s/);
     expect(session.action_count).toBe(2);
     expect(session.event_count).toBe(4);
+  });
+});
+
+describe('getSessionActions — shared predicate with the aggregate count', () => {
+  it('uses the exact same match predicate as the # Actions aggregate', async () => {
+    // Capture the aggregate's predicate fragment via getSession...
+    const aggSql = createSqlMock({ taggedResponses: [[], [], [], [{ id: 'sess_1' }]] });
+    await getSession(aggSql, 'sess_1', 'org_1');
+    const aggregatePredicate = aggSql.taggedCalls[0].text;
+
+    // ...and the list/count predicate fragments via getSessionActions.
+    const listSql = createSqlMock({ taggedResponses: [
+      [], [{ total: '7' }], // match fragment + count query
+      [], [],               // match fragment + list query
+    ] });
+    await getSessionActions(listSql, 'sess_1', 'org_1');
+    const countPredicate = listSql.taggedCalls[0].text;
+    const listPredicate = listSql.taggedCalls[2].text;
+
+    // Same fixture → equal predicates → list and count cannot disagree.
+    expect(countPredicate).toBe(aggregatePredicate);
+    expect(listPredicate).toBe(aggregatePredicate);
+    expect(aggregatePredicate).toMatch(/ar\.session_id = s\.id/);
+    expect(aggregatePredicate).toMatch(/ar\.session_id IS NULL/);
+
+    // Both the count and the list query join action_records through the
+    // session row and embed the shared predicate placeholder.
+    const countQuery = listSql.taggedCalls[1].text;
+    const listQuery = listSql.taggedCalls[3].text;
+    for (const q of [countQuery, listQuery]) {
+      expect(q).toMatch(/FROM agent_sessions s/);
+      expect(q).toMatch(/JOIN action_records ar/);
+    }
+    expect(countQuery).toMatch(/COUNT\(\*\)::int AS total/);
+    expect(listQuery).toMatch(/ORDER BY ar\.created_at DESC/);
+  });
+
+  it('returns coerced rows + total and clamps limit/offset', async () => {
+    const sql = createSqlMock({ taggedResponses: [
+      [], [{ total: '700' }],
+      [], [{ action_id: 'act_1', risk_score: '40', cost_estimate: '0.0125', created_at: '2026-06-10T00:00:00Z' }],
+    ] });
+
+    const { actions, total } = await getSessionActions(sql, 'sess_1', 'org_1', { limit: '99999', offset: '-5' });
+    expect(total).toBe(700);
+    expect(actions[0].risk_score).toBe(40);
+    expect(actions[0].cost_estimate).toBe(0.0125);
+
+    // limit clamps to 200, offset floors at 0 (last two values of the list query).
+    const listValues = sql.taggedCalls[3].values;
+    expect(listValues[listValues.length - 2]).toBe(200);
+    expect(listValues[listValues.length - 1]).toBe(0);
   });
 });
 

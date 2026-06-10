@@ -38,22 +38,13 @@ interface UpdateAssumptionOptions {
   gateInvalidated?: boolean;
 }
 
-export async function listAssumptions(
-  sql: SqlClient,
+// Shared WHERE builder so the list, count, and drift-summary queries can never
+// disagree about which rows are in scope.
+function buildAssumptionsWhere(
   orgId: string,
-  filters: ListAssumptionsFilters = {}
-): Promise<{ assumptions: Record<string, unknown>[]; total: number }> {
-  const {
-    validated,
-    stale,
-    action_id,
-    agent_id,
-    limit = 50,
-    offset = 0,
-  } = filters;
-
-  const parsedLimit = Math.min(parseInt(limit as string, 10) || 50, 200);
-  const parsedOffset = parseInt(offset as string, 10) || 0;
+  filters: ListAssumptionsFilters
+): { where: string; params: unknown[] } {
+  const { validated, stale, action_id, agent_id } = filters;
 
   let paramIdx = 1;
   const conditions = [`a.org_id = $${paramIdx++}`];
@@ -76,7 +67,21 @@ export async function listAssumptions(
     params.push(agent_id);
   }
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+  return { where: `WHERE ${conditions.join(' AND ')}`, params };
+}
+
+export async function listAssumptions(
+  sql: SqlClient,
+  orgId: string,
+  filters: ListAssumptionsFilters = {}
+): Promise<{ assumptions: Record<string, unknown>[]; total: number }> {
+  const { limit = 50, offset = 0 } = filters;
+
+  const parsedLimit = Math.min(parseInt(limit as string, 10) || 50, 200);
+  const parsedOffset = parseInt(offset as string, 10) || 0;
+
+  const { where, params } = buildAssumptionsWhere(orgId, filters);
+  let paramIdx = params.length + 1;
 
   const query = `
     SELECT a.*, ar.agent_id, ar.agent_name, ar.declared_goal
@@ -107,15 +112,66 @@ export async function listAssumptions(
   };
 }
 
+export interface AssumptionsDriftCounts {
+  total: number;
+  at_risk: number;
+  validated: number;
+  invalidated: number;
+  unvalidated: number;
+}
+
+/**
+ * Whole-table drift counts under the same filters as listAssumptions. The
+ * route used to derive these from the returned page, which silently understated
+ * every tile once the table outgrew the page size (limit caps at 200).
+ *
+ * at_risk mirrors the route's per-row drift_score >= 50: drift_score =
+ * round(daysOld / 30 * 100) >= 50 ⇔ daysOld >= 14.85, hence the fractional
+ * interval.
+ */
+export async function getAssumptionsDriftCounts(
+  sql: SqlClient,
+  orgId: string,
+  filters: ListAssumptionsFilters = {}
+): Promise<AssumptionsDriftCounts> {
+  const { where, params } = buildAssumptionsWhere(orgId, filters);
+
+  const result = await sql.query(
+    `SELECT
+      COUNT(*)::int AS total,
+      COUNT(*) FILTER (WHERE a.validated = 1)::int AS validated,
+      COUNT(*) FILTER (WHERE a.invalidated = 1)::int AS invalidated,
+      COUNT(*) FILTER (WHERE a.validated = 0 AND a.invalidated = 0)::int AS unvalidated,
+      COUNT(*) FILTER (
+        WHERE a.validated = 0 AND a.invalidated = 0
+          AND a.created_at <= NOW() - INTERVAL '14.85 days'
+      )::int AS at_risk
+    FROM assumptions a
+    LEFT JOIN action_records ar ON a.action_id = ar.action_id AND ar.org_id = a.org_id
+    ${where}`,
+    params
+  );
+  const row = result[0] || {};
+  return {
+    total: parseInt((row.total as string | undefined) || '0', 10),
+    at_risk: parseInt((row.at_risk as string | undefined) || '0', 10),
+    validated: parseInt((row.validated as string | undefined) || '0', 10),
+    invalidated: parseInt((row.invalidated as string | undefined) || '0', 10),
+    unvalidated: parseInt((row.unvalidated as string | undefined) || '0', 10),
+  };
+}
+
 export async function getAssumption(
   sql: SqlTag,
   orgId: string,
   assumptionId: string
 ): Promise<Record<string, unknown> | null> {
+  // ar.org_id = a.org_id mirrors listAssumptions/getAssumptionsSummary — without
+  // it an action_id collision across orgs could leak another org's agent fields.
   const assumptions = await sql`
     SELECT a.*, ar.agent_id, ar.agent_name, ar.declared_goal, ar.action_type, ar.status as action_status
     FROM assumptions a
-    LEFT JOIN action_records ar ON a.action_id = ar.action_id
+    LEFT JOIN action_records ar ON a.action_id = ar.action_id AND ar.org_id = a.org_id
     WHERE a.assumption_id = ${assumptionId} AND a.org_id = ${orgId}
   `;
   return assumptions[0] || null;

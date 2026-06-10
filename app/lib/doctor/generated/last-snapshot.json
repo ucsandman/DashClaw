@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:3bf1f5c8723f2ec53f4992244912df5ede448b9b",
+  "timestamp": "sha1:2eae868670bb6951ad4537a4aa3e847431ceda1c",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2637,6 +2637,17 @@
       ],
       "archived": false,
       "file_path": "app/api/sessions/[sessionId]/route.ts"
+    },
+    {
+      "path": "/api/sessions/[sessionId]/actions",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [
+        "sessionId"
+      ],
+      "archived": false,
+      "file_path": "app/api/sessions/[sessionId]/actions/route.ts"
     },
     {
       "path": "/api/sessions/[sessionId]/events",

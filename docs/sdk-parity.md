@@ -149,6 +149,7 @@ These are reachable via HTTP but are not intended as SDK methods. Documented her
 | Operator-tracked secrets | `GET/POST /api/secrets`, `PATCH/DELETE /api/secrets/[id]`, `GET /api/secrets/rotation-due` | Operator surface + MCP server (`dashclaw_secret_list/due/mark_rotated`). Registration is an operator task; agents only check rotation due-dates via MCP. |
 | Skill safety scan | `POST /api/skills/scan`, `GET /api/skills/scans/[id]` | MCP server (`dashclaw_skill_scan`). Agents scan untrusted skill files before loading; results cached by content hash. |
 | Governance posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | Operator `/posture` page + MCP (`dashclaw_posture`, `dashclaw_posture_next`, read-only); remediation is human-gated, no SDK wrapper. |
+| Session actions ledger | `GET /api/sessions/[sessionId]/actions` | `/sessions/[sessionId]` dashboard page (paginated actions list sharing the action_count predicate). Read-only display aggregation; promote alongside `getSessionEvents` if sessions get first-class SDK exposure. |
 
 If any of these later need first-class SDK exposure, promote them into the matrix above.
 
