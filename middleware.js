@@ -59,6 +59,25 @@ const PUBLIC_ROUTES = [
   '/replay',
 ];
 
+// Hosted-trial public surface. These three requests must be reachable without
+// an API key (anonymous visitors / GH Actions), and each route self-protects:
+//   POST /api/hosted/workspaces — 404 unless DASHCLAW_HOSTED; Cloudflare
+//        Turnstile verified (fails closed in production); per-IP daily cap.
+//   GET  /api/hosted/capacity   — 404 unless DASHCLAW_HOSTED; aggregate
+//        counts only (drives the "trials are full" state).
+//   POST /api/hosted/cleanup    — 403 unless x-cleanup-secret or
+//        Bearer CRON_SECRET matches (timing-safe; GH Actions daily job).
+// Exact-path + method matches only: /api/hosted/workspaces/:id (admin
+// inspect/delete) intentionally stays behind authenticateProtectedApi, and
+// x-org-role spoofing is impossible here because public forwards use the
+// stripped header set (x-cleanup-secret is deliberately preserved).
+function isHostedPublicRequest(pathname, method) {
+  if (pathname === '/api/hosted/capacity') return method === 'GET';
+  if (pathname === '/api/hosted/workspaces') return method === 'POST';
+  if (pathname === '/api/hosted/cleanup') return method === 'POST';
+  return false;
+}
+
 async function getLocalAdminSession(request) {
   const viewer = await getViewerContextFromCookieHeader(
     request.headers.get('cookie') || '',
@@ -1462,7 +1481,8 @@ async function handleApiRequest(request, pathname) {
   if (oversizedBody) return oversizedBody;
 
   // Allow public routes without auth
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route))) {
+  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route)) ||
+      isHostedPublicRequest(pathname, request.method)) {
     return forwardPublicApi(request, strippedApiRequestHeaders, ip);
   }
 

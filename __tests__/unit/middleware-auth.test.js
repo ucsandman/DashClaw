@@ -119,4 +119,38 @@ describe('middleware API-key auth', () => {
     }));
     expect(res.status).not.toBe(401);
   });
+
+  // Hosted-trial public surface. Regression: these routes were default-denied
+  // (401) by middleware on the first real hosted deployment (2026-06-10), which
+  // broke anonymous trial minting, the capacity check, and the GH Actions
+  // cleanup call. Each route self-protects (Turnstile/per-IP cap/cron secret),
+  // so middleware must forward exactly these path+method pairs and nothing else.
+  describe('hosted public surface', () => {
+    it('GET /api/hosted/capacity needs no key', async () => {
+      const res = await middleware(req('/api/hosted/capacity'));
+      expect(res.status).toBe(200);
+    });
+
+    it('POST /api/hosted/workspaces (anonymous mint) needs no key', async () => {
+      const res = await middleware(req('/api/hosted/workspaces', { method: 'POST' }));
+      expect(res.status).toBe(200);
+    });
+
+    it('POST /api/hosted/cleanup is forwarded (the route enforces the cron secret)', async () => {
+      const res = await middleware(req('/api/hosted/cleanup', { method: 'POST' }));
+      expect(res.status).toBe(200);
+    });
+
+    it('method gate holds: GET /api/hosted/workspaces without a key is 401', async () => {
+      const res = await middleware(req('/api/hosted/workspaces', { headers: { origin: 'https://other.example' } }));
+      expect(res.status).toBe(401);
+    });
+
+    it('admin subpath stays protected: DELETE /api/hosted/workspaces/:id without a key is 401', async () => {
+      const res = await middleware(req('/api/hosted/workspaces/org_trial_1', {
+        method: 'DELETE', headers: { origin: 'https://other.example' },
+      }));
+      expect(res.status).toBe(401);
+    });
+  });
 });
