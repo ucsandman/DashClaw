@@ -135,7 +135,7 @@ export default function OpenLoopsCard() {
   const loopOverflow = loops.length - visibleLoops.length;
 
   const viewAllLink = (
-    <Link href="/actions" className="text-xs text-brand hover:text-brand-hover transition-colors inline-flex items-center gap-1">
+    <Link href="/mission-control" className="text-xs text-brand hover:text-brand-hover transition-colors inline-flex items-center gap-1">
       View all <ArrowRight size={12} />
     </Link>
   );

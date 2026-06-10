@@ -173,7 +173,7 @@ export default function RecentActionsCard() {
   const failed = actions.filter(a => a.status === 'failed').length;
 
   const viewAllLink = (
-    <Link href="/actions" className="text-xs text-brand hover:text-brand-hover transition-colors inline-flex items-center gap-1">
+    <Link href="/decisions" className="text-xs text-brand hover:text-brand-hover transition-colors inline-flex items-center gap-1">
       View all <ArrowRight size={12} />
     </Link>
   );

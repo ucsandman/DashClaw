@@ -185,6 +185,11 @@ export default function ActivityTimeline({
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedChains, setExpandedChains] = useState<Record<string, boolean>>({});
+  // Uncontrolled fallback: the dashboard mounts this tile with no controller
+  // props (DraggableDashboard renders bare <Component />), so without internal
+  // state every pill click is a no-op. Controlled props still win when passed.
+  const [internalCategory, setInternalCategory] = useState('all');
+  const [internalTelemetry, setInternalTelemetry] = useState(false);
 
   const fetchAll = useCallback(async () => {
     try {
@@ -195,12 +200,11 @@ export default function ActivityTimeline({
         return `${base}${params.length ? `?${params.join('&')}` : ''}`;
       };
 
-      const [actionsRes, loopsRes, guardRes, assumptionsRes, signalsRes] = await Promise.all([
+      const [actionsRes, loopsRes, guardRes, assumptionsRes] = await Promise.all([
         fetch(withPrefix('/api/actions', ['limit=24'])),
         fetch(withPrefix('/api/actions/loops', ['limit=12'])),
         fetch(withPrefix('/api/guard', ['limit=12'])),
         fetch(withPrefix('/api/assumptions', ['limit=16'])),
-        fetch(withPrefix('/api/signals')),
       ]);
 
       const merged = [];
@@ -223,11 +227,6 @@ export default function ActivityTimeline({
       if (assumptionsRes.ok) {
         const assumptionsData = await assumptionsRes.json();
         merged.push(...(assumptionsData.assumptions || []).map(buildAssumptionEvent));
-      }
-
-      if (signalsRes.ok) {
-        const signalsData = await signalsRes.json();
-        // Add signal mapping logic if needed, or just let them be handled by the signal card
       }
 
       setEvents(collapseRoutineTelemetry(merged).slice(0, 60));
@@ -275,34 +274,38 @@ export default function ActivityTimeline({
 
   if (loading) return <CardSkeleton />;
 
-  const setCategory = onCategoryChange || (() => {});
-  const toggleTelemetry = onToggleTelemetry || (() => {});
-  const isPriority = activeCategory === 'priority';
-  const baseEvents = showTelemetry ? events : events.filter((event) => !event.lowSignal);
+  // Controlled when a parent supplies onCategoryChange/onToggleTelemetry;
+  // otherwise the internal state owns the filter (dashboard tile case).
+  const category = onCategoryChange ? activeCategory : internalCategory;
+  const setCategory = onCategoryChange || setInternalCategory;
+  const telemetryOn = onToggleTelemetry ? showTelemetry : internalTelemetry;
+  const toggleTelemetry = onToggleTelemetry || (() => setInternalTelemetry((v) => !v));
+  const isPriority = category === 'priority';
+  const baseEvents = telemetryOn ? events : events.filter((event) => !event.lowSignal);
   const filteredEvents = isPriority
     ? baseEvents.filter(isPriorityEvent).slice(0, 15)
-    : activeCategory === 'all'
+    : category === 'all'
       ? baseEvents
-      : baseEvents.filter((event) => event.category === activeCategory);
+      : baseEvents.filter((event) => event.category === category);
   const telemetryCount = events.filter((event) => event.lowSignal).reduce((sum, event) => sum + (event.count || 1), 0);
   const prominentCount = filteredEvents.length;
   const grouped = groupByDay(buildChainRows(filteredEvents));
-  const emptyForCategory = activeCategory !== 'all' && activeCategory !== 'priority' && filteredEvents.length === 0;
+  const emptyForCategory = category !== 'all' && category !== 'priority' && filteredEvents.length === 0;
   const hasAnyEvents = events.length > 0;
 
   return (
     <Card className="flex flex-col h-full overflow-hidden">
-      <CardHeader title={<span className="flex items-center">Decision Timeline<HelpIcon sectionKey="activity-timeline" tip={HELP_TIPS['activity-timeline']} /></span>} icon={Clock}>
+      <CardHeader title={<span className="flex items-center">Activity Timeline<HelpIcon sectionKey="activity-timeline" tip={HELP_TIPS['activity-timeline']} /></span>} icon={Clock}>
         <div className="flex items-center gap-2">
-          <Badge variant="brand" size="sm">{prominentCount} priority</Badge>
+          <Badge variant="brand" size="sm">{prominentCount} {isPriority ? 'priority' : 'shown'}</Badge>
           {telemetryCount > 0 && isPriority && (
             <button
               type="button"
               onClick={toggleTelemetry}
               className="inline-flex items-center gap-1 rounded-md border border-white/10 px-2 py-1 text-[10px] uppercase tracking-wider text-secondary transition-colors hover:text-white"
             >
-              {showTelemetry ? <EyeOff size={11} /> : <Eye size={11} />}
-              {showTelemetry ? 'Hide routine telemetry' : `Show ${telemetryCount} routine updates`}
+              {telemetryOn ? <EyeOff size={11} /> : <Eye size={11} />}
+              {telemetryOn ? 'Hide routine telemetry' : `Show ${telemetryCount} routine updates`}
             </button>
           )}
         </div>
@@ -321,7 +324,7 @@ export default function ActivityTimeline({
                 type="button"
                 onClick={() => setCategory(option.id)}
                 className={`rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
-                  activeCategory === option.id
+                  category === option.id
                     ? 'border-brand/40 bg-brand/10 text-brand'
                     : 'border-white/10 text-tertiary hover:text-white'
                 }`}
@@ -346,7 +349,7 @@ export default function ActivityTimeline({
           ) : emptyForCategory ? (
             <EmptyState
               icon={Target}
-              title={`No ${activeCategory} events right now`}
+              title={`No ${category} events right now`}
               description="This filter is empty for the current dataset. Switch to another category or show routine telemetry to inspect lower-signal updates."
             />
           ) : (

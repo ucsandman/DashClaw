@@ -147,12 +147,18 @@ describe('x402 purchase repository', () => {
     sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
     expect(await listPurchases(sql, 'org_1', {})).toHaveLength(1);
     expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1']);
+    // provider_name is join-derived; p.* (not bare *) avoids column collision.
+    expect(sqlText(sql.mock.calls[0])).toContain('LEFT JOIN x402_providers');
+    expect(sqlText(sql.mock.calls[0])).toContain('AS provider_name');
+    expect(sqlText(sql.mock.calls[0])).toContain('SELECT p.*');
   });
 
   it('listPurchases filters by provider when given', async () => {
     sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
     await listPurchases(sql, 'org_1', { providerId: 'prov_x' });
     expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1', 'prov_x']);
+    expect(sqlText(sql.mock.calls[0])).toContain('LEFT JOIN x402_providers');
+    expect(sqlText(sql.mock.calls[0])).toContain('AS provider_name');
   });
 
   it('listPurchases caps both branches with an explicit LIMIT', async () => {

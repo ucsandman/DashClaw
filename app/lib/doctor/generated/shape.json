@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:365ae695bbb95338250828d2f3d18b67e8e5d033",
+  "timestamp": "sha1:3bf1f5c8723f2ec53f4992244912df5ede448b9b",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3635,6 +3635,7 @@
       "name": "DATABASE_URL",
       "required": true,
       "files": [
+        ".offlocal/migrate-hosted.mjs",
         ".supergoal/tmp/migrate-under-test.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions-loops.route.test.js",
@@ -3947,6 +3948,14 @@
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/hosted/cleanup/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "HOSTED_DATABASE_URL",
+      "required": false,
+      "files": [
+        ".offlocal/migrate-hosted.mjs"
       ],
       "in_env_example": false
     },

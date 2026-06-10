@@ -1,7 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../../components/PageLayout';
+import EntityLink from '../../components/context-menu/EntityLink';
+import type { X402PurchaseListRow } from '../../lib/types/x402';
 
 const fmt = (n: any, cur?: string) => `${Number(n || 0).toFixed(4)} ${cur || 'USDC'}`;
 const STATUS_TONE: Record<string, string> = {
@@ -9,26 +11,41 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function X402PurchasesPage() {
-  const [rows, setRows] = useState<any[] | null>(null);
+  const [rows, setRows] = useState<X402PurchaseListRow[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch('/api/x402/purchases');
-        if (res.ok) setRows((await res.json()).purchases || []);
-      } catch (err) {
-        console.error('Failed to load x402 purchases:', err);
-      } finally {
-        setLoading(false);
-      }
-    })();
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch('/api/x402/purchases');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      setRows((await res.json()).purchases || []);
+    } catch (err) {
+      console.error('Failed to load x402 purchases:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { load(); }, [load]);
 
   return (
     <PageLayout title="x402 Purchases" subtitle="Governed capability purchases" breadcrumbs={['Spend', 'Purchases']} maturity="beta">
       {loading ? (
         <div className="text-sm text-tertiary">Loading…</div>
+      ) : error ? (
+        <div className="rounded-xl border border-border bg-surface-secondary p-8 text-center">
+          <div className="text-sm text-error mb-3">Failed to load purchases.</div>
+          <button
+            onClick={load}
+            className="px-3 py-1.5 text-xs rounded-md border border-border text-secondary hover:border-border-hover transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       ) : !rows || rows.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface-secondary p-8 text-center text-sm text-tertiary">
           No governed purchases yet.
@@ -49,8 +66,16 @@ export default function X402PurchasesPage() {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.action_id} className="border-b border-border last:border-0">
-                  <td className="px-4 py-3 font-mono text-xs">{r.provider_id || '—'}</td>
-                  <td className="px-4 py-3 font-mono text-xs">{r.agent_id || '—'}</td>
+                  <td className="px-4 py-3 text-xs">
+                    {r.provider_name ? (
+                      <span title={r.provider_id || undefined}>{r.provider_name}</span>
+                    ) : (
+                      <span className="font-mono">{r.provider_id || '—'}</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    {r.agent_id ? <EntityLink type="agent" id={r.agent_id} /> : '—'}
+                  </td>
                   <td className="px-4 py-3 text-right tabular-nums">{fmt(r.spend_amount, r.currency)}</td>
                   <td className={`px-4 py-3 ${STATUS_TONE[r.execution_status] || 'text-secondary'}`}>{r.execution_status || '—'}</td>
                   <td className="px-4 py-3 text-secondary max-w-xs truncate" title={r.purchase_reason || ''}>{r.purchase_reason || '—'}</td>

@@ -98,6 +98,13 @@ export interface X402PurchaseRow {
   completed_at: Nullable<string>;
 }
 
+/**
+ * listPurchases row shape: provider_name is join-derived from
+ * x402_providers.name (LEFT JOIN) — it is NOT a column on x402_purchases and
+ * can be null for pre-backfill rows or deleted providers (no FK).
+ */
+export type X402PurchaseListRow = X402PurchaseRow & { provider_name?: Nullable<string> };
+
 export interface X402PurchaseInput {
   provider?: string;
   provider_id?: string;

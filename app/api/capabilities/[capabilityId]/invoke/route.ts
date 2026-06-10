@@ -185,7 +185,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
           usage: capQuota.usage,
           limit: capQuota.limit,
           message: 'Monthly capability invocation limit exceeded. Upgrade your plan to continue.',
-          upgrade_url: '/billing',
+          upgrade_url: '/usage',
         },
         { status: 402 },
       );

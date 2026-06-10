@@ -162,7 +162,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tem
           usage: wfQuota.usage,
           limit: wfQuota.limit,
           message: 'Monthly workflow execution limit exceeded. Upgrade your plan to continue.',
-          upgrade_url: '/billing',
+          upgrade_url: '/usage',
         },
         { status: 402 },
       );

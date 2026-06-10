@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import type { SqlTag } from '../types/db';
-import type { X402ProviderRow, X402EndpointRow, X402PurchaseRow } from '../types/x402';
+import type { X402ProviderRow, X402EndpointRow, X402PurchaseRow, X402PurchaseListRow } from '../types/x402';
 import type { X402SpendAggregation } from '../types/pricing-finops';
 
 // There is NO shared slugify export in this repo. The house pattern is an inline
@@ -203,11 +203,13 @@ export async function getPurchase(sql: SqlTag, orgId: string, actionId: string):
 // agent_presence caps from the query-perf phase). A single org's x402 purchases
 // stay well under 1000; the literal bound only guards against pathological table
 // growth dragging the query — it never truncates normal usage.
-export async function listPurchases(sql: SqlTag, orgId: string, { providerId }: { providerId?: string } = {}): Promise<X402PurchaseRow[]> {
+// p.* + aliased name only — a bare `*` across the join would collide on
+// org_id/created_at/metadata and the driver silently keeps the last column.
+export async function listPurchases(sql: SqlTag, orgId: string, { providerId }: { providerId?: string } = {}): Promise<X402PurchaseListRow[]> {
   if (providerId) {
-    return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} AND provider_id = ${providerId} ORDER BY created_at DESC LIMIT 1000`) as unknown as X402PurchaseRow[];
+    return (await sql`SELECT p.*, pr.name AS provider_name FROM x402_purchases p LEFT JOIN x402_providers pr ON pr.org_id = p.org_id AND pr.provider_id = p.provider_id WHERE p.org_id = ${orgId} AND p.provider_id = ${providerId} ORDER BY p.created_at DESC LIMIT 1000`) as unknown as X402PurchaseListRow[];
   }
-  return (await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} ORDER BY created_at DESC LIMIT 1000`) as unknown as X402PurchaseRow[];
+  return (await sql`SELECT p.*, pr.name AS provider_name FROM x402_purchases p LEFT JOIN x402_providers pr ON pr.org_id = p.org_id AND pr.provider_id = p.provider_id WHERE p.org_id = ${orgId} ORDER BY p.created_at DESC LIMIT 1000`) as unknown as X402PurchaseListRow[];
 }
 
 export async function setPurchaseOutcome(sql: SqlTag, orgId: string, actionId: string, data: PurchaseOutcomeInput = {}): Promise<X402PurchaseRow | null> {

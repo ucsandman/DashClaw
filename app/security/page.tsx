@@ -268,12 +268,6 @@ function SecurityDashboardInner() {
         </Card>
       )}
 
-      {/* Ad-hoc DLP + prompt-injection scanners */}
-      <SecurityScanners />
-
-      {/* Static skill safety scanner */}
-      <SkillScanner />
-
       {/* Stats rail — Security Score + 4 inline */}
       <div className="mb-6 overflow-hidden rounded-xl border border-border bg-surface-tertiary">
         <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-5">
@@ -333,7 +327,7 @@ function SecurityDashboardInner() {
       )}
 
       {/* Main Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-6">
         {/* Signal Feed - left */}
         <div className="lg:col-span-3">
           <Card>
@@ -512,6 +506,17 @@ function SecurityDashboardInner() {
           </Card>
         </div>
       </div>
+
+      {/* Ad-hoc scanner tools — below the posture data per evidence-first ordering */}
+      <div className="mb-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+        Ad-hoc scanners
+      </div>
+
+      {/* Ad-hoc DLP + prompt-injection scanners */}
+      <SecurityScanners />
+
+      {/* Static skill safety scanner */}
+      <SkillScanner />
 
       {/* Detail Panel */}
       <SecurityDetailPanel item={panelItem} type={panelType} onClose={closePanel} onDismiss={dismissSignal} />
