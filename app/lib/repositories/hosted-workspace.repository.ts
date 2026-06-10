@@ -1,4 +1,5 @@
 import crypto from 'node:crypto';
+import { importPolicyPack } from '../guardrails/import-pack.js';
 import type { SqlTag } from '../types/db';
 
 function generateId(prefix: string): string {
@@ -76,6 +77,20 @@ export async function provisionHostedWorkspace(
   `;
   try {
     const { apiKey, keyPrefix } = await mintOrgApiKey(sql, orgId, { label });
+
+    // Seed the day-one starter policies so the first governed session feels
+    // governed (a fresh org with zero policies allows everything). Failure
+    // logs loudly but never fails provisioning — a workspace without
+    // policies beats a 500.
+    try {
+      const seeded = await importPolicyPack(sql, orgId, 'claude-code-starter');
+      if (seeded.errors.length > 0) {
+        console.error(`[HOSTED] starter-pack seeding for ${orgId} had errors:`, seeded.errors);
+      }
+    } catch (err) {
+      console.error(`[HOSTED] starter-pack seeding failed for ${orgId}:`, (err as Error).message);
+    }
+
     return { orgId, apiKey, keyPrefix, expiresAt };
   } catch (err) {
     // Best-effort cleanup — prevents orphaned trial orgs when key insert fails.

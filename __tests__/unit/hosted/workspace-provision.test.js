@@ -1,5 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Starter-pack seeding runs inside provisionHostedWorkspace. Mock it with a
+// benign default so the existing call-count invariants hold; individual tests
+// swap in the REAL implementation (captured below) or a failure.
+const { mockImportPolicyPack, importPackHolder } = vi.hoisted(() => ({
+  mockImportPolicyPack: vi.fn(),
+  importPackHolder: {},
+}));
+vi.mock('../../../app/lib/guardrails/import-pack.js', async (importOriginal) => {
+  const actual = await importOriginal();
+  importPackHolder.actual = actual.importPolicyPack;
+  return { ...actual, importPolicyPack: (...a) => mockImportPolicyPack(...a) };
+});
+
 import {
   provisionHostedWorkspace,
   getHostedWorkspace,
@@ -15,6 +28,8 @@ describe('hosted-workspace repository', () => {
   let sql;
   beforeEach(() => {
     sql = createSqlMock();
+    mockImportPolicyPack.mockReset();
+    mockImportPolicyPack.mockResolvedValue({ imported: [], skipped: [], errors: [] });
   });
 
   it('provisionHostedWorkspace creates org + api_key and returns plaintext key once', async () => {
@@ -30,6 +45,53 @@ describe('hosted-workspace repository', () => {
     expect(res.keyPrefix).toMatch(/^oc_live_/);
     expect(res.expiresAt).toBeTypeOf('string');
     expect(sql.mock.calls.length).toBe(2);
+    // Starter pack seeded for the new workspace.
+    expect(mockImportPolicyPack).toHaveBeenCalledWith(sql, res.orgId, 'claude-code-starter');
+  });
+
+  it('provisioned trial workspace gets the claude-code-starter policies (count + names match the pack yml)', async () => {
+    // Run the REAL importer against an sql mock that answers the guard_policies
+    // reads/inserts; everything else (org/key inserts) returns [].
+    mockImportPolicyPack.mockImplementation((...a) => importPackHolder.actual(...a));
+    const insertedPolicies = [];
+    sql.mockImplementation(async (strings, ...values) => {
+      const text = strings.join(' ');
+      if (text.includes('SELECT id FROM guard_policies')) return []; // no name conflicts
+      if (text.includes('INSERT INTO guard_policies')) {
+        // insertPolicy values order: id, orgId, name, policyType, rules, active, agentIds, ts, ts
+        insertedPolicies.push({ id: values[0], name: values[2], policy_type: values[3], active: 1 });
+        return [insertedPolicies[insertedPolicies.length - 1]];
+      }
+      return [];
+    });
+
+    const res = await provisionHostedWorkspace(sql, { trialDays: 30, trialActionCap: 10000 });
+    expect(res.apiKey).toMatch(/^oc_live_/);
+
+    // The real pack yml defines exactly these four policies.
+    expect(insertedPolicies.map((p) => p.name)).toEqual([
+      'Claude Code Starter — Block Mass-Destructive Operations',
+      'Claude Code Starter — Require Approval for Network Calls',
+      'Claude Code Starter — Require Approval for Package Installs',
+      'Claude Code Starter — Rate-Limit Runaway Agents',
+    ]);
+  });
+
+  it('seeding failure still returns a successful provision response and logs an error', async () => {
+    mockImportPolicyPack.mockRejectedValue(new Error('pack file unreadable'));
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      sql.mockResolvedValue([]);
+      const res = await provisionHostedWorkspace(sql, { trialDays: 30, trialActionCap: 10000 });
+      expect(res.orgId).toMatch(/^org_/);
+      expect(res.apiKey).toMatch(/^oc_live_/);
+      expect(errSpy).toHaveBeenCalledWith(
+        expect.stringContaining(`starter-pack seeding failed for ${res.orgId}`),
+        'pack file unreadable',
+      );
+    } finally {
+      errSpy.mockRestore();
+    }
   });
 
   it('provisionHostedWorkspace propagates errors from inserts', async () => {
@@ -111,6 +173,8 @@ describe('POST /api/hosted/workspaces', () => {
   beforeEach(() => {
     process.env = { ...originalEnv };
     routeSqlMock.mockReset();
+    mockImportPolicyPack.mockReset();
+    mockImportPolicyPack.mockResolvedValue({ imported: [], skipped: [], errors: [] });
     // Reset module-level rate-limiter singleton so prior tests' counters
     // and max-setting don't leak across cases.
     _resetLimiterForTests();

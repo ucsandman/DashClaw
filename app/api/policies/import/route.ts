@@ -2,12 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { randomUUID } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { getSql } from '../../../lib/db.js';
 import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { findPolicyByName, insertPolicy } from '../../../lib/repositories/guardrails.repository.js';
+import { findPolicyByName } from '../../../lib/repositories/guardrails.repository.js';
+import { loadPackPolicies, importPolicies } from '../../../lib/guardrails/import-pack.js';
 import { inferPolicyType, AVAILABLE_PACKS } from '../../../lib/policyPackPreviews.js';
 
 const VALID_PACKS = AVAILABLE_PACKS;
@@ -40,19 +38,12 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: `Invalid pack. Choose from: ${VALID_PACKS.join(', ')}` }, { status: 400 });
       }
 
-      // Load the pack's policies.yml
-      const packPath = join(process.cwd(), 'app', 'lib', 'guardrails', 'packs', pack, 'policies.yml');
-      let yamlContent;
+      // Load the pack's policies.yml (extracted lib — shared with trial seeding)
       try {
-        yamlContent = await readFile(packPath, 'utf-8');
+        policies = await loadPackPolicies(pack);
       } catch {
         return NextResponse.json({ error: `Pack file not found: ${pack}` }, { status: 404 });
       }
-
-      // Dynamically import js-yaml
-      const jsYaml = await import('js-yaml');
-      const doc = jsYaml.load(yamlContent) as { policies?: unknown[] };
-      policies = doc.policies || [];
     } else {
       // Parse raw YAML
       const jsYaml = await import('js-yaml');
@@ -85,44 +76,9 @@ export async function POST(request: Request) {
       });
     }
 
-    const imported = [];
-    const skipped = [];
-    const errors = [];
-
-    for (const policy of policies as Array<Record<string, unknown>>) {
-      try {
-        const policyType = inferPolicyType(policy);
-        const name = (policy.description || policy.id) as string;
-        const rules = policy.rules
-          ? JSON.stringify(policy.rules)
-          : JSON.stringify({
-              action_types: (policy.applies_to as { tools?: unknown[] })?.tools || [],
-              ...((policy.rule as Record<string, unknown>) || {}),
-              tests: policy.tests || [],
-            });
-
-        // Check for existing policy with same name
-        const existing = await findPolicyByName(sql, orgId, name);
-
-        if (existing.length > 0) {
-          skipped.push(name);
-          continue;
-        }
-
-        const id = `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
-
-        const result = await insertPolicy(sql, orgId, { id, name, policyType, rules }) as Record<string, unknown>;
-
-        imported.push({
-          id: result.id,
-          name: result.name,
-          policy_type: result.policy_type,
-          active: result.active,
-        });
-      } catch (err) {
-        errors.push(`Failed to import "${policy.id || 'unknown'}": ${(err as Error).message}`);
-      }
-    }
+    const { imported, skipped, errors } = await importPolicies(
+      sql, orgId, policies as Array<Record<string, unknown>>,
+    );
 
     return NextResponse.json({
       imported: imported.length,
