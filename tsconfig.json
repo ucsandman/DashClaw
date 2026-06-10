@@ -53,6 +53,7 @@
     ".worktrees",
     ".claude/worktrees",
     "coverage",
-    ".supergoal"
+    ".supergoal",
+    "docs/integrity"
   ]
 }
