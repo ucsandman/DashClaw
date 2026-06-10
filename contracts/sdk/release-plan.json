@@ -1,14 +1,20 @@
 {
   "node": {
-    "current_version": "4.7.9",
+    "current_version": "4.7.10",
     "next_bump": "none",
-    "reason": "4.7.9 is a platform-only production-readiness and Hacker News launch-prep release. It tightens public proof paths, setup contracts, security posture docs, hosted/doctor diagnostics, accessibility, smoke coverage, and launch evidence. No Node SDK source change (surface unchanged at 126): version advances per the unified model; SDKs NOT republished — npm stays at 4.7.2.",
-    "domains": ["platform"]
+    "reason": "4.7.10 is the Repowise code-health structural sweep: behavior-preserving refactor of the 21 lowest-health files (middleware.js CCN 287->8, guard.ts 3.85->9.55, both SDK clients decomposed into private helpers). Node SDK source DID change (sdk/dashclaw.js internals; public surface frozen at 126 methods, contracts.sdk-surface green) - SDKs ARE republished this release; npm moves 4.7.2 -> 4.7.10.",
+    "domains": [
+      "platform",
+      "node-sdk"
+    ]
   },
   "python": {
-    "current_version": "4.7.9",
+    "current_version": "4.7.10",
     "next_bump": "none",
-    "reason": "4.7.9 is a platform-only production-readiness and Hacker News launch-prep release. It tightens public proof paths, setup contracts, security posture docs, hosted/doctor diagnostics, accessibility, smoke coverage, and launch evidence. No Python SDK source change (surface unchanged at 224): version advances per the unified model; SDKs NOT republished — PyPI stays at 4.7.2.",
-    "domains": ["platform"]
+    "reason": "4.7.10 is the Repowise code-health structural sweep: behavior-preserving refactor of the 21 lowest-health files. Python SDK source DID change (client.py private-helper decomposition + new test_client.py; public surface frozen at 224 methods, parity green) - SDKs ARE republished this release; PyPI moves 4.7.2 -> 4.7.10.",
+    "domains": [
+      "platform",
+      "python-sdk"
+    ]
   }
 }
