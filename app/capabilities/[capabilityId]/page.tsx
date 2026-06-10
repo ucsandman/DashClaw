@@ -213,7 +213,7 @@ export default function CapabilityDetailPage({ params }: { params?: { capability
     <PageLayout
       title={capability?.name || 'Capability detail'}
       subtitle="Operator view for capability health, certification, and recent activity"
-      breadcrumbs={['Studio', 'Capabilities', capability?.name || capabilityId || 'Detail']}
+      breadcrumbs={['Govern', 'Capabilities', capability?.name || capabilityId || 'Detail']}
       maturity="stable"
     >
       {loading ? (

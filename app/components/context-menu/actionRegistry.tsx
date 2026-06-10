@@ -34,7 +34,7 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   // The id may be a free-form policy label, so encode it.
   policy: (id) => `/policies?policy=${encodeURIComponent(id)}`,
   codeSession: (id) => `/code-sessions/${id}`,
-  modelStrategy: (id) => `/model-strategies/${id}`,
+  modelStrategy: (id) => `/workflows/strategies/${id}`,
 };
 
 /** Resolve a detail path from a bare (type, id) — used by EntityLink, which has no DOM target. */

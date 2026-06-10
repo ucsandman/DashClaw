@@ -128,7 +128,7 @@ export default function NewWorkflowTemplatePage() {
     <PageLayout
       title="New Workflow Template"
       subtitle="Define a reusable, versioned operational pattern"
-      breadcrumbs={['Studio', 'Workflows', 'New']}
+      breadcrumbs={['Labs', 'Workflows', 'New']}
       maturity="beta"
       actions={(
         <div className="flex items-center gap-2">

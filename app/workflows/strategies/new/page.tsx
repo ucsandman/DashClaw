@@ -4,8 +4,8 @@ import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Cpu, Save } from 'lucide-react';
-import PageLayout from '../../components/PageLayout';
-import { Card, CardContent, CardHeader } from '../../components/ui/Card';
+import PageLayout from '../../../components/PageLayout';
+import { Card, CardContent, CardHeader } from '../../../components/ui/Card';
 import ModelStrategyBasicsSection from '../components/ModelStrategyBasicsSection';
 import ModelStrategyExecutionSection from '../components/ModelStrategyExecutionSection';
 import ModelStrategyConstraintsSection from '../components/ModelStrategyConstraintsSection';
@@ -77,7 +77,7 @@ export default function NewModelStrategyPage() {
       }
 
       const { strategy } = await response.json();
-      router.push(`/model-strategies/${strategy.strategy_id}`);
+      router.push(`/workflows/strategies/${strategy.strategy_id}`);
     } catch (submitError: any) {
       setError(submitError.message);
       setSaving(false);
@@ -88,11 +88,11 @@ export default function NewModelStrategyPage() {
     <PageLayout
       title="New Model Strategy"
       subtitle="Define provider, fallback chain, budget cap, and operating constraints without editing raw JSON."
-      breadcrumbs={['Studio', 'Model Strategies', 'New']}
+      breadcrumbs={['Labs', 'Workflows', 'Model Strategies', 'New']}
       maturity="beta"
       actions={
         <Link
-          href="/model-strategies"
+          href="/workflows/strategies"
           className="flex items-center gap-2 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm text-secondary transition-colors hover:text-white"
         >
           <ArrowLeft size={14} /> Back
@@ -173,7 +173,7 @@ export default function NewModelStrategyPage() {
           >
             <Save size={14} /> {saving ? 'Creating...' : 'Create Strategy'}
           </button>
-          <Link href="/model-strategies" className="px-4 py-2 text-sm text-secondary transition-colors hover:text-white">
+          <Link href="/workflows/strategies" className="px-4 py-2 text-sm text-secondary transition-colors hover:text-white">
             Cancel
           </Link>
         </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
-const { default: ModelStrategyTestPanel } = await import('@/model-strategies/components/ModelStrategyTestPanel.jsx');
+const { default: ModelStrategyTestPanel } = await import('@/workflows/strategies/components/ModelStrategyTestPanel.jsx');
 
 afterEach(() => { vi.unstubAllGlobals(); });
 

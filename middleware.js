@@ -1599,8 +1599,6 @@ export const config = {
     '/scoring/:path*',
     '/policy-coach',
     '/policy-coach/:path*',
-    '/labs',
-    '/labs/:path*',
     '/learning',
     '/learning/:path*',
     '/integrations',

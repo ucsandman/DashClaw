@@ -31,7 +31,7 @@ describe('actionRegistry coverage', () => {
 
   it('maps codeSession + modelStrategy to their detail routes', () => {
     expect(detailPathFor('codeSession', 'proj_1')).toBe('/code-sessions/proj_1');
-    expect(detailPathFor('modelStrategy', 'str_1')).toBe('/model-strategies/str_1');
+    expect(detailPathFor('modelStrategy', 'str_1')).toBe('/workflows/strategies/str_1');
   });
 
   it('returns null for a known type that has no detail route', () => {

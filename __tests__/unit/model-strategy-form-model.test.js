@@ -5,17 +5,20 @@ import {
   createDefaultModelStrategyFormState,
   decompileModelStrategyConfig,
   requiresAdvancedStrategyConfig,
-} from '../../app/model-strategies/lib/modelStrategyFormModel.js';
+} from '../../app/workflows/strategies/lib/modelStrategyFormModel.js';
+import { getDefaultProviderModel } from '../../app/lib/providers/providerRegistry';
 
 describe('modelStrategyFormModel', () => {
-  it('creates valid default form state', () => {
+  it('creates valid default form state from the provider registry', () => {
     const state = createDefaultModelStrategyFormState();
 
     expect(state.execution.primaryProvider).toBe('openai');
-    expect(state.execution.primaryModel).toBe('gpt-4.1');
+    expect(state.execution.primaryModel).toBe(getDefaultProviderModel('openai', 'model_strategies'));
+    expect(state.execution.primaryModel).toBeTruthy();
     expect(state.execution.fallbacks).toEqual([
-      { provider: 'anthropic', model: 'claude-sonnet-4-6' },
+      { provider: 'anthropic', model: getDefaultProviderModel('anthropic', 'model_strategies') },
     ]);
+    expect(state.execution.fallbacks[0].model).toBeTruthy();
     expect(state.constraints.costSensitivity).toBe('balanced');
     expect(state.constraints.latencySensitivity).toBe('medium');
   });

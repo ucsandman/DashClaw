@@ -136,7 +136,7 @@ export default function KnowledgeCollectionDetailPage() {
 
   if (loading) {
     return (
-      <PageLayout title="Loading..." breadcrumbs={['Studio', 'Knowledge']}>
+      <PageLayout title="Loading..." breadcrumbs={['Labs', 'Knowledge']}>
         <div className="text-sm text-tertiary py-12 text-center">Loading...</div>
       </PageLayout>
     );
@@ -144,7 +144,7 @@ export default function KnowledgeCollectionDetailPage() {
 
   if (error && !collection) {
     return (
-      <PageLayout title="Collection Not Found" breadcrumbs={['Studio', 'Knowledge', collectionId]}>
+      <PageLayout title="Collection Not Found" breadcrumbs={['Labs', 'Knowledge', collectionId]}>
         <Card className="max-w-md mx-auto mt-12">
           <CardContent className="p-6 text-center">
             <div className="text-lg font-medium text-white mb-2">{error}</div>
@@ -159,7 +159,7 @@ export default function KnowledgeCollectionDetailPage() {
     <PageLayout
       title={collection.name}
       subtitle={collection.description || 'Knowledge collection'}
-      breadcrumbs={['Studio', 'Knowledge', collection.name]}
+      breadcrumbs={['Labs', 'Knowledge', collection.name]}
       maturity="beta"
       actions={
         <div className="flex items-center gap-2">

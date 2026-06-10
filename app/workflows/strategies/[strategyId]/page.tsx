@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Cpu, Save, Trash2 } from 'lucide-react';
-import PageLayout from '../../components/PageLayout';
-import { Card, CardContent, CardHeader } from '../../components/ui/Card';
+import PageLayout from '../../../components/PageLayout';
+import { Card, CardContent, CardHeader } from '../../../components/ui/Card';
 import ModelStrategyBasicsSection from '../components/ModelStrategyBasicsSection';
 import ModelStrategyExecutionSection from '../components/ModelStrategyExecutionSection';
 import ModelStrategyConstraintsSection from '../components/ModelStrategyConstraintsSection';
@@ -133,7 +133,7 @@ export default function ModelStrategyDetailPage() {
     try {
       const response = await fetch(`/api/model-strategies/${strategyId}`, { method: 'DELETE' });
       if (response.ok) {
-        router.push('/model-strategies');
+        router.push('/workflows/strategies');
       }
     } catch (deleteError: any) {
       setError(deleteError.message);
@@ -142,7 +142,7 @@ export default function ModelStrategyDetailPage() {
 
   if (loading) {
     return (
-      <PageLayout title="Loading..." breadcrumbs={['Studio', 'Model Strategies']}>
+      <PageLayout title="Loading..." breadcrumbs={['Labs', 'Workflows', 'Model Strategies']}>
         <div className="py-12 text-center text-sm text-tertiary">Loading...</div>
       </PageLayout>
     );
@@ -150,7 +150,7 @@ export default function ModelStrategyDetailPage() {
 
   if (error && !strategy) {
     return (
-      <PageLayout title="Strategy Not Found" breadcrumbs={['Studio', 'Model Strategies', strategyId]}>
+      <PageLayout title="Strategy Not Found" breadcrumbs={['Labs', 'Workflows', 'Model Strategies', strategyId]}>
         <Card className="mx-auto mt-12 max-w-md">
           <CardContent className="p-6 text-center">
             <div className="mb-2 text-lg font-medium text-white">{error}</div>
@@ -165,12 +165,12 @@ export default function ModelStrategyDetailPage() {
     <PageLayout
       title={strategy!.name}
       subtitle="Guided model strategy configuration"
-      breadcrumbs={['Studio', 'Model Strategies', strategy!.name]}
+      breadcrumbs={['Labs', 'Workflows', 'Model Strategies', strategy!.name]}
       maturity="beta"
       actions={
         <div className="flex items-center gap-2">
           <Link
-            href="/model-strategies"
+            href="/workflows/strategies"
             className="flex items-center gap-2 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm text-secondary transition-colors hover:text-white"
           >
             <ArrowLeft size={14} /> Back

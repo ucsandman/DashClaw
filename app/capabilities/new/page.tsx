@@ -161,7 +161,7 @@ export default function NewCapabilityPage() {
     <PageLayout
       title="Register Capability"
       subtitle="Add a callable capability to the governed registry"
-      breadcrumbs={['Studio', 'Capabilities', 'New']}
+      breadcrumbs={['Govern', 'Capabilities', 'New']}
       maturity="stable"
       actions={(
         <Link href="/capabilities" className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-border rounded-lg transition-colors">

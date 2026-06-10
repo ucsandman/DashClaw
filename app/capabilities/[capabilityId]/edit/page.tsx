@@ -207,7 +207,7 @@ export default function EditCapabilityPage() {
       <PageLayout
         title="Edit Capability"
         subtitle="Update capability configuration"
-        breadcrumbs={['Studio', 'Capabilities', 'Edit']}
+        breadcrumbs={['Govern', 'Capabilities', 'Edit']}
         maturity="stable"
       >
         <div className="py-12 text-center text-sm text-tertiary">Loading capability...</div>
@@ -220,7 +220,7 @@ export default function EditCapabilityPage() {
       <PageLayout
         title="Edit Capability"
         subtitle="Update capability configuration"
-        breadcrumbs={['Studio', 'Capabilities', 'Edit']}
+        breadcrumbs={['Govern', 'Capabilities', 'Edit']}
         maturity="stable"
       >
         <div className="rounded-lg bg-error-subtle border border-error/20 px-4 py-3 text-sm text-error">
@@ -239,7 +239,7 @@ export default function EditCapabilityPage() {
     <PageLayout
       title="Edit Capability"
       subtitle="Update capability configuration"
-      breadcrumbs={['Studio', 'Capabilities', 'Edit']}
+      breadcrumbs={['Govern', 'Capabilities', 'Edit']}
       maturity="stable"
       actions={(
         <Link

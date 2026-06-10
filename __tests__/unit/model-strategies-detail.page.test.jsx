@@ -79,7 +79,7 @@ describe('ModelStrategyDetailPage', () => {
       throw new Error(`Unexpected fetch: ${url}`);
     });
 
-    const { default: ModelStrategyDetailPage } = await import('@/model-strategies/[strategyId]/page.jsx');
+    const { default: ModelStrategyDetailPage } = await import('@/workflows/strategies/[strategyId]/page.jsx');
 
     render(<ModelStrategyDetailPage />);
 
@@ -160,7 +160,7 @@ describe('ModelStrategyDetailPage', () => {
       throw new Error(`Unexpected fetch: ${url}`);
     });
 
-    const { default: ModelStrategyDetailPage } = await import('@/model-strategies/[strategyId]/page.jsx');
+    const { default: ModelStrategyDetailPage } = await import('@/workflows/strategies/[strategyId]/page.jsx');
 
     render(<ModelStrategyDetailPage />);
 

@@ -41,7 +41,7 @@ describe('NewModelStrategyPage', () => {
   it('renders guided builder controls instead of raw JSON by default', async () => {
     global.fetch = vi.fn();
 
-    const { default: NewModelStrategyPage } = await import('@/model-strategies/new/page.jsx');
+    const { default: NewModelStrategyPage } = await import('@/workflows/strategies/new/page.jsx');
 
     render(<NewModelStrategyPage />);
 
@@ -66,7 +66,7 @@ describe('NewModelStrategyPage', () => {
       }),
     }));
 
-    const { default: NewModelStrategyPage } = await import('@/model-strategies/new/page.jsx');
+    const { default: NewModelStrategyPage } = await import('@/workflows/strategies/new/page.jsx');
 
     render(<NewModelStrategyPage />);
 
@@ -122,7 +122,7 @@ describe('NewModelStrategyPage', () => {
       },
     });
 
-    expect(push).toHaveBeenCalledWith('/model-strategies/mst_1');
+    expect(push).toHaveBeenCalledWith('/workflows/strategies/mst_1');
   });
 
   it('keeps advanced options collapsed by default and compiles task-mode overrides when enabled', async () => {
@@ -135,7 +135,7 @@ describe('NewModelStrategyPage', () => {
       }),
     }));
 
-    const { default: NewModelStrategyPage } = await import('@/model-strategies/new/page.jsx');
+    const { default: NewModelStrategyPage } = await import('@/workflows/strategies/new/page.jsx');
 
     render(<NewModelStrategyPage />);
 

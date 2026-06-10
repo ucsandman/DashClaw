@@ -9,8 +9,8 @@ import {
   Settings, BarChart3, Clock, PanelLeftClose,
   PanelLeft, Menu, X, Activity, Shield, Microscope,
   Terminal, TrendingUp, GraduationCap, Plug,
-  Download, Workflow, Cpu, BookOpen, Wrench, Fingerprint, Bell, Inbox,
-  FlaskConical, ChevronDown, GitBranch, Stethoscope, ClipboardCheck, Lock, ShieldCheck,
+  Download, Workflow, BookOpen, Wrench, Fingerprint, Bell, Inbox,
+  FlaskConical, ChevronDown, Stethoscope, ClipboardCheck, Lock, ShieldCheck,
   LayoutDashboard, UserCog, Network, Award,
   DollarSign, ShoppingCart, Gauge, AppWindow,
 } from 'lucide-react';
@@ -44,6 +44,7 @@ const navGroups: NavGroup[] = [
       { href: '/posture', icon: Gauge, label: 'Posture' },
       { href: '/agents', icon: Users, label: 'Fleet' },
       { href: '/agents/registry', icon: Network, label: 'Registry' },
+      { href: '/capabilities', icon: Wrench, label: 'Capabilities' },
     ],
   },
   {
@@ -93,11 +94,8 @@ const navGroups: NavGroup[] = [
       { href: '/prompts', icon: Terminal, label: 'Prompts' },
       { href: '/messages', icon: Inbox, label: 'Messages' },
       { href: '/workflows', icon: Workflow, label: 'Workflows' },
-      { href: '/model-strategies', icon: Cpu, label: 'Model Strategies' },
       { href: '/knowledge', icon: BookOpen, label: 'Knowledge' },
-      { href: '/capabilities', icon: Wrench, label: 'Capabilities' },
       { href: '/swarm', icon: Network, label: 'Swarm' },
-      { href: '/labs/branch-finish', icon: GitBranch, label: 'Branch Finish' },
     ],
   },
 ];

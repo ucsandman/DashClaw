@@ -182,7 +182,7 @@ export default function WorkflowTemplateDetailPage() {
 
   if (loading) {
     return (
-      <PageLayout title="Loading..." breadcrumbs={['Studio', 'Workflows']}>
+      <PageLayout title="Loading..." breadcrumbs={['Labs', 'Workflows']}>
         <div className="text-sm text-tertiary py-12 text-center">Loading...</div>
       </PageLayout>
     );
@@ -190,7 +190,7 @@ export default function WorkflowTemplateDetailPage() {
 
   if (error || !template) {
     return (
-      <PageLayout title="Template Not Found" breadcrumbs={['Studio', 'Workflows', templateId]}>
+      <PageLayout title="Template Not Found" breadcrumbs={['Labs', 'Workflows', templateId]}>
         <Card className="max-w-md mx-auto mt-12">
           <CardContent className="p-6 text-center">
             <div className="text-lg font-medium text-white mb-2">{error || 'Template not found'}</div>
@@ -214,7 +214,7 @@ export default function WorkflowTemplateDetailPage() {
     <PageLayout
       title={template.name}
       subtitle={template.description || 'Workflow template'}
-      breadcrumbs={['Studio', 'Workflows', template.slug]}
+      breadcrumbs={['Labs', 'Workflows', template.slug]}
       maturity="beta"
       actions={(
         <div className="flex items-center gap-2">

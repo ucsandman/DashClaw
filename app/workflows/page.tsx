@@ -9,6 +9,7 @@ import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
+import WorkflowsTabs from './components/WorkflowsTabs';
 
 const statusVariant: Record<string, string> = {
   draft: 'default',
@@ -27,13 +28,14 @@ function timeAgo(dateString?: string | null): string {
 
 interface WorkflowCardProps {
   t: any;
+  strategyName?: string | null;
   selected: boolean;
   selectionMode: boolean;
   onToggleSelect: (id: string) => void;
   onDelete?: (templateId: string) => Promise<void> | void;
 }
 
-function WorkflowCard({ t, selected, selectionMode, onToggleSelect, onDelete }: WorkflowCardProps) {
+function WorkflowCard({ t, strategyName, selected, selectionMode, onToggleSelect, onDelete }: WorkflowCardProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -62,12 +64,18 @@ function WorkflowCard({ t, selected, selectionMode, onToggleSelect, onDelete }: 
         {t.description && (
           <div className="mb-3 line-clamp-2 text-xs text-secondary">{t.description}</div>
         )}
-        <div className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
           <span className="flex items-center gap-1"><FileText size={11} aria-hidden="true" />v{t.version}</span>
-          <span aria-hidden="true" className="text-zinc-700">&middot;</span>
+          <span aria-hidden="true" className="text-disabled">&middot;</span>
           <span className="tabular-nums">{(t.linked_policy_ids?.length || 0)} policies</span>
-          <span aria-hidden="true" className="text-zinc-700">&middot;</span>
+          <span aria-hidden="true" className="text-disabled">&middot;</span>
           <span className="tabular-nums">{(t.linked_capability_ids?.length || 0)} capabilities</span>
+          {strategyName && (
+            <>
+              <span aria-hidden="true" className="text-disabled">&middot;</span>
+              <span className="normal-case tracking-normal font-medium text-secondary" title="Model strategy">{strategyName}</span>
+            </>
+          )}
         </div>
         <div className="mt-2 text-[11px] tabular-nums text-tertiary">Updated {timeAgo(t.updated_at)}</div>
         {!selectionMode && (
@@ -140,6 +148,7 @@ function WorkflowCard({ t, selected, selectionMode, onToggleSelect, onDelete }: 
 
 export default function WorkflowsPage() {
   const [templates, setTemplates] = useState<any[]>([]);
+  const [strategyNames, setStrategyNames] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [selectionMode, setSelectionMode] = useState(false);
   const selection = useSelection<any>(templates, (t) => t.template_id);
@@ -166,6 +175,21 @@ export default function WorkflowsPage() {
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
+
+  // Strategy id -> name, so cards can show which model strategy a template
+  // launches with (the id alone is meaningless to a reader).
+  useEffect(() => {
+    fetch('/api/model-strategies')
+      .then((r) => (r.ok ? r.json() : { strategies: [] }))
+      .then((d) => {
+        const map: Record<string, string> = {};
+        for (const s of d.strategies || []) map[s.strategy_id] = s.name;
+        setStrategyNames(map);
+      })
+      .catch((err) => {
+        console.warn('Failed to load model strategies for workflow cards:', err);
+      });
+  }, []);
 
   const handleDelete = useCallback(async (templateId: string) => {
     try {
@@ -208,9 +232,9 @@ export default function WorkflowsPage() {
 
   return (
     <PageLayout agentFilter={false}
-      title="Workflow templates"
-      subtitle="Reusable, governed workflow packaging"
-      breadcrumbs={['Studio', 'Workflows']}
+      title="Workflows"
+      subtitle="A workflow template packages a repeatable agent task (steps, prompts, capabilities, policies, one model strategy) into a governed, versioned asset"
+      breadcrumbs={['Labs', 'Workflows']}
       maturity="beta"
       actions={
         <div className="flex items-center gap-2">
@@ -254,6 +278,8 @@ export default function WorkflowsPage() {
         </div>
       }
     >
+      <WorkflowsTabs active="templates" />
+
       {!loading && templates.length > 0 && (
         <div className="mb-4 rounded-xl border border-border bg-surface-secondary p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -264,6 +290,12 @@ export default function WorkflowsPage() {
                   ? 'Select the workflow templates you want to delete. This is the fastest way to clean up old test workflows.'
                   : 'Need a new workflow quickly? You can also describe it in plain English from the workflow builder with Generate with AI.'}
               </p>
+              {!selectionMode && (
+                <p className="mt-1 text-xs text-tertiary">
+                  Playbook: the Branch Finish loop (finish prompts, coding standards, capability health) ships as a seeded
+                  template via <code className="rounded bg-surface-tertiary px-1 py-0.5 font-mono text-secondary">npm run seed:branch-finish</code>.
+                </p>
+              )}
             </div>
             {selectionMode ? (
               <div className="flex items-center gap-2">
@@ -310,22 +342,29 @@ export default function WorkflowsPage() {
         <EmptyState
           icon={Workflow}
           title="No workflow templates yet"
-          description="Package repeatable operational patterns into reusable, versioned assets. Link them to policies, knowledge, capabilities, and a model strategy."
+          description="Package repeatable operational patterns into reusable, versioned assets."
           action={(
-            <div className="flex flex-wrap items-center justify-center gap-2">
+            <div className="mx-auto max-w-md">
+              <ol className="mb-4 space-y-2 text-left text-xs text-secondary">
+                <li className="flex gap-2">
+                  <span className="font-semibold tabular-nums text-tertiary">1.</span>
+                  <span>Register the <Link href="/capabilities" className="text-brand hover:text-brand-hover">capabilities</Link> your agents are allowed to invoke.</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold tabular-nums text-tertiary">2.</span>
+                  <span>Pick or create a <Link href="/workflows/strategies" className="text-brand hover:text-brand-hover">model strategy</Link> (primary model, fallbacks, budget).</span>
+                </li>
+                <li className="flex gap-2">
+                  <span className="font-semibold tabular-nums text-tertiary">3.</span>
+                  <span>Compose the steps yourself, or describe the workflow in plain English and generate it with AI.</span>
+                </li>
+              </ol>
               <Link
                 href="/workflows/new"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-4 py-2 text-xs text-brand transition-colors hover:border-brand/40 hover:bg-brand/15"
               >
                 <Plus size={14} aria-hidden="true" />
                 Create your first template
-              </Link>
-              <Link
-                href="/workflows/new"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
-              >
-                <Sparkles size={14} aria-hidden="true" />
-                Generate with AI
               </Link>
             </div>
           )}
@@ -336,6 +375,7 @@ export default function WorkflowsPage() {
             <WorkflowCard
               key={t.template_id}
               t={t}
+              strategyName={t.model_strategy_id ? strategyNames[t.model_strategy_id] || null : null}
               selected={selectedIds.includes(t.template_id)}
               selectionMode={selectionMode}
               onToggleSelect={(id) => selection.selectClick(id)}

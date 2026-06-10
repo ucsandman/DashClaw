@@ -33,7 +33,7 @@ const TAGGED_FILES: Array<[string, string]> = [
   ['evaluations', 'app/evaluations/page.tsx'],
   ['integrations', 'app/integrations/page.tsx'],
   ['learning', 'app/learning/page.tsx'],
-  ['model-strategies', 'app/model-strategies/page.tsx'],
+  ['model-strategies', 'app/workflows/strategies/page.tsx'],
   ['prompts', 'app/prompts/page.tsx'],
   ['team', 'app/team/page.tsx'],
   ['identities', 'app/identities/page.tsx'],

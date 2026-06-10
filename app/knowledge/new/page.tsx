@@ -51,7 +51,7 @@ export default function NewKnowledgeCollectionPage() {
     <PageLayout
       title="New Knowledge Collection"
       subtitle="Create a named container for documents and sources"
-      breadcrumbs={['Studio', 'Knowledge', 'New']}
+      breadcrumbs={['Labs', 'Knowledge', 'New']}
       maturity="beta"
       actions={
         <Link href="/knowledge" className="flex items-center gap-2 px-3 py-1.5 text-sm text-secondary hover:text-white bg-surface-tertiary border border-border rounded-lg transition-colors">

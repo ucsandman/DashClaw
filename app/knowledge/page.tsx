@@ -209,7 +209,7 @@ export default function KnowledgePage() {
     <PageLayout agentFilter={false}
       title="Knowledge Collections"
       subtitle="Named knowledge sources that workflows and agents can bind to"
-      breadcrumbs={['Studio', 'Knowledge']}
+      breadcrumbs={['Labs', 'Knowledge']}
       maturity="beta"
       actions={
         <>

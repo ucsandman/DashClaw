@@ -4,15 +4,18 @@ import {
   getProviderLabel,
   isSupportedProvider,
   isSupportedProviderModel,
-} from '../../lib/providers/providerRegistry';
+} from '../../../lib/providers/providerRegistry';
 
 const DEFAULT_STATE = {
   execution: {
     primaryProvider: 'openai',
-    primaryModel: getDefaultProviderModel('openai', 'model_strategies') || 'gpt-4.1',
+    // providerRegistry is the single source of model ids — no literal
+    // fallbacks (getDefaultProviderModel already falls back to the
+    // provider's first registry model).
+    primaryModel: getDefaultProviderModel('openai', 'model_strategies'),
     fallbacks: [{
       provider: 'anthropic',
-      model: getDefaultProviderModel('anthropic', 'model_strategies') || 'claude-sonnet-4-6',
+      model: getDefaultProviderModel('anthropic', 'model_strategies'),
     }],
     maxRetries: 2,
   },
