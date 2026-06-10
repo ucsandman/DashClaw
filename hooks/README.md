@@ -118,7 +118,7 @@ node scripts/install-hooks.mjs --global          # add --dry-run to preview, --u
 
 This adds a single `Stop` entry to `~/.claude/settings.json` pointing at this repo's `hooks/dashclaw_stop.py` by absolute path. It is **capture-only**: no `PreToolUse`/`PostToolUse` governance runs for other projects (the Stop hook's token-attribution step no-ops when there are no governed actions to attribute against). The hook resolves `DASHCLAW_BASE_URL`, `DASHCLAW_API_KEY`, and `DASHCLAW_CODE_SESSIONS_ENABLED` from *this repo's* `.env.local`, so **no secret is written into global config** and `git pull` upgrades the hook automatically. Any third-party Stop hooks you already have are preserved.
 
-Requires `DASHCLAW_CODE_SESSIONS_ENABLED=1` in this repo's `.env.local`.
+Code Sessions capture is ON by default (metadata-only); set `DASHCLAW_CODE_SESSIONS_ENABLED=0` in this repo's `.env.local` to opt out.
 
 ### Global governance across every project (out-of-the-box, incl. Docker)
 
@@ -137,7 +137,7 @@ mkdir -p .claude/hooks
 cp hooks/dashclaw_pretool.py .claude/hooks/
 cp hooks/dashclaw_posttool.py .claude/hooks/
 cp hooks/dashclaw_stop.py    .claude/hooks/
-cp hooks/dashclaw_code_session_reporter.py .claude/hooks/   # opt-in: Code Sessions (DASHCLAW_CODE_SESSIONS_ENABLED=1)
+cp hooks/dashclaw_code_session_reporter.py .claude/hooks/   # Code Sessions (ON by default, metadata-only; opt out: DASHCLAW_CODE_SESSIONS_ENABLED=0)
 cp -r hooks/dashclaw_agent_intel .claude/hooks/
 ```
 
@@ -157,13 +157,14 @@ cp hooks/settings.json .claude/settings.json
 export DASHCLAW_BASE_URL=https://your-dashclaw-instance.vercel.app
 export DASHCLAW_API_KEY=your_api_key_here
 export DASHCLAW_AGENT_ID=claude-code              # optional, defaults to "claude-code"
-export DASHCLAW_CODE_SESSIONS_ENABLED=1           # optional: enable Stop-hook session telemetry
+export DASHCLAW_CODE_SESSIONS_ENABLED=0           # optional: OPT OUT of Code Sessions capture (ON by default, metadata-only)
+export DASHCLAW_CODE_SESSIONS_CONTENT=full        # optional: explicitly ship full transcript text (default strips prompt/file text)
 export DASHCLAW_BEHAVIOR_SAMPLES_ENABLED=1        # optional: enable Behavior Learning samples (local-only)
 ```
 
 `DASHCLAW_BEHAVIOR_SAMPLES_ENABLED=1` opt-in turns on the **Behavior Learning** recorder (`dashclaw_agent_intel/behavior_recorder.py`). For each governed tool call, `dashclaw_pretool.py` stashes a redacted pre-execution sample (tool, command *shape*, risk, paths, guard decision) and `dashclaw_posttool.py` finalizes it with the outcome, appending one JSONL line to `.dashclaw/behavior-samples/<date>.jsonl` (override the dir with `DASHCLAW_BEHAVIOR_SAMPLES_DIR`). An enforce-mode block is recorded immediately (PostToolUse won't fire). Secrets, env values, and full paths are scrubbed before write; nothing is uploaded. The DashClaw **Policy Coach** (`/policy-coach`) analyzes these local samples into evidence-backed policy suggestions. Fail-silent: a recorder error never blocks or slows a tool call. Off by default. See [docs/behavior-learning.md](../docs/behavior-learning.md).
 
-`DASHCLAW_CODE_SESSIONS_ENABLED=1` opt-in turns on the Code Sessions reporter (`dashclaw_code_session_reporter.py`, lazily imported by the Stop hook). After the existing token-capture + outcome PATCH work runs, the reporter slices the new JSONL lines since the previous turn's cursor, builds a tool_use → action_id map from a session-scoped log written by `dashclaw_pretool.py`, and POSTs the delta to `/api/code-sessions/ingest-jsonl` with `source_host='hook'`. Fail-silent: if `DASHCLAW_BASE_URL` is empty or the endpoint is unreachable, the hook still exits 0 with no traceback. The full backfill path for historical sessions runs through `dashclaw code ingest` instead (see [cli/README.md](../cli/README.md#dashclaw-code)).
+The Code Sessions reporter (`dashclaw_code_session_reporter.py`, lazily imported by the Stop hook) is **ON by default and metadata-only**: the payload carries token counts, models, timestamps, tool names/ids, and safe path fields — prompt text, assistant text, thinking, tool inputs, and tool results are stripped before anything leaves your machine. Shipping full transcript content is an explicit opt-in (`DASHCLAW_CODE_SESSIONS_CONTENT=full`); opting out entirely is `DASHCLAW_CODE_SESSIONS_ENABLED=0`. After the existing token-capture + outcome PATCH work runs, the reporter slices the new JSONL lines since the previous turn's cursor, builds a tool_use → action_id map from a session-scoped log written by `dashclaw_pretool.py`, and POSTs the delta to `/api/code-sessions/ingest-jsonl` with `source_host='hook'`. After a turn that governed ≥1 action, the Stop hook also prints a one-line stderr recap (`[DashClaw] Governed N action(s) this session — $X.XX (caching saved $Y.YY) · <url>/decisions`) quoting the same `code_sessions` cost row the `/api/finops/spend` claude-code lens aggregates. Fail-silent: if `DASHCLAW_BASE_URL` is empty or the endpoint is unreachable, the hook still exits 0 with no traceback. The full backfill path for historical sessions runs through `dashclaw code ingest` instead (see [cli/README.md](../cli/README.md#dashclaw-code)).
 
 ### Smoke test
 

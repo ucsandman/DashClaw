@@ -69,8 +69,11 @@ def _make_handler(log):
 
         def do_GET(self):
             log.add("GET", self.path, None)
-            action_id = self.path.rsplit("/", 1)[-1]
-            payload = {"action": {"action_id": action_id, "status": "completed"}}
+            if self.path.startswith("/api/code-sessions/sessions/"):
+                payload = {"session": {"id": "cs_test", "cost_usd": "0.84", "cache_savings_usd": "0.31"}}
+            else:
+                action_id = self.path.rsplit("/", 1)[-1]
+                payload = {"action": {"action_id": action_id, "status": "completed"}}
             resp = json.dumps(payload).encode()
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
@@ -237,8 +240,9 @@ class TestCodeSessionReporter(unittest.TestCase):
         finally:
             _safe_remove(transcript_path)
 
-    def test_no_post_when_flag_disabled(self):
-        transcript_path, project_dir = _write_transcript_under_slug(
+    def test_default_on_posts_without_flag(self):
+        """Ingest defaults ON (metadata-only) — no flag needed."""
+        transcript_path, _ = _write_transcript_under_slug(
             "DemoSlug2", _fixture_entries(self.session_id),
         )
         try:
@@ -247,13 +251,152 @@ class TestCodeSessionReporter(unittest.TestCase):
                 env_overrides={
                     "DASHCLAW_BASE_URL": self.base_url,
                     "DASHCLAW_API_KEY": "test-key",
-                    # Flag intentionally absent.
+                    # Flag intentionally absent → default ON.
+                },
+            )
+            self.assertEqual(code, 0)
+            ingest_calls = [r for r in self.log.get_all()
+                            if r["method"] == "POST" and r["path"] == "/api/code-sessions/ingest-jsonl"]
+            self.assertEqual(len(ingest_calls), 1)
+        finally:
+            _safe_remove(transcript_path)
+
+    def test_opt_out_env_disables_ingest(self):
+        """DASHCLAW_CODE_SESSIONS_ENABLED=0 is the documented opt-out."""
+        transcript_path, _ = _write_transcript_under_slug(
+            "DemoSlug2b", _fixture_entries(self.session_id),
+        )
+        try:
+            code, _, _ = _run_hook(
+                {"session_id": self.session_id, "transcript_path": transcript_path},
+                env_overrides={
+                    "DASHCLAW_BASE_URL": self.base_url,
+                    "DASHCLAW_API_KEY": "test-key",
+                    "DASHCLAW_CODE_SESSIONS_ENABLED": "0",
                 },
             )
             self.assertEqual(code, 0)
             ingest_calls = [r for r in self.log.get_all()
                             if r["method"] == "POST" and r["path"] == "/api/code-sessions/ingest-jsonl"]
             self.assertEqual(len(ingest_calls), 0)
+        finally:
+            _safe_remove(transcript_path)
+
+    def test_payload_is_metadata_only_by_default(self):
+        """The default payload must carry NO prompt/file/tool text — only
+        structure, usage, models, tool names/ids, and safe path metadata."""
+        secret_prompt = "SECRET-PROMPT-do-not-ship"
+        secret_text = "SECRET-ASSISTANT-TEXT"
+        secret_tool_content = "SECRET-FILE-CONTENT-12345"
+        usage = {"input_tokens": 100, "output_tokens": 50,
+                 "cache_creation_input_tokens": 0, "cache_read_input_tokens": 0}
+        entries = [
+            {"type": "user", "sessionId": self.session_id, "uuid": "u-prompt",
+             "timestamp": "2026-05-13T12:00:00Z",
+             "message": {"role": "user", "content": secret_prompt}},
+            {"type": "assistant", "sessionId": self.session_id, "uuid": "u-1",
+             "requestId": "R1", "timestamp": "2026-05-13T12:00:01Z",
+             "message": {"role": "assistant", "model": "claude-sonnet-4-6", "id": "M1",
+                         "content": [
+                             {"type": "text", "text": secret_text},
+                             {"type": "tool_use", "name": "Write", "id": "tu_42",
+                              "input": {"file_path": "a.js", "content": secret_tool_content}},
+                         ],
+                         "usage": usage}},
+        ]
+        transcript_path, _ = _write_transcript_under_slug("DemoSlugRedact", entries)
+        try:
+            code, _, _ = _run_hook(
+                {"session_id": self.session_id, "transcript_path": transcript_path},
+                env_overrides={
+                    "DASHCLAW_BASE_URL": self.base_url,
+                    "DASHCLAW_API_KEY": "test-key",
+                },
+            )
+            self.assertEqual(code, 0)
+            ingest_calls = [r for r in self.log.get_all()
+                            if r["method"] == "POST" and r["path"] == "/api/code-sessions/ingest-jsonl"]
+            self.assertEqual(len(ingest_calls), 1)
+            serialized = json.dumps(ingest_calls[0]["body"])
+            # No prompt / assistant / tool text leaves the machine.
+            self.assertNotIn(secret_prompt, serialized)
+            self.assertNotIn(secret_text, serialized)
+            self.assertNotIn(secret_tool_content, serialized)
+            # Metadata the server parser needs survives.
+            lines = [json.loads(ln) for ln in ingest_calls[0]["body"]["jsonl_lines"]]
+            assistant = [ln for ln in lines if ln.get("type") == "assistant"][0]
+            self.assertEqual(assistant["message"]["usage"]["input_tokens"], 100)
+            self.assertEqual(assistant["message"]["model"], "claude-sonnet-4-6")
+            tool_use = [b for b in assistant["message"]["content"] if b.get("type") == "tool_use"][0]
+            self.assertEqual(tool_use["name"], "Write")
+            self.assertEqual(tool_use["id"], "tu_42")
+            self.assertEqual(tool_use["input"], {"file_path": "a.js"})
+        finally:
+            _safe_remove(transcript_path)
+
+    def test_full_content_mode_is_explicit_opt_in(self):
+        """DASHCLAW_CODE_SESSIONS_CONTENT=full restores raw-line shipping."""
+        entries = _fixture_entries(self.session_id)
+        transcript_path, _ = _write_transcript_under_slug("DemoSlugFull", entries)
+        try:
+            code, _, _ = _run_hook(
+                {"session_id": self.session_id, "transcript_path": transcript_path},
+                env_overrides={
+                    "DASHCLAW_BASE_URL": self.base_url,
+                    "DASHCLAW_API_KEY": "test-key",
+                    "DASHCLAW_CODE_SESSIONS_CONTENT": "full",
+                },
+            )
+            self.assertEqual(code, 0)
+            ingest_calls = [r for r in self.log.get_all()
+                            if r["method"] == "POST" and r["path"] == "/api/code-sessions/ingest-jsonl"]
+            self.assertEqual(len(ingest_calls), 1)
+            serialized = json.dumps(ingest_calls[0]["body"])
+            self.assertIn("Hello", serialized)  # the fixture's user prompt ships in full mode
+        finally:
+            _safe_remove(transcript_path)
+
+    def test_recap_line_prints_with_governed_actions_and_matches_session_cost(self):
+        """One stderr recap line after a governed turn, quoting the server's
+        own code_sessions cost row (the same row /api/finops/spend sums)."""
+        transcript_path, _ = _write_transcript_under_slug(
+            "DemoSlugRecap", _fixture_entries(self.session_id),
+        )
+        try:
+            code, _, stderr = _run_hook(
+                {"session_id": self.session_id, "transcript_path": transcript_path},
+                env_overrides={
+                    "DASHCLAW_BASE_URL": self.base_url,
+                    "DASHCLAW_API_KEY": "test-key",
+                },
+            )
+            self.assertEqual(code, 0)
+            recap_lines = [ln for ln in stderr.splitlines() if "[DashClaw] Governed" in ln]
+            self.assertEqual(len(recap_lines), 1, "exactly ONE recap line. stderr=" + stderr)
+            self.assertIn("Governed 1 action(s) this session", recap_lines[0])
+            self.assertIn("$0.84", recap_lines[0])
+            self.assertIn("caching saved $0.31", recap_lines[0])
+            self.assertIn(self.base_url + "/decisions", recap_lines[0])
+        finally:
+            _safe_remove(transcript_path)
+
+    def test_no_recap_when_nothing_governed(self):
+        """A turn with zero governed actions stays completely silent."""
+        _safe_remove(_turn_path(self.session_id))  # no governed actions this turn
+        transcript_path, _ = _write_transcript_under_slug(
+            "DemoSlugSilent", _fixture_entries(self.session_id),
+        )
+        try:
+            code, stdout, stderr = _run_hook(
+                {"session_id": self.session_id, "transcript_path": transcript_path},
+                env_overrides={
+                    "DASHCLAW_BASE_URL": self.base_url,
+                    "DASHCLAW_API_KEY": "test-key",
+                },
+            )
+            self.assertEqual(code, 0)
+            self.assertNotIn("[DashClaw] Governed", stderr)
+            self.assertEqual(stdout, "")
         finally:
             _safe_remove(transcript_path)
 

@@ -514,6 +514,9 @@ class TestStopHook(unittest.TestCase):
         env = self._env()
         env["DASHCLAW_TRACK_TEXT_TURNS"] = "1"
         env["DASHCLAW_AGENT_ID"] = "test-claude-code"
+        # Code-sessions ingest defaults ON now; this test pins the text-turn
+        # POST shape, so disable ingest to keep the request list exact.
+        env["DASHCLAW_CODE_SESSIONS_ENABLED"] = "0"
 
         code, _, err = _run_hook(
             {"session_id": session_id, "transcript_path": transcript},
@@ -557,9 +560,13 @@ class TestStopHook(unittest.TestCase):
         self.addCleanup(_safe_remove, transcript)
         self.addCleanup(_safe_remove, _cursor_path(session_id))
 
+        env = self._env()
+        # Ingest defaults ON now; disable it so the no-POST assertion stays
+        # about text-turn tracking only.
+        env["DASHCLAW_CODE_SESSIONS_ENABLED"] = "0"
         code, _, err = _run_hook(
             {"session_id": session_id, "transcript_path": transcript},
-            self._env(),  # TRACK_TEXT_TURNS not set
+            env,  # TRACK_TEXT_TURNS not set
         )
         self.assertEqual(code, 0, msg=err)
         # No POST, no PATCH — pure log-and-drop behavior.

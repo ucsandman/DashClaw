@@ -100,10 +100,12 @@ AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
 # analytics instead of just in the orphan-tokens drift log. Default off to
 # avoid ledger inflation for users who only want tool-call governance.
 TRACK_TEXT_TURNS = (os.environ.get("DASHCLAW_TRACK_TEXT_TURNS") or "").strip() in ("1", "true", "yes")
-# Opt-in (Phase 3 — AgentLens absorption): when set, ship the turn's JSONL
-# slice to POST /api/code-sessions/ingest-jsonl after the existing PATCH
-# loop. Fail-silent: any error inside the reporter is logged and swallowed.
-CODE_SESSIONS_ENABLED = (os.environ.get("DASHCLAW_CODE_SESSIONS_ENABLED") or "").strip().lower() in ("1", "true", "yes")
+# Code Sessions ingest — ON by default since the payload is metadata/token-
+# counts only (prompt text is stripped by dashclaw_code_session_reporter;
+# full content requires the explicit DASHCLAW_CODE_SESSIONS_CONTENT=full
+# opt-in). Opt out entirely with DASHCLAW_CODE_SESSIONS_ENABLED=0.
+# Fail-silent: any error inside the reporter is logged and swallowed.
+CODE_SESSIONS_ENABLED = (os.environ.get("DASHCLAW_CODE_SESSIONS_ENABLED") or "1").strip().lower() not in ("0", "false", "no")
 # Policy Coach "learning in the background" — when the recorder is on, the Stop
 # hook pushes a SAFE aggregate snapshot (counts only, no raw behavior) to the
 # server so a hosted dashboard can show DashClaw is alive and learning. On by
@@ -603,13 +605,15 @@ def _read_stdin_payload():
 
 
 def _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor):
-    """Ship the turn's JSONL slice to the code-sessions ingest endpoint when
-    opt-in via DASHCLAW_CODE_SESSIONS_ENABLED. Fail-silent."""
+    """Ship the turn's JSONL slice (metadata-only by default) to the
+    code-sessions ingest endpoint. ON by default; opt out with
+    DASHCLAW_CODE_SESSIONS_ENABLED=0. Fail-silent. Returns the ingest
+    response dict on success, None otherwise."""
     if not CODE_SESSIONS_ENABLED:
-        return
+        return None
     try:
         from dashclaw_code_session_reporter import report_turn
-        report_turn(
+        result = report_turn(
             base_url=BASE_URL,
             api_key=API_KEY,
             agent_id=AGENT_ID,
@@ -619,8 +623,68 @@ def _report_code_session(session_id, transcript_path, entries, last_uuid, new_cu
             previous_cursor=last_uuid,
             new_cursor=new_cursor,
         )
+        return result if isinstance(result, dict) else None
     except Exception as e:
         _log_hook_error("code_session_reporter -> " + type(e).__name__ + ": " + str(e))
+        return None
+
+
+# ---------------------------------------------------------------------------
+# End-of-turn recap (the "visible first session" line)
+# ---------------------------------------------------------------------------
+
+def _count_session_actions(session_id):
+    """Unique governed action_ids accumulated for this session by pretool's
+    session tool map. Best-effort; 0 on any failure."""
+    path = os.path.join(
+        tempfile.gettempdir(),
+        "dashclaw_session_tool_map_" + _safe_session_id(session_id),
+    )
+    try:
+        with open(path, encoding="utf-8") as f:
+            return len({ln.split("\t", 1)[1].strip() for ln in f if "\t" in ln})
+    except Exception:
+        return 0
+
+
+def _fetch_session_cost(ingest_result):
+    """(cost_usd, cache_savings_usd) for the ingested code session, or None.
+
+    Reads the same code_sessions row the /api/finops/spend claude-code lens
+    aggregates, so the recap numbers match the dashboard by construction."""
+    try:
+        cs_id = ((ingest_result or {}).get("session") or {}).get("id")
+        if not cs_id:
+            return None
+        req = urllib.request.Request(
+            BASE_URL + "/api/code-sessions/sessions/" + str(cs_id),
+            headers={"x-api-key": API_KEY},
+        )
+        body = request_with_retry(req, timeout=2, retries=0)
+        session = (json.loads(body.decode("utf-8")) or {}).get("session") or {}
+        return float(session.get("cost_usd") or 0), float(session.get("cache_savings_usd") or 0)
+    except Exception:
+        return None
+
+
+def _print_session_recap(turn_action_ids, session_id, ingest_result):
+    """ONE stderr line after a turn with >=1 governed action; silent when the
+    turn governed nothing (the quiet path stays quiet). Fail-silent."""
+    if not turn_action_ids:
+        return
+    try:
+        count = max(_count_session_actions(session_id), len(turn_action_ids))
+        cost = _fetch_session_cost(ingest_result)
+        if cost is not None:
+            line = ("[DashClaw] Governed %d action(s) this session — $%.2f"
+                    " (caching saved $%.2f) · %s/decisions"
+                    % (count, cost[0], cost[1], BASE_URL))
+        else:
+            line = "[DashClaw] Governed %d action(s) this session · %s/decisions" % (count, BASE_URL)
+        sys.stderr.write(line + "\n")
+        sys.stderr.flush()
+    except Exception:
+        pass
 
 
 def main():
@@ -647,7 +711,11 @@ def main():
 
     _apply(action_ids, tokens_in, tokens_out, model, session_id)
 
-    _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor)
+    ingest_result = _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor)
+
+    # Visible first session: one stderr recap line when this turn governed
+    # anything (silent otherwise).
+    _print_session_recap(action_ids, session_id, ingest_result)
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)

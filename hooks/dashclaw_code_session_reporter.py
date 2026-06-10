@@ -89,6 +89,88 @@ def _clear_session_tool_map(session_id):
 
 
 # ---------------------------------------------------------------------------
+# Payload privacy — metadata/token-counts only by default
+# ---------------------------------------------------------------------------
+# With ingest ON by default, the payload must not carry prompt text. The
+# redaction below keeps the structure the server parser needs (sessionId,
+# uuids, timestamps, usage blocks, models, tool_use ids + names) and strips
+# every field that can carry prompt/file/tool text. Shipping full content is
+# an explicit opt-in via DASHCLAW_CODE_SESSIONS_CONTENT=full.
+
+# Tool-input keys that are pure metadata (never file/prompt content).
+_SAFE_TOOL_INPUT_KEYS = ("file_path", "path", "notebook_path")
+
+
+def _content_mode():
+    """'metadata' (default — prompt text stripped) or 'full' (explicit opt-in)."""
+    raw = (os.environ.get("DASHCLAW_CODE_SESSIONS_CONTENT") or "").strip().lower()
+    return "full" if raw == "full" else "metadata"
+
+
+def _redact_content_block(block):
+    if not isinstance(block, dict):
+        return {"type": "redacted"}
+    btype = block.get("type")
+    out = dict(block)
+    if btype == "text":
+        out["text"] = ""
+    elif btype == "thinking":
+        out["thinking"] = ""
+        out.pop("signature", None)
+    elif btype == "tool_use":
+        raw_input = out.get("input")
+        safe = {}
+        if isinstance(raw_input, dict):
+            for k in _SAFE_TOOL_INPUT_KEYS:
+                if isinstance(raw_input.get(k), str):
+                    safe[k] = raw_input[k]
+        out["input"] = safe
+    elif btype == "tool_result":
+        out["content"] = ""
+    else:
+        # Unknown block type — strip every value that could carry text.
+        for k, v in list(out.items()):
+            if isinstance(v, str) and k not in ("type", "id", "name", "tool_use_id"):
+                out[k] = ""
+            elif isinstance(v, (list, dict)):
+                out[k] = [] if isinstance(v, list) else {}
+    return out
+
+
+def _redact_record(rec):
+    out = dict(rec)
+    msg = out.get("message")
+    if isinstance(msg, dict):
+        m = dict(msg)
+        content = m.get("content")
+        if isinstance(content, str):
+            m["content"] = ""
+        elif isinstance(content, list):
+            m["content"] = [_redact_content_block(b) for b in content]
+        out["message"] = m
+    # Entry-level fields that carry prompt/result text in Claude Code JSONL.
+    for key in ("toolUseResult", "summary"):
+        if key in out:
+            out[key] = "" if isinstance(out.get(key), str) else {}
+    return out
+
+
+def _redact_line(raw):
+    """Return the metadata-only serialization of one raw JSONL line, or None
+    when the line is unparseable (we refuse to ship raw unknown text)."""
+    try:
+        rec = json.loads(raw)
+    except Exception:
+        return None
+    if not isinstance(rec, dict):
+        return None
+    try:
+        return json.dumps(_redact_record(rec))
+    except Exception:
+        return None
+
+
+# ---------------------------------------------------------------------------
 # JSONL slice + payload
 # ---------------------------------------------------------------------------
 
@@ -199,10 +281,9 @@ def report_turn(base_url, api_key, agent_id, session_id, transcript_path,
     cheap signaling — we re-read raw lines from disk because the server
     needs raw bytes, not parsed JSON).
 
-    Returns True on a successful POST, False otherwise. The caller doesn't
-    branch on the return value today (cursor advancement and turn-action
-    cleanup happen regardless), but the boolean is useful for the test
-    suite to assert idempotency.
+    Returns the parsed ingest response dict (truthy) on a successful POST,
+    False otherwise. The Stop hook uses session.id from the response to
+    fetch the session's cost for the end-of-turn recap line.
     """
     try:
         if not base_url or not api_key:
@@ -215,6 +296,13 @@ def report_turn(base_url, api_key, agent_id, session_id, transcript_path,
             return False
 
         tool_use_action_map = _collect_tool_use_action_map(session_id, new_lines)
+
+        # Default privacy posture: metadata/token-counts only. Full content
+        # is an explicit opt-in (DASHCLAW_CODE_SESSIONS_CONTENT=full).
+        if _content_mode() != "full":
+            new_lines = [ln for ln in (_redact_line(raw) for raw in new_lines) if ln is not None]
+            if not new_lines:
+                return False
 
         cwd = None
         if isinstance(entries, list):
@@ -237,7 +325,7 @@ def report_turn(base_url, api_key, agent_id, session_id, transcript_path,
         }
 
         try:
-            _post_ingest(base_url, api_key, body)
+            response = _post_ingest(base_url, api_key, body)
         except urllib.error.HTTPError as e:
             _log_hook_error("POST /api/code-sessions/ingest-jsonl -> HTTP " + str(e.code))
             return False
@@ -250,7 +338,7 @@ def report_turn(base_url, api_key, agent_id, session_id, transcript_path,
         # cleared at session end (Stop hook's existing _clear_turn_actions
         # handles the per-turn slate; the cross-turn map is best-effort
         # bounded by tempdir cleanup policy).
-        return True
+        return response if isinstance(response, dict) else True
     except Exception as e:
         _log_hook_error("report_turn -> " + type(e).__name__ + ": " + str(e))
         return False
