@@ -49,18 +49,7 @@ export async function GET(request: Request) {
 
     const rawLinks = await linksQuery as Array<{ source: string; target: string; weight: string }>;
 
-    // 3. Fetch handoff links (another form of connection)
-    const handoffLinksQuery = sql`
-      SELECT agent_id as source, 'system' as target, COUNT(*) as weight
-      FROM handoffs
-      WHERE org_id = ${orgId}
-      GROUP BY agent_id
-    `;
-    // Note: In a real swarm, handoffs might be to specific agents,
-    // but the current schema only has the agent who created the handoff.
-    // For now, we'll focus on messaging for links.
-
-    // 4. Calculate agent stats for node sizing
+    // 3. Calculate agent stats for node sizing
     const statsQuery = sql`
       SELECT agent_id,
              COUNT(*) as action_count,

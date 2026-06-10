@@ -47,6 +47,9 @@ export const REGISTRY = {
   // Anthropic Claude family. Cache rates follow the family rule
   // (cache_write = 1.25x input; cache_read = 0.10x input). Opus 4.5/4.6/4.7/4.8
   // share rates ($5/$25); only Opus 4.1 still carries the legacy $15/$75.
+  // Fable 5 sits ABOVE the opus rows: billing.ts matches by ordered substring,
+  // and REGISTRY insertion order is the generated block's order.
+  'fable-5': { label: 'Claude Fable 5', candidates: ['claude-fable-5'] },
   'opus-4-8': { label: 'Claude Opus 4.8', candidates: ['claude-opus-4-8', 'claude-opus-4-5'] },
   'opus-4-7': { label: 'Claude Opus 4.7', candidates: ['claude-opus-4-7-20260101', 'claude-opus-4-7', 'claude-opus-4-5'] },
   'opus-4-6': { label: 'Claude Opus 4.6', candidates: ['claude-opus-4-6-20251201', 'claude-opus-4-6', 'claude-opus-4-5'] },
@@ -55,16 +58,25 @@ export const REGISTRY = {
   'sonnet-4-6': { label: 'Claude Sonnet 4.6', candidates: ['claude-sonnet-4-6-20251215', 'claude-sonnet-4-6', 'claude-sonnet-4-5'] },
   'sonnet-4-5': { label: 'Claude Sonnet 4.5', candidates: ['claude-sonnet-4-5-20250929', 'claude-sonnet-4-5'] },
   'haiku-4-5': { label: 'Claude Haiku 4.5', candidates: ['claude-haiku-4-5-20251001', 'claude-haiku-4-5'] },
-  // OpenAI
-  'gpt-4.1': { label: 'GPT-4.1', candidates: ['gpt-4.1-2025-04-14', 'gpt-4.1'] },
+  // OpenAI. Ordered most-specific FIRST within each family: estimateCost does
+  // ordered substring matching (m.includes(pattern)), so 'gpt-5.5-pro' must
+  // precede 'gpt-5.5', and mini/nano/pro variants must precede their base
+  // pattern or they silently price at the base rate.
+  'gpt-5.5-pro': { label: 'GPT-5.5 Pro', candidates: ['gpt-5.5-pro-2026-04-23', 'gpt-5.5-pro'] },
+  'gpt-5.5': { label: 'GPT-5.5', candidates: ['gpt-5.5-2026-04-23', 'gpt-5.5'] },
+  'gpt-5.4-pro': { label: 'GPT-5.4 Pro', candidates: ['gpt-5.4-pro-2026-03-05', 'gpt-5.4-pro'] },
+  'gpt-5.4-mini': { label: 'GPT-5.4 Mini', candidates: ['gpt-5.4-mini-2026-03-17', 'gpt-5.4-mini'] },
+  'gpt-5.4-nano': { label: 'GPT-5.4 Nano', candidates: ['gpt-5.4-nano-2026-03-17', 'gpt-5.4-nano'] },
+  'gpt-5.4': { label: 'GPT-5.4', candidates: ['gpt-5.4-2026-03-05', 'gpt-5.4'] },
   'gpt-4.1-mini': { label: 'GPT-4.1 Mini', candidates: ['gpt-4.1-mini-2025-04-14', 'gpt-4.1-mini'] },
   'gpt-4.1-nano': { label: 'GPT-4.1 Nano', candidates: ['gpt-4.1-nano-2025-04-14', 'gpt-4.1-nano'] },
-  'gpt-4o': { label: 'GPT-4o', candidates: ['gpt-4o-2024-08-06', 'gpt-4o'] },
+  'gpt-4.1': { label: 'GPT-4.1', candidates: ['gpt-4.1-2025-04-14', 'gpt-4.1'] },
   'gpt-4o-mini': { label: 'GPT-4o Mini', candidates: ['gpt-4o-mini-2024-07-18', 'gpt-4o-mini'] },
-  'o3': { label: 'o3', candidates: ['o3-2025-04-16', 'o3'] },
-  'o3-mini': { label: 'o3-mini', candidates: ['o3-mini-2025-01-31', 'o3-mini'] },
+  'gpt-4o': { label: 'GPT-4o', candidates: ['gpt-4o-2024-08-06', 'gpt-4o'] },
   'o3-pro': { label: 'o3-pro', candidates: ['o3-pro-2025-06-10', 'o3-pro'] },
+  'o3-mini': { label: 'o3-mini', candidates: ['o3-mini-2025-01-31', 'o3-mini'] },
   'o4-mini': { label: 'o4-mini', candidates: ['o4-mini-2025-04-16', 'o4-mini'] },
+  'o3': { label: 'o3', candidates: ['o3-2025-04-16', 'o3'] },
   // Google
   'gemini-2.5-pro': { label: 'Gemini 2.5 Pro', candidates: ['gemini/gemini-2.5-pro', 'gemini-2.5-pro'] },
   'gemini-2.5-flash': { label: 'Gemini 2.5 Flash', candidates: ['gemini/gemini-2.5-flash', 'gemini-2.5-flash'] },
@@ -123,7 +135,7 @@ export function buildPricingTables(litellm) {
     });
     // claude-code pricing.js uses 'claude-<pattern>' as canonical key for
     // Anthropic models. Non-Anthropic patterns aren't in pricing.js.
-    if (pattern.startsWith('opus') || pattern.startsWith('sonnet') || pattern.startsWith('haiku')) {
+    if (pattern.startsWith('opus') || pattern.startsWith('sonnet') || pattern.startsWith('haiku') || pattern.startsWith('fable')) {
       claudeCode[`claude-${pattern}`] = {
         input: rates.input,
         output: rates.output,
@@ -131,8 +143,9 @@ export function buildPricingTables(litellm) {
         cache_read: rates.cache_read,
         _source: rates.sourceKey,
       };
-      // Opus 4-7 / 4-8 ship a [1m] long-context variant; mirror its rate.
-      if (pattern === 'opus-4-7' || pattern === 'opus-4-8') {
+      // Opus 4-7 / 4-8 and Fable 5 ship a [1m] long-context variant; mirror
+      // its rate (the in-the-wild fable id is `claude-fable-5[1m]`).
+      if (pattern === 'opus-4-7' || pattern === 'opus-4-8' || pattern === 'fable-5') {
         claudeCode[`claude-${pattern}[1m]`] = { ...claudeCode[`claude-${pattern}`] };
       }
       // Haiku 4-5 has a date-stamped variant; mirror.

@@ -17,6 +17,14 @@ import { isDemoMode } from '../lib/isDemoMode';
 import { useRealtime } from '../hooks/useRealtime';
 import { useForceSimulation } from './useForceSimulation';
 
+// Honest sub-cent display: real spend below $0.01 must not round to "$0.00"
+// (evidence over decoration). True zero stays $0.00; sub-cent shows 4 decimals.
+function fmtCost(v: unknown): string {
+  const n = Number(v) || 0;
+  if (n > 0 && n < 0.01) return `$${n.toFixed(4)}`;
+  return `$${n.toFixed(2)}`;
+}
+
 export default function SwarmTopologyPage() {
   const router = useRouter();
   const demo = isDemoMode();
@@ -1009,7 +1017,7 @@ export default function SwarmTopologyPage() {
                           <StatCompact label="Actions" value={selectedAgent.actions || 0} />
                         </div>
                         <div className="rounded-xl border border-border bg-surface-tertiary p-3">
-                          <StatCompact label="Cost" value={`$${(selectedAgent.cost || 0).toFixed(2)}`} color="text-info" />
+                          <StatCompact label="Cost" value={fmtCost(selectedAgent.cost)} color="text-info" />
                         </div>
                       </div>
                     </div>
@@ -1074,7 +1082,7 @@ export default function SwarmTopologyPage() {
         <div className="grid grid-cols-1 gap-4 pb-12 md:grid-cols-3">
           <Card hover={false}><CardContent className="flex items-center justify-center py-4"><StatCompact label="Connections" value={graphData.links.length} /></CardContent></Card>
           <Card hover={false}><CardContent className="flex items-center justify-center py-4"><StatCompact label="Total actions" value={graphData.nodes.reduce((s: number, n: any) => s + (Number(n.actions) || 0), 0)} /></CardContent></Card>
-          <Card hover={false}><CardContent className="flex items-center justify-center py-4"><StatCompact label="Total cost" value={`$${graphData.nodes.reduce((s: number, n: any) => s + (Number(n.cost) || 0), 0).toFixed(2)}`} color="text-info" /></CardContent></Card>
+          <Card hover={false}><CardContent className="flex items-center justify-center py-4"><StatCompact label="Total cost" value={fmtCost(graphData.nodes.reduce((s: number, n: any) => s + (Number(n.cost) || 0), 0))} color="text-info" /></CardContent></Card>
         </div>
       </div>
     </PageLayout>

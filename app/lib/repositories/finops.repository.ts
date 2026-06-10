@@ -1,4 +1,4 @@
-import { getCostAggregation } from './actions.repository';
+import { getCostAggregation, getUnpricedModelSummary } from './actions.repository';
 import { getX402SpendAggregation } from './x402.repository';
 import { getCodeSessionSpendAggregation } from './code-sessions.repository';
 import type { FleetSpend, ClaudeCodeSpend, SpendPeriod } from '../types/pricing-finops';
@@ -17,15 +17,16 @@ export async function getFleetSpend(
   orgId: string,
   { period = '30d' }: { period?: SpendPeriod } = {},
 ): Promise<FleetSpend> {
-  const [agent, x402] = await Promise.all([
+  const [agent, x402, unpriced] = await Promise.all([
     getCostAggregation(sql, orgId, { period }),
     getX402SpendAggregation(sql, orgId, { period }),
+    getUnpricedModelSummary(sql, orgId, { period }),
   ]);
   // Number() guards are defense-in-depth: the component repos already coerce,
   // but this is the invariant site (Fleet = Agent LLM + x402) — never let a
   // string-typed driver value concatenate here.
   const fleet_total_usd = Number(agent?.total_cost_usd ?? 0) + Number(x402?.total_spend_usd ?? 0);
-  return { lens: 'fleet', period, agent, x402, fleet_total_usd };
+  return { lens: 'fleet', period, agent, x402, fleet_total_usd, unpriced };
 }
 
 /**

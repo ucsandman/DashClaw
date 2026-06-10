@@ -106,6 +106,21 @@ export default function SpendOverviewPage() {
             </div>
           </div>
 
+          {Number(data.unpriced?.action_count) > 0 && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm" role="status">
+              <div className="font-medium text-warning mb-1">
+                {data.unpriced.action_count} action{data.unpriced.action_count === 1 ? '' : 's'} in this period reported tokens but carry $0 cost
+              </div>
+              <div className="text-secondary text-xs">
+                Unpriced models:{' '}
+                <span className="font-mono">
+                  {data.unpriced.models.map((m: any) => m.model || '(none)').join(', ')}
+                </span>
+                {' — '}extend DEFAULT_PRICING (npm run pricing:refresh) or set org custom pricing, then re-run the cost backfill.
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border border-border bg-surface-secondary p-5">
             <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-4">Daily fleet spend</div>
             {trend.length === 0 ? (

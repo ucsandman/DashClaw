@@ -19,6 +19,8 @@ import type { ModelPricingEntry } from '../types/pricing-finops';
 // outside the markers (FALLBACK below, surrounding logic) stays hand-curated.
 export const PRICES_PER_MTOK: Readonly<Record<string, ModelPricingEntry>> = Object.freeze({
   // MODEL_PRICING_GENERATED:PRICING:START
+  'claude-fable-5'                : { input: 10.00, output: 50.00, cache_write: 12.50, cache_read: 1.00 }, // claude-fable-5
+  'claude-fable-5[1m]'            : { input: 10.00, output: 50.00, cache_write: 12.50, cache_read: 1.00 }, // claude-fable-5
   'claude-opus-4-8'               : { input: 5.00, output: 25.00, cache_write: 6.25, cache_read: 0.50 }, // claude-opus-4-8
   'claude-opus-4-8[1m]'           : { input: 5.00, output: 25.00, cache_write: 6.25, cache_read: 0.50 }, // claude-opus-4-8
   'claude-opus-4-7'               : { input: 5.00, output: 25.00, cache_write: 6.25, cache_read: 0.50 }, // claude-opus-4-7

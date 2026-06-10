@@ -22,8 +22,9 @@ process.on("unhandledRejection", (reason) => {
 
 import './_load-env.mjs';
 import { createSqlFromEnv } from './_db.mjs';
-import { estimateCost } from '../app/lib/billing.js';
-import { getModelPricing } from '../app/lib/repositories/settings.repository.js';
+// billing/settings migrated .js → .ts; Node 23.6+ type stripping resolves .ts.
+import { estimateCost } from '../app/lib/billing.ts';
+import { getModelPricing } from '../app/lib/repositories/settings.repository.ts';
 
 const APPLY = process.argv.includes('--apply');
 

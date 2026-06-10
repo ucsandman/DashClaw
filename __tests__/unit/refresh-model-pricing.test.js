@@ -4,6 +4,19 @@ import { ratesForPattern, buildPricingTables, replaceBlock, REGISTRY } from '../
 // Fixture mirrors a real LiteLLM payload shape — per-token rates as floats,
 // optional cache columns, the litellm_provider tag we don't currently use.
 const FIXTURE = {
+  'claude-fable-5': {
+    input_cost_per_token: 0.00001,
+    output_cost_per_token: 0.00005,
+    cache_creation_input_token_cost: 0.0000125,
+    cache_read_input_token_cost: 0.000001,
+    litellm_provider: 'anthropic',
+  },
+  'gpt-5.5-2026-04-23': {
+    input_cost_per_token: 0.000005,
+    output_cost_per_token: 0.00003,
+    cache_read_input_token_cost: 0.0000005,
+    litellm_provider: 'openai',
+  },
   'claude-opus-4-8': {
     input_cost_per_token: 0.000005,
     output_cost_per_token: 0.000025,
@@ -132,6 +145,22 @@ describe('refresh-model-pricing — buildPricingTables', () => {
     // haiku-4-5 has a date-stamped mirror
     expect(claudeCode['claude-haiku-4-5-20251001']).toEqual(claudeCode['claude-haiku-4-5']);
 
+    // fable-5 reaches the claude-code card too (the emission predicate must
+    // include the fable family) with its own [1m] long-context mirror —
+    // the in-the-wild id is `claude-fable-5[1m]`.
+    expect(claudeCode['claude-fable-5']).toBeDefined();
+    expect(claudeCode['claude-fable-5'].input).toBe(10);
+    expect(claudeCode['claude-fable-5'].output).toBe(50);
+    expect(claudeCode['claude-fable-5[1m]']).toEqual(claudeCode['claude-fable-5']);
+
+    // gpt-5.5 lands in billing only, sourced from the date-stamped key.
+    const gpt55 = billing.find(b => b.pattern === 'gpt-5.5');
+    expect(gpt55).toBeDefined();
+    expect(gpt55.input).toBe(5);
+    expect(gpt55.output).toBe(30);
+    expect(gpt55._source).toBe('gpt-5.5-2026-04-23');
+    expect(claudeCode['claude-gpt-5.5']).toBeUndefined();
+
     // Patterns without a LiteLLM source land in `skipped`, not in `billing`.
     const skippedPatterns = new Set(skipped.map(s => s.pattern));
     expect(skipped.length).toBeGreaterThan(0);
@@ -141,6 +170,16 @@ describe('refresh-model-pricing — buildPricingTables', () => {
   it('REGISTRY covers all the families that DashClaw prices today', () => {
     const patterns = Object.keys(REGISTRY);
     // Sanity: every family we surface in the UI is in the registry.
+    expect(patterns).toContain('fable-5');
+    expect(patterns).toContain('gpt-5.5');
+    expect(patterns).toContain('gpt-5.4');
+    // Ordering trap guard: estimateCost matches by ordered substring, so the
+    // base pattern must come AFTER its pro/mini/nano variants.
+    expect(patterns.indexOf('gpt-5.5-pro')).toBeLessThan(patterns.indexOf('gpt-5.5'));
+    expect(patterns.indexOf('gpt-5.4-mini')).toBeLessThan(patterns.indexOf('gpt-5.4'));
+    expect(patterns.indexOf('gpt-4.1-mini')).toBeLessThan(patterns.indexOf('gpt-4.1'));
+    expect(patterns.indexOf('gpt-4o-mini')).toBeLessThan(patterns.indexOf('gpt-4o'));
+    expect(patterns.indexOf('o3-mini')).toBeLessThan(patterns.indexOf('o3'));
     expect(patterns).toContain('opus-4-8');
     expect(patterns).toContain('opus-4-7');
     expect(patterns).toContain('opus-4-5');

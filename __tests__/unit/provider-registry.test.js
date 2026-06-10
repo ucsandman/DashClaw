@@ -20,7 +20,8 @@ describe('providerRegistry', () => {
   });
 
   it('returns model options in declared order', () => {
-    expect(getProviderModelOptions('anthropic')[0].value).toBe('claude-opus-4-6');
+    expect(getProviderModelOptions('anthropic')[0].value).toBe('claude-fable-5');
+    expect(getProviderModelOptions('openai')[0].value).toBe('gpt-5.5');
     expect(getProviderModelOptions('perplexity')[0].value).toBe('sonar');
   });
 

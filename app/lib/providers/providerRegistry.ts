@@ -32,6 +32,8 @@ const PROVIDER_REGISTRY: Record<string, ProviderEntry> = Object.freeze({
       predictive_risk: 'gpt-4.1-mini',
     },
     models: [
+      { id: 'gpt-5.5', label: 'GPT-5.5', status: 'active', capabilities: ['chat', 'reasoning'] },
+      { id: 'gpt-5.5-pro', label: 'GPT-5.5 Pro', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'gpt-5.4', label: 'GPT-5.4', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'gpt-5.4-pro', label: 'GPT-5.4 Pro', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', status: 'active', capabilities: ['chat', 'fast', 'cheap'] },
@@ -54,6 +56,9 @@ const PROVIDER_REGISTRY: Record<string, ProviderEntry> = Object.freeze({
       predictive_risk: 'claude-haiku-4-5',
     },
     models: [
+      { id: 'claude-fable-5', label: 'Claude Fable 5', status: 'active', capabilities: ['chat', 'reasoning'] },
+      { id: 'claude-opus-4-8', label: 'Claude Opus 4.8', status: 'active', capabilities: ['chat', 'reasoning'] },
+      { id: 'claude-opus-4-7', label: 'Claude Opus 4.7', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', status: 'active', capabilities: ['chat', 'reasoning'] },
       { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', status: 'active', capabilities: ['chat', 'fast', 'cheap'] },

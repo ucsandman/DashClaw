@@ -25,6 +25,7 @@ export const DEFAULT_PRICING: BillingPricingEntry[] = [
   // Llama) — stays HAND-CURATED. Run the refresh script after Anthropic /
   // OpenAI / Google publish new rates and review the diff.
   // MODEL_PRICING_GENERATED:BILLING:START
+  { pattern: 'fable-5', label: 'Claude Fable 5', input: 10, output: 50, cache_write: 12.5, cache_read: 1 }, // claude-fable-5
   { pattern: 'opus-4-8', label: 'Claude Opus 4.8', input: 5, output: 25, cache_write: 6.25, cache_read: 0.5 }, // claude-opus-4-8
   { pattern: 'opus-4-7', label: 'Claude Opus 4.7', input: 5, output: 25, cache_write: 6.25, cache_read: 0.5 }, // claude-opus-4-7
   { pattern: 'opus-4-6', label: 'Claude Opus 4.6', input: 5, output: 25, cache_write: 6.25, cache_read: 0.5 }, // claude-opus-4-6
@@ -33,20 +34,34 @@ export const DEFAULT_PRICING: BillingPricingEntry[] = [
   { pattern: 'sonnet-4-6', label: 'Claude Sonnet 4.6', input: 3, output: 15, cache_write: 3.75, cache_read: 0.3 }, // claude-sonnet-4-6
   { pattern: 'sonnet-4-5', label: 'Claude Sonnet 4.5', input: 3, output: 15, cache_write: 3.75, cache_read: 0.3 }, // claude-sonnet-4-5-20250929
   { pattern: 'haiku-4-5', label: 'Claude Haiku 4.5', input: 1, output: 5, cache_write: 1.25, cache_read: 0.1 }, // claude-haiku-4-5-20251001
-  { pattern: 'gpt-4.1', label: 'GPT-4.1', input: 2, output: 8, cache_write: 0, cache_read: 0.5 }, // gpt-4.1-2025-04-14
+  { pattern: 'gpt-5.5-pro', label: 'GPT-5.5 Pro', input: 30, output: 180, cache_write: 0, cache_read: 3 }, // gpt-5.5-pro-2026-04-23
+  { pattern: 'gpt-5.5', label: 'GPT-5.5', input: 5, output: 30, cache_write: 0, cache_read: 0.5 }, // gpt-5.5-2026-04-23
+  { pattern: 'gpt-5.4-pro', label: 'GPT-5.4 Pro', input: 30, output: 180, cache_write: 0, cache_read: 3 }, // gpt-5.4-pro-2026-03-05
+  { pattern: 'gpt-5.4-mini', label: 'GPT-5.4 Mini', input: 0.75, output: 4.5, cache_write: 0, cache_read: 0.075 }, // gpt-5.4-mini-2026-03-17
+  { pattern: 'gpt-5.4-nano', label: 'GPT-5.4 Nano', input: 0.2, output: 1.25, cache_write: 0, cache_read: 0.02 }, // gpt-5.4-nano-2026-03-17
+  { pattern: 'gpt-5.4', label: 'GPT-5.4', input: 2.5, output: 15, cache_write: 0, cache_read: 0.25 }, // gpt-5.4-2026-03-05
   { pattern: 'gpt-4.1-mini', label: 'GPT-4.1 Mini', input: 0.4, output: 1.6, cache_write: 0, cache_read: 0.1 }, // gpt-4.1-mini-2025-04-14
   { pattern: 'gpt-4.1-nano', label: 'GPT-4.1 Nano', input: 0.1, output: 0.4, cache_write: 0, cache_read: 0.025 }, // gpt-4.1-nano-2025-04-14
-  { pattern: 'gpt-4o', label: 'GPT-4o', input: 2.5, output: 10, cache_write: 0, cache_read: 1.25 }, // gpt-4o-2024-08-06
+  { pattern: 'gpt-4.1', label: 'GPT-4.1', input: 2, output: 8, cache_write: 0, cache_read: 0.5 }, // gpt-4.1-2025-04-14
   { pattern: 'gpt-4o-mini', label: 'GPT-4o Mini', input: 0.15, output: 0.6, cache_write: 0, cache_read: 0.075 }, // gpt-4o-mini-2024-07-18
-  { pattern: 'o3', label: 'o3', input: 2, output: 8, cache_write: 0, cache_read: 0.5 }, // o3-2025-04-16
-  { pattern: 'o3-mini', label: 'o3-mini', input: 1.1, output: 4.4, cache_write: 0, cache_read: 0.55 }, // o3-mini-2025-01-31
+  { pattern: 'gpt-4o', label: 'GPT-4o', input: 2.5, output: 10, cache_write: 0, cache_read: 1.25 }, // gpt-4o-2024-08-06
   { pattern: 'o3-pro', label: 'o3-pro', input: 20, output: 80, cache_write: 0, cache_read: 0 }, // o3-pro-2025-06-10
+  { pattern: 'o3-mini', label: 'o3-mini', input: 1.1, output: 4.4, cache_write: 0, cache_read: 0.55 }, // o3-mini-2025-01-31
   { pattern: 'o4-mini', label: 'o4-mini', input: 1.1, output: 4.4, cache_write: 0, cache_read: 0.275 }, // o4-mini-2025-04-16
+  { pattern: 'o3', label: 'o3', input: 2, output: 8, cache_write: 0, cache_read: 0.5 }, // o3-2025-04-16
   { pattern: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro', input: 1.25, output: 10, cache_write: 0, cache_read: 0.125 }, // gemini/gemini-2.5-pro
   { pattern: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash', input: 0.3, output: 2.5, cache_write: 0, cache_read: 0.03 }, // gemini/gemini-2.5-flash
 // MODEL_PRICING_GENERATED:BILLING:END
   // Unversioned family defaults — frozen so historical re-pricing doesn't
   // drift silently when family rates change.
+  //
+  // NOTE on unknown-model economics: an unknown id that CONTAINS a family
+  // word lands on its family default below (the legacy 'opus' row overcharges
+  // at the pre-4.5 $15/$75 rate by design — see the reprice backfill header),
+  // while an id matching nothing prices at $0 (estimateCost tail). The $0
+  // path is surfaced to operators via the unpriced-models indicator on /spend
+  // (getFleetSpend.unpriced) rather than left silent.
+  { pattern: 'fable', label: 'Claude Fable (default)', input: 10, output: 50, cache_write: 12.50, cache_read: 1.00 }, // mirrors claude-fable-5 (LiteLLM)
   { pattern: 'opus', label: 'Claude Opus (legacy default)', input: 15, output: 75, cache_write: 18.75, cache_read: 1.50 },
   { pattern: 'sonnet', label: 'Claude Sonnet (default)', input: 3, output: 15, cache_write: 3.75, cache_read: 0.30 },
   { pattern: 'haiku', label: 'Claude Haiku (default)', input: 1, output: 5, cache_write: 1.25, cache_read: 0.10 },

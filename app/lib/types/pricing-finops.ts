@@ -76,6 +76,16 @@ export interface FleetSpend {
   x402: X402SpendAggregation;
   /** = agent.total_cost_usd + x402.total_spend_usd. */
   fleet_total_usd: number;
+  /**
+   * Honest-zero indicator: actions in the period that reported tokens but
+   * carry $0 cost_estimate (unknown model families, '<synthetic>' recorder
+   * rows, NULL model). Rendered as a warning on /spend.
+   */
+  unpriced: {
+    action_count: number;
+    total_tokens: number;
+    models: Array<{ model: string | null; action_count: number; total_tokens: number }>;
+  };
 }
 
 export interface ClaudeCodeSpend {

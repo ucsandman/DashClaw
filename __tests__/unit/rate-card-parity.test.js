@@ -37,7 +37,7 @@ describe('rate-card parity: billing.js ↔ claude-code/pricing.js', () => {
 
   // Reverse guard: a frontier model must be priced (non-zero) by billing.js too,
   // so an alias added only to one card can't silently fall back.
-  it.each(['claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'])(
+  it.each(['claude-fable-5', 'claude-opus-4-8', 'claude-sonnet-4-6', 'claude-haiku-4-5'])(
     'billing.js prices %s (no $0 / Sonnet-fallback drift)',
     (model) => {
       expect(PRICES_PER_MTOK[model]).toBeDefined();

@@ -23,7 +23,7 @@ export async function hasAction(sql: SqlClient, orgId: string, actionId: string)
 
 export async function getActionStatus(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
-    SELECT status, agent_id FROM action_records
+    SELECT status, agent_id, model FROM action_records
     WHERE action_id = ${actionId} AND org_id = ${orgId}
     LIMIT 1
   `;
@@ -1563,6 +1563,52 @@ export async function getCostAggregation(
     period,
     by_agent: byAgent,
     by_day: byDay,
+  };
+}
+
+export interface UnpricedModelSummary {
+  action_count: number;
+  total_tokens: number;
+  models: Array<{ model: string | null; action_count: number; total_tokens: number }>;
+}
+
+/**
+ * Honest-zero indicator: actions that reported tokens but carry $0
+ * cost_estimate — i.e. models estimateCost couldn't price (unknown families,
+ * '<synthetic>' recorder rows, NULL model). Surfaced on /spend so an unpriced
+ * model family can't silently zero the dashboards for months.
+ */
+export async function getUnpricedModelSummary(
+  sql: SqlClient,
+  orgId: string,
+  { period = '30d' }: { period?: string } = {},
+): Promise<UnpricedModelSummary> {
+  const days = parseInt(period) || 30;
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const rows = await sql`
+    SELECT
+      model,
+      COUNT(*)::integer as action_count,
+      (COALESCE(SUM(tokens_in), 0) + COALESCE(SUM(tokens_out), 0))::bigint as total_tokens
+    FROM action_records
+    WHERE org_id = ${orgId}
+      AND created_at::timestamptz >= ${since}::timestamptz
+      AND action_type <> 'x402_purchase'
+      AND COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0) > 0
+      AND COALESCE(cost_estimate, 0) = 0
+    GROUP BY model
+    ORDER BY total_tokens DESC
+    LIMIT 10
+  `;
+  const models = (rows || []).map((r) => ({
+    model: (r.model as string | null) ?? null,
+    action_count: Number(r.action_count) || 0,
+    total_tokens: Number(r.total_tokens) || 0,
+  }));
+  return {
+    action_count: models.reduce((s, m) => s + m.action_count, 0),
+    total_tokens: models.reduce((s, m) => s + m.total_tokens, 0),
+    models,
   };
 }
 

@@ -80,7 +80,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     if (data.cost_estimate !== undefined) data.cost_estimate = Math.max(0, Math.min(Number(data.cost_estimate) || 0, MAX_COST_USD));
     if ((data.tokens_in || data.tokens_out) && data.cost_estimate === undefined) {
       const customPricing = await getModelPricing(sql, orgId);
-      data.cost_estimate = estimateCost(data.tokens_in || 0, data.tokens_out || 0, data.model, customPricing as Parameters<typeof estimateCost>[3]);
+      // Hooks may report tokens without a model; fall back to the stored
+      // row's model (set at create time) so those tokens don't price at $0.
+      let pricingModel = data.model;
+      if (!pricingModel) {
+        const existing = await getActionStatus(sql, orgId, actionId);
+        pricingModel = existing?.model || null;
+      }
+      data.cost_estimate = estimateCost(data.tokens_in || 0, data.tokens_out || 0, pricingModel, customPricing as Parameters<typeof estimateCost>[3]);
     }
 
     // SECURITY: redact likely secrets before storing the outcome fields.

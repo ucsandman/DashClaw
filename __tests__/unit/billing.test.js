@@ -53,4 +53,38 @@ describe('estimateCost', () => {
     const custom = [{ pattern: 'my-model', input: 1, output: 2 }];
     expect(estimateCost(1_000_000, 1_000_000, 'my-model', custom)).toBeCloseTo(3, 5);
   });
+
+  it('prices Claude Fable 5 at $10/$50 (LiteLLM claude-fable-5), incl. [1m] and datestamped ids', () => {
+    // Regression: claude-fable-5 ran the whole fleet at $0 (3,218 actions /
+    // 177M tokens uncosted) because no fable row existed anywhere.
+    expect(estimateCost(1_000_000, 1_000_000, 'claude-fable-5')).toBeCloseTo(60, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'claude-fable-5[1m]')).toBeCloseTo(60, 5);
+    // Family fallback: a future point release matches the hand-curated
+    // 'fable' family default instead of pricing at $0.
+    expect(estimateCost(1_000_000, 1_000_000, 'claude-fable-6-20270101')).toBeCloseTo(60, 5);
+  });
+
+  it('prices GPT-5.5 at $5/$30 and keeps variants off the base rate', () => {
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.5')).toBeCloseTo(35, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.5-2026-04-23')).toBeCloseTo(35, 5);
+    // Ordered substring matching: the pro row precedes the base row, so the
+    // pro id must NOT price at the base $5/$30.
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.5-pro')).toBeCloseTo(210, 5);
+  });
+
+  it('prices the gpt-5.4 family with mini/nano/pro resolved before the base pattern', () => {
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.4')).toBeCloseTo(17.5, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.4-mini-2026-03-17')).toBeCloseTo(5.25, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.4-nano')).toBeCloseTo(1.45, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-5.4-pro')).toBeCloseTo(210, 5);
+  });
+
+  it('resolves gpt-4.1 / gpt-4o / o3 variants to their own rates, not the base family row', () => {
+    // Regression: REGISTRY previously listed base patterns before their
+    // mini/nano variants, so 'gpt-4.1-mini' matched the 'gpt-4.1' row.
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-4.1-mini')).toBeCloseTo(2, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'gpt-4o-mini')).toBeCloseTo(0.75, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'o3-mini')).toBeCloseTo(5.5, 5);
+    expect(estimateCost(1_000_000, 1_000_000, 'o3-pro')).toBeCloseTo(100, 5);
+  });
 });
