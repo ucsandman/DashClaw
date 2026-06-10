@@ -4,6 +4,7 @@ import { neon } from '@neondatabase/serverless';
 import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoListActions, demoCreateAction, demoAgents, demoAgentDetail, demoActionDetail, demoAssumptions,
+  demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
   demoLearning, demoLearningRecommendations, demoLearningRecommendationMetrics,
   demoTokens, demoPolicies, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
   demoMessageDocs, demoContent, demoTeam, demoTeamInvites, demoActivity,
@@ -30,6 +31,8 @@ import { addSecurityHeaders } from './app/lib/security-headers';
 // Routes that are always public (health checks, setup, auth)
 const PUBLIC_ROUTES = [
   '/api/health',
+  '/api/echo',  // constant-response echo target (registry demo seed + webhook tests); never reads the body
+
   '/api/setup/status',
   '/api/setup/proof',
   '/api/setup/ping',
@@ -978,6 +981,12 @@ const DEMO_API_ROUTES = [
   ['/api/health', demoPayloadRoute(demoHealthPayload)],
   // Agents + actions
   ['/api/agents', demoFixtureRoute(demoAgents)],
+  // Registry — MUST precede isDemoAgentDetailPath, which matches any
+  // /api/agents/<segment> (including /api/agents/registry).
+  ['/api/agents/registry', ({ request, url }) => demoJson(request, demoRegistryList(url))],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*', 'capabilities']), ({ request }) => demoJson(request, demoRegistryCapabilities())],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*']), ({ request }) => demoJson(request, demoRegistryDetail())],
+  ['/api/agents/invoke', ({ request }) => demoJson(request, demoRegistryInvoke())],
   [isDemoAgentDetailPath, handleDemoAgentDetailRoute],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],

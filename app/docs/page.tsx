@@ -3051,7 +3051,7 @@ await sendToSlack(redacted_text);`}
                   description="Register an HMAC-signed webhook for real-time exfiltration of governance events."
                   example={
                     <CodeBlock>
-{`await claw.createWebhook('https://api.myapp.com/hooks', ['action.blocked']);`}
+{`await claw.createWebhook('https://api.myapp.com/hooks', ['approval_pending']);`}
                     </CodeBlock>
                   }
                 />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
+import Link from 'next/link';
 import { Card, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 
@@ -90,7 +91,13 @@ export default function CapabilitiesCard({ agentId, capabilities = [], onChange 
 
         <div className="mt-4 border-t border-border pt-4">
           <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Add capability</div>
-          {available.length === 0 ? (
+          {allCapabilities.length === 0 ? (
+            <p className="text-xs text-tertiary">
+              No capabilities exist in this workspace yet.{' '}
+              <Link href="/capabilities/new" className="text-brand hover:underline">Create your first capability</Link>{' '}
+              (endpoint + auth + schema), then group it here.
+            </p>
+          ) : available.length === 0 ? (
             <p className="text-xs text-tertiary">All capabilities are already grouped under this agent.</p>
           ) : (
             <div className="flex flex-wrap items-end gap-2">

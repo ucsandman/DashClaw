@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078",
+  "timestamp": "sha1:f62cc5ef375d47b333f0224e950c50dd986054f5",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1472,6 +1472,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/drift/stats/route.ts"
+    },
+    {
+      "path": "/api/echo",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/echo/route.ts"
     },
     {
       "path": "/api/evaluations",
@@ -3434,7 +3444,8 @@
         "scripts/fuzz-api.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-branch-finish-loop.mjs"
+        "scripts/seed-branch-finish-loop.mjs",
+        "scripts/seed-registry-demo.mjs"
       ],
       "in_env_example": false
     },
@@ -3650,6 +3661,7 @@
         "scripts/report-tokens.mjs",
         "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-demo-capabilities.mjs",
+        "scripts/seed-registry-demo.mjs",
         "scripts/test-presence.mjs",
         "scripts/test-sdk-live.mjs",
         "scripts/verify-demo-e2e.mjs"
@@ -4261,6 +4273,7 @@
       "required": false,
       "files": [
         "scripts/seed-fixitforme-workflow.js",
+        "scripts/seed-registry-demo.mjs",
         "scripts/seed-research-capability.js",
         "scripts/seed-research-capability.mjs"
       ],
@@ -5124,6 +5137,7 @@
     "integration_mismatch",
     "lost_confirmation",
     "mcp_degraded",
+    "message",
     "stale_action",
     "test"
   ]

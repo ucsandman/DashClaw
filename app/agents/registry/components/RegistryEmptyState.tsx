@@ -5,12 +5,14 @@ import { Boxes, Plus } from 'lucide-react';
 
 const EXAMPLE_STEPS = [
   {
-    label: 'Register',
-    value: "Acme Enrichment API — endpoint https://api.acme.example, auth bearer, risk medium, budget $2/call.",
+    label: 'Create a capability',
+    value: 'The operation a provider is allowed to perform — endpoint, auth, and schema.',
+    href: '/capabilities/new',
+    linkLabel: 'Create one at /capabilities/new',
   },
   {
-    label: 'Group a capability',
-    value: "Add enrich_company — the one operation Acme is allowed to run.",
+    label: 'Register the provider + group the capability',
+    value: "Register 'Acme Enrichment API' (risk medium, budget $2/call), then group enrich_company under it.",
   },
   {
     label: 'Invoke',
@@ -60,10 +62,28 @@ export default function RegistryEmptyState({ onRegister }: RegistryEmptyStatePro
               <div className="min-w-0">
                 <div className="text-xs font-medium text-white">{step.label}</div>
                 <p className="mt-0.5 text-xs leading-relaxed text-tertiary">{step.value}</p>
+                {step.href && (
+                  <Link href={step.href} className="mt-0.5 inline-block text-xs text-brand transition-colors hover:underline">
+                    {step.linkLabel}
+                  </Link>
+                )}
               </div>
             </li>
           ))}
         </ol>
+      </div>
+
+      <div className="mx-auto mt-4 max-w-md rounded-lg border border-border bg-surface-tertiary p-4 text-left">
+        <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+          Or seed a working demo
+        </div>
+        <p className="text-xs leading-relaxed text-tertiary">
+          Creates an echo capability, registers a demo provider, and groups them — one governed invoke away from
+          seeing the whole loop in /decisions.
+        </p>
+        <code className="mt-2 block overflow-x-auto rounded-md border border-border bg-surface-secondary px-3 py-2 font-mono text-[11px] text-secondary">
+          node scripts/seed-registry-demo.mjs
+        </code>
       </div>
 
       <div className="mt-5 flex justify-center">

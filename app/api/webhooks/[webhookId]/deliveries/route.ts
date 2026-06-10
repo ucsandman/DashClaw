@@ -25,8 +25,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ webh
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
+    // payload + response_body are redacted at write time (redactForStorage in
+    // app/lib/webhooks.ts logWebhookDelivery), so exposing them read-only is
+    // safe and lets users debug deliveries without external tooling.
     const deliveries = await sql`
-      SELECT id, event_type, status, response_status, attempted_at, duration_ms
+      SELECT id, event_type, status, response_status, attempted_at, duration_ms, payload, response_body
       FROM webhook_deliveries
       WHERE webhook_id = ${webhookId} AND org_id = ${orgId}
       ORDER BY attempted_at DESC

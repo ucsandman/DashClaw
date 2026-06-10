@@ -48,15 +48,15 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:f62cc5ef375d47b333f0224e950c50dd986054f5 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">256</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">257</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">93</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
-      <div class="cell"><div class="n">10</div><div class="k">Signals</div></div>
+      <div class="cell"><div class="n">11</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
@@ -154,7 +154,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>webhook_deliveries</code></td><td class="sig">—</td></tr>
     <tr><td><code>webhooks</code></td><td class="sig">—</td></tr>
     <tr><td><code>workflows</code></td><td class="sig">—</td></tr></tbody></table></details>
-<details><summary>Signals (10)</summary><ul class="diff">    <li><code>autonomy_spike</code></li>
+<details><summary>Signals (11)</summary><ul class="diff">    <li><code>autonomy_spike</code></li>
     <li><code>branch_stale</code></li>
     <li><code>cost_exceeded</code></li>
     <li><code>green_insufficient</code></li>
@@ -162,6 +162,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>integration_mismatch</code></li>
     <li><code>lost_confirmation</code></li>
     <li><code>mcp_degraded</code></li>
+    <li><code>message</code></li>
     <li><code>stale_action</code></li>
     <li><code>test</code></li></ul></details></section>
 
@@ -182,7 +183,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>44</b> routes added, <b>3</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>45</b> routes added, <b>3</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
@@ -193,6 +194,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/behavior/simulate <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/code-sessions/projects/[projectId] <span class="sig">New route: DELETE, GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/echo <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/evaluations/scorers/preview <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/finops/spend <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/hosted/capacity <span class="sig">New route: GET</span></li>
@@ -349,6 +351,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/drift/metrics"><td><code>/api/drift/metrics</code></td><td>GET</td><td class="sig">app/api/drift/metrics/route.ts</td></tr>
     <tr data-path="/api/drift/snapshots"><td><code>/api/drift/snapshots</code></td><td>GET</td><td class="sig">app/api/drift/snapshots/route.ts</td></tr>
     <tr data-path="/api/drift/stats"><td><code>/api/drift/stats</code></td><td>GET</td><td class="sig">app/api/drift/stats/route.ts</td></tr></tbody></table></details>
+<details><summary>/echo/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/echo"><td><code>/api/echo</code></td><td>GET, POST</td><td class="sig">app/api/echo/route.ts</td></tr></tbody></table></details>
 <details><summary>/evaluations/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/evaluations"><td><code>/api/evaluations</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/route.ts</td></tr>
     <tr data-path="/api/evaluations/runs"><td><code>/api/evaluations/runs</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/runs/route.ts</td></tr>
     <tr data-path="/api/evaluations/runs/[runId]"><td><code>/api/evaluations/runs/[runId]</code></td><td>GET, PATCH</td><td class="sig">app/api/evaluations/runs/[runId]/route.ts</td></tr>

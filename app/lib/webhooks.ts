@@ -324,6 +324,123 @@ async function logWebhookDelivery({
   }
 }
 
+// ---------------------------------------------------------------------------
+// Per-destination payload formatting
+//
+// Slack / Discord / Teams / PagerDuty reject DashClaw's generic JSON shape
+// (Slack wants {text}, Discord {content}, Teams Workflows an Adaptive Card
+// envelope, PagerDuty Events v2 {routing_key, event_action, payload}). The
+// destination is detected from the URL host; everything else stays on the
+// generic path BYTE-IDENTICAL to the pre-formatter behavior — production
+// dispatch (fireWebhooksForOrg / fireWebhooksForApproval) must not change
+// for plain JSON consumers.
+// ---------------------------------------------------------------------------
+
+export type WebhookDestination = 'slack' | 'discord' | 'teams' | 'pagerduty' | 'generic';
+
+export function detectWebhookDestination(url: string): WebhookDestination {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host === 'hooks.slack.com') return 'slack';
+    if (host === 'discord.com' || host === 'discordapp.com') return 'discord';
+    // Teams Workflows webhooks (the retired office-connector URLs are gone).
+    if (host.endsWith('.logic.azure.com')) return 'teams';
+    if (host === 'events.pagerduty.com') return 'pagerduty';
+  } catch {
+    /* malformed URL — create-time validation already rejects these */
+  }
+  return 'generic';
+}
+
+/** One human line for chat-style destinations, derived from the event payload. */
+function eventSummary(eventType: string, payload: unknown): string {
+  const p = (payload && typeof payload === 'object' ? payload : {}) as Record<string, unknown>;
+  const detail =
+    (typeof p.message === 'string' && p.message) ||
+    (typeof p.title === 'string' && p.title) ||
+    (typeof p.signal_type === 'string' && p.signal_type) ||
+    (typeof p.declared_goal === 'string' && p.declared_goal) ||
+    (p.test === true ? 'Test delivery from DashClaw' : '');
+  return detail ? `${eventType} — ${detail}` : eventType;
+}
+
+/**
+ * Format the outgoing body (and possibly the target URL) for the destination.
+ * Returns the exact string to sign + send. Generic returns the original
+ * serialization untouched.
+ */
+export function formatWebhookPayload(
+  url: string,
+  eventType: string,
+  payload: unknown,
+): { url: string; body: string; destination: WebhookDestination } {
+  const generic = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  const destination = detectWebhookDestination(url);
+  const summary = eventSummary(eventType, payload);
+
+  switch (destination) {
+    case 'slack':
+      return { url, destination, body: JSON.stringify({ text: `[DashClaw] ${summary}` }) };
+    case 'discord':
+      return { url, destination, body: JSON.stringify({ content: `[DashClaw] ${summary}` }) };
+    case 'teams':
+      // Workflows envelope: type:message + Adaptive Card attachment (v1.2+).
+      return {
+        url,
+        destination,
+        body: JSON.stringify({
+          type: 'message',
+          attachments: [
+            {
+              contentType: 'application/vnd.microsoft.card.adaptive',
+              content: {
+                $schema: 'http://adaptivecards.io/schemas/adaptive-card.json',
+                type: 'AdaptiveCard',
+                version: '1.2',
+                body: [
+                  { type: 'TextBlock', text: 'DashClaw', weight: 'Bolder', size: 'Medium' },
+                  { type: 'TextBlock', text: summary, wrap: true },
+                ],
+              },
+            },
+          ],
+        }),
+      };
+    case 'pagerduty': {
+      // Events v2 requires a routing_key the bare URL doesn't carry — the
+      // template asks users to append ?routing_key=KEY; we lift it into the
+      // body and strip it from the request URL. Without it, stay generic
+      // (PagerDuty will report the missing key honestly).
+      let routingKey = '';
+      let targetUrl = url;
+      try {
+        const u = new URL(url);
+        routingKey = u.searchParams.get('routing_key') || '';
+        if (routingKey) {
+          u.searchParams.delete('routing_key');
+          targetUrl = u.toString();
+        }
+      } catch { /* fall through to generic */ }
+      if (!routingKey) return { url, destination: 'generic', body: generic };
+      return {
+        url: targetUrl,
+        destination,
+        body: JSON.stringify({
+          routing_key: routingKey,
+          event_action: 'trigger',
+          payload: {
+            summary: `[DashClaw] ${summary}`,
+            source: 'dashclaw',
+            severity: eventType.includes('blocked') || eventType.includes('fail') ? 'error' : 'info',
+          },
+        }),
+      };
+    }
+    default:
+      return { url, destination, body: generic };
+  }
+}
+
 /**
  * Deliver a webhook: POST payload to url, log result to webhook_deliveries.
  */
@@ -337,7 +454,8 @@ export async function deliverWebhook({
   sql,
 }: DeliverWebhookArgs): Promise<DeliverWebhookResult> {
   const deliveryId = `wd_${crypto.randomUUID()}`;
-  const payloadStr = typeof payload === 'string' ? payload : JSON.stringify(payload);
+  // Per-destination formatting; the signature covers the bytes actually sent.
+  const { url: targetUrl, body: payloadStr } = formatWebhookPayload(url, eventType, payload);
   const signature = signPayload(payloadStr, secret);
   const now = new Date().toISOString();
   const start = Date.now();
@@ -348,7 +466,7 @@ export async function deliverWebhook({
 
   try {
     const res = await postWithPinnedDns({
-      url,
+      url: targetUrl,
       headers: {
         'Content-Type': 'application/json',
         'X-DashClaw-Signature': signature,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Webhook, Plus, Trash2, Play, Check, Copy, ChevronDown, ChevronRight,
   AlertTriangle,
@@ -33,14 +33,15 @@ const WEBHOOK_TEMPLATES = [
   },
   {
     name: 'PagerDuty',
-    description: 'Trigger PagerDuty incidents for critical security signals',
-    urlPlaceholder: 'https://events.pagerduty.com/v2/enqueue',
+    description: 'Trigger PagerDuty incidents (Events v2) — append ?routing_key=YOUR_KEY',
+    urlPlaceholder: 'https://events.pagerduty.com/v2/enqueue?routing_key=YOUR_ROUTING_KEY',
     defaultEvents: ['autonomy_spike', 'high_impact_low_oversight', 'repeated_failures'],
   },
   {
     name: 'Microsoft Teams',
-    description: 'Post adaptive cards to a Teams channel via connector URL',
-    urlPlaceholder: 'https://outlook.office.com/webhook/...',
+    // Teams Workflows webhook (the old outlook.office.com connector URLs are retired).
+    description: 'Post Adaptive Cards to a Teams channel via a Workflows webhook',
+    urlPlaceholder: 'https://prod-00.westus.logic.azure.com/workflows/.../triggers/manual/paths/invoke?...',
     defaultEvents: ['all'],
   },
   {
@@ -51,7 +52,7 @@ const WEBHOOK_TEMPLATES = [
   },
 ];
 
-// Mirrors VALID_EVENT_TYPES in app/api/webhooks/route.js — keep in sync.
+// Mirrors VALID_EVENT_TYPES in app/api/webhooks/route.ts — keep in sync.
 const EVENT_TYPES = [
   { value: 'all', label: 'All events' },
   { value: 'autonomy_spike', label: 'Autonomy spike' },
@@ -78,6 +79,7 @@ export default function WebhooksPage() {
   // Add webhook form
   const [showAddForm, setShowAddForm] = useState(false);
   const [url, setUrl] = useState('');
+  const [urlPlaceholder, setUrlPlaceholder] = useState('https://example.com/webhook');
   const [selectedEvents, setSelectedEvents] = useState<string[]>(['all']);
   const [creating, setCreating] = useState(false);
 
@@ -90,6 +92,7 @@ export default function WebhooksPage() {
 
   // Delivery history
   const [expandedWebhook, setExpandedWebhook] = useState<any>(null);
+  const [expandedDelivery, setExpandedDelivery] = useState<string | null>(null);
   const [deliveries, setDeliveries] = useState<Record<string, any[]>>({});
   const [loadingDeliveries, setLoadingDeliveries] = useState(false);
 
@@ -381,8 +384,11 @@ export default function WebhooksPage() {
                       key={tpl.name}
                       type="button"
                       onClick={() => {
-                        setUrl(tpl.urlPlaceholder);
+                        // Placeholder only — injecting the example as the VALUE
+                        // let junk URLs be created as dead, auto-disabling webhooks.
+                        setUrlPlaceholder(tpl.urlPlaceholder);
                         setSelectedEvents(tpl.defaultEvents);
+                        setUrl('');
                       }}
                       className="group rounded-lg border border-border bg-surface-tertiary p-3 text-left transition-colors hover:border-border-hover"
                     >
@@ -400,7 +406,7 @@ export default function WebhooksPage() {
                   type="url"
                   value={url}
                   onChange={(e) => setUrl(e.target.value)}
-                  placeholder="https://example.com/webhook"
+                  placeholder={urlPlaceholder}
                   className={inputClass}
                 />
                 <div className="mt-1 text-xs text-tertiary">Must use HTTPS</div>
@@ -607,7 +613,13 @@ export default function WebhooksPage() {
                             </thead>
                             <tbody>
                               {webhookDeliveries.slice(0, 20).map((delivery: any) => (
-                                <tr key={delivery.id} className="border-b border-border last:border-0">
+                                <React.Fragment key={delivery.id}>
+                                <tr
+                                  className="cursor-pointer border-b border-border transition-colors last:border-0 hover:bg-white/[0.02]"
+                                  onClick={() => setExpandedDelivery((prev) => (prev === delivery.id ? null : delivery.id))}
+                                  aria-expanded={expandedDelivery === delivery.id}
+                                  data-testid="delivery-row"
+                                >
                                   <td className="py-2 text-secondary">
                                     {EVENT_TYPES.find((e) => e.value === delivery.event_type)?.label ||
                                       delivery.event_type}
@@ -632,6 +644,24 @@ export default function WebhooksPage() {
                                     {delivery.duration_ms ? `${delivery.duration_ms}ms` : '—'}
                                   </td>
                                 </tr>
+                                {expandedDelivery === delivery.id && (
+                                  <tr className="border-b border-border last:border-0" data-testid="delivery-detail">
+                                    <td colSpan={5} className="py-3">
+                                      {/* Stored payload/response are redacted at write time. */}
+                                      <div className="space-y-2">
+                                        <div>
+                                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary">Sent payload</div>
+                                          <pre className="max-h-48 overflow-auto rounded-md border border-border bg-surface-tertiary p-2 font-mono text-[11px] leading-relaxed text-secondary whitespace-pre-wrap break-all">{delivery.payload || '(not stored)'}</pre>
+                                        </div>
+                                        <div>
+                                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary">Response body</div>
+                                          <pre className="max-h-32 overflow-auto rounded-md border border-border bg-surface-tertiary p-2 font-mono text-[11px] leading-relaxed text-secondary whitespace-pre-wrap break-all">{delivery.response_body || '(empty)'}</pre>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                                </React.Fragment>
                               ))}
                             </tbody>
                           </table>

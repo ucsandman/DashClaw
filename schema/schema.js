@@ -844,7 +844,10 @@ export const webhooks = pgTable('webhooks', {
   active: integer('active').notNull().default(1),
   createdBy: text('created_by'),
   failureCount: integer('failure_count').notNull().default(0),
-  lastTriggeredAt: timestamp('last_trigger_at'),
+  // TEXT, not timestamp: the live column was created as text in 0000 and every
+  // runtime read/write uses ISO strings on `last_triggered_at`. The phantom
+  // `last_trigger_at` duplicate (mis-codified by 0028) is dropped in 0030.
+  lastTriggeredAt: text('last_triggered_at'),
   createdAt: timestamp('created_at').defaultNow(),
 });
 

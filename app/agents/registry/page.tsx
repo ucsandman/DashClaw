@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { Boxes, Plus } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ListSkeleton, Skeleton } from '../../components/ui/Skeleton';
-import { RISK_CLASSES, AUTH_TYPES, INPUT_CLASS } from './components/constants';
+import { RISK_CLASSES, AUTH_TYPES, INPUT_CLASS, REGISTRY_TEMPLATES } from './components/constants';
 import InvokePanel from './components/InvokePanel';
 import CapabilitiesCard from './components/CapabilitiesCard';
 import EditPanel from './components/EditPanel';
@@ -36,16 +37,25 @@ export default function AgentRegistryPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [statusFilter, setStatusFilter] = useState('');
+
   const fetchAgents = useCallback(async () => {
     try {
-      const res = await fetch('/api/agents/registry');
-      if (res.ok) setAgents((await res.json()).registered_agents || []);
+      const qs = statusFilter ? `?status=${encodeURIComponent(statusFilter)}` : '';
+      const res = await fetch(`/api/agents/registry${qs}`);
+      if (res.ok) {
+        setAgents((await res.json()).registered_agents || []);
+      } else {
+        // A 403/500 must not masquerade as an empty registry.
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || `Failed to load registered agents (HTTP ${res.status})`);
+      }
     } catch {
       setError('Failed to load registered agents');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => { fetchAgents(); }, [fetchAgents]);
 
@@ -56,9 +66,14 @@ export default function AgentRegistryPage() {
     setDetailLoading(true);
     try {
       const res = await fetch(`/api/agents/registry/${agent.entry_id}`);
-      if (res.ok) setDetail(await res.json());
+      if (res.ok) {
+        setDetail(await res.json());
+      } else {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || `Failed to load agent detail (HTTP ${res.status})`);
+      }
     } catch {
-      /* surface nothing fatal in the panel */
+      setError('Failed to load agent detail');
     } finally {
       setDetailLoading(false);
     }
@@ -95,7 +110,7 @@ export default function AgentRegistryPage() {
     setDetail((prev: any) => (prev ? { ...prev, registered_agent: { ...prev.registered_agent, ...updated } } : prev));
   }, []);
 
-  const handleDeactivate = async () => {
+  const handleSetStatus = async (status: 'active' | 'inactive') => {
     if (!detail?.registered_agent) return;
     const id = detail.registered_agent.entry_id;
     setError(null);
@@ -103,13 +118,13 @@ export default function AgentRegistryPage() {
       const res = await fetch(`/api/agents/registry/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'inactive' }),
+        body: JSON.stringify({ status }),
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) applyUpdatedAgent(json.registered_agent);
-      else setError(json.error || 'Failed to deactivate agent');
+      else setError(json.error || `Failed to ${status === 'active' ? 'activate' : 'deactivate'} agent`);
     } catch {
-      setError('Failed to deactivate agent');
+      setError(`Failed to ${status === 'active' ? 'activate' : 'deactivate'} agent`);
     }
   };
 
@@ -141,6 +156,22 @@ export default function AgentRegistryPage() {
       {showForm && (
         <Card className="mb-6">
           <CardContent>
+            <div className="mb-4">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Start from a template</div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" data-testid="registry-templates">
+                {REGISTRY_TEMPLATES.map((tpl) => (
+                  <button
+                    key={tpl.name}
+                    type="button"
+                    onClick={() => setForm({ ...EMPTY_FORM, ...tpl.form })}
+                    className="group rounded-lg border border-border bg-surface-tertiary p-3 text-left transition-colors hover:border-border-hover"
+                  >
+                    <div className="text-xs font-medium text-secondary group-hover:text-white">{tpl.name}</div>
+                    <div className="mt-1 line-clamp-2 text-[11px] text-tertiary">{tpl.description}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs text-secondary">Name
                 <input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={INPUT_CLASS} />
@@ -148,13 +179,13 @@ export default function AgentRegistryPage() {
               <label className="text-xs text-secondary">Endpoint
                 <input value={form.endpoint} onChange={(e) => setForm({ ...form, endpoint: e.target.value })} placeholder="https://provider.example.com"
                   className={INPUT_CLASS} />
-                <span className="mt-1 block text-[11px] text-tertiary">Base URL DashClaw calls when this agent is invoked.</span>
+                <span className="mt-1 block text-[11px] text-tertiary">Descriptive metadata only — actual calls use the grouped capability&apos;s endpoint (configured at <Link href="/capabilities/new" className="text-brand hover:underline">/capabilities/new</Link>).</span>
               </label>
               <label className="text-xs text-secondary">Auth type
                 <select value={form.auth_type} onChange={(e) => setForm({ ...form, auth_type: e.target.value })} className={INPUT_CLASS}>
                   {AUTH_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
-                <span className="mt-1 block text-[11px] text-tertiary">How DashClaw authenticates to the provider.</span>
+                <span className="mt-1 block text-[11px] text-tertiary">Descriptive metadata only — call auth comes from the capability&apos;s invocation schema (token via org settings).</span>
               </label>
               <label className="text-xs text-secondary">Risk class
                 <select value={form.risk_class} onChange={(e) => setForm({ ...form, risk_class: e.target.value })} className={INPUT_CLASS}>
@@ -181,7 +212,19 @@ export default function AgentRegistryPage() {
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2">
           <Card>
-            <div className="border-b border-border px-5 py-3 text-sm font-semibold text-white">Registered agents</div>
+            <div className="flex items-center justify-between gap-2 border-b border-border px-5 py-3">
+              <span className="text-sm font-semibold text-white">Registered agents</span>
+              <select
+                value={statusFilter}
+                onChange={(e) => { setStatusFilter(e.target.value); setLoading(true); }}
+                aria-label="Filter by status"
+                className="rounded-md border border-border bg-surface-tertiary px-2 py-1 text-[11px] text-secondary"
+              >
+                <option value="">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+            </div>
             <CardContent className="p-0">
               {loading ? (
                 <div className="p-5"><ListSkeleton rows={4} /></div>
@@ -231,10 +274,15 @@ export default function AgentRegistryPage() {
                       className="rounded-lg border border-border px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white">
                       {editing ? 'Close edit' : 'Edit'}
                     </button>
-                    {reg.status === 'active' && (
-                      <button onClick={handleDeactivate}
+                    {reg.status === 'active' ? (
+                      <button onClick={() => handleSetStatus('inactive')}
                         className="rounded-lg border border-error/30 px-3 py-1.5 text-xs text-error transition-colors hover:bg-error-subtle">
                         Deactivate
+                      </button>
+                    ) : (
+                      <button onClick={() => handleSetStatus('active')}
+                        className="rounded-lg border border-success/30 px-3 py-1.5 text-xs text-success transition-colors hover:bg-success-subtle">
+                        Activate
                       </button>
                     )}
                   </div>
@@ -267,7 +315,13 @@ export default function AgentRegistryPage() {
                     <ul className="space-y-1.5">
                       {detail.invocations.map((inv: any) => (
                         <li key={inv.id} className="flex items-center justify-between text-[11px] text-tertiary">
-                          <span className="font-mono text-secondary">{inv.action_id || inv.id}</span>
+                          {inv.action_id ? (
+                            <Link href={`/decisions/${inv.action_id}`} className="font-mono text-secondary transition-colors hover:text-brand">
+                              {inv.action_id}
+                            </Link>
+                          ) : (
+                            <span className="font-mono text-secondary">{inv.id}</span>
+                          )}
                           <span>{inv.created_at ? new Date(inv.created_at).toLocaleString() : '—'}</span>
                         </li>
                       ))}

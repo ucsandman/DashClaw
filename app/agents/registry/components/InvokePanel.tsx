@@ -129,7 +129,10 @@ export default function InvokePanel({ agent, capabilities = [] }: InvokePanelPro
       </div>
       <CardContent>
         {capabilities.length === 0 ? (
-          <p className="text-xs text-tertiary">Add a capability to this agent before you can invoke it.</p>
+          <p className="text-xs text-tertiary">
+            Add a capability to this agent before you can invoke it — create one at{' '}
+            <Link href="/capabilities/new" className="text-brand hover:underline">/capabilities/new</Link>, then group it above.
+          </p>
         ) : (
           <>
             <div className="grid gap-3 sm:grid-cols-2">

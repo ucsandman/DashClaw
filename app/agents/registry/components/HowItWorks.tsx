@@ -11,7 +11,7 @@ const STEPS = [
   },
   {
     title: 'Group the capabilities it may run',
-    body: 'Define the named capabilities (the operations) this provider is allowed to perform on your behalf.',
+    body: 'Define the named capabilities (the operations) this provider is allowed to perform on your behalf — created at /capabilities/new, then grouped under the agent here.',
   },
   {
     title: 'Invoke a capability',
