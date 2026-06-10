@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.10] — 2026-06-09
+
+### Changed
+
+- **Repowise code-health structural sweep — 12 phases, behavior-preserving, no public surface change.** The 21 lowest-health files were decomposed structurally (dashboard Hotspot 5.47→6.69, Average 8.65→8.74, Worst 1.0→4.06): `middleware.js`'s 934-line CCN-287 `middleware()` is now a ~20-line sequencer over named auth/demo/page handlers with an ordered demo route table (auth/routing behavior pinned by 14 new characterization tests); `app/lib/guard.ts` 3.85→9.55 (CCN 122→8); both SDK clients refactored into private helpers behind **frozen public surfaces** (Node 126 / Python 224 methods, contracts + parity green); the Python hooks, tooling/CLI, repositories, app-lib, and scripts clusters all structural-cleared (max CCN ≤8, nesting ≤3 on every target). ~300 new characterization tests; full suite 3788 + pytest 299 green; migration SQL/DDL proven byte-identical by runtime capture.
+
+## [4.7.9] — 2026-06-09
+
+### Changed
+
+- Platform-only production-readiness and launch-prep release (entry backfilled in 4.7.10): public proof paths, setup contracts, security posture docs, hosted/doctor diagnostics, accessibility, and smoke coverage tightened. No SDK source change — SDKs were not republished.
+
 ## [4.7.8] — 2026-06-08
 
 ### Fixed
