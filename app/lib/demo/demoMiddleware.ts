@@ -1018,28 +1018,128 @@ function demoAgentIdList(fixtures: DemoFixtures): string[] {
   return ids.length ? ids.slice(0, 6) : DEMO_FALLBACK_AGENT_IDS;
 }
 
-export function demoSessions(fixtures: DemoFixtures, url: URL) {
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 200);
-  const statuses = ['running', 'completed', 'completed', 'blocked', 'failed'];
-  const sessions = demoAgentIdList(fixtures).flatMap((agentId, i) =>
+const DEMO_SESSION_STATUSES = ['running', 'completed', 'completed', 'blocked', 'failed'];
+
+// Single source for the demo session set: the list route, the detail trio
+// (/api/sessions/:id{,/events,/actions}) and their aggregates all derive from
+// this builder, so clicking any list row resolves on the detail page.
+function buildDemoSessionList(fixtures: DemoFixtures): AnyRecord[] {
+  return demoAgentIdList(fixtures).flatMap((agentId, i) =>
     [0, 1].map((j) => {
       const n = i * 2 + j + 1;
       const day = (n % 7) + 1;
       const min = n % 6;
+      const status = DEMO_SESSION_STATUSES[n % DEMO_SESSION_STATUSES.length];
       return {
         id: `sess_demo_${n}`,
         agent_id: agentId,
         agent_name: agentId,
-        status: statuses[n % statuses.length],
+        status,
         workspace: 'demo-governance-workspace',
+        branch: n % 2 === 0 ? 'main' : `feat/demo-task-${n}`,
+        blocked_reason: status === 'blocked'
+          ? 'Guard requires approval: deploy touches production configuration.'
+          : null,
         action_count: 3 + ((n * 7) % 18),
         created_at: `2026-06-0${day}T08:0${min}:00.000Z`,
         updated_at: `2026-06-0${day}T09:1${min}:00.000Z`,
         last_activity: `2026-06-0${day}T09:1${min}:00.000Z`,
       };
     }),
-  ).slice(0, limit);
-  return { sessions, lastUpdated: new Date().toISOString() };
+  );
+}
+
+export function demoSessions(fixtures: DemoFixtures, url: URL) {
+  const limit = Math.min(parseInt(url.searchParams.get('limit') || '100', 10), 200);
+  const agentId = url.searchParams.get('agent_id');
+  let sessions = buildDemoSessionList(fixtures);
+  if (agentId) sessions = sessions.filter((s) => s.agent_id === agentId);
+  return { sessions: sessions.slice(0, limit), lastUpdated: new Date().toISOString() };
+}
+
+const DEMO_SESSION_ACTION_TYPES = ['review', 'deploy', 'file_write', 'shell', 'api_call', 'research'];
+const DEMO_SESSION_GOALS = [
+  'Review open pull request for the payments service',
+  'Deploy staging build after green test run',
+  'Update retry policy in the webhook dispatcher',
+  'Run the integration test suite',
+  'Sync customer metrics to the warehouse',
+  'Summarize incident timeline for the postmortem',
+];
+
+// Deterministic per-session action ledger. Generates exactly
+// session.action_count rows so the "# Actions" card, the paginated list total,
+// and the aggregates always agree — mirroring the live route's invariant.
+function buildDemoSessionActions(session: AnyRecord): AnyRecord[] {
+  const n = parseInt(String(session.id).replace(/\D+/g, ''), 10) || 1;
+  const count = Number(session.action_count) || 0;
+  const day = (n % 7) + 1;
+  return Array.from({ length: count }, (_, i) => {
+    const failed = session.status === 'failed' && i === 0;
+    const blocked = session.status === 'blocked' && i === 0;
+    const status = failed ? 'failed' : blocked ? 'blocked' : 'completed';
+    return {
+      action_id: `ar_demo_sess_${n}_${i + 1}`,
+      agent_id: session.agent_id,
+      action_type: DEMO_SESSION_ACTION_TYPES[(n + i) % DEMO_SESSION_ACTION_TYPES.length],
+      declared_goal: DEMO_SESSION_GOALS[(n + i) % DEMO_SESSION_GOALS.length],
+      status,
+      outcome_status: status,
+      risk_score: (n * 13 + i * 17) % 100,
+      cost_estimate: Number((((n * 7 + i * 3) % 40) / 100).toFixed(2)),
+      created_at: `2026-06-0${day}T08:${String(10 + ((i * 2) % 50)).padStart(2, '0')}:00.000Z`,
+    };
+  });
+}
+
+function buildDemoSessionEvents(session: AnyRecord): AnyRecord[] {
+  const base = String(session.created_at).slice(0, 11); // '2026-06-0XT'
+  const events: AnyRecord[] = [
+    { id: `se_${session.id}_1`, seq: 1, session_id: session.id, kind: 'spawning', detail: null, created_at: `${base}08:00:00.000Z` },
+    { id: `se_${session.id}_2`, seq: 2, session_id: session.id, kind: 'running', detail: 'Agent checked in and began the work loop.', created_at: `${base}08:01:00.000Z` },
+  ];
+  if (session.status === 'blocked') {
+    events.push({ id: `se_${session.id}_3`, seq: 3, session_id: session.id, kind: 'blocked', detail: session.blocked_reason, created_at: `${base}08:45:00.000Z` });
+  } else if (session.status === 'failed') {
+    events.push({ id: `se_${session.id}_3`, seq: 3, session_id: session.id, kind: 'failed', detail: 'Terminal command exited non-zero twice; session halted for operator review.', created_at: `${base}09:05:00.000Z` });
+  } else if (session.status === 'completed') {
+    events.push({ id: `se_${session.id}_3`, seq: 3, session_id: session.id, kind: 'completed', detail: 'Completed the governed task list: actions recorded, assumptions logged, no policy violations.', created_at: `${base}09:10:00.000Z` });
+  }
+  return events;
+}
+
+export function demoSessionDetail(fixtures: DemoFixtures, sessionId: string) {
+  const session = buildDemoSessionList(fixtures).find((s) => s.id === sessionId);
+  if (!session) return null;
+  const actions = buildDemoSessionActions(session);
+  const events = buildDemoSessionEvents(session);
+  return {
+    session: {
+      ...session,
+      total_cost: Number(actions.reduce((sum, a) => sum + (Number(a.cost_estimate) || 0), 0).toFixed(2)),
+      max_risk: actions.reduce((m, a) => Math.max(m, Number(a.risk_score) || 0), 0),
+      event_count: events.length,
+      last_action_at: session.last_activity,
+    },
+  };
+}
+
+export function demoSessionEvents(fixtures: DemoFixtures, sessionId: string) {
+  const session = buildDemoSessionList(fixtures).find((s) => s.id === sessionId);
+  if (!session) return null;
+  return { events: buildDemoSessionEvents(session) };
+}
+
+// Paginated, newest-first — same contract as GET /api/sessions/:id/actions.
+export function demoSessionActions(fixtures: DemoFixtures, sessionId: string, url: URL) {
+  const session = buildDemoSessionList(fixtures).find((s) => s.id === sessionId);
+  if (!session) return null;
+  const sp = url.searchParams;
+  const limit = Math.min(Math.max(parseInt(sp.get('limit') || '50', 10) || 50, 1), 200);
+  const offset = Math.max(parseInt(sp.get('offset') || '0', 10) || 0, 0);
+  const all = buildDemoSessionActions(session)
+    .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  return { actions: all.slice(offset, offset + limit), total: all.length };
 }
 
 export function demoIdentities(fixtures: DemoFixtures) {
@@ -1099,17 +1199,105 @@ export function demoModelStrategies() {
   return { strategies, lastUpdated: new Date().toISOString() };
 }
 
-export function demoReputationLeaderboard(fixtures: DemoFixtures) {
-  const leaderboard = demoAgentIdList(fixtures).map((agentId, i) => ({
+// ── Reputation (demo) ────────────────────────────────────────────────────────
+// Vectors mirror snapshotToVector (reputation.repository): blend scores are
+// 0..1, risk_score is a SEPARATE 0-100 axis, and the provenance breakdown is a
+// sibling. Weights/ceiling match app/lib/reputation.ts so the "How this is
+// derived" panel shows a believable derivation.
+
+const DEMO_REPUTATION_WEIGHTS = { outcome: 0.45, approval: 0.2, policy_violation: 0.25, quality: 0.1 };
+const DEMO_REPUTATION_CEILING_RATE = 0.1;
+
+function buildDemoReputationVector(agentId: string, i: number): AnyRecord {
+  const completion = Number((0.96 - i * 0.06).toFixed(3));
+  const approval = Number((0.94 - i * 0.05).toFixed(3));
+  const quality = Number((0.9 - i * 0.04).toFixed(3));
+  const violationRate = Number((0.005 + i * 0.01).toFixed(3));
+  const violationScore = Number((1 - Math.min(1, violationRate / DEMO_REPUTATION_CEILING_RATE)).toFixed(3));
+  const totalEvents = 180 - i * 25;
+  const reliability = Number((
+    completion * DEMO_REPUTATION_WEIGHTS.outcome +
+    approval * DEMO_REPUTATION_WEIGHTS.approval +
+    violationScore * DEMO_REPUTATION_WEIGHTS.policy_violation +
+    quality * DEMO_REPUTATION_WEIGHTS.quality
+  ).toFixed(4));
+  const risk = 8 + i * 9;
+  const dim = (key: string, eventCount: number, smoothed: number, weight: number | null) => ({
+    key,
+    event_count: eventCount,
+    smoothed,
+    contribution: weight == null ? null : Number((smoothed * weight).toFixed(4)),
+  });
+  return {
     agent_id: agentId,
-    agent_name: agentId,
-    reputation_score: 92 - i * 7,
-    risk_score: 8 + i * 6,
-    total_actions: 220 - i * 30,
-    blocked_count: i,
-    rank: i + 1,
-  }));
+    reliability_score: reliability,
+    completion_rate: completion,
+    policy_violation_rate: violationRate,
+    approval_adherence: approval,
+    quality_score: quality,
+    risk_score: risk,
+    volume_weight: Number(Math.min(1, totalEvents / 200).toFixed(3)),
+    confidence: Number((0.9 - i * 0.08).toFixed(3)),
+    total_events: totalEvents,
+    last_event_at: `2026-06-0${(i % 7) + 1}T09:00:00.000Z`,
+    computed_at: '2026-06-07T12:00:00.000Z',
+    breakdown: {
+      dimensions: [
+        dim('outcome', Math.round(totalEvents * 0.5), completion, DEMO_REPUTATION_WEIGHTS.outcome),
+        dim('approval', Math.round(totalEvents * 0.2), approval, DEMO_REPUTATION_WEIGHTS.approval),
+        dim('policy_violation', Math.round(totalEvents * 0.1), violationScore, DEMO_REPUTATION_WEIGHTS.policy_violation),
+        dim('quality', Math.round(totalEvents * 0.1), quality, DEMO_REPUTATION_WEIGHTS.quality),
+        dim('risk', Math.round(totalEvents * 0.1), risk, null),
+      ],
+      normalized_weights: { ...DEMO_REPUTATION_WEIGHTS },
+      reliability_unrounded: reliability,
+      violation_penalty: { rate: violationRate, ceiling_rate: DEMO_REPUTATION_CEILING_RATE, penalty: Number(Math.min(1, violationRate / DEMO_REPUTATION_CEILING_RATE).toFixed(3)) },
+      half_life_days: 90,
+      lookback_days: 365,
+      note: 'Risk is tracked separately (decay-weighted mean of per-action risk scores) and is not folded into reliability.',
+    },
+  };
+}
+
+export function demoReputationLeaderboard(fixtures: DemoFixtures) {
+  const leaderboard = demoAgentIdList(fixtures).map((agentId, i) => buildDemoReputationVector(agentId, i));
   return { leaderboard, lastUpdated: new Date().toISOString() };
+}
+
+// Mirrors GET /api/reputation/agents/:id/summary. Unknown agents get a
+// synthesized vector instead of a 404 — same leniency as demoAgentDetail.
+export function demoReputationSummary(fixtures: DemoFixtures, agentId: string) {
+  const ids = demoAgentIdList(fixtures);
+  const i = ids.indexOf(agentId);
+  const vector = buildDemoReputationVector(agentId, i === -1 ? 1 : i);
+  return { agent_id: agentId, summary: { ...vector, is_active: true } };
+}
+
+const DEMO_REPUTATION_EVENT_TYPES = ['outcome', 'approval', 'quality', 'risk', 'policy_violation'];
+
+// Mirrors GET /api/reputation/agents/:id/events (paginated, newest first).
+export function demoReputationEvents(fixtures: DemoFixtures, agentId: string, url: URL) {
+  const sp = url.searchParams;
+  const limit = Math.min(Math.max(parseInt(sp.get('limit') || '50', 10) || 50, 1), 200);
+  const offset = Math.max(parseInt(sp.get('offset') || '0', 10) || 0, 0);
+  const all = Array.from({ length: 12 }, (_, i) => {
+    const event_type = DEMO_REPUTATION_EVENT_TYPES[i % DEMO_REPUTATION_EVENT_TYPES.length];
+    const ts = `2026-06-0${7 - (i % 7)}T0${i % 10}:30:00.000Z`;
+    return {
+      id: `re_demo_${i + 1}`,
+      agent_id: agentId,
+      source_agent_id: null,
+      event_type,
+      weight: 1,
+      value: event_type === 'risk' ? 20 + ((i * 7) % 60) : event_type === 'policy_violation' ? 0 : 1,
+      action_id: `ar_demo_rep_${i + 1}`,
+      occurred_at: ts,
+      metadata: null,
+      created_at: ts,
+    };
+  }).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
+  const events = all.slice(offset, offset + limit);
+  return { agent_id: agentId, events, pagination: { limit, offset, count: events.length } };
 }
 
 export function demoPosture() {
@@ -1141,15 +1329,86 @@ export function demoPostureFindings() {
   return { findings, riskAccepted: [], counts: { open: 2, drafted: 0, resolved: 0, snoozed: 0, accepted_risk: 0 } };
 }
 
-export function demoSpend() {
-  const days = ['2026-06-01', '2026-06-02', '2026-06-03', '2026-06-04', '2026-06-05'];
-  const by_day = days.map((date, i) => ({ date, cost_usd: Number((4.2 + i * 0.8).toFixed(2)) }));
-  const x402_by_day = days.map((date, i) => ({ date, spend_usd: Number((0.5 + i * 0.2).toFixed(2)) }));
+// Period-aware spend rollup mirroring GET /api/finops/spend: the 7d/30d/90d
+// buttons resize the by_day series (and totals follow), and ?lens=claude-code
+// returns the code-sessions shape /spend/code renders. Dates are anchored to a
+// fixed day so the payload stays deterministic.
+const DEMO_SPEND_PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
+const DEMO_SPEND_ANCHOR_MS = Date.parse('2026-06-07T00:00:00.000Z');
+
+function demoSpendDates(days: number): string[] {
+  return Array.from({ length: days }, (_, i) =>
+    new Date(DEMO_SPEND_ANCHOR_MS - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10));
+}
+
+export function demoSpend(url: URL) {
+  const sp = url.searchParams;
+  const rawPeriod = sp.get('period') || '30d';
+  const period = DEMO_SPEND_PERIOD_DAYS[rawPeriod] ? rawPeriod : '30d';
+  const dates = demoSpendDates(DEMO_SPEND_PERIOD_DAYS[period] ?? 30);
+
+  if ((sp.get('lens') || 'fleet') === 'claude-code') {
+    const by_day = dates.map((date, i) => ({
+      date,
+      cost_usd: Number((1.2 + (i % 5) * 0.6).toFixed(2)),
+      session_count: 1 + (i % 3),
+    }));
+    const total_cost_usd = Number(by_day.reduce((s, d) => s + d.cost_usd, 0).toFixed(2));
+    const session_count = by_day.reduce((s, d) => s + d.session_count, 0);
+    return {
+      lens: 'claude_code',
+      period,
+      code_total_usd: total_cost_usd,
+      code_sessions: {
+        period,
+        total_cost_usd,
+        total_cache_savings_usd: Number((total_cost_usd * 0.55).toFixed(2)),
+        session_count,
+        by_day,
+        by_project: [
+          { project_id: 'cp_demo_dashclaw', project_name: 'dashclaw', cost_usd: Number((total_cost_usd * 0.7).toFixed(2)), session_count: Math.ceil(session_count * 0.7) },
+          { project_id: 'cp_demo_docs', project_name: 'docs-site', cost_usd: Number((total_cost_usd * 0.3).toFixed(2)), session_count: Math.floor(session_count * 0.3) },
+        ],
+      },
+    };
+  }
+
+  // The fleet lens supports ?agent_id= — a filtered view shows a slice of
+  // fleet spend, never the full totals under an agent label.
+  const scale = sp.get('agent_id') ? 0.4 : 1;
+  const by_day = dates.map((date, i) => ({ date, cost_usd: Number(((3.1 + (i % 7) * 0.8) * scale).toFixed(2)) }));
+  const x402_by_day = dates.map((date, i) => ({ date, spend_usd: Number(((0.4 + (i % 5) * 0.2) * scale).toFixed(2)) }));
+  const total_cost_usd = Number(by_day.reduce((s, d) => s + d.cost_usd, 0).toFixed(2));
+  const total_spend_usd = Number(x402_by_day.reduce((s, d) => s + d.spend_usd, 0).toFixed(2));
   return {
-    fleet_total_usd: 31.4,
-    agent: { total_cost_usd: 27.9, by_day },
-    x402: { total_spend_usd: 3.5, by_day: x402_by_day },
+    lens: 'fleet',
+    period,
+    fleet_total_usd: Number((total_cost_usd + total_spend_usd).toFixed(2)),
+    agent: { total_cost_usd, by_day },
+    x402: { total_spend_usd, by_day: x402_by_day },
+    unpriced: { action_count: 0 },
   };
+}
+
+// ── x402 purchases (demo) ────────────────────────────────────────────────────
+// Shape of GET /api/x402/purchases (listPurchases): purchase rows with the
+// provider_name join the /spend/x402 table renders. One row is deliberately
+// unattributed (agent_id null) to demo the documented filtering caveat.
+const DEMO_X402_PURCHASES: AnyRecord[] = [
+  { action_id: 'act_demo_x402_001', agent_id: 'clawdbot', provider_id: 'xp_demo_search', provider_name: 'Exa Search', endpoint_id: 'xe_demo_search_v1', spend_amount: 0.05, currency: 'USDC', payment_method: 'x402', execution_status: 'succeeded', purchase_reason: 'Needed fresh market data beyond the training cutoff for the weekly briefing.', created_at: '2026-06-07T09:12:00.000Z' },
+  { action_id: 'act_demo_x402_002', agent_id: 'deploy-runner', provider_id: 'xp_demo_enrich', provider_name: 'Acme Enrichment API', endpoint_id: 'xe_demo_enrich_v1', spend_amount: 0.25, currency: 'USDC', payment_method: 'x402', execution_status: 'pending', purchase_reason: 'Enrich the new signup cohort before routing to sales.', created_at: '2026-06-06T16:40:00.000Z' },
+  { action_id: 'act_demo_x402_003', agent_id: 'clawdbot', provider_id: 'xp_demo_scrape', provider_name: 'Firecrawl Scrape', endpoint_id: 'xe_demo_scrape_v1', spend_amount: 0.1, currency: 'USDC', payment_method: 'x402', execution_status: 'failed', failure_reason: 'Provider returned 502; payment not settled.', purchase_reason: 'Capture competitor pricing page for the weekly diff.', created_at: '2026-06-05T11:05:00.000Z' },
+  { action_id: 'act_demo_x402_004', agent_id: null, provider_id: 'xp_demo_search', provider_name: 'Exa Search', endpoint_id: 'xe_demo_search_v1', spend_amount: 0.05, currency: 'USDC', payment_method: 'x402', execution_status: 'succeeded', purchase_reason: 'Recorded before agent attribution was enabled.', created_at: '2026-06-04T10:00:00.000Z' },
+];
+
+export function demoX402Purchases(url: URL) {
+  const sp = url.searchParams;
+  const agentId = sp.get('agent_id');
+  const providerId = sp.get('provider_id');
+  let purchases = DEMO_X402_PURCHASES;
+  if (agentId) purchases = purchases.filter((p) => p.agent_id === agentId);
+  if (providerId) purchases = purchases.filter((p) => p.provider_id === providerId);
+  return { purchases };
 }
 
 export function demoBehaviorRecorder() {

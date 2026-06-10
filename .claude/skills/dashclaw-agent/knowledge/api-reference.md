@@ -173,7 +173,7 @@ Auth chain: middleware strips client-sent `x-org-id`/`x-org-role`/`x-user-id` â†
 }
 ```
 
-**8 signal types:** autonomy_spike, high_impact_low_oversight, repeated_failures, stale_open_loops, assumption_drift, stale_assumptions, stale_running_actions, agent_silent
+**16 signal types:** agent_silent, autonomy_spike, high_impact_low_oversight, repeated_failures, stale_loop, assumption_drift, drift_alert, stale_assumption, stale_running_action, workflow_stuck, approval_backlog, integration_mismatch, session_stalled, branch_stale, mcp_degraded, green_insufficient
 
 ---
 

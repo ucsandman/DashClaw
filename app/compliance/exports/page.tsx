@@ -498,7 +498,7 @@ export default function ComplianceExportsPage() {
                         <div className="flex min-w-0 items-center gap-3">
                           <StatusIcon
                             size={14}
-                            className={`${statusConf.color} shrink-0 ${statusConf.animate ? 'animate-spin' : ''}`}
+                            className={`${statusConf.color} shrink-0 ${statusConf.animate ? 'motion-safe:animate-spin' : ''}`}
                             aria-hidden="true"
                           />
                           <span className="truncate text-sm font-medium text-white">{exp.name}</span>

@@ -508,7 +508,7 @@ function MessagesPageInner() {
           {loading ? (
             <div className="space-y-2 rounded-xl border border-border bg-surface-secondary p-5">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-14 animate-pulse rounded-lg bg-surface-tertiary" />
+                <div key={i} className="h-14 motion-safe:animate-pulse rounded-lg bg-surface-tertiary" />
               ))}
             </div>
           ) : items.length === 0 ? (

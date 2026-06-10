@@ -17,7 +17,7 @@ mcp_servers=[{
 }]
 ```
 
-This gives the agent 29 governance tools and 6 resources automatically. The 8 core-governance tools are listed below; for the full inventory across optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, and behavior learning, see [`mcp-server/README.md`](../../mcp-server/README.md).
+This gives the agent 30 governance tools and 6 resources automatically. The 8 core-governance tools are listed below; for the full inventory across optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, and behavior learning, see [`mcp-server/README.md`](../../mcp-server/README.md).
 
 | Tool | Purpose |
 |---|---|

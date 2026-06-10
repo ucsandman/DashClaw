@@ -240,7 +240,7 @@ export default function ModelStrategiesPage() {
             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
             aria-label="Refresh strategies"
           >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Refresh
+            <RotateCw size={14} className={loading ? 'motion-safe:animate-spin' : ''} aria-hidden="true" /> Refresh
           </button>
           <button
             type="button"
@@ -297,7 +297,7 @@ export default function ModelStrategiesPage() {
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="h-40 animate-pulse rounded-xl border border-border bg-surface-secondary" />
+            <div key={i} className="h-40 motion-safe:animate-pulse rounded-xl border border-border bg-surface-secondary" />
           ))}
         </div>
       ) : strategies.length === 0 ? (

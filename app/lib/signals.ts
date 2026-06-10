@@ -31,7 +31,7 @@ interface Signal {
 type Row = Record<string, any>;
 
 /**
- * Compute all 14 risk signal types for an org.
+ * Compute all 16 risk signal types for an org.
  *
  * @param orgId
  * @param filterAgentId - optional agent filter

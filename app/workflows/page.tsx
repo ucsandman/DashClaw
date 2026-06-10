@@ -254,7 +254,7 @@ export default function WorkflowsPage() {
             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
             aria-label="Refresh templates"
           >
-            <RotateCw size={14} className={loading ? 'animate-spin' : ''} aria-hidden="true" />
+            <RotateCw size={14} className={loading ? 'motion-safe:animate-spin' : ''} aria-hidden="true" />
             Refresh
           </button>
           <button
@@ -334,7 +334,7 @@ export default function WorkflowsPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-40 animate-pulse rounded-xl border border-border bg-surface-secondary"
+              className="h-40 motion-safe:animate-pulse rounded-xl border border-border bg-surface-secondary"
             />
           ))}
         </div>

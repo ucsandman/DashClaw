@@ -65,9 +65,9 @@ The CLI (`dashclaw doctor`) invokes these endpoints. Local mode (`npm run doctor
 
 | Endpoint | Methods | Purpose |
 |---|---|---|
-| `/api/mcp` | POST | Model Context Protocol Streamable HTTP transport. Same 29 tools / 6 resources exposed by the stdio binary (`@dashclaw/mcp-server`). |
+| `/api/mcp` | POST | Model Context Protocol Streamable HTTP transport. Same 30 tools / 6 resources exposed by the stdio binary (`@dashclaw/mcp-server`). |
 
-**29 tools across 10 groups.** Core governance (8): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`. Optimal files (2): `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`. Session continuity (3): `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`. Credential hygiene (3): `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`. Skill safety (1): `dashclaw_skill_scan`. Open loops (3): `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`. Learning + retrospection (4): `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent inbox (2): `dashclaw_inbox_list`, `dashclaw_messages_mark_read`. Behavior learning (1): `dashclaw_behavior_suggestions`. Governance posture (2, read-only): `dashclaw_posture`, `dashclaw_posture_next`.
+**30 tools across 11 groups.** Core governance (8): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`. Optimal files (2): `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`. Session continuity (3): `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`. Credential hygiene (3): `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`. Skill safety (1): `dashclaw_skill_scan`. Open loops (3): `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`. Learning + retrospection (4): `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent inbox (2): `dashclaw_inbox_list`, `dashclaw_messages_mark_read`. Agent identity (1): `dashclaw_pair`. Behavior learning (1): `dashclaw_behavior_suggestions`. Governance posture (2, read-only): `dashclaw_posture`, `dashclaw_posture_next`.
 
 **Resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
 
@@ -233,7 +233,7 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 |---|---|---|---|
 | `/api/actions/signals` | GET | `getSignals` | `get_signals` |
 
-**Signal types:** `guard_block`, `guard_warn`, `approval_timeout`, `loop_stale`, `injection_detected`, `drift_alert`, `feedback_negative`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`
+**16 signal types:** `agent_silent`, `autonomy_spike`, `high_impact_low_oversight`, `repeated_failures`, `stale_loop`, `assumption_drift`, `drift_alert`, `stale_assumption`, `stale_running_action`, `workflow_stuck`, `approval_backlog`, `integration_mismatch`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`
 
 ## Behavior Guard
 

@@ -86,6 +86,8 @@ Run the canonical starter to record a real governed action.
 ## Step 4: Integrate Your Own Agent
 Open `http://localhost:3000/connect`. This page provides the **Golden Path** for connecting any real agent (OpenAI, LangChain, CrewAI) using the v2 SDK.
 
+Once connected, your agent appears in the [Agent Registry](http://localhost:3000/agents/registry) — the fleet-wide identity ledger. From there, grant it scoped permissions from the capability templates at [`/capabilities`](http://localhost:3000/capabilities) to declare what it is allowed to do.
+
 ### The Governance Loop (with optional human review):
 1. **Guard** &rarr; `claw.guard()` checks intent against policy. Abort on `block`.
 2. **Record** &rarr; `claw.createAction()` logs the start of the action. The

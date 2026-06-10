@@ -181,6 +181,33 @@ and a `description` of the commitment. On session start, call
 when you complete one — close maps to "resolve" semantically (the route
 accepts `status: 'resolved'`).
 
+## Assumption Tracking
+
+### Before acting on an unverified premise
+When a decision rests on something you treat as true but have not verified
+(e.g. "staging tests passed", "no active legal hold on this record"), record
+it. Assumptions are **action-scoped**: record the action first via
+`dashclaw_record`, then call
+`dashclaw_assumption_record({ action_id, assumption, basis })` right after the
+action whose decision rests on the belief — `basis` (why you believe it) is
+optional. Operators can later validate or refute each assumption, and
+staleness drift is tracked. Without MCP, the SDKs hit the same
+`POST /api/assumptions` endpoint: `claw.recordAssumption(...)` (Node) or
+`register_assumption(...)` (Python).
+
+Also state assumptions in chat with this exact block format — hook-based
+capture (the Claude Code Stop hook) parses it and records each numbered item
+against the turn's first recorded action:
+
+```
+ASSUMPTIONS I'M MAKING:
+1. [assumption]
+2. [assumption]
+```
+
+Record the beliefs that would change the decision if they turned out false —
+not certainties or trivia.
+
 ## Learning From Prior Sessions
 
 ### Before making a non-obvious decision

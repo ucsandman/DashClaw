@@ -344,7 +344,7 @@ export default function DecisionReplayPage() {
     return (
       <PageLayout title="Loading..." breadcrumbs={['Governance', 'Decisions']}>
         <div className="flex items-center justify-center py-20">
-          <div className="h-8 w-8 border-2 border-brand border-t-transparent rounded-full animate-spin" />
+          <div className="h-8 w-8 border-2 border-brand border-t-transparent rounded-full motion-safe:animate-spin" />
         </div>
       </PageLayout>
     );
@@ -427,7 +427,7 @@ export default function DecisionReplayPage() {
             guardDecision?.decision === 'require_approval' ? 'bg-warning-subtle border-warning/40 text-warning' :
             'bg-success-subtle border-success/40 text-success'
           }`}>
-            <div className={`w-2 h-2 rounded-full animate-pulse ${
+            <div className={`w-2 h-2 rounded-full motion-safe:animate-pulse ${
               guardDecision?.decision === 'block' ? 'bg-status-error' :
               guardDecision?.decision === 'require_approval' ? 'bg-status-warning' :
               'bg-status-success'

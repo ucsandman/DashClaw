@@ -362,7 +362,8 @@ export default function WorkflowTemplateDetailPage() {
                     href={`/workflows/${templateId}/runs/${run.run_action_id}`}
                     className="flex items-center gap-3 px-4 py-3 rounded-lg border border-border hover:bg-white/[0.02] transition-colors"
                   >
-                    <span className={`w-2 h-2 rounded-full flex-shrink-0 ${run.status === 'completed' ? 'bg-emerald-400' : run.status === 'failed' ? 'bg-red-400' : 'bg-blue-400'}`} />
+                    <span aria-hidden="true" className={`w-2 h-2 rounded-full flex-shrink-0 ${run.status === 'completed' ? 'bg-status-success' : run.status === 'failed' ? 'bg-status-error' : 'bg-status-info'}`} />
+                    <span className={`text-xs font-medium flex-shrink-0 ${run.status === 'completed' ? 'text-success' : run.status === 'failed' ? 'text-error' : 'text-info'}`}>{run.status}</span>
                     <span className="text-sm text-secondary flex-1 truncate">{run.declared_goal || 'Workflow run'}</span>
                     <span className="text-xs text-tertiary">{run.steps_completed}/{run.step_count} steps</span>
                     {run.duration_ms != null && <span className="text-xs font-mono text-tertiary">{(run.duration_ms / 1000).toFixed(1)}s</span>}

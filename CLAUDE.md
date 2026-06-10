@@ -75,7 +75,7 @@ Before any UI, copy, or visual change, **read `.impeccable.md` at the repo root*
 
 DashClaw-specific gaps surfaced from my agent history (most generic rules are already enforced above or by the `.claude/hooks` guards):
 
-- **Model/provider drift, not just version drift.** When supported models change, update `app/lib/providers/providerRegistry.js` (and the model-strategy catalogs) and run `npm run pricing:refresh` — never hardcode model ids or prices. Verify current ids (Context7/web) before wiring them; "Opus 4.6 is out" / "Unknown model: gpt-5.3-codex" has bitten me repeatedly. Latest Opus is 4.8 (2026-06).
+- **Model/provider drift, not just version drift.** When supported models change, update `app/lib/providers/providerRegistry.ts` (and the model-strategy catalogs) and run `npm run pricing:refresh` — never hardcode model ids or prices. Verify current ids (Context7/web) before wiring them; "Opus 4.6 is out" / "Unknown model: gpt-5.3-codex" has bitten me repeatedly. Latest Opus is 4.8 (2026-06).
 - **Don't cosmetically rename `.jsx`↔`.js`** (e.g. keep `app/connect/page.jsx`). It churns diffs for zero behavior change.
 - **DashClaw MCP server needs only `DASHCLAW_URL` + `DASHCLAW_API_KEY`** (optionally `DASHCLAW_AGENT_ID`). `org_id` is **not** required for MCP — don't add it.
 - **Maintain plugin parity across runtimes.** When you add a capability to the Claude Code plugin, mirror it for Codex and **Hermes** (`plugins/`); those parity gaps have been flagged.

@@ -423,7 +423,7 @@ function DecisionsLedgerInner() {
               title="Finalize actions that passed their outcome timeout without an agent report"
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white disabled:opacity-50"
             >
-              <Clock size={14} className={sweeping ? 'animate-spin' : ''} />
+              <Clock size={14} className={sweeping ? 'motion-safe:animate-spin' : ''} />
               {sweeping ? 'Sweeping…' : 'Run sweep now'}
             </button>
           )}
@@ -606,7 +606,7 @@ function DecisionsLedgerInner() {
               {/* Select all row */}
               {isAdmin && actions.length > 1 && (
                 <div className="flex items-center gap-2 px-2 py-1">
-                  <button onClick={toggleSelectAllActions} className="text-tertiary hover:text-white transition-colors p-0.5">
+                  <button onClick={toggleSelectAllActions} className="text-tertiary hover:text-white transition-colors p-0.5" aria-label={selectedActions.size === actions.length ? 'Deselect all decisions' : 'Select all decisions'}>
                     {selectedActions.size === actions.length
                       ? <CheckSquare size={16} className="text-brand" />
                       : <Square size={16} />}
@@ -630,7 +630,7 @@ function DecisionsLedgerInner() {
                       role="button"
                       tabIndex={0}
                       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') toggleExpand(action.action_id); }}
-                      className="w-full cursor-pointer p-4 text-left transition-colors hover:bg-white/[0.02] focus:bg-white/[0.02] focus:outline-none"
+                      className="w-full cursor-pointer p-4 text-left transition-colors hover:bg-white/[0.02] focus:bg-white/[0.02] focus:outline-none focus-visible:ring-1 focus-visible:ring-inset focus-visible:ring-brand/60"
                     >
                       <div className="flex flex-col gap-4 md:flex-row md:items-center">
                         {/* Checkbox for multi-select */}

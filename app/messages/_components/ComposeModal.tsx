@@ -167,7 +167,7 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
       <div className="bg-surface-secondary border border-white/[0.06] rounded-lg w-full max-w-lg mx-4 p-5" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-white">Compose Message</h3>
-          <button onClick={onClose} className="text-tertiary hover:text-secondary">
+          <button onClick={onClose} className="text-tertiary hover:text-secondary" aria-label="Close compose dialog">
             <X size={16} />
           </button>
         </div>

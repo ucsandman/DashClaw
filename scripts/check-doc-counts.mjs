@@ -104,6 +104,31 @@ const COUNT_CHECKS = [
   { file: 'examples/README.md', label: 'MCP tool count', re: /agent (\d+) governance tools/, expected: [S.mcpTools] },
   { file: 'examples/managed-agent-mcp/README.md', label: 'MCP tool count', re: /(\d+) tools \+ \d+ resources/, expected: [S.mcpTools] },
   { file: 'docs/monetization-plan.md', label: 'MCP tool count', re: /MCP server \((\d+) tools/, expected: [S.mcpTools] },
+  // Surfaces caught stale at 29/224 by the 2026-06-10 preship drift audit —
+  // gated so the next tool/method addition fails the build here, not review.
+  { file: 'sdk/README.md', label: 'MCP tool count', re: /\*\*(\d+) tools\*\* in \d+ groups/, expected: [S.mcpTools] },
+  { file: 'sdk-python/README.md', label: 'MCP tool count', re: /\*\*(\d+) tools\*\* across \d+ groups/, expected: [S.mcpTools] },
+  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (intro)', re: /full platform SDK \((\d+) methods\)/, expected: [S.sdk.python] },
+  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (parity)', re: /platform surface \((\d+) methods\)/, expected: [S.sdk.python] },
+  { file: '.claude/CODEBASE_MAP.md', label: 'MCP tool count', re: /(\d+) governance tools \+ \d+ resources/, expected: [S.mcpTools] },
+  { file: 'app/docs/page.tsx', label: 'MCP tool count (nav)', re: /label: 'Tools \((\d+)\)'/, expected: [S.mcpTools] },
+  { file: 'app/downloads/page.tsx', label: 'MCP tool count', re: /(\d+) governance tools plus \d+ read-only resources/, expected: [S.mcpTools] },
+  S.sdk && { file: 'app/downloads/page.tsx', label: 'Python SDK methods', re: /Broader Python surface \((\d+) methods\)/, expected: [S.sdk.python] },
+  { file: 'docs/CLAUDE-DESKTOP-PLUGIN.md', label: 'MCP tool count', re: /\*\*(\d+) governance tools\*\*/, expected: [S.mcpTools] },
+  { file: 'examples/managed-agent-mcp/main.py', label: 'MCP tool count', re: /gets (\d+) governance tools/, expected: [S.mcpTools] },
+  { file: 'examples/managed-agent-mcp/README.md', label: 'MCP tool count (intro)', re: /(\d+) governance tools and \d+ resources/, expected: [S.mcpTools] },
+  // Second drift ring (same audit): marketing/landing prose, the docs-page SDK
+  // claim, and the platform-intelligence reference SOURCES (public/downloads is
+  // the hand-authored source; plugins/.agents copies are kept lockstep).
+  { file: 'app/landingData.js', label: 'MCP tool count', re: /(\d+) tools and \d+ resources/, expected: [S.mcpTools] },
+  { file: 'app/page.tsx', label: 'MCP tool count', re: /(\d+) tools and \d+ resources/, expected: [S.mcpTools] },
+  S.sdk && { file: 'app/downloads/page.tsx', label: 'Node SDK methods', re: /Canonical (\d+)-method surface/, expected: [S.sdk.node] },
+  S.sdk && { file: 'app/docs/page.tsx', label: 'Node SDK methods', re: /(\d+) methods total/, expected: [S.sdk.node] },
+  S.sdk && { file: 'sdk-python/README.md', label: 'Node SDK methods (parity)', re: /curated subset of \*\*(\d+) methods\*\*/, expected: [S.sdk.node] },
+  { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups\.\*\*/, expected: [S.mcpTools] },
+  { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups:\*\*/, expected: [S.mcpTools] },
+  S.sdk && { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'Node SDK methods', re: /`sdk\/dashclaw\.js`, (\d+) methods/, expected: [S.sdk.node] },
+  S.sdk && { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'Python SDK methods', re: /`sdk-python\/dashclaw\/client\.py`, (\d+) methods/, expected: [S.sdk.python] },
 ].filter(Boolean);
 
 // Freshness stamps: the date should be >= the file's last commit date. We never
@@ -117,10 +142,10 @@ const DATE_CHECKS = [
 
 // Honesty: surfaces a thorough sweep covers that this script does NOT yet gate.
 const UNCOVERED = [
-  'README.md "N groups" (MCP groups have no machine-readable source in tools.js — verify by hand)',
+  'README.md / sdk READMEs / reference docs "N groups" (MCP groups have no machine-readable source in tools.js — verify by hand)',
   'README.md "N new sections" (governance-skill section count)',
-  'platform-knowledge.md / sdk-parity.md / app/downloads/page.js SDK + route counts',
-  'app/landingData.js + app/docs/page.js feature/count prose',
+  'platform-knowledge.md / sdk-parity.md route + signal-type counts',
+  'plugins/ + .agents/ copies of the platform-intelligence references (source gated above; copies kept lockstep by livingcode refresh / manual parity)',
 ];
 
 function lastCommitDate(file) {

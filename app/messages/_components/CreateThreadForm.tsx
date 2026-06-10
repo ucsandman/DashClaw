@@ -44,7 +44,7 @@ export default function CreateThreadForm({ filterAgentId, onCreated, onCancel }:
     <div className="mb-3 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-secondary uppercase tracking-wide">New Thread</span>
-        <button onClick={onCancel} className="text-tertiary hover:text-secondary">
+        <button onClick={onCancel} className="text-tertiary hover:text-secondary" aria-label="Cancel new thread">
           <X size={14} />
         </button>
       </div>

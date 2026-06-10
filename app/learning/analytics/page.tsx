@@ -142,10 +142,10 @@ export default function LearningAnalyticsPage() {
       actions={
         <div className="flex items-center gap-2">
           <button onClick={handleCompute} disabled={computing} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand text-white text-xs font-medium hover:bg-brand-hover transition-colors disabled:opacity-50">
-            {computing ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
+            {computing ? <RefreshCw size={14} className="motion-safe:animate-spin" /> : <Play size={14} />}
             {computing ? 'Computing...' : 'Compute Analytics'}
           </button>
-          <button onClick={fetchData} className="p-2 rounded-lg text-secondary hover:text-white hover:bg-white/5 transition-colors">
+          <button onClick={fetchData} className="p-2 rounded-lg text-secondary hover:text-white hover:bg-white/5 transition-colors" aria-label="Refresh analytics">
             <RefreshCw size={16} />
           </button>
         </div>

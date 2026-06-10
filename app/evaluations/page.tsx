@@ -839,7 +839,7 @@ export default function EvaluationsPage() {
                         <div className="flex items-center justify-between gap-3 px-3 py-2">
                           <div className="flex min-w-0 items-center gap-3">
                             {run.status === 'completed' && <CheckCircle size={14} className="shrink-0 text-success" aria-hidden="true" />}
-                            {run.status === 'running' && <RefreshCw size={14} className="shrink-0 animate-spin text-info" aria-hidden="true" />}
+                            {run.status === 'running' && <RefreshCw size={14} className="shrink-0 motion-safe:animate-spin text-info" aria-hidden="true" />}
                             {run.status === 'failed' && <XCircle size={14} className="shrink-0 text-error" aria-hidden="true" />}
                             {run.status === 'pending' && <Clock size={14} className="shrink-0 text-tertiary" aria-hidden="true" />}
                             <span className="text-sm font-medium text-white">{run.name}</span>

@@ -496,7 +496,7 @@ export default function SecretsPage() {
       {loading ? (
         <div className="space-y-4">
           {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl border border-border bg-surface-secondary" />
+            <div key={i} className="h-20 motion-safe:animate-pulse rounded-xl border border-border bg-surface-secondary" />
           ))}
         </div>
       ) : secrets.length === 0 ? (
@@ -623,7 +623,7 @@ export default function SecretsPage() {
                           disabled={busyId === secret.id}
                           className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-xs text-secondary transition-colors hover:border-success/30 hover:bg-success-subtle hover:text-success disabled:opacity-50"
                         >
-                          {busyId === secret.id ? <RotateCw size={14} className="animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
+                          {busyId === secret.id ? <RotateCw size={14} className="motion-safe:animate-spin" aria-hidden="true" /> : <Check size={14} aria-hidden="true" />}
                           Mark rotated
                         </button>
                         <button

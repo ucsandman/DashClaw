@@ -1,18 +1,21 @@
 {
   "node": {
-    "current_version": "4.7.11",
-    "next_bump": "none",
-    "reason": "4.7.11 is a platform-only release: CLI install claude + cost commands, hosted trial auto-seed, visible first session, guard ?record=true, Turbopack everywhere, dashboard/guard/hook perf, drizzle/0027 indexes, posttool MCP fix. No Node SDK source change — version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.7.10.",
+    "current_version": "4.8.0",
+    "next_bump": "minor",
+    "reason": "4.8.0 ships the 20-phase governance sweep with Node SDK source changes: createPairing/waitForPairing (operator pairing flow, P10) and getAgentEnv (managed agent env delivery, P12) in sdk/dashclaw.js — the Node SDK IS republished to npm at 4.8.0 (previous publish 4.7.10; 4.7.11 was platform-only).",
     "domains": [
-      "platform"
+      "platform",
+      "pairing",
+      "secrets"
     ]
   },
   "python": {
-    "current_version": "4.7.11",
-    "next_bump": "none",
-    "reason": "4.7.11 is a platform-only release: CLI install claude + cost commands, hosted trial auto-seed, visible first session, guard ?record=true, Turbopack everywhere, dashboard/guard/hook perf, drizzle/0027 indexes, posttool MCP fix. No Python SDK source change — version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.7.10.",
+    "current_version": "4.8.0",
+    "next_bump": "minor",
+    "reason": "4.8.0 ships the 20-phase governance sweep with Python SDK source changes: get_agent_env (managed agent env delivery, P12) in sdk-python/dashclaw/client.py — the Python SDK IS republished to PyPI at 4.8.0 (previous publish 4.7.10; 4.7.11 was platform-only).",
     "domains": [
-      "platform"
+      "platform",
+      "secrets"
     ]
   }
 }

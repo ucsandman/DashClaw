@@ -99,7 +99,7 @@ export default function WorkflowRunDetailPage() {
   if (loading) {
     return (
       <PageLayout title="Loading run...">
-        <div className="animate-pulse text-tertiary text-sm">Loading workflow run...</div>
+        <div className="motion-safe:animate-pulse text-tertiary text-sm">Loading workflow run...</div>
       </PageLayout>
     );
   }

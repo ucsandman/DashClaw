@@ -59,7 +59,7 @@ const PERSONAS: Persona[] = [
         declared_goal: 'Setting up your first webhook notification',
         reasoning: 'Operators need to know when important events happen without staring at the dashboard.',
         output_summary:
-          'Navigate to Settings > Webhooks and click "Add webhook." Enter your endpoint URL (e.g., a Slack incoming-webhook URL), choose which events to subscribe to (action.blocked, guard.escalation, security.signal are good starting choices), and save. DashClaw will POST a JSON payload to your URL whenever the event fires. Use the "Test" button to send a sample payload and verify delivery.',
+          'Navigate to Settings > Webhooks and click "Add webhook." Enter your endpoint URL (e.g., a Slack incoming-webhook URL), choose which events to subscribe to (approval_pending, repeated_failures, drift_alert are good starting choices), and save. DashClaw will POST a JSON payload to your URL whenever the event fires. Use the "Test" button to send a sample payload and verify delivery.',
       },
     ],
   },
@@ -181,7 +181,7 @@ const PERSONAS: Persona[] = [
         declared_goal: 'Setting up webhook endpoints for CI/CD pipeline integration',
         reasoning: 'Webhooks connect DashClaw events to deployment pipelines, alerting, and external tooling.',
         output_summary:
-          'Register a webhook via POST /api/webhooks with the target URL and event list. Supported events: action.completed, action.blocked, guard.escalation, security.signal, agent.offline. Each webhook delivery includes an HMAC signature in the X-DashClaw-Signature header — verify this in your receiver to prevent spoofing. Set up a dead-letter queue for failed deliveries. Monitor webhook health in Settings > Webhooks > Delivery Log.',
+          'Register a webhook via POST /api/webhooks with the target URL and event list. Supported events: autonomy_spike, high_impact_low_oversight, repeated_failures, stale_loop, assumption_drift, stale_assumption, stale_running_action, drift_alert, approval_pending, approval_granted, approval_denied — or "all" to subscribe to everything. Each webhook delivery includes an HMAC signature in the X-DashClaw-Signature header — verify this in your receiver to prevent spoofing. Set up a dead-letter queue for failed deliveries. Monitor webhook health in Settings > Webhooks > Delivery Log.',
       },
       {
         action_type: 'workflow',

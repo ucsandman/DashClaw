@@ -77,7 +77,7 @@ Systematic diagnostics for common DashClaw errors, signal anomalies, and configu
 
 ## Signal Debugging
 
-DashClaw computes 8 signal types. If signals are firing unexpectedly:
+DashClaw computes 16 signal types (`computeSignals` in `app/lib/signals.ts`). The eight most common in agent integrations are below; if signals are firing unexpectedly:
 
 ### 1. Autonomy Spikes
 **Trigger:** >10 ungoverned actions/hour

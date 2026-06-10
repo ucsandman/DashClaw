@@ -633,7 +633,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**29 tools** in 10 groups:
+**30 tools** in 11 groups:
 
 - **Core governance (8):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`.
 - **Optimal files (2):** `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest` — Code Sessions optimizer output (root CLAUDE.md, path-scoped rules, hooks, skill packs).

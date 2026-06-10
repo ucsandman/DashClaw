@@ -400,7 +400,7 @@ export default function DriftPage() {
             disabled={running}
             className="flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
           >
-            {running ? <RefreshCw size={14} className="animate-spin" aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
+            {running ? <RefreshCw size={14} className="motion-safe:animate-spin" aria-hidden="true" /> : <Play size={14} aria-hidden="true" />}
             {running ? 'Running…' : 'Run detection'}
           </button>
           <button

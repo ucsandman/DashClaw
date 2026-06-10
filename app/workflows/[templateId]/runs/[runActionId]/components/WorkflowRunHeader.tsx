@@ -50,7 +50,7 @@ export default function WorkflowRunHeader({ run, templateId, onResume, resuming,
               disabled={resuming}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-brand/10 text-brand border border-brand/20 hover:bg-brand/20 transition-colors disabled:opacity-50"
             >
-              <RotateCcw className={`w-3 h-3 ${resuming ? 'animate-spin' : ''}`} />
+              <RotateCcw className={`w-3 h-3 ${resuming ? 'motion-safe:animate-spin' : ''}`} />
               {resuming ? 'Resuming...' : 'Resume from checkpoint'}
             </button>
           )}

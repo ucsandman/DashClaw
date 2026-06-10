@@ -88,7 +88,12 @@ function SecurityDashboardInner() {
       const res = await fetch('/api/security/status');
       const data = await res.json();
       setScanResults(res.ok ? data : { error: data.error || `Security check failed (${res.status})` });
-      if (res.ok) fetchData();
+      if (res.ok) {
+        // Reuse the payload we just fetched instead of double-GETting the
+        // security status inside fetchData.
+        setSecurityStatus(data);
+        fetchData({ skipSecurity: true });
+      }
     } catch (err) {
       console.error('Security scan failed:', err);
       setScanResults({ error: 'Network error — could not reach security status endpoint.' });
@@ -97,25 +102,29 @@ function SecurityDashboardInner() {
     }
   };
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (opts: { skipSecurity?: boolean } = {}) => {
     try {
       setLoading(true);
       const params = agentId ? `?agent_id=${agentId}` : '';
 
-      const [signalsRes, actionsRes, assumptionsRes, securityRes] = await Promise.all([
+      // Callers that just fetched the security status (Run scan) skip the
+      // second GET and reuse their payload.
+      const securityPromise = opts.skipSecurity ? null : fetch('/api/security/status');
+      const [signalsRes, actionsRes, assumptionsRes] = await Promise.all([
         fetch(`/api/signals${params}`),
         fetch(`/api/actions?limit=100${agentId ? `&agent_id=${agentId}` : ''}`),
         fetch(`/api/actions/assumptions?drift=true${agentId ? `&agent_id=${agentId}` : ''}`),
-        fetch('/api/security/status'),
       ]);
 
       const signalsData = await signalsRes.json();
       const actionsData = await actionsRes.json();
       const assumptionsData = await assumptionsRes.json();
-      const securityData = await securityRes.json();
 
       setSignals(signalsData.signals || []);
-      setSecurityStatus(securityData);
+      if (securityPromise) {
+        const securityRes = await securityPromise;
+        setSecurityStatus(await securityRes.json());
+      }
 
       // Filter for high-risk actions: risk in the shared HIGH band OR
       // (no auth scope AND irreversible).
@@ -218,7 +227,7 @@ function SecurityDashboardInner() {
             {scanning ? 'Scanning…' : 'Run security check'}
           </button>
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
           >
             <RotateCw size={14} />
@@ -369,7 +378,7 @@ function SecurityDashboardInner() {
                     const SeverityIcon = getSeverityIcon(signal.severity);
                     return (
                       <div
-                        key={`active-${idx}`}
+                        key={`active-${getSignalHash(signal)}`}
                         data-entity-type="signal"
                         data-entity-id={signal.action_id || signal.assumption_id || signal.loop_id || `signal-${idx}`}
                         data-entity-status={signal.severity}
@@ -415,11 +424,11 @@ function SecurityDashboardInner() {
                   {showDismissed && dismissedList.length > 0 && (
                     <>
                       <div className="px-1 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Dismissed</div>
-                      {dismissedList.map((signal, idx) => {
+                      {dismissedList.map((signal) => {
                         const SeverityIcon = getSeverityIcon(signal.severity);
                         return (
                           <div
-                            key={`dismissed-${idx}`}
+                            key={`dismissed-${getSignalHash(signal)}`}
                             className="w-full bg-surface-tertiary/50 rounded-lg p-3.5 text-left opacity-60 hover:opacity-80 transition-opacity flex items-start justify-between gap-2"
                           >
                             <button

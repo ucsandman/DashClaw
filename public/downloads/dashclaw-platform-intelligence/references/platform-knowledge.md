@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 126 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
+  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 129 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
   - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 224 methods).
+  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 225 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -230,7 +230,7 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**29 tools across 10 groups:**
+**30 tools across 11 groups:**
 - *Core governance (8):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`.
 - *Optimal files (2):* `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`.
 - *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
@@ -239,6 +239,7 @@ These are optional packages published alongside the core runtime.
 - *Open loops (3):* `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`.
 - *Learning + retrospection (4):* `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — record an assumption an action rests on (validate/refute later).
 - *Agent inbox (2):* `dashclaw_inbox_list`, `dashclaw_messages_mark_read`.
+- *Agent identity (1):* `dashclaw_pair` — operator-approved pairing of an unidentified agent to a registered identity.
 - *Behavior learning (1):* `dashclaw_behavior_suggestions` — observe-only Policy Coach suggestions from recorded behavior.
 - *Governance posture (2, read-only):* `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score + 6 dimensions + prioritized findings; read-only (remediation is human-gated).
 
@@ -254,21 +255,26 @@ Route inventory for tools is emitted from the shape to `mcp-server/lib/routes-in
 
 ## Signal Types
 
-DashClaw emits 11 signal types. All are evaluated server-side without an LLM.
+DashClaw computes 16 signal types (`computeSignals` in `app/lib/signals.ts`). All are evaluated server-side without an LLM.
 
 | Signal Type | Trigger |
 |---|---|
-| `guard_block` | Guard policy returned `block` decision |
-| `guard_warn` | Guard policy returned `warn` decision |
-| `approval_timeout` | Pending approval expired without response |
-| `loop_stale` | Open loop exceeded expected resolution time |
-| `injection_detected` | Prompt injection scan flagged content |
-| `drift_alert` | Behavioral drift z-score exceeded threshold |
-| `feedback_negative` | User submitted negative feedback |
-| `session_stalled` | Session had no activity beyond idle threshold |
-| `branch_stale` | Working branch fell N+ commits behind main |
-| `mcp_degraded` | MCP tool handshake failed or connection dropped |
-| `green_insufficient` | Test suite did not meet required green level for action |
+| `agent_silent` | Agent heartbeat lost for 10+ minutes (red while holding an active task) |
+| `autonomy_spike` | Ungoverned decisions per hour exceeded the governance threshold |
+| `high_impact_low_oversight` | Irreversible high-risk action executing without authorization scope |
+| `repeated_failures` | More than 3 action failures in 24 hours |
+| `stale_loop` | Open loop blocking decision completion beyond expected resolution time |
+| `assumption_drift` | Multiple assumptions invalidated in the last 7 days |
+| `drift_alert` | Behavioral drift z-score exceeded threshold (open warning/critical drift alerts) |
+| `stale_assumption` | Assumption unverified for too long (red past 30 days) |
+| `stale_running_action` | Action stuck in `running` status (red past 24 hours) |
+| `workflow_stuck` | Workflow running without completing (red past 60 minutes) |
+| `approval_backlog` | Approval pending too long (red at 4+ hours) |
+| `integration_mismatch` | Agent reports using a provider whose credentials are missing or broken |
+| `session_stalled` | Session running with no tool activity for 2+ hours |
+| `branch_stale` | Working branch fell behind main (red at 5+ commits behind) |
+| `mcp_degraded` | MCP server unhealthy in recent guard intel |
+| `green_insufficient` | Deploy/merge attempted without sufficient test verification |
 
 Session lifecycle, signal emission, and recovery workflows all operate without an LLM provider configured. They use rule-based evaluation and threshold checks only.
 

@@ -13,8 +13,10 @@ import {
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
   demoHandoffs, demoSnippets, demoPreferences, demoSwarmGraph, demoAgentConnections, demoActionTrace,
   demoDecisionMetrics,
-  demoSessions, demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
-  demoModelStrategies, demoReputationLeaderboard, demoPosture, demoPostureFindings, demoSpend,
+  demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
+  demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
+  demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
+  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader } from './app/lib/sessionViewer.mjs';
@@ -957,6 +959,27 @@ function handleDemoPairings({ request, fixtures, url }) {
   return demoJson(request, { pairings });
 }
 
+// Session detail trio — fixture ids come from the same builder as the demo
+// sessions LIST, so /sessions/<row id> always resolves. Unknown ids 404 like
+// the real routes.
+function handleDemoSessionDetail({ request, fixtures, segments }) {
+  const detail = demoSessionDetail(fixtures, segments[2]);
+  if (!detail) return demoJson(request, { error: 'Session not found' }, 404);
+  return demoJson(request, detail);
+}
+
+function handleDemoSessionEvents({ request, fixtures, segments }) {
+  const payload = demoSessionEvents(fixtures, segments[2]);
+  if (!payload) return demoJson(request, { error: 'Session not found' }, 404);
+  return demoJson(request, payload);
+}
+
+function handleDemoSessionActions({ request, fixtures, url, segments }) {
+  const payload = demoSessionActions(fixtures, segments[2], url);
+  if (!payload) return demoJson(request, { error: 'Session not found' }, 404);
+  return demoJson(request, payload);
+}
+
 function handleDemoPairingDetail({ request, fixtures, segments }) {
   const pairingId = segments[2];
   const all = Array.isArray(fixtures.pairings) ? fixtures.pairings : [];
@@ -1116,15 +1139,23 @@ const DEMO_API_ROUTES = [
   [(pathname, segments) => segmentsMatch(segments, ['api', 'pairings', '*']), handleDemoPairingDetail],
   // -- Sitewide-interactions-v2 gap pages: deterministic, read-only fixtures --
   ['/api/sessions', demoFixtureUrlRoute(demoSessions)],
+  // Detail trio: 4-segment patterns are listed before the 3-segment detail for
+  // readability, though segmentsMatch is exact-length so they can't collide.
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*', 'events']), handleDemoSessionEvents],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*', 'actions']), handleDemoSessionActions],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*']), handleDemoSessionDetail],
   ['/api/identities', demoFixtureRoute(demoIdentities)],
   ['/api/knowledge/collections', demoPayloadRoute(demoKnowledgeCollections)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
   ['/api/secrets', demoPayloadRoute(demoSecrets)],
   ['/api/model-strategies', demoPayloadRoute(demoModelStrategies)],
   ['/api/reputation/leaderboard', demoFixtureRoute(demoReputationLeaderboard)],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'summary']), ({ request, fixtures, segments }) => demoJson(request, demoReputationSummary(fixtures, segments[3]))],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'events']), ({ request, fixtures, url, segments }) => demoJson(request, demoReputationEvents(fixtures, segments[3], url))],
   ['/api/posture', demoPayloadRoute(demoPosture)],
   ['/api/posture/findings', demoPayloadRoute(demoPostureFindings)],
-  ['/api/finops/spend', demoPayloadRoute(demoSpend)],
+  ['/api/finops/spend', ({ request, url }) => demoJson(request, demoSpend(url))],
+  ['/api/x402/purchases', ({ request, url }) => demoJson(request, demoX402Purchases(url))],
   ['/api/behavior/recorder', demoPayloadRoute(demoBehaviorRecorder)],
   ['/api/behavior/samples', demoFixtureUrlRoute(demoBehaviorSamples)],
   ['/api/behavior/suggestions', demoFixtureRoute(demoBehaviorSuggestions)],

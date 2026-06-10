@@ -1,0 +1,125 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+// Dispatch-level pins for the demo handlers added in the P20 gap-closing pass:
+// the session detail trio, reputation summary/events, x402 purchases, the
+// period-aware finops spend handler, and the code-sessions DELETE write-block.
+// Mirrors the mocking setup of middleware.test.js (env-forced DASHCLAW_MODE=demo).
+vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
+const sqlMock = vi.fn(async () => []);
+vi.mock('@neondatabase/serverless', () => ({ neon: vi.fn(() => sqlMock) }));
+
+const { getToken } = await import('next-auth/jwt');
+const { middleware } = await import('../../middleware.js');
+
+function req(pathname: string, { method = 'GET', body, ip = '10.9.8.7' }: { method?: string; body?: unknown; ip?: string } = {}) {
+  const url = `http://localhost:3000${pathname}`;
+  return {
+    url,
+    method,
+    nextUrl: new URL(url),
+    headers: new Headers({ host: 'localhost:3000' }),
+    cookies: { get: () => undefined },
+    ip,
+    text: async () => (body === undefined ? '' : JSON.stringify(body)),
+  } as any;
+}
+
+describe('demo-mode dispatch — P20 gap handlers', () => {
+  beforeEach(() => {
+    sqlMock.mockReset();
+    sqlMock.mockResolvedValue([]);
+    (getToken as any).mockReset();
+    (getToken as any).mockResolvedValue(null);
+    vi.stubEnv('DATABASE_URL', 'postgres://fake');
+    vi.stubEnv('NEXTAUTH_SECRET', 'test-secret-1234567890');
+    vi.stubEnv('DASHCLAW_MODE', 'demo');
+  });
+
+  it('GET /api/sessions/:id resolves an id from the demo sessions list', async () => {
+    const list = await middleware(req('/api/sessions?limit=100'));
+    const { sessions } = await list.json();
+    expect(sessions.length).toBeGreaterThan(0);
+
+    const res = await middleware(req(`/api/sessions/${sessions[0].id}`));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.session.id).toBe(sessions[0].id);
+    expect(body.session.action_count).toEqual(expect.any(Number));
+  });
+
+  it('GET /api/sessions/:id/events and /actions serve the detail page', async () => {
+    const ev = await middleware(req('/api/sessions/sess_demo_1/events'));
+    expect(ev.status).toBe(200);
+    expect(Array.isArray((await ev.json()).events)).toBe(true);
+
+    const acts = await middleware(req('/api/sessions/sess_demo_1/actions?limit=5'));
+    expect(acts.status).toBe(200);
+    const body = await acts.json();
+    expect(Array.isArray(body.actions)).toBe(true);
+    expect(body.total).toEqual(expect.any(Number));
+  });
+
+  it('unknown session id → 404 (matches the real route, not the 403 fallback)', async () => {
+    const res = await middleware(req('/api/sessions/sess_does_not_exist'));
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe('Session not found');
+  });
+
+  it('GET /api/reputation/agents/:id/summary and /events are demo-served', async () => {
+    const sum = await middleware(req('/api/reputation/agents/clawdbot/summary'));
+    expect(sum.status).toBe(200);
+    const sumBody = await sum.json();
+    expect(sumBody.summary.reliability_score).toEqual(expect.any(Number));
+
+    const ev = await middleware(req('/api/reputation/agents/clawdbot/events'));
+    expect(ev.status).toBe(200);
+    const evBody = await ev.json();
+    expect(evBody.events.length).toBeGreaterThan(0);
+    expect(evBody.pagination).toBeTruthy();
+  });
+
+  it('GET /api/x402/purchases returns provider-joined demo rows (was 403)', async () => {
+    const res = await middleware(req('/api/x402/purchases'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.purchases.length).toBeGreaterThan(0);
+    expect(body.purchases[0].provider_name).toEqual(expect.any(String));
+  });
+
+  it('GET /api/finops/spend honors ?period= (7d/30d/90d buttons live in demo)', async () => {
+    const seven = await (await middleware(req('/api/finops/spend?period=7d'))).json();
+    const ninety = await (await middleware(req('/api/finops/spend?period=90d'))).json();
+    expect(seven.agent.by_day.length).toBe(7);
+    expect(ninety.agent.by_day.length).toBe(90);
+    expect(ninety.fleet_total_usd).toBeGreaterThan(seven.fleet_total_usd);
+  });
+
+  it('GET /api/finops/spend?lens=claude-code returns the code-sessions shape', async () => {
+    const res = await middleware(req('/api/finops/spend?lens=claude-code&period=7d'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.lens).toBe('claude_code');
+    expect(body.code_sessions.by_day.length).toBe(7);
+  });
+
+  it('code-sessions DELETEs hit the write-block with the friendly demo message', async () => {
+    for (const path of [
+      '/api/code-sessions/projects?confirm=all',
+      '/api/code-sessions/projects/cp_demo_1',
+      '/api/code-sessions/sessions/cs_demo_1',
+    ]) {
+      const res = await middleware(req(path, { method: 'DELETE' }));
+      expect(res.status).toBe(403);
+      expect((await res.json()).error).toBe('Demo mode: write APIs are disabled.');
+    }
+  });
+
+  it('PATCH /api/sessions/:id stays an allowed simulation? No — sessions PATCH is write-blocked', async () => {
+    // isDemoSimulationRequest only exempts /api/guard, /api/actions(+subpaths),
+    // /api/assumptions. Sessions PATCH falls to the write block, and the detail
+    // page surfaces the message via its inline error banner.
+    const res = await middleware(req('/api/sessions/sess_demo_1', { method: 'PATCH', body: { status: 'finished' } }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toBe('Demo mode: write APIs are disabled.');
+  });
+});
