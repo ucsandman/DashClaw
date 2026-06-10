@@ -318,10 +318,14 @@ function clampRiskScore(value: unknown): number {
   return Math.max(0, Math.min(Math.round(Number(value) || 0), 100));
 }
 
+// Phantom-zero fix: when neither the client nor a guard decision supplied a
+// risk score, persist NULL — not 0. A defaulted 0 used to count as a genuine
+// "risk 0" reputation event and deflate swarm AVG(risk_score) as low-risk
+// reads piled up, making per-agent risk drift incoherently.
 function persistedRiskScore(
   riskScore: unknown,
   fallback: unknown,
-  finalFallback: unknown = 0,
+  finalFallback: unknown = null,
 ): unknown {
   if (riskScore != null) return clampRiskScore(riskScore);
   return fallback != null ? fallback : finalFallback;

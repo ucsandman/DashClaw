@@ -43,22 +43,25 @@ const roundTrips = (sql) =>
   sql.queryCalls.filter((c) => isStatement(c.text)).length;
 
 describe('guard hot path — DB round-trip budget', () => {
-  it('default path executes ≤4 DB round-trips cold and ≤2 warm (was ~9)', async () => {
+  it('default path executes ≤5 DB round-trips cold and ≤2 warm (was ~9)', async () => {
+    // Cold budget went 4 → 5 deliberately (supergoal P4): the org risk-template
+    // layer adds ONE cached query per org per 30s TTL window. Warm stays ≤2.
     const org = freshOrg();
     const sql = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(org, CTX, sql);
-    expect(roundTrips(sql)).toBeLessThanOrEqual(4);
+    expect(roundTrips(sql)).toBeLessThanOrEqual(5);
 
     const sql2 = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(org, CTX, sql2);
     expect(roundTrips(sql2)).toBeLessThanOrEqual(2);
   });
 
-  it('cold path queries exactly: policies, predictive settings, batched learning context, decision insert', async () => {
+  it('cold path queries exactly: policies, risk templates, predictive settings, batched learning context, decision insert', async () => {
     const sql = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(freshOrg(), CTX, sql);
     const texts = sql.taggedCalls.map((c) => c.text);
     expect(texts.filter((t) => t.includes('FROM guard_policies')).length).toBe(1);
+    expect(texts.filter((t) => t.includes('FROM risk_templates')).length).toBe(1); // cached 30s thereafter
     expect(texts.filter((t) => t.includes('FROM settings')).length).toBe(1);
     expect(texts.filter((t) => t.includes('learning_episodes')).length).toBe(1); // ONE batched query
     expect(texts.filter((t) => t.includes('INSERT INTO guard_decisions')).length).toBe(1);

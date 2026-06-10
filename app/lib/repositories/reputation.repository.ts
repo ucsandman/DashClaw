@@ -6,8 +6,8 @@
  */
 
 import crypto from 'node:crypto';
-import { computeVector, buildReputationReceipt, hashVector } from '../reputation';
-import type { ReputationVector as CanonicalReputationVector } from '../reputation';
+import { computeVectorWithBreakdown, buildReputationReceipt, hashVector } from '../reputation';
+import type { ReputationVector as CanonicalReputationVector, ReputationBreakdown } from '../reputation';
 import { getServerSigningKey } from '../integrity/server-key';
 
 type SqlClient = {
@@ -92,7 +92,10 @@ export async function upsertReputationSnapshot(
   sql: SqlClient,
   orgId: string,
   agentId: string,
-  vector: ReputationVector
+  vector: ReputationVector,
+  // Provenance sibling — persisted beside the vector columns, NEVER hashed
+  // (vector_hash signs the canonical vector only; receipts must keep verifying).
+  breakdown: ReputationBreakdown | null = null
 ): Promise<Record<string, unknown> | null> {
   const id = genId('ars');
   // The local ReputationVector models nullable DB-snapshot columns; the canonical
@@ -101,10 +104,10 @@ export async function upsertReputationSnapshot(
   const rows = await sql`
     INSERT INTO agent_reputation_snapshots
       (id, org_id, agent_id, reliability_score, completion_rate, policy_violation_rate, approval_adherence,
-       quality_score, risk_score, volume_weight, confidence, total_events, last_event_at, computed_at, vector_hash)
+       quality_score, risk_score, volume_weight, confidence, total_events, last_event_at, computed_at, vector_hash, breakdown)
     VALUES
       (${id}, ${orgId}, ${agentId}, ${vector.reliability_score}, ${vector.completion_rate}, ${vector.policy_violation_rate}, ${vector.approval_adherence},
-       ${vector.quality_score}, ${vector.risk_score}, ${vector.volume_weight}, ${vector.confidence}, ${vector.total_events}, ${vector.last_event_at}, ${vector.computed_at}, ${vectorHash})
+       ${vector.quality_score}, ${vector.risk_score}, ${vector.volume_weight}, ${vector.confidence}, ${vector.total_events}, ${vector.last_event_at}, ${vector.computed_at}, ${vectorHash}, ${breakdown ? JSON.stringify(breakdown) : null})
     ON CONFLICT (org_id, agent_id) DO UPDATE SET
       reliability_score = EXCLUDED.reliability_score,
       completion_rate = EXCLUDED.completion_rate,
@@ -117,7 +120,8 @@ export async function upsertReputationSnapshot(
       total_events = EXCLUDED.total_events,
       last_event_at = EXCLUDED.last_event_at,
       computed_at = EXCLUDED.computed_at,
-      vector_hash = EXCLUDED.vector_hash
+      vector_hash = EXCLUDED.vector_hash,
+      breakdown = EXCLUDED.breakdown
     RETURNING *`;
   return rows[0] ?? null;
 }
@@ -161,6 +165,10 @@ function terminalOutcome(outcomeStatus: unknown, status: unknown): number | null
   if (outcomeStatus === 'completed') return 1;
   if (outcomeStatus === 'failed') return 0;
   if (outcomeStatus === 'partial') return 0.5;
+  // Durable-execution sweep verdict: the platform lost confirmation that the
+  // action finished. Counts as a failure — previously these silently vanished
+  // (no outcome event), which biased reliability upward.
+  if (outcomeStatus === 'lost_confirmation') return 0;
   if (outcomeStatus === 'pending' || outcomeStatus == null) {
     if (status === 'completed') return 1;
     if (status === 'failed' || status === 'cancelled' || status === 'blocked') return 0;
@@ -287,21 +295,23 @@ export async function recomputeReputation(
   orgId: string,
   agentId: string,
   { now = new Date().toISOString(), sinceDays = DEFAULT_LOOKBACK_DAYS }: RecomputeOpts = {}
-): Promise<{ vector: ReputationVector; receipt: unknown }> {
+): Promise<{ vector: ReputationVector; receipt: unknown; breakdown: ReputationBreakdown }> {
   const events = await gatherEvidenceEvents(sql, orgId, agentId, { sinceDays });
   await persistEvents(sql, orgId, agentId, events);
 
-  const vector = computeVector(agentId, events, { now });
+  // The breakdown is a sibling: it is persisted on the snapshot and returned to
+  // callers, but the PURE vector is what gets hashed and signed into the receipt.
+  const { vector, breakdown } = computeVectorWithBreakdown(agentId, events, { now, lookbackDays: sinceDays });
   // computeVector returns the canonical (non-null) ReputationVector; the local
   // interface that the repo's CRUD/return signatures use is the nullable
   // DB-snapshot variant. Same fields at runtime — bridge at these boundaries.
-  await upsertReputationSnapshot(sql, orgId, agentId, vector as unknown as ReputationVector);
+  await upsertReputationSnapshot(sql, orgId, agentId, vector as unknown as ReputationVector, breakdown);
 
   const key = await getServerSigningKey(sql);
   const receipt = buildReputationReceipt(vector, { kid: key.kid, privateKeyJwk: key.privateKeyJwk }, vector.computed_at);
   await insertReputationReceipt(sql, orgId, agentId, { receipt: receipt as unknown as ReputationReceiptInput['receipt'], kid: key.kid, issuedAt: vector.computed_at });
 
-  return { vector: vector as unknown as ReputationVector, receipt };
+  return { vector: vector as unknown as ReputationVector, receipt, breakdown };
 }
 
 /**
@@ -315,10 +325,25 @@ export async function computeReputationVector(
   agentId: string,
   { now = new Date().toISOString(), sinceDays = DEFAULT_LOOKBACK_DAYS }: RecomputeOpts = {}
 ): Promise<ReputationVector> {
+  const { vector } = await computeReputationVectorWithBreakdown(sql, orgId, agentId, { now, sinceDays });
+  return vector;
+}
+
+/**
+ * Read-only live computation returning the provenance breakdown beside the
+ * vector. The breakdown never enters the hashed/signed vector.
+ */
+export async function computeReputationVectorWithBreakdown(
+  sql: SqlClient,
+  orgId: string,
+  agentId: string,
+  { now = new Date().toISOString(), sinceDays = DEFAULT_LOOKBACK_DAYS }: RecomputeOpts = {}
+): Promise<{ vector: ReputationVector; breakdown: ReputationBreakdown }> {
   const events = await gatherEvidenceEvents(sql, orgId, agentId, { sinceDays });
   // computeVector yields the canonical (non-null) variant; this fn's signature
   // declares the local nullable DB-snapshot variant — same fields at runtime.
-  return computeVector(agentId, events, { now }) as unknown as ReputationVector;
+  const { vector, breakdown } = computeVectorWithBreakdown(agentId, events, { now, lookbackDays: sinceDays });
+  return { vector: vector as unknown as ReputationVector, breakdown };
 }
 
 /**
@@ -347,6 +372,12 @@ export function snapshotToVector(
 ): ReputationVector | null {
   if (!s) return null;
   const num = (v: unknown): number | null => (v == null ? null : Number(v));
+  // jsonb may arrive as an object (Neon) or string (some drivers/tests) —
+  // normalize to an object; malformed payloads degrade to null, never throw.
+  let breakdown: unknown = s.breakdown ?? null;
+  if (typeof breakdown === 'string') {
+    try { breakdown = JSON.parse(breakdown); } catch { breakdown = null; }
+  }
   return {
     agent_id: s.agent_id as string,
     reliability_score: num(s.reliability_score),
@@ -360,5 +391,7 @@ export function snapshotToVector(
     total_events: Number(s.total_events) || 0,
     last_event_at: s.last_event_at as string | null,
     computed_at: s.computed_at as string,
+    // Provenance sibling (not part of the canonical hashed vector).
+    breakdown,
   };
 }

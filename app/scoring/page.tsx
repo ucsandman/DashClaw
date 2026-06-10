@@ -731,6 +731,12 @@ export default function ScoringPage() {
             Define rules for automatic risk scoring. Instead of agents hardcoding a number,
             DashClaw computes risk based on action properties matching your rules.
           </p>
+          <p className="text-sm text-secondary mb-4 rounded-lg border border-brand/20 bg-brand/5 px-3 py-2">
+            Active templates apply to live guard evaluations: a matching template&apos;s score is
+            folded into each decision&apos;s effective risk (it can raise, never lower it) and shows
+            up in the decision&apos;s risk derivation as <span className="font-mono text-xs">template:&lt;name&gt;</span>.
+            Changes take effect within seconds.
+          </p>
 
           <Card className="mb-6 p-4 space-y-3">
             <div className="flex items-center justify-between">

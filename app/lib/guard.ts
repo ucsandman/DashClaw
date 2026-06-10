@@ -41,9 +41,12 @@ const rankOf = (table: Record<string, number>, key: unknown, fallback: number): 
 
 const HIGH_RISK_SYSTEMS = ['production', 'database', 'postgres', 'neon', 'redis'];
 const MODERATE_RISK_SYSTEMS = ['filesystem', 'shell'];
-const DESTRUCTIVE_GOAL_PATTERNS = /rm\s+-rf|drop\s+table|delete\s+from|truncate|format|wipe/i;
-const DEPLOYMENT_GOAL_PATTERNS = /push|deploy|release|ship|migrate/i;
-const SECRET_GOAL_PATTERNS = /secret|credential|password|token|key|\.env/i;
+// Word-bounded: the old unanchored substrings flipped scores on wording alone
+// ('monkey' matched /key/ +15, 'pushback' matched /push/ +10, 'formatting'
+// matched /format/ +20) — a top source of the "risk looks random" perception.
+const DESTRUCTIVE_GOAL_PATTERNS = /rm\s+-rf|drop\s+table|delete\s+from|\btruncate\b|\bformat\b|\bwipe\b/i;
+const DEPLOYMENT_GOAL_PATTERNS = /\bpush(?:es|ed|ing)?\b|\bdeploy|\brelease|\bship(?:s|ped|ping)?\b|\bmigrat/i;
+const SECRET_GOAL_PATTERNS = /\bsecrets?\b|\bcredentials?\b|\bpasswords?\b|\btokens?\b|\bkeys?\b|\.env\b/i;
 
 /** SQL client usable as a tagged template AND via `.query()` (Neon/postgres shape). */
 type GuardSql = {
@@ -138,24 +141,45 @@ interface Preliminary {
   matchedPolicies: string[];
 }
 
+/** One additive term of the server-side risk formula. */
+export interface RiskFactor {
+  factor: string;
+  delta: number;
+}
+
 // Additional risk from the systems an action touches (high vs moderate tiers).
-function systemsTouchedRisk(systemsTouched: unknown): number {
-  if (!Array.isArray(systemsTouched)) return 0;
+function systemsTouchedFactors(systemsTouched: unknown): RiskFactor[] {
+  if (!Array.isArray(systemsTouched)) return [];
   const systems = systemsTouched.map((s) => (typeof s === 'string' ? s.toLowerCase() : ''));
-  let score = 0;
-  if (systems.some((s) => HIGH_RISK_SYSTEMS.includes(s))) score += 10;
-  if (systems.some((s) => MODERATE_RISK_SYSTEMS.includes(s))) score += 5;
-  return score;
+  const factors: RiskFactor[] = [];
+  const high = systems.find((s) => HIGH_RISK_SYSTEMS.includes(s));
+  if (high) factors.push({ factor: `systems:${high}`, delta: 10 });
+  const moderate = systems.find((s) => MODERATE_RISK_SYSTEMS.includes(s));
+  if (moderate) factors.push({ factor: `systems:${moderate}`, delta: 5 });
+  return factors;
 }
 
 // Additional risk from destructive/deployment/secret patterns in the declared goal.
-function declaredGoalRisk(declaredGoal: unknown): number {
-  if (typeof declaredGoal !== 'string') return 0;
-  let score = 0;
-  if (DESTRUCTIVE_GOAL_PATTERNS.test(declaredGoal)) score += 20;
-  if (DEPLOYMENT_GOAL_PATTERNS.test(declaredGoal)) score += 10;
-  if (SECRET_GOAL_PATTERNS.test(declaredGoal)) score += 15;
-  return score;
+function declaredGoalFactors(declaredGoal: unknown): RiskFactor[] {
+  if (typeof declaredGoal !== 'string') return [];
+  const factors: RiskFactor[] = [];
+  if (DESTRUCTIVE_GOAL_PATTERNS.test(declaredGoal)) factors.push({ factor: 'goal:destructive-pattern', delta: 20 });
+  if (DEPLOYMENT_GOAL_PATTERNS.test(declaredGoal)) factors.push({ factor: 'goal:deployment-pattern', delta: 10 });
+  if (SECRET_GOAL_PATTERNS.test(declaredGoal)) factors.push({ factor: 'goal:secret-pattern', delta: 15 });
+  return factors;
+}
+
+// The shared term computation behind computeRiskScore and the breakdown.
+// NOTE: this is the per-action guard heuristic — unrelated to reputation.ts's
+// computeRiskScore (a decay-weighted mean of these persisted values).
+function serverRiskTerms(context: GuardEvalContext): { base: { action_type: string; score: number }; modifiers: RiskFactor[]; total: number } {
+  const base = { action_type: typeof context.action_type === 'string' ? context.action_type : 'other', score: baseScore(context.action_type) };
+  const modifiers: RiskFactor[] = [];
+  if (context.reversible === false) modifiers.push({ factor: 'irreversible', delta: 15 });
+  modifiers.push(...systemsTouchedFactors(context.systems_touched));
+  modifiers.push(...declaredGoalFactors(context.declared_goal));
+  const total = Math.max(0, Math.min(base.score + modifiers.reduce((s, m) => s + m.delta, 0), 100));
+  return { base, modifiers, total };
 }
 
 /**
@@ -163,11 +187,7 @@ function declaredGoalRisk(declaredGoal: unknown): number {
  * Returns an integer 0-100.
  */
 export function computeRiskScore(context: GuardEvalContext): number {
-  let score = baseScore(context.action_type);
-  if (context.reversible === false) score += 15;
-  score += systemsTouchedRisk(context.systems_touched);
-  score += declaredGoalRisk(context.declared_goal);
-  return Math.max(0, Math.min(score, 100));
+  return serverRiskTerms(context).total;
 }
 
 // Resolve a dotted field path into the guard context. Returns undefined for any missing segment.
@@ -307,6 +327,7 @@ function computeActBindingBlockReason(context: GuardEvalContext, orgId: string):
 const GUARD_CACHE_TTL_MS = 30_000;
 const policyCache = new Map<string, { rows: PolicyRow[]; expires: number }>();
 const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; expires: number }>();
+const riskTemplateCache = new Map<string, { rows: Array<Record<string, unknown>>; expires: number }>();
 
 /** Called by policy mutation paths so a changed policy takes effect immediately. */
 export function invalidateGuardPolicyCache(orgId?: string): void {
@@ -314,10 +335,37 @@ export function invalidateGuardPolicyCache(orgId?: string): void {
   else policyCache.clear();
 }
 
+/** Called by risk-template mutation paths so edited weights apply immediately. */
+export function invalidateGuardRiskTemplateCache(orgId?: string): void {
+  if (orgId) riskTemplateCache.delete(orgId);
+  else riskTemplateCache.clear();
+}
+
 /** Test-only: clear all guard hot-path caches. */
 export function __resetGuardCaches(): void {
   policyCache.clear();
   predictiveSettingsCache.clear();
+  riskTemplateCache.clear();
+}
+
+// Active org risk templates, served from the short-TTL cache (same pattern as
+// loadOrgPolicies — guard is the hot path, templates change rarely).
+// Best-effort: a template-load failure must never block guard.
+async function loadOrgRiskTemplates(sql: GuardSql, orgId: string): Promise<Array<Record<string, unknown>>> {
+  const hit = riskTemplateCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.rows;
+  let rows: Array<Record<string, unknown>> = [];
+  try {
+    rows = await sql`
+      SELECT id, name, action_type, base_risk, rules, status
+      FROM risk_templates
+      WHERE org_id = ${orgId} AND status = 'active'
+    `;
+  } catch (err) {
+    console.warn('[Guard] risk_templates load failed (continuing without templates):', (err as Error).message);
+  }
+  riskTemplateCache.set(orgId, { rows, expires: Date.now() + GUARD_CACHE_TTL_MS });
+  return rows;
 }
 
 // Active org policies, served from the short-TTL cache (one DB round-trip per
@@ -610,6 +658,91 @@ function computeEffectiveRisk(context: GuardEvalContext): { agentRiskScore: numb
   return { agentRiskScore, effectiveRiskScore };
 }
 
+/** Full derivation ledger for one guard evaluation's risk score. */
+export interface RiskBreakdown {
+  /** Server heuristic: action-type base score. */
+  base: { action_type: string; score: number };
+  /** Additive server modifiers (irreversible, systems, goal patterns). */
+  modifiers: RiskFactor[];
+  /** Server heuristic total (base + modifiers, clamped 0-100). */
+  server_total: number;
+  /** Org risk-template layer (null when no active template matches). */
+  template: { id: string; name: string; score: number } | null;
+  /** Agent-reported risk_score from the request (null when absent). */
+  client_reported: number | null;
+  /** max(server_total, template.score, client_reported) — pre-predictive. */
+  effective: number;
+  /** Predictive history adjustment (null when disabled/unavailable). */
+  predictive: { adjustment: number; basis?: string; failure_rate?: number; total_actions?: number } | null;
+  /** The persisted guard_decisions.risk_score (effective + predictive, clamped). */
+  final: number;
+}
+
+// Coerce a risk_templates row into computeAutoRisk's template shape (rules is
+// jsonb — object from Neon, string from some drivers/tests).
+function coerceRiskTemplate(row: Record<string, unknown>): { status: string; action_type: string | null; base_risk: number; rules: Array<{ condition: string; add: number }>; id: string; name: string } {
+  let rules: unknown = row.rules;
+  if (typeof rules === 'string') {
+    try { rules = JSON.parse(rules); } catch { rules = []; }
+  }
+  return {
+    id: String(row.id),
+    name: String(row.name ?? ''),
+    status: String(row.status ?? 'active'),
+    action_type: (row.action_type as string | null) ?? null,
+    base_risk: Number(row.base_risk) || 0,
+    rules: Array.isArray(rules) ? (rules as Array<{ condition: string; add: number }>) : [],
+  };
+}
+
+// Effective risk including the org risk-template layer (the /scoring "Risk
+// Templates" tab — previously a dead wire). Templates can only RAISE the
+// effective score (folded via max), so an org with no templates is untouched.
+async function computeRiskAssessment(
+  sql: GuardSql,
+  orgId: string,
+  context: GuardEvalContext,
+): Promise<{ agentRiskScore: number | null; effectiveRiskScore: number; breakdownBase: Omit<RiskBreakdown, 'predictive' | 'final'> }> {
+  const terms = serverRiskTerms(context);
+  const { agentRiskScore } = computeEffectiveRisk(context);
+
+  let template: RiskBreakdown['template'] = null;
+  try {
+    const rows = await loadOrgRiskTemplates(sql, orgId);
+    if (rows.length > 0) {
+      const templates = rows.map(coerceRiskTemplate);
+      const { computeAutoRisk } = await import('./scoringProfiles');
+      const score = computeAutoRisk(context as Parameters<typeof computeAutoRisk>[0], templates);
+      if (score != null) {
+        const matched = templates.find((t) => t.action_type === context.action_type) || templates[0]!;
+        template = { id: matched.id, name: matched.name, score };
+      }
+    }
+  } catch (err) {
+    console.warn('[Guard] risk-template evaluation failed (continuing without):', (err as Error).message);
+  }
+
+  const clientClamped = agentRiskScore != null ? Math.max(0, Math.min(agentRiskScore, 100)) : null;
+  const effectiveRiskScore = Math.max(
+    terms.total,
+    template?.score ?? 0,
+    clientClamped ?? 0,
+  );
+
+  return {
+    agentRiskScore,
+    effectiveRiskScore,
+    breakdownBase: {
+      base: terms.base,
+      modifiers: terms.modifiers,
+      server_total: terms.total,
+      template,
+      client_reported: clientClamped,
+      effective: effectiveRiskScore,
+    },
+  };
+}
+
 // Everything the persist / event / result builders need, computed once.
 interface GuardFinalizeInput {
   decisionId: string;
@@ -625,6 +758,7 @@ interface GuardFinalizeInput {
   learningContext: unknown;
   recovery: unknown;
   predictiveRisk: { total_adjustment?: number } | null;
+  riskBreakdown: RiskBreakdown;
 }
 
 function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
@@ -642,7 +776,9 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
     decision: acc.highestDecision,
     reason: acc.reasons.join('; ') || null,
     matchedPolicies: acc.matchedPolicies,
-    context: input.safeContextForLog,
+    // The breakdown rides inside the persisted context JSON (additive,
+    // underscore-prefixed) — no schema migration, queryable via jsonb.
+    context: { ...(input.safeContextForLog as Record<string, unknown>), _risk_breakdown: input.riskBreakdown },
     evidence: input.evidenceJson,
     riskScore: input.adjustedRiskScore,
     actionType: context.action_type || null,
@@ -688,6 +824,7 @@ function buildGuardResult(input: GuardFinalizeInput) {
     ...(acc.nonFabEvidence.length > 0 ? { non_fabrication: acc.nonFabEvidence } : {}),
     risk_score: input.adjustedRiskScore,
     agent_risk_score: input.agentRiskScore,
+    risk_breakdown: input.riskBreakdown,
     verification_status: statuses.verificationStatus,
     agent_id: context.agent_id || null,
     agent_name: context.agent_name || null,
@@ -716,10 +853,27 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
 
   const policies = await loadApplicablePolicies(sql, orgId, context.agent_id || null);
 
-  const { agentRiskScore, effectiveRiskScore } = computeEffectiveRisk(context);
-  const predictiveRisk = await computePredictiveRisk(sql, orgId, context, effectiveRiskScore);
+  const { agentRiskScore, effectiveRiskScore, breakdownBase } = await computeRiskAssessment(sql, orgId, context);
+  const predictiveRisk = await computePredictiveRisk(sql, orgId, context, effectiveRiskScore) as
+    | { total_adjustment?: number; statistical?: { adjustment?: number; basis?: string; failure_rate?: number; total_actions?: number } | null }
+    | null;
   const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
   const adjustedRiskScore = Math.round(Math.max(0, Math.min(effectiveRiskScore + predictiveAdjustment, 100)));
+
+  // Full derivation ledger — returned with the result and persisted with the
+  // decision so every score is provable after the fact.
+  const riskBreakdown: RiskBreakdown = {
+    ...breakdownBase,
+    predictive: predictiveRisk
+      ? {
+          adjustment: predictiveAdjustment,
+          basis: predictiveRisk.statistical?.basis,
+          failure_rate: predictiveRisk.statistical?.failure_rate,
+          total_actions: predictiveRisk.statistical?.total_actions,
+        }
+      : null,
+    final: adjustedRiskScore,
+  };
 
   const deps: GuardPhaseDeps = { context, sql, orgId };
   const acc = newAccumulator();
@@ -745,6 +899,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext, recovery, predictiveRisk,
+    riskBreakdown,
   };
 
   await persistGuardDecision(sql, buildGuardDecisionRow(input));

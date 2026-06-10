@@ -10,6 +10,7 @@ import {
 import PageLayout from '../components/PageLayout';
 import { filterSignalsBySeverity } from '../lib/security-filter';
 import { signalDismissKey } from '../lib/signal-hash';
+import { RISK_HIGH_MIN } from '../lib/riskThresholds';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
@@ -116,13 +117,14 @@ function SecurityDashboardInner() {
       setSignals(signalsData.signals || []);
       setSecurityStatus(securityData);
 
-      // Filter for high-risk actions: risk_score >= 70 OR (no auth scope AND irreversible)
+      // Filter for high-risk actions: risk in the shared HIGH band OR
+      // (no auth scope AND irreversible).
       const actions = actionsData.actions || [];
       const risky = actions.filter((a: any) => {
         const risk = parseInt(a.risk_score, 10) || 0;
         const unscoped = !a.authorization_scope;
         const irreversible = a.reversible === 0;
-        return risk >= 70 || (unscoped && irreversible);
+        return risk >= RISK_HIGH_MIN || (unscoped && irreversible);
       });
       setHighRiskActions(risky);
 

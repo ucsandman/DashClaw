@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
 import { createRiskTemplate, listRiskTemplates } from '../../../lib/scoringProfiles';
+import { invalidateGuardRiskTemplateCache } from '../../../lib/guard';
 
 export async function GET(request: Request) {
   try {
@@ -32,6 +33,7 @@ export async function POST(request: Request) {
     }
 
     const template = await createRiskTemplate(sql, orgId, body);
+    invalidateGuardRiskTemplateCache(orgId); // templates feed live guard risk
     return Response.json(template, { status: 201 });
   } catch (err) {
     console.error('[scoring/risk-templates] POST error:', (err as Error).message);

@@ -1,26 +1,34 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, Fragment } from 'react';
 import Link from 'next/link';
-import { Award, RotateCw } from 'lucide-react';
+import { Award, RotateCw, ChevronDown, ChevronUp } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
 import { ProgressBar } from '../components/ui/ProgressBar';
+import { riskBand } from '../lib/riskThresholds';
 
 interface ReputationVector {
   agent_id: string;
-  reliability_score?: number | string;
-  risk_score?: number | string;
-  completion_rate?: number | string;
-  confidence?: number | string;
+  reliability_score?: number | string | null;
+  risk_score?: number | string | null;
+  completion_rate?: number | string | null;
+  confidence?: number | string | null;
   total_events?: number | string;
+  breakdown?: any;
 }
 
+// One-decimal floor: "100%" only for a literally perfect smoothed score (the
+// Bayesian prior makes that impossible), so saturated agents read 99.x% and
+// stay rankable. Null/undefined renders an em dash, not a fake "0%".
 function pct(value: number | string | null | undefined): string {
-  return `${Math.round(Number(value || 0) * 100)}%`;
+  if (value == null || value === '') return '—';
+  const n = Number(value);
+  if (!Number.isFinite(n)) return '—';
+  return `${Math.floor(Math.min(1, Math.max(0, n)) * 1000) / 10}%`;
 }
 
 function reliabilityColor(score: number | string | null | undefined): string {
@@ -31,14 +39,22 @@ function reliabilityColor(score: number | string | null | undefined): string {
   return 'error';
 }
 
-// risk_score is a 0-100 integer (app/lib/reputation.js computeRiskScore), not a
-// 0..1 fraction like the other vector scores — threshold on the 0-100 scale.
-function riskBadge(score: number | string | null | undefined): { variant: string; label: string } {
-  const n = Number(score || 0);
-  if (n >= 66) return { variant: 'error', label: 'High risk' };
-  if (n >= 33) return { variant: 'warning', label: 'Med risk' };
-  return { variant: 'success', label: 'Low risk' };
-}
+// risk_score is a 0-100 integer (app/lib/reputation.ts computeRiskScore), not a
+// 0..1 fraction like the other vector scores. Bands come from the shared
+// module so /reputation, /swarm, and /security agree.
+const RISK_BADGE = {
+  high: { variant: 'error', label: 'High risk' },
+  medium: { variant: 'warning', label: 'Med risk' },
+  low: { variant: 'success', label: 'Low risk' },
+} as const;
+
+const DIMENSION_LABELS: Record<string, string> = {
+  outcome: 'Completion',
+  approval: 'Approval adherence',
+  policy_violation: 'Policy violations',
+  quality: 'Quality',
+  risk: 'Risk (separate)',
+};
 
 export default function ReputationPage() {
   const [leaderboard, setLeaderboard] = useState<ReputationVector[]>([]);
@@ -46,6 +62,7 @@ export default function ReputationPage() {
   const [recomputing, setRecomputing] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number }>({ done: 0, total: 0 });
   const [loadError, setLoadError] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const fetchLeaderboard = useCallback(async () => {
     setLoadError(false);
@@ -164,9 +181,11 @@ export default function ReputationPage() {
                 <tbody className="divide-y divide-border">
                   {leaderboard.map((vector, i) => {
                     const reliability = Number(vector.reliability_score || 0);
-                    const risk = riskBadge(vector.risk_score);
+                    const risk = RISK_BADGE[riskBand(Number(vector.risk_score) || 0)];
+                    const isOpen = !!expanded[vector.agent_id];
                     return (
-                      <tr key={vector.agent_id} className="transition-colors hover:bg-white/[0.02]">
+                      <Fragment key={vector.agent_id}>
+                      <tr className="transition-colors hover:bg-white/[0.02]">
                         <td className="px-6 py-4">
                           <span className="text-sm font-semibold tabular-nums text-tertiary">
                             #{i + 1}
@@ -191,8 +210,17 @@ export default function ReputationPage() {
                               className="w-24"
                             />
                             <span className="text-sm font-medium tabular-nums text-white">
-                              {pct(reliability)}
+                              {pct(vector.reliability_score)}
                             </span>
+                            <button
+                              type="button"
+                              onClick={() => setExpanded((prev) => ({ ...prev, [vector.agent_id]: !prev[vector.agent_id] }))}
+                              className="rounded p-0.5 text-tertiary transition-colors hover:text-white"
+                              aria-expanded={isOpen}
+                              aria-label={`${isOpen ? 'Hide' : 'Show'} reliability derivation for ${vector.agent_id}`}
+                            >
+                              {isOpen ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                            </button>
                           </div>
                         </td>
                         <td className="px-6 py-4">
@@ -211,6 +239,34 @@ export default function ReputationPage() {
                           </span>
                         </td>
                       </tr>
+                      {isOpen && (
+                        <tr className="bg-white/[0.015]">
+                          <td colSpan={6} className="px-6 py-4">
+                            {vector.breakdown?.dimensions ? (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-5">
+                                  {vector.breakdown.dimensions.map((d: any) => (
+                                    <div key={d.key}>
+                                      <div className="text-[10px] font-semibold uppercase tracking-wider text-tertiary">{DIMENSION_LABELS[d.key] || d.key}</div>
+                                      <div className="font-mono tabular-nums text-secondary">
+                                        {d.key === 'risk' ? Math.round(Number(d.smoothed)) : Number(d.smoothed).toFixed(3)}
+                                        <span className="text-tertiary"> · {d.event_count} ev</span>
+                                        {d.contribution != null && <span className="text-tertiary"> · w {Number(vector.breakdown.normalized_weights?.[d.key] ?? 0).toFixed(2)}</span>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                                <p className="text-[11px] text-tertiary">
+                                  Weighted blend over evidence-bearing dimensions · unrounded {Number(vector.breakdown.reliability_unrounded).toFixed(4)} · decay half-life {vector.breakdown.half_life_days}d. {vector.breakdown.note}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="text-xs text-tertiary">No derivation stored for this snapshot — recompute to generate the breakdown.</p>
+                            )}
+                          </td>
+                        </tr>
+                      )}
+                      </Fragment>
                     );
                   })}
                 </tbody>

@@ -18,6 +18,7 @@ import AssumptionGraph from '../../components/AssumptionGraph';
 import ExecutionGraph from '../../components/ExecutionGraph';
 import { TimelineMessage } from '../../components/MessageTrail';
 import ArtifactsTab from '../../components/ArtifactsTab';
+import RiskBreakdownPanel from '../../components/RiskBreakdownPanel';
 import { parseJsonArray } from '../../lib/parseJson';
 
 interface CopyButtonProps {
@@ -457,7 +458,8 @@ export default function DecisionReplayPage() {
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <Card hover={false} className={`border ${getRiskColor(action.risk_score)}`}>
           <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-semibold tabular-nums">{action.risk_score || 0}</div>
+            {/* NULL = never scored (no client/guard risk) — render an em dash, not a fake 0. */}
+            <div className="text-2xl font-semibold tabular-nums">{action.risk_score ?? '—'}</div>
             <div className="text-[10px] text-tertiary uppercase tracking-wider mt-1">Risk Score</div>
           </CardContent>
         </Card>
@@ -490,6 +492,13 @@ export default function DecisionReplayPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* ═══ Risk derivation (from the correlated guard decision) ═══ */}
+      {guardDecision?.risk_breakdown && (
+        <div className="mb-6">
+          <RiskBreakdownPanel breakdown={guardDecision.risk_breakdown} />
+        </div>
+      )}
 
       {/* ═══ Model + learning-recommendation linkage ═══ */}
       {(action.model || action.recommendation_id) && (
@@ -913,10 +922,14 @@ export default function DecisionReplayPage() {
                     <div>INTEGRITY_SIGNALS: {trace?.root_cause_indicators?.length || 0}</div>
                     <div>ASSUMPTIONS_CHECKED: {assumptions.length}</div>
                     <div className="my-4 border-t border-success/20" />
-                    <div className="text-success font-bold mt-4">VERIFIABLE_SIGNATURE:</div>
-                    <div className="break-all mt-1 opacity-60">
-                      dc_sig_v1_{btoa(JSON.stringify({ id: actionId, status: action.status, salt: Math.random() })).substring(0, 128)}
-                    </div>
+                    {/* Real signature state only — a fabricated random "signature"
+                        used to render here, changing every refresh. */}
+                    <div>SIGNATURE_VERIFIED: {action.verified ? 'TRUE' : 'FALSE'}</div>
+                    {action.signature ? (
+                      <div className="break-all mt-1 opacity-60">{String(action.signature)}</div>
+                    ) : (
+                      <div className="mt-1 opacity-60">No agent signature attached to this action.</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

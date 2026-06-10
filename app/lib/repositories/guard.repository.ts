@@ -65,7 +65,8 @@ export async function listGuardDecisions(
 
     const where = conditions.join(' AND ');
     const query = `
-      SELECT id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, action_type, risk_score, decision, ${reasonCol}, matched_policies, created_at
+      SELECT id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, action_type, risk_score, decision, ${reasonCol}, matched_policies, created_at,
+             context->'_risk_breakdown' AS risk_breakdown
       FROM guard_decisions
       WHERE ${where}
       ORDER BY created_at DESC

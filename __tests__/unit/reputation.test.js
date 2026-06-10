@@ -4,6 +4,7 @@ import {
   bayesianAverage,
   PRIORS,
   computeVector,
+  computeVectorWithBreakdown,
   hashVector,
   buildReputationReceipt,
   verifyReputationReceipt,
@@ -84,6 +85,81 @@ describe('reputation math (B2)', () => {
     const v2 = computeVector('a', [{ event_type: 'outcome', value: 1, occurred_at: iso(0) }], { now: NOW });
     expect(hashVector(v1)).toBe(hashVector(v2));
     expect(hashVector(v1)).toMatch(/^sha256:/);
+  });
+
+  it('guard-decision flood cannot peg reliability: 5,000 clean guard calls + 3 failures scores well below 0.97', () => {
+    // The old pooled formula scored this >= 0.999 ("always 100%"): every
+    // non-block guard decision contributed a full-weight 1.0 sample.
+    const events = [
+      ...Array.from({ length: 5000 }, (_, i) => ({ event_type: 'policy_violation', value: 0, occurred_at: iso(i * 60_000) })),
+      ...Array.from({ length: 3 }, (_, i) => ({ event_type: 'outcome', value: 0, occurred_at: iso(i * DAY) })),
+    ];
+    const v = computeVector('a', events, { now: NOW });
+    expect(v.reliability_score).toBeLessThan(0.97);
+    expect(v.reliability_score).toBeGreaterThan(0);
+  });
+
+  it('mixed outcomes land strictly below 1.0 and the breakdown carries provenance', () => {
+    const { vector, breakdown } = computeVectorWithBreakdown('a', [
+      { event_type: 'outcome', value: 1, occurred_at: iso(0) },
+      { event_type: 'outcome', value: 0, occurred_at: iso(DAY) },
+      { event_type: 'approval', value: 1, occurred_at: iso(DAY) },
+      { event_type: 'policy_violation', value: 1, occurred_at: iso(2 * DAY) },
+      { event_type: 'quality', value: 0.8, occurred_at: iso(3 * DAY) },
+    ], { now: NOW, lookbackDays: 365 });
+
+    expect(vector.reliability_score).toBeLessThan(1);
+    expect(breakdown.formula).toBe('weighted_blend/v1');
+    expect(breakdown.half_life_days).toBe(90);
+    expect(breakdown.lookback_days).toBe(365);
+    expect(breakdown.dimensions).toHaveLength(5);
+    const outcomeDim = breakdown.dimensions.find((d) => d.key === 'outcome');
+    expect(outcomeDim.event_count).toBe(2);
+    expect(outcomeDim.prior).toEqual(PRIORS.completion);
+    // Normalized weights over active dimensions sum to 1.
+    const weightSum = Object.values(breakdown.normalized_weights).reduce((a, b) => a + b, 0);
+    expect(weightSum).toBeCloseTo(1, 3);
+    // The blend reproduces the published score.
+    const blended = breakdown.dimensions
+      .filter((d) => d.contribution != null)
+      .reduce((s, d) => s + d.contribution, 0);
+    expect(blended).toBeCloseTo(vector.reliability_score, 2);
+    // Risk never enters the blend.
+    expect(breakdown.dimensions.find((d) => d.key === 'risk').contribution).toBeNull();
+  });
+
+  it('breakdown stays OUT of the hashed vector (sibling, not field)', () => {
+    const { vector, breakdown } = computeVectorWithBreakdown('a', [
+      { event_type: 'outcome', value: 1, occurred_at: iso(0) },
+    ], { now: NOW });
+    expect(vector.breakdown).toBeUndefined();
+    expect(hashVector(vector)).toBe(hashVector(computeVector('a', [
+      { event_type: 'outcome', value: 1, occurred_at: iso(0) },
+    ], { now: NOW })));
+    expect(breakdown).toBeTruthy();
+  });
+
+  it('RECEIPT COMPAT: a receipt embedding a pre-change (pooled-formula) vector still verifies', () => {
+    // Fixture vector with the OLD formula's characteristic saturated pooled
+    // reliability — verification recomputes the hash from the embedded vector
+    // and never re-runs the formula, so stored receipts keep verifying.
+    const preChangeVector = {
+      agent_id: 'legacy-agent',
+      reliability_score: 0.9994,
+      completion_rate: 0.9991,
+      policy_violation_rate: 0.0006,
+      approval_adherence: 0.8,
+      quality_score: 0.7,
+      risk_score: 42,
+      volume_weight: 6.2146,
+      confidence: 0.4628,
+      total_events: 5003,
+      last_event_at: '2026-06-01T00:00:00.000Z',
+      computed_at: '2026-06-02T00:00:00.000Z',
+    };
+    const key = generateSigningKey();
+    const receipt = buildReputationReceipt(preChangeVector, { kid: key.kid, privateKeyJwk: key.privateKeyJwk }, '2026-06-02T00:00:00.000Z');
+    expect(verifyReputationReceipt(receipt, key.publicKeyJwk)).toEqual({ ok: true });
   });
 
   it('signs a receipt and verifies it; a tampered vector fails verification', () => {

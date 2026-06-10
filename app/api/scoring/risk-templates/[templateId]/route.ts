@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { getSql } from '../../../../lib/db';
 import { getOrgId } from '../../../../lib/org';
 import { updateRiskTemplate, deleteRiskTemplate } from '../../../../lib/scoringProfiles';
+import { invalidateGuardRiskTemplateCache } from '../../../../lib/guard';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ templateId: string }> }) {
   try {
@@ -15,6 +16,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ te
     const updated = await updateRiskTemplate(sql, orgId, templateId, body);
     if (!updated) return Response.json({ error: 'Template not found' }, { status: 404 });
 
+    invalidateGuardRiskTemplateCache(orgId); // templates feed live guard risk
     return Response.json(updated);
   } catch (err) {
     console.error('[scoring/risk-templates/:id] PATCH error:', (err as Error).message);
@@ -31,6 +33,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ t
     const deleted = await deleteRiskTemplate(sql, orgId, templateId);
     if (!deleted) return Response.json({ error: 'Template not found' }, { status: 404 });
 
+    invalidateGuardRiskTemplateCache(orgId); // templates feed live guard risk
     return Response.json({ deleted: true });
   } catch (err) {
     console.error('[scoring/risk-templates/:id] DELETE error:', (err as Error).message);

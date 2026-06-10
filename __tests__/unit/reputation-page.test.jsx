@@ -142,9 +142,65 @@ describe('ReputationPage', () => {
     expect(screen.getByText('42')).toBeTruthy();
     expect(screen.getByText('12')).toBeTruthy();
 
-    // risk_score is a 0-100 integer (not a 0..1 fraction) — badge thresholds at 33/66
+    // risk_score is a 0-100 integer (not a 0..1 fraction) — bands from the
+    // shared riskThresholds module (40/70)
     expect(within(rows[1]).getByText('Low risk')).toBeTruthy(); // risk_score 10
     expect(within(rows[2]).getByText('High risk')).toBeTruthy(); // risk_score 80
+  });
+
+  it('saturated scores render one-decimal (no fake 100%) and the breakdown row expands with the dimension table', async () => {
+    global.fetch = vi.fn(async (url) => {
+      if (String(url).startsWith('/api/reputation/leaderboard')) {
+        return okJson({
+          leaderboard: [
+            {
+              agent_id: 'agent-sat',
+              reliability_score: '0.9994', // old display rounded this to "100%"
+              completion_rate: null,        // null renders an em dash, not 0%
+              confidence: '0.55',
+              risk_score: '20',
+              total_events: 5003,
+              breakdown: {
+                formula: 'weighted_blend/v1',
+                half_life_days: 90,
+                lookback_days: 365,
+                normalized_weights: { outcome: 0.64, policy_violation: 0.36 },
+                reliability_unrounded: 0.99935,
+                violation_penalty: { rate: 0.0006, ceiling_rate: 0.1, penalty: 0.006 },
+                dimensions: [
+                  { key: 'outcome', event_count: 3, effective_weight: 2.9, raw_rate: 1, prior: { weight: 3, value: 0.7 }, smoothed: 0.9991, blend_score: 0.9991, contribution: 0.6394 },
+                  { key: 'policy_violation', event_count: 5000, effective_weight: 4100, raw_rate: 0.0006, prior: { weight: 5, value: 0.05 }, smoothed: 0.0006, blend_score: 0.994, contribution: 0.3578 },
+                  { key: 'risk', event_count: 5000, effective_weight: 4100, raw_rate: 20, prior: { weight: 0, value: 0 }, smoothed: 20, blend_score: null, contribution: null },
+                ],
+                note: 'Risk is tracked separately.',
+              },
+            },
+          ],
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    });
+
+    const { default: ReputationPage } = await import('@/reputation/page.jsx');
+    const { container } = render(<ReputationPage />);
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('list-skeleton')).toBeNull();
+    });
+
+    // 0.9994 floors to 99.9%, never "100%"; null completion is an em dash.
+    expect(container.textContent).toContain('99.9%');
+    expect(container.textContent).not.toContain('100%');
+    expect(container.textContent).toContain('—');
+
+    // Expand the derivation row.
+    const toggle = screen.getByRole('button', { name: /reliability derivation for agent-sat/i });
+    fireEvent.click(toggle);
+    expect(container.textContent).toContain('Completion');
+    expect(container.textContent).toContain('Policy violations');
+    expect(container.textContent).toContain('5000 ev');
+    expect(container.textContent).toContain('unrounded 0.999'); // unrounded blend, 4dp
+    expect(container.textContent).toContain('Risk is tracked separately.');
   });
 
   it('shows the empty state with a recompute action, which populates the leaderboard', async () => {

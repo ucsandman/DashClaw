@@ -21,7 +21,10 @@ const SCORE_TILES = [
 function scorePct(value: unknown): number | null {
   const n = Number(value);
   if (!Number.isFinite(n)) return null;
-  return Math.round(Math.min(1, Math.max(0, n)) * 100);
+  // Floor to one decimal: "100%" only ever appears for a literally perfect
+  // smoothed score (which the Bayesian prior makes impossible) — integer
+  // rounding used to display anything >= 0.995 as "100%".
+  return Math.floor(Math.min(1, Math.max(0, n)) * 1000) / 10;
 }
 
 function scoreColor(pct: number | null): string {
@@ -57,6 +60,65 @@ const EVENT_VARIANT: Record<string, string> = {
   policy_violation: 'error',
 };
 
+const DIMENSION_LABELS: Record<string, string> = {
+  outcome: 'Completion',
+  approval: 'Approval adherence',
+  policy_violation: 'Policy violations',
+  quality: 'Quality',
+  risk: 'Risk (separate)',
+};
+
+// Reliability derivation table — one row per dimension of the weighted blend.
+function BreakdownPanel({ breakdown }: { breakdown: any }) {
+  if (!breakdown?.dimensions) {
+    return (
+      <p className="py-2 text-xs text-tertiary">
+        No derivation stored yet — run a recompute to generate the breakdown.
+      </p>
+    );
+  }
+  const fmt = (v: unknown, digits = 3) => (v == null ? '—' : Number(v).toFixed(digits));
+  return (
+    <div className="mt-3 space-y-3">
+      <table className="w-full text-left text-xs">
+        <thead>
+          <tr className="border-b border-border text-[10px] font-semibold uppercase tracking-wider text-tertiary">
+            <th className="py-1.5 pr-2">Dimension</th>
+            <th className="py-1.5 pr-2 text-right">Events</th>
+            <th className="py-1.5 pr-2 text-right">Smoothed</th>
+            <th className="py-1.5 pr-2 text-right">Weight</th>
+            <th className="py-1.5 text-right">Contribution</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-white/[0.04] font-mono text-secondary">
+          {breakdown.dimensions.map((d: any) => (
+            <tr key={d.key}>
+              <td className="py-1.5 pr-2 font-sans">{DIMENSION_LABELS[d.key] || d.key}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{d.event_count}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{d.key === 'risk' ? Math.round(Number(d.smoothed)) : fmt(d.smoothed)}</td>
+              <td className="py-1.5 pr-2 text-right tabular-nums">{d.contribution == null ? '—' : fmt(breakdown.normalized_weights?.[d.key], 2)}</td>
+              <td className="py-1.5 text-right tabular-nums">{d.contribution == null ? '—' : fmt(d.contribution)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="space-y-1 text-[11px] text-tertiary">
+        <p>
+          Reliability = weighted blend of evidence-bearing dimensions
+          (unrounded: <span className="font-mono">{fmt(breakdown.reliability_unrounded, 4)}</span>).
+          Violations enter as 1 − penalty; penalty = min(1, rate / {breakdown.violation_penalty?.ceiling_rate}).
+        </p>
+        <p>
+          Decay half-life {breakdown.half_life_days}d
+          {breakdown.lookback_days ? ` · lookback ${breakdown.lookback_days}d` : ''}
+          {' '}· events list shows the most recent 2,000.
+        </p>
+        <p>{breakdown.note}</p>
+      </div>
+    </div>
+  );
+}
+
 interface AgentReputationProps {
   agentId: string;
 }
@@ -72,6 +134,7 @@ export default function AgentReputation({ agentId }: AgentReputationProps) {
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [eventsOpen, setEventsOpen] = useState(false);
   const [eventsError, setEventsError] = useState(false);
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
 
   const fetchSummary = useCallback(async () => {
     setLoading(true);
@@ -211,6 +274,18 @@ export default function AgentReputation({ agentId }: AgentReputationProps) {
                 color={scoreColor(confidencePct)}
               />
             </div>
+          </div>
+
+          <div className="mt-4 border-t border-border pt-3">
+            <button
+              onClick={() => setBreakdownOpen((v) => !v)}
+              className="flex w-full items-center justify-between text-left text-xs font-medium text-secondary transition-colors hover:text-white"
+              aria-expanded={breakdownOpen}
+            >
+              <span>How this is derived</span>
+              {breakdownOpen ? <ChevronUp size={14} className="text-tertiary" /> : <ChevronDown size={14} className="text-tertiary" />}
+            </button>
+            {breakdownOpen && <BreakdownPanel breakdown={summary?.breakdown} />}
           </div>
 
           <div className="mt-4 border-t border-border pt-3">

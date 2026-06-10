@@ -16,6 +16,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { useRealtime } from '../hooks/useRealtime';
 import { useAgentFilter } from '../lib/AgentFilterContext';
+import { riskBand, RISK_MEDIUM_MIN, RISK_HIGH_MIN } from '../lib/riskThresholds';
 import { useForceSimulation } from './useForceSimulation';
 
 // Honest sub-cent display: real spend below $0.01 must not round to "$0.00"
@@ -252,7 +253,8 @@ export default function SwarmTopologyPage() {
 
         ctx.globalAlpha = dimmed ? 0.12 : 1;
 
-        const rCol = node.risk > 70 ? colors.error : node.risk > 40 ? colors.warning : colors.success;
+        const rBand = riskBand(node.risk);
+        const rCol = rBand === 'high' ? colors.error : rBand === 'medium' ? colors.warning : colors.success;
         // Node radius carries activity: busier agents read larger (node.val ≈ log of action count).
         const baseR = 10 + Math.min(node.val || 0, 14) * 0.45;
         const r = isSel ? baseR + 5 : baseR;
@@ -631,7 +633,7 @@ export default function SwarmTopologyPage() {
                   <>
                     {context.shared_actions.slice(0, 3).map((act: any, i: number) => {
                       const statusColor = act.status === 'completed' ? 'bg-status-success' : act.status === 'failed' ? 'bg-status-error' : 'bg-status-warning';
-                      const riskColor = act.risk_score >= 70 ? 'text-error' : 'text-warning';
+                      const riskColor = act.risk_score >= RISK_HIGH_MIN ? 'text-error' : 'text-warning';
                       return (
                         <a
                           key={i}
@@ -641,7 +643,7 @@ export default function SwarmTopologyPage() {
                           <div className="flex items-center gap-2">
                             <span className={`h-2 w-2 shrink-0 rounded-full ${statusColor}`} />
                             <span className="truncate text-secondary">{act.declared_goal || act.action_type}</span>
-                            {act.risk_score >= 40 && (
+                            {act.risk_score >= RISK_MEDIUM_MIN && (
                               <span className={`${riskColor} ml-auto shrink-0 font-mono text-[10px] tabular-nums`}>risk {act.risk_score}</span>
                             )}
                           </div>
@@ -753,7 +755,7 @@ export default function SwarmTopologyPage() {
               <div className="mb-3 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
                 <Target size={14} className="text-tertiary" /> Risk score
               </div>
-              <div className={`font-mono text-3xl tabular-nums tracking-tight ${action.risk_score > 70 ? 'text-error' : action.risk_score > 40 ? 'text-warning' : 'text-success'}`}>
+              <div className={`font-mono text-3xl tabular-nums tracking-tight ${riskBand(action.risk_score) === 'high' ? 'text-error' : riskBand(action.risk_score) === 'medium' ? 'text-warning' : 'text-success'}`}>
                 {action.risk_score || 0}%
               </div>
             </div>
@@ -949,7 +951,7 @@ export default function SwarmTopologyPage() {
                       {matches.length > 0 && (
                         <ul className="custom-scrollbar max-h-[260px] overflow-y-auto py-1">
                           {matches.slice(0, 8).map((m: any) => {
-                            const dot = (m.risk || 0) > 70 ? 'bg-status-error' : (m.risk || 0) > 40 ? 'bg-status-warning' : 'bg-status-success';
+                            const dot = riskBand(m.risk) === 'high' ? 'bg-status-error' : riskBand(m.risk) === 'medium' ? 'bg-status-warning' : 'bg-status-success';
                             return (
                               <li key={m.id}>
                                 <button
@@ -1017,7 +1019,7 @@ export default function SwarmTopologyPage() {
                       <h3 className="mb-0.5 text-lg font-semibold text-white">{selectedAgent.name}</h3>
                       <code className="font-mono text-[10px] text-tertiary">{selectedAgent.id.substring(0, 12)}…</code>
                       <div className="mt-3 flex flex-wrap gap-2">
-                        <Badge variant={(selectedAgent.risk || 0) > 40 ? 'warning' : 'success'} size="xs" className="tabular-nums">
+                        <Badge variant={riskBand(selectedAgent.risk) === 'high' ? 'error' : riskBand(selectedAgent.risk) === 'medium' ? 'warning' : 'success'} size="xs" className="tabular-nums">
                           Risk {(selectedAgent.risk || 0).toFixed(0)}%
                         </Badge>
                       </div>

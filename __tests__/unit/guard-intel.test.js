@@ -46,6 +46,7 @@ describe('guard intel-aware policy types', () => {
       const sql = createSqlMock({
         taggedResponses: [
           [makePolicy('permission_escalation', { enforce: true })],
+          [], // risk_templates (2nd tagged query since the template layer)
           [{ permission_level: 'workspace_write' }],
         ],
       });
@@ -65,6 +66,7 @@ describe('guard intel-aware policy types', () => {
       const sql = createSqlMock({
         taggedResponses: [
           [makePolicy('permission_escalation', { enforce: true })],
+          [], // risk_templates (2nd tagged query since the template layer)
           [{ permission_level: 'danger' }],
         ],
       });
@@ -81,6 +83,7 @@ describe('guard intel-aware policy types', () => {
       const sql = createSqlMock({
         taggedResponses: [
           [makePolicy('permission_escalation', { enforce: true })],
+          [], // risk_templates (2nd tagged query since the template layer)
           [{ permission_level: 'allow' }],
         ],
       });
@@ -112,6 +115,7 @@ describe('guard intel-aware policy types', () => {
       const sql = createSqlMock({
         taggedResponses: [
           [makePolicy('permission_escalation', { enforce: true })],
+          [], // risk_templates (2nd tagged query since the template layer)
           [], // no pairing rows
         ],
       });

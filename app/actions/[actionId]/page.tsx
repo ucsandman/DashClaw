@@ -14,6 +14,7 @@ import PageLayout from '../../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import AssumptionGraph from '../../components/AssumptionGraph';
+import RiskBreakdownPanel from '../../components/RiskBreakdownPanel';
 import { parseJsonArray } from '../../lib/parseJson';
 
 interface CopyButtonProps {
@@ -330,6 +331,13 @@ export default function DecisionReplayPage() {
         </div>
       )}
 
+      {/* ═══ Risk derivation (from the correlated guard decision) ═══ */}
+      {guardDecision?.risk_breakdown && (
+        <div className="mb-6">
+          <RiskBreakdownPanel breakdown={guardDecision.risk_breakdown} />
+        </div>
+      )}
+
       {/* ═══ Tab Navigation ═══ */}
       <div className="flex items-center gap-1 mb-6 border-b border-white/5 pb-px">
         {tabs.map((tab) => (
@@ -558,10 +566,14 @@ export default function DecisionReplayPage() {
                     <div>INTEGRITY_SIGNALS: {trace?.root_cause_indicators?.length || 0}</div>
                     <div>ASSUMPTIONS_CHECKED: {assumptions.length}</div>
                     <div className="my-4 border-t border-success/20" />
-                    <div className="text-success font-bold mt-4">VERIFIABLE_SIGNATURE:</div>
-                    <div className="break-all mt-1 opacity-60">
-                      dc_sig_v1_{btoa(JSON.stringify({ id: actionId, status: action.status, salt: Math.random() })).substring(0, 128)}
-                    </div>
+                    {/* Real signature state only — a fabricated random "signature"
+                        used to render here, changing every refresh. */}
+                    <div>SIGNATURE_VERIFIED: {action.verified ? 'TRUE' : 'FALSE'}</div>
+                    {action.signature ? (
+                      <div className="break-all mt-1 opacity-60">{String(action.signature)}</div>
+                    ) : (
+                      <div className="mt-1 opacity-60">No agent signature attached to this action.</div>
+                    )}
                   </div>
                 </CardContent>
               </Card>

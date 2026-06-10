@@ -7,7 +7,7 @@ import { getOrgId } from '../../../../../lib/org';
 import { agentExistsInOrg } from '../../../../../lib/repositories/agents.repository';
 import {
   getReputationSnapshot,
-  computeReputationVector,
+  computeReputationVectorWithBreakdown,
   snapshotToVector,
 } from '../../../../../lib/repositories/reputation.repository';
 
@@ -23,12 +23,15 @@ export async function GET(request: Request, { params }: { params: Promise<{ agen
     const orgId = getOrgId(request);
     const sql = await getSql();
 
+    // Snapshot path carries breakdown via snapshotToVector; the live path
+    // attaches it as a sibling — never inside the hashed vector.
     let vector = snapshotToVector(await getReputationSnapshot(sql, orgId, agentId));
     if (!vector) {
       if (!(await agentExistsInOrg(sql, orgId, agentId))) {
         return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
       }
-      vector = await computeReputationVector(sql, orgId, agentId);
+      const live = await computeReputationVectorWithBreakdown(sql, orgId, agentId);
+      vector = { ...live.vector, breakdown: live.breakdown };
     }
 
     const lastMs = vector.last_event_at ? Date.parse(vector.last_event_at) : null;
