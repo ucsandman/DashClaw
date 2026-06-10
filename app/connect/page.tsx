@@ -16,6 +16,7 @@ import {
 
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import HostedProvisionSection from './HostedProvisionSection';
 
 /*
  * Framework agnostic /connect runbook.
@@ -683,6 +684,9 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
 
       <main className="px-6 pb-20 pt-28">
         <div className="mx-auto max-w-5xl">
+          {/* Hosted instances only: anonymous trial mint (Turnstile-gated).
+              Renders nothing when DASHCLAW_HOSTED is unset (self-host). */}
+          <HostedProvisionSection />
           <FullConnectGuide />
         </div>
       </main>
