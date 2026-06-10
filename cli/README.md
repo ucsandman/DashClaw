@@ -57,6 +57,18 @@ Deny a single action by ID.
 dashclaw deny act_01h... --reason "Outside change window"
 ```
 
+### `dashclaw install claude`
+
+Provision DashClaw governance into Claude Code without cloning the repo.
+
+```bash
+dashclaw install claude                          # prompts for endpoint + API key
+dashclaw install claude --endpoint <url> --key <oc_live_...>
+dashclaw install claude --trial                  # browser signup on a hosted instance, paste the key
+```
+
+Flow: preflight (`/api/health` + an authenticated read — nothing is written until it passes), hooks downloaded from your instance's `/downloads/dashclaw-claude-code-hooks.zip` (or copied from a repo checkout), `python3`/`python` resolved automatically, managed hook entries merged into `~/.claude/settings.json` (`.dashclaw-bak` backup, replace-on-reinstall), credentials written to `~/.dashclaw/claude-hooks/.env` (mode 600 — no secret lands in settings.json). Installs in **observe mode**; flip to enforce by setting `DASHCLAW_HOOK_MODE=enforce` in that `.env`. For `--trial`, set `DASHCLAW_HOSTED_URL` (or `--endpoint`) to the hosted instance if it isn't prompted.
+
 ### `dashclaw cost`
 
 Spend readback from `GET /api/finops/spend` — your own Claude Code cost or the fleet rollup, straight from the terminal.

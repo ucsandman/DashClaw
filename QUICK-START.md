@@ -79,7 +79,7 @@ Run the canonical starter to record a real governed action.
    ```
 **Result:** The agent runs the full 4-step governance loop (`guard` → `createAction` → `recordAssumption` → `updateOutcome`). Open [Mission Control](http://localhost:3000/mission-control) and watch the Operations Feed light up with the new action, then click through to the Decision Replay to inspect the recorded evidence.
 
-> **See the approval gate fire:** A fresh instance has no policies, so `guard` returns `allow` by default. To see DashClaw pause a risky action for human review, run `node scripts/seed-demo-capabilities.mjs` from the repo root first. The seeded `require_approval` policy will hold the agent at the deploy step until you approve it at [`/approvals`](http://localhost:3000/approvals).
+> **See the approval gate fire:** A fresh self-hosted instance starts with no policies, so `guard` returns `allow` by default — import the `claude-code-starter` pack from [`/policies`](http://localhost:3000/policies) (or run `node scripts/seed-claude-code-starter.mjs`) to get the day-one baseline. Hosted trial workspaces come with that pack **pre-seeded** at provisioning. Either way, the pack's `require_approval` policies will hold the agent at the network/install steps until you approve at [`/approvals`](http://localhost:3000/approvals); `node scripts/seed-demo-capabilities.mjs` adds a deploy-gating demo policy on top.
 
 ---
 

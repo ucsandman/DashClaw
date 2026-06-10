@@ -13,6 +13,30 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **`dashclaw install claude [--trial]`** — clone-free Claude Code governance install in the CLI: preflights `/api/health` + an authenticated read before writing anything, downloads the hooks bundle from the target instance itself (or copies from a repo checkout), resolves `python3`-vs-`python`, wires managed hook entries into `~/.claude/settings.json`, stores credentials in `~/.dashclaw/claude-hooks/.env` (mode 600 — never in settings.json), and defaults to observe mode. `--trial` opens the hosted signup page and accepts the pasted key. README quick start rerouted through it — no clone step.
+- **`dashclaw cost [--lens fleet|claude-code] [--period 7d|30d|90d]`** — terminal spend readback over `GET /api/finops/spend` with an aligned table + summary line, friendly unconfigured/unreachable/401/empty states, and flag validation.
+- **Starter pack auto-seed** — hosted trial provisioning now seeds the `claude-code-starter` policy pack (4 policies) right after the key mint, so the first governed session enforces something. Seeding failure logs loudly but never fails provisioning. Pack import logic extracted to `app/lib/guardrails/import-pack.ts` (route behavior unchanged).
+- **Visible first session** — the Stop hook prints a one-line recap after any turn that governed ≥1 action (`[DashClaw] Governed N action(s) this session — $X.XX (caching saved $Y.YY) · <url>/decisions`), quoting the same `code_sessions` cost row the `/api/finops/spend` claude-code lens aggregates.
+- **`POST /api/guard?record=true`** (additive) — also creates the running action record in-request (shared `createActionRecord` repository, same redaction/quota/side-effects as `POST /api/actions`) and returns the real `action_id`; no record on block decisions. The pretool hook now makes ONE HTTP call per governed tool call, with a version-tolerant fallback to the legacy two-call flow against older servers.
+- **`docs/HOSTED_TRIAL_RUNBOOK.md`** — the operator flip checklist for taking the hosted trial live (companion to `hosted-deployment-runbook.md`).
+- `drizzle/0027` — the live-DB `action_records` indexes (`org_id`, `org+action_id`, `org+agent_id`, `org+timestamp_start`, `org+recommendation_id`) codified into `schema/schema.js` + migrations with `IF NOT EXISTS`; fresh installs no longer seq-scan the hottest table.
+
+### Changed
+
+- **Turbopack everywhere.** The 1,411 mismatched relative `.js` import specifiers (pointing at since-converted `.ts`/`.tsx` files) were codemodded to extensionless across 448 files, removing the reason for the `--webpack` opt-out: `npm run dev`, `dev:smoke`, `npm run build`, and the Vercel `buildCommand` all run Turbopack. Build compile 100s → ~7s; dev server ready in ~300ms with first page ≤0.8s (was 4.6s).
+- **Dashboard fast paint.** `/api/operations/feed` p50 1.4–1.5s → ~0.3s: integration-health probes run in parallel behind a 5-min module cache and the feed request path never awaits live external probes; Mission Control paints each data slice as it lands instead of gating on the slowest of 9 fetches; `/api/signals` collapsed from ~7 sequential query waves to 2 (p50 ~0.25s); recharts (344KB) moved behind `next/dynamic` on `/spend`, `/spend/code`, `/analytics`.
+- **Guard hot path.** `POST /api/guard` executes ≤4 DB round-trips cold / ≤2 warm (was ~9): org policies + predictive-risk settings sit in 30s module caches (invalidated by every policy mutation path), the learning context is ONE batched scalar-subquery statement, and predictive risk (including its statistical adjustment) is skipped entirely when `PREDICTIVE_RISK_ENABLED` is off. Guard p50 0.291s → 0.110s. Decision semantics pinned by characterization tests committed before the refactor.
+- **Hook fail-closed latency.** An unreachable instance now fails closed in ≤3s instead of ~8s: guard retries default 3 attempts → 1 (`DASHCLAW_GUARD_RETRIES`), failed health probes are negative-cached for 60s, and a 2s TCP preflight bounds the SYN-blackhole case only when the cached probe verdict is unreachable. Always exit 2 — never fail-open.
+- **Code Sessions capture defaults ON, metadata-only.** `DASHCLAW_CODE_SESSIONS_ENABLED` now defaults on with prompt text, assistant text, thinking, tool inputs (except safe path fields) and tool results stripped before anything leaves the machine; `DASHCLAW_CODE_SESSIONS_ENABLED=0` opts out entirely and `DASHCLAW_CODE_SESSIONS_CONTENT=full` is the explicit full-text opt-in.
+- The static plugin `hooks.json` invokes hooks through a new `hooks/run_hook.cjs` node shim that resolves `python3`-vs-`python` and runs the hook exactly once (a `python3 X || python X` one-liner would re-run the hook when a guard block exits 2) — fixes python3-only macOS/Linux.
+
+### Fixed
+
+- `getCostAggregation` summed lifetime token counts with `::integer`, overflowing at 2³¹ on real fleets ("integer out of range" 500 on the fleet spend lens) — now `::bigint` with `Number()` coercion.
+- livingcode's doctor-checks emitter wrote a `../../db.js` specifier into the generated module after `app/lib/db` became TypeScript — emits extensionless now (was the last Turbopack blocker).
+
 ## [4.7.10] — 2026-06-09
 
 ### Changed
