@@ -75,6 +75,11 @@ export async function listMessages(sql: SqlClient, orgId: string, filters: ListM
 
 export async function getUnreadMessageCount(sql: SqlClient, orgId: string, agentId: string | null = null): Promise<number> {
   const readerId = agentId || 'dashboard';
+  // Broadcast read-state uses jsonb element containment (`?`), not text LIKE:
+  // the old pattern match treated `_`/`%` in agent ids as wildcards (an
+  // 'agent_1' reader matched any '"agentX1"' entry), so ids that pattern-
+  // collide produced false read state. read_by is always written as a JSON
+  // array by the PATCH handler.
   if (agentId) {
     const countResult = await sql.query(
       `SELECT COUNT(*)::int as count FROM agent_messages
@@ -82,18 +87,17 @@ export async function getUnreadMessageCount(sql: SqlClient, orgId: string, agent
          AND (to_agent_id = $2 OR to_agent_id IS NULL)
          AND from_agent_id != $2
          AND status = 'sent'
-         AND (to_agent_id IS NOT NULL OR read_by IS NULL OR NOT (read_by::text LIKE '%' || $3 || '%'))`,
-      [orgId, agentId, `"${readerId}"`]
+         AND (to_agent_id IS NOT NULL OR read_by IS NULL OR NOT (read_by::jsonb ? $3))`,
+      [orgId, agentId, readerId]
     );
     return (countResult[0]?.count as number | undefined) || 0;
   }
 
-  const likePattern = `%"${readerId}"%`;
   const countResult = await sql`
     SELECT COUNT(*)::int as count FROM agent_messages
     WHERE org_id = ${orgId}
       AND status = 'sent'
-      AND (to_agent_id IS NOT NULL OR read_by IS NULL OR NOT (read_by::text LIKE ${likePattern}))
+      AND (to_agent_id IS NOT NULL OR read_by IS NULL OR NOT (read_by::jsonb ? ${readerId}))
   `;
   return (countResult[0]?.count as number | undefined) || 0;
 }

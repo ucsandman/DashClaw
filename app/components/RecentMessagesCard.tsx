@@ -13,26 +13,7 @@ import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { getAgentColor } from '../lib/colors';
 import { HelpIcon } from './HelpIcon';
 import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
-
-const TYPE_VARIANTS: Record<string, string> = {
-  action: 'warning',
-  info: 'info',
-  lesson: 'success',
-  question: 'secondary',
-  status: 'default',
-};
-
-function timeAgo(dateStr: any) {
-  if (!dateStr) return '';
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days}d ago`;
-}
+import { timeAgo, TYPE_VARIANTS } from '../messages/_components/helpers';
 
 export default function RecentMessagesCard() {
   const [messages, setMessages] = useState<any[]>([]);

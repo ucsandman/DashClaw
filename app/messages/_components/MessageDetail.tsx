@@ -6,6 +6,7 @@ import { isDemoMode } from '../../lib/isDemoMode';
 import { timeAgo, TYPE_VARIANTS, stripMarkdown, copyToClipboard } from './helpers';
 import MarkdownBody from './MarkdownBody';
 import AttachmentChips from './AttachmentChips';
+import { EntityLink } from '../../components/context-menu/EntityLink';
 
 interface MessageDetailProps {
   message: any;
@@ -55,20 +56,20 @@ export default function MessageDetail({ message, outbound, onMarkRead, onArchive
       {message.subject && (
         <div className="text-sm font-medium text-secondary mb-2">{message.subject}</div>
       )}
-      <div className="mb-3 bg-white/[0.02] rounded-md p-3">
+      <div className="mb-3 bg-surface-tertiary rounded-md p-3">
         <MarkdownBody content={body} />
       </div>
       <AttachmentChips attachments={message.attachments} />
       <div className="flex gap-1.5 mb-3 mt-2">
         <button
           onClick={() => handleCopy('markdown')}
-          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-white/[0.04] text-secondary hover:text-secondary hover:bg-white/[0.08] transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-surface-tertiary text-secondary hover:text-white hover:bg-surface-elevated transition-colors"
         >
           <Copy size={10} /> {copyState === 'markdown' ? 'Copied!' : 'Copy Markdown'}
         </button>
         <button
           onClick={() => handleCopy('plain')}
-          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-white/[0.04] text-secondary hover:text-secondary hover:bg-white/[0.08] transition-colors"
+          className="flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-surface-tertiary text-secondary hover:text-white hover:bg-surface-elevated transition-colors"
         >
           <FileType size={10} /> {copyState === 'plain' ? 'Copied!' : 'Copy Plain Text'}
         </button>
@@ -98,24 +99,34 @@ export default function MessageDetail({ message, outbound, onMarkRead, onArchive
           </span>
         )}
       </div>
+      {message.action_id && (
+        <div className="mb-3 text-xs text-tertiary">
+          Linked action:{' '}
+          <EntityLink type="action" id={message.action_id} className="font-mono text-secondary">
+            {String(message.action_id).slice(0, 16)}
+          </EntityLink>
+        </div>
+      )}
       <div className="flex gap-2 flex-wrap">
         {!message.is_read && message.status === 'sent' && (
-          <>
-            <button
-              onClick={() => onMarkRead?.(message.id)}
-              disabled={isDemo}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-white/[0.06] text-secondary hover:bg-white/[0.1] transition-colors disabled:opacity-50"
-            >
-              <Eye size={12} /> Mark Read
-            </button>
-            <button
-              onClick={() => onArchive?.(message.id)}
-              disabled={isDemo}
-              className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-white/[0.06] text-secondary hover:bg-white/[0.1] transition-colors disabled:opacity-50"
-            >
-              <Archive size={12} /> Archive
-            </button>
-          </>
+          <button
+            onClick={() => onMarkRead?.(message.id)}
+            disabled={isDemo}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-surface-tertiary text-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+          >
+            <Eye size={12} /> Mark Read
+          </button>
+        )}
+        {/* Archive is valid for any non-archived message — the API never
+            required unread, and the right-click context menu already allows it. */}
+        {message.status !== 'archived' && (
+          <button
+            onClick={() => onArchive?.(message.id)}
+            disabled={isDemo}
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-surface-tertiary text-secondary hover:bg-surface-elevated transition-colors disabled:opacity-50"
+          >
+            <Archive size={12} /> Archive
+          </button>
         )}
         {onReply && (
           <button
@@ -129,7 +140,7 @@ export default function MessageDetail({ message, outbound, onMarkRead, onArchive
         {message.thread_id && onViewThread && (
           <button
             onClick={() => onViewThread(message.thread_id)}
-            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-white/[0.06] text-secondary hover:bg-white/[0.1] transition-colors"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-xs font-medium rounded-md bg-surface-tertiary text-secondary hover:bg-surface-elevated transition-colors"
           >
             <Hash size={12} /> View Thread
           </button>

@@ -60,6 +60,17 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
     }
   }, [show]);
 
+  // Escape closes the modal (the page-level keyboard handler defers to us
+  // while the modal is open).
+  useEffect(() => {
+    if (!show) return;
+    function handleEsc(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [show, onClose]);
+
   if (!show) return null;
 
   async function addFiles(files: FileList | File[]) {
@@ -210,7 +221,7 @@ export default function ComposeModal({ show, onClose, agents, threads, filterAge
                   type="checkbox"
                   checked={urgent}
                   onChange={e => setUrgent(e.target.checked)}
-                  className="rounded border-zinc-600"
+                  className="rounded border-border"
                 />
                 Urgent
               </label>

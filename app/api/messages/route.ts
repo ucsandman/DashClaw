@@ -121,8 +121,10 @@ export async function GET(request: Request) {
     let attachments: any[] = [];
     try {
       attachments = await getAttachmentsForMessages(sql, orgId, messageIds);
-    } catch {
-      // Table may not exist yet — gracefully degrade
+    } catch (err) {
+      // Tolerated (older installs lack the attachments table) but never
+      // silent — a real outage of the table should be visible in logs.
+      console.warn('[messages] attachment fetch degraded:', (err as Error)?.message);
     }
     const attachmentsByMsg: Record<string, any[]> = {};
     for (const att of attachments) {
