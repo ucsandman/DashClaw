@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../../lib/org';
+import { getOrgRole, getUserId } from '../../../../lib/org';
 import { acknowledgeAlert, deleteAlert } from '../../../../lib/drift';
 
 function requireAdmin(request: Request) {
@@ -14,7 +14,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ al
   if (gate) return gate;
   try {
     const { alertId } = await params;
-    const updated = await acknowledgeAlert(request, alertId);
+    // Store the REAL audit identity (session user); API-key admins fall back
+    // to a labeled principal inside acknowledgeAlert.
+    const updated = await acknowledgeAlert(request, alertId, getUserId(request) || undefined);
     if (!updated) return NextResponse.json({ error: 'Alert not found' }, { status: 404 });
     return NextResponse.json(updated);
   } catch (err) {

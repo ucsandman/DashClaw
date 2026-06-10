@@ -165,7 +165,6 @@ export async function computeBaselines(request: Request, { agent_id, lookback_da
       if (values.length < 5) continue; // need minimum sample size
 
       const stats = calcStats(values);
-      const id = 'db_' + crypto.randomBytes(12).toString('hex');
 
       // Build distribution buckets (10 buckets)
       const bucketCount = 10;
@@ -179,10 +178,34 @@ export async function computeBaselines(request: Request, { agent_id, lookback_da
         distribution[`${lo}-${hi}`] = count;
       }
 
-      await sql`
-        INSERT INTO drift_baselines (id, org_id, agent_id, metric, period_start, period_end, sample_count, mean, stddev, median, p5, p25, p75, p95, min_val, max_val, distribution)
-        VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${new Date(Date.now() - days * 86400000).toISOString()}, ${new Date().toISOString()}, ${values.length}, ${stats.mean}, ${stats.stddev}, ${stats.median}, ${stats.p5}, ${stats.p25}, ${stats.p75}, ${stats.p95}, ${stats.min_val}, ${stats.max_val}, ${JSON.stringify(distribution)})
+      // Update-in-place per agent×metric: re-running detection refreshes the
+      // baseline instead of appending duplicate rows forever (detectDrift only
+      // ever reads the newest row, so duplicates were pure dead weight). No
+      // cleanup migration: pre-existing duplicate rows are inert history —
+      // the newest row keeps absorbing updates and older ones stop growing.
+      const existingBaseline = await sql`
+        SELECT id FROM drift_baselines
+        WHERE org_id = ${orgId} AND agent_id = ${agentId} AND metric = ${metric.id}
+        ORDER BY created_at DESC LIMIT 1
       `;
+      if (existingBaseline.length > 0) {
+        await sql`
+          UPDATE drift_baselines SET
+            period_start = ${new Date(Date.now() - days * 86400000).toISOString()},
+            period_end = ${new Date().toISOString()},
+            sample_count = ${values.length}, mean = ${stats.mean}, stddev = ${stats.stddev},
+            median = ${stats.median}, p5 = ${stats.p5}, p25 = ${stats.p25}, p75 = ${stats.p75}, p95 = ${stats.p95},
+            min_val = ${stats.min_val}, max_val = ${stats.max_val}, distribution = ${JSON.stringify(distribution)},
+            created_at = NOW()
+          WHERE id = ${(existingBaseline[0] as { id: string }).id}
+        `;
+      } else {
+        const id = 'db_' + crypto.randomBytes(12).toString('hex');
+        await sql`
+          INSERT INTO drift_baselines (id, org_id, agent_id, metric, period_start, period_end, sample_count, mean, stddev, median, p5, p25, p75, p95, min_val, max_val, distribution)
+          VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${new Date(Date.now() - days * 86400000).toISOString()}, ${new Date().toISOString()}, ${values.length}, ${stats.mean}, ${stats.stddev}, ${stats.median}, ${stats.p5}, ${stats.p25}, ${stats.p75}, ${stats.p95}, ${stats.min_val}, ${stats.max_val}, ${JSON.stringify(distribution)})
+        `;
+      }
 
       results.push({ agent_id: agentId, metric: metric.id, sample_count: values.length, ...stats });
     }
@@ -258,17 +281,47 @@ export async function detectDrift(request: Request, { agent_id, window_days, bas
 
       const direction = z > 0 ? 'increasing' : 'decreasing';
       const pctChange = Number(baseline.mean) !== 0 ? round(((currentMean - Number(baseline.mean)) / Number(baseline.mean)) * 100) : 0;
-      const id = 'da_' + crypto.randomBytes(12).toString('hex');
 
       const metricLabel = metric.label;
-      const description = `${metricLabel} for ${agentId} has ${direction === 'increasing' ? 'increased' : 'decreased'} by ${Math.abs(pctChange)}% (z-score: ${z}). Baseline mean: ${baseline.mean}, current mean: ${currentMean}.`;
+      // z=±999 is the zero-variance sentinel (baseline stddev 0) — describe it
+      // honestly instead of printing a fake "z-score: 999" statistic.
+      const description = Math.abs(z) >= 999
+        ? `${metricLabel} for ${agentId} has ${direction === 'increasing' ? 'increased' : 'decreased'} by ${Math.abs(pctChange)}% from a baseline with no variance (every baseline sample was ${baseline.mean}), so any shift is significant. Current mean: ${currentMean}.`
+        : `${metricLabel} for ${agentId} has ${direction === 'increasing' ? 'increased' : 'decreased'} by ${Math.abs(pctChange)}% (z-score: ${z}). Baseline mean: ${baseline.mean}, current mean: ${currentMean}.`;
 
-      await sql`
-        INSERT INTO drift_alerts (id, org_id, agent_id, metric, severity, drift_type, baseline_mean, baseline_stddev, current_mean, current_stddev, z_score, pct_change, sample_count, direction, description, baseline_id)
-        VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${severity}, ${'shift'}, ${Number(baseline.mean)}, ${Number(baseline.stddev)}, ${currentMean}, ${currentStddev}, ${z}, ${pctChange}, ${currentValues.length}, ${direction}, ${description}, ${baseline.id})
+      // Dedupe: an open (unacknowledged) alert for the same agent×metric×direction
+      // is UPDATED in place — re-running detection refreshes the evidence instead
+      // of stacking duplicate alerts and inflating the rail counts. created_at is
+      // bumped so the row reads as "last detected at" and sorts to the top.
+      const existingAlert = await sql`
+        SELECT id FROM drift_alerts
+        WHERE org_id = ${orgId} AND agent_id = ${agentId} AND metric = ${metric.id}
+          AND direction = ${direction} AND acknowledged = FALSE
+        ORDER BY created_at DESC LIMIT 1
       `;
 
-      alerts.push({ id, agent_id: agentId, metric: metric.id, severity, z_score: z, pct_change: pctChange, direction, description });
+      let id: string;
+      let updated = false;
+      if (existingAlert.length > 0) {
+        id = (existingAlert[0] as { id: string }).id;
+        updated = true;
+        await sql`
+          UPDATE drift_alerts SET
+            severity = ${severity}, baseline_mean = ${Number(baseline.mean)}, baseline_stddev = ${Number(baseline.stddev)},
+            current_mean = ${currentMean}, current_stddev = ${currentStddev}, z_score = ${z}, pct_change = ${pctChange},
+            sample_count = ${currentValues.length}, description = ${description}, baseline_id = ${baseline.id},
+            created_at = NOW()
+          WHERE id = ${id} AND org_id = ${orgId}
+        `;
+      } else {
+        id = 'da_' + crypto.randomBytes(12).toString('hex');
+        await sql`
+          INSERT INTO drift_alerts (id, org_id, agent_id, metric, severity, drift_type, baseline_mean, baseline_stddev, current_mean, current_stddev, z_score, pct_change, sample_count, direction, description, baseline_id)
+          VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${severity}, ${'shift'}, ${Number(baseline.mean)}, ${Number(baseline.stddev)}, ${currentMean}, ${currentStddev}, ${z}, ${pctChange}, ${currentValues.length}, ${direction}, ${description}, ${baseline.id})
+        `;
+      }
+
+      alerts.push({ id, agent_id: agentId, metric: metric.id, severity, z_score: z, pct_change: pctChange, direction, description, updated });
     }
   }
 
@@ -279,13 +332,13 @@ export async function detectDrift(request: Request, { agent_id, window_days, bas
 // Snapshot Recording (for trend charts)
 // -----------------------------------------------
 
-export async function recordSnapshots(request: Request) {
+export async function recordSnapshots(request: Request, { agent_id }: { agent_id?: string } = {}) {
   const sql = getSql();
   const orgId = getOrgId(request);
   const results = [];
 
   for (const metric of DRIFT_METRICS) {
-    const agents = await getAgentIds(sql, orgId, metric.source);
+    const agents = agent_id ? [agent_id] : await getAgentIds(sql, orgId, metric.source);
 
     for (const agentId of agents) {
       let values;
@@ -309,12 +362,29 @@ export async function recordSnapshots(request: Request) {
 
       const mean = round(calcMean(values));
       const stddev = round(calcStddev(values, mean));
-      const id = 'ds_' + crypto.randomBytes(12).toString('hex');
+      const periodStart = new Date(Date.now() - 86400000).toISOString();
 
-      await sql`
-        INSERT INTO drift_snapshots (id, org_id, agent_id, metric, period, period_start, mean, stddev, sample_count)
-        VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${'daily'}, ${new Date(Date.now() - 86400000).toISOString()}, ${mean}, ${stddev}, ${values.length})
+      // One snapshot per agent×metric×calendar-day: re-running detection the
+      // same day refreshes that day's point instead of inserting another row
+      // (which made the "daily" trend series lie about cadence).
+      const existingSnapshot = await sql`
+        SELECT id FROM drift_snapshots
+        WHERE org_id = ${orgId} AND agent_id = ${agentId} AND metric = ${metric.id}
+          AND period = 'daily' AND period_start::date = ${periodStart}::date
+        LIMIT 1
       `;
+      if (existingSnapshot.length > 0) {
+        await sql`
+          UPDATE drift_snapshots SET mean = ${mean}, stddev = ${stddev}, sample_count = ${values.length}, period_start = ${periodStart}
+          WHERE id = ${(existingSnapshot[0] as { id: string }).id}
+        `;
+      } else {
+        const id = 'ds_' + crypto.randomBytes(12).toString('hex');
+        await sql`
+          INSERT INTO drift_snapshots (id, org_id, agent_id, metric, period, period_start, mean, stddev, sample_count)
+          VALUES (${id}, ${orgId}, ${agentId}, ${metric.id}, ${'daily'}, ${periodStart}, ${mean}, ${stddev}, ${values.length})
+        `;
+      }
 
       results.push({ agent_id: agentId, metric: metric.id, mean, stddev, sample_count: values.length });
     }
@@ -336,28 +406,45 @@ export async function listAlerts(request: Request, { agent_id, severity, acknowl
   // Build the filter set dynamically so every combination is supported —
   // including `metric`, which the UI sends but the previous fixed if-branches
   // silently dropped (the metric dropdown looked active but never filtered).
-  const conditions: string[] = ['org_id = $1'];
+  const conditions: string[] = ['a.org_id = $1'];
   const params: unknown[] = [orgId];
-  if (agent_id) { params.push(agent_id); conditions.push(`agent_id = $${params.length}`); }
-  if (severity) { params.push(severity); conditions.push(`severity = $${params.length}`); }
-  if (metric) { params.push(metric); conditions.push(`metric = $${params.length}`); }
+  if (agent_id) { params.push(agent_id); conditions.push(`a.agent_id = $${params.length}`); }
+  if (severity) { params.push(severity); conditions.push(`a.severity = $${params.length}`); }
+  if (metric) { params.push(metric); conditions.push(`a.metric = $${params.length}`); }
   if (acknowledged !== undefined) {
     params.push(acknowledged === 'true' || acknowledged === true);
-    conditions.push(`acknowledged = $${params.length}`);
+    conditions.push(`a.acknowledged = $${params.length}`);
   }
   params.push(lim); const limIdx = params.length;
   params.push(off); const offIdx = params.length;
 
+  // Severity-first triage order (open critical → open warning → open info →
+  // acknowledged), then recency. The LEFT JOIN pulls the baseline's stored
+  // percentiles + 10-bucket distribution so the UI can render real evidence
+  // per alert — that data has existed since the schema shipped, unrendered.
   return sql.query(
-    `SELECT * FROM drift_alerts WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC LIMIT $${limIdx} OFFSET $${offIdx}`,
+    `SELECT a.*,
+       b.median AS baseline_median, b.p5 AS baseline_p5, b.p25 AS baseline_p25,
+       b.p75 AS baseline_p75, b.p95 AS baseline_p95, b.min_val AS baseline_min,
+       b.max_val AS baseline_max, b.distribution AS baseline_distribution,
+       b.sample_count AS baseline_sample_count
+     FROM drift_alerts a
+     LEFT JOIN drift_baselines b ON b.id = a.baseline_id AND b.org_id = a.org_id
+     WHERE ${conditions.join(' AND ')}
+     ORDER BY a.acknowledged ASC,
+       CASE a.severity WHEN 'critical' THEN 0 WHEN 'warning' THEN 1 ELSE 2 END,
+       a.created_at DESC
+     LIMIT $${limIdx} OFFSET $${offIdx}`,
     params,
   );
 }
 
-export async function acknowledgeAlert(request: Request, alertId: string) {
+export async function acknowledgeAlert(request: Request, alertId: string, acknowledgedBy?: string) {
   const sql = getSql();
   const orgId = getOrgId(request);
-  await sql`UPDATE drift_alerts SET acknowledged = TRUE, acknowledged_by = ${'user'}, acknowledged_at = NOW() WHERE id = ${alertId} AND org_id = ${orgId}`;
+  // Real audit identity — the caller passes the authenticated user; the
+  // fallback marks API-key principals instead of the old meaningless 'user'.
+  await sql`UPDATE drift_alerts SET acknowledged = TRUE, acknowledged_by = ${acknowledgedBy || 'admin (api key)'}, acknowledged_at = NOW() WHERE id = ${alertId} AND org_id = ${orgId}`;
   const rows = await sql`SELECT * FROM drift_alerts WHERE id = ${alertId} AND org_id = ${orgId} LIMIT 1`;
   return rows[0] || null;
 }

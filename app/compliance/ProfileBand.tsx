@@ -37,8 +37,10 @@ export default function ProfileBand({
   onApplied?: () => void;
 }) {
   const modeId = modeIdForFramework(framework);
+  // Always a catalog hit (modeIdForFramework only returns catalog keys) — the
+  // `!mode` guard below the hooks exists for type narrowing, so hook order
+  // never actually varies.
   const mode = POLICY_MODE_CATALOG[modeId];
-  if (!mode) return null;
 
   const [appliedModes, setAppliedModes] = useState<string[] | null>(null);
   const [confirming, setConfirming] = useState(false);
@@ -77,7 +79,7 @@ export default function ProfileBand({
       } else if (res.ok) {
         const data = await res.json().catch(() => ({}));
         const n = Number(data?.imported ?? 0) + Number(data?.reactivated ?? 0);
-        setNotice({ kind: 'ok', text: `${mode.name} applied — ${n} ${n === 1 ? 'policy' : 'policies'} active.` });
+        setNotice({ kind: 'ok', text: `${mode?.name ?? 'Profile'} applied — ${n} ${n === 1 ? 'policy' : 'policies'} active.` });
         await fetchApplied();
         onApplied?.();
       } else {
@@ -92,6 +94,7 @@ export default function ProfileBand({
     }
   };
 
+  if (!mode) return null;
   const isApplied = appliedModes?.includes(modeId) ?? false;
   const disclaimer = mode.toolVisibilityNotes[0];
 

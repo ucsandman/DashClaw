@@ -25,7 +25,7 @@ export const HELP_TIPS: Record<string, string> = {
   'activity-timeline': 'The activity timeline shows recent events across your workspace — actions, logins, config changes, and more.',
   'eval-scores': 'Evaluation scores rate the quality of your agents\' work based on configurable scoring criteria.',
   'prompt-stats': 'Prompt stats show usage, latency, and token costs for your managed prompt templates.',
-  drift: 'Drift detection monitors assumptions that may have become stale or invalid over time.',
+  drift: 'Drift detection statistically compares each agent\'s recent behavior (risk, cost, duration, tokens, confidence) against its 30-day baseline and alerts when a metric shifts significantly.',
   velocity: 'Learning velocity measures how quickly your agents are improving at their tasks.',
   scoring: 'Scoring profiles define how agent performance is measured — combining speed, cost, and reliability.',
   goals: 'Goals track high-level objectives for your workspace, with progress and target metrics.',

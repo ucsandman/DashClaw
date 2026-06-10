@@ -31,7 +31,7 @@ interface Signal {
 type Row = Record<string, any>;
 
 /**
- * Compute all 13 risk signal types for an org.
+ * Compute all 14 risk signal types for an org.
  *
  * @param orgId
  * @param filterAgentId - optional agent filter
@@ -67,7 +67,7 @@ export async function computeSignals(
     return null;
   };
 
-  const [autonomySpikes, highImpact, repeatedFailures, staleLoops, assumptionDrift, staleAssumptions, staleRunning, stalePresence, stuckWorkflows, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions] = (await Promise.all([
+  const [autonomySpikes, highImpact, repeatedFailures, staleLoops, assumptionDrift, staleAssumptions, staleRunning, stalePresence, stuckWorkflows, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions, driftAlerts] = (await Promise.all([
     sql`
       SELECT agent_id, agent_name, COUNT(*) as action_count,
              MAX(timestamp_start::timestamptz) AS last_seen
@@ -221,10 +221,22 @@ export async function computeSignals(
       ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
       ORDER BY created_at DESC LIMIT 10
     `.catch(warnNull('green_insufficient')),
+    // Statistical behavioral drift — open warning/critical alerts from the
+    // drift engine (app/lib/drift.ts). Best-effort: the tables may not exist
+    // on older deploys. Without this query, a critical drift alert was
+    // invisible unless someone happened to visit /drift.
+    sql`
+      SELECT id, agent_id, metric, severity, direction, pct_change, z_score, description, created_at
+      FROM drift_alerts
+      WHERE org_id = ${orgId} AND acknowledged = FALSE AND severity IN ('warning', 'critical')
+        AND created_at::timestamptz > NOW() - INTERVAL '7 days'
+        ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
+      ORDER BY created_at DESC LIMIT 10
+    `.catch(warnNull('drift_alert')),
     // Tuple cast: each Promise.all result is a non-empty Row[] (or null for a
     // failed best-effort query); a plain array type makes destructured
     // positions possibly-undefined under noUncheckedIndexedAccess.
-  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
+  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
 
   const signals: Signal[] = [];
 
@@ -306,6 +318,20 @@ export async function computeSignals(
       help: 'Frequent assumption invalidations degrade the decision basis. Review and re-validate the foundational assumptions.',
       agent_id: drift.agent_id,
       detected_at: drift.last_seen || null,
+    });
+  }
+
+  for (const row of driftAlerts || []) {
+    const absZ = Math.abs(Number(row.z_score));
+    const zPhrase = absZ >= 999 ? 'baseline shows no variance' : `z ${Number(row.z_score)}`;
+    signals.push({
+      type: 'drift_alert',
+      severity: row.severity === 'critical' ? 'red' : 'amber',
+      label: `Behavioral drift: ${row.agent_id} ${String(row.metric).replace(/_/g, ' ')} ${row.direction} ${Math.abs(Number(row.pct_change))}%`,
+      detail: row.description || `${row.metric} for ${row.agent_id} shifted from its 30-day baseline (${zPhrase}).`,
+      help: 'This agent\'s recent behavior deviates statistically from its 30-day baseline. Review the evidence on the Drift page and acknowledge the alert once triaged.',
+      agent_id: row.agent_id,
+      detected_at: row.created_at,
     });
   }
 

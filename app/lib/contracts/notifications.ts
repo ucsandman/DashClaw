@@ -9,6 +9,7 @@ export const VALID_SIGNAL_TYPES = [
   'assumption_drift',
   'stale_assumption',
   'stale_running_action',
+  'drift_alert',
 ] as const;
 
 export const notificationPreferenceUpsertSchema = z.object({
