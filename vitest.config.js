@@ -39,6 +39,10 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './app'),
+      'openclaw/plugin-sdk/plugin-entry': path.resolve(
+        __dirname,
+        './__tests__/fixtures/openclaw-plugin-entry.js'
+      ),
     },
   },
 });
