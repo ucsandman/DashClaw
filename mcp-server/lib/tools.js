@@ -456,6 +456,24 @@ export const TOOL_DEFINITIONS = [
     },
   },
   {
+    name: 'dashclaw_pair',
+    description:
+      'Enroll this agent\'s cryptographic identity with DashClaw (operator pairing requests in your inbox ' +
+      'ask for exactly this). Generates an RSA-2048 keypair locally, stores the PRIVATE key on this machine ' +
+      'only (~/.dashclaw/identity/<agent_id>.pem — never logged, never sent), and POSTs the public key to ' +
+      '/api/pairings. An admin then approves the pairing, which creates the agent identity and lets your ' +
+      'recorded actions be signature-verified. Set wait:true to poll until approved/expired (max 5 min). ' +
+      'After pairing, mark the request message read via dashclaw_messages_mark_read.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_name: { type: 'string', description: 'Human-readable agent name shown to the approving admin.' },
+        wait: { type: 'boolean', description: 'Poll the pairing until approved/expired (default false).' },
+      },
+    },
+  },
+  {
     name: 'dashclaw_posture',
     description:
       'Read the org-wide governance posture score (0-100) and its prioritized remediation queue. ' +
@@ -857,6 +875,57 @@ export function createToolHandlers(client) {
         agent_id: agentId(input),
       }, { timeout: 10000 });
       return JSON.stringify(result);
+    },
+
+    async dashclaw_pair(input) {
+      // Generate the keypair locally; the private key NEVER leaves this
+      // machine (and is never logged or returned in tool output beyond its
+      // filesystem path). Public PEM goes to POST /api/pairings — the same
+      // agent-initiated flow the Python SDK's create_pairing uses.
+      const [{ generateKeyPairSync }, fs, os, path] = await Promise.all([
+        import('node:crypto'),
+        import('node:fs'),
+        import('node:os'),
+        import('node:path'),
+      ]);
+      const id = agentId(input);
+      const { publicKey, privateKey } = generateKeyPairSync('rsa', {
+        modulusLength: 2048,
+        publicKeyEncoding: { type: 'spki', format: 'pem' },
+        privateKeyEncoding: { type: 'pkcs8', format: 'pem' },
+      });
+      const dir = path.join(os.homedir(), '.dashclaw', 'identity');
+      fs.mkdirSync(dir, { recursive: true });
+      const keyPath = path.join(dir, `${String(id).replace(/[^A-Za-z0-9._-]/g, '_')}.pem`);
+      fs.writeFileSync(keyPath, privateKey, { mode: 0o600 });
+
+      const created = await client.post('/api/pairings', {
+        agent_id: id,
+        agent_name: input.agent_name,
+        public_key: publicKey,
+        algorithm: 'RSASSA-PKCS1-v1_5',
+      }, { timeout: 10000 });
+
+      let pairing = created.pairing || created;
+      if (input.wait && pairing?.id) {
+        const deadline = Date.now() + 300000;
+        while (Date.now() < deadline) {
+          const res = await client.get(`/api/pairings/${encodeURIComponent(pairing.id)}`, {}, { timeout: 10000 });
+          const current = res.pairing || res;
+          if (current.status && current.status !== 'pending') { pairing = current; break; }
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      }
+
+      return JSON.stringify({
+        pairing_id: pairing.id,
+        status: pairing.status,
+        pairing_url: pairing.pairing_url,
+        private_key_path: keyPath,
+        next: pairing.status === 'approved'
+          ? 'Approved — sign recorded actions with the private key (see docs/agent-identity.md).'
+          : 'Awaiting admin approval on the DashClaw Identities page.',
+      });
     },
 
     async dashclaw_posture(input) {

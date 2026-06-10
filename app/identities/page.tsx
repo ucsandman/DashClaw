@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Fingerprint, Shield, CheckCircle, Clock, AlertTriangle, Trash2 } from 'lucide-react';
+import { Fingerprint, Shield, CheckCircle, Clock, AlertTriangle, Trash2, Send, UserX } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -13,6 +13,12 @@ import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
+import {
+  buildPairingRequestMessage,
+  computeUnidentified,
+  PAIRING_REQUEST_SUBJECT,
+  type UnidentifiedAgent,
+} from '../lib/pairing-request';
 
 const PERMISSION_LEVELS = ['readonly', 'workspace_write', 'prompt', 'allow', 'danger'];
 
@@ -66,6 +72,11 @@ export default function IdentitiesPage() {
 
   const [pendingPairings, setPendingPairings] = useState<Pairing[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
+  const [unidentified, setUnidentified] = useState<UnidentifiedAgent[]>([]);
+  // Agents already asked to pair (from sent dashboard messages + this session)
+  // so double-requests are obvious across reloads.
+  const [requestedIds, setRequestedIds] = useState<Set<string>>(new Set());
+  const [requestingIds, setRequestingIds] = useState<Set<string>>(new Set());
   const [enforcementOn, setEnforcementOn] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,32 +90,59 @@ export default function IdentitiesPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [pendingRes, identitiesRes, settingsRes] = await Promise.all([
+      const [pendingRes, identitiesRes, settingsRes, agentsRes, sentRes] = await Promise.all([
         fetch('/api/pairings?status=pending&limit=200'),
         fetch('/api/identities'),
         fetch('/api/settings?key=ENFORCE_AGENT_SIGNATURES'),
+        fetch('/api/agents'),
+        // Previously-sent pairing requests (dashboard outbox) so requested
+        // state survives reloads.
+        fetch('/api/messages?agent_id=dashboard&direction=sent&type=action&limit=200'),
       ]);
 
+      let pendingList: Pairing[] = [];
       if (pendingRes.ok) {
         const data = await pendingRes.json();
-        setPendingPairings(data.pairings || []);
+        pendingList = data.pairings || [];
+        setPendingPairings(pendingList);
         // Initialize permission level dropdowns from existing pairing data
         const initLevels: Record<string, string> = {};
-        (data.pairings || []).forEach((p: Pairing) => {
+        pendingList.forEach((p: Pairing) => {
           initLevels[p.id] = p.permission_level || 'readonly';
         });
         setPermLevels((prev) => ({ ...initLevels, ...prev }));
       }
 
+      let identityList: Identity[] = [];
       if (identitiesRes.ok) {
         const data = await identitiesRes.json();
-        setIdentities(data.identities || []);
+        identityList = data.identities || [];
+        setIdentities(identityList);
       }
 
       if (settingsRes.ok) {
         const data = await settingsRes.json();
         const setting = (data.settings || []).find((s: Setting) => s.key === 'ENFORCE_AGENT_SIGNATURES');
         setEnforcementOn(setting?.value === 'true' || setting?.value === true);
+      }
+
+      // Unidentified fleet agents = fleet minus identified minus pending,
+      // collapsed via baseAgentId (sub-agents inherit the parent identity).
+      if (agentsRes.ok) {
+        const fleet = (await agentsRes.json()).agents || [];
+        setUnidentified(computeUnidentified(
+          fleet,
+          identityList.map((i) => i.agent_id),
+          pendingList.map((pr) => pr.agent_id),
+        ));
+      }
+
+      if (sentRes.ok) {
+        const sent = (await sentRes.json()).messages || [];
+        const requested = sent
+          .filter((m: any) => m.subject === PAIRING_REQUEST_SUBJECT)
+          .map((m: any) => String(m.to_agent_id));
+        if (requested.length) setRequestedIds((prev) => new Set([...prev, ...requested]));
       }
     } catch (err) {
       setError('Failed to load identity data');
@@ -126,17 +164,29 @@ export default function IdentitiesPage() {
     setApprovingId(pairingId);
     try {
       const permLevel = permLevels[pairingId] || 'readonly';
-      const res = await fetch(`/api/pairings/${encodeURIComponent(pairingId)}`, {
+      // Set the permission level first, then approve through POST /approve —
+      // the ONLY path that writes the agent_identities row (upsertIdentity).
+      // PATCHing {status:'approved'} flips the pairing status WITHOUT creating
+      // the identity, leaving the agent permanently unverified (the old bug).
+      const patchRes = await fetch(`/api/pairings/${encodeURIComponent(pairingId)}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'approved', permission_level: permLevel }),
+        body: JSON.stringify({ permission_level: permLevel }),
+      });
+      if (!patchRes.ok) {
+        const data = await patchRes.json().catch(() => ({}));
+        setError(data.error || 'Failed to set permission level');
+        return;
+      }
+      const res = await fetch(`/api/pairings/${encodeURIComponent(pairingId)}/approve`, {
+        method: 'POST',
       });
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || 'Failed to approve pairing');
         return;
       }
-      showSuccess('Pairing approved successfully.');
+      showSuccess('Pairing approved — identity created.');
       await fetchAll();
     } catch (err) {
       setError('Failed to approve pairing');
@@ -164,6 +214,52 @@ export default function IdentitiesPage() {
     } finally {
       setRevokeLoading(false);
     }
+  };
+
+  // Send the structured pairing-request directive over the messages rails.
+  const requestPairing = useCallback(async (agentId: string): Promise<boolean> => {
+    setRequestingIds((prev) => new Set(prev).add(agentId));
+    try {
+      const origin = typeof window !== 'undefined' ? window.location.origin : '';
+      const res = await fetch('/api/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(buildPairingRequestMessage(agentId, origin)),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error || `Failed to request pairing for ${agentId}`);
+        return false;
+      }
+      setRequestedIds((prev) => new Set(prev).add(agentId));
+      return true;
+    } catch {
+      setError(`Failed to request pairing for ${agentId}`);
+      return false;
+    } finally {
+      setRequestingIds((prev) => {
+        const next = new Set(prev);
+        next.delete(agentId);
+        return next;
+      });
+    }
+  }, []);
+
+  const handleRequestPairing = async (agentId: string) => {
+    if (await requestPairing(agentId)) {
+      showSuccess(`Pairing requested — ${agentId} sees it next time it runs with DashClaw attached.`);
+    }
+  };
+
+  const unidentifiedSelection = useSelection<UnidentifiedAgent>(unidentified, (a) => a.agent_id);
+
+  const handleBulkRequestPairing = async () => {
+    if (unidentifiedSelection.count === 0) return;
+    const ids = unidentifiedSelection.selectedIds.filter((id) => !requestedIds.has(id));
+    const results = await Promise.all(ids.map((id) => requestPairing(id)));
+    const ok = results.filter(Boolean).length;
+    if (ok > 0) showSuccess(`Pairing requested for ${ok} agent${ok === 1 ? '' : 's'} — delivered at their next governed session.`);
+    unidentifiedSelection.clear();
   };
 
   const selection = useSelection<Identity>(identities, (identity) => identity.agent_id);
@@ -244,10 +340,15 @@ export default function IdentitiesPage() {
       )}
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <Card hover={false}>
           <CardContent className="pt-4 pb-4">
             <StatCompact label="Total Identities" value={identities.length} color="text-white" />
+          </CardContent>
+        </Card>
+        <Card hover={false}>
+          <CardContent className="pt-4 pb-4">
+            <StatCompact label="Unidentified Agents" value={unidentified.length} color={unidentified.length > 0 ? 'text-warning' : 'text-secondary'} />
           </CardContent>
         </Card>
         <Card hover={false}>
@@ -265,6 +366,73 @@ export default function IdentitiesPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Unidentified agents — the coverage gap to drive to zero. */}
+      {unidentified.length > 0 && (
+        <div className="mb-6" data-testid="unidentified-section">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <SelectCheckbox
+              checked={unidentifiedSelection.allSelected}
+              onToggle={() => unidentifiedSelection.toggleAll()}
+              label="Select all unidentified agents"
+            />
+            <UserX size={16} className="text-warning" />
+            <h2 className="text-sm font-medium text-secondary">Unidentified Agents</h2>
+            <Badge variant="warning" size="xs">{unidentified.length}</Badge>
+            <BulkActionBar
+              count={unidentifiedSelection.count}
+              actions={[{ id: 'request-pairing', label: 'Request pairing', icon: Send, onClick: handleBulkRequestPairing }]}
+              onClear={unidentifiedSelection.clear}
+            />
+          </div>
+          <Card hover={false}>
+            <div className="divide-y divide-white/[0.04]">
+              {unidentified.map((agent) => {
+                const requested = requestedIds.has(agent.agent_id);
+                const requesting = requestingIds.has(agent.agent_id);
+                return (
+                  <div key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} className="px-5 py-3 flex items-center gap-4">
+                    <SelectCheckbox
+                      checked={unidentifiedSelection.isSelected(agent.agent_id)}
+                      onToggle={() => unidentifiedSelection.toggle(agent.agent_id)}
+                      label={`Select ${agent.agent_id}`}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium text-secondary truncate">{agent.agent_name || agent.agent_id}</span>
+                        {agent.agent_name && (
+                          <code className="text-[10px] font-mono text-tertiary truncate">{agent.agent_id}</code>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-[10px] text-disabled tabular-nums">
+                        <span>{agent.action_count} actions</span>
+                        {agent.last_active && <span>Last active {formatDate(agent.last_active)}</span>}
+                      </div>
+                    </div>
+                    {requested ? (
+                      <span className="flex items-center gap-1.5 text-[11px] text-tertiary" title="Delivered to the agent's inbox; it pairs next time it runs with DashClaw attached.">
+                        <CheckCircle size={12} aria-hidden="true" /> Requested
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleRequestPairing(agent.agent_id)}
+                        disabled={requesting}
+                        className="flex items-center gap-1.5 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
+                      >
+                        <Send size={11} aria-hidden="true" /> {requesting ? 'Requesting…' : 'Request pairing'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Card>
+          <p className="mt-2 text-[11px] text-tertiary">
+            Requests ride the agent inbox — each agent sees its request the next time it runs with DashClaw attached
+            (MCP <code className="font-mono">dashclaw_pair</code>, Node <code className="font-mono">claw.createPairing()</code>, Python <code className="font-mono">claw.create_pairing()</code>).
+          </p>
+        </div>
+      )}
 
       {/* Pending Pairings */}
       <div className="mb-6">

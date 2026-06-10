@@ -56,8 +56,9 @@ export default function AgentsFleetPage() {
   }, [fetchAgents]);
 
   const filteredAgents = agents.filter(agent => {
+    // /api/agents returns agent_name (not name) — searching agent.name never matched.
     const matchesSearch = agent.agent_id.toLowerCase().includes(search.toLowerCase()) ||
-      (agent.name && agent.name.toLowerCase().includes(search.toLowerCase()));
+      (agent.agent_name && agent.agent_name.toLowerCase().includes(search.toLowerCase()));
 
     if (filterStatus === 'all') return matchesSearch;
     if (filterStatus === 'online') return matchesSearch && (agent.status === 'active' || agent.status === 'online');
@@ -74,7 +75,11 @@ export default function AgentsFleetPage() {
     total: agents.length,
     active: agents.filter(a => a.status === 'active' || a.status === 'online').length,
     critical: agents.filter(a => a.status === 'critical' || a.status === 'error').length,
-    governed: agents.filter(a => a.governed).length || agents.length, // fallback
+    // Every fleet agent is governed by construction: the fleet list is DERIVED
+    // from governed telemetry (action_records/goals/presence). The old
+    // `a.governed` field never existed in the payload, so the fallback always
+    // fired — same number, but now stated honestly.
+    governed: agents.length,
   };
 
   const statRail = [

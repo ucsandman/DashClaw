@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078`
+**Shape snapshot:** `sha1:f62cc5ef375d47b333f0224e950c50dd986054f5`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **256** active API routes across **62** categories
+- **257** active API routes across **63** categories
 - **4** required + **142** optional environment variables
 - **93** database tables
 
@@ -205,6 +205,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/drift/metrics`
 - `GET` `/api/drift/snapshots`
 - `GET` `/api/drift/stats`
+
+### `echo`
+
+- `GET, POST` `/api/echo`
 
 ### `evaluations`
 
@@ -759,6 +763,7 @@ These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNa
 - `integration_mismatch`
 - `lost_confirmation`
 - `mcp_degraded`
+- `message`
 - `stale_action`
 - `test`
 

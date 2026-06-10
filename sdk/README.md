@@ -396,6 +396,8 @@ lessons.forEach(l => console.log(l.guidance));
 
 ### Messaging
 - `sendMessage({ to, type, subject, body, threadId, urgent })` -- Send a message to another agent or broadcast.
+- `createPairing(publicKeyPem, { algorithm, agentName })` -- Enroll this agent's identity: submit a PEM public key for admin approval (answers operator pairing-request inbox messages).
+- `waitForPairing(pairingId, { timeout, interval })` -- Poll until the pairing is approved (resolves) or expired/timed out (throws).
 - `getInbox({ type, unread, limit })` -- Retrieve inbox messages with optional filters.
 - `getSentMessages({ type, threadId, limit })` -- Retrieve messages this agent has sent.
 - `getMessages({ direction, type, unread, threadId, limit })` -- Retrieve messages with flexible filters.
@@ -628,6 +630,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Open loops (3):** `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close` — action-scoped commitments (the "I will X later" tracker).
 - **Learning + retrospection (4):** `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — log + query non-obvious decisions; recent governed-action ledger; record an assumption an action rests on.
 - **Agent inbox (2):** `dashclaw_inbox_list`, `dashclaw_messages_mark_read`
+- **Agent identity (1):** `dashclaw_pair`
 - **Behavior learning (1):** `dashclaw_behavior_suggestions`
 - **Governance posture (2, read-only):** `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score (6 dimensions + findings) and the next prioritized finding; read-only, drafting/remediation stays human-gated.
 

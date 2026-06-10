@@ -46,11 +46,23 @@ export async function listIdentities(
   orgId: string
 ): Promise<Record<string, unknown>[]> {
   await ensureTable(sql);
+  // Join the most recent approved pairing for the display fields the
+  // /identities page renders (agent_name, permission_level) — without this
+  // every identity showed the 'readonly' badge and no name. Identities
+  // registered directly (no pairing) get NULLs, which the UI must tolerate.
   return sql`
-    SELECT agent_id, algorithm, created_at, updated_at
-    FROM agent_identities
-    WHERE org_id = ${orgId}
-    ORDER BY agent_id ASC
+    SELECT i.agent_id, i.algorithm, i.created_at, i.updated_at,
+           p.agent_name, p.permission_level
+    FROM agent_identities i
+    LEFT JOIN LATERAL (
+      SELECT agent_name, permission_level
+      FROM agent_pairings ap
+      WHERE ap.org_id = i.org_id AND ap.agent_id = i.agent_id AND ap.status = 'approved'
+      ORDER BY ap.created_at DESC
+      LIMIT 1
+    ) p ON TRUE
+    WHERE i.org_id = ${orgId}
+    ORDER BY i.agent_id ASC
   `;
 }
 

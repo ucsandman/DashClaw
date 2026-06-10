@@ -418,12 +418,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 29 governance tools across 10 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, behavior learning, governance posture) plus 6 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 30 governance tools across 11 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture) plus 6 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (29)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (30)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -461,6 +461,7 @@ except Exception as e:
                       { tool: 'dashclaw_decisions_recent', desc: 'Recent governed-action ledger', inputs: 'agent_id, action_type, decision, since' },
                       { group: 'Agent inbox', tool: 'dashclaw_inbox_list', desc: 'List inbox messages + unread count', inputs: 'agent_id, direction, unread, type, limit' },
                       { tool: 'dashclaw_messages_mark_read', desc: 'Mark inbox messages as read', inputs: 'message_ids, agent_id' },
+                      { group: 'Agent identity', tool: 'dashclaw_pair', desc: 'Enroll identity: generate keypair locally, submit public key for approval', inputs: 'agent_id, agent_name, wait' },
                       { group: 'Behavior learning', tool: 'dashclaw_behavior_suggestions', desc: 'Observe-only Policy Coach suggestions from recorded behavior', inputs: 'agent_id' },
                       { group: 'Governance posture', tool: 'dashclaw_posture', desc: 'Read the org governance posture score + 6 dimensions + findings queue (read-only)', inputs: 'dimension' },
                       { tool: 'dashclaw_posture_next', desc: 'The next prioritized remediation finding from the posture queue (read-only)', inputs: '(none)' },

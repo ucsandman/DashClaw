@@ -14,13 +14,37 @@ proof of *who* acted. There are two enrollment paths:
 self-hosters who don't run an OIDC issuer:
 
 1. The agent generates a keypair and submits its public key: `POST /api/pairings`
-   (Node SDK: `claw.createPairing(publicKeyPem, algorithm, agentName)`). The call
-   returns a `pairing_url`.
-2. Open the `pairing_url` (or **Settings → Agent Identity**) and approve the
-   request as an admin — this also sets the agent's permission level. Pairing
+   (Node SDK: `claw.createPairing(publicKeyPem, { algorithm, agentName })`;
+   Python SDK: `claw.create_pairing(public_key_pem)`; MCP agents: the
+   `dashclaw_pair` tool generates + stores the keypair locally and submits in
+   one call). The call returns a `pairing_url`. Both SDKs can then poll with
+   `waitForPairing(pairingId)` / `wait_for_pairing(pairing_id)`.
+2. Open the `pairing_url` (or **Settings → Agent Identity** / **/identities**)
+   and approve the request as an admin — this also sets the agent's permission
+   level. Approval is what creates the identity row (`POST
+   /api/pairings/{id}/approve`); a plain PATCH cannot approve. Pairing
    requests expire after `DASHCLAW_PAIRING_TTL_MINUTES` (default 15).
 3. The agent signs its requests with the private key; approved keys appear under
    **/identities**.
+
+**Operator-initiated pairing requests.** Admins can summon unidentified fleet
+agents to pair from **/identities → Unidentified Agents → Request pairing**.
+The request is delivered over the agent's message inbox (pull-based — the agent
+sees it the next time it runs with DashClaw attached and checks
+`dashclaw_inbox_list` / `claw.getInbox()`). The message body carries a fenced
+JSON directive the agent can recognize:
+
+```json
+{
+  "kind": "dashclaw.pairing_request",
+  "agent_id": "<your agent id>",
+  "dashboard_url": "<instance origin>",
+  "action": "Generate a keypair, POST your PEM public key to /api/pairings, then await admin approval."
+}
+```
+
+On seeing it, run enrollment path A above (MCP: `dashclaw_pair`), then mark the
+message read (`dashclaw_messages_mark_read`).
 
 **B. JWKS-verified JWT (bring your own issuer).** If you already run an
 OIDC-compatible issuer (Keycloak, Auth0, AgentLair, or a custom JWKS server),

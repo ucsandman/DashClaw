@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 29 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 30 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 ## Quick Start
 
@@ -58,7 +58,7 @@ node scripts/build-mcpb.mjs    # → dist/dashclaw.mcpb
 
 Then double-click `dist/dashclaw.mcpb` (or Settings → Extensions → Install Extension…).
 The installer prompts for your instance URL, API key, and an agent ID
-(default `claude-desktop`). The 29 governance tools then appear in Claude.
+(default `claude-desktop`). The 30 governance tools then appear in Claude.
 
 > **Cowork caveat:** Cowork tool availability runs through its VM, and the host `.mcpb` install path is unverified for Cowork. The OAuth remote connector (below) is the verified cross-surface path.
 
@@ -71,7 +71,7 @@ in the UI — Claude's connector flow requires OAuth, not headers:
 2. Paste `https://<your-instance>/api/mcp`.
 3. Claude discovers `/.well-known/oauth-protected-resource`, registers via DCR,
    and opens your DashClaw login + a consent screen.
-4. Authorize → the 29 governance tools appear, scoped to your workspace.
+4. Authorize → the 30 governance tools appear, scoped to your workspace.
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 The legacy `x-api-key` path (Managed Agents) is unchanged.
@@ -82,7 +82,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (29)
+## Tools (30)
 
 Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical definitions.
 
@@ -152,6 +152,7 @@ Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical defini
 | Tool | Description |
 |---|---|
 | `dashclaw_inbox_list` | List inbox messages + unread count |
+| `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
 | `dashclaw_messages_mark_read` | Mark inbox messages read |
 
 **Behavior learning (1)** — observe-only Policy Coach suggestions learned from this agent's recorded behavior.

@@ -92,4 +92,4 @@ While the agent runs, open your DashClaw instance:
 | Lines of code | ~80 | ~410 |
 | Tool handling | Automatic (MCP protocol) | Manual (HTTP + result routing) |
 | Setup | One config line | Tool definitions + HTTP client |
-| Governance tools | 29 tools + 6 resources | 3 tools |
+| Governance tools | 30 tools + 6 resources | 3 tools |

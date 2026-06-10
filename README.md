@@ -107,7 +107,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 ### 2. MCP server (zero code, any MCP host)
 
-[`@dashclaw/mcp-server`](./mcp-server) exposes **29 governance MCP tools** across 10 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, behavior learning, governance posture — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
+[`@dashclaw/mcp-server`](./mcp-server) exposes **30 governance MCP tools** across 11 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
 
 **Stdio (Claude Code, Claude Desktop, any stdio MCP client):**
 
@@ -151,7 +151,7 @@ npm install dashclaw     # Node 18+
 pip install dashclaw     # Python 3.7+
 ```
 
-126-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 224 methods including ready-made framework integrations:
+128-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 224 methods including ready-made framework integrations:
 
 ```python
 # LangChain — auto-log LLM calls, tool use, and costs

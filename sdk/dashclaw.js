@@ -790,6 +790,52 @@ class DashClaw {
   }
 
   /**
+   * POST /api/pairings — Enroll this agent's identity: submit a PEM public key
+   * for admin approval. Approval (POST /api/pairings/{id}/approve) creates the
+   * agent_identities row that makes recorded actions signature-verifiable.
+   * Operator-initiated pairing requests arrive in the inbox as messages whose
+   * body carries a `dashclaw.pairing_request` JSON directive — answer them by
+   * calling this. (Ported from dashclaw/legacy for parity; the private key
+   * stays with the caller and is never sent.)
+   * @param {string} publicKeyPem
+   * @param {Object} [options]
+   * @param {string} [options.algorithm='RSASSA-PKCS1-v1_5']
+   * @param {string} [options.agentName]
+   * @returns {Promise<{pairing: Object}>}
+   */
+  async createPairing(publicKeyPem, { algorithm = 'RSASSA-PKCS1-v1_5', agentName } = {}) {
+    if (!publicKeyPem) throw new Error('publicKeyPem is required');
+    return this._post('/api/pairings', {
+      agent_id: this.agentId,
+      agent_name: agentName || this.agentName,
+      public_key: publicKeyPem,
+      algorithm,
+    });
+  }
+
+  /**
+   * Poll GET /api/pairings/{id} until the pairing is approved (resolves) or
+   * expired/timed out (throws). Parity with Python wait_for_pairing.
+   * @param {string} pairingId
+   * @param {Object} [options]
+   * @param {number} [options.timeout=300000]
+   * @param {number} [options.interval=2000]
+   * @returns {Promise<Object>} the approved pairing
+   */
+  async waitForPairing(pairingId, { timeout = 300000, interval = 2000 } = {}) {
+    const start = Date.now();
+    while (Date.now() - start < timeout) {
+      const res = await this._get(`/api/pairings/${encodeURIComponent(pairingId)}`);
+      const pairing = res.pairing;
+      if (!pairing) throw new Error('Pairing response missing pairing');
+      if (pairing.status === 'approved') return pairing;
+      if (pairing.status === 'expired') throw new Error('Pairing expired');
+      await new Promise((r) => setTimeout(r, interval));
+    }
+    throw new Error('Timed out waiting for pairing approval');
+  }
+
+  /**
    * GET /api/messages — Fetch this agent's inbox.
    */
   async getInbox({ type, unread, limit } = {}) {

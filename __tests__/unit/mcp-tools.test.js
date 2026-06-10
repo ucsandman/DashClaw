@@ -19,7 +19,7 @@ import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Tool Definitions', () => {
   it('exports exactly 29 tool definitions', () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(29);
+    expect(TOOL_DEFINITIONS).toHaveLength(30);
   });
 
   it('includes the assumption recording tool', () => {
