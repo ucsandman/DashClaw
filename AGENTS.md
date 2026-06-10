@@ -12,58 +12,26 @@ Reason:
 Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md` at the repo root first**. It is the canonical design context: users, brand personality, aesthetic direction, 4 anti-references, and the 7 tiebreaker principles (evidence over decoration; brand orange as signal not noise; calm under pressure; token-first; developer-reader first; WCAG 2.1 AA floor; four anti-references guardrail). Never hardcode hex values — use the CSS tokens in `app/globals.css` and the Tailwind theme extension.
 
 <!-- gitnexus:start -->
-# GitNexus - Code Intelligence
+# GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (4346 symbols, 12924 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (21080 symbols, 41086 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
-> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+> Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
 ## Always Do
 
-- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
-- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows. For regression review, compare against the default branch: `detect_changes({scope: "compare", base_ref: "main"})`.
 - **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
-- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
-- When you need full context on a specific symbol - callers, callees, which execution flows it participates in - use `gitnexus_context({name: "symbolName"})`.
-
-## When Debugging
-
-1. `gitnexus_query({query: "<error or symptom>"})` - find execution flows related to the issue
-2. `gitnexus_context({name: "<suspect function>"})` - see all callers, callees, and process participation
-3. `READ gitnexus://repo/DashClaw/process/{processName}` - trace the full execution flow step by step
-4. For regressions: `gitnexus_detect_changes({scope: "compare", base_ref: "main"})` - see what your branch changed
-
-## When Refactoring
-
-- **Renaming**: MUST use `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` first. Review the preview - graph edits are safe, text_search edits need manual review. Then run with `dry_run: false`.
-- **Extracting/Splitting**: MUST run `gitnexus_context({name: "target"})` to see all incoming/outgoing refs, then `gitnexus_impact({target: "target", direction: "upstream"})` to find all external callers before moving code.
-- After any refactor: run `gitnexus_detect_changes({scope: "all"})` to verify only expected files changed.
+- When exploring unfamiliar code, use `query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `context({name: "symbolName"})`.
 
 ## Never Do
 
-- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER edit a function, class, or method without first running `impact` on it.
 - NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
-- NEVER rename symbols with find-and-replace - use `gitnexus_rename` which understands the call graph.
-- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
-
-## Tools Quick Reference
-
-| Tool | When to use | Command |
-|------|-------------|---------|
-| `query` | Find code by concept | `gitnexus_query({query: "auth validation"})` |
-| `context` | 360-degree view of one symbol | `gitnexus_context({name: "validateUser"})` |
-| `impact` | Blast radius before editing | `gitnexus_impact({target: "X", direction: "upstream"})` |
-| `detect_changes` | Pre-commit scope check | `gitnexus_detect_changes({scope: "staged"})` |
-| `rename` | Safe multi-file rename | `gitnexus_rename({symbol_name: "old", new_name: "new", dry_run: true})` |
-| `cypher` | Custom graph queries | `gitnexus_cypher({query: "MATCH ..."})` |
-
-## Impact Risk Levels
-
-| Depth | Meaning | Action |
-|-------|---------|--------|
-| d=1 | WILL BREAK - direct callers/importers | MUST update these |
-| d=2 | LIKELY AFFECTED - indirect deps | Should test |
-| d=3 | MAY NEED TESTING - transitive | Test if critical path |
+- NEVER rename symbols with find-and-replace — use `rename` which understands the call graph.
+- NEVER commit changes without running `detect_changes()` to check affected scope.
 
 ## Resources
 
@@ -74,19 +42,16 @@ This project is indexed by GitNexus as **DashClaw** (4346 symbols, 12924 relatio
 | `gitnexus://repo/DashClaw/processes` | All execution flows |
 | `gitnexus://repo/DashClaw/process/{name}` | Step-by-step execution trace |
 
-## Self-Check Before Finishing
-
-Before completing any code modification task, verify:
-1. `gitnexus_impact` was run for all modified symbols
-2. No HIGH/CRITICAL risk warnings were ignored
-3. `gitnexus_detect_changes()` confirms changes match expected scope
-4. All d=1 (WILL BREAK) dependents were updated
-
 ## CLI
 
-- Re-index: `npx gitnexus analyze`
-- Check freshness: `npx gitnexus status`
-- Generate docs: `npx gitnexus wiki`
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
 
 <!-- gitnexus:end -->
 
@@ -107,9 +72,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-06-09 (commit b5ab0288). Confidence: 100%.
+Last indexed: 2026-06-09 (commit f9fa3ec3). Confidence: 100%.
 ### Architecture
-Repo is an end-to-end “governed agent + documentation” platform: it ingests agent configuration and code contracts (inputs like contracts/index.json, policy/rules modules, and example agent entrypoints), runs governed agent workflows through a shared SDK and optional MCP server, and produces deployable agent artifacts (generated/packaged SDK clients, MCP-exposed capabilities, and example runnable services) for LLM-driven chat, code review, and deployment pipelines.
+repo is a governed agent documentation and execution platform: it ingests repository source files and contract metadata, transforms them through parsing/analysis and policy/rules evaluation, and outputs generated agent-ready artifacts (SDKs, MCP server endpoints, and example governed agent workflows) that can be run via CLI/web entry points. Knowledge/config used by the Dashclaw agent skill. Central rules engine for Claude-style code/policy constraints. Contract definitions and contract registry used to drive governed behavior.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -137,11 +102,11 @@ Repo is an end-to-end “governed agent + documentation” platform: it ingests 
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `app/lib/doctor/generated/shape.json` | 100.0th percentile | 65 | Wes Sander |
-| `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 65 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 100.0th percentile | 65 | Wes Sander |
+| `app/lib/doctor/generated/shape.json` | 99.9th percentile | 65 | Wes Sander |
 | `public/livingcode/index.html` | 99.9th percentile | 68 | Wes Sander |
 | `app/lib/readiness.mjs` | 99.8th percentile | 10 | Wes Sander |
-| `hooks/dashclaw_agent_intel/behavior_recorder.py` | 99.8th percentile | 6 | Wes Sander |
+| `middleware.js` | 99.8th percentile | 26 | Wes Sander |
 
 ### Repowise MCP Workflow
 

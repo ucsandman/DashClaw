@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, it, vi } from 'vitest';
 
 const mockRuntime = vi.hoisted(() => ({
@@ -112,9 +114,15 @@ function actionPatch(calls, actionId) {
 }
 
 async function patchNestedDashClawX402Methods() {
-  const { DashClaw } = await import(
-    '../../../../../packages/openclaw-plugin/node_modules/dashclaw/dashclaw.js'
+  const pluginDashClawModule =
+    '../../../../../packages/openclaw-plugin/node_modules/dashclaw/dashclaw.js';
+  const pluginDashClawFile = fileURLToPath(
+    new URL(pluginDashClawModule, import.meta.url)
   );
+  const dashClawModule = existsSync(pluginDashClawFile)
+    ? pluginDashClawModule
+    : 'dashclaw';
+  const { DashClaw } = await import(dashClawModule);
   DashClaw.prototype.listProviders ??= function listProviders(filters = {}) {
     return this._request('/api/x402/providers', 'GET', null, filters);
   };
