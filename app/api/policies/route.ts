@@ -8,6 +8,7 @@ import { validatePolicy } from '../../lib/validate';
 import { getSql } from '../../lib/db.js';
 import { apiErrorResponse } from '../../lib/apiErrors.js';
 import { EVENTS, publishOrgEvent } from '../../lib/events.js';
+import { invalidateGuardPolicyCache } from '../../lib/guard.js';
 import { deletePoliciesByIds } from '../../lib/repositories/guardrails.repository.js';
 
 /**
@@ -78,6 +79,7 @@ export async function POST(request: Request) {
 
     const rows = await sql`SELECT * FROM guard_policies WHERE id = ${id}`;
 
+    invalidateGuardPolicyCache(orgId);
     void publishOrgEvent(EVENTS.POLICY_UPDATED, { orgId, policy: rows[0], change_type: 'created' });
 
     return NextResponse.json({ policy: rows[0], policy_id: id }, { status: 201 });
@@ -164,6 +166,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
     }
 
+    invalidateGuardPolicyCache(orgId);
     void publishOrgEvent(EVENTS.POLICY_UPDATED, { orgId, policy: rows[0], change_type: 'updated' });
 
     return NextResponse.json({ policy: rows[0] });

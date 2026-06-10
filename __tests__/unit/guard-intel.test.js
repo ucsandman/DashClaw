@@ -16,7 +16,7 @@ vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }
 vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })) }));
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
-import { evaluateGuard } from '@/lib/guard.js';
+import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 
 function makePolicy(type, rules, overrides = {}) {
@@ -32,6 +32,8 @@ function makePolicy(type, rules, overrides = {}) {
 describe('guard intel-aware policy types', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Guard hot-path caches persist at module level; tests reuse one org id.
+    __resetGuardCaches();
     mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
   });
 

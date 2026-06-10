@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../lib/org';
 import { validateGuardInput } from '../../lib/validate';
@@ -8,13 +9,89 @@ import { evaluateGuard } from '../../lib/guard';
 import { getSql } from '../../lib/db.js';
 import { apiErrorResponse } from '../../lib/apiErrors.js';
 import { scanForPromptInjection } from '../../lib/promptInjection.js';
-import { scanSensitiveData } from '../../lib/security.js';
+import { scanSensitiveData, redactAny } from '../../lib/security.js';
 import { getSettings } from '../../lib/repositories/settings.repository.js';
 import { listGuardDecisions } from '../../lib/repositories/guard.repository.js';
+import { createActionRecord } from '../../lib/repositories/actions.repository.js';
+import { upsertAgentPresence } from '../../lib/repositories/agents.repository.js';
+import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository.js';
+import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage.js';
+import { EVENTS, publishOrgEvent } from '../../lib/events.js';
 import { isSelfHostModeEnabled } from '../../lib/selfHost.js';
 import { verifyJwt, extractBearerToken } from '../../lib/jwks-verifier.js';
 import { checkAndRecord as checkAndRecordJti } from '../../lib/repositories/jti-replay.repository.js';
 import { resolveActStatus } from '../../lib/act-binding.js';
+
+type GuardSql = ReturnType<typeof getSql>;
+type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
+type GuardResult = { decision: string; risk_score?: number };
+
+/**
+ * ?record=true support: create the running action record in-request (the same
+ * insert POST /api/actions performs, via the shared repository function) so a
+ * governed hook needs ONE HTTP call instead of guard + record. Additive — the
+ * response without the param is unchanged.
+ */
+async function recordRunningAction(
+  sql: GuardSql,
+  orgId: string,
+  data: GuardData,
+  result: GuardResult,
+): Promise<{ recorded: boolean; action_id?: string; reason?: string }> {
+  // Mirrors the two-call flow: the hook never records a blocked action
+  // (the guard_decisions audit row already captures the block).
+  if (result.decision === 'block') return { recorded: false, reason: 'decision is block' };
+  if (!data.agent_id || !data.declared_goal) {
+    return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
+  }
+
+  // Same quota gate POST /api/actions applies — record=true must not bypass
+  // plan or hosted-trial caps.
+  const plan = await getOrgPlan(orgId, sql);
+  const quota = await checkQuotaFast(orgId, 'actions_per_month', plan, sql);
+  if (!quota.allowed) return { recorded: false, reason: 'Monthly action limit exceeded' };
+
+  // Same redaction POST /api/actions applies before persisting.
+  const record: Record<string, unknown> = { ...data };
+  const dlpFindings: unknown[] = [];
+  for (const k of ['agent_name', 'declared_goal', 'reasoning', 'authorization_scope', 'trigger', 'input_summary']) {
+    if (record[k] != null) record[k] = redactAny(record[k], dlpFindings);
+  }
+  if (record.systems_touched != null) record.systems_touched = redactAny(record.systems_touched, dlpFindings);
+
+  const action_id = `act_${crypto.randomUUID()}`;
+  const createdAction = await createActionRecord(sql, {
+    orgId,
+    action_id,
+    data: record as Parameters<typeof createActionRecord>[1]['data'],
+    actionStatus: result.decision === 'require_approval' ? 'pending_approval' : 'running',
+    costEstimate: Math.max(0, Number(record.cost_estimate) || 0),
+    signature: null,
+    verified: data.verification_status === 'verified',
+    timestamp_start: new Date().toISOString(),
+    riskScore: result.risk_score ?? null,
+  });
+
+  // Same fire-and-forget side effects as POST /api/actions (event for Mission
+  // Control, meters, implicit presence heartbeat) — never block the response.
+  void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
+  Promise.all([
+    incrementMeter(orgId, 'actions_per_month', sql),
+    incrementTrialActionCount(sql, orgId).catch(() => {}),
+    upsertAgentPresence(sql, orgId, {
+      agent_id: data.agent_id,
+      agent_name: data.agent_name || null,
+      status: 'online',
+      current_task_id: action_id,
+      metadata: null,
+      timestamp: new Date().toISOString(),
+    }).catch(() => {}),
+  ]).catch((err: unknown) => {
+    console.warn('[Guard] record=true background updates failed:', (err as Error).message);
+  });
+
+  return { recorded: true, action_id };
+}
 
 /**
  * POST /api/guard — Evaluate guard policies for a proposed action.
@@ -22,6 +99,10 @@ import { resolveActStatus } from '../../lib/act-binding.js';
  *
  * Body: { action_type, risk_score?, agent_id?, agent_name?, systems_touched?, reversible?, declared_goal? }
  * Query: ?include_signals=true (optional, adds live signal warnings)
+ * Query: ?record=true (optional, additive) — also creates the running action
+ *        record (same insert as POST /api/actions) and returns its action_id,
+ *        so a governed hook needs one HTTP call instead of two. On a block
+ *        decision no record is created (`recorded: false`).
  *
  * Agent identity — two tiers:
  *
@@ -213,6 +294,26 @@ export async function POST(request: Request) {
     });
 
     if (secretScan) (result as Record<string, unknown>).secret_scan = secretScan;
+
+    // Optional ?record=true — also create the running action record and return
+    // its action_id (one HTTP call for governed hooks instead of two). Without
+    // the param the response is byte-identical to the pre-record behavior.
+    if ((request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true') {
+      const mutable = result as Record<string, unknown>;
+      try {
+        const rec = await recordRunningAction(sql, orgId, data, result);
+        mutable.recorded = rec.recorded;
+        if (rec.recorded && rec.action_id) {
+          mutable.action_id = rec.action_id;
+        } else if (rec.reason) {
+          mutable.recorded_error = rec.reason;
+        }
+      } catch (err) {
+        console.error('[Guard] record=true action creation failed:', (err as Error).message);
+        mutable.recorded = false;
+        mutable.recorded_error = 'Failed to create action record';
+      }
+    }
 
     return NextResponse.json(result, { status: 200 });
   } catch (err) {

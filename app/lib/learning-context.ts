@@ -1,4 +1,3 @@
-import { listLearningRecommendations } from './repositories/learningLoop.repository.js';
 import type { SqlTag } from './types/db.js';
 
 interface LearningContext {
@@ -14,9 +13,31 @@ interface LearningContextOptions {
   actionType?: string | null;
 }
 
+interface LearningContextRow {
+  recent_scores?: unknown;
+  baseline_avg?: number | string | null;
+  drift_severity?: string | null;
+  rec_guidance?: unknown;
+  negative_count?: number | string | null;
+  negative_avg_rating?: number | string | null;
+}
+
+const asArray = (v: unknown): unknown[] => {
+  if (Array.isArray(v)) return v;
+  if (typeof v === 'string') {
+    try { const parsed = JSON.parse(v); return Array.isArray(parsed) ? parsed : []; } catch { return []; }
+  }
+  return [];
+};
+
 /**
  * Build learning context for a guard decision.
  * Best-effort — never blocks guard decisions on failure.
+ *
+ * Hot path: this runs on every governed call, so the five source reads
+ * (recent episodes, baseline, drift alerts, recommendations, negative
+ * feedback) are batched into ONE round-trip via scalar subqueries. The
+ * returned shape is identical to the previous sequential implementation.
  */
 export async function getLearningContext(
   sql: SqlTag,
@@ -34,61 +55,71 @@ export async function getLearningContext(
   };
 
   try {
+    const episodeType = actionType || 'unknown';
+    const rows = await sql`
+      SELECT
+        (SELECT COALESCE(json_agg(s.score), '[]'::json) FROM (
+            SELECT score FROM learning_episodes
+            WHERE org_id = ${orgId} AND agent_id = ${agentId}
+              AND action_type = ${episodeType}
+            ORDER BY created_at DESC LIMIT 10
+          ) s) AS recent_scores,
+        (SELECT AVG(score) FROM learning_episodes
+          WHERE org_id = ${orgId} AND agent_id = ${agentId}
+            AND action_type = ${episodeType}) AS baseline_avg,
+        (SELECT severity FROM drift_alerts
+          WHERE org_id = ${orgId} AND agent_id = ${agentId}
+            AND acknowledged = false
+          ORDER BY severity DESC LIMIT 1) AS drift_severity,
+        (SELECT COALESCE(json_agg(r.guidance), '[]'::json) FROM (
+            SELECT guidance FROM learning_recommendations
+            WHERE org_id = ${orgId} AND agent_id = ${agentId} AND active = 1
+            ${actionType ? sql`AND action_type = ${actionType}` : sql``}
+            ORDER BY confidence DESC, sample_size DESC LIMIT 3
+          ) r) AS rec_guidance,
+        (SELECT COUNT(*) FROM feedback
+          WHERE org_id = ${orgId} AND agent_id = ${agentId}
+            AND sentiment = 'negative'
+            AND created_at > NOW() - INTERVAL '7 days') AS negative_count,
+        (SELECT AVG(rating) FROM feedback
+          WHERE org_id = ${orgId} AND agent_id = ${agentId}
+            AND sentiment = 'negative'
+            AND created_at > NOW() - INTERVAL '7 days') AS negative_avg_rating
+    ` as LearningContextRow[];
+
+    const row = rows[0];
+    if (!row) return null;
+
     // 1. Recent scores for this action type (last 10 episodes)
-    const recentEpisodes = await sql`
-      SELECT score FROM learning_episodes
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-        AND action_type = ${actionType || 'unknown'}
-      ORDER BY created_at DESC LIMIT 10
-    ` as Array<{ score?: number | null }>;
-    if (recentEpisodes.length > 0) {
+    const recentScores = asArray(row.recent_scores) as Array<number | null>;
+    if (recentScores.length > 0) {
       context.recent_score_avg = Math.round(
-        recentEpisodes.reduce((s, e) => s + (e.score || 0), 0) / recentEpisodes.length
+        recentScores.reduce((s: number, v) => s + (Number(v) || 0), 0) / recentScores.length
       );
     }
 
     // 2. Baseline score (all-time for this action type)
-    const baseline = await sql`
-      SELECT AVG(score) as avg_score FROM learning_episodes
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-        AND action_type = ${actionType || 'unknown'}
-    ` as Array<{ avg_score?: number | null }>;
-    if (baseline[0]?.avg_score != null) {
-      context.baseline_score_avg = Math.round(baseline[0].avg_score);
+    if (row.baseline_avg != null) {
+      context.baseline_score_avg = Math.round(Number(row.baseline_avg));
     }
 
     // 3. Active drift alerts for this agent
-    const driftAlerts = await sql`
-      SELECT severity, metric FROM drift_alerts
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-        AND acknowledged = false
-      ORDER BY severity DESC LIMIT 3
-    ` as Array<{ severity: string | null; metric?: string | null }>;
-    if (driftAlerts.length > 0) {
-      context.drift_status = driftAlerts[0]!.severity;
+    if (row.drift_severity != null) {
+      context.drift_status = row.drift_severity;
     }
 
     // 4. Recommendations (patterns from successful actions)
-    const recs = await listLearningRecommendations(sql, orgId, {
-      agentId, actionType: actionType ?? undefined, limit: 3,
-    }) as Array<{ guidance?: unknown }> | null;
-    if (recs && recs.length > 0) {
-      context.patterns = recs.map(r => {
-        const guidance = typeof r.guidance === 'string' ? JSON.parse(r.guidance) : r.guidance;
+    const guidanceList = asArray(row.rec_guidance);
+    if (guidanceList.length > 0) {
+      context.patterns = guidanceList.map((g) => {
+        const guidance = typeof g === 'string' ? JSON.parse(g) : g;
         return (guidance as { text?: string; summary?: string })?.text || (guidance as { text?: string; summary?: string })?.summary || '';
       }).filter(Boolean);
     }
 
     // 5. Recent negative feedback
-    const negativeFb = await sql`
-      SELECT COUNT(*) as count, AVG(rating) as avg_rating
-      FROM feedback
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-        AND sentiment = 'negative'
-        AND created_at > NOW() - INTERVAL '7 days'
-    ` as Array<{ count?: number | string | null; avg_rating?: number | string | null }>;
-    if ((negativeFb[0]?.count as number) > 0) {
-      context.feedback_summary = `${negativeFb[0]!.count} negative rating(s) in last 7 days (avg ${Number(negativeFb[0]!.avg_rating).toFixed(1)})`;
+    if (Number(row.negative_count) > 0) {
+      context.feedback_summary = `${row.negative_count} negative rating(s) in last 7 days (avg ${Number(row.negative_avg_rating).toFixed(1)})`;
     }
   } catch (err) {
     console.error('[learning-context] Error building context:', (err as Error)?.message);

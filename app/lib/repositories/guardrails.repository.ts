@@ -2,6 +2,7 @@
  * Guardrails Test Runs repository
  */
 
+import { invalidateGuardPolicyCache } from '../guard.js';
 import type { SqlTag } from '../types/db.js';
 
 type SqlClient = {
@@ -89,11 +90,13 @@ export async function deletePoliciesByIds(
   orgId: string,
   idList: string[]
 ): Promise<Record<string, unknown>[]> {
-  return sql`
+  const rows = await sql`
     DELETE FROM guard_policies
     WHERE id = ANY(${idList}) AND org_id = ${orgId}
     RETURNING id
   `;
+  invalidateGuardPolicyCache(orgId);
+  return rows;
 }
 
 export async function listGuardrailDecisions(
@@ -243,6 +246,7 @@ export async function insertPolicy(
     VALUES (${id}, ${orgId}, ${name}, ${policyType}, ${rules}, ${activeFlag}, ${agentIds || null}, ${now}, ${now})
     RETURNING *
   `;
+  invalidateGuardPolicyCache(orgId);
   return result[0] ?? null;
 }
 
@@ -268,5 +272,6 @@ export async function reactivateModePolicy(
     WHERE id = ${id} AND org_id = ${orgId}
     RETURNING *
   `;
+  invalidateGuardPolicyCache(orgId);
   return result[0] ?? null;
 }

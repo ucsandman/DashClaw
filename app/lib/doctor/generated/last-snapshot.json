@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:85132d5f1152b2c68a1f6687bd3cc1790eca52ab",
+  "timestamp": "sha1:365ae695bbb95338250828d2f3d18b67e8e5d033",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3654,6 +3654,8 @@
         "__tests__/unit/cron-outcome-sweep.route.test.js",
         "__tests__/unit/cron-routing-maintenance.route.test.js",
         "__tests__/unit/guard-agent-attribution.test.js",
+        "__tests__/unit/guard-characterization.test.js",
+        "__tests__/unit/guard-hotpath.test.js",
         "__tests__/unit/guard-jwks-verification.test.js",
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health-tables.test.js",
@@ -3910,6 +3912,7 @@
       "name": "GUARD_LLM_KEY",
       "required": false,
       "files": [
+        "__tests__/unit/guard-characterization.test.js",
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
@@ -4209,6 +4212,7 @@
       "name": "OPENAI_API_KEY",
       "required": false,
       "files": [
+        "__tests__/unit/guard-characterization.test.js",
         "app/lib/embeddings.ts",
         "app/lib/guard.ts",
         "app/lib/knowledge-ingest.ts",

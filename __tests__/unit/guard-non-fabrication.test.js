@@ -23,7 +23,7 @@ vi.mock('@/lib/integrity/server-key.js', () => ({
   })),
 }));
 
-import { evaluateGuard } from '@/lib/guard.js';
+import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 
 function makeSql(policies) {
@@ -59,6 +59,8 @@ function findInsert(sql) {
 describe('non_fabrication guard policy', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Guard hot-path caches persist at module level; tests reuse one org id.
+    __resetGuardCaches();
     mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
   });
 

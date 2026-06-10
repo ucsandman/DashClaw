@@ -300,14 +300,44 @@ function computeActBindingBlockReason(context: GuardEvalContext, orgId: string):
   return reason;
 }
 
-// Load active org policies and filter to those that apply to this agent
-// (null/empty agent_ids = all agents; malformed scope fails closed).
-async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgentId: string | null): Promise<PolicyRow[]> {
+// Hot-path caches (pattern: middleware apiKeyCache). Guard is invoked on every
+// governed tool call; policies and the predictive-risk settings change rarely.
+// TTL is short (≤60s per the enforcement contract) and policy mutations
+// invalidate eagerly via invalidateGuardPolicyCache().
+const GUARD_CACHE_TTL_MS = 30_000;
+const policyCache = new Map<string, { rows: PolicyRow[]; expires: number }>();
+const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; expires: number }>();
+
+/** Called by policy mutation paths so a changed policy takes effect immediately. */
+export function invalidateGuardPolicyCache(orgId?: string): void {
+  if (orgId) policyCache.delete(orgId);
+  else policyCache.clear();
+}
+
+/** Test-only: clear all guard hot-path caches. */
+export function __resetGuardCaches(): void {
+  policyCache.clear();
+  predictiveSettingsCache.clear();
+}
+
+// Active org policies, served from the short-TTL cache (one DB round-trip per
+// org per TTL window instead of one per governed call).
+async function loadOrgPolicies(sql: GuardSql, orgId: string): Promise<PolicyRow[]> {
+  const hit = policyCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.rows;
   const allPolicies = await sql`
     SELECT id, name, policy_type, rules, agent_ids
     FROM guard_policies
     WHERE org_id = ${orgId} AND active = 1
-  `;
+  ` as PolicyRow[];
+  policyCache.set(orgId, { rows: allPolicies, expires: Date.now() + GUARD_CACHE_TTL_MS });
+  return allPolicies;
+}
+
+// Load active org policies and filter to those that apply to this agent
+// (null/empty agent_ids = all agents; malformed scope fails closed).
+async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgentId: string | null): Promise<PolicyRow[]> {
+  const allPolicies = await loadOrgPolicies(sql, orgId);
   return (allPolicies as PolicyRow[]).filter((p) => {
     if (!p.agent_ids) return true; // null/empty = applies to all
     try {
@@ -323,8 +353,26 @@ async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgent
   });
 }
 
+// Predictive-risk org settings, served from the short-TTL cache so the
+// settings table is read at most once per org per TTL window.
+async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number }> {
+  const hit = predictiveSettingsCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit;
+  const { getSettings } = await import('./repositories/settings.repository.js');
+  const riskSettings = await getSettings(sql, orgId, { category: 'general' });
+  const settingsList = riskSettings as Array<Record<string, unknown>>;
+  const entry = {
+    enabled: settingsList.find((s) => s.key === 'PREDICTIVE_RISK_ENABLED')?.value === 'true',
+    threshold: parseInt(String(settingsList.find((s) => s.key === 'PREDICTIVE_RISK_THRESHOLD')?.value ?? ''), 10) || 60,
+    expires: Date.now() + GUARD_CACHE_TTL_MS,
+  };
+  predictiveSettingsCache.set(orgId, entry);
+  return entry;
+}
+
 // Predictive risk scoring — statistical analysis of historical behavior.
-// Best-effort: never block guard on failure.
+// Best-effort: never block guard on failure. Skipped entirely (no settings
+// re-read, no historical-stats query) when PREDICTIVE_RISK_ENABLED is off.
 async function computePredictiveRisk(
   sql: GuardSql,
   orgId: string,
@@ -332,17 +380,14 @@ async function computePredictiveRisk(
   effectiveRiskScore: number,
 ): Promise<{ total_adjustment?: number } | null> {
   try {
-    const { getPredictiveRisk } = await import('./predictive-risk.js');
-    const { getSettings } = await import('./repositories/settings.repository.js');
-    const riskSettings = await getSettings(sql, orgId, { category: 'general' });
-    const settingsList = riskSettings as Array<Record<string, unknown>>;
-    const prEnabled = settingsList.find((s) => s.key === 'PREDICTIVE_RISK_ENABLED')?.value === 'true';
-    const prThreshold = parseInt(String(settingsList.find((s) => s.key === 'PREDICTIVE_RISK_THRESHOLD')?.value ?? ''), 10) || 60;
+    const { enabled, threshold } = await getPredictiveSettings(sql, orgId);
+    if (!enabled) return null;
 
     if (context.agent_id && context.action_type) {
+      const { getPredictiveRisk } = await import('./predictive-risk.js');
       return await getPredictiveRisk(
         sql, orgId, context.agent_id, context.action_type, effectiveRiskScore,
-        { enabled: prEnabled, threshold: prThreshold },
+        { enabled, threshold },
       );
     }
     return null;

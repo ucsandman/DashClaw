@@ -16,7 +16,7 @@ vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }
 vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })) }));
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
-import { evaluateGuard } from '@/lib/guard.js';
+import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 
 function makeSql(policies) {
@@ -41,6 +41,9 @@ describe('evaluateGuard', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    // Guard hot-path caches (policies, predictive settings) persist at module
+    // level; tests here reuse org_1 with different policies per case.
+    __resetGuardCaches();
     mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
     // Bypass the no-LLM-key short-circuit added to `app/lib/guard.js` by commit
     // b8706570 (BUG-01 fix). In a real instance with no OPENAI_API_KEY / GUARD_LLM_KEY,

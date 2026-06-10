@@ -39,7 +39,7 @@ vi.mock('@/lib/learning-context.js', () => ({ getLearningContext: mockGetLearnin
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
 
-import { evaluateGuard, computeRiskScore } from '@/lib/guard.js';
+import { evaluateGuard, computeRiskScore, __resetGuardCaches } from '@/lib/guard.js';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -116,6 +116,9 @@ function makePolicy(id, type, rules, overrides = {}) {
 describe('guard pipeline integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Guard hot-path caches (policies, predictive settings) persist at module
+    // level; tests here reuse the same org with different policies per case.
+    __resetGuardCaches();
     mockScanSensitiveData.mockImplementation((text) => ({ findings: [], redacted: text, clean: true }));
     mockScanForPromptInjection.mockReturnValue({ clean: true, recommendation: 'allow', matches: [], categories: [] });
   });
