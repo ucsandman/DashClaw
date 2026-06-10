@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 302,
+    "total_routes": 303,
     "stable_routes": 51,
     "beta_routes": 24,
-    "experimental_routes": 227
+    "experimental_routes": 228
   },
   "routes": [
     {
@@ -1039,11 +1039,22 @@
     {
       "path": "/api/code-sessions/projects",
       "methods": [
+        "DELETE",
         "GET"
       ],
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/code-sessions/projects/route.ts"
+    },
+    {
+      "path": "/api/code-sessions/projects/{projectId}",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/code-sessions/projects/[projectId]/route.ts"
     },
     {
       "path": "/api/code-sessions/projects/{projectId}/sessions",
@@ -1057,6 +1068,7 @@
     {
       "path": "/api/code-sessions/sessions/{sessionId}",
       "methods": [
+        "DELETE",
         "GET"
       ],
       "maturity": "experimental",

@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `302`
+- Total routes: `303`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `227`
+- Experimental routes: `228`
 
 ## Routes
 
@@ -125,9 +125,10 @@ doc-type: architecture
 | `/api/code-sessions/manifests/{manifestId}` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/manifests/[manifestId]/route.ts` |
 | `/api/code-sessions/memos` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/memos/route.ts` |
 | `/api/code-sessions/memos/regenerate` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/memos/regenerate/route.ts` |
-| `/api/code-sessions/projects` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/route.ts` |
+| `/api/code-sessions/projects` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/route.ts` |
+| `/api/code-sessions/projects/{projectId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/[projectId]/route.ts` |
 | `/api/code-sessions/projects/{projectId}/sessions` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/[projectId]/sessions/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/route.ts` |
+| `/api/code-sessions/sessions/{sessionId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/route.ts` |
 | `/api/code-sessions/sessions/{sessionId}/autopsy` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts` |
 | `/api/code-sessions/sessions/{sessionId}/insights` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/insights/route.ts` |
 | `/api/code-sessions/sessions/{sessionId}/optimal-files/manifest` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts` |

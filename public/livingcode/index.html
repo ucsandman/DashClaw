@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:2eae868670bb6951ad4537a4aa3e847431ceda1c · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">255</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">256</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
@@ -182,7 +182,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>43</b> routes added, <b>1</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>44</b> routes added, <b>3</b> routes changed, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
@@ -192,6 +192,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/behavior/samples <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/behavior/simulate <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/code-sessions/projects/[projectId] <span class="sig">New route: DELETE, GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/evaluations/scorers/preview <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/finops/spend <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/hosted/capacity <span class="sig">New route: GET</span></li>
@@ -225,6 +226,8 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/x402/providers/[id] <span class="sig">New route: GET, PATCH</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/providers/[id]/endpoints <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/purchases <span class="sig">New route: GET, POST</span></li>
+    <li><code>changed</code> <b>routes</b>: /api/code-sessions/projects <span class="sig">Methods: GET -&gt; DELETE, GET</span></li>
+    <li><code>changed</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId] <span class="sig">Methods: GET -&gt; DELETE, GET</span></li>
     <li><code>changed</code> <b>routes</b>: /api/handoffs <span class="sig">Methods: POST -&gt; GET, POST</span></li>
     <li><code>added</code> <b>env_vars</b>: ANTHROPIC_MODEL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_DIR <span class="sig">New env var (optional, undocumented)</span></li>
@@ -297,16 +300,17 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.ts</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.ts</td></tr>
     <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.ts</td></tr></tbody></table></details>
-<details><summary>/code-sessions/* (16)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.ts</td></tr>
+<details><summary>/code-sessions/* (17)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.ts</td></tr>
     <tr data-path="/api/code-sessions/alerts/read-all"><td><code>/api/code-sessions/alerts/read-all</code></td><td>POST</td><td class="sig">app/api/code-sessions/alerts/read-all/route.ts</td></tr>
     <tr data-path="/api/code-sessions/ingest-jsonl"><td><code>/api/code-sessions/ingest-jsonl</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-jsonl/route.ts</td></tr>
     <tr data-path="/api/code-sessions/ingest-live"><td><code>/api/code-sessions/ingest-live</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-live/route.ts</td></tr>
     <tr data-path="/api/code-sessions/manifests/[manifestId]"><td><code>/api/code-sessions/manifests/[manifestId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/manifests/[manifestId]/route.ts</td></tr>
     <tr data-path="/api/code-sessions/memos"><td><code>/api/code-sessions/memos</code></td><td>GET</td><td class="sig">app/api/code-sessions/memos/route.ts</td></tr>
     <tr data-path="/api/code-sessions/memos/regenerate"><td><code>/api/code-sessions/memos/regenerate</code></td><td>POST</td><td class="sig">app/api/code-sessions/memos/regenerate/route.ts</td></tr>
-    <tr data-path="/api/code-sessions/projects"><td><code>/api/code-sessions/projects</code></td><td>GET</td><td class="sig">app/api/code-sessions/projects/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/projects"><td><code>/api/code-sessions/projects</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/projects/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/projects/[projectId]"><td><code>/api/code-sessions/projects/[projectId]</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/projects/[projectId]/route.ts</td></tr>
     <tr data-path="/api/code-sessions/projects/[projectId]/sessions"><td><code>/api/code-sessions/projects/[projectId]/sessions</code></td><td>GET</td><td class="sig">app/api/code-sessions/projects/[projectId]/sessions/route.ts</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]"><td><code>/api/code-sessions/sessions/[sessionId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]"><td><code>/api/code-sessions/sessions/[sessionId]</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/route.ts</td></tr>
     <tr data-path="/api/code-sessions/sessions/[sessionId]/autopsy"><td><code>/api/code-sessions/sessions/[sessionId]/autopsy</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts</td></tr>
     <tr data-path="/api/code-sessions/sessions/[sessionId]/insights"><td><code>/api/code-sessions/sessions/[sessionId]/insights</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/insights/route.ts</td></tr>
     <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/manifest"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/manifest</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts</td></tr>

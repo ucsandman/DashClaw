@@ -65,6 +65,78 @@ export async function listProjects(sql: SqlTag, orgId: string): Promise<Row[]> {
   return rows;
 }
 
+export async function getProject(sql: SqlTag, orgId: string, projectId: string): Promise<Row | null> {
+  const rows = await sql`
+    SELECT id, org_id, slug, cwd, source_host, created_at, updated_at
+    FROM code_projects
+    WHERE org_id = ${orgId} AND id = ${projectId}
+    LIMIT 1
+  `;
+  return rows[0] || null;
+}
+
+// ---------------------------------------------------------------------------
+// Deletes — all org-scoped. Session children (messages, tool_uses, signals,
+// session-scoped alerts, optimal-file manifests) cascade via the 0006 FKs;
+// code_sessions.project_id has NO cascade, so project deletes must remove
+// sessions FIRST or Postgres raises FK 23503 (the hosted-workspace bug shape,
+// commit 974854b1). code_session_handoffs.project_id is ON DELETE SET NULL —
+// handoff bundles intentionally survive project deletion.
+// ---------------------------------------------------------------------------
+
+export async function deleteCodeSession(
+  sql: SqlTag,
+  orgId: string,
+  sessionId: string,
+): Promise<boolean> {
+  const rows = await sql`
+    DELETE FROM code_sessions
+    WHERE org_id = ${orgId} AND id = ${sessionId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// Non-atomic on Neon HTTP (no transactions): a crash between the sessions
+// DELETE and the project DELETE leaves an empty project row — benign and
+// re-deletable.
+export async function deleteCodeProject(
+  sql: SqlTag,
+  orgId: string,
+  projectId: string,
+): Promise<boolean> {
+  await sql`
+    DELETE FROM code_sessions
+    WHERE org_id = ${orgId} AND project_id = ${projectId}
+  `;
+  const rows = await sql`
+    DELETE FROM code_projects
+    WHERE org_id = ${orgId} AND id = ${projectId}
+    RETURNING id
+  `;
+  return rows.length > 0;
+}
+
+// Clear-all for one org: every code session (including any not attached to a
+// project), then every project. Same sessions-first ordering and same
+// non-atomicity caveat as deleteCodeProject.
+export async function clearAllCodeSessions(
+  sql: SqlTag,
+  orgId: string,
+): Promise<{ sessions_deleted: number; projects_deleted: number }> {
+  const sessions = await sql`
+    DELETE FROM code_sessions
+    WHERE org_id = ${orgId}
+    RETURNING id
+  `;
+  const projects = await sql`
+    DELETE FROM code_projects
+    WHERE org_id = ${orgId}
+    RETURNING id
+  `;
+  return { sessions_deleted: sessions.length, projects_deleted: projects.length };
+}
+
 // ---------------------------------------------------------------------------
 // Session freshness + upsert
 // ---------------------------------------------------------------------------

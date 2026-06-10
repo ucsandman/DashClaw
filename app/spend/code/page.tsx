@@ -144,8 +144,13 @@ export default function ClaudeCodeSpendPage() {
               <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-3">By project</div>
               <div className="space-y-1.5">
                 {cs.by_project.map((p: any) => (
-                  <div key={p.project_id} className="flex items-center justify-between text-sm">
-                    <span className="text-secondary truncate">{p.project_name}</span>
+                  <div key={p.project_id} className="flex items-center justify-between gap-3 text-sm">
+                    <Link
+                      href={`/code-sessions/${p.project_id}`}
+                      className="truncate text-secondary transition-colors hover:text-brand"
+                    >
+                      {p.project_name}
+                    </Link>
                     <span className="tabular-nums text-tertiary">{fmt(p.cost_usd)}</span>
                   </div>
                 ))}

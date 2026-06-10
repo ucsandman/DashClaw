@@ -18,6 +18,7 @@ Data flow:
 Never blocks. Always exits 0.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -497,6 +498,139 @@ def datetime_now_iso():
 
 
 # ---------------------------------------------------------------------------
+# Assumption auto-capture
+#
+# The global working agreement mandates agents surface assumptions in an exact
+# block format ("ASSUMPTIONS I'M MAKING:" + numbered items). Nothing in the
+# hook pipeline ever shipped those to /api/assumptions, so the assumptions
+# ledger only filled from SDK/MCP callers. This extracts the block from the
+# turn's assistant text and POSTs each item against the turn's first action_id.
+# Only the exact header format is parsed (precision over recall), capped per
+# turn, idempotent across hook re-runs via a per-session posted-keys file, and
+# fail-silent like every other hook call.
+# ---------------------------------------------------------------------------
+
+_ASSUMPTIONS_PER_TURN_CAP = 5
+_ASSUMPTIONS_HEADER_RE = re.compile(r"^\s*ASSUMPTIONS I'M MAKING:\s*$", re.MULTILINE)
+_ASSUMPTION_ITEM_RE = re.compile(r"^\s*\d+\.\s+(.+?)\s*$")
+
+
+def _turn_assistant_text(entries, start):
+    """Concatenated text blocks from the turn's assistant entries."""
+    parts = []
+    for e in entries[start:]:
+        if e.get("type") != "assistant":
+            continue
+        content = (e.get("message") or {}).get("content")
+        if isinstance(content, str):
+            parts.append(content)
+        elif isinstance(content, list):
+            for c in content:
+                if isinstance(c, dict) and c.get("type") == "text" and c.get("text"):
+                    parts.append(c["text"])
+    return "\n".join(parts)
+
+
+def _extract_assumptions(text):
+    """Numbered items from "ASSUMPTIONS I'M MAKING:" blocks, in order.
+
+    Items run until the first non-item line (e.g. the "→ Correct me now"
+    tail). Leading blank lines after the header are tolerated; blanks after
+    the first item end the block. Deduplicated, capped per turn."""
+    out = []
+    if not text:
+        return out
+    for m in _ASSUMPTIONS_HEADER_RE.finditer(text):
+        seen_item = False
+        for line in text[m.end():].splitlines():
+            if not line.strip():
+                if seen_item:
+                    break
+                continue
+            item = _ASSUMPTION_ITEM_RE.match(line)
+            if not item:
+                break
+            seen_item = True
+            val = item.group(1).strip()
+            if val and val not in out:
+                out.append(val)
+            if len(out) >= _ASSUMPTIONS_PER_TURN_CAP:
+                return out
+    return out
+
+
+def _assumptions_posted_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_assumptions_" + _safe_session_id(session_id)
+    )
+
+
+def _read_posted_assumption_keys(session_id):
+    try:
+        with open(_assumptions_posted_path(session_id), encoding="utf-8") as f:
+            return {ln.strip() for ln in f if ln.strip()}
+    except Exception:
+        return set()
+
+
+def _append_posted_assumption_keys(session_id, keys):
+    if not keys:
+        return
+    try:
+        with open(_assumptions_posted_path(session_id), "a", encoding="utf-8") as f:
+            for key in keys:
+                f.write(key + "\n")
+    except Exception:
+        pass
+
+
+def _post_assumption(action_id, assumption):
+    """POST /api/assumptions. Returns True on success; logs and returns False
+    on any failure (never blocks session end)."""
+    body = {
+        "action_id": action_id,
+        "assumption": assumption,
+        "basis": "auto-extracted from session transcript",
+    }
+    req = _build_action_request(BASE_URL + "/api/assumptions", body, "POST")
+    try:
+        request_with_retry(req, timeout=3)
+        return True
+    except urllib.error.HTTPError as e:
+        _log_hook_error("POST /api/assumptions -> HTTP " + str(e.code))
+        return False
+    except Exception as e:
+        _log_hook_error("POST /api/assumptions -> " + type(e).__name__ + ": " + str(e))
+        return False
+
+
+def _capture_assumptions(entries, last_uuid, action_ids, session_id):
+    """Extract + ship the turn's stated assumptions. Skips text-only turns
+    (POST requires a parent action). Fail-silent end to end."""
+    try:
+        if not action_ids:
+            return
+        start = _resolve_turn_start(entries, last_uuid)
+        items = _extract_assumptions(_turn_assistant_text(entries, start))
+        if not items:
+            return
+        parent_action = action_ids[0]
+        posted = _read_posted_assumption_keys(session_id)
+        new_keys = []
+        for item in items:
+            key = hashlib.sha1(
+                (parent_action + "\x00" + item).encode("utf-8")
+            ).hexdigest()
+            if key in posted:
+                continue
+            if _post_assumption(parent_action, item):
+                new_keys.append(key)
+        _append_posted_assumption_keys(session_id, new_keys)
+    except Exception as e:
+        _log_hook_error("capture_assumptions -> " + type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
 # Behavior insights push (safe aggregate → hosted dashboard)
 # ---------------------------------------------------------------------------
 
@@ -710,6 +844,10 @@ def main():
     tokens_in, tokens_out, model, new_cursor = _collect_turn_usage(entries, last_uuid)
 
     _apply(action_ids, tokens_in, tokens_out, model, session_id)
+
+    # Assumption auto-capture: ship any "ASSUMPTIONS I'M MAKING:" items from
+    # this turn's assistant text to /api/assumptions. Idempotent + fail-silent.
+    _capture_assumptions(entries, last_uuid, action_ids, session_id)
 
     ingest_result = _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor)
 

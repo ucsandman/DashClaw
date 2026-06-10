@@ -27,6 +27,7 @@ vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId }));
 vi.mock('@/lib/repositories/code-sessions.repository.js', () => ({
   getSessionDetail: mockGetSessionDetail,
+  deleteCodeSession: vi.fn(),
 }));
 vi.mock('@/lib/claude-code/goals.js', () => ({ buildAutopsyFromDetail: mockBuildAutopsyFromDetail }));
 

@@ -77,6 +77,22 @@ async function readLines(filePath) {
   return lines;
 }
 
+// Recover the project's real working directory from the transcript itself.
+// Claude Code stamps a `cwd` field on JSONL records; the encoded directory
+// slug (c--projects-dashclaw) is NOT reversible, so this is the only
+// client-side source of a copy-pasteable path. Bounded scan; null when absent.
+export function deriveCwdFromLines(lines, maxScan = 50) {
+  for (const line of lines.slice(0, maxScan)) {
+    try {
+      const rec = JSON.parse(line);
+      if (rec && typeof rec.cwd === 'string' && rec.cwd.trim()) return rec.cwd;
+    } catch {
+      // Non-JSON line — keep scanning; the parser tolerates these too.
+    }
+  }
+  return null;
+}
+
 export async function buildIngestPayload(filePath, { cwdOverride = null } = {}) {
   const stat = fs.statSync(filePath);
   if (stat.size > MAX_FILE_BYTES) {
@@ -93,7 +109,7 @@ export async function buildIngestPayload(filePath, { cwdOverride = null } = {}) 
   const body = {
     project: {
       slug,
-      cwd: cwdOverride,
+      cwd: cwdOverride || deriveCwdFromLines(lines),
       source_host: 'jsonl',
     },
     session_uuid: null,

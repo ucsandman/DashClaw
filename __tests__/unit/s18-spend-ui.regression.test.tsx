@@ -159,6 +159,31 @@ describe('ClaudeCodeSpendPage (§18.5 /spend/code chart data)', () => {
       { date: '2026-06-03', cost: 3 },
     ]);
   });
+
+  it('links each by_project row to its /code-sessions project page', async () => {
+    global.fetch = vi.fn(async (url: any) => {
+      if (String(url).startsWith('/api/finops/spend')) {
+        return okJson({
+          code_total_usd: 5,
+          code_sessions: {
+            session_count: 2,
+            total_cache_savings_usd: 0,
+            by_day: [{ date: '2026-06-01', cost_usd: 5 }],
+            by_project: [
+              { project_id: 'cp_link_1', project_name: 'c--projects-dashclaw', cost_usd: 5 },
+            ],
+          },
+        });
+      }
+      throw new Error(`Unexpected fetch: ${url}`);
+    }) as any;
+
+    const { default: ClaudeCodeSpendPage } = await import('@/spend/code/page');
+    render(<ClaudeCodeSpendPage />);
+
+    const link = await screen.findByRole('link', { name: 'c--projects-dashclaw' });
+    expect(link.getAttribute('href')).toBe('/code-sessions/cp_link_1');
+  });
 });
 
 describe('Sidebar (§18.5 /spend navigation active state)', () => {

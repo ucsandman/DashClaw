@@ -161,9 +161,12 @@ export async function POST(request: Request) {
   const sql = getSql();
   const orgId = getOrgId(request);
 
+  // The CLI backfill sends cwd:null (it only knows the encoded dir slug), but
+  // the parser recovers the real working directory from the JSONL records —
+  // fall back to it so projects display a copy-pasteable path, not a slug.
   const projectRow = (await upsertProject(sql, orgId, {
     slug,
-    cwd: project.cwd || null,
+    cwd: project.cwd || (parsed as { cwd?: string | null }).cwd || null,
     source_host: sourceHost,
   })) as { id: string; slug: string };
 

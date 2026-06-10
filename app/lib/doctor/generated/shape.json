@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:2eae868670bb6951ad4537a4aa3e847431ceda1c",
+  "timestamp": "sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1065,11 +1065,24 @@
     {
       "path": "/api/code-sessions/projects",
       "methods": [
+        "DELETE",
         "GET"
       ],
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/code-sessions/projects/route.ts"
+    },
+    {
+      "path": "/api/code-sessions/projects/[projectId]",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "dynamic_params": [
+        "projectId"
+      ],
+      "archived": false,
+      "file_path": "app/api/code-sessions/projects/[projectId]/route.ts"
     },
     {
       "path": "/api/code-sessions/projects/[projectId]/sessions",
@@ -1085,6 +1098,7 @@
     {
       "path": "/api/code-sessions/sessions/[sessionId]",
       "methods": [
+        "DELETE",
         "GET"
       ],
       "dynamic_params": [

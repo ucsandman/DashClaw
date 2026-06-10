@@ -1,8 +1,8 @@
-import Link from 'next/link';
 import { headers } from 'next/headers';
 import { Bot, Layers } from 'lucide-react';
 import { getSql } from '../../lib/db';
 import {
+  getProject,
   listSessions,
   listSubagentToolUseAttribution,
   listMemos,
@@ -11,8 +11,8 @@ import { computeRoiFromRows } from '../../lib/claude-code/subagent-roi';
 import type { AttributionRow } from '../../lib/claude-code/subagent-roi';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent } from '../../components/ui/Card';
-import { EmptyState } from '../../components/ui/EmptyState';
 import WeeklyMemoPanel from './WeeklyMemoPanel';
+import SessionsTable from './SessionsTable';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -43,9 +43,8 @@ function usd(n: any) {
   return n == null ? '—' : `$${Number(n).toFixed(2)}`;
 }
 
-// The route param is the internal `cp_<uuid>` id. No project name is available
-// from the session/roi/memo reads, so we render a short, stable id rather than
-// exposing the full internal uuid in the header and breadcrumb.
+// Fallback label when the project row is missing (deleted mid-navigation):
+// a short, stable id rather than the full internal `cp_<uuid>`.
 function shortProjectId(id: any) {
   const raw = String(id || '');
   const body = raw.startsWith('cp_') ? raw.slice(3) : raw;
@@ -75,7 +74,9 @@ export default async function ProjectSessionsPage({ params }: { params: Promise<
   const h = await headers();
   const orgId = h.get('x-org-id') || 'org_default';
   const sql = getSql();
-  const [sessions, roiRows, memos] = await Promise.all([
+  const [project, sessions, roiRows, memos] = await Promise.all([
+    // Project row is display-only (name/path header); degrade to the short id.
+    getProject(sql, orgId, projectId).catch(() => null),
     listSessions(sql, orgId, projectId, { limit: 100 }),
     // ROI + memo are best-effort retrospectives; a failure in either must not
     // blank the sessions list, so each degrades independently.
@@ -87,12 +88,13 @@ export default async function ProjectSessionsPage({ params }: { params: Promise<
   const roi = computeRoiFromRows(roiRows as unknown as AttributionRow[]);
   // listMemos returns rows ordered iso_week_tag DESC, so [0] is the latest.
   const latestMemo = memos[0] || null;
-  const projectLabel = shortProjectId(projectId);
+  // Real path (or slug) instead of the old truncated internal id.
+  const projectLabel = (project?.cwd as string) || (project?.slug as string) || shortProjectId(projectId);
 
   return (
     <PageLayout
-      title="Sessions"
-      subtitle={`Project ${projectLabel}`}
+      title={(project?.slug as string) || 'Sessions'}
+      subtitle={(project?.cwd as string) || `Project ${shortProjectId(projectId)}`}
       breadcrumbs={['Code Sessions', projectLabel]}
       maturity="beta"
     >
@@ -143,53 +145,7 @@ export default async function ProjectSessionsPage({ params }: { params: Promise<
         )}
 
         <TableSection title="Sessions" icon={Layers}>
-          {!sessions.length ? (
-            <div className="p-8">
-              <EmptyState
-                icon={Layers}
-                title="No sessions yet"
-                description="No sessions have been recorded for this project yet."
-              />
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-left text-sm">
-                <thead>
-                  <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
-                    <th className="px-5 py-3">Session</th>
-                    <th className="px-5 py-3">Source</th>
-                    <th className="px-5 py-3">Model</th>
-                    <th className="px-5 py-3 text-right">Messages</th>
-                    <th className="px-5 py-3 text-right">Cost</th>
-                    <th className="px-5 py-3">Started</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {sessions.map((s: any) => (
-                    <tr key={s.id} className="transition-colors hover:bg-white/[0.02]">
-                      <td className="px-5 py-3">
-                        <Link
-                          className="font-mono text-xs text-white transition-colors hover:text-brand"
-                          href={`/code-sessions/${projectId}/${s.id}`}
-                        >
-                          {String(s.session_uuid || '').slice(0, 8)}
-                        </Link>
-                      </td>
-                      <td className="px-5 py-3">
-                        <span className="rounded bg-surface-tertiary px-2 py-0.5 text-xs text-tertiary">{s.source}</span>
-                      </td>
-                      <td className="px-5 py-3 text-xs text-secondary">{s.model_primary || '—'}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-secondary">{s.message_count}</td>
-                      <td className="px-5 py-3 text-right tabular-nums text-secondary">${Number(s.cost_usd || 0).toFixed(2)}</td>
-                      <td className="px-5 py-3 text-tertiary tabular-nums">
-                        {s.started_at ? new Date(s.started_at).toLocaleString() : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <SessionsTable projectId={projectId} sessions={sessions as any} />
         </TableSection>
       </div>
     </PageLayout>

@@ -27,7 +27,9 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 const TAGGED_FILES: Array<[string, string]> = [
   ['activity', 'app/activity/page.tsx'],
-  ['code-sessions', 'app/code-sessions/page.tsx'],
+  // Rows extracted to the client ProjectsTable (multi-select, phase 7) — the
+  // tagging lives there now; the server page just passes rows in.
+  ['code-sessions', 'app/code-sessions/ProjectsTable.tsx'],
   ['evaluations', 'app/evaluations/page.tsx'],
   ['integrations', 'app/integrations/page.tsx'],
   ['learning', 'app/learning/page.tsx'],

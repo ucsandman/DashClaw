@@ -15,6 +15,7 @@ vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId }));
 vi.mock('@/lib/repositories/code-sessions.repository.js', () => ({
   listProjects: mockListProjects,
+  clearAllCodeSessions: vi.fn(),
 }));
 
 import { GET } from '@/api/code-sessions/projects/route.js';
