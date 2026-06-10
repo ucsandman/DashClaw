@@ -4,11 +4,11 @@ import { Suspense, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 /**
- * /quality redirects to /scoring (Scoring Profiles) by default,
- * or /evaluations if ?view=evaluations is passed.
- *
- * This is the merged "Quality" entry point from the sidebar.
- * Both /scoring and /evaluations remain fully functional standalone pages.
+ * LEGACY BOOKMARK REDIRECT — nothing in the app links here anymore. /quality
+ * redirects to /scoring (rule-based scoring profiles) by default, or
+ * /evaluations with ?view=evaluations. Kept only so old external bookmarks
+ * keep working; the sidebar entries are "Scoring" (/scoring) and
+ * "Evaluations" (/evaluations) — one name per surface.
  */
 function QualityRedirect() {
   const router = useRouter();

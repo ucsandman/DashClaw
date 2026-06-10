@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
-import { createProfile, listProfiles } from '../../../lib/scoringProfiles';
+import { createProfile, listProfiles, seedDefaultData } from '../../../lib/scoringProfiles';
 
 export async function GET(request: Request) {
   try {
@@ -28,6 +28,16 @@ export async function POST(request: Request) {
     const sql = getSql();
     const orgId = getOrgId(request);
     const body = await request.json();
+
+    // First-run affordance: seed the starter profiles/templates/sample scores
+    // (same seedDefaultData POST /api/orgs runs at org creation — hosted trials
+    // and orgs whose fire-and-forget seed failed land on an empty page with no
+    // way to recover). Idempotent-ish: rows are tagged is_seed by the seeder.
+    if (body.seed_defaults === true) {
+      await seedDefaultData(sql, orgId);
+      const profiles = await listProfiles(sql, orgId, { status: 'active', limit: 50, offset: 0 });
+      return Response.json({ seeded: true, profiles }, { status: 201 });
+    }
 
     if (!body.name) {
       return Response.json({ error: 'name is required' }, { status: 400 });

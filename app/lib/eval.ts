@@ -306,9 +306,11 @@ export async function executeEvalRun(
   orgId: string,
   runId: string,
 ): Promise<{ success: boolean; scored: number; errors: number; avgScore: number | null } | undefined> {
-  // Fetch run details
+  // Fetch run details. es.name is aliased — er.* already carries the RUN's
+  // `name`, and writing that into eval_scores.scorer_name (the old bug) broke
+  // the scorer filter + by_scorer stats for every run-generated score.
   const [run] = (await sql`
-    SELECT er.*, es.scorer_type, es.config AS scorer_config
+    SELECT er.*, es.scorer_type, es.config AS scorer_config, es.name AS scorer_display_name
     FROM eval_runs er
     LEFT JOIN eval_scorers es ON er.scorer_id = es.id
     WHERE er.id = ${runId} AND er.org_id = ${orgId}
@@ -399,7 +401,7 @@ export async function executeEvalRun(
       INSERT INTO eval_scores (id, org_id, action_id, scorer_id, run_id, scorer_name, score, label, reasoning, evaluated_by, created_at)
       VALUES (
         ${scoreId}, ${orgId}, ${action.action_id || action.id},
-        ${run.scorer_id}, ${runId}, ${run.name || 'unnamed'},
+        ${run.scorer_id}, ${runId}, ${run.scorer_display_name || 'unnamed'},
         ${result.score}, ${result.label}, ${result.reasoning},
         ${scorer.scorer_type === 'llm_judge' ? 'llm_judge' : 'auto'},
         ${now}

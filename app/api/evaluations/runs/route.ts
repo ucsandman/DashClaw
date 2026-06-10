@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import crypto from 'crypto';
 import { getSql } from '../../../lib/db';
-import { getOrgId, getOrgRole } from '../../../lib/org';
+import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { executeEvalRun } from '../../../lib/eval';
 import { isLLMAvailable } from '../../../lib/llm';
 import { listEvalRuns, createEvalRun, getEvalScorer } from '../../../lib/repositories/evaluations.repository';
@@ -79,14 +79,21 @@ export async function POST(request: Request) {
       scorer_id,
       status: 'pending',
       filter_criteria: action_filters,
-      created_by: role,
+      // Real audit identity — the role string ('admin') told you nothing.
+      created_by: getUserId(request) || role,
       created_at: now,
     });
 
-    // Execute async (don't await - it run in background)
-    executeEvalRun(sql, orgId, id).catch((err: unknown) => {
-      console.error(`Eval run ${id} failed:`, err);
-    });
+    // Execute after the response via after() — Vercel freezes the lambda the
+    // moment the response returns, so the old fire-and-forget left every
+    // hosted run stuck 'pending, 0 scored' forever (same pattern as
+    // app/api/actions/route.ts). NOTE: max-duration still caps llm_judge runs;
+    // code scorers finish in well under a second for 500 rows.
+    after(() =>
+      executeEvalRun(sql, orgId, id).catch((err: unknown) => {
+        console.error(`Eval run ${id} failed:`, err);
+      })
+    );
 
     return NextResponse.json({ id, name, status: 'pending', created_at: now }, { status: 201 });
   } catch (error) {

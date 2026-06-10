@@ -1,12 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import PageLayout from '../components/PageLayout';
 import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { useAgentFilter } from '../lib/AgentFilterContext';
+import { distributionSegmentPct } from '../lib/scoring-ui';
 import { demoScoringProfiles, demoRiskTemplates, demoScoringScores, demoCalibration } from '../lib/demoScoringData';
 
 interface ScoringDimension {
@@ -96,13 +98,16 @@ interface ScoreSummaryState {
 
 const TABS = ['Profiles', 'Score Explorer', 'Risk Templates', 'Calibrate'];
 
+// NOTE: 'eval_score' was removed from this list — eval results live in the
+// separate eval_scores table and are never joined onto the action objects the
+// page scores, so that dimension always graded "no_data". Re-add only once the
+// scoring path actually joins eval scores per action.
 const DATA_SOURCES = [
   { value: 'duration_ms', label: 'Duration (ms)' },
   { value: 'cost_estimate', label: 'Cost Estimate' },
   { value: 'tokens_total', label: 'Total Tokens' },
   { value: 'risk_score', label: 'Risk Score' },
   { value: 'confidence', label: 'Confidence' },
-  { value: 'eval_score', label: 'Eval Score' },
   { value: 'metadata_field', label: 'Metadata Field' },
   { value: 'custom_function', label: 'Custom Function' },
 ];
@@ -124,6 +129,10 @@ export default function ScoringPage() {
   const [scores, setScores] = useState<ScoreRecord[]>([]);
   const [calibration, setCalibration] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  // Mutation failures used to be SILENT (no res.ok checks) — the form just sat
+  // there. Every mutation now reports here.
+  const [mutationError, setMutationError] = useState<string | null>(null);
+  const [seeding, setSeeding] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedProfile, setSelectedProfile] = useState<ScoringProfile | null>(null);
   const [scoringId, setScoringId] = useState<string | null>(null);      // profile id currently being scored
@@ -213,35 +222,63 @@ export default function ScoringPage() {
 
   // --- Handlers -------------------------------------------
 
+  // Shared mutation wrapper: read res.ok, surface the failure.
+  const reportFailure = async (res: Response | null, fallback: string) => {
+    if (res?.ok) return false;
+    const data = res ? await res.json().catch(() => ({})) : {};
+    setMutationError((data as { error?: string }).error || fallback);
+    return true;
+  };
+
   const handleCreateProfile = async () => {
+    setMutationError(null);
     const payload = {
       ...newProfile,
       action_type: newProfile.action_type || null,
       dimensions: newProfile.dimensions.filter(d => d.name && d.data_source),
     };
-    const res = await fetch('/api/scoring/profiles', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/scoring/profiles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (await reportFailure(res, 'Failed to create profile.')) return;
       setShowCreate(false);
       setNewProfile({ name: '', description: '', action_type: '', composite_method: 'weighted_average', dimensions: [{ name: '', data_source: 'duration_ms', weight: 0.25, scale: [], data_config: {} }] });
       fetchProfiles();
-    }
+    } catch { setMutationError('Failed to create profile.'); }
+  };
+
+  const handleSeedDefaults = async () => {
+    setMutationError(null);
+    setSeeding(true);
+    try {
+      const res = await fetch('/api/scoring/profiles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ seed_defaults: true }),
+      });
+      if (await reportFailure(res, 'Failed to load starter profiles.')) return;
+      fetchProfiles();
+      fetchRiskTemplates();
+      fetchScores();
+    } catch { setMutationError('Failed to load starter profiles.'); }
+    finally { setSeeding(false); }
   };
 
   const handleCreateTemplate = async () => {
+    setMutationError(null);
     const payload = {
       ...newTemplate,
       action_type: newTemplate.action_type || null,
       rules: newTemplate.rules.filter(r => r.condition),
     };
-    const res = await fetch('/api/scoring/risk-templates', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch('/api/scoring/risk-templates', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (await reportFailure(res, 'Failed to create template.')) return;
       setNewTemplate({ name: '', description: '', action_type: '', base_risk: 20, rules: [{ condition: '', add: 10 }] });
       fetchRiskTemplates();
-    }
+    } catch { setMutationError('Failed to create template.'); }
   };
 
   const handleCalibrate = async () => {
@@ -252,19 +289,21 @@ export default function ScoringPage() {
       return;
     }
     setCalibration(null);
-    const res = await fetch('/api/scoring/calibrate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        action_type: calibrateForm.action_type || null,
-        agent_id: calibrateForm.agent_id || null,
-        lookback_days: calibrateForm.lookback_days,
-        metrics: calibrateForm.metrics.length ? calibrateForm.metrics : undefined,
-      }),
-    });
-    if (res.ok) {
+    setMutationError(null);
+    try {
+      const res = await fetch('/api/scoring/calibrate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action_type: calibrateForm.action_type || null,
+          agent_id: calibrateForm.agent_id || null,
+          lookback_days: calibrateForm.lookback_days,
+          metrics: calibrateForm.metrics.length ? calibrateForm.metrics : undefined,
+        }),
+      });
+      if (await reportFailure(res, 'Calibration failed.')) return;
       const data = await res.json();
       setCalibration(data);
-    }
+    } catch { setMutationError('Calibration failed.'); }
   };
 
   const handleApplyCalibration = async (suggestion: any) => {
@@ -281,13 +320,15 @@ export default function ScoringPage() {
         scale: suggestion.suggested_scale,
       }],
     };
-    const res = await fetch('/api/scoring/profiles', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    if (res.ok) {
+    setMutationError(null);
+    try {
+      const res = await fetch('/api/scoring/profiles', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (await reportFailure(res, 'Failed to apply calibration as a profile.')) return;
       fetchProfiles();
       setActiveTab('Profiles');
-    }
+    } catch { setMutationError('Failed to apply calibration as a profile.'); }
   };
 
   // Run a profile against real ledger actions. Solves "profiles can be built
@@ -326,41 +367,55 @@ export default function ScoringPage() {
   };
 
   const handleArchiveProfile = async (profileId: string) => {
-    await fetch(`/api/scoring/profiles/${profileId}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'archived' }),
-    });
-    fetchProfiles();
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/profiles/${profileId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'archived' }),
+      });
+      if (await reportFailure(res, 'Failed to archive profile.')) return;
+      fetchProfiles();
+    } catch { setMutationError('Failed to archive profile.'); }
   };
 
   const handleDeleteTemplate = async (templateId: string) => {
-    await fetch(`/api/scoring/risk-templates/${templateId}`, { method: 'DELETE' });
-    fetchRiskTemplates();
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/risk-templates/${templateId}`, { method: 'DELETE' });
+      if (await reportFailure(res, 'Failed to delete template.')) return;
+      fetchRiskTemplates();
+    } catch { setMutationError('Failed to delete template.'); }
   };
 
   const handleUnarchiveProfile = async (profileId: string) => {
-    await fetch(`/api/scoring/profiles/${profileId}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'active' }),
-    });
-    fetchProfiles();
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/profiles/${profileId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'active' }),
+      });
+      if (await reportFailure(res, 'Failed to restore profile.')) return;
+      fetchProfiles();
+    } catch { setMutationError('Failed to restore profile.'); }
   };
 
   const handleUpdateTemplate = async () => {
     if (!editTemplateId) return;
+    setMutationError(null);
     const payload = {
       ...newTemplate,
       action_type: newTemplate.action_type || null,
       rules: newTemplate.rules.filter(r => r.condition),
     };
-    const res = await fetch(`/api/scoring/risk-templates/${editTemplateId}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-    });
-    if (res.ok) {
+    try {
+      const res = await fetch(`/api/scoring/risk-templates/${editTemplateId}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+      });
+      if (await reportFailure(res, 'Failed to update template.')) return;
       setEditTemplateId(null);
       setNewTemplate({ name: '', description: '', action_type: '', base_risk: 20, rules: [{ condition: '', add: 10 }] });
       fetchRiskTemplates();
-    }
+    } catch { setMutationError('Failed to update template.'); }
   };
 
   // --- Dimension CRUD (post-creation) ---------------------
@@ -376,38 +431,46 @@ export default function ScoringPage() {
 
   const handleSaveDimension = async (profileId: string, dim: ScoringDimension) => {
     setDimBusy(true);
-    const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions/${dim.id}`, {
-      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: dim.name, data_source: dim.data_source, weight: dim.weight }),
-    });
-    setDimBusy(false);
-    if (res.ok) fetchProfiles();
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions/${dim.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: dim.name, data_source: dim.data_source, weight: dim.weight }),
+      });
+      if (!(await reportFailure(res, 'Failed to save dimension.'))) fetchProfiles();
+    } catch { setMutationError('Failed to save dimension.'); }
+    finally { setDimBusy(false); }
   };
 
   const handleDeleteDimension = async (profileId: string, dimId: string | undefined) => {
     setDimBusy(true);
-    const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions/${dimId}`, { method: 'DELETE' });
-    setDimBusy(false);
-    if (res.ok) {
-      setManageDims(dims => dims.filter(d => d.id !== dimId));
-      fetchProfiles();
-    }
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions/${dimId}`, { method: 'DELETE' });
+      if (!(await reportFailure(res, 'Failed to delete dimension.'))) {
+        setManageDims(dims => dims.filter(d => d.id !== dimId));
+        fetchProfiles();
+      }
+    } catch { setMutationError('Failed to delete dimension.'); }
+    finally { setDimBusy(false); }
   };
 
   const handleAddDimension = async (profileId: string) => {
     if (!newDim.name) return;
     setDimBusy(true);
-    const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: newDim.name, data_source: newDim.data_source, weight: newDim.weight }),
-    });
-    setDimBusy(false);
-    if (res.ok) {
+    setMutationError(null);
+    try {
+      const res = await fetch(`/api/scoring/profiles/${profileId}/dimensions`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newDim.name, data_source: newDim.data_source, weight: newDim.weight }),
+      });
+      if (await reportFailure(res, 'Failed to add dimension.')) return;
       const created = await res.json().catch(() => null);
       if (created?.id) setManageDims(dims => [...dims, created]);
       setNewDim({ name: '', data_source: 'duration_ms', weight: 0.25 });
       fetchProfiles();
-    }
+    } catch { setMutationError('Failed to add dimension.'); }
+    finally { setDimBusy(false); }
   };
 
   // --- Score color helper ---------------------------------
@@ -430,10 +493,35 @@ export default function ScoringPage() {
 
   return (
     <PageLayout
-      title="Quality"
+      title="Scoring"
       subtitle="Define what 'good' means for your agents, then grade real decisions against it — rule-based scoring, no LLM required."
-      maturity="stable"
+      breadcrumbs={['Labs', 'Scoring']}
+      maturity="beta"
     >
+      {/* How this surface works + how it differs from Evaluations */}
+      <Card hover={false} className="mb-6">
+        <div className="px-5 py-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <ol className="space-y-1 text-xs text-secondary">
+              <li><span className="tabular-nums font-semibold text-tertiary">1.</span> Define a profile — weighted dimensions over fields your agents already report (duration, cost, tokens, risk, confidence).</li>
+              <li><span className="tabular-nums font-semibold text-tertiary">2.</span> &ldquo;Score recent&rdquo; grades your last 25 governed actions. Pure math, instant.</li>
+              <li><span className="tabular-nums font-semibold text-tertiary">3.</span> Read the per-dimension breakdown in Score Explorer, or let Calibrate suggest scales from your real data.</li>
+            </ol>
+            <p className="max-w-[36ch] text-[11px] text-tertiary">
+              Different from <Link href="/evaluations" className="text-brand transition-colors hover:text-brand-hover">Evaluations</Link>,
+              which runs scorers (regex/keyword/LLM-judge) over actions and feeds agent Reputation.
+            </p>
+          </div>
+        </div>
+      </Card>
+
+      {mutationError && (
+        <div role="alert" className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-error/30 bg-error-subtle px-4 py-2.5 text-xs text-error">
+          <span>{mutationError}</span>
+          <button onClick={() => setMutationError(null)} aria-label="Dismiss" className="shrink-0 opacity-60 transition-opacity hover:opacity-100">&times;</button>
+        </div>
+      )}
+
       {/* Tab Bar */}
       <div className="flex gap-1 mb-6 bg-secondary rounded-lg p-1 w-fit">
         {TABS.map(tab => (
@@ -530,7 +618,18 @@ export default function ScoringPage() {
           )}
 
           {profiles.length === 0 && !loading && (
-            <EmptyState title="No scoring profiles yet" description="Create a profile to define what quality means for your agents." />
+            <div className="py-6 text-center">
+              <EmptyState title="No scoring profiles yet" description="Create a profile to define what quality means for your agents — or start from the seeded examples." />
+              {!isDemoMode() && profileStatus === 'active' && (
+                <button
+                  onClick={handleSeedDefaults}
+                  disabled={seeding}
+                  className="mx-auto mt-3 rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
+                >
+                  {seeding ? 'Loading…' : 'Load starter profiles'}
+                </button>
+              )}
+            </div>
           )}
 
           <div className="space-y-3">
@@ -902,20 +1001,20 @@ export default function ScoringPage() {
                       className="text-xs text-brand hover:text-brand/80">Apply as Profile</button>
                   </div>
 
-                  {/* Distribution visualization */}
+                  {/* Distribution visualization (zero-guarded: identical samples → 0-width bands, not NaN%) */}
                   <div className="mt-3 flex items-center gap-1 text-xs">
                     <span className="text-disabled w-16">min: {s.distribution.min}</span>
                     <div className="flex-1 h-6 bg-secondary rounded relative overflow-hidden">
                       <div className="absolute inset-y-0 bg-error-subtle" style={{
-                        left: '0%', width: `${((s.distribution.p25 - s.distribution.min) / (s.distribution.max - s.distribution.min)) * 100}%`
+                        left: '0%', width: `${distributionSegmentPct(s.distribution.min, s.distribution.p25, s.distribution.min, s.distribution.max)}%`
                       }} />
                       <div className="absolute inset-y-0 bg-status-warning/20" style={{
-                        left: `${((s.distribution.p25 - s.distribution.min) / (s.distribution.max - s.distribution.min)) * 100}%`,
-                        width: `${((s.distribution.p75 - s.distribution.p25) / (s.distribution.max - s.distribution.min)) * 100}%`
+                        left: `${distributionSegmentPct(s.distribution.min, s.distribution.p25, s.distribution.min, s.distribution.max)}%`,
+                        width: `${distributionSegmentPct(s.distribution.p25, s.distribution.p75, s.distribution.min, s.distribution.max)}%`
                       }} />
                       <div className="absolute inset-y-0 bg-success-subtle" style={{
-                        left: `${((s.distribution.p75 - s.distribution.min) / (s.distribution.max - s.distribution.min)) * 100}%`,
-                        width: `${((s.distribution.max - s.distribution.p75) / (s.distribution.max - s.distribution.min)) * 100}%`
+                        left: `${distributionSegmentPct(s.distribution.min, s.distribution.p75, s.distribution.min, s.distribution.max)}%`,
+                        width: `${distributionSegmentPct(s.distribution.p75, s.distribution.max, s.distribution.min, s.distribution.max)}%`
                       }} />
                     </div>
                     <span className="text-disabled w-16 text-right">max: {s.distribution.max}</span>

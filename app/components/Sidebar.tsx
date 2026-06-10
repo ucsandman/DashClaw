@@ -88,7 +88,7 @@ const navGroups: NavGroup[] = [
       { href: '/sessions', icon: Activity, label: 'Agent Sessions' },
       { href: '/drift', icon: TrendingUp, label: 'Drift' },
       { href: '/learning', icon: GraduationCap, label: 'Learning' },
-      { href: '/scoring', icon: BarChart3, label: 'Quality' },
+      { href: '/scoring', icon: BarChart3, label: 'Scoring' },
       { href: '/evaluations', icon: ClipboardCheck, label: 'Evaluations' },
       { href: '/prompts', icon: Terminal, label: 'Prompts' },
       { href: '/messages', icon: Inbox, label: 'Messages' },

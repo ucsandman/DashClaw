@@ -98,6 +98,48 @@ const SCORER_TYPES = [
   { value: 'llm_judge', label: 'LLM-as-judge', description: 'AI evaluates action quality (requires AI provider)' },
 ];
 
+// Per-type config placeholders matching the engine's real config keys
+// (app/lib/eval.ts) — the old form showed a regex placeholder for every type.
+const CONFIG_PLACEHOLDERS: Record<string, string> = {
+  regex: '{"pattern": "success|completed"}',
+  contains: '{"keywords": ["success", "done"], "mode": "any"}',
+  numeric_range: '{"field": "risk_score", "min": 0, "max": 50}',
+  custom_function: '{"expression": "outcome === \'success\' ? 1 : 0"}',
+  llm_judge: '{}',
+};
+
+// The synthetic action a "Test config" preview runs against (shown in the UI).
+const PREVIEW_SAMPLE = {
+  outcome: 'completed successfully',
+  action_type: 'deploy',
+  risk_score: 42,
+  status: 'completed',
+  declared_goal: 'ship the release',
+};
+
+// One-click starter scorers — real configs the engine runs as-is, no LLM key
+// needed. The blank raw-JSON form was the only path before.
+const SCORER_TEMPLATES = [
+  {
+    name: 'Outcome mentions success',
+    scorer_type: 'regex',
+    description: 'Passes actions whose reported outcome matches success|completed|done',
+    config: { pattern: 'success|completed|done' },
+  },
+  {
+    name: 'No error keywords',
+    scorer_type: 'contains',
+    description: 'Flags actions whose outcome mentions an error (score 0 on match)',
+    config: { keywords: ['error', 'failed', 'exception'], mode: 'any', match_score: 0, no_match_score: 1 },
+  },
+  {
+    name: 'Risk stayed low',
+    scorer_type: 'numeric_range',
+    description: 'Passes actions whose risk_score stayed at or below 50',
+    config: { field: 'risk_score', min: 0, max: 50 },
+  },
+];
+
 const SCORE_VARIANT = (score: number | null | undefined): string => {
   if (score == null) return 'error';
   if (score >= 0.8) return 'success';
@@ -156,10 +198,18 @@ export default function EvaluationsPage() {
   // Create scorer form
   const [showCreateScorer, setShowCreateScorer] = useState(false);
   const [newScorer, setNewScorer] = useState<NewScorer>({ name: '', scorer_type: 'regex', config: '{}', description: '' });
+  const [scorerFormError, setScorerFormError] = useState('');
+  const [creatingTemplate, setCreatingTemplate] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  // Dry-run preview (POST /api/evaluations/scorers/preview) — test a config
+  // against a recent action before creating the scorer.
+  const [previewResult, setPreviewResult] = useState<{ score?: number | null; label?: string | null; reasoning?: string | null; error?: string | null } | null>(null);
+  const [previewBusy, setPreviewBusy] = useState(false);
 
   // Create run form
   const [showCreateRun, setShowCreateRun] = useState(false);
   const [newRun, setNewRun] = useState<NewRun>({ name: '', scorer_id: '' });
+  const [runFormError, setRunFormError] = useState('');
 
   // Fetch all data
   const fetchData = useCallback(async () => {
@@ -221,6 +271,15 @@ export default function EvaluationsPage() {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Light polling while any run is pending/running so a launched run visibly
+  // progresses to completed without manual refresh (cleared when all terminal).
+  const hasActiveRun = runs.some((r) => r.status === 'pending' || r.status === 'running');
+  useEffect(() => {
+    if (!hasActiveRun || isDemo) return;
+    const t = setInterval(() => { fetchData(); }, 4000);
+    return () => clearInterval(t);
+  }, [hasActiveRun, isDemo, fetchData]);
+
   const selection = useSelection<any>(scores, (s) => s.id);
   useSelectAllHotkey(selection.toggleAll);
 
@@ -231,12 +290,13 @@ export default function EvaluationsPage() {
 
   const BULK_ACTIONS = [{ id: 'copy-ids', label: 'Copy IDs', icon: Copy, onClick: handleCopyIds }];
 
-  // Create scorer handler
+  // Create scorer handler — inline form errors, never a native dialog.
   const handleCreateScorer = async () => {
+    setScorerFormError('');
     try {
       let parsedConfig;
       try { parsedConfig = JSON.parse(newScorer.config); } catch {
-        alert('Invalid JSON in config field');
+        setScorerFormError('Invalid JSON in the config field.');
         return;
       }
       const res = await fetch('/api/evaluations/scorers', {
@@ -252,19 +312,73 @@ export default function EvaluationsPage() {
       if (res.ok) {
         setShowCreateScorer(false);
         setNewScorer({ name: '', scorer_type: 'regex', config: '{}', description: '' });
+        setPreviewResult(null);
         fetchData();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to create scorer');
+        const err = await res.json().catch(() => ({}));
+        setScorerFormError(res.status === 403 ? 'Creating scorers requires an admin role.' : (err.error || 'Failed to create scorer.'));
       }
-    } catch (err) {
-      alert('Error creating scorer');
+    } catch {
+      setScorerFormError('Failed to create scorer.');
     }
   };
 
-  // Create run handler
+  // One-click template create — same route, prefilled real config.
+  const handleCreateTemplate = async (template: typeof SCORER_TEMPLATES[number]) => {
+    setCreatingTemplate(template.name);
+    try {
+      const res = await fetch('/api/evaluations/scorers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(template),
+      });
+      if (res.ok) {
+        fetchData();
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast(res.status === 403 ? 'Creating scorers requires an admin role.' : (err.error || 'Failed to create scorer from template.'));
+      }
+    } catch {
+      showToast('Failed to create scorer from template.');
+    } finally {
+      setCreatingTemplate(null);
+    }
+  };
+
+  // Dry-run the in-form config against a recent action (no scorer created).
+  const handlePreviewScorer = async () => {
+    setPreviewBusy(true);
+    setPreviewResult(null);
+    setScorerFormError('');
+    try {
+      let parsedConfig;
+      try { parsedConfig = JSON.parse(newScorer.config); } catch {
+        setScorerFormError('Invalid JSON in the config field.');
+        return;
+      }
+      const res = await fetch('/api/evaluations/scorers/preview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scorer_type: newScorer.scorer_type,
+          config: parsedConfig,
+          sample: PREVIEW_SAMPLE,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok) setPreviewResult(data.result || data);
+      else setScorerFormError(data.error || 'Preview failed.');
+    } catch {
+      setScorerFormError('Preview failed.');
+    } finally {
+      setPreviewBusy(false);
+    }
+  };
+
+  // Create run handler — inline form errors, never a native dialog.
   const handleCreateRun = async () => {
-    if (!newRun.scorer_id) { alert('Select a scorer'); return; }
+    setRunFormError('');
+    if (!newRun.scorer_id) { setRunFormError('Select a scorer first.'); return; }
     try {
       const res = await fetch('/api/evaluations/runs', {
         method: 'POST',
@@ -279,20 +393,21 @@ export default function EvaluationsPage() {
         setNewRun({ name: '', scorer_id: '' });
         fetchData();
       } else {
-        const err = await res.json();
-        alert(err.error || 'Failed to create run');
+        const err = await res.json().catch(() => ({}));
+        setRunFormError(res.status === 403 ? 'Starting runs requires an admin role.' : (err.error || 'Failed to create run.'));
       }
-    } catch (err) {
-      alert('Error creating run');
+    } catch {
+      setRunFormError('Failed to create run.');
     }
   };
 
-  // Delete scorer handler
+  // Delete scorer — two-step inline confirmation, no native dialog.
   const handleDeleteScorer = async (id: string) => {
-    if (!confirm('Delete this scorer? Existing scores will be preserved.')) return;
+    if (confirmingDeleteId !== id) { setConfirmingDeleteId(id); return; }
+    setConfirmingDeleteId(null);
     try {
       const res = await fetch(`/api/evaluations/scorers/${id}`, { method: 'DELETE' });
-      if (!res.ok) { showToast('Delete scorer failed'); return; }
+      if (!res.ok) { showToast(res.status === 403 ? 'Deleting scorers requires an admin role.' : 'Delete scorer failed'); return; }
       fetchData();
     } catch { showToast('Delete scorer failed'); }
   };
@@ -349,8 +464,8 @@ export default function EvaluationsPage() {
   return (
     <PageLayout
       title="Evaluations"
-      subtitle="Score and measure agent decision quality"
-      breadcrumbs={['Operations', 'Evaluations']}
+      subtitle="Grade recorded actions with scorers — rule-based or LLM-judged; results feed Reputation"
+      breadcrumbs={['Labs', 'Evaluations']}
       maturity="beta"
       actions={
         <>
@@ -440,13 +555,32 @@ export default function EvaluationsPage() {
                 </div>
               )}
               {scores.length === 0 ? (
-                <EmptyState
-                  icon={BarChart3}
-                  title={(scoreBand !== 'all' || scorerFilter !== 'all') ? 'No scores match these filters' : 'No scores yet'}
-                  description={(scoreBand !== 'all' || scorerFilter !== 'all')
-                    ? 'Adjust or clear the filters to see more scores.'
-                    : 'Create a scorer and run an evaluation, or submit scores via the SDK.'}
-                />
+                (scoreBand !== 'all' || scorerFilter !== 'all') ? (
+                  <EmptyState
+                    icon={BarChart3}
+                    title="No scores match these filters"
+                    description="Adjust or clear the filters to see more scores."
+                  />
+                ) : (
+                  <div className="py-8 text-center">
+                    <BarChart3 size={24} className="mx-auto text-tertiary" aria-hidden="true" />
+                    <h3 className="mt-3 text-sm font-semibold text-white">No scores yet — here&apos;s the loop</h3>
+                    <ol className="mx-auto mt-3 max-w-md space-y-1.5 text-left text-xs text-secondary">
+                      <li><span className="tabular-nums font-semibold text-tertiary">1.</span> Define a scorer — what &ldquo;good&rdquo; means (regex, keywords, a numeric range; no LLM key needed).</li>
+                      <li><span className="tabular-nums font-semibold text-tertiary">2.</span> Run it over your recorded actions from the Runs tab.</li>
+                      <li><span className="tabular-nums font-semibold text-tertiary">3.</span> Scores and the distribution land here — and feed agent Reputation.</li>
+                    </ol>
+                    <button
+                      onClick={() => { setActiveTab('scorers'); setShowCreateScorer(true); }}
+                      className={`${primaryBtn} mx-auto mt-4`}
+                    >
+                      <Plus size={14} aria-hidden="true" /> Create your first scorer
+                    </button>
+                    <p className="mt-3 text-[11px] text-tertiary">
+                      Agents can also push scores directly via <code className="font-mono">POST /api/evaluations</code> or the Python SDK&apos;s <code className="font-mono">create_score()</code>.
+                    </p>
+                  </div>
+                )
               ) : (
                 <>
                   <div className="mb-3 flex items-center gap-2">
@@ -490,7 +624,21 @@ export default function EvaluationsPage() {
 
         {activeTab === 'scorers' && (
           <div className="space-y-4">
-            <div className="flex justify-end">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Start from a template</span>
+                {SCORER_TEMPLATES.map((t) => (
+                  <button
+                    key={t.name}
+                    onClick={() => handleCreateTemplate(t)}
+                    disabled={creatingTemplate !== null}
+                    title={t.description}
+                    className={secondaryBtn}
+                  >
+                    {creatingTemplate === t.name ? 'Creating…' : t.name}
+                  </button>
+                ))}
+              </div>
               <button onClick={() => setShowCreateScorer(!showCreateScorer)} className={primaryBtn}>
                 <Plus size={14} aria-hidden="true" /> New scorer
               </button>
@@ -530,15 +678,28 @@ export default function EvaluationsPage() {
                     placeholder="Description (optional)"
                     className={`w-full ${inputClass}`}
                   />
+                  <p className="text-xs text-tertiary">
+                    {SCORER_TYPES.find((t) => t.value === newScorer.scorer_type)?.description}
+                  </p>
                   <label htmlFor="scorer-config" className="sr-only">Config</label>
                   <textarea
                     id="scorer-config"
                     value={newScorer.config}
                     onChange={e => setNewScorer(s => ({ ...s, config: e.target.value }))}
-                    placeholder='{"pattern": "success|completed"}'
+                    placeholder={CONFIG_PLACEHOLDERS[newScorer.scorer_type] || '{}'}
                     rows={3}
                     className={`w-full font-mono ${inputClass}`}
                   />
+                  {scorerFormError && (
+                    <div role="alert" className="rounded-lg border border-error/30 bg-error-subtle px-3 py-2 text-xs text-error">{scorerFormError}</div>
+                  )}
+                  {previewResult && (
+                    <div role="status" className={`rounded-lg border px-3 py-2 text-xs ${previewResult.error ? 'border-error/30 bg-error-subtle text-error' : 'border-border bg-surface-tertiary text-secondary'}`}>
+                      {previewResult.error
+                        ? `Preview error: ${previewResult.error}`
+                        : <>Test against a sample action (outcome &ldquo;{PREVIEW_SAMPLE.outcome}&rdquo;, risk {PREVIEW_SAMPLE.risk_score}): score <span className="font-semibold tabular-nums text-white">{previewResult.score ?? '—'}</span> · {previewResult.label || 'no label'}{previewResult.reasoning ? ` · ${previewResult.reasoning}` : ''}</>}
+                    </div>
+                  )}
                   {newScorer.scorer_type === 'llm_judge' && !llmAvailable && (
                     <div className="flex items-start gap-2 rounded-lg border border-warning/30 bg-warning-subtle p-2 text-xs text-warning">
                       <AlertCircle size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -547,6 +708,9 @@ export default function EvaluationsPage() {
                   )}
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setShowCreateScorer(false)} className={secondaryBtn}>Cancel</button>
+                    <button onClick={handlePreviewScorer} disabled={previewBusy} className={secondaryBtn}>
+                      {previewBusy ? 'Testing…' : 'Test config'}
+                    </button>
                     <button onClick={handleCreateScorer} disabled={!newScorer.name} className={primaryBtn}>Create scorer</button>
                   </div>
                 </CardContent>
@@ -575,13 +739,30 @@ export default function EvaluationsPage() {
                         <div className="flex shrink-0 items-center gap-3">
                           <span className="tabular-nums text-xs text-tertiary">{scorer.total_scores || 0} scores</span>
                           {scorer.avg_score !== null && scorer.avg_score !== undefined && <ScoreBar score={parseFloat(String(scorer.avg_score))} />}
-                          <button
-                            onClick={() => handleDeleteScorer(scorer.id)}
-                            className="rounded p-1 text-tertiary transition-colors hover:bg-error-subtle hover:text-error"
-                            aria-label={`Delete ${scorer.name}`}
-                          >
-                            <Trash2 size={14} />
-                          </button>
+                          {confirmingDeleteId === scorer.id ? (
+                            <span className="flex items-center gap-1.5">
+                              <button
+                                onClick={() => handleDeleteScorer(scorer.id)}
+                                className="rounded border border-error/30 bg-error-subtle px-2 py-0.5 text-xs font-medium text-error transition-colors hover:border-error/50"
+                              >
+                                Confirm delete
+                              </button>
+                              <button
+                                onClick={() => setConfirmingDeleteId(null)}
+                                className="text-xs text-tertiary transition-colors hover:text-white"
+                              >
+                                Keep
+                              </button>
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => handleDeleteScorer(scorer.id)}
+                              className="rounded p-1 text-tertiary transition-colors hover:bg-error-subtle hover:text-error"
+                              aria-label={`Delete ${scorer.name}`}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -627,6 +808,14 @@ export default function EvaluationsPage() {
                       {scorers.map(s => <option key={s.id} value={s.id}>{s.name} ({s.scorer_type})</option>)}
                     </select>
                   </div>
+                  {runFormError && (
+                    <div role="alert" className="rounded-lg border border-error/30 bg-error-subtle px-3 py-2 text-xs text-error">{runFormError}</div>
+                  )}
+                  <p className="text-[11px] text-tertiary">
+                    Runs score your last 500 recorded actions. Code scorers finish in seconds;
+                    LLM-judge runs can exceed the serverless time limit on large batches — if one
+                    stalls, Cancel it and re-run with an agent filter.
+                  </p>
                   <div className="flex justify-end gap-2">
                     <button onClick={() => setShowCreateRun(false)} className={secondaryBtn}>Cancel</button>
                     <button onClick={handleCreateRun} disabled={!newRun.scorer_id} className={primaryBtn}>Start run</button>

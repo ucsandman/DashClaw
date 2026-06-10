@@ -8,6 +8,7 @@ import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumpti
 import { handoffs as tutorialHandoffs } from './fixtures/tutorial-handoffs';
 import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures';
 import { complianceData } from './fixtures/compliance-fixtures';
+import { demoScoringProfiles } from '../demoScoringData';
 
 // No module-level cache: returning the same object by reference let
 // mutating callers (e.g. demoCreateAction) permanently alter the
@@ -359,7 +360,10 @@ function buildFixtures(): Record<string, unknown> {
   const learningCurves: unknown[] = [];
   const learningAnalyticsSummary = { total_lessons: 10, total_decisions: 18 };
 
-  const scoringProfiles: unknown[] = [];
+  // Mirror the client-side demoScoringData profiles so a demo-mode API
+  // consumer and the /scoring page (which uses demoScoringData directly)
+  // agree — this used to be an empty array while the page showed two profiles.
+  const scoringProfiles: unknown[] = demoScoringProfiles;
 
   const riskTemplates = [
     {
