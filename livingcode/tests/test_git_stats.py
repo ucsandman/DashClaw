@@ -1,5 +1,10 @@
 import unittest
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
+
+
+def _iso_days_ago(days):
+    return (datetime.now(timezone.utc) - timedelta(days=days)).strftime("%Y-%m-%d %H:%M:%S +0000")
 
 
 class TestGitStatsCollector(unittest.TestCase):
@@ -53,9 +58,11 @@ class TestGitStatsCollector(unittest.TestCase):
                 "14",     # 1: commits 7d
                 "48",     # 2: commits 30d
                 "  origin/main\n  origin/feat-a\n  origin/stale-one",  # 3: branches
-                "2026-04-07 12:00:00 +0000",   # 4: main last commit
-                "2026-04-06 12:00:00 +0000",   # 5: feat-a last commit
-                "2026-02-01 12:00:00 +0000",   # 6: stale-one last commit
+                # Relative dates — hardcoded ones rot past the active-branch
+                # window and the test starts failing on the calendar.
+                _iso_days_ago(3),     # 4: main last commit (active)
+                _iso_days_ago(4),     # 5: feat-a last commit (active)
+                _iso_days_ago(120),   # 6: stale-one last commit (stale)
                 "    46\tWes Sander\n     2\tdependabot[bot]",  # 7: shortlog
                 " 3 files changed, 200 insertions(+), 50 deletions(-)",  # 8: diff stat
             ]
