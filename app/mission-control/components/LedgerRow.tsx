@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { X } from 'lucide-react';
 import { formatRelativeTime } from '../lib/missionHelpers';
 
 const SEVERITY: Record<string, { dot: string; word: string }> = {
@@ -26,9 +27,11 @@ interface LedgerRowProps {
   onRetry?: (metadata: any) => void;
   onDisable?: (metadata: any) => void;
   onCancel?: (metadata: any) => void;
+  /** Signal rows only: hide this occurrence (same dismissal store as the Security page). */
+  onDismiss?: () => void;
 }
 
-export function LedgerRow({ item, onApprove, onDeny, onRetry, onDisable, onCancel }: LedgerRowProps) {
+export function LedgerRow({ item, onApprove, onDeny, onRetry, onDisable, onCancel, onDismiss }: LedgerRowProps) {
   const sev = SEVERITY[item.severity] || SEVERITY.low!;
   const pill = CATEGORY_PILL[item.category] || CATEGORY_PILL.signal!;
   const entityStatus = item.category === 'approval' ? 'pending_approval' : item.severity;
@@ -108,6 +111,17 @@ export function LedgerRow({ item, onApprove, onDeny, onRetry, onDisable, onCance
           >
             View
           </Link>
+        )}
+        {onDismiss && (
+          <button
+            type="button"
+            onClick={onDismiss}
+            aria-label="Dismiss signal"
+            title="Dismiss this signal. A new occurrence re-fires."
+            className="rounded-md border border-border bg-white/5 p-1 text-tertiary transition-colors hover:border-border-hover hover:bg-white/10 hover:text-secondary"
+          >
+            <X size={13} aria-hidden="true" />
+          </button>
         )}
       </div>
     </div>

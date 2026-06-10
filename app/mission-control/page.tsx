@@ -94,12 +94,24 @@ export default function MissionControlPage() {
   // Client-side dismissal filter shared with the Security page.
   const getSignalHash = getSignalHashShared;
 
-  const dismissedSet = useMemo<Set<any>>(() => {
+  const [dismissedSet, setDismissedSet] = useState<Set<any>>(() => {
     if (typeof window === 'undefined') return new Set();
     try {
       const stored = localStorage.getItem('dashclaw_dismissed_signals');
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
+  });
+
+  // Dismiss one or many signal instances from the live feed. Shares the
+  // localStorage key + per-instance hash with the Security page, so a signal
+  // cleared here disappears there (and from posture counts) and vice versa.
+  const dismissSignalKeys = useCallback((keys: string[]) => {
+    setDismissedSet((prev) => {
+      const next = new Set(prev);
+      for (const key of keys) next.add(key);
+      localStorage.setItem('dashclaw_dismissed_signals', JSON.stringify([...next]));
+      return next;
+    });
   }, []);
 
   const activeSignalList = useMemo(() => {
@@ -214,6 +226,7 @@ export default function MissionControlPage() {
           onDecision={onDecision}
           refresh={refresh}
           handlers={handlers}
+          onDismissSignals={dismissSignalKeys}
         />
       </div>
     </PageLayout>

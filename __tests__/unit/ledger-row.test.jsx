@@ -51,4 +51,21 @@ describe('LedgerRow', () => {
     const { container } = render(<LedgerRow item={approval} onApprove={() => {}} onDeny={() => {}} />);
     expect(container.innerHTML).not.toMatch(/purple-400|emerald-400|blue-400|amber-400|zinc-[0-9]/);
   });
+
+  it('renders a dismiss button only when onDismiss is provided, and wires the click', () => {
+    const signal = {
+      id: 's1', category: 'signal', severity: 'critical', title: 'Agent heartbeat lost: ps-qa',
+      detail: 'No heartbeat for 600 minutes.', source: 'signal', source_id: null, agent_id: 'ps-qa',
+      timestamp: null, action_url: '/security', dismiss_key: 'agent_silent:ps-qa::::2026-06-10',
+    };
+    const { container } = render(<LedgerRow item={signal} />);
+    expect(container.querySelector('[aria-label="Dismiss signal"]')).toBeNull();
+
+    const onDismiss = vi.fn();
+    const { container: c2 } = render(<LedgerRow item={signal} onDismiss={onDismiss} />);
+    const btn = c2.querySelector('[aria-label="Dismiss signal"]');
+    expect(btn).toBeTruthy();
+    fireEvent.click(btn);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
 });

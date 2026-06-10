@@ -29,6 +29,7 @@ interface LiveStreamProps {
     onCancel: (m: any) => void;
     onDisable: (m: any) => void;
   };
+  onDismissSignals?: (keys: string[]) => void;
 }
 
 /**
@@ -36,12 +37,18 @@ interface LiveStreamProps {
  * the Intervention Queue above, so they're excluded here. Capped at 40 DOM rows
  * with a deep-link footer; new rows enter via the fadeSlideIn keyframe.
  */
-export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, livePulse, loading, handlers }: LiveStreamProps) {
+export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, livePulse, loading, handlers, onDismissSignals }: LiveStreamProps) {
   const visible = feedItems
     .filter((i) => i.category !== 'approval')
     .filter((i) => matchesAgent(i, agentId))
     .filter((i) => !activeCategory || i.category === activeCategory);
   const shown = visible.slice(0, STREAM_CAP);
+
+  // Dismissal targets every matching signal instance (not just the 40 shown),
+  // so "Clear signals" empties the whole backlog, including the deep-link tail.
+  const dismissableKeys = onDismissSignals
+    ? visible.filter((i) => i.category === 'signal' && i.dismiss_key).map((i) => i.dismiss_key as string)
+    : [];
 
   return (
     <div className="rounded-xl border border-border bg-surface-secondary">
@@ -51,16 +58,28 @@ export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, 
           <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Live · governed events</span>
           <span className="text-[11px] text-tertiary" role="status">{livePulse ? 'Live' : 'Idle'}</span>
         </div>
-        {activeCategory && (
-          <button
-            type="button"
-            onClick={onClearFilter}
-            className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand-subtle px-2 py-0.5 text-[11px] font-medium text-brand transition-colors hover:border-brand/50"
-          >
-            {CATEGORY_LABEL[activeCategory] || activeCategory}
-            <X size={11} aria-hidden="true" />
-          </button>
-        )}
+        <div className="flex items-center gap-3">
+          {dismissableKeys.length > 0 && (
+            <button
+              type="button"
+              onClick={() => onDismissSignals!(dismissableKeys)}
+              className="text-[11px] text-tertiary transition-colors hover:text-secondary"
+              title="Dismiss every signal currently in the feed. New occurrences re-fire."
+            >
+              Clear {dismissableKeys.length} signal{dismissableKeys.length !== 1 ? 's' : ''}
+            </button>
+          )}
+          {activeCategory && (
+            <button
+              type="button"
+              onClick={onClearFilter}
+              className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand-subtle px-2 py-0.5 text-[11px] font-medium text-brand transition-colors hover:border-brand/50"
+            >
+              {CATEGORY_LABEL[activeCategory] || activeCategory}
+              <X size={11} aria-hidden="true" />
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="max-h-[560px] overflow-y-auto">
@@ -82,6 +101,11 @@ export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, 
                 onRetry={item.suggested_action === 'retry' ? handlers.onRetry : undefined}
                 onCancel={item.suggested_action === 'cancel' ? handlers.onCancel : undefined}
                 onDisable={item.suggested_action === 'disable' ? handlers.onDisable : undefined}
+                onDismiss={
+                  onDismissSignals && item.category === 'signal' && item.dismiss_key
+                    ? () => onDismissSignals([item.dismiss_key])
+                    : undefined
+                }
               />
             ))}
           </div>

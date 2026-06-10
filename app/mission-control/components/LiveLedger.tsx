@@ -21,6 +21,7 @@ interface LiveLedgerProps {
     onCancel: (m: any) => void;
     onDisable: (m: any) => void;
   };
+  onDismissSignals?: (keys: string[]) => void;
 }
 
 /** The right column: the only moving region. Subsumes the old Operations Feed band. */
@@ -35,6 +36,7 @@ export function LiveLedger({
   onDecision,
   refresh,
   handlers,
+  onDismissSignals,
 }: LiveLedgerProps) {
   return (
     <div className="space-y-4 lg:col-span-7">
@@ -47,6 +49,7 @@ export function LiveLedger({
         livePulse={livePulse}
         loading={loading}
         handlers={handlers}
+        onDismissSignals={onDismissSignals}
       />
     </div>
   );
