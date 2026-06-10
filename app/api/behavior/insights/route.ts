@@ -181,6 +181,21 @@ export async function POST(request: Request) {
     if (!snapshot) {
       return NextResponse.json({ error: 'Empty or invalid snapshot' }, { status: 400 });
     }
+    // Monotonic guard: with multiple machines pushing for one org, a host with
+    // an OLDER sample window must not clobber a newer snapshot (last-writer-
+    // wins otherwise). Compare the data timestamps (newest_ts); skip the write
+    // when the incoming snapshot is provably older.
+    const stored = toMap(await getSettings(sql, orgId, { key: SNAPSHOT_KEY }) as Array<{ key: string; value: unknown }>)[SNAPSHOT_KEY];
+    if (typeof stored === 'string' && stored) {
+      try {
+        const prev = JSON.parse(stored) as { newest_ts?: string; pushed_at?: string };
+        const prevTs = Date.parse(prev?.newest_ts || prev?.pushed_at || '');
+        const nextTs = Date.parse(snapshot.newest_ts || '');
+        if (Number.isFinite(prevTs) && Number.isFinite(nextTs) && nextTs < prevTs) {
+          return NextResponse.json({ skipped: true, reason: 'stale' });
+        }
+      } catch { /* corrupt stored snapshot — let the new one replace it */ }
+    }
     await upsertSetting(sql, orgId, {
       key: SNAPSHOT_KEY,
       value: serializeWithinCap(snapshot),

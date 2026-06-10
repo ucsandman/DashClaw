@@ -2,15 +2,20 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { readSamples } from '../../../lib/behavior/sample-store';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { loadBehaviorSamples } from '../../../lib/behavior/sample-source';
 import { analyzeSamples } from '../../../lib/behavior/analyzer';
 import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
 
 /**
  * POST /api/behavior/simulate — Replay a behavior suggestion (or an edited
- * rule) against the recorded LOCAL samples and return the decision counts
+ * rule) against recorded samples and return the decision counts
  * (allow / warn / require_approval / block) plus likely false positives. This
- * backs the mandatory simulation-before-adopt review. @beta
+ * backs the mandatory simulation-before-adopt review. Prefers LOCAL samples
+ * (machine-global by nature — the filesystem has no org axis) and falls back
+ * to the caller's ORG-SCOPED uploaded samples; `sample_source` reports which.
+ * @beta
  *
  * Body: { suggestion_id?: string, rule?: object }
  * Provide suggestion_id to simulate a current suggestion, or rule to preview an
@@ -18,11 +23,13 @@ import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
  */
 export async function POST(request: Request) {
   try {
+    const sql = getSql();
+    const orgId = getOrgId(request);
     const body = await request.json().catch(() => ({}));
     const { suggestion_id: suggestionId } = body || {};
     let rule = body && body.rule;
 
-    const samples = await readSamples({});
+    const { samples, source } = await loadBehaviorSamples(sql, orgId);
 
     if (!rule) {
       if (!suggestionId) {
@@ -45,7 +52,7 @@ export async function POST(request: Request) {
     const scoped = rule.agent_id ? samples.filter((s: { agent_id?: string }) => s.agent_id === rule.agent_id) : samples;
     const result = simulateBehaviorPolicy(rule, scoped);
 
-    return NextResponse.json({ suggestion_id: suggestionId || null, rule, simulation: result });
+    return NextResponse.json({ suggestion_id: suggestionId || null, rule, simulation: result, sample_source: source });
   } catch (err) {
     console.error('[behavior/simulate] POST error:', (err as Error).message);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });

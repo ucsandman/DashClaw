@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:f62cc5ef375d47b333f0224e950c50dd986054f5",
+  "timestamp": "sha1:40fea93fe359100f2a4b06755a367d00bb6643da",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -848,6 +848,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/behavior/samples/route.ts"
+    },
+    {
+      "path": "/api/behavior/samples/ingest",
+      "methods": [
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/behavior/samples/ingest/route.ts"
     },
     {
       "path": "/api/behavior/simulate",
@@ -4723,6 +4732,16 @@
       "name": "assumptions",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "behavior_dismissals",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
+    },
+    {
+      "name": "behavior_samples",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "calendar_events",

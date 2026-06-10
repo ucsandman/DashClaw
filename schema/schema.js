@@ -1431,6 +1431,65 @@ export const postureSnapshots = pgTable('posture_snapshots', {
 }));
 
 // @domain governance
+// Behavior Learning: opt-in ANONYMIZED behavior samples uploaded by the local
+// recorder (BEHAVIOR_UPLOAD_ENABLED, default off). Paths arrive as salted
+// hashes (never raw), protected-path classification arrives pre-computed in
+// write_path_groups. One row per (org, event_id); a finalized record supersedes
+// a "running" one (mirrors sample-store pickFinalSample). Pruned
+// opportunistically on ingest (60 days / newest 20000 per org — no cron on the
+// free tier).
+export const behaviorSamples = pgTable('behavior_samples', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  eventId: text('event_id').notNull(),
+  ts: timestamp('ts', { withTimezone: true }).notNull(),
+  agentId: text('agent_id').notNull(),
+  sessionHash: text('session_hash'),
+  source: text('source'),
+  tool: text('tool'),
+  toolCategory: text('tool_category'),
+  actionType: text('action_type'),
+  commandShape: text('command_shape'),
+  bashIntent: text('bash_intent'),
+  riskScore: integer('risk_score'),
+  guardDecision: text('guard_decision'),
+  reversible: integer('reversible'),
+  model: text('model'),
+  readPathHashes: jsonb('read_path_hashes'),
+  writePathHashes: jsonb('write_path_hashes'),
+  writePathGroups: jsonb('write_path_groups'),
+  sensitivePath: integer('sensitive_path'),
+  outcomeStatus: text('outcome_status'),
+  errorType: text('error_type'),
+  durationMs: integer('duration_ms'),
+  matchedPolicyCount: integer('matched_policy_count'),
+  finalized: integer('finalized').default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  orgEventUnique: unique('behavior_samples_org_event_unique').on(t.orgId, t.eventId),
+  orgAgentTsIdx: index('idx_behavior_samples_org_agent_ts').on(t.orgId, t.agentId, t.ts.desc()),
+}));
+
+// @domain governance
+// Behavior Learning: server-side twin of the local .dismissals.json so
+// dismiss/adopt suppression works for uploaded samples on hosted instances.
+// One row per (org, signature); last write wins.
+export const behaviorDismissals = pgTable('behavior_dismissals', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  signature: text('signature').notNull(),
+  agentId: text('agent_id'),
+  type: text('type'),
+  target: text('target'),
+  reason: text('reason'),
+  status: text('status'),
+  suppressSimilar: integer('suppress_similar').default(0),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  orgSignatureUnique: unique('behavior_dismissals_org_signature_unique').on(t.orgId, t.signature),
+}));
+
+// @domain governance
 // Approval notification registry: one row per external-channel message sent for
 // a pending_approval action. On resolution (via any channel/surface) the
 // fan-out edits/clears the message in every other channel and stamps

@@ -57,6 +57,10 @@ export const VALID_SETTING_KEYS = [
   // DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var still overrides them.
   'BEHAVIOR_RECORDER_ENABLED',
   'BEHAVIOR_RECORDER_UNTIL',
+  // Opt-in ANONYMIZED behavior-sample upload (default off). When 'true', the
+  // local recorder may POST allowlist-sanitized, path-hashed samples to
+  // /api/behavior/samples/ingest so a hosted Policy Coach can analyze them.
+  'BEHAVIOR_UPLOAD_ENABLED',
   // Policy Coach "learning in the background" insights — a SAFE aggregate
   // snapshot (counts, per-agent tallies, signal totals, timestamps) the local
   // agent machine pushes so a hosted dashboard can show that DashClaw is alive

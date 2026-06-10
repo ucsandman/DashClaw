@@ -13,15 +13,17 @@ function toMap(rows: Array<{ key: string; value: unknown }> | null | undefined):
   return out;
 }
 
-function readConfig(map: Record<string, unknown>): { enabled: boolean; until: string | null; effective: boolean } {
+function readConfig(map: Record<string, unknown>): { enabled: boolean; until: string | null; effective: boolean; upload_enabled: boolean } {
   const enabled = String(map.BEHAVIOR_RECORDER_ENABLED || '').toLowerCase() === 'true';
   const until = (map.BEHAVIOR_RECORDER_UNTIL as string | null) || null;
+  // Opt-in anonymized sample upload — default false; ingest enforces it too.
+  const uploadEnabled = String(map.BEHAVIOR_UPLOAD_ENABLED || '').toLowerCase() === 'true';
   let expired = false;
   if (until) {
     const t = Date.parse(until);
     expired = Number.isFinite(t) && t <= Date.now();
   }
-  return { enabled, until, effective: enabled && !expired };
+  return { enabled, until, effective: enabled && !expired, upload_enabled: uploadEnabled };
 }
 
 /**
@@ -43,8 +45,10 @@ export async function GET(request: Request) {
 
 /**
  * POST /api/behavior/recorder — set recorder enablement + optional auto-stop
- * window (admin only). Body: { enabled: boolean, duration_days?: number|null }.
- * duration_days > 0 sets an auto-stop window; null/0 means "until turned off".
+ * window (admin only). Body: { enabled: boolean, duration_days?: number|null,
+ * upload_enabled?: boolean }. duration_days > 0 sets an auto-stop window;
+ * null/0 means "until turned off". upload_enabled (default false, only written
+ * when explicitly boolean) opts the org into anonymized sample upload.
  */
 export async function POST(request: Request) {
   try {
@@ -66,10 +70,18 @@ export async function POST(request: Request) {
     } else {
       await deleteSetting(sql, orgId, 'BEHAVIOR_RECORDER_UNTIL');
     }
+    if (typeof body.upload_enabled === 'boolean') {
+      await upsertSetting(sql, orgId, { key: 'BEHAVIOR_UPLOAD_ENABLED', value: body.upload_enabled ? 'true' : 'false', category: 'general' });
+    }
 
+    // Upload flag may have been left untouched — report its current value.
+    const current = toMap(await getSettings(sql, orgId, { key: 'BEHAVIOR_UPLOAD_ENABLED' }) as Array<{ key: string; value: unknown }>);
     return NextResponse.json(readConfig({
       BEHAVIOR_RECORDER_ENABLED: enabled ? 'true' : 'false',
       BEHAVIOR_RECORDER_UNTIL: until,
+      BEHAVIOR_UPLOAD_ENABLED: typeof body.upload_enabled === 'boolean'
+        ? (body.upload_enabled ? 'true' : 'false')
+        : current.BEHAVIOR_UPLOAD_ENABLED,
     }));
   } catch (err) {
     console.error('[behavior/recorder] POST error:', (err as Error).message);

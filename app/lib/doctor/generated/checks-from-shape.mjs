@@ -19,6 +19,8 @@ const TABLES = [
   "api_keys",
   "approval_notifications",
   "assumptions",
+  "behavior_dismissals",
+  "behavior_samples",
   "calendar_events",
   "code_optimal_file_manifests",
   "code_projects",

@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 304,
+    "total_routes": 305,
     "stable_routes": 51,
     "beta_routes": 24,
-    "experimental_routes": 229
+    "experimental_routes": 230
   },
   "routes": [
     {
@@ -841,6 +841,15 @@
       "maturity": "experimental",
       "matched_prefix": "/api/behavior",
       "file": "app/api/behavior/samples/route.ts"
+    },
+    {
+      "path": "/api/behavior/samples/ingest",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/behavior",
+      "file": "app/api/behavior/samples/ingest/route.ts"
     },
     {
       "path": "/api/behavior/simulate",

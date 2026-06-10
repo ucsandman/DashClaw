@@ -1,6 +1,6 @@
 # Behavior Learning Mode / Policy Coach (v1)
 
-Behavior Learning passively records **real, redacted, local-only** samples of your
+Behavior Learning passively records **real, redacted, local-by-default** samples of your
 Claude Code + agent usage, analyzes them deterministically, and suggests
 **evidence-backed DashClaw policies per agent**. v1 is **observe-only**: it never
 blocks, never changes approval behavior, and never auto-enforces anything.
@@ -17,7 +17,7 @@ blocks, never changes approval behavior, and never auto-enforces anything.
 Claude Code / agent
    │  Pre/PostToolUse hooks (Python)
    ▼
-.dashclaw/behavior-samples/<YYYY-MM-DD>.jsonl   ← redacted, local-only
+.dashclaw/behavior-samples/<YYYY-MM-DD>.jsonl   ← redacted, local (uploaded only on explicit opt-in)
    │  read by the server (same machine)
    ▼
 Deterministic analyzer  →  per-agent suggestions (confidence, evidence, draft policy)
@@ -87,13 +87,25 @@ To close that gap **without breaking the local-only promise**, when the recorder
 - **Where the hosted UI shows it:** the Policy Coach renders a "DashClaw is learning in the background" panel (heartbeat + counts + per-agent tallies) with a link to open Policy Coach locally to review and adopt the actual policy drafts.
 - **Cadence & control:** throttled to recompute at most every ~10 minutes; on by default whenever the recorder is on; opt out with `DASHCLAW_BEHAVIOR_INSIGHTS=0`. Stored as a single org setting (`BEHAVIOR_INSIGHTS_SNAPSHOT`), not a behavior-sample row.
 
+### Opt-in anonymized upload (default OFF)
+
+Hosted teams that want the full coach (suggestions + simulate + adopt) on a
+remote dashboard can opt in to **anonymized sample upload** by setting
+`DASHCLAW_BEHAVIOR_UPLOAD=1` on the agent machine (absent = OFF — nothing
+changes for anyone who doesn't set it):
+
+- **Anonymized client-side, before transit** (`behavior_recorder.anonymize_sample_for_upload`): `declared_goal`, `project`, `agent_name`, and the `matched_policies` list are **dropped** (a count survives); `session_id` and every read/write **path are replaced with salted HMAC tokens** (`sh_…` / `ph_…` — the salt is derived from your API key and never sent); command shapes keep the verb + flags and mask other operands to `<arg>`; protected-path **group names** (not paths) ride along so the analyzer still works.
+- **Server treats uploads as hostile:** `POST /api/behavior/samples/ingest` rebuilds every row from an explicit allowlist (the same discipline as the insights snapshot), re-runs redaction, caps batch size, and stores rows org-scoped in `behavior_samples` with opportunistic retention pruning.
+- **Provenance is visible:** hosted suggestions render an "anonymized fleet upload" badge; the simulate-before-adopt flow is unchanged.
+- Push is throttled (~10 min), incremental (byte-offset per day file), and fail-silent, mirroring the insights push.
+
 ## Privacy model & guarantees
 
-- **Raw behavior is local only.** Samples are written to `.dashclaw/behavior-samples/` on the machine running the agent and are never uploaded. The Policy Coach reads these files server-side on the same machine (self-hosted / local dev). A hosted instance only ever receives the safe aggregate snapshot described above — counts, not behavior.
-- **No database row.** Samples are never persisted to Postgres. The only database writes Behavior Learning makes are when you **adopt** an enforceable suggestion — it creates an inactive `guard_policies` draft, exactly as the manual policy authoring flow does.
+- **Raw behavior is local by default.** Samples are written to `.dashclaw/behavior-samples/` on the machine running the agent and are **not uploaded unless you explicitly opt in** (`DASHCLAW_BEHAVIOR_UPLOAD=1`). The Policy Coach reads these files server-side on the same machine (self-hosted / local dev). Without the opt-in, a hosted instance only ever receives the safe aggregate snapshot described above — counts, not behavior.
+- **No database row without opt-in.** Samples are persisted to Postgres only via the opt-in anonymized upload (org-scoped `behavior_samples`, stripped/hashed as described above). Beyond that, the only database writes Behavior Learning makes are when you **adopt** an enforceable suggestion — it creates an inactive `guard_policies` draft, exactly as the manual policy authoring flow does.
 - **Deterministic redaction before disk.** The recorder scrubs API keys, tokens, env-var assignments, JWTs, and private keys from command shapes and paths using the same pattern set as `app/lib/claude-code/optimal-files/secret-scan.js`. Paths are home-stripped and workspace-relativized. The server defensively re-redacts every sample on read (`app/lib/behavior/redaction.js`).
 - **No raw transcripts or message bodies.** A sample stores a redacted *command shape* (verbs/flags preserved, operands replaced with `<path>` / `<url>` / `<REDACTED:…>`), redacted read/write paths, and structured metadata — never the full command, file content, or prompt.
-- **Dismissals are local too.** Dismiss / accepted-advisory records live in `.dashclaw/behavior-samples/.dismissals.json`.
+- **Dismissals are local too** (`.dashclaw/behavior-samples/.dismissals.json`); hosted instances using uploaded samples keep their own org-scoped dismissal rows.
 
 ## Sample format
 

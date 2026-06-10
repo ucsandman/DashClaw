@@ -156,6 +156,25 @@ function isCommand(s: Sample): boolean {
   return s.tool === 'Bash' || !!s.bash_intent || !!s.command_shape;
 }
 
+/**
+ * Protected-path groups touched by a sample's writes. Uploaded (anonymized)
+ * samples carry the classification pre-computed in `write_path_groups` — their
+ * write_paths are salted hashes that can never match a glob — so that field
+ * wins when present; local samples fall back to classifying the raw paths.
+ */
+function protectedGroupsFor(s: Sample): string[] {
+  const pre = (s as Record<string, unknown>).write_path_groups;
+  if (Array.isArray(pre)) {
+    return pre.filter((g): g is string => typeof g === 'string' && !!g);
+  }
+  const out: string[] = [];
+  for (const w of s.write_paths || []) {
+    const g = classifyProtectedPath(w);
+    if (g) out.push(g);
+  }
+  return out;
+}
+
 function commandVerb(s: Sample): string | null {
   if (!s.command_shape) return null;
   return String(s.command_shape).trim().split(/\s+/)[0] || null;
@@ -196,7 +215,7 @@ function buildEnvelope(agentId: string, samples: Sample[]): Envelope {
     if (!first || (s.ts as string) < first) first = s.ts as string;
     if (!last || (s.ts as string) > last) last = s.ts as string;
     if (s.outcome_status === 'failed') failed++;
-    for (const w of s.write_paths || []) if (classifyProtectedPath(w)) protectedTouches++;
+    protectedTouches += protectedGroupsFor(s).length;
     if (isCommand(s) && (s.bash_intent === 'destructive' || s.bash_intent === 'system_admin')) destructive++;
     if (isSafeOp(s)) {
       safeTools.add(s.tool as string);
@@ -301,9 +320,9 @@ function analyzeAgent(agentId: string, samples: Sample[], opts: AnalyzerOptions)
   const groupsTouched = new Set<string>();
   for (const s of samples) {
     let hit = false;
-    for (const w of s.write_paths || []) {
-      const g = classifyProtectedPath(w);
-      if (g) { groupsTouched.add(g); hit = true; }
+    for (const g of protectedGroupsFor(s)) {
+      groupsTouched.add(g);
+      hit = true;
     }
     if (hit) protectedHits.push(s);
   }

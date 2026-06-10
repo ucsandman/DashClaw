@@ -88,6 +88,36 @@ describe('POST /api/behavior/insights', () => {
     expect(upsertSetting).not.toHaveBeenCalled();
   });
 
+  it('skips (no write) when the incoming snapshot is OLDER than the stored one', async () => {
+    getSettings.mockResolvedValue([{
+      key: 'BEHAVIOR_INSIGHTS_SNAPSHOT',
+      value: JSON.stringify({ schema_version: 1, newest_ts: '2026-06-08T00:00:00Z', sample_count: 500 }),
+    }]);
+    const res = await POST(req({ sample_count: 10, newest_ts: '2026-06-01T00:00:00Z' }));
+    const json = await res.json();
+    expect(res.status ?? 200).toBe(200);
+    expect(json.skipped).toBe(true);
+    expect(json.reason).toBe('stale');
+    expect(upsertSetting).not.toHaveBeenCalled();
+  });
+
+  it('writes when the incoming snapshot is newer than the stored one', async () => {
+    getSettings.mockResolvedValue([{
+      key: 'BEHAVIOR_INSIGHTS_SNAPSHOT',
+      value: JSON.stringify({ schema_version: 1, newest_ts: '2026-06-01T00:00:00Z' }),
+    }]);
+    const res = await POST(req({ sample_count: 10, newest_ts: '2026-06-09T00:00:00Z' }));
+    expect((await res.json()).ok).toBe(true);
+    expect(upsertSetting).toHaveBeenCalledTimes(1);
+  });
+
+  it('still writes over a corrupt stored snapshot', async () => {
+    getSettings.mockResolvedValue([{ key: 'BEHAVIOR_INSIGHTS_SNAPSHOT', value: '{not json' }]);
+    const res = await POST(req({ sample_count: 10, newest_ts: '2026-06-09T00:00:00Z' }));
+    expect((await res.json()).ok).toBe(true);
+    expect(upsertSetting).toHaveBeenCalledTimes(1);
+  });
+
   it('caps the agents list to 25', async () => {
     const agents = Array.from({ length: 40 }, (_, i) => ({ agent_id: `a-${i}`, count: 40 - i }));
     const res = await POST(req({ sample_count: 100, agents }));

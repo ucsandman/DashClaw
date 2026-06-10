@@ -80,6 +80,8 @@ export default function PolicyCoachPage() {
   const [dismissReason, setDismissReason] = useState('');
   const [suppressSimilar, setSuppressSimilar] = useState(false);
   const [editing, setEditing] = useState<any>(null); // suggestion being edited
+  // Where the suggestion evidence came from: local JSONL or opt-in anonymized upload.
+  const [sampleSource, setSampleSource] = useState<'local' | 'uploaded'>('local');
   const [editForm, setEditForm] = useState<EditForm | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -113,6 +115,7 @@ export default function PolicyCoachPage() {
         setAgents(Array.isArray(sugData.agents) ? sugData.agents : []);
         setSuggestions(Array.isArray(sugData.suggestions) ? sugData.suggestions : []);
         setSampleCount(sugData.sample_count || 0);
+        setSampleSource(sugData.sample_source === 'uploaded' ? 'uploaded' : 'local');
       } else if (sugData && sugData.error) {
         setError(sugData.error);
       }
@@ -129,19 +132,29 @@ export default function PolicyCoachPage() {
   // Live refresh while the recorder is effective: refresh status + recent
   // samples (lightweight — no loading flicker) so the panel reflects captures as
   // they land.
+  const pollTickRef = useRef(0);
   const pollLive = useCallback(async () => {
     try {
+      // Every list read re-parses the entire JSONL store server-side (up to
+      // 20k samples) — poll the cheap status each tick, the heavy list +
+      // insights only every 4th tick (once a minute at the 15s cadence).
+      const heavy = pollTickRef.current % 4 === 0;
+      pollTickRef.current += 1;
       const [statusRes, listRes, insRes] = await Promise.all([
         fetch('/api/behavior/samples'),
-        fetch('/api/behavior/samples?list=25'),
-        fetch('/api/behavior/insights'),
+        heavy ? fetch('/api/behavior/samples?list=25') : Promise.resolve(null),
+        heavy ? fetch('/api/behavior/insights') : Promise.resolve(null),
       ]);
       const s = await statusRes.json().catch(() => null);
-      const l = await listRes.json().catch(() => null);
-      const ins = await insRes.json().catch(() => null);
       if (s && !s.error) setStatus(s);
-      if (l && Array.isArray(l.samples)) setRecent(l.samples);
-      if (ins && !ins.error) setInsights(ins.snapshot ?? null);
+      if (listRes) {
+        const l = await listRes.json().catch(() => null);
+        if (l && Array.isArray(l.samples)) setRecent(l.samples);
+      }
+      if (insRes) {
+        const ins = await insRes.json().catch(() => null);
+        if (ins && !ins.error) setInsights(ins.snapshot ?? null);
+      }
     } catch {
       // ignore — the next tick retries
     }
@@ -271,6 +284,32 @@ export default function PolicyCoachPage() {
     }
   }, [recorderDuration]);
 
+  // Server-enforced opt-in for anonymized sample upload (org setting; the
+  // ingest route 403s without it, the agent-side env var gates the client).
+  const saveUpload = useCallback(async (upload_enabled: boolean) => {
+    setRecorderBusy(true);
+    setError('');
+    try {
+      const res = await fetch('/api/behavior/recorder', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ upload_enabled }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || 'Failed to update upload opt-in.');
+        return;
+      }
+      setRecorderCfg(data);
+      setNotice(upload_enabled
+        ? 'Anonymized upload enabled for this org. Agents also need DASHCLAW_BEHAVIOR_UPLOAD=1 set on their machine.'
+        : 'Anonymized upload disabled. The ingest endpoint now rejects pushes for this org.');
+    } catch {
+      setError('Failed to update upload opt-in.');
+    } finally {
+      setRecorderBusy(false);
+    }
+  }, []);
+
   const ready = status?.ready;
   const recorderOn = recorderCfg?.effective;
   const totalSamples = status?.sample_count ?? sampleCount ?? 0;
@@ -304,10 +343,10 @@ export default function PolicyCoachPage() {
               </div>
               <p className="mt-1 text-xs text-tertiary">
                 {recorderOn && recorderCfg?.until
-                  ? `Capturing redacted, local-only samples — auto-stops ${fmtTs(recorderCfg.until)}.`
+                  ? `Capturing redacted samples (local-only unless anonymized upload is opted in) — auto-stops ${fmtTs(recorderCfg.until)}.`
                   : recorderOn
-                    ? 'Capturing redacted, local-only samples until you turn it off.'
-                    : 'Turn this on to let your agents capture redacted, local-only behavior samples for evidence-backed suggestions.'}
+                    ? 'Capturing redacted samples until you turn it off — they stay local unless you opt in to anonymized upload below.'
+                    : 'Turn this on to let your agents capture redacted behavior samples for evidence-backed suggestions. Samples stay on the capture machine unless you separately opt in to anonymized upload (default off).'}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -338,6 +377,27 @@ export default function PolicyCoachPage() {
           {!isAdmin && (
             <p className="mt-2 text-[11px] text-tertiary">Only workspace admins can change the recorder.</p>
           )}
+          {/* Opt-in anonymized upload — default OFF, server-enforced. */}
+          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3" data-testid="upload-optin">
+            <div className="min-w-0">
+              <div className="text-xs font-medium text-secondary">
+                Anonymized upload is {recorderCfg?.upload_enabled ? 'on' : 'off'}
+              </div>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-tertiary">
+                Default off. When on (and agents set <code className="font-mono">DASHCLAW_BEHAVIOR_UPLOAD=1</code>),
+                samples upload with goals, project names, and agent names dropped; sessions and paths replaced by
+                salted hashes; command operands masked. Enables the full coach on hosted dashboards.
+              </p>
+            </div>
+            <button
+              className={recorderCfg?.upload_enabled ? secondaryBtn : primaryBtn}
+              disabled={!isAdmin || recorderBusy}
+              title={!isAdmin ? 'Admin access required' : undefined}
+              onClick={() => saveUpload(!recorderCfg?.upload_enabled)}
+            >
+              {recorderBusy ? 'Saving…' : recorderCfg?.upload_enabled ? 'Disable upload' : 'Enable upload'}
+            </button>
+          </div>
         </CardContent>
       </Card>
 
@@ -364,29 +424,32 @@ export default function PolicyCoachPage() {
       )}
 
       {loading ? (
-        <div className="py-12 text-center text-sm text-tertiary">Analyzing local samples…</div>
-      ) : status?.remote && insights ? (
+        <div className="py-12 text-center text-sm text-tertiary">Analyzing samples…</div>
+      ) : status?.remote && sampleCount === 0 && insights ? (
+        /* Hosted with no usable samples (no opt-in upload yet): counts-only
+           snapshot. Hosted WITH uploaded samples falls through to the full
+           coach below — same simulate-before-adopt flow, fleet provenance. */
         <InsightsPanel insights={insights} />
-      ) : totalSamples === 0 ? (
+      ) : totalSamples === 0 && sampleCount === 0 ? (
         <Card hover={false}>
           <CardContent className="pt-5">
             {status?.remote ? (
               <EmptyState
                 icon={Database}
-                title="Samples stay on the machine your agents run on"
-                description="You're viewing a hosted DashClaw, which can't read the local-only samples your agents write to .dashclaw/behavior-samples/ — by design, they never leave your machine. Once your agents finish a session with the recorder on, a privacy-safe summary (counts only, no raw behavior) appears here so you can see DashClaw learning in the background. To review and adopt the policy drafts themselves, open Policy Coach from a DashClaw running locally (npm run dev) on that same machine."
+                title="Samples stay on the machine your agents run on (unless you opt in to upload)"
+                description="You're viewing a hosted DashClaw, which can't read the local-only samples your agents write to .dashclaw/behavior-samples/ — by default they never leave that machine. Once your agents finish a session with the recorder on, a privacy-safe summary (counts only, no raw behavior) appears here. To review policy drafts on this hosted view, either opt in to anonymized sample upload (DASHCLAW_BEHAVIOR_UPLOAD=1 on the agent machine — goals, project paths, and command operands are stripped or hashed before transit) or open Policy Coach from a DashClaw running locally on that machine."
               />
             ) : recorderOn ? (
               <EmptyState
                 icon={Activity}
                 title="Recorder on — nothing captured yet"
-                description="The recorder is active, but no samples have landed yet. Run your agents normally — redacted, local-only samples appear here within a few tool calls, and this view refreshes live. Samples are written to .dashclaw/behavior-samples/ and never leave your machine."
+                description="The recorder is active, but no samples have landed yet. Run your agents normally — redacted samples appear here within a few tool calls, and this view refreshes live. Samples are written to .dashclaw/behavior-samples/ and stay local unless anonymized upload is opted in (default off)."
               />
             ) : (
               <EmptyState
                 icon={Power}
                 title="Recorder is off"
-                description="Turn on the behavior recorder above, then run your agents normally — they capture redacted, local-only samples that DashClaw analyzes for evidence-backed suggestions. (Cooperating hooks honor the toggle on their next run; an explicit DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var also works.) Samples are written to .dashclaw/behavior-samples/ and never leave your machine."
+                description="Turn on the behavior recorder above, then run your agents normally — they capture redacted samples that DashClaw analyzes for evidence-backed suggestions. (Cooperating hooks honor the toggle on their next run; an explicit DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var also works.) Samples stay on the capture machine unless you opt in to anonymized upload (DASHCLAW_BEHAVIOR_UPLOAD=1, default off)."
               />
             )}
           </CardContent>
@@ -398,6 +461,15 @@ export default function PolicyCoachPage() {
           <div className="lg:col-span-2">
             <Card hover={false}>
               <CardHeader title="Policy suggestions" icon={Sparkles} count={suggestions.length} />
+              <div className="px-5 pb-1" data-testid="evidence-provenance">
+                <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                  sampleSource === 'uploaded'
+                    ? 'border-info/30 bg-info-subtle text-info'
+                    : 'border-border bg-surface-tertiary text-tertiary'
+                }`}>
+                  {sampleSource === 'uploaded' ? 'Evidence: anonymized fleet upload' : 'Evidence: local samples'}
+                </span>
+              </div>
               <CardContent className="pt-0">
                 {suggestions.length === 0 ? (
                   <EmptyState
@@ -771,7 +843,7 @@ function InsightsPanel({ insights }: { insights: any }) {
       </div>
 
       <p className="px-1 text-[11px] leading-relaxed text-tertiary">
-        These are aggregate counts computed on the machine your agents run on — <span className="text-secondary">your raw behavior never leaves it</span>. To review the evidence-backed policy drafts and adopt them, open Policy Coach from a DashClaw running locally (<span className="font-mono text-secondary">npm run dev</span>) on that machine.
+        These are aggregate counts computed on the machine your agents run on — <span className="text-secondary">raw behavior stays there unless you opt in to anonymized upload (default off)</span>. To review the evidence-backed policy drafts here, set <span className="font-mono text-secondary">DASHCLAW_BEHAVIOR_UPLOAD=1</span> on the agent machine (goals, paths, and operands are stripped or hashed before transit), or open Policy Coach from a DashClaw running locally on that machine.
       </p>
     </div>
   );

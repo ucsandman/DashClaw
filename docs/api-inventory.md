@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `304`
+- Total routes: `305`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `229`
+- Experimental routes: `230`
 
 ## Routes
 
@@ -104,6 +104,7 @@ doc-type: architecture
 | `/api/behavior/insights` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/insights/route.ts` |
 | `/api/behavior/recorder` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/recorder/route.ts` |
 | `/api/behavior/samples` | `GET` | `experimental` | `/api/behavior` | `app/api/behavior/samples/route.ts` |
+| `/api/behavior/samples/ingest` | `POST` | `experimental` | `/api/behavior` | `app/api/behavior/samples/ingest/route.ts` |
 | `/api/behavior/simulate` | `POST` | `experimental` | `/api/behavior` | `app/api/behavior/simulate/route.ts` |
 | `/api/behavior/suggestions` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/suggestions/route.ts` |
 | `/api/billing/checkout` | `POST` | `experimental` | `(default)` | `app/api/billing/checkout/route.ts` |

@@ -6,7 +6,7 @@ import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
-import { readSamples, readDismissals, writeDismissal } from '../../../lib/behavior/sample-store';
+import { loadBehaviorSamples, recordBehaviorDismissal } from '../../../lib/behavior/sample-source';
 import { analyzeSamples } from '../../../lib/behavior/analyzer';
 import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
 import { behaviorRuleToGuardPolicy } from '../../../lib/behavior/policy-model';
@@ -17,15 +17,20 @@ import { EVENTS, publishOrgEvent } from '../../../lib/events';
 const EDITABLE_RULE_KEYS = ['action', 'risk_threshold', 'paths', 'max_reloads', 'window_minutes', 'max_failures', 'min_tier'];
 
 /**
- * GET /api/behavior/suggestions — Analyze LOCAL behavior samples into per-agent
- * envelopes + evidence-backed policy suggestions. Deterministic; honors local
- * dismiss suppression. Optional ?agent_id filter. @beta
+ * GET /api/behavior/suggestions — Analyze behavior samples into per-agent
+ * envelopes + evidence-backed policy suggestions. Prefers LOCAL samples when
+ * they exist (the local-file source is machine-global by nature — the
+ * filesystem has no org axis); otherwise falls back to the caller's ORG-SCOPED
+ * uploaded samples. `sample_source` reports which one was used. Deterministic;
+ * honors dismiss suppression from the same source. Optional ?agent_id filter.
+ * @beta
  */
 export async function GET(request: NextRequest) {
   try {
+    const sql = getSql();
+    const orgId = getOrgId(request);
     const agentId = request.nextUrl.searchParams.get('agent_id');
-    const samples = await readSamples({});
-    const dismissals = await readDismissals();
+    const { samples, dismissals, source } = await loadBehaviorSamples(sql, orgId);
     const result = analyzeSamples(samples, { dismissals });
     let { agents, suggestions } = result;
     if (agentId) {
@@ -37,6 +42,7 @@ export async function GET(request: NextRequest) {
       suggestions,
       dismissed: result.dismissed,
       sample_count: samples.length,
+      sample_source: source,
     });
   } catch (err) {
     console.error('[behavior/suggestions] GET error:', (err as Error).message);
@@ -64,7 +70,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'suggestion_id is required' }, { status: 400 });
     }
 
-    const samples = await readSamples({});
+    // Same source selection as GET so the suggestion being acted on exists,
+    // and the dismissal lands beside the samples it was derived from.
+    const { samples, source } = await loadBehaviorSamples(sql, orgId);
     const { suggestions } = analyzeSamples(samples, { dismissals: [] });
     const suggestion = (suggestions as Array<Record<string, any>>).find((s) => s.id === suggestionId);
     if (!suggestion) {
@@ -82,7 +90,7 @@ export async function POST(request: Request) {
         suppress_similar: !!suppressSimilar,
         ts: new Date().toISOString(),
       };
-      await writeDismissal(record);
+      await recordBehaviorDismissal(sql, orgId, source, record);
       return NextResponse.json({ dismissed: true, record });
     }
 
@@ -119,7 +127,7 @@ export async function POST(request: Request) {
           suppress_similar: true,
           ts: new Date().toISOString(),
         };
-        await writeDismissal(record);
+        await recordBehaviorDismissal(sql, orgId, source, record);
         return NextResponse.json({
           adopted: true,
           advisory: true,
