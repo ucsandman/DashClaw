@@ -28,6 +28,7 @@ dashclaw approve act_<id shown in Terminal 1>
 | `crewai-governed` | CrewAI | Python | @tool decorator governance pattern |
 | `managed-agent-governed` | Anthropic (Managed Agent) | Python | Cloud-hosted agent with custom governance tools |
 | `work-order-worker` | Node SDK | Node.js | Work-order worker: claim → execute → complete with a receipt |
+| `kimi_dashclaw_test.py` | Moonshot (OpenAI-compat) | Python | Governing a non-Anthropic model |
 
 ### openai-governed-agent
 
@@ -64,6 +65,10 @@ A Claude Managed Agent running in Anthropic's cloud infrastructure with DashClaw
 ### work-order-worker
 
 `work-order-worker/` — A ~75-line reference worker on the Node SDK that polls for queued work orders, claims the next one, runs a pluggable handler (`research_brief` via the Claude API when `ANTHROPIC_API_KEY` is set, a deterministic mock otherwise), and reports completion — at which point DashClaw builds the self-verifying receipt. The copy-paste onboarding artifact for the Work Orders feature. Needs a `DASHCLAW_API_KEY`; no AI key required for the mock path.
+
+### Governing non-Anthropic models
+
+`kimi_dashclaw_test.py` shows DashClaw governing a Moonshot AI (Kimi) agent that uses an OpenAI-compatible endpoint. The governance loop — guard check, action record, assumption registration, outcome update — is identical regardless of which model drives the agent. Set `MOONSHOT_API_KEY`, `DASHCLAW_BASE_URL`, and `DASHCLAW_API_KEY`, then run `python examples/kimi_dashclaw_test.py`.
 
 ### Market Intelligence Briefing (Full-Stack Demo)
 
