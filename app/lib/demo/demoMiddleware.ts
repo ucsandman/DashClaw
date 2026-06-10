@@ -467,10 +467,31 @@ export function demoAssumptions(fixtures: DemoFixtures, url: URL) {
   };
 }
 
+// Demo lessons in the LIVE consolidation shape (consolidateLessons output) —
+// the demo used to fake rows from the dead `lessons` table, advertising a
+// surface real installs could never populate.
+export function demoConsolidatedLessons(fixtures: DemoFixtures) {
+  const lessons = (fixtures.recommendations || []).slice(0, 6).map((rec: any) => ({
+    action_type: rec.action_type,
+    confidence: rec.confidence ?? 70,
+    success_rate: rec.success_rate ?? 80,
+    hints: {
+      risk_cap: rec.action_type === 'deploy' ? 60 : undefined,
+      prefer_reversible: rec.action_type === 'deploy' ? true : undefined,
+      confidence_floor: undefined,
+      expected_duration: undefined,
+      expected_cost: undefined,
+    },
+    guidance: `${rec.agent_id} succeeds at ${rec.action_type} when actions stay inside the learned envelope.`,
+    sample_size: rec.sample_size ?? 12,
+  }));
+  return { lessons, drift_warnings: [], agent_id: null };
+}
+
 export function demoLearning(fixtures: DemoFixtures, url: URL) {
   const agentId = url.searchParams.get('agent_id');
   const decisions = agentId ? fixtures.decisions.filter(d => d.agent_id === agentId) : fixtures.decisions;
-  const lessons = fixtures.lessons;
+  const { lessons, drift_warnings } = demoConsolidatedLessons(fixtures);
 
   const successCount = decisions.filter(d => d.outcome === 'success').length;
   const totalWithOutcome = decisions.filter(d => d.outcome && d.outcome !== 'pending').length;
@@ -480,10 +501,11 @@ export function demoLearning(fixtures: DemoFixtures, url: URL) {
     totalDecisions: decisions.length,
     totalLessons: lessons.length,
     successRate,
-    patterns: lessons.filter(l => (l.confidence || 0) >= 80).length,
+    totalWithOutcome,
+    patterns: lessons.filter(l => Number(l.confidence) >= 80).length,
   };
 
-  return { decisions: decisions.slice(0, 20), lessons, stats, lastUpdated: new Date().toISOString() };
+  return { decisions: decisions.slice(0, 20), lessons, drift_warnings, stats, lastUpdated: new Date().toISOString() };
 }
 
 export function demoLearningRecommendations(fixtures: DemoFixtures, url: URL) {

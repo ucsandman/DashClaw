@@ -6,6 +6,7 @@ import {
   demoListActions, demoCreateAction, demoAgents, demoAgentDetail, demoActionDetail, demoAssumptions,
   demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
   demoLearning, demoLearningRecommendations, demoLearningRecommendationMetrics,
+  demoConsolidatedLessons,
   demoTokens, demoPolicies, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
   demoMessageDocs, demoContent, demoTeam, demoTeamInvites, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoWorkflows, demoSchedules,
@@ -1001,6 +1002,34 @@ const DEMO_API_ROUTES = [
   ['/api/learning', demoFixtureUrlRoute(demoLearning)],
   ['/api/learning/recommendations', demoFixtureUrlRoute(demoLearningRecommendations)],
   ['/api/learning/recommendations/metrics', demoFixtureUrlRoute(demoLearningRecommendationMetrics)],
+  // Learning surfaces that previously fell to the 403 fallback in demo
+  // (code-signals rendered a red error banner; export buttons no-op'd).
+  ['/api/learning/lessons', ({ request, fixtures }) => demoJson(request, demoConsolidatedLessons(fixtures))],
+  ['/api/learning/suggestions', ({ request }) => demoJson(request, {
+    suggestions: [{
+      agent_id: 'deploy-bot',
+      action_type: 'deploy',
+      trigger: 'critical_drift',
+      severity: 'high',
+      evidence: { metric: 'risk_score', z_score: 3.1 },
+      suggested_policy: { name: 'Require approval: deploy-bot deploys', policy_type: 'require_approval' },
+    }],
+  })],
+  ['/api/learning/code-signals', ({ request, url }) => demoJson(request, {
+    findings: [
+      { kind: 'redundant_file_reads', occurrence_count: 14, session_count: 5, total_savings_usd: 1.84 },
+      { kind: 'oversized_context', occurrence_count: 6, session_count: 3, total_savings_usd: 0.92 },
+    ],
+    period: url.searchParams.get('period') || '30d',
+  })],
+  ['/api/learning/export', ({ request, url }) => {
+    const format = url.searchParams.get('format') === 'claude' ? 'CLAUDE.md' : 'AGENTS.md';
+    const md = `# ${format} (demo)\n\nThis is a demo export. On a real instance this file is generated from your agents' scored outcomes, recommendations, and distilled lessons.\n`;
+    const response = new NextResponse(md, { status: 200, headers: { 'Content-Type': 'text/markdown; charset=utf-8' } });
+    addSecurityHeaders(response, request);
+    withCors(request, response);
+    return response;
+  }],
   ['/api/relationships', handleDemoRelationships],
   ['/api/calendar', ({ request, fixtures }) => demoJson(request, { events: fixtures.events, lastUpdated: new Date().toISOString(), count: fixtures.events.length })],
   ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],

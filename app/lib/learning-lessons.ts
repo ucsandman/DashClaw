@@ -35,6 +35,15 @@ interface DriftWarning {
   direction: unknown;
 }
 
+// Missing-table tolerance shared with GET /api/learning: older installs may
+// lack learning_recommendations or drift_alerts — consolidation degrades to
+// empty sections instead of 500ing (this also covers the SDK's
+// learningLessons() path through GET /api/learning/lessons).
+function isMissingTable(err: unknown): boolean {
+  return String((err as { code?: string })?.code || '').includes('42P01')
+    || String((err as Error)?.message || '').includes('does not exist');
+}
+
 /**
  * Consolidate lessons for an agent — what DashClaw has learned from scored outcomes.
  */
@@ -46,11 +55,16 @@ export async function consolidateLessons(
   const lessons: Lesson[] = [];
 
   // 1. Top recommendations by confidence
-  const recs = await listLearningRecommendations(sql, orgId, {
-    agentId: agentId ?? undefined,
-    actionType: actionType ?? undefined,
-    limit,
-  });
+  let recs: Awaited<ReturnType<typeof listLearningRecommendations>> = [];
+  try {
+    recs = await listLearningRecommendations(sql, orgId, {
+      agentId: agentId ?? undefined,
+      actionType: actionType ?? undefined,
+      limit,
+    });
+  } catch (err) {
+    if (!isMissingTable(err)) throw err;
+  }
 
   for (const rec of recs || []) {
     const hints = (typeof rec.hints === 'string' ? JSON.parse(rec.hints) : rec.hints || {}) as Record<string, unknown>;
@@ -73,15 +87,20 @@ export async function consolidateLessons(
   }
 
   // 2. Recent drift warnings
-  const driftAlerts = await sql`
-    SELECT metric, severity, z_score, direction, agent_id, action_type
-    FROM drift_alerts
-    WHERE org_id = ${orgId}
-      AND (${agentId ? sql`agent_id = ${agentId}` : sql`TRUE`})
-      AND acknowledged = false
-      AND severity IN ('warning', 'critical')
-    ORDER BY created_at DESC LIMIT 5
-  `;
+  let driftAlerts: Record<string, unknown>[] = [];
+  try {
+    driftAlerts = await sql`
+      SELECT metric, severity, z_score, direction, agent_id, action_type
+      FROM drift_alerts
+      WHERE org_id = ${orgId}
+        AND (${agentId ? sql`agent_id = ${agentId}` : sql`TRUE`})
+        AND acknowledged = false
+        AND severity IN ('warning', 'critical')
+      ORDER BY created_at DESC LIMIT 5
+    `;
+  } catch (err) {
+    if (!isMissingTable(err)) throw err;
+  }
 
   const drift_warnings: DriftWarning[] = driftAlerts.map((a) => ({
     metric: a.metric,

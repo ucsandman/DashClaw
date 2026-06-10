@@ -2,31 +2,30 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { BookOpen, Zap, Lightbulb, Sparkles, FileText, RotateCw, CheckCircle2, XCircle, AlertTriangle, Clock, Power, BarChart3, TrendingUp, Code2 } from 'lucide-react';
+import { BookOpen, Zap, Lightbulb, Sparkles, FileText, RotateCw, CheckCircle2, XCircle, AlertTriangle, Clock, Power, TrendingUp, Code2, Search } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
+import { applyDecisionToStats } from '../lib/learning-stats';
 
 export default function LearningDashboard() {
   const { agentId } = useAgentFilter();
   const [decisions, setDecisions] = useState<any[]>([]);
   const [lessons, setLessons] = useState<any[]>([]);
+  const [driftWarnings, setDriftWarnings] = useState<any[]>([]);
   const [recommendations, setRecommendations] = useState<any[]>([]);
   const [recommendationMetrics, setRecommendationMetrics] = useState<any>({ metrics: [], summary: {} });
   const [recommendationError, setRecommendationError] = useState('');
   const [updatingRecommendationId, setUpdatingRecommendationId] = useState('');
-  const [stats, setStats] = useState({ totalDecisions: 0, totalLessons: 0, successRate: 0, patterns: 0 });
+  const [stats, setStats] = useState({ totalDecisions: 0, totalLessons: 0, successRate: 0, totalWithOutcome: 0 });
   const [lastUpdated, setLastUpdated] = useState('');
-  const [showPatterns, setShowPatterns] = useState(false);
+  const [decisionSearch, setDecisionSearch] = useState('');
   const [showDecisionModal, setShowDecisionModal] = useState(false);
-  const [showLessonModal, setShowLessonModal] = useState(false);
-  const [decisionForm, setDecisionForm] = useState({ decision: '', category: 'general', context: '', outcome: 'pending' });
-  const [lessonForm, setLessonForm] = useState({ lesson: '', category: 'general', confidence: 80, tags: '' });
+  const [decisionForm, setDecisionForm] = useState({ decision: '', context: '', outcome: 'pending' });
   const [submitting, setSubmitting] = useState(false);
-  const [lessonError, setLessonError] = useState('');
   const [decisionError, setDecisionError] = useState('');
   const [rebuilding, setRebuilding] = useState(false);
   const [rebuildResult, setRebuildResult] = useState<string | null>(null);
@@ -42,15 +41,8 @@ export default function LearningDashboard() {
     if (event === 'decision.created') {
       if (agentId && payload.agent_id !== agentId) return;
       setDecisions(prev => [payload, ...prev].slice(0, 20));
-      setStats(prev => {
-        const newTotalDecisions = prev.totalDecisions + 1;
-        const successCount = (prev.successRate * prev.totalDecisions / 100) + (payload.outcome === 'success' ? 1 : 0);
-        return {
-          ...prev,
-          totalDecisions: newTotalDecisions,
-          successRate: Math.round((successCount / newTotalDecisions) * 100)
-        };
-      });
+      // Pending-safe: the server's rate counts only terminal outcomes.
+      setStats(prev => applyDecisionToStats(prev, payload.outcome));
     }
   });
 
@@ -64,6 +56,7 @@ export default function LearningDashboard() {
         recommendationParams.set('agent_id', agentId);
         metricsParams.set('agent_id', agentId);
       }
+      if (decisionSearch.trim()) learningParams.set('q', decisionSearch.trim());
 
       const learningPath = `/api/learning${learningParams.toString() ? `?${learningParams.toString()}` : ''}`;
       const recommendationPath = `/api/learning/recommendations?${recommendationParams.toString()}`;
@@ -82,11 +75,12 @@ export default function LearningDashboard() {
 
       if (data.decisions && Array.isArray(data.decisions)) setDecisions(data.decisions);
       if (data.lessons && Array.isArray(data.lessons)) setLessons(data.lessons);
+      setDriftWarnings(Array.isArray(data.drift_warnings) ? data.drift_warnings : []);
       if (data.stats) setStats({
         totalDecisions: data.stats.totalDecisions || 0,
         totalLessons: data.stats.totalLessons || 0,
         successRate: data.stats.successRate || 0,
-        patterns: data.stats.patterns || 0
+        totalWithOutcome: data.stats.totalWithOutcome || 0
       });
 
       if (Array.isArray(recommendationData.recommendations)) {
@@ -121,7 +115,7 @@ export default function LearningDashboard() {
       console.error('Failed to fetch learning data:', error);
       setRecommendationError('Failed to load recommendation telemetry');
     }
-  }, [agentId]);
+  }, [agentId, decisionSearch]);
 
   useEffect(() => {
     fetchData();
@@ -213,13 +207,6 @@ export default function LearningDashboard() {
     return 'text-error';
   };
 
-  const parseTags = (tags: any) => {
-    if (!tags) return [];
-    if (Array.isArray(tags)) return tags;
-    if (typeof tags === 'string') return tags.split(',').map(t => t.trim()).filter(t => t);
-    return [];
-  };
-
   const formatPercent = (value: any) => `${Math.round((Number(value) || 0) * 100)}%`;
 
   const handleRecommendationToggle = async (recommendation: any) => {
@@ -261,10 +248,12 @@ export default function LearningDashboard() {
     setSubmitting(true);
     setDecisionError('');
     try {
+      // Only fields the API persists — it now rejects unknown ones (the old
+      // form's type/category were silently dropped server-side).
       const res = await fetch('/api/learning', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type: 'decision', ...decisionForm }),
+        body: JSON.stringify(decisionForm),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -272,41 +261,11 @@ export default function LearningDashboard() {
         return;
       }
       setShowDecisionModal(false);
-      setDecisionForm({ decision: '', category: 'general', context: '', outcome: 'pending' });
+      setDecisionForm({ decision: '', context: '', outcome: 'pending' });
       fetchData();
     } catch (err) {
       console.error('Failed to log decision:', err);
       setDecisionError('Failed to log decision');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleAddLesson = async () => {
-    setSubmitting(true);
-    setLessonError('');
-    try {
-      const res = await fetch('/api/learning', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          decision: lessonForm.lesson,
-          category: lessonForm.category,
-          confidence: lessonForm.confidence,
-          tags: lessonForm.tags.split(',').map(t => t.trim()).filter(Boolean),
-        }),
-      });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setLessonError(data.error || 'Failed to add lesson');
-        return;
-      }
-      setShowLessonModal(false);
-      setLessonForm({ lesson: '', category: 'general', confidence: 80, tags: '' });
-      fetchData();
-    } catch (err) {
-      console.error('Failed to add lesson:', err);
-      setLessonError('Failed to add lesson');
     } finally {
       setSubmitting(false);
     }
@@ -428,7 +387,7 @@ export default function LearningDashboard() {
         <Card hover={false}>
           <CardContent className="pt-5 text-center">
             <div className="text-2xl font-semibold tabular-nums text-white">{stats.totalLessons}</div>
-            <div className="text-xs text-tertiary mt-1">Lessons Learned</div>
+            <div className="text-xs text-tertiary mt-1">Distilled Lessons</div>
           </CardContent>
         </Card>
         <Card hover={false}>
@@ -439,23 +398,48 @@ export default function LearningDashboard() {
         </Card>
         <Card hover={false}>
           <CardContent className="pt-5 text-center">
-            <div className="text-2xl font-semibold tabular-nums text-white">{stats.patterns}</div>
-            <div className="text-xs text-tertiary mt-1">Patterns Found</div>
+            <div className="text-2xl font-semibold tabular-nums text-white">{recommendations.filter((r) => r.active).length}</div>
+            <div className="text-xs text-tertiary mt-1">Active Recommendations</div>
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Decisions */}
+        {/* Decisions — the ledger agents and operators write to */}
         <Card>
-          <CardHeader title="Recent Decisions" icon={Zap} count={decisions.length} />
+          <CardHeader
+            title="Recent Decisions"
+            icon={Zap}
+            count={decisions.length}
+            action={
+              <button
+                onClick={() => setShowDecisionModal(true)}
+                className="flex items-center gap-1 rounded-lg border border-brand/20 bg-brand/10 px-2.5 py-1 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15"
+              >
+                <FileText size={12} aria-hidden="true" /> Log decision
+              </button>
+            }
+          />
           <CardContent>
+            <div className="relative mb-3">
+              <Search size={13} aria-hidden="true" className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-tertiary" />
+              <label htmlFor="decision-search" className="sr-only">Search decisions</label>
+              <input
+                id="decision-search"
+                value={decisionSearch}
+                onChange={(e) => setDecisionSearch(e.target.value)}
+                placeholder="Search the full decision history…"
+                className="w-full rounded-lg border border-border bg-surface-tertiary py-1.5 pl-8 pr-3 text-sm text-secondary placeholder:text-disabled transition-colors hover:border-border-hover focus:border-brand/50 focus:outline-none focus:ring-2 focus:ring-brand/20"
+              />
+            </div>
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {decisions.length === 0 ? (
                 <EmptyState
                   icon={BookOpen}
-                  title="No decisions logged yet"
-                  description="Start tracking decisions to build your knowledge base."
+                  title={decisionSearch ? 'No decisions match this search' : 'No decisions logged yet'}
+                  description={decisionSearch
+                    ? 'The search runs server-side over the full history — try a different term.'
+                    : 'Start tracking decisions to build your knowledge base.'}
                 />
               ) : (
                 decisions.map((decision) => {
@@ -476,17 +460,7 @@ export default function LearningDashboard() {
                       </div>
 
                       {decision.context && (
-                        <div className="text-sm text-secondary mb-3 pl-6">{decision.context}</div>
-                      )}
-
-                      {parseTags(decision.tags).length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-3 pl-6">
-                          {parseTags(decision.tags).map((tag: any, index: number) => (
-                            <span key={index} className="px-2 py-0.5 bg-white/5 rounded text-xs text-secondary">
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
+                        <div className="text-sm text-secondary pl-6">{decision.context}</div>
                       )}
                     </div>
                   );
@@ -496,62 +470,87 @@ export default function LearningDashboard() {
           </CardContent>
         </Card>
 
-        {/* Lessons */}
+        {/* Lessons — LIVE consolidation from scored outcomes (learning
+            recommendations) + open drift alerts; nothing here is hand-entered. */}
         <Card>
           <CardHeader title="Distilled Lessons" icon={Lightbulb} count={lessons.length} />
           <CardContent>
+            {driftWarnings.length > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Drift</span>
+                {driftWarnings.map((w: any, i: number) => (
+                  <span
+                    key={i}
+                    className={`rounded border px-1.5 py-0.5 text-[10px] ${
+                      w.severity === 'critical'
+                        ? 'border-error/30 bg-error-subtle text-error'
+                        : 'border-warning/30 bg-warning-subtle text-warning'
+                    }`}
+                  >
+                    {String(w.metric).replace(/_/g, ' ')} {w.direction}
+                  </span>
+                ))}
+              </div>
+            )}
             <div className="space-y-3 max-h-[500px] overflow-y-auto">
               {lessons.length === 0 ? (
                 <EmptyState
                   icon={BookOpen}
-                  title="No lessons captured yet"
-                  description="Lessons are distilled from your tracked decisions."
+                  title="No lessons distilled yet"
+                  description="Lessons are consolidated from scored action outcomes. They appear once agents report outcomes and recommendations build (every 10 scored episodes, or Rebuild Now below)."
                 />
               ) : (
-                lessons.map((lesson) => (
-                  <div key={lesson.id} data-entity-type="lesson" data-entity-id={lesson.id} className="bg-surface-tertiary rounded-lg p-4">
-                    <div className="text-sm font-medium text-white mb-2">{lesson.lesson}</div>
-
-                    {lesson.source_decisions && (
-                      <div className="text-sm text-secondary mb-3">{lesson.source_decisions}</div>
-                    )}
-
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div>
-                          <div className="text-xs text-tertiary">Confidence</div>
-                          <div className={`text-sm font-semibold tabular-nums ${getConfidenceColor(lesson.confidence)}`}>
-                            {lesson.confidence || 0}%
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-xs text-tertiary">Validated</div>
-                          <div className="text-sm font-semibold text-white tabular-nums">{lesson.times_validated || 0}x</div>
-                        </div>
+                lessons.map((lesson, i) => {
+                  const hintChips = [
+                    lesson.hints?.risk_cap != null && `risk cap ${lesson.hints.risk_cap}`,
+                    lesson.hints?.prefer_reversible && 'prefer reversible',
+                    lesson.hints?.confidence_floor != null && `confidence ≥ ${lesson.hints.confidence_floor}`,
+                    lesson.hints?.expected_duration != null && `~${lesson.hints.expected_duration}ms`,
+                    lesson.hints?.expected_cost != null && `~$${lesson.hints.expected_cost}`,
+                  ].filter(Boolean) as string[];
+                  return (
+                    <div key={i} data-entity-type="lesson" data-entity-id={String(lesson.action_type ?? i)} className="bg-surface-tertiary rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-mono text-sm font-medium text-white">{lesson.action_type}</span>
+                        <span className="tabular-nums text-xs text-tertiary">{lesson.sample_size || 0} samples</span>
                       </div>
-
-                      <div className="w-24">
-                        <div className="w-full bg-white/5 rounded-full h-1.5">
-                          <div
-                            className={`h-1.5 rounded-full ${(lesson.confidence || 0) >= 90 ? 'bg-status-success' : (lesson.confidence || 0) >= 70 ? 'bg-status-warning' : 'bg-status-error'}`}
-                            style={{ width: `${lesson.confidence || 0}%` }}
-                          />
-                        </div>
+                      {lesson.guidance && (
+                        <p className="mt-1.5 text-sm text-secondary">{lesson.guidance}</p>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                        <span className="text-xs text-tertiary">
+                          Confidence{' '}
+                          <span className={`font-semibold tabular-nums ${getConfidenceColor(lesson.confidence)}`}>
+                            {lesson.confidence || 0}%
+                          </span>
+                        </span>
+                        <span className="text-xs text-tertiary">
+                          Success{' '}
+                          <span className="font-semibold tabular-nums text-white">{lesson.success_rate ?? 0}%</span>
+                        </span>
+                        {hintChips.map((chip) => (
+                          <span key={chip} className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 text-[10px] text-secondary">
+                            {chip}
+                          </span>
+                        ))}
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mt-6">
+      <div className="mt-6">
+        {/* Recommendations + their telemetry in ONE card — the separate
+            Metrics card was mostly empty (it needs SDK telemetry events);
+            metrics now render inline on the recommendation they belong to. */}
         <Card>
           <CardHeader title="Recommendation Ops" icon={Power} count={recommendations.length} />
           <CardContent>
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
               <button
                 onClick={handleRebuildRecommendations}
                 disabled={rebuilding}
@@ -562,6 +561,11 @@ export default function LearningDashboard() {
               </button>
               {rebuildResult && (
                 <span className="text-xs text-success">{rebuildResult}</span>
+              )}
+              {(recommendationMetrics.metrics || []).length > 0 && (
+                <span className="ml-auto text-xs tabular-nums text-tertiary">
+                  Avg adoption {formatPercent(recommendationMetrics.summary?.avg_adoption_rate)} · avg success lift {formatPercent(recommendationMetrics.summary?.avg_success_lift)}
+                </span>
               )}
             </div>
             {recommendationError ? (
@@ -577,101 +581,56 @@ export default function LearningDashboard() {
                   description="Click 'Rebuild Now' to generate recommendations from your action history."
                 />
               ) : (
-                recommendations.map((rec) => (
-                  <div key={rec.id} data-entity-type="recommendation" data-entity-id={rec.id} className="bg-surface-tertiary rounded-lg p-4">
-                    <div className="flex items-center justify-between gap-3">
-                      <div>
-                        <div className="text-sm font-medium text-white">
-                          {rec.agent_id} - {rec.action_type}
+                recommendations.map((rec) => {
+                  const metric = (recommendationMetrics.metrics || []).find(
+                    (m: any) => m.recommendation_id === rec.id
+                  );
+                  return (
+                    <div key={rec.id} data-entity-type="recommendation" data-entity-id={rec.id} className="bg-surface-tertiary rounded-lg p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-medium text-white">
+                            {rec.agent_id} - {rec.action_type}
+                          </div>
+                          <div className="text-xs text-tertiary mt-1">
+                            Confidence {rec.confidence || 0}% | Samples {rec.sample_size || 0}
+                          </div>
                         </div>
-                        <div className="text-xs text-tertiary mt-1">
-                          Confidence {rec.confidence || 0}% | Samples {rec.sample_size || 0}
+                        <div className="flex items-center gap-2">
+                          <Badge variant={rec.active ? 'success' : 'default'} size="xs">
+                            {rec.active ? 'active' : 'inactive'}
+                          </Badge>
+                          <button
+                            onClick={() => handleRecommendationToggle(rec)}
+                            disabled={updatingRecommendationId === rec.id}
+                            className="px-2.5 py-1 text-xs rounded border border-hover text-secondary hover:text-white disabled:opacity-50"
+                          >
+                            {updatingRecommendationId === rec.id
+                              ? 'Saving...'
+                              : rec.active
+                                ? 'Disable'
+                                : 'Enable'}
+                          </button>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant={rec.active ? 'success' : 'default'} size="xs">
-                          {rec.active ? 'active' : 'inactive'}
-                        </Badge>
-                        <button
-                          onClick={() => handleRecommendationToggle(rec)}
-                          disabled={updatingRecommendationId === rec.id}
-                          className="px-2.5 py-1 text-xs rounded border border-hover text-secondary hover:text-white disabled:opacity-50"
-                        >
-                          {updatingRecommendationId === rec.id
-                            ? 'Saving...'
-                            : rec.active
-                              ? 'Disable'
-                              : 'Enable'}
-                        </button>
-                      </div>
+                      {metric && (
+                        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-tertiary">
+                          <TrendingUp size={12} aria-hidden="true" />
+                          <span>Adoption {formatPercent(metric.telemetry?.adoption_rate)}</span>
+                          <span>Success lift {formatPercent(metric.deltas?.success_lift)}</span>
+                          <span>Failure −{formatPercent(metric.deltas?.failure_reduction)}</span>
+                          {metric.deltas?.latency_delta_ms != null && (
+                            <span>Latency {metric.deltas.latency_delta_ms > 0 ? '+' : ''}{Math.round(metric.deltas.latency_delta_ms)}ms</span>
+                          )}
+                          {metric.outcomes && (
+                            <span>Applied {metric.outcomes.applied?.total ?? 0} vs baseline {metric.outcomes.baseline?.total ?? 0}</span>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader title="Recommendation Metrics" icon={BarChart3} count={recommendationMetrics.metrics?.length || 0} />
-          <CardContent>
-            <div className="grid grid-cols-3 gap-3 mb-4">
-              <div className="bg-surface-tertiary rounded-lg p-3">
-                <div className="text-xs text-tertiary">Active</div>
-                <div className="text-sm text-white font-semibold">
-                  {recommendationMetrics.summary?.active_recommendations || 0}
-                </div>
-              </div>
-              <div className="bg-surface-tertiary rounded-lg p-3">
-                <div className="text-xs text-tertiary">Avg Adoption</div>
-                <div className="text-sm text-white font-semibold">
-                  {formatPercent(recommendationMetrics.summary?.avg_adoption_rate)}
-                </div>
-              </div>
-              <div className="bg-surface-tertiary rounded-lg p-3">
-                <div className="text-xs text-tertiary">Avg Success Lift</div>
-                <div className="text-sm text-white font-semibold">
-                  {formatPercent(recommendationMetrics.summary?.avg_success_lift)}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-2 max-h-[330px] overflow-y-auto">
-              {(recommendationMetrics.metrics || []).slice(0, 20).map((metric: any) => (
-                <div key={metric.recommendation_id} className="bg-surface-tertiary rounded-md p-3">
-                  <div className="flex items-center justify-between mb-1">
-                    <div className="text-xs text-secondary">
-                      {metric.agent_id} - {metric.action_type}
-                    </div>
-                    <Badge variant={metric.active ? 'success' : 'default'} size="xs">
-                      {metric.active ? 'active' : 'inactive'}
-                    </Badge>
-                  </div>
-                  <div className="text-xs text-tertiary flex items-center gap-1.5">
-                    <TrendingUp size={12} />
-                    Adoption {formatPercent(metric.telemetry?.adoption_rate)} · Success lift {formatPercent(metric.deltas?.success_lift)}
-                  </div>
-                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-tertiary">
-                    <span>Failure −{formatPercent(metric.deltas?.failure_reduction)}</span>
-                    {metric.deltas?.latency_delta_ms != null && (
-                      <span>Latency {metric.deltas.latency_delta_ms > 0 ? '+' : ''}{Math.round(metric.deltas.latency_delta_ms)}ms</span>
-                    )}
-                    {metric.deltas?.cost_delta_estimate != null && (
-                      <span>Cost {metric.deltas.cost_delta_estimate > 0 ? '+' : ''}${Number(metric.deltas.cost_delta_estimate).toFixed(2)}</span>
-                    )}
-                    {metric.outcomes && (
-                      <span>Applied {metric.outcomes.applied?.total ?? 0} vs baseline {metric.outcomes.baseline?.total ?? 0}</span>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {(recommendationMetrics.metrics || []).length === 0 ? (
-                <EmptyState
-                  icon={BarChart3}
-                  title="No metrics yet"
-                  description="Metrics appear after recommendation telemetry and outcomes are recorded."
-                />
-              ) : null}
             </div>
           </CardContent>
         </Card>
@@ -766,97 +725,6 @@ export default function LearningDashboard() {
         </Card>
       </div>
 
-      {/* Quick Actions */}
-      <Card className="mt-6">
-        <CardHeader title="Quick Actions" icon={Zap} />
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <button
-              onClick={() => setShowPatterns((prev) => !prev)}
-              className="bg-surface-tertiary rounded-lg p-4 text-left hover:border-hover transition-colors duration-150"
-            >
-              <div className="text-sm font-medium text-purple-400 flex items-center gap-1.5">
-                <Sparkles size={14} />
-                View Patterns
-              </div>
-              <div className="text-xs text-tertiary mt-1">Analyze decision patterns</div>
-            </button>
-            <button
-              onClick={() => setShowDecisionModal(true)}
-              className="bg-surface-tertiary rounded-lg p-4 text-left hover:border-hover transition-colors duration-150"
-            >
-              <div className="text-sm font-medium text-info flex items-center gap-1.5">
-                <FileText size={14} />
-                Log Decision
-              </div>
-              <div className="text-xs text-tertiary mt-1">Record a new decision</div>
-            </button>
-            <button
-              onClick={() => setShowLessonModal(true)}
-              className="bg-surface-tertiary rounded-lg p-4 text-left hover:border-hover transition-colors duration-150"
-            >
-              <div className="text-sm font-medium text-warning flex items-center gap-1.5">
-                <Lightbulb size={14} />
-                Add Lesson
-              </div>
-              <div className="text-xs text-tertiary mt-1">Capture a new lesson</div>
-            </button>
-          </div>
-
-          {/* Inline Patterns Panel */}
-          {showPatterns && (
-            <div className="mt-4 bg-surface-tertiary rounded-lg p-4 border border">
-              <div className="text-sm font-medium text-purple-400 mb-3 flex items-center gap-1.5">
-                <Sparkles size={14} />
-                Pattern Summary
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
-                <div className="bg-secondary rounded-lg p-3">
-                  <div className="text-xs text-tertiary">Patterns Found</div>
-                  <div className="text-lg font-semibold text-white tabular-nums">{stats.patterns}</div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <div className="text-xs text-tertiary">Decisions Tracked</div>
-                  <div className="text-lg font-semibold text-white tabular-nums">{stats.totalDecisions}</div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <div className="text-xs text-tertiary">Success Rate</div>
-                  <div className="text-lg font-semibold text-white tabular-nums">{stats.successRate}%</div>
-                </div>
-                <div className="bg-secondary rounded-lg p-3">
-                  <div className="text-xs text-tertiary">Lessons Learned</div>
-                  <div className="text-lg font-semibold text-white tabular-nums">{stats.totalLessons}</div>
-                </div>
-              </div>
-              {decisions.length > 0 ? (
-                <div className="space-y-2">
-                  <div className="text-xs text-tertiary uppercase tracking-wide">Decision Categories</div>
-                  {(() => {
-                    const categories: Record<string, { total: number; success: number }> = {};
-                    decisions.forEach((d) => {
-                      const cat = d.category || 'general';
-                      if (!categories[cat]) categories[cat] = { total: 0, success: 0 };
-                      categories[cat].total++;
-                      if (d.outcome === 'success') categories[cat].success++;
-                    });
-                    return Object.entries(categories).map(([cat, data]) => (
-                      <div key={cat} className="flex items-center justify-between bg-secondary rounded-md px-3 py-2">
-                        <span className="text-sm text-secondary capitalize">{cat}</span>
-                        <span className="text-xs text-tertiary">
-                          {data.total} decision{data.total !== 1 ? 's' : ''} | {data.total > 0 ? Math.round((data.success / data.total) * 100) : 0}% success
-                        </span>
-                      </div>
-                    ));
-                  })()}
-                </div>
-              ) : (
-                <div className="text-sm text-tertiary">No decisions logged yet. Patterns will appear as decisions are tracked.</div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
       {/* Log Decision Modal */}
       {showDecisionModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowDecisionModal(false); setDecisionError(''); }}>
@@ -882,21 +750,6 @@ export default function LearningDashboard() {
                   placeholder="What was decided?"
                   className="w-full px-3 py-2 rounded-lg bg-secondary border border text-sm text-white focus:outline-none focus:border-brand"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs text-secondary mb-1">Category</label>
-                <select
-                  value={decisionForm.category}
-                  onChange={(e) => setDecisionForm((prev) => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border text-sm text-white focus:outline-none focus:border-brand"
-                >
-                  <option value="general">General</option>
-                  <option value="technical">Technical</option>
-                  <option value="business">Business</option>
-                  <option value="security">Security</option>
-                  <option value="performance">Performance</option>
-                </select>
               </div>
 
               <div>
@@ -944,95 +797,6 @@ export default function LearningDashboard() {
         </div>
       )}
 
-      {/* Add Lesson Modal */}
-      {showLessonModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => { setShowLessonModal(false); setLessonError(''); }}>
-          <div className="bg-surface-secondary border border rounded-xl p-6 w-full max-w-md shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-              <Lightbulb size={18} className="text-warning" />
-              Add Lesson
-            </h3>
-
-            {lessonError && (
-              <div className="mb-4 text-xs text-error bg-error-subtle border border-error/20 rounded-md px-3 py-2">
-                {lessonError}
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs text-secondary mb-1">Lesson</label>
-                <textarea
-                  value={lessonForm.lesson}
-                  onChange={(e) => setLessonForm((prev) => ({ ...prev, lesson: e.target.value }))}
-                  placeholder="What was learned?"
-                  rows={3}
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border text-sm text-white focus:outline-none focus:border-brand resize-none"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs text-secondary mb-1">Category</label>
-                <select
-                  value={lessonForm.category}
-                  onChange={(e) => setLessonForm((prev) => ({ ...prev, category: e.target.value }))}
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border text-sm text-white focus:outline-none focus:border-brand"
-                >
-                  <option value="general">General</option>
-                  <option value="technical">Technical</option>
-                  <option value="business">Business</option>
-                  <option value="security">Security</option>
-                  <option value="performance">Performance</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs text-secondary mb-1">Confidence: {lessonForm.confidence}%</label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={lessonForm.confidence}
-                  onChange={(e) => setLessonForm((prev) => ({ ...prev, confidence: Number(e.target.value) }))}
-                  className="w-full accent-brand"
-                />
-                <div className="flex justify-between text-xs text-disabled mt-1">
-                  <span>0%</span>
-                  <span>50%</span>
-                  <span>100%</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs text-secondary mb-1">Tags (comma separated)</label>
-                <input
-                  type="text"
-                  value={lessonForm.tags}
-                  onChange={(e) => setLessonForm((prev) => ({ ...prev, tags: e.target.value }))}
-                  placeholder="e.g. optimization, caching, api"
-                  className="w-full px-3 py-2 rounded-lg bg-secondary border border text-sm text-white focus:outline-none focus:border-brand"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6">
-              <button
-                onClick={() => { setShowLessonModal(false); setLessonError(''); }}
-                className="px-4 py-2 rounded-lg text-sm text-secondary hover:text-white transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleAddLesson}
-                disabled={submitting || !lessonForm.lesson.trim()}
-                className="px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors disabled:opacity-50"
-              >
-                {submitting ? 'Saving...' : 'Add Lesson'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </PageLayout>
   );
 }

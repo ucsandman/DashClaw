@@ -71,6 +71,36 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
     expect(body.error).toBe('Demo mode: write APIs are disabled.');
   });
 
+  it('GET /api/learning/lessons returns consolidated-shape demo lessons (was 403 endpoint-disabled)', async () => {
+    const res = await middleware(req('/api/learning/lessons'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(Array.isArray(body.lessons)).toBe(true);
+    expect(body.lessons.length).toBeGreaterThan(0);
+    expect(body.lessons[0].action_type).toBeTruthy();
+    expect(body.lessons[0]).toHaveProperty('success_rate');
+  });
+
+  it('GET /api/learning/suggestions and /api/learning/code-signals are demo-served (was 403 → red error banner)', async () => {
+    const sug = await middleware(req('/api/learning/suggestions'));
+    expect(sug.status).toBe(200);
+    expect(Array.isArray((await sug.json()).suggestions)).toBe(true);
+
+    const signals = await middleware(req('/api/learning/code-signals?period=7d'));
+    expect(signals.status).toBe(200);
+    const body = await signals.json();
+    expect(Array.isArray(body.findings)).toBe(true);
+    expect(body.period).toBe('7d');
+  });
+
+  it('GET /api/learning/export returns markdown in demo (export buttons no longer no-op)', async () => {
+    const res = await middleware(req('/api/learning/export?format=claude'));
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('text/markdown');
+    const text = await res.text();
+    expect(text).toContain('CLAUDE.md');
+  });
+
   it('POST /api/policies/modes/import is mocked BEFORE the write-block → 201 (ProfileBand demo-safe)', async () => {
     const res = await middleware(req('/api/policies/modes/import', { method: 'POST', body: { mode_id: 'soc2' } }));
     expect(res.status).toBe(201);

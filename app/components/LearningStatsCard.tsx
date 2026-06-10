@@ -12,11 +12,13 @@ import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
 import { HelpIcon } from './HelpIcon';
 import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
+import { applyDecisionToStats } from '../lib/learning-stats';
 
 interface LearningStats {
   decisions: number;
   lessons: number;
   successRate: number;
+  totalWithOutcome: number;
   recentLessons: string[];
 }
 
@@ -31,15 +33,19 @@ export default function LearningStatsCard() {
 
       setStats(prev => {
         if (!prev) return null;
-        const newTotalDecisions = prev.decisions + 1;
-        const successCount = prev.successRate * prev.decisions / 100 + (payload.outcome === 'success' ? 1 : 0);
-        const newSuccessRate = Math.round((successCount / newTotalDecisions) * 100);
-
+        // Pending-safe rate update shared with /learning (the old recompute
+        // divided by ALL decisions and drifted from the server's terminal-only
+        // rate after every event).
+        const next = applyDecisionToStats(
+          { totalDecisions: prev.decisions, successRate: prev.successRate, totalWithOutcome: prev.totalWithOutcome },
+          payload.outcome,
+        );
         return {
           ...prev,
-          decisions: newTotalDecisions,
-          successRate: newSuccessRate,
-          recentLessons: [payload.decision, ...prev.recentLessons].slice(0, 4)
+          decisions: next.totalDecisions,
+          successRate: next.successRate,
+          totalWithOutcome: next.totalWithOutcome,
+          recentLessons: prev.recentLessons,
         };
       });
     }
@@ -55,14 +61,19 @@ export default function LearningStatsCard() {
             decisions: data.stats.totalDecisions || 0,
             lessons: data.stats.totalLessons || 0,
             successRate: data.stats.successRate || 0,
-            recentLessons: data.lessons.slice(0, 4).map((l: any) => l.lesson || l.text || 'Lesson')
+            totalWithOutcome: data.stats.totalWithOutcome || 0,
+            // Lessons are live consolidation rows ({action_type, guidance,
+            // success_rate}), not the dead `lessons`-table rows.
+            recentLessons: data.lessons.slice(0, 4).map((l: any) =>
+              l.guidance || (l.action_type ? `${l.action_type}: ${l.success_rate ?? 0}% success over ${l.sample_size ?? 0} samples` : l.lesson || 'Lesson')
+            )
           });
         } else {
-          setStats({ decisions: 0, lessons: 0, successRate: 0, recentLessons: [] });
+          setStats({ decisions: 0, lessons: 0, successRate: 0, totalWithOutcome: 0, recentLessons: [] });
         }
       } catch (error) {
         console.error('Failed to fetch learning stats:', error);
-        setStats({ decisions: 0, lessons: 0, successRate: 0, recentLessons: [] });
+        setStats({ decisions: 0, lessons: 0, successRate: 0, totalWithOutcome: 0, recentLessons: [] });
       } finally {
         setLoading(false);
       }
@@ -106,7 +117,7 @@ export default function LearningStatsCard() {
         <div className="bg-surface-tertiary rounded-lg p-3 mb-4">
           <div className="grid grid-cols-2 gap-4">
             <StatCompact label="Decisions Tracked" value={stats.decisions} color="text-white" />
-            <StatCompact label="Lessons Learned" value={stats.lessons} color="text-white" />
+            <StatCompact label="Distilled Lessons" value={stats.lessons} color="text-white" />
           </div>
         </div>
 
