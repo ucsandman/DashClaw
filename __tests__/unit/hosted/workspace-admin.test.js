@@ -160,12 +160,15 @@ describe('POST /api/hosted/cleanup', () => {
   it('deletes each expired workspace and returns counts', async () => {
     // 1: findExpiredWorkspaces returns two orgs
     sqlMock.mockResolvedValueOnce([{ id: 'org_a' }, { id: 'org_b' }]);
-    // org_a delete: existence check -> hosted, then revoke keys, then delete org
+    // org_a delete: existence check -> hosted, revoke keys, FK catalog
+    // discovery (no children mocked), delete org
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]);
+    sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     // org_b delete: same pattern
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]);
+    sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     const res = await cleanupPOST(req());
@@ -178,8 +181,9 @@ describe('POST /api/hosted/cleanup', () => {
     sqlMock.mockResolvedValueOnce([{ id: 'org_fail' }, { id: 'org_ok' }]);
     // org_fail: existence check throws
     sqlMock.mockRejectedValueOnce(new Error('db flaked'));
-    // org_ok: normal delete
+    // org_ok: normal delete (existence, revoke, FK discovery, org delete)
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]);
+    sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     const res = await cleanupPOST(req());

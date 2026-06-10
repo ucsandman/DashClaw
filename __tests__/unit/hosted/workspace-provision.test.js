@@ -141,6 +141,52 @@ describe('hosted-workspace repository', () => {
     await expect(deleteHostedWorkspace(sql, 'org_real')).rejects.toThrow(/not a hosted/);
   });
 
+  it('deleteHostedWorkspace deletes catalog-discovered child rows before the org (FK 23503 regression)', async () => {
+    sql.mockResolvedValueOnce([{ hosted_mode: true }]); // existence check
+    sql.mockResolvedValueOnce([]); // api_keys revoke
+    sql.mockResolvedValueOnce([
+      { table_name: 'api_keys', column_name: 'org_id' },
+      { table_name: 'action_records', column_name: 'org_id' },
+      { table_name: 'bad;table', column_name: 'org_id' }, // unsafe ident must be skipped
+    ]); // FK catalog discovery
+    sql.mockResolvedValueOnce([]); // org delete
+    sql.query = vi.fn().mockResolvedValue([]);
+
+    const res = await deleteHostedWorkspace(sql, 'org_x');
+    expect(res).toEqual({ deleted: true });
+    expect(sql.query.mock.calls.map((c) => c[0])).toEqual([
+      'DELETE FROM "api_keys" WHERE "org_id" = $1',
+      'DELETE FROM "action_records" WHERE "org_id" = $1',
+    ]);
+    expect(sql.query).toHaveBeenCalledWith(expect.any(String), ['org_x']);
+    // Org delete is the last tagged-template call.
+    const lastSql = sql.mock.calls[sql.mock.calls.length - 1][0].join(' ');
+    expect(lastSql).toContain('DELETE FROM organizations');
+  });
+
+  it('deleteHostedWorkspace retries child deletes blocked by FK ordering', async () => {
+    sql.mockResolvedValueOnce([{ hosted_mode: true }]);
+    sql.mockResolvedValueOnce([]); // revoke
+    sql.mockResolvedValueOnce([
+      { table_name: 'action_records', column_name: 'org_id' },
+      { table_name: 'action_embeddings', column_name: 'org_id' },
+    ]);
+    sql.mockResolvedValueOnce([]); // org delete
+    // action_records fails while action_embeddings still references it, then
+    // succeeds on the second pass.
+    sql.query = vi.fn()
+      .mockRejectedValueOnce(new Error('violates foreign key constraint'))
+      .mockResolvedValue([]);
+
+    const res = await deleteHostedWorkspace(sql, 'org_x');
+    expect(res).toEqual({ deleted: true });
+    expect(sql.query.mock.calls.map((c) => c[0])).toEqual([
+      'DELETE FROM "action_records" WHERE "org_id" = $1',
+      'DELETE FROM "action_embeddings" WHERE "org_id" = $1',
+      'DELETE FROM "action_records" WHERE "org_id" = $1',
+    ]);
+  });
+
   it('findExpiredWorkspaces returns orgs past trialEndsAt', async () => {
     sql.mockResolvedValueOnce([{ id: 'org_old' }, { id: 'org_older' }]);
     const res = await findExpiredWorkspaces(sql, { now: new Date('2026-06-01T00:00:00Z') });

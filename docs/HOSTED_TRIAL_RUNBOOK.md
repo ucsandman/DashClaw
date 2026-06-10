@@ -51,7 +51,7 @@ npm run hosted:check-ready   # with the hosted env values exported — expect st
      https://<hosted-host>/api/guard
    ```
    Expect HTTP 200 with a `decision` field in the body.
-4. **Forced-expiry gate:** as admin (`DASHCLAW_API_KEY`), expire the workspace (PATCH the trial row, or admin-delete via `/api/hosted/workspaces/<id>`), then repeat the governed request — expect 403/402 (the trial gate working).
+4. **Forced-expiry gate:** as admin (`DASHCLAW_API_KEY`), expire the workspace (set `organizations.trial_ends_at` in the past, or admin-delete via `/api/hosted/workspaces/<id>`), then repeat the governed request — expect 403 `{"error":"trial expired"}`. **Allow up to 5 minutes**: the middleware caches API-key auth (including `trial_ends_at`) with a 5-minute TTL, so requests inside that window still return 200.
 5. **Scripted sweep (non-prod only):** `npm run hosted:smoke` with `HOSTED_SMOKE_BASE_URL` + the admin key — expect `[smoke] PASS`. Against production this is **expected to fail** at step 1 with 400 `turnstile verification failed: missing_token`: the script sends no Turnstile token and the instance fails closed. That's the bot gate working — production smoke is steps 1–4 above (browser mint). The scripted sweep passes only where `TURNSTILE_SECRET_KEY` is unset (local/preview bypass) or set to Cloudflare's always-pass test key.
 
 ## 4. `dashclaw install claude --trial` end-to-end

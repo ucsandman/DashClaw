@@ -134,7 +134,44 @@ export async function deleteHostedWorkspace(
   if (!existing[0]?.hosted_mode) {
     throw new Error(`org ${orgId} is not a hosted trial workspace — refusing to delete`);
   }
+  // Revoke first so the workspace is dead immediately even if a later step fails.
   await sql`UPDATE api_keys SET revoked_at = NOW() WHERE org_id = ${orgId} AND revoked_at IS NULL`;
+
+  // Most org FKs predate cascade rules (32 of 47 are NO ACTION), and every org
+  // has at least its api_keys row, so a bare DELETE FROM organizations always
+  // failed with 23503 once the trial saw any activity. Discover the referencing
+  // tables from the catalog (so new tables can't silently break cleanup) and
+  // delete child rows first; the retry passes resolve child-of-child FK
+  // ordering without hardcoding the dependency graph.
+  const children = await sql`
+    SELECT DISTINCT tc.table_name AS table_name, kcu.column_name AS column_name
+    FROM information_schema.table_constraints tc
+    JOIN information_schema.key_column_usage kcu
+      ON kcu.constraint_name = tc.constraint_name AND kcu.constraint_schema = tc.table_schema
+    JOIN information_schema.constraint_column_usage ccu
+      ON ccu.constraint_name = tc.constraint_name AND ccu.constraint_schema = tc.table_schema
+    WHERE tc.constraint_type = 'FOREIGN KEY'
+      AND ccu.table_name = 'organizations'
+      AND tc.table_name <> 'organizations'
+  `;
+  const isSafeIdent = (s: unknown): s is string => typeof s === 'string' && /^[a-z0-9_]+$/i.test(s);
+  let pending = children.filter((c) => isSafeIdent(c.table_name) && isSafeIdent(c.column_name));
+  for (let pass = 0; pass < 5 && pending.length > 0; pass += 1) {
+    const failed: typeof pending = [];
+    for (const child of pending) {
+      try {
+        await sql.query(
+          `DELETE FROM "${child.table_name}" WHERE "${child.column_name}" = $1`,
+          [orgId],
+        );
+      } catch {
+        // FK ordering: a child of another child — retry on the next pass.
+        failed.push(child);
+      }
+    }
+    if (failed.length === pending.length) break; // no progress; let the org delete surface the real error
+    pending = failed;
+  }
   await sql`DELETE FROM organizations WHERE id = ${orgId} AND hosted_mode = TRUE`;
   return { deleted: true };
 }
