@@ -94,6 +94,8 @@ interface ListActionsFilters {
   action_type?: string;
   risk_min?: number | string;
   outcome_status?: string;
+  /** Optional rolling window (1-365 days): scopes the list AND total/stats. */
+  days?: number | string;
   limit?: number | string;
   offset?: number | string;
 }
@@ -106,6 +108,8 @@ interface ParsedListActionsFilters {
   action_type?: string;
   outcomeFilter: string | null;
   parsedRiskMin: number | null;
+  /** ISO cutoff derived from `days` (null = no window). */
+  sinceIso: string | null;
   parsedLimit: number;
   parsedOffset: number;
 }
@@ -118,6 +122,7 @@ interface ListActionSqlFragments {
   actionType: ReturnType<SqlClient>;
   riskMin: ReturnType<SqlClient>;
   outcome: ReturnType<SqlClient>;
+  since: ReturnType<SqlClient>;
 }
 
 // Neon returns numeric aggregates (AVG/SUM) as strings; coerce the two stats
@@ -141,10 +146,16 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     action_type,
     risk_min,
     outcome_status,
+    days,
     limit = 50,
     offset = 0,
   } = filters;
   const validOutcomes = new Set(['pending', 'completed', 'partial', 'failed', 'lost_confirmation']);
+  // Rolling window: the cutoff is computed once here so the list, countQuery,
+  // and statsQuery all scope identically (the windowed `total` is what makes
+  // the activity narrative truthful — it is NOT a buffer length).
+  const parsedDays = parseInt(days as string, 10);
+  const clampedDays = Number.isFinite(parsedDays) ? Math.min(Math.max(parsedDays, 1), 365) : null;
   return {
     agent_id,
     swarm_id,
@@ -153,6 +164,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     action_type,
     outcomeFilter: validOutcomes.has(outcome_status as string) ? (outcome_status as string) : null,
     parsedRiskMin: Number.isFinite(Number(risk_min)) ? Number(risk_min) : null,
+    sinceIso: clampedDays != null ? new Date(Date.now() - clampedDays * 86_400_000).toISOString() : null,
     parsedLimit: Math.min(parseInt(limit as string, 10) || 50, 200),
     parsedOffset: parseInt(offset as string, 10) || 0,
   };
@@ -192,6 +204,7 @@ function listActionQuerySpecs(filters: ParsedListActionsFilters): QueryCondition
     { active: !!filters.action_type, condition: 'action_type =', value: filters.action_type },
     { active: filters.parsedRiskMin != null, condition: 'risk_score >=', value: filters.parsedRiskMin },
     { active: !!filters.outcomeFilter, condition: 'outcome_status =', value: filters.outcomeFilter },
+    { active: filters.sinceIso != null, condition: 'created_at::timestamptz >=', value: filters.sinceIso },
   ];
 }
 
@@ -242,6 +255,7 @@ function listActionSqlFragments(
     actionType: sqlFragment(sql, !!filters.action_type, () => sql`AND action_type = ${filters.action_type}`),
     riskMin: sqlFragment(sql, filters.parsedRiskMin != null, () => sql`AND risk_score >= ${filters.parsedRiskMin}`),
     outcome: sqlFragment(sql, !!filters.outcomeFilter, () => sql`AND outcome_status = ${filters.outcomeFilter}`),
+    since: sqlFragment(sql, filters.sinceIso != null, () => sql`AND created_at::timestamptz >= ${filters.sinceIso}`),
   };
 }
 
@@ -311,6 +325,7 @@ function listActionsWhere(
         ${fragments.actionType}
         ${fragments.riskMin}
         ${fragments.outcome}
+        ${fragments.since}
     `;
 }
 

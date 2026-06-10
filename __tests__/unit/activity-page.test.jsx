@@ -76,11 +76,22 @@ function makeGuard({
   return { id, agent_id, decision, reason, matched_policies, created_at };
 }
 
-function stubFetch({ actions = [], decisions = [] } = {}) {
+function stubFetch({ actions = [], decisions = [], total = undefined, stats = {}, detail = null } = {}) {
   return vi.fn(async (url) => {
     const u = String(url);
+    // Order matters: /api/actions/stats and /api/actions/{id} both share the
+    // /api/actions prefix, so the more specific routes must match first.
+    if (u.startsWith('/api/actions/stats')) {
+      // GET /api/actions/stats returns the true 24h { total } (agent-scopable).
+      return { ok: true, status: 200, json: async () => stats };
+    }
+    if (u.startsWith('/api/actions/')) {
+      // Single-action detail fetch fired by decision-row expansion.
+      return { ok: true, status: 200, json: async () => (detail ? { action: detail } : {}) };
+    }
     if (u.startsWith('/api/actions')) {
-      return { ok: true, status: 200, json: async () => ({ actions }) };
+      // List endpoint returns { actions, total } — total is the windowed COUNT(*).
+      return { ok: true, status: 200, json: async () => ({ actions, total }) };
     }
     if (u.startsWith('/api/guard')) {
       // GET /api/guard returns { decisions: [...] } (see listGuardDecisions).
@@ -288,6 +299,172 @@ describe('GlobalActivityFeed — /activity render states', () => {
       const denialsSection = container.querySelector('[data-testid="denials-section"]');
       expect(denialsSection).toBeTruthy();
       expect(within(denialsSection).getByText(/live denial reason/i)).toBeTruthy();
+    });
+  });
+
+  it('pluralizes the narrative subject from distinct actors', async () => {
+    const now = Date.now();
+    const actions = [
+      makeAction({ action_id: 'act_p1', agent_id: 'agent-a', timestamp_start: new Date(now).toISOString() }),
+      makeAction({ action_id: 'act_p2', agent_id: 'agent-b', timestamp_start: new Date(now - 1000).toISOString() }),
+      makeAction({ action_id: 'act_p3', agent_id: 'agent-c', timestamp_start: new Date(now - 2000).toISOString() }),
+    ];
+    global.fetch = stubFetch({ actions, decisions: [] });
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/your 3 agents ran 3 commands\./i)).toBeTruthy();
+    });
+  });
+
+  it('sources the narrative total from the windowed API count, not the buffer length', async () => {
+    const now = Date.now();
+    // Only 3 rows in the buffer, but the true 24h COUNT(*) is 700.
+    const actions = Array.from({ length: 3 }, (_, i) =>
+      makeAction({ action_id: `act_tc_${i}`, timestamp_start: new Date(now - i * 1000).toISOString() })
+    );
+    global.fetch = stubFetch({ actions, decisions: [], stats: { total: 700 } });
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/your agent ran 700 commands\./i)).toBeTruthy();
+    });
+  });
+
+  it('counts pending_approval actions in the required-approval narrative clause', async () => {
+    const now = Date.now();
+    const actions = [
+      makeAction({ action_id: 'act_pa', status: 'pending_approval', timestamp_start: new Date(now).toISOString() }),
+      makeAction({ action_id: 'act_ap', status: 'completed', approved_by: 'wes', timestamp_start: new Date(now - 1000).toISOString() }),
+    ];
+    global.fetch = stubFetch({ actions, decisions: [] });
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/2 required approval\./i)).toBeTruthy();
+    });
+  });
+
+  it('auto-pauses on row expansion, buffers events, and flushes on collapse', async () => {
+    const now = Date.now();
+    const fetchMock = stubFetch({
+      actions: [makeAction({ action_id: 'act_seed', declared_goal: 'seed goal', timestamp_start: new Date(now).toISOString() })],
+      decisions: [],
+    });
+    global.fetch = fetchMock;
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => expect(screen.getByText(/seed goal/i)).toBeTruthy());
+
+    // Expand the row — only feed rows carry aria-expanded.
+    const [rowBtn] = screen.getAllByRole('button', { expanded: false });
+    fireEvent.click(rowBtn);
+    await waitFor(() => {
+      expect(screen.getByText(/live feed · paused/i)).toBeTruthy();
+      expect(screen.getByTestId('row-detail')).toBeTruthy();
+    });
+
+    // A realtime event while expanded must NOT mutate the visible list.
+    realtimeSubscriber('action.created', {
+      action_id: 'act_buffered',
+      agent_id: 'claude-code',
+      declared_goal: 'buffered while reading',
+      status: 'completed',
+      timestamp_start: new Date(now + 1000).toISOString(),
+    });
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /1 new · back to live/i })).toBeTruthy();
+    });
+    expect(screen.queryByText(/buffered while reading/i)).toBeNull();
+
+    // Collapse restores the prior cadence (live) and flushes the buffer.
+    const [expandedBtn] = screen.getAllByRole('button', { expanded: true });
+    fireEvent.click(expandedBtn);
+    await waitFor(() => {
+      expect(screen.getByText(/buffered while reading/i)).toBeTruthy();
+    });
+    expect(screen.queryByRole('button', { name: /back to live/i })).toBeNull();
+  });
+
+  it('back-to-live flushes the paused buffer preserving order', async () => {
+    const now = Date.now();
+    const fetchMock = stubFetch({
+      actions: [makeAction({ action_id: 'act_seed2', declared_goal: 'seed goal two', timestamp_start: new Date(now).toISOString() })],
+      decisions: [],
+    });
+    global.fetch = fetchMock;
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => expect(screen.getByText(/seed goal two/i)).toBeTruthy());
+
+    // Explicit pause via the cadence control.
+    fireEvent.click(screen.getByRole('button', { name: /pause/i }));
+    await waitFor(() => expect(screen.getByText(/live feed · paused/i)).toBeTruthy());
+
+    realtimeSubscriber('action.created', {
+      action_id: 'act_flush_a',
+      agent_id: 'claude-code',
+      declared_goal: 'flush goal alpha',
+      status: 'completed',
+      timestamp_start: new Date(now + 1000).toISOString(),
+    });
+    realtimeSubscriber('action.created', {
+      action_id: 'act_flush_b',
+      agent_id: 'claude-code',
+      declared_goal: 'flush goal bravo',
+      status: 'completed',
+      timestamp_start: new Date(now + 2000).toISOString(),
+    });
+
+    const pill = await screen.findByRole('button', { name: /2 new · back to live/i });
+    expect(screen.queryByText(/flush goal alpha/i)).toBeNull();
+    fireEvent.click(pill);
+
+    await waitFor(() => {
+      expect(screen.getByText(/flush goal alpha/i)).toBeTruthy();
+      expect(screen.getByText(/flush goal bravo/i)).toBeTruthy();
+    });
+    // Newest-first ordering: bravo (now+2000) renders above alpha (now+1000).
+    const alpha = screen.getByText(/flush goal alpha/i);
+    const bravo = screen.getByText(/flush goal bravo/i);
+    // DOCUMENT_POSITION_FOLLOWING (4): alpha follows bravo in the document.
+    expect(bravo.compareDocumentPosition(alpha) & 4).toBeTruthy();
+    expect(screen.getByText(/^live feed$/i)).toBeTruthy();
+  });
+
+  it('renders the cadence control and reflects the selected mode', async () => {
+    const now = Date.now();
+    global.fetch = stubFetch({
+      actions: [makeAction({ action_id: 'act_seed3', timestamp_start: new Date(now).toISOString() })],
+      decisions: [],
+    });
+    const { default: ActivityPage } = await import('../../app/activity/page.jsx');
+    render(<ActivityPage />);
+
+    await waitFor(() => expect(screen.getByRole('group', { name: /stream cadence/i })).toBeTruthy());
+    const group = screen.getByRole('group', { name: /stream cadence/i });
+    const liveBtn = within(group).getByRole('button', { name: /live/i });
+    const batchBtn = within(group).getByRole('button', { name: /every 10s/i });
+    const pauseBtn = within(group).getByRole('button', { name: /pause/i });
+
+    expect(liveBtn.getAttribute('aria-pressed')).toBe('true');
+    expect(batchBtn.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(batchBtn);
+    await waitFor(() => {
+      expect(batchBtn.getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByText(/live feed · batched/i)).toBeTruthy();
+    });
+
+    fireEvent.click(pauseBtn);
+    await waitFor(() => {
+      expect(pauseBtn.getAttribute('aria-pressed')).toBe('true');
+      expect(screen.getByText(/live feed · paused/i)).toBeTruthy();
     });
   });
 });

@@ -48,6 +48,10 @@ export async function GET(request: Request) {
     const action_type = searchParams.get('action_type') || undefined;
     const risk_min = searchParams.get('risk_min') || undefined;
     const outcome_status = searchParams.get('outcome_status') || undefined;
+    // Optional rolling window (1-365 days). Scopes the returned `total` and
+    // `stats` too — the activity narrative reads that windowed total instead
+    // of a LIMIT-capped buffer length.
+    const days = searchParams.get('days') || undefined;
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
@@ -59,6 +63,7 @@ export async function GET(request: Request) {
       action_type,
       risk_min,
       outcome_status,
+      days,
       limit,
       offset,
     });

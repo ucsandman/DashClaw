@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -9,7 +9,8 @@ import { Skeleton } from '../components/ui/Skeleton';
 import { useRealtime } from '../hooks/useRealtime';
 import {
   Activity, Zap, Shield, Terminal,
-  ChevronRight, AlertTriangle, ShieldAlert,
+  ChevronRight, ChevronDown, AlertTriangle, ShieldAlert,
+  Pause, Play,
 } from 'lucide-react';
 import { getAgentColor } from '../lib/colors';
 import { useAgentFilter } from '../lib/AgentFilterContext';
@@ -40,7 +41,16 @@ interface NarrativeCounts {
   total: number;
   requiredApproval: number;
   denied: number;
+  /** Distinct decision actors in the scope window. */
+  distinctAgents: number;
 }
+
+// Update cadence for the live feed. 'live' applies SSE events immediately;
+// 'batch' buffers and flushes every BATCH_FLUSH_MS; 'paused' buffers until an
+// explicit resume / jump-to-live.
+type Cadence = 'live' | 'batch' | 'paused';
+const BATCH_FLUSH_MS = 10_000;
+const PENDING_CAP = 200;
 
 const categoryIconMap: Record<string, React.ElementType> = {
   decision: Zap,
@@ -49,15 +59,19 @@ const categoryIconMap: Record<string, React.ElementType> = {
   signal: AlertTriangle,
 };
 
-// Plain-English recap of the activity in the selected scope window.
-// Ported from the retired /my-agent surface.
-function buildNarrative(scope: string, counts: NarrativeCounts): string {
+// Plain-English recap of the activity in the selected scope window. The total
+// comes from the windowed API count (true COUNT(*)), never the buffer length,
+// and the subject pluralizes from the distinct actors actually seen.
+function buildNarrative(scope: string, counts: NarrativeCounts, filteredToOneAgent: boolean): string {
   const when = scope === 'today' ? 'Today' : 'This week';
+  const subject = filteredToOneAgent || counts.distinctAgents <= 1
+    ? 'your agent'
+    : `your ${counts.distinctAgents} agents`;
   if (counts.total === 0) {
-    return `${when}, your agent hasn't run anything yet.`;
+    return `${when}, ${subject === 'your agent' ? 'your agent' : 'your agents'} ${subject === 'your agent' ? "hasn't" : "haven't"} run anything yet.`;
   }
   const cmd = `command${counts.total === 1 ? '' : 's'}`;
-  const parts = [`${when} your agent ran ${counts.total} ${cmd}.`];
+  const parts = [`${when} ${subject} ran ${counts.total} ${cmd}.`];
   if (counts.requiredApproval > 0) {
     parts.push(`${counts.requiredApproval} required approval.`);
   }
@@ -66,6 +80,24 @@ function buildNarrative(scope: string, counts: NarrativeCounts): string {
     parts.push(`${counts.denied} ${verb} denied.`);
   }
   return parts.join(' ');
+}
+
+// Merge one realtime event into the buffer: replace in place when the id is
+// already present (prevents duplication when a realtime event arrives for an
+// action that's already in the seed); otherwise prepend, sort, cap at 200.
+// action.updated for an unknown action is ignored rather than prepended as a
+// fragmented update.
+function mergeEvent(prev: ActivityEvent[], newEvt: ActivityEvent, updateOnly: boolean): ActivityEvent[] {
+  const idx = prev.findIndex((e) => e.id === newEvt.id);
+  if (idx >= 0) {
+    const next = prev.slice();
+    next[idx] = newEvt;
+    return next;
+  }
+  if (updateOnly) return prev;
+  const merged = [newEvt, ...prev];
+  merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  return merged.slice(0, 200);
 }
 
 function extractPolicyName(matchedPolicies: any): string | null {
@@ -81,6 +113,21 @@ export default function GlobalActivityFeed() {
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
+  // True windowed action totals from the API (COUNT(*), not buffer lengths).
+  const [apiTotals, setApiTotals] = useState<{ today: number | null; week: number | null }>({ today: null, week: null });
+
+  // ── Live-feed cadence + buffer ──────────────────────────────────────────
+  const [cadence, setCadence] = useState<Cadence>('live');
+  const cadenceRef = useRef<Cadence>('live');
+  cadenceRef.current = cadence;
+  // Events received while not 'live'; flushed in order on resume/batch tick.
+  const pendingRef = useRef<Array<{ evt: ActivityEvent; updateOnly: boolean }>>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Cadence to restore when an auto-pause (row expansion) ends; null = manual.
+  const autoPausedFromRef = useRef<Cadence | null>(null);
+  // Lazy per-action detail for expanded decision rows.
+  const [detailCache, setDetailCache] = useState<Record<string, any>>({});
 
   const fetchInitialData = useCallback(async () => {
     setLoading(true);
@@ -100,16 +147,21 @@ export default function GlobalActivityFeed() {
           .then((r) => (r.ok ? r.json() : Promise.resolve({})))
           .catch(() => ({}));
 
-      // Pull a week's worth (limit=200) so the scope toggle and narrative
-      // counts have data to work with — the live feed itself stays capped
-      // at 50 below.
+      // Pull a week's worth of ROWS (limit=200) to render from; the narrative
+      // totals come from the windowed COUNT(*) the API returns (`days=7`) plus
+      // the 24h stats endpoint — never from the capped row buffer.
       const fetches = [
-        safeJson(`/api/actions?limit=200${agentQs}`),
+        safeJson(`/api/actions?limit=200&days=7${agentQs}`),
         safeJson(`/api/guard?limit=200${agentQs}`),
+        safeJson(`/api/actions/stats${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
       ];
       if (!agentId) fetches.push(safeJson('/api/activity?limit=10'));
 
-      const [actionsData, guardData, auditData = {}] = await Promise.all(fetches);
+      const [actionsData, guardData, statsData = {}, auditData = {}] = await Promise.all(fetches);
+      setApiTotals({
+        week: Number.isFinite(Number(actionsData?.total)) ? Number(actionsData.total) : null,
+        today: Number.isFinite(Number(statsData?.total)) ? Number(statsData.total) : null,
+      });
 
       const actions = actionsData.actions || [];
       // /api/guard returns { decisions, total, stats }. The page used to read
@@ -252,28 +304,82 @@ export default function GlobalActivityFeed() {
     }
 
     if (newEvt) {
-      setEvents((prev) => {
-        const idx = prev.findIndex((e) => e.id === newEvt!.id);
-        if (idx >= 0) {
-          // Replace in place — preserves position, prevents duplication when
-          // a realtime event arrives for an action that's already in the seed.
-          const next = prev.slice();
-          next[idx] = newEvt!;
-          return next;
+      if (cadenceRef.current !== 'live') {
+        // Buffered: the visible list stays frozen while paused/batched.
+        // Dedupe by id (replace in place) and cap with oldest-drop.
+        const pending = pendingRef.current;
+        const idx = pending.findIndex((p) => p.evt.id === newEvt!.id);
+        if (idx >= 0) pending[idx] = { evt: newEvt!, updateOnly };
+        else {
+          pending.push({ evt: newEvt!, updateOnly });
+          if (pending.length > PENDING_CAP) pending.shift();
         }
-        // action.updated for an action not currently in our window — ignore
-        // rather than prepending a fragmented update at the top.
-        if (updateOnly) return prev;
-        // Keep a week's worth of history (cap at the fetch limit) so the
-        // scope toggle + narrative counts stay accurate; the live feed
-        // slices to 50 at render time.
-        const merged = [newEvt!, ...prev];
-        merged.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-        return merged.slice(0, 200);
-      });
+        setPendingCount(pending.length);
+        return;
+      }
+      setEvents((prev) => mergeEvent(prev, newEvt!, updateOnly));
       setLastUpdated(new Date().toLocaleTimeString());
     }
   });
+
+  // Flush the pending buffer into the visible list, preserving arrival order.
+  const flushPending = useCallback(() => {
+    const pending = pendingRef.current;
+    if (pending.length === 0) return;
+    setEvents((prev) => {
+      let next = prev;
+      for (const { evt, updateOnly } of pending) next = mergeEvent(next, evt, updateOnly);
+      return next;
+    });
+    pendingRef.current = [];
+    setPendingCount(0);
+    setLastUpdated(new Date().toLocaleTimeString());
+  }, []);
+
+  const changeCadence = useCallback((next: Cadence) => {
+    autoPausedFromRef.current = null; // an explicit choice overrides auto-pause
+    setCadence(next);
+    if (next === 'live') flushPending();
+  }, [flushPending]);
+
+  // Batched cadence: apply buffered events on a fixed tick.
+  useEffect(() => {
+    if (cadence !== 'batch') return;
+    const interval = setInterval(flushPending, BATCH_FLUSH_MS);
+    return () => clearInterval(interval);
+  }, [cadence, flushPending]);
+
+  // Row expansion auto-pauses the stream so the row can't move mid-read;
+  // collapsing restores the previous cadence (and flushes if returning live).
+  const toggleExpanded = useCallback((evt: ActivityEvent) => {
+    setExpandedId((prev) => {
+      const next = prev === evt.id ? null : evt.id;
+      if (next !== null && cadenceRef.current === 'live') {
+        autoPausedFromRef.current = 'live';
+        setCadence('paused');
+      } else if (next === null && autoPausedFromRef.current != null) {
+        const restore = autoPausedFromRef.current;
+        autoPausedFromRef.current = null;
+        setCadence(restore);
+        if (restore === 'live') flushPending();
+      }
+      return next;
+    });
+    // Decision rows lazily load their full record once.
+    if (evt.category === 'decision') {
+      const actionId = evt.id.replace(/^act-/, '');
+      setDetailCache((cache) => {
+        if (cache[actionId]) return cache;
+        fetch(`/api/actions/${encodeURIComponent(actionId)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((data) => {
+            if (data?.action) setDetailCache((c) => ({ ...c, [actionId]: data.action }));
+          })
+          .catch(() => { /* detail is best-effort; the row still expands */ });
+        return cache;
+      });
+    }
+  }, [flushPending]);
 
   // Scope the unified event stream to the selected time window. The narrative,
   // denials pin, and live feed all read from this filtered set.
@@ -286,19 +392,31 @@ export default function GlobalActivityFeed() {
   }, [events, scope]);
 
   const counts = useMemo<NarrativeCounts>(() => {
-    let total = 0;
+    let bufferTotal = 0;
     let requiredApproval = 0;
     let denied = 0;
+    const actors = new Set<string>();
     for (const e of scopedEvents) {
       if (e.category === 'decision') {
-        total += 1;
-        if (e.approvedBy) requiredApproval += 1;
+        bufferTotal += 1;
+        if (e.actorId) actors.add(e.actorId);
+        // Approved AND still-pending approvals both count — the old
+        // approved_by-only check undercounted in-flight approvals.
+        if (e.approvedBy || e.status === 'pending_approval') requiredApproval += 1;
       } else if (e.category === 'guard' && (e.status === 'block' || e.status === 'deny')) {
         denied += 1;
       }
     }
-    return { total, requiredApproval, denied };
-  }, [scopedEvents]);
+    // The true windowed COUNT(*) from the API wins over the capped buffer;
+    // max() keeps the number moving as live SSE arrivals land between loads.
+    const apiTotal = scope === 'today' ? apiTotals.today : apiTotals.week;
+    return {
+      total: Math.max(apiTotal ?? 0, bufferTotal),
+      requiredApproval,
+      denied,
+      distinctAgents: actors.size,
+    };
+  }, [scopedEvents, scope, apiTotals]);
 
   const denials = useMemo(
     () => scopedEvents.filter((e) => e.category === 'guard' && (e.status === 'block' || e.status === 'deny')),
@@ -312,7 +430,7 @@ export default function GlobalActivityFeed() {
   // Live feed is capped at 50 events within the scope window.
   const groupedByDay = useMemo(() => groupEventsByDay(scopedEvents.slice(0, 50)), [scopedEvents]);
 
-  const narrative = buildNarrative(scope, counts);
+  const narrative = buildNarrative(scope, counts, !!agentId);
   const narrativeClass = counts.denied > 0 ? 'text-status-warning' : 'text-primary';
 
   const getStatusColor = (category: string, status: string) => {
@@ -437,13 +555,48 @@ export default function GlobalActivityFeed() {
 
         {/* Live feed */}
         <Card hover={false}>
-          <div className="flex items-center justify-between border-b border-border px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-5 py-4">
             <div className="flex items-center gap-2">
-              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-status-success" />
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-secondary">Live feed</h2>
+              <span
+                aria-hidden="true"
+                className={`h-1.5 w-1.5 rounded-full ${cadence === 'live' ? 'bg-status-success' : 'bg-status-warning'}`}
+              />
+              <h2 className="text-[11px] font-semibold uppercase tracking-[0.14em] text-secondary">
+                {cadence === 'live' ? 'Live feed' : cadence === 'batch' ? 'Live feed · batched' : 'Live feed · paused'}
+              </h2>
             </div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.14em] tabular-nums text-tertiary">
-              Retention · 50 events
+            <div className="flex items-center gap-2">
+              {cadence !== 'live' && pendingCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => changeCadence('live')}
+                  className="rounded-full border border-brand/40 bg-brand/10 px-2.5 py-1 text-[11px] font-semibold tabular-nums text-brand transition-colors hover:bg-brand/20"
+                >
+                  {pendingCount} new · Back to live
+                </button>
+              )}
+              {/* Update cadence: immediate / 10s batches / frozen. */}
+              <div className="flex items-center overflow-hidden rounded-md border border-border" role="group" aria-label="Stream cadence">
+                {(['live', 'batch', 'paused'] as Cadence[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() => changeCadence(mode)}
+                    aria-pressed={cadence === mode}
+                    className={`px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider transition-colors ${
+                      cadence === mode ? 'bg-white/10 text-primary' : 'text-tertiary hover:text-secondary'
+                    }`}
+                  >
+                    {mode === 'live' ? (
+                      <span className="flex items-center gap-1"><Play size={10} aria-hidden="true" />Live</span>
+                    ) : mode === 'batch' ? (
+                      'Every 10s'
+                    ) : (
+                      <span className="flex items-center gap-1"><Pause size={10} aria-hidden="true" />Pause</span>
+                    )}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
           <CardContent className="p-0">
@@ -474,9 +627,17 @@ export default function GlobalActivityFeed() {
                     <div className="divide-y divide-border">
                       {group.events.map((evt: ActivityEvent) => {
                         const Icon = categoryIconMap[evt.category] || Activity;
+                        const isExpanded = expandedId === evt.id;
+                        const actionId = evt.category === 'decision' ? evt.id.replace(/^act-/, '') : null;
+                        const detail = actionId ? detailCache[actionId] : null;
                         return (
-                          <div key={evt.id} data-entity-type="auditEvent" data-entity-id={evt.id} className="group relative p-4 transition-colors hover:bg-white/[0.02]">
-                            <div className="flex items-start gap-4">
+                          <div key={evt.id} data-entity-type="auditEvent" data-entity-id={evt.id} className="group relative transition-colors hover:bg-white/[0.02]">
+                            <button
+                              type="button"
+                              onClick={() => toggleExpanded(evt)}
+                              aria-expanded={isExpanded}
+                              className="flex w-full items-start gap-4 p-4 text-left"
+                            >
                               {/* Time & Icon */}
                               <div className="flex min-w-[60px] flex-col items-center gap-2 pt-1">
                                 <span className="font-mono text-[11px] tabular-nums text-tertiary">
@@ -497,27 +658,78 @@ export default function GlobalActivityFeed() {
                                     {evt.actor}
                                   </span>
                                 </div>
-                                <div className="line-clamp-2 text-sm leading-relaxed text-secondary">
+                                <div className={`${isExpanded ? '' : 'line-clamp-2'} text-sm leading-relaxed text-secondary`}>
                                   {evt.detail}
                                 </div>
                               </div>
 
-                              {/* Status & Action */}
+                              {/* Status & expand affordance */}
                               <div className="flex flex-col items-end gap-2 pt-1">
                                 <div className={`rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] ${getStatusColor(evt.category, evt.status)}`}>
                                   {evt.status}
                                 </div>
-                                {evt.link && (
-                                  <a
-                                    href={evt.link}
-                                    className="flex items-center gap-0.5 text-[11px] font-medium text-secondary transition-colors hover:text-brand"
-                                  >
-                                    Details
-                                    <ChevronRight size={11} aria-hidden="true" />
-                                  </a>
+                                <span className="flex items-center gap-0.5 text-[11px] font-medium text-tertiary transition-colors group-hover:text-secondary">
+                                  {isExpanded ? 'Collapse' : 'Expand'}
+                                  <ChevronDown size={11} aria-hidden="true" className={`transition-transform motion-reduce:transition-none ${isExpanded ? 'rotate-180' : ''}`} />
+                                </span>
+                              </div>
+                            </button>
+
+                            {/* Inline detail — stream is auto-paused while open. */}
+                            {isExpanded && (
+                              <div className="border-t border-border bg-white/[0.015] px-4 py-3 pl-[92px] text-xs" data-testid="row-detail">
+                                {evt.category === 'guard' ? (
+                                  <div className="space-y-2">
+                                    {evt.reason && <p className="text-secondary">{evt.reason}</p>}
+                                    {Array.isArray(evt.matchedPolicies) && evt.matchedPolicies.length > 0 && (
+                                      <div className="flex flex-wrap gap-1.5">
+                                        {evt.matchedPolicies.map((p: any, i: number) => (
+                                          <span key={i} className="rounded-full border border-border bg-surface-tertiary px-2 py-0.5 font-mono text-[10px] text-secondary">
+                                            {typeof p === 'string' ? p : p?.name || p?.id || 'policy'}
+                                          </span>
+                                        ))}
+                                      </div>
+                                    )}
+                                    {!evt.reason && (!evt.matchedPolicies || evt.matchedPolicies.length === 0) && (
+                                      <p className="text-tertiary">No policy detail recorded for this evaluation.</p>
+                                    )}
+                                  </div>
+                                ) : evt.category === 'decision' ? (
+                                  <div className="space-y-2">
+                                    {detail ? (
+                                      <div className="grid grid-cols-2 gap-x-6 gap-y-1 sm:grid-cols-4">
+                                        <div><span className="text-tertiary">Risk </span><span className="font-mono tabular-nums text-secondary">{detail.risk_score ?? '—'}</span></div>
+                                        <div><span className="text-tertiary">Status </span><span className="text-secondary">{detail.status}</span></div>
+                                        <div><span className="text-tertiary">Duration </span><span className="font-mono tabular-nums text-secondary">{detail.duration_ms != null ? `${(detail.duration_ms / 1000).toFixed(1)}s` : '—'}</span></div>
+                                        <div><span className="text-tertiary">Cost </span><span className="font-mono tabular-nums text-secondary">${Number(detail.cost_estimate || 0).toFixed(4)}</span></div>
+                                        {detail.reasoning && <p className="col-span-full text-secondary">{detail.reasoning}</p>}
+                                        {detail.output_summary && <p className="col-span-full text-secondary">{detail.output_summary}</p>}
+                                      </div>
+                                    ) : (
+                                      <p className="text-tertiary">Loading record…</p>
+                                    )}
+                                    <Link
+                                      href={evt.link}
+                                      className="inline-flex items-center gap-0.5 text-[11px] font-medium text-brand transition-colors hover:text-brand-hover"
+                                    >
+                                      Open full record
+                                      <ChevronRight size={11} aria-hidden="true" />
+                                    </Link>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="text-secondary">{evt.detail}</p>
+                                    <Link
+                                      href={evt.link}
+                                      className="inline-flex items-center gap-0.5 text-[11px] font-medium text-brand transition-colors hover:text-brand-hover"
+                                    >
+                                      Open audit log
+                                      <ChevronRight size={11} aria-hidden="true" />
+                                    </Link>
+                                  </div>
                                 )}
                               </div>
-                            </div>
+                            )}
                           </div>
                         );
                       })}
