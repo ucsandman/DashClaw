@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `305`
+- Total routes: `307`
 - Stable routes: `51`
 - Beta routes: `24`
-- Experimental routes: `230`
+- Experimental routes: `232`
 
 ## Routes
 
@@ -278,8 +278,10 @@ doc-type: architecture
 | `/api/scoring/risk-templates/{templateId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/risk-templates/[templateId]/route.ts` |
 | `/api/scoring/score` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/score/route.ts` |
 | `/api/secrets` | `GET, POST` | `experimental` | `(default)` | `app/api/secrets/route.ts` |
+| `/api/secrets/env` | `GET` | `experimental` | `(default)` | `app/api/secrets/env/route.ts` |
 | `/api/secrets/rotation-due` | `GET` | `experimental` | `(default)` | `app/api/secrets/rotation-due/route.ts` |
 | `/api/secrets/{id}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/secrets/[id]/route.ts` |
+| `/api/secrets/{id}/value` | `POST` | `experimental` | `(default)` | `app/api/secrets/[id]/value/route.ts` |
 | `/api/security/prompt-injection` | `GET, POST` | `beta` | `/api/security` | `app/api/security/prompt-injection/route.ts` |
 | `/api/security/scan` | `POST` | `beta` | `/api/security` | `app/api/security/scan/route.ts` |
 | `/api/security/status` | `GET` | `beta` | `/api/security` | `app/api/security/status/route.ts` |

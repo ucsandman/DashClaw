@@ -18,6 +18,8 @@ Stdlib only. Mirrors the secret patterns in
 sessions, and the JS-side defensive re-redaction never disagree.
 """
 
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -722,3 +724,156 @@ def build_insights(workspace=None, window_days=7):
         "signals": signals,
         "agents": _build_agent_list(agents),
     }
+
+
+# ── Anonymized upload projection (opt-in remote Policy Coach) ─────────────────
+# anonymize_sample_for_upload() projects one local sample into the upload-safe
+# shape used by POST /api/behavior/samples/ingest. It BUILDS UP a new dict from
+# an explicit allowlist (never copy-then-delete), so a field added to the local
+# sample format can never leak to the server by accident. Identifying values
+# (session_id, paths) become salted HMAC tokens — string identity is preserved
+# so server-side loop detection keeps working — and write paths additionally
+# get classified into protected-path GROUP names so protected_path_approval
+# suggestions work without the server ever seeing a real path.
+
+# Mirror of PROTECTED_PATH_GROUPS in app/lib/behavior/path-match.ts — keep the
+# two in sync so the group a client reports is the group the guard enforces.
+_PROTECTED_PATH_GROUPS = {
+    "auth": ["**/auth/**", "**/auth.js", "**/auth.mjs", "app/login/**", "app/api/auth/**", "**/authConfig*"],
+    "middleware": ["middleware.js", "middleware.ts", "**/middleware.js", "**/middleware.ts"],
+    "billing": ["**/billing.js", "**/billing/**", "app/api/billing/**", "**/stripe*"],
+    "secrets": ["**/secrets/**", "**/.env", "**/.env.*", "**/*.pem", "**/id_rsa*", "**/*.key", "app/secrets/**"],
+    "organism": [".organism/**", "**/.organism/**", "organism.json"],
+    "livingcode": ["livingcode/**", "**/livingcode/**", "public/livingcode/**"],
+    "cron/gateway": ["**/cron/**", "vercel.json", "**/gateway*", "**/openclaw.json", "docker-compose.yml", "Dockerfile"],
+}
+
+# Fields copied through verbatim. Everything else is dropped, hashed, or
+# rebuilt (session_id, read_paths, write_paths, write_path_groups,
+# matched_policy_count, command_shape).
+_UPLOAD_KEEP_FIELDS = (
+    "schema_version", "event_id", "ts", "source", "model", "tool",
+    "tool_category", "bash_intent", "action_type", "risk_score", "reversible",
+    "guard_decision", "sensitive_path", "outcome_status", "error_type",
+    "duration_ms", "agent_id",
+)
+
+# Bare command operands that may survive masking — generic verbs the analyzer
+# needs (reload-loop / failed-loop detection) that can never identify anything.
+_UPLOAD_SAFE_OPERANDS = frozenset({
+    "test", "lint", "build", "typecheck", "format", "status", "diff", "log",
+    "coverage", "--version",
+})
+
+
+def _normalize_glob_path(p):
+    """Mirror of normalizePath in path-match.ts (forward slashes, drop a
+    Windows drive prefix, strip leading ./)."""
+    if p is None:
+        return ""
+    s = str(p).strip().replace("\\", "/")
+    s = re.sub(r"^[a-zA-Z]:/", "/", s)
+    while s.startswith("./"):
+        s = s[2:]
+    return s
+
+
+def _glob_to_regex(glob):
+    """Mirror of globToRegExp in path-match.ts: `**` crosses `/`, `*` does not."""
+    normalized = _normalize_glob_path(glob)
+    out = "^"
+    i = 0
+    while i < len(normalized):
+        c = normalized[i]
+        if c == "*":
+            if i + 1 < len(normalized) and normalized[i + 1] == "*":
+                i += 1
+                if i + 1 < len(normalized) and normalized[i + 1] == "/":
+                    i += 1
+                out += ".*"
+            else:
+                out += "[^/]*"
+        elif c in "\\^$.|?+()[]{}":
+            out += "\\" + c
+        else:
+            out += c
+        i += 1
+    return re.compile(out + "$")
+
+
+def _matches_protected_path(path, patterns):
+    """Mirror of matchesProtectedPath: anchored glob match plus the bare
+    relative-pattern suffix fallback (`middleware.js` catches `a/b/middleware.js`)."""
+    norm = _normalize_glob_path(path)
+    if not norm or not patterns:
+        return False
+    for pattern in patterns:
+        if not pattern:
+            continue
+        if _glob_to_regex(pattern).match(norm):
+            return True
+        p = str(pattern)
+        if not p.startswith("**") and not p.startswith("/"):
+            if _glob_to_regex("**/" + p).match(norm):
+                return True
+    return False
+
+
+def classify_protected_path(path):
+    """Return the protected-group label for a path, or None if unprotected."""
+    for group, patterns in _PROTECTED_PATH_GROUPS.items():
+        if _matches_protected_path(path, patterns):
+            return group
+    return None
+
+
+def _hmac_token(salt, prefix, value):
+    """Salted HMAC-SHA256 token (prefix + first 12 hex). Same salt + same
+    value ⇒ same token, so string-identity-based detectors keep working."""
+    digest = hmac.new(
+        str(salt).encode("utf-8"), str(value).encode("utf-8"), hashlib.sha256
+    ).hexdigest()
+    return prefix + digest[:12]
+
+
+def _mask_command_shape_for_upload(shape):
+    """Tighten an already-shaped command for transit: keep the first two tokens
+    (verb + subcommand), flag tokens, existing placeholders, and a small safe
+    operand allowlist; every other bare operand becomes <arg>."""
+    if not shape:
+        return None
+    out = []
+    for i, tok in enumerate(str(shape).split()):
+        if i < 2 or tok.startswith("-") or tok.startswith("<") or tok in _UPLOAD_SAFE_OPERANDS:
+            out.append(tok)
+        else:
+            out.append("<arg>")
+    return " ".join(out)
+
+
+def anonymize_sample_for_upload(sample, salt):
+    """Project one recorded sample into the upload-safe shape.
+
+    Returns a NEW dict containing ONLY allowlisted keys (built up, never
+    copy-then-delete). Drops declared_goal/project/agent_name/intel entirely,
+    replaces matched_policies with matched_policy_count, hashes session_id and
+    every path with the caller's salt, adds write_path_groups, and masks
+    command_shape operands. The salt itself is never stored in the result."""
+    src = sample if isinstance(sample, dict) else {}
+    out = {}
+    for key in _UPLOAD_KEEP_FIELDS:
+        if key in src:
+            out[key] = src[key]
+    sid = src.get("session_id")
+    out["session_id"] = _hmac_token(salt, "sh_", sid) if sid else None
+    out["read_paths"] = [_hmac_token(salt, "ph_", p) for p in (src.get("read_paths") or []) if p]
+    out["write_paths"] = [_hmac_token(salt, "ph_", p) for p in (src.get("write_paths") or []) if p]
+    groups = []
+    for p in (src.get("write_paths") or []):
+        g = classify_protected_path(p)
+        if g and g not in groups:
+            groups.append(g)
+    out["write_path_groups"] = groups
+    out["matched_policy_count"] = len(src.get("matched_policies") or [])
+    out["command_shape"] = _mask_command_shape_for_upload(src.get("command_shape"))
+    return out

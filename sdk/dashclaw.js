@@ -1703,6 +1703,29 @@ class DashClaw {
     }
     return { action: res?.action, purchase: res?.purchase, decision: res?.decision, outcome };
   }
+
+  // ---------------------------------------------------------------------------
+  // Managed secrets — opt-in delivery of decrypted secret values to agents.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * GET /api/secrets/env — Fetch the delivery-enabled managed-secret bundle
+   * for an agent (org-level + agent-level merged, decrypted server-side).
+   *
+   * SECURITY: the returned `env` map contains LIVE secret values. Treat it as
+   * memory-only — never log it, never write it to disk or a cache, and never
+   * echo values back to a model, a user, or an error message. Inject into a
+   * child-process environment (see `dashclaw env -- <command>`) and let the
+   * object fall out of scope.
+   *
+   * @param {Object} [options]
+   * @param {string} [options.agentId] - Agent to fetch the merged bundle for
+   *   (defaults to this client's agentId).
+   * @returns {Promise<{ env: Record<string, string>, count: number, delivered: string[] }>}
+   */
+  async getAgentEnv({ agentId } = {}) {
+    return this._get('/api/secrets/env', { agent_id: agentId || this.agentId });
+  }
 }
 
 export { DashClaw, ApprovalDeniedError, GuardBlockedError };

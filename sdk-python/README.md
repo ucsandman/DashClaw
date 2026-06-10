@@ -1288,6 +1288,20 @@ verdict = claw.verify_reputation_receipt(receipt)  # { ok, kid?, reason? }
 | `get_agent_reputation_receipt(agent_id)` | Get the signed receipt for the current vector |
 | `verify_reputation_receipt(receipt)` | Verify a receipt against the published signing keys |
 
+## Managed Secrets
+
+Opt-in delivery of decrypted managed-secret values to agents. `get_agent_env` fetches the delivery-enabled bundle for an agent (org-level + agent-level merged, decrypted server-side). **The returned `env` dict contains live secret values — keep it memory-only: never log it, never write it to disk or a cache, never echo values to a model or a user.** Secret *metadata* management (register, rotate, delete) stays operator/MCP-only. Node parity: `getAgentEnv({ agentId })`. CLI: `dashclaw env [--agent <id>] -- <command>`.
+
+```python
+bundle = claw.get_agent_env()                    # this client's agent
+bundle = claw.get_agent_env(agent_id="worker-1") # explicit agent
+os.environ.update(bundle["env"])                  # inject, then let it fall out of scope
+```
+
+| Method | Description |
+| --- | --- |
+| `get_agent_env(agent_id=None)` | GET `/api/secrets/env` — delivery-enabled secret bundle `{env, count, delivered}` (memory-only; never log values) |
+
 ## Agent Registry
 
 Register external, org-owned providers that group existing capabilities and are invoked through governance. Invocations route through the existing capability runtime + guard + action ledger; the registry never reimplements HTTP. Risk derives from `risk_class` + budget + capability metadata via the existing risk map and predictive risk.

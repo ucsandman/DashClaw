@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:40fea93fe359100f2a4b06755a367d00bb6643da",
+  "timestamp": "sha1:05bc3d6da3c3b4db6fa724eaaa7efb7df10b39eb",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2604,6 +2604,26 @@
       "file_path": "app/api/secrets/[id]/route.ts"
     },
     {
+      "path": "/api/secrets/[id]/value",
+      "methods": [
+        "POST"
+      ],
+      "dynamic_params": [
+        "id"
+      ],
+      "archived": false,
+      "file_path": "app/api/secrets/[id]/value/route.ts"
+    },
+    {
+      "path": "/api/secrets/env",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/secrets/env/route.ts"
+    },
+    {
       "path": "/api/secrets/rotation-due",
       "methods": [
         "GET"
@@ -3835,7 +3855,11 @@
       "name": "ENCRYPTION_KEY",
       "required": true,
       "files": [
+        "__tests__/unit/governed-secrets-values.repository.test.js",
+        "__tests__/unit/secrets-env.route.test.js",
         "__tests__/unit/security-status.route.test.js",
+        "app/api/secrets/[id]/value/route.ts",
+        "app/api/secrets/env/route.ts",
         "app/api/security/status/route.ts",
         "app/api/settings/route.ts",
         "app/lib/encryption.ts"
@@ -4188,6 +4212,8 @@
         "app/api/auth/config/route.ts",
         "app/api/health/route.ts",
         "app/api/oauth/register/route.ts",
+        "app/api/secrets/[id]/value/route.ts",
+        "app/api/secrets/env/route.ts",
         "app/api/settings/route.ts",
         "app/lib/auth.ts",
         "app/lib/db.ts",

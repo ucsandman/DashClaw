@@ -25,6 +25,7 @@ import { runCost } from '../lib/cost.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
 import { fetchPosture, fetchFindings, fetchNext, resolveFinding } from '../lib/posture.js';
+import { fetchAgentEnv, splitEnvArgv, formatEnvNames, runWithEnv } from '../lib/env.js';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -123,6 +124,8 @@ ${bold('Usage:')}
   dashclaw behavior status               Behavior Learning sample status (local recorder)
   dashclaw behavior suggestions          Evidence-backed policy suggestions per agent
     --agent-id <id>                      Filter to one agent
+  dashclaw env [--agent <id>] -- <cmd...> Run <cmd> with managed secrets injected (memory-only)
+                                         Without -- <cmd>: list secret NAMES + count (never values)
   dashclaw cost                          Spend readback from /api/finops/spend
     --lens fleet|claude-code             Which rollup (default: claude-code)
     --period 7d|30d|90d                  Window (default: 7d)
@@ -1133,9 +1136,61 @@ async function cmdNext() {
   }
 }
 
+// -- env command ---------------------------------------------------------------
+//
+// `dashclaw env [--agent <id>] -- <command...>` — managed-secrets delivery.
+// Fetches the delivery-enabled bundle (GET /api/secrets/env) and spawns the
+// child command with the values injected into its environment MEMORY-ONLY.
+// Secret VALUES are never printed, never written to disk, never echoed in
+// error paths; only NAMES are ever shown. Fail-closed: if the fetch fails,
+// the child is NOT run. Uses process.exitCode (not process.exit) so node
+// drains sockets — a hard exit can trip a libuv teardown assert on Windows.
+
+async function cmdEnv() {
+  const { flags, command: childArgv } = splitEnvArgv(args.slice(1));
+
+  if (flags.includes('--print')) {
+    console.error('Error: --print is not supported. Secret values are memory-only by design —');
+    console.error('they are injected into a child process environment, never printed or written to disk.');
+    console.error('Use `dashclaw env` to list secret NAMES, or `dashclaw env -- <command>` to run with them.');
+    process.exitCode = 1;
+    return;
+  }
+
+  let agent = agentId;
+  for (let i = 0; i < flags.length; i++) {
+    if (flags[i] === '--agent') agent = flags[i + 1];
+    else if (flags[i].startsWith('--agent=')) agent = flags[i].slice('--agent='.length);
+  }
+  if (!agent) {
+    console.error('Error: no agent id. Pass --agent <id> or set DASHCLAW_AGENT_ID.');
+    process.exitCode = 1;
+    return;
+  }
+
+  let bundle;
+  try {
+    bundle = await fetchAgentEnv({ baseUrl, apiKey }, agent);
+  } catch (err) {
+    console.error(`Error: could not fetch the managed-secrets bundle: ${err.message}`);
+    if (childArgv.length > 0) {
+      console.error('Fail-closed: the command was NOT run without the requested env.');
+    }
+    process.exitCode = 1;
+    return;
+  }
+
+  if (childArgv.length === 0) {
+    console.log(formatEnvNames(bundle));
+    return;
+  }
+
+  process.exitCode = await runWithEnv(bundle, childArgv);
+}
+
 // -- Router -------------------------------------------------------------------
 
-const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next']);
+const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next', 'env']);
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
@@ -1187,6 +1242,7 @@ const COMMAND_HANDLERS = {
   posture: cmdPosture,
   cost: cmdCost,
   next: cmdNext,
+  env: cmdEnv,
   help: cmdHelp,
   '--help': cmdHelp,
   '-h': cmdHelp,

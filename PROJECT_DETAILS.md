@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification, generated API inventory reports **305 routes**: **51 stable**, **24 beta**, **230 experimental**.
+As of this verification, generated API inventory reports **307 routes**: **51 stable**, **24 beta**, **232 experimental**.
 
 ## Product boundary
 
@@ -221,7 +221,7 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **128 public methods** in `sdk/dashclaw.js` and the Python SDK **224** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **129 public methods** in `sdk/dashclaw.js` and the Python SDK **225** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`

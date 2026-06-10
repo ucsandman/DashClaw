@@ -1375,6 +1375,14 @@ export const governedSecrets = pgTable('governed_secrets', {
   lastRotatedAt: timestamp('last_rotated_at', { withTimezone: true }).notNull().defaultNow(),
   rotationIntervalDays: integer('rotation_interval_days').notNull().default(90),
   notes: text('notes'),
+  // Managed secrets: optional encrypted value (AES-256-GCM via app/lib/encryption.ts,
+  // AAD-bound to `${orgId}:${id}`). WRITE-ONLY — no API path ever returns the
+  // plaintext to a browser or admin; values are delivered only to API-key
+  // principals via GET /api/secrets/env when delivery_enabled = 1.
+  valueEncrypted: text('value_encrypted'),
+  valueAlgo: text('value_algo'),
+  valueSetAt: timestamp('value_set_at', { withTimezone: true }),
+  deliveryEnabled: integer('delivery_enabled').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 }, (table) => ({

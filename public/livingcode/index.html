@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:40fea93fe359100f2a4b06755a367d00bb6643da · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:05bc3d6da3c3b4db6fa724eaaa7efb7df10b39eb · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">258</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">260</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
@@ -185,7 +185,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>46</b> routes added, <b>3</b> routes changed, <b>10</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>13</b> env_vars added, <b>48</b> routes added, <b>3</b> routes changed, <b>10</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
@@ -225,6 +225,8 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/summary <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/reputation/leaderboard <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/reputation/verify <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/secrets/[id]/value <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/secrets/env <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/sessions/[sessionId]/actions <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/widget/summary <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/providers <span class="sig">New route: GET, POST</span></li>
@@ -466,8 +468,10 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/scoring/risk-templates"><td><code>/api/scoring/risk-templates</code></td><td>GET, POST</td><td class="sig">app/api/scoring/risk-templates/route.ts</td></tr>
     <tr data-path="/api/scoring/risk-templates/[templateId]"><td><code>/api/scoring/risk-templates/[templateId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/scoring/risk-templates/[templateId]/route.ts</td></tr>
     <tr data-path="/api/scoring/score"><td><code>/api/scoring/score</code></td><td>GET, POST</td><td class="sig">app/api/scoring/score/route.ts</td></tr></tbody></table></details>
-<details><summary>/secrets/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/secrets"><td><code>/api/secrets</code></td><td>GET, POST</td><td class="sig">app/api/secrets/route.ts</td></tr>
+<details><summary>/secrets/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/secrets"><td><code>/api/secrets</code></td><td>GET, POST</td><td class="sig">app/api/secrets/route.ts</td></tr>
     <tr data-path="/api/secrets/[id]"><td><code>/api/secrets/[id]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/secrets/[id]/route.ts</td></tr>
+    <tr data-path="/api/secrets/[id]/value"><td><code>/api/secrets/[id]/value</code></td><td>POST</td><td class="sig">app/api/secrets/[id]/value/route.ts</td></tr>
+    <tr data-path="/api/secrets/env"><td><code>/api/secrets/env</code></td><td>GET</td><td class="sig">app/api/secrets/env/route.ts</td></tr>
     <tr data-path="/api/secrets/rotation-due"><td><code>/api/secrets/rotation-due</code></td><td>GET</td><td class="sig">app/api/secrets/rotation-due/route.ts</td></tr></tbody></table></details>
 <details><summary>/security/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/security/prompt-injection"><td><code>/api/security/prompt-injection</code></td><td>GET, POST</td><td class="sig">app/api/security/prompt-injection/route.ts</td></tr>
     <tr data-path="/api/security/scan"><td><code>/api/security/scan</code></td><td>POST</td><td class="sig">app/api/security/scan/route.ts</td></tr>

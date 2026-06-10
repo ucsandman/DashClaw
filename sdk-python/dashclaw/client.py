@@ -2094,6 +2094,28 @@ class DashClaw:
         """Verify a reputation receipt against the instance's published signing keys."""
         return self._request("/api/reputation/verify", "POST", json={"receipt": receipt})
 
+    # Managed Secrets --------------------------------------------------------
+
+    def get_agent_env(self, agent_id=None):
+        """Fetch the delivery-enabled managed-secret bundle for an agent.
+
+        GET /api/secrets/env — org-level + agent-level merged, decrypted
+        server-side. Returns ``{"env": {NAME: value}, "count": n,
+        "delivered": [names]}``.
+
+        SECURITY: the returned ``env`` map contains LIVE secret values. Treat
+        it as memory-only — never log it, never write it to disk or a cache,
+        and never echo values back to a model, a user, or an error message.
+        Inject into a child-process environment and let it fall out of scope.
+
+        :param agent_id: agent to fetch the merged bundle for
+            (defaults to this client's ``agent_id``).
+        """
+        return self._request(
+            "/api/secrets/env", "GET",
+            params={"agent_id": agent_id or self.agent_id},
+        )
+
     # Agent Registry -------------------------------------------------------
 
     def register_agent(self, name, **kwargs):

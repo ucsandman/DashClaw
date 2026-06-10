@@ -19,6 +19,7 @@ Never blocks. Always exits 0.
 """
 
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -114,6 +115,14 @@ CODE_SESSIONS_ENABLED = (os.environ.get("DASHCLAW_CODE_SESSIONS_ENABLED") or "1"
 # DASHCLAW_BEHAVIOR_INSIGHTS=0. Throttled so it recomputes at most every 10 min.
 INSIGHTS_OPT_OUT = (os.environ.get("DASHCLAW_BEHAVIOR_INSIGHTS") or "").strip().lower() in ("0", "false", "no")
 _INSIGHTS_THROTTLE_SECONDS = 600
+# Anonymized behavior-sample upload — OPT-IN, DEFAULT OFF (non-negotiable):
+# an absent/unset DASHCLAW_BEHAVIOR_UPLOAD means OFF. When explicitly enabled
+# (1/true/yes) AND the recorder is on, the Stop hook uploads NEW JSONL samples
+# anonymized client-side (anonymize_sample_for_upload) to
+# /api/behavior/samples/ingest. Throttled, batched, fail-silent.
+BEHAVIOR_UPLOAD_ENABLED = (os.environ.get("DASHCLAW_BEHAVIOR_UPLOAD") or "").strip().lower() in ("1", "true", "yes")
+_SAMPLES_THROTTLE_SECONDS = 600
+_SAMPLES_BATCH_MAX = 500
 
 # Session IDs come from untrusted stdin. Before we use one as a temp-file
 # suffix, replace anything outside this whitelist so a crafted session_id
@@ -710,6 +719,175 @@ def _maybe_push_insights():
 
 
 # ---------------------------------------------------------------------------
+# Anonymized behavior-sample upload (opt-in, default OFF)
+#
+# Clones the insights-push pattern: throttle marker in tempdir, fail-silent
+# end to end. Each new JSONL line is anonymized CLIENT-SIDE
+# (behavior_recorder.anonymize_sample_for_upload) before transit; the hashing
+# salt is derived from the API key and is never logged or sent anywhere.
+# ---------------------------------------------------------------------------
+
+def _samples_marker_path():
+    return os.path.join(tempfile.gettempdir(), "dashclaw_behavior_upload_push")
+
+
+def _samples_push_due():
+    """True when enough time has passed since the last push (or never pushed)."""
+    try:
+        with open(_samples_marker_path(), encoding="utf-8") as f:
+            last = float(f.read().strip())
+        return (time.time() - last) >= _SAMPLES_THROTTLE_SECONDS
+    except Exception:
+        return True
+
+
+def _mark_samples_pushed():
+    try:
+        with open(_samples_marker_path(), "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+    except Exception:
+        pass
+
+
+def _samples_offsets_path():
+    return os.path.join(tempfile.gettempdir(), "dashclaw_behavior_upload_offsets.json")
+
+
+def _read_sample_offsets():
+    """Per-day-file byte offsets of already-uploaded JSONL. {} on any failure."""
+    try:
+        with open(_samples_offsets_path(), encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except Exception:
+        return {}
+
+
+def _write_sample_offsets(offsets):
+    try:
+        with open(_samples_offsets_path(), "w", encoding="utf-8") as f:
+            f.write(json.dumps(offsets))
+    except Exception:
+        pass
+
+
+def _upload_salt():
+    """Hashing salt for anonymization, derived from the API key (HMAC-SHA256 of
+    a fixed label keyed by the key). Never logged, never transmitted."""
+    return hmac.new(
+        API_KEY.encode("utf-8"), b"dashclaw-behavior-upload", hashlib.sha256
+    ).hexdigest()
+
+
+def _read_new_sample_lines(offsets):
+    """Complete NEW JSONL lines per day file since the recorded byte offset.
+
+    Returns [(path, new_offset, [raw lines])]. A trailing partial line (no
+    newline yet) is left for the next push. Read-only; never writes."""
+    directory = behavior_recorder.samples_dir(os.environ.get("DASHCLAW_WORKSPACE"))
+    try:
+        names = sorted(n for n in os.listdir(directory) if behavior_recorder._DAY_FILE_RE.match(n))
+    except OSError:
+        return []
+    out = []
+    for name in names:
+        path = os.path.join(directory, name)
+        try:
+            start = int(offsets.get(path) or 0)
+        except (TypeError, ValueError):
+            start = 0
+        try:
+            if os.path.getsize(path) <= start:
+                continue
+            with open(path, "rb") as f:
+                f.seek(start)
+                chunk = f.read()
+        except OSError:
+            continue
+        end = chunk.rfind(b"\n")
+        if end < 0:
+            continue
+        lines = chunk[:end].decode("utf-8", errors="replace").splitlines()
+        out.append((path, start + end + 1, lines))
+    return out
+
+
+def _anonymize_sample_lines(lines, salt):
+    """Parse + anonymize raw JSONL lines. Unparseable lines are skipped."""
+    out = []
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if not isinstance(obj, dict) or not obj.get("event_id"):
+            continue
+        try:
+            out.append(behavior_recorder.anonymize_sample_for_upload(obj, salt))
+        except Exception:
+            continue
+    return out
+
+
+def _post_sample_batch(batch):
+    """POST one anonymized batch to /api/behavior/samples/ingest. True on success."""
+    req = urllib.request.Request(
+        BASE_URL + "/api/behavior/samples/ingest",
+        data=json.dumps({"samples": batch}).encode("utf-8"),
+        headers={"Content-Type": "application/json", "x-api-key": API_KEY},
+        method="POST",
+    )
+    try:
+        request_with_retry(req, timeout=3)
+        return True
+    except urllib.error.HTTPError as e:
+        _log_hook_error("POST /api/behavior/samples/ingest -> HTTP " + str(e.code))
+    except Exception as e:
+        _log_hook_error("POST /api/behavior/samples/ingest -> " + type(e).__name__ + ": " + str(e))
+    return False
+
+
+def _maybe_push_samples():
+    """Opt-in anonymized sample upload for the remote Policy Coach.
+
+    Gated on (ALL required): BASE_URL + API_KEY present, the recorder being
+    on, and the explicit DASHCLAW_BEHAVIOR_UPLOAD=1/true/yes opt-in — absent
+    means OFF and this function does nothing (no reads, no files, no HTTP).
+    Throttled to one push per _SAMPLES_THROTTLE_SECONDS; only new JSONL bytes
+    since the per-day offset marker upload; anonymized client-side before
+    transit; fail-silent (a failed batch keeps its offset for retry)."""
+    if not BEHAVIOR_UPLOAD_ENABLED or not BASE_URL or not API_KEY:
+        return
+    try:
+        if not _recorder_enabled():
+            return
+        if not _samples_push_due():
+            return
+        salt = _upload_salt()
+        offsets = _read_sample_offsets()
+        ok = True
+        for path, new_offset, lines in _read_new_sample_lines(offsets):
+            if not ok:
+                break
+            samples = _anonymize_sample_lines(lines, salt)
+            for i in range(0, len(samples), _SAMPLES_BATCH_MAX):
+                if not _post_sample_batch(samples[i:i + _SAMPLES_BATCH_MAX]):
+                    ok = False
+                    break
+            else:
+                offsets[path] = new_offset
+        # Drop offsets for day files that no longer exist (retention/cleanup).
+        offsets = {p: o for p, o in offsets.items() if os.path.exists(p)}
+        _write_sample_offsets(offsets)
+        _mark_samples_pushed()
+    except Exception as e:
+        _log_hook_error("push_samples -> " + type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -862,6 +1040,9 @@ def main():
     # hosted dashboard can show DashClaw is alive and learning. Throttled +
     # fail-silent; raw behavior never leaves the machine.
     _maybe_push_insights()
+
+    # Opt-in anonymized sample upload (DASHCLAW_BEHAVIOR_UPLOAD=1; default OFF).
+    _maybe_push_samples()
     sys.exit(0)
 
 

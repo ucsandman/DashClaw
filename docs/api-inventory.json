@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 305,
+    "total_routes": 307,
     "stable_routes": 51,
     "beta_routes": 24,
-    "experimental_routes": 230
+    "experimental_routes": 232
   },
   "routes": [
     {
@@ -2476,6 +2476,15 @@
       "file": "app/api/secrets/route.ts"
     },
     {
+      "path": "/api/secrets/env",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/secrets/env/route.ts"
+    },
+    {
       "path": "/api/secrets/rotation-due",
       "methods": [
         "GET"
@@ -2493,6 +2502,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/secrets/[id]/route.ts"
+    },
+    {
+      "path": "/api/secrets/{id}/value",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/secrets/[id]/value/route.ts"
     },
     {
       "path": "/api/security/prompt-injection",

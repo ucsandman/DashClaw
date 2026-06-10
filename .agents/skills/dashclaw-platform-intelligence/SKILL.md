@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:f62cc5ef375d47b333f0224e950c50dd986054f5`
+**Shape snapshot:** `sha1:40fea93fe359100f2a4b06755a367d00bb6643da`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **257** active API routes across **63** categories
+- **258** active API routes across **63** categories
 - **4** required + **142** optional environment variables
-- **93** database tables
+- **95** database tables
 
 ## API Surface
 
@@ -115,6 +115,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET, POST` `/api/behavior/insights`
 - `GET, POST` `/api/behavior/recorder`
 - `GET` `/api/behavior/samples`
+- `POST` `/api/behavior/samples/ingest`
 - `POST` `/api/behavior/simulate`
 - `GET, POST` `/api/behavior/suggestions`
 
@@ -655,7 +656,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 93 tables defined in `schema/schema.js` (Drizzle ORM):
+All 95 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -670,6 +671,8 @@ All 93 tables defined in `schema/schema.js` (Drizzle ORM):
 - `api_keys`
 - `approval_notifications`
 - `assumptions`
+- `behavior_dismissals`
+- `behavior_samples`
 - `calendar_events`
 - `code_optimal_file_manifests`
 - `code_projects`

@@ -9,7 +9,7 @@ const repo = vi.hoisted(() => ({
 }));
 vi.mock('../../app/lib/repositories/governed-secrets.repository.js', () => repo);
 vi.mock('../../app/lib/db.js', () => ({ getSql: () => ({}) }));
-vi.mock('../../app/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
+vi.mock('../../app/lib/org.js', () => ({ getOrgId: () => 'org_1', getOrgRole: () => 'admin', getUserId: () => 'usr_test' }));
 
 beforeEach(() => Object.values(repo).forEach((fn) => fn.mockReset()));
 

@@ -450,6 +450,9 @@ if (result.recommendation === 'block') {
 }
 ```
 
+### Managed Secrets
+- `getAgentEnv({ agentId })` -- Fetch the delivery-enabled managed-secret bundle for an agent (`GET /api/secrets/env`; org-level + agent-level merged, decrypted server-side; `agentId` defaults to the client's own). Returns `{ env, count, delivered }`. **The `env` map contains live secret values — keep it memory-only: never log it, never write it to disk or a cache, never echo values to a model or a user.** Secret *metadata* management (register, rotate, delete) stays operator/MCP-only. Python parity: `get_agent_env(agent_id=None)`. CLI: `dashclaw env [--agent <id>] -- <command>` injects the bundle into a child process without ever printing it.
+
 ---
 
 ## Agent Identity
@@ -585,6 +588,16 @@ dashclaw doctor --json          # CI/machine-readable
 dashclaw doctor --no-fix        # diagnose only
 dashclaw doctor --category database,config
 ```
+
+**Managed secrets (memory-only delivery):**
+
+```bash
+dashclaw env -- npm start            # run a command with delivery-enabled secrets injected
+dashclaw env --agent worker-1 -- node job.js
+dashclaw env                         # list secret NAMES + count only — values are never printed
+```
+
+The bundle from `GET /api/secrets/env` is merged into the child's environment in memory and never written to a file or echoed (there is deliberately no `--print`). If the fetch fails, the child is **not** run (fail-closed).
 
 Config resolution order: env vars (`DASHCLAW_BASE_URL`, `DASHCLAW_API_KEY`, optional `DASHCLAW_AGENT_ID`) → `~/.dashclaw/config.json` (`600`, persisted after interactive prompt) → first-run prompt. `dashclaw logout` removes saved config.
 

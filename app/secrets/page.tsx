@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   KeyRound, Plus, Trash2, RotateCw, AlertTriangle, Check, RefreshCw,
+  Lock, Send, X,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -16,14 +17,17 @@ import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
 
-// Surfaces governed_secrets rotation tracking:
-//   GET    /api/secrets[?agent_id=]        — list (org-wide by default)
-//   POST   /api/secrets                    — create rotation record
+// Surfaces governed_secrets in two modes:
+//   TRACKED — rotation metadata only; the value stays in your own manager.
+//   MANAGED — an encrypted value is held here (write-only: set/rotate/clear,
+//             never re-displayed) and, when delivery is enabled, handed to the
+//             agent at session start via GET /api/secrets/env (audit-logged).
+//   GET    /api/secrets[?agent_id=]        — list (has_value flag, never values)
+//   POST   /api/secrets                    — create record (admin)
 //   PATCH  /api/secrets/[id]               — mark rotated / edit interval
-//   DELETE /api/secrets/[id]               — remove record
+//   POST   /api/secrets/[id]/value         — set/clear encrypted value (admin)
+//   DELETE /api/secrets/[id]               — remove record (admin)
 //   GET    /api/secrets/rotation-due       — secrets due within N days (org-wide)
-// Only rotation metadata lives here — the secret values stay in the agent's
-// own secret manager.
 
 function formatDate(ts: string | null | undefined): string {
   if (!ts) return 'Never';
@@ -62,6 +66,9 @@ export default function SecretsPage() {
   const [creating, setCreating] = useState(false);
 
   const [busyId, setBusyId] = useState<string | null>(null);
+  // Per-row write-only value editor: id being edited + the draft (never re-read).
+  const [valueEditId, setValueEditId] = useState<string | null>(null);
+  const [valueDraft, setValueDraft] = useState('');
 
   const selection = useSelection<any>(secrets, (s) => s.id);
   useSelectAllHotkey(selection.toggleAll);
@@ -183,6 +190,77 @@ export default function SecretsPage() {
     }
   };
 
+  // Write-only: the value is sent once and never echoed back or re-displayed.
+  const handleSetValue = async (id: string) => {
+    if (!valueDraft) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/secrets/${id}/value`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: valueDraft }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to set value');
+        return;
+      }
+      setValueEditId(null);
+      setValueDraft('');
+      await fetchSecrets(scope);
+    } catch {
+      setError('Failed to set value');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleClearValue = async (id: string, name: string) => {
+    if (!confirm(`Clear the managed value for ${name}? Delivery stops immediately; the record stays tracked.`)) return;
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/secrets/${id}/value`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ value: null }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to clear value');
+        return;
+      }
+      await fetchSecrets(scope);
+    } catch {
+      setError('Failed to clear value');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const handleToggleDelivery = async (secret: any) => {
+    setBusyId(secret.id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/secrets/${secret.id}/value`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ delivery_enabled: !secret.delivery_enabled }),
+      });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setError(json.error || 'Failed to update delivery');
+        return;
+      }
+      await fetchSecrets(scope);
+    } catch {
+      setError('Failed to update delivery');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleBulkMarkRotated = async () => {
     const ids = selection.selectedIds;
     await bulkAction(ids, (id) =>
@@ -213,6 +291,7 @@ export default function SecretsPage() {
 
   const stats = {
     total: secrets.length,
+    managed: secrets.filter((sec) => sec.has_value).length,
     due: due.length,
     overdue: due.filter((d) => Number(d.days_until_due) < 0).length,
   };
@@ -225,8 +304,8 @@ export default function SecretsPage() {
   return (
     <PageLayout agentFilter={false}
       breadcrumbs={['Configure', 'Secrets']}
-      title="Secret Rotation"
-      subtitle="Track when agent and workspace secrets are due for rotation"
+      title="Secrets"
+      subtitle="Track rotation for externally-held secrets, or manage encrypted values DashClaw delivers to agents at session start"
       actions={
         <>
           {canEdit && (
@@ -252,10 +331,14 @@ export default function SecretsPage() {
       )}
 
       {/* Instrument rail */}
-      <div className="mb-6 grid grid-cols-3 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary">
+      <div className="mb-6 grid grid-cols-2 md:grid-cols-4 divide-x divide-border overflow-hidden rounded-xl border border-border bg-surface-secondary">
         <div className="p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Tracked</div>
           <div className="mt-1 text-2xl font-semibold tabular-nums text-white">{stats.total}</div>
+        </div>
+        <div className="p-4">
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Managed values</div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums text-white">{stats.managed}</div>
         </div>
         <div className="p-4">
           <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Due soon</div>
@@ -267,11 +350,13 @@ export default function SecretsPage() {
         </div>
       </div>
 
-      {/* Purpose note — this is a rotation reminder, not a secret vault */}
+      {/* Purpose note — two modes, stated plainly */}
       <div role="note" className="mb-6 rounded-lg border border-border bg-surface-secondary p-3 text-sm text-secondary">
-        This is a <span className="text-white">rotation reminder</span>, not a key store. DashClaw tracks <span className="text-white">when</span> each
-        credential is due to be rotated and pings you before it goes stale — the actual key value stays in your agent&apos;s own secret manager
-        and is never entered, stored, or shown here.
+        Two modes per secret. <span className="text-white">Tracked</span>: rotation metadata only — the value stays in your own
+        secret manager and is never entered here. <span className="text-white">Managed</span>: an encrypted value is stored
+        (AES-256-GCM, write-only — it can be overwritten or cleared but never viewed again) and, when delivery is enabled,
+        handed to that agent at session start via <code className="font-mono text-xs">claw.getAgentEnv()</code> /{' '}
+        <code className="font-mono text-xs">dashclaw env</code>. Every delivery is audit-logged by name — values never appear in logs.
       </div>
 
       {/* Rotation-due banner (org-wide) */}
@@ -422,7 +507,7 @@ export default function SecretsPage() {
               title={scope ? `No secrets tracked for ${scope}` : 'No secrets tracked yet'}
               description={
                 canEdit
-                  ? 'Track a secret to get a rotation reminder before it goes stale. Only rotation metadata is stored — never the secret value.'
+                  ? 'Track a secret for rotation reminders, or set an encrypted value DashClaw delivers to the agent at session start. Values are write-only — never displayed after saving.'
                   : 'Ask an admin to track secret rotation for this workspace.'
               }
               action={
@@ -458,6 +543,20 @@ export default function SecretsPage() {
                           ? <Badge variant="default" size="xs">{secret.agent_id}</Badge>
                           : <Badge variant="info" size="xs">org-wide</Badge>}
                         <Badge variant={status.variant} size="xs">{status.label}</Badge>
+                        {secret.has_value ? (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-info/30 bg-info-subtle px-2 py-0.5 text-[10px] font-medium text-info" title={`Encrypted value held here${secret.value_set_at ? ` since ${formatDate(secret.value_set_at)}` : ''} — write-only, never displayed.`}>
+                            <Lock size={9} aria-hidden="true" /> Managed
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-tertiary px-2 py-0.5 text-[10px] font-medium text-tertiary" title="Rotation tracking only — the value lives in your own secret manager.">
+                            Tracked
+                          </span>
+                        )}
+                        {secret.has_value && (
+                          <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium ${secret.delivery_enabled ? 'border-success/30 bg-success-subtle text-success' : 'border-border bg-surface-tertiary text-tertiary'}`}>
+                            <Send size={9} aria-hidden="true" /> {secret.delivery_enabled ? 'Delivery on' : 'Delivery off'}
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-tertiary">
                         <span className="tabular-nums">Last rotated: {formatDate(secret.last_rotated_at)}</span>
@@ -465,9 +564,60 @@ export default function SecretsPage() {
                         <span className="tabular-nums">Next due: {formatDate(secret.next_rotation_due)}</span>
                       </div>
                       {secret.notes && <div className="mt-2 text-xs text-secondary">{secret.notes}</div>}
+                      {canEdit && valueEditId === secret.id && (
+                        <div className="mt-3 flex flex-wrap items-center gap-2" data-testid="value-editor">
+                          <input
+                            type="password"
+                            value={valueDraft}
+                            onChange={(e) => setValueDraft(e.target.value)}
+                            placeholder="Paste the secret value — stored encrypted, never shown again"
+                            autoComplete="off"
+                            className="w-full max-w-md rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 font-mono text-xs text-white placeholder:text-disabled focus:border-brand/50 focus:outline-none"
+                          />
+                          <button
+                            onClick={() => handleSetValue(secret.id)}
+                            disabled={busyId === secret.id || !valueDraft}
+                            className="rounded-lg border border-brand/20 bg-brand/10 px-3 py-1.5 text-xs font-medium text-brand transition-colors hover:bg-brand/15 disabled:opacity-50"
+                          >
+                            {busyId === secret.id ? 'Encrypting…' : 'Save value'}
+                          </button>
+                          <button
+                            onClick={() => { setValueEditId(null); setValueDraft(''); }}
+                            className="rounded-lg border border-border px-2 py-1.5 text-xs text-secondary transition-colors hover:text-white"
+                            aria-label="Cancel"
+                          >
+                            <X size={12} aria-hidden="true" />
+                          </button>
+                        </div>
+                      )}
                     </div>
                     {canEdit && (
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">
+                        <button
+                          onClick={() => { setValueEditId(valueEditId === secret.id ? null : secret.id); setValueDraft(''); }}
+                          disabled={busyId === secret.id}
+                          className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white disabled:opacity-50"
+                        >
+                          <Lock size={13} aria-hidden="true" /> {secret.has_value ? 'Rotate value' : 'Set value'}
+                        </button>
+                        {secret.has_value && (
+                          <>
+                            <button
+                              onClick={() => handleToggleDelivery(secret)}
+                              disabled={busyId === secret.id}
+                              className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white disabled:opacity-50"
+                            >
+                              <Send size={13} aria-hidden="true" /> {secret.delivery_enabled ? 'Disable delivery' : 'Enable delivery'}
+                            </button>
+                            <button
+                              onClick={() => handleClearValue(secret.id, secret.name)}
+                              disabled={busyId === secret.id}
+                              className="rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-xs text-secondary transition-colors hover:border-error/30 hover:bg-error-subtle hover:text-error disabled:opacity-50"
+                            >
+                              Clear value
+                            </button>
+                          </>
+                        )}
                         <button
                           onClick={() => handleMarkRotated(secret.id)}
                           disabled={busyId === secret.id}
