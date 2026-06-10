@@ -15,7 +15,7 @@ function buildSecurityHeaderRules({ nextauthUrl = process.env.NEXTAUTH_URL || ''
 
   const csp = [
     "default-src 'self'",
-    `script-src 'self' 'unsafe-inline' ${isDev ? "'unsafe-eval'" : ''}`,
+    `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com ${isDev ? "'unsafe-eval'" : ''}`,
     "script-src-attr 'none'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https://avatars.githubusercontent.com https://lh3.googleusercontent.com https://api.dicebear.com",
@@ -24,7 +24,7 @@ function buildSecurityHeaderRules({ nextauthUrl = process.env.NEXTAUTH_URL || ''
     "base-uri 'none'",
     "object-src 'none'",
     "frame-ancestors 'none'",
-    "frame-src 'self' https://www.loom.com https://www.youtube-nocookie.com",
+    "frame-src 'self' https://www.loom.com https://www.youtube-nocookie.com https://challenges.cloudflare.com",
     "form-action 'self'",
     ...(isTLS ? ['upgrade-insecure-requests', 'block-all-mixed-content'] : []),
   ].join('; ');

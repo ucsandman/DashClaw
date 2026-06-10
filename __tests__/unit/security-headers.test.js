@@ -163,6 +163,17 @@ describe('buildSecurityHeaderRules (static, from next.config.js)', () => {
       expect(csp).toContain("script-src-attr 'none'");
     });
 
+    it('CSP allows Cloudflare Turnstile (hosted-trial mint widget)', () => {
+      const rules = buildSecurityHeaderRules({ nextauthUrl: 'https://example.com' });
+      const csp = findHeader(rules, 'Content-Security-Policy').value;
+      const directives = Object.fromEntries(csp.split(';').map((d) => {
+        const [name, ...rest] = d.trim().split(' ');
+        return [name, rest.join(' ')];
+      }));
+      expect(directives['script-src']).toContain('https://challenges.cloudflare.com');
+      expect(directives['frame-src']).toContain('https://challenges.cloudflare.com');
+    });
+
     it('CSP forbids object-src and base-uri', () => {
       const rules = buildSecurityHeaderRules({ nextauthUrl: 'https://example.com' });
       const csp = findHeader(rules, 'Content-Security-Policy').value;
