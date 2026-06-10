@@ -27,6 +27,7 @@ dashclaw approve act_<id shown in Terminal 1>
 | `langgraph-governed` | LangGraph | Python | StateGraph governance node pattern |
 | `crewai-governed` | CrewAI | Python | @tool decorator governance pattern |
 | `managed-agent-governed` | Anthropic (Managed Agent) | Python | Cloud-hosted agent with custom governance tools |
+| `kimi_dashclaw_test.py` | Moonshot (OpenAI-compat) | Python | Governing a non-Anthropic model |
 
 ### openai-governed-agent
 
@@ -59,6 +60,10 @@ A CrewAI agent using the `@tool` decorator to wrap governance calls around tool 
 ### managed-agent-governed
 
 A Claude Managed Agent running in Anthropic's cloud infrastructure with DashClaw as the governance layer. The agent has full access to bash, file I/O, and web search, but all external API calls, risky modifications, and significant decisions go through DashClaw custom tools (`dashclaw_guard`, `dashclaw_invoke`, `dashclaw_record`). Requires an Anthropic API key and a running DashClaw instance.
+
+### Governing non-Anthropic models
+
+`kimi_dashclaw_test.py` shows DashClaw governing a Moonshot AI (Kimi) agent that uses an OpenAI-compatible endpoint. The governance loop — guard check, action record, assumption registration, outcome update — is identical regardless of which model drives the agent. Set `MOONSHOT_API_KEY`, `DASHCLAW_BASE_URL`, and `DASHCLAW_API_KEY`, then run `python examples/kimi_dashclaw_test.py`.
 
 ### Market Intelligence Briefing (Full-Stack Demo)
 
