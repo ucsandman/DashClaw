@@ -278,8 +278,8 @@ Release-readiness passes may additionally run SDK integration checks, startup sm
 
 ### Deployment runbooks
 
-- `docs/ops/hosted-deployment.md` - hosted-mode deployment with Neon, Vercel, Cloudflare Turnstile, DNS, cron, and rollback.
-- `docs/hosted-deployment-runbook.md` - hosted trial mode and operator-managed infrastructure notes.
+- `docs/hosted-deployment-runbook.md` - the canonical hosted deployment guide (Neon, Vercel, Cloudflare Turnstile, DNS, cleanup, rollback; beginner-friendly). Supersedes `docs/ops/hosted-deployment.md`, which is now a pointer.
+- `docs/HOSTED_TRIAL_RUNBOOK.md` - the post-deploy flip checklist for the hosted trial / activation funnel.
 - `scripts/setup.mjs` and `scripts/init-self-host-env.mjs` - local/self-host setup helpers.
 - `scripts/auto-migrate.mjs` - idempotent migration runner used by deploy/setup paths.
 - `npm run doctor` / `dashclaw doctor` - local and remote diagnostic entry points backed by `app/lib/doctor/`.

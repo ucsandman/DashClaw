@@ -6,30 +6,27 @@ doc-type: runbook
 
 # Hosted trial runbook — flip the activation funnel live
 
-The one artifact needed to take the hosted trial from "code complete" to "people can try DashClaw in two minutes". Code paths shipped in the activation-funnel run (v4.7.10+): auto-seeded starter policies at provisioning, `dashclaw install claude --trial`, the visible first session (Stop-hook recap + metadata-only Code Sessions capture), and `dashclaw cost`.
+This is the **flip checklist**: the final pass that takes the hosted trial from "code complete" to "a stranger can try DashClaw in two minutes". The infrastructure itself (Neon, Vercel, Cloudflare Turnstile, DNS, cleanup, every env var) is covered click-by-click in [`hosted-deployment-runbook.md`](./hosted-deployment-runbook.md) — do that first, then come back here.
 
-**Scope:** this is the FLIP checklist. The full infrastructure detail (Neon, Turnstile, DNS, cleanup cron, observability map) lives in [`hosted-deployment-runbook.md`](./hosted-deployment-runbook.md) — follow that first, then return here.
+Code paths being flipped (shipped in the activation-funnel run, v4.7.10+): auto-seeded starter policies at provisioning, `dashclaw install claude --trial`, the visible first session (Stop-hook recap + metadata-only Code Sessions capture), and `dashclaw cost`.
 
-**Credentials are referenced by NAME only. Never paste values into this file, commits, or chat.**
+**Credentials are referenced by NAME only. Never paste secret values into this file, commits, or chat.**
 
 ---
 
 ## 0. Hard rule: a separate database
 
-The hosted instance gets its **own Vercel project and its own Neon database**. Never point it at the production/personal org DB — tenant isolation is app-layer (`org_id` scoping), and a hosted instance mints untrusted orgs into whatever DB it is given.
+The hosted instance gets its **own Vercel project and its own Neon database**. Never point it at the production/personal database. Workspace isolation is enforced in the app (each query is scoped to an `org_id`), which means a hosted instance will happily mint workspaces for untrusted strangers into **whatever database you hand it**.
 
 ## 1. Infrastructure (once)
 
-Follow [`hosted-deployment-runbook.md`](./hosted-deployment-runbook.md) sections 1–4:
+Work through [`hosted-deployment-runbook.md`](./hosted-deployment-runbook.md) — Part A is the two human steps (Cloudflare Turnstile ~3 min, Google OAuth ~10 min), Part B is everything Claude/the CLIs do (Neon, secrets, Vercel, DNS, GitHub Actions cleanup). You're done with it when its handoff checklist is all checked, which includes:
 
-- [ ] New Neon project → `DATABASE_URL` (pooled)
-- [ ] Cloudflare Turnstile site → `NEXT_PUBLIC_TURNSTILE_SITE_KEY` + `TURNSTILE_SECRET_KEY`
-- [ ] Generated secrets: `CRON_SECRET`, `HOSTED_CLEANUP_SECRET`, `DASHCLAW_API_KEY` (admin), `NEXTAUTH_SECRET`, `ENCRYPTION_KEY`
-- [ ] New Vercel project with the env table from that runbook, **`DASHCLAW_HOSTED=true`** as a project (build-visible) var
+- [ ] All six **required** env vars on Vercel Production, with `DASHCLAW_HOSTED=true` as a normal project var (the landing page reads it at build time)
 - [ ] Optional instant-trial sign-in: `GOOGLE_ID` + `GOOGLE_SECRET`
 - [ ] Caps reviewed: `HOSTED_TRIAL_DAYS` (30), `HOSTED_TRIAL_ACTION_CAP` (10000), `HOSTED_MAX_ACTIVE_TRIALS` (500), `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` (5)
 
-Schema: the Vercel `buildCommand` runs `node scripts/auto-migrate.mjs` on every deploy (idempotent — includes `drizzle/0027` so the hot `action_records` indexes exist from day one). For a local check against the hosted DB use `npm run db:migrate` with that `DATABASE_URL`.
+Schema is automatic: the Vercel build runs `node scripts/auto-migrate.mjs` on every deploy (idempotent, includes `drizzle/0027`, so the hot `action_records` indexes exist from day one). To check the hosted DB from your machine, run `npm run db:migrate` with the hosted `DATABASE_URL` exported.
 
 ## 2. Pre-deploy readiness
 
@@ -37,23 +34,25 @@ Schema: the Vercel `buildCommand` runs `node scripts/auto-migrate.mjs` on every 
 npm run hosted:check-ready   # with the hosted env values exported — expect status=pass
 ```
 
+`warn` is acceptable (it prints a `NEXT:` hint per warning); `fail` blocks and tells you the missing piece.
+
 ## 3. Post-deploy smoke (10 minutes)
 
-1. **Mint via browser:** open `https://<hosted-host>/connect` → Turnstile renders → mint → workspace id + `oc_live_...` key + config snippet appear.
-2. **Starter policies seeded (new in this run):** with the minted key,
+1. **Mint via browser:** open `https://<hosted-host>/connect` → the Turnstile check renders (or passes invisibly) → mint → a workspace id, an `oc_live_...` key, and a config snippet appear on screen.
+2. **Starter policies seeded:** with the minted key:
    ```bash
    curl -H "x-api-key: <minted-key>" https://<hosted-host>/api/policies
    ```
-   expect the four `Claude Code Starter — …` policies (Block Mass-Destructive, Approval for Network Calls, Approval for Package Installs, Rate-Limit Runaway Agents). If empty, check Vercel function logs for `[HOSTED] starter-pack seeding failed` — provisioning succeeds even when seeding fails, by design.
-3. **Governed request 200:**
+   Expect the four `Claude Code Starter — …` policies (Block Mass-Destructive Operations, Require Approval for Network Calls, Require Approval for Package Installs, Rate-Limit Runaway Agents). If the list is empty, check the Vercel function logs for `[HOSTED] starter-pack seeding failed` — provisioning deliberately succeeds even when seeding fails.
+3. **Governed request returns 200:**
    ```bash
    curl -X POST -H "x-api-key: <minted-key>" -H "Content-Type: application/json" \
      -d '{"action_type":"test","agent_id":"smoke","declared_goal":"runbook smoke"}' \
      https://<hosted-host>/api/guard
    ```
-   expect HTTP 200 with a `decision`.
-4. **Forced-expiry 403:** as admin (`DASHCLAW_API_KEY`), expire the workspace (PATCH the trial row or use the admin delete on `/api/hosted/workspaces/<id>`), then repeat the governed request — expect 403/402 (trial gate).
-5. **Scripted sweep:** `npm run hosted:smoke` with `HOSTED_SMOKE_BASE_URL` + admin key — expect `[smoke] PASS`.
+   Expect HTTP 200 with a `decision` field in the body.
+4. **Forced-expiry gate:** as admin (`DASHCLAW_API_KEY`), expire the workspace (PATCH the trial row, or admin-delete via `/api/hosted/workspaces/<id>`), then repeat the governed request — expect 403/402 (the trial gate working).
+5. **Scripted sweep:** `npm run hosted:smoke` with `HOSTED_SMOKE_BASE_URL` + the admin key — expect `[smoke] PASS`.
 
 ## 4. `dashclaw install claude --trial` end-to-end
 
@@ -64,23 +63,23 @@ npm i -g @dashclaw/cli
 DASHCLAW_HOSTED_URL=https://<hosted-host> dashclaw install claude --trial
 ```
 
-Expected: the browser opens `<hosted-host>/connect`; after signup the pasted key passes preflight; config lands in `~/.dashclaw/config.json`, hooks in `~/.dashclaw/claude-hooks/` (downloaded from the instance's own `/downloads/dashclaw-claude-code-hooks.zip`), hook mode `observe`. Then:
+Expected: the browser opens `<hosted-host>/connect`; after signup, the key you paste is preflighted with two live calls (`GET /api/health`, then `GET /api/actions?limit=1` with the key — so a typo'd key fails fast, before anything is written). Then config lands in `~/.dashclaw/config.json`, hooks in `~/.dashclaw/claude-hooks/` (downloaded from the instance's own `/downloads/dashclaw-claude-code-hooks.zip`), and your existing `~/.claude/settings.json` is backed up once to `settings.json.dashclaw-bak` before the hook entries are merged in. Hook mode starts as `observe`. Then:
 
-1. Start a Claude Code session, run any governed tool call (e.g. a Bash command).
+1. Start a Claude Code session and run any governed tool call (e.g. a Bash command).
 2. End the turn — the Stop hook prints `[DashClaw] Governed N action(s) this session — $X.XX … · <hosted-host>/decisions`.
-3. `dashclaw cost` prints the session's spend from `/api/finops/spend`.
+3. `dashclaw cost` prints the session's spend (it calls `/api/finops/spend`).
 4. The action appears in the trial workspace's Mission Control.
 
-Once the hosted host is final, consider baking it as the CLI's default trial URL so users don't need `DASHCLAW_HOSTED_URL` (one-line change in `cli/lib/claude/install.js`).
+Once the hosted host is final, consider baking it in as the CLI's default trial URL so users don't need `DASHCLAW_HOSTED_URL` — today the CLI resolves the URL from flag → `DASHCLAW_BASE_URL` → `DASHCLAW_HOSTED_URL` → an interactive prompt, with no built-in default (`cli/lib/claude/install.js:287`).
 
 ## 5. Rollback
 
-- Kill switch: unset `DASHCLAW_HOSTED` in Vercel → redeploy. Provisioning 404s; existing trial keys keep working until expiry/cleanup.
-- Bad deploy: promote the last known-good Vercel deployment (env stays).
-- Runaway spend: lower `HOSTED_MAX_ACTIVE_TRIALS` cannot be set to 0 (parser floor) — take the deployment offline instead.
+- **Kill switch:** remove `DASHCLAW_HOSTED` in Vercel → redeploy. Provisioning 404s; existing trial keys keep working until expiry/cleanup.
+- **Bad deploy:** promote the last known-good Vercel deployment (env stays).
+- **Runaway signups:** `HOSTED_MAX_ACTIVE_TRIALS` **cannot be set to 0** (the parser only accepts positive integers and falls back to 500) — to pause trials entirely, take the deployment offline instead.
 
 ## 6. Steady-state
 
-- Daily cleanup via Vercel cron or the GitHub Actions workflow (see deployment runbook §7).
-- Watch `[HOSTED]` function logs + `organizations WHERE hosted_mode = true` row count.
+- Daily cleanup runs on the GitHub Actions **"Hosted cleanup"** workflow (03:00 UTC, manual-runnable). There is no Vercel cron — expiry is also enforced at request time, so trials shut off on schedule even if cleanup lags.
+- Watch `[HOSTED]` function logs + the `organizations WHERE hosted_mode = true` row count.
 - Periodic `npm run hosted:smoke` against production.
