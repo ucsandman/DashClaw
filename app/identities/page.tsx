@@ -183,7 +183,7 @@ export default function IdentitiesPage() {
 
   if (loading || !sessionSettled) {
     return (
-      <PageLayout
+      <PageLayout agentFilter={false}
         title="Agent Identities"
         subtitle="Manage agent pairings and approved identities"
         breadcrumbs={['Dashboard', 'Agent Identities']}
@@ -197,7 +197,7 @@ export default function IdentitiesPage() {
 
   if (!isAdmin) {
     return (
-      <PageLayout
+      <PageLayout agentFilter={false}
         title="Agent Identities"
         subtitle="Manage agent pairings and approved identities"
         breadcrumbs={['Dashboard', 'Agent Identities']}
@@ -217,7 +217,7 @@ export default function IdentitiesPage() {
   }
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Agent Identities"
       subtitle="Manage agent pairings and approved identities"
       breadcrumbs={['Dashboard', 'Agent Identities']}

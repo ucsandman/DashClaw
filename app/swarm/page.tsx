@@ -15,6 +15,7 @@ import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
 import { useRealtime } from '../hooks/useRealtime';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useForceSimulation } from './useForceSimulation';
 
 // Honest sub-cent display: real spend below $0.01 must not round to "$0.00"
@@ -28,6 +29,7 @@ function fmtCost(v: unknown): string {
 export default function SwarmTopologyPage() {
   const router = useRouter();
   const demo = isDemoMode();
+  const { agentId: globalAgentId } = useAgentFilter();
 
   const [graphData, setGraphData] = useState<any>({ nodes: [], links: [] });
   const [loading, setLoading] = useState(true);
@@ -490,6 +492,17 @@ export default function SwarmTopologyPage() {
     const interval = setInterval(fetchGraph, 60000);
     return () => clearInterval(interval);
   }, [fetchGraph]);
+
+  // Sync the global header agent picker into the local node selection: picking
+  // an agent globally focuses its node (when present in the graph). The graph
+  // itself stays org-wide — topology needs every node — so this is selection,
+  // not data filtering. Clearing the global filter leaves local selection alone.
+  useEffect(() => {
+    if (!globalAgentId) return;
+    if (graphData.nodes?.some((n: any) => n.id === globalAgentId)) {
+      setSelectedAgentId(globalAgentId);
+    }
+  }, [globalAgentId, graphData.nodes]);
 
   useEffect(() => {
     if (!selectedAgentId) {

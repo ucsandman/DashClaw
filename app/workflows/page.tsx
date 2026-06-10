@@ -207,7 +207,7 @@ export default function WorkflowsPage() {
   const allSelected = selection.allSelected;
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Workflow templates"
       subtitle="Reusable, governed workflow packaging"
       breadcrumbs={['Studio', 'Workflows']}

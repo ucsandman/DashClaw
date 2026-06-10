@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import PageLayout from '../components/PageLayout';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 
 // recharts is ~360KB — load the chart on demand so it stays out of the page's
 // initial chunk. Placeholder matches the chart's 220px footprint.
@@ -17,6 +18,7 @@ const fmt = (n: any) => `$${Number(n || 0).toFixed(2)}`;
 
 export default function SpendOverviewPage() {
   const [period, setPeriod] = useState('30d');
+  const { agentId } = useAgentFilter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -32,7 +34,7 @@ export default function SpendOverviewPage() {
     let lastErr: unknown = null;
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await fetch(`/api/finops/spend?period=${period}`, { cache: 'no-store' });
+        const res = await fetch(`/api/finops/spend?period=${period}${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
         setLoading(false);
@@ -45,7 +47,7 @@ export default function SpendOverviewPage() {
     console.error('Failed to load fleet spend:', lastErr);
     setError(true);
     setLoading(false);
-  }, [period]);
+  }, [period, agentId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -93,7 +95,9 @@ export default function SpendOverviewPage() {
         <div className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
-              <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-2">Fleet spend ({period})</div>
+              <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-2">
+                Fleet spend ({period}){agentId ? <span className="text-brand"> · {agentId}</span> : null}
+              </div>
               <div className="text-2xl font-semibold tabular-nums">{fmt(data.fleet_total_usd)}</div>
             </div>
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
@@ -105,6 +109,12 @@ export default function SpendOverviewPage() {
               <div className="text-2xl font-semibold tabular-nums">{fmt(data.x402?.total_spend_usd)}</div>
             </div>
           </div>
+
+          {agentId && (
+            <div className="text-[11px] text-tertiary">
+              Filtered to <span className="font-mono text-secondary">{agentId}</span>. x402 purchases recorded without an agent are excluded from these totals.
+            </div>
+          )}
 
           {Number(data.unpriced?.action_count) > 0 && (
             <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm" role="status">

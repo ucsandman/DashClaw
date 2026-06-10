@@ -11,7 +11,6 @@ import { Badge } from '../components/ui/Badge';
 import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
-import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
@@ -98,8 +97,10 @@ interface RenderPreview {
   parameters?: string[];
 }
 
+// NOTE: /prompts is deliberately NOT wired to the global agent filter:
+// templates are org-level config, and the runs/stats routes have no agent
+// dimension. A dead `useAgentFilter()` destructure used to imply otherwise.
 export default function PromptsPage() {
-  const { agentId } = useAgentFilter();
   const isDemo = isDemoMode();
   const [activeTab, setActiveTab] = useState('templates');
 
@@ -320,7 +321,7 @@ export default function PromptsPage() {
 
   if (loading) {
     return (
-      <PageLayout title="Prompts" subtitle="Manage and version prompt templates">
+      <PageLayout agentFilter={false} title="Prompts" subtitle="Manage and version prompt templates">
         <ListSkeleton />
       </PageLayout>
     );
@@ -330,7 +331,7 @@ export default function PromptsPage() {
   const statsUnavailable = stats?.available === false;
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Prompts"
       subtitle="Manage and version prompt templates"
       breadcrumbs={['Operations', 'Prompts']}

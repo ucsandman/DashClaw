@@ -6,6 +6,7 @@ import { Card } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { isDemoMode } from '../lib/isDemoMode';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import { demoScoringProfiles, demoRiskTemplates, demoScoringScores, demoCalibration } from '../lib/demoScoringData';
 
 interface ScoringDimension {
@@ -116,6 +117,7 @@ const COMPOSITE_METHODS = [
 const CALIBRATE_METRICS = ['duration_ms', 'cost_estimate', 'tokens_total', 'risk_score', 'confidence'];
 
 export default function ScoringPage() {
+  const { agentId } = useAgentFilter();
   const [activeTab, setActiveTab] = useState('Profiles');
   const [profiles, setProfiles] = useState<ScoringProfile[]>([]);
   const [riskTemplates, setRiskTemplates] = useState<RiskTemplate[]>([]);
@@ -296,7 +298,8 @@ export default function ScoringPage() {
     setScoreSummary(null);
     try {
       const at = profile.action_type ? `&action_type=${encodeURIComponent(profile.action_type)}` : '';
-      const actionsRes = await fetch(`/api/actions?limit=25${at}`);
+      const af = agentId ? `&agent_id=${encodeURIComponent(agentId)}` : '';
+      const actionsRes = await fetch(`/api/actions?limit=25${at}${af}`);
       const actionsData = await actionsRes.json().catch(() => ({}));
       const actions = actionsData.actions || [];
       if (actions.length === 0) {

@@ -52,8 +52,11 @@ export async function GET(request: Request) {
   try {
     const orgId = getOrgId(request);
     const sql = getSql();
-    const providerId = new URL(request.url).searchParams.get('provider_id') || undefined;
-    const purchases = await listPurchases(sql, orgId, { providerId });
+    const params = new URL(request.url).searchParams;
+    const providerId = params.get('provider_id') || undefined;
+    // agent_id is nullable on x402_purchases — filtering excludes unattributed rows.
+    const agentId = params.get('agent_id') || undefined;
+    const purchases = await listPurchases(sql, orgId, { providerId, agentId });
     return NextResponse.json({ purchases });
   } catch (err) {
     return apiErrorResponse(err, 'X402/PURCHASES GET');

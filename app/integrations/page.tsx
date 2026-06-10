@@ -313,7 +313,7 @@ export default function IntegrationsPage() {
 
   if (loading) {
     return (
-      <PageLayout
+      <PageLayout agentFilter={false}
         title="Integrations"
         subtitle="Org-wide service connections — override per agent from Fleet → Agent → Integrations"
         breadcrumbs={['Dashboard', 'Integrations']}
@@ -341,7 +341,7 @@ export default function IntegrationsPage() {
     editingIntegration != null ? INTEGRATION_CONFIGS[editingIntegration] : undefined;
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Integrations"
       subtitle="Org-wide service connections — override per agent from Fleet → Agent → Integrations"
       breadcrumbs={['Dashboard', 'Integrations']}

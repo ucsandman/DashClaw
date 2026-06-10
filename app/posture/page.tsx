@@ -461,7 +461,7 @@ export default function PosturePage() {
   }
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Governance posture"
       subtitle="One gaming-resistant score for what your fleet can do versus what it actually governs"
       breadcrumbs={['Governance', 'Posture']}

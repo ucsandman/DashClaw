@@ -143,32 +143,49 @@ describe('x402 purchase repository', () => {
     expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1', 'act_missing']);
   });
 
+  // listPurchases composes conditional sql`` fragments (provider/agent), so
+  // the tagged mock sees those fragment invocations too — the MAIN query is
+  // always the LAST call, and fragment values live on the fragment calls.
+  const lastCall = () => sql.mock.calls[sql.mock.calls.length - 1];
+  const fragmentCall = (needle) => sql.mock.calls.find((c) => c[0].join('?').includes(needle));
+
   it('listPurchases is org-scoped with no provider filter', async () => {
-    sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
+    sql.mockResolvedValue([{ action_id: 'act_1' }]);
     expect(await listPurchases(sql, 'org_1', {})).toHaveLength(1);
-    expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1']);
+    const main = lastCall();
+    expect(main[1]).toBe('org_1');
+    expect(sqlText(main)).not.toContain('AND p.provider_id');
+    expect(sqlText(main)).not.toContain('AND p.agent_id');
     // provider_name is join-derived; p.* (not bare *) avoids column collision.
-    expect(sqlText(sql.mock.calls[0])).toContain('LEFT JOIN x402_providers');
-    expect(sqlText(sql.mock.calls[0])).toContain('AS provider_name');
-    expect(sqlText(sql.mock.calls[0])).toContain('SELECT p.*');
+    expect(sqlText(main)).toContain('LEFT JOIN x402_providers');
+    expect(sqlText(main)).toContain('AS provider_name');
+    expect(sqlText(main)).toContain('SELECT p.*');
   });
 
   it('listPurchases filters by provider when given', async () => {
-    sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
+    sql.mockResolvedValue([{ action_id: 'act_1' }]);
     await listPurchases(sql, 'org_1', { providerId: 'prov_x' });
-    expect(sqlValues(sql.mock.calls[0])).toEqual(['org_1', 'prov_x']);
-    expect(sqlText(sql.mock.calls[0])).toContain('LEFT JOIN x402_providers');
-    expect(sqlText(sql.mock.calls[0])).toContain('AS provider_name');
+    const frag = fragmentCall('AND p.provider_id =');
+    expect(frag).toBeDefined();
+    expect(frag[1]).toBe('prov_x');
+    expect(sqlText(lastCall())).toContain('LEFT JOIN x402_providers');
   });
 
-  it('listPurchases caps both branches with an explicit LIMIT', async () => {
-    sql.mockResolvedValueOnce([{ action_id: 'act_1' }]);
-    await listPurchases(sql, 'org_1', {});
-    expect(sqlText(sql.mock.calls[0])).toContain('LIMIT 1000');
+  it('listPurchases filters by agent when given (NULL-agent rows drop out)', async () => {
+    sql.mockResolvedValue([{ action_id: 'act_1' }]);
+    await listPurchases(sql, 'org_1', { agentId: 'agent-1' });
+    const frag = fragmentCall('AND p.agent_id =');
+    expect(frag).toBeDefined();
+    expect(frag[1]).toBe('agent-1');
+  });
 
-    sql.mockResolvedValueOnce([{ action_id: 'act_2' }]);
-    await listPurchases(sql, 'org_1', { providerId: 'prov_x' });
-    expect(sqlText(sql.mock.calls[1])).toContain('LIMIT 1000');
+  it('listPurchases caps the list with an explicit LIMIT', async () => {
+    sql.mockResolvedValue([{ action_id: 'act_1' }]);
+    await listPurchases(sql, 'org_1', {});
+    expect(sqlText(lastCall())).toContain('LIMIT 1000');
+
+    await listPurchases(sql, 'org_1', { providerId: 'prov_x', agentId: 'agent-1' });
+    expect(sqlText(lastCall())).toContain('LIMIT 1000');
   });
 
   it('setPurchaseOutcome records execution result + value score, org-scoped', async () => {

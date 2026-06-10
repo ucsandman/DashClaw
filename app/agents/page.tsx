@@ -85,7 +85,7 @@ export default function AgentsFleetPage() {
   ];
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       maturity="stable"
       title="Agent Fleet"
       subtitle="Fleet-wide observability and permission governance"

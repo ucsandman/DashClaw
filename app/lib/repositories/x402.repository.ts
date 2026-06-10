@@ -205,11 +205,11 @@ export async function getPurchase(sql: SqlTag, orgId: string, actionId: string):
 // growth dragging the query — it never truncates normal usage.
 // p.* + aliased name only — a bare `*` across the join would collide on
 // org_id/created_at/metadata and the driver silently keeps the last column.
-export async function listPurchases(sql: SqlTag, orgId: string, { providerId }: { providerId?: string } = {}): Promise<X402PurchaseListRow[]> {
-  if (providerId) {
-    return (await sql`SELECT p.*, pr.name AS provider_name FROM x402_purchases p LEFT JOIN x402_providers pr ON pr.org_id = p.org_id AND pr.provider_id = p.provider_id WHERE p.org_id = ${orgId} AND p.provider_id = ${providerId} ORDER BY p.created_at DESC LIMIT 1000`) as unknown as X402PurchaseListRow[];
-  }
-  return (await sql`SELECT p.*, pr.name AS provider_name FROM x402_purchases p LEFT JOIN x402_providers pr ON pr.org_id = p.org_id AND pr.provider_id = p.provider_id WHERE p.org_id = ${orgId} ORDER BY p.created_at DESC LIMIT 1000`) as unknown as X402PurchaseListRow[];
+// agent_id is nullable: agent-filtered lists exclude unattributed purchases.
+export async function listPurchases(sql: SqlTag, orgId: string, { providerId, agentId }: { providerId?: string; agentId?: string | null } = {}): Promise<X402PurchaseListRow[]> {
+  const providerFilter = providerId ? sql` AND p.provider_id = ${providerId}` : sql``;
+  const agentFilter = agentId ? sql` AND p.agent_id = ${agentId}` : sql``;
+  return (await sql`SELECT p.*, pr.name AS provider_name FROM x402_purchases p LEFT JOIN x402_providers pr ON pr.org_id = p.org_id AND pr.provider_id = p.provider_id WHERE p.org_id = ${orgId}${providerFilter}${agentFilter} ORDER BY p.created_at DESC LIMIT 1000`) as unknown as X402PurchaseListRow[];
 }
 
 export async function setPurchaseOutcome(sql: SqlTag, orgId: string, actionId: string, data: PurchaseOutcomeInput = {}): Promise<X402PurchaseRow | null> {
@@ -231,25 +231,31 @@ export async function setPurchaseOutcome(sql: SqlTag, orgId: string, actionId: s
 
 const X402_PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
 
-export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { period = '30d' }: { period?: string } = {}): Promise<X402SpendAggregation> {
+export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { period = '30d', agentId = null }: { period?: string; agentId?: string | null } = {}): Promise<X402SpendAggregation> {
   const days = X402_PERIOD_DAYS[period] ?? 30;
   const since = new Date(Date.now() - days * 86400000).toISOString();
+  // x402_purchases.agent_id is NULLABLE (older purchases recorded without an
+  // agent): agent-filtered sums correctly EXCLUDE unattributed rows, so a
+  // filtered fleet total can be less than the sum over all agents. The /spend
+  // UI states this when a filter is active. Mirrors actions.repository's
+  // conditional-fragment pattern.
+  const agentFilter = agentId ? sql` AND agent_id = ${agentId}` : sql``;
   // Exclude FAILED purchases from spend: a failed x402 call means no money moved.
   // succeeded/partial/approved/pending are retained. Operator decision 2026-06-05.
   const [totals] = await sql`
     SELECT COALESCE(SUM(spend_amount), 0)::real AS total_spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'`;
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}`;
   const byDay = await sql`
     SELECT DATE(created_at::timestamptz) AS date, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}
     GROUP BY DATE(created_at::timestamptz)
     ORDER BY date DESC`;
   const byProvider = await sql`
     SELECT provider_id, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}
     GROUP BY provider_id
     ORDER BY spend_usd DESC`;
   return {

@@ -5,7 +5,7 @@ import DoctorPanel from '../components/DoctorPanel';
 
 export default function DoctorPage() {
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Doctor"
       subtitle="Instance diagnostics and one-click remediations"
       breadcrumbs={['Configure', 'Doctor']}

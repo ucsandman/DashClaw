@@ -109,4 +109,10 @@ describe('POST /api/x402/purchases', () => {
     expect(res.status).toBe(200);
     expect((await res.json()).purchases).toHaveLength(1);
   });
+
+  it('GET forwards provider_id + agent_id filters to the repository', async () => {
+    m.listPurchases.mockResolvedValue([]);
+    await GET(new Request('http://localhost/api/x402/purchases?provider_id=prov_x&agent_id=agent-1'));
+    expect(m.listPurchases).toHaveBeenCalledWith(m.sql, 'org_1', { providerId: 'prov_x', agentId: 'agent-1' });
+  });
 });

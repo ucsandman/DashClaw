@@ -22,7 +22,7 @@ export default async function CodeSessionsProjectsPage() {
   ]);
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Code Sessions"
       subtitle="Claude Code session analytics from hooks and JSONL backfill"
       maturity="beta"

@@ -178,7 +178,7 @@ export default function CapabilitiesPage() {
   ];
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Capability Registry"
       subtitle="Governed registry of callable capabilities with risk, approval, and health metadata"
       breadcrumbs={['Studio', 'Capabilities']}

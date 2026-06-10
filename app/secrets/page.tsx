@@ -223,7 +223,7 @@ export default function SecretsPage() {
   const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary';
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       breadcrumbs={['Configure', 'Secrets']}
       title="Secret Rotation"
       subtitle="Track when agent and workspace secrets are due for rotation"

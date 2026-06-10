@@ -4,7 +4,7 @@ import PolicyCockpit from './components/PolicyCockpit';
 
 export default function PoliciesPage() {
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Policies"
       subtitle="Govern your agents with one decision"
       breadcrumbs={['Governance', 'Policies']}

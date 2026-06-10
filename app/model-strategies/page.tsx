@@ -200,7 +200,7 @@ export default function ModelStrategiesPage() {
   };
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Model Strategies"
       subtitle="Reusable provider/model strategy records linked to workflows"
       breadcrumbs={['Studio', 'Model Strategies']}

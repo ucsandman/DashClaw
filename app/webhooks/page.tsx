@@ -290,7 +290,7 @@ export default function WebhooksPage() {
   const fieldLabel = 'mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary';
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       breadcrumbs={['Dashboard', 'Webhooks']}
       title="Webhooks"
       subtitle="Receive real-time notifications when security signals are detected"

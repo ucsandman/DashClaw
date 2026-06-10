@@ -104,7 +104,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   ];
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Settings"
       subtitle="Instance configuration, verification, model pricing, and agent identity"
       breadcrumbs={['System', 'Settings']}

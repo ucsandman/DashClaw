@@ -27,8 +27,8 @@ beforeEach(() => {
 describe('getFleetSpend', () => {
   it('composes agent + x402 spend and sums the fleet total', async () => {
     const out = await getFleetSpend(sql, 'org_1', { period: '30d' });
-    expect(m.getCostAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d' });
-    expect(m.getX402SpendAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d' });
+    expect(m.getCostAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: null });
+    expect(m.getX402SpendAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: null });
     expect(out.lens).toBe('fleet');
     expect(out.agent.total_cost_usd).toBe(10);
     expect(out.x402.total_spend_usd).toBe(2.5);
@@ -37,9 +37,16 @@ describe('getFleetSpend', () => {
 
   it('carries the unpriced-models indicator through to the fleet payload', async () => {
     const out = await getFleetSpend(sql, 'org_1', { period: '30d' });
-    expect(m.getUnpricedModelSummary).toHaveBeenCalledWith(sql, 'org_1', { period: '30d' });
+    expect(m.getUnpricedModelSummary).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: null });
     expect(out.unpriced.action_count).toBe(3);
     expect(out.unpriced.models[0].model).toBe('mystery-model');
+  });
+
+  it('forwards agentId to BOTH aggregations + the unpriced indicator (fleet invariant)', async () => {
+    await getFleetSpend(sql, 'org_1', { period: '30d', agentId: 'agent-1' });
+    expect(m.getCostAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: 'agent-1' });
+    expect(m.getX402SpendAggregation).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: 'agent-1' });
+    expect(m.getUnpricedModelSummary).toHaveBeenCalledWith(sql, 'org_1', { period: '30d', agentId: 'agent-1' });
   });
 });
 

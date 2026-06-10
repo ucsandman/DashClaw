@@ -117,7 +117,7 @@ export default function ReputationPage() {
   );
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       maturity="experimental"
       title="Reputation"
       subtitle="Reliability ranking across governed agents, from signed reputation snapshots"

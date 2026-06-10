@@ -13,6 +13,7 @@ import { isDemoMode } from '../lib/isDemoMode';
 import { parseJsonArray as safeJsonArray } from '../lib/parseJson';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
@@ -50,6 +51,7 @@ function Banner({ icon: Icon, tone, title, children }: BannerProps) {
 }
 
 export default function ApprovalsPage() {
+  const { agentId } = useAgentFilter();
   const [pendingActions, setPendingActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
@@ -58,7 +60,7 @@ export default function ApprovalsPage() {
   const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       if (!opts?.silent) setLoading(true);
-      const res = await fetch('/api/actions?status=pending_approval&limit=50', { cache: 'no-store' });
+      const res = await fetch(`/api/actions?status=pending_approval&limit=50${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
@@ -67,7 +69,7 @@ export default function ApprovalsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchPending();

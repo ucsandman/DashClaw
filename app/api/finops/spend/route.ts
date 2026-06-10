@@ -19,10 +19,13 @@ export async function GET(request: Request) {
     const period = (ALLOWED_PERIODS.has(rawPeriod) ? rawPeriod : '30d') as '7d' | '30d' | '90d';
     const rawLens = params.get('lens') || 'fleet';
     const lens = ALLOWED_LENSES.has(rawLens) ? rawLens : 'fleet';
+    // agent_id scopes the fleet lens only. The claude-code lens ignores it by
+    // design: code_sessions are operator sessions with no agent dimension.
+    const agentId = params.get('agent_id') || null;
 
     const data = lens === 'claude-code'
       ? await getClaudeCodeSpend(sql, orgId, { period })
-      : await getFleetSpend(sql, orgId, { period });
+      : await getFleetSpend(sql, orgId, { period, agentId });
 
     return NextResponse.json(data);
   } catch (err) {

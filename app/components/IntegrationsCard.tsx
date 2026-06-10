@@ -132,7 +132,9 @@ export default function IntegrationsCard() {
   return (
     <Card className="h-full">
       <CardHeader title={<span className="flex items-center">Integrations<HelpIcon sectionKey="team" tip={HELP_TIPS['team']} /></span>} icon={Plug} action={total > 0 ? viewAllLink : undefined}>
-        {agentId && <Badge variant="info" size="xs">Org-wide</Badge>}
+        {/* The settings + connections fetches above ARE agent-scoped, so say
+            so — the old "Org-wide" badge contradicted the filtered data. */}
+        {agentId && <Badge variant="info" size="xs">Filtered</Badge>}
         {total === 0 && !agentId && (
           <Link href="/integrations" className="text-xs text-brand hover:text-brand-hover transition-colors duration-150">
             Setup

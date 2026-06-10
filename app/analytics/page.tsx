@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import PageLayout from '../components/PageLayout';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import HeroStats from './components/HeroStats';
 import BreakdownCard from './components/BreakdownCard';
 import TokenUsage from './components/TokenUsage';
@@ -26,6 +27,7 @@ const RANGES = [
 ];
 
 export default function AnalyticsPage() {
+  const { agentId } = useAgentFilter();
   const [days, setDays] = useState(30);
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -39,7 +41,7 @@ export default function AnalyticsPage() {
     setData(null);
     for (let attempt = 0; attempt < 2; attempt++) {
       try {
-        const res = await fetch(`/api/analytics?days=${days}`, { cache: 'no-store' });
+        const res = await fetch(`/api/analytics?days=${days}${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`, { cache: 'no-store' });
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         setData(await res.json());
         setLoading(false);
@@ -50,7 +52,7 @@ export default function AnalyticsPage() {
     }
     setError(true);
     setLoading(false);
-  }, [days]);
+  }, [days, agentId]);
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 

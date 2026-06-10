@@ -4,13 +4,31 @@ import { useAgentFilter } from '../lib/AgentFilterContext';
 import { getAgentColor } from '../lib/colors';
 import { Users } from 'lucide-react';
 
-export default function AgentFilterDropdown() {
+interface AgentFilterDropdownProps {
+  /**
+   * False on pages whose content is org/config-level and cannot be scoped to
+   * an agent (set via PageLayout's agentFilter prop). The picker stays
+   * rendered — it is global state and still drives SystemStatusBar — but a
+   * subdued hint tells the operator this page's content ignores it.
+   */
+  pageScoped?: boolean;
+}
+
+export default function AgentFilterDropdown({ pageScoped = true }: AgentFilterDropdownProps) {
   const { agents, agentId, setAgentId, loading } = useAgentFilter();
 
   if (loading || agents.length === 0) return null;
 
   return (
     <div className="flex items-center gap-2">
+      {!pageScoped && agentId && (
+        <span
+          className="rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-disabled"
+          title="This page shows org-level data — the agent filter does not apply here."
+        >
+          Org-wide page
+        </span>
+      )}
       <Users size={14} className="text-tertiary" aria-hidden="true" />
       <label htmlFor="agent-filter" className="sr-only">
         Filter by agent

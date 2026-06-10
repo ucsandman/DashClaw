@@ -237,7 +237,7 @@ export default function TeamPage() {
 
   if (loading) {
     return (
-      <PageLayout title="Team" subtitle="Manage workspace members" breadcrumbs={['Dashboard', 'Team']}>
+      <PageLayout agentFilter={false} title="Team" subtitle="Manage workspace members" breadcrumbs={['Dashboard', 'Team']}>
         <div className="flex items-center justify-center py-20">
           <div className="text-sm text-tertiary">Loading team...</div>
         </div>
@@ -246,7 +246,7 @@ export default function TeamPage() {
   }
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Team"
       subtitle={data?.org ? `${data.org.name} workspace` : 'Manage workspace members'}
       breadcrumbs={['Dashboard', 'Team']}

@@ -192,7 +192,7 @@ export default function AuditLogPage() {
 
   if (loading) {
     return (
-      <PageLayout
+      <PageLayout agentFilter={false}
         title="Audit log"
         subtitle="Permanent record of system and administrative events"
         breadcrumbs={['Evidence', 'Audit log']}
@@ -217,7 +217,7 @@ export default function AuditLogPage() {
   }
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Audit log"
       subtitle="Permanent record of system and administrative events"
       breadcrumbs={['Evidence', 'Audit log']}

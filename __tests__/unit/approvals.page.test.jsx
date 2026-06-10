@@ -44,6 +44,12 @@ vi.mock('@/hooks/useRealtime', () => ({
   useRealtime: () => {},
 }));
 
+// Global agent picker — controllable per test (default: All agents).
+const agentFilterState = vi.hoisted(() => ({ agentId: null }));
+vi.mock('@/lib/AgentFilterContext', () => ({
+  useAgentFilter: () => ({ agentId: agentFilterState.agentId }),
+}));
+
 const READ_ONLY_TEXT = /Only administrators can approve or deny actions/i;
 
 function makeFetch({ effective }) {
@@ -158,5 +164,26 @@ describe('ApprovalsPage — session resolution', () => {
     expect(actionLink.tagName).toBe('A');
     expect(actionLink.getAttribute('href')).toBe('/decisions/act_77');
     expect(actionLink.getAttribute('data-entity-type')).toBe('decision');
+  });
+
+  it('appends agent_id to the pending-actions fetch when the global picker has a selection', async () => {
+    agentFilterState.agentId = 'agent-9';
+    try {
+      global.fetch = makeFetch({ effective: { role: 'admin', authType: 'local' } });
+
+      const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+      render(<ApprovalsPage />);
+
+      await waitFor(() => {
+        const actionCalls = global.fetch.mock.calls
+          .map((c) => String(c[0]))
+          .filter((u) => u.startsWith('/api/actions'));
+        expect(actionCalls.length).toBeGreaterThan(0);
+        expect(actionCalls[0]).toContain('status=pending_approval');
+        expect(actionCalls[0]).toContain('agent_id=agent-9');
+      });
+    } finally {
+      agentFilterState.agentId = null;
+    }
   });
 });

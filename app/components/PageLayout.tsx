@@ -20,10 +20,16 @@ interface PageLayoutProps {
   breadcrumbs?: any;
   actions?: React.ReactNode;
   maturity?: any;
+  /**
+   * Set false on pages whose content is org/config-level and ignores the
+   * global agent picker — the dropdown then carries a subdued "Org-wide page"
+   * hint instead of silently implying filtering that never happens.
+   */
+  agentFilter?: boolean;
   children?: React.ReactNode;
 }
 
-export default function PageLayout({ title, subtitle, breadcrumbs, actions, maturity, children }: PageLayoutProps) {
+export default function PageLayout({ title, subtitle, breadcrumbs, actions, maturity, agentFilter = true, children }: PageLayoutProps) {
   return (
     <div className="fixed inset-0 flex overflow-hidden bg-surface-primary">
       <Sidebar />
@@ -57,7 +63,7 @@ export default function PageLayout({ title, subtitle, breadcrumbs, actions, matu
             </div>
             <div className="flex items-center gap-2 sm:gap-3 shrink-0">
               <span className="hidden md:flex"><RealtimeIndicator /></span>
-              <span className="hidden sm:flex"><AgentFilterDropdown /></span>
+              <span className="hidden sm:flex"><AgentFilterDropdown pageScoped={agentFilter} /></span>
               {actions}
               <NotificationCenter />
               <UserMenu />

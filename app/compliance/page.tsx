@@ -14,6 +14,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
 import { HelpIcon } from '../components/HelpIcon';
 import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
 import { gapToPolicyDraft } from '../lib/compliance/gap-to-policy';
 import MarkdownBody from '../messages/_components/MarkdownBody';
@@ -51,6 +52,7 @@ const SIGNAL_CONTROL_MAP: Record<string, string[]> = {
 
 export default function CompliancePage() {
   const isDemo = isDemoMode();
+  const { agentId } = useAgentFilter();
 
   // Data
   const [frameworks, setFrameworks] = useState<any[]>([]);
@@ -94,11 +96,13 @@ export default function CompliancePage() {
   const fetchFrameworkData = useCallback(async () => {
     if (!selectedFramework) return;
     try {
+      // Signals fetch honors the global agent filter — SystemStatusBar on this
+      // same page already does, so the two counts stay consistent.
       const [mapRes, gapRes, evidenceRes, signalsRes] = await Promise.all([
         fetch(`/api/compliance/map?framework=${selectedFramework}`),
         fetch(`/api/compliance/gaps?framework=${selectedFramework}`),
         fetch('/api/compliance/evidence'),
-        fetch('/api/signals'),
+        fetch(`/api/signals${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
       ]);
 
       if (mapRes.ok) setControlMap(await mapRes.json());
@@ -113,7 +117,7 @@ export default function CompliancePage() {
     } finally {
       setSignalsLoading(false);
     }
-  }, [selectedFramework]);
+  }, [selectedFramework, agentId]);
 
   useEffect(() => { fetchFrameworkData(); }, [fetchFrameworkData]);
 

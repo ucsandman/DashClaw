@@ -40,7 +40,7 @@ describe('GET /api/analytics', () => {
     expect(res.status).toBe(200);
     expect(data.hero.total_cost).toBe(14.82);
     expect(data.hero.total_actions).toBe(4231);
-    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 30);
+    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 30, null);
   });
 
   it('passes custom days parameter', async () => {
@@ -48,7 +48,7 @@ describe('GET /api/analytics', () => {
 
     await GET(getReq('?days=7'));
 
-    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 7);
+    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 7, null);
   });
 
   it('clamps days to 1-365', async () => {
@@ -56,7 +56,15 @@ describe('GET /api/analytics', () => {
 
     await GET(getReq('?days=999'));
 
-    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 365);
+    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 365, null);
+  });
+
+  it('forwards agent_id to the repository (global agent picker)', async () => {
+    mockGetAnalytics.mockResolvedValueOnce({ period: {}, hero: {}, daily: [], by_agent: [], by_action_type: [], policy_enforcement: {}, tokens: {} });
+
+    await GET(getReq('?days=7&agent_id=agent-1'));
+
+    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 7, 'agent-1');
   });
 
   it('falls back to 30 days when days is non-numeric (no NaN reaches the repository)', async () => {
@@ -65,7 +73,7 @@ describe('GET /api/analytics', () => {
     const res = await GET(getReq('?days=abc'));
 
     expect(res.status).toBe(200);
-    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 30);
+    expect(mockGetAnalytics).toHaveBeenCalledWith(expect.anything(), 'org_test', 30, null);
   });
 
   it('returns 500 on error', async () => {

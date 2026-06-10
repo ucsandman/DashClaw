@@ -1581,10 +1581,11 @@ export interface UnpricedModelSummary {
 export async function getUnpricedModelSummary(
   sql: SqlClient,
   orgId: string,
-  { period = '30d' }: { period?: string } = {},
+  { period = '30d', agentId = null }: { period?: string; agentId?: string | null } = {},
 ): Promise<UnpricedModelSummary> {
   const days = parseInt(period) || 30;
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const agentFilter = agentId ? sql` AND agent_id = ${agentId}` : sql``;
   const rows = await sql`
     SELECT
       model,
@@ -1596,6 +1597,7 @@ export async function getUnpricedModelSummary(
       AND action_type <> 'x402_purchase'
       AND COALESCE(tokens_in, 0) + COALESCE(tokens_out, 0) > 0
       AND COALESCE(cost_estimate, 0) = 0
+      ${agentFilter}
     GROUP BY model
     ORDER BY total_tokens DESC
     LIMIT 10

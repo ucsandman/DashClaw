@@ -152,3 +152,4 @@ next-env.d.ts
 
 # stray local installer — keep out of git (exceeds GitHub 100MB limit)
 docs/plans/Rowboat-win32-x64-0.5.4-setup.exe
+.vercel

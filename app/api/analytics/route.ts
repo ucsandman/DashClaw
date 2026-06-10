@@ -16,8 +16,9 @@ export async function GET(request: Request) {
     // default for any non-numeric value instead.
     const parsedDays = parseInt(searchParams.get('days') || '30', 10);
     const days = Number.isFinite(parsedDays) ? Math.min(Math.max(parsedDays, 1), 365) : 30;
+    const agentId = searchParams.get('agent_id') || null;
 
-    const data = await getAnalytics(sql, orgId, days);
+    const data = await getAnalytics(sql, orgId, days, agentId);
     return NextResponse.json(data);
   } catch (error) {
     return apiErrorResponse(error, 'ANALYTICS');

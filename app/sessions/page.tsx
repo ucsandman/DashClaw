@@ -10,6 +10,7 @@ import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
+import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
@@ -57,6 +58,7 @@ const TERMINAL_STATUSES = ['finished', 'failed', 'closed', 'completed', 'cancell
 const FILTERS = ['all', 'running', 'blocked', 'failed', 'finished'];
 
 export default function SessionsPage() {
+  const { agentId } = useAgentFilter();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [filterStatus, setFilterStatus] = useState('all');
@@ -65,7 +67,7 @@ export default function SessionsPage() {
 
   const fetchSessions = useCallback(async () => {
     try {
-      const res = await fetch('/api/sessions?limit=100', { cache: 'no-store' });
+      const res = await fetch(`/api/sessions?limit=100${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`, { cache: 'no-store' });
       if (res.ok) {
         const data = await res.json();
         setSessions(data.sessions || []);
@@ -82,7 +84,7 @@ export default function SessionsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => {
     fetchSessions();

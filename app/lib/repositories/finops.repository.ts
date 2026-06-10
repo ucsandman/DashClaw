@@ -15,12 +15,16 @@ import type { SqlTag } from '../types/db';
 export async function getFleetSpend(
   sql: SqlTag,
   orgId: string,
-  { period = '30d' }: { period?: SpendPeriod } = {},
+  { period = '30d', agentId = null }: { period?: SpendPeriod; agentId?: string | null } = {},
 ): Promise<FleetSpend> {
+  // agentId must reach BOTH aggregations (and the unpriced indicator) or the
+  // documented invariant Fleet = Agent LLM + x402 breaks under filtering.
+  // Note: x402 rows with NULL agent_id drop out of filtered totals (see
+  // getX402SpendAggregation).
   const [agent, x402, unpriced] = await Promise.all([
-    getCostAggregation(sql, orgId, { period }),
-    getX402SpendAggregation(sql, orgId, { period }),
-    getUnpricedModelSummary(sql, orgId, { period }),
+    getCostAggregation(sql, orgId, { period, agentId }),
+    getX402SpendAggregation(sql, orgId, { period, agentId }),
+    getUnpricedModelSummary(sql, orgId, { period, agentId }),
   ]);
   // Number() guards are defense-in-depth: the component repos already coerce,
   // but this is the invariant site (Fleet = Agent LLM + x402) — never let a

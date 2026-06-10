@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../../components/PageLayout';
 import EntityLink from '../../components/context-menu/EntityLink';
+import { useAgentFilter } from '../../lib/AgentFilterContext';
 import type { X402PurchaseListRow } from '../../lib/types/x402';
 
 const fmt = (n: any, cur?: string) => `${Number(n || 0).toFixed(4)} ${cur || 'USDC'}`;
@@ -11,6 +12,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default function X402PurchasesPage() {
+  const { agentId } = useAgentFilter();
   const [rows, setRows] = useState<X402PurchaseListRow[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -19,7 +21,9 @@ export default function X402PurchasesPage() {
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch('/api/x402/purchases');
+      // Agent-filtered lists exclude purchases recorded without an agent
+      // (x402_purchases.agent_id is nullable).
+      const res = await fetch(`/api/x402/purchases${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       setRows((await res.json()).purchases || []);
     } catch (err) {
@@ -28,7 +32,7 @@ export default function X402PurchasesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [agentId]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -48,7 +52,9 @@ export default function X402PurchasesPage() {
         </div>
       ) : !rows || rows.length === 0 ? (
         <div className="rounded-xl border border-border bg-surface-secondary p-8 text-center text-sm text-tertiary">
-          No governed purchases yet.
+          {agentId
+            ? <>No governed purchases attributed to <span className="font-mono text-secondary">{agentId}</span>. Purchases recorded without an agent are excluded when filtering.</>
+            : 'No governed purchases yet.'}
         </div>
       ) : (
         <div className="rounded-xl border border-border bg-surface-secondary overflow-hidden">

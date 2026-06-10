@@ -77,7 +77,7 @@ export default function ClaudeCodeSpendPage() {
   })();
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="Your Claude Code"
       subtitle="Advisory — your own Claude Code token spend (your machine, not fleet governance)"
       breadcrumbs={['Spend', 'Your Claude Code']}

@@ -7,7 +7,6 @@ import { Card, CardHeader, CardContent } from './ui/Card';
 import { StatCompact } from './ui/Stat';
 import { EmptyState } from './ui/EmptyState';
 import { CardSkeleton } from './ui/Skeleton';
-import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { HelpIcon } from './HelpIcon';
 import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
@@ -15,9 +14,11 @@ import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 export default function PromptStatsCard() {
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const { agentId } = useAgentFilter();
   const { ref: sizeRef, height: tileHeight } = useTileSize();
 
+  // Deliberately NOT keyed to the agent filter: /api/prompts/stats has no
+  // agent param, so refetching on picker change only faked responsiveness
+  // while showing the same org-wide numbers.
   useEffect(() => {
     async function fetchData() {
       try {
@@ -36,7 +37,7 @@ export default function PromptStatsCard() {
       }
     }
     fetchData();
-  }, [agentId]);
+  }, []);
 
   if (loading) return <CardSkeleton />;
 

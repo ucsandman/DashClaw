@@ -149,7 +149,7 @@ export default function ApiKeysPage() {
   // Loading state
   if (loading) {
     return (
-      <PageLayout
+      <PageLayout agentFilter={false}
         title="API keys"
         subtitle="Manage your workspace API keys"
         breadcrumbs={['Dashboard', 'API keys']}
@@ -174,7 +174,7 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <PageLayout
+    <PageLayout agentFilter={false}
       title="API keys"
       subtitle="Manage your workspace API keys"
       breadcrumbs={['Dashboard', 'API keys']}

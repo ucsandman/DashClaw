@@ -9,12 +9,17 @@ type SqlClient = {
 
 type Row = Record<string, unknown>;
 
-export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
+export async function getAnalytics(sql: SqlClient, orgId: string, days = 30, agentId: string | null = null) {
   const now = new Date();
   const periodStart = new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
   const prevStart = new Date(now.getTime() - days * 2 * 24 * 60 * 60 * 1000).toISOString();
 
   const safe = (promise: Promise<Row[]>): Promise<Row[]> => promise.catch(() => [{}]);
+  // Optional global agent filter: `af(n)` appends the clause using positional
+  // param $n; `wa(params)` appends the bound value. Applied to every
+  // action_records AND guard_decisions query so all panels agree.
+  const af = (n: number) => (agentId ? ` AND agent_id = $${n}` : '');
+  const wa = (params: unknown[]) => (agentId ? [...params, agentId] : params);
 
   const [
     heroRows, prevHeroRows,
@@ -31,8 +36,8 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COUNT(DISTINCT agent_id)::int AS active_agents,
         COALESCE(AVG(duration_ms) FILTER (WHERE status = 'completed' AND duration_ms > 0), 0)::int AS avg_latency_ms
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz`,
-      [orgId, periodStart]
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}`,
+      wa([orgId, periodStart])
     )),
 
     // Previous period hero stats (for comparison)
@@ -45,8 +50,8 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
       FROM action_records
       WHERE org_id = $1
         AND timestamp_start::timestamptz >= $2::timestamptz
-        AND timestamp_start::timestamptz < $3::timestamptz`,
-      [orgId, prevStart, periodStart]
+        AND timestamp_start::timestamptz < $3::timestamptz${af(4)}`,
+      wa([orgId, prevStart, periodStart])
     )),
 
     // Daily cost trend — emit ISO date strings (YYYY-MM-DD) so the driver
@@ -56,9 +61,9 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COALESCE(SUM(cost_estimate), 0)::real AS cost,
         COUNT(*)::int AS actions
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
       GROUP BY 1 ORDER BY 1`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
 
     // Daily status breakdown
@@ -69,9 +74,9 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COUNT(*) FILTER (WHERE status = 'blocked')::int AS blocked,
         COUNT(*) FILTER (WHERE status NOT IN ('completed','failed','blocked'))::int AS other
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
       GROUP BY 1 ORDER BY 1`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
 
     // Cost by agent (top 5)
@@ -80,9 +85,9 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COALESCE(SUM(cost_estimate), 0)::real AS cost,
         COUNT(*)::int AS actions
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
       GROUP BY agent_id ORDER BY cost DESC LIMIT 5`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
 
     // Cost by action type (top 5)
@@ -91,9 +96,9 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COALESCE(SUM(cost_estimate), 0)::real AS cost,
         COUNT(*)::int AS actions
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
       GROUP BY action_type ORDER BY cost DESC LIMIT 5`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
 
     // Policy enforcement from guard_decisions
@@ -104,8 +109,8 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COUNT(*) FILTER (WHERE decision = 'warn')::int AS warn,
         COUNT(*)::int AS total
       FROM guard_decisions
-      WHERE org_id = $1 AND created_at::timestamptz >= $2::timestamptz`,
-      [orgId, periodStart]
+      WHERE org_id = $1 AND created_at::timestamptz >= $2::timestamptz${af(3)}`,
+      wa([orgId, periodStart])
     )),
 
     // Token totals
@@ -116,9 +121,9 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COALESCE(SUM(tokens_in) + SUM(tokens_out), 0)::bigint AS total,
         COALESCE(SUM(cost_estimate), 0)::real AS total_cost
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
         AND (tokens_in > 0 OR tokens_out > 0)`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
 
     // Top token consumers (top 3)
@@ -128,10 +133,10 @@ export async function getAnalytics(sql: SqlClient, orgId: string, days = 30) {
         COALESCE(SUM(cost_estimate), 0)::real AS cost,
         COUNT(*)::int AS actions
       FROM action_records
-      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz
+      WHERE org_id = $1 AND timestamp_start::timestamptz >= $2::timestamptz${af(3)}
         AND (tokens_in > 0 OR tokens_out > 0)
       GROUP BY agent_id ORDER BY total_tokens DESC LIMIT 3`,
-      [orgId, periodStart]
+      wa([orgId, periodStart])
     )),
   ]);
 
