@@ -71,6 +71,14 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
     expect(body.error).toBe('Demo mode: write APIs are disabled.');
   });
 
+  it('POST /api/policies/modes/import is mocked BEFORE the write-block → 201 (ProfileBand demo-safe)', async () => {
+    const res = await middleware(req('/api/policies/modes/import', { method: 'POST', body: { mode_id: 'soc2' } }));
+    expect(res.status).toBe(201);
+    const body = await res.json();
+    expect(body.demo).toBe(true);
+    expect(body.imported).toBeGreaterThan(0);
+  });
+
   it('POST /api/actions is an allowed simulation → 201', async () => {
     const res = await middleware(req('/api/actions', { method: 'POST', body: { action_type: 'demo' } }));
     expect(res.status).toBe(201);

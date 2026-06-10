@@ -31,6 +31,8 @@ const TABLES = [
   "code_session_signals",
   "code_session_tool_uses",
   "code_sessions",
+  "compliance_exports",
+  "compliance_schedules",
   "compliance_snapshots",
   "contacts",
   "content",

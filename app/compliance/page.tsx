@@ -17,16 +17,10 @@ import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { isDemoMode } from '../lib/isDemoMode';
 import { gapToPolicyDraft } from '../lib/compliance/gap-to-policy';
+import { FRAMEWORK_LABELS } from '../lib/compliance/framework-labels';
+import { effortVariant } from '../lib/compliance/effort';
+import ProfileBand from './ProfileBand';
 import MarkdownBody from '../messages/_components/MarkdownBody';
-
-const FRAMEWORK_LABELS: Record<string, string> = {
-  'soc2': 'SOC 2',
-  'iso27001': 'ISO 27001',
-  'nist-ai-rmf': 'NIST AI RMF',
-  'eu-ai-act': 'EU AI Act',
-  'gdpr': 'GDPR',
-  'imda-agentic': 'IMDA Agentic AI',
-};
 
 const STATUS_VARIANTS: Record<string, string> = {
   covered: 'success',
@@ -34,12 +28,11 @@ const STATUS_VARIANTS: Record<string, string> = {
   gap: 'error',
 };
 
-const EFFORT_VARIANTS: Record<string, string> = {
-  low: 'success',
-  medium: 'warning',
-  high: 'error',
-};
+const EVIDENCE_WINDOWS = ['7', '30', '90'] as const;
 
+// ILLUSTRATIVE control mappings: which framework controls a live integrity
+// signal plausibly touches. These citations are editorial guidance, not
+// entries from the framework definition files — the UI labels them as such.
 const SIGNAL_CONTROL_MAP: Record<string, string[]> = {
   autonomy_spike: ['SOC 2 CC6.1 (Logical Access)', 'ISO 42001 A.4 (Human Oversight)'],
   high_impact_low_oversight: ['EU AI Act Art. 14 (Human Oversight)', 'SOC 2 CC6.6 (Boundary Protection)'],
@@ -62,6 +55,7 @@ export default function CompliancePage() {
   const [evidence, setEvidence] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
   const [signalsLoading, setSignalsLoading] = useState(true);
+  const [evidenceWindow, setEvidenceWindow] = useState<string>('30');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,7 +95,7 @@ export default function CompliancePage() {
       const [mapRes, gapRes, evidenceRes, signalsRes] = await Promise.all([
         fetch(`/api/compliance/map?framework=${selectedFramework}`),
         fetch(`/api/compliance/gaps?framework=${selectedFramework}`),
-        fetch('/api/compliance/evidence'),
+        fetch(`/api/compliance/evidence?window=${evidenceWindow}d`),
         fetch(`/api/signals${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
       ]);
 
@@ -117,7 +111,7 @@ export default function CompliancePage() {
     } finally {
       setSignalsLoading(false);
     }
-  }, [selectedFramework, agentId]);
+  }, [selectedFramework, agentId, evidenceWindow]);
 
   useEffect(() => { fetchFrameworkData(); }, [fetchFrameworkData]);
 
@@ -261,6 +255,15 @@ export default function CompliancePage() {
         )}
       </div>
 
+      {/* Runnable profile for the selected framework */}
+      {selectedFramework && (
+        <ProfileBand
+          framework={selectedFramework}
+          frameworkLabel={FRAMEWORK_LABELS[selectedFramework] || selectedFramework}
+          onApplied={fetchFrameworkData}
+        />
+      )}
+
       {/* Coverage instrument rail */}
       {controlMap && (
         <div className="mb-6">
@@ -387,7 +390,7 @@ export default function CompliancePage() {
                               const prefill = encodeURIComponent(JSON.stringify(draft));
                               return (
                                 <Link
-                                  href={`/policies?prefill=${prefill}`}
+                                  href={`/policies/rules?prefill=${prefill}`}
                                   className="inline-flex items-center gap-1.5 text-xs text-brand transition-colors hover:text-brand-hover"
                                 >
                                   <Shield size={12} aria-hidden="true" /> Create policy from this gap
@@ -465,7 +468,7 @@ export default function CompliancePage() {
                           <li key={i} className="flex items-center gap-2 text-xs text-secondary">
                             <span className="flex-1">{typeof r === 'string' ? r : (r.title || r.action || r.description)}</span>
                             {(r.estimated_effort || r.effort) && (
-                              <Badge variant={EFFORT_VARIANTS[r.effort] || 'default'} size="xs">
+                              <Badge variant={effortVariant(r.estimated_effort || r.effort)} size="xs">
                                 {r.estimated_effort || r.effort}
                               </Badge>
                             )}
@@ -481,34 +484,80 @@ export default function CompliancePage() {
 
           {/* Enforcement Evidence */}
           <Card>
-            <div className="border-b border-border px-5 py-3">
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <h2 className="flex items-center text-sm font-semibold text-white">
                 Enforcement evidence
                 <HelpIcon sectionKey="guard-decisions" tip={HELP_TIPS['guard-decisions']} />
               </h2>
+              <div className="flex items-center gap-1" role="group" aria-label="Evidence window">
+                {EVIDENCE_WINDOWS.map((w) => (
+                  <button
+                    key={w}
+                    onClick={() => setEvidenceWindow(w)}
+                    aria-pressed={evidenceWindow === w}
+                    className={`rounded px-2 py-0.5 text-[11px] tabular-nums transition-colors ${
+                      evidenceWindow === w
+                        ? 'bg-brand/10 text-brand'
+                        : 'text-tertiary hover:bg-white/5 hover:text-white'
+                    }`}
+                  >
+                    {w}d
+                  </button>
+                ))}
+              </div>
             </div>
             <CardContent className="p-0">
               {!evidence ? (
                 <div className="p-5"><ListSkeleton rows={3} /></div>
               ) : (
-                <div className="grid grid-cols-2 divide-x divide-y divide-border">
-                  <div className="p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Guard decisions</div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-white">{evidence.guard_decisions_total ?? 0}</div>
+                <>
+                  <div className="grid grid-cols-2 divide-x divide-y divide-border">
+                    <div className="p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Guard decisions</div>
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-white">{evidence.guard_decisions_total ?? 0}</div>
+                    </div>
+                    <div className="p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Blocked</div>
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-error">{evidence.guard_decisions_blocked ?? 0}</div>
+                    </div>
+                    <div className="p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Approval requests</div>
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-warning">{evidence.approval_requests ?? 0}</div>
+                    </div>
+                    <div className="p-4">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Actions recorded</div>
+                      <div className="mt-1 text-lg font-semibold tabular-nums text-info">{evidence.action_records_total ?? 0}</div>
+                    </div>
                   </div>
-                  <div className="p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Blocked</div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-error">{evidence.guard_decisions_blocked ?? 0}</div>
-                  </div>
-                  <div className="p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Approval requests</div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-warning">{evidence.approval_requests ?? 0}</div>
-                  </div>
-                  <div className="p-4">
-                    <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Actions recorded</div>
-                    <div className="mt-1 text-lg font-semibold tabular-nums text-info">{evidence.action_records_total ?? 0}</div>
-                  </div>
-                </div>
+                  {Array.isArray(evidence.breakdown) && evidence.breakdown.length > 0 && (
+                    <div className="border-t border-border px-4 py-3">
+                      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                        Decisions by action type
+                      </div>
+                      <table className="mt-2 w-full text-xs">
+                        <thead className="sr-only">
+                          <tr><th>Action type</th><th>Decision</th><th>Count</th></tr>
+                        </thead>
+                        <tbody>
+                          {evidence.breakdown.slice(0, 8).map((row: any, i: number) => (
+                            <tr key={i} className="border-b border-border/50 last:border-0">
+                              <td className="py-1 pr-2 font-mono text-secondary">{row.action_type || '—'}</td>
+                              <td className="py-1 pr-2">
+                                <Badge
+                                  variant={row.decision === 'block' ? 'error' : row.decision === 'require_approval' ? 'warning' : 'default'}
+                                  size="xs"
+                                >
+                                  {row.decision || 'recorded'}
+                                </Badge>
+                              </td>
+                              <td className="py-1 text-right tabular-nums text-secondary">{Number(row.count)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </>
               )}
             </CardContent>
           </Card>
@@ -544,7 +593,11 @@ export default function CompliancePage() {
                         </div>
                         {affectedControls.length > 0 && (
                           <div className="ml-3.5 mt-1 flex flex-wrap items-center gap-1">
-                            <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Affects</span>
+                            <span
+                              className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary"
+                              title="Illustrative mapping — editorial guidance, not from the framework definition files"
+                            >
+                              May affect</span>
                             {affectedControls.map((c, j) => (
                               <span
                                 key={j}

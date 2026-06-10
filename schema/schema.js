@@ -667,6 +667,59 @@ export const complianceSnapshots = pgTable('compliance_snapshots', {
   createdAt: timestamp('created_at').defaultNow(),
 });
 
+// Scheduled and on-demand compliance export records. Codified from
+// scripts/migrate-compliance-export.mjs (drizzle/0033) — some deploys already
+// created these via that side script, so the DDL stays IF NOT EXISTS.
+export const complianceExports = pgTable('compliance_exports', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  name: text('name').notNull(),
+  frameworks: jsonb('frameworks').notNull().default('[]'),
+  format: text('format').default('markdown'),
+  windowDays: integer('window_days').default(30),
+  includeEvidence: boolean('include_evidence').default(true),
+  includeRemediation: boolean('include_remediation').default(true),
+  includeTrends: boolean('include_trends').default(false),
+  status: text('status').default('pending'),
+  reportContent: text('report_content').default(''),
+  evidenceSummary: jsonb('evidence_summary').default('{}'),
+  snapshotIds: jsonb('snapshot_ids').default('[]'),
+  fileSizeBytes: integer('file_size_bytes').default(0),
+  errorMessage: text('error_message').default(''),
+  requestedBy: text('requested_by').default('user'),
+  startedAt: timestamp('started_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  orgIdx: index('idx_compliance_exports_org').on(table.orgId),
+  statusIdx: index('idx_compliance_exports_status').on(table.orgId, table.status),
+  createdIdx: index('idx_compliance_exports_created').on(table.createdAt),
+}));
+
+// Recurring export schedules. NOTE: nothing executes these on the free tier
+// (no cron) — they are reminders; exports run manually or via "Run now".
+export const complianceSchedules = pgTable('compliance_schedules', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  name: text('name').notNull(),
+  frameworks: jsonb('frameworks').notNull().default('[]'),
+  format: text('format').default('markdown'),
+  windowDays: integer('window_days').default(30),
+  cronExpression: text('cron_expression').notNull(),
+  includeEvidence: boolean('include_evidence').default(true),
+  includeRemediation: boolean('include_remediation').default(true),
+  includeTrends: boolean('include_trends').default(false),
+  enabled: boolean('enabled').default(true),
+  lastRunAt: timestamp('last_run_at', { withTimezone: true }),
+  nextRunAt: timestamp('next_run_at', { withTimezone: true }),
+  lastExportId: text('last_export_id').default(''),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  orgIdx: index('idx_compliance_schedules_org').on(table.orgId),
+  enabledIdx: index('idx_compliance_schedules_enabled').on(table.orgId, table.enabled),
+}));
+
 // --- Routing Engine ---
 
 export const routingAgents = pgTable('routing_agents', {

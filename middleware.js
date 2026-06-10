@@ -1111,7 +1111,9 @@ async function dispatchDemoApiRoute(ctx) {
   return demoJson(ctx.request, { error: 'Demo mode: endpoint disabled.' }, 403);
 }
 
-// Policy test/simulate runs are read-like (no mutation) — allow through demo write-block.
+// Policy test/simulate runs are read-like (no mutation) — allow through demo
+// write-block. modes/import is mocked the same way: demo "applies" a profile
+// without mutating anything, so the /compliance ProfileBand doesn't 403.
 function handleDemoPolicySimulations(request, pathname, method) {
   if (method !== 'POST') return null;
   if (pathname === '/api/policies/test') {
@@ -1119,6 +1121,17 @@ function handleDemoPolicySimulations(request, pathname, method) {
   }
   if (pathname === '/api/policies/simulate') {
     return demoJson(request, demoPolicySimulate(getDemoFixtures(), {}));
+  }
+  if (pathname === '/api/policies/modes/import') {
+    return demoJson(request, {
+      mode_id: 'demo',
+      imported: 6,
+      reactivated: 0,
+      skipped: 0,
+      errors: [],
+      policies: [],
+      demo: true,
+    }, 201);
   }
   return null;
 }

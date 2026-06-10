@@ -63,7 +63,7 @@ const navGroups: NavGroup[] = [
       { href: '/analytics', icon: TrendingUp, label: 'Analytics' },
       { href: '/activity', icon: Activity, label: 'Activity' },
       { href: '/widget', icon: AppWindow, label: 'Status Widget', popout: true },
-      { href: '/compliance/exports', icon: Download, label: 'Compliance' },
+      { href: '/compliance', icon: Download, label: 'Compliance' },
     ],
   },
   {

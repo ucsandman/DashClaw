@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:05bc3d6da3c3b4db6fa724eaaa7efb7df10b39eb",
+  "timestamp": "sha1:c7ed8ca5b47a5373698647049f1aa4d4d7df63f0",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4816,6 +4816,16 @@
     },
     {
       "name": "code_sessions",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "compliance_exports",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "compliance_schedules",
       "file_path": "schema/schema.js",
       "domain": null
     },

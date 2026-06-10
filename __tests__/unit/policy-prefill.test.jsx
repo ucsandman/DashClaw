@@ -2,8 +2,10 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-// A6: a /policies?prefill=<encoded draft> deep-link (from a compliance gap)
-// opens the authoring form prefilled.
+// A6: a /policies/rules?prefill=<encoded draft> deep-link (from a compliance
+// gap) opens the authoring form prefilled. CustomTab is mounted ONLY at
+// /policies/rules — /policies renders PolicyCockpit, which drops ?prefill=,
+// so the compliance page MUST link to /policies/rules (P13 bridge fix).
 vi.mock('@/components/ui/Badge.js', () => ({ Badge: ({ children }) => <span>{children}</span> }));
 vi.mock('@/components/ui/Card.js', () => ({
   Card: ({ children }) => <div>{children}</div>,
@@ -31,14 +33,14 @@ function mockFetch() {
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  window.history.replaceState({}, '', '/policies');
+  window.history.replaceState({}, '', '/policies/rules');
 });
 
 describe('CustomTab — prefill from compliance gap deep-link (A6)', () => {
   it('opens the authoring form when ?prefill= carries a valid draft', async () => {
     vi.stubGlobal('fetch', mockFetch());
     const draft = { name: 'CC6.1: block action type', policy_type: 'block_action_type', rules: { action_types: ['exec'], action: 'block' } };
-    window.history.replaceState({}, '', '/policies?prefill=' + encodeURIComponent(JSON.stringify(draft)));
+    window.history.replaceState({}, '', '/policies/rules?prefill=' + encodeURIComponent(JSON.stringify(draft)));
 
     render(<CustomTab />);
 

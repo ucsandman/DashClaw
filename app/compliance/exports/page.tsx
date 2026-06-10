@@ -14,14 +14,12 @@ import { EmptyState } from '../../components/ui/EmptyState';
 import { ListSkeleton } from '../../components/ui/Skeleton';
 import VerifyReceiptPanel from '../../components/VerifyReceiptPanel';
 import MarkdownBody from '../../messages/_components/MarkdownBody';
+import { FRAMEWORK_LABELS } from '../../lib/compliance/framework-labels';
 
-const FRAMEWORKS = [
-  { id: 'soc2', label: 'SOC 2' },
-  { id: 'iso27001', label: 'ISO 27001' },
-  { id: 'nist-ai-rmf', label: 'NIST AI RMF' },
-  { id: 'eu-ai-act', label: 'EU AI Act' },
-  { id: 'gdpr', label: 'GDPR' },
-];
+// Derived from the drift-guarded label map so this list can never cite a
+// framework with no definition file (the old hardcoded list shipped an EU AI
+// Act entry with no JSON, so exports emitted "Framework not found. Skipping.").
+const FRAMEWORKS = Object.entries(FRAMEWORK_LABELS).map(([id, label]) => ({ id, label }));
 
 const STATUS_CONFIG: Record<string, { icon: typeof CheckCircle; variant: string; color: string; animate?: boolean }> = {
   completed: { icon: CheckCircle, variant: 'success', color: 'text-success' },
@@ -92,6 +90,10 @@ export default function ComplianceExportsPage() {
   const [editingScheduleId, setEditingScheduleId] = useState<string | null>(null);
   const [editingScheduleName, setEditingScheduleName] = useState('');
 
+  // Manual schedule run (nothing executes schedules automatically — no cron
+  // on the free tier — so "Run now" is the only way a schedule produces output)
+  const [runningScheduleId, setRunningScheduleId] = useState<string | null>(null);
+
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
@@ -158,6 +160,29 @@ export default function ComplianceExportsPage() {
   const handleDeleteSchedule = async (id: string) => {
     if (!confirm('Delete this schedule?')) return;
     try { await fetch(`/api/compliance/schedules/${id}`, { method: 'DELETE' }); fetchData(); } catch { alert('Failed to delete schedule'); }
+  };
+
+  const handleRunScheduleNow = async (sch: any) => {
+    setRunningScheduleId(sch.id);
+    try {
+      const fws = typeof sch.frameworks === 'string' ? JSON.parse(sch.frameworks) : sch.frameworks;
+      const res = await fetch('/api/compliance/exports', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${sch.name} (manual run)`,
+          frameworks: fws,
+          format: sch.format,
+          window_days: sch.window_days,
+          include_evidence: !!sch.include_evidence,
+          include_remediation: !!sch.include_remediation,
+          include_trends: !!sch.include_trends,
+        }),
+      });
+      if (res.ok) fetchData();
+      else alert('Failed to run export');
+    } catch { alert('Failed to run export'); }
+    finally { setRunningScheduleId(null); }
   };
 
   const handleToggleSchedule = async (id: string, enabled: boolean) => {
@@ -540,6 +565,10 @@ export default function ComplianceExportsPage() {
           <Card>
             <CardHeader title="Scheduled exports" icon={Calendar} count={schedules.length} />
             <CardContent>
+              <p className="mb-3 text-xs text-tertiary">
+                Schedules do not run automatically on this deployment (no background cron) —
+                they are reminders of your export cadence. Use Run now to generate the export on demand.
+              </p>
               <div className="space-y-2">
                 {schedules.map(sch => {
                   const fws = JSON.parse(typeof sch.frameworks === 'string' ? sch.frameworks : JSON.stringify(sch.frameworks));
@@ -604,6 +633,13 @@ export default function ComplianceExportsPage() {
                         ))}
                       </div>
                       <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          onClick={() => handleRunScheduleNow(sch)}
+                          disabled={runningScheduleId === sch.id}
+                          className="rounded border border-brand/20 bg-brand/10 px-2 py-0.5 text-xs font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15 disabled:opacity-50"
+                        >
+                          {runningScheduleId === sch.id ? 'Running…' : 'Run now'}
+                        </button>
                         <button
                           onClick={() => handleToggleSchedule(sch.id, sch.enabled)}
                           className="rounded border border-border bg-surface-secondary px-2 py-0.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"

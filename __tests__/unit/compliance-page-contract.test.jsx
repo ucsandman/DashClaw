@@ -48,7 +48,8 @@ function mockFetch() {
     if (u === '/api/compliance/frameworks') return { ok: true, json: async () => ({ frameworks: [{ id: 'soc2' }] }) };
     if (u.startsWith('/api/compliance/map')) return { ok: true, json: async () => MAP };
     if (u.startsWith('/api/compliance/gaps')) return { ok: true, json: async () => GAPS };
-    if (u === '/api/compliance/evidence') return { ok: true, json: async () => ({ evidence: { guard_decisions_total: 0, guard_decisions_blocked: 0, approval_requests: 0, action_records_total: 0 } }) };
+    if (u.startsWith('/api/compliance/evidence')) return { ok: true, json: async () => ({ evidence: { guard_decisions_total: 0, guard_decisions_blocked: 0, approval_requests: 0, action_records_total: 0 } }) };
+    if (u === '/api/policies/summary') return { ok: true, json: async () => ({ modes: [] }) };
     if (u === '/api/actions/signals') return { ok: true, json: async () => ({ signals: [] }) };
     return { ok: true, json: async () => ({}) };
   });

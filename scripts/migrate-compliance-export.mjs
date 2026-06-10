@@ -1,5 +1,9 @@
 #!/usr/bin/env node
 
+// SUPERSEDED by drizzle/0033_compliance_exports.sql (applied via the normal
+// `npm run db:migrate` chain). Kept for older deploys that reference it;
+// running it remains harmless — all DDL is IF NOT EXISTS.
+
 // CLAUDE.md: every entry point must surface async rejections.
 process.on("unhandledRejection", (reason) => {
   console.error("Unhandled Rejection:", reason);
