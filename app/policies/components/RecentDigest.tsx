@@ -60,8 +60,12 @@ export default function RecentDigest({ decisions }: RecentDigestProps) {
 
       {rows.length > 0 ? (
         <ul className="mt-2 divide-y divide-border">
+          {/* Rows are tagged guardDecision (not "decision"): these ids are
+              guard_decisions rows, not action_ids — tagging them "decision"
+              made the context-menu Open navigate to a 404 /decisions/[guard_id].
+              guardDecision has no detail route, so the menu offers Copy ID. */}
           {rows.map((d) => (
-            <li key={d.id} data-entity-type="decision" data-entity-id={d.id} className="flex items-baseline gap-3 py-1.5 text-sm">
+            <li key={d.id} data-entity-type="guardDecision" data-entity-id={d.id} className="flex items-baseline gap-3 py-1.5 text-sm">
               <span className="shrink-0 tabular-nums text-tertiary">{formatTime(d.createdAt)}</span>
               <span className={`shrink-0 font-mono text-xs uppercase ${decisionTone(d.decision)}`}>
                 {d.decision.toUpperCase()}

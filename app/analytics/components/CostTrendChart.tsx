@@ -1,6 +1,7 @@
 'use client';
 
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useChartColors } from '../../lib/useChartColors';
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -24,6 +25,8 @@ interface CostTrendChartProps {
 }
 
 export default function CostTrendChart({ daily }: CostTrendChartProps) {
+  // Tokens resolved at runtime — recharts SVG attrs don't honor CSS var().
+  const colors = useChartColors();
   const totalCost = (daily || []).reduce((sum, d) => sum + (d.cost || 0), 0);
   const hasActions = (daily || []).some(d => (d.actions || 0) > 0);
   const noCostData = daily.length === 0 || totalCost === 0;
@@ -47,14 +50,15 @@ export default function CostTrendChart({ daily }: CostTrendChartProps) {
           <AreaChart data={daily} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
             <defs>
               <linearGradient id="costGradient" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#f97316" stopOpacity={0.2} />
-                <stop offset="100%" stopColor="#f97316" stopOpacity={0} />
+                <stop offset="0%" stopColor={colors.brand} stopOpacity={0.2} />
+                <stop offset="100%" stopColor={colors.brand} stopOpacity={0} />
               </linearGradient>
             </defs>
-            <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={45} />
-            <Tooltip content={<CustomTooltip />} />
-            <Area type="monotone" dataKey="cost" stroke="#f97316" fill="url(#costGradient)" strokeWidth={2} dot={false} />
+            <XAxis dataKey="date" tick={{ fill: colors.tick, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
+            <YAxis tick={{ fill: colors.tick, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${v}`} width={45} />
+            {/* Explicit cursor — the recharts default is a light #ccc line. */}
+            <Tooltip content={<CustomTooltip />} cursor={{ stroke: colors.borderHover }} />
+            <Area type="monotone" dataKey="cost" stroke={colors.brand} fill="url(#costGradient)" strokeWidth={2} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
       )}

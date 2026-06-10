@@ -1,6 +1,7 @@
 'use client';
 
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
+import { useChartColors } from '../../lib/useChartColors';
 
 interface CustomTooltipProps {
   active?: boolean;
@@ -26,6 +27,8 @@ interface ActionVolumeChartProps {
 }
 
 export default function ActionVolumeChart({ daily }: ActionVolumeChartProps) {
+  // Tokens resolved at runtime — recharts SVG attrs don't honor CSS var().
+  const colors = useChartColors();
   return (
     <div className="rounded-2xl border border-border bg-surface-secondary p-5">
       <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-4">Action Volume</div>
@@ -34,13 +37,15 @@ export default function ActionVolumeChart({ daily }: ActionVolumeChartProps) {
       ) : (
         <ResponsiveContainer width="100%" height={200}>
           <BarChart data={daily} margin={{ top: 5, right: 5, bottom: 5, left: 5 }}>
-            <XAxis dataKey="date" tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
-            <YAxis tick={{ fill: '#71717a', fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
-            <Tooltip content={<CustomTooltip />} />
-            <Bar dataKey="completed" stackId="a" fill="#22c55e" radius={[0, 0, 0, 0]} />
-            <Bar dataKey="failed" stackId="a" fill="#ef4444" />
-            <Bar dataKey="blocked" stackId="a" fill="#eab308" />
-            <Bar dataKey="other" stackId="a" fill="#52525b" radius={[2, 2, 0, 0]} />
+            <XAxis dataKey="date" tick={{ fill: colors.tick, fontSize: 10 }} axisLine={false} tickLine={false} tickFormatter={(v) => v.slice(5)} />
+            <YAxis tick={{ fill: colors.tick, fontSize: 10 }} axisLine={false} tickLine={false} width={35} />
+            {/* Calm hover band — without an explicit cursor recharts paints a
+                near-white #ccc rect behind the bars on the dark theme. */}
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: colors.border }} />
+            <Bar dataKey="completed" stackId="a" fill={colors.success} radius={[0, 0, 0, 0]} />
+            <Bar dataKey="failed" stackId="a" fill={colors.error} />
+            <Bar dataKey="blocked" stackId="a" fill={colors.warning} />
+            <Bar dataKey="other" stackId="a" fill={colors.muted} radius={[2, 2, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       )}

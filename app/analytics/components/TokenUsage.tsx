@@ -1,4 +1,5 @@
 import { formatCost, formatTokens } from '../../lib/formatCost';
+import { EntityLink } from '../../components/context-menu/EntityLink';
 
 interface TokenUsageProps {
   tokens: any;
@@ -45,7 +46,9 @@ export default function TokenUsage({ tokens }: TokenUsageProps) {
           <div className="space-y-2">
             {tokens.top_consumers.map((c: any) => (
               <div key={c.agent_id} className="flex items-center justify-between text-xs">
-                <span className="text-secondary">{c.agent_name || c.agent_id}</span>
+                <EntityLink type="agent" id={c.agent_id} className="text-secondary">
+                  {c.agent_name || c.agent_id}
+                </EntityLink>
                 <span className="text-secondary">
                   {formatTokens(c.total_tokens)} tokens &middot; {formatCost(c.cost)} &middot; avg {formatTokens(c.avg_per_action)}/action
                 </span>

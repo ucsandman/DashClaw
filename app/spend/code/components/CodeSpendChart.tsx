@@ -23,7 +23,11 @@ export default function CodeSpendChart({ trend, colors }: CodeSpendChartProps) {
         </defs>
         <XAxis dataKey="date" tick={{ fill: colors.tick, fontSize: 10 }} tickFormatter={(v) => String(v).slice(5)} />
         <YAxis tick={{ fill: colors.tick, fontSize: 10 }} tickFormatter={(v) => `$${v}`} width={45} />
-        <Tooltip formatter={(v) => fmt(v)} contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 8, fontSize: 12 }} />
+        <Tooltip
+          formatter={(v) => fmt(v)}
+          cursor={{ stroke: colors.tooltipBorder }}
+          contentStyle={{ background: colors.tooltipBg, border: `1px solid ${colors.tooltipBorder}`, borderRadius: 8, fontSize: 12 }}
+        />
         <Area type="monotone" dataKey="cost" stroke={colors.brand} fill="url(#codeSpendGradient)" strokeWidth={2} />
       </AreaChart>
     </ResponsiveContainer>

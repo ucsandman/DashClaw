@@ -650,12 +650,15 @@ export default function SwarmTopologyPage() {
                         </a>
                       );
                     })}
+                    {/* The ledger filters one agent at a time (no multi-agent
+                        param exists) — link the source side rather than a
+                        plural ?agents= the page would silently ignore. */}
                     {context.shared_actions.length > 3 && (
                       <a
-                        href={`/decisions?agents=${encodeURIComponent(link.source)},${encodeURIComponent(link.target)}`}
+                        href={`/decisions?agent_id=${encodeURIComponent(link.source)}`}
                         className="flex items-center justify-center gap-1 py-1 text-center text-[10px] text-secondary transition-colors hover:text-primary"
                       >
-                        View all {context.shared_actions.length} actions <ArrowRight size={11} />
+                        View {link.source}&apos;s decisions <ArrowRight size={11} />
                       </a>
                     )}
                   </>

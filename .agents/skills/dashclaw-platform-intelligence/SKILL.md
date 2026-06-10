@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:2eae868670bb6951ad4537a4aa3e847431ceda1c`
+**Shape snapshot:** `sha1:dce42f2054338a2bf0dfa2badc890a91aa5b1078`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **255** active API routes across **62** categories
+- **256** active API routes across **62** categories
 - **4** required + **142** optional environment variables
 - **93** database tables
 
@@ -145,9 +145,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/code-sessions/manifests/[manifestId]`
 - `GET` `/api/code-sessions/memos`
 - `POST` `/api/code-sessions/memos/regenerate`
-- `GET` `/api/code-sessions/projects`
+- `DELETE, GET` `/api/code-sessions/projects`
+- `DELETE, GET` `/api/code-sessions/projects/[projectId]`
 - `GET` `/api/code-sessions/projects/[projectId]/sessions`
-- `GET` `/api/code-sessions/sessions/[sessionId]`
+- `DELETE, GET` `/api/code-sessions/sessions/[sessionId]`
 - `GET` `/api/code-sessions/sessions/[sessionId]/autopsy`
 - `GET` `/api/code-sessions/sessions/[sessionId]/insights`
 - `POST` `/api/code-sessions/sessions/[sessionId]/optimal-files/manifest`

@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
@@ -62,9 +63,38 @@ const statusTextMap: Record<string, string> = {
   cancelled: 'text-tertiary',
 };
 
-export default function DecisionsLedger() {
+// Enforcement-type → ledger status alias for /decisions?decision= deep links
+// (analytics Policy Enforcement card). 'warn' has no mapping — warn
+// evaluations never create ledger entries, so analytics doesn't link it.
+const DECISION_TO_STATUS: Record<string, string> = {
+  block: 'blocked',
+  require_approval: 'pending_approval',
+};
+
+// One-shot read of the supported /decisions URL params. Lazy state seeds so
+// shared links (?agent_id=&action_type=&status=&outcome_status=&swarm_id=
+// &risk_min=&decision=) actually filter — they used to be silently ignored.
+function readInitialFilters(searchParams: URLSearchParams | null) {
+  const get = (k: string) => (searchParams?.get(k) || '').trim();
+  const decision = get('decision');
+  const riskMin = get('risk_min');
+  return {
+    agent: get('agent_id'),
+    type: get('action_type'),
+    status: get('status') || (decision ? DECISION_TO_STATUS[decision] || '' : ''),
+    outcome: get('outcome_status'),
+    swarm: get('swarm_id'),
+    riskMin: /^\d+$/.test(riskMin) ? riskMin : null,
+  };
+}
+
+function DecisionsLedgerInner() {
   const { agentId: globalAgentId } = useAgentFilter();
   const { isAdmin } = useEffectiveRole();
+  const searchParams = useSearchParams();
+  // Seed once — later filter changes write back to the URL (replaceState),
+  // they don't re-read it, so there's no router churn loop.
+  const [initialFilters] = useState(() => readInitialFilters(searchParams));
 
   const [actions, setActions] = useState<any[]>([]);
   const [stats, setStats] = useState<any>({});
@@ -82,22 +112,50 @@ export default function DecisionsLedger() {
   const [bulkDeleting, setBulkDeleting] = useState(false);
   useSelectAllHotkey(selection.toggleAll);
 
-  const [filterAgent, setFilterAgent] = useState('');
-  const [filterType, setFilterType] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
-  const [filterOutcome, setFilterOutcome] = useState('');
-  const [filterSwarm, setFilterSwarm] = useState('');
+  const [filterAgent, setFilterAgent] = useState(initialFilters.agent);
+  const [filterType, setFilterType] = useState(initialFilters.type);
+  const [filterStatus, setFilterStatus] = useState(initialFilters.status);
+  const [filterOutcome, setFilterOutcome] = useState(initialFilters.outcome);
+  const [filterSwarm, setFilterSwarm] = useState(initialFilters.swarm);
   const [knownSwarms, setKnownSwarms] = useState<any[]>([]); // accumulates swarm_ids seen, so the dropdown stays stable when filtered
-  const [filterRiskMin, setFilterRiskMin] = useState('1');
+  const [filterRiskMin, setFilterRiskMin] = useState(initialFilters.riskMin ?? '1');
   const [hideRoutine, setHideRoutine] = useState(true);
   const [page, setPage] = useState(0);
   const pageSize = 25;
 
-  // Sync global agent filter → local filter
+  // Sync global agent filter → local filter. Skip the mount run when the URL
+  // seeded ?agent_id — otherwise the (usually empty) global filter clobbers
+  // the deep link before the first fetch.
+  const skipFirstAgentSync = useRef(!!initialFilters.agent);
   useEffect(() => {
+    if (skipFirstAgentSync.current) {
+      skipFirstAgentSync.current = false;
+      return;
+    }
     setFilterAgent(globalAgentId || '');
     setPage(0);
   }, [globalAgentId]);
+
+  // Keep the URL in sync with the active filters (replaceState — shareable
+  // links without history spam). The ?decision= alias is consumed at load;
+  // its canonical written form is status.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    const setOrDel = (k: string, v: string, def = '') => {
+      if (v && v !== def) params.set(k, v);
+      else params.delete(k);
+    };
+    setOrDel('agent_id', filterAgent);
+    setOrDel('action_type', filterType);
+    setOrDel('status', filterStatus);
+    setOrDel('outcome_status', filterOutcome);
+    setOrDel('swarm_id', filterSwarm);
+    setOrDel('risk_min', filterRiskMin, '1');
+    params.delete('decision');
+    const qs = params.toString();
+    window.history.replaceState(null, '', qs ? `${window.location.pathname}?${qs}` : window.location.pathname);
+  }, [filterAgent, filterType, filterStatus, filterOutcome, filterSwarm, filterRiskMin]);
 
   const fetchActions = useCallback(async () => {
     try {
@@ -170,6 +228,19 @@ export default function DecisionsLedger() {
   }, [filterAgent, page, fetchActions]));
 
   useEffect(() => () => { if (liveTimer.current) clearTimeout(liveTimer.current); }, []);
+
+  // Visible, individually clearable indicators for every active filter — a
+  // deep-linked arrival must be able to SEE why the list is narrowed.
+  const activeFilterChips = useMemo(() => {
+    const chips: Array<{ key: string; label: string; clear: () => void }> = [];
+    if (filterAgent) chips.push({ key: 'agent', label: `agent: ${filterAgent}`, clear: () => setFilterAgent('') });
+    if (filterType) chips.push({ key: 'type', label: `type: ${filterType}`, clear: () => setFilterType('') });
+    if (filterStatus) chips.push({ key: 'status', label: `status: ${filterStatus.replace(/_/g, ' ')}`, clear: () => setFilterStatus('') });
+    if (filterOutcome) chips.push({ key: 'outcome', label: `outcome: ${filterOutcome.replace(/_/g, ' ')}`, clear: () => setFilterOutcome('') });
+    if (filterSwarm) chips.push({ key: 'swarm', label: `swarm: ${filterSwarm}`, clear: () => setFilterSwarm('') });
+    if (filterRiskMin && filterRiskMin !== '1') chips.push({ key: 'risk', label: `risk ≥ ${filterRiskMin}`, clear: () => setFilterRiskMin('1') });
+    return chips;
+  }, [filterAgent, filterType, filterStatus, filterOutcome, filterSwarm, filterRiskMin]);
 
   const handleClearActions = async () => {
     const agentLabel = filterAgent || 'all agents';
@@ -410,6 +481,35 @@ export default function DecisionsLedger() {
       {/* Filters */}
       <Card hover={false} className="mb-6">
         <div className="p-4">
+          {activeFilterChips.length > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-1.5" data-testid="active-filters">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                Filtered
+              </span>
+              {activeFilterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={() => { chip.clear(); setPage(0); }}
+                  title="Remove filter"
+                  className="inline-flex items-center gap-1 rounded-full border border-brand/30 bg-brand/10 px-2 py-0.5 font-mono text-[11px] text-brand transition-colors hover:bg-brand/20"
+                >
+                  {chip.label}
+                  <XCircle size={11} aria-hidden="true" />
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setFilterAgent(''); setFilterType(''); setFilterStatus('');
+                  setFilterOutcome(''); setFilterSwarm(''); setFilterRiskMin('1'); setPage(0);
+                }}
+                className="ml-1 text-[11px] font-medium text-tertiary transition-colors hover:text-white"
+              >
+                Clear all
+              </button>
+            </div>
+          )}
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All types</option>
@@ -777,5 +877,15 @@ export default function DecisionsLedger() {
         </CardContent>
       </Card>
     </PageLayout>
+  );
+}
+
+// Next 16: any page reading useSearchParams must render inside a Suspense
+// boundary or `next build` fails (see reference_next16_usesearchparams_suspense).
+export default function DecisionsLedger() {
+  return (
+    <Suspense fallback={null}>
+      <DecisionsLedgerInner />
+    </Suspense>
   );
 }

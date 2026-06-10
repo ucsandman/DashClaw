@@ -56,10 +56,14 @@ export default function AnalyticsPage() {
 
   useEffect(() => { fetchAnalytics(); }, [fetchAnalytics]);
 
+  // Each enforcement row carries its guard decision value so rows can deep-link
+  // into the ledger. 'warn' stays decision:null — warn evaluations never create
+  // ledger entries, so a link would filter to nothing (the silent-no-op bug
+  // class this sweep removes).
   const policyItems = data ? [
-    { label: 'Blocked', count: data.policy_enforcement.blocked, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.blocked / data.policy_enforcement.total) * 1000) / 10 : 0 },
-    { label: 'Approvals', count: data.policy_enforcement.require_approval, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.require_approval / data.policy_enforcement.total) * 1000) / 10 : 0 },
-    { label: 'Warnings', count: data.policy_enforcement.warn, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.warn / data.policy_enforcement.total) * 1000) / 10 : 0 },
+    { label: 'Blocked', decision: 'block', count: data.policy_enforcement.blocked, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.blocked / data.policy_enforcement.total) * 1000) / 10 : 0 },
+    { label: 'Approvals', decision: 'require_approval', count: data.policy_enforcement.require_approval, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.require_approval / data.policy_enforcement.total) * 1000) / 10 : 0 },
+    { label: 'Warnings', decision: null, count: data.policy_enforcement.warn, pct: data.policy_enforcement.total > 0 ? Math.round((data.policy_enforcement.warn / data.policy_enforcement.total) * 1000) / 10 : 0 },
   ] : [];
 
   return (
@@ -119,18 +123,21 @@ export default function AnalyticsPage() {
               items={data.by_agent}
               labelKey="agent_name"
               countLabel="cost"
+              hrefFor={(i) => (i.agent_id ? `/agents/${encodeURIComponent(i.agent_id)}` : null)}
             />
             <BreakdownCard
               title="By Action Type"
               items={data.by_action_type}
               labelKey="action_type"
               countLabel="cost"
+              hrefFor={(i) => (i.action_type ? `/decisions?action_type=${encodeURIComponent(i.action_type)}` : null)}
             />
             <BreakdownCard
               title="Policy Enforcement"
               items={policyItems}
               labelKey="label"
               countLabel="count"
+              hrefFor={(i) => (i.decision ? `/decisions?decision=${encodeURIComponent(i.decision)}` : null)}
             />
           </div>
 
