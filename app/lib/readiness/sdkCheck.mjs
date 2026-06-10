@@ -1,5 +1,5 @@
 import { createSection, createCheck } from './factories.mjs';
-import { getNodeStarterSnippet, getPythonStarterSnippet } from '../starterSnippet.js';
+import { getNodeStarterSnippet, getPythonStarterSnippet } from '../starterSnippet';
 
 export function getBaseUrl(host) {
   if (!host) return 'https://your-dashclaw-instance.example.com';

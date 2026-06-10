@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { scoreAction, batchScoreActions, listProfileScores, getProfileScoreStats } from '../../../lib/scoringProfiles.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { scoreAction, batchScoreActions, listProfileScores, getProfileScoreStats } from '../../../lib/scoringProfiles';
 
 export async function GET(request: Request) {
   try {

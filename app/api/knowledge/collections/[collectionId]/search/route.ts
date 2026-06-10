@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../lib/apiErrors.js';
-import { getCollection } from '../../../../../lib/repositories/knowledge.repository.js';
-import { searchCollection } from '../../../../../lib/knowledge-ingest.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../lib/apiErrors';
+import { getCollection } from '../../../../../lib/repositories/knowledge.repository';
+import { searchCollection } from '../../../../../lib/knowledge-ingest';
 
 /**
  * POST /api/knowledge/collections/:collectionId/search

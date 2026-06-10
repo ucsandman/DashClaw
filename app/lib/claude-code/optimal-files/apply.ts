@@ -10,8 +10,8 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { absolutize, sideBySidePath } from './bundle.js';
-import { scanForSecrets } from './secret-scan.js';
+import { absolutize, sideBySidePath } from './bundle';
+import { scanForSecrets } from './secret-scan';
 
 interface PlanEntry {
   path?: string;

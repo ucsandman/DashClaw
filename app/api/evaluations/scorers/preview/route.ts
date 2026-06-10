@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { executeScorer } from '../../../../lib/eval.js';
+import { executeScorer } from '../../../../lib/eval';
 
 // Mirrors the create-scorer route's allowed set (app/api/evaluations/scorers/route.js).
 const VALID_SCORER_TYPES = ['regex', 'contains', 'numeric_range', 'custom_function', 'llm_judge'];

@@ -1,5 +1,5 @@
 import { getSdkCommands } from './readiness.mjs';
-import { getNodeStarterSnippet, getPythonStarterSnippet } from './starterSnippet.js';
+import { getNodeStarterSnippet, getPythonStarterSnippet } from './starterSnippet';
 
 const DEPLOYED_BASE_URL_PLACEHOLDER = 'https://your-dashclaw-instance.example.com';
 const LOCAL_BASE_URL_PLACEHOLDER = 'http://localhost:3000';

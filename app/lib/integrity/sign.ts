@@ -7,9 +7,9 @@
  */
 
 import { sign as cryptoSign, verify as cryptoVerify } from 'node:crypto';
-import { canonicalizeJson } from './canonicalize.js';
-import { privateKeyObjectFromJwk, publicKeyObjectFromJwk } from './keys.js';
-import type { Ed25519Jwk } from './keys.js';
+import { canonicalizeJson } from './canonicalize';
+import { privateKeyObjectFromJwk, publicKeyObjectFromJwk } from './keys';
+import type { Ed25519Jwk } from './keys';
 
 export interface CanonicalSignature {
   alg: 'EdDSA';

@@ -7,7 +7,7 @@
  * ("$2000" vs "$2,000.00") compares equal on `normalized`.
  */
 
-import { assertSafePattern } from './pattern-safety.js';
+import { assertSafePattern } from './pattern-safety';
 
 const MONEY_RE = /\$\s?\d{1,3}(?:,\d{3})+(?:\.\d{1,2})?|\$\s?\d+(?:\.\d{1,2})?/g;
 const PERCENT_RE = /\d+(?:\.\d+)?\s?%/g;

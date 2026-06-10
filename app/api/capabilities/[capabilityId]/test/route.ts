@@ -3,18 +3,18 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
 import {
   executeCapabilityInvocation,
   prepareCapabilityInvocation,
-} from '../../../../lib/capability-runtime.js';
-import { updateCapability } from '../../../../lib/repositories/capabilities.repository.js';
+} from '../../../../lib/capability-runtime';
+import { updateCapability } from '../../../../lib/repositories/capabilities.repository';
 import {
   createActionRecord,
   updateActionOutcome,
-} from '../../../../lib/repositories/actions.repository.js';
+} from '../../../../lib/repositories/actions.repository';
 
 function mapPreparationError(capabilityId: string, err: unknown) {
   const message = (err as Error).message;

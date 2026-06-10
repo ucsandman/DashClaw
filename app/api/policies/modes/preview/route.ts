@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { POLICY_MODE_CATALOG } from '../../../../lib/policy-modes/catalog.js';
-import { compileMode, nominalDecision, summarizeModePack, UnknownPolicyModeError } from '../../../../lib/policy-modes/compile.js';
-import { previewModeFriction } from '../../../../lib/policy-modes/friction.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { POLICY_MODE_CATALOG } from '../../../../lib/policy-modes/catalog';
+import { compileMode, nominalDecision, summarizeModePack, UnknownPolicyModeError } from '../../../../lib/policy-modes/compile';
+import { previewModeFriction } from '../../../../lib/policy-modes/friction';
 
 /**
  * POST /api/policies/modes/preview — compile a mode and preview its effect

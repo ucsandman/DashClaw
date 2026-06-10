@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getCurrentPeriod } from '../../../lib/usage.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { getSql } from '../../../lib/db';
+import { getCurrentPeriod } from '../../../lib/usage';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 export async function GET(request: Request) {
   try {

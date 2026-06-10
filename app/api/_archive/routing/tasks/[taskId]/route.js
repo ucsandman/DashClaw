@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../../lib/org.js';
-import { getSql } from '../../../../../lib/db.js';
-import { deleteTask, getTask } from '../../../../../lib/repositories/routing.repository.js';
+import { getOrgId } from '../../../../../lib/org';
+import { getSql } from '../../../../../lib/db';
+import { deleteTask, getTask } from '../../../../../lib/repositories/routing.repository';
 
 export async function DELETE(request, { params }) {
   try {

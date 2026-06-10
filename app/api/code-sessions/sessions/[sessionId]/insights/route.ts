@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
 import {
   getSessionInsights,
   listSignalsForSession,
-} from '../../../../../lib/repositories/code-sessions.repository.js';
-import { detectRepeatedRuns } from '../../../../../lib/claude-code/repeated-runs.js';
-import type { ToolEvent } from '../../../../../lib/claude-code/repeated-runs.js';
+} from '../../../../../lib/repositories/code-sessions.repository';
+import { detectRepeatedRuns } from '../../../../../lib/claude-code/repeated-runs';
+import type { ToolEvent } from '../../../../../lib/claude-code/repeated-runs';
 
 export async function GET(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;

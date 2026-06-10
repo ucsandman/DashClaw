@@ -9,7 +9,7 @@
  */
 
 import path from 'node:path';
-import { SECRET_PATTERNS, scanForSecrets } from './optimal-files/secret-scan.js';
+import { SECRET_PATTERNS, scanForSecrets } from './optimal-files/secret-scan';
 
 // The secret pattern table lives in exactly one place — the Optimal Files
 // secret-scan module (its declared single source of truth). Re-exported here

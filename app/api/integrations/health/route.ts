@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { getHealthForOrg } from '../../../lib/repositories/integration-health.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { getHealthForOrg } from '../../../lib/repositories/integration-health.repository';
 
 export const dynamic = 'force-dynamic';
 

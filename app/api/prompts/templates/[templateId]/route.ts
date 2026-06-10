@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../../lib/org.js';
-import { getTemplate, updateTemplate, deleteTemplate } from '../../../../lib/prompt.js';
+import { getOrgRole } from '../../../../lib/org';
+import { getTemplate, updateTemplate, deleteTemplate } from '../../../../lib/prompt';
 
 function requireAdmin(request: Request) {
   if (getOrgRole(request) !== 'admin') {

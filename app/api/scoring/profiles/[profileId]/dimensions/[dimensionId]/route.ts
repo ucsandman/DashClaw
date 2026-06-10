@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getSql } from '../../../../../../lib/db.js';
-import { getOrgId } from '../../../../../../lib/org.js';
-import { updateDimension, deleteDimension } from '../../../../../../lib/scoringProfiles.js';
+import { getSql } from '../../../../../../lib/db';
+import { getOrgId } from '../../../../../../lib/org';
+import { updateDimension, deleteDimension } from '../../../../../../lib/scoringProfiles';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ profileId: string; dimensionId: string }> }) {
   try {

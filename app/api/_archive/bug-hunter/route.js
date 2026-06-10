@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../lib/org.js';
-import { getSql } from '../../../lib/db.js';
-import { listScans, getScanStats, insertScan } from '../../../lib/repositories/bugHunter.repository.js';
+import { getOrgId } from '../../../lib/org';
+import { getSql } from '../../../lib/db';
+import { listScans, getScanStats, insertScan } from '../../../lib/repositories/bugHunter.repository';
 
 export async function GET(request) {
   try {

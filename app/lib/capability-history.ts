@@ -1,4 +1,4 @@
-import { isLegacyActionRecordsError } from './capability-compat.js';
+import { isLegacyActionRecordsError } from './capability-compat';
 
 // Tagged-template SQL client (Neon). Also callable as `sql`` for inline
 // fragments interpolated back into a parent query, so the return type is

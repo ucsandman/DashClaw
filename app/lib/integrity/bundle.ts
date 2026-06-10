@@ -13,10 +13,10 @@
  * (`issuedAt` is issuer-asserted; there is no trusted timestamp).
  */
 
-import { digestJson } from './canonicalize.js';
-import { signCanonical, verifyCanonical } from './sign.js';
-import type { CanonicalSignature } from './sign.js';
-import { ENGINE_VERSION } from './receipt.js';
+import { digestJson } from './canonicalize';
+import { signCanonical, verifyCanonical } from './sign';
+import type { CanonicalSignature } from './sign';
+import { ENGINE_VERSION } from './receipt';
 
 export const BUNDLE_VERSION = 'dashclaw-compliance-bundle/v1';
 

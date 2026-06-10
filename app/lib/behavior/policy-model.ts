@@ -11,10 +11,10 @@
  * a guard policy in V1.
  */
 
-import { matchesProtectedPath, classifyProtectedPath, PROTECTED_PATH_GROUPS } from './path-match.js';
-import { isBelowTier } from './model-tier.js';
-import type { ModelTier } from './model-tier.js';
-import { classifyTask } from './task-classifier.js';
+import { matchesProtectedPath, classifyProtectedPath, PROTECTED_PATH_GROUPS } from './path-match';
+import { isBelowTier } from './model-tier';
+import type { ModelTier } from './model-tier';
+import { classifyTask } from './task-classifier';
 
 export const RULE_KINDS = Object.freeze({
   DESTRUCTIVE_COMMAND_APPROVAL: 'destructive_command_approval',

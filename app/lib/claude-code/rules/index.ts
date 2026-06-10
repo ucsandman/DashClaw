@@ -3,13 +3,13 @@
  * default `{ id, inspect }` shape.
  */
 
-import MODEL_DOWNSHIFT from './model-downshift.js';
-import CACHE_WRITE_BLOAT from './cache-write-bloat.js';
-import STUCK_LOOP_COST from './stuck-loop-cost.js';
-import SUBAGENT_PROMPT_BLOAT from './subagent-prompt-bloat.js';
-import REPEATED_READ_CYCLES from './repeated-read-cycles.js';
-import BAD_CACHE_HIT from './bad-cache-hit.js';
-import CONTEXT_GAPS_DETECTED from './context-gaps.js';
+import MODEL_DOWNSHIFT from './model-downshift';
+import CACHE_WRITE_BLOAT from './cache-write-bloat';
+import STUCK_LOOP_COST from './stuck-loop-cost';
+import SUBAGENT_PROMPT_BLOAT from './subagent-prompt-bloat';
+import REPEATED_READ_CYCLES from './repeated-read-cycles';
+import BAD_CACHE_HIT from './bad-cache-hit';
+import CONTEXT_GAPS_DETECTED from './context-gaps';
 
 export const ALL_RULES = [
   MODEL_DOWNSHIFT,

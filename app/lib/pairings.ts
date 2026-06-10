@@ -1,4 +1,4 @@
-import { getSql } from './db.js';
+import { getSql } from './db';
 
 /** Tagged-template SQL executor (Neon/postgres form). */
 type SqlClient = (strings: TemplateStringsArray, ...values: unknown[]) => Promise<unknown[]>;

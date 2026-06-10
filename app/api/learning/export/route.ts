@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { listDecisions } from '../../../lib/repositories/learning.repository.js';
-import { listLearningRecommendations } from '../../../lib/repositories/learningLoop.repository.js';
-import { renderLearningExport } from '../../../lib/learning-export.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { listDecisions } from '../../../lib/repositories/learning.repository';
+import { listLearningRecommendations } from '../../../lib/repositories/learningLoop.repository';
+import { renderLearningExport } from '../../../lib/learning-export';
 
 const isMissingTable = (err: unknown) =>
   String((err as { code?: string })?.code || '').includes('42P01') ||

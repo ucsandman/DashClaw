@@ -3,11 +3,11 @@ export const revalidate = 0;
 export const maxDuration = 20;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { detectRepeatedRuns } from '../../../lib/claude-code/repeated-runs.js';
-import { runOptimizer } from '../../../lib/claude-code/optimizer.js';
-import { detectForSession } from '../../../lib/claude-code/alerts.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { detectRepeatedRuns } from '../../../lib/claude-code/repeated-runs';
+import { runOptimizer } from '../../../lib/claude-code/optimizer';
+import { detectForSession } from '../../../lib/claude-code/alerts';
 import {
   upsertProject,
   appendLiveTurn,
@@ -17,7 +17,7 @@ import {
   replaceSignalsForSession,
   insertAlerts,
   listProjects,
-} from '../../../lib/repositories/code-sessions.repository.js';
+} from '../../../lib/repositories/code-sessions.repository';
 
 // Per-turn payload is small (a few KB). Cap structural inputs to bound abuse.
 const MAX_BODY_BYTES = 64 * 1024;

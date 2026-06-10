@@ -1,7 +1,7 @@
 import crypto from 'crypto';
-import { getSql } from './db.js';
-import { getOrgId } from './org.js';
-import { average, quantile } from './learning-loop.js';
+import { getSql } from './db';
+import { getOrgId } from './org';
+import { average, quantile } from './learning-loop';
 
 // getSql() / the Neon tagged-template client are sourced from untyped JS
 // modules; this is the established tagged-template + `.query` surface.

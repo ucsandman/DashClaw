@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { isEmbeddingsEnabled } from '../../lib/embeddings.js';
-import { getRealtimeHealth } from '../../lib/events.js';
-import { checkCoreTables } from '../../lib/schemaCheck.js';
+import { getSql } from '../../lib/db';
+import { isEmbeddingsEnabled } from '../../lib/embeddings';
+import { getRealtimeHealth } from '../../lib/events';
+import { checkCoreTables } from '../../lib/schemaCheck';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);

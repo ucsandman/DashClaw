@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { getSql } from '../../../lib/db.js';
+import { getSql } from '../../../lib/db';
 
 const PRICE_TO_PLAN: Record<string, string> = {};
 

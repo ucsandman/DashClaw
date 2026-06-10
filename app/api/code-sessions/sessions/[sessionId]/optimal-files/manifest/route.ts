@@ -2,18 +2,18 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../../lib/db.js';
-import { getOrgId } from '../../../../../../lib/org.js';
+import { getSql } from '../../../../../../lib/db';
+import { getOrgId } from '../../../../../../lib/org';
 import {
   buildOptimalFilesBundle,
   planBundleSelections,
-} from '../../../../../../lib/claude-code/optimal-files/bundle.js';
+} from '../../../../../../lib/claude-code/optimal-files/bundle';
 import {
   getSessionDetail,
   getProjectMedianCost,
   getSimilarSessionCount,
   saveManifest,
-} from '../../../../../../lib/repositories/code-sessions.repository.js';
+} from '../../../../../../lib/repositories/code-sessions.repository';
 
 // `.claude/agentlens/` is the legacy (pre-rename) prefix, kept so manifests
 // minted by an older client still apply within their 24h TTL.

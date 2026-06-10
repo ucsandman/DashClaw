@@ -3,7 +3,7 @@
  * suggesting prompt-prefix churn that invalidates the cache every turn.
  */
 
-import { priceFor } from '../pricing.js';
+import { priceFor } from '../pricing';
 
 interface SessionLike {
   cache_creation_tokens?: number | null;

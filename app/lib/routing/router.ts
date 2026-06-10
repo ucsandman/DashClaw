@@ -5,9 +5,9 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { listAgents, updateMetrics, getAllMetrics } from './registry.js';
-import { findBestMatch, rankAgents } from './matcher.js';
-import { safeUrlWithIps, buildPinnedDispatcher } from '../webhooks.js';
+import { listAgents, updateMetrics, getAllMetrics } from './registry';
+import { findBestMatch, rankAgents } from './matcher';
+import { safeUrlWithIps, buildPinnedDispatcher } from '../webhooks';
 import type { SqlTag } from '../types/db';
 
 type Row = Record<string, unknown>;

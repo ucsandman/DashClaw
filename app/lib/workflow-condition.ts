@@ -4,7 +4,7 @@
  * No dynamic code execution — uses the same resolveVars as step config interpolation.
  */
 
-import { resolveVars } from './template-vars.js';
+import { resolveVars } from './template-vars';
 
 const FALSY_STRINGS = new Set(['false', '0', '']);
 

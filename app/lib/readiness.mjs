@@ -5,7 +5,7 @@
 
 import { getSetupStatus } from './setupStatus.mjs';
 import { getAuthConfig } from './authConfig.mjs';
-import { getSql } from './db.js';
+import { getSql } from './db';
 
 import { REQUIRED_ENV_VARS, ADVISORY_ENV_VARS } from './readiness/constants.mjs';
 import { buildApplicationSection } from './readiness/applicationCheck.mjs';

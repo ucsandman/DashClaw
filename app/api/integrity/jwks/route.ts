@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getServerPublicJwks } from '../../../lib/integrity/server-key.js';
+import { getSql } from '../../../lib/db';
+import { getServerPublicJwks } from '../../../lib/integrity/server-key';
 
 /**
  * GET /api/integrity/jwks — public JWKS for re-verifying DashClaw-issued proof

@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { isHostedMode, hostedConfig } from '../../../lib/hosted/flag.js';
-import { verifyTurnstile } from '../../../lib/hosted/turnstile.js';
-import { createRateLimiter } from '../../../lib/hosted/rate-limit.js';
-import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository.js';
-import { getSql } from '../../../lib/db.js';
+import { isHostedMode, hostedConfig } from '../../../lib/hosted/flag';
+import { verifyTurnstile } from '../../../lib/hosted/turnstile';
+import { createRateLimiter } from '../../../lib/hosted/rate-limit';
+import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository';
+import { getSql } from '../../../lib/db';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 let _limiter: (ReturnType<typeof createRateLimiter> & { _max?: number }) | null = null;

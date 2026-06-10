@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../lib/org.js';
-import { listTemplates, createTemplate } from '../../../lib/prompt.js';
+import { getOrgRole } from '../../../lib/org';
+import { listTemplates, createTemplate } from '../../../lib/prompt';
 
 export async function GET(request: Request) {
   try {

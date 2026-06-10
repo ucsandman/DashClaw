@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { checkAllIntegrations } from '../../../lib/integration-health.js';
-import { upsertHealth, getActiveOrgIds } from '../../../lib/repositories/integration-health.repository.js';
-import { fireHealthChangeAlerts } from '../../../lib/health-change-alerts.js';
+import { getSql } from '../../../lib/db';
+import { checkAllIntegrations } from '../../../lib/integration-health';
+import { upsertHealth, getActiveOrgIds } from '../../../lib/repositories/integration-health.repository';
+import { fireHealthChangeAlerts } from '../../../lib/health-change-alerts';
 import { timingSafeEqual } from 'crypto';
 
 export const dynamic = 'force-dynamic';

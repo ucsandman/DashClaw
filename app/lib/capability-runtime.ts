@@ -1,9 +1,9 @@
-import { invokeCapability, resolveAuth } from './capability-invoke.js';
-import { assertPayloadMatchesSchema, validateInvocationSchema } from './capability-contracts.js';
-import { resolveEndpointUrl } from './mapping.js';
-import { getCapability } from './repositories/capabilities.repository.js';
-import { getSettings } from './repositories/settings.repository.js';
-import type { SqlTag } from './types/db.js';
+import { invokeCapability, resolveAuth } from './capability-invoke';
+import { assertPayloadMatchesSchema, validateInvocationSchema } from './capability-contracts';
+import { resolveEndpointUrl } from './mapping';
+import { getCapability } from './repositories/capabilities.repository';
+import { getSettings } from './repositories/settings.repository';
+import type { SqlTag } from './types/db';
 
 interface InvocationSchema {
   auth?: unknown;

@@ -2,10 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
-import PageLayout from '../../../../components/PageLayout.js';
-import WorkflowRunHeader from './components/WorkflowRunHeader.jsx';
-import WorkflowRunTimeline from './components/WorkflowRunTimeline.jsx';
-import ArtifactsTab from '../../../../components/ArtifactsTab.jsx';
+import PageLayout from '../../../../components/PageLayout';
+import WorkflowRunHeader from './components/WorkflowRunHeader';
+import WorkflowRunTimeline from './components/WorkflowRunTimeline';
+import ArtifactsTab from '../../../../components/ArtifactsTab';
 import Link from 'next/link';
 
 export default function WorkflowRunDetailPage() {

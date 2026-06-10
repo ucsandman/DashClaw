@@ -5,7 +5,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import type { SqlTag } from '../types/db.js';
+import type { SqlTag } from '../types/db';
 
 type AgentRow = Record<string, unknown>;
 

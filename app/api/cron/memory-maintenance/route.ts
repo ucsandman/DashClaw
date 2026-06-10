@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { runMemoryMaintenance } from '../../../lib/maintenance.js';
-import { logActivity } from '../../../lib/audit.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { getSql } from '../../../lib/db';
+import { runMemoryMaintenance } from '../../../lib/maintenance';
+import { logActivity } from '../../../lib/audit';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 // GET /api/cron/memory-maintenance - Vercel Cron handler
 export async function GET(request: Request) {

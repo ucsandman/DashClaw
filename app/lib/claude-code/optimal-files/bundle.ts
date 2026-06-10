@@ -22,15 +22,15 @@
  */
 
 import path from 'node:path';
-import { analyzeSession } from './analyze.js';
-import { generateRootClaudeMd } from './root-claude-md.js';
-import { generateSessionPack } from './session-pack.js';
-import { generatePathRules } from './path-rules.js';
-import { generateHooksBundle } from './hooks-bundle.js';
-import { generateRecipe } from './recipe.js';
-import { generateSkillCandidates } from './skills.js';
-import { scanFiles } from './secret-scan.js';
-import { previewMerge, applyMerge } from './merge.js';
+import { analyzeSession } from './analyze';
+import { generateRootClaudeMd } from './root-claude-md';
+import { generateSessionPack } from './session-pack';
+import { generatePathRules } from './path-rules';
+import { generateHooksBundle } from './hooks-bundle';
+import { generateRecipe } from './recipe';
+import { generateSkillCandidates } from './skills';
+import { scanFiles } from './secret-scan';
+import { previewMerge, applyMerge } from './merge';
 
 // Bundle files are produced by a mix of generators (some already typed, some
 // still JS). They share a common loose shape: a `path` + `content` plus the

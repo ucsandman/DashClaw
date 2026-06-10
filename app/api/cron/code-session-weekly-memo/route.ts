@@ -3,14 +3,14 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
-import { generateMemo } from '../../../lib/claude-code/memo.js';
+import { getSql } from '../../../lib/db';
+import { timingSafeCompare } from '../../../lib/timing-safe';
+import { generateMemo } from '../../../lib/claude-code/memo';
 import {
   getProjectSessionsChronological,
   saveMemo,
   listProjectsWithSessions,
-} from '../../../lib/repositories/code-sessions.repository.js';
+} from '../../../lib/repositories/code-sessions.repository';
 
 export async function GET(request: Request) {
   try {

@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { scanSkillContent, hashContent } from '../../../lib/skill-scanner.js';
-import { getCachedScan, upsertScan } from '../../../lib/repositories/skill-scan-results.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { scanSkillContent, hashContent } from '../../../lib/skill-scanner';
+import { getCachedScan, upsertScan } from '../../../lib/repositories/skill-scan-results.repository';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

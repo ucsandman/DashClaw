@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../lib/org.js';
-import { seedDefaultData } from '../../lib/scoringProfiles.js';
+import { getSql } from '../../lib/db';
+import { getOrgId, getOrgRole } from '../../lib/org';
+import { seedDefaultData } from '../../lib/scoringProfiles';
 import crypto from 'crypto';
 
 // Hash API key using Node crypto (server-side)

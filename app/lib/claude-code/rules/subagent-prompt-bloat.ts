@@ -3,7 +3,7 @@
  * subagent-style invocations suggest a shared prefix above the threshold.
  */
 
-import { priceFor } from '../pricing.js';
+import { priceFor } from '../pricing';
 
 interface SubagentInvocation {
   parentTool?: string | null;

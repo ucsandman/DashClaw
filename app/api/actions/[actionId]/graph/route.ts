@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { buildActionGraph } from '../../../../lib/repositories/actions.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { buildActionGraph } from '../../../../lib/repositories/actions.repository';
 
 /**
  * GET /api/actions/:actionId/graph

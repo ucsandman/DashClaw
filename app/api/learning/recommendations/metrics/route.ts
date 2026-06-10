@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
 import {
   listLearningEpisodes,
   listLearningRecommendations,
-} from '../../../../lib/repositories/learningLoop.repository.js';
-import { getLearningRecommendationMetrics } from '../../../../lib/learningLoop.service.js';
+} from '../../../../lib/repositories/learningLoop.repository';
+import { getLearningRecommendationMetrics } from '../../../../lib/learningLoop.service';
 
 function parseBoundedIntSafe(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = parseInt(String(value ?? ''), 10);

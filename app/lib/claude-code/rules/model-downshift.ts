@@ -7,7 +7,7 @@
  *   - message_count ≥ 3 (excludes single-shot sessions)
  */
 
-import { priceFor } from '../pricing.js';
+import { priceFor } from '../pricing';
 
 const ID = 'MODEL_DOWNSHIFT';
 

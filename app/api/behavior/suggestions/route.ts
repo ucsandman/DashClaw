@@ -4,15 +4,15 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { readSamples, readDismissals, writeDismissal } from '../../../lib/behavior/sample-store.js';
-import { analyzeSamples } from '../../../lib/behavior/analyzer.js';
-import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate.js';
-import { behaviorRuleToGuardPolicy } from '../../../lib/behavior/policy-model.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { readSamples, readDismissals, writeDismissal } from '../../../lib/behavior/sample-store';
+import { analyzeSamples } from '../../../lib/behavior/analyzer';
+import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
+import { behaviorRuleToGuardPolicy } from '../../../lib/behavior/policy-model';
 import { validatePolicy } from '../../../lib/validate.js';
-import { insertPolicy } from '../../../lib/repositories/guardrails.repository.js';
-import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
+import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
 
 const EDITABLE_RULE_KEYS = ['action', 'risk_threshold', 'paths', 'max_reloads', 'window_minutes', 'max_failures', 'min_tier'];
 

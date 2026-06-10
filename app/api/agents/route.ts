@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
-import { attachAgentConnections, listAgentsForOrg } from '../../lib/repositories/agents.repository.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
+import { attachAgentConnections, listAgentsForOrg } from '../../lib/repositories/agents.repository';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

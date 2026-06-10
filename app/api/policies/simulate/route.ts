@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { evaluatePolicy } from '../../../lib/guard.js';
-import { listActionsForSimulation } from '../../../lib/repositories/actions.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { evaluatePolicy } from '../../../lib/guard';
+import { listActionsForSimulation } from '../../../lib/repositories/actions.repository';
 
 /**
  * POST /api/policies/simulate — Dry-run a policy against historical actions.

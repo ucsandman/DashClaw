@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
-import { getDefaultProviderModel } from '../../../lib/providers/providerRegistry.js';
+import { getDefaultProviderModel } from '../../../lib/providers/providerRegistry';
 // SSRF defense lives in the shared module — never duplicate the regex here.
-import { isPrivateIP, assertSafeFetchUrl, safeFetch as safeBaseFetch } from '../../../lib/url-safety.js';
+import { isPrivateIP, assertSafeFetchUrl, safeFetch as safeBaseFetch } from '../../../lib/url-safety';
 
 export const dynamic = 'force-dynamic';
 

@@ -1,10 +1,10 @@
 import GitHubProvider from 'next-auth/providers/github';
 import GoogleProvider from 'next-auth/providers/google';
 import crypto from 'crypto';
-import { getSql } from './db.js';
+import { getSql } from './db';
 import { getAuthConfig } from './authConfig.mjs';
-import { isHostedMode, hostedConfig } from './hosted/flag.js';
-import { applyHostedTrial, markTrialFull, countActiveTrials } from './repositories/hosted-workspace.repository.js';
+import { isHostedMode, hostedConfig } from './hosted/flag';
+import { applyHostedTrial, markTrialFull, countActiveTrials } from './repositories/hosted-workspace.repository';
 
 // SECURITY: In production, require real OAuth credentials. Dev mode may use mocks.
 const isProd = process.env.NODE_ENV === 'production';

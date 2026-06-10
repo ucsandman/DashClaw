@@ -4,8 +4,8 @@
  * in the Policy Coach. Deterministic; uses the same evaluator as the analyzer.
  */
 
-import { evaluateRuleOverSamples, RULE_KINDS, tsMs } from './policy-model.js';
-import type { BehaviorRule } from './policy-model.js';
+import { evaluateRuleOverSamples, RULE_KINDS, tsMs } from './policy-model';
+import type { BehaviorRule } from './policy-model';
 
 const MAX_EXAMPLES = 12;
 

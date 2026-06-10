@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { canonicalJsonStringify } from './canonical-json.js';
+import { canonicalJsonStringify } from './canonical-json';
 import type { SqlTag } from './types/db';
 
 /**

@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { validateInvocationSchema } from '../capability-contracts.js';
+import { validateInvocationSchema } from '../capability-contracts';
 import type { SqlTag } from '../types/db';
 
 // ─────────────────────────────────────────────────────────────────────────────

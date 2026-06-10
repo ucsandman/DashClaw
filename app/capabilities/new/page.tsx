@@ -7,10 +7,10 @@ import { ArrowLeft, Save, Wrench } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { compileCapabilityPayload } from '../lib/capabilityFormModel.js';
-import CapabilityModeSelector from './components/CapabilityModeSelector.jsx';
-import CapabilityBasicsSection from './components/CapabilityBasicsSection.jsx';
-import CapabilityHttpRuntimeSection from './components/CapabilityHttpRuntimeSection.jsx';
-import CapabilitySummaryCard from './components/CapabilitySummaryCard.jsx';
+import CapabilityModeSelector from './components/CapabilityModeSelector';
+import CapabilityBasicsSection from './components/CapabilityBasicsSection';
+import CapabilityHttpRuntimeSection from './components/CapabilityHttpRuntimeSection';
+import CapabilitySummaryCard from './components/CapabilitySummaryCard';
 
 function splitTags(tags: string): string[] {
   return tags.split(',').map((tag) => tag.trim()).filter(Boolean);

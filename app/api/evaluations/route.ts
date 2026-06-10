@@ -3,9 +3,9 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
-import { listEvalScores, createEvalScore } from '../../lib/repositories/evaluations.repository.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
+import { listEvalScores, createEvalScore } from '../../lib/repositories/evaluations.repository';
 
 function generateId(prefix: string): string {
   return `${prefix}${crypto.randomBytes(12).toString('hex')}`;

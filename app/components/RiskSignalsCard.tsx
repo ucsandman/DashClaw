@@ -11,7 +11,7 @@ import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { useRealtime } from '../hooks/useRealtime';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 import { signalDismissKey as getSignalHash } from '../lib/signal-hash';
 
 export default function RiskSignalsCard() {

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { updateSchedule, deleteSchedule } from '../../../../lib/compliance/exporter.js';
+import { updateSchedule, deleteSchedule } from '../../../../lib/compliance/exporter';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ scheduleId: string }> }) {
   try {

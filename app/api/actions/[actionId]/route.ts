@@ -2,25 +2,25 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql as getDbSql } from '../../../lib/db.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
+import { getSql as getDbSql } from '../../../lib/db';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateActionOutcome } from '../../../lib/validate.js';
-import { getOrgId } from '../../../lib/org.js';
-import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
-import { redactAny } from '../../../lib/security.js';
-import { estimateCost } from '../../../lib/billing.js';
-import { getModelPricing } from '../../../lib/repositories/settings.repository.js';
-import { maybeFireCostAlert } from '../../../lib/cost-alerts.js';
+import { getOrgId } from '../../../lib/org';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
+import { redactAny } from '../../../lib/security';
+import { estimateCost } from '../../../lib/billing';
+import { getModelPricing } from '../../../lib/repositories/settings.repository';
+import { maybeFireCostAlert } from '../../../lib/cost-alerts';
 import {
   getActionStatus,
   getActionWithRelations,
   updateActionOutcome,
-} from '../../../lib/repositories/actions.repository.js';
+} from '../../../lib/repositories/actions.repository';
 import {
   maybeRebuildRecommendations,
   recordLearningRecommendationEvents,
   scoreAndStoreActionEpisode,
-} from '../../../lib/learningLoop.service.js';
+} from '../../../lib/learningLoop.service';
 
 function isRecommendationApplied(value: unknown): boolean {
   return value === true || value === 1 || value === '1';

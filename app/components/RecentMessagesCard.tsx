@@ -12,7 +12,7 @@ import { useRealtime } from '../hooks/useRealtime';
 import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { getAgentColor } from '../lib/colors';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 const TYPE_VARIANTS: Record<string, string> = {
   action: 'warning',

@@ -2,15 +2,15 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { computeSignals } from '../../../lib/signals.js';
-import { fireWebhooksForOrg } from '../../../lib/webhooks.js';
-import { sendSignalAlertEmail } from '../../../lib/notifications.js';
-import { logActivity } from '../../../lib/audit.js';
-import { getSql } from '../../../lib/db.js';
+import { computeSignals } from '../../../lib/signals';
+import { fireWebhooksForOrg } from '../../../lib/webhooks';
+import { sendSignalAlertEmail } from '../../../lib/notifications';
+import { logActivity } from '../../../lib/audit';
+import { getSql } from '../../../lib/db';
 import crypto from 'crypto';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
-import { publishOrgEvent, EVENTS } from '../../../lib/events.js';
-import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/repositories/signals.repository.js';
+import { timingSafeCompare } from '../../../lib/timing-safe';
+import { publishOrgEvent, EVENTS } from '../../../lib/events';
+import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/repositories/signals.repository';
 
 /**
  * Hash a signal into a stable identifier for deduplication.
@@ -131,8 +131,8 @@ export async function GET(request: Request) {
 
         // Native notifications via configured integrations
         try {
-          const { deliverNativeNotifications } = await import('../../../lib/notification-adapters/index.js');
-          const { getSettings } = await import('../../../lib/repositories/settings.repository.js');
+          const { deliverNativeNotifications } = await import('../../../lib/notification-adapters/index');
+          const { getSettings } = await import('../../../lib/repositories/settings.repository');
           const settings = await getSettings(sql, orgId, { category: 'integration' });
           const nativeResults = await deliverNativeNotifications(orgId, cleanSignals as Parameters<typeof deliverNativeNotifications>[1], settings as unknown as Parameters<typeof deliverNativeNotifications>[2], sql);
           for (const r of nativeResults) {

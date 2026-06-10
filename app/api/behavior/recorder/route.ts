@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { getSql } from '../../../lib/db.js';
-import { getSettings, upsertSetting, deleteSetting } from '../../../lib/repositories/settings.repository.js';
+import { getOrgId, getOrgRole } from '../../../lib/org';
+import { getSql } from '../../../lib/db';
+import { getSettings, upsertSetting, deleteSetting } from '../../../lib/repositories/settings.repository';
 
 // Map a settings array to a {key: value} lookup.
 function toMap(rows: Array<{ key: string; value: unknown }> | null | undefined): Record<string, unknown> {

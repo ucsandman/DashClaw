@@ -1,13 +1,13 @@
-import { lcg, pick, int, isoFromNow, isoInFuture, stableId, DEMO_ORG, BASE_NOW, MS_MINUTE, MS_HOUR, MS_DAY } from './fixtures/shared-utils.js';
-import { agents as journeyAgents, actions as journeyActions } from './fixtures/journey-agents.js';
-import { agents as featureAgents, actions as featureActions } from './fixtures/feature-agents.js';
-import { agents as personaAgents, actions as personaActions } from './fixtures/persona-agents.js';
-import { agents as realisticAgents, actions as realisticActions } from './fixtures/realistic-agents.js';
-import { agents as backgroundAgents, actions as backgroundActions } from './fixtures/background-agents.js';
-import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumptions.js';
-import { handoffs as tutorialHandoffs } from './fixtures/tutorial-handoffs.js';
-import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures.js';
-import { complianceData } from './fixtures/compliance-fixtures.js';
+import { lcg, pick, int, isoFromNow, isoInFuture, stableId, DEMO_ORG, BASE_NOW, MS_MINUTE, MS_HOUR, MS_DAY } from './fixtures/shared-utils';
+import { agents as journeyAgents, actions as journeyActions } from './fixtures/journey-agents';
+import { agents as featureAgents, actions as featureActions } from './fixtures/feature-agents';
+import { agents as personaAgents, actions as personaActions } from './fixtures/persona-agents';
+import { agents as realisticAgents, actions as realisticActions } from './fixtures/realistic-agents';
+import { agents as backgroundAgents, actions as backgroundActions } from './fixtures/background-agents';
+import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumptions';
+import { handoffs as tutorialHandoffs } from './fixtures/tutorial-handoffs';
+import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures';
+import { complianceData } from './fixtures/compliance-fixtures';
 
 // No module-level cache: returning the same object by reference let
 // mutating callers (e.g. demoCreateAction) permanently alter the

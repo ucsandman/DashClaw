@@ -2,7 +2,7 @@
  * Compliance Snapshots repository
  */
 
-import type { SqlTag } from '../types/db.js';
+import type { SqlTag } from '../types/db';
 
 interface CreateSnapshotData {
   id: string;

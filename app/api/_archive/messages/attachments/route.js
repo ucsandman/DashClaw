@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../lib/org.js';
-import { getSql } from '../../../../lib/db.js';
-import { getAttachmentWithData } from '../../../../lib/repositories/messagesContext.repository.js';
+import { getOrgId } from '../../../../lib/org';
+import { getSql } from '../../../../lib/db';
+import { getAttachmentWithData } from '../../../../lib/repositories/messagesContext.repository';
 
 export async function GET(request) {
   try {

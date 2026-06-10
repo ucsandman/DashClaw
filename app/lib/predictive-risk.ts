@@ -3,9 +3,9 @@
  * Statistical behavior analysis (always on) + LLM-enhanced risk assessment (opt-in for high-stakes).
  */
 
-import { executeCompletion } from './providers.js';
-import type { StrategyConfig } from './providers.js';
-import { getDefaultProviderModel } from './providers/providerRegistry.js';
+import { executeCompletion } from './providers';
+import type { StrategyConfig } from './providers';
+import { getDefaultProviderModel } from './providers/providerRegistry';
 import type { SqlTag } from './types/db';
 
 const DEFAULT_THRESHOLD = 60;

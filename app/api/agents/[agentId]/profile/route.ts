@@ -1,11 +1,11 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { getAgentDetail, getAgentTrustPosture } from '../../../../lib/repositories/agents.repository.js';
-import { getAssumptionsSummary } from '../../../../lib/repositories/assumptions.repository.js';
-import { computeSignals } from '../../../../lib/signals.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { getAgentDetail, getAgentTrustPosture } from '../../../../lib/repositories/agents.repository';
+import { getAssumptionsSummary } from '../../../../lib/repositories/assumptions.repository';
+import { computeSignals } from '../../../../lib/signals';
 
 export async function GET(request: Request, { params }: { params: Promise<{ agentId: string }> }) {
   try {

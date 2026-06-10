@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getExport } from '../../../../../lib/compliance/exporter.js';
+import { getExport } from '../../../../../lib/compliance/exporter';
 
 export async function GET(request: Request, { params }: { params: Promise<{ exportId: string }> }) {
   try {

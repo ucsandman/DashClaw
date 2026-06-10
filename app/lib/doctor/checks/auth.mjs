@@ -1,6 +1,6 @@
 // app/lib/doctor/checks/auth.mjs
 import { getAuthConfig } from '../../authConfig.mjs';
-import { getSql } from '../../db.js';
+import { getSql } from '../../db';
 import { getSetupStatus } from '../../setupStatus.mjs';
 import { getTable } from '../shape.mjs';
 

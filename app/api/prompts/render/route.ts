@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getActiveVersion, getVersion, renderPrompt, extractParameters, recordPromptRun } from '../../../lib/prompt.js';
+import { getActiveVersion, getVersion, renderPrompt, extractParameters, recordPromptRun } from '../../../lib/prompt';
 
 export async function POST(request: Request) {
   try {

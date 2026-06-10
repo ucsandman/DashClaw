@@ -15,7 +15,7 @@ import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useRealtime } from '../hooks/useRealtime';
 import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 const LOOP_TYPE_ICONS: Record<string, React.ElementType> = {
   followup: ClipboardList,

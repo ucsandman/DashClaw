@@ -2,7 +2,7 @@ import {
   getDefaultProviderModel,
   getProviderModelOptions,
   getProviderOptions,
-} from '../../lib/providers/providerRegistry.js';
+} from '../../lib/providers/providerRegistry';
 
 interface ProviderOption {
   value: string;

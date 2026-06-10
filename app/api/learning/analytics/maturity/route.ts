@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getMaturityLevels } from '../../../../lib/learningAnalytics.js';
+import { getMaturityLevels } from '../../../../lib/learningAnalytics';
 
 export async function GET() {
   try {

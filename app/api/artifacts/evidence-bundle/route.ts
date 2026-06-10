@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { buildEvidenceBundle, createArtifact } from '../../../lib/repositories/artifacts.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { buildEvidenceBundle, createArtifact } from '../../../lib/repositories/artifacts.repository';
 
 export async function POST(request: Request) {
   try {

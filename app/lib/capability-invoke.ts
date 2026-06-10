@@ -4,8 +4,8 @@
  * and request/response mapping.
  */
 
-import { mapRequest, mapResponse } from './mapping.js';
-import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks.js';
+import { mapRequest, mapResponse } from './mapping';
+import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks';
 // Use undici's fetch rather than the Node global. The global fetch is backed by
 // Node's *internal* undici (v5/v6 on Node < 24), a different instance than the
 // standalone `undici` package that buildPinnedDispatcher's Agent comes from.

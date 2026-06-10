@@ -1,8 +1,8 @@
-import { getSettings } from './repositories/settings.repository.js';
-import { decrypt } from './encryption.js';
-import { shouldAutoEncrypt } from './repositories/settings.repository.js';
-import { getDefaultProviderModel } from './providers/providerRegistry.js';
-import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks.js';
+import { getSettings } from './repositories/settings.repository';
+import { decrypt } from './encryption';
+import { shouldAutoEncrypt } from './repositories/settings.repository';
+import { getDefaultProviderModel } from './providers/providerRegistry';
+import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

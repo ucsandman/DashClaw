@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { computeVelocity, getVelocityData } from '../../../../lib/learningAnalytics.js';
+import { computeVelocity, getVelocityData } from '../../../../lib/learningAnalytics';
 
 export async function GET(request: Request) {
   try {

@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { isHostedMode } from '../../../lib/hosted/flag.js';
-import { findExpiredWorkspaces, deleteHostedWorkspace } from '../../../lib/repositories/hosted-workspace.repository.js';
-import { getSql } from '../../../lib/db.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { isHostedMode } from '../../../lib/hosted/flag';
+import { findExpiredWorkspaces, deleteHostedWorkspace } from '../../../lib/repositories/hosted-workspace.repository';
+import { getSql } from '../../../lib/db';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 function requireAdminOrCronSecret(request: Request): boolean {
   const role = request.headers.get('x-org-role');

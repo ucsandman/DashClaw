@@ -1,5 +1,5 @@
 import React from 'react';
-import type { WidgetSummary } from '../../lib/widget/summary.js';
+import type { WidgetSummary } from '../../lib/widget/summary';
 
 function formatUsd(n: number | null): string {
   if (n == null || !Number.isFinite(n)) return '—';

@@ -4,7 +4,7 @@ import {
   getProviderLabel,
   isSupportedProvider,
   isSupportedProviderModel,
-} from '../../lib/providers/providerRegistry.js';
+} from '../../lib/providers/providerRegistry';
 
 const DEFAULT_STATE = {
   execution: {

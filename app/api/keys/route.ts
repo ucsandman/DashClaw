@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getOrgRole, getUserId } from '../../lib/org.js';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage.js';
-import { logActivity } from '../../lib/audit.js';
-import { getSql } from '../../lib/db.js';
+import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
+import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
+import { logActivity } from '../../lib/audit';
+import { getSql } from '../../lib/db';
 import crypto from 'crypto';
-import { isSelfHostModeEnabled } from '../../lib/selfHost.js';
-import { isValidApiKeyRole, API_KEY_ROLES } from '../../lib/apiKeyRoles.js';
+import { isSelfHostModeEnabled } from '../../lib/selfHost';
+import { isValidApiKeyRole, API_KEY_ROLES } from '../../lib/apiKeyRoles';
 
 function hashKey(key: string): string {
   return crypto.createHash('sha256').update(key).digest('hex');

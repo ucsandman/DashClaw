@@ -9,9 +9,9 @@
  *     `priorSessions`, `findings`, and `stuckLoopTotal`.
  */
 
-import { cacheHitRate, formatUSD } from './pricing.js';
-import { totalEstimatedMonthlySavings } from './optimizer.js';
-import type { OptimizerFinding } from './optimizer.js';
+import { cacheHitRate, formatUSD } from './pricing';
+import { totalEstimatedMonthlySavings } from './optimizer';
+import type { OptimizerFinding } from './optimizer';
 
 const DEFAULT_WEEK_DAYS = 7;
 

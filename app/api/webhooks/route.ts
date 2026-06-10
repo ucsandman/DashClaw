@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId, getOrgRole, getUserId } from '../../lib/org.js';
-import { logActivity } from '../../lib/audit.js';
+import { getSql } from '../../lib/db';
+import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
+import { logActivity } from '../../lib/audit';
 import { isValidWebhookUrl } from '../../lib/validate.js';
 import crypto from 'crypto';
 

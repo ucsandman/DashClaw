@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
 import { neon } from '@neondatabase/serverless';
-import { getDemoFixtures } from './app/lib/demo/demoFixtures.js';
+import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoListActions, demoCreateAction, demoAgents, demoAgentDetail, demoActionDetail, demoAssumptions,
   demoLearning, demoLearningRecommendations, demoLearningRecommendationMetrics,
@@ -14,10 +14,10 @@ import {
   demoSessions, demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoPosture, demoPostureFindings, demoSpend,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
-} from './app/lib/demo/demoMiddleware.js';
+} from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader } from './app/lib/sessionViewer.mjs';
-import { isSelfHostModeEnabled } from './app/lib/selfHost.js';
-import { addSecurityHeaders } from './app/lib/security-headers.js';
+import { isSelfHostModeEnabled } from './app/lib/selfHost';
+import { addSecurityHeaders } from './app/lib/security-headers';
 
 /**
  * Authentication middleware for DashClaw

@@ -4,7 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { PACK_PREVIEWS, AVAILABLE_PACKS, inferPolicyType, summarizeRules } from '../../../lib/policyPackPreviews.js';
+import { PACK_PREVIEWS, AVAILABLE_PACKS, inferPolicyType, summarizeRules } from '../../../lib/policyPackPreviews';
 
 export async function GET() {
   try {

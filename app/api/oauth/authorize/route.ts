@@ -1,9 +1,9 @@
 // app/api/oauth/authorize/route.js
 import { NextResponse } from 'next/server';
 import { getToken } from 'next-auth/jwt';
-import { getSql } from '../../../lib/db.js';
-import { getClient, insertAuthCode } from '../../../lib/repositories/oauth.repository.js';
-import { newOpaqueToken, hashToken } from '../../../lib/oauth/crypto.js';
+import { getSql } from '../../../lib/db';
+import { getClient, insertAuthCode } from '../../../lib/repositories/oauth.repository';
+import { newOpaqueToken, hashToken } from '../../../lib/oauth/crypto';
 export const dynamic = 'force-dynamic';
 
 const CODE_TTL_MS = 5 * 60 * 1000;

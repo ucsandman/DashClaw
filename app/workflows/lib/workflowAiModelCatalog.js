@@ -3,7 +3,7 @@ import {
   getProviderModelOptions,
   getProviderOptions,
   isSupportedProviderModel as isRegistrySupportedProviderModel,
-} from '../../lib/providers/providerRegistry.js';
+} from '../../lib/providers/providerRegistry';
 
 export const WORKFLOW_AI_PROVIDER_OPTIONS = getProviderOptions().filter((provider) =>
   ['openai', 'anthropic', 'groq', 'together', 'perplexity'].includes(provider.value)

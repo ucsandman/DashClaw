@@ -7,7 +7,7 @@
  * unauthenticated POST could re-run DDL and reseed the org plan.
  */
 import { createHash } from 'node:crypto';
-import { timingSafeCompare } from '../timing-safe.js';
+import { timingSafeCompare } from '../timing-safe';
 
 export async function isAlreadyInitialized(sql: any): Promise<boolean> {
   try {

@@ -7,10 +7,10 @@
  * Slack post can never block the API response.
  */
 
-import { EVENTS, publishOrgEvent } from './events.js';
-import { fireWebhooksForOrg } from './webhooks.js';
-import { deliverNativeNotifications } from './notification-adapters/index.js';
-import { getSettings } from './repositories/settings.repository.js';
+import { EVENTS, publishOrgEvent } from './events';
+import { fireWebhooksForOrg } from './webhooks';
+import { deliverNativeNotifications } from './notification-adapters/index';
+import { getSettings } from './repositories/settings.repository';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

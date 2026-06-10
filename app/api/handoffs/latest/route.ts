@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { getLatestHandoff } from '../../../lib/repositories/code-session-handoffs.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { getLatestHandoff } from '../../../lib/repositories/code-session-handoffs.repository';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

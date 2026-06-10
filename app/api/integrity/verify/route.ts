@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getServerPublicJwks } from '../../../lib/integrity/server-key.js';
-import { verifyReceipt } from '../../../lib/integrity/receipt.js';
-import { verifyBundle } from '../../../lib/integrity/bundle.js';
+import { getSql } from '../../../lib/db';
+import { getServerPublicJwks } from '../../../lib/integrity/server-key';
+import { verifyReceipt } from '../../../lib/integrity/receipt';
+import { verifyBundle } from '../../../lib/integrity/bundle';
 
 /**
  * POST /api/integrity/verify — independently re-verify a proof receipt or a

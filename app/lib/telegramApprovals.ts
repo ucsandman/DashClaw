@@ -4,7 +4,7 @@
  * Mirrors actionAlerts.js — always fire-and-forget, never throws.
  */
 
-import { recordSentApprovalNotification } from './approvalNotifications.js';
+import { recordSentApprovalNotification } from './approvalNotifications';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {

@@ -4,12 +4,12 @@ export const maxDuration = 60;
 
 import zlib from 'node:zlib';
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { parseSessionLines } from '../../../lib/claude-code/parser.js';
-import { detectRepeatedRuns } from '../../../lib/claude-code/repeated-runs.js';
-import { runOptimizer } from '../../../lib/claude-code/optimizer.js';
-import { detectForSession } from '../../../lib/claude-code/alerts.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { parseSessionLines } from '../../../lib/claude-code/parser';
+import { detectRepeatedRuns } from '../../../lib/claude-code/repeated-runs';
+import { runOptimizer } from '../../../lib/claude-code/optimizer';
+import { detectForSession } from '../../../lib/claude-code/alerts';
 import {
   upsertProject,
   upsertSessionWithChildren,
@@ -17,7 +17,7 @@ import {
   replaceSignalsForSession,
   insertAlerts,
   listProjects,
-} from '../../../lib/repositories/code-sessions.repository.js';
+} from '../../../lib/repositories/code-sessions.repository';
 
 const MAX_LINES = 200_000;
 // Cap decompressed payload at 50 MB. Vercel's per-IP body limit is 4.5 MB on

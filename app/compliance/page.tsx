@@ -13,9 +13,9 @@ import { ProgressBar } from '../components/ui/ProgressBar';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
 import { HelpIcon } from '../components/HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 import { isDemoMode } from '../lib/isDemoMode';
-import { gapToPolicyDraft } from '../lib/compliance/gap-to-policy.js';
+import { gapToPolicyDraft } from '../lib/compliance/gap-to-policy';
 import MarkdownBody from '../messages/_components/MarkdownBody';
 
 const FRAMEWORK_LABELS: Record<string, string> = {

@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole, getUserId } from '../../../lib/org.js';
-import { logActivity } from '../../../lib/audit.js';
-import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
-import { redactAny } from '../../../lib/security.js';
-import { recordApproval, getActionStatus, getActionSummary } from '../../../lib/repositories/actions.repository.js';
-import { fireWebhooksForApproval } from '../../../lib/webhooks.js';
-import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
+import { logActivity } from '../../../lib/audit';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
+import { redactAny } from '../../../lib/security';
+import { recordApproval, getActionStatus, getActionSummary } from '../../../lib/repositories/actions.repository';
+import { fireWebhooksForApproval } from '../../../lib/webhooks';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 
 
 /**

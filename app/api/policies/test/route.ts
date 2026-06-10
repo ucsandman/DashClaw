@@ -3,12 +3,12 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { convertPolicies } from '../../../lib/guardrails/converter.js';
-import { evaluateGuardrailPolicy } from '../../../lib/guardrails/evaluator.js';
-import { evaluatePolicy } from '../../../lib/guard.js';
-import { getActivePolicies, createTestRun } from '../../../lib/repositories/guardrails.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { convertPolicies } from '../../../lib/guardrails/converter';
+import { evaluateGuardrailPolicy } from '../../../lib/guardrails/evaluator';
+import { evaluatePolicy } from '../../../lib/guard';
+import { getActivePolicies, createTestRun } from '../../../lib/repositories/guardrails.repository';
 
 /**
  * POST /api/policies/test

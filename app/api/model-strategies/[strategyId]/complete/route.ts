@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { getModelStrategy } from '../../../../lib/repositories/model-strategies.repository.js';
-import { executeCompletion } from '../../../../lib/providers.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { getModelStrategy } from '../../../../lib/repositories/model-strategies.repository';
+import { executeCompletion } from '../../../../lib/providers';
 
 /**
  * POST /api/model-strategies/:strategyId/complete

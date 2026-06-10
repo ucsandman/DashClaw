@@ -3,7 +3,7 @@ import type {
   AdapterResult,
   GovernanceSignal,
   NotificationAdapter,
-} from './index.js';
+} from './index';
 
 export const githubAdapter: NotificationAdapter = {
   name: 'github',

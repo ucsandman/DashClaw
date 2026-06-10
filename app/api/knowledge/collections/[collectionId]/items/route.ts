@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../lib/apiErrors.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../lib/apiErrors';
 import {
   listCollectionItems,
   addCollectionItem,
-} from '../../../../../lib/repositories/knowledge.repository.js';
+} from '../../../../../lib/repositories/knowledge.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ collectionId: string }> }) {
   try {

@@ -8,7 +8,7 @@
  * on the verdict.
  */
 
-import { detectRepeatedRuns } from './repeated-runs.js';
+import { detectRepeatedRuns } from './repeated-runs';
 
 export const OUTCOMES = Object.freeze({
   COMPLETED: 'completed',

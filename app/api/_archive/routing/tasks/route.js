@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { submitTask, listTasks } from '../../../../lib/repositories/routing.repository.js';
-import { EVENTS, publishOrgEvent } from '../../../../lib/events.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { submitTask, listTasks } from '../../../../lib/repositories/routing.repository';
+import { EVENTS, publishOrgEvent } from '../../../../lib/events';
 
 /**
  * GET /api/routing/tasks?status=pending&limit=50 — List tasks

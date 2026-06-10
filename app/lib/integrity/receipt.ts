@@ -14,8 +14,8 @@
  * extractable operational token.
  */
 
-import { digestText, digestJson } from './canonicalize.js';
-import { signCanonical, verifyCanonical } from './sign.js';
+import { digestText, digestJson } from './canonicalize';
+import { signCanonical, verifyCanonical } from './sign';
 
 export const ENGINE_VERSION = '0.1.0'; // version-hardcode-allowed (integrity engine version, not the platform version)
 export const RECEIPT_VERSION = 'dashclaw-receipt/v1';

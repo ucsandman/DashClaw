@@ -1,4 +1,4 @@
-import { scanSensitiveData } from './security.js';
+import { scanSensitiveData } from './security';
 
 /**
  * Embedding utility for Behavioral AI Guardrails.

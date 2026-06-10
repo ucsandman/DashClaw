@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getSnapshots } from '../../../lib/drift.js';
+import { getSnapshots } from '../../../lib/drift';
 
 export async function GET(request: Request) {
   try {

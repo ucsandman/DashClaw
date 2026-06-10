@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../lib/apiErrors.js';
-import { evaluateAccess } from '../../../../../lib/repositories/capability-access.repository.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../lib/apiErrors';
+import { evaluateAccess } from '../../../../../lib/repositories/capability-access.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ capabilityId: string }> }) {
   try {

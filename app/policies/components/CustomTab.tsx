@@ -20,7 +20,7 @@ import {
 } from '../lib/policyFormModel';
 import PolicyGeneratedDraftEditor from './PolicyGeneratedDraftEditor';
 import { normalizeGeneratedPolicyDrafts } from '../lib/policyGeneratorDrafts.js';
-import { PACK_PREVIEWS } from '../../lib/policyPackPreviews.js';
+import { PACK_PREVIEWS } from '../../lib/policyPackPreviews';
 
 const ACTION_OPTIONS = [
   'build', 'deploy', 'post', 'apply', 'security', 'message', 'api',

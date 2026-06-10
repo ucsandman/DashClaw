@@ -1,6 +1,6 @@
-import { getCostAggregation } from './actions.repository.js';
-import { getX402SpendAggregation } from './x402.repository.js';
-import { getCodeSessionSpendAggregation } from './code-sessions.repository.js';
+import { getCostAggregation } from './actions.repository';
+import { getX402SpendAggregation } from './x402.repository';
+import { getCodeSessionSpendAggregation } from './code-sessions.repository';
 import type { FleetSpend, ClaudeCodeSpend, SpendPeriod } from '../types/pricing-finops';
 import type { SqlTag } from '../types/db';
 

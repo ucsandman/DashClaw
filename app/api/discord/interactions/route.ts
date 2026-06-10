@@ -3,12 +3,12 @@ export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
 import nacl from 'tweetnacl';
-import { getSql } from '../../../lib/db.js';
+import { getSql } from '../../../lib/db';
 import {
   getActionSummary,
   recordApproval,
-} from '../../../lib/repositories/actions.repository.js';
-import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
+} from '../../../lib/repositories/actions.repository';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 
 // Discord REST base; v10 per RESEARCH §Standard Stack.
 const DISCORD_API = 'https://discord.com/api/v10';

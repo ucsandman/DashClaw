@@ -11,9 +11,9 @@
  * constant-time compare of the vector hash.
  */
 
-import { digestJson } from './integrity/canonicalize.js';
-import { signCanonical, verifyCanonical } from './integrity/sign.js';
-import { timingSafeCompare } from './timing-safe.js';
+import { digestJson } from './integrity/canonicalize';
+import { signCanonical, verifyCanonical } from './integrity/sign';
+import { timingSafeCompare } from './timing-safe';
 
 export const HALF_LIFE_DAYS = 90;
 const DAY_MS = 86_400_000;

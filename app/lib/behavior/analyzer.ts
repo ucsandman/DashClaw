@@ -13,9 +13,9 @@
 import {
   RULE_KINDS, DEFAULTS, isEnforceable, behaviorRuleToGuardPolicy,
   detectReloadLoops, detectFailureLoops, decideSample,
-} from './policy-model.js';
-import type { BehaviorRule, BehaviorSample } from './policy-model.js';
-import { classifyProtectedPath, PROTECTED_PATH_GROUPS } from './path-match.js';
+} from './policy-model';
+import type { BehaviorRule, BehaviorSample } from './policy-model';
+import { classifyProtectedPath, PROTECTED_PATH_GROUPS } from './path-match';
 
 const READONLY_TOOLS = new Set(['Read', 'Grep', 'Glob', 'LS', 'NotebookRead']);
 const SAFE_BASH_VERBS = new Set(['ls', 'cat', 'pwd', 'echo', 'git', 'npm', 'npx', 'node', 'pnpm', 'yarn', 'pytest', 'vitest', 'eslint', 'tsc', 'python', 'python3']);

@@ -3,15 +3,15 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId, getUserId } from '../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../lib/apiErrors.js';
-import { computePosturePayload } from '../../../../../lib/posture/signals.js';
-import { setFindingState } from '../../../../../lib/repositories/posture.repository.js';
-import { insertPolicy } from '../../../../../lib/repositories/guardrails.repository.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId, getUserId } from '../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../lib/apiErrors';
+import { computePosturePayload } from '../../../../../lib/posture/signals';
+import { setFindingState } from '../../../../../lib/repositories/posture.repository';
+import { insertPolicy } from '../../../../../lib/repositories/guardrails.repository';
 import { validatePolicy } from '../../../../../lib/validate.js';
-import { EVENTS, publishOrgEvent } from '../../../../../lib/events.js';
-import type { PostureFinding } from '../../../../../lib/posture/types.js';
+import { EVENTS, publishOrgEvent } from '../../../../../lib/events';
+import type { PostureFinding } from '../../../../../lib/posture/types';
 
 type ResolveAction = 'create_draft' | 'snooze' | 'accept_risk';
 const VALID_ACTIONS = new Set<ResolveAction>(['create_draft', 'snooze', 'accept_risk']);

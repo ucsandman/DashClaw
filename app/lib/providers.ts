@@ -7,16 +7,16 @@
  * provider registry. Add new providers there; this module only owns protocol handlers.
  */
 
-import { getSettings } from './repositories/settings.repository.js';
-import { decrypt } from './encryption.js';
-import { estimateCost } from './billing.js';
-import { getModelPricing } from './repositories/settings.repository.js';
+import { getSettings } from './repositories/settings.repository';
+import { decrypt } from './encryption';
+import { estimateCost } from './billing';
+import { getModelPricing } from './repositories/settings.repository';
 import {
   getProviderApiStyle,
   getProviderBaseUrl,
   getProviderCredentialKey,
   getProviderLabel,
-} from './providers/providerRegistry.js';
+} from './providers/providerRegistry';
 import type { SqlTag } from './types/db';
 
 const PROVIDER_TIMEOUT = 30_000;

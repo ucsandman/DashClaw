@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { scanForPromptInjection } from '../../../lib/promptInjection.js';
-import { insertScan, listScans } from '../../../lib/repositories/promptInjection.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { scanForPromptInjection } from '../../../lib/promptInjection';
+import { insertScan, listScans } from '../../../lib/repositories/promptInjection.repository';
 import { createHash } from 'node:crypto';
 
 export async function POST(request: Request) {

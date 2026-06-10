@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
+import { getSql } from '../../lib/db';
 import { validateAssumption } from '../../lib/validate.js';
-import { getOrgId } from '../../lib/org.js';
-import { redactAny } from '../../lib/security.js';
-import { listAssumptions, createAssumption } from '../../lib/repositories/assumptions.repository.js';
-import { hasAction } from '../../lib/repositories/actions.repository.js';
+import { getOrgId } from '../../lib/org';
+import { redactAny } from '../../lib/security';
+import { listAssumptions, createAssumption } from '../../lib/repositories/assumptions.repository';
+import { hasAction } from '../../lib/repositories/actions.repository';
 import crypto from 'crypto';
 
 

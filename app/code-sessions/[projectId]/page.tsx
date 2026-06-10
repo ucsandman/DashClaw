@@ -1,18 +1,18 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { Bot, Layers } from 'lucide-react';
-import { getSql } from '../../lib/db.js';
+import { getSql } from '../../lib/db';
 import {
   listSessions,
   listSubagentToolUseAttribution,
   listMemos,
-} from '../../lib/repositories/code-sessions.repository.js';
-import { computeRoiFromRows } from '../../lib/claude-code/subagent-roi.js';
-import type { AttributionRow } from '../../lib/claude-code/subagent-roi.js';
+} from '../../lib/repositories/code-sessions.repository';
+import { computeRoiFromRows } from '../../lib/claude-code/subagent-roi';
+import type { AttributionRow } from '../../lib/claude-code/subagent-roi';
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent } from '../../components/ui/Card';
 import { EmptyState } from '../../components/ui/EmptyState';
-import WeeklyMemoPanel from './WeeklyMemoPanel.jsx';
+import WeeklyMemoPanel from './WeeklyMemoPanel';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

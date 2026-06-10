@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getUserId } from '../../../lib/org.js';
-import { parseJsonWithSchema, notificationPreferenceUpsertSchema } from '../../../lib/contracts/index.js';
-import { getSql } from '../../../lib/db.js';
+import { getOrgId, getUserId } from '../../../lib/org';
+import { parseJsonWithSchema, notificationPreferenceUpsertSchema } from '../../../lib/contracts/index';
+import { getSql } from '../../../lib/db';
 import crypto from 'crypto';
 
 // GET /api/notifications - Get current user's preferences

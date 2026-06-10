@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { getPairing, expirePairing, updatePairing } from '../../../lib/repositories/pairings.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { getPairing, expirePairing, updatePairing } from '../../../lib/repositories/pairings.repository';
 
 const VALID_PERMISSION_LEVELS = ['readonly', 'workspace_write', 'danger', 'prompt', 'allow'];
 

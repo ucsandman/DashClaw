@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useRealtime } from '../hooks/useRealtime.js';
-import { deriveConnection, type ConnectionState } from './connection.js';
-import type { WidgetSummary } from '../lib/widget/summary.js';
+import { useRealtime } from '../hooks/useRealtime';
+import { deriveConnection, type ConnectionState } from './connection';
+import type { WidgetSummary } from '../lib/widget/summary';
 
 const POLL_MS = 30_000;
 const RECONNECT_TICK_MS = 15_000;

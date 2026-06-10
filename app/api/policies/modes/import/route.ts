@@ -3,16 +3,16 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { POLICY_MODE_CATALOG } from '../../../../lib/policy-modes/catalog.js';
-import { compileMode, UnknownPolicyModeError } from '../../../../lib/policy-modes/compile.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { POLICY_MODE_CATALOG } from '../../../../lib/policy-modes/catalog';
+import { compileMode, UnknownPolicyModeError } from '../../../../lib/policy-modes/compile';
 import {
   findPolicyByName,
   insertPolicy,
   reactivateModePolicy,
-} from '../../../../lib/repositories/guardrails.repository.js';
+} from '../../../../lib/repositories/guardrails.repository';
 
 /**
  * POST /api/policies/modes/import — apply a mode by compiling it into ordinary

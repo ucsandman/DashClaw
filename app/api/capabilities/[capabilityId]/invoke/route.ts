@@ -3,25 +3,25 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { evaluateGuard } from '../../../../lib/guard.js';
-import { fireApprovalSurfaces } from '../../../../lib/approvalSurfaces.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { evaluateGuard } from '../../../../lib/guard';
+import { fireApprovalSurfaces } from '../../../../lib/approvalSurfaces';
 import {
   createActionRecord,
   createBlockedActionRecord,
-} from '../../../../lib/repositories/actions.repository.js';
-import { redactAny } from '../../../../lib/security.js';
-import { RISK_SCORE_MAP } from '../../../../lib/capability-invoke.js';
+} from '../../../../lib/repositories/actions.repository';
+import { redactAny } from '../../../../lib/security';
+import { RISK_SCORE_MAP } from '../../../../lib/capability-invoke';
 import {
   executeCapabilityInvocation,
   prepareCapabilityInvocation,
-} from '../../../../lib/capability-runtime.js';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../../../lib/usage.js';
-import { checkCircuitBreaker } from '../../../../lib/capability-health.js';
-import { updateCapability } from '../../../../lib/repositories/capabilities.repository.js';
-import { evaluateAccess } from '../../../../lib/repositories/capability-access.repository.js';
+} from '../../../../lib/capability-runtime';
+import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../../../lib/usage';
+import { checkCircuitBreaker } from '../../../../lib/capability-health';
+import { updateCapability } from '../../../../lib/repositories/capabilities.repository';
+import { evaluateAccess } from '../../../../lib/repositories/capability-access.repository';
 
 
 export async function POST(request: Request, { params }: { params: Promise<{ capabilityId: string }> }) {

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../../lib/org.js';
-import { acknowledgeAlert, deleteAlert } from '../../../../lib/drift.js';
+import { getOrgRole } from '../../../../lib/org';
+import { acknowledgeAlert, deleteAlert } from '../../../../lib/drift';
 
 function requireAdmin(request: Request) {
   if (getOrgRole(request) !== 'admin') {

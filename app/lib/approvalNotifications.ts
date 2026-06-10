@@ -14,7 +14,7 @@ import {
   recordApprovalNotification,
   listOpenApprovalNotifications,
   markApprovalNotificationsCleared,
-} from './repositories/approval-notifications.repository.js';
+} from './repositories/approval-notifications.repository';
 import type { SqlTag } from './types/db';
 
 const DISCORD_API = 'https://discord.com/api/v10';

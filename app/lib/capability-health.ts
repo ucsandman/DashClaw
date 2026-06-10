@@ -1,6 +1,6 @@
-import { listCapabilities } from './repositories/capabilities.repository.js';
-import { isLegacyActionRecordsError } from './capability-compat.js';
-import type { SqlTag } from './types/db.js';
+import { listCapabilities } from './repositories/capabilities.repository';
+import { isLegacyActionRecordsError } from './capability-compat';
+import type { SqlTag } from './types/db';
 
 type Row = Record<string, unknown>;
 

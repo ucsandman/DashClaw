@@ -14,15 +14,15 @@
  * over-blocks rather than under-blocks.
  */
 
-import { canonicalizeText } from './canonicalize.js';
+import { canonicalizeText } from './canonicalize';
 import {
   extractMoney,
   extractDates,
   extractPercentages,
   extractPattern,
   normalizeMoney,
-} from './extract.js';
-import { assertSafePattern } from './pattern-safety.js';
+} from './extract';
+import { assertSafePattern } from './pattern-safety';
 
 export interface Violation {
   code: string;

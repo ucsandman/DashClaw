@@ -1,12 +1,12 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { listActions, getCostAggregation } from '../../../lib/repositories/actions.repository.js';
-import { listAgentsForOrg } from '../../../lib/repositories/agents.repository.js';
-import { computeSignals } from '../../../lib/signals.js';
-import { buildWidgetSummary } from '../../../lib/widget/summary.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
+import { getSql } from '../../../lib/db';
+import { listActions, getCostAggregation } from '../../../lib/repositories/actions.repository';
+import { listAgentsForOrg } from '../../../lib/repositories/agents.repository';
+import { computeSignals } from '../../../lib/signals';
+import { buildWidgetSummary } from '../../../lib/widget/summary';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 
 /**
  * GET /api/widget/summary — one composed, safe, partial-failure-tolerant

@@ -3,14 +3,14 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
-import { detectCacheCrater } from '../../../lib/claude-code/alerts.js';
+import { getSql } from '../../../lib/db';
+import { timingSafeCompare } from '../../../lib/timing-safe';
+import { detectCacheCrater } from '../../../lib/claude-code/alerts';
 import {
   insertAlerts,
   listProjectsWithSessions,
   getProjectTokenTotalsForRange,
-} from '../../../lib/repositories/code-sessions.repository.js';
+} from '../../../lib/repositories/code-sessions.repository';
 
 function isoWeekStart(date: Date): Date {
   const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));

@@ -4,10 +4,10 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { getOrgId, getOrgRole } from '../../../lib/org';
-import { getSql } from '../../../lib/db.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { generatePolicies } from '../../../lib/policy-generator.js';
-import { insertPolicy } from '../../../lib/repositories/guardrails.repository.js';
+import { getSql } from '../../../lib/db';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { generatePolicies } from '../../../lib/policy-generator';
+import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
 
 const MAX_INPUT_LENGTH = 5000;
 

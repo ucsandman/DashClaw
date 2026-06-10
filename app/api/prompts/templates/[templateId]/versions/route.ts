@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../../../lib/org.js';
-import { listVersions, createVersion, getTemplate } from '../../../../../lib/prompt.js';
+import { getOrgRole } from '../../../../../lib/org';
+import { listVersions, createVersion, getTemplate } from '../../../../../lib/prompt';
 
 export async function GET(request: Request, { params }: { params: Promise<{ templateId: string }> }) {
   try {

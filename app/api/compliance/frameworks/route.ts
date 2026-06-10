@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { listFrameworks, loadFramework } from '../../../lib/compliance/mapper.js';
+import { listFrameworks, loadFramework } from '../../../lib/compliance/mapper';
 
 /**
  * GET /api/compliance/frameworks — List available compliance frameworks

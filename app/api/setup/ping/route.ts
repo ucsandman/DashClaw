@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { findActiveKeyByHash } from '../../../lib/repositories/apiKeys.repository.js';
+import { getSql } from '../../../lib/db';
+import { findActiveKeyByHash } from '../../../lib/repositories/apiKeys.repository';
 import { createLiveVerificationProofToken } from '../../../lib/liveVerificationProof.mjs';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 export const dynamic = 'force-dynamic';
 

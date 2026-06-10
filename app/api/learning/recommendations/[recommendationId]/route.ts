@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
 import {
   updateLearningRecommendationActive,
-} from '../../../../lib/repositories/learningLoop.repository.js';
+} from '../../../../lib/repositories/learningLoop.repository';
 
 function parseBoolean(value: unknown): boolean | null {
   if (typeof value === 'boolean') return value;

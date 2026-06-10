@@ -11,13 +11,13 @@
  *   3. GOOGLE_AI_API_KEY   Google AI (gemini-1.5-flash, free tier available)
  *
  * Usage:
- *   import { isLLMAvailable, tryLLMComplete } from './llm.js';
+ *   import { isLLMAvailable, tryLLMComplete } from './llm';
  *   if (isLLMAvailable()) { ... }
  *   const { result, error } = await tryLLMComplete('Rate this action...');
  */
 
-import { scanSensitiveData } from './security.js';
-import { getDefaultProviderModel } from './providers/providerRegistry.js';
+import { scanSensitiveData } from './security';
+import { getDefaultProviderModel } from './providers/providerRegistry';
 
 // ----------------------------------------------
 // Generic LLM Provider Abstraction (Phase 0)

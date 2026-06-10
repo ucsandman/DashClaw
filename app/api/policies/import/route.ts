@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { findPolicyByName } from '../../../lib/repositories/guardrails.repository.js';
-import { loadPackPolicies, importPolicies } from '../../../lib/guardrails/import-pack.js';
-import { inferPolicyType, AVAILABLE_PACKS } from '../../../lib/policyPackPreviews.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
+import { findPolicyByName } from '../../../lib/repositories/guardrails.repository';
+import { loadPackPolicies, importPolicies } from '../../../lib/guardrails/import-pack';
+import { inferPolicyType, AVAILABLE_PACKS } from '../../../lib/policyPackPreviews';
 
 const VALID_PACKS = AVAILABLE_PACKS;
 

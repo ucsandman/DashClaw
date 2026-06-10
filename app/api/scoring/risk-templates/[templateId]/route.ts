@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { updateRiskTemplate, deleteRiskTemplate } from '../../../../lib/scoringProfiles.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { updateRiskTemplate, deleteRiskTemplate } from '../../../../lib/scoringProfiles';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ templateId: string }> }) {
   try {

@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { deleteIdentity } from '../../../lib/repositories/identities.repository.js';
-import { expirePendingByAgent } from '../../../lib/repositories/pairings.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
+import { deleteIdentity } from '../../../lib/repositories/identities.repository';
+import { expirePendingByAgent } from '../../../lib/repositories/pairings.repository';
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ agentId: string }> }) {
   try {

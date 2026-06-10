@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { computeRoiFromRows } from '../../../lib/claude-code/subagent-roi.js';
-import type { AttributionRow } from '../../../lib/claude-code/subagent-roi.js';
-import { listSubagentToolUseAttribution } from '../../../lib/repositories/code-sessions.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { computeRoiFromRows } from '../../../lib/claude-code/subagent-roi';
+import type { AttributionRow } from '../../../lib/claude-code/subagent-roi';
+import { listSubagentToolUseAttribution } from '../../../lib/repositories/code-sessions.repository';
 
 export async function GET(request: Request) {
   const url = new URL(request.url);

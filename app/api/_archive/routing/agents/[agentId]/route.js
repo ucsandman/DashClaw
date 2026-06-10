@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
-import { getAgent, updateAgentStatus, unregisterAgent } from '../../../../../lib/repositories/routing.repository.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
+import { getAgent, updateAgentStatus, unregisterAgent } from '../../../../../lib/repositories/routing.repository';
 
 /**
  * GET /api/routing/agents/:agentId — Get agent details

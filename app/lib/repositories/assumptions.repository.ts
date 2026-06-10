@@ -1,4 +1,4 @@
-import type { SqlTag } from '../types/db.js';
+import type { SqlTag } from '../types/db';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

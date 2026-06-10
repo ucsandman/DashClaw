@@ -4,7 +4,7 @@
  * Always fire-and-forget; never throws.
  */
 
-import type { SqlTag } from './types/db.js';
+import type { SqlTag } from './types/db';
 
 type AlertType = 'blocked' | 'pending_approval' | 'high_risk';
 
@@ -62,8 +62,8 @@ function buildEmbed(action: AlertAction, alertType: AlertType): DiscordEmbed {
 
 async function getDiscordWebhookUrl(sql: SqlTag, orgId: string): Promise<string | null> {
   try {
-    const { getSettings } = await import('./repositories/settings.repository.js');
-    const { decrypt } = await import('./encryption.js');
+    const { getSettings } = await import('./repositories/settings.repository');
+    const { decrypt } = await import('./encryption');
 
     // Check alerts are not explicitly disabled
     const toggleRows = await getSettings(sql, orgId, { key: 'DASHCLAW_ALERTS_DISCORD' });

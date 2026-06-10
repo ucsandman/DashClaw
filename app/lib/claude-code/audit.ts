@@ -18,7 +18,7 @@
  * Output: see the returned object. Stable shape across call sites.
  */
 
-import { PARSER_VERSION } from './parser.js';
+import { PARSER_VERSION } from './parser';
 
 interface AuditTotals {
   input_tokens: number;

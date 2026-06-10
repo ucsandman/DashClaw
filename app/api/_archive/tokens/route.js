@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSql as getDbSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { estimateCost } from '../../../lib/billing.js';
-import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
+import { getSql as getDbSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { estimateCost } from '../../../lib/billing';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
 import {
   getLatestSnapshot,
   getTodayTotals,
@@ -11,7 +11,7 @@ import {
   insertSnapshot,
   insertOrgAggregateSnapshot,
   upsertDailyTotals,
-} from '../../../lib/repositories/tokens.repository.js';
+} from '../../../lib/repositories/tokens.repository';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

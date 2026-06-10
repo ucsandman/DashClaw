@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { getFleetSpend, getClaudeCodeSpend } from '../../../lib/repositories/finops.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { getFleetSpend, getClaudeCodeSpend } from '../../../lib/repositories/finops.repository';
 
 const ALLOWED_PERIODS = new Set(['7d', '30d', '90d']);
 const ALLOWED_LENSES = new Set(['fleet', 'claude-code']);

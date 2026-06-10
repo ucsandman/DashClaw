@@ -11,8 +11,8 @@
 
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import { redactSample } from './redaction.js';
-import { isHostedMode } from '../hosted/flag.js';
+import { redactSample } from './redaction';
+import { isHostedMode } from '../hosted/flag';
 
 // Behavior samples are parsed from JSONL on disk; their shape follows the
 // recorder contract but is treated as untrusted external data here.

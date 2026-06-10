@@ -3,15 +3,15 @@ export const revalidate = 0;
 
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { evaluateGuard } from '../../../lib/guard.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { evaluateGuard } from '../../../lib/guard';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateX402Purchase } from '../../../lib/validate.js';
-import { resolveAgentIdentity } from '../../../lib/identity-resolution.js';
-import { redactAny } from '../../../lib/security.js';
-import { createActionRecord, createBlockedActionRecord, deleteActionsByIds } from '../../../lib/repositories/actions.repository.js';
-import { createPurchase, listPurchases, getProvider, getEndpoint, resolveProviderByName } from '../../../lib/repositories/x402.repository.js';
+import { resolveAgentIdentity } from '../../../lib/identity-resolution';
+import { redactAny } from '../../../lib/security';
+import { createActionRecord, createBlockedActionRecord, deleteActionsByIds } from '../../../lib/repositories/actions.repository';
+import { createPurchase, listPurchases, getProvider, getEndpoint, resolveProviderByName } from '../../../lib/repositories/x402.repository';
 
 /**
  * Mask a wallet/payment reference for storage and responses. We keep only the

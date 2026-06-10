@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
-import { createSession, listSessions } from '../../lib/sessions.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
+import { createSession, listSessions } from '../../lib/sessions';
 
 export async function POST(request: Request) {
   try {

@@ -20,7 +20,7 @@
  *   }
  */
 
-import { ALL_RULES } from './rules/index.js';
+import { ALL_RULES } from './rules/index';
 
 export interface OptimizerFinding {
   ruleId: string;

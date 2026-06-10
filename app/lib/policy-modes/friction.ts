@@ -9,8 +9,8 @@
 // - Zero history → { available: false, reason } (no fabricated numbers).
 // - Never hard-fails: any error degrades to { available: false, reason }.
 
-import { evaluatePolicy } from '../guard.js';
-import { listActionsForSimulation } from '../repositories/actions.repository.js';
+import { evaluatePolicy } from '../guard';
+import { listActionsForSimulation } from '../repositories/actions.repository';
 import type { CompiledModePolicy } from './compile';
 
 type Sql = Parameters<typeof listActionsForSimulation>[0];

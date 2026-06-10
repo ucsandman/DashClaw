@@ -1,5 +1,5 @@
 // app/lib/doctor/fixes/create-default-policy.mjs
-import { getSql } from '../../db.js';
+import { getSql } from '../../db';
 import { getTable } from '../shape.mjs';
 
 export async function apply() {

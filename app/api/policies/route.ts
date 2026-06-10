@@ -5,11 +5,11 @@ import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { getOrgId, getOrgRole } from '../../lib/org';
 import { validatePolicy } from '../../lib/validate';
-import { getSql } from '../../lib/db.js';
-import { apiErrorResponse } from '../../lib/apiErrors.js';
-import { EVENTS, publishOrgEvent } from '../../lib/events.js';
-import { invalidateGuardPolicyCache } from '../../lib/guard.js';
-import { deletePoliciesByIds } from '../../lib/repositories/guardrails.repository.js';
+import { getSql } from '../../lib/db';
+import { apiErrorResponse } from '../../lib/apiErrors';
+import { EVENTS, publishOrgEvent } from '../../lib/events';
+import { invalidateGuardPolicyCache } from '../../lib/guard';
+import { deletePoliciesByIds } from '../../lib/repositories/guardrails.repository';
 
 /**
  * GET /api/policies — List guard policies for the org.

@@ -1,4 +1,4 @@
-import { buildRecommendationsFromEpisodes, scoreActionEpisode, toNumber, average } from './learning-loop.js';
+import { buildRecommendationsFromEpisodes, scoreActionEpisode, toNumber, average } from './learning-loop';
 import {
   clearLearningRecommendations,
   countEpisodesSinceLastRebuild,
@@ -8,8 +8,8 @@ import {
   listLearningRecommendationEvents,
   upsertLearningEpisode,
   upsertLearningRecommendations,
-} from './repositories/learningLoop.repository.js';
-import type { SqlTag } from './types/db.js';
+} from './repositories/learningLoop.repository';
+import type { SqlTag } from './types/db';
 
 type Sql = SqlTag;
 

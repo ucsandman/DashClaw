@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
 import {
   listProjects,
   saveMemo,
   getProjectSessionsChronological,
-} from '../../../../lib/repositories/code-sessions.repository.js';
-import { generateMemo } from '../../../../lib/claude-code/memo.js';
+} from '../../../../lib/repositories/code-sessions.repository';
+import { generateMemo } from '../../../../lib/claude-code/memo';
 
 export async function POST(request: Request) {
   const url = new URL(request.url);

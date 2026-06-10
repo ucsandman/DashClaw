@@ -1,8 +1,8 @@
 // app/api/oauth/register/route.js
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { registerClient } from '../../../lib/repositories/oauth.repository.js';
-import { newId } from '../../../lib/oauth/crypto.js';
+import { getSql } from '../../../lib/db';
+import { registerClient } from '../../../lib/repositories/oauth.repository';
+import { newId } from '../../../lib/oauth/crypto';
 export const dynamic = 'force-dynamic';
 
 // Only register redirect URIs we'd be willing to send a freshly-minted auth code

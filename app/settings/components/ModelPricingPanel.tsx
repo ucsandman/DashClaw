@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { DEFAULT_PRICING as ENGINE_PRICING } from '../../lib/billing.js';
+import { DEFAULT_PRICING as ENGINE_PRICING } from '../../lib/billing';
 
 // Seed the editor from the engine's canonical pricing table (app/lib/billing.js)
 // so the Settings defaults can never drift from the rates actually used to

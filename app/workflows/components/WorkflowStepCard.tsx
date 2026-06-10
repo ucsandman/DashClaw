@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { ChevronDown, ChevronUp, Copy, MoveDown, MoveUp, Trash2 } from 'lucide-react';
 import { Badge } from '../../components/ui/Badge';
-import WorkflowVariableInsertButton from './WorkflowVariableInsertButton.jsx';
+import WorkflowVariableInsertButton from './WorkflowVariableInsertButton';
 import { buildWorkflowStepSummary, insertVariableToken, WORKFLOW_STEP_TYPES } from '../lib/workflowStepFormModel.js';
 
 const inputClass = 'w-full px-3 py-2 bg-surface-tertiary border border-white/10 rounded-lg text-sm text-white focus:outline-none focus:border-brand';

@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId, getOrgRole, getUserId } from '../../lib/org.js';
-import { logActivity } from '../../lib/audit.js';
-import { encrypt, decrypt } from '../../lib/encryption.js';
+import { getSql } from '../../lib/db';
+import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
+import { logActivity } from '../../lib/audit';
+import { encrypt, decrypt } from '../../lib/encryption';
 import {
   ensureSettingsTable,
   getSettings,
@@ -12,7 +12,7 @@ import {
   shouldAutoEncrypt,
   VALID_SETTING_KEYS,
   VALID_CATEGORIES
-} from '../../lib/repositories/settings.repository.js';
+} from '../../lib/repositories/settings.repository';
 
 export const dynamic = 'force-dynamic';
 

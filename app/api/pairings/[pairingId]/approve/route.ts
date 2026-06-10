@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
-import { getPairing, expirePairing, approvePairing } from '../../../../lib/repositories/pairings.repository.js';
-import { upsertIdentity } from '../../../../lib/repositories/identities.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
+import { getPairing, expirePairing, approvePairing } from '../../../../lib/repositories/pairings.repository';
+import { upsertIdentity } from '../../../../lib/repositories/identities.repository';
 
 export async function POST(request: Request, { params }: { params: Promise<{ pairingId: string }> }) {
   try {

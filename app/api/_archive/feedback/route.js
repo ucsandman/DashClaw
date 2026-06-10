@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { listFeedback, createFeedback } from '../../../lib/feedback.js';
+import { listFeedback, createFeedback } from '../../../lib/feedback';
 
 export async function GET(request) {
   try {

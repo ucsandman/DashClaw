@@ -1,6 +1,6 @@
 import { neon } from '@neondatabase/serverless';
 import postgres from 'postgres';
-import { checkCoreTables } from './schemaCheck.js';
+import { checkCoreTables } from './schemaCheck';
 
 function parseHostname(databaseUrl) {
   try {

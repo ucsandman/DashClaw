@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getOrgRole, getUserId } from '../../../../lib/org.js';
-import { deliverWebhook } from '../../../../lib/webhooks.js';
-import { logActivity } from '../../../../lib/audit.js';
-import { getSql } from '../../../../lib/db.js';
+import { getOrgId, getOrgRole, getUserId } from '../../../../lib/org';
+import { deliverWebhook } from '../../../../lib/webhooks';
+import { logActivity } from '../../../../lib/audit';
+import { getSql } from '../../../../lib/db';
 
 // POST /api/webhooks/[webhookId]/test - Send test payload (admin only)
 export async function POST(request: Request, { params }: { params: Promise<{ webhookId: string }> }) {

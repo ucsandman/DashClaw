@@ -12,7 +12,7 @@ import { CardSkeleton } from './ui/Skeleton';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { useTileSize, fitItems } from '../hooks/useTileSize';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 export default function ContextCard() {
   const [contextData, setContextData] = useState<any>({

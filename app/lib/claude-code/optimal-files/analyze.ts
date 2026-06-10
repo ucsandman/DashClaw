@@ -12,8 +12,8 @@
  *     numbers instead of `db.prepare(...)` queries.
  */
 
-import { detectRepeatedRuns } from '../repeated-runs.js';
-import type { ToolEvent, RepeatedRunSignal } from '../repeated-runs.js';
+import { detectRepeatedRuns } from '../repeated-runs';
+import type { ToolEvent, RepeatedRunSignal } from '../repeated-runs';
 
 const IGNORED_SEGMENTS = new Set(['node_modules', '.git', 'dist', 'build', '.next', '.cache', '.venv', 'venv', '__pycache__']);
 

@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { isHostedMode } from '../../../../lib/hosted/flag.js';
-import { getHostedWorkspace, deleteHostedWorkspace } from '../../../../lib/repositories/hosted-workspace.repository.js';
-import { getSql } from '../../../../lib/db.js';
+import { isHostedMode } from '../../../../lib/hosted/flag';
+import { getHostedWorkspace, deleteHostedWorkspace } from '../../../../lib/repositories/hosted-workspace.repository';
+import { getSql } from '../../../../lib/db';
 
 function requireAdmin(request: Request): boolean {
   const role = request.headers.get('x-org-role');

@@ -4,7 +4,7 @@
  * Absorbed from AI-Agent-Governance-Compliance-Kit/packages/compliance-engine/src/reporter.js
  */
 
-import type { ComplianceMap, ControlMapping } from './mapper.js';
+import type { ComplianceMap, ControlMapping } from './mapper';
 
 /**
  * Generate a markdown compliance report

@@ -3,7 +3,7 @@
  * Absorbed from dashclaw-guardrails/packages/guardrailgen-js/src/evaluator.js
  */
 
-import { globToRegex } from '../globToRegex.js';
+import { globToRegex } from '../globToRegex';
 
 interface GuardrailPolicy {
   id: string;

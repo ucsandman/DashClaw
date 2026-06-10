@@ -1,7 +1,7 @@
 import { neon } from '@neondatabase/serverless';
 import postgres from 'postgres';
-import './validateEnv.js';
-import { startupSchemaCheck } from './schemaCheck.js';
+import './validateEnv';
+import { startupSchemaCheck } from './schemaCheck';
 import type { SqlTag } from './types/db';
 
 // A neon-like surface: callable tagged template + `.query(text, params)`.

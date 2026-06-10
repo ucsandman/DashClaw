@@ -10,7 +10,7 @@
  *   cache entry is invalidated (user may have toggled DM permissions).
  */
 
-import { recordSentApprovalNotification } from './approvalNotifications.js';
+import { recordSentApprovalNotification } from './approvalNotifications';
 import type { SqlTag } from './types/db';
 
 interface ApprovalAction {

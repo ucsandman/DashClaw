@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { getProvider, updateProvider, listEndpoints } from '../../../../lib/repositories/x402.repository.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { getProvider, updateProvider, listEndpoints } from '../../../../lib/repositories/x402.repository';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
 
 type RouteContext = { params: Promise<{ id: string }> };
 

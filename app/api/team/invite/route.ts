@@ -2,17 +2,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getOrgRole, getUserId } from '../../../lib/org.js';
-import { checkQuotaFast, getOrgPlan } from '../../../lib/usage.js';
-import { logActivity } from '../../../lib/audit.js';
-import { getSql } from '../../../lib/db.js';
+import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
+import { checkQuotaFast, getOrgPlan } from '../../../lib/usage';
+import { logActivity } from '../../../lib/audit';
+import { getSql } from '../../../lib/db';
 import {
   ensureInvitesTable,
   createInvite,
   listPendingInvites,
   revokeInvite,
   VALID_ROLES
-} from '../../../lib/repositories/invites.repository.js';
+} from '../../../lib/repositories/invites.repository';
 
 function requireAdmin(request: Request) {
   const orgId = getOrgId(request);

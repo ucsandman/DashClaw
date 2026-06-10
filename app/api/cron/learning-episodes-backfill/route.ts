@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { scoreAndStoreActionEpisode } from '../../../lib/learningLoop.service.js';
+import { getSql } from '../../../lib/db';
+import { scoreAndStoreActionEpisode } from '../../../lib/learningLoop.service';
 import {
   listOrganizations,
   listUnscoredActionIds,
-} from '../../../lib/repositories/learningLoop.repository.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+} from '../../../lib/repositories/learningLoop.repository';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 function parseBoundedInt(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = parseInt(String(value ?? fallback), 10);

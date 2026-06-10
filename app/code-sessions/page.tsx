@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
 import { Terminal, FolderGit2, ChevronRight } from 'lucide-react';
-import { getSql } from '../lib/db.js';
-import { listProjects, countUnreadAlerts } from '../lib/repositories/code-sessions.repository.js';
+import { getSql } from '../lib/db';
+import { listProjects, countUnreadAlerts } from '../lib/repositories/code-sessions.repository';
 import PageLayout from '../components/PageLayout';
 import CodeSessionAlertsPanel from '../components/CodeSessionAlertsPanel';
 import { Card, CardContent } from '../components/ui/Card';

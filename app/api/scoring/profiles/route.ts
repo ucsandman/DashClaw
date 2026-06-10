@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { createProfile, listProfiles } from '../../../lib/scoringProfiles.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { createProfile, listProfiles } from '../../../lib/scoringProfiles';
 
 export async function GET(request: Request) {
   try {
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
 
     // If dimensions are provided inline, add them
     if (Array.isArray(body.dimensions) && body.dimensions.length > 0) {
-      const { addDimension } = await import('../../../lib/scoringProfiles.js');
+      const { addDimension } = await import('../../../lib/scoringProfiles');
       const dims = [];
       for (let i = 0; i < body.dimensions.length; i++) {
         // createProfile always returns a profile with a generated id (Profile.id is

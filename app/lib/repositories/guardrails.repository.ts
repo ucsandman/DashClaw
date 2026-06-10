@@ -2,8 +2,8 @@
  * Guardrails Test Runs repository
  */
 
-import { invalidateGuardPolicyCache } from '../guard.js';
-import type { SqlTag } from '../types/db.js';
+import { invalidateGuardPolicyCache } from '../guard';
+import type { SqlTag } from '../types/db';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

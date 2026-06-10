@@ -3,20 +3,20 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
-import { getSql } from '../../../lib/db.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
+import { getSql } from '../../../lib/db';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 import {
   getActivePolicies,
   getDecisionCountsByPolicy,
   getDecisionOutcomeCounts,
-} from '../../../lib/repositories/guardrails.repository.js';
-import { listAgentsForOrg } from '../../../lib/repositories/agents.repository.js';
-import { getActionStats } from '../../../lib/repositories/actions.repository.js';
+} from '../../../lib/repositories/guardrails.repository';
+import { listAgentsForOrg } from '../../../lib/repositories/agents.repository';
+import { getActionStats } from '../../../lib/repositories/actions.repository';
 import {
   buildPolicySummary,
   type ActivePolicyRow,
   type OutcomeCounts,
-} from '../../../lib/policy-modes/summary.js';
+} from '../../../lib/policy-modes/summary';
 
 const ZERO_OUTCOMES: OutcomeCounts = { total: 0, allow: 0, warn: 0, require_approval: 0, block: 0 };
 

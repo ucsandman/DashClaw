@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
-import { updateEvalScorer, deleteEvalScorer } from '../../../../lib/repositories/evaluations.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
+import { updateEvalScorer, deleteEvalScorer } from '../../../../lib/repositories/evaluations.repository';
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ scorerId: string }> }) {
   try {

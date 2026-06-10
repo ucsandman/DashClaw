@@ -1,7 +1,7 @@
 import { after } from 'next/server';
-import { fireTelegramApproval } from './telegramApprovals.js';
-import { fireDiscordApproval } from './discordApprovals.js';
-import { fireWebhooksForApproval } from './webhooks.js';
+import { fireTelegramApproval } from './telegramApprovals';
+import { fireDiscordApproval } from './discordApprovals';
+import { fireWebhooksForApproval } from './webhooks';
 import type { SqlTag } from './types/db';
 
 /** The minimal shape this module reads off a created action record. */

@@ -2,12 +2,12 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { computePosturePayload } from '../../../lib/posture/signals.js';
-import { FINDING_STATUSES } from '../../../lib/repositories/posture.repository.js';
-import type { PostureFinding } from '../../../lib/posture/types.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { computePosturePayload } from '../../../lib/posture/signals';
+import { FINDING_STATUSES } from '../../../lib/repositories/posture.repository';
+import type { PostureFinding } from '../../../lib/posture/types';
 
 const DIMENSIONS = ['identity', 'enforcement', 'spend', 'auditability', 'approval', 'data_protection'];
 

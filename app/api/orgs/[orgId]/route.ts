@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
 
 // GET /api/orgs/[orgId] - Get org details (admin only)
 export async function GET(request: Request, { params }: { params: Promise<{ orgId: string }> }) {

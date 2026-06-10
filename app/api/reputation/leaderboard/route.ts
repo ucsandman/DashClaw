@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { listReputationSnapshots, snapshotToVector } from '../../../lib/repositories/reputation.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { listReputationSnapshots, snapshotToVector } from '../../../lib/repositories/reputation.repository';
 
 /**
  * GET /api/reputation/leaderboard — top agents by reliability in the org,

@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
-import { apiErrorResponse } from '../../lib/apiErrors.js';
-import { computePosturePayload } from '../../lib/posture/signals.js';
-import { listPostureSnapshots } from '../../lib/repositories/posture.repository.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
+import { apiErrorResponse } from '../../lib/apiErrors';
+import { computePosturePayload } from '../../lib/posture/signals';
+import { listPostureSnapshots } from '../../lib/repositories/posture.repository';
 
 /**
  * GET /api/posture

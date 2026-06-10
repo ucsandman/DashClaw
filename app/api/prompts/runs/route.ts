@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { listPromptRuns } from '../../../lib/repositories/prompts.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { listPromptRuns } from '../../../lib/repositories/prompts.repository';
 
 export async function GET(request: Request) {
   try {

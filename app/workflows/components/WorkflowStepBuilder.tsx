@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import WorkflowStepCard from './WorkflowStepCard.jsx';
-import WorkflowStepTypePicker from './WorkflowStepTypePicker.jsx';
+import WorkflowStepCard from './WorkflowStepCard';
+import WorkflowStepTypePicker from './WorkflowStepTypePicker';
 import { buildWorkflowVariableGroups, createDefaultWorkflowStep, sanitizeExecutableSteps } from '../lib/workflowStepFormModel.js';
 import { buildWorkflowResourceLookups } from '../lib/workflowBuilderResources.js';
 

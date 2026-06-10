@@ -10,7 +10,7 @@ import {
   Inbox,
   type LucideIcon,
 } from 'lucide-react';
-import type { WidgetAction } from '../../lib/widget/summary.js';
+import type { WidgetAction } from '../../lib/widget/summary';
 
 function timeAgo(ts: string | null): string {
   if (!ts) return '';

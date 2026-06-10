@@ -6,9 +6,9 @@
  */
 
 import crypto from 'node:crypto';
-import { computeVector, buildReputationReceipt, hashVector } from '../reputation.js';
-import type { ReputationVector as CanonicalReputationVector } from '../reputation.js';
-import { getServerSigningKey } from '../integrity/server-key.js';
+import { computeVector, buildReputationReceipt, hashVector } from '../reputation';
+import type { ReputationVector as CanonicalReputationVector } from '../reputation';
+import { getServerSigningKey } from '../integrity/server-key';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

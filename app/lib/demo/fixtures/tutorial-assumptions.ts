@@ -1,4 +1,4 @@
-import { isoFromNow, stableId, DEMO_ORG, MS_DAY } from './shared-utils.js';
+import { isoFromNow, stableId, DEMO_ORG, MS_DAY } from './shared-utils';
 
 interface TeachingAgent {
   id: string;

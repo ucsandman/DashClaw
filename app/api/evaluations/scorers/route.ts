@@ -3,10 +3,10 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { isLLMAvailable } from '../../../lib/llm.js';
-import { listEvalScorers, createEvalScorer } from '../../../lib/repositories/evaluations.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
+import { isLLMAvailable } from '../../../lib/llm';
+import { listEvalScorers, createEvalScorer } from '../../../lib/repositories/evaluations.repository';
 
 function generateId(prefix: string): string {
   return `${prefix}${crypto.randomBytes(12).toString('hex')}`;

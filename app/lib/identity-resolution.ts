@@ -21,7 +21,7 @@
  * without re-verifying the token.
  */
 
-import { verifyJwt, extractBearerToken } from './jwks-verifier.js';
+import { verifyJwt, extractBearerToken } from './jwks-verifier';
 import type { AgentIdentity } from './types/identity';
 
 export async function resolveAgentIdentity(

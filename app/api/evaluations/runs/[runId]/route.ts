@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { getEvalRun, updateEvalRunStatus } from '../../../../lib/repositories/evaluations.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { getEvalRun, updateEvalRunStatus } from '../../../../lib/repositories/evaluations.repository';
 
 /**
  * GET /api/evaluations/runs/[runId]   Run details with score stats

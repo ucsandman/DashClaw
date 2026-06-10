@@ -17,7 +17,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { canonicalJsonStringify } from '../canonical-json.js';
+import { canonicalJsonStringify } from '../canonical-json';
 
 const LONG_DASHES = /[‒–—―]/g; // figure/en/em dash, horizontal bar
 const HYPHEN_VARIANTS = /[‐‑−]/g; // hyphen, non-breaking hyphen, minus

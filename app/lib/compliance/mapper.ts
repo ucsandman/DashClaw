@@ -6,7 +6,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { globToRegex } from '../globToRegex.js';
+import { globToRegex } from '../globToRegex';
 
 const FRAMEWORKS_DIR = path.join(process.cwd(), 'app', 'lib', 'compliance', 'frameworks');
 

@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { getActionTimeBounds } from '../../../../lib/repositories/actions.repository.js';
-import { getMessagesByActionId, getMessagesInTimeWindow, getMessageSummaryByActionId } from '../../../../lib/repositories/messagesContext.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { getActionTimeBounds } from '../../../../lib/repositories/actions.repository';
+import { getMessagesByActionId, getMessagesInTimeWindow, getMessageSummaryByActionId } from '../../../../lib/repositories/messagesContext.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ actionId: string }> }) {
   try {

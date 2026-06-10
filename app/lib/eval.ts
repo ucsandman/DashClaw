@@ -11,7 +11,7 @@
 
 import crypto from 'crypto';
 import vm from 'node:vm';
-import { isLLMAvailable, tryLLMComplete } from './llm.js';
+import { isLLMAvailable, tryLLMComplete } from './llm';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

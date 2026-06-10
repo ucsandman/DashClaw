@@ -1,4 +1,4 @@
-import { CORE_TABLES } from '../schemaCheck.js';
+import { CORE_TABLES } from '../schemaCheck';
 import { createSection, createCheck } from './factories.mjs';
 
 export function buildDatabaseSection(dbStatus) {

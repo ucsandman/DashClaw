@@ -13,8 +13,8 @@
  * JWKS — no parallel key system.
  */
 
-import { generateSigningKey, publicJwkFromPrivate, jwkThumbprint } from './keys.js';
-import { getActiveSigningKey, insertSigningKey, listPublicJwks } from '../repositories/signing-keys.repository.js';
+import { generateSigningKey, publicJwkFromPrivate, jwkThumbprint } from './keys';
+import { getActiveSigningKey, insertSigningKey, listPublicJwks } from '../repositories/signing-keys.repository';
 import type { SqlTag } from '../types/db';
 
 /** A JSON Web Key. Members are dynamic (parsed JSON / node crypto export). */

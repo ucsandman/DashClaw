@@ -11,7 +11,7 @@
  * the sonnet-shaped FALLBACK, so we never warn on a model we can't price.
  */
 
-import { PRICES_PER_MTOK } from '../claude-code/pricing.js';
+import { PRICES_PER_MTOK } from '../claude-code/pricing';
 
 export type ModelTier = 'unknown' | 'cheap' | 'mid' | 'frontier';
 

@@ -7,7 +7,7 @@ import { Card, CardHeader, CardContent } from './ui/Card';
 import { StatCompact } from './ui/Stat';
 import { CardSkeleton } from './ui/Skeleton';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 export default function ScoringProfileCard() {
   const [data, setData] = useState<any>(null);

@@ -2,18 +2,18 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
 import {
   listLearningEpisodes,
   listLearningRecommendations,
-} from '../../../lib/repositories/learningLoop.repository.js';
+} from '../../../lib/repositories/learningLoop.repository';
 import {
   getLearningRecommendationMetrics,
   rebuildLearningRecommendations,
   recordLearningRecommendationEvents,
   scoreAndStoreActionEpisode,
-} from '../../../lib/learningLoop.service.js';
+} from '../../../lib/learningLoop.service';
 
 function parseBoundedInt(value: unknown, fieldName: string, min: number, max: number, fallback: number, errors: string[]): number {
   if (value === undefined || value === null || value === '') return fallback;

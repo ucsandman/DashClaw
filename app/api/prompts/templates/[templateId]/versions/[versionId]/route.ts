@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../../../../lib/org.js';
-import { getVersion, activateVersion } from '../../../../../../lib/prompt.js';
+import { getOrgRole } from '../../../../../../lib/org';
+import { getVersion, activateVersion } from '../../../../../../lib/prompt';
 
 export async function GET(request: Request, { params }: { params: Promise<{ versionId: string }> }) {
   try {

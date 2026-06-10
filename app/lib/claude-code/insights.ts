@@ -10,7 +10,7 @@
  * Ported from AgentLens (`src/insights.js`) — CommonJS → ESM. Pure.
  */
 
-import { cacheHitRate } from './pricing.js';
+import { cacheHitRate } from './pricing';
 
 export interface StuckLoopToolUse {
   name: string;

@@ -3,10 +3,10 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { generatePolicySuggestions } from '../../../lib/policy-suggestions.js';
-import { insertPolicy } from '../../../lib/repositories/guardrails.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { generatePolicySuggestions } from '../../../lib/policy-suggestions';
+import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
 
 export async function GET(request: Request) {
   try {

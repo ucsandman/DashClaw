@@ -3,9 +3,9 @@
  * Each handler takes (sql, orgId, stepConfig, context/workflowContext) and returns an output object.
  */
 
-import { searchCollection } from './knowledge-ingest.js';
-import { executeCompletion } from './providers.js';
-import { executeCapabilityInvocation, prepareCapabilityInvocation } from './capability-runtime.js';
+import { searchCollection } from './knowledge-ingest';
+import { executeCompletion } from './providers';
+import { executeCapabilityInvocation, prepareCapabilityInvocation } from './capability-runtime';
 
 /**
  * knowledge_search — search a linked knowledge collection.

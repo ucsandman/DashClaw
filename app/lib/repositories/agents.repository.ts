@@ -1,4 +1,4 @@
-import { baseAgentId } from '../agent-identity-resolve.js';
+import { baseAgentId } from '../agent-identity-resolve';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

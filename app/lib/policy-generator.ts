@@ -4,11 +4,11 @@
  * validates the output, and returns a preview or creates policies.
  */
 
-import { executeCompletion } from './providers.js';
+import { executeCompletion } from './providers';
 import { validatePolicy, POLICY_TYPES } from './validate.js';
 import type { SqlTag } from './types/db';
 import { createHash } from 'node:crypto';
-import { getDefaultProviderModel } from './providers/providerRegistry.js';
+import { getDefaultProviderModel } from './providers/providerRegistry';
 
 const ACTION_TYPES = [
   'build', 'deploy', 'post', 'apply', 'security', 'message', 'api',
@@ -247,7 +247,7 @@ export async function generatePolicies(
   inputText: string,
   priorAnswers: PriorAnswer[] = [],
 ) {
-  const { getSettings } = await import('./repositories/settings.repository.js');
+  const { getSettings } = await import('./repositories/settings.repository');
   const settings = await getSettings(sql, orgId, { category: 'integration' });
   const providerKeys = ['OPENAI_API_KEY', 'ANTHROPIC_API_KEY', 'GROQ_API_KEY', 'TOGETHER_API_KEY', 'PERPLEXITY_API_KEY'];
   const hasProvider = settings.some((s: Record<string, unknown>) => providerKeys.includes(s.key as string) && Boolean(s.value));

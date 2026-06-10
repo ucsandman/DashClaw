@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { createRegisteredAgent, listRegisteredAgents } from '../../../lib/repositories/registered-agents.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { createRegisteredAgent, listRegisteredAgents } from '../../../lib/repositories/registered-agents.repository';
 
 /** GET /api/agents/registry — list registered agents (org-scoped). */
 export async function GET(request: Request) {

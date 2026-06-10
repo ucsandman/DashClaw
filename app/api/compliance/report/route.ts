@@ -3,16 +3,16 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { convertPolicies } from '../../../lib/guardrails/converter.js';
-import { mapPolicies, loadFramework, listFrameworks } from '../../../lib/compliance/mapper.js';
-import type { DashClawPolicy } from '../../../lib/guardrails/converter.js';
-import type { PolicyDoc } from '../../../lib/compliance/mapper.js';
-import { generateMarkdownReport, generateJsonReport } from '../../../lib/compliance/reporter.js';
-import { getActivePolicies } from '../../../lib/repositories/guardrails.repository.js';
-import { createSnapshot } from '../../../lib/repositories/compliance.repository.js';
-import { analyzeGaps } from '../../../lib/compliance/analyzer.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { convertPolicies } from '../../../lib/guardrails/converter';
+import { mapPolicies, loadFramework, listFrameworks } from '../../../lib/compliance/mapper';
+import type { DashClawPolicy } from '../../../lib/guardrails/converter';
+import type { PolicyDoc } from '../../../lib/compliance/mapper';
+import { generateMarkdownReport, generateJsonReport } from '../../../lib/compliance/reporter';
+import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
+import { createSnapshot } from '../../../lib/repositories/compliance.repository';
+import { analyzeGaps } from '../../../lib/compliance/analyzer';
 
 /**
  * GET /api/compliance/report?framework=soc2&format=md|json — Generate full compliance report

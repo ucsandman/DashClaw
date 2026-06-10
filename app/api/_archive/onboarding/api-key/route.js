@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
+import { getSql } from '../../../../lib/db';
 import crypto from 'crypto';
 
 function hashKey(key) {

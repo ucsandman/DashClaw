@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { sampleStatus, recentSamples } from '../../../lib/behavior/sample-store.js';
-import { DEFAULT_OPTIONS } from '../../../lib/behavior/analyzer.js';
+import { sampleStatus, recentSamples } from '../../../lib/behavior/sample-store';
+import { DEFAULT_OPTIONS } from '../../../lib/behavior/analyzer';
 
 /**
  * GET /api/behavior/samples — status of the LOCAL behavior-sample log that the

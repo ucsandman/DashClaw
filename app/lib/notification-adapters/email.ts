@@ -3,7 +3,7 @@ import type {
   AdapterResult,
   GovernanceSignal,
   NotificationAdapter,
-} from './index.js';
+} from './index';
 
 export const emailAdapter: NotificationAdapter = {
   name: 'email',
@@ -29,7 +29,7 @@ async function sendViaResend(
   creds: AdapterCreds,
   orgId?: string,
 ): Promise<AdapterResult> {
-  const { sendSignalAlertEmail } = await import('../notifications.js');
+  const { sendSignalAlertEmail } = await import('../notifications');
   const to = creds.DASHCLAW_ALERT_EMAIL || creds.RESEND_DEFAULT_TO;
   if (!to) return { success: false, message: 'No alert email configured' };
 

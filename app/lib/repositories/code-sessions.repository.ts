@@ -14,8 +14,8 @@
  */
 
 import crypto from 'node:crypto';
-import { estimateCost } from '../billing.js';
-import { getModelPricing } from './settings.repository.js';
+import { estimateCost } from '../billing';
+import { getModelPricing } from './settings.repository';
 import type { SqlTag } from '../types/db';
 import type { BillingPricingEntry } from '../types/pricing-finops';
 

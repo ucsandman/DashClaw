@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId, getUserId } from '../../lib/org.js';
-import { getSql } from '../../lib/db.js';
-import { getTeamOrgAndMembers } from '../../lib/repositories/orgsTeam.repository.js';
-import { isSelfHostModeEnabled } from '../../lib/selfHost.js';
+import { getOrgId, getUserId } from '../../lib/org';
+import { getSql } from '../../lib/db';
+import { getTeamOrgAndMembers } from '../../lib/repositories/orgsTeam.repository';
+import { isSelfHostModeEnabled } from '../../lib/selfHost';
 
 // GET /api/team - List members + org info for caller's org
 export async function GET(request: Request) {

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Check, X, Loader2 } from 'lucide-react';
-import type { WidgetAction } from '../../lib/widget/summary.js';
+import type { WidgetAction } from '../../lib/widget/summary';
 
 /**
  * Pending-approval cards with inline Approve/Deny. Operator action (the human

@@ -24,7 +24,7 @@ import {
   OPERATOR_CHANNEL_OPTIONS,
 } from '../lib/missionControl';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 interface ActivityTimelineProps {
   activeCategory?: string;

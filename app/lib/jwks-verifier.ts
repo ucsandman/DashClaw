@@ -15,8 +15,8 @@
  * `unverified` on any infrastructure error.
  */
 
-import { assertSafeFetchUrl } from './url-safety.js';
-import { parseActBinding } from './act-binding.js';
+import { assertSafeFetchUrl } from './url-safety';
+import { parseActBinding } from './act-binding';
 import type { VerificationStatus } from './types/identity';
 
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 hour

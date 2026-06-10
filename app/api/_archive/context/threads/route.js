@@ -2,13 +2,13 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../lib/org.js';
+import { getOrgId } from '../../../../lib/org';
 import { enforceFieldLimits } from '../../../../lib/validate.js';
-import { getSql } from '../../../../lib/db.js';
+import { getSql } from '../../../../lib/db';
 import {
   listContextThreads,
   upsertContextThread,
-} from '../../../../lib/repositories/messagesContext.repository.js';
+} from '../../../../lib/repositories/messagesContext.repository';
 import { randomUUID } from 'node:crypto';
 
 export async function GET(request) {

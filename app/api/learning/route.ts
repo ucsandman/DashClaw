@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
 import { enforceFieldLimits } from '../../lib/validate.js';
-import { EVENTS, publishOrgEvent } from '../../lib/events.js';
-import { listDecisions } from '../../lib/repositories/learning.repository.js';
+import { EVENTS, publishOrgEvent } from '../../lib/events';
+import { listDecisions } from '../../lib/repositories/learning.repository';
 
 // sql initialized inside handler for serverless compatibility
 

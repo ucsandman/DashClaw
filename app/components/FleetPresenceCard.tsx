@@ -8,7 +8,7 @@ import { StatCompact } from './ui/Stat';
 import { CardSkeleton } from './ui/Skeleton';
 import { useRealtime } from '../hooks/useRealtime';
 import { HelpIcon } from './HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 
 export default function FleetPresenceCard() {
   const [agents, setAgents] = useState<any[]>([]);

@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { invokeRegisteredAgent } from '../../../lib/agent-registry.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { invokeRegisteredAgent } from '../../../lib/agent-registry';
 
 /**
  * POST /api/agents/invoke — invoke a capability through a registered agent,

@@ -2,25 +2,25 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
-import { getSql } from '../../lib/db.js';
+import { getSql } from '../../lib/db';
 import { validateActionRecord } from '../../lib/validate.js';
-import { getOrgId, getOrgRole } from '../../lib/org.js';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage.js';
-import { apiErrorResponse } from '../../lib/apiErrors.js';
-import { verifyAgentSignature } from '../../lib/identity.js';
-import { resolveAgentIdentity } from '../../lib/identity-resolution.js';
-import { estimateCost } from '../../lib/billing.js';
-import { EVENTS, publishOrgEvent } from '../../lib/events.js';
-import { generateActionEmbedding, isEmbeddingsEnabled } from '../../lib/embeddings.js';
-import { evaluateGuard } from '../../lib/guard.js';
-import { fireActionAlert } from '../../lib/actionAlerts.js';
-import { fireTelegramApproval } from '../../lib/telegramApprovals.js';
-import { fireDiscordApproval } from '../../lib/discordApprovals.js';
-import { fireNewConnectAlert } from '../../lib/notification-adapters/discord.js';
-import { fireWebhooksForApproval } from '../../lib/webhooks.js';
-import { redactAny } from '../../lib/security.js';
-import { upsertAgentPresence } from '../../lib/repositories/agents.repository.js';
-import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository.js';
+import { getOrgId, getOrgRole } from '../../lib/org';
+import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
+import { apiErrorResponse } from '../../lib/apiErrors';
+import { verifyAgentSignature } from '../../lib/identity';
+import { resolveAgentIdentity } from '../../lib/identity-resolution';
+import { estimateCost } from '../../lib/billing';
+import { EVENTS, publishOrgEvent } from '../../lib/events';
+import { generateActionEmbedding, isEmbeddingsEnabled } from '../../lib/embeddings';
+import { evaluateGuard } from '../../lib/guard';
+import { fireActionAlert } from '../../lib/actionAlerts';
+import { fireTelegramApproval } from '../../lib/telegramApprovals';
+import { fireDiscordApproval } from '../../lib/discordApprovals';
+import { fireNewConnectAlert } from '../../lib/notification-adapters/discord';
+import { fireWebhooksForApproval } from '../../lib/webhooks';
+import { redactAny } from '../../lib/security';
+import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
+import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import {
   createActionRecord,
   createBlockedActionRecord,
@@ -30,8 +30,8 @@ import {
   insertActionEmbedding,
   isFirstActionForOrg,
   listActions,
-} from '../../lib/repositories/actions.repository.js';
-import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository.js';
+} from '../../lib/repositories/actions.repository';
+import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
 import crypto from 'crypto';
 
 

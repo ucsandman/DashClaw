@@ -3,15 +3,15 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
-import { EVENTS, publishOrgEvent } from '../../../lib/events.js';
-import { fireWebhooksForOrg } from '../../../lib/webhooks.js';
+import { getSql } from '../../../lib/db';
+import { timingSafeCompare } from '../../../lib/timing-safe';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
+import { fireWebhooksForOrg } from '../../../lib/webhooks';
 import {
   listOrgsWithStaleOutcomes,
   sweepLostOutcomesForOrg,
-} from '../../../lib/repositories/actions.repository.js';
-import { getSettings } from '../../../lib/repositories/settings.repository.js';
+} from '../../../lib/repositories/actions.repository';
+import { getSettings } from '../../../lib/repositories/settings.repository';
 
 const DEFAULT_TIMEOUT_MINUTES = 15;
 const FLOOR_TIMEOUT_MINUTES = 1;

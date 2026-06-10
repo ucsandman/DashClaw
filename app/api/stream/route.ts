@@ -1,11 +1,11 @@
-import { getOrgId } from '../../lib/org.js';
+import { getOrgId } from '../../lib/org';
 import {
   EVENTS,
   getRealtimeBackendName,
   getRealtimeHealth,
   replayOrgEvents,
   subscribeOrgEvents,
-} from '../../lib/events.js';
+} from '../../lib/events';
 
 export const dynamic = 'force-dynamic';
 

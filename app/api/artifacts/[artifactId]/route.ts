@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { getArtifact, deleteArtifact } from '../../../lib/repositories/artifacts.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { getArtifact, deleteArtifact } from '../../../lib/repositories/artifacts.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ artifactId: string }> }) {
   try {

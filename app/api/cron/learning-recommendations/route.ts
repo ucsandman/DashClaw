@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { rebuildLearningRecommendations } from '../../../lib/learningLoop.service.js';
-import { listOrganizations } from '../../../lib/repositories/learningLoop.repository.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { getSql } from '../../../lib/db';
+import { rebuildLearningRecommendations } from '../../../lib/learningLoop.service';
+import { listOrganizations } from '../../../lib/repositories/learningLoop.repository';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 function parseBoundedInt(value: unknown, min: number, max: number, fallback: number): number {
   const parsed = parseInt(String(value ?? fallback), 10);

@@ -2,21 +2,21 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { listModelStrategies } from '../../../lib/repositories/model-strategies.repository.js';
-import { getActivePolicies } from '../../../lib/repositories/guardrails.repository.js';
-import { listCollections } from '../../../lib/repositories/knowledge.repository.js';
-import { listCapabilities } from '../../../lib/repositories/capabilities.repository.js';
-import { listTemplates } from '../../../lib/prompt.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { listModelStrategies } from '../../../lib/repositories/model-strategies.repository';
+import { getActivePolicies } from '../../../lib/repositories/guardrails.repository';
+import { listCollections } from '../../../lib/repositories/knowledge.repository';
+import { listCapabilities } from '../../../lib/repositories/capabilities.repository';
+import { listTemplates } from '../../../lib/prompt';
 import {
   getDefaultProviderModel,
   getProviderEntries,
   getProviderApiStyle,
   isSupportedProvider,
   isSupportedProviderModel,
-} from '../../../lib/providers/providerRegistry.js';
+} from '../../../lib/providers/providerRegistry';
 
 const MAX_DESCRIPTION_LENGTH = 4000;
 

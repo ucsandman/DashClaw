@@ -8,12 +8,12 @@
  */
 
 import crypto from 'node:crypto';
-import { RISK_SCORE_MAP } from './capability-invoke.js';
-import { getPredictiveRisk } from './predictive-risk.js';
-import { evaluateGuard } from './guard.js';
-import { prepareCapabilityInvocation, executeCapabilityInvocation } from './capability-runtime.js';
-import { createActionRecord, createBlockedActionRecord, updateActionOutcome } from './repositories/actions.repository.js';
-import { getRegisteredAgent, isCapabilityGrouped, recordInvocation } from './repositories/registered-agents.repository.js';
+import { RISK_SCORE_MAP } from './capability-invoke';
+import { getPredictiveRisk } from './predictive-risk';
+import { evaluateGuard } from './guard';
+import { prepareCapabilityInvocation, executeCapabilityInvocation } from './capability-runtime';
+import { createActionRecord, createBlockedActionRecord, updateActionOutcome } from './repositories/actions.repository';
+import { getRegisteredAgent, isCapabilityGrouped, recordInvocation } from './repositories/registered-agents.repository';
 import type { SqlTag } from './types/db';
 
 // RISK_SCORE_MAP is sourced from an untyped JS module; index access by a

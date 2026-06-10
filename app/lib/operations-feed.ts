@@ -3,9 +3,9 @@
  * Pure mapper functions normalize items from 6 data sources into a unified feed.
  */
 
-import { computeSignals } from './signals.js';
-import { getCachedIntegrationHealth } from './integration-health.js';
-import { signalDismissKey } from './signal-hash.js';
+import { computeSignals } from './signals';
+import { getCachedIntegrationHealth } from './integration-health';
+import { signalDismissKey } from './signal-hash';
 import type { SqlTag } from './types/db';
 
 export const SEVERITY_RANK: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 };

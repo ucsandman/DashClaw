@@ -1,4 +1,4 @@
-import type { SqlTag } from './types/db.js';
+import type { SqlTag } from './types/db';
 
 interface PolicySuggestionOptions {
   lookbackDays?: number;

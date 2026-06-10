@@ -1,9 +1,9 @@
-import { slackAdapter } from './slack.js';
-import { discordAdapter } from './discord.js';
-import { linearAdapter } from './linear.js';
-import { githubAdapter } from './github.js';
-import { emailAdapter } from './email.js';
-import { decrypt } from '../encryption.js';
+import { slackAdapter } from './slack';
+import { discordAdapter } from './discord';
+import { linearAdapter } from './linear';
+import { githubAdapter } from './github';
+import { emailAdapter } from './email';
+import { decrypt } from '../encryption';
 
 /**
  * A governance signal as surfaced to native notification adapters. Field

@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId } from '../../lib/org.js';
-import { getPlanLimits, getUsage } from '../../lib/usage.js';
-import { isSelfHostModeEnabled } from '../../lib/selfHost.js';
+import { getSql } from '../../lib/db';
+import { getOrgId } from '../../lib/org';
+import { getPlanLimits, getUsage } from '../../lib/usage';
+import { isSelfHostModeEnabled } from '../../lib/selfHost';
 
 // GET /api/usage - Returns limits and usage info
 export async function GET(request: Request) {

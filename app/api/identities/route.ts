@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../lib/org.js';
-import { upsertIdentity, listIdentities } from '../../lib/repositories/identities.repository.js';
+import { getSql } from '../../lib/db';
+import { getOrgId, getOrgRole } from '../../lib/org';
+import { upsertIdentity, listIdentities } from '../../lib/repositories/identities.repository';
 
 function isPemPublicKey(s: unknown): boolean {
   return typeof s === 'string' && s.includes('BEGIN PUBLIC KEY') && s.includes('END PUBLIC KEY');

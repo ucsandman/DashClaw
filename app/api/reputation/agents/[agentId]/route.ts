@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { agentExistsInOrg } from '../../../../lib/repositories/agents.repository.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { agentExistsInOrg } from '../../../../lib/repositories/agents.repository';
 import {
   getReputationSnapshot,
   computeReputationVector,
   snapshotToVector,
-} from '../../../../lib/repositories/reputation.repository.js';
+} from '../../../../lib/repositories/reputation.repository';
 
 /**
  * GET /api/reputation/agents/[agentId] — the current reputation vector.

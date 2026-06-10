@@ -3,10 +3,10 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../lib/org.js';
-import { sweepLostOutcomesForOrg } from '../../../lib/repositories/actions.repository.js';
-import { getSettings } from '../../../lib/repositories/settings.repository.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../lib/org';
+import { sweepLostOutcomesForOrg } from '../../../lib/repositories/actions.repository';
+import { getSettings } from '../../../lib/repositories/settings.repository';
 
 const DEFAULT_TIMEOUT_MINUTES = 15;
 const FLOOR_TIMEOUT_MINUTES = 1;

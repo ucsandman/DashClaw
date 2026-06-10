@@ -5,15 +5,15 @@
  */
 
 import crypto from 'crypto';
-import { resolveVars } from './template-vars.js';
-import { evaluateCondition } from './workflow-condition.js';
+import { resolveVars } from './template-vars';
+import { evaluateCondition } from './workflow-condition';
 import {
   handleKnowledgeSearch,
   handleCapabilityInvoke,
   handlePrompt,
-} from './step-handlers.js';
-import { createActionRecord } from './repositories/actions.repository.js';
-import { calculateBackoffDelay, sleep } from './capability-invoke.js';
+} from './step-handlers';
+import { createActionRecord } from './repositories/actions.repository';
+import { calculateBackoffDelay, sleep } from './capability-invoke';
 
 /** SQL executor used by this module (Neon/postgres tagged-template form). */
 type SqlClient = {

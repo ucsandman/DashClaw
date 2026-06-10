@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { importPolicyPack } from '../guardrails/import-pack.js';
+import { importPolicyPack } from '../guardrails/import-pack';
 import type { SqlTag } from '../types/db';
 
 function generateId(prefix: string): string {

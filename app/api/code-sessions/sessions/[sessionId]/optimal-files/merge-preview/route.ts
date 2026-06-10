@@ -2,17 +2,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../../lib/db.js';
-import { getOrgId } from '../../../../../../lib/org.js';
+import { getSql } from '../../../../../../lib/db';
+import { getOrgId } from '../../../../../../lib/org';
 import {
   buildOptimalFilesBundle,
   previewBundleMerge,
-} from '../../../../../../lib/claude-code/optimal-files/bundle.js';
+} from '../../../../../../lib/claude-code/optimal-files/bundle';
 import {
   getSessionDetail,
   getProjectMedianCost,
   getSimilarSessionCount,
-} from '../../../../../../lib/repositories/code-sessions.repository.js';
+} from '../../../../../../lib/repositories/code-sessions.repository';
 
 export async function POST(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;

@@ -8,7 +8,7 @@
  * Ported from AgentLens (`src/optimal-files/hooks-bundle.js`). Pure.
  */
 
-import { generateHook } from '../hooks-gen.js';
+import { generateHook } from '../hooks-gen';
 
 interface InstallInfo {
   hookEvent?: string;

@@ -11,19 +11,19 @@ import {
   Target,
   ListTree,
 } from 'lucide-react';
-import { getSql } from '../../../lib/db.js';
+import { getSql } from '../../../lib/db';
 import {
   getSessionDetail,
   listSignalsForSession,
-} from '../../../lib/repositories/code-sessions.repository.js';
-import { estimateCost } from '../../../lib/billing.js';
-import { labelFor, severityRank } from '../../../lib/claude-code/signal-labels.js';
+} from '../../../lib/repositories/code-sessions.repository';
+import { estimateCost } from '../../../lib/billing';
+import { labelFor, severityRank } from '../../../lib/claude-code/signal-labels';
 import PageLayout from '../../../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../../../components/ui/Card';
 import { Badge } from '../../../components/ui/Badge';
 import { StatCompact } from '../../../components/ui/Stat';
-import OptimalFilesPanel from './OptimalFilesPanel.jsx';
-import { buildAutopsyFromDetail } from '../../../lib/claude-code/goals.js';
+import OptimalFilesPanel from './OptimalFilesPanel';
+import { buildAutopsyFromDetail } from '../../../lib/claude-code/goals';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;

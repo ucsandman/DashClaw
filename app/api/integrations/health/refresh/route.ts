@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId, getOrgRole } from '../../../../lib/org.js';
-import { checkAllIntegrations } from '../../../../lib/integration-health.js';
-import { upsertHealth, getHealthForOrg } from '../../../../lib/repositories/integration-health.repository.js';
-import { fireHealthChangeAlerts } from '../../../../lib/health-change-alerts.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId, getOrgRole } from '../../../../lib/org';
+import { checkAllIntegrations } from '../../../../lib/integration-health';
+import { upsertHealth, getHealthForOrg } from '../../../../lib/repositories/integration-health.repository';
+import { fireHealthChangeAlerts } from '../../../../lib/health-change-alerts';
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;

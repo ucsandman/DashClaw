@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { getOrgRole } from '../../../lib/org.js';
-import { listAlerts, detectDrift, computeBaselines, recordSnapshots } from '../../../lib/drift.js';
+import { getOrgRole } from '../../../lib/org';
+import { listAlerts, detectDrift, computeBaselines, recordSnapshots } from '../../../lib/drift';
 
 export async function GET(request: Request) {
   try {

@@ -4,21 +4,21 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { baseAgentId } from './agent-identity-resolve.js';
-import { deliverGuardWebhook } from './webhooks.js';
-import { checkSemanticGuardrail } from './llm.js';
-import { generateActionEmbedding, isEmbeddingsEnabled } from './embeddings.js';
-import { scanSensitiveData } from './security.js';
-import { scanForPromptInjection } from './promptInjection.js';
-import { EVENTS, publishOrgEvent } from './events.js';
-import { getLearningContext } from './learning-context.js';
-import { evaluateRecoveryRecipes } from './recovery.js';
-import { getActBindingMode } from './act-binding.js';
-import { matchesProtectedPath } from './behavior/path-match.js';
-import { verify } from './integrity/verify.js';
-import type { SourceOfTruth } from './integrity/verify.js';
-import { issueReceipt } from './integrity/receipt.js';
-import { getServerSigningKey } from './integrity/server-key.js';
+import { baseAgentId } from './agent-identity-resolve';
+import { deliverGuardWebhook } from './webhooks';
+import { checkSemanticGuardrail } from './llm';
+import { generateActionEmbedding, isEmbeddingsEnabled } from './embeddings';
+import { scanSensitiveData } from './security';
+import { scanForPromptInjection } from './promptInjection';
+import { EVENTS, publishOrgEvent } from './events';
+import { getLearningContext } from './learning-context';
+import { evaluateRecoveryRecipes } from './recovery';
+import { getActBindingMode } from './act-binding';
+import { matchesProtectedPath } from './behavior/path-match';
+import { verify } from './integrity/verify';
+import type { SourceOfTruth } from './integrity/verify';
+import { issueReceipt } from './integrity/receipt';
+import { getServerSigningKey } from './integrity/server-key';
 
 const DECISION_SEVERITY = { allow: 0, warn: 1, require_approval: 2, block: 3 } as const;
 const SEVERITY = DECISION_SEVERITY as Record<string, number>;
@@ -358,7 +358,7 @@ async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgent
 async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number }> {
   const hit = predictiveSettingsCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit;
-  const { getSettings } = await import('./repositories/settings.repository.js');
+  const { getSettings } = await import('./repositories/settings.repository');
   const riskSettings = await getSettings(sql, orgId, { category: 'general' });
   const settingsList = riskSettings as Array<Record<string, unknown>>;
   const entry = {
@@ -384,7 +384,7 @@ async function computePredictiveRisk(
     if (!enabled) return null;
 
     if (context.agent_id && context.action_type) {
-      const { getPredictiveRisk } = await import('./predictive-risk.js');
+      const { getPredictiveRisk } = await import('./predictive-risk');
       return await getPredictiveRisk(
         sql, orgId, context.agent_id, context.action_type, effectiveRiskScore,
         { enabled, threshold },

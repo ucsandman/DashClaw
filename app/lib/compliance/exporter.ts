@@ -1,21 +1,21 @@
 import crypto from 'crypto';
-import { getSql } from '../db.js';
-import { getOrgId } from '../org.js';
-import { loadFramework, listFrameworks, mapPolicies } from './mapper.js';
-import type { PolicyDoc } from './mapper.js';
-import { generateMarkdownReport, generateJsonReport } from './reporter.js';
-import { analyzeGaps } from './analyzer.js';
-import { getActivePolicies } from '../repositories/guardrails.repository.js';
-import { convertPolicies } from '../guardrails/converter.js';
-import type { DashClawPolicy } from '../guardrails/converter.js';
+import { getSql } from '../db';
+import { getOrgId } from '../org';
+import { loadFramework, listFrameworks, mapPolicies } from './mapper';
+import type { PolicyDoc } from './mapper';
+import { generateMarkdownReport, generateJsonReport } from './reporter';
+import { analyzeGaps } from './analyzer';
+import { getActivePolicies } from '../repositories/guardrails.repository';
+import { convertPolicies } from '../guardrails/converter';
+import type { DashClawPolicy } from '../guardrails/converter';
 import {
   createSnapshot,
   listSnapshots,
   getGuardDecisionEvidence,
   getActionRecordEvidence,
-} from '../repositories/compliance.repository.js';
-import { signBundle, bundleHash, verifyBundle } from '../integrity/bundle.js';
-import { getServerSigningKey, getServerPublicJwks } from '../integrity/server-key.js';
+} from '../repositories/compliance.repository';
+import { signBundle, bundleHash, verifyBundle } from '../integrity/bundle';
+import { getServerSigningKey, getServerPublicJwks } from '../integrity/server-key';
 
 // -----------------------------------------------
 // Export Generation

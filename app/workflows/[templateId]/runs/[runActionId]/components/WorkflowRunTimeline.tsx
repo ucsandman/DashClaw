@@ -1,6 +1,6 @@
 'use client';
 
-import WorkflowRunStepCard from './WorkflowRunStepCard.jsx';
+import WorkflowRunStepCard from './WorkflowRunStepCard';
 
 interface WorkflowRunTimelineProps {
   steps?: any[];

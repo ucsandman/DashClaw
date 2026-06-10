@@ -7,9 +7,9 @@
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { findPolicyByName, insertPolicy } from '../repositories/guardrails.repository.js';
-import { inferPolicyType } from '../policyPackPreviews.js';
-import type { SqlTag } from '../types/db.js';
+import { findPolicyByName, insertPolicy } from '../repositories/guardrails.repository';
+import { inferPolicyType } from '../policyPackPreviews';
+import type { SqlTag } from '../types/db';
 
 export interface ImportedPolicySummary {
   id: unknown;

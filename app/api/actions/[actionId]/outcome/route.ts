@@ -2,17 +2,17 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../lib/db.js';
-import { getOrgId } from '../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../lib/apiErrors.js';
-import { EVENTS, publishOrgEvent } from '../../../../lib/events.js';
-import { scanSensitiveData } from '../../../../lib/security.js';
+import { getSql } from '../../../../lib/db';
+import { getOrgId } from '../../../../lib/org';
+import { apiErrorResponse } from '../../../../lib/apiErrors';
+import { EVENTS, publishOrgEvent } from '../../../../lib/events';
+import { scanSensitiveData } from '../../../../lib/security';
 import {
   getActionOutcome,
   setActionOutcome,
   getActionStatus,
-} from '../../../../lib/repositories/actions.repository.js';
-import { getPurchase, setPurchaseOutcome } from '../../../../lib/repositories/x402.repository.js';
+} from '../../../../lib/repositories/actions.repository';
+import { getPurchase, setPurchaseOutcome } from '../../../../lib/repositories/x402.repository';
 
 // Terminal states an agent is allowed to report. `lost_confirmation` is
 // reserved for the system sweep (Phase 2) and rejected from this endpoint.

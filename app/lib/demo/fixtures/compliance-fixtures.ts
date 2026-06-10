@@ -1,4 +1,4 @@
-import { isoFromNow, DEMO_ORG, MS_DAY, MS_HOUR } from './shared-utils.js';
+import { isoFromNow, DEMO_ORG, MS_DAY, MS_HOUR } from './shared-utils';
 
 // ── Framework definitions with educational descriptions ──
 

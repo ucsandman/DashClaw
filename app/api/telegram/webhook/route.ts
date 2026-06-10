@@ -3,12 +3,12 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { timingSafeEqual } from 'node:crypto';
-import { getSql } from '../../../lib/db.js';
+import { getSql } from '../../../lib/db';
 import {
   getActionSummary,
   recordApproval,
-} from '../../../lib/repositories/actions.repository.js';
-import { clearApprovalNotifications } from '../../../lib/approvalNotifications.js';
+} from '../../../lib/repositories/actions.repository';
+import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 
 const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const FETCH_TIMEOUT_MS = 1500;

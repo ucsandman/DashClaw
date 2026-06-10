@@ -3,7 +3,7 @@
  * sessions show cache hit rate below HIT_FLOOR.
  */
 
-import { cacheHitRate, priceFor } from '../pricing.js';
+import { cacheHitRate, priceFor } from '../pricing';
 
 const ID = 'BAD_CACHE_HIT';
 export const HIT_FLOOR = 0.50;

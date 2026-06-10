@@ -6,7 +6,7 @@
 
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../lib/org';
-import { getSql } from '../../../lib/db.js';
+import { getSql } from '../../../lib/db';
 import crypto from 'crypto';
 import { syncSchema } from '../../../lib/validators/sync';
 import { scanSensitiveData } from '../../../lib/security';

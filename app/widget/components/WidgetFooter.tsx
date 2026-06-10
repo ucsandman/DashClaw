@@ -1,5 +1,5 @@
 import React from 'react';
-import type { ConnectionState } from '../connection.js';
+import type { ConnectionState } from '../connection';
 
 export type { ConnectionState };
 

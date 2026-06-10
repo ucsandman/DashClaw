@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import postgres from 'postgres';
-import { isAlreadyInitialized, isAuthorizedSetupWriter } from '../../../lib/setup/auth-gate.js';
+import { isAlreadyInitialized, isAuthorizedSetupWriter } from '../../../lib/setup/auth-gate';
 import {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,

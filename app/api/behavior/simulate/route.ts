@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { readSamples } from '../../../lib/behavior/sample-store.js';
-import { analyzeSamples } from '../../../lib/behavior/analyzer.js';
-import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate.js';
+import { readSamples } from '../../../lib/behavior/sample-store';
+import { analyzeSamples } from '../../../lib/behavior/analyzer';
+import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
 
 /**
  * POST /api/behavior/simulate — Replay a behavior suggestion (or an edited

@@ -18,7 +18,7 @@ import SecurityDetailPanel from '../components/SecurityDetailPanel';
 import SecurityScanners from '../components/SecurityScanners';
 import SkillScanner from '../components/SkillScanner';
 import { HelpIcon } from '../components/HelpIcon';
-import { HELP_TIPS } from '../lib/demo/fixtures/help-tips.js';
+import { HELP_TIPS } from '../lib/demo/fixtures/help-tips';
 import { useAgentFilter } from '../lib/AgentFilterContext';
 import { getAgentColor } from '../lib/colors';
 

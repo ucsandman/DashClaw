@@ -9,10 +9,10 @@ import {
 import PageLayout from '../../components/PageLayout';
 import { Card, CardContent, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
-import WorkflowStepBuilder from '../components/WorkflowStepBuilder.jsx';
-import WorkflowStepLegacyNotice from '../components/WorkflowStepLegacyNotice.jsx';
-import WorkflowReferenceHelp from '../components/WorkflowReferenceHelp.jsx';
-import WorkflowLinkedResourcesSection from '../components/WorkflowLinkedResourcesSection.jsx';
+import WorkflowStepBuilder from '../components/WorkflowStepBuilder';
+import WorkflowStepLegacyNotice from '../components/WorkflowStepLegacyNotice';
+import WorkflowReferenceHelp from '../components/WorkflowReferenceHelp';
+import WorkflowLinkedResourcesSection from '../components/WorkflowLinkedResourcesSection';
 import { normalizeWorkflowStepData, sanitizeExecutableSteps } from '../lib/workflowStepFormModel.js';
 import { loadWorkflowBuilderResources, mergeWorkflowBuilderResourceOptions } from '../lib/workflowBuilderResources.js';
 import { compileWorkflowDraftPayload, createDefaultWorkflowDraft, decompileWorkflowTemplateToDraft } from '../lib/workflowDraftFormModel.js';

@@ -13,7 +13,7 @@
  */
 
 import path from 'node:path';
-import { PRICES_PER_MTOK, FALLBACK } from './pricing.js';
+import { PRICES_PER_MTOK, FALLBACK } from './pricing';
 
 export const STUCK_LOOP_DEFAULT_THRESHOLD = 5;
 export const COST_LIMIT_DEFAULT_MULTIPLIER = 3;

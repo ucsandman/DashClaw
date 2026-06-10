@@ -11,10 +11,10 @@ import {
   deriveCapabilityMode,
   deriveGeneratedInputFields,
 } from '../../lib/capabilityFormModel.js';
-import CapabilityModeSelector from '../../new/components/CapabilityModeSelector.jsx';
-import CapabilityBasicsSection from '../../new/components/CapabilityBasicsSection.jsx';
-import CapabilityHttpRuntimeSection from '../../new/components/CapabilityHttpRuntimeSection.jsx';
-import CapabilitySummaryCard from '../../new/components/CapabilitySummaryCard.jsx';
+import CapabilityModeSelector from '../../new/components/CapabilityModeSelector';
+import CapabilityBasicsSection from '../../new/components/CapabilityBasicsSection';
+import CapabilityHttpRuntimeSection from '../../new/components/CapabilityHttpRuntimeSection';
+import CapabilitySummaryCard from '../../new/components/CapabilitySummaryCard';
 
 function splitTags(tags: string): string[] {
   return tags.split(',').map((tag) => tag.trim()).filter(Boolean);

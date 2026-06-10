@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgRole, getUserId } from '../../../lib/org.js';
+import { getOrgRole, getUserId } from '../../../lib/org';
 
 /**
  * GET /api/keys/reveal

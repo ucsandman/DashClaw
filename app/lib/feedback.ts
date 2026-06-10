@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { getSql } from './db.js';
-import { getOrgId } from './org.js';
+import { getSql } from './db';
+import { getOrgId } from './org';
 
 // -----------------------------------------------
 // Sentiment detection (rule-based, no LLM needed)

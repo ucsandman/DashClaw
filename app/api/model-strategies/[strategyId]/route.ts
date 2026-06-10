@@ -2,14 +2,14 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 import {
   getModelStrategy,
   updateModelStrategy,
   deleteModelStrategy,
-} from '../../../lib/repositories/model-strategies.repository.js';
+} from '../../../lib/repositories/model-strategies.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ strategyId: string }> }) {
   try {

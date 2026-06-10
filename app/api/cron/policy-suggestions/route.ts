@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { generatePolicySuggestions } from '../../../lib/policy-suggestions.js';
-import { listOrganizations } from '../../../lib/repositories/learningLoop.repository.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { getSql } from '../../../lib/db';
+import { generatePolicySuggestions } from '../../../lib/policy-suggestions';
+import { listOrganizations } from '../../../lib/repositories/learningLoop.repository';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 export async function GET(request: Request) {
   try {

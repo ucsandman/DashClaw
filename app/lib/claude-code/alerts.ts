@@ -13,7 +13,7 @@
  *   - listAlerts / markAllRead
  */
 
-import { cacheHitRate, formatUSD } from './pricing.js';
+import { cacheHitRate, formatUSD } from './pricing';
 
 export const KINDS = Object.freeze({
   COST_ANOMALY: 'cost_anomaly',

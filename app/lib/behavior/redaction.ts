@@ -9,7 +9,7 @@
  * samples never drift apart on what counts as a secret.
  */
 
-import { scanForSecrets } from '../claude-code/optimal-files/secret-scan.js';
+import { scanForSecrets } from '../claude-code/optimal-files/secret-scan';
 
 const MAX_FIELD = 400; // hard cap on any string field length in a sample
 const MAX_LIST = 50; // hard cap on path-list lengths

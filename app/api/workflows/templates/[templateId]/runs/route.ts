@@ -1,10 +1,10 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../../../lib/db.js';
-import { getOrgId } from '../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../lib/apiErrors.js';
-import { listWorkflowRuns } from '../../../../../lib/repositories/workflow-runs.repository.js';
+import { getSql } from '../../../../../lib/db';
+import { getOrgId } from '../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../lib/apiErrors';
+import { listWorkflowRuns } from '../../../../../lib/repositories/workflow-runs.repository';
 
 export async function GET(request: Request, { params }: { params: Promise<{ templateId: string }> }) {
   try {

@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../lib/org.js';
-import { getSql } from '../../../lib/db.js';
-import { getSettings, upsertSetting } from '../../../lib/repositories/settings.repository.js';
+import { getOrgId } from '../../../lib/org';
+import { getSql } from '../../../lib/db';
+import { getSettings, upsertSetting } from '../../../lib/repositories/settings.repository';
 
 const SNAPSHOT_KEY = 'BEHAVIOR_INSIGHTS_SNAPSHOT';
 const MAX_AGENTS = 25;

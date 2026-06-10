@@ -1,6 +1,6 @@
 import crypto from 'crypto';
-import { getSql } from './db.js';
-import { getOrgId } from './org.js';
+import { getSql } from './db';
+import { getOrgId } from './org';
 
 // -----------------------------------------------
 // Statistical Utilities (no external deps)

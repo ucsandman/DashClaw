@@ -10,7 +10,7 @@ import TrackedLink from './components/TrackedLink';
 import MarketingViewObserver from './components/MarketingViewObserver';
 import SetupBanner from './components/SetupBanner';
 import HostedTrialCTA from './components/HostedTrialCTA';
-import { isHostedMode } from './lib/hosted/flag.js';
+import { isHostedMode } from './lib/hosted/flag';
 
 import {
   coreFeatures,

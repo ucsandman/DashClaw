@@ -3,23 +3,23 @@ export const maxDuration = 120;
 
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { getSql } from '../../../../../../../lib/db.js';
-import { getOrgId } from '../../../../../../../lib/org.js';
-import { apiErrorResponse } from '../../../../../../../lib/apiErrors.js';
-import { evaluateGuard } from '../../../../../../../lib/guard.js';
-import { getWorkflowTemplate } from '../../../../../../../lib/repositories/workflow-templates.repository.js';
+import { getSql } from '../../../../../../../lib/db';
+import { getOrgId } from '../../../../../../../lib/org';
+import { apiErrorResponse } from '../../../../../../../lib/apiErrors';
+import { evaluateGuard } from '../../../../../../../lib/guard';
+import { getWorkflowTemplate } from '../../../../../../../lib/repositories/workflow-templates.repository';
 import {
   getWorkflowRun,
   buildResumeContext,
   insertStepResult,
   updateStepResult,
-} from '../../../../../../../lib/repositories/workflow-runs.repository.js';
+} from '../../../../../../../lib/repositories/workflow-runs.repository';
 import {
   createActionRecord,
   updateActionOutcome,
-} from '../../../../../../../lib/repositories/actions.repository.js';
-import { createArtifact as createArtifactRecord } from '../../../../../../../lib/repositories/artifacts.repository.js';
-import { executeWorkflow } from '../../../../../../../lib/workflow-executor.js';
+} from '../../../../../../../lib/repositories/actions.repository';
+import { createArtifact as createArtifactRecord } from '../../../../../../../lib/repositories/artifacts.repository';
+import { executeWorkflow } from '../../../../../../../lib/workflow-executor';
 
 export async function POST(request: Request, { params }: { params: Promise<{ templateId: string; runActionId: string }> }) {
   try {

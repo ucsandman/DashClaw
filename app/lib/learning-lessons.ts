@@ -1,4 +1,4 @@
-import { listLearningRecommendations } from './repositories/learningLoop.repository.js';
+import { listLearningRecommendations } from './repositories/learningLoop.repository';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;

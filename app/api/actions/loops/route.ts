@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql as getDbSql } from '../../../lib/db.js';
+import { getSql as getDbSql } from '../../../lib/db';
 import { validateOpenLoop } from '../../../lib/validate.js';
-import { getOrgId } from '../../../lib/org.js';
-import { redactAny } from '../../../lib/security.js';
-import { publishOrgEvent, EVENTS } from '../../../lib/events.js';
+import { getOrgId } from '../../../lib/org';
+import { redactAny } from '../../../lib/security';
+import { publishOrgEvent, EVENTS } from '../../../lib/events';
 import crypto from 'crypto';
 
 

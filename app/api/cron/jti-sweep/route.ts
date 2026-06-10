@@ -3,10 +3,10 @@ export const revalidate = 0;
 export const maxDuration = 60;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
-import { sweep } from '../../../lib/repositories/jti-replay.repository.js';
-import { purgeExpired as purgeOAuth } from '../../../lib/repositories/oauth.repository.js';
+import { getSql } from '../../../lib/db';
+import { timingSafeCompare } from '../../../lib/timing-safe';
+import { sweep } from '../../../lib/repositories/jti-replay.repository';
+import { purgeExpired as purgeOAuth } from '../../../lib/repositories/oauth.repository';
 
 /**
  * GET /api/cron/jti-sweep — scheduled GC for short-lived auth rows.

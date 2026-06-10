@@ -1,10 +1,10 @@
-import { safeUrlWithIps, buildPinnedDispatcher } from '../webhooks.js';
+import { safeUrlWithIps, buildPinnedDispatcher } from '../webhooks';
 import type {
   AdapterCreds,
   AdapterResult,
   GovernanceSignal,
   NotificationAdapter,
-} from './index.js';
+} from './index';
 
 // `dispatcher` is an undici extension to the fetch init that the DOM lib
 // types don't model; widen the init locally to pass it through unchanged.

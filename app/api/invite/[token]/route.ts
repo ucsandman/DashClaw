@@ -2,11 +2,11 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getUserId } from '../../../lib/org.js';
-import { getSql } from '../../../lib/db.js';
-import { incrementMeter } from '../../../lib/usage.js';
-import { logActivity } from '../../../lib/audit.js';
-import { getInviteByToken, acceptInvite } from '../../../lib/repositories/invites.repository.js';
+import { getUserId } from '../../../lib/org';
+import { getSql } from '../../../lib/db';
+import { incrementMeter } from '../../../lib/usage';
+import { logActivity } from '../../../lib/audit';
+import { getInviteByToken, acceptInvite } from '../../../lib/repositories/invites.repository';
 
 // GET /api/invite/[token] — invite details for the accept page.
 export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {

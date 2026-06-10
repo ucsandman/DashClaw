@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { apiErrorResponse } from '../../../lib/apiErrors.js';
-import { POLICY_MODE_CATALOG } from '../../../lib/policy-modes/catalog.js';
-import { compileMode } from '../../../lib/policy-modes/compile.js';
+import { apiErrorResponse } from '../../../lib/apiErrors';
+import { POLICY_MODE_CATALOG } from '../../../lib/policy-modes/catalog';
+import { compileMode } from '../../../lib/policy-modes/compile';
 
 /**
  * GET /api/policies/modes — list the built-in Policy Modes catalog.

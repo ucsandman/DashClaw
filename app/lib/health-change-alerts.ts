@@ -10,12 +10,12 @@
  * DASHCLAW_ALERTS_<CHANNEL>=false settings the adapters already respect.
  */
 
-import { EVENTS, publishOrgEvent } from './events.js';
-import { fireWebhooksForOrg } from './webhooks.js';
-import { deliverNativeNotifications } from './notification-adapters/index.js';
-import type { SettingRow } from './notification-adapters/index.js';
-import { getSettings } from './repositories/settings.repository.js';
-import type { SqlTag } from './types/db.js';
+import { EVENTS, publishOrgEvent } from './events';
+import { fireWebhooksForOrg } from './webhooks';
+import { deliverNativeNotifications } from './notification-adapters/index';
+import type { SettingRow } from './notification-adapters/index';
+import { getSettings } from './repositories/settings.repository';
+import type { SqlTag } from './types/db';
 
 type Severity = 'red' | 'amber';
 

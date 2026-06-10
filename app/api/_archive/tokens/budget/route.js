@@ -1,9 +1,9 @@
 export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../lib/org.js';
-import { getSql } from '../../../../lib/db.js';
-import { getTokenBudget, upsertTokenBudget } from '../../../../lib/repositories/tokens.repository.js';
+import { getOrgId } from '../../../../lib/org';
+import { getSql } from '../../../../lib/db';
+import { getTokenBudget, upsertTokenBudget } from '../../../../lib/repositories/tokens.repository';
 
 const DEFAULT_BUDGET = { daily_limit: 18000, weekly_limit: 126000, monthly_limit: 540000 };
 

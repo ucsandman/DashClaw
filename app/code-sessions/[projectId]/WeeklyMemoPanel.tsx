@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { ArrowRight, RotateCcw } from 'lucide-react';
-import MarkdownBody from '../../messages/_components/MarkdownBody.js';
+import MarkdownBody from '../../messages/_components/MarkdownBody';
 
 // Weekly spend memo. The server seeds the latest stored memo via `initialMemo`
 // (a code_session_memos row: { id, iso_week_tag, body_md, created_at }); the

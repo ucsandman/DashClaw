@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { scanSensitiveData } from '../../../lib/security.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { scanSensitiveData } from '../../../lib/security';
 import { createHash, randomUUID } from 'node:crypto';
 
 export async function POST(request: Request) {

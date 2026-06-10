@@ -2,9 +2,9 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getServerPublicJwks } from '../../../lib/integrity/server-key.js';
-import { verifyReputationReceipt } from '../../../lib/reputation.js';
+import { getSql } from '../../../lib/db';
+import { getServerPublicJwks } from '../../../lib/integrity/server-key';
+import { verifyReputationReceipt } from '../../../lib/reputation';
 
 /**
  * POST /api/reputation/verify — verify a posted reputation receipt against the

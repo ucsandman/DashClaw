@@ -1,6 +1,6 @@
 import React from 'react';
 import { ShieldCheck, Activity, Clock, AlertTriangle, WifiOff, type LucideIcon } from 'lucide-react';
-import type { WidgetPostureStatus } from '../../lib/widget/summary.js';
+import type { WidgetPostureStatus } from '../../lib/widget/summary';
 
 // `offline` is a client-only state (connection lost) layered on top of the
 // server-computed operational posture.

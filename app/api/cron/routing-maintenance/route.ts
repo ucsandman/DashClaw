@@ -2,10 +2,10 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { getOrgId } from '../../../lib/org.js';
-import { routePending, checkTimeouts } from '../../../lib/repositories/routing.repository.js';
-import { timingSafeCompare } from '../../../lib/timing-safe.js';
+import { getSql } from '../../../lib/db';
+import { getOrgId } from '../../../lib/org';
+import { routePending, checkTimeouts } from '../../../lib/repositories/routing.repository';
+import { timingSafeCompare } from '../../../lib/timing-safe';
 
 /**
  * POST /api/cron/routing-maintenance — Route pending tasks and check timeouts

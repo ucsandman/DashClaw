@@ -1,5 +1,5 @@
 // app/lib/doctor/checks/governance.mjs
-import { getSql } from '../../db.js';
+import { getSql } from '../../db';
 import { getSetupStatus } from '../../setupStatus.mjs';
 import { getGovernanceTables } from '../shape.mjs';
 

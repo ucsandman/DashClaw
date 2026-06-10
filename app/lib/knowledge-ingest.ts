@@ -7,10 +7,10 @@
  */
 
 import crypto from 'crypto';
-import { getSettings } from './repositories/settings.repository.js';
-import { decrypt } from './encryption.js';
-import { scanSensitiveData } from './security.js';
-import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks.js';
+import { getSettings } from './repositories/settings.repository';
+import { decrypt } from './encryption';
+import { scanSensitiveData } from './security';
+import { safeUrlWithIps, buildPinnedDispatcher } from './webhooks';
 import type { SqlTag } from './types/db';
 
 const EMBEDDING_MODEL = 'text-embedding-3-small';

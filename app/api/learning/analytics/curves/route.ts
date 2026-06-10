@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { computeLearningCurves, getCurveData } from '../../../../lib/learningAnalytics.js';
+import { computeLearningCurves, getCurveData } from '../../../../lib/learningAnalytics';
 
 export async function GET(request: Request) {
   try {

@@ -21,7 +21,7 @@
 
 import fs from 'node:fs';
 import readline from 'node:readline';
-import { costForUsage, cacheSavingsForUsage } from './pricing.js';
+import { costForUsage, cacheSavingsForUsage } from './pricing';
 
 export const PARSER_VERSION = 2;
 

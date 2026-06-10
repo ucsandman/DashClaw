@@ -1,6 +1,6 @@
 // app/api/oauth/metadata/protected-resource/route.js
 import { NextResponse } from 'next/server';
-import { issuerBase } from '../authorization-server/route.js';
+import { issuerBase } from '../authorization-server/route';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {

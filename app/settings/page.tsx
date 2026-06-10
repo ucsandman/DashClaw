@@ -1,23 +1,23 @@
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { getSql } from '../lib/db.js';
+import { getSql } from '../lib/db';
 import { getReadinessReport, projectConnectNextStep, projectReadinessReport } from '../lib/readiness.mjs';
 import { readLiveVerificationProofToken } from '../lib/liveVerificationProof.mjs';
 import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { createFallbackOnboardingStatus, getOnboardingStatusForUserId, getViewerUserId } from '../lib/onboardingState.mjs';
 
-import { ModeBadge } from './components/Common.js';
-import { TopSummary } from './components/TopSummary.js';
-import { ConnectNextStepPanel } from './components/ConnectNextStepPanel.js';
-import { WorkflowPanel } from './components/WorkflowPanel.js';
-import { VerificationSection } from './components/VerificationSection.js';
-import { RecommendedSteps } from './components/RecommendedSteps.js';
-import { ProofPanel } from './components/ProofPanel.jsx';
-import { ApiKeyReveal } from './components/ApiKeyReveal.js';
-import ModelPricingPanel from './components/ModelPricingPanel.js';
-import GovernancePanel from './components/GovernancePanel.jsx';
+import { ModeBadge } from './components/Common';
+import { TopSummary } from './components/TopSummary';
+import { ConnectNextStepPanel } from './components/ConnectNextStepPanel';
+import { WorkflowPanel } from './components/WorkflowPanel';
+import { VerificationSection } from './components/VerificationSection';
+import { RecommendedSteps } from './components/RecommendedSteps';
+import { ProofPanel } from './components/ProofPanel';
+import { ApiKeyReveal } from './components/ApiKeyReveal';
+import ModelPricingPanel from './components/ModelPricingPanel';
+import GovernancePanel from './components/GovernancePanel';
 import AgentIdentityPanel from './components/AgentIdentityPanel';
-import CopyableValueRow from './components/CopyableValueRow.js';
+import CopyableValueRow from './components/CopyableValueRow';
 import PageLayout from '../components/PageLayout';
 import { LogIn } from 'lucide-react';
 

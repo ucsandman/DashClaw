@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import { Agent as UndiciAgent, fetch } from 'undici';
-import { scanSensitiveData } from './security.js';
+import { scanSensitiveData } from './security';
 
 /** SQL client usable as a tagged template (Neon/postgres shape). */
 type SqlClient = {

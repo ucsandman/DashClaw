@@ -1,8 +1,8 @@
 // app/api/oauth/token/route.js
 import { NextResponse } from 'next/server';
-import { getSql } from '../../../lib/db.js';
-import { consumeAuthCode, insertAccessToken, rotateRefreshToken } from '../../../lib/repositories/oauth.repository.js';
-import { newOpaqueToken, hashToken, verifyPkceS256 } from '../../../lib/oauth/crypto.js';
+import { getSql } from '../../../lib/db';
+import { consumeAuthCode, insertAccessToken, rotateRefreshToken } from '../../../lib/repositories/oauth.repository';
+import { newOpaqueToken, hashToken, verifyPkceS256 } from '../../../lib/oauth/crypto';
 export const dynamic = 'force-dynamic';
 
 const ACCESS_TTL_S = 60 * 60;          // 1 hour

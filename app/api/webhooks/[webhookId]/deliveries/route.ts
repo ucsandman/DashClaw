@@ -2,8 +2,8 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
-import { getOrgId } from '../../../../lib/org.js';
-import { getSql } from '../../../../lib/db.js';
+import { getOrgId } from '../../../../lib/org';
+import { getSql } from '../../../../lib/db';
 
 // GET /api/webhooks/[webhookId]/deliveries - Recent deliveries
 export async function GET(request: Request, { params }: { params: Promise<{ webhookId: string }> }) {
