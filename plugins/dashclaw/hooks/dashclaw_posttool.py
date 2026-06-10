@@ -134,9 +134,28 @@ def _extract_outcome(tool_response):
 
     Returns (status, output_summary, outcome_metadata).
     """
+    # MCP tools deliver tool_response as a bare list of content blocks
+    # ([{"type": "text", "text": ...}]); built-in tools deliver a dict.
+    # Normalize so both shapes flow through the same logic.
+    if isinstance(tool_response, list):
+        tool_response = {"content": tool_response}
+    if not isinstance(tool_response, dict):
+        tool_response = {"output": str(tool_response)}
+
     error_val = tool_response.get("error")
     exit_code = tool_response.get("exit_code")
     output_val = str(tool_response.get("output") or tool_response.get("stdout") or "")
+
+    # MCP content array: join the text blocks for the summary; honor isError.
+    if not output_val and isinstance(tool_response.get("content"), list):
+        texts = [
+            block.get("text", "")
+            for block in tool_response["content"]
+            if isinstance(block, dict)
+        ]
+        output_val = "\n".join(t for t in texts if t)
+    if not error_val and tool_response.get("isError"):
+        error_val = output_val or "MCP tool returned isError"
 
     metadata = {}
 

@@ -1,6 +1,6 @@
 {
   "name": "dashclaw",
-  "version": "4.7.10",
+  "version": "4.7.11",
   "description": "Minimal governance runtime for AI agents. Intercept, govern, and verify agent actions.",
   "type": "module",
   "publishConfig": {

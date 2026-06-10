@@ -198,6 +198,9 @@ The left sidebar is organized into five groups (`app/components/Sidebar.js`). **
 ## CLI and Hooks Layer
 
 **CLI (`@dashclaw/cli`)**: Terminal client installed via `npm install -g @dashclaw/cli` (see `cli/`). Commands:
+- `dashclaw install claude [--trial]` — clone-free Claude Code governance install: preflights `/api/health`, downloads the hooks bundle from the instance, wires managed entries into `~/.claude/settings.json`, stores credentials in `~/.dashclaw/claude-hooks/.env` (mode 600), defaults to observe mode. `--trial` opens hosted signup and accepts the pasted key.
+- `dashclaw install codex [--project <path>] [--include-notify]` — wires the governance surface into `~/.codex/config.toml` (MCP server config, hooks, `AGENTS.md` governance protocol). Idempotent.
+- `dashclaw cost [--lens fleet|claude-code] [--period 7d|30d|90d]` — terminal spend readback over `GET /api/finops/spend` with an aligned table and summary line. Defaults: lens=fleet, period=30d.
 - `dashclaw approvals` — interactive inbox (arrow keys, `A`/`D`/`O`/`Q`)
 - `dashclaw approve <actionId> [--reason ...]`
 - `dashclaw deny <actionId> [--reason ...]`

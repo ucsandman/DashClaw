@@ -583,13 +583,13 @@ npm run doctor`}</CodeBlock>
               <p className="text-xs text-text-tertiary mb-3">
                 <code className="font-mono text-text-secondary">plugins/dashclaw/.claude-plugin/plugin.json</code> is the Claude Code plugin manifest. Distributes the DashClaw MCP server (<code className="font-mono text-text-secondary">.mcp-claude.json</code>) plus the <code className="font-mono text-text-secondary">dashclaw-governance</code> and <code className="font-mono text-text-secondary">dashclaw-platform-intelligence</code> skills as one installable bundle. Full step-by-step at <Link href="/guides/claude-code" className="text-brand hover:text-brand-hover">/guides/claude-code</Link>.
               </p>
-              <CodeBlock title="Install">{`# From the DashClaw repo root:
-npm run hooks:install                # PreToolUse / PostToolUse / Stop hooks
-# Then add the plugin to ~/.claude/plugins/ via Claude Code's plugin loader:
-ln -s "$(pwd)/plugins/dashclaw" ~/.claude/plugins/dashclaw
+              <CodeBlock title="Install">{`# No clone required — the CLI downloads the hooks bundle from your instance:
+npm i -g @dashclaw/cli
+dashclaw install claude            # prompts for endpoint + API key
+dashclaw install claude --trial    # hosted signup, paste the key
 
-# Or just copy:
-cp -r plugins/dashclaw ~/.claude/plugins/dashclaw`}</CodeBlock>
+# Working from a repo checkout instead:
+npm run hooks:install`}</CodeBlock>
             </div>
 
             <div id="codex-plugin" className="scroll-mt-20 mb-10">

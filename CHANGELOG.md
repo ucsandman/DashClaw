@@ -13,6 +13,8 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.7.11] — 2026-06-10
+
 ### Added
 
 - **`dashclaw install claude [--trial]`** — clone-free Claude Code governance install in the CLI: preflights `/api/health` + an authenticated read before writing anything, downloads the hooks bundle from the target instance itself (or copies from a repo checkout), resolves `python3`-vs-`python`, wires managed hook entries into `~/.claude/settings.json`, stores credentials in `~/.dashclaw/claude-hooks/.env` (mode 600 — never in settings.json), and defaults to observe mode. `--trial` opens the hosted signup page and accepts the pasted key. README quick start rerouted through it — no clone step.
@@ -36,6 +38,7 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 - `getCostAggregation` summed lifetime token counts with `::integer`, overflowing at 2³¹ on real fleets ("integer out of range" 500 on the fleet spend lens) — now `::bigint` with `Number()` coercion.
 - livingcode's doctor-checks emitter wrote a `../../db.js` specifier into the generated module after `app/lib/db` became TypeScript — emits extensionless now (was the last Turbopack blocker).
+- `dashclaw_posttool.py` (`_extract_outcome`) crashed on every MCP connector tool call: MCP tools deliver `tool_response` as a bare list of content blocks, not a dict, so `.get()` threw a `TypeError`. Normalized both shapes before extraction; MCP tool outcomes and cost records now record correctly.
 
 ## [4.7.10] — 2026-06-09
 

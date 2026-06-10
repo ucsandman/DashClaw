@@ -169,21 +169,17 @@ if (decision === 'allow') {
   {
     id: 'claude-code',
     name: 'Claude Code',
-    label: 'PreToolUse hook',
-    code: `# .claude/hooks/dashclaw_pretool.py
-# Governs Bash, Edit, Write, MultiEdit, Agent/Task, mcp__* tools
-# No pip installs required
+    label: 'One-command install',
+    code: `# No clone required — the CLI downloads the hooks bundle
+# from your instance, wires ~/.claude/settings.json, and
+# defaults to observe mode.
+npm i -g @dashclaw/cli
+dashclaw install claude            # prompts for endpoint + API key
+dashclaw install claude --trial    # hosted signup, paste the key
 
-import json, sys, urllib.request, os
-
-payload = json.loads(sys.stdin.read())
-tool = payload.get("tool_name", "")
-
-if tool not in ["Bash","Edit","Write","MultiEdit"] and not tool.startswith("mcp__"):
-    sys.exit(0)  # not governed
-
-# Guard check via DashClaw API
-# block/approve/allow based on policy`
+# Governs Bash, Edit, Write, MultiEdit, Agent/Task, mcp__* tools.
+# Flip to enforce: set DASHCLAW_HOOK_MODE=enforce in
+# ~/.dashclaw/claude-hooks/.env`
   },
   {
     id: 'codex',
