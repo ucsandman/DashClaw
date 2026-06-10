@@ -283,6 +283,11 @@ const GUARD_INPUT_SCHEMA = {
   intel:           { type: 'object' },
   tool:            { type: 'object' },
   write_paths:     { type: 'array', maxItems: 100 },
+  // ?record=true parity: the hook's two-call flow persisted these on the
+  // action record (subagent provenance + session swarm grouping). Accepted
+  // here so the in-guard record keeps them; harmless without the param.
+  trigger:         { type: 'string', maxLength: 1000 },
+  swarm_id:        { type: 'string', maxLength: 128 },
 };
 
 const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'x402_spend_limit'];

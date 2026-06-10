@@ -14,11 +14,13 @@ import hashlib
 import json
 import os
 import re
+import socket
 import sys
 import tempfile
 import time
-import urllib.request
 import urllib.error
+import urllib.parse
+import urllib.request
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -79,7 +81,7 @@ _load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
-from dashclaw_agent_intel.http_client import request_with_retry
+from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 from dashclaw_agent_intel import behavior_recorder
 
 # ---------------------------------------------------------------------------
@@ -93,6 +95,16 @@ HOOK_MODE = os.environ.get("DASHCLAW_HOOK_MODE") or "enforce"
 WORKSPACE = os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
 PERMISSION_MODE = os.environ.get("DASHCLAW_PERMISSION_MODE") or "danger"
 GUARD_TIMEOUT = float(os.environ.get("DASHCLAW_GUARD_TIMEOUT") or "5")
+# Guard call retry count (extra attempts AFTER the first). Default 0: one
+# attempt, so an unreachable instance fails closed in ~one connect timeout
+# instead of ~8s of retries+backoff per tool call. Override for flaky
+# networks with DASHCLAW_GUARD_RETRIES=2 (the old behavior).
+GUARD_RETRIES = env_retries("DASHCLAW_GUARD_RETRIES", 0)
+# TCP preflight bound for the guard call. urllib's timeout covers connect AND
+# read, so a SYN-blackholed host would otherwise burn the full GUARD_TIMEOUT
+# (5s) before failing closed. A 2s connect check bounds the dead-host case
+# while a live-but-cold server still gets the full read window.
+GUARD_CONNECT_TIMEOUT = float(os.environ.get("DASHCLAW_GUARD_CONNECT_TIMEOUT") or "2")
 APPROVAL_TIMEOUT = float(os.environ.get("DASHCLAW_APPROVAL_TIMEOUT") or "30")
 GUARD_UNAVAILABLE_POLICY = (os.environ.get("DASHCLAW_GUARD_UNAVAILABLE_POLICY") or "block").lower()
 # provenance (default): record sub-agent identity as provenance; the governed
@@ -108,6 +120,9 @@ SUBAGENT_IDENTITY = (os.environ.get("DASHCLAW_SUBAGENT_IDENTITY") or "provenance
 # probe is cached per-URL so we only pay the HTTP cost once per TTL window;
 # changing BASE_URL forces a fresh check because the cache key includes the URL.
 DEMO_CHECK_TTL_SECONDS = 15 * 60
+# Probe FAILURES are cached too (short TTL) so consecutive tool calls against
+# a dead instance don't re-pay the probe timeout on every call.
+DEMO_CHECK_NEGATIVE_TTL_SECONDS = 60
 DEMO_CHECK_TIMEOUT_SECONDS = 0.5
 
 # ---------------------------------------------------------------------------
@@ -142,12 +157,13 @@ def log(msg):
 # HTTP helpers (stdlib only, no third-party)
 # ---------------------------------------------------------------------------
 
-def api_request(method, path, body=None, timeout=None):
+def api_request(method, path, body=None, timeout=None, retries=2):
     """Make an HTTP request to the DashClaw API. Returns parsed JSON or None.
 
-    Retries up to three times total with 0.4s then 0.8s backoff between
-    attempts so a Vercel or Neon cold start does not block the tool call.
-    See dashclaw_agent_intel.http_client for the retry shape.
+    By default retries up to three times total with 0.4s then 0.8s backoff
+    between attempts so a Vercel or Neon cold start does not block the tool
+    call. The latency-critical guard call passes retries=GUARD_RETRIES
+    (default 0) instead. See dashclaw_agent_intel.http_client.
     """
     if timeout is None:
         timeout = GUARD_TIMEOUT
@@ -163,15 +179,50 @@ def api_request(method, path, body=None, timeout=None):
         method=method,
     )
     try:
-        body_bytes = request_with_retry(req, timeout=timeout)
+        body_bytes = request_with_retry(req, timeout=timeout, retries=retries)
         return json.loads(body_bytes.decode("utf-8"))
     except Exception:
         return None
 
 
+def _can_connect(url, timeout):
+    """Cheap TCP preflight: True when a connection to url's host:port opens
+    within `timeout`. Bounds the dead-host case (SYN blackhole) at ~timeout
+    seconds instead of the full request timeout. Anything unexpected (parse
+    failure, missing host) returns True so urlopen stays the authority."""
+    try:
+        parsed = urllib.parse.urlparse(url)
+        host = parsed.hostname
+        if not host:
+            return True
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        with socket.create_connection((host, port), timeout=timeout):
+            return True
+    except OSError:
+        return False
+    except Exception:
+        return True
+
+
 def guard_check(context):
-    """POST /api/guard. Returns response dict or None on failure."""
-    return api_request("POST", "/api/guard", body=context)
+    """POST /api/guard?record=true. Returns response dict or None on failure.
+
+    ?record=true asks the server (4.7.11+) to also create the running action
+    record in the same request and return its action_id — one HTTP call per
+    governed tool call instead of guard + create_action. An older server
+    ignores the unknown query param and responds without a `recorded` field;
+    the decision handlers detect that and fall back to the two-call flow.
+
+    Dead-host bound: when the startup health probe (already run by main())
+    cached "unreachable" — or left no cached verdict — a cheap TCP preflight
+    bounds the SYN-blackhole case at GUARD_CONNECT_TIMEOUT instead of the
+    full request timeout. A healthy cached verdict skips the preflight, so
+    the steady-state happy path pays zero extra round-trips."""
+    mode = _read_demo_check_cache(_demo_check_cache_path())
+    if mode is None or mode == "unreachable":
+        if not _can_connect(BASE_URL, GUARD_CONNECT_TIMEOUT):
+            return None
+    return api_request("POST", "/api/guard?record=true", body=context, retries=GUARD_RETRIES)
 
 
 def create_action(context, status="running"):
@@ -521,9 +572,26 @@ def _record_running_action(handler, context, tool_use_id):
     append_turn_action(_SESSION_ID, action_id)
 
 
-def handle_allow(context, tool_use_id):
-    """Record the action and exit 0."""
-    _record_running_action("handle_allow", context, tool_use_id)
+def _persist_guard_recorded_action(guard_resp, tool_use_id):
+    """When the guard call itself recorded the action (?record=true on a
+    4.7.11+ server), persist its action_id and skip the legacy create_action
+    round-trip. Returns the action_id, or "" when the server did not record
+    (older server ignoring the param, or recorded:false) so the caller can
+    fall back to the two-call flow."""
+    if not guard_resp or guard_resp.get("recorded") is not True:
+        return ""
+    action_id = guard_resp.get("action_id") or ""
+    if not action_id:
+        return ""
+    write_action_id(tool_use_id, action_id)
+    append_turn_action(_SESSION_ID, action_id)
+    return action_id
+
+
+def handle_allow(guard_resp, context, tool_use_id):
+    """Record the action (in-guard via ?record=true when supported) and exit 0."""
+    if not _persist_guard_recorded_action(guard_resp, tool_use_id):
+        _record_running_action("handle_allow", context, tool_use_id)
     sys.exit(0)
 
 
@@ -532,7 +600,8 @@ def handle_warn(guard_resp, context, tool_use_id):
     warnings = guard_resp.get("warnings") or guard_resp.get("reasons") or []
     msg = warnings[0] if warnings else "Policy warning"
     log("[DashClaw] Warning: " + msg)
-    _record_running_action("handle_warn", context, tool_use_id)
+    if not _persist_guard_recorded_action(guard_resp, tool_use_id):
+        _record_running_action("handle_warn", context, tool_use_id)
     sys.exit(0)
 
 
@@ -587,8 +656,15 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     policies = guard_resp.get("matched_policies") or []
     policy = policies[0] if policies else "require_approval policy"
 
-    resp = create_action(context, status="pending_approval")
-    action_id = _extract_action_id(resp) if resp else ""
+    # ?record=true already created the pending_approval record server-side;
+    # only persist/attribute the id after approval (below), like the two-call
+    # flow. Fall back to create_action against an older server.
+    action_id = ""
+    if guard_resp.get("recorded") is True:
+        action_id = guard_resp.get("action_id") or ""
+    if not action_id:
+        resp = create_action(context, status="pending_approval")
+        action_id = _extract_action_id(resp) if resp else ""
     if not action_id:
         log("[DashClaw] Could not create approval request, proceeding")
         sys.exit(0)
@@ -639,26 +715,28 @@ def handle_guard_unavailable(context, tool_use_id):
     except Exception as e:
         _log_hook_error("handle_guard_unavailable: orphan log write failed: " + type(e).__name__ + ": " + str(e))
 
+    attempts = "%d attempt(s)" % (GUARD_RETRIES + 1)
+
     # Observe mode always proceeds (by definition — observe is "warn loudly, don't block")
     if mode == "observe":
-        log("[DashClaw] [observe] Guard unreachable at " + BASE_URL + " after 3 attempts. Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
+        log("[DashClaw] [observe] Guard unreachable at " + BASE_URL + " after " + attempts + ". Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         log("Action: " + context.get("declared_goal", "unknown"))
         sys.exit(0)
 
     # Enforce mode: behavior governed by DASHCLAW_GUARD_UNAVAILABLE_POLICY
     if policy == "allow":
-        log("[DashClaw] Guard unreachable at " + BASE_URL + " after 3 attempts; proceeding (DASHCLAW_GUARD_UNAVAILABLE_POLICY=allow).")
+        log("[DashClaw] Guard unreachable at " + BASE_URL + " after " + attempts + "; proceeding (DASHCLAW_GUARD_UNAVAILABLE_POLICY=allow).")
         log("Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         sys.exit(0)
 
     if policy == "warn":
-        log("[DashClaw] \u26a0 Guard unreachable at " + BASE_URL + " after 3 attempts; proceeding anyway (DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn).")
+        log("[DashClaw] \u26a0 Guard unreachable at " + BASE_URL + " after " + attempts + "; proceeding anyway (DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn).")
         log("Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         log("Set DASHCLAW_GUARD_UNAVAILABLE_POLICY=block to fail closed instead.")
         sys.exit(0)
 
     # Default: block (fail closed)
-    log("[DashClaw] Blocked: guard at " + BASE_URL + " is unreachable after 3 attempts.")
+    log("[DashClaw] Blocked: guard at " + BASE_URL + " is unreachable after " + attempts + ".")
     log("Action: " + context.get("declared_goal", "unknown"))
     log("This is by design — destructive actions must not proceed without governance.")
     log("To change: set DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn or =allow (not recommended).")
@@ -676,12 +754,17 @@ def _demo_check_cache_path():
 
 
 def _read_demo_check_cache(path):
-    """Return cached mode if fresh; None if missing, expired, or unreadable."""
+    """Return cached mode if fresh; None if missing, expired, or unreadable.
+
+    A negative entry ("unreachable", written when the probe failed) uses its
+    own short TTL so a recovered instance is re-probed within a minute."""
     try:
         with open(path, encoding="utf-8") as f:
             ts_line, mode_line = f.read().strip().split("\n", 1)
-        if time.time() - float(ts_line) < DEMO_CHECK_TTL_SECONDS:
-            return mode_line.strip()
+        mode = mode_line.strip()
+        ttl = DEMO_CHECK_NEGATIVE_TTL_SECONDS if mode == "unreachable" else DEMO_CHECK_TTL_SECONDS
+        if time.time() - float(ts_line) < ttl:
+            return mode
     except Exception:
         pass
     return None
@@ -725,6 +808,9 @@ def _maybe_warn_demo_mode():
 
     mode = _probe_health_mode()
     if mode is None:
+        # Negative cache: don't re-probe a dead instance on every tool call
+        # (short TTL — see DEMO_CHECK_NEGATIVE_TTL_SECONDS). Stays silent.
+        _write_demo_check_cache(cache_path, "unreachable")
         return
 
     _write_demo_check_cache(cache_path, mode)
@@ -1035,7 +1121,7 @@ def _dispatch_decision(decision, guard_resp, context, tool_use_id):
         handle_require_approval(guard_resp, context, tool_use_id)
     else:
         # allow + any unknown decision both fall through to allow.
-        handle_allow(context, tool_use_id)
+        handle_allow(guard_resp, context, tool_use_id)
 
 
 def main():

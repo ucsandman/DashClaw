@@ -148,9 +148,12 @@ describe('POST /api/guard?record=true', () => {
 
   const BODY = { action_type: 'other', agent_id: 'a1', agent_name: 'Bot', declared_goal: 'do a thing' };
 
-  it('returns action_id and creates exactly one action record', async () => {
+  it('returns action_id and creates exactly one action record (provenance fields kept)', async () => {
     const res = await guardPost(makeRequest('http://localhost/api/guard?record=true', {
-      headers: { 'x-org-id': freshOrg() }, body: BODY,
+      headers: { 'x-org-id': freshOrg() },
+      // trigger + swarm_id are what the hook's two-call flow persisted on the
+      // action record — the guard schema must not strip them.
+      body: { ...BODY, trigger: 'subagent:Explore', swarm_id: 'sess-123' },
     }));
     expect(res.status).toBe(200);
     const data = await res.json();
@@ -160,6 +163,8 @@ describe('POST /api/guard?record=true', () => {
     expect(data.decision_id).toMatch(/^act_gd_/);
     const inserts = routeSqlHolder.sql.taggedCalls.filter((c) => c.text.includes('INSERT INTO action_records'));
     expect(inserts.length).toBe(1);
+    expect(inserts[0].values).toContain('subagent:Explore');
+    expect(inserts[0].values).toContain('sess-123');
   });
 
   it('omitted param → response has no recorded keys and action_id stays the decision_id alias', async () => {

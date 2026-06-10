@@ -42,8 +42,11 @@ class _RequestLog:
         self.guard_response: dict = {"decision": "allow"}
 
     def add(self, method: str, path: str, body: dict | None):
+        # Strip the query string (the hook calls /api/guard?record=true) so
+        # path assertions stay stable.
+        bare = path.partition("?")[0]
         with self._lock:
-            self.requests.append({"method": method, "path": path, "body": body})
+            self.requests.append({"method": method, "path": bare, "body": body})
 
     def get_all(self) -> list[dict]:
         with self._lock:
@@ -62,9 +65,9 @@ def _make_handler(log: _RequestLog):
             body = json.loads(raw) if raw else None
             log.add("POST", self.path, body)
 
-            if self.path == "/api/guard":
+            if self.path.partition("?")[0] == "/api/guard":
                 resp = json.dumps(log.guard_response).encode()
-            elif self.path == "/api/actions":
+            elif self.path.partition("?")[0] == "/api/actions":
                 resp = json.dumps({"action_id": "act_block_test_001"}).encode()
             else:
                 self.send_response(404)
@@ -274,7 +277,7 @@ class TestHandleBlockAuditTrail(unittest.TestCase):
                     body = json.loads(raw) if raw else None
                     flog.add("POST", self.path, body)
 
-                    if self.path == "/api/guard":
+                    if self.path.partition("?")[0] == "/api/guard":
                         resp = json.dumps(flog.guard_response).encode()
                         self.send_response(200)
                     else:

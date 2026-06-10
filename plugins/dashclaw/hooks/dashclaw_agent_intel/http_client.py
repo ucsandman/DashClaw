@@ -6,11 +6,27 @@ retries, one cold start blocks a tool call, drops an action update, or
 loses a token attribution. Three attempts with exponential backoff absorb
 the common case while keeping the worst case bounded.
 
+The latency-critical guard call overrides the retry count via
+DASHCLAW_GUARD_RETRIES (default 0: a single attempt, so an unreachable
+instance fails closed in ~one connect timeout instead of ~8s of retries
+and backoff per tool call).
+
 Stdlib only. No third party dependencies.
 """
 
+import os
 import time
 import urllib.request
+
+
+def env_retries(name, default):
+    """Read a retry-count env var. Clamps to >= 0; bad values fall back."""
+    raw = os.environ.get(name, "")
+    try:
+        value = int(raw) if raw != "" else default
+    except ValueError:
+        return default
+    return max(0, value)
 
 
 def request_with_retry(req, timeout, retries=2):

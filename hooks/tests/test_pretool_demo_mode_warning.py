@@ -73,9 +73,10 @@ def _free_port():
         return s.getsockname()[1]
 
 
-def _start_server(payload):
+def _start_server(payload, port=None):
     _HealthHandler._payload = payload
-    port = _free_port()
+    if port is None:
+        port = _free_port()
     server = http.server.HTTPServer(("127.0.0.1", port), _HealthHandler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -159,6 +160,28 @@ class DemoModeWarningTest(unittest.TestCase):
         _, _, stderr2 = _run_hook(self._home, self._tmp, base_url)
 
         self.assertIn("demo-mode instance", stderr1)
+        self.assertNotIn("demo-mode instance", stderr2)
+
+    def test_probe_failure_writes_negative_cache_and_skips_reprobe(self):
+        """A failed probe is negative-cached (short TTL) so consecutive tool
+        calls against a dead instance don't re-pay the probe on every call."""
+        port = _free_port()
+        base_url = "http://127.0.0.1:" + str(port)
+
+        # Run 1: nothing listening — probe fails silently, negative entry cached.
+        rc1, _, stderr1 = _run_hook(self._home, self._tmp, base_url)
+        self.assertEqual(rc1, 2)
+        self.assertNotIn("demo-mode instance", stderr1)
+        cache_files = [f for f in os.listdir(self._tmp) if f.startswith("dashclaw_health_check_")]
+        self.assertEqual(len(cache_files), 1, "expected one negative cache entry")
+        with open(os.path.join(self._tmp, cache_files[0]), encoding="utf-8") as f:
+            self.assertIn("unreachable", f.read())
+
+        # Run 2: a DEMO server now listens on the same port, but the fresh
+        # negative cache suppresses the re-probe — no demo warning surfaces.
+        server, _ = _start_server({"status": "healthy", "mode": "demo"}, port=port)
+        self._server = server
+        _, _, stderr2 = _run_hook(self._home, self._tmp, base_url)
         self.assertNotIn("demo-mode instance", stderr2)
 
     def test_warning_does_not_block_enforcement(self):

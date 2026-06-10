@@ -38,8 +38,12 @@ class _RequestLog:
         self.guard_response: dict = {"decision": "allow"}
 
     def add(self, method: str, path: str, body: dict | None):
+        # Store the path WITHOUT its query string (the hook now calls
+        # /api/guard?record=true) so path assertions stay stable; the query
+        # is recorded separately for tests that care.
+        bare, _, query = path.partition("?")
         with self._lock:
-            self.requests.append({"method": method, "path": path, "body": body})
+            self.requests.append({"method": method, "path": bare, "query": query, "body": body})
 
     def get_all(self) -> list[dict]:
         with self._lock:
@@ -60,7 +64,7 @@ def _make_handler(log: _RequestLog):
             body = json.loads(raw) if raw else None
             log.add("POST", self.path, body)
 
-            if self.path == "/api/guard":
+            if self.path.partition("?")[0] == "/api/guard":
                 resp = json.dumps(log.guard_response).encode()
                 self.send_response(200)
                 self.send_header("Content-Type", "application/json")
@@ -654,6 +658,100 @@ class TestPretoolIntegration(unittest.TestCase):
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
         self.assertEqual(body["agent_id"], "test-agent:explore")
         self.assertEqual(body["intel"]["subagent"]["agent_type"], "Explore")
+
+
+class TestPretoolSingleCall(unittest.TestCase):
+    """Phase-3 fast path: guard+record collapsed into ONE HTTP call via
+    ?record=true, with a version-tolerant fallback against older servers."""
+
+    GOVERNED_BASH = {"tool_name": "Bash", "tool_input": {"command": "rm -rf /tmp/x"}, "tool_use_id": "tu-single-1"}
+
+    @classmethod
+    def setUpClass(cls):
+        cls.log = _RequestLog()
+        port = _find_free_port()
+        cls.server = HTTPServer(("127.0.0.1", port), _make_handler(cls.log))
+        cls.server_thread = threading.Thread(target=cls.server.serve_forever, daemon=True)
+        cls.server_thread.start()
+        cls.base_url = "http://127.0.0.1:%d" % port
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.server.shutdown()
+        cls.server_thread.join(timeout=5)
+
+    def setUp(self):
+        self.log.clear()
+        self.log.guard_response = {"decision": "allow"}
+
+    def _env(self, **extra) -> dict:
+        env = {
+            "DASHCLAW_BASE_URL": self.base_url,
+            "DASHCLAW_API_KEY": "test-key-123",
+            "DASHCLAW_AGENT_ID": "test-agent",
+            "DASHCLAW_HOOK_MODE": "enforce",
+            "DASHCLAW_WORKSPACE": tempfile.gettempdir(),
+            "DASHCLAW_PERMISSION_MODE": "danger",
+        }
+        env.update(extra)
+        return env
+
+    def _posts(self):
+        """POST requests only — the one-shot demo-mode health probe (GET,
+        cached 15 min) is not part of the per-call governance flow."""
+        return [r for r in self.log.get_all() if r["method"] == "POST"]
+
+    def test_happy_path_single_request(self):
+        """New server (returns recorded:true + action_id): exactly 1 governed request."""
+        self.log.guard_response = {"decision": "allow", "recorded": True, "action_id": "act_recorded_001"}
+        code, _, err = _run_hook(self.GOVERNED_BASH, self._env())
+        self.assertEqual(code, 0, "stderr=" + err)
+
+        posts = self._posts()
+        self.assertEqual(len(posts), 1, "Expected exactly ONE request, got: " + str(posts))
+        self.assertEqual(posts[0]["path"], "/api/guard")
+        self.assertEqual(posts[0]["query"], "record=true")
+
+    def test_old_server_fallback_two_call_flow(self):
+        """Older server ignores ?record=true (no `recorded` field): the hook
+        completes the legacy two-call flow (guard, then POST /api/actions)."""
+        self.log.guard_response = {"decision": "allow"}
+        code, _, err = _run_hook(self.GOVERNED_BASH, self._env())
+        self.assertEqual(code, 0, "stderr=" + err)
+
+        posts = self._posts()
+        self.assertEqual([r["path"] for r in posts], ["/api/guard", "/api/actions"])
+        # The legacy create carries status=running like before.
+        self.assertEqual(posts[1]["body"].get("status"), "running")
+
+    def test_recorded_false_falls_back(self):
+        """recorded:false (e.g. quota refused server-side) → fallback create."""
+        self.log.guard_response = {"decision": "allow", "recorded": False, "recorded_error": "Monthly action limit exceeded"}
+        code, _, err = _run_hook(self.GOVERNED_BASH, self._env())
+        self.assertEqual(code, 0, "stderr=" + err)
+        self.assertEqual([r["path"] for r in self._posts()], ["/api/guard", "/api/actions"])
+
+    def test_warn_decision_uses_recorded_action(self):
+        """warn decision with a server-recorded action: single request, exit 0."""
+        self.log.guard_response = {
+            "decision": "warn", "warnings": ["Rate limit approaching"],
+            "recorded": True, "action_id": "act_recorded_002",
+        }
+        code, _, err = _run_hook(self.GOVERNED_BASH, self._env())
+        self.assertEqual(code, 0)
+        self.assertIn("Warning", err)
+        self.assertEqual(len(self._posts()), 1)
+
+    def test_require_approval_uses_recorded_action_in_observe(self):
+        """require_approval + recorded id: no extra create_action call
+        (observe mode so the test does not wait on the approval poll)."""
+        self.log.guard_response = {
+            "decision": "require_approval", "matched_policies": ["gp_1"],
+            "recorded": True, "action_id": "act_recorded_003",
+        }
+        code, _, err = _run_hook(self.GOVERNED_BASH, self._env(DASHCLAW_HOOK_MODE="observe"))
+        self.assertEqual(code, 0, "stderr=" + err)
+        self.assertEqual([r["path"] for r in self._posts()], ["/api/guard"])
 
 
 if __name__ == "__main__":
