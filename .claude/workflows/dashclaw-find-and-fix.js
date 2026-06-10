@@ -138,6 +138,11 @@ for (let i = 0; i < routes.length; i += chunkSize) routeChunks.push(routes.slice
 const detectThunks = []
 
 if (disc && disc.serverUp) {
+  // Gated dashboard pages only render without a session when the target server
+  // runs in demo mode (DASHCLAW_MODE=demo - e.g. `npm run dev:smoke` on :3099,
+  // pointed at via args.baseUrl, the same server playwright.config.js uses).
+  // Against a regular dev server the middleware auth gate 307s them to /login -
+  // that is intentional behavior (middleware.js handlePageRequest), not breakage.
   routeChunks.forEach((chunk, i) => {
     detectThunks.push(() =>
       agent(
@@ -145,7 +150,7 @@ if (disc && disc.serverUp) {
           DEV_URL +
           ': ' +
           chunk.join(', ') +
-          '.\nFor each route: request the full URL, record the status code, and inspect the start of the HTML body. Report a finding (source "http-smoke", location = the route) when: status is >= 500; the page returns a Next.js error overlay, "Application error", "Internal Server Error", an unhandled exception or a stack trace; or the route 404s even though a page file exists. A 200 that renders is NOT a finding. Some pages legitimately redirect to /setup or /connect or gate on auth - record those as low severity, not breakage. Return JSON findings; empty array if all clean. Do not edit files.',
+          '.\nFor each route: request the full URL sending the demo-mode cookie (e.g. curl -s -H "Cookie: dashclaw_demo=1" ...), mirroring playwright.config.js storageState so gated pages render when the target server runs in demo mode. Record the status code and inspect the start of the HTML body. Report a finding (source "http-smoke", location = the route) when: status is >= 500; the page returns a Next.js error overlay, "Application error", "Internal Server Error", an unhandled exception or a stack trace; or the route 404s even though a page file exists. A 200 that renders is NOT a finding. EXPECTED-SKIP - do NOT report these as findings at any severity, they are intentional behavior: a 307/302 redirect to /login (the middleware auth gate when smoking without a session); /demo redirecting to /#live-demo (the intentional demo entrypoint); a redirect to /setup or /connect (onboarding gates). Return JSON findings; empty array if all clean. Do not edit files.',
         { label: 'smoke:' + (i + 1) + '/' + routeChunks.length, phase: 'Detect', schema: FINDINGS_SCHEMA },
       ),
     )
