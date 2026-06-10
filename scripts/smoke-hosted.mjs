@@ -9,6 +9,14 @@
 //      OR (if admin DASHCLAW_API_KEY provided) DELETE /api/hosted/workspaces/:id
 //
 // Exits 0 on success, 1 on failure.
+//
+// PROD CAVEAT: this script sends no turnstile_token, so against a production
+// instance with TURNSTILE_SECRET_KEY set, step 1 is *expected* to fail closed
+// with 400 "turnstile verification failed: missing_token". That is the bot
+// gate working, not a deploy problem — smoke production via the browser mint
+// on /connect instead (HOSTED_TRIAL_RUNBOOK.md §3). The full scripted sweep
+// only passes against instances without TURNSTILE_SECRET_KEY (local/preview,
+// where verification is bypassed) or with Cloudflare's always-pass test keys.
 
 function parseArgs(argv) {
   const args = { baseUrl: null, adminKey: null };
@@ -42,6 +50,13 @@ async function main() {
   if (provisionRes.status !== 200) {
     const body = await provisionRes.text();
     console.error(`FAIL: provision returned ${provisionRes.status}\n${body}`);
+    if (provisionRes.status === 400 && /turnstile/i.test(body)) {
+      console.error(
+        '[smoke] NOTE: this is expected against production — the script sends no ' +
+        'turnstile_token and the instance enforces Turnstile (fail-closed). ' +
+        'Smoke production via the browser mint on /connect instead (runbook §3).',
+      );
+    }
     process.exit(1);
   }
   const provisioned = await provisionRes.json();
