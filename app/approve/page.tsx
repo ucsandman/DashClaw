@@ -445,10 +445,10 @@ export default function ApprovePage() {
                   </div>
 
                   <div className="mt-3 flex items-center gap-2">
-                    <span className="inline-flex items-center rounded-md border border-border-hover bg-white/[0.02] px-2 py-0.5 font-mono text-[11px] font-medium text-secondary">
+                    <span className="inline-flex items-center rounded-md border border-border-hover bg-white/[0.02] px-2 py-0.5 font-mono text-xs font-medium text-secondary">
                       {action.action_type || 'action'}
                     </span>
-                    <span className="tabular-nums text-[11px] text-tertiary">
+                    <span className="tabular-nums text-xs text-tertiary">
                       {timeAgo(action.timestamp_start || action.created_at)}
                     </span>
                   </div>
@@ -456,7 +456,7 @@ export default function ApprovePage() {
                   {(action._matchedPolicy || action._guardReason || action.reasoning) && (
                     <div className="mt-3 rounded-lg border border-border bg-white/[0.02] p-2.5">
                       {action._matchedPolicy && (
-                        <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-tertiary">
                           <ShieldAlert size={10} className="text-brand" />
                           Triggered by
                           <EntityLink

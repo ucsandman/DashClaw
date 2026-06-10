@@ -199,8 +199,12 @@ describe('buildWidgetSummary', () => {
       'topSignals',
     ]);
     expect(out.status).toBe('active'); // running 2 (and an amber signal)
-    expect(out.metrics).toEqual({ activeAgents: 1, pendingApprovals: 0, elevated: 1, spend: 1.5 });
+    expect(out.metrics).toEqual({ activeAgents: 1, pendingApprovals: 0, signals: 1, spend: 1.5 });
     expect(out.signals).toEqual({ red: 0, amber: 1, total: 1 });
+    // Naming regression: the metric displayed as "Signals" must be the total
+    // signal count (the old field name `elevated` lied about what it carried).
+    expect(out.metrics.signals).toBe(out.signals.total);
+    expect(out.metrics).not.toHaveProperty('elevated');
     expect(out.recentActions).toHaveLength(1);
     expect(out.recentActions[0]).not.toHaveProperty('reasoning');
     expect(out.generatedAt).toBe(new Date(now).toISOString());

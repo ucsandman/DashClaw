@@ -25,7 +25,7 @@ export function WidgetApprovals({
 
   return (
     <section aria-label="Pending approvals" className="border-b border-brand/25 bg-brand/[0.04]">
-      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-brand">
+      <div className="flex items-center gap-1.5 px-3 pb-1 pt-2.5 text-xs font-semibold uppercase tracking-[0.14em] text-brand">
         Waiting for approval
         <span className="tabular-nums text-tertiary">{approvals.length}</span>
       </div>
@@ -38,7 +38,7 @@ export function WidgetApprovals({
             <li key={id} className="rounded-lg border border-border bg-surface-tertiary px-2.5 py-2">
               <div className="min-w-0">
                 <div className="truncate text-xs text-primary">{a.summary || a.actionType || 'action'}</div>
-                <div className="truncate text-[10px] text-tertiary">
+                <div className="truncate text-xs text-tertiary">
                   {a.agentName || 'agent'} · {a.actionType || 'action'}
                   {risk >= 70 ? <span className="text-warning"> · risk {risk}</span> : null}
                 </div>
@@ -70,7 +70,7 @@ export function WidgetApprovals({
         })}
       </ul>
       {!canDecide ? (
-        <div className="px-3 pb-2 text-[10px] text-tertiary">Sign in as an admin to approve or deny.</div>
+        <div className="px-3 pb-2 text-xs text-tertiary">Sign in as an admin to approve or deny.</div>
       ) : null}
     </section>
   );

@@ -172,7 +172,8 @@ export interface WidgetSummary {
   metrics: {
     activeAgents: number;
     pendingApprovals: number;
-    elevated: number;
+    /** Total open signals (red + amber) — displayed as "Signals". */
+    signals: number;
     spend: number | null;
   };
   signals: { red: number; amber: number; total: number };
@@ -208,7 +209,7 @@ export function buildWidgetSummary(input: BuildWidgetSummaryInput): WidgetSummar
     metrics: {
       activeAgents: countActiveAgents(input.agents, input.now),
       pendingApprovals: num(input.pendingApprovals),
-      elevated: counts.total,
+      signals: counts.total,
       spend,
     },
     signals: counts,

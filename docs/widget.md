@@ -12,8 +12,8 @@ as a Progressive Web App (PWA) — no separate download, no build, no extra conf
 1. Open your instance's widget: `https://<your-dashclaw-domain>/widget` (sign in
    first — it's auth-gated like every dashboard page).
 2. Install it as an app:
-   - Click the **Install** button in the widget header (shown when your browser
-     supports install), **or**
+   - Open the widget's settings (gear icon) and click **Install** (shown when
+     your browser supports install), **or**
    - Use the browser's install control: Chrome/Edge show an **install icon (⊕)**
      in the address bar → click → **Install**.
 3. It opens in its own standalone window. It auto-connects to the instance you
@@ -22,18 +22,29 @@ as a Progressive Web App (PWA) — no separate download, no build, no extra conf
 > Supported in Chrome and Edge (desktop). Other browsers can still use the
 > app-mode or bookmark approach below.
 
+### Pin it always-on-top (Chromium)
+
+Click the **Pin icon** in the widget header to float the widget in a true
+**always-on-top** window — no OS utility needed. This uses the Document
+Picture-in-Picture API (Chrome/Edge 116+, desktop); the button only appears
+when the browser supports it.
+
+One honest caveat: **the pinned window is tethered to the tab that opened it.**
+Close or navigate that tab and the pinned widget closes with it. For a detached,
+persistent widget, install the PWA instead (above) and pin that window with the
+OS (below).
+
 ### Float it (pop out)
 
-Click the **pop-out icon (⧉)** in the widget header to open it in a small,
+Click the **pop-out icon** in the widget header to open it in a small,
 minimal-chrome floating window you can park anywhere on screen. The separate ↗
 icon opens the full dashboard. (Inside the floating window the pop-out icon is
 hidden so you don't spawn duplicates.)
 
-### Keep it always-on-top
+### Keep it on top without Pin (Firefox/Safari, or the installed app)
 
-Browsers can't set always-on-top from a web page, so pin the floating (or
-installed) window with a one-time OS toggle. The planned native desktop app adds
-a built-in always-on-top toggle (and a tray icon + native approve notifications).
+Where the Pin button isn't available (non-Chromium browsers) — or for the
+installed PWA window — pin with a one-time OS toggle:
 
 - **Windows**: [PowerToys → Always On Top](https://learn.microsoft.com/windows/powertoys/always-on-top) — focus the window and press `Win + Ctrl + T`.
 - **macOS**: a window manager (Rectangle Pro, Amethyst, …) "keep on top".
@@ -46,18 +57,39 @@ instance in app-mode (replace the domain):
 
 ```
 # Chrome
-chrome --app=https://<your-dashclaw-domain>/widget --window-size=360,640
+chrome --app=https://<your-dashclaw-domain>/widget --window-size=380,720
 
 # Edge
-msedge --app=https://<your-dashclaw-domain>/widget --window-size=360,640
+msedge --app=https://<your-dashclaw-domain>/widget --window-size=380,720
 ```
 
 Save that as a `.bat` (Windows) / `.command` (macOS) / `.sh` (Linux) launcher for
 one-click open.
 
+## Customize what it shows
+
+The gear icon opens an inline settings panel: toggle whole sections (metrics
+strip, pending approvals, top signal, recent actions) and individual metrics
+(agents, pending, signals, 24h spend). Choices persist in the browser
+(`localStorage`) — per browser profile, never sent to the server.
+
+For launchers and pinned shortcuts, read-only URL parameters override stored
+settings: `?hide=` / `?show=` with comma-separated keys
+(`metrics, approvals, topSignal, recentLog, agents, pending, signals, spend`).
+`show` beats `hide`; unknown keys are ignored. Example:
+
+```
+chrome --app="https://<your-dashclaw-domain>/widget?hide=topSignal,spend" --window-size=380,720
+```
+
+One safety rail: **pending approvals always render while a decision is
+waiting**, even if hidden — a governance widget must not hide "needs you" state.
+Customization is client-side presentation only; `GET /api/widget/summary`
+returns the same whitelisted payload regardless.
+
 ## What it is
 
-- Route: `/widget` (chrome-free — no sidebar/app shell), ~340px wide, dark.
+- Route: `/widget` (chrome-free — no sidebar/app shell), ~380px wide, dark.
 - Installable PWA: `app/widget/layout.tsx` references `public/config/widget.webmanifest`
   (`start_url: /widget`), and the page registers the shared service worker.
 - Data: one composed endpoint, `GET /api/widget/summary`, refreshed every 30s and
@@ -109,8 +141,10 @@ dropped and asserted absent in tests.
 
 ## Native shell (optional follow-up)
 
-The PWA covers the common case (single hosted instance, zero install friction).
-A native Tauri/Electron shell is only worth building if you need **multiple
-instances in one app** or **built-in always-on-top** without an OS utility. The
-route is built to embed cleanly: point a frameless ~340px, always-on-top window
-at `/widget` with a configurable instance URL.
+The PWA covers the common case (single hosted instance, zero install friction),
+and the Pin button already gives built-in always-on-top on Chromium. A native
+Tauri/Electron shell is only worth building if you need **multiple instances in
+one app** or **detached always-on-top without a tethering tab** on every OS. The
+route is built to embed cleanly: point a frameless ~380px, always-on-top window
+at `/widget` (optionally with `?hide=`/`?show=` presets) with a configurable
+instance URL.

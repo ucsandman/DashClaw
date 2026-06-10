@@ -35,7 +35,7 @@ export function WidgetFooter({
 }) {
   const meta = CONN[connection] ?? CONN.offline;
   return (
-    <div className="mt-auto flex items-center justify-between border-t border-border px-3 py-2 text-[10px]">
+    <div className="mt-auto flex items-center justify-between border-t border-border px-3 py-2 text-xs">
       <span role="status" aria-label={`Connection: ${meta.label}`} className="inline-flex items-center gap-1.5">
         <span
           className={`h-1.5 w-1.5 rounded-full ${meta.dot} ${meta.pulse ? 'motion-safe:animate-pulse' : ''}`}

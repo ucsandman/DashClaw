@@ -101,7 +101,7 @@ export function WidgetLog({
       <div className="flex flex-col items-center gap-1.5 px-3 py-8 text-center">
         <Inbox size={20} className="text-tertiary" aria-hidden="true" />
         <span className="text-xs text-secondary">No recent activity</span>
-        <span className="text-[10px] text-tertiary">Governed actions will appear here</span>
+        <span className="text-xs text-tertiary">Governed actions will appear here</span>
       </div>
     );
   }
@@ -127,9 +127,9 @@ export function WidgetLog({
                 <span className="min-w-0 flex-1 truncate text-xs text-primary">
                   {action.summary || action.actionType || 'action'}
                 </span>
-                <time className="shrink-0 tabular-nums text-[10px] text-tertiary">{timeAgo(action.ts)}</time>
+                <time className="shrink-0 tabular-nums text-xs text-tertiary">{timeAgo(action.ts)}</time>
               </div>
-              <div className="truncate text-[10px] text-tertiary">
+              <div className="truncate text-xs text-tertiary">
                 {action.agentName || 'agent'} · {meta.statusLabel}
                 {risk >= 70 ? ` · risk ${risk}` : ''}
               </div>

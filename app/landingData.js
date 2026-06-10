@@ -232,7 +232,7 @@ export const operationalFeatures = [
   { icon: Compass, title: 'Ship in 10 Minutes', description: 'Four steps: create workspace, generate key, install SDK, send first action. That\'s it.' },
   { icon: Building2, title: 'Built for Multi-Tenant', description: 'Full org isolation out of the box. Each team gets their own agents, keys, and settings.' },
   { icon: Terminal, title: 'Infrastructure Tooling', description: 'Terminal CLI for approving agent actions, viewing the approval inbox, and querying decision replays. Works with Claude Code, Codex, and any terminal-first agent workflow.' },
-  { icon: AppWindow, title: 'Glanceable Status Widget', description: 'Install /widget as a standalone desktop app: a tiny always-on-top cockpit showing fleet posture (calm, active, approval, elevated), pending approvals, risk signals, and the last few governed actions at a glance. One-click PWA install from your instance, zero config, read-only.' },
+  { icon: AppWindow, title: 'Glanceable Status Widget', description: 'Install /widget as a standalone desktop app: a tiny cockpit showing fleet posture (calm, active, approval, elevated), pending approvals, risk signals, and the last few governed actions at a glance. Pin it always-on-top in one click (Chrome/Edge), choose the sections and metrics it shows, one-click PWA install from your instance, zero config, read-only.' },
 ];
 
 export const signals = [

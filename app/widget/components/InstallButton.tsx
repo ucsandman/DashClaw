@@ -5,14 +5,16 @@ import { Download } from 'lucide-react';
 
 // Progressive enhancement: show an in-app "Install" affordance ONLY when the
 // browser reports the widget is installable (the `beforeinstallprompt` event).
-// It renders nothing on unsupported browsers or once installed — so the surface
-// stays calm in the common case while making first-run install one click.
+// By default it renders nothing on unsupported browsers or once installed.
+// With `showFallbackHint` (used inside the settings panel, where an invisible
+// control would read as a bug) it renders an honest one-line hint instead of
+// nothing when the event never fires (Firefox/Safari, or already installed).
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>;
 }
 
-export function InstallButton() {
+export function InstallButton({ showFallbackHint = false }: { showFallbackHint?: boolean }) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
 
   useEffect(() => {
@@ -29,7 +31,15 @@ export function InstallButton() {
     };
   }, []);
 
-  if (!deferred) return null;
+  if (!deferred) {
+    if (!showFallbackHint) return null;
+    return (
+      <p className="text-xs text-tertiary">
+        Install not offered by this browser — already installed, or use Chrome/Edge&apos;s
+        address-bar install icon. See the widget docs for the app-mode launcher.
+      </p>
+    );
+  }
 
   const install = async () => {
     try {
@@ -47,7 +57,7 @@ export function InstallButton() {
       type="button"
       onClick={install}
       aria-label="Install the DashClaw status widget as a desktop app"
-      className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-[10px] font-medium text-secondary transition-colors hover:border-border-hover hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+      className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-1 text-xs font-medium text-secondary transition-colors hover:border-border-hover hover:text-primary focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
     >
       <Download size={12} aria-hidden="true" />
       Install

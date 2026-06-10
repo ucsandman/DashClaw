@@ -15,7 +15,7 @@ import { useWidgetSummary } from '@/widget/useWidgetSummary.js';
 const summary = {
   status: 'calm',
   generatedAt: '2026-06-06T12:00:00.000Z',
-  metrics: { activeAgents: 0, pendingApprovals: 0, elevated: 0, spend: null },
+  metrics: { activeAgents: 0, pendingApprovals: 0, signals: 0, spend: null },
   signals: { red: 0, amber: 0, total: 0 },
   recentActions: [],
   topSignals: [],
