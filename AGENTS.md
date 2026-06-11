@@ -72,17 +72,17 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-06-09 (commit f9fa3ec3). Confidence: 100%.
+Last indexed: 2026-06-11 (commit 41f18c0a). Confidence: 100%.
 ### Architecture
-repo is a governed agent documentation and execution platform: it ingests repository source files and contract metadata, transforms them through parsing/analysis and policy/rules evaluation, and outputs generated agent-ready artifacts (SDKs, MCP server endpoints, and example governed agent workflows) that can be run via CLI/web entry points. Knowledge/config used by the Dashclaw agent skill. Central rules engine for Claude-style code/policy constraints. Contract definitions and contract registry used to drive governed behavior.
+This repository is a governed code-assistant platform that ingests repository content (source files, contracts, and policy/rules), transforms it through policy-aware agent orchestration and optional MCP tool execution, and outputs governance-ready agent behaviors plus generated artifacts such as review/deployment workflows and an MCP-served tool surface for downstream UIs and agents.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **front-end application-layer entry** of repowise’s… | - |
-| `__tests__/unit` | The __tests__/unit module is the unit-testing subsystem in repowise’s larger… | - |
-| `app/components` | The app/components module is the UI component layer of repowise’s web… | - |
-| `app/lib` | The app/lib module is the core service layer for repowise’s indexing/guarding… | - |
-| `application` | The **Application (top-level)** subsystem is the entry-stage web/SDK… | - |
+| `app` | The **app** module is the **front-end application layer** of repowise’s… | - |
+| `__tests__/unit` | The __tests__/unit module is the unit-testing entry stage of repowise’s quality… | - |
+| `app/components` | The app/components module is the UI-layer component library and layout… | - |
+| `app/lib` | The **app/lib** module is the service-layer edge connector for repowise’s… | - |
+| `application` | The **Application (top-level)** module is the entry-stage web application layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
 | `.claude` | The **.claude module** is a **repository intelligence and command-safety… | - |
@@ -91,22 +91,22 @@ repo is a governed agent documentation and execution platform: it ingests reposi
 ### Entry Points
 - `scripts/_db.mjs`
 - `app/lib/notification-adapters/index.ts`
-- `mcp-server/lib/server.js`
+- `mcp-server/server.json`
 - `scripts/_load-env.mjs`
 - `scripts/living-merge/manifest.ts`
+- `mcp-server/test/helpers.ts`
 - `app/lib/claude-code/rules/index.ts`
 - `scripts/lib/run-pre-commit-checks.mjs`
+- `mcp-server/src/launch/index.ts`
 - `livingcode/__main__.py`
-- `scripts/lib/startup-smoke.mjs`
-- `scripts/lib/contracts/load-contracts.mjs`
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `app/lib/doctor/generated/last-snapshot.json` | 100.0th percentile | 65 | Wes Sander |
-| `app/lib/doctor/generated/shape.json` | 99.9th percentile | 65 | Wes Sander |
-| `public/livingcode/index.html` | 99.9th percentile | 68 | Wes Sander |
-| `app/lib/readiness.mjs` | 99.8th percentile | 10 | Wes Sander |
-| `middleware.js` | 99.8th percentile | 26 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 100.0th percentile | 67 | Wes Sander |
+| `app/lib/doctor/generated/shape.json` | 100.0th percentile | 67 | Wes Sander |
+| `mcp-server/lib/routes-inventory.generated.json` | 99.9th percentile | 30 | Wes Sander |
+| `public/livingcode/index.html` | 99.9th percentile | 70 | Wes Sander |
+| `plugins/dashclaw/hooks/dashclaw_stop.py` | 99.8th percentile | 7 | Wes Sander |
 
 ### Repowise MCP Workflow
 
