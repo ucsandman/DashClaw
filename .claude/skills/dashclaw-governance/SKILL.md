@@ -97,7 +97,7 @@ in Mission Control and the Decisions ledger.
 
 **For LLM-driven actions, include token usage (cost is auto-derived):**
 - `tokens_in` / `tokens_out` — Total input and output tokens for the LLM call(s) attributed to this action.
-- `model` — Model identifier (e.g. `claude-opus-4-6`, `gpt-5-codex`). The server uses this to look up pricing.
+- `model` — Model identifier (e.g. `claude-opus-4-8`, `codex-5.4`). The server uses this to look up pricing.
 - `cost_estimate` — Optional. **Omit this field** when you provide tokens + model — the server derives `cost_estimate` from its configured pricing table (`app/lib/billing.js`) so cost stays consistent across all agents. Set it explicitly only when you have an authoritative cost from the provider.
 
 **Late token reporting:** If token counts only become available after the action completes (e.g. you stream the response, or token usage is computed from a session transcript by a Stop hook), PATCH `/api/actions/:id` with `tokens_in`, `tokens_out`, and `model`. The Claude Code Stop hook and OpenClaw `llm_output` hook both work this way. Cost is still derived server-side.

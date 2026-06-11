@@ -87,7 +87,7 @@ The plugin ships the tool-layer governance hooks: PreToolUse / PostToolUse / Sto
 
 Requirements for the hooks to fire:
 
-- **Python on PATH.** The hook commands run `python "${CLAUDE_PLUGIN_ROOT}/hooks/dashclaw_pretool.py"` (and posttool / stop). On systems where the interpreter is `python3`, make `python` resolve to it.
+- **Python on PATH.** The hook commands run `node "${CLAUDE_PLUGIN_ROOT}/hooks/run_hook.cjs" dashclaw_pretool.py` (and posttool / stop) — a Node shim that probes for `python3`, then `python`, and runs the script with whichever resolves. Either interpreter name works; if neither is on PATH the hook is skipped with a notice.
 - `DASHCLAW_BASE_URL` (or `DASHCLAW_URL` as a fallback) + `DASHCLAW_API_KEY` set in the environment Claude Code launches from. Without these the hooks exit silently.
 
 ### Alternative: the standalone installer
@@ -111,7 +111,7 @@ The installer paths also require Python on PATH plus the same env vars. **Folder
 
 - **MCP tools listed but every call returns 401.** Your instance is on a stale schema. Run `npm run db:migrate` against it, then retry.
 - **Tools don't appear after install.** Run `/reload-plugins`, then `/mcp`, and confirm `DASHCLAW_URL` + `DASHCLAW_API_KEY` are set in the environment the MCP server launches from.
-- **MCP works but the hooks govern nothing.** The bundled hooks need Python on PATH and `DASHCLAW_BASE_URL` (or `DASHCLAW_URL`) + `DASHCLAW_API_KEY` in the environment Claude Code launched from — without either they exit silently. Confirm `python --version` resolves (alias `python3` if needed) and that the plugin is enabled (`/reload-plugins`). If you used the standalone installer instead, a per-project `.claude/settings.json` also has to pass Claude Code's folder-trust gate — the bundled plugin hooks do not.
+- **MCP works but the hooks govern nothing.** The bundled hooks need Python on PATH and `DASHCLAW_BASE_URL` (or `DASHCLAW_URL`) + `DASHCLAW_API_KEY` in the environment Claude Code launched from — without either they exit silently. The hooks launch via a Node shim (`hooks/run_hook.cjs`) that probes `python3` then `python`, so confirm `python3 --version` or `python --version` resolves and that the plugin is enabled (`/reload-plugins`). If you used the standalone installer instead, a per-project `.claude/settings.json` also has to pass Claude Code's folder-trust gate — the bundled plugin hooks do not.
 - **Guard always allows, or you see a demo-mode warning.** `DASHCLAW_BASE_URL` points at the demo instance. Set it to your real instance.
 - **Fastest connectivity check.** Call the `dashclaw_capabilities_list` tool — the lightest way to confirm the connection is up.
 

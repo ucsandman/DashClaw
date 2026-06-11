@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **260** active API routes across **63** categories
+- **260** active API routes across **63** categories (308 total including archived)
 - **4** required + **142** optional environment variables
 - **97** database tables
 

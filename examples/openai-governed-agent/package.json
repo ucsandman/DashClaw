@@ -7,7 +7,7 @@
     "start": "node index.js"
   },
   "dependencies": {
-    "dashclaw": "^2.2.1",
+    "dashclaw": "file:../../sdk",
     "dotenv": "^16.4.5",
     "openai": "^4.28.0"
   }

@@ -81,16 +81,18 @@ def _format_handoff(handoff: dict) -> str:
 
 def _refresh_state(session_id: str) -> dict:
     """Pull a lightweight governance snapshot from DashClaw."""
-    summary = api_request("GET", "/api/setup/summary", timeout=3) or {}
-    approvals = api_request("GET", "/api/approvals?status=pending&limit=5", timeout=3) or {}
-    pending = approvals.get("approvals") or approvals.get("items") or []
-    counts = summary.get("counts") or {}
+    summary = api_request("GET", "/api/operations/summary", timeout=3) or {}
+    pending_res = api_request("GET", "/api/actions?status=pending_approval&limit=5", timeout=3) or {}
+    pending = pending_res.get("actions") or []
+    policies_res = api_request("GET", "/api/policies", timeout=3) or {}
+    policies = [p for p in (policies_res.get("policies") or []) if isinstance(p, dict) and p.get("active", 1)]
+    throughput = summary.get("throughput") or {}
     return {
         "fetched_at": int(time.time()),
         "pending_approvals_count": len(pending),
-        "pending_approvals_first": [a.get("id") for a in pending[:3] if isinstance(a, dict)],
-        "policies_active": counts.get("policies_active", 0),
-        "actions_24h": counts.get("actions_24h", 0),
+        "pending_approvals_first": [a.get("action_id") for a in pending[:3] if isinstance(a, dict)],
+        "policies_active": len(policies),
+        "actions_24h": throughput.get("last_24h", 0),
     }
 
 

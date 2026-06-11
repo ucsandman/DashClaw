@@ -108,7 +108,7 @@ async function main() {
   // Manual agentic loop so we can intercept deploy_to_production for governance
   while (true) {
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: `You are a deployment operations agent. You analyze infrastructure health and execute deployments.
 Always check the manifest first, then check the health of ALL affected services before deploying.

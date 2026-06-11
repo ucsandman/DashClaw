@@ -110,9 +110,60 @@ dashclaw code apply <manifest-id> --dest=<project-cwd>   # apply an Optimal File
 dashclaw code apply <manifest-id> --dest=<project-cwd> --dry-run
 ```
 
-`ingest` stream-reads each session JSONL line-by-line and ships raw lines; large request bodies are gzip-compressed on the wire (raw gzip via the `x-dashclaw-encoding: gzip` header — no base64 inflation) to fit Vercel's 4.5 MB per-request limit. It retries 429s and 5xxs with exponential backoff and throttles 150 ms between POSTs. Files over 40 MB raw are skipped with a `too_large` log entry. Never logs raw transcript content.
+`ingest` stream-reads each session JSONL line-by-line and ships raw lines; large request bodies are brotli-compressed on the wire (via the `x-dashclaw-encoding: br` header — no base64 inflation) to fit Vercel's 4.5 MB per-request limit. It retries 429s and 5xxs with exponential backoff and throttles 150 ms between POSTs. Files over 40 MB raw are skipped with a `too_large` log entry. Never logs raw transcript content.
+
+There is also `dashclaw code ingest-codex [--dry-run]`, which backfills Codex CLI transcripts from `~/.codex/sessions` (`--sessions-dir <path>` to override; `--out <dir>` for the local output directory).
 
 `apply` fetches a manifest from `/api/code-sessions/manifests/<id>`, re-runs the secret scan, and writes the bundled files to `--dest`. Existing files get a three-way merge via the section-aware markdown merger; new files are written directly. Refuses any path outside `--dest` (path-traversal guard).
+
+### `dashclaw install codex`
+
+Provision DashClaw governance into the Codex CLI: writes an AGENTS.md governance block into the target project and (optionally) wires Codex's notify config.
+
+```bash
+dashclaw install codex --project <path>          # default: current directory
+dashclaw install codex --approval-policy on-request
+dashclaw install codex --include-notify          # also wire notify → dashclaw codex notify
+```
+
+### `dashclaw codex notify '<json>'`
+
+Records a Codex turn-complete event as a DashClaw action record. Called by Codex's notify config (wired by `install codex --include-notify`); always exits 0 so Codex never sees an error from the spawn.
+
+### `dashclaw prompts`
+
+Prompt-library client: `list [--category C]`, `get <id>`, `versions <id>`, `render <templateId> [--version-id <vid>] [--var key=value] [--record]`, `create --name N --description D --category C` (admin), `add-version <id> --content C` (admin), `activate <id> <vid>` (admin), `stats [--template-id X]`.
+
+### `dashclaw inbox`
+
+Agent message inbox: `inbox list [--unread] [--limit N]`, `inbox read <id> [...]`, `inbox archive <id> [...]`.
+
+### `dashclaw behavior`
+
+Behavior Learning readback: `behavior status` (local recorder sample counts) and `behavior suggestions [--agent-id <id>]` (evidence-backed policy suggestions).
+
+### `dashclaw posture` / `dashclaw next`
+
+`posture` prints the governance posture score and the remediation queue; `posture resolve <key> [--snooze | --accept-risk] [--note "..."]` dispositions a finding. `next` prints the single top open governance gap and its fix.
+
+### `dashclaw env`
+
+Run a command with managed secrets injected in-memory (values never touch disk or the terminal):
+
+```bash
+dashclaw env [--agent <id>] -- node my-agent.js   # inject managed secrets into the child env
+dashclaw env                                      # list secret NAMES + count (never values)
+```
+
+Fail-closed: if the secrets fetch fails, the child is not spawned.
+
+### `dashclaw logout`
+
+Remove the saved config at `~/.dashclaw/config.json`.
+
+### `dashclaw version`
+
+Print the CLI version (`--version` / `-v` also work).
 
 ### `dashclaw help`
 

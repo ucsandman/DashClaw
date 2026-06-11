@@ -8,7 +8,7 @@ import { GovernedAgent } from './harness.js';
 const BASE_URL = process.env.DASHCLAW_BASE_URL || 'http://localhost:3000';
 const API_KEY = process.env.DASHCLAW_API_KEY;
 const AGENT_ID = process.env.DASHCLAW_AGENT_ID || 'claude-chat-harness';
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-5-20250929';
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
 const GUARD_UNAVAILABLE = process.env.DASHCLAW_GUARD_UNAVAILABLE_POLICY || 'warn';
 
 if (!API_KEY) {

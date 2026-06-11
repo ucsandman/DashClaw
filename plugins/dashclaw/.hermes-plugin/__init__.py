@@ -66,42 +66,50 @@ def _api(method: str, path: str, body=None, timeout: float = 5.0):
 # Slash commands
 # ---------------------------------------------------------------------------
 
+def _active_policies(res) -> list:
+    """GET /api/policies returns ALL org policies; filter to active=1 client-side."""
+    items = res.get("policies") or res.get("items") or []
+    return [p for p in items if p.get("active", 1)]
+
+
 def _slash_status(args, ctx=None):
-    summary = _api("GET", "/api/setup/summary")
+    summary = _api("GET", "/api/operations/summary")
     if "error" in summary:
         return f"DashClaw not reachable: {summary.get('detail') or summary['error']}"
-    org = summary.get("org", {}) or {}
-    counts = summary.get("counts", {}) or {}
+    throughput = summary.get("throughput", {}) or {}
+    backlog = summary.get("approval_backlog", {}) or {}
+    policies = _api("GET", "/api/policies")
+    policy_count = len(_active_policies(policies)) if "error" not in policies else 0
     return (
-        f"DashClaw {org.get('name') or org.get('id') or 'workspace'}: "
-        f"{counts.get('actions_24h', 0)} actions/24h, "
-        f"{counts.get('open_approvals', 0)} open approvals, "
-        f"{counts.get('policies_active', 0)} active policies."
+        f"DashClaw workspace: "
+        f"{throughput.get('last_24h', 0)} actions/24h, "
+        f"{backlog.get('pending_count', 0)} open approvals, "
+        f"{policy_count} active policies."
     )
 
 
 def _slash_approvals(args, ctx=None):
-    res = _api("GET", "/api/approvals?status=pending&limit=10")
+    res = _api("GET", "/api/actions?status=pending_approval&limit=10")
     if "error" in res:
         return f"DashClaw not reachable: {res.get('detail') or res['error']}"
-    items = res.get("approvals") or res.get("items") or []
+    items = res.get("actions") or []
     if not items:
         return "No pending approvals."
     lines = ["Pending approvals:"]
     for a in items[:10]:
-        lines.append(f"  {a.get('id', '?')} — {a.get('summary') or a.get('action_type') or 'action'}")
+        lines.append(f"  {a.get('action_id', '?')} — {a.get('declared_goal') or a.get('action_type') or 'action'}")
     return "\n".join(lines)
 
 
 def _slash_policies(args, ctx=None):
-    res = _api("GET", "/api/policies?active=true&limit=20")
+    res = _api("GET", "/api/policies")
     if "error" in res:
         return f"DashClaw not reachable: {res.get('detail') or res['error']}"
-    items = res.get("policies") or res.get("items") or []
+    items = _active_policies(res)
     if not items:
         return "No active policies."
     return "Active policies:\n" + "\n".join(
-        f"  {p.get('slug', p.get('id', '?'))} — {p.get('name', '')}" for p in items[:20]
+        f"  {p.get('id', '?')} — {p.get('name', '')}" for p in items[:20]
     )
 
 
@@ -169,15 +177,15 @@ def _cli_doctor(args):
     # Section 4: API reachability (only if env is set).
     print("\n  API:")
     if env["base_url"] and env["api_key"]:
-        summary = _api("GET", "/api/setup/summary", timeout=5)
+        summary = _api("GET", "/api/operations/summary", timeout=5)
         if "error" in summary:
-            _check("GET /api/setup/summary", False, summary.get("detail") or summary["error"])
+            _check("GET /api/operations/summary", False, summary.get("detail") or summary["error"])
             all_ok = False
         else:
-            org = summary.get("org", {}) or {}
-            counts = summary.get("counts", {}) or {}
-            _check("GET /api/setup/summary", True,
-                   f"org={org.get('id', '?')}, policies={counts.get('policies_active', 0)}")
+            throughput = summary.get("throughput", {}) or {}
+            backlog = summary.get("approval_backlog", {}) or {}
+            _check("GET /api/operations/summary", True,
+                   f"actions_24h={throughput.get('last_24h', 0)}, pending_approvals={backlog.get('pending_count', 0)}")
 
         live = _api(
             "POST",

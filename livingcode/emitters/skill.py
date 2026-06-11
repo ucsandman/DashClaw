@@ -90,7 +90,8 @@ def emit_skill(shape: ShapeModel) -> str:
         "",
         "## At a Glance",
         "",
-        f"- **{len(active)}** active API routes across **{len(route_groups)}** categories",
+        f"- **{len(active)}** active API routes across **{len(route_groups)}** categories"
+        f" ({len(shape.routes)} total including archived)",
         f"- **{len(required_env)}** required + **{len(optional_env)}** optional environment variables",
         f"- **{len(shape.tables)}** database tables",
         "",

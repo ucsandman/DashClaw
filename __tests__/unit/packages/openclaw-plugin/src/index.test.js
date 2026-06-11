@@ -1,6 +1,4 @@
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { beforeEach, describe, it, vi } from 'vitest';
 
 const mockRuntime = vi.hoisted(() => ({
@@ -113,44 +111,9 @@ function actionPatch(calls, actionId) {
   return findCall(calls, `/api/actions/${actionId}`, 'PATCH');
 }
 
-async function patchNestedDashClawX402Methods() {
-  const pluginDashClawModule =
-    '../../../../../packages/openclaw-plugin/node_modules/dashclaw/dashclaw.js';
-  const pluginDashClawFile = fileURLToPath(
-    new URL(pluginDashClawModule, import.meta.url)
-  );
-  const dashClawModule = existsSync(pluginDashClawFile)
-    ? pluginDashClawModule
-    : 'dashclaw';
-  const { DashClaw } = await import(dashClawModule);
-  DashClaw.prototype.listProviders ??= function listProviders(filters = {}) {
-    return this._request('/api/x402/providers', 'GET', null, filters);
-  };
-  DashClaw.prototype.createProvider ??= function createProvider(data = {}) {
-    return this._request('/api/x402/providers', 'POST', data);
-  };
-  DashClaw.prototype.recordPurchase ??= function recordPurchase(data = {}) {
-    return this._request('/api/x402/purchases', 'POST', data);
-  };
-  DashClaw.prototype.recordPurchaseResult ??= function recordPurchaseResult(
-    actionId,
-    result = {}
-  ) {
-    return this._request('/api/artifacts', 'POST', {
-      artifact_type: 'x402_purchase_result',
-      name: `x402 result ${actionId}`,
-      description: result.summary || null,
-      content_json: result.data ?? {},
-      content_url: result.url || null,
-      source_action_id: actionId,
-    });
-  };
-}
-
 async function registerPlugin({ pluginConfig = {} } = {}) {
   vi.resetModules();
   mockRuntime.definePluginEntry.mockClear();
-  await patchNestedDashClawX402Methods();
 
   const mod = await import('../../../../../packages/openclaw-plugin/src/index.ts');
   const plugin = mod.default;

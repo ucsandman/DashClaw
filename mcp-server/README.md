@@ -152,8 +152,13 @@ Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical defini
 | Tool | Description |
 |---|---|
 | `dashclaw_inbox_list` | List inbox messages + unread count |
-| `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
 | `dashclaw_messages_mark_read` | Mark inbox messages read |
+
+**Agent identity (1)** — operator-approved pairing of an unidentified agent to a registered identity.
+
+| Tool | Description |
+|---|---|
+| `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
 
 **Behavior learning (1)** — observe-only Policy Coach suggestions learned from this agent's recorded behavior.
 

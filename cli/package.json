@@ -1,13 +1,19 @@
 {
   "name": "@dashclaw/cli",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "DashClaw terminal client — approve agent actions and diagnose your instance",
   "type": "module",
   "bin": {
     "dashclaw": "./bin/dashclaw.js"
   },
-  "files": ["bin/", "lib/", "README.md"],
-  "engines": { "node": ">=18.0.0" },
+  "files": [
+    "bin/",
+    "lib/",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "test": "node --test test/**/*.test.js"
   },

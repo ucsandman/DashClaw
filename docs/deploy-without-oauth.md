@@ -49,8 +49,8 @@ click **Fork**. Accept all defaults. This gives you your own copy to deploy from
    | `ENCRYPTION_KEY` | Run the command below and paste the output |
    | `CRON_SECRET` | Run the command below and paste the output |
    | `DASHCLAW_LOCAL_ADMIN_PASSWORD` | A strong password of your choice |
-   | `DASHCLAW_MODE` | `self_host` |
-   | `NEXT_PUBLIC_DASHCLAW_MODE` | `self_host` |
+
+   Optional: `DASHCLAW_MODE` and `NEXT_PUBLIC_DASHCLAW_MODE` both default to `self_host` — set them only if you need a different mode.
 
    Generate the four secrets in one command:
    ```bash

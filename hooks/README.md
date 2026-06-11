@@ -37,7 +37,7 @@ v2 hooks classify every Claude Code tool into a semantic category and govern bas
 
 Configure which categories are governed via the `DASHCLAW_GOVERNED_CATEGORIES` environment variable (comma-separated list). Unknown tools that do not match any category fail-safe to governed.
 
-> **Claude Code routing note.** Which tool calls reach the hook is decided by the `PreToolUse` / `PostToolUse` **matcher** in `.claude/settings.json`, which ships as `Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*`. So **sub-agent spawns are governed** (the `Agent` tool — named `Task` before Claude Code 2.1.63), alongside Bash and file edits. The `mcp__.*` segment puts **MCP tool calls inside the matcher too**, so connected-MCP actions (Gmail/Stripe/Calendar sends, etc.) are intercepted by the hook path before execution. `PreToolUse` also fires *inside* sub-agents, so a sub-agent's own Bash/Edit/Write calls are governed too and recorded with sub-agent provenance (see "Sub-agent governance & tracking" below). Still outside the default matcher: `Skill` and `interactive` tools — govern those via the SDK/MCP server or by adding the names to the matcher. (Codex and Hermes installers wire their own routing.)
+> **Claude Code routing note.** Which tool calls reach the hook is decided by the `PreToolUse` / `PostToolUse` **matcher** in `.claude/settings.json`, which ships as `Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*`. So **sub-agent spawns are governed** (the `Agent` tool — named `Task` before Claude Code 2.1.63), alongside Bash and file edits. The `mcp__.*` segment puts **MCP tool calls inside the matcher too**, so connected-MCP actions (Gmail/Stripe/Calendar sends, etc.) are intercepted by the hook path before execution. `Skill` invocations fire the advisory skill auto-scan in PreToolUse (no PostToolUse entry — intentional). `PreToolUse` also fires *inside* sub-agents, so a sub-agent's own Bash/Edit/Write calls are governed too and recorded with sub-agent provenance (see "Sub-agent governance & tracking" below). Still outside the default matcher: `interactive` tools — govern those via the SDK/MCP server or by adding the names to the matcher. (Codex and Hermes installers wire their own routing.)
 
 ### Sub-agent governance & tracking
 
@@ -149,7 +149,7 @@ Then merge the hooks block from `hooks/settings.json` into your `.claude/setting
 cp hooks/settings.json .claude/settings.json
 ```
 
-> The committed `settings.json` template invokes `python`. On Linux/macOS without a `python` shim (e.g. Debian/Ubuntu, which ship only `python3`), change the three commands to `python3` — or just use the one-command installer above, which detects the interpreter automatically.
+> The committed `settings.json` template invokes the hooks through the `run_hook.cjs` node shim, which probes `python3` then `python` automatically — no manual interpreter edit is needed on any platform.
 
 ### Environment variables
 
@@ -175,7 +175,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 If DashClaw is reachable, the hook evaluates the command against your guard policies. If not, it exits silently and Claude Code proceeds normally.
 
-> Use `python3` here if your system has no `python` on PATH. The one-command installer writes the correct interpreter into `.claude/settings.json` for you.
+> Use `python3` here if your system has no `python` on PATH. (Installed hooks don't have this concern — they run through the `run_hook.cjs` shim, which resolves the interpreter automatically.)
 
 ### Token capture (Stop hook)
 
@@ -200,10 +200,16 @@ The Stop hook also auto-closes any action still in `status='running'` at turn en
 | `DASHCLAW_AGENT_ID` | No | `claude-code` | Identity for this agent in DashClaw |
 | `DASHCLAW_SUBAGENT_IDENTITY` | No | `provenance` | `provenance` records sub-agent identity as provenance (agent_id stays the parent). `distinct` gives each sub-agent type its own composed agent_id (`<parent>:<type>`) so it's a distinct fleet agent; the server falls back to the parent's pairing for permissions. |
 | `DASHCLAW_HOOK_MODE` | No | `enforce` | `enforce` blocks on policy violations. `observe` logs everything but never blocks. |
-| `DASHCLAW_RISK_THRESHOLD` | No | `60` | Commands with risk above this threshold get elevated risk scores |
 | `DASHCLAW_PERMISSION_MODE` | No | `danger` | Permission mode passed to the guard for policy evaluation |
 | `DASHCLAW_GOVERNED_CATEGORIES` | No | `execution,orchestration,file_io,interactive,mcp` | Comma-separated list of tool categories that are governed |
-| `DASHCLAW_GUARD_TIMEOUT` | No | `5` | Timeout in seconds for each guard API request attempt. The hook retries up to three times before declaring the guard unreachable. |
+| `DASHCLAW_GUARD_TIMEOUT` | No | `5` | Timeout in seconds for the guard request. By default the guard makes **one attempt** (no retries); set `DASHCLAW_GUARD_RETRIES=2` to restore the old three-attempt behavior. |
+| `DASHCLAW_GUARD_RETRIES` | No | `0` | Extra guard attempts after the first (0 = single attempt). Action create/update calls retry independently (2 retries = 3 attempts). |
+| `DASHCLAW_GUARD_CONNECT_TIMEOUT` | No | `2` | Timeout in seconds for the conditional TCP preflight used when a prior turn found the guard unreachable. |
+| `DASHCLAW_SKILL_SCAN` | No | `1` | Set `0` to disable the advisory skill auto-scan fired on `Skill` tool invocations. |
+| `DASHCLAW_HOOK_DEBUG` | No | unset | Set `1` to capture PostToolUse invocation breadcrumbs (useful when diagnosing missed PostToolUse events). |
+| `DASHCLAW_BEHAVIOR_UPLOAD` | No | unset (off) | Opt-in anonymized behavior-sample upload (`1`/`true`/`yes`); requires the server-side org setting too. |
+| `DASHCLAW_BEHAVIOR_INSIGHTS` | No | on | Set `0` to opt out of the throttled behavior-insights push from the Stop hook. |
+| `DASHCLAW_TRACK_TEXT_TURNS` | No | unset (off) | Set `1` to record synthetic `conversation` actions for text-only turns so their tokens land in analytics. |
 | `DASHCLAW_GUARD_UNAVAILABLE_POLICY` | No | `block` | Behavior when the guard is unreachable after retries. `block` fails closed (exits 2). `warn` prints a stderr warning and proceeds. `allow` proceeds silently. All three paths still write the orphan log for backfill. |
 | `DASHCLAW_APPROVAL_TIMEOUT` | No | `30` | Timeout in seconds when polling for operator approval |
 | `DASHCLAW_DISABLE_DOTENV` | No | unset | Test isolation escape hatch. When set to any truthy value, the hooks skip the `.env` walk so the subprocess only sees env vars the caller passes in. The hook test suite sets this. **Never set this in production**: it disables the standard `.env.local` and `.env` loading the install flow relies on. |
@@ -225,7 +231,7 @@ If DashClaw is unconfigured (`DASHCLAW_BASE_URL` or `DASHCLAW_API_KEY` missing),
 
 If `DASHCLAW_BASE_URL` or `DASHCLAW_API_KEY` is unset, both scripts exit 0 silently and Claude Code is never blocked.
 
-If DashClaw is configured but the API is unreachable (timeout, network error, 5xx) after three retry attempts with exponential backoff, behavior is governed by `DASHCLAW_GUARD_UNAVAILABLE_POLICY`:
+If DashClaw is configured but the API is unreachable (timeout, network error, 5xx) — by default the guard makes a single attempt; set `DASHCLAW_GUARD_RETRIES` to add retries — behavior is governed by `DASHCLAW_GUARD_UNAVAILABLE_POLICY`:
 
 | Policy value | Behavior on unreachable guard |
 |---|---|
@@ -239,7 +245,7 @@ The `block` default is correct for production governance posture: destructive ac
 export DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn
 ```
 
-The hooks retry transient failures up to three times with 0.4 second and 0.8 second backoff between attempts before concluding the guard is unreachable, so most cold start blips on Vercel and Neon are absorbed automatically.
+Action create/update calls retry transient failures up to three attempts with 0.4 second and 0.8 second backoff, so most cold start blips on Vercel and Neon are absorbed automatically. The guard check itself makes a single attempt by default (it sits on the hot path before every governed tool call); set `DASHCLAW_GUARD_RETRIES=2` on flaky networks to give it the same three-attempt behavior.
 
 ## Approving from the terminal
 

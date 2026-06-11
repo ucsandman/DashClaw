@@ -65,7 +65,7 @@ async function main() {
         '`const API_SECRET = process.env.API_SECRET`';
     } else {
       const msg = await anthropic.messages.create({
-        model: 'claude-opus-4-5',
+        model: 'claude-opus-4-8',
         max_tokens: 1024,
         system: 'You are a security-focused code reviewer. Be concise. Identify the most critical issue and suggest a fix.',
         messages: [

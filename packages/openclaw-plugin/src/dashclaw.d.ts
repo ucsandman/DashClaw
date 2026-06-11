@@ -6,7 +6,7 @@
  * shapes of `guard()`, `createAction()`, `waitForApproval()`, and
  * `updateOutcome()` responses.
  *
- * Shapes mirror `dashclaw@4.1.x/dashclaw.js`:
+ * Shapes mirror `dashclaw@4.2.x+/dashclaw.js` (the x402 methods require >= 4.2.0):
  *   - `guard()`  → `{ decision, action_id, reason, signals }`
  *   - `createAction()` → API returns `{ action, action_id, decision, ... }`
  *   - `waitForApproval()` → `{ action }`

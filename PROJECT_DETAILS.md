@@ -209,6 +209,8 @@ DashClaw is intentionally multi-surface. Claude Code hooks are one strong integr
 | REST API | Custom frameworks and direct integrations | `app/api/**/route.ts`, generated inventory/OpenAPI docs |
 | Webhooks and approvals | Operator notification and external systems | Slack/Discord/Telegram adapters, webhook routes, approval bridges |
 
+Webhook delivery formats per destination host: `*.logic.azure.com` gets the Teams Workflows envelope, and `hooks.slack.com`, `discord.com`, and `events.pagerduty.com` get platform-native payloads; every other destination receives the generic byte-identical JSON payload.
+
 Framework examples exist for OpenAI, Anthropic, LangGraph, CrewAI, AutoGen, Claude Managed Agents custom tools, Claude Managed Agents MCP, and Claude Managed Agents MCP plus Governance Skill. See `examples/README.md`.
 
 ## SDK surface area

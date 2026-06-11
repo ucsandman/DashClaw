@@ -166,6 +166,11 @@ The supported command surface is Python-based:
 - `python -m livingcode cycle`
 - `python -m livingcode heartbeat --mode quick|full`
 - `python -m livingcode status`
+- `python -m livingcode query [routes|archived-routes|env|tables|summary|all]` — query the codebase shape
+- `python -m livingcode snapshot` — save the current shape snapshot to `.organism/`
+- `python -m livingcode diff` — diff the current shape vs the last snapshot
+- `python -m livingcode emit [skill|shape-json|doctor-checks|mcp-tools|dashboard] [--output <path>]` — generate derivative artifacts
+- `python -m livingcode start [--no-open]` — sense + snapshot + refresh + open the dashboard
 
 `--path` can be supplied before or after the subcommand.
 

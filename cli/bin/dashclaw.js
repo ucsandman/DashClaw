@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { execFileSync } from 'child_process';
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DashClaw } from 'dashclaw';
@@ -29,7 +30,9 @@ import { fetchAgentEnv, splitEnvArgv, formatEnvNames, runWithEnv } from '../lib/
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
-  process.exit(1);
+  // exitCode (not process.exit) — a hard exit during in-flight I/O trips a
+  // libuv teardown assert on Windows.
+  process.exitCode = 1;
 });
 
 // -- Config -------------------------------------------------------------------
@@ -65,7 +68,7 @@ function runSubcommand(table, sub, errorMessage) {
   const handler = table[sub];
   if (handler) return handler();
   console.error(errorMessage(sub));
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 // -- Commands -----------------------------------------------------------------
@@ -134,6 +137,7 @@ ${bold('Usage:')}
     --note "..."                         Attach a note to the resolution
   dashclaw next                          The single top open governance gap + its fix
   dashclaw logout                        Remove saved config (~/.dashclaw/config.json)
+  dashclaw version                       Print the CLI version
   dashclaw help                          Show this help
 
 ${bold('Config:')}
@@ -141,6 +145,12 @@ ${bold('Config:')}
   to save them to ~/.dashclaw/config.json (mode 600). Env vars always override
   the saved values.
 `);
+}
+
+async function cmdVersion() {
+  const pkgPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
+  console.log(pkg.version);
 }
 
 async function cmdLogout() {
@@ -483,7 +493,7 @@ async function cmdInstall() {
     default:
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
                     'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>]');
-      process.exit(1);
+      process.exitCode = 1;
   }
 }
 
@@ -497,13 +507,18 @@ async function cmdCodexNotify() {
   // Skip the leading 'codex' and 'notify' tokens — runCodexNotify reads the
   // JSON payload from the LAST argv slot (per Codex's notify contract).
   const notifyArgv = args.slice(1); // includes 'notify' and the payload
-  await runCodexNotify({
-    argv: notifyArgv,
-    baseUrl,
-    apiKey,
-    agentId: agentId || 'codex',
-    logger: console,
-  });
+  try {
+    await runCodexNotify({
+      argv: notifyArgv,
+      baseUrl,
+      apiKey,
+      agentId: agentId || 'codex',
+      logger: console,
+    });
+  } catch {
+    // Best-effort by contract: Codex must never see a failure from its
+    // notify hook, so errors are swallowed and we still exit 0.
+  }
   process.exit(0);
 }
 
@@ -1246,6 +1261,9 @@ const COMMAND_HANDLERS = {
   help: cmdHelp,
   '--help': cmdHelp,
   '-h': cmdHelp,
+  version: cmdVersion,
+  '--version': cmdVersion,
+  '-v': cmdVersion,
 };
 
 async function main() {
@@ -1257,7 +1275,7 @@ async function main() {
   }
   console.error(`Unknown command: ${command}`);
   await cmdHelp();
-  process.exit(1);
+  process.exitCode = 1;
 }
 
 main();
