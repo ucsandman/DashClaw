@@ -561,6 +561,61 @@ export function demoPolicies(fixtures: DemoFixtures) {
   return { policies: fixtures.policies, lastUpdated: new Date().toISOString() };
 }
 
+/** GET /api/policies/contract — governed claude-code contract fixture. */
+export function demoContract(): import('../policy-modes/contract').ContractView {
+  return {
+    governed: true,
+    mode_id: 'balanced',
+    interrupts: [
+      { policy_id: 'gp_demo_interrupt_1', text: 'action is one of: bash, write_file', fired_7d: 14 },
+      { policy_id: 'gp_demo_interrupt_2', text: 'protected paths change (governance, auth, secrets)', fired_7d: 3 },
+      { policy_id: 'gp_demo_interrupt_3', text: 'risk score reaches 70', fired_7d: 5 },
+    ],
+    silent: [
+      { policy_id: 'gp_demo_silent_1', text: 'bash, write_file calls (recorded for review)', fired_7d: 22 },
+      { policy_id: 'gp_demo_silent_2', text: 'burst: more than 20 actions in 5 minutes', fired_7d: 0 },
+    ],
+    blocks: [],
+    grants: [
+      { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/' },
+    ],
+    custom: [],
+    friction: { interrupts_7d: 22, est_seconds: 440 },
+  };
+}
+
+/** GET /api/policies/review — warn groups + recent interrupts fixture. */
+export function demoReview() {
+  const now = new Date();
+  const iso = (offsetMs: number) => new Date(now.getTime() - offsetMs).toISOString();
+  return {
+    groups: [
+      {
+        shape: { action_type: 'bash', target_prefix: null, key: 'bash::', label: 'bash' },
+        count: 18,
+        latest_at: iso(3_600_000),
+        sample_id: 'gd_demo_warn_1',
+        sample_goal: 'Run unit test suite',
+      },
+      {
+        shape: { action_type: 'write_file', target_prefix: 'src/', key: 'write_file::src/', label: 'write_file → src/' },
+        count: 7,
+        latest_at: iso(7_200_000),
+        sample_id: 'gd_demo_warn_2',
+        sample_goal: 'Refactor authentication module',
+      },
+    ],
+    interrupts: [
+      {
+        id: 'gd_demo_int_1', agent_id: 'clawdbot', agent_name: 'ClawdBot',
+        action_type: 'bash', decision: 'require_approval', reason: 'Matched require_approval policy',
+        risk_score: 72, created_at: iso(1_800_000),
+      },
+    ],
+    cursor: iso(7 * 86_400_000),
+  };
+}
+
 export function demoPolicySimulate(fixtures: DemoFixtures, body: AnyRecord) {
   return {
     summary: { total: 124, block: 2, warn: 5, require_approval: 8 },

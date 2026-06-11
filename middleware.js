@@ -7,7 +7,7 @@ import {
   demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
   demoLearning, demoLearningRecommendations, demoLearningRecommendationMetrics,
   demoConsolidatedLessons,
-  demoTokens, demoPolicies, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
+  demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
   demoMessageDocs, demoContent, demoTeam, demoTeamInvites, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoWorkflows, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
@@ -1058,6 +1058,8 @@ const DEMO_API_ROUTES = [
   ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],
   ['/api/settings', ({ request, fixtures }) => demoJson(request, { settings: fixtures.settings })],
   ['/api/policies', demoFixtureRoute(demoPolicies)],
+  ['/api/policies/contract', ({ request }) => demoJson(request, demoContract())],
+  ['/api/policies/review', ({ request }) => demoJson(request, demoReview())],
   ['/api/policies/proof', handleDemoPoliciesProof],
   // ── Routing demo endpoints ──
   ['/api/routing/health', demoFixturePropRoute('routingHealth')],
@@ -1181,6 +1183,9 @@ function handleDemoPolicySimulations(request, pathname, method) {
   }
   if (pathname === '/api/policies/simulate') {
     return demoJson(request, demoPolicySimulate(getDemoFixtures(), {}));
+  }
+  if (pathname === '/api/policies/review/verdict') {
+    return demoJson(request, { ok: true, demo: true });
   }
   if (pathname === '/api/policies/modes/import') {
     return demoJson(request, {

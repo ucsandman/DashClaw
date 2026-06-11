@@ -122,4 +122,44 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     expect(res.status).toBe(403);
     expect((await res.json()).error).toBe('Demo mode: write APIs are disabled.');
   });
+
+  it('GET /api/policies/contract returns a governed contract with interrupt/silent/grant sentences', async () => {
+    const res = await middleware(req('/api/policies/contract'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.governed).toBe(true);
+    expect(body.mode_id).toEqual(expect.any(String));
+    expect(body.interrupts.length).toBeGreaterThanOrEqual(3);
+    expect(body.silent.length).toBeGreaterThanOrEqual(2);
+    expect(body.grants.length).toBeGreaterThanOrEqual(1);
+    expect(body.interrupts[0]).toMatchObject({ policy_id: expect.any(String), text: expect.any(String), fired_7d: expect.any(Number) });
+    expect(body.friction).toMatchObject({ interrupts_7d: expect.any(Number), est_seconds: expect.any(Number) });
+  });
+
+  it('GET /api/policies/review returns warn groups and recent interrupts', async () => {
+    const res = await middleware(req('/api/policies/review'));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.groups.length).toBeGreaterThanOrEqual(2);
+    expect(body.interrupts.length).toBeGreaterThanOrEqual(1);
+    expect(typeof body.cursor).toBe('string');
+    expect(body.groups[0]).toMatchObject({
+      shape: { action_type: expect.any(String), key: expect.any(String), label: expect.any(String) },
+      count: expect.any(Number),
+      latest_at: expect.any(String),
+      sample_id: expect.any(String),
+    });
+    expect(body.interrupts[0]).toMatchObject({ id: expect.any(String), action_type: expect.any(String), decision: expect.any(String) });
+  });
+
+  it('POST /api/policies/review/verdict returns ok:true without hitting the write-block', async () => {
+    const res = await middleware(req('/api/policies/review/verdict', {
+      method: 'POST',
+      body: { verdict: 'fine', shape: { action_type: 'bash' } },
+    }));
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.ok).toBe(true);
+    expect(body.demo).toBe(true);
+  });
 });
