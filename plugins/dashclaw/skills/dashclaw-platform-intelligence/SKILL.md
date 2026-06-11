@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:8aab1d176f9861b0da0c208578ebc81bb8cbc3a7`
+**Shape snapshot:** `sha1:9ed00e1c19ea3e0f5390ff2c731fed98b1965cb4`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **270** active API routes across **64** categories (318 total including archived)
-- **4** required + **179** optional environment variables
+- **4** required + **181** optional environment variables
 - **100** database tables
 
 ## API Surface
@@ -517,7 +517,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 74 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 75 file(s)
 - **`DATABASE_URL`** - referenced in 97 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
@@ -621,6 +621,7 @@ These have fallbacks or only activate specific features.
 - `HOSTED_TRIAL_ACTION_CAP` *(undocumented)*
 - `HOSTED_TRIAL_DAYS` *(undocumented)*
 - `INTEGRATION_DATABASE_URL` *(undocumented)*
+- `MODEL` *(undocumented)*
 - `MOONSHOT_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_USER` *(undocumented)*
@@ -704,6 +705,7 @@ These have fallbacks or only activate specific features.
 - `VERCEL_TOKEN` *(undocumented)*
 - `VERCEL_URL` *(undocumented)*
 - `WEBHOOK_ALLOWED_DOMAINS` *(undocumented)*
+- `WORKER_AGENT_ID` *(undocumented)*
 - `X` *(undocumented)*
 
 ## Database Tables

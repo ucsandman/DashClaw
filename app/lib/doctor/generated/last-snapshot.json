@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:8aab1d176f9861b0da0c208578ebc81bb8cbc3a7",
+  "timestamp": "sha1:9ed00e1c19ea3e0f5390ff2c731fed98b1965cb4",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3263,6 +3263,7 @@
         "app/lib/llm.ts",
         "examples/claude-code-review-agent/index.js",
         "examples/governed-chat-harness/index.js",
+        "examples/work-order-worker/index.js",
         "scripts/upload-skill.mjs"
       ],
       "in_env_example": false
@@ -3559,6 +3560,7 @@
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
         "examples/swarm-research-task.js",
+        "examples/work-order-worker/index.js",
         "mcp-server/lib/dashclaw/client.js",
         "mcp-server/lib/index.js",
         "mcp-server/lib/server.js",
@@ -3651,6 +3653,7 @@
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
         "examples/swarm-research-task.js",
+        "examples/work-order-worker/index.js",
         "packages/openclaw-plugin/src/index.ts",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
@@ -4362,6 +4365,14 @@
       "required": false,
       "files": [
         "__tests__/integration/hosted/end-to-end.test.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "MODEL",
+      "required": false,
+      "files": [
+        "examples/work-order-worker/index.js"
       ],
       "in_env_example": false
     },
@@ -5161,6 +5172,14 @@
         "__tests__/unit/security-status.route.test.js",
         "app/api/security/status/route.ts",
         "app/lib/validate.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "WORKER_AGENT_ID",
+      "required": false,
+      "files": [
+        "examples/work-order-worker/index.js"
       ],
       "in_env_example": false
     },

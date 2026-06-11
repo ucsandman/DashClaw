@@ -4,8 +4,17 @@ interface OrderLike {
   id: string; org_id: string; type: string; type_version: string;
   input_hash?: string | null; max_cost_usd: string | number; timeout_seconds: number;
   status: string; requested_by?: string | null; claimed_by?: string | null;
-  created_at?: string | null; claimed_at?: string | null; completed_at?: string | null;
+  // Accept Date | string | null — Neon returns timestamptz columns as Date objects;
+  // buildReceiptBody normalises them to ISO strings before hashing.
+  created_at?: Date | string | null; claimed_at?: Date | string | null; completed_at?: Date | string | null;
   error_code?: string | null; error_details?: string | null;
+}
+
+/** Coerce a Date, ISO string, or null/undefined to an ISO string or null. */
+function toIso(v: Date | string | null | undefined): string | null {
+  if (!v) return null;
+  if (v instanceof Date) return v.toISOString();
+  return String(v);
 }
 
 export interface ReceiptCost {
@@ -48,9 +57,9 @@ export function buildReceiptBody(args: {
     worker: order.claimed_by || null,
     requested_by: order.requested_by || null,
     lifecycle: {
-      created_at: order.created_at || null,
-      claimed_at: order.claimed_at || null,
-      completed_at: order.completed_at || null,
+      created_at: toIso(order.created_at),
+      claimed_at: toIso(order.claimed_at),
+      completed_at: toIso(order.completed_at),
     },
     error: order.error_code ? { code: order.error_code, details: order.error_details || null } : null,
     governance: { ...governance, matched_policies: governance.matched_policies ? [...governance.matched_policies] : undefined },

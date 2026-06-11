@@ -1,0 +1,16 @@
+{
+  "name": "work-order-worker",
+  "version": "1.0.0",
+  "description": "DashClaw reference work-order worker: claim -> execute -> receipt",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "dashclaw": "file:../../sdk",
+    "dotenv": "^16.4.5"
+  },
+  "optionalDependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
+  }
+}
