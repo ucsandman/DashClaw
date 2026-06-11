@@ -60,4 +60,32 @@ describe('ReviewFeed', () => {
     const { container } = render(<ReviewFeed />);
     await waitFor(() => expect(container.textContent).toMatch(/nothing to review/i));
   });
+
+  it('restores the row and shows an inline error when the POST fails', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') {
+        return { ok: false, json: async () => ({ error: 'server error' }), status: 500 };
+      }
+      return {
+        ok: true,
+        json: async () => ({ groups: [group], interrupts: [], cursor: '2026-06-03T00:00:00Z' }),
+      };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { container, getByText } = render(<ReviewFeed />);
+    await waitFor(() => expect(container.textContent).toContain('api → api.stripe.com'));
+
+    // postVerdict sends a POST; contractClient throws when !ok.
+    fireEvent.click(getByText(/fine/i));
+
+    // Row should reappear after the rejected POST.
+    await waitFor(() => {
+      expect(container.textContent).toContain('api → api.stripe.com');
+    });
+
+    // An inline error line should be visible.
+    await waitFor(() => {
+      expect(container.textContent).toMatch(/failed|error/i);
+    });
+  });
 });

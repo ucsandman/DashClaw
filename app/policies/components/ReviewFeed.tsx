@@ -5,6 +5,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchReview, postVerdict, type ReviewPayload, type WarnGroup } from '../lib/contractClient';
 
 const SECTION_LABEL = 'text-xs font-mono uppercase tracking-wider text-tertiary';
+const VERDICT_TYPES = ['fine', 'always_allow', 'tighten'] as const;
 
 function formatRelative(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -24,31 +25,22 @@ function decisionTone(decision: string): string {
   }
 }
 
+type VerdictType = (typeof VERDICT_TYPES)[number];
+
 interface GroupRowProps {
   group: WarnGroup;
-  onVerdict: (group: WarnGroup, verdict: 'fine' | 'always_allow' | 'tighten') => Promise<void>;
+  /** Called by the parent; parent owns optimistic dismiss + error state. */
+  onVerdict: (group: WarnGroup, verdict: VerdictType) => void;
+  /** Inline error to display (set by parent on POST failure). */
+  verdictError?: string | null;
 }
 
-function GroupRow({ group, onVerdict }: GroupRowProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const handleVerdict = async (verdict: 'fine' | 'always_allow' | 'tighten') => {
-    setBusy(true);
-    setError(null);
-    try {
-      await onVerdict(group, verdict);
-    } catch (e) {
-      setError((e as Error).message);
-      setBusy(false);
-    }
-  };
-
+function GroupRow({ group, onVerdict, verdictError }: GroupRowProps) {
   return (
     <li className="py-2 space-y-1">
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-sm text-secondary">
-          <span className="tabular-nums text-secondary font-medium">&#9658; {group.count}&times;</span>{' '}
+          <span className="tabular-nums text-secondary font-medium">&#9656; {group.count}&times;</span>{' '}
           {group.shape.label}
         </span>
         <span className="shrink-0 tabular-nums text-xs text-tertiary">{formatRelative(group.latest_at)}</span>
@@ -59,30 +51,27 @@ function GroupRow({ group, onVerdict }: GroupRowProps) {
       <div className="flex items-center gap-3 pl-4">
         <button
           type="button"
-          disabled={busy}
-          onClick={() => handleVerdict('fine')}
-          className="text-xs text-tertiary transition-colors hover:text-secondary disabled:opacity-50 motion-reduce:transition-none"
+          onClick={() => onVerdict(group, 'fine')}
+          className="text-xs text-tertiary transition-colors hover:text-secondary motion-reduce:transition-none"
         >
           Fine
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => handleVerdict('always_allow')}
-          className="text-xs text-tertiary transition-colors hover:text-secondary disabled:opacity-50 motion-reduce:transition-none"
+          onClick={() => onVerdict(group, 'always_allow')}
+          className="text-xs text-tertiary transition-colors hover:text-secondary motion-reduce:transition-none"
         >
           Always allow
         </button>
         <button
           type="button"
-          disabled={busy}
-          onClick={() => handleVerdict('tighten')}
-          className="text-xs text-status-warning transition-colors hover:opacity-80 disabled:opacity-50 motion-reduce:transition-none"
+          onClick={() => onVerdict(group, 'tighten')}
+          className="text-xs text-status-warning transition-colors hover:opacity-80 motion-reduce:transition-none"
         >
           Tighten
         </button>
       </div>
-      {error && <p className="pl-4 text-xs text-status-error">{error}</p>}
+      {verdictError && <p className="pl-4 text-xs text-status-error">{verdictError}</p>}
     </li>
   );
 }
@@ -98,6 +87,8 @@ export default function ReviewFeed() {
   const [error, setError] = useState(false);
   // Optimistically removed group keys while verdicts are in-flight.
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  // Per-group error messages; populated on POST failure, cleared on next attempt.
+  const [verdictErrors, setVerdictErrors] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,6 +97,7 @@ export default function ReviewFeed() {
       const payload = await fetchReview();
       setData(payload);
       setDismissed(new Set());
+      setVerdictErrors({});
     } catch {
       setError(true);
     } finally {
@@ -118,11 +110,17 @@ export default function ReviewFeed() {
   }, [load]);
 
   const handleVerdict = useCallback(
-    async (group: WarnGroup, verdict: 'fine' | 'always_allow' | 'tighten') => {
-      // Optimistically remove the row.
-      setDismissed((prev) => new Set([...prev, group.shape.key]));
-      await postVerdict(verdict, { action_type: group.shape.action_type, target_prefix: group.shape.target_prefix ?? null });
-      // On success, keep dismissed. Error is thrown to GroupRow for inline display.
+    (group: WarnGroup, verdict: VerdictType) => {
+      const key = group.shape.key;
+      // Clear any prior error for this group, then optimistically dismiss.
+      setVerdictErrors((prev) => { const next = { ...prev }; delete next[key]; return next; });
+      setDismissed((prev) => new Set([...prev, key]));
+      postVerdict(verdict, { action_type: group.shape.action_type, target_prefix: group.shape.target_prefix ?? null })
+        .catch((e: unknown) => {
+          // Restore the row and surface the error inline.
+          setDismissed((prev) => { const next = new Set(prev); next.delete(key); return next; });
+          setVerdictErrors((prev) => ({ ...prev, [key]: (e as Error).message ?? 'Failed' }));
+        });
     },
     [],
   );
@@ -184,7 +182,12 @@ export default function ReviewFeed() {
       {visibleGroups.length > 0 ? (
         <ul className="mt-2 divide-y divide-border">
           {visibleGroups.map((group) => (
-            <GroupRow key={group.shape.key} group={group} onVerdict={handleVerdict} />
+            <GroupRow
+              key={group.shape.key}
+              group={group}
+              onVerdict={handleVerdict}
+              verdictError={verdictErrors[group.shape.key] ?? null}
+            />
           ))}
         </ul>
       ) : (

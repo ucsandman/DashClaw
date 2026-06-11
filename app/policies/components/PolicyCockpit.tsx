@@ -91,7 +91,7 @@ export default function PolicyCockpit() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} />
+      <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} shields={summary.shields} />
       <ReviewFeed />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
     </div>

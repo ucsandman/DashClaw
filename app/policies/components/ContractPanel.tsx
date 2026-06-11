@@ -11,6 +11,7 @@ import {
 } from '../lib/contractClient';
 import { SHIELDS, matchShieldsToPolicies, buildShieldPayload } from '../lib/shields';
 import type { ContractSentence, ContractGrant } from '../../lib/policy-modes/contract';
+import type { PolicySummaryShield } from '../../lib/policy-modes/summary';
 
 const SECTION_LABEL = 'text-xs font-mono uppercase tracking-wider text-tertiary';
 
@@ -22,6 +23,12 @@ interface ContractPanelProps {
   onContractChanged: () => void;
   /** Deep-link highlight: renders a border-active ring on matching custom rule. */
   highlight?: string | null;
+  /**
+   * Shield active-state data from the cockpit's fetchSummary(); used to render
+   * the real on/off toggle in the "Add protection" disclosure.
+   * When omitted every shield renders as inactive (safe default).
+   */
+  shields?: PolicySummaryShield[];
 }
 
 function SentenceRow({
@@ -117,7 +124,7 @@ function GrantRow({ grant, onRemove }: { grant: ContractGrant; onRemove: (id: st
  * Editable thresholds use inline selects; grants have a remove button.
  * Shield toggles live in a collapsed "Add protection" disclosure.
  */
-export default function ContractPanel({ onChangeMode, onContractChanged, highlight }: ContractPanelProps) {
+export default function ContractPanel({ onChangeMode, onContractChanged, highlight, shields: shieldsProp = [] }: ContractPanelProps) {
   const [contract, setContract] = useState<ContractView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -211,14 +218,6 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
 
   // Ungoverned: let the cockpit's empty state handle it.
   if (!contract.governed) return null;
-
-  // Build current shields state from contract sentences for the "Add protection" toggles.
-  const activeShieldTypes = new Set(
-    [...contract.interrupts, ...contract.blocks, ...contract.silent].map((s) => s.policy_id),
-  );
-  // We need the full policies list to properly evaluate shield state;
-  // use a simpler heuristic: a shield is "on" when any sentence references its policy_type.
-  // The handleShieldToggle fetches the full list so it remains authoritative.
 
   return (
     <div className="space-y-5">
@@ -325,25 +324,35 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
       {/* Add protection — shields */}
       <Disclosure tone="plain" summary="Add protection">
         <ul className="mt-1 divide-y divide-border">
-          {(SHIELDS as Array<{ id: string; name: string; description: string }>).map((shield) => {
+          {shieldsProp.map((shield) => {
             const isBusy = busyShield === shield.id;
-            // Heuristic: check if any active policy has the shield tag in its name.
-            // The real source of truth is the policy list, which handleShieldToggle fetches.
-            // We use a visual indicator only; the toggle is always callable.
             return (
               <li key={shield.id} className="flex items-center justify-between gap-3 py-1.5">
-                <div className="min-w-0">
-                  <span className="text-sm text-secondary">{shield.name}</span>
-                  <span className="ml-2 text-xs text-tertiary">{shield.description}</span>
+                <div className="flex min-w-0 items-baseline gap-2">
+                  <span aria-hidden="true" className={shield.on ? 'shrink-0 text-brand' : 'shrink-0 text-tertiary'}>
+                    {shield.on ? '●' : '○'}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="text-sm text-secondary">{shield.name}</span>
+                    <span className="ml-2 text-xs text-tertiary">{shield.description}</span>
+                  </span>
                 </div>
                 <button
                   type="button"
                   disabled={isBusy}
-                  onClick={() => handleShieldToggle(shield.id, true)}
-                  className="shrink-0 text-xs text-tertiary transition-colors hover:text-secondary disabled:opacity-50 motion-reduce:transition-none"
-                  aria-label={`Add ${shield.name}`}
+                  onClick={() => handleShieldToggle(shield.id, !shield.on)}
+                  role="switch"
+                  aria-checked={shield.on}
+                  aria-label={`${shield.on ? 'Disable' : 'Enable'} ${shield.name}`}
+                  className={`relative h-6 w-11 shrink-0 overflow-hidden rounded-full transition-colors motion-reduce:transition-none focus:outline-none focus:ring-2 focus:ring-brand/40 focus:ring-offset-2 focus:ring-offset-surface-primary ${
+                    shield.on ? 'bg-brand' : 'bg-white/10'
+                  } ${isBusy ? 'opacity-50' : ''}`}
                 >
-                  Add
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all motion-reduce:transition-none ${
+                      shield.on ? 'left-[22px]' : 'left-0.5'
+                    }`}
+                  />
                 </button>
               </li>
             );

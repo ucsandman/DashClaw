@@ -17,12 +17,18 @@ const contract = {
   friction: { interrupts_7d: 2, est_seconds: 40 },
 };
 
+// Minimal shields prop — satisfies the required shape without asserting UI details.
+const shields = [
+  { id: 'deploy_gate', name: 'Deploy Gate', description: 'Require approval before any deploy', on: false, fired30d: 0, lastFiredAt: null },
+  { id: 'risk_high', name: 'High Risk Review', description: 'Require approval for risk 70+', on: true, fired30d: 3, lastFiredAt: null },
+];
+
 describe('ContractPanel', () => {
   beforeEach(() => vi.restoreAllMocks());
 
   it('renders interrupt sentences with fire counts and the friction line', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => contract })));
-    const { container } = render(<ContractPanel onChangeMode={() => {}} onContractChanged={() => {}} />);
+    const { container } = render(<ContractPanel onChangeMode={() => {}} onContractChanged={() => {}} shields={shields} />);
     await waitFor(() => {
       expect(container.textContent).toContain('paid spend reaches $5.00');
       expect(container.textContent).toContain('Interrupt me only when');
@@ -32,7 +38,7 @@ describe('ContractPanel', () => {
 
   it('renders grants as removable lines', async () => {
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => contract })));
-    const { container } = render(<ContractPanel onChangeMode={() => {}} onContractChanged={() => {}} />);
+    const { container } = render(<ContractPanel onChangeMode={() => {}} onContractChanged={() => {}} shields={shields} />);
     await waitFor(() => expect(container.textContent).toContain('api → api.stripe.com'));
   });
 });
