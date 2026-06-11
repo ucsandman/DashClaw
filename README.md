@@ -186,11 +186,11 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**317 routes**: 54 stable, 24 beta, 239 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
-### 7. Work Orders — task-grade contracts + receipts
+### 6. Work Orders — task-grade contracts + receipts
 
-Work Orders turn an agent call into a contract: a typed input/output schema, a budget ceiling, and a self-verifying receipt. A caller submits an order against a registered type (validated, guard-gated, queued); any agent with an API key claims and completes it; the server validates the output, builds a SHA-256-hashed receipt (cost, timestamps, output hash, governance trail), and writes an audit record. DashClaw stays the control plane — execution is external workers via `claim`/`complete`, so there's no LLM key and no cron. Page at `/work-orders`, API at `/api/work-orders`, 8 SDK methods each (Node + Python), 2 MCP tools, and a ~100-line reference worker in [`examples/work-order-worker/`](./examples/work-order-worker/).
+Work Orders turn an agent call into a contract: a typed input/output schema, a budget ceiling, and a self-verifying receipt. A caller submits an order against a registered type (validated, guard-gated, queued); any agent with an API key claims and completes it; the server validates the output, builds a SHA-256-hashed receipt (cost, timestamps, output hash, governance trail), and writes an audit record. DashClaw stays the control plane — execution is external workers via `claim`/`complete`, so there's no LLM key and no cron. Page at `/work-orders`, API at `/api/work-orders`, 8 SDK methods each (Node + Python), 2 MCP tools, and a ~75-line reference worker in [`examples/work-order-worker/`](./examples/work-order-worker/).
 
-### 6. Skills — governance protocol + live platform reference
+### 7. Skills — governance protocol + live platform reference
 
 Two drop-in skills, both available as zip bundles or source directories in [`public/downloads/`](./public/downloads/) and auto-bundled into the coding-agent plugins:
 

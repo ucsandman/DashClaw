@@ -131,7 +131,7 @@ documented in [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](./sdk
 > ceiling, and a self-verifying receipt. Submit an order against a registered type (`claw.submitWorkOrder`),
 > let any worker `claim` and `complete` it, and get back a SHA-256 receipt with cost, output hash, and the
 > governance trail. DashClaw stays the control plane — execution is external workers via `claim`/`complete`.
-> Page at [`/work-orders`](http://localhost:3000/work-orders); ~100-line reference worker in
+> Page at [`/work-orders`](http://localhost:3000/work-orders); ~75-line reference worker in
 > [`examples/work-order-worker/`](./examples/work-order-worker/).
 
 ---

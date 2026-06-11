@@ -63,7 +63,7 @@ A Claude Managed Agent running in Anthropic's cloud infrastructure with DashClaw
 
 ### work-order-worker
 
-`work-order-worker/` — A ~100-line reference worker on the Node SDK that polls for queued work orders, claims the next one, runs a pluggable handler (`research_brief` via the Claude API when `ANTHROPIC_API_KEY` is set, a deterministic mock otherwise), and reports completion — at which point DashClaw builds the self-verifying receipt. The copy-paste onboarding artifact for the Work Orders feature. Needs a `DASHCLAW_API_KEY`; no AI key required for the mock path.
+`work-order-worker/` — A ~75-line reference worker on the Node SDK that polls for queued work orders, claims the next one, runs a pluggable handler (`research_brief` via the Claude API when `ANTHROPIC_API_KEY` is set, a deterministic mock otherwise), and reports completion — at which point DashClaw builds the self-verifying receipt. The copy-paste onboarding artifact for the Work Orders feature. Needs a `DASHCLAW_API_KEY`; no AI key required for the mock path.
 
 ### Market Intelligence Briefing (Full-Stack Demo)
 

@@ -617,6 +617,12 @@ if (decision === "allow") {
                 description: 'Approvers resolve pending actions wherever they already work, against the same governance endpoint. Claude Code lifecycle hooks add an inline prompt path for terminal workflows.',
                 items: ['Dashboard inbox at /approvals', 'CLI with dashclaw approve and approvals', 'Mobile PWA at /approve', 'Discord DM with inline Approve and Deny buttons', 'Telegram inline Approve and Reject buttons'],
               },
+              {
+                icon: FileCheck,
+                title: 'Work Orders',
+                description: 'Typed task contracts with budget ceilings and self-verifying receipts — submit, claim, complete, audit.',
+                items: ['Typed input/output contract per order type', 'Budget ceiling enforced before the work runs', 'SHA-256 receipt with cost, output hash, and governance trail', 'External workers claim and complete; DashClaw stays the control plane'],
+              },
             ].map((capability) => {
               const Icon = capability.icon;
               return (
