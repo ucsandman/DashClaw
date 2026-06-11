@@ -484,6 +484,11 @@ const POLICY_TYPE_VALIDATORS = {
   },
 };
 
+// Dispatch via a Map so a user-controlled policy_type cannot reach an inherited
+// prototype member (CodeQL js/unvalidated-dynamic-method-call). Object.entries
+// captures only own enumerable keys; Map.get of an unknown key returns undefined.
+const POLICY_TYPE_VALIDATOR_MAP = new Map(Object.entries(POLICY_TYPE_VALIDATORS));
+
 // require_approval and block_action_type share the same action_types check; the
 // error message names the actual policy type.
 function validateActionTypesRequired(rules, addError, policyType) {
@@ -518,13 +523,11 @@ export function validatePolicy(body) {
 
   validatePolicyTestRecipes(rules, addError);
 
-  // Validate the dynamic key against the known validator set before calling
-  // (CodeQL js/unvalidated-dynamic-method-call): rejects inherited/prototype
-  // keys so only own, registered policy-type validators run.
-  if (Object.prototype.hasOwnProperty.call(POLICY_TYPE_VALIDATORS, result.data.policy_type)) {
-    const typeValidator = POLICY_TYPE_VALIDATORS[result.data.policy_type];
-    if (typeValidator) typeValidator(rules, addError, result.data.policy_type);
-  }
+  // Map.get with a user-controlled key never dispatches to an inherited
+  // prototype member (CodeQL js/unvalidated-dynamic-method-call); unknown or
+  // invalid policy_type → undefined → no validator runs.
+  const typeValidator = POLICY_TYPE_VALIDATOR_MAP.get(result.data.policy_type);
+  if (typeValidator) typeValidator(rules, addError, result.data.policy_type);
 
   return result;
 }

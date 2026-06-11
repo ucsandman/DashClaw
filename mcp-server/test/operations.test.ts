@@ -240,7 +240,7 @@ describe("operational readiness", () => {
       actionSummary: "deploy",
       policyDecision: "allow",
       result: "error",
-      errorMessage: "line1\nline2\r\nline3\rline4 with | pipe | chars",
+      errorMessage: "line1\nline2\r\nline3\rline4 with | pipe | chars and back\\slash",
     });
 
     const md = exportAuditLog(store, { project: "acme-crm", format: "markdown" });
@@ -252,6 +252,9 @@ describe("operational readiness", () => {
     expect(row).toContain("line1 line2 line3 line4");
     // all pipes inside the cell escaped (none left as raw column separators)
     expect(row).toContain("with \\| pipe \\| chars");
+    // backslash escaped first (CodeQL #120 js/incomplete-sanitization): a literal
+    // backslash in the cell becomes a doubled backslash, not a stray escape.
+    expect(row).toContain("back\\\\slash");
   });
 
   it("exports context snapshots in machine and markdown formats", async () => {

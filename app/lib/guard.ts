@@ -1325,6 +1325,13 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   x402_spend_limit: evaluateX402SpendLimitPolicy,
 };
 
+// Dispatch via a Map so a user-controlled policy_type cannot reach an inherited
+// prototype member (CodeQL js/unvalidated-dynamic-method-call). Object.entries
+// captures only own enumerable keys; Map.get of an unknown key returns undefined.
+const POLICY_EVALUATOR_MAP: ReadonlyMap<string, PolicyEvaluator> = new Map(
+  Object.entries(POLICY_EVALUATORS),
+);
+
 export async function evaluatePolicy(
   policy: PolicyRow,
   rules: PolicyRules,
@@ -1333,18 +1340,12 @@ export async function evaluatePolicy(
   orgId: string,
   effectiveRiskScore: number,
 ): Promise<PolicyResult | null> {
-  // Validate the dynamic key against the known evaluator set before calling
-  // (CodeQL js/unvalidated-dynamic-method-call): only dispatch when policy_type
-  // is an own, registered key — rejects inherited/prototype keys. The lookup and
-  // call live inside the positive own-property guard so the sanitizer dominates
-  // the dynamic invocation; unknown/invalid types fall through to return null.
-  if (Object.prototype.hasOwnProperty.call(POLICY_EVALUATORS, policy.policy_type)) {
-    const evaluator = POLICY_EVALUATORS[policy.policy_type];
-    if (evaluator) {
-      return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
-    }
-  }
-  return null;
+  // Map.get with a user-controlled key never dispatches to an inherited
+  // prototype member (CodeQL js/unvalidated-dynamic-method-call); unknown or
+  // invalid policy_type → undefined → return null.
+  const evaluator = POLICY_EVALUATOR_MAP.get(policy.policy_type);
+  if (!evaluator) return null;
+  return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
 }
 
 /**

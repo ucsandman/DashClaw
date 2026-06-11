@@ -1088,7 +1088,7 @@ export function exportAuditLog(
     return [
       `| ${titleHeaders.join(" | ")} |`,
       `| ${titleHeaders.map(() => "---").join(" | ")} |`,
-      ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, " ")).join(" | ")} |`),
+      ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\\/g, "\\\\").replace(/\|/g, "\\|").replace(/\r\n|\r|\n/g, " ")).join(" | ")} |`),
     ].join("\n");
   }
   throw new DashclawError('Audit export format must be "jsonl", "csv", or "markdown".');
