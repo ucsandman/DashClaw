@@ -13,6 +13,11 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Added
+
+- **SessionStart memory digest hook for Claude Code (`hooks/dashclaw_session_digest.py`).** Every new Claude Code session opens with a compact digest of what the agent already learned: recent decisions (outcome + confidence), the top distilled lessons from the learning loop, overall success rate, and the latest unconsumed handoff with a pointer to `dashclaw_handoff_consume`. Read-only and strictly fail-silent — missing config, an unreachable instance, or a slow API prints nothing and exits 0 inside a ~3s budget, so session start is never blocked. Same env config as the sibling hooks (`DASHCLAW_BASE_URL`/`DASHCLAW_URL` + `DASHCLAW_API_KEY`, optional `DASHCLAW_AGENT_ID`); opt out with `DASHCLAW_DIGEST_DISABLED=1`. Distributed everywhere the other hooks are: `scripts/install-hooks.mjs` (per-project and `--global --governance`, now a managed hook file), the `dashclaw` plugin bundle (`hooks.json` SessionStart entry), the `dashclaw-claude-code-hooks.zip` download, and `hooks/README.md`.
+- **OpenClaw is now featured across the marketing site, with its origin story.** The landing hero names OpenClaw among the runtimes that can hard-block via lifecycle hooks, the Works-with band lists it, `frameworkQuickstarts` gains an OpenClaw config card, and `/guides/openclaw` opens with the origin line — OpenClaw is the framework that inspired the "Claw" in DashClaw. Downloads-page copy updated to the five-script hook bundle (four hook events).
+
 ### Fixed
 
 - **The marketing-site "Mission Control" CTA enters the demo sandbox again.** The launch-prep commit (`1f525c87`) repointed `/demo` at the landing-page live-demo widget and dropped the `dashclaw_demo` cookie set, which orphaned the entire cookie-demo path — the navbar/footer "Mission Control" buttons became a visible no-op on the landing page and the demo dashboard was unreachable from the UI. Plain `/demo` keeps the launch-prep behavior (live-demo anchor, no cookie); the new `/demo?sandbox=1` (now wired to both Mission Control CTAs) mints the 24h httpOnly cookie and forwards into `/mission-control`, where reads serve deterministic fixtures and writes stay blocked. `/demo?leave=1` still exits.
