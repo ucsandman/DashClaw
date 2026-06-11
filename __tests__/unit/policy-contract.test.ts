@@ -48,4 +48,34 @@ describe('buildContract', () => {
   it('reports ungoverned when no active policies', () => {
     expect(buildContract([], {}).governed).toBe(false);
   });
+
+  it('protected_path with action block lands in blocks tier', () => {
+    const rows = [
+      { id: 'gp_pp', name: 'Protected paths blocked', policy_type: 'protected_path', rules: JSON.stringify({ action: 'block' }), active: 1 as const },
+    ];
+    const c = buildContract(rows, {});
+    expect(c.blocks.some((s) => s.text.includes('(blocked)'))).toBe(true);
+    expect(c.interrupts.some((s) => s.text.includes('protected paths'))).toBe(false);
+    expect(c.silent.some((s) => s.text.includes('protected paths'))).toBe(false);
+  });
+
+  it('x402 with garbage approval_threshold renders $0.00 not $NaN', () => {
+    const rows = [
+      { id: 'gp_x', name: 'Spend limit', policy_type: 'x402_spend_limit', rules: JSON.stringify({ approval_threshold: 'garbage', max_spend_usd: 50 }), active: 1 as const },
+    ];
+    const c = buildContract(rows, {});
+    const interrupt = c.interrupts.find((s) => s.editable?.param === 'approval_threshold');
+    if (!interrupt) throw new Error('x402 interrupt sentence not found');
+    expect(interrupt.text).not.toContain('NaN');
+    expect(interrupt.text).toContain('$0.00');
+  });
+
+  it('require_approval with missing action_types lands in custom', () => {
+    const rows = [
+      { id: 'gp_ra', name: 'Approve all', policy_type: 'require_approval', rules: JSON.stringify({}), active: 1 as const },
+    ];
+    const c = buildContract(rows, {});
+    expect(c.custom.some((x) => x.policy_id === 'gp_ra')).toBe(true);
+    expect(c.interrupts.some((s) => s.text.includes('action is one of'))).toBe(false);
+  });
 });

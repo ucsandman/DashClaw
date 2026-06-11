@@ -41,7 +41,7 @@ interface PolicyRowLike {
 
 const SECONDS_PER_INTERRUPT = 20;
 
-const usd = (n: number) => `$${n.toFixed(2)}`;
+const usd = (n: number) => `$${Number.isFinite(n) ? n.toFixed(2) : '0.00'}`;
 const listTypes = (ts: unknown) => (Array.isArray(ts) ? ts.join(', ') : '');
 
 export function buildContract(
@@ -86,11 +86,17 @@ export function buildContract(
         break;
       }
       case 'require_approval':
-        view.interrupts.push(s(`action is one of: ${listTypes(rules.action_types)}`));
+        if (!Array.isArray(rules.action_types) || rules.action_types.length === 0) {
+          view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });
+        } else {
+          view.interrupts.push(s(`action is one of: ${listTypes(rules.action_types)}`));
+        }
         break;
       case 'protected_path':
         if ((rules.action ?? 'require_approval') === 'require_approval') {
           view.interrupts.push(s('protected paths change (governance, auth, secrets)'));
+        } else if (rules.action === 'block') {
+          view.blocks.push(s('protected paths change (blocked)'));
         } else {
           view.silent.push(s('protected paths change (recorded)'));
         }
@@ -110,7 +116,11 @@ export function buildContract(
         break;
       }
       case 'warn_action_type':
-        view.silent.push(s(`${listTypes(rules.action_types)} calls (recorded for review)`));
+        if (!Array.isArray(rules.action_types) || rules.action_types.length === 0) {
+          view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });
+        } else {
+          view.silent.push(s(`${listTypes(rules.action_types)} calls (recorded for review)`));
+        }
         break;
       case 'block_action_type':
         view.blocks.push(s(`action is one of: ${listTypes(rules.action_types)}`));
