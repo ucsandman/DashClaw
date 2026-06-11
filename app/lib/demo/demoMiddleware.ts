@@ -562,15 +562,18 @@ export function demoPolicies(fixtures: DemoFixtures) {
 }
 
 /** GET /api/policies/contract — governed claude-code contract fixture.
- *  Sentences are exactly what buildContract() emits for the compiled claude-code pack:
- *  x402_spend_limit → interrupt "paid spend reaches $5.00" (editable) + block "paid spend exceeds $25.00" (editable)
- *  require_approval  → "action is one of: deploy, migrate, workflow_execute"
- *  require_approval  → "action is one of: delete, reset, destroy, drop"
- *  protected_path    → "protected paths change (governance, auth, secrets)"
- *  risk_threshold/warn → silent "risk score reaches 85"
- *  warn_action_type  → silent "message, post, email, calendar, sync, api calls (recorded for review)"
- *  rate_limit/warn   → silent "burst: more than 250 actions in 30 minutes"
- *  risk_threshold/block → block "risk score reaches 100"
+ *  Sentences are exactly what buildContract() emits for the compiled claude-code pack,
+ *  iterating policies in compile.ts order:
+ *  policy 1: risk_threshold/block  → block "risk score reaches 100"
+ *  policy 2: risk_threshold/warn   → silent "risk score reaches 85"
+ *  policy 3: x402_spend_limit      → interrupt "paid spend reaches $5.00" (editable)
+ *                                  + block "paid spend exceeds $25.00" (editable)
+ *  policy 4: warn_action_type      → silent "message, post, email, calendar, sync, api calls (recorded for review)"
+ *  policy 5: require_approval      → interrupt "action is one of: deploy, migrate, workflow_execute"
+ *  policy 6: require_approval      → interrupt "action is one of: delete, reset, destroy, drop"
+ *  policy 7: protected_path        → interrupt "protected paths change (governance, auth, secrets)"
+ *  policy 8: rate_limit/warn       → silent "burst: more than 250 actions in 30 minutes"
+ *  policy 9: rate_limit/require_approval → interrupt "runaway loop: more than 650 actions in 60 minutes"
  */
 export function demoContract(): import('../policy-modes/contract').ContractView {
   const x402Rules = { approval_threshold: 5.0, max_spend_usd: 25.0, _mode: 'claude-code' };
@@ -587,10 +590,13 @@ export function demoContract(): import('../policy-modes/contract').ContractView 
       },
       { policy_id: 'gp_demo_interrupt_2', text: 'action is one of: deploy, migrate, workflow_execute', fired_7d: 7 },
       { policy_id: 'gp_demo_interrupt_3', text: 'action is one of: delete, reset, destroy, drop', fired_7d: 3 },
+      { policy_id: 'gp_demo_interrupt_4', text: 'protected paths change (governance, auth, secrets)', fired_7d: 1 },
+      { policy_id: 'gp_demo_interrupt_5', text: 'runaway loop: more than 650 actions in 60 minutes', fired_7d: 0 },
     ],
     silent: [
-      { policy_id: 'gp_demo_silent_1', text: 'message, post, email, calendar, sync, api calls (recorded for review)', fired_7d: 18 },
-      { policy_id: 'gp_demo_silent_2', text: 'burst: more than 250 actions in 30 minutes', fired_7d: 0 },
+      { policy_id: 'gp_demo_silent_1', text: 'risk score reaches 85', fired_7d: 0 },
+      { policy_id: 'gp_demo_silent_2', text: 'message, post, email, calendar, sync, api calls (recorded for review)', fired_7d: 18 },
+      { policy_id: 'gp_demo_silent_3', text: 'burst: more than 250 actions in 30 minutes', fired_7d: 0 },
     ],
     blocks: [
       { policy_id: 'gp_demo_block_1', text: 'risk score reaches 100', fired_7d: 0 },
@@ -606,7 +612,7 @@ export function demoContract(): import('../policy-modes/contract').ContractView 
       { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/' },
     ],
     custom: [],
-    friction: { interrupts_7d: 12, est_seconds: 240 },
+    friction: { interrupts_7d: 13, est_seconds: 260 },
   };
 }
 

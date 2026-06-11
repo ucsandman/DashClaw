@@ -129,8 +129,8 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     const body = await res.json();
     expect(body.governed).toBe(true);
     expect(body.mode_id).toBe('claude-code');
-    expect(body.interrupts.length).toBe(3);
-    expect(body.silent.length).toBe(2);
+    expect(body.interrupts.length).toBe(5);
+    expect(body.silent.length).toBe(3);
     expect(body.blocks.length).toBe(2);
     expect(body.grants.length).toBeGreaterThanOrEqual(1);
     // x402 interrupt carries editable + rules
@@ -144,9 +144,13 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     // require_approval sentences use real claude-code action_types
     expect(body.interrupts[1].text).toBe('action is one of: deploy, migrate, workflow_execute');
     expect(body.interrupts[2].text).toBe('action is one of: delete, reset, destroy, drop');
-    // silent: comms warn + burst with real pack numbers
-    expect(body.silent[0].text).toBe('message, post, email, calendar, sync, api calls (recorded for review)');
-    expect(body.silent[1].text).toBe('burst: more than 250 actions in 30 minutes');
+    // protected_path and runaway rate_limit (policies 7 and 9 in compile.ts)
+    expect(body.interrupts[3].text).toBe('protected paths change (governance, auth, secrets)');
+    expect(body.interrupts[4].text).toBe('runaway loop: more than 650 actions in 60 minutes');
+    // silent: risk-85 warn (policy 2) first, then comms warn (policy 4), then burst (policy 8)
+    expect(body.silent[0].text).toBe('risk score reaches 85');
+    expect(body.silent[1].text).toBe('message, post, email, calendar, sync, api calls (recorded for review)');
+    expect(body.silent[2].text).toBe('burst: more than 250 actions in 30 minutes');
     // blocks: risk-100 + x402 max
     expect(body.blocks[0].text).toBe('risk score reaches 100');
     expect(body.blocks[1]).toMatchObject({
@@ -154,9 +158,9 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
       editable: { param: 'max_spend_usd', value: 25 },
     });
     expect(body.blocks[1].rules).toBeDefined();
-    // friction: sum of interrupt fired_7d × 20s
-    expect(body.friction.interrupts_7d).toBe(12);
-    expect(body.friction.est_seconds).toBe(240);
+    // friction: sum of interrupt fired_7d (2+7+3+1+0=13) × 20s
+    expect(body.friction.interrupts_7d).toBe(13);
+    expect(body.friction.est_seconds).toBe(260);
   });
 
   it('GET /api/policies/review returns warn groups and recent interrupts', async () => {
