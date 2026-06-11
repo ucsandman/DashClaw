@@ -102,7 +102,7 @@ app = graph.compile()`;
       codeTitle: 'Terminal',
       codeBody: `python -m venv venv
 source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-pip install dashclaw==2.6.0 langgraph==1.1.3 langchain-core==1.2.21 python-dotenv`,
+pip install dashclaw langgraph==1.1.3 langchain-core==1.2.21 python-dotenv`,
     },
     {
       number: 3,

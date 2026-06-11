@@ -494,9 +494,10 @@ dashclaw doctor`}</CodeBlock>
                 <li>
                   · The MCP server reads{' '}
                   <code className="font-mono text-text-primary">DASHCLAW_URL</code>{' '}
-                  while the SDK and hooks read{' '}
+                  while the hooks read{' '}
                   <code className="font-mono text-text-primary">DASHCLAW_BASE_URL</code>{' '}
-                  — set both to your instance URL.
+                  — set both to your instance URL. The SDK takes the URL as a constructor
+                  option (<code className="font-mono text-text-primary">baseUrl</code>), as in the snippets above.
                 </li>
                 <li>
                   · <code className="font-mono text-text-primary">401 Invalid or missing API key</code>{' '}

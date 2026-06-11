@@ -102,7 +102,7 @@ policies:
       codeTitle: 'Terminal',
       codeBody: `python -m venv venv
 source venv/bin/activate  # On Windows: venv\\Scripts\\activate
-pip install dashclaw==2.6.0 crewai==1.11.0 python-dotenv`,
+pip install dashclaw crewai==1.11.0 python-dotenv`,
     },
     {
       number: 3,

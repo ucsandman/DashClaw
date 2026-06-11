@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 status: redirect
-last-verified: 2026-06-10
+last-verified: 2026-06-11
 doc-type: pointer
 ---
 
@@ -18,12 +18,12 @@ doc-type: pointer
 
 | Looking for | Canonical location |
 |---|---|
-| Full v2 method catalogue (129 methods) + canonical HITL flow + error handling + Execution Studio usage | **[`sdk/README.md`](../sdk/README.md)** |
+| Full v2 method catalogue (137 methods) + canonical HITL flow + error handling + Execution Studio usage | **[`sdk/README.md`](../sdk/README.md)** |
 | Domain-level parity between Node v2 / Node legacy / Python | **[`docs/sdk-parity.md`](./sdk-parity.md)** |
 | Per-domain method inventory and system architecture | **[`PROJECT_DETAILS.md`](../PROJECT_DETAILS.md)** |
 | Runtime governance loop (HTTP API shape) | **[`docs/architecture/runtime-api.md`](./architecture/runtime-api.md)** |
 | Legacy v1 method surface (pairing, compliance, webhooks, drift, etc.) | **[`docs/sdk-parity.md`](./sdk-parity.md)** → Legacy Node section |
-| Published npm package | [`npm install dashclaw`](https://www.npmjs.com/package/dashclaw) (currently 2.12.0) |
+| Published npm package | [`npm install dashclaw`](https://www.npmjs.com/package/dashclaw) |
 
 The historical content of this file is preserved at
 [`docs/archive/sdk-reference-2026-04-11.md`](./archive/sdk-reference-2026-04-11.md)
@@ -61,7 +61,7 @@ counts. Query it directly over HTTP.
 
 ## Governance Posture (no SDK wrapper)
 
-`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 129 Node / 225 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
+`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 137 Node / 233 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
 
 ## Why this moved
 
