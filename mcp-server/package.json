@@ -60,9 +60,7 @@
     "prepublishOnly": "npm run verify"
   },
   "dependencies": {
-    "@cfworker/json-schema": "^4.1.1",
     "@modelcontextprotocol/sdk": "^1.12.0",
-    "@modelcontextprotocol/server": "2.0.0-alpha.2",
     "fast-xml-parser": "^5.8.0",
     "yaml": "^2.5.0",
     "zod": "^3.23.8"
