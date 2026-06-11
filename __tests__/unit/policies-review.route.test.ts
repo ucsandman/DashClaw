@@ -348,6 +348,35 @@ describe('POST /api/policies/review/verdict', () => {
     expect(res.status).toBe(400);
   });
 
+  it('returns 400 when shape.action_type exceeds 128 characters', async () => {
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'always_allow', shape: { action_type: 'a'.repeat(129) } },
+      }),
+    );
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain('128');
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+  });
+
+  it('returns 400 when shape.target_prefix exceeds 256 characters', async () => {
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: {
+          verdict: 'tighten',
+          shape: { action_type: 'api_call', target_prefix: 'h'.repeat(257) },
+        },
+      }),
+    );
+    expect(res.status).toBe(400);
+    const data = await res.json();
+    expect(data.error).toContain('256');
+    expect(mockInsertPolicy).not.toHaveBeenCalled();
+  });
+
   it('returns 409 on duplicate policy name conflict', async () => {
     mockInsertPolicy.mockRejectedValue(
       Object.assign(new Error('guard_policies_org_name_unique'), { code: '23505' }),

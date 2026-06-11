@@ -54,6 +54,15 @@ export async function POST(request: Request) {
     if (!shape || typeof shape.action_type !== 'string' || !shape.action_type) {
       return NextResponse.json({ error: 'shape.action_type is required' }, { status: 400 });
     }
+    // Length parity with the canonical validators in validate.js (action_type ≤128,
+    // target_prefix ≤256) — this route inserts policies directly, bypassing
+    // validatePolicy, and oversized rules would bloat the guard hot-path.
+    if (shape.action_type.length > 128) {
+      return NextResponse.json({ error: 'shape.action_type must be 128 characters or fewer' }, { status: 400 });
+    }
+    if (typeof shape.target_prefix === 'string' && shape.target_prefix.length > 256) {
+      return NextResponse.json({ error: 'shape.target_prefix must be 256 characters or fewer' }, { status: 400 });
+    }
 
     const prefix =
       typeof shape.target_prefix === 'string' && shape.target_prefix
