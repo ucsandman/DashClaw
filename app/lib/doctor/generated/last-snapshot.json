@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:b137ecde9bb3ddc5b1c695e7e4032b2bd5493086",
+  "timestamp": "sha1:8c73a5d280681d1d36a06c0450fb865f148af300",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5575,6 +5575,21 @@
     },
     {
       "name": "webhooks",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "work_order_receipts",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "work_order_types",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "work_orders",
       "file_path": "schema/schema.js",
       "domain": null
     },

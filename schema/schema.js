@@ -1567,3 +1567,60 @@ export const approvalNotifications = pgTable('approval_notifications', {
 }, (t) => ({
   actionIdx: index('idx_approval_notifications_action').on(t.orgId, t.actionId),
 }));
+
+// --- Work Orders (task-grade contracts + receipts ledger) ---
+
+export const workOrderTypes = pgTable('work_order_types', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  type: text('type').notNull(),
+  version: text('version').notNull().default('1.0'),
+  displayName: text('display_name'),
+  description: text('description'),
+  inputSchema: jsonb('input_schema').notNull().default({}),
+  outputSchema: jsonb('output_schema').notNull().default({}),
+  defaultMaxCostUsd: numeric('default_max_cost_usd'),
+  defaultTimeoutSeconds: integer('default_timeout_seconds').notNull().default(600),
+  status: text('status').notNull().default('active'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  uniqueOrgType: uniqueIndex('work_order_types_org_type_unique').on(table.orgId, table.type),
+}));
+
+export const workOrders = pgTable('work_orders', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  type: text('type').notNull(),
+  typeVersion: text('type_version').notNull().default('1.0'),
+  input: jsonb('input').notNull().default({}),
+  inputHash: text('input_hash'),
+  maxCostUsd: numeric('max_cost_usd').notNull(),
+  timeoutSeconds: integer('timeout_seconds').notNull().default(600),
+  status: text('status').notNull().default('queued'),
+  requestedBy: text('requested_by'),
+  claimedBy: text('claimed_by'),
+  leaseExpiresAt: timestamp('lease_expires_at', { withTimezone: true }),
+  guardDecision: jsonb('guard_decision').default({}),
+  approvalActionId: text('approval_action_id'),
+  errorCode: text('error_code'),
+  errorDetails: text('error_details'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  claimedAt: timestamp('claimed_at', { withTimezone: true }),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  orgStatusIdx: index('work_orders_org_status_idx').on(table.orgId, table.status),
+  orgTypeIdx: index('work_orders_org_type_idx').on(table.orgId, table.type),
+}));
+
+export const workOrderReceipts = pgTable('work_order_receipts', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  workOrderId: text('work_order_id').notNull(),
+  receipt: jsonb('receipt').notNull().default({}),
+  receiptHash: text('receipt_hash').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+}, (table) => ({
+  uniqueWorkOrder: uniqueIndex('work_order_receipts_work_order_unique').on(table.workOrderId),
+}));

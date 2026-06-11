@@ -102,6 +102,9 @@ const TABLES = [
   "waitlist",
   "webhook_deliveries",
   "webhooks",
+  "work_order_receipts",
+  "work_order_types",
+  "work_orders",
   "workflows",
 ];
 const REQUIRED_ENV_VARS = [

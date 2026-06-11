@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:b137ecde9bb3ddc5b1c695e7e4032b2bd5493086 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:8c73a5d280681d1d36a06c0450fb865f148af300 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">263</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">179</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">97</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">100</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">11</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (97)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (100)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -157,6 +157,9 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>waitlist</code></td><td class="sig">—</td></tr>
     <tr><td><code>webhook_deliveries</code></td><td class="sig">—</td></tr>
     <tr><td><code>webhooks</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_order_receipts</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_order_types</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_orders</code></td><td class="sig">—</td></tr>
     <tr><td><code>workflows</code></td><td class="sig">—</td></tr></tbody></table></details>
 <details><summary>Signals (11)</summary><ul class="diff">    <li><code>autonomy_spike</code></li>
     <li><code>branch_stale</code></li>
@@ -187,7 +190,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>38</b> env_vars added, <b>1</b> env_vars removed, <b>3</b> routes added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>38</b> env_vars added, <b>1</b> env_vars removed, <b>3</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
@@ -228,7 +231,10 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: UPSTASH_EMAIL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_TEAM_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li></ul></section>
+    <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
+    <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>
