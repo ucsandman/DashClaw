@@ -15,6 +15,7 @@ import { getLearningContext } from './learning-context';
 import { evaluateRecoveryRecipes } from './recovery';
 import { getActBindingMode } from './act-binding';
 import { matchesProtectedPath } from './behavior/path-match';
+import { grantMatches } from './policy-shapes';
 import { verify } from './integrity/verify';
 import type { SourceOfTruth } from './integrity/verify';
 import { issueReceipt } from './integrity/receipt';
@@ -478,6 +479,30 @@ async function runLocalPolicies(
   }
 }
 
+/**
+ * allow_grant post-pass: a matching grant downgrades warn / require_approval
+ * to allow. It can NEVER override block — blocks are absolute.
+ */
+function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc: GuardAccumulator): void {
+  if (acc.highestDecision !== 'warn' && acc.highestDecision !== 'require_approval') return;
+  for (const policy of policies) {
+    if (policy.policy_type !== 'allow_grant') continue;
+    let rules: PolicyRules;
+    try {
+      rules = JSON.parse(policy.rules);
+    } catch {
+      continue;
+    }
+    if (grantMatches(rules as { action_type?: unknown; target_prefix?: unknown }, context)) {
+      acc.warnings.push(`${policy.name}: grant downgraded ${acc.highestDecision} to allow`);
+      acc.matchedPolicies.push(policy.id);
+      acc.highestDecision = 'allow';
+      acc.reasons.length = 0; // gating reasons no longer apply
+      return;
+    }
+  }
+}
+
 // Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true).
 function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): void {
   if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') return;
@@ -880,6 +905,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   await runLocalPolicies(policies, deps, adjustedRiskScore, acc);
   scanPromptInjection(context, acc);
   await runWebhookPolicies(policies, deps, acc);
+  // Grants run after the LAST phase where org policies can raise warn /
+  // require_approval (webhook_check, above). The later phases can only append
+  // warnings (runSignalChecks) or raise to block (replay/act overrides), which
+  // grants never touch — so a downgrade decided here is final.
+  applyAllowGrants(policies, context, acc);
   await runSignalChecks(deps, options, acc);
 
   const evaluatedAt = new Date().toISOString();
@@ -1230,6 +1260,9 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     matchActionType(rules, context, 'require_approval', (t) => `Action type "${t}" requires approval`),
   block_action_type: ({ rules, context }) =>
     matchActionType(rules, context, 'block', (t) => `Action type "${t}" is blocked by policy`),
+  warn_action_type: ({ rules, context }) =>
+    matchActionType(rules, context, 'warn', (t) => `Action type "${t}" recorded for review`),
+  allow_grant: () => null, // grants run as a post-pass (applyAllowGrants), not as a raising evaluator
   protected_path: ({ rules, context }) => {
     const paths = Array.isArray(rules.paths) ? rules.paths : [];
     if (paths.length === 0) return null;
