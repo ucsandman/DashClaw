@@ -1,0 +1,12 @@
+@dashclaw/mcp-server
+Copyright (c) 2026 DashClaw
+
+This package incorporates code from offlocalai-mcp
+(https://github.com/adi4x4/offlocalai-mcp),
+Copyright (c) the offlocalai-mcp contributors,
+licensed under the Apache License, Version 2.0.
+
+The DashClaw-authored v1 governance server code in this package
+(formerly distributed under the MIT License) has been relicensed by
+its owner, DashClaw, under the Apache License, Version 2.0 as of
+v2.0.0.
