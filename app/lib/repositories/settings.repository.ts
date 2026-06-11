@@ -73,6 +73,13 @@ export const VALID_SETTING_KEYS = [
   // Opportunistic drift tick debounce marker — ISO timestamp of the last
   // auto-run (app/lib/drift-tick.ts). Written by the system, not the UI.
   'DRIFT_TICK_LAST_RUN_AT',
+  // Policy review state — persisted per-org by /api/policies/review/verdict.
+  // policy_review_cursor:   ISO timestamp; every warn decision before this time
+  //                         counts as reviewed (advance with "mark all reviewed").
+  // policy_review_dismissed: JSON object { "<shapeKey>": "<ISO timestamp>" }
+  //                          of per-shape dismissals ("fine" verdict).
+  'policy_review_cursor',
+  'policy_review_dismissed',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];
