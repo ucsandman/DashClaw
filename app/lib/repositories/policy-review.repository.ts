@@ -23,7 +23,7 @@ export async function getWarnDecisionsSince(
   return sql`
     SELECT id, action_type, context, reason, created_at
     FROM guard_decisions
-    WHERE org_id = ${orgId} AND decision = 'warn' AND created_at > ${sinceIso}
+    WHERE org_id = ${orgId} AND decision = 'warn' AND created_at::timestamptz > ${sinceIso}
     ORDER BY created_at DESC
     LIMIT ${WARN_SCAN_LIMIT}
   `;
@@ -43,6 +43,27 @@ export async function getRecentInterrupts(
   `;
 }
 
+/**
+ * Normalize a Postgres timestamp value to an ISO-8601 string.
+ * - Date instance  → .toISOString()
+ * - Postgres space-format '2026-06-10 01:00:00' (bare UTC, no zone suffix) →
+ *   replace the space with 'T' and append 'Z' so lexicographic comparison
+ *   against ISO dismissal stamps is correct.
+ * - Already-ISO strings / anything else → returned as-is.
+ * - null / undefined / empty → ''.
+ */
+export function toIso(v: unknown): string {
+  if (v == null) return '';
+  if (v instanceof Date) return v.toISOString();
+  const s = String(v);
+  if (s === '') return '';
+  // Postgres space-format without a zone suffix: 'YYYY-MM-DD HH:MM:SS[.mmm]'
+  if (/^\d{4}-\d{2}-\d{2} /.test(s) && !/[Zz]|[+-]\d{2}:?\d{2}/.test(s)) {
+    return s.replace(' ', 'T') + 'Z';
+  }
+  return s;
+}
+
 /** Pure: group warn rows by shape, drop shapes dismissed after their latest row. */
 export function groupWarnDecisions(
   rows: Array<Record<string, unknown>>,
@@ -51,7 +72,7 @@ export function groupWarnDecisions(
   const groups = new Map<string, WarnGroup>();
   for (const row of rows) {
     const shape = extractDecisionShape(row);
-    const createdAt = String(row.created_at ?? '');
+    const createdAt = toIso(row.created_at);
     const existing = groups.get(shape.key);
     if (existing) {
       existing.count += 1;
