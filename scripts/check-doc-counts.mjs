@@ -67,12 +67,19 @@ function sources() {
     sdk = null; // surfaced as a warning below, SDK checks skipped this run
   }
 
+  // Count policy types from the single source of truth: the POLICY_TYPES array
+  // in validate.js. Extract the array literal and count quoted identifiers.
+  const validateSrc = read('app/lib/validate.js');
+  const ptMatch = /const POLICY_TYPES\s*=\s*\[([^\]]+)\]/.exec(validateSrc);
+  const policyTypes = ptMatch ? (ptMatch[1].match(/'[^']+'/g) || []).length : 0;
+
   return {
     routes,
     sdk,
     mcpTools: countMatches('mcp-server/src/tools.ts', /^\s*name:\s*['"]dashclaw_/gm),
     mcpResources: countMatches('mcp-server/src/resources.ts', /^\s*uri:\s*['"]/gm),
     shields: countMatches('app/policies/lib/shields.js', /^\s*id:\s*['"]/gm),
+    policyTypes,
   };
 }
 
@@ -87,6 +94,8 @@ const COUNT_CHECKS = [
   { file: 'README.md', label: 'MCP tool count', re: /\*\*(\d+) governance MCP tools\*\*/, expected: [S.mcpTools] },
   { file: 'README.md', label: 'MCP resource count', re: /plus (\d+) read-only resources/, expected: [S.mcpResources] },
   { file: 'README.md', label: 'pre-built safety switches', word: true, re: /(\w+) pre-built safety switches/, expected: [S.shields] },
+  { file: 'docs/policy-modes.md', label: 'live policy_type count',
+    re: /the (\d+) live `policy_type` values/, expected: [S.policyTypes] },
   S.sdk && { file: 'README.md', label: 'Node SDK methods', re: /(\d+)-method canonical Node surface/, expected: [S.sdk.node] },
   S.sdk && { file: 'README.md', label: 'Python SDK methods', re: /Python SDK exposes (\d+) methods/, expected: [S.sdk.python] },
   { file: 'PROJECT_DETAILS.md', label: 'route inventory',

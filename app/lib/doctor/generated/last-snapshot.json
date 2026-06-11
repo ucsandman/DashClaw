@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:97ce408c5cf0777c1deb2f057a4b76fe1fcea053",
+  "timestamp": "sha1:33d8bdf2f7b2b77c6cd7475e45d26ead20c64732",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4310,7 +4310,6 @@
       "name": "NAMECHEAP_API_KEY",
       "required": false,
       "files": [
-        "mcp-server/.tmp-dns-read.mjs",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts"
       ],
@@ -5070,6 +5069,7 @@
       "name": "VERCEL_TOKEN",
       "required": false,
       "files": [
+        "mcp-server/.tmp-trial-provision.mjs",
         "mcp-server/lib/context.js",
         "mcp-server/src/context.ts",
         "mcp-server/test/core.test.ts",

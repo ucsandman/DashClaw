@@ -6,7 +6,7 @@ Policy Modes let you pick a **named operating contract** for an agent — "Claud
 
 1. **Catalog** — the built-in modes live in code at `app/lib/policy-modes/catalog.ts` (human-facing metadata) and `app/lib/policy-modes/compile.ts` (the compiler). This is the source of truth.
 2. **Compile** — `compileMode(modeId)` turns a mode into an array of guard policies in exactly the shape `validatePolicy` accepts and `insertPolicy` stores. Every compiled policy:
-   - uses one of the 13 live `policy_type` values (nothing is fabricated),
+   - uses one of the 15 live `policy_type` values (nothing is fabricated),
    - carries a `_mode: <id>` tag **inside its rules JSON** — mirroring the existing `_shield` tag, so mode-generated policies are recognizable **without a schema migration**,
    - is named `[<Mode Name>] <title>` and applied **active**.
 3. **Preview** — `POST /api/policies/modes/preview { mode_id }` returns the generated policy list, a decision summary, and a **best-effort friction simulation** (replays the mode's deterministic policies against recent action history). It writes nothing.
@@ -32,7 +32,7 @@ DashClaw governs only the actions an agent **reports** through the SDK or hooks.
 
 | Mode | Interruption | Promise | Enforced (compiled policies) | Advisory only (surfaced, not enforced) |
 |---|---|---|---|---|
-| **Claude Code** | Low | Won't interrupt normal coding. | block ≥100 risk; warn ≥85; x402 ≥$0.01 approval / >$0.10 block; approval on external comms+sync+api, deploy/migrate/workflow, and explicit destructive types; protected governance/auth/secrets paths; rate-limit warn 250/30m + approval 650/60m | — |
+| **Claude Code** | Low | Won't interrupt normal coding. | block ≥100 risk; warn ≥85; x402 ≥$5.00 approval / >$25.00 block; **warn** (record only) on external comms/sync/api — no interrupts; approval on deploy/migrate/workflow and explicit destructive types; protected governance/auth/secrets paths; rate-limit warn 250/30m + approval 650/60m | — |
 | **OpenClaw** | Medium | Can help broadly, pauses before touching your life. | approval on messaging (telegram/discord/email/calendar), config writes + gateway, destructive types; any paid spend ≥$0.01; protected secrets/config paths; warn ≥85, block ≥100 | "personal data exposure" approximated by protected paths |
 | **Custom Agent** | High | Unknown agents start boxed in. | approval on writes/network/elevation/memory-writes, external comms, destructive types; any paid spend; protected secrets/auth/config; warn ≥60, block ≥90; tight burst limit | "long-running autonomy" approximated by a rate limit |
 | **Enterprise Strict** | High | Everything sensitive is reviewed and auditable. | approval on deploy/migrate, external APIs/sync/comms; protected auth/billing/customer-data/secrets; warn ≥70, block ≥90; paid-spend gate | "production/customer data" gated by paths + risk, not content classification |
