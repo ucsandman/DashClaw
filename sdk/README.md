@@ -1193,5 +1193,114 @@ These routes return 404 when `DASHCLAW_HOSTED` is unset — self-host deploys ar
 
 ---
 
+## Work Orders
+
+Work Orders are task-grade contracts with budget ceilings and self-verifying receipts. An orchestrator submits a typed, guard-gated order against a registered contract; any worker agent claims it, executes the work, and reports completion — at which point DashClaw builds a SHA-256-hashed receipt encoding cost, output hash, and the full governance trail.
+
+### Claim → complete worker loop
+
+```javascript
+import { DashClaw } from 'dashclaw';
+
+const claw = new DashClaw({
+  baseUrl: process.env.DASHCLAW_URL,
+  apiKey: process.env.DASHCLAW_API_KEY,
+  agentId: 'research-worker',
+});
+
+// Worker: poll and process
+async function tick() {
+  const { work_order: order } = await claw.claimWorkOrder({
+    types: ['research_brief'],
+  });
+  if (!order) return; // nothing queued right now
+
+  console.log(`claimed ${order.id} (${order.type})`);
+  try {
+    // ... execute the work ...
+    const output = { title: 'Agent rails', summary: '…', findings: ['…'], sources: [] };
+    const cost = { input_tokens: 4200, output_tokens: 1800, total_usd: 0.11 };
+
+    const { receipt } = await claw.completeWorkOrder(order.id, {
+      status: 'completed',
+      output,
+      cost,
+    });
+    console.log(`completed — receipt hash: ${receipt.receipt_hash}`);
+  } catch (err) {
+    await claw.completeWorkOrder(order.id, {
+      status: 'failed',
+      error: { code: 'worker_error', message: err.message },
+    });
+  }
+}
+
+setInterval(() => tick().catch(console.error), 5000);
+```
+
+### Methods
+
+| Method | Description |
+|---|---|
+| `submitWorkOrder(order)` | Submit a work order against a registered contract. Guard-gated — may be blocked or parked for approval. |
+| `getWorkOrder(workOrderId)` | Fetch a work order and its receipt (populated once terminal). |
+| `listWorkOrders(filters?)` | List work orders. Filters: `status`, `type`, `agent`, `limit`, `offset`. |
+| `cancelWorkOrder(workOrderId)` | Cancel a queued, claimed, or pending-approval work order. |
+| `claimWorkOrder({ types?, agent_id? })` | Atomically claim the next queued order of matching type(s). Returns `null` when queue is empty. |
+| `completeWorkOrder(workOrderId, result)` | Report completion or failure. On success, validates output against the contract and builds a verifiable receipt. |
+| `listWorkOrderTypes()` | List registered work order contracts. |
+| `registerWorkOrderType(definition)` | Register a new work order contract with input/output JSON Schema. |
+
+### Submitting from an orchestrator
+
+```javascript
+// Register a contract (once per org)
+await claw.registerWorkOrderType({
+  type: 'research_brief',
+  display_name: 'Research Brief',
+  input_schema: {
+    type: 'object',
+    required: ['topic'],
+    properties: {
+      topic: { type: 'string', minLength: 3 },
+      depth: { type: 'string', enum: ['quick', 'standard', 'deep'] },
+    },
+  },
+  output_schema: {
+    type: 'object',
+    required: ['title', 'summary', 'findings'],
+    properties: {
+      title: { type: 'string' },
+      summary: { type: 'string' },
+      findings: { type: 'array', items: { type: 'string' } },
+    },
+  },
+  default_max_cost_usd: 0.5,
+  default_timeout_seconds: 600,
+});
+
+// Submit an order (guard-gated)
+const { work_order_id, status, guard } = await claw.submitWorkOrder({
+  type: 'research_brief',
+  input: { topic: 'agent payment rails', depth: 'standard' },
+  budget: { max_cost_usd: 0.25 },
+});
+// status: 'queued' | 'pending_approval' | 'blocked'
+
+// Poll until terminal
+let done = false;
+while (!done) {
+  const { work_order, receipt } = await claw.getWorkOrder(work_order_id);
+  if (['completed', 'failed', 'timed_out', 'cancelled'].includes(work_order.status)) {
+    console.log(work_order.status, receipt?.receipt_hash);
+    done = true;
+  } else {
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+```
+
+---
+
 ## License
 MIT
