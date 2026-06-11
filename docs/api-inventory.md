@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `310`
+- Total routes: `317`
 - Stable routes: `54`
 - Beta routes: `24`
-- Experimental routes: `232`
+- Experimental routes: `239`
 
 ## Routes
 
@@ -318,6 +318,13 @@ doc-type: architecture
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
 | `/api/widget/summary` | `GET` | `experimental` | `(default)` | `app/api/widget/summary/route.ts` |
+| `/api/work-orders` | `GET, POST` | `experimental` | `(default)` | `app/api/work-orders/route.ts` |
+| `/api/work-orders/claim` | `POST` | `experimental` | `(default)` | `app/api/work-orders/claim/route.ts` |
+| `/api/work-orders/types` | `GET, POST` | `experimental` | `(default)` | `app/api/work-orders/types/route.ts` |
+| `/api/work-orders/types/{type}` | `DELETE, GET, PUT` | `experimental` | `(default)` | `app/api/work-orders/types/[type]/route.ts` |
+| `/api/work-orders/{workOrderId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/route.ts` |
+| `/api/work-orders/{workOrderId}/artifacts` | `GET` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/artifacts/route.ts` |
+| `/api/work-orders/{workOrderId}/complete` | `POST` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/complete/route.ts` |
 | `/api/workflows/draft` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/draft/route.ts` |
 | `/api/workflows/templates` | `GET, POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/route.ts` |
 | `/api/workflows/templates/{templateId}` | `DELETE, GET, PATCH` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/route.ts` |

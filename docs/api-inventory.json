@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 310,
+    "total_routes": 317,
     "stable_routes": 54,
     "beta_routes": 24,
-    "experimental_routes": 232
+    "experimental_routes": 239
   },
   "routes": [
     {
@@ -2845,6 +2845,74 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/widget/summary/route.ts"
+    },
+    {
+      "path": "/api/work-orders",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/route.ts"
+    },
+    {
+      "path": "/api/work-orders/claim",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/claim/route.ts"
+    },
+    {
+      "path": "/api/work-orders/types",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/types/route.ts"
+    },
+    {
+      "path": "/api/work-orders/types/{type}",
+      "methods": [
+        "DELETE",
+        "GET",
+        "PUT"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/types/[type]/route.ts"
+    },
+    {
+      "path": "/api/work-orders/{workOrderId}",
+      "methods": [
+        "DELETE",
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/[workOrderId]/route.ts"
+    },
+    {
+      "path": "/api/work-orders/{workOrderId}/artifacts",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/[workOrderId]/artifacts/route.ts"
+    },
+    {
+      "path": "/api/work-orders/{workOrderId}/complete",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/work-orders/[workOrderId]/complete/route.ts"
     },
     {
       "path": "/api/workflows/draft",
