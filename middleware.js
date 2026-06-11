@@ -1166,7 +1166,7 @@ const DEMO_API_ROUTES = [
   // /types must precede the /:id prefix match or 'types' would be treated as an id.
   ['/api/work-orders/types', ({ request }) => demoJson(request, demoListWorkOrderTypes())],
   ['/api/work-orders', ({ request, url }) => demoJson(request, demoListWorkOrders(url))],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'work-orders', '*']), ({ request, segments }) => {
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'work-orders', '*']) && segments[2] !== 'claim', ({ request, segments }) => {
     const result = demoGetWorkOrder(segments[2]);
     return demoJson(request, result, result.error ? 404 : 200);
   }],

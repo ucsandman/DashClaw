@@ -1654,9 +1654,11 @@ const DEMO_WORK_ORDER_RECEIPT = {
 export function demoListWorkOrders(url: URL) {
   const status = url.searchParams.get('status') || undefined;
   const type = url.searchParams.get('type') || undefined;
+  const agent = url.searchParams.get('agent') || undefined;
   let items = [...DEMO_WORK_ORDERS];
   if (status) items = items.filter((o) => o.status === status);
   if (type) items = items.filter((o) => o.type === type);
+  if (agent) items = items.filter((o) => o.requested_by === agent || o.claimed_by === agent);
   return { work_orders: items, total: items.length };
 }
 

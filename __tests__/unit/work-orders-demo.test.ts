@@ -33,6 +33,20 @@ describe('demoListWorkOrders', () => {
     expect(result.work_orders.length).toBe(0);
     expect(result.total).toBe(0);
   });
+
+  it('filters by agent — returns only orders where the agent is requester or claimer', () => {
+    // wo_demo_completed has claimed_by: 'research-worker-1'; others do not
+    const result = demoListWorkOrders(makeUrl('?agent=research-worker-1'));
+    expect(result.work_orders.length).toBe(1);
+    expect(result.work_orders[0]?.id).toBe('wo_demo_completed');
+    expect(result.total).toBe(1);
+  });
+
+  it('returns empty list when agent matches no order', () => {
+    const result = demoListWorkOrders(makeUrl('?agent=unknown-agent-x'));
+    expect(result.work_orders.length).toBe(0);
+    expect(result.total).toBe(0);
+  });
 });
 
 describe('demoGetWorkOrder', () => {
