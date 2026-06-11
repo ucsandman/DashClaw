@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.9.0] — 2026-06-10
+
+### Added
+
+- **`@dashclaw/mcp-server` 2.0.0 — governance + governed execution in one server.** The offlocalai-mcp fork's TypeScript codebase absorbed into `mcp-server/` (Apache-2.0 + NOTICE, zero upstream-brand strings outside NOTICE); the four hand-written v1 JS modules ported to TS with identical compiled paths and named exports, so `app/api/mcp/route.ts` and all consumers run unmodified. One stdio server now registers the 30 governance tools + 6 resources (when `DASHCLAW_URL`+`DASHCLAW_API_KEY` are set), provider-execution tools for 14 providers (each **only when its credential env var is present** — no token, no tools), and the always-on project/policy context set. `bin/dashclaw-mcp` doubles as the operational CLI (`doctor`, `context`, `map`, …).
+- **Launch plans (mcp-server):** `create_launch_plan` / `get_launch_status` / `preflight_launch` / `verify_launch` — stateful launch tracking derived from the launch playbook, with **reality-checked, never self-reported completion** (each step re-verified against provider/local state via guarded reads), preflight (token presence+validity, mappings, Stripe mode sanity, Namecheap IP whitelist), and end-to-end verify (domain resolves, deployment READY, env vars present, webhook enabled, email domain verified). Plans live under `.dashclaw-local/launches/`; steps execute only through the existing guard/policy/approval path. Guide: `mcp-server/docs/launch-plans.md`.
+- **Guard policy types `warn_action_type` + `allow_grant`** — warn-level action-type policies and scoped allow-grants with boundary-aware matching (host/path suffix bypass closed), an action-shape library for grants + review grouping, and the `allow_grant` form round-trip fixes.
+
+### Changed
+
+- mcp-server doc-count gates now read the TS sources (`src/tools.ts` / `src/resources.ts`); the mcpb bundle ships `NOTICE`; root typecheck/lint/vitest exclude `mcp-server/**` (the package runs its own `npm run verify` — 287 tests).
+- mcp-server test env is hard-isolated: machine `DASHCLAW_*` vars are stripped before every test file, so suites can never reach a live server.
+
+### Removed
+
+- mcp-server's `@modelcontextprotocol/server` alpha dependency and unused `@cfworker/json-schema` (the v2 server runs on `@modelcontextprotocol/sdk` ^1.12).
+
+## [4.8.0] — 2026-06-10
+
+20-phase governance sweep closeout (28-item backlog): Node SDK `createPairing`/`waitForPairing` + `getAgentEnv`, Python SDK `get_agent_env`, operator pairing flow, managed agent env delivery, and 12 new doc-count gates. (Block backfilled — the release shipped without a changelog entry.)
+
 ## [4.7.11] — 2026-06-10
 
 ### Added

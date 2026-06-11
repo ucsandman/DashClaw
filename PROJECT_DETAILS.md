@@ -197,7 +197,7 @@ DashClaw is intentionally multi-surface. Claude Code hooks are one strong integr
 
 | Path | Best for | Artifact |
 |:---|:---|:---|
-| MCP server | MCP-capable agents, Claude Desktop/Code, managed agents, remote tool access | `@dashclaw/mcp-server`, `POST /api/mcp` |
+| MCP server | MCP-capable agents, Claude Desktop/Code, managed agents, remote tool access — plus governed provider execution (credential-gated tools) and verified launch plans on the local stdio server (v2.0.0) | `@dashclaw/mcp-server`, `POST /api/mcp` |
 | Claude custom connector (OAuth) | The Claude consumer app (web chat / Desktop / Cowork) — paste a URL, no API key in the UI | `POST /api/mcp` + `/api/oauth/*` (DCR + PKCE), `docs/CLAUDE-DESKTOP-PLUGIN.md` |
 | Node SDK | JavaScript/TypeScript agents and apps | `sdk/dashclaw.js`, npm package `dashclaw` (version in `sdk/package.json`) |
 | Python SDK | Python agents and backend workflows | `sdk-python/dashclaw/client.py` |

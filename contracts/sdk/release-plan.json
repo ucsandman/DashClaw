@@ -1,21 +1,18 @@
 {
   "node": {
-    "current_version": "4.8.0",
-    "next_bump": "minor",
-    "reason": "4.8.0 ships the 20-phase governance sweep with Node SDK source changes: createPairing/waitForPairing (operator pairing flow, P10) and getAgentEnv (managed agent env delivery, P12) in sdk/dashclaw.js — the Node SDK IS republished to npm at 4.8.0 (previous publish 4.7.10; 4.7.11 was platform-only).",
+    "current_version": "4.9.0",
+    "next_bump": "none",
+    "reason": "4.9.0 ships @dashclaw/mcp-server 2.0.0 (governed execution + launch plans) and the warn_action_type/allow_grant guard policy types — no Node SDK source change; the version advances per the unified model but the Node SDK is NOT republished (npm stays at 4.8.0).",
     "domains": [
-      "platform",
-      "pairing",
-      "secrets"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "4.8.0",
-    "next_bump": "minor",
-    "reason": "4.8.0 ships the 20-phase governance sweep with Python SDK source changes: get_agent_env (managed agent env delivery, P12) in sdk-python/dashclaw/client.py — the Python SDK IS republished to PyPI at 4.8.0 (previous publish 4.7.10; 4.7.11 was platform-only).",
+    "current_version": "4.9.0",
+    "next_bump": "none",
+    "reason": "4.9.0 is platform-only for the Python SDK — no sdk-python source change; the version advances per the unified model but the Python SDK is NOT republished (PyPI stays at 4.8.0).",
     "domains": [
-      "platform",
-      "secrets"
+      "platform"
     ]
   }
 }

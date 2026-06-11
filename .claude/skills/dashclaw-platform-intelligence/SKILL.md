@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:c7ed8ca5b47a5373698647049f1aa4d4d7df63f0`
+**Shape snapshot:** `sha1:63c3809615c811fd55cbf9f615f222e99eefa2cd`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **260** active API routes across **63** categories (308 total including archived)
-- **4** required + **142** optional environment variables
+- **4** required + **180** optional environment variables
 - **97** database tables
 
 ## API Surface
@@ -504,7 +504,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 63 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 74 file(s)
 - **`DATABASE_URL`** - referenced in 96 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
@@ -524,6 +524,8 @@ These have fallbacks or only activate specific features.
 - `API_SECRET` *(undocumented)*
 - `BASE_URL` *(undocumented)*
 - `CI` *(undocumented)*
+- `CLERK_SECRET_KEY` *(undocumented)*
+- `CLOUDFLARE_API_TOKEN` *(undocumented)*
 - `CONVERGENCE_BENCH_CONCURRENCY` *(undocumented)*
 - `CONVERGENCE_BENCH_ITERATIONS` *(undocumented)*
 - `CONVERGENCE_REPLAY_CONNECT_TIMEOUT_MS` *(undocumented)*
@@ -532,6 +534,12 @@ These have fallbacks or only activate specific features.
 - `CONVERGENCE_SSE_SEND_COUNT` *(undocumented)*
 - `CONVERGENCE_VERBOSE` *(undocumented)*
 - `CRON_SECRET` *(undocumented)*
+- `CUSTOM_GITHUB_TOKEN` *(undocumented)*
+- `CUSTOM_SENTRY_A_TOKEN` *(undocumented)*
+- `CUSTOM_SENTRY_B_TOKEN` *(undocumented)*
+- `CUSTOM_SENTRY_TOKEN` *(undocumented)*
+- `CUSTOM_STRIPE_TEST_KEY` *(undocumented)*
+- `CUSTOM_VERCEL_TOKEN` *(undocumented)*
 - `DASHCLAW_ACT_BINDING` *(undocumented)*
 - `DASHCLAW_ACT_BINDING_TYP` *(undocumented)*
 - `DASHCLAW_AGENT_ID` *(undocumented)*
@@ -539,6 +547,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_ALERTS_TELEGRAM` *(undocumented)*
 - `DASHCLAW_ALLOWED_ISSUER` *(undocumented)*
 - `DASHCLAW_API_KEY_ORG` *(undocumented)*
+- `DASHCLAW_AUDIT_MAX_ENTRIES` *(undocumented)*
 - `DASHCLAW_BASE_URL` *(undocumented)*
 - `DASHCLAW_BEHAVIOR_SAMPLES_DIR` *(undocumented)*
 - `DASHCLAW_BEHAVIOR_SAMPLES_ENABLED` *(undocumented)*
@@ -549,11 +558,18 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_GUARD_FALLBACK` *(undocumented)*
 - `DASHCLAW_GUARD_UNAVAILABLE_POLICY` *(undocumented)*
 - `DASHCLAW_HOSTED` *(undocumented)*
+- `DASHCLAW_HTTP_RETRIES` *(undocumented)*
+- `DASHCLAW_HTTP_RETRY_BASE_MS` *(undocumented)*
+- `DASHCLAW_HTTP_TIMEOUT_MS` *(undocumented)*
 - `DASHCLAW_JTI_MAX_TTL_SECONDS` *(undocumented)*
 - `DASHCLAW_JTI_REPLAY_PROTECTION` *(undocumented)*
 - `DASHCLAW_JWT_AUDIENCE` *(undocumented)*
 - `DASHCLAW_LOCAL_ADMIN_PASSWORD` *(undocumented)*
+- `DASHCLAW_LOCAL_HOME` *(undocumented)*
+- `DASHCLAW_LOCK_STALE_MS` *(undocumented)*
+- `DASHCLAW_LOG_STARTUP` *(undocumented)*
 - `DASHCLAW_MAX_ORG_ATTACHMENT_BYTES` *(undocumented)*
+- `DASHCLAW_MEMORY_MAX_ENTRIES` *(undocumented)*
 - `DASHCLAW_MODE` *(undocumented)*
 - `DASHCLAW_NEW_CONNECT_WEBHOOK` *(undocumented)*
 - `DASHCLAW_PAIRING_TTL_MINUTES` *(undocumented)*
@@ -561,6 +577,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_RATE_LIMIT_WINDOW_MS` *(undocumented)*
 - `DASHCLAW_SIGNING_KEY_JWK` *(undocumented)*
 - `DASHCLAW_SUPPRESS_LEGACY_WARNING` *(undocumented)*
+- `DASHCLAW_TIMEOUT_MS` *(undocumented)*
 - `DASHCLAW_URL` *(undocumented)*
 - `DISABLE_PROMPT_INJECTION_SCAN` *(undocumented)*
 - `DISCORD_APPROVER_ORG_ID` *(undocumented)*
@@ -593,6 +610,11 @@ These have fallbacks or only activate specific features.
 - `HOSTED_TRIAL_DAYS` *(undocumented)*
 - `INTEGRATION_DATABASE_URL` *(undocumented)*
 - `MOONSHOT_API_KEY` *(undocumented)*
+- `NAMECHEAP_API_KEY` *(undocumented)*
+- `NAMECHEAP_API_USER` *(undocumented)*
+- `NAMECHEAP_CLIENT_IP` *(undocumented)*
+- `NAMECHEAP_SANDBOX` *(undocumented)*
+- `NEON_API_KEY` *(undocumented)*
 - `NEXTAUTH_URL`
 - `NEXT_PUBLIC_` *(undocumented)*
 - `NEXT_PUBLIC_APP_URL` *(undocumented)*
@@ -614,10 +636,17 @@ These have fallbacks or only activate specific features.
 - `OPENAI_API_KEY` *(undocumented)*
 - `ORG_ID` *(undocumented)*
 - `PORT` *(undocumented)*
+- `POSTHOG_PERSONAL_API_KEY` *(undocumented)*
 - `PW_BASE_URL` *(undocumented)*
 - `PW_SMOKE_PORT` *(undocumented)*
 - `PYTHON` *(undocumented)*
 - `PYTHONPATH` *(undocumented)*
+- `QSTASH_CURRENT_SIGNING_KEY` *(undocumented)*
+- `QSTASH_NEXT_SIGNING_KEY` *(undocumented)*
+- `QSTASH_TOKEN` *(undocumented)*
+- `R2_ACCESS_KEY_ID` *(undocumented)*
+- `R2_SECRET_ACCESS_KEY` *(undocumented)*
+- `RAILWAY_TOKEN` *(undocumented)*
 - `REALTIME_BACKEND` *(undocumented)*
 - `REALTIME_ENFORCE_REDIS` *(undocumented)*
 - `REALTIME_MAX_LISTENERS` *(undocumented)*
@@ -630,16 +659,20 @@ These have fallbacks or only activate specific features.
 - `RESEARCH_API_URL` *(undocumented)*
 - `RESEND_API_KEY` *(undocumented)*
 - `S` *(undocumented)*
+- `SENTRY_AUTH_TOKEN` *(undocumented)*
 - `SERVICE_NAME` *(undocumented)*
 - `SQL_CAPTURE_FILE` *(undocumented)*
 - `STARTUP_SMOKE_BASE_URL` *(undocumented)*
 - `STARTUP_SMOKE_INTERVAL_MS` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
+- `STRIPE_LIVE_SECRET_KEY` *(undocumented)*
 - `STRIPE_PRICE_BUSINESS` *(undocumented)*
 - `STRIPE_PRICE_PRO` *(undocumented)*
 - `STRIPE_SECRET_KEY` *(undocumented)*
+- `STRIPE_TEST_SECRET_KEY` *(undocumented)*
 - `STRIPE_WEBHOOK_SECRET` *(undocumented)*
 - `STUB_FAIL_CREATES` *(undocumented)*
+- `SUPABASE_ACCESS_TOKEN` *(undocumented)*
 - `TARGET_ENV` *(undocumented)*
 - `TELEGRAM_ADMIN_CHAT_ID` *(undocumented)*
 - `TELEGRAM_APPROVER_ORG_ID` *(undocumented)*
@@ -648,10 +681,15 @@ These have fallbacks or only activate specific features.
 - `TEST_BASE_URL` *(undocumented)*
 - `TRUST_PROXY` *(undocumented)*
 - `TURNSTILE_SECRET_KEY` *(undocumented)*
+- `TWILIO_AUTH_TOKEN` *(undocumented)*
+- `UPSTASH_API_KEY` *(undocumented)*
+- `UPSTASH_EMAIL` *(undocumented)*
 - `UPSTASH_REDIS_REST_TOKEN` *(undocumented)*
 - `UPSTASH_REDIS_REST_URL` *(undocumented)*
 - `VERCEL` *(undocumented)*
 - `VERCEL_PROJECT_PRODUCTION_URL` *(undocumented)*
+- `VERCEL_TEAM_ID` *(undocumented)*
+- `VERCEL_TOKEN` *(undocumented)*
 - `VERCEL_URL` *(undocumented)*
 - `WEBHOOK_ALLOWED_DOMAINS` *(undocumented)*
 - `X` *(undocumented)*

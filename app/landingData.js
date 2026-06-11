@@ -52,7 +52,7 @@ export const platformFeatures = [
   { icon: DashClawLogo, title: 'Verified Agent Identity', description: 'Know which agent took which action. JWKS-verified OIDC bearer tokens (EdDSA, RSA, ECDSA) with replay protection and per-call action binding — cryptographic attribution, not self-assertion.' },
   { icon: Terminal, title: 'CLI Approval Channel', description: 'Approve or deny agent actions from the terminal without opening a browser. Works with Claude Code, Codex, Hermes Agent, Gemini CLI, and any terminal-first workflow.' },
   { icon: Webhook, title: 'Coding-agent Hooks', description: 'Govern Claude Code, Codex, and Hermes Agent tool calls via shared field-compatible hook schemas. No SDK instrumentation required. Hermes additionally exposes pre_llm_call (per-turn context injection), post_llm_call (live ingest), transform_tool_result (secret redaction), and subagent_stop (delegate_task ROI).' },
-  { icon: Network, title: 'MCP Server', description: 'Connect any MCP client to DashClaw governance with one config line. 30 tools and 6 resources over stdio or Streamable HTTP. Works with Claude Code, Claude Desktop, and Managed Agents.' },
+  { icon: Network, title: 'MCP Server', description: 'Connect any MCP client to DashClaw governance with one config line. 30 governance tools and 6 resources over stdio or Streamable HTTP, plus credential-gated provider execution and verified launch plans on the local server. Works with Claude Code, Claude Desktop, and Managed Agents.' },
   { icon: FolderKanban, title: 'Execution Studio', description: 'Workflow templates, capability registry, knowledge collections, and model strategies. Chain governed actions into multi-step pipelines with conditional execution and resume-from-checkpoint.' },
   { icon: BarChart3, title: 'Agent Reputation', description: 'A per-agent trust vector computed from your own governed decisions: reliability, completion, policy violations, approval adherence, quality, and risk. Time-decayed and Bayesian-smoothed, with Ed25519-signed receipts that re-verify against the instance keys.' },
   { icon: UsersRound, title: 'Agent Registry', description: 'Register external, owned providers that group capabilities and are delegated to through governance. Every registry invocation routes through the same guard, action ledger, and SSRF-defended runtime as direct capabilities, with risk derived from the existing scale.' },
@@ -310,7 +310,7 @@ export const shippedHighlights = [
   {
     icon: Network,
     title: 'MCP Governance Server',
-    description: 'Plug DashClaw into any MCP-compatible client. Guard, record, invoke, and discover capabilities without writing integration code.',
+    description: 'Plug DashClaw into any MCP-compatible client. Guard, record, invoke, and discover capabilities without writing integration code — plus governed provider execution and verified launch plans on the local server.',
     href: '/docs#mcp-server',
   },
   {
