@@ -1334,12 +1334,17 @@ export async function evaluatePolicy(
   effectiveRiskScore: number,
 ): Promise<PolicyResult | null> {
   // Validate the dynamic key against the known evaluator set before calling
-  // (CodeQL js/unvalidated-dynamic-method-call): rejects inherited/prototype
-  // keys, matching the existing unknown-type handling (return null).
-  if (!Object.prototype.hasOwnProperty.call(POLICY_EVALUATORS, policy.policy_type)) return null;
-  const evaluator = POLICY_EVALUATORS[policy.policy_type];
-  if (!evaluator) return null;
-  return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
+  // (CodeQL js/unvalidated-dynamic-method-call): only dispatch when policy_type
+  // is an own, registered key — rejects inherited/prototype keys. The lookup and
+  // call live inside the positive own-property guard so the sanitizer dominates
+  // the dynamic invocation; unknown/invalid types fall through to return null.
+  if (Object.prototype.hasOwnProperty.call(POLICY_EVALUATORS, policy.policy_type)) {
+    const evaluator = POLICY_EVALUATORS[policy.policy_type];
+    if (evaluator) {
+      return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
+    }
+  }
+  return null;
 }
 
 /**
