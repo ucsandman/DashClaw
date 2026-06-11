@@ -186,6 +186,7 @@ describe('§24.27 getFleetSpend aggregates STORED component totals verbatim (agg
       total_tokens_in: 2_000_000,
       total_tokens_out: 1_000_000,
       period: '30d',
+      attribution: { attributed_count: 0, total_count: 0, coverage_pct: null },
       by_agent: [],
       by_day: [],
     } as Awaited<ReturnType<typeof actionsRepo.getCostAggregation>>);
@@ -240,7 +241,7 @@ describe('::real driver-string coercion — Fleet Spend stays numeric (d01)', ()
     const actionsRepo = await import('../../app/lib/repositories/actions.repository.js');
     const x402Repo = await import('../../app/lib/repositories/x402.repository.js');
     const agentSpy = vi.spyOn(actionsRepo, 'getCostAggregation').mockResolvedValue({
-      total_cost_usd: 5.5, total_tokens_in: 0, total_tokens_out: 0, period: '30d', by_agent: [], by_day: [],
+      total_cost_usd: 5.5, total_tokens_in: 0, total_tokens_out: 0, period: '30d', attribution: { attributed_count: 0, total_count: 0, coverage_pct: null }, by_agent: [], by_day: [],
     } as Awaited<ReturnType<typeof actionsRepo.getCostAggregation>>);
     // Simulate the raw-driver hazard: a string total leaking past the boundary.
     const x402Spy = vi.spyOn(x402Repo, 'getX402SpendAggregation').mockResolvedValue({

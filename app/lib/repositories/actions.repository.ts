@@ -1513,6 +1513,7 @@ interface CostAggregationResult {
   total_tokens_in: unknown;
   total_tokens_out: unknown;
   period: string;
+  attribution: { attributed_count: number; total_count: number; coverage_pct: number | null };
   by_agent: Row[];
   by_day: Row[];
   [field: string]: unknown;
@@ -1539,7 +1540,9 @@ export async function getCostAggregation(
       -- fleets ("integer out of range", PG 22003). Neon returns bigint as a
       -- string; coerced with Number() below.
       COALESCE(SUM(tokens_in), 0)::bigint as total_tokens_in,
-      COALESCE(SUM(tokens_out), 0)::bigint as total_tokens_out
+      COALESCE(SUM(tokens_out), 0)::bigint as total_tokens_out,
+      COUNT(*)::integer as total_count,
+      COUNT(*) FILTER (WHERE COALESCE(tokens_in, 0) > 0 OR COALESCE(tokens_out, 0) > 0)::integer as attributed_count
     FROM action_records
     WHERE org_id = ${orgId}
       AND created_at::timestamptz >= ${since}::timestamptz
@@ -1551,7 +1554,8 @@ export async function getCostAggregation(
     SELECT
       agent_id,
       COALESCE(SUM(cost_estimate), 0)::real as cost_usd,
-      COUNT(*)::integer as action_count
+      COUNT(*)::integer as action_count,
+      COUNT(*) FILTER (WHERE COALESCE(tokens_in, 0) > 0 OR COALESCE(tokens_out, 0) > 0)::integer as attributed_count
     FROM action_records
     WHERE org_id = ${orgId}
       AND created_at::timestamptz >= ${since}::timestamptz
@@ -1575,12 +1579,26 @@ export async function getCostAggregation(
     ORDER BY date DESC
   `;
 
+  const totalCount = Number(totals?.total_count ?? 0);
+  const attributedCount = Number(totals?.attributed_count ?? 0);
+
   return {
     total_cost_usd: Number(totals?.total_cost_usd ?? 0),
     total_tokens_in: Number(totals?.total_tokens_in ?? 0),
     total_tokens_out: Number(totals?.total_tokens_out ?? 0),
     period,
-    by_agent: byAgent,
+    attribution: {
+      attributed_count: attributedCount,
+      total_count: totalCount,
+      coverage_pct: totalCount > 0 ? Math.round((attributedCount / totalCount) * 100) : null,
+    },
+    by_agent: byAgent.map((r: Row) => ({
+      ...r,
+      coverage_pct:
+        Number(r.action_count) > 0
+          ? Math.round((Number(r.attributed_count) / Number(r.action_count)) * 100)
+          : null,
+    })),
     by_day: byDay,
   };
 }
