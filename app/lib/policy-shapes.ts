@@ -12,14 +12,14 @@ export interface ActionShape {
   label: string;
 }
 
-/** URL → host; anything else → trimmed string; empty → null. */
+/** URL → hostname (port-stripped); anything else → trimmed string; empty → null. */
 export function normalizeTarget(raw: string | null | undefined): string | null {
   if (typeof raw !== 'string') return null;
   const t = raw.trim();
   if (!t) return null;
   if (/^https?:\/\//i.test(t)) {
     try {
-      return new URL(t).host || null;
+      return new URL(t).hostname || null;
     } catch {
       return t;
     }
@@ -55,6 +55,20 @@ interface GrantContext {
   write_paths?: unknown;
 }
 
+/** Boundary-aware prefix match: hosts match exactly or as a dot-separated
+ *  subdomain suffix; paths match exactly or at a `/` segment boundary.
+ *  Empty prefixes never match (fail closed). */
+export function prefixMatches(prefix: string, candidate: string): boolean {
+  if (!prefix || !candidate) return false;
+  if (candidate === prefix) return true;
+  if (prefix.includes('/')) {
+    const withSlash = prefix.endsWith('/') ? prefix : `${prefix}/`;
+    return candidate.startsWith(withSlash);
+  }
+  // host semantics: grant for stripe.com also covers api.stripe.com
+  return candidate.endsWith(`.${prefix}`);
+}
+
 /** Does an allow_grant's shape match this guard context? */
 export function grantMatches(rules: GrantRules, context: GrantContext): boolean {
   if (typeof rules.action_type !== 'string' || rules.action_type !== context.action_type) {
@@ -71,7 +85,7 @@ export function grantMatches(rules: GrantRules, context: GrantContext): boolean 
       if (n) candidates.push(n);
     }
   }
-  return candidates.some((c) => c === prefix || c.startsWith(prefix));
+  return candidates.some((c) => prefixMatches(prefix, c));
 }
 
 /** Shape of a stored guard_decisions row (action_type column + context JSON text). */
