@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:c7ed8ca5b47a5373698647049f1aa4d4d7df63f0`
+**Shape snapshot:** `sha1:02bf20388830e0ee7aa52afe5127b83ac1a655c5`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **260** active API routes across **63** categories (308 total including archived)
-- **4** required + **142** optional environment variables
+- **4** required + **139** optional environment variables
 - **97** database tables
 
 ## API Surface
@@ -504,8 +504,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 63 file(s)
-- **`DATABASE_URL`** - referenced in 96 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 62 file(s)
+- **`DATABASE_URL`** - referenced in 94 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
 
@@ -585,7 +585,6 @@ These have fallbacks or only activate specific features.
 - `GUARD_LLM_MODEL` *(undocumented)*
 - `GUARD_WEBHOOK_SECRET` *(undocumented)*
 - `HOSTED_CLEANUP_SECRET` *(undocumented)*
-- `HOSTED_DATABASE_URL` *(undocumented)*
 - `HOSTED_MAX_ACTIVE_TRIALS` *(undocumented)*
 - `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` *(undocumented)*
 - `HOSTED_SMOKE_BASE_URL` *(undocumented)*
@@ -631,7 +630,6 @@ These have fallbacks or only activate specific features.
 - `RESEND_API_KEY` *(undocumented)*
 - `S` *(undocumented)*
 - `SERVICE_NAME` *(undocumented)*
-- `SQL_CAPTURE_FILE` *(undocumented)*
 - `STARTUP_SMOKE_BASE_URL` *(undocumented)*
 - `STARTUP_SMOKE_INTERVAL_MS` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
@@ -639,7 +637,6 @@ These have fallbacks or only activate specific features.
 - `STRIPE_PRICE_PRO` *(undocumented)*
 - `STRIPE_SECRET_KEY` *(undocumented)*
 - `STRIPE_WEBHOOK_SECRET` *(undocumented)*
-- `STUB_FAIL_CREATES` *(undocumented)*
 - `TARGET_ENV` *(undocumented)*
 - `TELEGRAM_ADMIN_CHAT_ID` *(undocumented)*
 - `TELEGRAM_APPROVER_ORG_ID` *(undocumented)*

@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:c7ed8ca5b47a5373698647049f1aa4d4d7df63f0 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:02bf20388830e0ee7aa52afe5127b83ac1a655c5 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">260</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">139</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">97</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">11</div><div class="k">Signals</div></div>
@@ -169,23 +169,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>message</code></li>
     <li><code>stale_action</code></li>
     <li><code>test</code></li></ul></details></section>
-
-<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 260)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,41.8 160.0,41.8 238.0,25.3 316.0,4.0"/></svg></figure>
-<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,44.0 160.0,44.0 238.0,44.0 316.0,44.0"/></svg></figure>
-<figure><figcaption>Tables over time <span class="sig">(73 → 97)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,44.0 160.0,44.0 238.0,24.0 316.0,4.0"/></svg></figure></section>
-
-<section><h2>Health</h2><div class="grid">      <div class="cell"><div class="n">16</div><div class="k">Commits 7d</div></div>
-      <div class="cell danger"><div class="n">1</div><div class="k">Bus factor</div></div>
-      <div class="cell"><div class="n">Wes Sander</div><div class="k">Top contributor</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">JS tests</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">Python tests</div></div>
-      <div class="cell"><div class="n">0.28</div><div class="k">Test file ratio</div></div>
-      <div class="cell danger"><div class="n">111</div><div class="k">Untested routes</div></div>
-      <div class="cell"><div class="n">0</div><div class="k">Vulnerabilities</div></div>
-      <div class="cell"><div class="n">0d</div><div class="k">Lockfile age</div></div>
-      <div class="cell"><div class="n">100.0%</div><div class="k">CI pass 30d</div></div>
-      <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
-      <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>
