@@ -1190,7 +1190,13 @@ export async function setDnsRecords(
     ctx(project, environment, "namecheap", "env_change", "set_dns_records", `REPLACE all DNS host records for ${domain}`, {
       resourceLabel: domain,
     }),
-    () => nc.setDnsHosts(tokenFor(store, "namecheap"), domain, input.records),
+    async () => {
+      const token = tokenFor(store, "namecheap");
+      // setHosts resets the domain's email service (e.g. forwarding) unless EmailType
+      // is re-sent — read the current value first and carry it across the replace.
+      const current = await nc.getDnsHosts(token, domain);
+      return nc.setDnsHosts(token, domain, input.records, current.emailType);
+    },
   );
 }
 
@@ -1209,7 +1215,7 @@ export async function neonListProjects(store: Store, input: Base): Promise<Guard
 /** create_neon_project — provision a Neon project (capability "write"). */
 export async function neonCreateProject(
   store: Store,
-  input: Base & { name?: string; regionId?: string; pgVersion?: number },
+  input: Base & { name?: string; regionId?: string; pgVersion?: number; orgId?: string },
 ): Promise<GuardedResponse> {
   const { project, environment } = resolve(store, input);
   const label = input.name ?? "(default name)";
@@ -1223,6 +1229,7 @@ export async function neonCreateProject(
         name: input.name,
         regionId: input.regionId,
         pgVersion: input.pgVersion,
+        orgId: input.orgId,
       }),
   );
 }

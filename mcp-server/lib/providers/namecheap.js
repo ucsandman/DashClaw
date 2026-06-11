@@ -152,7 +152,9 @@ export async function getDnsHosts(apiKey, domain) {
     return {
         domain: String(r["@_Domain"] ?? domain),
         isUsingOurDNS: bool(r["@_IsUsingOurDNS"]),
-        records: toArray(r.Host).map((h) => ({
+        emailType: r["@_EmailType"] === undefined ? undefined : String(r["@_EmailType"]),
+        // The live API returns lowercase <host> elements; docs and some fixtures use <Host>.
+        records: toArray(r.host ?? r.Host).map((h) => ({
             hostId: h["@_HostId"] === undefined ? undefined : String(h["@_HostId"]),
             name: String(h["@_Name"]),
             type: String(h["@_Type"]),
@@ -162,10 +164,16 @@ export async function getDnsHosts(apiKey, domain) {
         })),
     };
 }
-/** WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain. */
-export async function setDnsHosts(apiKey, domain, records) {
+/**
+ * WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain.
+ * It also resets the domain's email service unless EmailType is re-sent — pass the
+ * value from getDnsHosts to preserve e.g. email forwarding (FWD).
+ */
+export async function setDnsHosts(apiKey, domain, records, emailType) {
     const { sld, tld } = splitDomain(domain);
     const params = { SLD: sld, TLD: tld };
+    if (emailType)
+        params.EmailType = emailType;
     records.forEach((record, index) => {
         const n = index + 1;
         params[`HostName${n}`] = record.name;

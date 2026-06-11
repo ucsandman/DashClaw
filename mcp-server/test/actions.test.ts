@@ -214,6 +214,40 @@ describe("runGuarded DashClaw authoritative mode", () => {
     expect((res as any).dashclaw).toMatchObject({ outcome_recorded: true });
   });
 
+  it("posts the platform terminal status 'completed' for successful executions", async () => {
+    enableDashclaw({ decision: "allow", reason: "approved by policy", decision_id: "gd_ok", action_id: "act_ok" });
+    const { store, ctx } = productionDeployContext();
+
+    await runGuarded(store, ctx, vi.fn(async () => ({ ok: true })));
+
+    const outcomeCall = (fetch as any).mock.calls.find(([url]: [string]) => url.endsWith("/api/actions/act_ok/outcome"));
+    expect(JSON.parse(outcomeCall[1].body).status).toBe("completed");
+  });
+
+  it("posts the platform terminal status 'failed' for errored executions", async () => {
+    enableDashclaw({ decision: "allow", reason: "approved by policy", decision_id: "gd_f", action_id: "act_f" });
+    const { store, ctx } = productionDeployContext();
+
+    await runGuarded(store, ctx, vi.fn(async () => {
+      throw new Error("provider failed");
+    }));
+
+    const outcomeCall = (fetch as any).mock.calls.find(([url]: [string]) => url.endsWith("/api/actions/act_f/outcome"));
+    expect(JSON.parse(outcomeCall[1].body).status).toBe("failed");
+  });
+
+  it("does not post an outcome for blocked (never-dispatched) actions", async () => {
+    enableDashclaw({ decision: "block", reason: "window closed", decision_id: "gd_b", action_id: "act_b" });
+    const { store, ctx } = productionDeployContext();
+
+    const res = await runGuarded(store, ctx, vi.fn(async () => ({ ok: true })));
+
+    expect(res.status).toBe("blocked");
+    // The platform rejects outcomes for blocked/pending actions (R10) — nothing should be posted.
+    const outcomeCall = (fetch as any).mock.calls.find(([url]: [string]) => url.endsWith("/outcome"));
+    expect(outcomeCall).toBeUndefined();
+  });
+
   it("preserves provider success and one audit entry when DashClaw outcome recording fails", async () => {
     enableDashclawWithOutcomeFailure({
       decision: "allow",

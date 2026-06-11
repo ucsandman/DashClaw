@@ -184,6 +184,7 @@ export declare function neonCreateProject(store: Store, input: Base & {
     name?: string;
     regionId?: string;
     pgVersion?: number;
+    orgId?: string;
 }): Promise<GuardedResponse>;
 /**
  * get_neon_connection_uri — fetch the connection URI for a Neon project. The

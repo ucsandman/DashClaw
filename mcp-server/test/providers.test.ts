@@ -1989,7 +1989,7 @@ describe("Namecheap", () => {
 <Errors/>
 <RequestedCommand>namecheap.domains.dns.getHosts</RequestedCommand>
 <CommandResponse Type="namecheap.domains.dns.getHosts">
-<DomainDNSGetHostsResult Domain="domain1.com" IsUsingOurDNS="true">
+<DomainDNSGetHostsResult Domain="domain1.com" EmailType="FWD" IsUsingOurDNS="true">
 <Host HostId="12" Name="@" Type="A" Address="76.76.21.21" MXPref="10" TTL="1800"/>
 <Host HostId="14" Name="www" Type="CNAME" Address="cname.vercel-dns.com" MXPref="10" TTL="1800"/>
 </DomainDNSGetHostsResult>
@@ -2102,6 +2102,7 @@ describe("Namecheap", () => {
     expect(res.status).toBe("ok");
     expect((res as any).data).toMatchObject({
       domain: "domain1.com",
+      emailType: "FWD",
       records: [
         { name: "@", type: "A", address: "76.76.21.21", ttl: 1800 },
         { name: "www", type: "CNAME", address: "cname.vercel-dns.com", ttl: 1800 },
@@ -2113,10 +2114,33 @@ describe("Namecheap", () => {
     expect(url).toContain("TLD=com");
   });
 
+  it("gets DNS host records when the API returns lowercase <host> elements (live API casing)", async () => {
+    const store = freshStore();
+    seedAcme(store);
+    const lowercaseXml = GETHOSTS_XML.replace(/<Host /g, "<host ");
+    fetchMock = vi.fn(withDashclawRoute(() => mockXml(lowercaseXml)));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await pa.getDnsRecords(store, { environment: "staging", domain: "domain1.com" });
+
+    expect(res.status).toBe("ok");
+    expect((res as any).data).toMatchObject({
+      domain: "domain1.com",
+      records: [
+        { name: "@", type: "A", address: "76.76.21.21", ttl: 1800 },
+        { name: "www", type: "CNAME", address: "cname.vercel-dns.com", ttl: 1800 },
+      ],
+    });
+  });
+
   it("sets DNS host records with numbered params and env_change capability", async () => {
     const store = freshStore();
     seedAcme(store);
-    fetchMock = vi.fn(withDashclawRoute(() => mockXml(SETHOSTS_XML)));
+    fetchMock = vi.fn(
+      withDashclawRoute((url: string) =>
+        mockXml(url.includes("Command=namecheap.domains.dns.getHosts") ? GETHOSTS_XML : SETHOSTS_XML),
+      ),
+    );
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await pa.setDnsRecords(store, {
@@ -2129,7 +2153,10 @@ describe("Namecheap", () => {
     });
 
     expect(res.status).toBe("ok");
-    const [url] = providerCalls()[0]!;
+    // The write is preceded by a getHosts read so the domain's email service survives the replace.
+    const urls = providerCalls().map(([u]: [string]) => u);
+    expect(urls[0]).toContain("Command=namecheap.domains.dns.getHosts");
+    const url = urls[1]!;
     expect(url).toContain("Command=namecheap.domains.dns.setHosts");
     expect(url).toContain("HostName1=%40");
     expect(url).toContain("RecordType1=A");
@@ -2137,10 +2164,34 @@ describe("Namecheap", () => {
     expect(url).toContain("HostName2=www");
     expect(url).toContain("RecordType2=CNAME");
     expect(url).toContain("TTL2=300");
+    expect(url).toContain("EmailType=FWD");
     expect(lastAudit(store)).toMatchObject({ tool: "set_dns_records", result: "success" });
     // Capability env_change reaches the DashClaw guard payload.
     const guardBody = fetchMock.mock.calls.find(([u]: [string]) => u === "https://dashclaw.example/api/guard")?.[1]?.body;
     expect(String(guardBody)).toContain('"capability":"env_change"');
+  });
+
+  it("omits EmailType on setHosts when the domain reports none", async () => {
+    const store = freshStore();
+    seedAcme(store);
+    const noEmailTypeXml = GETHOSTS_XML.replace(' EmailType="FWD"', "");
+    fetchMock = vi.fn(
+      withDashclawRoute((url: string) =>
+        mockXml(url.includes("Command=namecheap.domains.dns.getHosts") ? noEmailTypeXml : SETHOSTS_XML),
+      ),
+    );
+    vi.stubGlobal("fetch", fetchMock);
+
+    const res = await pa.setDnsRecords(store, {
+      environment: "staging",
+      domain: "domain1.com",
+      records: [{ name: "@", type: "A", address: "76.76.21.21" }],
+    });
+
+    expect(res.status).toBe("ok");
+    const urls = providerCalls().map(([u]: [string]) => u);
+    expect(urls[1]).toContain("Command=namecheap.domains.dns.setHosts");
+    expect(urls[1]).not.toContain("EmailType=");
   });
 
   it("requires approval for purchase_domain end-to-end even with an explicit allow policy", async () => {
@@ -2295,12 +2346,12 @@ describe("Neon", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    const res = await pa.neonCreateProject(store, { environment: "staging", name: "acme-db" });
+    const res = await pa.neonCreateProject(store, { environment: "staging", name: "acme-db", orgId: "org-test-123" });
 
     expect(res.status).toBe("ok");
     const [url, init] = providerCalls()[0]!;
     expect(url).toBe("https://console.neon.tech/api/v2/projects");
-    expect(JSON.parse(init.body)).toMatchObject({ project: { name: "acme-db" } });
+    expect(JSON.parse(init.body)).toMatchObject({ project: { name: "acme-db", org_id: "org-test-123" } });
     expect((res as any).data).toMatchObject({
       project: { id: "proj-new", name: "acme-db" },
       branchId: "br-1",
@@ -2313,7 +2364,7 @@ describe("Neon", () => {
   it("returns the connection URI for a project via query params", async () => {
     const store = freshStore();
     seedAcme(store);
-    fetchMock = vi.fn(withDashclawRoute(() => mockOk({ connection_uri: NEON_URI })));
+    fetchMock = vi.fn(withDashclawRoute(() => mockOk({ uri: NEON_URI })));
     vi.stubGlobal("fetch", fetchMock);
 
     const res = await pa.neonGetConnectionUri(store, {
@@ -2337,7 +2388,7 @@ describe("Neon", () => {
     fetchMock = vi.fn(
       withDashclawRoute((url) =>
         url.endsWith("/connection_uri") || url.includes("/connection_uri?")
-          ? mockOk({ connection_uri: NEON_URI })
+          ? mockOk({ uri: NEON_URI })
           : mockOk({
               project: { id: "proj-new", name: "acme-db" },
               branch: { id: "br-1" },

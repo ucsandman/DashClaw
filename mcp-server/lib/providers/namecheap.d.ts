@@ -66,6 +66,7 @@ export interface DnsHostRecord {
 export declare function getDnsHosts(apiKey: string, domain: string): Promise<{
     domain: string;
     isUsingOurDNS: boolean;
+    emailType?: string;
     records: DnsHostRecord[];
 }>;
 export interface DnsRecordInput {
@@ -75,8 +76,12 @@ export interface DnsRecordInput {
     ttl?: number;
     mxPref?: number;
 }
-/** WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain. */
-export declare function setDnsHosts(apiKey: string, domain: string, records: DnsRecordInput[]): Promise<{
+/**
+ * WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain.
+ * It also resets the domain's email service unless EmailType is re-sent — pass the
+ * value from getDnsHosts to preserve e.g. email forwarding (FWD).
+ */
+export declare function setDnsHosts(apiKey: string, domain: string, records: DnsRecordInput[], emailType?: string): Promise<{
     domain: string;
     isSuccess: boolean;
 }>;

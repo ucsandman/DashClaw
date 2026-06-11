@@ -33,6 +33,8 @@ export async function createProject(token, params = {}) {
                 name: params.name,
                 region_id: params.regionId,
                 pg_version: params.pgVersion,
+                // Required by Neon for accounts that belong to an organization.
+                org_id: params.orgId,
             },
         }),
     });
@@ -52,6 +54,7 @@ export async function getConnectionUri(token, params) {
             pooled: params.pooled === undefined ? undefined : String(params.pooled),
         },
     });
-    return { connectionUri: data?.connection_uri };
+    // The live API returns { uri }; older docs/fixtures show { connection_uri }.
+    return { connectionUri: data?.uri ?? data?.connection_uri };
 }
 //# sourceMappingURL=neon.js.map

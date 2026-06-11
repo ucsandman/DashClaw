@@ -796,7 +796,13 @@ export async function setDnsRecords(store, input) {
     }
     return runGuarded(store, ctx(project, environment, "namecheap", "env_change", "set_dns_records", `REPLACE all DNS host records for ${domain}`, {
         resourceLabel: domain,
-    }), () => nc.setDnsHosts(tokenFor(store, "namecheap"), domain, input.records));
+    }), async () => {
+        const token = tokenFor(store, "namecheap");
+        // setHosts resets the domain's email service (e.g. forwarding) unless EmailType
+        // is re-sent — read the current value first and carry it across the replace.
+        const current = await nc.getDnsHosts(token, domain);
+        return nc.setDnsHosts(token, domain, input.records, current.emailType);
+    });
 }
 // --- Neon --------------------------------------------------------------------
 /** list_neon_projects — Neon projects visible to the API key (read-only). */
@@ -814,6 +820,7 @@ export async function neonCreateProject(store, input) {
         name: input.name,
         regionId: input.regionId,
         pgVersion: input.pgVersion,
+        orgId: input.orgId,
     }));
 }
 /**

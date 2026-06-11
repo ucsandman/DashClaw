@@ -16,6 +16,7 @@ export declare function createProject(token: string, params?: {
     name?: string;
     regionId?: string;
     pgVersion?: number;
+    orgId?: string;
 }): Promise<NeonCreatedProject>;
 export declare function getConnectionUri(token: string, params: {
     projectId: string;

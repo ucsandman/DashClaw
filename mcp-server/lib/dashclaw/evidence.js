@@ -40,11 +40,23 @@ export function dashclawRecentDecisionsFetch(query) {
         },
     });
 }
+// The platform's outcome endpoint accepts only its terminal states
+// (completed | partial | failed) and rejects outcomes for actions that were
+// never dispatched (blocked / pending approval) — see
+// app/api/actions/[actionId]/outcome/route.ts (R10).
+const WIRE_STATUS = {
+    success: "completed",
+    error: "failed",
+    not_executed: undefined,
+};
 export async function recordDashclawOutcome(input) {
+    const wireStatus = WIRE_STATUS[input.status];
+    if (!wireStatus)
+        return false;
     await dashclawFetch(`/api/actions/${encodeURIComponent(input.actionId)}/outcome`, {
         method: "POST",
         body: {
-            status: input.status,
+            status: wireStatus,
             duration_ms: input.durationMs,
             summary: input.summary,
             metadata: input.metadata,

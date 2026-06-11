@@ -1144,6 +1144,7 @@ function registerProviderTools(server: McpServer, store: Store): void {
         name: optionalNonEmptyString("Project name (Neon generates one if omitted)"),
         region_id: optionalNonEmptyString("Neon region, e.g. aws-us-east-1"),
         pg_version: positiveInt("Postgres major version, e.g. 17").optional(),
+        org_id: optionalNonEmptyString("Neon organization id (required by Neon for org accounts)"),
       },
     },
     guard((a: any) =>
@@ -1153,6 +1154,7 @@ function registerProviderTools(server: McpServer, store: Store): void {
         name: a.name,
         regionId: a.region_id,
         pgVersion: a.pg_version,
+        orgId: a.org_id,
       }),
     ),
   );

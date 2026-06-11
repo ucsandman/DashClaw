@@ -241,14 +241,16 @@ export interface DnsHostRecord {
 export async function getDnsHosts(
   apiKey: string,
   domain: string,
-): Promise<{ domain: string; isUsingOurDNS: boolean; records: DnsHostRecord[] }> {
+): Promise<{ domain: string; isUsingOurDNS: boolean; emailType?: string; records: DnsHostRecord[] }> {
   const { sld, tld } = splitDomain(domain);
   const cr = await apiCall(apiKey, "namecheap.domains.dns.getHosts", { SLD: sld, TLD: tld });
   const r = cr?.DomainDNSGetHostsResult ?? {};
   return {
     domain: String(r["@_Domain"] ?? domain),
     isUsingOurDNS: bool(r["@_IsUsingOurDNS"]),
-    records: toArray<any>(r.Host).map((h) => ({
+    emailType: r["@_EmailType"] === undefined ? undefined : String(r["@_EmailType"]),
+    // The live API returns lowercase <host> elements; docs and some fixtures use <Host>.
+    records: toArray<any>(r.host ?? r.Host).map((h) => ({
       hostId: h["@_HostId"] === undefined ? undefined : String(h["@_HostId"]),
       name: String(h["@_Name"]),
       type: String(h["@_Type"]),
@@ -267,14 +269,20 @@ export interface DnsRecordInput {
   mxPref?: number;
 }
 
-/** WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain. */
+/**
+ * WARNING: namecheap.domains.dns.setHosts REPLACES ALL host records for the domain.
+ * It also resets the domain's email service unless EmailType is re-sent — pass the
+ * value from getDnsHosts to preserve e.g. email forwarding (FWD).
+ */
 export async function setDnsHosts(
   apiKey: string,
   domain: string,
   records: DnsRecordInput[],
+  emailType?: string,
 ): Promise<{ domain: string; isSuccess: boolean }> {
   const { sld, tld } = splitDomain(domain);
   const params: Record<string, string | undefined> = { SLD: sld, TLD: tld };
+  if (emailType) params.EmailType = emailType;
   records.forEach((record, index) => {
     const n = index + 1;
     params[`HostName${n}`] = record.name;
