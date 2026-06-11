@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardHeader, CardContent } from '../components/ui/Card';
-import { canonicalizeJson } from '../lib/integrity/canonicalize';
+import { canonicalizeJson } from '../lib/integrity/canonicalize-pure';
 
 type WorkOrder = {
   id: string; type: string; type_version?: string; status: string;
@@ -44,6 +44,7 @@ export default function WorkOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [verifyResult, setVerifyResult] = useState<null | 'valid' | 'invalid'>(null);
+  const detailReqRef = useRef(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -77,10 +78,12 @@ export default function WorkOrdersPage() {
 
   const openOrder = useCallback(async (id: string) => {
     setVerifyResult(null);
+    const reqId = ++detailReqRef.current;
     try {
       const res = await fetch(`/api/work-orders/${id}`, { cache: 'no-store' });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
+      if (reqId !== detailReqRef.current) return;
       setSelected({ order: json.work_order, receipt: json.receipt });
     } catch (err) {
       console.error('Failed to load work order detail:', err);
@@ -147,7 +150,14 @@ export default function WorkOrdersPage() {
                     </thead>
                     <tbody>
                       {orders.map((o) => (
-                        <tr key={o.id} className="border-t border-border cursor-pointer hover:bg-surface-secondary" onClick={() => openOrder(o.id)}>
+                        <tr
+                          key={o.id}
+                          className="border-t border-border cursor-pointer hover:bg-surface-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                          tabIndex={0}
+                          role="button"
+                          onClick={() => openOrder(o.id)}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openOrder(o.id); } }}
+                        >
                           <td className="py-2 pr-3 font-mono text-xs">{o.id}</td>
                           <td className="py-2 pr-3">{o.type}</td>
                           <td className="py-2 pr-3"><StatusChip status={o.status} /></td>
