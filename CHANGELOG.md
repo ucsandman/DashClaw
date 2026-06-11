@@ -13,6 +13,10 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **The marketing-site "Mission Control" CTA enters the demo sandbox again.** The launch-prep commit (`1f525c87`) repointed `/demo` at the landing-page live-demo widget and dropped the `dashclaw_demo` cookie set, which orphaned the entire cookie-demo path — the navbar/footer "Mission Control" buttons became a visible no-op on the landing page and the demo dashboard was unreachable from the UI. Plain `/demo` keeps the launch-prep behavior (live-demo anchor, no cookie); the new `/demo?sandbox=1` (now wired to both Mission Control CTAs) mints the 24h httpOnly cookie and forwards into `/mission-control`, where reads serve deterministic fixtures and writes stay blocked. `/demo?leave=1` still exits.
+
 ## [4.11.0] — 2026-06-11
 
 ### Added
