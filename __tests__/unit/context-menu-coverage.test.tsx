@@ -38,8 +38,7 @@ const TAGGED_FILES: Array<[string, string]> = [
   ['team', 'app/team/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
   ['security signals', 'app/security/page.tsx'],
-  ['policies cockpit (ShieldList)', 'app/policies/components/ShieldList.tsx'],
-  ['policies (RecentDigest)', 'app/policies/components/RecentDigest.tsx'],
+  ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],
   ['agent policies section', 'app/agents/[agentId]/components/AgentPoliciesSection.tsx'],
 ];
 
@@ -50,8 +49,8 @@ describe('context-menu coverage — tagging inventory', () => {
     expect(code).toMatch(/data-entity-id/);
   });
 
-  it('marks policy rows as right-clickable in PolicyCockpit (ShieldList) and AgentPoliciesSection', () => {
-    expect(src('app/policies/components/ShieldList.tsx')).toMatch(/data-entity-type="policy"/);
+  it('marks policy rows as right-clickable in PolicyCockpit (ContractPanel) and AgentPoliciesSection', () => {
+    expect(src('app/policies/components/ContractPanel.tsx')).toMatch(/data-entity-type="policy"/);
     expect(src('app/agents/[agentId]/components/AgentPoliciesSection.tsx')).toMatch(/data-entity-type="policy"/);
   });
 });

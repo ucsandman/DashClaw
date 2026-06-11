@@ -9,14 +9,12 @@ const { mockFetchSummary, searchParamsRef } = vi.hoisted(() => ({
 vi.mock('next/navigation', () => ({ useSearchParams: () => searchParamsRef.current }));
 vi.mock('@/policies/lib/modesClient', () => ({ fetchSummary: mockFetchSummary }));
 // Stub the leaf children so this test isolates the cockpit's orchestration.
-vi.mock('@/policies/components/PostureHeader', () => ({ default: () => <div data-testid="posture-header" /> }));
-vi.mock('@/policies/components/EnforcementSummary', () => ({ default: () => <div data-testid="enforcement-summary" /> }));
-vi.mock('@/policies/components/ShieldList', () => ({
+vi.mock('@/policies/components/ContractPanel', () => ({
   default: ({ highlight }: { highlight?: string | null }) => (
-    <div data-testid="shield-list" data-highlight={highlight ?? ''} />
+    <div data-testid="contract-panel" data-highlight={highlight ?? ''} />
   ),
 }));
-vi.mock('@/policies/components/RecentDigest', () => ({ default: () => <div data-testid="recent-digest" /> }));
+vi.mock('@/policies/components/ReviewFeed', () => ({ default: () => <div data-testid="review-feed" /> }));
 vi.mock('@/policies/components/ModeDrawer', () => ({
   default: ({ open }: { open: boolean }) => <div data-testid="mode-drawer" data-open={String(open)} />,
 }));
@@ -39,18 +37,15 @@ const baseSummary = {
 beforeEach(() => {
   vi.clearAllMocks();
   searchParamsRef.current = new URLSearchParams();
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ decisions: [] }) })));
+  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({}) })));
 });
 
 describe('PolicyCockpit', () => {
   it('renders the cockpit sections when governed', async () => {
     mockFetchSummary.mockResolvedValue(baseSummary);
     render(<PolicyCockpit />);
-    await waitFor(() => screen.getByTestId('posture-header'));
-    // getBy* throw if absent — presence is the assertion.
-    screen.getByTestId('enforcement-summary');
-    screen.getByTestId('shield-list');
-    screen.getByTestId('recent-digest');
+    await waitFor(() => screen.getByTestId('contract-panel'));
+    screen.getByTestId('review-feed');
   });
 
   it('renders a calm empty state when ungoverned (not a settings dump)', async () => {
@@ -58,7 +53,7 @@ describe('PolicyCockpit', () => {
     render(<PolicyCockpit />);
     await waitFor(() => screen.getByText(/No mode applied/i));
     screen.getByRole('button', { name: /Apply a mode/i });
-    expect(screen.queryByTestId('posture-header')).toBeNull();
+    expect(screen.queryByTestId('contract-panel')).toBeNull();
   });
 
   it('fails loud on a summary error rather than showing an ungoverned state', async () => {
@@ -66,14 +61,14 @@ describe('PolicyCockpit', () => {
     render(<PolicyCockpit />);
     await waitFor(() => screen.getByText(/Couldn.t load posture/i));
     expect(screen.queryByText(/No mode applied/i)).toBeNull();
-    expect(screen.queryByTestId('posture-header')).toBeNull();
+    expect(screen.queryByTestId('contract-panel')).toBeNull();
   });
 
-  it('passes the ?policy deep-link param through to ShieldList for highlighting', async () => {
+  it('passes the ?policy deep-link param through to ContractPanel for highlighting', async () => {
     searchParamsRef.current = new URLSearchParams('policy=spend-cap');
     mockFetchSummary.mockResolvedValue(baseSummary);
     render(<PolicyCockpit />);
-    await waitFor(() => screen.getByTestId('shield-list'));
-    expect(screen.getByTestId('shield-list').getAttribute('data-highlight')).toBe('spend-cap');
+    await waitFor(() => screen.getByTestId('contract-panel'));
+    expect(screen.getByTestId('contract-panel').getAttribute('data-highlight')).toBe('spend-cap');
   });
 });

@@ -5,11 +5,8 @@ import { useSearchParams } from 'next/navigation';
 import { ShieldOff } from 'lucide-react';
 import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
-import { SHIELDS, matchShieldsToPolicies, buildShieldPayload } from '../lib/shields';
-import PostureHeader from './PostureHeader';
-import EnforcementSummary from './EnforcementSummary';
-import ShieldList from './ShieldList';
-import RecentDigest, { type RecentDecision } from './RecentDigest';
+import ContractPanel from './ContractPanel';
+import ReviewFeed from './ReviewFeed';
 import ModeDrawer from './ModeDrawer';
 
 /**
@@ -22,33 +19,16 @@ export default function PolicyCockpit() {
   // Deep-link target from an EntityLink (policy → /policies?policy=<id|name>).
   const policyHighlight = searchParams.get('policy');
   const [summary, setSummary] = useState<PolicySummary | null>(null);
-  const [recent, setRecent] = useState<RecentDecision[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [busyShield, setBusyShield] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(false);
     try {
-      const [s, decisionsRes] = await Promise.all([
-        fetchSummary(),
-        fetch('/api/guard/decisions?limit=5')
-          .then((r) => (r.ok ? r.json() : { decisions: [] }))
-          .catch(() => ({ decisions: [] })),
-      ]);
+      const s = await fetchSummary();
       setSummary(s);
-      const rows = (decisionsRes.decisions || []) as Array<Record<string, unknown>>;
-      setRecent(
-        rows.map((d) => ({
-          id: String(d.id ?? ''),
-          decision: String(d.decision ?? ''),
-          agentLabel: String(d.agent_name ?? d.agent_id ?? 'agent'),
-          actionType: String(d.action_type ?? ''),
-          createdAt: String(d.created_at ?? ''),
-        })),
-      );
     } catch {
       setError(true);
     } finally {
@@ -59,39 +39,6 @@ export default function PolicyCockpit() {
   useEffect(() => {
     load();
   }, [load]);
-
-  // Shield on/off mirrors the legacy ShieldsGrid contract: create on first
-  // enable, otherwise flip the existing policy's `active` flag.
-  const handleShieldToggle = useCallback(
-    async (shieldId: string, next: boolean) => {
-      setBusyShield(shieldId);
-      try {
-        const shield = (SHIELDS as Array<{ id: string }>).find((s) => s.id === shieldId);
-        if (!shield) return;
-        const all = await fetch('/api/policies')
-          .then((r) => (r.ok ? r.json() : { policies: [] }))
-          .catch(() => ({ policies: [] }));
-        const policy = matchShieldsToPolicies(all.policies || []).get(shieldId) as { id?: string } | null;
-        if (next && !policy) {
-          await fetch('/api/policies', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(buildShieldPayload(shield)),
-          });
-        } else if (policy?.id) {
-          await fetch('/api/policies', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: policy.id, active: next ? 1 : 0 }),
-          });
-        }
-        await load();
-      } finally {
-        setBusyShield(null);
-      }
-    },
-    [load],
-  );
 
   if (loading) {
     return (
@@ -142,25 +89,10 @@ export default function PolicyCockpit() {
     );
   }
 
-  const scopeLabel = summary.scope.allAgents ? 'All agents' : 'Custom scope';
-
   return (
     <div className="max-w-3xl space-y-8">
-      <PostureHeader
-        primaryMode={summary.primaryMode}
-        modeCount={summary.modes.length}
-        agentsTotal={summary.agents.total}
-        pendingApprovals={summary.pendingApprovals}
-        scopeLabel={scopeLabel}
-        onChangeMode={() => setDrawerOpen(true)}
-      />
-      <EnforcementSummary
-        enforcement={summary.enforcement}
-        rules={summary.rules}
-        decisions30d={summary.decisions30d}
-      />
-      <ShieldList shields={summary.shields} onToggle={handleShieldToggle} busyId={busyShield} highlight={policyHighlight} />
-      <RecentDigest decisions={recent} />
+      <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} />
+      <ReviewFeed />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
     </div>
   );
