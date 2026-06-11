@@ -1599,3 +1599,73 @@ export function demoRegistryInvoke() {
     result: { enriched: true, company: 'Acme Corp', confidence: 0.92 },
   };
 }
+
+// ── Work Orders (demo) ────────────────────────────────────────────────────────
+
+const DEMO_WORK_ORDER_TYPES = [
+  {
+    id: 'wot_demo_1', type: 'research_brief', version: '1.0', status: 'active',
+    display_name: 'Research Brief', description: 'Structured research synthesis: topic in, sourced findings out.',
+    default_max_cost_usd: '0.50', default_timeout_seconds: 600,
+    input_schema: { type: 'object', required: ['topic'], properties: { topic: { type: 'string' } } },
+    output_schema: { type: 'object', required: ['title', 'summary', 'findings'], properties: { title: { type: 'string' }, summary: { type: 'string' }, findings: { type: 'array', items: { type: 'string' } } } },
+    created_at: '2026-06-01T12:00:00.000Z', updated_at: '2026-06-01T12:00:00.000Z',
+  },
+];
+
+const DEMO_WORK_ORDERS = [
+  {
+    id: 'wo_demo_completed', type: 'research_brief', type_version: '1.0', status: 'completed',
+    input: { topic: 'Agent-to-agent payment protocols' }, input_hash: 'sha256:demo-input',
+    max_cost_usd: '0.25', timeout_seconds: 600, requested_by: 'orchestrator-1', claimed_by: 'research-worker-1',
+    guard_decision: { decision: 'allow', decision_id: 'act_gd_demo1', risk_score: 12, matched_policies: [] },
+    created_at: '2026-06-10T14:00:00.000Z', claimed_at: '2026-06-10T14:00:04.000Z', completed_at: '2026-06-10T14:02:31.000Z',
+  },
+  {
+    id: 'wo_demo_pending', type: 'research_brief', type_version: '1.0', status: 'pending_approval',
+    input: { topic: 'Production deploy risk assessment' }, input_hash: 'sha256:demo-input-2',
+    max_cost_usd: '5.00', timeout_seconds: 1200, requested_by: 'orchestrator-1', claimed_by: null,
+    guard_decision: { decision: 'require_approval', decision_id: 'act_gd_demo2', risk_score: 72, matched_policies: ['spend-ceiling'] },
+    created_at: '2026-06-11T09:30:00.000Z', claimed_at: null, completed_at: null,
+  },
+  {
+    id: 'wo_demo_queued', type: 'research_brief', type_version: '1.0', status: 'queued',
+    input: { topic: 'Competitor receipt formats' }, input_hash: 'sha256:demo-input-3',
+    max_cost_usd: '0.40', timeout_seconds: 600, requested_by: 'orchestrator-2', claimed_by: null,
+    guard_decision: { decision: 'allow', decision_id: 'act_gd_demo3', risk_score: 8, matched_policies: [] },
+    created_at: '2026-06-11T10:10:00.000Z', claimed_at: null, completed_at: null,
+  },
+];
+
+const DEMO_WORK_ORDER_RECEIPT = {
+  receipt: {
+    receipt_version: '1.0', work_order_id: 'wo_demo_completed', type: 'research_brief', type_version: '1.0',
+    status: 'completed', input_hash: 'sha256:demo-input', output_hash: 'sha256:demo-output',
+    budget: { max_cost_usd: 0.25, timeout_seconds: 600 },
+    cost: { input_tokens: 4200, output_tokens: 1800, total_usd: 0.11 },
+    over_budget: false, worker: 'research-worker-1', requested_by: 'orchestrator-1',
+    lifecycle: { created_at: '2026-06-10T14:00:00.000Z', claimed_at: '2026-06-10T14:00:04.000Z', completed_at: '2026-06-10T14:02:31.000Z' },
+    error: null,
+    governance: { mode: 'governed', guard_decision_id: 'act_gd_demo1', audit_record_id: 'act_demo_audit', matched_policies: [] },
+  },
+  receipt_hash: 'sha256:demo-receipt-hash',
+};
+
+export function demoListWorkOrders(url: URL) {
+  const status = url.searchParams.get('status') || undefined;
+  const type = url.searchParams.get('type') || undefined;
+  let items = [...DEMO_WORK_ORDERS];
+  if (status) items = items.filter((o) => o.status === status);
+  if (type) items = items.filter((o) => o.type === type);
+  return { work_orders: items, total: items.length };
+}
+
+export function demoGetWorkOrder(workOrderId: string) {
+  const order = DEMO_WORK_ORDERS.find((o) => o.id === workOrderId) || null;
+  if (!order) return { error: 'work_order_not_found', code: 'work_order_not_found' };
+  return { work_order: order, receipt: order.status === 'completed' ? DEMO_WORK_ORDER_RECEIPT : null };
+}
+
+export function demoListWorkOrderTypes() {
+  return { types: DEMO_WORK_ORDER_TYPES, total: DEMO_WORK_ORDER_TYPES.length };
+}

@@ -17,7 +17,8 @@ import {
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoPosture, demoPostureFindings, demoSpend, demoX402Purchases,
-  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
+  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
+  demoListWorkOrders, demoGetWorkOrder, demoListWorkOrderTypes
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -1161,6 +1162,14 @@ const DEMO_API_ROUTES = [
   ['/api/behavior/recorder', demoPayloadRoute(demoBehaviorRecorder)],
   ['/api/behavior/samples', demoFixtureUrlRoute(demoBehaviorSamples)],
   ['/api/behavior/suggestions', demoFixtureRoute(demoBehaviorSuggestions)],
+  // -- Work Orders demo endpoints (GET only; POST/DELETE fall to write-block) --
+  // /types must precede the /:id prefix match or 'types' would be treated as an id.
+  ['/api/work-orders/types', ({ request }) => demoJson(request, demoListWorkOrderTypes())],
+  ['/api/work-orders', ({ request, url }) => demoJson(request, demoListWorkOrders(url))],
+  [(pathname, segments) => segmentsMatch(segments, ['api', 'work-orders', '*']), ({ request, segments }) => {
+    const result = demoGetWorkOrder(segments[2]);
+    return demoJson(request, result, result.error ? 404 : 200);
+  }],
 ];
 
 async function dispatchDemoApiRoute(ctx) {
