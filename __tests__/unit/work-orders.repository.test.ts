@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   assertTransition, createWorkOrder, claimNextWorkOrder, sweepExpiredLeases,
+  transitionWorkOrder,
   LEGAL_TRANSITIONS,
 } from '@/lib/repositories/work-orders.repository';
 
@@ -64,5 +65,34 @@ describe('sweepExpiredLeases', () => {
     const swept = await sweepExpiredLeases(sql, 'org_1');
     expect(swept).toHaveLength(1);
     expect(swept[0]!.id).toBe('wo_expired');
+  });
+});
+
+describe('transitionWorkOrder', () => {
+  it('includes the expected-state guard value in the UPDATE call', async () => {
+    // First call: getWorkOrder returns current row (status=claimed).
+    // Second call: the UPDATE with the state guard.
+    const sql = makeSqlMock([
+      [{ id: 'wo_1', status: 'claimed', error_code: null, error_details: null, completed_at: null }],
+      [{ id: 'wo_1', status: 'completed' }],
+    ]);
+    const row = await transitionWorkOrder(sql, 'org_1', 'wo_1', 'completed');
+    expect(row).not.toBeNull();
+    const mock = sql as unknown as { calls: { values: unknown[] }[] };
+    // The second call is the UPDATE — it must carry 'claimed' as the expected-state guard.
+    expect(mock.calls[1]!.values).toContain('claimed');
+  });
+
+  it('throws on illegal transition and issues no UPDATE', async () => {
+    // First call: getWorkOrder returns a terminal (completed) row.
+    const sql = makeSqlMock([
+      [{ id: 'wo_1', status: 'completed', error_code: null, error_details: null, completed_at: null }],
+    ]);
+    await expect(transitionWorkOrder(sql, 'org_1', 'wo_1', 'queued')).rejects.toThrow(
+      'illegal work order transition: completed -> queued',
+    );
+    const mock = sql as unknown as { calls: { values: unknown[] }[] };
+    // Only the SELECT (getWorkOrder) should have been called — no UPDATE.
+    expect(mock.calls).toHaveLength(1);
   });
 });

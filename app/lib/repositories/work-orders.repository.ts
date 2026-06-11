@@ -234,7 +234,7 @@ export async function transitionWorkOrder(
       error_details = ${patch.errorDetails ?? (current.error_details as string | null)},
       completed_at = ${terminal ? new Date().toISOString() : (current.completed_at as string | null)},
       updated_at = NOW()
-    WHERE org_id = ${orgId} AND id = ${id}
+    WHERE org_id = ${orgId} AND id = ${id} AND status = ${String(current.status)}
     RETURNING *`;
   return rows[0] ?? null;
 }
@@ -255,6 +255,10 @@ export async function sweepExpiredLeases(sql: SqlTag, orgId: string): Promise<Ro
 // was decided in Mission Control. running -> queued (approved); failed -> cancelled (denied).
 // Joins on action_records.action_id (the act_* public id) and action_records.status.
 export async function sweepApprovalReleases(sql: SqlTag, orgId: string): Promise<Row[]> {
+  // The two UPDATE statements below target disjoint sets (ar.status='running' vs ar.status='failed'),
+  // so partial failure cannot half-apply to the same row. Any row missed by a failed statement
+  // retains its pending_approval status and is retried by the next lazy sweep.
+  // Intentionally NOT wrapped in a transaction: the Neon HTTP driver is single-statement only.
   const released = await sql`
     UPDATE work_orders wo SET status = 'queued', updated_at = NOW()
     FROM action_records ar
