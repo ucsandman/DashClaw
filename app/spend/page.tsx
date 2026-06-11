@@ -131,6 +131,30 @@ export default function SpendOverviewPage() {
             </div>
           )}
 
+          {data.agent?.attribution &&
+            data.agent.attribution.total_count > 0 &&
+            Number(data.agent.attribution.coverage_pct) < 90 && (
+            <div className="rounded-xl border border-warning/30 bg-warning/5 p-4 text-sm" role="status">
+              <div className="font-medium text-warning mb-1">
+                Token attribution coverage is {data.agent.attribution.coverage_pct}% —{' '}
+                {data.agent.attribution.total_count - data.agent.attribution.attributed_count} of{' '}
+                {data.agent.attribution.total_count} actions in this period carry no token data
+              </div>
+              <div className="text-secondary text-xs">
+                Actions without tokens produce $0 cost rows. Lowest-coverage agents:{' '}
+                <span className="font-mono">
+                  {(data.agent.by_agent || [])
+                    .filter((a: any) => a.coverage_pct !== null && a.coverage_pct < 100)
+                    .sort((a: any, b: any) => a.coverage_pct - b.coverage_pct)
+                    .slice(0, 3)
+                    .map((a: any) => `${a.agent_id} (${a.coverage_pct}%)`)
+                    .join(', ')}
+                </span>
+                {' — '}check that agent's runtime plugin/hook wiring, then re-run npm run diagnose:cost.
+              </div>
+            </div>
+          )}
+
           <div className="rounded-xl border border-border bg-surface-secondary p-5">
             <div className="text-[10px] font-medium uppercase tracking-widest text-tertiary mb-4">Daily fleet spend</div>
             {trend.length === 0 ? (
