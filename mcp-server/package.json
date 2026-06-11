@@ -1,8 +1,8 @@
 {
   "name": "@dashclaw/mcp-server",
-  "version": "1.0.3",
+  "version": "2.0.0",
   "mcpName": "io.github.ucsandman/dashclaw",
-  "description": "MCP server for DashClaw governance — guard, record, invoke, and discover capabilities.",
+  "description": "MCP server for DashClaw governance and governed execution — guard, record, invoke, discover capabilities, and run provider operations (Vercel, Neon, Stripe, GitHub, and more) through the governance loop.",
   "type": "module",
   "bin": {
     "dashclaw-mcp": "bin/dashclaw-mcp.js"
@@ -17,6 +17,8 @@
   "files": [
     "bin/",
     "lib/",
+    "docs/",
+    "NOTICE",
     "LICENSE",
     "README.md"
   ],
@@ -30,7 +32,7 @@
     "agent-governance"
   ],
   "author": "DashClaw",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "homepage": "https://github.com/ucsandman/DashClaw/tree/main/mcp-server#readme",
   "bugs": {
     "url": "https://github.com/ucsandman/DashClaw/issues"
@@ -46,8 +48,32 @@
   "engines": {
     "node": ">=18.0.0"
   },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "cli": "tsx src/cli.ts",
+    "start": "node lib/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "verify": "npm run typecheck && npm run build && npm test && npm audit",
+    "prepublishOnly": "npm run verify"
+  },
   "dependencies": {
+    "@cfworker/json-schema": "^4.1.1",
+    "@modelcontextprotocol/sdk": "^1.12.0",
     "@modelcontextprotocol/server": "2.0.0-alpha.2",
-    "@cfworker/json-schema": "^4.1.1"
+    "fast-xml-parser": "^5.8.0",
+    "yaml": "^2.5.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0",
+    "vitest": "^3.2.6"
+  },
+  "overrides": {
+    "vite": "6.4.2"
   }
 }

@@ -4,7 +4,7 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "lib": ["ES2022"],
-    "outDir": "dist",
+    "outDir": "lib",
     "rootDir": "src",
     "declaration": true,
     "sourceMap": true,
@@ -20,5 +20,5 @@
     "verbatimModuleSyntax": false
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", "test"]
+  "exclude": ["node_modules", "lib", "test"]
 }
