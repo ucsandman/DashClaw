@@ -36,8 +36,10 @@ const SECRET_PATTERNS = [
   { pattern: /secret\s*[=:]\s*["'][^"']{8,}["']/, name: 'Hardcoded Secret' },
 ];
 
-// Files/directories to skip
-const SKIP_DIRS = ['node_modules', '.next', '.git', 'dist', 'build', '.vercel', '.claude', '__tests__'];
+// Files/directories to skip. Test suites ('__tests__' at the root,
+// 'test' in the packages, e.g. mcp-server/test) hold dummy-credential
+// fixtures for redaction/env-bundle assertions — not deployable secrets.
+const SKIP_DIRS = ['node_modules', '.next', '.git', 'dist', 'build', '.vercel', '.claude', '__tests__', 'test'];
 const SKIP_FILES = ['package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
 const SKIP_EXTENSIONS = ['.md']; // Docs often contain examples
 
