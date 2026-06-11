@@ -15,7 +15,7 @@ const HYPHEN_VARIANTS = /[‐‑−]/g; // hyphen, non-breaking hyphen, minus
 const SINGLE_QUOTES = /[‘’‚‛]/g;
 const DOUBLE_QUOTES = /[“”„‟]/g;
 const ELLIPSIS = /…/g;
-const NBSP = / /g; // non-breaking space (U+00A0), escaped so the regex body is reviewable
+const NBSP = /\u00A0/g; // non-breaking space (U+00A0), escaped so the regex body is reviewable
 
 /** Normalize text for comparison: NFC plus ASCII dash/quote/ellipsis hygiene. Idempotent. */
 export function canonicalizeText(input: string): string {
