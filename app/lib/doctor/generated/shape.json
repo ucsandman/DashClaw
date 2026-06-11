@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:c7ed8ca5b47a5373698647049f1aa4d4d7df63f0",
+  "timestamp": "sha1:f3958327a658419bf60d75da1fd7c3daa95dd2fa",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3206,6 +3206,23 @@
       "in_env_example": false
     },
     {
+      "name": "CLERK_SECRET_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CLOUDFLARE_API_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "CONVERGENCE_BENCH_CONCURRENCY",
       "required": false,
       "files": [
@@ -3288,6 +3305,54 @@
       "in_env_example": false
     },
     {
+      "name": "CUSTOM_GITHUB_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CUSTOM_SENTRY_A_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CUSTOM_SENTRY_B_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CUSTOM_SENTRY_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/registration.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CUSTOM_STRIPE_TEST_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "CUSTOM_VERCEL_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_ACT_BINDING",
       "required": false,
       "files": [
@@ -3314,7 +3379,10 @@
         "app/self-host/SetupTabs.tsx",
         "examples/first-governed-action.js",
         "examples/governed-chat-harness/index.js",
-        "mcp-server/bin/dashclaw-mcp.js",
+        "mcp-server/lib/index.js",
+        "mcp-server/lib/server.js",
+        "mcp-server/src/index.ts",
+        "mcp-server/src/server.ts",
         "scripts/branch-finish.mjs",
         "scripts/seed-branch-finish-loop.mjs",
         "scripts/test-sdk-live.mjs"
@@ -3388,7 +3456,17 @@
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
         "examples/swarm-research-task.js",
-        "mcp-server/bin/dashclaw-mcp.js",
+        "mcp-server/lib/dashclaw/client.js",
+        "mcp-server/lib/index.js",
+        "mcp-server/lib/server.js",
+        "mcp-server/src/dashclaw/client.ts",
+        "mcp-server/src/index.ts",
+        "mcp-server/src/server.ts",
+        "mcp-server/test/actions.test.ts",
+        "mcp-server/test/dashclaw.test.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts",
+        "mcp-server/test/registration.test.ts",
         "middleware.js",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
@@ -3428,6 +3506,14 @@
         "middleware.js",
         "scripts/auto-migrate.mjs",
         "scripts/migrate-multi-tenant.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_AUDIT_MAX_ENTRIES",
+      "required": false,
+      "files": [
+        "mcp-server/test/storage.test.ts"
       ],
       "in_env_example": false
     },
@@ -3566,6 +3652,39 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_HTTP_RETRIES",
+      "required": false,
+      "files": [
+        "mcp-server/lib/providers/http.js",
+        "mcp-server/src/providers/http.ts",
+        "mcp-server/test/http.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_HTTP_RETRY_BASE_MS",
+      "required": false,
+      "files": [
+        "mcp-server/lib/providers/http.js",
+        "mcp-server/src/providers/http.ts",
+        "mcp-server/test/http.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_HTTP_TIMEOUT_MS",
+      "required": false,
+      "files": [
+        "mcp-server/lib/dashclaw/client.js",
+        "mcp-server/lib/providers/http.js",
+        "mcp-server/src/dashclaw/client.ts",
+        "mcp-server/src/providers/http.ts",
+        "mcp-server/test/dashclaw.test.ts",
+        "mcp-server/test/http.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_JTI_MAX_TTL_SECONDS",
       "required": false,
       "files": [
@@ -3601,10 +3720,47 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_LOCAL_HOME",
+      "required": false,
+      "files": [
+        "mcp-server/lib/paths.js",
+        "mcp-server/src/paths.ts",
+        "mcp-server/test/paths.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_LOCK_STALE_MS",
+      "required": false,
+      "files": [
+        "mcp-server/lib/storage.js",
+        "mcp-server/src/storage.ts",
+        "mcp-server/test/storage.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_LOG_STARTUP",
+      "required": false,
+      "files": [
+        "mcp-server/lib/logger.js",
+        "mcp-server/src/logger.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_MAX_ORG_ATTACHMENT_BYTES",
       "required": false,
       "files": [
         "app/api/messages/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_MEMORY_MAX_ENTRIES",
+      "required": false,
+      "files": [
+        "mcp-server/test/storage.test.ts"
       ],
       "in_env_example": false
     },
@@ -3620,6 +3776,9 @@
         "app/api/setup/ping/route.ts",
         "app/lib/selfHost.ts",
         "app/settings/page.tsx",
+        "mcp-server/lib/dashclaw/client.js",
+        "mcp-server/src/dashclaw/client.ts",
+        "mcp-server/test/dashclaw.test.ts",
         "middleware.js"
       ],
       "in_env_example": false
@@ -3676,12 +3835,32 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_TIMEOUT_MS",
+      "required": false,
+      "files": [
+        "mcp-server/lib/dashclaw/client.js",
+        "mcp-server/src/dashclaw/client.ts",
+        "mcp-server/test/dashclaw.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_URL",
       "required": false,
       "files": [
         "app/api/mcp/route.ts",
         "app/api/oauth/metadata/authorization-server/route.ts",
-        "mcp-server/bin/dashclaw-mcp.js",
+        "mcp-server/lib/dashclaw/client.js",
+        "mcp-server/lib/index.js",
+        "mcp-server/lib/server.js",
+        "mcp-server/src/dashclaw/client.ts",
+        "mcp-server/src/index.ts",
+        "mcp-server/src/server.ts",
+        "mcp-server/test/actions.test.ts",
+        "mcp-server/test/dashclaw.test.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts",
+        "mcp-server/test/registration.test.ts",
         "middleware.js",
         "packages/openclaw-plugin/src/index.ts",
         "scripts/branch-finish.mjs",
@@ -3927,6 +4106,9 @@
       "name": "GITHUB_TOKEN",
       "required": false,
       "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts",
+        "mcp-server/test/registration.test.ts",
         "scripts/poll-github-traffic.mjs"
       ],
       "in_env_example": false
@@ -4090,6 +4272,55 @@
       "required": false,
       "files": [
         "examples/kimi_dashclaw_test.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NAMECHEAP_API_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NAMECHEAP_API_USER",
+      "required": false,
+      "files": [
+        "mcp-server/lib/providers/namecheap.js",
+        "mcp-server/src/providers/namecheap.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NAMECHEAP_CLIENT_IP",
+      "required": false,
+      "files": [
+        "mcp-server/lib/providers/namecheap.js",
+        "mcp-server/src/providers/namecheap.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NAMECHEAP_SANDBOX",
+      "required": false,
+      "files": [
+        "mcp-server/lib/providers/namecheap.js",
+        "mcp-server/src/providers/namecheap.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NEON_API_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
       ],
       "in_env_example": false
     },
@@ -4323,6 +4554,14 @@
       "in_env_example": false
     },
     {
+      "name": "POSTHOG_PERSONAL_API_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "PW_BASE_URL",
       "required": false,
       "files": [
@@ -4354,6 +4593,57 @@
       "files": [
         "scripts/run-python-unittest.mjs",
         "scripts/run-sdk-live-python.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "QSTASH_CURRENT_SIGNING_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "QSTASH_NEXT_SIGNING_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "QSTASH_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "R2_ACCESS_KEY_ID",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "R2_SECRET_ACCESS_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "RAILWAY_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
       ],
       "in_env_example": false
     },
@@ -4447,7 +4737,8 @@
       "name": "RESEND_API_KEY",
       "required": false,
       "files": [
-        "app/lib/notifications.ts"
+        "app/lib/notifications.ts",
+        "mcp-server/test/providers.test.ts"
       ],
       "in_env_example": false
     },
@@ -4456,6 +4747,16 @@
       "required": false,
       "files": [
         "scripts/build-desktop-plugin.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "SENTRY_AUTH_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts",
+        "mcp-server/test/registration.test.ts"
       ],
       "in_env_example": false
     },
@@ -4501,6 +4802,16 @@
       "in_env_example": false
     },
     {
+      "name": "STRIPE_LIVE_SECRET_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts",
+        "mcp-server/test/registration.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "STRIPE_PRICE_BUSINESS",
       "required": false,
       "files": [
@@ -4530,6 +4841,15 @@
       "in_env_example": false
     },
     {
+      "name": "STRIPE_TEST_SECRET_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "STRIPE_WEBHOOK_SECRET",
       "required": false,
       "files": [
@@ -4543,6 +4863,15 @@
       "files": [
         ".supergoal/phase9-stub-db.mjs",
         ".supergoal/tmp/_db.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "SUPABASE_ACCESS_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
       ],
       "in_env_example": false
     },
@@ -4630,6 +4959,34 @@
       "in_env_example": false
     },
     {
+      "name": "TWILIO_AUTH_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "UPSTASH_API_KEY",
+      "required": false,
+      "files": [
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "UPSTASH_EMAIL",
+      "required": false,
+      "files": [
+        "mcp-server/lib/provider-actions.js",
+        "mcp-server/src/provider-actions.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "UPSTASH_REDIS_REST_TOKEN",
       "required": false,
       "files": [
@@ -4661,6 +5018,29 @@
       "required": false,
       "files": [
         "app/api/mcp/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "VERCEL_TEAM_ID",
+      "required": false,
+      "files": [
+        "mcp-server/lib/context.js",
+        "mcp-server/lib/provider-actions.js",
+        "mcp-server/src/context.ts",
+        "mcp-server/src/provider-actions.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "VERCEL_TOKEN",
+      "required": false,
+      "files": [
+        "mcp-server/lib/context.js",
+        "mcp-server/src/context.ts",
+        "mcp-server/test/core.test.ts",
+        "mcp-server/test/operations.test.ts",
+        "mcp-server/test/providers.test.ts"
       ],
       "in_env_example": false
     },

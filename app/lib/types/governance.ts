@@ -2,7 +2,7 @@
 //
 // Decisions and policies are discriminated unions. The policy discriminant is
 // `policy_type` (exactly how app/lib/guard.js evaluatePolicy switches); the
-// `rules` JSON-text column parses into the matching `rules` shape. All 13 live
+// `rules` JSON-text column parses into the matching `rules` shape. All 15 live
 // policy types are modelled.
 
 import type { Brand, Nullable } from './brand';
@@ -22,6 +22,8 @@ export type GuardPolicyType =
   | 'risk_threshold'
   | 'require_approval'
   | 'block_action_type'
+  | 'warn_action_type'
+  | 'allow_grant'
   | 'protected_path'
   | 'rate_limit'
   | 'webhook_check'
@@ -43,6 +45,8 @@ export type GuardPolicy =
   | { policy_type: 'risk_threshold'; rules: { threshold?: number; action?: DecisionType } }
   | { policy_type: 'require_approval'; rules: { action_types: string[] } }
   | { policy_type: 'block_action_type'; rules: { action_types: string[] } }
+  | { policy_type: 'warn_action_type'; rules: { action_types: string[] } }
+  | { policy_type: 'allow_grant'; rules: { action_type: string; target_prefix?: string } }
   | { policy_type: 'protected_path'; rules: { paths: string[]; action?: DecisionType } }
   | { policy_type: 'rate_limit'; rules: { max_actions?: number; window_minutes?: number; action?: DecisionType } }
   | { policy_type: 'webhook_check'; rules: { url: string; timeout_ms?: number; on_timeout?: 'allow' | 'block' } }

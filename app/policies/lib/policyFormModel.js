@@ -45,6 +45,8 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'risk_threshold', label: 'Risk Threshold', desc: 'Block or warn when risk score exceeds a threshold' },
   { value: 'require_approval', label: 'Require Approval', desc: 'Require approval for specific action types' },
   { value: 'block_action_type', label: 'Block Action Type', desc: 'Block specific action types entirely' },
+  { value: 'warn_action_type', label: 'Warn Action Type', desc: 'Warn (but allow) when specific action types are attempted' },
+  { value: 'allow_grant', label: 'Allow Grant', desc: 'Explicitly allow an action type, optionally scoped to a target prefix' },
   { value: 'rate_limit', label: 'Rate Limit', desc: 'Warn or block when an agent exceeds action frequency' },
   { value: 'webhook_check', label: 'Webhook Check', desc: 'Call an external endpoint for custom decision logic' },
   { value: 'semantic_check', label: 'Semantic Check', desc: 'Use an LLM to evaluate action intent against natural-language rules' },
@@ -165,6 +167,23 @@ const POLICY_TYPE_HANDLERS = {
   block_action_type: {
     compile: (form) => ({ action_types: form.actionTypes || [], action: 'block' }),
     summary: (form, scoped) => `Block ${actionListText(form.actionTypes)} actions entirely${scoped}.`,
+  },
+  warn_action_type: {
+    compile: (form) => ({ action_types: form.actionTypes || [] }),
+    summary: (form, scoped) => `Warn on ${actionListText(form.actionTypes)} actions${scoped}.`,
+  },
+  allow_grant: {
+    compile: (form) => {
+      const rules = { action_type: cleanString(form.actionType) || '' };
+      const prefix = cleanString(form.targetPrefix);
+      if (prefix) rules.target_prefix = prefix;
+      return rules;
+    },
+    summary: (form, scoped) => {
+      const base = `Explicitly allow ${cleanString(form.actionType) || 'the action type'}`;
+      const prefix = cleanString(form.targetPrefix);
+      return `${base}${prefix ? ` to ${prefix}` : ''}${scoped}.`;
+    },
   },
   rate_limit: {
     compile: (form) => ({

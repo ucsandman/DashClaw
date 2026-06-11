@@ -290,7 +290,7 @@ const GUARD_INPUT_SCHEMA = {
   swarm_id:        { type: 'string', maxLength: 128 },
 };
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'x402_spend_limit'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'x402_spend_limit'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -370,6 +370,17 @@ const POLICY_TYPE_VALIDATORS = {
   },
   require_approval: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
   block_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
+  warn_action_type: (rules, addError, policyType) => validateActionTypesRequired(rules, addError, policyType),
+  allow_grant: (rules, addError) => {
+    if (!isNonEmptyString(rules.action_type)) {
+      addError('allow_grant policy requires rules.action_type string');
+    }
+    if (rules.target_prefix !== undefined && (
+      typeof rules.target_prefix !== 'string' || rules.target_prefix.length === 0 || rules.target_prefix.length > 256
+    )) {
+      addError('allow_grant rules.target_prefix must be a non-empty string (<=256 chars)');
+    }
+  },
   protected_path: (rules, addError) => {
     // Path-scoped approval/warn gate (Behavior Learning). rules.paths is a
     // non-empty array of globs; rules.action defaults to require_approval and

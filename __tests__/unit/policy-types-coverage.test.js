@@ -13,6 +13,8 @@ const FORMS = {
   risk_threshold: { name: 'Risk', type: 'risk_threshold', threshold: 80, action: 'block', agentIds: [] },
   require_approval: { name: 'Approve', type: 'require_approval', actionTypes: ['deploy'], agentIds: [] },
   block_action_type: { name: 'Block', type: 'block_action_type', actionTypes: ['cleanup'], agentIds: [] },
+  warn_action_type: { name: 'Warn', type: 'warn_action_type', actionTypes: ['api'], agentIds: [] },
+  allow_grant: { name: 'Allow', type: 'allow_grant', actionType: 'api', targetPrefix: 'stripe.com', agentIds: [] },
   rate_limit: { name: 'Rate', type: 'rate_limit', maxActions: 50, windowMinutes: 60, action: 'warn', agentIds: [] },
   webhook_check: { name: 'Webhook', type: 'webhook_check', webhookUrl: 'https://guard.example.com/check', webhookTimeout: 5000, webhookOnTimeout: 'allow', agentIds: [] },
   semantic_check: { name: 'Semantic', type: 'semantic_check', instruction: 'No deleting system files.', fallback: 'allow', agentIds: [] },
