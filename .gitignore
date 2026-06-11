@@ -156,3 +156,14 @@ next-env.d.ts
 # stray local installer — keep out of git (exceeds GitHub 100MB limit)
 docs/plans/Rowboat-win32-x64-0.5.4-setup.exe
 .vercel
+
+# Agent-session working artifacts (gate/preflight logs, handoff notes, local tool dirs) — cleanup run 2026-06-11
+*.log
+*.tmp
+.gate-*.log
+gate-*.log
+.supergoalpreflight-*.log
+.task3-*.log
+.handoff-notes-*.md
+.offlocal/
+.playwright-cli/
