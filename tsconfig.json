@@ -47,6 +47,7 @@
     ".next",
     "sdk-python",
     "cli",
+    "mcp-server",
     "conductor",
     "agents",
     ".worktrees",
