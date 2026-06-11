@@ -129,6 +129,7 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [busyShield, setBusyShield] = useState<string | null>(null);
+  const [shieldError, setShieldError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,6 +166,7 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
   const handleShieldToggle = useCallback(
     async (shieldId: string, next: boolean) => {
       setBusyShield(shieldId);
+      setShieldError(null);
       try {
         const shield = (SHIELDS as Array<{ id: string }>).find((s) => s.id === shieldId);
         if (!shield) return;
@@ -173,20 +175,24 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
           .catch(() => ({ policies: [] }));
         const policy = matchShieldsToPolicies(all.policies || []).get(shieldId) as { id?: string } | null;
         if (next && !policy) {
-          await fetch('/api/policies', {
+          const res = await fetch('/api/policies', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(buildShieldPayload(shield)),
           });
+          if (!res.ok) throw new Error(`Failed to enable shield (${res.status})`);
         } else if (policy?.id) {
-          await fetch('/api/policies', {
+          const res = await fetch('/api/policies', {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ id: policy.id, active: next ? 1 : 0 }),
           });
+          if (!res.ok) throw new Error(`Failed to update shield (${res.status})`);
         }
         await load();
         onContractChanged();
+      } catch (err) {
+        setShieldError(err instanceof Error ? err.message : 'Shield update failed');
       } finally {
         setBusyShield(null);
       }
@@ -358,6 +364,7 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
             );
           })}
         </ul>
+        {shieldError && <p className="mt-1 text-xs text-status-error">{shieldError}</p>}
       </Disclosure>
 
       {/* Friction line */}
