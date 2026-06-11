@@ -13,8 +13,8 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `307`
-- Stable routes: `51`
+- Total routes: `310`
+- Stable routes: `54`
 - Beta routes: `24`
 - Experimental routes: `232`
 
@@ -238,12 +238,15 @@ doc-type: architecture
 | `/api/pairings/{pairingId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/pairings/[pairingId]/route.ts` |
 | `/api/pairings/{pairingId}/approve` | `POST` | `experimental` | `(default)` | `app/api/pairings/[pairingId]/approve/route.ts` |
 | `/api/policies` | `DELETE, GET, PATCH, POST` | `stable` | `/api/policies` | `app/api/policies/route.ts` |
+| `/api/policies/contract` | `GET` | `stable` | `/api/policies` | `app/api/policies/contract/route.ts` |
 | `/api/policies/generate` | `POST` | `stable` | `/api/policies` | `app/api/policies/generate/route.ts` |
 | `/api/policies/import` | `POST` | `stable` | `/api/policies` | `app/api/policies/import/route.ts` |
 | `/api/policies/modes` | `GET` | `stable` | `/api/policies` | `app/api/policies/modes/route.ts` |
 | `/api/policies/modes/import` | `POST` | `stable` | `/api/policies` | `app/api/policies/modes/import/route.ts` |
 | `/api/policies/modes/preview` | `POST` | `stable` | `/api/policies` | `app/api/policies/modes/preview/route.ts` |
 | `/api/policies/proof` | `GET` | `stable` | `/api/policies` | `app/api/policies/proof/route.ts` |
+| `/api/policies/review` | `GET` | `stable` | `/api/policies` | `app/api/policies/review/route.ts` |
+| `/api/policies/review/verdict` | `POST` | `stable` | `/api/policies` | `app/api/policies/review/verdict/route.ts` |
 | `/api/policies/simulate` | `POST` | `stable` | `/api/policies` | `app/api/policies/simulate/route.ts` |
 | `/api/policies/summary` | `GET` | `stable` | `/api/policies` | `app/api/policies/summary/route.ts` |
 | `/api/policies/templates` | `GET` | `stable` | `/api/policies` | `app/api/policies/templates/route.ts` |

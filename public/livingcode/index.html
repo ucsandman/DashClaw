@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:63c3809615c811fd55cbf9f615f222e99eefa2cd · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:47a2f8b13b47a360780d107ff829e187cee973bd · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">260</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">263</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">180</div><div class="k">Optional env vars</div></div>
@@ -187,7 +187,10 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>38</b> env_vars added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>38</b> env_vars added, <b>3</b> routes added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CUSTOM_GITHUB_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CUSTOM_SENTRY_A_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
@@ -394,13 +397,16 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/pairings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/pairings"><td><code>/api/pairings</code></td><td>GET, POST</td><td class="sig">app/api/pairings/route.ts</td></tr>
     <tr data-path="/api/pairings/[pairingId]"><td><code>/api/pairings/[pairingId]</code></td><td>GET, PATCH</td><td class="sig">app/api/pairings/[pairingId]/route.ts</td></tr>
     <tr data-path="/api/pairings/[pairingId]/approve"><td><code>/api/pairings/[pairingId]/approve</code></td><td>POST</td><td class="sig">app/api/pairings/[pairingId]/approve/route.ts</td></tr></tbody></table></details>
-<details><summary>/policies/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.ts</td></tr>
+<details><summary>/policies/* (14)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.ts</td></tr>
+    <tr data-path="/api/policies/contract"><td><code>/api/policies/contract</code></td><td>GET</td><td class="sig">app/api/policies/contract/route.ts</td></tr>
     <tr data-path="/api/policies/generate"><td><code>/api/policies/generate</code></td><td>POST</td><td class="sig">app/api/policies/generate/route.ts</td></tr>
     <tr data-path="/api/policies/import"><td><code>/api/policies/import</code></td><td>POST</td><td class="sig">app/api/policies/import/route.ts</td></tr>
     <tr data-path="/api/policies/modes"><td><code>/api/policies/modes</code></td><td>GET</td><td class="sig">app/api/policies/modes/route.ts</td></tr>
     <tr data-path="/api/policies/modes/import"><td><code>/api/policies/modes/import</code></td><td>POST</td><td class="sig">app/api/policies/modes/import/route.ts</td></tr>
     <tr data-path="/api/policies/modes/preview"><td><code>/api/policies/modes/preview</code></td><td>POST</td><td class="sig">app/api/policies/modes/preview/route.ts</td></tr>
     <tr data-path="/api/policies/proof"><td><code>/api/policies/proof</code></td><td>GET</td><td class="sig">app/api/policies/proof/route.ts</td></tr>
+    <tr data-path="/api/policies/review"><td><code>/api/policies/review</code></td><td>GET</td><td class="sig">app/api/policies/review/route.ts</td></tr>
+    <tr data-path="/api/policies/review/verdict"><td><code>/api/policies/review/verdict</code></td><td>POST</td><td class="sig">app/api/policies/review/verdict/route.ts</td></tr>
     <tr data-path="/api/policies/simulate"><td><code>/api/policies/simulate</code></td><td>POST</td><td class="sig">app/api/policies/simulate/route.ts</td></tr>
     <tr data-path="/api/policies/summary"><td><code>/api/policies/summary</code></td><td>GET</td><td class="sig">app/api/policies/summary/route.ts</td></tr>
     <tr data-path="/api/policies/templates"><td><code>/api/policies/templates</code></td><td>GET</td><td class="sig">app/api/policies/templates/route.ts</td></tr>

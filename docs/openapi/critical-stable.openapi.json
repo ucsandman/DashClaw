@@ -2559,6 +2559,47 @@
         "x-api-maturity": "stable"
       }
     },
+    "/api/policies/contract": {
+      "get": {
+        "operationId": "get_api_policies_contract",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Validation or request error"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GET /api/policies/contract",
+        "tags": [
+          "policies"
+        ],
+        "x-api-maturity": "stable"
+      }
+    },
     "/api/policies/generate": {
       "post": {
         "operationId": "post_api_policies_generate",
@@ -2867,6 +2908,105 @@
           }
         ],
         "summary": "GET /api/policies/proof",
+        "tags": [
+          "policies"
+        ],
+        "x-api-maturity": "stable"
+      }
+    },
+    "/api/policies/review": {
+      "get": {
+        "operationId": "get_api_policies_review",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "400": {
+            "description": "Validation or request error"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "GET /api/policies/review",
+        "tags": [
+          "policies"
+        ],
+        "x-api-maturity": "stable"
+      }
+    },
+    "/api/policies/review/verdict": {
+      "post": {
+        "operationId": "post_api_policies_review_verdict",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful response"
+          },
+          "201": {
+            "description": "Created"
+          },
+          "202": {
+            "description": "Accepted"
+          },
+          "400": {
+            "description": "Validation or request error"
+          },
+          "401": {
+            "description": "Authentication required"
+          },
+          "403": {
+            "description": "Forbidden"
+          },
+          "500": {
+            "description": "Internal server error"
+          }
+        },
+        "security": [
+          {
+            "ApiKeyAuth": []
+          }
+        ],
+        "summary": "POST /api/policies/review/verdict",
         "tags": [
           "policies"
         ],
