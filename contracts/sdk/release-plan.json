@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.9.0",
+    "current_version": "4.10.0",
     "next_bump": "none",
-    "reason": "4.9.0 ships @dashclaw/mcp-server 2.0.0 (governed execution + launch plans) and the warn_action_type/allow_grant guard policy types — no Node SDK source change; the version advances per the unified model but the Node SDK is NOT republished (npm stays at 4.8.0).",
+    "reason": "4.10.0 ships the policy interruption-contract redesign (contract renderer, /api/policies/contract|review|review/verdict, /policies cockpit rebuild, claude-code mode $5/$25 + comms warn-not-gate) \u2014 no Node SDK source change; the version advances per the unified model but the Node SDK is NOT republished (npm stays at 4.8.0).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.9.0",
+    "current_version": "4.10.0",
     "next_bump": "none",
-    "reason": "4.9.0 is platform-only for the Python SDK — no sdk-python source change; the version advances per the unified model but the Python SDK is NOT republished (PyPI stays at 4.8.0).",
+    "reason": "4.10.0 is platform-only for the Python SDK \u2014 no sdk-python source change; the version advances per the unified model but the Python SDK is NOT republished (PyPI stays at 4.8.0).",
     "domains": [
       "platform"
     ]

@@ -59,7 +59,7 @@ As of this verification, generated API inventory reports **310 routes**: **54 st
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
 | Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
-| Policy Builder | `/policies` | Policy management, policy generation, simulation, import/proof surfaces, and guard activity. |
+| Policy Builder | `/policies` | Interruption contract cockpit: plain-English contract of when agents interrupt you (editable spend thresholds, grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, and import/proof surfaces. |
 | Policy Coach | `/policy-coach` | Behavior Learning (v1, observe-only): evidence-backed policy suggestions learned from locally-recorded agent behavior, with simulate-before-adopt and dismiss suppression. See `docs/behavior-learning.md`. |
 | Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. Backed by `GET /api/posture`. Experimental. |
 | Analytics | `/analytics` | Cost trends, action volume, agent/type breakdowns, policy enforcement stats, and token efficiency. |
@@ -94,6 +94,9 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/modes` | Policy Modes catalog | `GET` lists the built-in operating modes (Claude Code, OpenClaw, SOC 2, …); each compiles to a pack of ordinary guard policies. See `docs/policy-modes.md`. |
 | `/api/policies/modes/preview` | Preview a mode | `POST { mode_id }` → generated policy list + decision summary + best-effort friction simulation. No writes; unknown mode → 400. |
 | `/api/policies/modes/import` | Apply a mode | `POST { mode_id }` (admin) compiles the mode into normal guard policies (active, `_mode`-tagged in rules); re-applying reactivates + refreshes existing-by-name policies (idempotent). Mirrors `/api/policies/import`. |
+| `/api/policies/contract` | Interruption contract view | `GET` renders the org's active policies into the plain-English `ContractView` (interrupts / silent / hard stops / grants / custom, with 7-day fire counts and a friction estimate). Backs the `/policies` cockpit. |
+| `/api/policies/review` | Review feed | `GET` returns warn decisions since the review cursor, grouped by action shape, plus recent interrupts. Backs the `/policies` "To review" queue. |
+| `/api/policies/review/verdict` | Review verdicts | `POST { verdict, shape? }` (admin): `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |

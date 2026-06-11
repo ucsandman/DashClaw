@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.10.0] — 2026-06-11
+
+### Added
+
+- **Interruption contract — the `/policies` page is now a plain-English contract, not a policy list.** `GET /api/policies/contract` renders the org's active guard policies into a `ContractView`: when agents will interrupt you (with editable spend thresholds inline), what blocks outright, what's recorded silently, standing "never bother me" grants, and a weekly friction estimate (interrupts × ~20s). The rebuilt cockpit (`ContractPanel`) shows it with live 7-day fire counts; shields moved into a collapsed "Add protection" disclosure with bidirectional toggles.
+- **Review feed with one-click verdicts.** `GET /api/policies/review` groups silently-recorded warn decisions since your last review by action shape; `POST /api/policies/review/verdict` (admin) acts on a group: `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. The `/policies` "To review" queue (`ReviewFeed`) drives it with optimistic updates and inline error recovery.
+- **Contract renderer** (`app/lib/policy-modes/contract.ts`): deterministic policy→sentence templates for all 15 policy types, resilient to malformed rules; demo mode ships a faithful claude-code contract + review fixtures.
+
+### Changed
+
+- **Claude Code mode defaults redesigned for low interruption — action needed if you imported the old mode.** The `claude-code` pack now gates paid (x402) spend at **$5 approve / $25 block** (was $0.01/$0.10), and external comms / sync / api actions are **warn-not-gate**: recorded silently for the review feed instead of interrupting you. **Existing orgs keep their old imported policies until they re-apply the mode** — mode import dedupes by policy name, so nothing changes silently; open Policies → mode → re-apply `claude-code` to adopt the new defaults.
+- `/policies` retires the posture-header / enforcement-summary / shield-list / recent-digest cockpit in favor of the contract + review layout.
+
+### Fixed
+
+- Review timestamps are timestamptz-cast and ISO-normalized; verdict shape inputs carry 128/256-char length guards (parity with `validate.js`).
+
+
 ## [4.9.0] — 2026-06-10
 
 ### Added
