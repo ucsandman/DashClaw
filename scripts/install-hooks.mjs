@@ -165,6 +165,21 @@ export function hookBlocks(python = 'python') {
         ],
       },
     ],
+    // Session digest: prints recent decisions/lessons/handoff into the new
+    // session's context. Read-only and fail-silent (see the hook's docstring),
+    // so a down API costs at most its internal ~3s budget. SessionStart
+    // entries take no matcher.
+    SessionStart: [
+      {
+        hooks: [
+          {
+            type: 'command',
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py"`,
+            timeout: 10,
+          },
+        ],
+      },
+    ],
   };
 }
 
@@ -172,7 +187,7 @@ export function hookBlocks(python = 'python') {
 // path-separator-bounded occurrences so user-authored wrappers with similar
 // names (e.g. `my_dashclaw_pretool.py`, `dashclaw_metrics.py`) are NOT
 // silently removed on re-install.
-export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py'];
+export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_session_digest.py'];
 // Full regex-escape (every metacharacter incl. backslash), not just '.', so the
 // alternation is always well-formed regardless of the filename contents.
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -265,6 +280,7 @@ export function globalGovernanceBlocks(repoRoot, python = 'python') {
     PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3600000 }] }],
     PostToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_posttool.py') }] }],
     Stop: [{ hooks: [{ type: 'command', command: cmd('dashclaw_stop.py') }] }],
+    SessionStart: [{ hooks: [{ type: 'command', command: cmd('dashclaw_session_digest.py'), timeout: 10 }] }],
   };
 }
 
@@ -432,7 +448,7 @@ function main() {
   // by dashclaw_stop.py when DASHCLAW_CODE_SESSIONS_ENABLED=1; copy it
   // unconditionally (it is a runtime no-op when the feature is off) so the
   // Code Sessions feature doesn't silently break after a local install.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py']) {
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'dashclaw_session_digest.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);
@@ -463,6 +479,7 @@ function main() {
   console.log('  DASHCLAW_API_KEY   (oc_live_...)');
   console.log('  DASHCLAW_AGENT_ID  (optional, default: claude-code)');
   console.log('  DASHCLAW_HOOK_MODE (optional: enforce | observe, default: enforce)');
+  console.log('  DASHCLAW_DIGEST_DISABLED (optional: 1 disables the SessionStart digest)');
 }
 
 // Only run main() when executed directly via `node install-hooks.mjs`.

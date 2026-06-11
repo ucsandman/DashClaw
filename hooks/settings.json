@@ -32,6 +32,17 @@
           }
         ]
       }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/.claude/hooks/run_hook.cjs\" dashclaw_session_digest.py",
+            "timeout": 10
+          }
+        ]
+      }
     ]
   }
 }

@@ -5,6 +5,8 @@ import {
   globalStopCommand,
   globalStopBlock,
   mergeGlobalStopHook,
+  mergeGlobalGovernanceHooks,
+  globalGovernanceBlocks,
   detectPythonCommand,
   hookBlocks,
 } from '../../scripts/install-hooks.mjs';
@@ -72,6 +74,7 @@ describe('install-hooks isManagedHookCommand', () => {
       'dashclaw_pretool.py',
       'dashclaw_posttool.py',
       'dashclaw_stop.py',
+      'dashclaw_session_digest.py',
     ]);
   });
 });
@@ -181,5 +184,31 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
   it('threads the interpreter through the global Stop merge', () => {
     const merged = mergeGlobalStopHook({}, 'C:\\Projects\\DashClaw', { python: 'python3' });
     expect(merged.hooks.Stop[0].hooks[0].command).toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py"');
+  });
+});
+
+describe('session digest hook', () => {
+  it('hookBlocks includes a SessionStart digest entry', () => {
+    const blocks = hookBlocks('python');
+    expect(blocks.SessionStart).toBeDefined();
+    const cmd = blocks.SessionStart[0].hooks[0].command;
+    expect(cmd).toContain('dashclaw_session_digest.py');
+    expect(cmd).toContain('$CLAUDE_PROJECT_DIR');
+  });
+
+  it('isManagedHookCommand matches the digest script but not lookalikes', () => {
+    expect(isManagedHookCommand('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py"')).toBe(true);
+    expect(isManagedHookCommand('python "x/my_dashclaw_session_digest.py"')).toBe(false);
+  });
+
+  it('globalGovernanceBlocks includes SessionStart with absolute path', () => {
+    const blocks = globalGovernanceBlocks('/repo', 'python3');
+    expect(blocks.SessionStart[0].hooks[0].command).toContain('/repo/hooks/dashclaw_session_digest.py');
+  });
+
+  it('re-merge does not duplicate the SessionStart entry', () => {
+    const once = mergeGlobalGovernanceHooks({}, '/repo', { python: 'python3' });
+    const twice = mergeGlobalGovernanceHooks(once, '/repo', { python: 'python3' });
+    expect(twice.hooks.SessionStart).toHaveLength(1);
   });
 });
