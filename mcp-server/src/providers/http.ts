@@ -22,18 +22,18 @@ function withQuery(url: string, query?: Record<string, string | undefined>): str
   return qs ? `${url}${url.includes("?") ? "&" : "?"}${qs}` : url;
 }
 
-function redactSecrets(text: string): string {
+export function redactSecrets(text: string): string {
   return text
     .replace(
-      /([?&][^=&]*(?:token|secret|password|api_?key|access_token)[^=&]*=)[^&\s"]+/gi,
+      /([?&](?=[^=&]*(?:token|secret|password|api_?key|access_token))[^=&]+=)[^&\s"]+/gi,
       "$1***REDACTED***",
     )
     .replace(
-      /("([^"]*(?:token|secret|password|api_?key|access_token)[^"]*)"\s*:\s*")([^"]*)(")/gi,
+      /("(?=[^"]*(?:token|secret|password|api_?key|access_token))([^"]+)"\s*:\s*")([^"]*)(")/gi,
       "$1***REDACTED***$4",
     )
     .replace(
-      /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN)[A-Z0-9_]*)\s*[=:]\s*("?)[^\s",}]+\2/gi,
+      /\b((?=[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN))[A-Z0-9_]+)\s*[=:]\s*("?)[^\s",}]+\2/gi,
       "$1=***REDACTED***",
     );
 }

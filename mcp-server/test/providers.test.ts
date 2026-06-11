@@ -5,6 +5,7 @@ import * as pa from "../src/provider-actions.js";
 import { defaultEnvVar } from "../src/providers/auth.js";
 import { listAuditLog, listPendingApprovals, mapProviderResource, setPolicyRule } from "../src/service.js";
 import type { Store } from "../src/storage.js";
+import { stripTrailingSlashes } from "../src/util.js";
 
 /**
  * These tests exercise the guarded provider flow with a mocked global fetch, so
@@ -3304,5 +3305,30 @@ describe("Stripe price validation", () => {
     expect(res.status).toBe("error");
     expect((res as any).error).toMatch(/unitAmount/i);
     expect(providerCalls()).toHaveLength(0);
+  });
+});
+
+// stripTrailingSlashes backs the host/URL normalizers in clerk, cloudflare-r2,
+// posthog, upstash, and upstash-qstash (all previously used /\/+$/, flagged as
+// polynomial-redos). One shared helper, one regression test.
+describe("stripTrailingSlashes (provider host normalization)", () => {
+  it("strips all trailing slashes and preserves other input", () => {
+    expect(stripTrailingSlashes("https://api.example.com/")).toBe("https://api.example.com");
+    expect(stripTrailingSlashes("https://api.example.com///")).toBe("https://api.example.com");
+    expect(stripTrailingSlashes("https://api.example.com/v1")).toBe("https://api.example.com/v1");
+    expect(stripTrailingSlashes("https://api.example.com/v1/")).toBe("https://api.example.com/v1");
+    expect(stripTrailingSlashes("")).toBe("");
+    expect(stripTrailingSlashes("///")).toBe("");
+  });
+
+  it("handles adversarial input in linear time (no ReDoS backtracking)", () => {
+    const evil = "https://h" + "/".repeat(1_000_000) + "\n";
+    const start = Date.now();
+    const result = stripTrailingSlashes(evil);
+    expect(Date.now() - start).toBeLessThan(1000);
+    // trailing "\n" is not a slash, so nothing is stripped — same result the
+    // original regex would yield (its $ anchored before the newline).
+    expect(result).toBe(evil);
+    expect(stripTrailingSlashes("https://h" + "/".repeat(1_000_000))).toBe("https://h");
   });
 });

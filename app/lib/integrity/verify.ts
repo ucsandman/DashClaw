@@ -124,6 +124,7 @@ function isRequiredFactSatisfied(text: string, fact: RequiredFact): boolean {
 }
 
 function forbiddenRegex(pattern: ForbiddenPattern): RegExp {
+  assertSafePattern(pattern.pattern); // fail closed on oversized / ReDoS-prone caller patterns (CodeQL js/regex-injection)
   const flags = pattern.flags ?? 'i';
   const isBareWord = /^[\w\s]+$/.test(pattern.pattern);
   return isBareWord ? wordBoundary(pattern.pattern, flags) : new RegExp(pattern.pattern, flags);
@@ -145,7 +146,7 @@ function addForbiddenPatternViolations(
   forbiddenPatterns: ForbiddenPattern[] = [],
 ) {
   for (const pattern of forbiddenPatterns) {
-    assertSafePattern(pattern.pattern); // fail closed on a ReDoS-prone caller pattern
+    // ReDoS / oversized-pattern safety is enforced inside forbiddenRegex (below).
     const authorized = allowedValues.some((value) => forbiddenRegex(pattern).test(value));
     if (forbiddenRegex(pattern).test(text) && !authorized) {
       violations.push({ code: 'forbidden_match', label: pattern.label });

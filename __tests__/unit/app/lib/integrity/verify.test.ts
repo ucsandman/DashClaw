@@ -71,4 +71,23 @@ describe('verify mirrored characterization', () => {
       violations: [expect.objectContaining({ code: 'engine_error', label: 'engine' })],
     });
   });
+
+  // Regression: a forbidden pattern is compiled into a RegExp (CodeQL
+  // js/regex-injection). A caller-supplied ReDoS-prone forbidden pattern must be
+  // rejected at construction (fail-closed engine_error block), not compiled and
+  // run. Before forbiddenRegex routed through assertSafePattern, this pattern
+  // reached `new RegExp(...)` unguarded.
+  it('fails closed on a ReDoS-prone forbidden pattern instead of compiling it', () => {
+    expect(
+      verify('aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaX', {
+        requiredFacts: [],
+        allowedFacts: [],
+        forbiddenPatterns: [{ label: 'evil', pattern: '((a+)+)+$' }],
+        extract: { money: false, dates: false, percentages: false, patterns: [] },
+      }),
+    ).toMatchObject({
+      verdict: 'block',
+      violations: [expect.objectContaining({ code: 'engine_error', label: 'engine' })],
+    });
+  });
 });

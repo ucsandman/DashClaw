@@ -7,6 +7,7 @@ import {
   isRiskyAction,
   localPolicyPreview,
   normalizeDashclawDecision,
+  sanitizeDashclawText,
   sqlFingerprint,
 } from "../src/dashclaw/guard.js";
 import type { Store } from "../src/storage.js";
@@ -255,5 +256,24 @@ describe("DashClaw guard payload mapping", () => {
       verificationStatus: "pending",
       signals: { risk: "production" },
     });
+  });
+});
+
+describe("sanitizeDashclawText", () => {
+  it("redacts all forms of secrets", () => {
+    expect(sanitizeDashclawText("MY_API_KEY = abc123")).toBe("[redacted]");
+    expect(sanitizeDashclawText("DATABASE_URL=postgres://u:p@host/db")).toBe("[redacted]");
+    expect(sanitizeDashclawText("key sk_live_abcDEF123 leaked")).toBe("key [redacted] leaked");
+    expect(sanitizeDashclawText("hook whsec_abc123 here")).toBe("hook [redacted] here");
+    expect(sanitizeDashclawText("the ACCESS_TOKEN value")).toBe("the [redacted] value");
+    expect(sanitizeDashclawText("nothing sensitive")).toBe("nothing sensitive");
+  });
+
+  it("handles adversarial input in linear time (no ReDoS backtracking)", () => {
+    const evil = "A".repeat(100_000) + "TOKEN" + "A".repeat(100_000) + " !=";
+    const start = Date.now();
+    const result = sanitizeDashclawText(evil);
+    expect(Date.now() - start).toBeLessThan(1000);
+    expect(result).toContain("[redacted]");
   });
 });

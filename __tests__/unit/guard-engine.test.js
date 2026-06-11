@@ -16,7 +16,7 @@ vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }
 vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })) }));
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
-import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
+import { evaluateGuard, evaluatePolicy, __resetGuardCaches } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 
 function makeSql(policies) {
@@ -361,5 +361,25 @@ describe('evaluateGuard — action binding', () => {
     const sql = makeSql([]);
     const result = await evaluateGuard('org_1', { action_type: 'read', act_status: 'match' }, sql);
     expect(result.decision).toBe('allow');
+  });
+});
+
+// Regression: evaluatePolicy must not treat an inherited Object/Function
+// property name as a registered evaluator (CodeQL js/unvalidated-dynamic-method-call).
+// Before the own-property guard, POLICY_EVALUATORS['constructor'] resolved to the
+// Object constructor and was *invoked*, returning a truthy object instead of null.
+describe('evaluatePolicy — dynamic key allow-list', () => {
+  for (const protoKey of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+    it(`returns null for inherited property key "${protoKey}" instead of invoking it`, async () => {
+      const policy = { id: 'p', name: 'p', policy_type: protoKey };
+      const result = await evaluatePolicy(policy, {}, { action_type: 'read' }, makeSql([]), 'org_1', 0);
+      expect(result).toBeNull();
+    });
+  }
+
+  it('still dispatches a genuine registered policy type', async () => {
+    const policy = { id: 'p', name: 'p', policy_type: 'risk_threshold' };
+    const result = await evaluatePolicy(policy, { threshold: 50 }, { action_type: 'read' }, makeSql([]), 'org_1', 80);
+    expect(result).toMatchObject({ action: 'block' });
   });
 });

@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:47a2f8b13b47a360780d107ff829e187cee973bd`
+**Shape snapshot:** `sha1:b137ecde9bb3ddc5b1c695e7e4032b2bd5493086`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **263** active API routes across **63** categories (311 total including archived)
-- **4** required + **180** optional environment variables
+- **4** required + **179** optional environment variables
 - **97** database tables
 
 ## API Surface
@@ -508,7 +508,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 74 file(s)
-- **`DATABASE_URL`** - referenced in 98 file(s)
+- **`DATABASE_URL`** - referenced in 97 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
 
@@ -605,7 +605,6 @@ These have fallbacks or only activate specific features.
 - `GUARD_LLM_MODEL` *(undocumented)*
 - `GUARD_WEBHOOK_SECRET` *(undocumented)*
 - `HOSTED_CLEANUP_SECRET` *(undocumented)*
-- `HOSTED_DATABASE_URL` *(undocumented)*
 - `HOSTED_MAX_ACTIVE_TRIALS` *(undocumented)*
 - `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` *(undocumented)*
 - `HOSTED_SMOKE_BASE_URL` *(undocumented)*

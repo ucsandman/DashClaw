@@ -1,9 +1,10 @@
+import { stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 
 const DEFAULT_API_HOST = "https://api.upstash.com";
 
 function cleanHost(value: string | undefined): string {
-  return (value ?? DEFAULT_API_HOST).trim().replace(/\/+$/, "") || DEFAULT_API_HOST;
+  return stripTrailingSlashes((value ?? DEFAULT_API_HOST).trim()) || DEFAULT_API_HOST;
 }
 
 function enc(value: string): string {

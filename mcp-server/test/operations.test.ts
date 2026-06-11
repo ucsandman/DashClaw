@@ -228,6 +228,32 @@ describe("operational readiness", () => {
     expect(exportAuditLog(store, { project: "acme-crm", format: "markdown" })).toContain("act_123");
   });
 
+  it("sanitizes all newlines and pipes in markdown export cells", () => {
+    const store = freshStore();
+    seedAcme(store);
+    store.appendAudit({
+      timestamp: "2026-06-09T00:00:02.000Z",
+      projectSlug: "acme-crm",
+      environment: "production",
+      provider: "vercel",
+      tool: "create_vercel_deployment",
+      actionSummary: "deploy",
+      policyDecision: "allow",
+      result: "error",
+      errorMessage: "line1\nline2\r\nline3\rline4 with | pipe | chars",
+    });
+
+    const md = exportAuditLog(store, { project: "acme-crm", format: "markdown" });
+    const dataLines = md.split("\n").filter((l) => l.startsWith("| 2026-06-09T00:00:02"));
+    expect(dataLines).toHaveLength(1);
+    const row = dataLines[0];
+    // every newline collapsed to a space — no stray rows injected
+    expect(row).not.toMatch(/[\r\n]/);
+    expect(row).toContain("line1 line2 line3 line4");
+    // all pipes inside the cell escaped (none left as raw column separators)
+    expect(row).toContain("with \\| pipe \\| chars");
+  });
+
   it("exports context snapshots in machine and markdown formats", async () => {
     const store = freshStore();
     seedAcme(store);

@@ -40,3 +40,19 @@ describe('validatePolicy — allow_grant', () => {
     expect(r.valid).toBe(true);
   });
 });
+
+// Regression: the policy_type chooses a validator via POLICY_TYPE_VALIDATORS[key]
+// (CodeQL js/unvalidated-dynamic-method-call). An inherited Object/Function
+// property name must never be invoked as a validator; such a policy_type is
+// rejected as invalid and must not throw. (Defense-in-depth: the schema enum
+// also rejects these; the own-property guard ensures the dynamic call is safe
+// even if a non-enum value ever reached it.)
+describe('validatePolicy — dynamic validator key allow-list', () => {
+  for (const protoKey of ['constructor', 'toString', 'hasOwnProperty', '__proto__', 'valueOf']) {
+    it(`rejects inherited property key "${protoKey}" without invoking it`, () => {
+      let r;
+      expect(() => { r = validatePolicy(base(protoKey, {})); }).not.toThrow();
+      expect(r.valid).toBe(false);
+    });
+  }
+});

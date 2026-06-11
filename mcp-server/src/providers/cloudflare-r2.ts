@@ -1,5 +1,5 @@
 import type { CloudflareR2Resource } from "../types.js";
-import { DashclawError } from "../util.js";
+import { DashclawError, stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 
 const DEFAULT_API_HOST = "https://api.cloudflare.com/client/v4";
@@ -7,7 +7,7 @@ const DEFAULT_ACCESS_KEY_ID_ENV_VAR = "R2_ACCESS_KEY_ID";
 const DEFAULT_SECRET_ACCESS_KEY_ENV_VAR = "R2_SECRET_ACCESS_KEY";
 
 function cleanHost(value: string | undefined): string {
-  return (value ?? DEFAULT_API_HOST).trim().replace(/\/+$/, "") || DEFAULT_API_HOST;
+  return stripTrailingSlashes((value ?? DEFAULT_API_HOST).trim()) || DEFAULT_API_HOST;
 }
 
 function enc(value: string): string {

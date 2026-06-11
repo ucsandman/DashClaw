@@ -518,8 +518,13 @@ export function validatePolicy(body) {
 
   validatePolicyTestRecipes(rules, addError);
 
-  const typeValidator = POLICY_TYPE_VALIDATORS[result.data.policy_type];
-  if (typeValidator) typeValidator(rules, addError, result.data.policy_type);
+  // Validate the dynamic key against the known validator set before calling
+  // (CodeQL js/unvalidated-dynamic-method-call): rejects inherited/prototype
+  // keys so only own, registered policy-type validators run.
+  if (Object.prototype.hasOwnProperty.call(POLICY_TYPE_VALIDATORS, result.data.policy_type)) {
+    const typeValidator = POLICY_TYPE_VALIDATORS[result.data.policy_type];
+    if (typeValidator) typeValidator(rules, addError, result.data.policy_type);
+  }
 
   return result;
 }

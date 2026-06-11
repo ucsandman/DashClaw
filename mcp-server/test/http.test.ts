@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { httpJson } from "../src/providers/http.js";
+import { httpJson, redactSecrets } from "../src/providers/http.js";
 
 describe("HTTP client hardening", () => {
   afterEach(() => {
@@ -103,5 +103,22 @@ describe("HTTP client hardening", () => {
 
     await expect(httpJson("https://api.example.test/resource")).rejects.toThrow(/token.*REDACTED/i);
     await expect(httpJson("https://api.example.test/resource")).rejects.not.toThrow(/secret-token-123/);
+  });
+});
+
+describe("redactSecrets", () => {
+  it("redacts query params, JSON fields, and env-style assignments", () => {
+    expect(redactSecrets("https://x/p?api_key=abc123")).toBe("https://x/p?api_key=***REDACTED***");
+    expect(redactSecrets('{"access_token": "secretval"}')).toBe('{"access_token": "***REDACTED***"}');
+    expect(redactSecrets("MY_SECRET=topsecret")).toBe("MY_SECRET=***REDACTED***");
+    expect(redactSecrets("nothing sensitive here")).toBe("nothing sensitive here");
+  });
+
+  it("handles adversarial input in linear time (no ReDoS backtracking)", () => {
+    const evil = "?" + "a".repeat(100_000) + "token" + "a".repeat(100_000) + "= !";
+    const start = Date.now();
+    const result = redactSecrets(evil);
+    expect(Date.now() - start).toBeLessThan(1000);
+    expect(result).toContain("***REDACTED***");
   });
 });

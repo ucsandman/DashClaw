@@ -1,4 +1,5 @@
 import type { UpstashResource } from "../types.js";
+import { stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 
 const DEFAULT_QSTASH_URL = "https://qstash.upstash.io";
@@ -7,7 +8,7 @@ const DEFAULT_QSTASH_CURRENT_SIGNING_KEY_ENV_VAR = "QSTASH_CURRENT_SIGNING_KEY";
 const DEFAULT_QSTASH_NEXT_SIGNING_KEY_ENV_VAR = "QSTASH_NEXT_SIGNING_KEY";
 
 function cleanUrl(value: string | undefined): string {
-  return (value ?? DEFAULT_QSTASH_URL).trim().replace(/\/+$/, "") || DEFAULT_QSTASH_URL;
+  return stripTrailingSlashes((value ?? DEFAULT_QSTASH_URL).trim()) || DEFAULT_QSTASH_URL;
 }
 
 function headers(token: string, extra: Record<string, string | undefined> = {}): Record<string, string> {

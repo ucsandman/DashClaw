@@ -1,10 +1,11 @@
 import type { ClerkResource } from "../types.js";
+import { stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 
 const DEFAULT_API_HOST = "https://api.clerk.com/v1";
 
 function cleanBase(value: string | undefined): string {
-  const host = (value ?? DEFAULT_API_HOST).trim().replace(/\/+$/, "") || DEFAULT_API_HOST;
+  const host = stripTrailingSlashes((value ?? DEFAULT_API_HOST).trim()) || DEFAULT_API_HOST;
   return host.endsWith("/v1") ? host : `${host}/v1`;
 }
 
