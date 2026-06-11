@@ -150,7 +150,7 @@ export default function SpendOverviewPage() {
                     .map((a: any) => `${a.agent_id} (${a.coverage_pct}%)`)
                     .join(', ')}
                 </span>
-                {' — '}check that agent's runtime plugin/hook wiring, then re-run npm run diagnose:cost.
+                {' — '}check that agent&apos;s runtime plugin/hook wiring, then re-run npm run diagnose:cost.
               </div>
             </div>
           )}

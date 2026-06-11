@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.13.0] — 2026-06-11
+
+### Added
+
+- **Token attribution coverage — the silent-failure detector for cost data.** `getCostAggregation` now reports `attribution` (`attributed_count` / `total_count` / `coverage_pct`) org-wide and a `coverage_pct` per agent: the share of governed actions that actually carry token data. `/spend` surfaces a warning when coverage drops below 90%, naming the lowest-coverage agents with a pointer to `npm run diagnose:cost`. Built after a live diagnosis found the OpenClaw fleet's cost attribution had been silently dark since 2026-06-08 (the `dashclaw-governance` OpenClaw plugin had been disabled in gateway config — re-enabled and verified live; see #147). An attribution outage is now visible the day it happens, not weeks later.
+- **Close-the-loop spec + plan** under `docs/superpowers/` (quiet distribution + dogfood value loop; W2–W4 workstreams queued).
+
 ## [4.12.0] — 2026-06-11
 
 ### Added
