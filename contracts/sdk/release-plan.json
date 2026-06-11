@@ -1,20 +1,18 @@
 {
   "node": {
-    "current_version": "4.11.0",
+    "current_version": "4.12.0",
     "next_bump": "none",
-    "reason": "4.11.0 ships Work Orders: 8 new Node SDK methods (submitWorkOrder/getWorkOrder/listWorkOrders/cancelWorkOrder/claimWorkOrder/completeWorkOrder/listWorkOrderTypes/registerWorkOrderType, 129 -> 137) — real SDK source change; republish to npm via release:sdks.",
+    "reason": "4.12.0 is platform-only (SessionStart digest hook distribution, OpenClaw marketing, demo CTA fix, platform-salvage docs) — no Node SDK source change; version advances per the unified model but the SDK is NOT republished; npm stays at 4.11.0.",
     "domains": [
-      "platform",
-      "node-sdk"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "4.11.0",
+    "current_version": "4.12.0",
     "next_bump": "none",
-    "reason": "4.11.0 ships Work Orders: 8 new Python SDK methods (submit_work_order/get_work_order/list_work_orders/cancel_work_order/claim_work_order/complete_work_order/list_work_order_types/register_work_order_type, 225 -> 233) — real SDK source change; republish to PyPI via release:sdks.",
+    "reason": "4.12.0 is platform-only (SessionStart digest hook distribution, OpenClaw marketing, demo CTA fix, platform-salvage docs) — no Python SDK source change; version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.11.0.",
     "domains": [
-      "platform",
-      "python-sdk"
+      "platform"
     ]
   }
 }
