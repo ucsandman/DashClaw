@@ -13,8 +13,9 @@ CREATE TABLE IF NOT EXISTS work_order_types (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS work_order_types_org_type_unique ON work_order_types (org_id, type);
-
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS work_orders (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
@@ -37,9 +38,11 @@ CREATE TABLE IF NOT EXISTS work_orders (
   completed_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS work_orders_org_status_idx ON work_orders (org_id, status);
+--> statement-breakpoint
 CREATE INDEX IF NOT EXISTS work_orders_org_type_idx ON work_orders (org_id, type);
-
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS work_order_receipts (
   id TEXT PRIMARY KEY,
   org_id TEXT NOT NULL,
@@ -48,4 +51,5 @@ CREATE TABLE IF NOT EXISTS work_order_receipts (
   receipt_hash TEXT NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+--> statement-breakpoint
 CREATE UNIQUE INDEX IF NOT EXISTS work_order_receipts_work_order_unique ON work_order_receipts (work_order_id);

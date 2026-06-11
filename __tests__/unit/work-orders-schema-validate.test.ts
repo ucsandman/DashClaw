@@ -40,4 +40,12 @@ describe('validateSchemaDefinition', () => {
     expect(validateSchemaDefinition({ type: 'string' }).length).toBeGreaterThan(0);
     expect(validateSchemaDefinition({ type: 'object', properties: { a: { type: 'wat' } } }).length).toBeGreaterThan(0);
   });
+  it('reports schema_required_unknown when a required key is absent from properties', () => {
+    const errors = validateSchemaDefinition({
+      type: 'object',
+      required: ['topic', 'ghost'],
+      properties: { topic: { type: 'string' } },
+    });
+    expect(errors.some((e) => e.code === 'schema_required_unknown' && e.message.includes("'ghost'"))).toBe(true);
+  });
 });

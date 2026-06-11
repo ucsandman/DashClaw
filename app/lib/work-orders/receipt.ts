@@ -53,7 +53,7 @@ export function buildReceiptBody(args: {
       completed_at: order.completed_at || null,
     },
     error: order.error_code ? { code: order.error_code, details: order.error_details || null } : null,
-    governance,
+    governance: { ...governance, matched_policies: governance.matched_policies ? [...governance.matched_policies] : undefined },
   };
 }
 

@@ -29,4 +29,14 @@ describe('work order receipts', () => {
     expect(verifyReceiptHash(body, hash)).toBe(true);
     expect(verifyReceiptHash({ ...body, cost: { ...body.cost, total_usd: 9.99 } }, hash)).toBe(false);
   });
+
+  it('post-build mutation of the governance argument does not change the hash', () => {
+    const governance = { mode: 'governed' as const, matched_policies: ['pol_a', 'pol_b'] };
+    const body = buildReceiptBody({ order: ORDER, cost: { total_usd: 0.1 }, outputHash: 'sha256:o', governance });
+    const hash = computeReceiptHash(body);
+    // Mutate the original governance object and the matched_policies array after the fact.
+    governance.matched_policies.push('pol_injected');
+    (governance as Record<string, unknown>).mode = 'tampered';
+    expect(verifyReceiptHash(body, hash)).toBe(true);
+  });
 });

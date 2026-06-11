@@ -96,6 +96,13 @@ export function validateSchemaDefinition(schema: unknown): ValidationError[] {
       errors.push({ field: path || 'type', message: `unsupported type '${node.type}'`, code: 'schema_unknown_type' });
     }
     const props = (node.properties && typeof node.properties === 'object' ? node.properties : {}) as Record<string, Schema>;
+    if (Array.isArray(node.required)) {
+      for (const key of node.required) {
+        if (typeof key === 'string' && !(key in props)) {
+          errors.push({ field: path ? `${path}.${key}` : key, message: `required field '${key}' is not defined in properties`, code: 'schema_required_unknown' });
+        }
+      }
+    }
     for (const [key, child] of Object.entries(props)) {
       if (child && typeof child === 'object') walk(child, path ? `${path}.${key}` : key);
     }
