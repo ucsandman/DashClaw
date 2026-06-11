@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Security
+
+- **Resolved all 19 open CodeQL alerts (#101–#119).** Source fixes: `js/regex-injection` in `app/lib/integrity/verify.ts` (forbidden-pattern compilation routed through `assertSafePattern`); `js/unvalidated-dynamic-method-call` in `app/lib/guard.ts` and `app/lib/validate.js` (policy evaluator/validator dispatch via a `Map` guarded by `.has()` + `typeof === "function"`); `js/polynomial-redos` ×7 across `mcp-server/src/dashclaw/guard.ts` and six `providers/*.ts` (secret-redaction regexes rewritten with zero-width lookaheads; trailing-slash strip replaced by a linear `stripTrailingSlashes`); `js/incomplete-sanitization` in `mcp-server/src/service.ts` (markdown audit-export cells now escape backslash before pipe and normalize newlines); `js/incomplete-url-substring-sanitization` in `mcp-server/src/launch/checks.ts` (dot-bounded `.vercel-dns.com` host match). The seven test-file url-substring alerts were dismissed as false positives (assertions/harness filters over fully-controlled mock URLs). Each fix carries a regression test.
+
+### Fixed
+
+- **PreToolUse/Stop hooks no longer misreport an HTTP 401 as "Guard unreachable."** `api_request` swallowed urllib `HTTPError` into a generic failure, so a bad/missing `DASHCLAW_API_KEY` looked like a dead host. The guard path now surfaces a 401/403 distinctly ("unauthorized — invalid or missing API key"); genuine connection failures still report "unreachable". Fix mirrored byte-identically across `hooks/` and `plugins/dashclaw/hooks/`. (#145)
+
+### dashclaw plugin [2.14.2]
+
+- Hooks-bundle refresh shipping the 401-misreport fix above; bundle zips regenerated.
+
 ## [4.10.0] — 2026-06-11
 
 ### Added
