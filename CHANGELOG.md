@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.11.0] — 2026-06-11
+
+### Added
+
+- **Work Orders — task-grade contracts with self-verifying receipts.** Submit typed work (`POST /api/work-orders`) against a registered contract (`work_order_types`, JSON-Schema-subset validation in both directions) with a budget ceiling and timeout; any external worker claims the next queued order atomically (`POST /api/work-orders/claim`, `UPDATE … SKIP LOCKED` lease) and reports completion (`POST /api/work-orders/:id/complete`) — DashClaw validates the output against the contract, links artifacts, and writes a canonical SHA-256 receipt (`work_order_receipts`) covering input/output hashes, cost, lifecycle timestamps, and the governance trail (guard decision, matched policies, audit record). Receipts are independently verifiable — no DashClaw-side secret. Submission runs through guard like any governed action; over-budget completions are flagged on the receipt. Ships 7 new routes (317 total), the `/work-orders` dashboard (queue + ledger + client-side "Verify receipt hash"), 8 Node SDK methods (137), 8 Python SDK methods (233), 2 MCP tools `dashclaw_work_order_submit` / `dashclaw_work_order_status` (32), a `research_brief` seed contract, and a ~75-line reference worker at `examples/work-order-worker/` (deterministic mock mode without an Anthropic key). DashClaw stays the control plane — execution is external workers via claim/complete.
+
 ### Security
 
 - **Resolved all 19 open CodeQL alerts (#101–#119).** Source fixes: `js/regex-injection` in `app/lib/integrity/verify.ts` (forbidden-pattern compilation routed through `assertSafePattern`); `js/unvalidated-dynamic-method-call` in `app/lib/guard.ts` and `app/lib/validate.js` (policy evaluator/validator dispatch via a `Map` guarded by `.has()` + `typeof === "function"`); `js/polynomial-redos` ×7 across `mcp-server/src/dashclaw/guard.ts` and six `providers/*.ts` (secret-redaction regexes rewritten with zero-width lookaheads; trailing-slash strip replaced by a linear `stripTrailingSlashes`); `js/incomplete-sanitization` in `mcp-server/src/service.ts` (markdown audit-export cells now escape backslash before pipe and normalize newlines); `js/incomplete-url-substring-sanitization` in `mcp-server/src/launch/checks.ts` (dot-bounded `.vercel-dns.com` host match). The seven test-file url-substring alerts were dismissed as false positives (assertions/harness filters over fully-controlled mock URLs). Each fix carries a regression test.
