@@ -519,6 +519,37 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       'operator-driven, not agent-driven.',
     inputSchema: { type: 'object', properties: {} },
   },
+  {
+    name: 'dashclaw_work_order_submit',
+    description:
+      'Submit a DashClaw work order: a typed, budget-capped unit of agent work governed by ' +
+      'policy. The order is validated against the registered contract for its type, guard-gated ' +
+      '(may be blocked or parked for human approval), then queued for any worker to claim. ' +
+      'Returns work_order_id + status + the guard decision.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', description: "Registered work order type (e.g. 'research_brief')" },
+        input: { type: 'object', description: 'Input payload matching the contract input schema' },
+        max_cost_usd: { type: 'number', description: 'Budget ceiling in USD (falls back to the type default)' },
+        timeout_seconds: { type: 'integer', description: 'Lease/SLA seconds (falls back to the type default)' },
+      },
+      required: ['type', 'input'],
+    },
+  },
+  {
+    name: 'dashclaw_work_order_status',
+    description:
+      'Check a DashClaw work order: current lifecycle status, worker, guard decision, and — once ' +
+      'terminal — the self-verifying receipt (cost, output hash, governance trail).',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        work_order_id: { type: 'string', description: 'The wo_* id returned at submission' },
+      },
+      required: ['work_order_id'],
+    },
+  },
 ];
 
 /**
@@ -970,6 +1001,21 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       const findings = await client.get('/api/posture/findings', {}, { timeout: 15000 });
       const next = Array.isArray(findings.findings) ? findings.findings[0] || null : null;
       return JSON.stringify({ next });
+    },
+
+    async dashclaw_work_order_submit(args: any) {
+      const { type, input, max_cost_usd, timeout_seconds } = args as { type: string; input: Record<string, unknown>; max_cost_usd?: number; timeout_seconds?: number };
+      const budget: Record<string, unknown> = {};
+      if (max_cost_usd !== undefined) budget.max_cost_usd = max_cost_usd;
+      if (timeout_seconds !== undefined) budget.timeout_seconds = timeout_seconds;
+      const result = await client.post('/api/work-orders', { type, input, ...(Object.keys(budget).length ? { budget } : {}) }, { timeout: 15000 });
+      return JSON.stringify(result, null, 2);
+    },
+
+    async dashclaw_work_order_status(args: any) {
+      const { work_order_id } = args as { work_order_id: string };
+      const result = await client.get(`/api/work-orders/${work_order_id}`, {}, { timeout: 10000 });
+      return JSON.stringify(result, null, 2);
     },
   };
 }

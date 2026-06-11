@@ -682,5 +682,90 @@ class TestRecordX402Purchase(unittest.TestCase):
         self.assertEqual(paths, ["/api/x402/purchases", "/api/actions/act_x402/outcome"])
 
 
+# ---------------------------------------------------------------------------
+# Work Orders
+# ---------------------------------------------------------------------------
+
+class TestWorkOrders(unittest.TestCase):
+    def test_submit_work_order_posts_with_requested_by_default(self):
+        client = RecordingDashClaw()
+        client.submit_work_order({"type": "research_brief", "input": {"topic": "x"}})
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["path"], "/api/work-orders")
+        self.assertEqual(call["body"]["requested_by"], "agent-1")
+        self.assertEqual(call["body"]["type"], "research_brief")
+
+    def test_submit_work_order_preserves_explicit_requested_by(self):
+        client = RecordingDashClaw()
+        client.submit_work_order({"type": "research_brief", "input": {"topic": "x"}, "requested_by": "caller-99"})
+        self.assertEqual(client.calls[-1]["body"]["requested_by"], "caller-99")
+
+    def test_get_work_order_gets_by_id(self):
+        client = RecordingDashClaw()
+        client.get_work_order("wo_abc123")
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "GET")
+        self.assertEqual(call["path"], "/api/work-orders/wo_abc123")
+
+    def test_list_work_orders_gets_with_empty_filters(self):
+        client = RecordingDashClaw()
+        client.list_work_orders()
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "GET")
+        self.assertEqual(call["path"], "/api/work-orders")
+
+    def test_cancel_work_order_deletes_by_id(self):
+        client = RecordingDashClaw()
+        client.cancel_work_order("wo_abc123")
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "DELETE")
+        self.assertEqual(call["path"], "/api/work-orders/wo_abc123")
+
+    def test_claim_work_order_posts_with_agent_id_default(self):
+        client = RecordingDashClaw()
+        client.claim_work_order(types=["research_brief"])
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["path"], "/api/work-orders/claim")
+        self.assertEqual(call["body"]["agent_id"], "agent-1")
+        self.assertEqual(call["body"]["types"], ["research_brief"])
+
+    def test_claim_work_order_allows_explicit_agent_id(self):
+        client = RecordingDashClaw()
+        client.claim_work_order(agent_id="worker-9")
+        self.assertEqual(client.calls[-1]["body"]["agent_id"], "worker-9")
+
+    def test_complete_work_order_posts_with_agent_id_default(self):
+        client = RecordingDashClaw()
+        client.complete_work_order("wo_abc123", {"status": "completed", "output": {"title": "T"}})
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["path"], "/api/work-orders/wo_abc123/complete")
+        self.assertEqual(call["body"]["agent_id"], "agent-1")
+        self.assertEqual(call["body"]["status"], "completed")
+
+    def test_complete_work_order_preserves_explicit_agent_id(self):
+        client = RecordingDashClaw()
+        client.complete_work_order("wo_abc123", {"status": "completed", "agent_id": "worker-7"})
+        self.assertEqual(client.calls[-1]["body"]["agent_id"], "worker-7")
+
+    def test_list_work_order_types_gets(self):
+        client = RecordingDashClaw()
+        client.list_work_order_types()
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "GET")
+        self.assertEqual(call["path"], "/api/work-orders/types")
+
+    def test_register_work_order_type_posts_definition(self):
+        client = RecordingDashClaw()
+        defn = {"type": "research_brief", "input_schema": {"type": "object"}, "output_schema": {"type": "object"}}
+        client.register_work_order_type(defn)
+        call = client.calls[-1]
+        self.assertEqual(call["method"], "POST")
+        self.assertEqual(call["path"], "/api/work-orders/types")
+        self.assertEqual(call["body"]["type"], "research_brief")
+
+
 if __name__ == "__main__":
     unittest.main()

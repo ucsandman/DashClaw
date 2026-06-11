@@ -1435,6 +1435,47 @@ class DashClaw:
         path = f"/api/activity?{query}" if query else "/api/activity"
         return self._request(path)
 
+    # --- Work Orders (task-grade contracts + receipts) ---
+
+    def submit_work_order(self, order):
+        """Submit a work order against a registered contract."""
+        payload = dict(order)
+        payload.setdefault("requested_by", self.agent_id)
+        return self._request("/api/work-orders", "POST", json=payload)
+
+    def get_work_order(self, work_order_id):
+        """Get a work order + its receipt (when terminal)."""
+        return self._request(f"/api/work-orders/{work_order_id}", "GET")
+
+    def list_work_orders(self, filters=None):
+        """List work orders. Filters: status, type, agent, limit, offset."""
+        return self._request("/api/work-orders", "GET", params=filters or {})
+
+    def cancel_work_order(self, work_order_id):
+        """Cancel a queued/claimed/pending-approval work order."""
+        return self._request(f"/api/work-orders/{work_order_id}", "DELETE")
+
+    def claim_work_order(self, types=None, agent_id=None):
+        """Worker: claim the next queued order of the given types."""
+        return self._request("/api/work-orders/claim", "POST", json={
+            "types": types,
+            "agent_id": agent_id or self.agent_id,
+        })
+
+    def complete_work_order(self, work_order_id, result):
+        """Worker: report completion. result = {status, output?, cost?, error?}."""
+        payload = dict(result)
+        payload.setdefault("agent_id", self.agent_id)
+        return self._request(f"/api/work-orders/{work_order_id}/complete", "POST", json=payload)
+
+    def list_work_order_types(self):
+        """List registered work order contracts."""
+        return self._request("/api/work-orders/types", "GET")
+
+    def register_work_order_type(self, definition):
+        """Register a new work order contract (input/output JSON Schema)."""
+        return self._request("/api/work-orders/types", "POST", json=definition)
+
     # -----------------------------------------------
     # Prompt Management
     # -----------------------------------------------
