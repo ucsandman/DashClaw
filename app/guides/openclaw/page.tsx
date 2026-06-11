@@ -149,6 +149,13 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
             <span className="text-secondary">OpenClaw</span>
           </div>
 
+          <p className="mb-6 text-sm text-secondary leading-relaxed">
+            OpenClaw is where DashClaw&apos;s &ldquo;Claw&rdquo; comes from — it was the first
+            agent runtime we governed, and this plugin remains one of the deepest integrations:
+            the full guard &rarr; record &rarr; approval &rarr; outcome loop on every tool call,
+            with x402 spend gating and token-cost attribution built in.
+          </p>
+
           <GuideClient
             frameworkName="OpenClaw"
             frameworkIcon="🦞"

@@ -224,6 +224,30 @@ hooks:
 
 # Per-turn cost attribution. agent_id = hermes.`
   },
+  {
+    id: 'openclaw',
+    name: 'OpenClaw',
+    label: 'Plugin — full governance loop',
+    code: `// openclaw.config.json — the framework that
+// inspired the "Claw" in DashClaw
+{
+  "plugins": {
+    "entries": {
+      "dashclaw-governance": {
+        "enabled": true,
+        "config": {
+          "dashclawUrl": "https://your-instance.vercel.app",
+          "dashclawApiKey": "oc_live_...",
+          "agentId": "my-openclaw-agent",
+          "failClosed": true
+        }
+      }
+    }
+  }
+}
+// Every tool call: guard -> record -> approval
+// -> outcome. x402 spend gating included.`
+  },
 ];
 
 export const operationalFeatures = [

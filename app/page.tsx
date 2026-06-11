@@ -49,7 +49,7 @@ export default function LandingPage() {
 
           {/* Subhead */}
           <p className="mt-6 text-lg text-text-secondary max-w-2xl mx-auto leading-relaxed">
-            DashClaw intercepts agent actions at the moment intent becomes a real-world call. In coding agents (Claude Code, Codex, Hermes) it can hard-block via lifecycle hooks; in chat-based clients it governs through approvals and a verifiable record. Intercept, enforce, record, approve, and verify every high-risk decision in one open source runtime.
+            DashClaw intercepts agent actions at the moment intent becomes a real-world call. In coding and personal agents (Claude Code, Codex, Hermes, OpenClaw) it can hard-block via lifecycle hooks; in chat-based clients it governs through approvals and a verifiable record. Intercept, enforce, record, approve, and verify every high-risk decision in one open source runtime.
           </p>
 
           {/* CTA row */}
@@ -77,7 +77,7 @@ export default function LandingPage() {
 
           {/* Framework list */}
           <p className="mt-10 text-sm text-text-tertiary font-medium max-w-2xl mx-auto">
-            Works with Claude Code, Codex, Hermes Agent, Claude Managed Agents, OpenAI, LangChain, CrewAI, AutoGen, Gemini CLI, and any custom agent.
+            Works with Claude Code, Codex, OpenClaw, Hermes Agent, Claude Managed Agents, OpenAI, LangChain, CrewAI, AutoGen, Gemini CLI, and any custom agent.
           </p>
 
           {/* Trust band */}
@@ -731,7 +731,7 @@ if (decision === "allow") {
                   {
                     label: 'Plugin',
                     title: 'OpenClaw',
-                    desc: 'Native plugin for the OpenClaw agent framework. Intercepts PreToolUse / PostToolUse, runs guard / record / wait-for-approval automatically.',
+                    desc: 'Native plugin for OpenClaw — the agent framework that inspired the "Claw" in DashClaw. Intercepts PreToolUse / PostToolUse, runs guard / record / wait-for-approval automatically.',
                     example: 'npm install @dashclaw/openclaw-plugin',
                     href: '/docs#openclaw-plugin',
                   },
