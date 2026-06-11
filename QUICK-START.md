@@ -18,6 +18,23 @@ npx dashclaw-demo
 
 ---
 
+## 🚀 The 3-Minute Hosted Trial (no deploy)
+
+Have access to a hosted DashClaw trial instance? You don't need to clone or deploy anything:
+
+```bash
+npm i -g @dashclaw/cli
+dashclaw install claude --trial
+```
+
+1. The installer opens the instance's `/connect` page in your browser — complete the signup check and copy the endpoint + API key it issues.
+2. Paste them into the installer prompt. It preflights the instance, wires the Claude Code hooks (observe mode — decisions logged, nothing blocked), and prints next steps.
+3. Trial workspaces start with the `claude-code-starter` policy pack **pre-seeded**, so your next Claude Code session is governed from the first tool call. After a governed turn you'll see the recap line, and `dashclaw cost` shows the session's spend.
+
+Self-hosting instead? Continue below.
+
+---
+
 ## Step 1: Deploy DashClaw
 
 ### Option A: Local (full environment)
