@@ -31,7 +31,7 @@ export default function PublicFooter() {
             <Download size={14} />
             Downloads
           </Link>
-          <Link href="/mission-control" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
+          <Link href="/demo?sandbox=1" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
             <ExternalLink size={14} />
             Mission Control
           </Link>

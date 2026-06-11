@@ -553,14 +553,28 @@ async function handleWellKnownAlias(request, pathname) {
   return forwardWithHeaders(request);
 }
 
-// /demo is always a public entrypoint. Keep it off auth-gated dashboard
-// routes so first-time evaluators land on the interactive marketing demo.
+// /demo is always a public entrypoint. Plain /demo lands first-time evaluators
+// on the interactive marketing demo (no cookie, no auth-gated routes).
+// /demo?sandbox=1 is the explicit "enter the demo dashboard" path (the navbar/
+// footer Mission Control CTAs): it mints the non-secret dashclaw_demo cookie and
+// forwards into /mission-control, where reads are served from deterministic
+// fixtures and writes are blocked. /demo?leave=1 exits the sandbox.
 function handleDemoEntry(request) {
   const leave = request.nextUrl.searchParams.get('leave') === '1';
-  const response = NextResponse.redirect(new URL('/#live-demo', request.url));
+  const sandbox = !leave && request.nextUrl.searchParams.get('sandbox') === '1';
+  const target = sandbox ? '/mission-control' : '/#live-demo';
+  const response = NextResponse.redirect(new URL(target, request.url));
 
   if (leave) {
     response.cookies.delete('dashclaw_demo');
+  } else if (sandbox) {
+    response.cookies.set('dashclaw_demo', '1', {
+      path: '/',
+      maxAge: 60 * 60 * 24, // 24h
+      sameSite: 'lax',
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+    });
   }
 
   addSecurityHeaders(response, request);

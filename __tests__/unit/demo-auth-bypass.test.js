@@ -52,6 +52,28 @@ describe('middleware demo auth bypass', () => {
     expect(res.headers.get('set-cookie') || '').not.toMatch(/dashclaw_demo=1/);
   });
 
+  it('/demo?sandbox=1 mints the demo cookie and forwards into /mission-control', async () => {
+    getToken.mockResolvedValue(null);
+    const res = await middleware(req('/demo?sandbox=1', { demoCookie: false }));
+
+    expect(res.headers.get('location')).toBe('http://localhost:3000/mission-control');
+    const setCookie = res.headers.get('set-cookie') || '';
+    expect(setCookie).toMatch(/dashclaw_demo=1/);
+    expect(setCookie).toMatch(/HttpOnly/i);
+    expect(setCookie).toMatch(/SameSite=lax/i);
+  });
+
+  it('/demo?sandbox=1&leave=1 — leave wins; cookie cleared, no sandbox entry', async () => {
+    getToken.mockResolvedValue(null);
+    const res = await middleware(req('/demo?sandbox=1&leave=1'));
+
+    expect(res.headers.get('location')).toBe('http://localhost:3000/#live-demo');
+    const setCookie = res.headers.get('set-cookie') || '';
+    expect(setCookie).toMatch(/dashclaw_demo=/);
+    expect(setCookie).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
+    expect(setCookie).not.toMatch(/dashclaw_demo=1/);
+  });
+
   it('/demo?leave=1 clears a stale demo cookie and redirects public', async () => {
     getToken.mockResolvedValue(null);
     const res = await middleware(req('/demo?leave=1'));
