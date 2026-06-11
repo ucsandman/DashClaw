@@ -70,8 +70,8 @@ function sources() {
   return {
     routes,
     sdk,
-    mcpTools: countMatches('mcp-server/lib/tools.js', /^\s*name:\s*['"]dashclaw_/gm),
-    mcpResources: countMatches('mcp-server/lib/resources.js', /^\s*uri:\s*['"]/gm),
+    mcpTools: countMatches('mcp-server/src/tools.ts', /^\s*name:\s*['"]dashclaw_/gm),
+    mcpResources: countMatches('mcp-server/src/resources.ts', /^\s*uri:\s*['"]/gm),
     shields: countMatches('app/policies/lib/shields.js', /^\s*id:\s*['"]/gm),
   };
 }

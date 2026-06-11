@@ -26,7 +26,7 @@ rmSync(STAGE, { recursive: true, force: true });
 mkdirSync(STAGE, { recursive: true });
 
 // 2. Copy the publishable server source + lockfile (needed for npm ci)
-for (const f of ['bin', 'lib', 'package.json', 'package-lock.json', 'LICENSE', 'README.md']) {
+for (const f of ['bin', 'lib', 'package.json', 'package-lock.json', 'LICENSE', 'NOTICE', 'README.md']) {
   const src = join(MCP, f);
   if (existsSync(src)) cpSync(src, join(STAGE, f), { recursive: true });
 }
