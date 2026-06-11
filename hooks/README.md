@@ -183,6 +183,12 @@ If DashClaw is reachable, the hook evaluates the command against your guard poli
 
 The Stop hook also auto-closes any action still in `status='running'` at turn end (PostToolUse safety net) — terminal statuses written by PostToolUse are preserved, never overwritten. See [`docs/ANALYTICS-ROLLOUT.md`](../docs/ANALYTICS-ROLLOUT.md) for the full data flow.
 
+### Session digest (SessionStart hook)
+
+`dashclaw_session_digest.py` runs once when a Claude Code session starts and prints a compact (~15-line) digest into the new session's context: the agent's recent decisions (with outcome and confidence), the top distilled lessons from the learning loop, the overall success rate, and — if one is waiting — the latest unconsumed handoff with a pointer to `dashclaw_handoff_consume`. The agent starts every session already knowing what it learned and what was handed off, instead of having to remember to query.
+
+Read-only and strictly fail-silent: missing config, an unreachable instance, or a slow API produces **no output and exit 0** — it never blocks or delays session start beyond its internal budget (two requests at 1.4s timeout each). It reads the same configuration as the other hooks (`DASHCLAW_BASE_URL`/`DASHCLAW_URL`, `DASHCLAW_API_KEY`, optional `DASHCLAW_AGENT_ID`, default `claude-code`). Set `DASHCLAW_DIGEST_DISABLED=1` to turn it off without uninstalling. The installer wires it automatically (per-project and `--global --governance`).
+
 ## Common setup failures
 
 - **Plugin installed but nothing is governed.** `claude plugin install dashclaw` ships MCP tools + skills **only** — not these hooks (they're Python files needing Python on PATH, so they're intentionally not bundled). Install the governance hooks separately: `node scripts/install-hooks.mjs` (per-project) or `--global --governance` (user-level, fires everywhere). "Install the plugin" ≠ "install governance."

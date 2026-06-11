@@ -310,14 +310,14 @@ hermes dashclaw doctor`}
             icon={Terminal}
             eyebrow="Claude Code hooks"
             title="Hooks"
-            description="Govern Claude Code tool calls without per-call SDK code. Installs three hooks (PreToolUse, PostToolUse, Stop) plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent — re-run after every git pull to upgrade."
+            description="Govern Claude Code tool calls without per-call SDK code. Installs four hooks (PreToolUse, PostToolUse, Stop, and a SessionStart memory digest) plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent — re-run after every git pull to upgrade."
           />
 
           {/* Hooks bundle download */}
           <div className="mb-6">
             <DownloadCard
               name="dashclaw-claude-code-hooks"
-              role="The four hook scripts (pretool, posttool, stop, code-session reporter), the dashclaw_agent_intel/ tool-classification module, default settings.json, and the test suite. Drop the unzipped hooks/ directory into your project's .claude/hooks/."
+              role="The five hook scripts (pretool, posttool, stop, code-session reporter, session digest), the dashclaw_agent_intel/ tool-classification module, default settings.json, and the test suite. The session digest prints recent decisions, lessons, and any unconsumed handoff into every new session's context. Drop the unzipped hooks/ directory into your project's .claude/hooks/."
               sizeLabel="hooks + agent_intel + tests"
               primaryHref="/downloads/dashclaw-claude-code-hooks.zip"
               primaryLabel="dashclaw-claude-code-hooks.zip"
