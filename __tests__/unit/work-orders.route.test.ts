@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   evaluateGuard: vi.fn(),
   createActionRecord: vi.fn(async () => ({ action_id: 'act_approval' })),
   createArtifact: vi.fn(async () => ({ artifact_id: 'art_1' })),
+  listArtifacts: vi.fn(async () => ({ artifacts: [], total: 0 })),
+  upsertSignalSnapshots: vi.fn(async () => {}),
   repo: {
     ensureSeedTypes: vi.fn(async () => {}),
     getWorkOrderType: vi.fn(),
@@ -25,7 +27,11 @@ vi.mock('@/lib/db.js', () => ({ getSql: mocks.getSql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: mocks.getOrgId }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: mocks.evaluateGuard }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({ createActionRecord: mocks.createActionRecord }));
-vi.mock('@/lib/repositories/artifacts.repository.js', () => ({ createArtifact: mocks.createArtifact }));
+vi.mock('@/lib/repositories/artifacts.repository.js', () => ({
+  createArtifact: mocks.createArtifact,
+  listArtifacts: mocks.listArtifacts,
+}));
+vi.mock('@/lib/repositories/signals.repository.js', () => ({ upsertSignalSnapshots: mocks.upsertSignalSnapshots }));
 vi.mock('@/lib/repositories/work-orders.repository.js', async (importOriginal) => {
   const real = await importOriginal<Record<string, unknown>>();
   return { ...real, ...mocks.repo }; // keep assertTransition/RESEARCH_BRIEF_SEED real
@@ -33,6 +39,7 @@ vi.mock('@/lib/repositories/work-orders.repository.js', async (importOriginal) =
 
 import { GET as listGET, POST as submitPOST } from '@/api/work-orders/route.js';
 import { POST as completePOST } from '@/api/work-orders/[workOrderId]/complete/route.js';
+import { GET as artifactsGET } from '@/api/work-orders/[workOrderId]/artifacts/route.js';
 
 const TYPE_ROW = {
   type: 'research_brief', version: '1.0', status: 'active',
@@ -155,5 +162,72 @@ describe('POST /api/work-orders/:id/complete', () => {
     expect(body.receipt.receipt_hash).toBeTruthy();
     expect(mocks.createActionRecord).toHaveBeenCalled();
     expect(mocks.repo.createWorkOrderReceipt).toHaveBeenCalled();
+  });
+
+  it('returns 409 and skips audit+receipt when transitionWorkOrder loses a race', async () => {
+    mocks.repo.getWorkOrder.mockResolvedValue(CLAIMED);
+    mocks.repo.transitionWorkOrder.mockResolvedValue(null);
+    const res = await completePOST(
+      req('http://x/api/work-orders/wo_1/complete', { method: 'POST', body: JSON.stringify({ status: 'completed', agent_id: 'worker-1', output: { title: 'T' } }) }),
+      { params: Promise.resolve({ workOrderId: 'wo_1' }) },
+    );
+    expect(res.status).toBe(409);
+    expect((await res.json()).code).toBe('not_claimed');
+    expect(mocks.createActionRecord).not.toHaveBeenCalled();
+    expect(mocks.repo.createWorkOrderReceipt).not.toHaveBeenCalled();
+  });
+
+  it('returns 200 with over_budget=true and fires signals when cost exceeds ceiling', async () => {
+    mocks.repo.getWorkOrder.mockResolvedValue(CLAIMED);
+    mocks.repo.transitionWorkOrder.mockResolvedValue({ ...CLAIMED, status: 'completed', completed_at: '2026-06-11T00:01:00Z' });
+    const res = await completePOST(
+      req('http://x/api/work-orders/wo_1/complete', { method: 'POST', body: JSON.stringify({ status: 'completed', agent_id: 'worker-1', output: { title: 'T' }, cost: { total_usd: 9.99 } }) }),
+      { params: Promise.resolve({ workOrderId: 'wo_1' }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.receipt.receipt.over_budget).toBe(true);
+    expect(mocks.upsertSignalSnapshots).toHaveBeenCalled();
+  });
+});
+
+describe('GET /api/work-orders/:id/artifacts', () => {
+  const COMPLETED = {
+    id: 'wo_2', org_id: 'org_1', type: 'research_brief', type_version: '1.0', status: 'completed',
+    claimed_by: 'worker-1', max_cost_usd: '0.5', timeout_seconds: 600, input_hash: 'sha256:i',
+    created_at: '2026-06-11T00:00:00Z', claimed_at: '2026-06-11T00:00:05Z',
+  };
+
+  it('queries listArtifacts by audit_record_id when receipt is present', async () => {
+    mocks.repo.getWorkOrder.mockResolvedValue(COMPLETED);
+    mocks.repo.getWorkOrderReceipt.mockResolvedValue({
+      id: 'wor_1', org_id: 'org_1', work_order_id: 'wo_2',
+      receipt: { governance: { audit_record_id: 'act_y', mode: 'governed', matched_policies: [] } },
+    } as unknown as null);
+    mocks.listArtifacts.mockResolvedValue({ artifacts: [{ artifact_id: 'art_z' }], total: 1 } as unknown as never);
+
+    const res = await artifactsGET(
+      req('http://x/api/work-orders/wo_2/artifacts'),
+      { params: Promise.resolve({ workOrderId: 'wo_2' }) },
+    );
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.artifacts).toHaveLength(1);
+    expect(mocks.listArtifacts).toHaveBeenCalledWith(
+      expect.anything(), 'org_1', expect.objectContaining({ action_id: 'act_y', limit: 100 }),
+    );
+  });
+
+  it('returns empty list without calling listArtifacts when order has no receipt', async () => {
+    mocks.repo.getWorkOrder.mockResolvedValue(COMPLETED);
+    mocks.repo.getWorkOrderReceipt.mockResolvedValue(null);
+
+    const res = await artifactsGET(
+      req('http://x/api/work-orders/wo_2/artifacts'),
+      { params: Promise.resolve({ workOrderId: 'wo_2' }) },
+    );
+    expect(res.status).toBe(200);
+    expect((await res.json())).toEqual({ artifacts: [], total: 0 });
+    expect(mocks.listArtifacts).not.toHaveBeenCalled();
   });
 });

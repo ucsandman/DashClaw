@@ -45,6 +45,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
       return NextResponse.json({ error: 'not_claim_holder', code: 'not_claim_holder' }, { status: 403 });
     }
 
+    // Audit record via the existing record path; its id lands in the receipt and
+    // in the artifact's source_action_id so artifacts are queryable by audit id.
+    const auditId = `act_${crypto.randomUUID()}`;
+
     // Output contract enforcement (completed only). Rejection leaves the order
     // claimed so the worker can fix and re-report before the lease expires.
     let outputHash: string | null = null;
@@ -63,6 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
         artifact_type: 'work_order_output',
         name: `${order.type} output for ${workOrderId}`,
         source_agent_id: agentId,
+        source_action_id: auditId,
         content_json: output,
         metadata: { work_order_id: workOrderId, content_hash: outputHash },
       });
@@ -74,8 +79,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
       errorDetails: reportedStatus === 'failed' ? (error?.message || null) : null,
     });
 
-    // Audit record via the existing record path; its id lands in the receipt.
-    const auditId = `act_${crypto.randomUUID()}`;
+    if (!updated) {
+      return NextResponse.json({ error: 'not_claimed', code: 'not_claimed', message: 'work order changed state before completion was recorded' }, { status: 409 });
+    }
     const cost = (body.cost && typeof body.cost === 'object' ? body.cost : null) as { input_tokens?: number; output_tokens?: number; total_usd?: number } | null;
     await createActionRecord(sql, {
       orgId,
@@ -114,6 +120,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ wor
     await createWorkOrderReceipt(sql, orgId, workOrderId, receiptBody, receiptHash);
 
     if (receiptBody.over_budget) {
+      // Signals are a dedup fingerprint store — only org/hash/type/severity/agent_id are
+      // persisted; work_order_id contributes to the hash, it is not a queryable column.
       const now = new Date().toISOString();
       await upsertSignalSnapshots(sql, orgId, [{
         _hash: digestJson({ kind: 'work_order_over_budget', workOrderId }),
