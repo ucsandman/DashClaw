@@ -65,12 +65,14 @@ Edit ONLY these source copies; `livingcode:refresh` overwrites the plugin / `.cl
 - `public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md` — version, SDK counts, Product Surfaces table, Dashboard Navigation table (keep the "N groups" prose in sync with the table), ID-prefix table.
 - `public/downloads/dashclaw-platform-intelligence/references/troubleshooting.md` — if the feature adds a failure mode worth documenting.
 
-### Marketing / landing (in-app — there is NO separate marketing repo)
-Honor `.impeccable.md` (read it): declarative voice, lucide icons, CSS tokens (no hardcoded hex), four anti-references (x402/payments = governed capability spend, never crypto/web3/wallet).
-- `app/landingData.js` — `platformFeatures` cards (add one per major subsystem; add its lucide icon to the import).
-- `app/page.js` — the operational-surfaces grid ("Operate it") + capability cards. CAUTION: the `UseCases` tabs document *different* features (e.g. a "Spend" tab may be a budget-cap guard policy, not a FinOps rollup) — don't conflate.
-- `app/downloads/page.js` — Node + Python SDK blurbs (keep feature lists in parity); SDK counts here must match `npm run sdk:count`.
-- `app/self-host/page.js` — optional; references `docs/api-inventory.md` rather than hardcoding counts.
+### Marketing / landing (in-app — there is NO separate marketing repo; an explicit step EVERY ship)
+Honor `.impeccable.md` (read it): declarative voice, lucide icons, CSS tokens (no hardcoded hex), four anti-references (x402/payments = governed capability spend, never crypto/web3/wallet). For each page, check feature *presence* (grep the feature name), not just counts.
+- `app/page.tsx` — the landing page. **The rendered feature lists are the inline arrays in this file** (the operations-section capability cards ~line 612, plus `corePrimitives`/`frameworkQuickstarts`/`signals` from landingData). **DEAD-ARRAY TRAP:** `landingData.js`'s `platformFeatures`/`coreFeatures`/`operationalFeatures`/`platformCoverage`/`shippedHighlights` are imported here but never rendered — a card added only there ships nothing. After editing, grep `app/page.tsx` for the feature name to prove it renders. CAUTION: the `UseCases` tabs document *different* features — don't conflate.
+- `app/landingData.js` — keep its gated counts current (the MCP tool/resource strings are drift-gated), but do not rely on its dead feature arrays to surface anything.
+- `app/downloads/page.tsx` — Node + Python SDK blurbs (keep feature lists in parity); SDK counts here must match `npm run sdk:count`.
+- `app/self-host/page.tsx` — **NOT optional**: the "What you just deployed" grid claims "the full governance API surface — every feature works out of the box," so a major subsystem missing a category card is a false completeness claim. Add a card (category + 4 feature lines) for any major new capability.
+- `app/connect/page.tsx` — integration onboarding: every install command, env var (`DASHCLAW_URL` = MCP server, `DASHCLAW_BASE_URL` = hooks; the SDK takes `baseUrl` as a constructor option, no env read), and package name must match the code. New capabilities only belong here if they add an integration path.
+- `app/guides/*` — framework guides: verify install commands and pins still work; never pin the `dashclaw` package to an old version (unpinned beats stale). A new feature rarely needs a new guide — accuracy is the bar here.
 
 ## Freshness date-stamps (no old dates — but only the living ones)
 

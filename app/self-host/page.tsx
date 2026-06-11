@@ -262,6 +262,15 @@ dashclaw doctor`}</pre>
                 ],
               },
               {
+                category: 'Work Orders',
+                features: [
+                  'Typed task contracts validated on submit and complete',
+                  'Budget ceilings and timeouts enforced per order',
+                  'Atomic claim leases for external workers',
+                  'Self-verifying SHA-256 receipts with the governance trail',
+                ],
+              },
+              {
                 category: 'Security',
                 features: [
                   'Verified agent identity (JWKS / JWT verification)',

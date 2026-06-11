@@ -109,6 +109,33 @@ The counts that recur (and where they hide) live in `references/surfaces.md`; th
 - the pre-built guard-policy / "N safety switches" count (the safety-model section),
 - the governance-skill section count ("six new sections …").
 
+#### Sweep the marketing site — an explicit step, every run (it's the one that gets skipped)
+
+The marketing site is in-app (no separate repo) and it is **part of every ship**, not an
+optional extra. It drifts in a way the count checker can't see: a shipped feature simply
+*absent* from pages that claim completeness. Run this check explicitly:
+
+1. **Grep the feature name across every marketing surface** — `app/page.tsx` (landing),
+   `app/self-host/page.tsx`, `app/downloads/page.tsx`, `app/connect/page.tsx`,
+   `app/guides/*` — and judge each zero-hit: a page that enumerates capabilities and
+   omits a shipped major subsystem is a gap; a page where the feature is genuinely
+   out of scope (e.g. a framework guide) is fine.
+2. **The dead-array trap (burned us once):** `app/landingData.js` exports
+   `platformFeatures` / `coreFeatures` / `operationalFeatures` / `platformCoverage` /
+   `shippedHighlights` which `app/page.tsx` imports but **never renders**. Adding a
+   card there ships *nothing*. The landing page's rendered feature lists are the
+   **inline arrays inside `app/page.tsx` itself** (the operations-section cards and
+   `corePrimitives`/`frameworkQuickstarts`/`signals` from landingData). After any
+   landing edit, verify with a grep that the feature name now appears in `app/page.tsx`.
+3. **`/self-host` is NOT optional:** its "What you just deployed" grid says "the full
+   governance API surface — every feature works out of the box," so a missing category
+   card there is a false completeness claim. Add a card for any major new subsystem.
+4. **Accuracy of every actionable string** (the operator's standing requirement —
+   install paths and integration methods must be 100% right): each install command,
+   package name + version pin, env var name, SDK method, MCP tool, and endpoint shown
+   on these pages must match the code *on this branch*. Never write "(currently X)"
+   published-registry version pins into prose — they stale at every publish.
+
 #### Audit the dates — advance the living ones, never touch the historical ones
 
 The user's standing rule is *no old dates anywhere* — but that means the dates that are **supposed to track now**, not the ones that anchor history. Get this backwards and you corrupt the record.
@@ -237,7 +264,7 @@ Drive Phases 2–3 with parallel subagents, the way the reference sweep did:
 | connectors | Plugin manifests / `.mcp.json` / `hooks.json` enumerate no per-feature routes — usually no change; verify |
 | docs | Hand-authored: `PROJECT_DETAILS.md`, `README.md`, `app/docs/page.js`, `docs/sdk-reference.md`, `docs/sdk-parity.md`, `sdk/README.md`, `sdk-python/README.md`. `README.md` is the densest — it hardcodes route, MCP-tool/group/resource, SDK-method, and guard-policy counts; sweep all of them |
 | "no old dates" / "nothing stale" / "make everything accurate" | The two classes CI doesn't catch (Phase 2): every hardcoded **count** (grep the old number repo-wide, reconcile every hit) and every **freshness date-stamp** (advance the living ones to today, never touch CHANGELOG / history dates) |
-| marketing site | In-app, no separate repo: `app/page.js`, `app/landingData.js`, `app/downloads/page.js`, `app/self-host/page.js` |
+| marketing site | In-app, no separate repo: `app/page.tsx`, `app/landingData.js`, `app/downloads/page.tsx`, `app/self-host/page.tsx`, `app/connect/page.tsx`, `app/guides/*` — an **explicit Phase-2 step every run** (see "Sweep the marketing site"), checking feature *presence*, the landingData dead-array trap, the `/self-host` completeness grid, and install-path accuracy |
 | API inventory / OpenAPI | **Generated** — verify with the `*:check` commands |
 | cut a release / bump the version | Unified platform+SDK number via `npm run version:set` + `contracts/sdk/release-plan.json` + `CHANGELOG.md` (Phase 5). The version number always advances; the SDK **publish** (`npm run release:sdks`, Phase 6) is reminded **only when the SDK source actually changed** this release — a platform-only ship bumps the number but does not republish the SDKs |
 
