@@ -1,6 +1,8 @@
 import { z } from "zod";
 import * as svc from "../service.js";
 import * as pa from "../provider-actions.js";
+import * as launch from "../launch/index.js";
+import { LAUNCH_STACK_ITEMS } from "../launch/types.js";
 function ok(data) {
     return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }] };
 }
@@ -1306,5 +1308,45 @@ function registerProviderTools(server, store) {
             statusCallback: optionalNonEmptyString("Optional call status callback URL"),
         },
     }, guard((a) => pa.twilioCreateCall(store, a)));
+    // --- Launch plans (local tracking; steps run through the guarded tools) --
+    server.registerTool("create_launch_plan", {
+        title: "Create launch plan",
+        description: "Create a stateful launch plan for a project: an ordered step checklist derived from the launch playbook for the declared stack " +
+            "(subset of: domain, vercel, neon, stripe, resend, clerk, upstash, r2, sentry, posthog). Plans TRACK the launch — each step names " +
+            "the existing guarded tool that performs it and a machine-evaluable reality check; nothing is executed by this tool. " +
+            "Stored locally under .dashclaw-local/launches/.",
+        inputSchema: {
+            project: proj,
+            environment: optionalNonEmptyString('Environment the launch targets (default "production")'),
+            declared_stack: z.array(z.enum(LAUNCH_STACK_ITEMS)).describe("Stack pieces this launch uses, e.g. [\"domain\",\"vercel\",\"neon\",\"stripe\"]"),
+            domain: optionalNonEmptyString('Domain being launched (required when "domain" is declared)'),
+        },
+    }, guard((a) => ({ status: "ok", plan: launch.createLaunchPlan(store, a) })));
+    server.registerTool("get_launch_status", {
+        title: "Get launch status",
+        description: "Load a launch plan and report done / pending / blocked-on-approval / failed per step plus THE single next action. Completion is " +
+            "verified, not self-reported: every step's reality check is re-evaluated against provider/local state (reads only, audited), so a " +
+            "crashed session cannot leave phantom done marks. Resumable across sessions.",
+        inputSchema: {
+            plan_id: nonEmptyString("Launch plan id (launch_*) from create_launch_plan"),
+        },
+    }, guard(async (a) => ({ status: "ok", launch: await launch.getLaunchStatus(store, a) })));
+    server.registerTool("preflight_launch", {
+        title: "Preflight launch",
+        description: "Run before step 1 — verifies the declared stack is actually launchable: provider tokens present AND valid (cheap authenticated " +
+            "read each), mappings complete, Stripe mode sanity (live vs test key for the target environment), Namecheap client IP whitelisted. " +
+            "Returns pass/fail per check with remediation hints. Run before any money is spent.",
+        inputSchema: {
+            plan_id: nonEmptyString("Launch plan id (launch_*)"),
+        },
+    }, guard(async (a) => ({ status: "ok", preflight: await launch.preflightLaunch(store, a) })));
+    server.registerTool("verify_launch", {
+        title: "Verify launch",
+        description: "Run after the last step — end-to-end verification that the launch actually works: domain resolves, latest deployment READY, " +
+            "required env vars present on the app, Stripe webhook enabled, email sending domain verified. Reads only, audited.",
+        inputSchema: {
+            plan_id: nonEmptyString("Launch plan id (launch_*)"),
+        },
+    }, guard(async (a) => ({ status: "ok", verify: await launch.verifyLaunch(store, a) })));
 }
 //# sourceMappingURL=index.js.map

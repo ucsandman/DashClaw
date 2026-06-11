@@ -29,6 +29,12 @@ export declare function setEnvVar(token: string, projectId: string, params: {
     target: string[];
     type?: string;
 }, teamId?: string): Promise<Record<string, unknown>>;
+/**
+ * Env var NAMES configured on a project. Values are intentionally never
+ * fetched (Vercel returns encrypted/redacted values here, but we drop them
+ * entirely so nothing secret-shaped transits audit or DashClaw context).
+ */
+export declare function listEnvVarNames(token: string, projectId: string, teamId?: string): Promise<string[]>;
 export interface VercelCreatedProject {
     id: string;
     name: string;

@@ -68,3 +68,4 @@ export declare function createPrice(key: string, params: {
     unitAmount: number;
     recurringInterval?: "day" | "week" | "month" | "year";
 }): Promise<StripePrice>;
+export declare function listPrices(key: string, limit?: number): Promise<StripePrice[]>;

@@ -1,5 +1,6 @@
 import type { AuditLogEntry, LocalState, ProjectMemory } from "./types.js";
 import { type LocalPaths } from "./paths.js";
+export declare function withFileLock<T>(path: string, fn: () => T): T;
 /**
  * Local-first JSON storage for V0.
  *

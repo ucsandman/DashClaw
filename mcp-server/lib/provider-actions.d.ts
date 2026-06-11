@@ -28,6 +28,8 @@ export declare function vercelProjectContext(store: Store, input: Base): Promise
 export declare function vercelDeployments(store: Store, input: Base & {
     limit?: number;
 }): Promise<GuardedResponse>;
+/** Env var NAMES on the mapped Vercel project — values are never fetched. */
+export declare function vercelListEnvVars(store: Store, input: Base): Promise<GuardedResponse>;
 export declare function githubPullRequests(store: Store, input: Base & {
     state?: "open" | "closed" | "all";
     limit?: number;
@@ -447,6 +449,10 @@ export declare function supabaseApplyMigration(store: Store, input: Base & {
     sql: string;
 }): Promise<GuardedResponse>;
 export declare function stripeListProducts(store: Store, input: Base & {
+    limit?: number;
+}): Promise<GuardedResponse>;
+/** Read prices (launch-plan reality checks). Not registered as an MCP tool. */
+export declare function stripeListPrices(store: Store, input: Base & {
     limit?: number;
 }): Promise<GuardedResponse>;
 export declare function stripeListCustomers(store: Store, input: Base & {

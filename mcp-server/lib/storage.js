@@ -117,7 +117,7 @@ function acquireFileLock(path) {
         rmSync(lock, { recursive: true, force: true });
     };
 }
-function withFileLock(path, fn) {
+export function withFileLock(path, fn) {
     const release = acquireFileLock(path);
     try {
         return fn();

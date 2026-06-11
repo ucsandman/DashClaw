@@ -122,4 +122,17 @@ export async function createPrice(key, params) {
         recurring: data.recurring,
     };
 }
+export async function listPrices(key, limit = 10) {
+    const data = await httpJson(`${BASE}/prices`, {
+        headers: headers(key),
+        query: { limit: String(limit) },
+    });
+    return (data.data ?? []).map((p) => ({
+        id: p.id,
+        product: p.product,
+        unitAmount: p.unit_amount ?? null,
+        currency: p.currency,
+        recurring: p.recurring ?? null,
+    }));
+}
 //# sourceMappingURL=stripe.js.map
