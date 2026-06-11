@@ -1,6 +1,6 @@
 # Launch playbook — domain to production, governed end-to-end
 
-The golden path for shipping a product with the offlocal tools: buy the
+The golden path for shipping a product with the governed provider tools: buy the
 domain, deploy on Vercel, provision the database on Neon, wire Stripe, verify.
 Every step names the **exact tool** and says what to expect. Steps marked
 **(APPROVAL)** pause until a human approves — in the DashClaw UI when DashClaw
@@ -175,7 +175,7 @@ Namecheap's eligibility bars: 20+ domains, **or** $50+ account balance,
    Set `NAMECHEAP_SANDBOX=true` to target it — purchases are free rehearsals.
 4. Env vars: `NAMECHEAP_API_USER` (account username), `NAMECHEAP_API_KEY`,
    `NAMECHEAP_CLIENT_IP`, `NAMECHEAP_SANDBOX`.
-5. Registrant contact for purchases — add to `.offlocal/config.yaml`
+5. Registrant contact for purchases — add to `.dashclaw-local/config.yaml`
    (placeholders, obviously):
 
 ```yaml
@@ -199,4 +199,4 @@ the DashClaw UI (or `approve_action` with the returned id when running
 without DashClaw), then **re-run the same tool** — approval never executes
 anything by itself. If a risky step errors with "DashClaw unavailable", that
 is fail-closed working as intended: bring DashClaw back (or set
-`DASHCLAW_BASE_URL`) and retry.
+`DASHCLAW_URL`) and retry.

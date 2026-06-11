@@ -7,7 +7,7 @@ import { applyConfig, loadConfig } from "../src/config.js";
 import { checkPolicy, ensureConnection, listProviderMappings, listEnvironments } from "../src/service.js";
 
 function writeTempConfig(contents: string): string {
-  const dir = mkdtempSync(join(tmpdir(), "offlocal-config-test-"));
+  const dir = mkdtempSync(join(tmpdir(), "dashclaw-local-config-test-"));
   const path = join(dir, "config.yaml");
   writeFileSync(path, contents);
   return path;

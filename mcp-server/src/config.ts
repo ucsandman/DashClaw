@@ -10,12 +10,12 @@ import {
 } from "./service.js";
 import type { Capability, EnvironmentKind, PolicyRule, ProviderId, ProviderResource } from "./types.js";
 import type { RegistrantContact } from "./providers/namecheap.js";
-import { OfflocalError } from "./util.js";
+import { DashclawError } from "./util.js";
 
 /**
- * Declarative config (`.offlocal/config.yaml`) — the file that sells the mental
+ * Declarative config (`.dashclaw-local/config.yaml`) — the file that sells the mental
  * model. It maps projects → environments → provider resources, and declares
- * policy as `require_approval` / `block` lists. `offlocal init` seeds the
+ * policy as `require_approval` / `block` lists. `dashclaw-mcp init` seeds the
  * runtime state (state.json) from it; state.json remains the source of truth.
  * Seeding skips projects whose slug already exists, so re-running is safe.
  *
@@ -103,7 +103,7 @@ interface ConfigRegistrant {
   organization?: string;
 }
 
-interface OfflocalConfig {
+interface LocalConfig {
   projects?: Record<string, ConfigProject>;
   policy?: {
     require_approval?: string[];
@@ -115,7 +115,7 @@ interface OfflocalConfig {
   };
 }
 
-export function loadConfig(path: string): OfflocalConfig | undefined {
+export function loadConfig(path: string): LocalConfig | undefined {
   if (!existsSync(path)) return undefined;
   const parsed = parseYaml(readFileSync(path, "utf8")) ?? {};
   return validateConfig(parsed);
@@ -127,39 +127,39 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 
 function optionalObject(value: unknown, field: string): void {
   if (value !== undefined && !isPlainObject(value)) {
-    throw new OfflocalError(`Invalid config: ${field} must be an object.`);
+    throw new DashclawError(`Invalid config: ${field} must be an object.`);
   }
 }
 
 function optionalStringArray(value: unknown, field: string): void {
   if (value === undefined) return;
   if (!Array.isArray(value) || value.some((item) => typeof item !== "string")) {
-    throw new OfflocalError(`Invalid config: ${field} must be an array of strings.`);
+    throw new DashclawError(`Invalid config: ${field} must be an array of strings.`);
   }
 }
 
 function optionalString(value: unknown, field: string): void {
   if (value !== undefined && typeof value !== "string") {
-    throw new OfflocalError(`Invalid config: ${field} must be a string.`);
+    throw new DashclawError(`Invalid config: ${field} must be a string.`);
   }
 }
 
 function requiredString(value: unknown, field: string): void {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new OfflocalError(`Invalid config: ${field} must be a non-empty string.`);
+    throw new DashclawError(`Invalid config: ${field} must be a non-empty string.`);
   }
 }
 
 function optionalConnectionId(value: unknown, field: string): void {
   if (value !== undefined && (typeof value !== "string" || value.trim().length === 0)) {
-    throw new OfflocalError(`Invalid config: ${field} must be a non-empty string when provided.`);
+    throw new DashclawError(`Invalid config: ${field} must be a non-empty string when provided.`);
   }
 }
 
 function validateProviderBlock(value: unknown, field: string): Record<string, unknown> | undefined {
   if (value === undefined) return undefined;
   if (!isPlainObject(value)) {
-    throw new OfflocalError(`Invalid config: ${field} must be an object.`);
+    throw new DashclawError(`Invalid config: ${field} must be an object.`);
   }
   optionalConnectionId(value.connection_id, `${field}.connection_id`);
   return value;
@@ -167,10 +167,10 @@ function validateProviderBlock(value: unknown, field: string): Record<string, un
 
 function validateEnvironmentConfig(value: unknown, field: string): void {
   if (!isPlainObject(value)) {
-    throw new OfflocalError(`Invalid config: ${field} must be an object.`);
+    throw new DashclawError(`Invalid config: ${field} must be an object.`);
   }
   if (value.kind !== undefined && value.kind !== "development" && value.kind !== "staging" && value.kind !== "production") {
-    throw new OfflocalError(`Invalid config: ${field}.kind must be development, staging, or production.`);
+    throw new DashclawError(`Invalid config: ${field}.kind must be development, staging, or production.`);
   }
 
   const github = validateProviderBlock(value.github, `${field}.github`);
@@ -187,7 +187,7 @@ function validateEnvironmentConfig(value: unknown, field: string): void {
 
   const stripe = validateProviderBlock(value.stripe, `${field}.stripe`);
   if (stripe && stripe.mode !== "test" && stripe.mode !== "live") {
-    throw new OfflocalError(`Invalid config: ${field}.stripe.mode must be "test" or "live".`);
+    throw new DashclawError(`Invalid config: ${field}.stripe.mode must be "test" or "live".`);
   }
 
   const railway = validateProviderBlock(value.railway, `${field}.railway`);
@@ -218,7 +218,7 @@ function validateEnvironmentConfig(value: unknown, field: string): void {
       cloudflareR2.jurisdiction !== "eu" &&
       cloudflareR2.jurisdiction !== "fedramp"
     ) {
-      throw new OfflocalError(`Invalid config: ${field}.cloudflare_r2.jurisdiction must be default, eu, or fedramp.`);
+      throw new DashclawError(`Invalid config: ${field}.cloudflare_r2.jurisdiction must be default, eu, or fedramp.`);
     }
     optionalString(cloudflareR2.access_key_id_env_var, `${field}.cloudflare_r2.access_key_id_env_var`);
     optionalString(cloudflareR2.secret_access_key_env_var, `${field}.cloudflare_r2.secret_access_key_env_var`);
@@ -267,7 +267,7 @@ function validateEnvironmentConfig(value: unknown, field: string): void {
 
 function validateMemoryConfig(value: unknown, field: string): void {
   if (!isPlainObject(value)) {
-    throw new OfflocalError(`Invalid config: ${field} must be an object.`);
+    throw new DashclawError(`Invalid config: ${field} must be an object.`);
   }
   optionalString(value.environment, `${field}.environment`);
   requiredString(value.note, `${field}.note`);
@@ -276,13 +276,13 @@ function validateMemoryConfig(value: unknown, field: string): void {
 
 function validateProjectConfig(value: unknown, slug: string): void {
   if (!isPlainObject(value)) {
-    throw new OfflocalError(`Invalid config: projects.${slug} must be an object.`);
+    throw new DashclawError(`Invalid config: projects.${slug} must be an object.`);
   }
   optionalString(value.name, `projects.${slug}.name`);
   optionalString(value.description, `projects.${slug}.description`);
   optionalObject(value.environments, `projects.${slug}.environments`);
   if (value.memory !== undefined && !Array.isArray(value.memory)) {
-    throw new OfflocalError(`Invalid config: projects.${slug}.memory must be an array.`);
+    throw new DashclawError(`Invalid config: projects.${slug}.memory must be an array.`);
   }
   if (isPlainObject(value.environments)) {
     for (const [envName, env] of Object.entries(value.environments)) {
@@ -298,7 +298,7 @@ function validateProjectConfig(value: unknown, slug: string): void {
 
 function validateRegistrantConfig(value: unknown): void {
   if (!isPlainObject(value)) {
-    throw new OfflocalError("Invalid config: namecheap.registrant must be an object.");
+    throw new DashclawError("Invalid config: namecheap.registrant must be an object.");
   }
   for (const field of [
     "first_name",
@@ -317,9 +317,9 @@ function validateRegistrantConfig(value: unknown): void {
   optionalString(value.organization, "namecheap.registrant.organization");
 }
 
-function validateConfig(value: unknown): OfflocalConfig {
+function validateConfig(value: unknown): LocalConfig {
   if (!isPlainObject(value)) {
-    throw new OfflocalError("Invalid config: top-level config must be an object.");
+    throw new DashclawError("Invalid config: top-level config must be an object.");
   }
   optionalObject(value.projects, "projects");
   optionalObject(value.policy, "policy");
@@ -341,10 +341,10 @@ function validateConfig(value: unknown): OfflocalConfig {
     ...(isPlainObject(value.policy) && Array.isArray(value.policy.block) ? value.policy.block : []),
   ]) {
     if (!tokenToMatch(token)) {
-      throw new OfflocalError(`Unknown policy token in config: ${token}.`);
+      throw new DashclawError(`Unknown policy token in config: ${token}.`);
     }
   }
-  return value as OfflocalConfig;
+  return value as LocalConfig;
 }
 
 /** Map a dotted policy token (e.g. "vercel.env.write") to a rule match. */
@@ -396,7 +396,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
       if (!env.github) return null;
       const [owner, repo] = env.github.repo.split("/");
       if (!owner || !repo) {
-        throw new OfflocalError(
+        throw new DashclawError(
           `Invalid github repo "${env.github.repo}" in config; expected owner/repo.`,
         );
       }
@@ -405,13 +405,13 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "vercel":
       if (!env.vercel) return null;
       if (!env.vercel.project?.trim()) {
-        throw new OfflocalError("Invalid vercel project in config; expected a non-empty project id/name.");
+        throw new DashclawError("Invalid vercel project in config; expected a non-empty project id/name.");
       }
       return { provider, projectId: env.vercel.project, teamId: env.vercel.team_id };
     case "supabase":
       if (!env.supabase) return null;
       if (!env.supabase.project_ref?.trim()) {
-        throw new OfflocalError("Invalid supabase project_ref in config; expected a non-empty project ref.");
+        throw new DashclawError("Invalid supabase project_ref in config; expected a non-empty project ref.");
       }
       return { provider, projectRef: env.supabase.project_ref };
     case "stripe":
@@ -419,7 +419,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "railway":
       if (!env.railway) return null;
       if (!env.railway.project_id?.trim()) {
-        throw new OfflocalError("Invalid railway project_id in config; expected a non-empty project id.");
+        throw new DashclawError("Invalid railway project_id in config; expected a non-empty project id.");
       }
       return {
         provider,
@@ -430,7 +430,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "upstash":
       if (!env.upstash) return null;
       if (!env.upstash.database_id?.trim()) {
-        throw new OfflocalError("Invalid upstash database_id in config; expected a non-empty database id.");
+        throw new DashclawError("Invalid upstash database_id in config; expected a non-empty database id.");
       }
       return {
         provider,
@@ -444,7 +444,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "cloudflare_r2":
       if (!env.cloudflare_r2) return null;
       if (!env.cloudflare_r2.account_id?.trim()) {
-        throw new OfflocalError("Invalid cloudflare_r2 account_id in config; expected a non-empty account id.");
+        throw new DashclawError("Invalid cloudflare_r2 account_id in config; expected a non-empty account id.");
       }
       return {
         provider,
@@ -459,7 +459,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "sentry":
       if (!env.sentry) return null;
       if (!env.sentry.organization_slug?.trim()) {
-        throw new OfflocalError("Invalid sentry organization_slug in config; expected a non-empty organization slug.");
+        throw new DashclawError("Invalid sentry organization_slug in config; expected a non-empty organization slug.");
       }
       return {
         provider,
@@ -470,7 +470,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "posthog":
       if (!env.posthog) return null;
       if (!env.posthog.organization_id?.trim()) {
-        throw new OfflocalError("Invalid posthog organization_id in config; expected a non-empty organization id.");
+        throw new DashclawError("Invalid posthog organization_id in config; expected a non-empty organization id.");
       }
       return {
         provider,
@@ -482,7 +482,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "twilio":
       if (!env.twilio) return null;
       if (!env.twilio.account_sid?.trim()) {
-        throw new OfflocalError("Invalid twilio account_sid in config; expected a non-empty account SID.");
+        throw new DashclawError("Invalid twilio account_sid in config; expected a non-empty account SID.");
       }
       return {
         provider,
@@ -493,7 +493,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "resend":
       if (!env.resend) return null;
       if (!env.resend.domain?.trim()) {
-        throw new OfflocalError("Invalid resend domain in config; expected a non-empty domain.");
+        throw new DashclawError("Invalid resend domain in config; expected a non-empty domain.");
       }
       return {
         provider,
@@ -503,7 +503,7 @@ function environmentResource(provider: ProviderId, env: ConfigEnvironment): Prov
     case "clerk":
       if (!env.clerk) return null;
       if (!env.clerk.publishable_key?.trim()) {
-        throw new OfflocalError("Invalid clerk publishable_key in config; expected a non-empty publishable key.");
+        throw new DashclawError("Invalid clerk publishable_key in config; expected a non-empty publishable key.");
       }
       return {
         provider,
@@ -560,7 +560,7 @@ export interface SeedResult {
   createdRules: number;
 }
 
-export function applyConfig(store: Store, config: OfflocalConfig): SeedResult {
+export function applyConfig(store: Store, config: LocalConfig): SeedResult {
   validateConfig(config);
   const result: SeedResult = { createdProjects: [], skippedProjects: [], createdRules: 0 };
   const providers: ProviderId[] = ["github", "vercel", "supabase", "stripe", "railway", "upstash", "cloudflare_r2", "sentry", "posthog", "resend", "twilio", "clerk"];
@@ -602,7 +602,7 @@ export function applyConfig(store: Store, config: OfflocalConfig): SeedResult {
   // (Staging/dev keep the permissive built-in defaults, so test/staging stays usable.)
   for (const token of config.policy?.require_approval ?? []) {
     const match = tokenToMatch(token);
-    if (!match) throw new OfflocalError(`Unknown policy token in config: ${token}.`);
+    if (!match) throw new DashclawError(`Unknown policy token in config: ${token}.`);
     setPolicyRule(store, {
       effect: "approval_required",
       priority: 100,
@@ -613,7 +613,7 @@ export function applyConfig(store: Store, config: OfflocalConfig): SeedResult {
   }
   for (const token of config.policy?.block ?? []) {
     const match = tokenToMatch(token);
-    if (!match) throw new OfflocalError(`Unknown policy token in config: ${token}.`);
+    if (!match) throw new DashclawError(`Unknown policy token in config: ${token}.`);
     setPolicyRule(store, {
       effect: "block",
       priority: 150,

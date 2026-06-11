@@ -1,24 +1,24 @@
 import { resolve } from "node:path";
 
 /**
- * Resolve the `.offlocal/` home directory.
+ * Resolve the `.dashclaw-local/` home directory.
  *
  * Precedence:
- *   1. OFFLOCAL_HOME env var (absolute or relative to cwd) — points AT the
- *      .offlocal dir itself. Used by tests for isolation.
- *   2. <cwd>/.offlocal
+ *   1. DASHCLAW_LOCAL_HOME env var (absolute or relative to cwd) — points AT the
+ *      .dashclaw-local dir itself. Used by tests for isolation.
+ *   2. <cwd>/.dashclaw-local
  *
  * Local-first by design: state lives next to the project the agent works in.
  */
-export function offlocalHome(): string {
-  const override = process.env.OFFLOCAL_HOME;
+export function localHome(): string {
+  const override = process.env.DASHCLAW_LOCAL_HOME;
   if (override && override.trim().length > 0) {
     return resolve(override);
   }
-  return resolve(process.cwd(), ".offlocal");
+  return resolve(process.cwd(), ".dashclaw-local");
 }
 
-export interface OfflocalPaths {
+export interface LocalPaths {
   home: string;
   state: string;
   memory: string;
@@ -26,7 +26,7 @@ export interface OfflocalPaths {
   config: string;
 }
 
-export function offlocalPaths(home = offlocalHome()): OfflocalPaths {
+export function localPaths(home = localHome()): LocalPaths {
   return {
     home,
     state: resolve(home, "state.json"),

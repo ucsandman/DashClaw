@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { evaluatePolicy } from "../policy.js";
 import type { Store } from "../storage.js";
 import type { ActionContext, PolicyDecision } from "../types.js";
-import { newId, OfflocalError } from "../util.js";
+import { newId, DashclawError } from "../util.js";
 import { dashclawFetch } from "./client.js";
 import type { DashclawDecision, DashclawGuardDecision, DashclawGuardPayload } from "./types.js";
 
@@ -10,7 +10,7 @@ export function normalizeDashclawDecision(value: unknown): DashclawDecision {
   if (value === "allow") return "allow";
   if (value === "block") return "block";
   if (value === "require_approval" || value === "approval_required") return "require_approval";
-  throw new OfflocalError(`Unknown DashClaw decision "${String(value)}".`);
+  throw new DashclawError(`Unknown DashClaw decision "${String(value)}".`);
 }
 
 export function isRiskyAction(ctx: ActionContext): boolean {
@@ -89,9 +89,9 @@ export function buildDashclawGuardPayload(
     reversible: isReversible(ctx),
     risk_score: riskScore(ctx),
     metadata: {
-      offlocal_project_id: ctx.project.id,
-      offlocal_project_slug: ctx.project.slug,
-      offlocal_project_name: ctx.project.name,
+      local_project_id: ctx.project.id,
+      local_project_slug: ctx.project.slug,
+      local_project_name: ctx.project.name,
       environment_id: ctx.environment.id,
       environment_name: ctx.environment.name,
       environment_kind: ctx.environment.kind,

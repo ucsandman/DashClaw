@@ -11,13 +11,13 @@ import {
 } from "node:fs";
 import type {
   AuditLogEntry,
-  OfflocalState,
+  LocalState,
   ProjectMemory,
 } from "./types.js";
-import { offlocalPaths, type OfflocalPaths } from "./paths.js";
-import { OfflocalError } from "./util.js";
+import { localPaths, type LocalPaths } from "./paths.js";
+import { DashclawError } from "./util.js";
 
-function emptyState(): OfflocalState {
+function emptyState(): LocalState {
   return {
     version: 1,
     workspaces: [],
@@ -36,30 +36,30 @@ function isObject(value: unknown): value is Record<string, unknown> {
 
 function requireArray(value: unknown, path: string): void {
   if (!Array.isArray(value)) {
-    throw new OfflocalError(`${path} must be an array.`);
+    throw new DashclawError(`${path} must be an array.`);
   }
 }
 
-function validateStateShape(value: unknown, path: string): OfflocalState {
+function validateStateShape(value: unknown, path: string): LocalState {
   if (!isObject(value)) {
-    throw new OfflocalError(`${path} must be a JSON object.`);
+    throw new DashclawError(`${path} must be a JSON object.`);
   }
   const version = value.version ?? 0;
   if (typeof version !== "number" || !Number.isSafeInteger(version) || version < 0) {
-    throw new OfflocalError(`${path}.version must be a non-negative integer.`);
+    throw new DashclawError(`${path}.version must be a non-negative integer.`);
   }
   if (version > emptyState().version) {
-    throw new OfflocalError(`Unsupported state version ${version}; this offlocal build supports version ${emptyState().version}.`);
+    throw new DashclawError(`Unsupported state version ${version}; this @dashclaw/mcp-server build supports version ${emptyState().version}.`);
   }
   for (const key of ["workspaces", "projects", "environments", "connections", "mappings", "policyRules", "pendingApprovals"]) {
     if (value[key] !== undefined) requireArray(value[key], `${path}.${key}`);
   }
-  return { ...emptyState(), ...value, version: emptyState().version } as OfflocalState;
+  return { ...emptyState(), ...value, version: emptyState().version } as LocalState;
 }
 
 function validateMemoryShape(value: unknown, path: string): ProjectMemory[] {
   if (!Array.isArray(value)) {
-    throw new OfflocalError(`${path} must be a JSON array.`);
+    throw new DashclawError(`${path} must be a JSON array.`);
   }
   return value as ProjectMemory[];
 }
@@ -88,7 +88,7 @@ function optionalPositiveEnvInt(name: string): number | undefined {
   if (!raw) return undefined;
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new OfflocalError(`${name} must be a positive integer.`);
+    throw new DashclawError(`${name} must be a positive integer.`);
   }
   return parsed;
 }
@@ -96,11 +96,11 @@ function optionalPositiveEnvInt(name: string): number | undefined {
 const DEFAULT_LOCK_STALE_MS = 30_000;
 
 function lockStaleMs(): number {
-  const raw = process.env.OFFLOCAL_LOCK_STALE_MS;
+  const raw = process.env.DASHCLAW_LOCK_STALE_MS;
   if (!raw) return DEFAULT_LOCK_STALE_MS;
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new OfflocalError("OFFLOCAL_LOCK_STALE_MS must be a positive integer number of milliseconds.");
+    throw new DashclawError("DASHCLAW_LOCK_STALE_MS must be a positive integer number of milliseconds.");
   }
   return parsed;
 }
@@ -117,11 +117,11 @@ function acquireFileLock(path: string): () => void {
           rmSync(lock, { recursive: true, force: true });
           mkdirSync(lock);
         } else {
-          throw new OfflocalError(`${path} is locked by another offlocal process. Retry after that process exits.`);
+          throw new DashclawError(`${path} is locked by another dashclaw-mcp process. Retry after that process exits.`);
         }
       } catch (retryErr) {
-        if (retryErr instanceof OfflocalError) throw retryErr;
-        throw new OfflocalError(`${path} is locked by another offlocal process. Retry after that process exits.`);
+        if (retryErr instanceof DashclawError) throw retryErr;
+        throw new DashclawError(`${path} is locked by another dashclaw-mcp process. Retry after that process exits.`);
       }
     } else {
       throw err;
@@ -162,11 +162,11 @@ async function withFileLockAsync<T>(path: string, fn: () => Promise<T>): Promise
  * place so stale Store instances do not overwrite each other.
  */
 export class Store {
-  readonly paths: OfflocalPaths;
-  private state: OfflocalState;
+  readonly paths: LocalPaths;
+  private state: LocalState;
   private memory: ProjectMemory[];
 
-  constructor(paths: OfflocalPaths = offlocalPaths()) {
+  constructor(paths: LocalPaths = localPaths()) {
     this.paths = paths;
     this.ensureHome();
     this.state = this.loadState();
@@ -179,7 +179,7 @@ export class Store {
     }
   }
 
-  private loadState(): OfflocalState {
+  private loadState(): LocalState {
     if (!existsSync(this.paths.state)) return emptyState();
     try {
       const raw = readFileSync(this.paths.state, "utf8");
@@ -191,7 +191,7 @@ export class Store {
       }
       return state;
     } catch (err) {
-      throw new OfflocalError(
+      throw new DashclawError(
         `${this.paths.state} is not valid JSON; refusing to start with empty state. ` +
           `Fix or move the file and retry. ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -203,7 +203,7 @@ export class Store {
     try {
       return validateMemoryShape(JSON.parse(readFileSync(this.paths.memory, "utf8")) as unknown, this.paths.memory);
     } catch (err) {
-      throw new OfflocalError(
+      throw new DashclawError(
         `${this.paths.memory} is not valid JSON; refusing to drop project memory. ` +
           `Fix or move the file and retry. ${err instanceof Error ? err.message : String(err)}`,
       );
@@ -213,12 +213,12 @@ export class Store {
   // --- state access --------------------------------------------------------
 
   /** Direct read access. Callers must NOT mutate the returned object in place. */
-  get data(): Readonly<OfflocalState> {
+  get data(): Readonly<LocalState> {
     return this.state;
   }
 
   /** Apply a mutation to state and persist. */
-  update(mutator: (state: OfflocalState) => void): void {
+  update(mutator: (state: LocalState) => void): void {
     this.ensureHome();
     withFileLock(this.paths.state, () => {
       const current = this.loadState();
@@ -229,7 +229,7 @@ export class Store {
     });
   }
 
-  private persistState(state: OfflocalState): void {
+  private persistState(state: LocalState): void {
     this.ensureHome();
     writeJsonAtomic(this.paths.state, state);
   }
@@ -248,7 +248,7 @@ export class Store {
     this.ensureHome();
     withFileLock(this.paths.memory, () => {
       const current = this.loadMemory();
-      const maxEntries = optionalPositiveEnvInt("OFFLOCAL_MEMORY_MAX_ENTRIES");
+      const maxEntries = optionalPositiveEnvInt("DASHCLAW_MEMORY_MAX_ENTRIES");
       const next = [...current, entry].slice(-(maxEntries ?? Number.MAX_SAFE_INTEGER));
       this.persistMemory(next);
       this.memory = next;
@@ -268,7 +268,7 @@ export class Store {
   }
 
   private applyAuditRetentionUnlocked(): void {
-    const maxEntries = optionalPositiveEnvInt("OFFLOCAL_AUDIT_MAX_ENTRIES");
+    const maxEntries = optionalPositiveEnvInt("DASHCLAW_AUDIT_MAX_ENTRIES");
     if (maxEntries === undefined || !existsSync(this.paths.audit)) return;
     const entries = parseAuditFile(this.paths.audit);
     if (entries.length <= maxEntries) return;
@@ -314,7 +314,7 @@ function parseAuditFile(path: string): AuditLogEntry[] {
     try {
       entries.push(JSON.parse(line) as AuditLogEntry);
     } catch (err) {
-      throw new OfflocalError(
+      throw new DashclawError(
         `${path} is not valid JSONL at line ${idx + 1}; refusing to hide audit entries. ` +
           `Fix or move the file and retry. ${err instanceof Error ? err.message : String(err)}`,
       );

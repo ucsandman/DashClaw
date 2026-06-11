@@ -5,28 +5,28 @@ import { join } from "node:path";
 import { spawnSync } from "node:child_process";
 
 function tempHome() {
-  return mkdtempSync(join(tmpdir(), "offlocal-cli-test-"));
+  return mkdtempSync(join(tmpdir(), "dashclaw-local-cli-test-"));
 }
 
-function runCli(args: string[], offlocalHome = tempHome()) {
-  const env = { ...process.env, OFFLOCAL_HOME: offlocalHome };
-  delete env.DASHCLAW_BASE_URL;
+function runCli(args: string[], localHome = tempHome()) {
+  const env = { ...process.env, DASHCLAW_LOCAL_HOME: localHome };
+  delete env.DASHCLAW_URL;
   delete env.DASHCLAW_API_KEY;
   delete env.DASHCLAW_TIMEOUT_MS;
-  delete env.OFFLOCAL_DASHCLAW_MODE;
+  delete env.DASHCLAW_MODE;
   const result = spawnSync(process.execPath, ["--import", "tsx", "src/cli.ts", ...args], {
     cwd: process.cwd(),
     env,
     encoding: "utf8",
   });
-  return { ...result, offlocalHome };
+  return { ...result, localHome };
 }
 
 function createMappedProjectHome() {
-  const offlocalHome = tempHome();
-  expect(runCli(["project", "create", "Acme CRM"], offlocalHome).status).toBe(0);
-  expect(runCli(["env", "add", "staging", "--kind", "staging"], offlocalHome).status).toBe(0);
-  return offlocalHome;
+  const localHome = tempHome();
+  expect(runCli(["project", "create", "Acme CRM"], localHome).status).toBe(0);
+  expect(runCli(["env", "add", "staging", "--kind", "staging"], localHome).status).toBe(0);
+  return localHome;
 }
 
 describe("CLI failure behavior", () => {
@@ -36,7 +36,7 @@ describe("CLI failure behavior", () => {
     expect(res.status).toBe(1);
     expect(JSON.parse(res.stdout)).toMatchObject({
       status: "error",
-      error: expect.stringMatching(/usage: offlocal project create/i),
+      error: expect.stringMatching(/usage: dashclaw-mcp project create/i),
     });
   });
 
@@ -61,10 +61,10 @@ describe("CLI failure behavior", () => {
   });
 
   it("exits non-zero when map receives a missing explicit connection", () => {
-    const offlocalHome = createMappedProjectHome();
+    const localHome = createMappedProjectHome();
     const res = runCli(
       ["map", "github", "staging", "--connection", "conn_missing", "--resource", "{\"owner\":\"acme\",\"repo\":\"app\"}"],
-      offlocalHome,
+      localHome,
     );
 
     expect(res.status).toBe(1);
@@ -75,8 +75,8 @@ describe("CLI failure behavior", () => {
   });
 
   it("persists an explicit mapping connection id", () => {
-    const offlocalHome = createMappedProjectHome();
-    const statePath = join(offlocalHome, "state.json");
+    const localHome = createMappedProjectHome();
+    const statePath = join(localHome, "state.json");
     const state = JSON.parse(readFileSync(statePath, "utf8"));
     state.connections.push({
       id: "conn_custom_github",
@@ -90,7 +90,7 @@ describe("CLI failure behavior", () => {
 
     const res = runCli(
       ["map", "github", "staging", "--connection", "conn_custom_github", "--resource", "{\"owner\":\"acme\",\"repo\":\"app\"}"],
-      offlocalHome,
+      localHome,
     );
 
     expect(res.status).toBe(0);
@@ -103,8 +103,8 @@ describe("CLI failure behavior", () => {
   });
 
   it("prints doctor output as JSON", () => {
-    const offlocalHome = createMappedProjectHome();
-    const res = runCli(["doctor", "--project", "acme-crm", "--env", "staging", "--json"], offlocalHome);
+    const localHome = createMappedProjectHome();
+    const res = runCli(["doctor", "--project", "acme-crm", "--env", "staging", "--json"], localHome);
 
     expect(res.status).toBe(0);
     expect(JSON.parse(res.stdout)).toMatchObject({
@@ -117,14 +117,14 @@ describe("CLI failure behavior", () => {
   });
 
   it("creates and lists connections from the CLI", () => {
-    const offlocalHome = tempHome();
+    const localHome = tempHome();
     const created = runCli(
       ["connection", "create", "github", "--label", "main", "--env-var", "CUSTOM_GITHUB_TOKEN"],
-      offlocalHome,
+      localHome,
     );
     expect(created.status).toBe(0);
 
-    const listed = runCli(["connection", "list"], offlocalHome);
+    const listed = runCli(["connection", "list"], localHome);
     expect(listed.status).toBe(0);
     expect(JSON.parse(listed.stdout)).toMatchObject({
       status: "ok",
@@ -134,8 +134,8 @@ describe("CLI failure behavior", () => {
   });
 
   it("exports audit from the CLI", () => {
-    const offlocalHome = createMappedProjectHome();
-    const statePath = join(offlocalHome, "audit.log");
+    const localHome = createMappedProjectHome();
+    const statePath = join(localHome, "audit.log");
     writeFileSync(
       statePath,
       JSON.stringify({
@@ -150,7 +150,7 @@ describe("CLI failure behavior", () => {
       }) + "\n",
     );
 
-    const res = runCli(["audit", "export", "--project", "acme-crm", "--format", "csv"], offlocalHome);
+    const res = runCli(["audit", "export", "--project", "acme-crm", "--format", "csv"], localHome);
 
     expect(res.status).toBe(0);
     expect(res.stdout).toContain("timestamp,project,environment,provider,tool");
@@ -158,12 +158,12 @@ describe("CLI failure behavior", () => {
   });
 
   it("exports context snapshots from the CLI", () => {
-    const offlocalHome = createMappedProjectHome();
-    const res = runCli(["snapshot", "--project", "acme-crm", "--env", "staging", "--format", "json"], offlocalHome);
+    const localHome = createMappedProjectHome();
+    const res = runCli(["snapshot", "--project", "acme-crm", "--env", "staging", "--format", "json"], localHome);
 
     expect(res.status).toBe(0);
     expect(JSON.parse(res.stdout)).toMatchObject({
-      schema: "offlocal.context.snapshot.v1",
+      schema: "dashclaw.context.snapshot.v1",
       context: {
         project: { slug: "acme-crm" },
         focusedEnvironment: "staging",
@@ -182,9 +182,9 @@ describe("CLI failure behavior", () => {
   });
 
   it("exports DashClaw evidence from the CLI", () => {
-    const offlocalHome = createMappedProjectHome();
+    const localHome = createMappedProjectHome();
     writeFileSync(
-      join(offlocalHome, "audit.log"),
+      join(localHome, "audit.log"),
       JSON.stringify({
         timestamp: "2026-06-09T00:00:00.000Z",
         projectSlug: "acme-crm",
@@ -198,11 +198,11 @@ describe("CLI failure behavior", () => {
       }) + "\n",
     );
 
-    const res = runCli(["dashclaw", "evidence", "--project", "acme-crm"], offlocalHome);
+    const res = runCli(["dashclaw", "evidence", "--project", "acme-crm"], localHome);
 
     expect(res.status).toBe(0);
     expect(JSON.parse(res.stdout)).toMatchObject({
-      schema: "offlocal.dashclaw.evidence.v1",
+      schema: "dashclaw.evidence.v1",
       entries: [expect.objectContaining({ dashclawDecisionId: "gd_1" })],
     });
   });
@@ -221,6 +221,6 @@ describe("CLI failure behavior", () => {
     const res = runCli(["env", "add", "qa", "--kind", "prod-like"]);
 
     expect(res.status).toBe(1);
-    expect(existsSync(join(res.offlocalHome, "state.json"))).toBe(false);
+    expect(existsSync(join(res.localHome, "state.json"))).toBe(false);
   });
 });

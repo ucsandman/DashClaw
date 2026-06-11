@@ -1,4 +1,4 @@
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 import type { DashclawConfig } from "./types.js";
 
 const DEFAULT_DASHCLAW_TIMEOUT_MS = 30_000;
@@ -13,22 +13,22 @@ function redact(text: string, apiKey?: string): string {
 }
 
 function readTimeout(): number {
-  const raw = process.env.DASHCLAW_TIMEOUT_MS ?? process.env.OFFLOCAL_HTTP_TIMEOUT_MS ?? String(DEFAULT_DASHCLAW_TIMEOUT_MS);
+  const raw = process.env.DASHCLAW_TIMEOUT_MS ?? process.env.DASHCLAW_HTTP_TIMEOUT_MS ?? String(DEFAULT_DASHCLAW_TIMEOUT_MS);
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed <= 0) {
-    throw new OfflocalError("DASHCLAW_TIMEOUT_MS must be a positive integer number of milliseconds.");
+    throw new DashclawError("DASHCLAW_TIMEOUT_MS must be a positive integer number of milliseconds.");
   }
   return parsed;
 }
 
 export function dashclawConfigFromEnv(): DashclawConfig {
-  const baseUrl = process.env.DASHCLAW_BASE_URL?.trim();
-  if (!baseUrl) throw new OfflocalError("DASHCLAW_BASE_URL is required for DashClaw authoritative mode.");
+  const baseUrl = process.env.DASHCLAW_URL?.trim();
+  if (!baseUrl) throw new DashclawError("DASHCLAW_URL is required for DashClaw authoritative mode.");
   const apiKey = process.env.DASHCLAW_API_KEY?.trim();
-  if (!apiKey) throw new OfflocalError("DASHCLAW_API_KEY is required for DashClaw authoritative mode.");
-  const mode = process.env.OFFLOCAL_DASHCLAW_MODE ?? "authoritative";
+  if (!apiKey) throw new DashclawError("DASHCLAW_API_KEY is required for DashClaw authoritative mode.");
+  const mode = process.env.DASHCLAW_MODE ?? "authoritative";
   if (mode !== "authoritative") {
-    throw new OfflocalError('OFFLOCAL_DASHCLAW_MODE must be "authoritative" for this version.');
+    throw new DashclawError('DASHCLAW_MODE must be "authoritative" for this version.');
   }
   return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey, timeoutMs: readTimeout(), mode };
 }
@@ -61,7 +61,7 @@ export async function dashclawFetch<T = unknown>(
     const message = controller.signal.aborted
       ? `Timed out after ${config.timeoutMs}ms calling DashClaw.`
       : `Network error calling DashClaw: ${err instanceof Error ? err.message : String(err)}`;
-    throw new OfflocalError(redact(message, config.apiKey));
+    throw new DashclawError(redact(message, config.apiKey));
   }
   clearTimeout(timeout);
 
@@ -69,7 +69,7 @@ export async function dashclawFetch<T = unknown>(
   const parsed = text ? safeJson(text) : undefined;
   if (!response.ok) {
     const detail = typeof parsed === "string" ? parsed : JSON.stringify(parsed ?? {});
-    throw new OfflocalError(redact(`${response.status} ${response.statusText} from DashClaw: ${detail}`, config.apiKey));
+    throw new DashclawError(redact(`${response.status} ${response.statusText} from DashClaw: ${detail}`, config.apiKey));
   }
   return parsed as T;
 }

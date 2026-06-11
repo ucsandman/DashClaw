@@ -24,9 +24,9 @@ import { resolve } from "node:path";
 import { logEvent, startupLoggingEnabled } from "./logger.js";
 
 /**
- * Minimal `offlocal` CLI. The MCP tools are the primary interface; this CLI is a
+ * Minimal `dashclaw-mcp` CLI. The MCP tools are the primary interface; this CLI is a
  * convenience for setup and inspection. All commands operate on the same
- * `.offlocal/` state as the server.
+ * `.dashclaw-local/` state as the server.
  */
 
 function parseFlags(args: string[]): { positional: string[]; flags: Record<string, string> } {
@@ -102,7 +102,7 @@ function printSetupHelp(serverEntry: string): void {
     JSON.stringify(
       {
         mcpServers: {
-          offlocalai: {
+          "dashclaw-local": {
             type: "stdio",
             command: "node",
             args: [serverEntry],
@@ -134,35 +134,35 @@ function printSetupHelp(serverEntry: string): void {
   lines.push("");
   lines.push("   Cursor → .cursor/mcp.json (same shape, drop the \"type\" field).");
   lines.push("   Codex  → ~/.codex/config.toml:");
-  lines.push("     [mcp_servers.offlocalai]");
+  lines.push("     [mcp_servers.dashclaw-local]");
   lines.push(`     command = "node"`);
   lines.push(`     args = ["${serverEntry.replace(/\\/g, "\\\\")}"]`);
   lines.push("");
   lines.push("3) Then ask your agent (using your project/environment names):");
-  lines.push('   "Use offlocalai to get the context for <project> <environment> and tell me what is safe to touch."');
+  lines.push('   "Use dashclaw-local to get the context for <project> <environment> and tell me what is safe to touch."');
   lines.push("");
   console.log(lines.join("\n"));
 }
 
-const HELP = `offlocal — production context layer for AI coding agents
+const HELP = `dashclaw-mcp — production context layer for AI coding agents
 
 Usage:
-  offlocal init [--config <path>]          Seed state from .offlocal/config.yaml if present
-  offlocal project create <name> [--slug <s>] [--desc <d>]
-  offlocal project list
-  offlocal select <project>                Set the active project
-  offlocal env add <name> [--project <p>] [--kind development|staging|production]
-  offlocal env list [--project <p>]
-  offlocal connection create <provider> --label <name> --env-var <VAR> [--vercel-team-id <id>]
-  offlocal connection list [--provider <provider>]
-  offlocal map <provider> <environment> --resource '<json>' [--project <p>] [--connection <id>]
-  offlocal doctor [--project <p>] [--env <e>] [--json]
-  offlocal simulate <provider> <environment> <capability> [--project <p>] [--live] [--resource <label>]
-  offlocal audit export [--project <p>] [--env <e>] [--provider <p>] [--limit <n>] [--format jsonl|csv|markdown]
-  offlocal snapshot [--project <p>] [--env <e>] [--format json|markdown]
-  offlocal dashclaw status
-  offlocal dashclaw evidence [--project <p>] [--env <e>] [--provider <p>] [--limit <n>]
-  offlocal context [project] [--env <e>] [--json]   Print the production-context summary
+  dashclaw-mcp init [--config <path>]          Seed state from .dashclaw-local/config.yaml if present
+  dashclaw-mcp project create <name> [--slug <s>] [--desc <d>]
+  dashclaw-mcp project list
+  dashclaw-mcp select <project>                Set the active project
+  dashclaw-mcp env add <name> [--project <p>] [--kind development|staging|production]
+  dashclaw-mcp env list [--project <p>]
+  dashclaw-mcp connection create <provider> --label <name> --env-var <VAR> [--vercel-team-id <id>]
+  dashclaw-mcp connection list [--provider <provider>]
+  dashclaw-mcp map <provider> <environment> --resource '<json>' [--project <p>] [--connection <id>]
+  dashclaw-mcp doctor [--project <p>] [--env <e>] [--json]
+  dashclaw-mcp simulate <provider> <environment> <capability> [--project <p>] [--live] [--resource <label>]
+  dashclaw-mcp audit export [--project <p>] [--env <e>] [--provider <p>] [--limit <n>] [--format jsonl|csv|markdown]
+  dashclaw-mcp snapshot [--project <p>] [--env <e>] [--format json|markdown]
+  dashclaw-mcp dashclaw status
+  dashclaw-mcp dashclaw evidence [--project <p>] [--env <e>] [--provider <p>] [--limit <n>]
+  dashclaw-mcp context [project] [--env <e>] [--json]   Print the production-context summary
 
 Providers: github | vercel | supabase | stripe | railway | namecheap | neon | upstash | cloudflare_r2 | sentry | posthog | resend | twilio | clerk
 Resource JSON examples:
@@ -207,7 +207,7 @@ async function main(): Promise<void> {
         print({
           status: "ok",
           home: store.paths.home,
-          message: `Initialized empty state at ${store.paths.home}. No config.yaml at ${path}. Copy .offlocal/config.example.yaml to .offlocal/config.yaml and edit it, then re-run \`offlocal init\` (or create projects with \`offlocal project create\` / \`offlocal map\`).`,
+          message: `Initialized empty state at ${store.paths.home}. No config.yaml at ${path}. Copy docs/config.example.yaml (in the @dashclaw/mcp-server package) to .dashclaw-local/config.yaml and edit it, then re-run \`dashclaw-mcp init\` (or create projects with \`dashclaw-mcp project create\` / \`dashclaw-mcp map\`).`,
         });
       } else {
         print({ status: "ok", seededFrom: path, home: store.paths.home, ...result });
@@ -219,7 +219,7 @@ async function main(): Promise<void> {
     case "project": {
       if (sub === "create") {
         const name = positional[1];
-        if (!name) return failCli("Usage: offlocal project create <name>");
+        if (!name) return failCli("Usage: dashclaw-mcp project create <name>");
         const store = new Store();
         print({ status: "ok", project: createProject(store, { name, slug: flags.slug, description: flags.desc }) });
       } else if (sub === "list") {
@@ -232,7 +232,7 @@ async function main(): Promise<void> {
     }
 
     case "select": {
-      if (!sub) return failCli("Usage: offlocal select <project>");
+      if (!sub) return failCli("Usage: dashclaw-mcp select <project>");
       const store = new Store();
       print({ status: "ok", project: selectProject(store, sub) });
       return;
@@ -241,7 +241,7 @@ async function main(): Promise<void> {
     case "env": {
       if (sub === "add") {
         const name = positional[1];
-        if (!name) return failCli("Usage: offlocal env add <name>");
+        if (!name) return failCli("Usage: dashclaw-mcp env add <name>");
         const store = new Store();
         print({
           status: "ok",
@@ -264,7 +264,7 @@ async function main(): Promise<void> {
       if (sub === "create") {
         const provider = positional[1] as ProviderId | undefined;
         if (!provider || !flags.label || !flags["env-var"]) {
-          return failCli("Usage: offlocal connection create <provider> --label <name> --env-var <VAR>");
+          return failCli("Usage: dashclaw-mcp connection create <provider> --label <name> --env-var <VAR>");
         }
         const store = new Store();
         print({
@@ -289,7 +289,7 @@ async function main(): Promise<void> {
       const provider = sub as ProviderId;
       const environment = positional[1];
       if (!provider || !environment || !flags.resource) {
-        return failCli("Usage: offlocal map <provider> <environment> --resource '<json>' [--connection <id>]");
+        return failCli("Usage: dashclaw-mcp map <provider> <environment> --resource '<json>' [--connection <id>]");
       }
       let parsed: Record<string, unknown>;
       try {
@@ -329,7 +329,7 @@ async function main(): Promise<void> {
       const environment = positional[1];
       const capability = positional[2] as any;
       if (!provider || !environment || !capability) {
-        return failCli("Usage: offlocal simulate <provider> <environment> <capability> [--project <p>] [--live]");
+        return failCli("Usage: dashclaw-mcp simulate <provider> <environment> <capability> [--project <p>] [--live]");
       }
       const store = new Store();
       print({
@@ -403,7 +403,7 @@ async function main(): Promise<void> {
     }
 
     default:
-      failCli(`Unknown command "${cmd}". Try: offlocal --help`);
+      failCli(`Unknown command "${cmd}". Try: dashclaw-mcp --help`);
   }
 }
 

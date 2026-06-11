@@ -21,7 +21,7 @@ import type {
   Workspace,
 } from "./types.js";
 import { PROVIDER_IDS } from "./types.js";
-import { newId, nowIso, OfflocalError, slugify } from "./util.js";
+import { newId, nowIso, DashclawError, slugify } from "./util.js";
 
 /**
  * Service layer: all business logic lives here as plain functions over a Store.
@@ -58,11 +58,11 @@ export function createProject(
 ): Project {
   const ws = ensureDefaultWorkspace(store);
   const name = input.name.trim();
-  if (!name) throw new OfflocalError("Project name must be a non-empty string.");
+  if (!name) throw new DashclawError("Project name must be a non-empty string.");
   const slug = slugify(input.slug ?? name);
-  if (!slug) throw new OfflocalError("Project name/slug produced an empty slug.");
+  if (!slug) throw new DashclawError("Project name/slug produced an empty slug.");
   if (store.data.projects.some((p) => p.workspaceId === ws.id && p.slug === slug)) {
-    throw new OfflocalError(`A project with slug "${slug}" already exists.`);
+    throw new DashclawError(`A project with slug "${slug}" already exists.`);
   }
   const project: Project = {
     id: newId("proj"),
@@ -111,7 +111,7 @@ export function addEnvironment(
 ): Environment {
   const name = input.name.trim();
   if (!name) {
-    throw new OfflocalError("Environment name must be a non-empty string.");
+    throw new DashclawError("Environment name must be a non-empty string.");
   }
   if (input.kind !== undefined) assertEnvironmentKind(input.kind);
   const project = resolveProject(store, input.project);
@@ -121,7 +121,7 @@ export function addEnvironment(
       (e) => e.projectId === project.id && e.name === name,
     )
   ) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Environment "${name}" already exists for project "${project.slug}".`,
     );
   }
@@ -159,13 +159,13 @@ export function getProjectContext(
 
 function assertProviderId(provider: unknown): asserts provider is ProviderId {
   if (typeof provider !== "string" || !PROVIDER_IDS.includes(provider as ProviderId)) {
-    throw new OfflocalError(`Unknown provider "${String(provider)}". Expected one of: ${PROVIDER_IDS.join(", ")}.`);
+    throw new DashclawError(`Unknown provider "${String(provider)}". Expected one of: ${PROVIDER_IDS.join(", ")}.`);
   }
 }
 
 function requireNonEmptyString(value: unknown, label: string): string {
   if (typeof value !== "string" || value.trim().length === 0) {
-    throw new OfflocalError(`Invalid provider resource: ${label} must be a non-empty string.`);
+    throw new DashclawError(`Invalid provider resource: ${label} must be a non-empty string.`);
   }
   return value;
 }
@@ -173,16 +173,16 @@ function requireNonEmptyString(value: unknown, label: string): string {
 function assertPositiveInteger(value: number | undefined, label: string): void {
   if (value === undefined) return;
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new OfflocalError(`${label} must be a positive integer.`);
+    throw new DashclawError(`${label} must be a positive integer.`);
   }
 }
 
 function validateProviderResource(provider: ProviderId, resource: ProviderResource): void {
   if (!resource || typeof resource !== "object") {
-    throw new OfflocalError("Invalid provider resource: expected an object.");
+    throw new DashclawError("Invalid provider resource: expected an object.");
   }
   if (resource.provider !== provider) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Resource provider "${resource.provider}" does not match "${provider}".`,
     );
   }
@@ -201,7 +201,7 @@ function validateProviderResource(provider: ProviderId, resource: ProviderResour
     case "stripe": {
       const mode = (resource as Partial<{ mode: unknown }>).mode;
       if (mode !== "test" && mode !== "live") {
-        throw new OfflocalError('Invalid provider resource: stripe.mode must be "test" or "live".');
+        throw new DashclawError('Invalid provider resource: stripe.mode must be "test" or "live".');
       }
       return;
     }
@@ -234,14 +234,14 @@ function validateProviderResource(provider: ProviderId, resource: ProviderResour
 
 function assertPolicyEffect(effect: unknown): asserts effect is PolicyEffect {
   if (effect !== "allow" && effect !== "block" && effect !== "approval_required") {
-    throw new OfflocalError('Invalid policy effect; expected "allow", "block", or "approval_required".');
+    throw new DashclawError('Invalid policy effect; expected "allow", "block", or "approval_required".');
   }
 }
 
 function assertCapability(capability: unknown): asserts capability is Capability {
   const capabilities: Capability[] = ["read", "write", "deploy", "env_change", "delete", "destructive_sql", "purchase"];
   if (typeof capability !== "string" || !capabilities.includes(capability as Capability)) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Invalid policy capability "${String(capability)}". Expected one of: ${capabilities.join(", ")}.`,
     );
   }
@@ -250,7 +250,7 @@ function assertCapability(capability: unknown): asserts capability is Capability
 function assertEnvironmentKind(kind: unknown): asserts kind is EnvironmentKind {
   const kinds: EnvironmentKind[] = ["development", "staging", "production"];
   if (typeof kind !== "string" || !kinds.includes(kind as EnvironmentKind)) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Invalid environment kind "${String(kind)}". Expected one of: ${kinds.join(", ")}.`,
     );
   }
@@ -263,11 +263,11 @@ function validatePolicyRuleInput(input: {
 }): void {
   assertPolicyEffect(input.effect);
   if (input.priority !== undefined && (!Number.isFinite(input.priority) || input.priority < 0)) {
-    throw new OfflocalError("Invalid policy priority; expected a non-negative finite number.");
+    throw new DashclawError("Invalid policy priority; expected a non-negative finite number.");
   }
   const match = input.match;
   if (!match || typeof match !== "object") {
-    throw new OfflocalError("Invalid policy match; expected an object.");
+    throw new DashclawError("Invalid policy match; expected an object.");
   }
   if (match.provider !== undefined) assertProviderId(match.provider);
   if (match.capability !== undefined) assertCapability(match.capability);
@@ -308,7 +308,7 @@ export function createConnection(
   const label = requireNonEmptyString(input.label, "connection.label").trim();
   const envVar = requireNonEmptyString(input.envVar, "connection.envVar").trim();
   if (store.data.connections.some((c) => c.provider === input.provider && c.label === label)) {
-    throw new OfflocalError(`A ${input.provider} connection named "${label}" already exists.`);
+    throw new DashclawError(`A ${input.provider} connection named "${label}" already exists.`);
   }
   const ws = ensureDefaultWorkspace(store);
   const connection: ProviderConnection = {
@@ -351,14 +351,14 @@ export function mapProviderResource(
   let connectionId = input.connectionId?.trim();
   if (input.connectionId !== undefined) {
     if (!connectionId) {
-      throw new OfflocalError("Connection id must be a non-empty string when provided.");
+      throw new DashclawError("Connection id must be a non-empty string when provided.");
     }
     const connection = store.data.connections.find((c) => c.id === connectionId);
     if (!connection) {
-      throw new OfflocalError(`Connection "${connectionId}" was not found.`);
+      throw new DashclawError(`Connection "${connectionId}" was not found.`);
     }
     if (connection.provider !== input.provider) {
-      throw new OfflocalError(
+      throw new DashclawError(
         `Connection "${connectionId}" is for ${connection.provider}, not ${input.provider}.`,
       );
     }
@@ -526,14 +526,14 @@ export function setPolicyRule(
 function requirePendingApproval(store: Store, approvalId: string): PendingApproval {
   const id = approvalId.trim();
   if (!id) {
-    throw new OfflocalError("Approval id must be a non-empty string.");
+    throw new DashclawError("Approval id must be a non-empty string.");
   }
   const approval = store.data.pendingApprovals.find((a) => a.id === id);
   if (!approval) {
-    throw new OfflocalError(`Approval request "${id}" was not found.`);
+    throw new DashclawError(`Approval request "${id}" was not found.`);
   }
   if (approval.status !== "pending") {
-    throw new OfflocalError(`Approval request "${id}" is already ${approval.status}.`);
+    throw new DashclawError(`Approval request "${id}" is already ${approval.status}.`);
   }
   return approval;
 }
@@ -588,7 +588,7 @@ export function listPendingApprovals(
     input.status !== "rejected" &&
     input.status !== "used"
   ) {
-    throw new OfflocalError('Invalid approval status; expected "pending", "approved", "rejected", or "used".');
+    throw new DashclawError('Invalid approval status; expected "pending", "approved", "rejected", or "used".');
   }
   return store.data.pendingApprovals
     .filter((a) => !projectId || a.projectId === projectId)
@@ -604,14 +604,14 @@ export function approveAction(
   const approval = requirePendingApproval(store, input.approvalId);
   const note = input.note?.trim();
   if (input.note !== undefined && !note) {
-    throw new OfflocalError("Approval note must be non-empty when provided.");
+    throw new DashclawError("Approval note must be non-empty when provided.");
   }
   const now = nowIso();
   let updatedApproval = approval;
   store.update((s) => {
     const current = s.pendingApprovals.find((a) => a.id === approval.id);
     if (!current || current.status !== "pending") {
-      throw new OfflocalError(`Approval request "${approval.id}" is no longer pending.`);
+      throw new DashclawError(`Approval request "${approval.id}" is no longer pending.`);
     }
     current.status = "approved";
     current.decidedAt = now;
@@ -629,14 +629,14 @@ export function rejectAction(
   const approval = requirePendingApproval(store, input.approvalId);
   const note = input.note?.trim();
   if (input.note !== undefined && !note) {
-    throw new OfflocalError("Rejection note must be non-empty when provided.");
+    throw new DashclawError("Rejection note must be non-empty when provided.");
   }
   const now = nowIso();
   let updatedApproval = approval;
   store.update((s) => {
     const current = s.pendingApprovals.find((a) => a.id === approval.id);
     if (!current || current.status !== "pending") {
-      throw new OfflocalError(`Approval request "${approval.id}" is no longer pending.`);
+      throw new DashclawError(`Approval request "${approval.id}" is no longer pending.`);
     }
     current.status = "rejected";
     current.decidedAt = now;
@@ -656,10 +656,10 @@ export function writeProjectMemory(
   input: { project?: string; environment?: string; note: string; tags?: string[] },
 ) {
   const note = input.note.trim();
-  if (!note) throw new OfflocalError("Project memory note must be a non-empty string.");
+  if (!note) throw new DashclawError("Project memory note must be a non-empty string.");
   const tags = input.tags?.map((tag) => tag.trim());
   if (tags?.some((tag) => tag.length === 0)) {
-    throw new OfflocalError("Project memory tags must be non-empty strings.");
+    throw new DashclawError("Project memory tags must be non-empty strings.");
   }
   const project = resolveProject(store, input.project);
   const environmentId = input.environment
@@ -931,7 +931,7 @@ export function exportDashclawEvidence(
     (entry) => entry.dashclawDecisionId || entry.dashclawActionId || entry.dashclawError,
   );
   return {
-    schema: "offlocal.dashclaw.evidence.v1",
+    schema: "dashclaw.evidence.v1",
     exportedAt: nowIso(),
     entries,
   };
@@ -1091,7 +1091,7 @@ export function exportAuditLog(
       ...rows.map((row) => `| ${row.map((cell) => String(cell).replace(/\|/g, "\\|")).join(" | ")} |`),
     ].join("\n");
   }
-  throw new OfflocalError('Audit export format must be "jsonl", "csv", or "markdown".');
+  throw new DashclawError('Audit export format must be "jsonl", "csv", or "markdown".');
 }
 
 export async function exportContextSnapshot(
@@ -1099,11 +1099,11 @@ export async function exportContextSnapshot(
   input: { project?: string; environment?: string; format: "json" | "markdown" },
 ): Promise<string> {
   if (input.format !== "json" && input.format !== "markdown") {
-    throw new OfflocalError('Context snapshot format must be "json" or "markdown".');
+    throw new DashclawError('Context snapshot format must be "json" or "markdown".');
   }
   const context = await getProjectContext(store, input.project, input.environment);
   const snapshot = {
-    schema: "offlocal.context.snapshot.v1",
+    schema: "dashclaw.context.snapshot.v1",
     exportedAt: nowIso(),
     context,
   };
@@ -1111,7 +1111,7 @@ export async function exportContextSnapshot(
     return JSON.stringify(snapshot, null, 2);
   }
   return [
-    `# offlocal context snapshot: ${context.project.slug}`,
+    `# dashclaw context snapshot: ${context.project.slug}`,
     "",
     `Exported: ${snapshot.exportedAt}`,
     context.focusedEnvironment ? `Environment: ${context.focusedEnvironment}` : undefined,

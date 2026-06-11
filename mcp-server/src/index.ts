@@ -7,7 +7,7 @@ import { registerTools } from "./tools/index.js";
 import { logEvent } from "./logger.js";
 
 /**
- * offlocalai-mcp — local stdio MCP server.
+ * @dashclaw/mcp-server — local stdio MCP server.
  *
  * IMPORTANT: never write to stdout outside the MCP transport — it corrupts the
  * JSON-RPC stream. All logging goes to stderr.
@@ -17,7 +17,7 @@ async function main(): Promise<void> {
   ensureDefaultWorkspace(store);
 
   const server = new McpServer({
-    name: "offlocalai-mcp",
+    name: "@dashclaw/mcp-server",
     version: "0.0.1",
   });
 
@@ -25,7 +25,7 @@ async function main(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
-  logEvent("info", "server.ready", { name: "offlocalai-mcp", stateHome: store.paths.home });
+  logEvent("info", "server.ready", { name: "@dashclaw/mcp-server", stateHome: store.paths.home });
 }
 
 main().catch((err) => {

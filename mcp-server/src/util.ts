@@ -20,9 +20,9 @@ export function slugify(name: string): string {
 }
 
 /** A small typed error so tool handlers can return clean messages. */
-export class OfflocalError extends Error {
+export class DashclawError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = "OfflocalError";
+    this.name = "DashclawError";
   }
 }

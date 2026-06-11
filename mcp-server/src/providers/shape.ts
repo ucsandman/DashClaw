@@ -1,22 +1,22 @@
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 
 export function objectShape(value: unknown, label: string): Record<string, any> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new OfflocalError(`${label} response must be a JSON object.`);
+    throw new DashclawError(`${label} response must be a JSON object.`);
   }
   return value as Record<string, any>;
 }
 
 export function arrayShape(value: unknown, label: string): any[] {
   if (!Array.isArray(value)) {
-    throw new OfflocalError(`${label} response must be a JSON array.`);
+    throw new DashclawError(`${label} response must be a JSON array.`);
   }
   return value;
 }
 
 export function stringField(value: Record<string, any>, key: string, label: string): string {
   if (typeof value[key] !== "string" || value[key].trim().length === 0) {
-    throw new OfflocalError(`${label} response is missing string field ${key}.`);
+    throw new DashclawError(`${label} response is missing string field ${key}.`);
   }
   return value[key];
 }
@@ -27,14 +27,14 @@ export function optionalStringField(value: Record<string, any>, key: string): st
 
 export function booleanField(value: Record<string, any>, key: string, label: string): boolean {
   if (typeof value[key] !== "boolean") {
-    throw new OfflocalError(`${label} response is missing boolean field ${key}.`);
+    throw new DashclawError(`${label} response is missing boolean field ${key}.`);
   }
   return value[key];
 }
 
 export function numberField(value: Record<string, any>, key: string, label: string): number {
   if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
-    throw new OfflocalError(`${label} response is missing number field ${key}.`);
+    throw new DashclawError(`${label} response is missing number field ${key}.`);
   }
   return value[key];
 }

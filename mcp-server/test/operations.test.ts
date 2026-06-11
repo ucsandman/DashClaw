@@ -238,7 +238,7 @@ describe("operational readiness", () => {
       format: "json",
     });
     const parsed = JSON.parse(json);
-    expect(parsed.schema).toBe("offlocal.context.snapshot.v1");
+    expect(parsed.schema).toBe("dashclaw.context.snapshot.v1");
     expect(parsed.context.project.slug).toBe("acme-crm");
     expect(parsed.context.focusedEnvironment).toBe("staging");
 
@@ -247,7 +247,7 @@ describe("operational readiness", () => {
       environment: "staging",
       format: "markdown",
     });
-    expect(markdown).toContain("# offlocal context snapshot: acme-crm");
+    expect(markdown).toContain("# dashclaw context snapshot: acme-crm");
     expect(markdown).toContain("Environment: staging");
   });
 });
@@ -255,12 +255,12 @@ describe("operational readiness", () => {
 describe("DashClaw operations", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete process.env.DASHCLAW_BASE_URL;
+    delete process.env.DASHCLAW_URL;
     delete process.env.DASHCLAW_API_KEY;
   });
 
   it("reports DashClaw status", async () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 })));
 
@@ -270,7 +270,7 @@ describe("DashClaw operations", () => {
   });
 
   it("falls back when DashClaw doctor is unavailable", async () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal(
       "fetch",
@@ -291,7 +291,7 @@ describe("DashClaw operations", () => {
   it("fetches recent DashClaw decisions with scoped query parameters", async () => {
     const store = freshStore();
     seedAcme(store);
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ decisions: [{ id: "gd_1" }] }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -328,7 +328,7 @@ describe("DashClaw operations", () => {
     const evidence = exportDashclawEvidence(store, { project: "acme-crm", environment: "production" });
 
     expect(evidence).toMatchObject({
-      schema: "offlocal.dashclaw.evidence.v1",
+      schema: "dashclaw.evidence.v1",
       entries: [expect.objectContaining({ dashclawDecisionId: "gd_1", dashclawActionId: "act_1" })],
     });
   });
@@ -336,7 +336,7 @@ describe("DashClaw operations", () => {
   it("explains action risk without executing a provider call", async () => {
     const store = freshStore();
     seedAcme(store);
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ decision: "require_approval", reason: "review" }), { status: 200 })));
 

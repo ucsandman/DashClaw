@@ -14,12 +14,12 @@ function stagingContext() {
 describe("runGuarded invariants", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete process.env.DASHCLAW_BASE_URL;
+    delete process.env.DASHCLAW_URL;
     delete process.env.DASHCLAW_API_KEY;
   });
 
   it("does not execute DashClaw-blocked actions and writes exactly one audit entry", async () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal(
       "fetch",
@@ -113,12 +113,12 @@ describe("runGuarded invariants", () => {
 describe("runGuarded DashClaw authoritative mode", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete process.env.DASHCLAW_BASE_URL;
+    delete process.env.DASHCLAW_URL;
     delete process.env.DASHCLAW_API_KEY;
   });
 
   function enableDashclaw(decision: Record<string, unknown>) {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal(
       "fetch",
@@ -135,7 +135,7 @@ describe("runGuarded DashClaw authoritative mode", () => {
   }
 
   function enableDashclawWithOutcomeFailure(decision: Record<string, unknown>) {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_key";
     vi.stubGlobal(
       "fetch",
@@ -308,7 +308,7 @@ describe("runGuarded DashClaw authoritative mode", () => {
     expect(store.readAudit()).toHaveLength(1);
     expect(store.readAudit()[0]).toMatchObject({
       result: "not_executed",
-      dashclawError: expect.stringMatching(/DASHCLAW_BASE_URL/i),
+      dashclawError: expect.stringMatching(/DASHCLAW_URL/i),
     });
   });
 
@@ -336,7 +336,7 @@ describe("runGuarded DashClaw authoritative mode", () => {
     expect(store.readAudit()).toHaveLength(1);
     expect(store.readAudit()[0]).toMatchObject({
       result: "not_executed",
-      dashclawError: expect.stringMatching(/DASHCLAW_BASE_URL/i),
+      dashclawError: expect.stringMatching(/DASHCLAW_URL/i),
     });
   });
 

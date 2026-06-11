@@ -6,7 +6,7 @@ import * as pa from "../provider-actions.js";
 import { PROVIDER_IDS } from "../types.js";
 
 /**
- * Registers every offlocal.ai tool on the MCP server. Handlers are thin: they
+ * Registers every DashClaw tool on the MCP server. Handlers are thin: they
  * validate args (via Zod), call the service / provider-action layer, and return
  * the result as a JSON text block. Failures are returned with isError:true and
  * an actionable message (never a raw throw across the wire).
@@ -1058,7 +1058,7 @@ function registerProviderTools(server: McpServer, store: Store): void {
       description:
         "Register a domain via Namecheap. SPENDS REAL MONEY and ALWAYS requires human approval " +
         "(capability \"purchase\" cannot be policy-allowed). Uses the namecheap.registrant contact " +
-        "from .offlocal/config.yaml. Set NAMECHEAP_SANDBOX=true to test without real charges.",
+        "from .dashclaw-local/config.yaml. Set NAMECHEAP_SANDBOX=true to test without real charges.",
       inputSchema: {
         project: proj,
         environment: env,

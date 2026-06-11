@@ -2,14 +2,14 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Store } from "../src/storage.js";
-import { offlocalPaths } from "../src/paths.js";
+import { localPaths } from "../src/paths.js";
 import { applyConfig } from "../src/config.js";
 import { ensureDefaultWorkspace } from "../src/service.js";
 
 /** A Store backed by a fresh temp directory, isolated per test. */
 export function freshStore(): Store {
-  const home = mkdtempSync(join(tmpdir(), "offlocal-test-"));
-  const store = new Store(offlocalPaths(home));
+  const home = mkdtempSync(join(tmpdir(), "dashclaw-local-test-"));
+  const store = new Store(localPaths(home));
   ensureDefaultWorkspace(store);
   return store;
 }
@@ -17,7 +17,7 @@ export function freshStore(): Store {
 /**
  * A two-environment fixture (staging=test, production=live) used across the test
  * suite. This is a TEST FIXTURE only — there is no built-in demo in the shipped
- * product; real projects come from the user's .offlocal/config.yaml.
+ * product; real projects come from the user's .dashclaw-local/config.yaml.
  */
 export function acmeConfig() {
   return {

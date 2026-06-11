@@ -1,5 +1,5 @@
 import type { CloudflareR2Resource } from "../types.js";
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 import { httpJson } from "./http.js";
 
 const DEFAULT_API_HOST = "https://api.cloudflare.com/client/v4";
@@ -39,7 +39,7 @@ function cloudflareResult(value: unknown): Record<string, any> {
   const wrapper = asRecord(value);
   if (wrapper.success === false) {
     const errors = Array.isArray(wrapper.errors) ? JSON.stringify(wrapper.errors) : "unknown error";
-    throw new OfflocalError(`Cloudflare R2 API returned an error: ${errors}`);
+    throw new DashclawError(`Cloudflare R2 API returned an error: ${errors}`);
   }
   return asRecord(wrapper.result ?? wrapper);
 }

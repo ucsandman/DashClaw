@@ -14,16 +14,16 @@ import type { ActionContext, PolicyDecision } from "../src/types.js";
 
 afterEach(() => {
   vi.unstubAllGlobals();
-  delete process.env.DASHCLAW_BASE_URL;
+  delete process.env.DASHCLAW_URL;
   delete process.env.DASHCLAW_API_KEY;
   delete process.env.DASHCLAW_TIMEOUT_MS;
-  delete process.env.OFFLOCAL_DASHCLAW_MODE;
-  delete process.env.OFFLOCAL_HTTP_TIMEOUT_MS;
+  delete process.env.DASHCLAW_MODE;
+  delete process.env.DASHCLAW_HTTP_TIMEOUT_MS;
 });
 
 describe("DashClaw client", () => {
   it("reads env config without storing secrets", () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_secret";
 
     const config = dashclawConfigFromEnv();
@@ -37,11 +37,11 @@ describe("DashClaw client", () => {
   });
 
   it("fails clearly when required env vars are missing", () => {
-    expect(() => dashclawConfigFromEnv()).toThrow(/DASHCLAW_BASE_URL/i);
+    expect(() => dashclawConfigFromEnv()).toThrow(/DASHCLAW_URL/i);
   });
 
   it("sends x-api-key and redacts secrets in HTTP errors", async () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_secret";
     vi.stubGlobal(
       "fetch",
@@ -218,7 +218,7 @@ describe("DashClaw guard payload mapping", () => {
   });
 
   it("calls DashClaw with mapped payload and normalizes response ids", async () => {
-    process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
     process.env.DASHCLAW_API_KEY = "dc_secret";
     const store = { data: { policyRules: [] } } as Store;
     vi.stubGlobal(

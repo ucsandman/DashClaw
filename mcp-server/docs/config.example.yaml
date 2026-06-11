@@ -1,0 +1,149 @@
+# @dashclaw/mcp-server config — copy to `.dashclaw-local/config.yaml`, replace the placeholder
+# values with your REAL projects/resources, then run `dashclaw-mcp init`.
+#
+# This file IS the mental model: projects → environments → which provider
+# account/resource each environment uses → what policy permits. Secrets are
+# NEVER stored here; tokens are read from environment variables at call time
+# (GITHUB_TOKEN, VERCEL_TOKEN, VERCEL_TEAM_ID?, SUPABASE_ACCESS_TOKEN,
+# STRIPE_TEST_SECRET_KEY, STRIPE_LIVE_SECRET_KEY, RAILWAY_TOKEN,
+# SENTRY_AUTH_TOKEN, POSTHOG_PERSONAL_API_KEY, UPSTASH_EMAIL, UPSTASH_API_KEY,
+# QSTASH_TOKEN, QSTASH_CURRENT_SIGNING_KEY, QSTASH_NEXT_SIGNING_KEY,
+# CLOUDFLARE_API_TOKEN, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY,
+# CLERK_SECRET_KEY, RESEND_API_KEY, TWILIO_AUTH_TOKEN).
+
+projects:
+  # The key is your project's id-safe slug. Add one block per project.
+  your-project:
+    name: Your Project
+    description: One line describing this project.
+    environments:
+      staging:
+        github:
+          repo: your-org/your-repo
+          # Optional: connection_id: conn_github_team_a
+        vercel:
+          project: your-staging-vercel-project   # id or name
+          # Optional: connection_id: conn_vercel_team_a
+        supabase:
+          project_ref: your_staging_project_ref
+        stripe:
+          mode: test
+        # Optional: Upstash Redis cache/session/rate-limit store.
+        upstash:
+          database_id: your-staging-upstash-redis-database-id
+          api_host: https://api.upstash.com          # optional
+          qstash_url: https://qstash.upstash.io       # optional background jobs/cron
+          qstash_token_env_var: QSTASH_TOKEN
+          qstash_current_signing_key_env_var: QSTASH_CURRENT_SIGNING_KEY
+          qstash_next_signing_key_env_var: QSTASH_NEXT_SIGNING_KEY
+        # Optional: Cloudflare R2 object/file storage.
+        cloudflare_r2:
+          account_id: your-cloudflare-account-id
+          bucket_name: your-staging-assets-bucket
+          jurisdiction: default
+          access_key_id_env_var: R2_ACCESS_KEY_ID
+          secret_access_key_env_var: R2_SECRET_ACCESS_KEY
+          public_url: https://assets-staging.example.com
+        # Optional: Sentry observability/project DSN wiring.
+        sentry:
+          organization_slug: your-sentry-org-slug
+          project_slug: your-staging-sentry-project    # optional until created
+          team_slug: your-sentry-team                  # optional; used for project creation
+        # Optional: PostHog analytics / feature flags.
+        posthog:
+          organization_id: your-posthog-organization-id
+          project_id: your-staging-posthog-project-id   # optional until created
+          api_host: https://us.posthog.com              # optional; private API/app host
+          ingest_host: https://us.i.posthog.com         # optional; SDK/capture host
+        # Optional: Clerk auth/app environment wiring.
+        clerk:
+          publishable_key: pk_test_xxxxxxxxxxxxxxxxxxxxx
+          sign_in_url: /sign-in
+          sign_up_url: /sign-up
+          sign_in_fallback_redirect_url: /dashboard
+          sign_up_fallback_redirect_url: /dashboard
+        # Optional: Resend transactional email.
+        resend:
+          domain: example.com
+          default_from: Your Project <onboarding@example.com>
+        # Optional: Twilio SMS/voice wiring.
+        twilio:
+          account_sid: ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          from_number: "+15551230000"              # optional default sender
+          messaging_service_sid: MGxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx  # optional
+      production:
+        github:
+          repo: your-org/your-repo
+        vercel:
+          project: your-production-vercel-project
+        supabase:
+          project_ref: your_production_project_ref
+        stripe:
+          mode: live
+        upstash:
+          database_id: your-production-upstash-redis-database-id
+          api_host: https://api.upstash.com
+          qstash_url: https://qstash.upstash.io
+          qstash_token_env_var: QSTASH_TOKEN
+          qstash_current_signing_key_env_var: QSTASH_CURRENT_SIGNING_KEY
+          qstash_next_signing_key_env_var: QSTASH_NEXT_SIGNING_KEY
+        cloudflare_r2:
+          account_id: your-cloudflare-account-id
+          bucket_name: your-production-assets-bucket
+          jurisdiction: default
+          access_key_id_env_var: R2_ACCESS_KEY_ID
+          secret_access_key_env_var: R2_SECRET_ACCESS_KEY
+          public_url: https://assets.example.com
+        sentry:
+          organization_slug: your-sentry-org-slug
+          project_slug: your-production-sentry-project
+          team_slug: your-sentry-team
+        posthog:
+          organization_id: your-posthog-organization-id
+          project_id: your-production-posthog-project-id
+          api_host: https://us.posthog.com
+          ingest_host: https://us.i.posthog.com
+        clerk:
+          publishable_key: pk_live_xxxxxxxxxxxxxxxxxxxxx
+          sign_in_url: /sign-in
+          sign_up_url: /sign-up
+          sign_in_fallback_redirect_url: /dashboard
+          sign_up_fallback_redirect_url: /dashboard
+        resend:
+          domain: example.com
+          default_from: Your Project <onboarding@example.com>
+        twilio:
+          account_sid: ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          from_number: "+15551230000"
+        # Optional: a Railway project (use ids from the Railway dashboard/API).
+        railway:
+          project_id: your-railway-project-id
+          environment_id: your-railway-environment-id   # optional
+          service_id: your-railway-service-id           # optional
+    # Optional notes future agent sessions should know. Surfaced in get_project_context.
+    memory:
+      - environment: production
+        note: "Production DB writes are blocked by default."
+        tags: [safety]
+
+# Policy declared as capability tokens. `require_approval` entries apply to
+# PRODUCTION (staging/dev keep permissive defaults so they stay usable). `block`
+# entries apply everywhere. These mirror the built-in safe defaults; edit to suit.
+#   tokens: <provider>.<capability>  |  provider.<capability> (wildcard provider)
+#   capabilities: read | write | deploy | env.write | destructive_sql | delete
+policy:
+  require_approval:
+    - vercel.deploy
+    - vercel.env.write
+    - railway.deploy
+    - railway.env.write
+    - cloudflare_r2.env.write
+    - sentry.write
+    - clerk.env.write
+    - supabase.write
+    - stripe.write
+    - resend.write
+    - twilio.write
+  block:
+    - supabase.destructive_sql
+    - provider.delete

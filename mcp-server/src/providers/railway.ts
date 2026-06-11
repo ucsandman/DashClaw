@@ -1,5 +1,5 @@
 import { httpJson } from "./http.js";
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 
 /**
  * Railway adapter. Unlike the other providers, Railway exposes a single
@@ -22,7 +22,7 @@ interface GraphqlResponse<T> {
   errors?: Array<{ message: string }>;
 }
 
-/** POST a GraphQL query; surface GraphQL `errors` as a clean OfflocalError. */
+/** POST a GraphQL query; surface GraphQL `errors` as a clean DashclawError. */
 async function gql<T>(
   token: string,
   query: string,
@@ -34,9 +34,9 @@ async function gql<T>(
     body: JSON.stringify({ query, variables }),
   });
   if (res.errors && res.errors.length > 0) {
-    throw new OfflocalError(`Railway API error: ${res.errors.map((e) => e.message).join("; ")}`);
+    throw new DashclawError(`Railway API error: ${res.errors.map((e) => e.message).join("; ")}`);
   }
-  if (!res.data) throw new OfflocalError("Railway API returned no data.");
+  if (!res.data) throw new DashclawError("Railway API returned no data.");
   return res.data;
 }
 
@@ -84,7 +84,7 @@ export async function getProject(token: string, projectId: string): Promise<Rail
   }`;
   const data = await gql<{ project: Record<string, any> | null }>(token, query, { id: projectId });
   const p = data.project;
-  if (!p) throw new OfflocalError(`Railway project "${projectId}" not found.`);
+  if (!p) throw new DashclawError(`Railway project "${projectId}" not found.`);
   const edges = (conn: any): any[] => (Array.isArray(conn?.edges) ? conn.edges : []);
   return {
     id: p.id,

@@ -1,7 +1,7 @@
 import { httpJson } from "./http.js";
 
 const BASE = "https://api.resend.com";
-const USER_AGENT = "@offlocal/mcp";
+const USER_AGENT = "@dashclaw/mcp-server";
 
 function headers(apiKey: string): Record<string, string> {
   return {

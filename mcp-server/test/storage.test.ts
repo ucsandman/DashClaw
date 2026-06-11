@@ -3,18 +3,18 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync, mkdtempSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Store } from "../src/storage.js";
-import { offlocalPaths } from "../src/paths.js";
+import { localPaths } from "../src/paths.js";
 
 function tempPaths() {
-  const home = mkdtempSync(join(tmpdir(), "offlocal-storage-test-"));
+  const home = mkdtempSync(join(tmpdir(), "dashclaw-local-storage-test-"));
   mkdirSync(home, { recursive: true });
-  return offlocalPaths(home);
+  return localPaths(home);
 }
 
 afterEach(() => {
-  delete process.env.OFFLOCAL_LOCK_STALE_MS;
-  delete process.env.OFFLOCAL_MEMORY_MAX_ENTRIES;
-  delete process.env.OFFLOCAL_AUDIT_MAX_ENTRIES;
+  delete process.env.DASHCLAW_LOCK_STALE_MS;
+  delete process.env.DASHCLAW_MEMORY_MAX_ENTRIES;
+  delete process.env.DASHCLAW_AUDIT_MAX_ENTRIES;
 });
 
 describe("Store persistence hardening", () => {
@@ -114,7 +114,7 @@ describe("Store persistence hardening", () => {
   it("applies memory retention after appending a memory entry", () => {
     const paths = tempPaths();
     const store = new Store(paths);
-    process.env.OFFLOCAL_MEMORY_MAX_ENTRIES = "2";
+    process.env.DASHCLAW_MEMORY_MAX_ENTRIES = "2";
 
     for (const id of ["mem_1", "mem_2", "mem_3"]) {
       store.addMemory({
@@ -201,7 +201,7 @@ describe("Store persistence hardening", () => {
   it("applies audit retention after appending an audit entry", () => {
     const paths = tempPaths();
     const store = new Store(paths);
-    process.env.OFFLOCAL_AUDIT_MAX_ENTRIES = "2";
+    process.env.DASHCLAW_AUDIT_MAX_ENTRIES = "2";
 
     for (const tool of ["first", "second", "third"]) {
       store.appendAudit({
@@ -232,11 +232,11 @@ describe("Store persistence hardening", () => {
     ).toThrow(/locked/i);
   });
 
-  it("fails loudly when OFFLOCAL_LOCK_STALE_MS is invalid", () => {
+  it("fails loudly when DASHCLAW_LOCK_STALE_MS is invalid", () => {
     const paths = tempPaths();
     const store = new Store(paths);
     mkdirSync(`${paths.audit}.lock`);
-    process.env.OFFLOCAL_LOCK_STALE_MS = "0";
+    process.env.DASHCLAW_LOCK_STALE_MS = "0";
 
     expect(() =>
       store.appendAudit({
@@ -246,6 +246,6 @@ describe("Store persistence hardening", () => {
         policyDecision: "n/a",
         result: "success",
       }),
-    ).toThrow(/OFFLOCAL_LOCK_STALE_MS.*positive integer/i);
+    ).toThrow(/DASHCLAW_LOCK_STALE_MS.*positive integer/i);
   });
 });

@@ -1,8 +1,8 @@
 /**
- * Core domain types for offlocal.ai V0.
+ * Core domain types for DashClaw V0.
  *
  * These types are intentionally explicit about project + environment + provider
- * scoping. The whole point of offlocal.ai is that an AI agent must always know
+ * scoping. The whole point of DashClaw is that an AI agent must always know
  * *which* project and environment and provider account it is operating against
  * before it touches a real provider API.
  *
@@ -368,7 +368,7 @@ export interface AuditLogEntry {
   dashclawDecisionId?: string;
   /** DashClaw action id, when DashClaw returned or created one. */
   dashclawActionId?: string;
-  /** Whether offlocal recorded the post-execution outcome to DashClaw. */
+  /** Whether the server recorded the post-execution outcome to DashClaw. */
   dashclawOutcomeRecorded?: boolean;
   /** DashClaw guard/evidence error when governance metadata could not be recorded. */
   dashclawError?: string;
@@ -390,7 +390,7 @@ export interface ProjectMemory {
 // Persisted state
 // ---------------------------------------------------------------------------
 
-export interface OfflocalState {
+export interface LocalState {
   version: 1;
   workspaces: Workspace[];
   projects: Project[];

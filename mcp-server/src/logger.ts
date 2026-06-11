@@ -13,5 +13,5 @@ export function logEvent(
 }
 
 export function startupLoggingEnabled(): boolean {
-  return process.env.OFFLOCAL_LOG_STARTUP === "true";
+  return process.env.DASHCLAW_LOG_STARTUP === "true";
 }

@@ -1,15 +1,15 @@
 import type { ProviderConnection } from "../types.js";
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 
 /**
  * Resolve a provider secret at call time. Tokens are read from the environment
- * and NEVER persisted to `.offlocal/`.
+ * and NEVER persisted to `.dashclaw-local/`.
  */
 export function resolveToken(connection: ProviderConnection): string {
   const envVar = connection.auth.envVar;
   const value = process.env[envVar];
   if (!value || value.trim().length === 0) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Environment variable ${envVar} is not set, but connection "${connection.label}" needs it.`,
     );
   }
@@ -21,7 +21,7 @@ export function resolveStripeKey(mode: "test" | "live"): string {
   const envVar = mode === "live" ? "STRIPE_LIVE_SECRET_KEY" : "STRIPE_TEST_SECRET_KEY";
   const value = process.env[envVar];
   if (!value || value.trim().length === 0) {
-    throw new OfflocalError(`Environment variable ${envVar} is not set (Stripe ${mode} mode).`);
+    throw new DashclawError(`Environment variable ${envVar} is not set (Stripe ${mode} mode).`);
   }
   return value.trim();
 }

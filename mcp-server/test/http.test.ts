@@ -5,9 +5,9 @@ describe("HTTP client hardening", () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     vi.useRealTimers();
-    delete process.env.OFFLOCAL_HTTP_TIMEOUT_MS;
-    delete process.env.OFFLOCAL_HTTP_RETRIES;
-    delete process.env.OFFLOCAL_HTTP_RETRY_BASE_MS;
+    delete process.env.DASHCLAW_HTTP_TIMEOUT_MS;
+    delete process.env.DASHCLAW_HTTP_RETRIES;
+    delete process.env.DASHCLAW_HTTP_RETRY_BASE_MS;
   });
 
   it("passes an abort signal and honors explicit timeout overrides", async () => {
@@ -29,18 +29,18 @@ describe("HTTP client hardening", () => {
     );
   });
 
-  it("fails loudly when OFFLOCAL_HTTP_TIMEOUT_MS is invalid", async () => {
+  it("fails loudly when DASHCLAW_HTTP_TIMEOUT_MS is invalid", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    process.env.OFFLOCAL_HTTP_TIMEOUT_MS = "0";
+    process.env.DASHCLAW_HTTP_TIMEOUT_MS = "0";
 
-    await expect(httpJson("https://api.example.test/resource")).rejects.toThrow(/OFFLOCAL_HTTP_TIMEOUT_MS.*positive integer/i);
+    await expect(httpJson("https://api.example.test/resource")).rejects.toThrow(/DASHCLAW_HTTP_TIMEOUT_MS.*positive integer/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("aborts slow provider calls and redacts secrets in timeout errors", async () => {
     vi.useFakeTimers();
-    process.env.OFFLOCAL_HTTP_RETRIES = "0";
+    process.env.DASHCLAW_HTTP_RETRIES = "0";
     vi.stubGlobal(
       "fetch",
       vi.fn((_url: string, init?: RequestInit) =>
@@ -66,12 +66,12 @@ describe("HTTP client hardening", () => {
     expect((timeoutError as Error).message).not.toMatch(/secret-token-123/);
   });
 
-  it("fails loudly when OFFLOCAL_HTTP_RETRIES is invalid", async () => {
+  it("fails loudly when DASHCLAW_HTTP_RETRIES is invalid", async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal("fetch", fetchMock);
-    process.env.OFFLOCAL_HTTP_RETRIES = "-1";
+    process.env.DASHCLAW_HTTP_RETRIES = "-1";
 
-    await expect(httpJson("https://api.example.test/resource")).rejects.toThrow(/OFFLOCAL_HTTP_RETRIES.*non-negative integer/i);
+    await expect(httpJson("https://api.example.test/resource")).rejects.toThrow(/DASHCLAW_HTTP_RETRIES.*non-negative integer/i);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

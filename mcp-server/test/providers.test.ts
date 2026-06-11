@@ -48,7 +48,7 @@ function setDashclawDecision(decision: "allow" | "block" | "require_approval", s
 }
 
 beforeEach(() => {
-  process.env.DASHCLAW_BASE_URL = "https://dashclaw.example";
+  process.env.DASHCLAW_URL = "https://dashclaw.example";
   process.env.DASHCLAW_API_KEY = "dc_test";
   setDashclawDecision("allow");
   fetchMock = vi.fn(withDashclawRoute(() => mockOk({ id: "obj_123", name: "Test", active: true, created: 1 })));
@@ -79,7 +79,7 @@ afterEach(() => {
   delete process.env.CLOUDFLARE_API_TOKEN;
   delete process.env.R2_ACCESS_KEY_ID;
   delete process.env.R2_SECRET_ACCESS_KEY;
-  delete process.env.DASHCLAW_BASE_URL;
+  delete process.env.DASHCLAW_URL;
   delete process.env.DASHCLAW_API_KEY;
 });
 
@@ -1364,7 +1364,7 @@ describe("Resend", () => {
       expect.objectContaining({
         headers: expect.objectContaining({
           Authorization: "Bearer re_dummy",
-          "User-Agent": expect.stringContaining("offlocal"),
+          "User-Agent": expect.stringContaining("dashclaw"),
         }),
       }),
     );

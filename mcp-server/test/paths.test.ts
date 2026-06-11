@@ -2,19 +2,19 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { offlocalHome, offlocalPaths } from "../src/paths.js";
+import { localHome, localPaths } from "../src/paths.js";
 
 describe("path resolution", () => {
   afterEach(() => {
-    delete process.env.OFFLOCAL_HOME;
+    delete process.env.DASHCLAW_LOCAL_HOME;
   });
 
-  it("resolves OFFLOCAL_HOME paths with spaces and preserves native absolute paths", () => {
-    const home = mkdtempSync(join(tmpdir(), "Offlocal Path Test "));
-    process.env.OFFLOCAL_HOME = home;
+  it("resolves DASHCLAW_LOCAL_HOME paths with spaces and preserves native absolute paths", () => {
+    const home = mkdtempSync(join(tmpdir(), "Dashclaw Path Test "));
+    process.env.DASHCLAW_LOCAL_HOME = home;
 
-    expect(offlocalHome()).toBe(resolve(home));
-    expect(offlocalPaths().state).toBe(resolve(home, "state.json"));
-    expect(offlocalPaths().memory).toBe(resolve(home, "memory.json"));
+    expect(localHome()).toBe(resolve(home));
+    expect(localPaths().state).toBe(resolve(home, "state.json"));
+    expect(localPaths().memory).toBe(resolve(home, "memory.json"));
   });
 });

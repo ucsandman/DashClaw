@@ -28,7 +28,7 @@ import type { ActionContext, Capability, CloudflareR2Resource, Environment, Proj
 import { findConnection } from "./resolve.js";
 import { resolveToken } from "./providers/auth.js";
 import { defaultEnvVar } from "./providers/auth.js";
-import { OfflocalError } from "./util.js";
+import { DashclawError } from "./util.js";
 
 /**
  * Provider actions. Every function:
@@ -54,12 +54,12 @@ function tokenFor(store: Store, provider: ProviderId, connectionId?: string): st
   const conn = findConnection(store, provider, connectionId);
   if (conn) return resolveToken(conn);
   if (connectionId) {
-    throw new OfflocalError(`Mapping references missing ${provider} connection "${connectionId}".`);
+    throw new DashclawError(`Mapping references missing ${provider} connection "${connectionId}".`);
   }
   const envVar = defaultEnvVar(provider);
   const v = process.env[envVar];
   if (!v || v.trim().length === 0) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `No ${provider} connection and ${envVar} is not set. Configure credentials first.`,
     );
   }
@@ -87,21 +87,21 @@ function ctx(
 function assertPositiveInteger(name: string, value: number | undefined): void {
   if (value === undefined) return;
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new OfflocalError(`${name} must be a positive integer.`);
+    throw new DashclawError(`${name} must be a positive integer.`);
   }
 }
 
 function assertNonNegativeInteger(name: string, value: number | undefined): void {
   if (value === undefined) return;
   if (!Number.isSafeInteger(value) || value < 0) {
-    throw new OfflocalError(`${name} must be a non-negative integer.`);
+    throw new DashclawError(`${name} must be a non-negative integer.`);
   }
 }
 
 function assertNonEmptyString(name: string, value: string): string {
   const trimmed = value.trim();
   if (!trimmed) {
-    throw new OfflocalError(`${name} must be a non-empty string.`);
+    throw new DashclawError(`${name} must be a non-empty string.`);
   }
   return trimmed;
 }
@@ -109,7 +109,7 @@ function assertNonEmptyString(name: string, value: string): string {
 function assertNonEmptyStringList(name: string, value: string[] | undefined): string[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length === 0) {
-    throw new OfflocalError(`${name} must be a non-empty list of strings.`);
+    throw new DashclawError(`${name} must be a non-empty list of strings.`);
   }
   return value.map((item, index) => assertNonEmptyString(`${name}[${index}]`, item));
 }
@@ -118,7 +118,7 @@ function assertSentryClientKeyUseCase(value: string | undefined): string | undef
   if (value === undefined) return undefined;
   const trimmed = assertNonEmptyString("useCase", value);
   if (trimmed !== "user" && trimmed !== "profiling" && trimmed !== "tempest" && trimmed !== "demo") {
-    throw new OfflocalError('useCase must be one of "user", "profiling", "tempest", or "demo".');
+    throw new DashclawError('useCase must be one of "user", "profiling", "tempest", or "demo".');
   }
   return trimmed;
 }
@@ -126,7 +126,7 @@ function assertSentryClientKeyUseCase(value: string | undefined): string | undef
 function assertRecord(name: string, value: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
   if (value === undefined) return undefined;
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    throw new OfflocalError(`${name} must be an object.`);
+    throw new DashclawError(`${name} must be an object.`);
   }
   return value;
 }
@@ -136,7 +136,7 @@ type AppEnvVarInput = { key: string; value: string };
 
 function assertAppEnvTargetProvider(value: string): AppEnvTargetProvider {
   if (value !== "vercel" && value !== "railway") {
-    throw new OfflocalError('targetProvider must be one of "vercel" or "railway".');
+    throw new DashclawError('targetProvider must be one of "vercel" or "railway".');
   }
   return value;
 }
@@ -144,30 +144,30 @@ function assertAppEnvTargetProvider(value: string): AppEnvTargetProvider {
 function assertEnvVarKey(name: string, value: string): string {
   const key = assertNonEmptyString(name, value);
   if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-    throw new OfflocalError(`${name} must be a valid environment variable name.`);
+    throw new DashclawError(`${name} must be a valid environment variable name.`);
   }
   return key;
 }
 
 function assertAppEnvVars(value: AppEnvVarInput[]): AppEnvVarInput[] {
   if (!Array.isArray(value) || value.length === 0) {
-    throw new OfflocalError("vars must be a non-empty list of environment variables.");
+    throw new DashclawError("vars must be a non-empty list of environment variables.");
   }
   if (value.length > 50) {
-    throw new OfflocalError("vars must contain 50 or fewer environment variables.");
+    throw new DashclawError("vars must contain 50 or fewer environment variables.");
   }
   const seen = new Set<string>();
   return value.map((entry, index) => {
     if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
-      throw new OfflocalError(`vars[${index}] must be an object with key and value.`);
+      throw new DashclawError(`vars[${index}] must be an object with key and value.`);
     }
     const key = assertEnvVarKey(`vars[${index}].key`, entry.key);
     if (seen.has(key)) {
-      throw new OfflocalError(`Duplicate environment variable key "${key}".`);
+      throw new DashclawError(`Duplicate environment variable key "${key}".`);
     }
     seen.add(key);
     if (typeof entry.value !== "string") {
-      throw new OfflocalError(`vars[${index}].value must be a string.`);
+      throw new DashclawError(`vars[${index}].value must be a string.`);
     }
     return { key, value: entry.value };
   });
@@ -178,7 +178,7 @@ function assertVercelTargets(value: string[] | undefined): string[] | undefined 
   const targets = assertNonEmptyStringList("target", value) ?? [];
   for (const target of targets) {
     if (target !== "production" && target !== "preview" && target !== "development") {
-      throw new OfflocalError('target must contain only "production", "preview", or "development".');
+      throw new DashclawError('target must contain only "production", "preview", or "development".');
     }
   }
   return targets;
@@ -378,7 +378,7 @@ export async function githubWorkflowJobs(
       assertPositiveInteger("runId", input.runId);
       assertPositiveInteger("limit", input.limit);
       if (input.filter !== undefined && input.filter !== "latest" && input.filter !== "all") {
-        throw new OfflocalError('filter must be one of "latest" or "all".');
+        throw new DashclawError('filter must be one of "latest" or "all".');
       }
       return gh.listWorkflowJobs(tokenFor(store, "github", m.connectionId), r.owner, r.repo, input.runId, {
         filter: input.filter,
@@ -644,7 +644,7 @@ function assertValidSince(since?: string): void {
   if (Number.isFinite(asNum) && asNum > 0) return;
   const parsed = Date.parse(since);
   if (Number.isNaN(parsed)) {
-    throw new OfflocalError("since must be a positive epoch millisecond value or a valid ISO timestamp.");
+    throw new DashclawError("since must be a positive epoch millisecond value or a valid ISO timestamp.");
   }
 }
 
@@ -941,7 +941,7 @@ export async function railwayCreateDeployment(
       const token = tokenFor(store, "railway", r.connectionId);
       if (input.deploymentId) return rw.redeploy(token, input.deploymentId);
       if (!r.environmentId || !r.serviceId) {
-        throw new OfflocalError(
+        throw new DashclawError(
           "Railway deploy needs the mapping to include environmentId and serviceId " +
             "(or pass deploymentId to redeploy an existing deployment).",
         );
@@ -973,7 +973,7 @@ export async function railwaySetEnvVar(
     }),
     () => {
       if (!r.environmentId) {
-        throw new OfflocalError(
+        throw new DashclawError(
           "Railway variable changes need the mapping to include environmentId.",
         );
       }
@@ -1041,7 +1041,7 @@ export async function setAppEnvVars(
       const keys = vars.map((item) => item.key);
       const serviceId = input.serviceId === undefined ? r.serviceId : assertNonEmptyString("serviceId", input.serviceId);
       if (!r.environmentId) {
-        throw new OfflocalError(
+        throw new DashclawError(
           "Railway variable changes need the mapping to include environmentId.",
         );
       }
@@ -1069,7 +1069,7 @@ export async function checkDomainAvailability(
 ): Promise<GuardedResponse> {
   const { project, environment } = resolve(store, input);
   if (!Array.isArray(input.domains) || input.domains.length === 0) {
-    throw new OfflocalError("domains must be a non-empty list of domain names.");
+    throw new DashclawError("domains must be a non-empty list of domain names.");
   }
   const label = input.domains.join(",");
   return runGuarded(
@@ -1117,7 +1117,7 @@ export async function purchaseDomain(
   const domain = assertNonEmptyString("domain", input.domain);
   const registrant = loadRegistrantContact(store.paths.config);
   if (!registrant) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `Domain purchase needs a registrant contact. Add a "namecheap.registrant" block to ` +
         `${store.paths.config} with first_name, last_name, address1, city, state_province, ` +
         `postal_code, country, phone (format +1.NNNNNNNNNN), email_address — then retry.`,
@@ -1168,7 +1168,7 @@ export async function setDnsRecords(
   const { project, environment } = resolve(store, input);
   const domain = assertNonEmptyString("domain", input.domain);
   if (!Array.isArray(input.records) || input.records.length === 0) {
-    throw new OfflocalError(
+    throw new DashclawError(
       "records must be a non-empty list — setHosts REPLACES ALL host records, so an empty list would wipe the domain's DNS.",
     );
   }
@@ -1252,7 +1252,7 @@ export async function neonGetConnectionUri(
 function upstashCredentials(store: Store, connectionId?: string): { email: string; apiKey: string } {
   const email = process.env.UPSTASH_EMAIL?.trim();
   if (!email) {
-    throw new OfflocalError("UPSTASH_EMAIL is not set. Upstash Developer API uses Basic auth with EMAIL:API_KEY.");
+    throw new DashclawError("UPSTASH_EMAIL is not set. Upstash Developer API uses Basic auth with EMAIL:API_KEY.");
   }
   return { email, apiKey: tokenFor(store, "upstash", connectionId) };
 }
@@ -1269,7 +1269,7 @@ function qstashToken(resource: UpstashResource): string {
   const envVar = resource.qstashTokenEnvVar ?? "QSTASH_TOKEN";
   const value = process.env[envVar]?.trim();
   if (!value) {
-    throw new OfflocalError(`Environment variable ${envVar} is not set for QStash.`);
+    throw new DashclawError(`Environment variable ${envVar} is not set for QStash.`);
   }
   return value;
 }
@@ -1277,7 +1277,7 @@ function qstashToken(resource: UpstashResource): string {
 function assertUpstashPlatform(value: string): "aws" | "gcp" {
   const platform = assertNonEmptyString("platform", value);
   if (platform !== "aws" && platform !== "gcp") {
-    throw new OfflocalError('platform must be "aws" or "gcp".');
+    throw new DashclawError('platform must be "aws" or "gcp".');
   }
   return platform;
 }
@@ -1286,7 +1286,7 @@ function assertQstashMethod(value: string | undefined): "GET" | "POST" | "PUT" |
   if (value === undefined) return undefined;
   const method = assertNonEmptyString("method", value).toUpperCase();
   if (method !== "GET" && method !== "POST" && method !== "PUT" && method !== "PATCH" && method !== "DELETE") {
-    throw new OfflocalError('method must be one of "GET", "POST", "PUT", "PATCH", or "DELETE".');
+    throw new DashclawError('method must be one of "GET", "POST", "PUT", "PATCH", or "DELETE".');
   }
   return method;
 }
@@ -1333,7 +1333,7 @@ export async function upstashCreateRedisDatabase(
     async () => {
       const creds = upstashCredentials(store);
       if (input.budget !== undefined && (!Number.isSafeInteger(input.budget) || input.budget < 0)) {
-        throw new OfflocalError("budget must be a non-negative integer.");
+        throw new DashclawError("budget must be a non-negative integer.");
       }
       const created = await us.createRedisDatabase(creds.email, creds.apiKey, {
         apiHost: input.apiHost === undefined ? undefined : assertNonEmptyString("apiHost", input.apiHost),
@@ -1460,7 +1460,7 @@ function cloudflareR2Resource(
 ): CloudflareR2MappedResource {
   const mapped = findMapping(store, environment, "cloudflare_r2");
   if (!mapped && accountId === undefined) {
-    throw new OfflocalError(
+    throw new DashclawError(
       `No cloudflare_r2 mapping for ${project.slug}/${environment.name}. Add one with map_provider_resource.`,
     );
   }
@@ -1480,7 +1480,7 @@ function assertCloudflareR2BucketName(value: string, field = "bucketName"): stri
     !/^[a-z0-9][a-z0-9.-]*[a-z0-9]$/.test(bucketName) ||
     bucketName.includes("..")
   ) {
-    throw new OfflocalError(`${field} must be a valid R2 bucket name: 3-63 lowercase letters, numbers, dots, or hyphens.`);
+    throw new DashclawError(`${field} must be a valid R2 bucket name: 3-63 lowercase letters, numbers, dots, or hyphens.`);
   }
   return bucketName;
 }
@@ -1489,7 +1489,7 @@ function assertCloudflareR2Jurisdiction(value: string | undefined): CloudflareR2
   if (value === undefined) return undefined;
   const jurisdiction = assertNonEmptyString("jurisdiction", value);
   if (jurisdiction !== "default" && jurisdiction !== "eu" && jurisdiction !== "fedramp") {
-    throw new OfflocalError('jurisdiction must be "default", "eu", or "fedramp".');
+    throw new DashclawError('jurisdiction must be "default", "eu", or "fedramp".');
   }
   return jurisdiction;
 }
@@ -1497,7 +1497,7 @@ function assertCloudflareR2Jurisdiction(value: string | undefined): CloudflareR2
 function cloudflareR2BucketName(r: CloudflareR2MappedResource, inputBucketName?: string): string {
   const bucketName = inputBucketName ?? r.bucketName;
   if (!bucketName) {
-    throw new OfflocalError("bucketName is required either in the mapping or the tool input.");
+    throw new DashclawError("bucketName is required either in the mapping or the tool input.");
   }
   return assertCloudflareR2BucketName(bucketName);
 }
@@ -1508,10 +1508,10 @@ function cloudflareR2AppCredentials(r: CloudflareR2MappedResource): { accessKeyI
   const accessKeyId = process.env[accessKeyIdEnvVar]?.trim();
   const secretAccessKey = process.env[secretAccessKeyEnvVar]?.trim();
   if (!accessKeyId) {
-    throw new OfflocalError(`Environment variable ${accessKeyIdEnvVar} is not set for R2 app env wiring.`);
+    throw new DashclawError(`Environment variable ${accessKeyIdEnvVar} is not set for R2 app env wiring.`);
   }
   if (!secretAccessKey) {
-    throw new OfflocalError(`Environment variable ${secretAccessKeyEnvVar} is not set for R2 app env wiring.`);
+    throw new DashclawError(`Environment variable ${secretAccessKeyEnvVar} is not set for R2 app env wiring.`);
   }
   return { accessKeyId, secretAccessKey };
 }
@@ -1643,7 +1643,7 @@ function clerkResource(store: Store, project: Project, environment: Environment)
 function assertClerkRedirectUrl(value: string): string {
   const url = assertNonEmptyString("url", value);
   if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(url)) {
-    throw new OfflocalError("url must be a full URL, e.g. https://app.example.com/callback or my-app://callback.");
+    throw new DashclawError("url must be a full URL, e.g. https://app.example.com/callback or my-app://callback.");
   }
   return url;
 }
@@ -1751,7 +1751,7 @@ function sentryResource(store: Store, project: Project, environment: Environment
 function sentryProjectSlug(r: { projectSlug?: string }, inputProjectSlug?: string): string {
   const projectSlug = inputProjectSlug ?? r.projectSlug;
   if (!projectSlug) {
-    throw new OfflocalError("Sentry projectSlug is required either in the mapping or the tool input.");
+    throw new DashclawError("Sentry projectSlug is required either in the mapping or the tool input.");
   }
   return assertNonEmptyString("projectSlug", projectSlug);
 }
@@ -1760,7 +1760,7 @@ function sentryProjectSlugs(r: { projectSlug?: string }, inputProjects?: string[
   const projects = inputProjects ?? (r.projectSlug ? [r.projectSlug] : undefined);
   const validated = assertNonEmptyStringList("projects", projects);
   if (!validated) {
-    throw new OfflocalError("Sentry projects are required either in the mapping projectSlug or the tool input.");
+    throw new DashclawError("Sentry projects are required either in the mapping projectSlug or the tool input.");
   }
   return validated;
 }
@@ -1825,7 +1825,7 @@ export async function sentryListClientKeys(
     }),
     () => {
       if (input.status !== undefined && input.status !== "active" && input.status !== "inactive") {
-        throw new OfflocalError('status must be "active" or "inactive".');
+        throw new DashclawError('status must be "active" or "inactive".');
       }
       return se.listClientKeys(tokenFor(store, "sentry", r.connectionId), r.organizationSlug, projectSlug, input.status);
     },
@@ -1858,7 +1858,7 @@ export async function sentryCreateClientKey(
         assertPositiveInteger("rateLimitWindow", input.rateLimitWindow);
         assertPositiveInteger("rateLimitCount", input.rateLimitCount);
         if (input.rateLimitWindow === undefined || input.rateLimitCount === undefined) {
-          throw new OfflocalError("rateLimitWindow and rateLimitCount must be provided together.");
+          throw new DashclawError("rateLimitWindow and rateLimitCount must be provided together.");
         }
         rateLimit = { window: input.rateLimitWindow, count: input.rateLimitCount };
       }
@@ -1979,7 +1979,7 @@ function posthogResource(store: Store, project: Project, environment: Environmen
 function posthogProjectId(r: { projectId?: string }, inputProjectId?: string): string {
   const projectId = inputProjectId ?? r.projectId;
   if (!projectId) {
-    throw new OfflocalError("PostHog projectId is required either in the mapping or the tool input.");
+    throw new DashclawError("PostHog projectId is required either in the mapping or the tool input.");
   }
   return assertNonEmptyString("projectId", projectId);
 }
@@ -1988,7 +1988,7 @@ function assertPostHogActive(value: string | undefined): "STALE" | "false" | "tr
   if (value === undefined) return undefined;
   const active = assertNonEmptyString("active", value);
   if (active !== "STALE" && active !== "false" && active !== "true") {
-    throw new OfflocalError('active must be one of "STALE", "false", or "true".');
+    throw new DashclawError('active must be one of "STALE", "false", or "true".');
   }
   return active;
 }
@@ -1997,7 +1997,7 @@ function assertPostHogFlagType(value: string | undefined): "boolean" | "experime
   if (value === undefined) return undefined;
   const type = assertNonEmptyString("type", value);
   if (type !== "boolean" && type !== "experiment" && type !== "multivariant" && type !== "remote_config") {
-    throw new OfflocalError('type must be one of "boolean", "experiment", "multivariant", or "remote_config".');
+    throw new DashclawError('type must be one of "boolean", "experiment", "multivariant", or "remote_config".');
   }
   return type;
 }
@@ -2230,16 +2230,16 @@ export async function resendSendEmail(
     }),
     () => {
       if (!from) {
-        throw new OfflocalError("send_resend_email requires either from or a mapped Resend defaultFrom.");
+        throw new DashclawError("send_resend_email requires either from or a mapped Resend defaultFrom.");
       }
       const html = input.html === undefined ? undefined : assertNonEmptyString("html", input.html);
       const text = input.text === undefined ? undefined : assertNonEmptyString("text", input.text);
       if (!html && !text) {
-        throw new OfflocalError("send_resend_email requires at least one of html or text.");
+        throw new DashclawError("send_resend_email requires at least one of html or text.");
       }
       const to = assertNonEmptyStringList("to", input.to);
       if (!to) {
-        throw new OfflocalError("to must be a non-empty list of strings.");
+        throw new DashclawError("to must be a non-empty list of strings.");
       }
       return rs.sendEmail(tokenFor(store, "resend", r.connectionId), {
         from: assertNonEmptyString("from", from),
@@ -2304,7 +2304,7 @@ export async function twilioUpdatePhoneNumberWebhooks(
     ),
     () => {
       if (!smsUrl && !voiceUrl) {
-        throw new OfflocalError("At least one of smsUrl or voiceUrl is required.");
+        throw new DashclawError("At least one of smsUrl or voiceUrl is required.");
       }
       return tw.updatePhoneNumberWebhooks(r.accountSid, tokenFor(store, "twilio", r.connectionId), phoneNumberSid, {
         smsUrl,
@@ -2331,7 +2331,7 @@ export async function twilioSendSms(
     }),
     () => {
       if (!from && !messagingServiceSid) {
-        throw new OfflocalError(
+        throw new DashclawError(
           "send_twilio_sms requires either from, messagingServiceSid, or a mapped Twilio fromNumber/messagingServiceSid.",
         );
       }
@@ -2362,7 +2362,7 @@ export async function twilioCreateCall(
     }),
     () => {
       if (!from) {
-        throw new OfflocalError("create_twilio_call requires either from or a mapped Twilio fromNumber.");
+        throw new DashclawError("create_twilio_call requires either from or a mapped Twilio fromNumber.");
       }
       return tw.createCall(r.accountSid, tokenFor(store, "twilio", r.connectionId), {
         to: assertNonEmptyString("to", input.to),
@@ -2694,7 +2694,7 @@ export async function stripeCreateWebhook(
     }),
     () => {
       if (!Array.isArray(input.enabledEvents) || input.enabledEvents.length === 0) {
-        throw new OfflocalError("enabledEvents must be a non-empty list of Stripe event names.");
+        throw new DashclawError("enabledEvents must be a non-empty list of Stripe event names.");
       }
       return st.createWebhookEndpoint(stripeKeyFor(store, environment, mode), {
         url,

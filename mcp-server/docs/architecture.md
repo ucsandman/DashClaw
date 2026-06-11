@@ -31,7 +31,7 @@ entry either way.
 agent (Claude Code)
    │  tool call, e.g. create_vercel_deployment
    ▼
-offlocal MCP server (this repo, on your PC)
+dashclaw-local MCP server (this package, on your PC)
    │  build ActionContext: project + environment + provider + capability
    ▼
 runGuarded ──────────────────────────────────────────────┐
@@ -55,10 +55,10 @@ gets a structured response telling it what happened and what to do next.
 ## 3. Where DashClaw sits
 
 DashClaw is the **authoritative gate**: it holds the policies, scores risk,
-runs the approval queue, and mirrors the evidence trail. offlocal stays the
+runs the approval queue, and mirrors the evidence trail. the local server stays the
 execution layer.
 
-- Opt-in via `DASHCLAW_BASE_URL` + `DASHCLAW_API_KEY`.
+- Opt-in via `DASHCLAW_URL` + `DASHCLAW_API_KEY`.
 - Every **risky** action (anything that isn't a plain read, plus anything
   flagged live) is sent to DashClaw's guard before execution.
 - If DashClaw says `require_approval`, you approve or reject **in the DashClaw
@@ -72,7 +72,7 @@ The Stripe and Vercel **marketplace MCP plugins**, and raw CLIs like `vercel`
 or `stripe`, talk to the same accounts but **bypass DashClaw entirely**. No
 guard, no approval queue, no audit entry.
 
-Rule of thumb: **for production mutations, use the offlocal tools.** Keep
+Rule of thumb: **for production mutations, use the governed provider tools.** Keep
 ungoverned MCPs/CLIs for read-only inspection and dev conveniences — or
 disable them in sessions where the agent works autonomously. A governance gate
 only governs traffic that goes through it.
@@ -100,7 +100,7 @@ without a human.
 ## 6. Credentials
 
 Tokens are read from environment variables at call time and are **never
-persisted** to `.offlocal/` or sent to DashClaw. See [.env.example](../.env.example)
+persisted** to `.dashclaw-local/` or sent to DashClaw. See [.env.example](../.env.example)
 for the full list (`GITHUB_TOKEN`, `VERCEL_TOKEN`, `SUPABASE_ACCESS_TOKEN`,
 `STRIPE_TEST_SECRET_KEY` / `STRIPE_LIVE_SECRET_KEY`, `RAILWAY_TOKEN`,
 `NEON_API_KEY`, `UPSTASH_EMAIL`, `UPSTASH_API_KEY`, `QSTASH_TOKEN`,

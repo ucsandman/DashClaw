@@ -1,4 +1,4 @@
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 
 export interface HttpOptions {
   method?: string;
@@ -39,20 +39,20 @@ function redactSecrets(text: string): string {
 }
 
 function readTimeoutMs(timeoutMs?: number): number {
-  const raw = timeoutMs ?? process.env.OFFLOCAL_HTTP_TIMEOUT_MS ?? DEFAULT_HTTP_TIMEOUT_MS;
+  const raw = timeoutMs ?? process.env.DASHCLAW_HTTP_TIMEOUT_MS ?? DEFAULT_HTTP_TIMEOUT_MS;
   const parsed = typeof raw === "number" ? raw : Number(raw);
   if (!Number.isInteger(parsed) || parsed <= 0) {
-    throw new OfflocalError("OFFLOCAL_HTTP_TIMEOUT_MS must be a positive integer number of milliseconds.");
+    throw new DashclawError("DASHCLAW_HTTP_TIMEOUT_MS must be a positive integer number of milliseconds.");
   }
   return parsed;
 }
 
 function readRetries(method: string): number {
   if (method !== "GET" && method !== "HEAD") return 0;
-  const raw = process.env.OFFLOCAL_HTTP_RETRIES ?? String(DEFAULT_HTTP_RETRIES);
+  const raw = process.env.DASHCLAW_HTTP_RETRIES ?? String(DEFAULT_HTTP_RETRIES);
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new OfflocalError("OFFLOCAL_HTTP_RETRIES must be a non-negative integer.");
+    throw new DashclawError("DASHCLAW_HTTP_RETRIES must be a non-negative integer.");
   }
   return parsed;
 }
@@ -62,10 +62,10 @@ function shouldRetry(status: number): boolean {
 }
 
 function retryDelayMs(attempt: number): number {
-  const raw = process.env.OFFLOCAL_HTTP_RETRY_BASE_MS ?? "25";
+  const raw = process.env.DASHCLAW_HTTP_RETRY_BASE_MS ?? "25";
   const parsed = Number(raw);
   if (!Number.isSafeInteger(parsed) || parsed < 0) {
-    throw new OfflocalError("OFFLOCAL_HTTP_RETRY_BASE_MS must be a non-negative integer number of milliseconds.");
+    throw new DashclawError("DASHCLAW_HTTP_RETRY_BASE_MS must be a non-negative integer number of milliseconds.");
   }
   return parsed * attempt;
 }
@@ -87,7 +87,7 @@ export async function httpJson<T = unknown>(
   const timeoutMs = readTimeoutMs(opts.timeoutMs);
   const method = opts.method ?? "GET";
   const maxRetries = readRetries(method);
-  let lastError: OfflocalError | undefined;
+  let lastError: DashclawError | undefined;
 
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
     const controller = new AbortController();
@@ -105,7 +105,7 @@ export async function httpJson<T = unknown>(
       const message = controller.signal.aborted
         ? `Timed out after ${timeoutMs}ms calling ${redactSecrets(finalUrl)}.`
         : `Network error calling ${redactSecrets(finalUrl)}: ${err instanceof Error ? err.message : String(err)}`;
-      lastError = new OfflocalError(message);
+      lastError = new DashclawError(message);
       if (attempt < maxRetries) {
         await sleep(retryDelayMs(attempt + 1));
         continue;
@@ -130,7 +130,7 @@ export async function httpJson<T = unknown>(
       typeof parsed === "object" && parsed !== null
         ? JSON.stringify(parsed)
         : String(parsed ?? "");
-    lastError = new OfflocalError(
+    lastError = new DashclawError(
       `${res.status} ${res.statusText} from ${redactSecrets(url)}${detail ? `: ${redactSecrets(detail).slice(0, 500)}` : ""}`,
     );
     if (attempt < maxRetries && shouldRetry(res.status)) {
@@ -140,7 +140,7 @@ export async function httpJson<T = unknown>(
     throw lastError;
   }
 
-  throw lastError ?? new OfflocalError(`Failed calling ${redactSecrets(finalUrl)}.`);
+  throw lastError ?? new DashclawError(`Failed calling ${redactSecrets(finalUrl)}.`);
 }
 
 /** Encode an object as application/x-www-form-urlencoded, incl. bracketed nesting and indexed arrays. */

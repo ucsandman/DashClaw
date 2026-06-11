@@ -1,6 +1,6 @@
 import { XMLParser } from "fast-xml-parser";
 import { httpJson } from "./http.js";
-import { OfflocalError } from "../util.js";
+import { DashclawError } from "../util.js";
 
 /**
  * Namecheap API adapter. XML-over-GET; every call carries the global params
@@ -21,13 +21,13 @@ export function namecheapBaseUrl(): string {
 function globalParams(apiKey: string): Record<string, string> {
   const apiUser = process.env.NAMECHEAP_API_USER?.trim();
   if (!apiUser) {
-    throw new OfflocalError(
+    throw new DashclawError(
       "NAMECHEAP_API_USER is not set. Set it to your Namecheap account username (it is also sent as UserName).",
     );
   }
   const clientIp = process.env.NAMECHEAP_CLIENT_IP?.trim();
   if (!clientIp) {
-    throw new OfflocalError(
+    throw new DashclawError(
       "NAMECHEAP_CLIENT_IP is not set. Namecheap requires the caller's CURRENT public IP " +
         "(find it with `curl ifconfig.me`) and the same IP must be whitelisted in " +
         "Namecheap → Profile → Tools → API Access.",
@@ -50,16 +50,16 @@ function bool(value: unknown): boolean {
   return String(value).trim().toLowerCase() === "true";
 }
 
-export function mapNamecheapError(number: string, message: string): OfflocalError {
+export function mapNamecheapError(number: string, message: string): DashclawError {
   if (number === "1011102") {
-    return new OfflocalError(
+    return new DashclawError(
       "Namecheap error 1011102: the API rejected this request — usually because the caller's IP " +
         "is not whitelisted. Re-whitelist your CURRENT public IP (find it with `curl ifconfig.me`) " +
         "in Namecheap → Profile → Tools → API Access, set NAMECHEAP_CLIENT_IP to the same value, and retry. " +
         `(${message})`,
     );
   }
-  return new OfflocalError(`Namecheap error ${number}: ${message}`);
+  return new DashclawError(`Namecheap error ${number}: ${message}`);
 }
 
 async function apiCall(
@@ -74,11 +74,11 @@ async function apiCall(
   try {
     parsed = parser.parse(String(text));
   } catch {
-    throw new OfflocalError(`Unexpected non-XML response from Namecheap (${command}).`);
+    throw new DashclawError(`Unexpected non-XML response from Namecheap (${command}).`);
   }
   const api = parsed?.ApiResponse;
   if (!api) {
-    throw new OfflocalError(`Unexpected Namecheap response shape (${command}): missing ApiResponse.`);
+    throw new DashclawError(`Unexpected Namecheap response shape (${command}): missing ApiResponse.`);
   }
   if (String(api["@_Status"]).toUpperCase() !== "OK") {
     const first = toArray<any>(api.Errors?.Error)[0];
@@ -94,7 +94,7 @@ function splitDomain(domain: string): { sld: string; tld: string } {
   const trimmed = domain.trim().toLowerCase();
   const dot = trimmed.indexOf(".");
   if (dot <= 0 || dot === trimmed.length - 1) {
-    throw new OfflocalError(`Invalid domain "${domain}"; expected something like example.com.`);
+    throw new DashclawError(`Invalid domain "${domain}"; expected something like example.com.`);
   }
   return { sld: trimmed.slice(0, dot), tld: trimmed.slice(dot + 1) };
 }
