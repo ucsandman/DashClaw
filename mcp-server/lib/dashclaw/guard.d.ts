@@ -1,0 +1,10 @@
+import type { Store } from "../storage.js";
+import type { ActionContext, PolicyDecision } from "../types.js";
+import type { DashclawDecision, DashclawGuardDecision, DashclawGuardPayload } from "./types.js";
+export declare function normalizeDashclawDecision(value: unknown): DashclawDecision;
+export declare function isRiskyAction(ctx: ActionContext): boolean;
+export declare function sqlFingerprint(sql: string): string;
+export declare function sanitizeDashclawText(value: string): string;
+export declare function buildDashclawGuardPayload(ctx: ActionContext, localPreview: PolicyDecision, auditCorrelationId: string): DashclawGuardPayload;
+export declare function localPolicyPreview(store: Store, ctx: ActionContext): PolicyDecision;
+export declare function guardWithDashclaw(store: Store, ctx: ActionContext, auditCorrelationId?: string): Promise<DashclawGuardDecision>;
