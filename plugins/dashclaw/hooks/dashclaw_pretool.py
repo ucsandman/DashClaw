@@ -157,13 +157,24 @@ def log(msg):
 # HTTP helpers (stdlib only, no third-party)
 # ---------------------------------------------------------------------------
 
-def api_request(method, path, body=None, timeout=None, retries=2):
+# Sentinel returned by api_request(distinguish_auth=True) when the API rejects
+# our credentials (HTTP 401/403). Distinct from None (connection failure / other
+# error) so the guard path can report "invalid API key" instead of the misleading
+# "guard unreachable" — a 401 IS a response, not a connectivity failure.
+AUTH_FAILED = object()
+
+
+def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False):
     """Make an HTTP request to the DashClaw API. Returns parsed JSON or None.
 
     By default retries up to three times total with 0.4s then 0.8s backoff
     between attempts so a Vercel or Neon cold start does not block the tool
     call. The latency-critical guard call passes retries=GUARD_RETRIES
     (default 0) instead. See dashclaw_agent_intel.http_client.
+
+    When distinguish_auth is True, a 401/403 response returns the AUTH_FAILED
+    sentinel instead of None, so callers can tell "bad/missing API key" apart
+    from "host unreachable".
     """
     if timeout is None:
         timeout = GUARD_TIMEOUT
@@ -181,6 +192,13 @@ def api_request(method, path, body=None, timeout=None, retries=2):
     try:
         body_bytes = request_with_retry(req, timeout=timeout, retries=retries)
         return json.loads(body_bytes.decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        # An HTTP error IS a response (the host answered), not a connectivity
+        # failure. Surface auth rejection distinctly when asked; everything else
+        # collapses to None as before.
+        if distinguish_auth and exc.code in (401, 403):
+            return AUTH_FAILED
+        return None
     except Exception:
         return None
 
@@ -222,7 +240,7 @@ def guard_check(context):
     if mode is None or mode == "unreachable":
         if not _can_connect(BASE_URL, GUARD_CONNECT_TIMEOUT):
             return None
-    return api_request("POST", "/api/guard?record=true", body=context, retries=GUARD_RETRIES)
+    return api_request("POST", "/api/guard?record=true", body=context, retries=GUARD_RETRIES, distinguish_auth=True)
 
 
 def create_action(context, status="running"):
@@ -691,10 +709,23 @@ def handle_require_approval(guard_resp, context, tool_use_id):
     sys.exit(2)
 
 
-def handle_guard_unavailable(context, tool_use_id):
-    """Guard could not be reached. Behavior governed by DASHCLAW_GUARD_UNAVAILABLE_POLICY."""
+def handle_guard_unavailable(context, tool_use_id, reason="unreachable"):
+    """Guard call did not yield a decision. Behavior governed by
+    DASHCLAW_GUARD_UNAVAILABLE_POLICY.
+
+    reason="unreachable" — host did not answer (connection failure/timeout).
+    reason="unauthorized" — host answered HTTP 401/403: the API key is bad or
+    missing. Same policy applies, but the message names the real cause instead
+    of misreporting an auth failure as "unreachable"."""
     policy = GUARD_UNAVAILABLE_POLICY
     mode = HOOK_MODE
+
+    if reason == "unauthorized":
+        state = "unauthorized - invalid or missing API key (HTTP 401); check DASHCLAW_API_KEY"
+        orphan_reason = "guard_unauthorized"
+    else:
+        state = "unreachable"
+        orphan_reason = "guard_unreachable"
 
     # Write orphan log record for backfill regardless of policy — never lose audit
     orphan_path = os.path.join(os.path.expanduser("~"), ".dashclaw", "orphan-actions.jsonl")
@@ -703,7 +734,7 @@ def handle_guard_unavailable(context, tool_use_id):
         from datetime import datetime, timezone
         record = {
             "ts": datetime.now(timezone.utc).isoformat(),
-            "reason": "guard_unreachable",
+            "reason": orphan_reason,
             "base_url": BASE_URL,
             "agent_id": AGENT_ID,
             "context": context,
@@ -719,24 +750,24 @@ def handle_guard_unavailable(context, tool_use_id):
 
     # Observe mode always proceeds (by definition — observe is "warn loudly, don't block")
     if mode == "observe":
-        log("[DashClaw] [observe] Guard unreachable at " + BASE_URL + " after " + attempts + ". Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
+        log("[DashClaw] [observe] Guard " + state + " at " + BASE_URL + " after " + attempts + ". Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         log("Action: " + context.get("declared_goal", "unknown"))
         sys.exit(0)
 
     # Enforce mode: behavior governed by DASHCLAW_GUARD_UNAVAILABLE_POLICY
     if policy == "allow":
-        log("[DashClaw] Guard unreachable at " + BASE_URL + " after " + attempts + "; proceeding (DASHCLAW_GUARD_UNAVAILABLE_POLICY=allow).")
+        log("[DashClaw] Guard " + state + " at " + BASE_URL + " after " + attempts + "; proceeding (DASHCLAW_GUARD_UNAVAILABLE_POLICY=allow).")
         log("Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         sys.exit(0)
 
     if policy == "warn":
-        log("[DashClaw] \u26a0 Guard unreachable at " + BASE_URL + " after " + attempts + "; proceeding anyway (DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn).")
+        log("[DashClaw] \u26a0 Guard " + state + " at " + BASE_URL + " after " + attempts + "; proceeding anyway (DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn).")
         log("Action logged to ~/.dashclaw/orphan-actions.jsonl for backfill.")
         log("Set DASHCLAW_GUARD_UNAVAILABLE_POLICY=block to fail closed instead.")
         sys.exit(0)
 
     # Default: block (fail closed)
-    log("[DashClaw] Blocked: guard at " + BASE_URL + " is unreachable after " + attempts + ".")
+    log("[DashClaw] Blocked: guard at " + BASE_URL + " is " + state + " after " + attempts + ".")
     log("Action: " + context.get("declared_goal", "unknown"))
     log("This is by design — destructive actions must not proceed without governance.")
     log("To change: set DASHCLAW_GUARD_UNAVAILABLE_POLICY=warn or =allow (not recommended).")
@@ -1165,6 +1196,8 @@ def main():
 
     # Step 5: POST /api/guard with enriched context
     guard_resp = guard_check(context)
+    if guard_resp is AUTH_FAILED:
+        handle_guard_unavailable(context, tool_use_id, reason="unauthorized")
     if guard_resp is None:
         handle_guard_unavailable(context, tool_use_id)
 
