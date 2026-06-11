@@ -72,6 +72,7 @@
     "rebuild:learning-recommendations": "node scripts/_run-with-env.mjs scripts/rebuild-learning-recommendations.mjs",
     "backfill:embeddings": "node --import tsx scripts/backfill-embeddings.mjs",
     "release:sdks": "node scripts/release-sdks.mjs",
+    "release:mcp": "node scripts/release-mcp-server.mjs",
     "traffic:poll": "node scripts/_run-with-env.mjs scripts/poll-github-traffic.mjs",
     "pre-commit": "node scripts/run-pre-commit-checks.mjs",
     "prepare": "node -e \"const f='scripts/living-merge/prepare.mjs';require('fs').existsSync(f)&&require('child_process').spawnSync(process.execPath,[f],{stdio:'inherit'})\"",

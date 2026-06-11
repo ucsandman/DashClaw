@@ -195,3 +195,19 @@ Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical defini
 CLI args take precedence over environment variables.
 
 > **Note:** This server reads `DASHCLAW_URL` (not `DASHCLAW_BASE_URL`); the hooks and CLI read `DASHCLAW_BASE_URL`.
+
+## Releasing
+
+After bumping `version` in `mcp-server/package.json`, run from the repo root:
+
+```bash
+npm run release:mcp
+```
+
+One command does everything, and re-running is always safe (already-published steps are skipped):
+
+1. Syncs `server.json` versions to `package.json` (commit the change if it edits the file).
+2. Publishes to npm — your browser opens for the security-key 2FA prompt.
+3. Publishes to the official MCP Registry via `mcp-publisher` — if the saved GitHub token expired, it re-runs the device-flow login (enter the printed code at github.com/login/device) and retries.
+
+Prereqs (one-time): `npm login`, and the official `mcp-publisher` binary from [modelcontextprotocol/registry releases](https://github.com/modelcontextprotocol/registry/releases) — **never** `npm i -g mcp-publisher`, that name is squatted by an unrelated package.
