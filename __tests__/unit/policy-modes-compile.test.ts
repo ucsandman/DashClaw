@@ -54,7 +54,8 @@ describe('compileMode', () => {
     expect(counts).toEqual({
       risk_threshold: 2,
       x402_spend_limit: 1,
-      require_approval: 3,
+      warn_action_type: 1,
+      require_approval: 2,
       protected_path: 1,
       rate_limit: 2,
     });
@@ -62,8 +63,8 @@ describe('compileMode', () => {
     console.log('compileMode("claude-code") types:', policies.map((p) => p.policy_type).join(', '));
 
     const x402 = policies.find((p) => p.policy_type === 'x402_spend_limit');
-    expect(x402?.rules.approval_threshold).toBe(0.01);
-    expect(x402?.rules.max_spend_usd).toBe(0.1);
+    expect(x402?.rules.approval_threshold).toBe(5.0);
+    expect(x402?.rules.max_spend_usd).toBe(25.0);
 
     const thresholds = policies
       .filter((p) => p.policy_type === 'risk_threshold')
@@ -77,11 +78,23 @@ describe('compileMode', () => {
       .sort();
     expect(rateWindows).toEqual(['250/30:warn', '650/60:require_approval']);
 
+    // api/sync/message/post/email/calendar are now WARNED (not gated)
+    const warnTypes = policies
+      .filter((p) => p.policy_type === 'warn_action_type')
+      .flatMap((p) => (p.rules.action_types as string[]) ?? []);
+    for (const t of ['message', 'post', 'email', 'calendar', 'sync', 'api']) {
+      expect(warnTypes).toContain(t);
+    }
+
     const approvalTypes = policies
       .filter((p) => p.policy_type === 'require_approval')
       .flatMap((p) => (p.rules.action_types as string[]) ?? []);
-    for (const t of ['deploy', 'migrate', 'workflow_execute', 'message', 'email', 'delete']) {
+    for (const t of ['deploy', 'migrate', 'workflow_execute', 'delete']) {
       expect(approvalTypes).toContain(t);
+    }
+    // comms/sync/api are now warned, not gated
+    for (const t of ['message', 'email', 'post', 'calendar', 'sync', 'api']) {
+      expect(approvalTypes).not.toContain(t);
     }
     // routine coding types must NOT be gated
     for (const t of ['build', 'test', 'cleanup', 'lint']) {
@@ -165,6 +178,13 @@ describe('Claude Code Mode behavioral proof (real evaluateGuard)', () => {
     expect(migrate.decision).toBe('require_approval');
   });
 
+  it('warns (does not gate) api, sync, message, post, email, calendar', async () => {
+    for (const action_type of ['api', 'sync', 'message', 'post', 'email', 'calendar']) {
+      const res = await evaluateGuard('org_1', { action_type }, guardSql('claude-code'));
+      expect(res.decision).toBe('warn');
+    }
+  });
+
   it('requires approval when a protected path is touched', async () => {
     const res = await evaluateGuard(
       'org_1',
@@ -174,16 +194,16 @@ describe('Claude Code Mode behavioral proof (real evaluateGuard)', () => {
     expect(res.decision).toBe('require_approval');
   });
 
-  it('gates paid x402 spend: >= $0.01 require_approval, > $0.10 block', async () => {
+  it('gates paid x402 spend: >= $5.00 require_approval, > $25.00 block', async () => {
     const small = await evaluateGuard(
       'org_1',
-      { action_type: 'x402_purchase', cost_estimate: 0.05 },
+      { action_type: 'x402_purchase', cost_estimate: 6.0 },
       guardSql('claude-code'),
     );
     expect(small.decision).toBe('require_approval');
     const big = await evaluateGuard(
       'org_1',
-      { action_type: 'x402_purchase', cost_estimate: 0.5 },
+      { action_type: 'x402_purchase', cost_estimate: 30.0 },
       guardSql('claude-code'),
     );
     expect(big.decision).toBe('block');

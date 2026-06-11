@@ -42,8 +42,8 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
   'claude-code': {
     id: 'claude-code',
     name: 'Claude Code Mode',
-    description: 'Fast local coding and building, with pauses reserved for real boundaries.',
-    purpose: 'Let a coding agent read, edit, run bash, test, lint, and build quickly without interruption — while still pausing for money, external messages, deploys, migrations, destructive ops, and protected paths.',
+    description: 'Fast local coding and building. Interrupts only for money, destruction, and secrets.',
+    purpose: 'Let a coding agent read, edit, run bash, test, lint, and build without interruption — pausing only for paid spend, deploys, migrations, destructive ops, and protected paths. Everything else is recorded for review on /policies.',
     interruptionLevel: 'low',
     uxPromise: "Won't interrupt normal coding.",
     allows: [
@@ -55,13 +55,13 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
       'Local builds',
     ],
     warns: [
+      'External messages, posts, email, calendar',
+      'State sync and outbound API calls',
       'High-risk actions (risk score ≥ 85)',
       'Bursts over 250 actions in 30 minutes',
     ],
     requiresApproval: [
-      'Paid (x402) spend at or above $0.01',
-      'External messages, posts, email, calendar',
-      'State sync and outbound API calls',
+      'Paid (x402) spend at or above $5.00',
       'Deploys, migrations, workflow execution',
       'Explicit destructive ops (delete / reset / destroy / drop)',
       'Edits to governance, auth, secrets, and policy paths',
@@ -69,11 +69,12 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     ],
     blocks: [
       'Extreme-risk actions (risk score ≥ 100)',
-      'Paid (x402) spend above $0.10',
+      'Paid (x402) spend above $25.00',
     ],
     toolVisibilityNotes: [
       'DashClaw governs only the actions your agent reports through the SDK or hooks. Routine reads, edits, and bash that are not reported are neither recorded nor gated.',
       'Destructive shell commands are caught by risk scoring of the declared goal (e.g. "rm -rf", "drop table", "truncate"), not by a dedicated "destructive" action type — so the routine `cleanup`/`build`/`test` types stay un-gated.',
+      'Recorded (warn) actions land in the /policies review feed, where a one-click grant can silence a recurring shape permanently.',
     ],
   },
 

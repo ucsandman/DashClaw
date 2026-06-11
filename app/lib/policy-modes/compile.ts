@@ -2,7 +2,7 @@
 // policies (the exact shape `validatePolicy` accepts and `insertPolicy` stores).
 //
 // Every compiled policy:
-//   - has policy_type ∈ the 13 live GuardPolicyType values (nothing fabricated),
+//   - has policy_type ∈ the 15 live GuardPolicyType values (nothing fabricated),
 //   - carries `_mode: <id>` inside its rules JSON (mirrors the existing `_shield`
 //     tag so mode-generated policies are recognizable without a schema change),
 //   - is `active: 1` so applying a mode takes effect immediately.
@@ -105,16 +105,17 @@ type ModeBuilder = () => CompiledModePolicy[];
 
 const MODE_BUILDERS: Record<string, ModeBuilder> = {
   // ── Claude Code Mode — the must-work vertical slice ──
-  // "Won't interrupt normal coding": reads/edits/bash/test/build are NOT gated;
-  // require_approval lists exclude routine `cleanup`/`build`/`test`; destructive
-  // shell is caught by risk scoring of the declared goal (threshold 100/85).
+  // "Won't interrupt normal coding": interrupts are reserved for money,
+  // destruction, and secrets. External comms / sync / API calls are RECORDED
+  // (warn) for the /policies review feed, not gated. Destructive shell is
+  // caught by risk scoring of the declared goal (threshold 100/85).
   'claude-code': () => {
     const m = 'claude-code';
     return [
       mk(m, 'Block extreme-risk actions', 'risk_threshold', { threshold: 100, action: 'block' }),
       mk(m, 'Warn on high-risk actions', 'risk_threshold', { threshold: 85, action: 'warn' }),
-      mk(m, 'Gate paid (x402) spend', 'x402_spend_limit', { approval_threshold: 0.01, max_spend_usd: 0.1 }),
-      mk(m, 'Pause before external comms / sync', 'require_approval', {
+      mk(m, 'Gate paid (x402) spend', 'x402_spend_limit', { approval_threshold: 5.0, max_spend_usd: 25.0 }),
+      mk(m, 'Record external comms / sync / API calls', 'warn_action_type', {
         action_types: ['message', 'post', 'email', 'calendar', 'sync', 'api'],
       }),
       mk(m, 'Pause before deploy / migrate / workflow', 'require_approval', {
@@ -322,6 +323,10 @@ export function nominalDecision(policy: CompiledModePolicy): DecisionType {
       return 'require_approval';
     case 'block_action_type':
       return 'block';
+    case 'warn_action_type':
+      return 'warn';
+    case 'allow_grant':
+      return 'allow';
     case 'x402_spend_limit':
       return 'require_approval';
     case 'non_fabrication':

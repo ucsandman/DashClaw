@@ -20,6 +20,7 @@ const SIMULATED_TYPES = new Set<string>([
   'risk_threshold',
   'require_approval',
   'block_action_type',
+  'warn_action_type',
   'protected_path',
   'x402_spend_limit',
 ]);
