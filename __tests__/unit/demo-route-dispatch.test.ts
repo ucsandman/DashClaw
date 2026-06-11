@@ -123,17 +123,40 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     expect((await res.json()).error).toBe('Demo mode: write APIs are disabled.');
   });
 
-  it('GET /api/policies/contract returns a governed contract with interrupt/silent/grant sentences', async () => {
+  it('GET /api/policies/contract returns a governed claude-code contract with correct sentences', async () => {
     const res = await middleware(req('/api/policies/contract'));
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.governed).toBe(true);
-    expect(body.mode_id).toEqual(expect.any(String));
-    expect(body.interrupts.length).toBeGreaterThanOrEqual(3);
-    expect(body.silent.length).toBeGreaterThanOrEqual(2);
+    expect(body.mode_id).toBe('claude-code');
+    expect(body.interrupts.length).toBe(3);
+    expect(body.silent.length).toBe(2);
+    expect(body.blocks.length).toBe(2);
     expect(body.grants.length).toBeGreaterThanOrEqual(1);
-    expect(body.interrupts[0]).toMatchObject({ policy_id: expect.any(String), text: expect.any(String), fired_7d: expect.any(Number) });
-    expect(body.friction).toMatchObject({ interrupts_7d: expect.any(Number), est_seconds: expect.any(Number) });
+    // x402 interrupt carries editable + rules
+    expect(body.interrupts[0]).toMatchObject({
+      policy_id: expect.any(String),
+      text: 'paid spend reaches $5.00',
+      fired_7d: expect.any(Number),
+      editable: { param: 'approval_threshold', value: 5 },
+    });
+    expect(body.interrupts[0].rules).toBeDefined();
+    // require_approval sentences use real claude-code action_types
+    expect(body.interrupts[1].text).toBe('action is one of: deploy, migrate, workflow_execute');
+    expect(body.interrupts[2].text).toBe('action is one of: delete, reset, destroy, drop');
+    // silent: comms warn + burst with real pack numbers
+    expect(body.silent[0].text).toBe('message, post, email, calendar, sync, api calls (recorded for review)');
+    expect(body.silent[1].text).toBe('burst: more than 250 actions in 30 minutes');
+    // blocks: risk-100 + x402 max
+    expect(body.blocks[0].text).toBe('risk score reaches 100');
+    expect(body.blocks[1]).toMatchObject({
+      text: 'paid spend exceeds $25.00',
+      editable: { param: 'max_spend_usd', value: 25 },
+    });
+    expect(body.blocks[1].rules).toBeDefined();
+    // friction: sum of interrupt fired_7d × 20s
+    expect(body.friction.interrupts_7d).toBe(12);
+    expect(body.friction.est_seconds).toBe(240);
   });
 
   it('GET /api/policies/review returns warn groups and recent interrupts', async () => {

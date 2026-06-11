@@ -561,26 +561,52 @@ export function demoPolicies(fixtures: DemoFixtures) {
   return { policies: fixtures.policies, lastUpdated: new Date().toISOString() };
 }
 
-/** GET /api/policies/contract — governed claude-code contract fixture. */
+/** GET /api/policies/contract — governed claude-code contract fixture.
+ *  Sentences are exactly what buildContract() emits for the compiled claude-code pack:
+ *  x402_spend_limit → interrupt "paid spend reaches $5.00" (editable) + block "paid spend exceeds $25.00" (editable)
+ *  require_approval  → "action is one of: deploy, migrate, workflow_execute"
+ *  require_approval  → "action is one of: delete, reset, destroy, drop"
+ *  protected_path    → "protected paths change (governance, auth, secrets)"
+ *  risk_threshold/warn → silent "risk score reaches 85"
+ *  warn_action_type  → silent "message, post, email, calendar, sync, api calls (recorded for review)"
+ *  rate_limit/warn   → silent "burst: more than 250 actions in 30 minutes"
+ *  risk_threshold/block → block "risk score reaches 100"
+ */
 export function demoContract(): import('../policy-modes/contract').ContractView {
+  const x402Rules = { approval_threshold: 5.0, max_spend_usd: 25.0, _mode: 'claude-code' };
   return {
     governed: true,
-    mode_id: 'balanced',
+    mode_id: 'claude-code',
     interrupts: [
-      { policy_id: 'gp_demo_interrupt_1', text: 'action is one of: bash, write_file', fired_7d: 14 },
-      { policy_id: 'gp_demo_interrupt_2', text: 'protected paths change (governance, auth, secrets)', fired_7d: 3 },
-      { policy_id: 'gp_demo_interrupt_3', text: 'risk score reaches 70', fired_7d: 5 },
+      {
+        policy_id: 'gp_demo_interrupt_1',
+        text: 'paid spend reaches $5.00',
+        fired_7d: 2,
+        editable: { param: 'approval_threshold', value: 5.0 },
+        rules: x402Rules,
+      },
+      { policy_id: 'gp_demo_interrupt_2', text: 'action is one of: deploy, migrate, workflow_execute', fired_7d: 7 },
+      { policy_id: 'gp_demo_interrupt_3', text: 'action is one of: delete, reset, destroy, drop', fired_7d: 3 },
     ],
     silent: [
-      { policy_id: 'gp_demo_silent_1', text: 'bash, write_file calls (recorded for review)', fired_7d: 22 },
-      { policy_id: 'gp_demo_silent_2', text: 'burst: more than 20 actions in 5 minutes', fired_7d: 0 },
+      { policy_id: 'gp_demo_silent_1', text: 'message, post, email, calendar, sync, api calls (recorded for review)', fired_7d: 18 },
+      { policy_id: 'gp_demo_silent_2', text: 'burst: more than 250 actions in 30 minutes', fired_7d: 0 },
     ],
-    blocks: [],
+    blocks: [
+      { policy_id: 'gp_demo_block_1', text: 'risk score reaches 100', fired_7d: 0 },
+      {
+        policy_id: 'gp_demo_block_2',
+        text: 'paid spend exceeds $25.00',
+        fired_7d: 0,
+        editable: { param: 'max_spend_usd', value: 25.0 },
+        rules: x402Rules,
+      },
+    ],
     grants: [
       { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/' },
     ],
     custom: [],
-    friction: { interrupts_7d: 22, est_seconds: 440 },
+    friction: { interrupts_7d: 12, est_seconds: 240 },
   };
 }
 

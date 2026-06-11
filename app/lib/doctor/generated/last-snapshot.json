@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:47a2f8b13b47a360780d107ff829e187cee973bd",
+  "timestamp": "sha1:97ce408c5cf0777c1deb2f057a4b76fe1fcea053",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4310,6 +4310,7 @@
       "name": "NAMECHEAP_API_KEY",
       "required": false,
       "files": [
+        "mcp-server/.tmp-dns-read.mjs",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts"
       ],
