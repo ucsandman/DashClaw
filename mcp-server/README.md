@@ -84,7 +84,7 @@ in the Claude app: Customize → Plugins → "+" → Add marketplace →
 
 ## Tools (30)
 
-Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical definitions.
+Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
 **Core governance (8)** — the guard / record / invoke loop plus discovery and session lifecycle.
 
@@ -172,6 +172,21 @@ Grouped by domain. See [`lib/tools.js`](./lib/tools.js) for the canonical defini
 |---|---|
 | `dashclaw_posture` | Read the org governance posture score + 6 dimensions + findings queue |
 | `dashclaw_posture_next` | The next prioritized remediation finding from the posture queue |
+
+## Launch plans (4)
+
+Stateful, verified launch tracking through the existing guarded tools — plans
+track the launch tail (domain → DNS → deploy → DB → Stripe → email → env
+wiring); they never execute provider mutations and never bypass
+guard/policy/approvals. Full lifecycle, reality-check table, and examples in
+[`docs/launch-plans.md`](./docs/launch-plans.md).
+
+| Tool | Description |
+|---|---|
+| `create_launch_plan` | Derive the ordered step checklist for a declared stack from the launch playbook |
+| `get_launch_status` | Evaluated (never self-reported) step status + the single next action; resumable |
+| `preflight_launch` | Tokens present + valid, mappings complete, Stripe mode sanity, Namecheap IP whitelist |
+| `verify_launch` | Domain resolves, deployment READY, env vars present, webhook enabled, email verified |
 
 ## Resources (6)
 
