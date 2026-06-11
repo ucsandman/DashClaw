@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createLaunchPlan, verifyLaunch } from "../src/launch/index.js";
+import { evaluateRealityCheck } from "../src/launch/checks.js";
 import { errRead, fakeReads, okRead } from "./launch-helpers.js";
 import { freshStore, seedAcme } from "./helpers.js";
 
@@ -126,5 +127,34 @@ describe("verify_launch", () => {
     const check = result.checks.find((c) => c.id === "deployment-ready")!;
     expect(check.status).toBe("fail");
     expect(check.message).toContain("401");
+  });
+});
+
+describe("dns-points-at-app host matching (CodeQL #114 js/incomplete-url-substring-sanitization)", () => {
+  const step = { realityCheck: { kind: "dns-points-at-app", params: { domain: "acme.com" } } } as never;
+
+  async function evalWithDnsAddress(address: string) {
+    const { store, plan } = planFor(["domain", "vercel"], "acme.com");
+    return evaluateRealityCheck(
+      store,
+      plan,
+      step,
+      fakeReads({ dnsRecords: async () => okRead([{ name: "www", type: "CNAME", address }]) }),
+    );
+  }
+
+  it("rejects a look-alike host that a bare endsWith would wrongly accept", async () => {
+    const evil = await evalWithDnsAddress("evilvercel-dns.com");
+    expect(evil.satisfied).toBe(false);
+  });
+
+  it("still accepts a legitimate vercel-dns CNAME target", async () => {
+    const good = await evalWithDnsAddress("cname.vercel-dns.com");
+    expect(good.satisfied).toBe(true);
+  });
+
+  it("accepts the Vercel A record", async () => {
+    const a = await evalWithDnsAddress("76.76.21.21");
+    expect(a.satisfied).toBe(true);
   });
 });

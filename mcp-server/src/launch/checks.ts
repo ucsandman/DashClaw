@@ -152,7 +152,14 @@ export async function evaluateRealityCheck(
       const points = records.some((r) => {
         const record = r as Record<string, unknown>;
         const address = String(record.address ?? "").toLowerCase();
-        return address === "76.76.21.21" || address.endsWith("vercel-dns.com");
+        // Dot-bounded suffix so look-alike hosts (e.g. "evilvercel-dns.com") are
+        // rejected — a bare endsWith("vercel-dns.com") matches them (CodeQL
+        // js/incomplete-url-substring-sanitization).
+        return (
+          address === "76.76.21.21" ||
+          address === "vercel-dns.com" ||
+          address.endsWith(".vercel-dns.com")
+        );
       });
       return evalResult(
         points,
