@@ -39,4 +39,29 @@ describe('work order receipts', () => {
     (governance as Record<string, unknown>).mode = 'tampered';
     expect(verifyReceiptHash(body, hash)).toBe(true);
   });
+
+  it('Date-object timestamps canonicalize identically to equivalent ISO strings', () => {
+    // Neon returns timestamptz columns as JS Date objects. JSON.stringify converts
+    // Date to {} (empty object), which corrupts the hash. toIso() normalises them
+    // to ISO strings so Date and string inputs produce the same receipt hash.
+    const dateOrder = {
+      ...ORDER,
+      created_at: new Date('2026-06-11T00:00:00.000Z'),
+      claimed_at: new Date('2026-06-11T00:00:05.000Z'),
+      completed_at: new Date('2026-06-11T00:01:00.000Z'),
+    };
+    const costArg = { input_tokens: 100, output_tokens: 200, total_usd: 0.1 };
+    const govArg = { mode: 'governed' as const };
+
+    const bodyFromDates = buildReceiptBody({ order: dateOrder, cost: costArg, outputHash: 'sha256:o', governance: govArg });
+    const bodyFromStrings = buildReceiptBody({ order: ORDER, cost: costArg, outputHash: 'sha256:o', governance: govArg });
+
+    // Lifecycle fields must be ISO strings regardless of input type.
+    expect(bodyFromDates.lifecycle.created_at).toBe('2026-06-11T00:00:00.000Z');
+    expect(bodyFromDates.lifecycle.claimed_at).toBe('2026-06-11T00:00:05.000Z');
+    expect(bodyFromDates.lifecycle.completed_at).toBe('2026-06-11T00:01:00.000Z');
+
+    // Hashes must be identical — Date and string inputs are interchangeable.
+    expect(computeReceiptHash(bodyFromDates)).toBe(computeReceiptHash(bodyFromStrings));
+  });
 });

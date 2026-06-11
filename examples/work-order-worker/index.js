@@ -68,5 +68,7 @@ async function tick() {
 }
 
 console.log(`work-order worker polling ${process.env.DASHCLAW_BASE_URL || 'http://localhost:3000'} every ${POLL_MS}ms (types: ${Object.keys(HANDLERS).join(', ')})`);
+// Ticks may overlap when execution exceeds POLL_MS — that's safe: claims are atomic
+// (SKIP LOCKED), so concurrent ticks always claim different orders.
 setInterval(() => tick().catch((err) => console.error('tick error:', err.message)), POLL_MS);
 tick().catch((err) => console.error('tick error:', err.message));

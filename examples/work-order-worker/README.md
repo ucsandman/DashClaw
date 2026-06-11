@@ -20,11 +20,6 @@ cd examples/work-order-worker
 cp .env.example .env
 # Edit .env with your DASHCLAW_BASE_URL and DASHCLAW_API_KEY
 npm install
-```
-
-## Run
-
-```bash
 node index.js
 ```
 
