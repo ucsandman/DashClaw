@@ -523,11 +523,15 @@ export function validatePolicy(body) {
 
   validatePolicyTestRecipes(rules, addError);
 
-  // Map.get with a user-controlled key never dispatches to an inherited
-  // prototype member (CodeQL js/unvalidated-dynamic-method-call); unknown or
-  // invalid policy_type → undefined → no validator runs.
-  const typeValidator = POLICY_TYPE_VALIDATOR_MAP.get(result.data.policy_type);
-  if (typeValidator) typeValidator(rules, addError, result.data.policy_type);
+  // CodeQL js/unvalidated-dynamic-method-call: membership guard (Map.has) plus a
+  // typeof-function check before the dynamic invocation — the documented sanitizer.
+  // Unknown/invalid policy_type → no validator runs.
+  if (POLICY_TYPE_VALIDATOR_MAP.has(result.data.policy_type)) {
+    const typeValidator = POLICY_TYPE_VALIDATOR_MAP.get(result.data.policy_type);
+    if (typeof typeValidator === 'function') {
+      typeValidator(rules, addError, result.data.policy_type);
+    }
+  }
 
   return result;
 }

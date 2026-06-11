@@ -1340,12 +1340,16 @@ export async function evaluatePolicy(
   orgId: string,
   effectiveRiskScore: number,
 ): Promise<PolicyResult | null> {
-  // Map.get with a user-controlled key never dispatches to an inherited
-  // prototype member (CodeQL js/unvalidated-dynamic-method-call); unknown or
-  // invalid policy_type → undefined → return null.
-  const evaluator = POLICY_EVALUATOR_MAP.get(policy.policy_type);
-  if (!evaluator) return null;
-  return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
+  // CodeQL js/unvalidated-dynamic-method-call: membership guard (Map.has) plus a
+  // typeof-function check before the dynamic invocation — the documented sanitizer.
+  // Unknown/invalid policy_type → no dispatch → return null.
+  if (POLICY_EVALUATOR_MAP.has(policy.policy_type)) {
+    const evaluator = POLICY_EVALUATOR_MAP.get(policy.policy_type);
+    if (typeof evaluator === 'function') {
+      return evaluator({ policy, rules, context, sql, orgId, effectiveRiskScore });
+    }
+  }
+  return null;
 }
 
 /**
