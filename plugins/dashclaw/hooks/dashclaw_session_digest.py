@@ -137,9 +137,9 @@ def main():
         lines.extend(_fmt_lesson(l) for l in lessons[:MAX_LESSONS])
     stats = learning.get("stats") or {}
     sr = stats.get("successRate")
-    if isinstance(sr, (int, float)):
+    if isinstance(sr, (int, float)) and stats.get("totalDecisions"):
         pct = sr * 100 if 0 <= sr <= 1 else sr  # tolerate ratio or percent
-        lines.append(f"Success rate: {pct:.0f}% over {stats.get('totalDecisions', '?')} decisions")
+        lines.append(f"Success rate: {pct:.0f}% over {stats['totalDecisions']} decisions")
 
     try:
         lines.extend(_handoff_lines(_get(f"/api/handoffs?latest=true&agent_id={urllib.parse.quote(AGENT_ID)}")))
