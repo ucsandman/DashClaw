@@ -144,6 +144,23 @@ export async function setEnvVar(
   });
 }
 
+/**
+ * Env var NAMES configured on a project. Values are intentionally never
+ * fetched (Vercel returns encrypted/redacted values here, but we drop them
+ * entirely so nothing secret-shaped transits audit or DashClaw context).
+ */
+export async function listEnvVarNames(
+  token: string,
+  projectId: string,
+  teamId?: string,
+): Promise<string[]> {
+  const data = await httpJson<{ envs?: any[] }>(`${BASE}/v9/projects/${projectId}/env`, {
+    headers: headers(token),
+    query: teamQuery(teamId),
+  });
+  return (data.envs ?? []).map((e: Record<string, any>) => String(e.key));
+}
+
 export interface VercelCreatedProject {
   id: string;
   name: string;

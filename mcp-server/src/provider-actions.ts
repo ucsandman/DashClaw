@@ -281,6 +281,19 @@ export async function vercelDeployments(
   );
 }
 
+/** Env var NAMES on the mapped Vercel project — values are never fetched. */
+export async function vercelListEnvVars(store: Store, input: Base): Promise<GuardedResponse> {
+  const { project, environment } = resolve(store, input);
+  const r = vercelResource(store, project, environment);
+  return runGuarded(
+    store,
+    ctx(project, environment, "vercel", "read", "get_vercel_env_var_names", `env var names ${r.projectId}`, {
+      resourceLabel: r.projectId,
+    }),
+    () => vc.listEnvVarNames(tokenFor(store, "vercel", r.connectionId), r.projectId, vercelTeamId(store, r.teamId, r.connectionId)),
+  );
+}
+
 export async function githubPullRequests(
   store: Store,
   input: Base & { state?: "open" | "closed" | "all"; limit?: number },
@@ -2594,6 +2607,25 @@ export async function stripeListProducts(
     () => {
       assertPositiveInteger("limit", input.limit);
       return st.listProducts(stripeKeyFor(store, environment, mode), input.limit ?? 10);
+    },
+  );
+}
+
+/** Read prices (launch-plan reality checks). Not registered as an MCP tool. */
+export async function stripeListPrices(
+  store: Store,
+  input: Base & { limit?: number },
+): Promise<GuardedResponse> {
+  const { project, environment } = resolve(store, input);
+  const mode = stripeMode(store, environment);
+  return runGuarded(
+    store,
+    ctx(project, environment, "stripe", "read", "list_stripe_prices", `list prices (${mode})`, {
+      resourceLabel: mode,
+    }),
+    () => {
+      assertPositiveInteger("limit", input.limit);
+      return st.listPrices(stripeKeyFor(store, environment, mode), input.limit ?? 10);
     },
   );
 }

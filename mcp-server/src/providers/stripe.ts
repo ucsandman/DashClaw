@@ -203,3 +203,17 @@ export async function createPrice(
     recurring: data.recurring,
   };
 }
+
+export async function listPrices(key: string, limit = 10): Promise<StripePrice[]> {
+  const data = await httpJson<{ data?: any[] }>(`${BASE}/prices`, {
+    headers: headers(key),
+    query: { limit: String(limit) },
+  });
+  return (data.data ?? []).map((p: Record<string, any>) => ({
+    id: p.id,
+    product: p.product,
+    unitAmount: p.unit_amount ?? null,
+    currency: p.currency,
+    recurring: p.recurring ?? null,
+  }));
+}

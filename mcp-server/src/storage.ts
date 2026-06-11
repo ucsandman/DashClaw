@@ -133,7 +133,7 @@ function acquireFileLock(path: string): () => void {
   };
 }
 
-function withFileLock<T>(path: string, fn: () => T): T {
+export function withFileLock<T>(path: string, fn: () => T): T {
   const release = acquireFileLock(path);
   try {
     return fn();
