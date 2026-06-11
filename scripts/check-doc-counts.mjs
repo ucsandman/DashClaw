@@ -129,7 +129,8 @@ const COUNT_CHECKS = [
   // Second drift ring (same audit): marketing/landing prose, the docs-page SDK
   // claim, and the platform-intelligence reference SOURCES (public/downloads is
   // the hand-authored source; plugins/.agents copies are kept lockstep).
-  { file: 'app/landingData.js', label: 'MCP tool count', re: /(\d+) tools and \d+ resources/, expected: [S.mcpTools] },
+  { file: 'app/landingData.js', label: 'MCP tool count', re: /(\d+) governance tools and \d+ resources/, expected: [S.mcpTools] },
+  { file: 'app/landingData.js', label: 'MCP tool count (code sample)', re: /(\d+) governance tools \+ \d+ resources/, expected: [S.mcpTools] },
   { file: 'app/page.tsx', label: 'MCP tool count', re: /(\d+) tools and \d+ resources/, expected: [S.mcpTools] },
   S.sdk && { file: 'app/downloads/page.tsx', label: 'Node SDK methods', re: /Canonical (\d+)-method surface/, expected: [S.sdk.node] },
   S.sdk && { file: 'app/docs/page.tsx', label: 'Node SDK methods', re: /(\d+) methods total/, expected: [S.sdk.node] },
