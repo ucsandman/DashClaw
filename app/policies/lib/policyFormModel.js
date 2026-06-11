@@ -33,6 +33,9 @@ const DEFAULT_FORM_STATE = {
   allowedProviders: [],
   blockedProviders: [],
   agentIds: [],
+  // allow_grant
+  actionType: '',
+  targetPrefix: '',
   // optional inline test recipes (A1): [{ name, input, expect: { decision } }]
   tests: [],
 };
@@ -365,6 +368,8 @@ export function decompilePolicyForm(policy) {
     requiredLevel: orVal(rules.required_level, DEFAULT_FORM_STATE.requiredLevel),
     freshness: arrOr(rules.freshness, DEFAULT_FORM_STATE.freshness),
     maxCommitsBehind: coalesce(rules.max_commits_behind, DEFAULT_FORM_STATE.maxCommitsBehind),
+    actionType: orVal(rules.action_type, ''),
+    targetPrefix: orVal(rules.target_prefix, ''),
     protectedPaths: arrOr(rules.paths, DEFAULT_FORM_STATE.protectedPaths),
     maxSpendUsd: coalesce(rules.max_spend_usd, DEFAULT_FORM_STATE.maxSpendUsd),
     approvalThreshold: coalesce(rules.approval_threshold, DEFAULT_FORM_STATE.approvalThreshold),

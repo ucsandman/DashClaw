@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:f3958327a658419bf60d75da1fd7c3daa95dd2fa",
+  "timestamp": "sha1:63c3809615c811fd55cbf9f615f222e99eefa2cd",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3464,6 +3464,7 @@
         "mcp-server/src/server.ts",
         "mcp-server/test/actions.test.ts",
         "mcp-server/test/dashclaw.test.ts",
+        "mcp-server/test/launch-integration.test.ts",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts",
         "mcp-server/test/registration.test.ts",
@@ -3858,6 +3859,7 @@
         "mcp-server/src/server.ts",
         "mcp-server/test/actions.test.ts",
         "mcp-server/test/dashclaw.test.ts",
+        "mcp-server/test/launch-integration.test.ts",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts",
         "mcp-server/test/registration.test.ts",
@@ -4805,6 +4807,7 @@
       "name": "STRIPE_LIVE_SECRET_KEY",
       "required": false,
       "files": [
+        "mcp-server/test/launch-integration.test.ts",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts",
         "mcp-server/test/registration.test.ts"
@@ -4844,6 +4847,7 @@
       "name": "STRIPE_TEST_SECRET_KEY",
       "required": false,
       "files": [
+        "mcp-server/test/launch-integration.test.ts",
         "mcp-server/test/operations.test.ts",
         "mcp-server/test/providers.test.ts"
       ],

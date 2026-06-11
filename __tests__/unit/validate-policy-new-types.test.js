@@ -35,4 +35,8 @@ describe('validatePolicy — allow_grant', () => {
     const r = validatePolicy(base('allow_grant', { action_type: 'api', target_prefix: '' }));
     expect(r.valid).toBe(false);
   });
+  it('accepts null target_prefix (treated as absent)', () => {
+    const r = validatePolicy(base('allow_grant', { action_type: 'api', target_prefix: null }));
+    expect(r.valid).toBe(true);
+  });
 });

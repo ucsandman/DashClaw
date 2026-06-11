@@ -63,10 +63,16 @@ describe('policy type coverage (UI ↔ backend contract)', () => {
     expect(JSON.parse(compilePolicyPayload(FORMS.branch_freshness).rules)).toEqual({
       action_types: ['deploy'], freshness: ['stale', 'diverged'], max_commits_behind: 0, action: 'block',
     });
+    expect(JSON.parse(compilePolicyPayload({ ...FORMS.allow_grant, actionType: 'api', targetPrefix: 'api.stripe.com' }).rules)).toEqual({
+      action_type: 'api', target_prefix: 'api.stripe.com',
+    });
+    expect(JSON.parse(compilePolicyPayload(FORMS.warn_action_type).rules)).toEqual({
+      action_types: ['api'],
+    });
   });
 
   it('round-trips the added types through decompile', () => {
-    for (const type of ['behavioral_anomaly', 'permission_escalation', 'green_contract', 'branch_freshness']) {
+    for (const type of ['behavioral_anomaly', 'permission_escalation', 'green_contract', 'branch_freshness', 'allow_grant', 'warn_action_type']) {
       const payload = compilePolicyPayload(FORMS[type]);
       const form = decompilePolicyForm({ ...payload, rules: payload.rules });
       expect(form.type).toBe(type);

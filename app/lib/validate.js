@@ -375,7 +375,7 @@ const POLICY_TYPE_VALIDATORS = {
     if (!isNonEmptyString(rules.action_type)) {
       addError('allow_grant policy requires rules.action_type string');
     }
-    if (rules.target_prefix !== undefined && (
+    if (rules.target_prefix !== undefined && rules.target_prefix !== null && (
       typeof rules.target_prefix !== 'string' || rules.target_prefix.length === 0 || rules.target_prefix.length > 256
     )) {
       addError('allow_grant rules.target_prefix must be a non-empty string (<=256 chars)');
