@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:b137ecde9bb3ddc5b1c695e7e4032b2bd5493086`
+**Shape snapshot:** `sha1:9ed00e1c19ea3e0f5390ff2c731fed98b1965cb4`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **263** active API routes across **63** categories (311 total including archived)
-- **4** required + **179** optional environment variables
-- **97** database tables
+- **270** active API routes across **64** categories (318 total including archived)
+- **4** required + **181** optional environment variables
+- **100** database tables
 
 ## API Surface
 
@@ -483,6 +483,16 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET` `/api/widget/summary`
 
+### `work-orders`
+
+- `GET, POST` `/api/work-orders`
+- `DELETE, GET` `/api/work-orders/[workOrderId]`
+- `GET` `/api/work-orders/[workOrderId]/artifacts`
+- `POST` `/api/work-orders/[workOrderId]/complete`
+- `POST` `/api/work-orders/claim`
+- `GET, POST` `/api/work-orders/types`
+- `DELETE, GET, PUT` `/api/work-orders/types/[type]`
+
 ### `workflows`
 
 - `POST` `/api/workflows/draft`
@@ -507,7 +517,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 74 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 75 file(s)
 - **`DATABASE_URL`** - referenced in 97 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
@@ -611,6 +621,7 @@ These have fallbacks or only activate specific features.
 - `HOSTED_TRIAL_ACTION_CAP` *(undocumented)*
 - `HOSTED_TRIAL_DAYS` *(undocumented)*
 - `INTEGRATION_DATABASE_URL` *(undocumented)*
+- `MODEL` *(undocumented)*
 - `MOONSHOT_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_USER` *(undocumented)*
@@ -694,11 +705,12 @@ These have fallbacks or only activate specific features.
 - `VERCEL_TOKEN` *(undocumented)*
 - `VERCEL_URL` *(undocumented)*
 - `WEBHOOK_ALLOWED_DOMAINS` *(undocumented)*
+- `WORKER_AGENT_ID` *(undocumented)*
 - `X` *(undocumented)*
 
 ## Database Tables
 
-All 97 tables defined in `schema/schema.js` (Drizzle ORM):
+All 100 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -796,6 +808,9 @@ All 97 tables defined in `schema/schema.js` (Drizzle ORM):
 - `waitlist`
 - `webhook_deliveries`
 - `webhooks`
+- `work_order_receipts`
+- `work_order_types`
+- `work_orders`
 - `workflows`
 
 ## Signal Types

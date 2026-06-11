@@ -4,7 +4,7 @@ import {
   Brain, ScanSearch, HeartPulse, Newspaper, Package, UsersRound,
   Webhook, Clock, Compass, Building2, Terminal, BarChart3,
   Scale, Network, FileCheck, Download, SlidersHorizontal, Radio,
-  Shield, DollarSign, AppWindow,
+  Shield, DollarSign, AppWindow, ClipboardCheck,
 } from 'lucide-react';
 import DashClawLogo from './components/DashClawLogo';
 
@@ -52,11 +52,12 @@ export const platformFeatures = [
   { icon: DashClawLogo, title: 'Verified Agent Identity', description: 'Know which agent took which action. JWKS-verified OIDC bearer tokens (EdDSA, RSA, ECDSA) with replay protection and per-call action binding — cryptographic attribution, not self-assertion.' },
   { icon: Terminal, title: 'CLI Approval Channel', description: 'Approve or deny agent actions from the terminal without opening a browser. Works with Claude Code, Codex, Hermes Agent, Gemini CLI, and any terminal-first workflow.' },
   { icon: Webhook, title: 'Coding-agent Hooks', description: 'Govern Claude Code, Codex, and Hermes Agent tool calls via shared field-compatible hook schemas. No SDK instrumentation required. Hermes additionally exposes pre_llm_call (per-turn context injection), post_llm_call (live ingest), transform_tool_result (secret redaction), and subagent_stop (delegate_task ROI).' },
-  { icon: Network, title: 'MCP Server', description: 'Connect any MCP client to DashClaw governance with one config line. 30 governance tools and 6 resources over stdio or Streamable HTTP, plus credential-gated provider execution and verified launch plans on the local server. Works with Claude Code, Claude Desktop, and Managed Agents.' },
+  { icon: Network, title: 'MCP Server', description: 'Connect any MCP client to DashClaw governance with one config line. 32 governance tools and 6 resources over stdio or Streamable HTTP, plus credential-gated provider execution and verified launch plans on the local server. Works with Claude Code, Claude Desktop, and Managed Agents.' },
   { icon: FolderKanban, title: 'Execution Studio', description: 'Workflow templates, capability registry, knowledge collections, and model strategies. Chain governed actions into multi-step pipelines with conditional execution and resume-from-checkpoint.' },
   { icon: BarChart3, title: 'Agent Reputation', description: 'A per-agent trust vector computed from your own governed decisions: reliability, completion, policy violations, approval adherence, quality, and risk. Time-decayed and Bayesian-smoothed, with Ed25519-signed receipts that re-verify against the instance keys.' },
   { icon: UsersRound, title: 'Agent Registry', description: 'Register external, owned providers that group capabilities and are delegated to through governance. Every registry invocation routes through the same guard, action ledger, and SSRF-defended runtime as direct capabilities, with risk derived from the existing scale.' },
   { icon: DollarSign, title: 'Governed Capability Spend', description: 'Govern what agents pay for. Register x402 capability providers and gate each purchase through the same guard loop and action ledger — DashClaw governs purchase intent and records spend, it never holds a wallet. The Spend surface rolls up agent LLM cost and x402 capability purchases into one fleet view.' },
+  { icon: ClipboardCheck, title: 'Work Orders', description: 'Typed task contracts with budget ceilings and self-verifying receipts; any agent can claim, every result is auditable. DashClaw stays the control plane — execution is external workers via claim/complete, and each completion produces a SHA-256 receipt with cost, output hash, and governance trail.' },
 ];
 
 export const corePrimitives = [
@@ -106,7 +107,7 @@ export const frameworkQuickstarts = [
     }
   }
 }
-// 30 governance tools + 6 resources
+// 32 governance tools + 6 resources
 // No SDK. No code changes.`
   },
   {

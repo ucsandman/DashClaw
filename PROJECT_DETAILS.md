@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification, generated API inventory reports **310 routes**: **54 stable**, **24 beta**, **232 experimental**.
+As of this verification, generated API inventory reports **317 routes**: **54 stable**, **24 beta**, **239 experimental**.
 
 ## Product boundary
 
@@ -38,6 +38,7 @@ As of this verification, generated API inventory reports **310 routes**: **54 st
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
 - **Operational signals**: stale actions, drift, lost confirmations, degraded integrations, and policy-relevant alerts.
 - **Evidence**: replayable action detail, traces, graphs, artifacts, and evidence bundles.
+- **Work order contracts + receipts**: typed task contracts with budget ceilings, claim/complete lifecycle, and self-verifying SHA-256 receipts — the contract and receipt system of record, while execution stays on external workers.
 
 ### DashClaw does not own
 
@@ -64,6 +65,7 @@ As of this verification, generated API inventory reports **310 routes**: **54 st
 | Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. Backed by `GET /api/posture`. Experimental. |
 | Analytics | `/analytics` | Cost trends, action volume, agent/type breakdowns, policy enforcement stats, and token efficiency. |
 | Spend | `/spend`, `/spend/x402`, `/spend/code` | FinOps rollup over agent LLM cost, x402 capability-purchase spend, and Code Sessions cost (Fleet vs Your-Claude-Code lenses, 7/30/90d trend). Beta. |
+| Work Orders | `/work-orders` | Task-grade contract ledger: orders table (status, type, cost vs budget, worker, age) with a receipt detail view and a client-side receipt-hash verifier, plus a Contracts tab (type registry with JSON Schema input/output, seeded `research_brief` example). DashClaw is the contract + receipt system of record; execution is external workers via `claim`/`complete`. Backed by `/api/work-orders`. |
 | Workflows | `/workflows` | Workflow template management and governed workflow execution surfaces, with a Model strategies tab (`/workflows/strategies`). |
 | Capabilities | `/capabilities` | Governed HTTP capability registry, health, access rules, testing, and invocation. |
 | Knowledge | `/knowledge` | Knowledge collection metadata, ingestion, chunking, embedding, sync, and search surfaces. |

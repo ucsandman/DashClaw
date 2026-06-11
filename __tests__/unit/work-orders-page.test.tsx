@@ -1,4 +1,5 @@
 import React from 'react';
+import { webcrypto } from 'node:crypto';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { digestJson } from '@/lib/integrity/canonicalize';
@@ -42,8 +43,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', makeFetch());
   // Node 20 exposes crypto.subtle globally; jsdom may not — polyfill if absent.
   if (!globalThis.crypto?.subtle) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    vi.stubGlobal('crypto', require('node:crypto').webcrypto);
+    vi.stubGlobal('crypto', webcrypto);
   }
 });
 

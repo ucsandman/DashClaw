@@ -711,7 +711,7 @@ if (decision === "allow") {
                   {
                     label: 'Zero code',
                     title: 'MCP server',
-                    desc: 'Any MCP-compatible client (Claude Code, Claude Desktop, Managed Agents) gets governance via 30 tools and 6 resources. No SDK, no hooks. In chat clients the model invokes governance cooperatively (records + approval gates), not a hard kernel block — pair with the governance skill so the agent consults guard before acting.',
+                    desc: 'Any MCP-compatible client (Claude Code, Claude Desktop, Managed Agents) gets governance via 32 tools and 6 resources. No SDK, no hooks. In chat clients the model invokes governance cooperatively (records + approval gates), not a hard kernel block — pair with the governance skill so the agent consults guard before acting.',
                     example: 'npx @dashclaw/mcp-server --url ... --key ...',
                     href: '/docs#mcp-server',
                   },

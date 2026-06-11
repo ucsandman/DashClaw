@@ -127,6 +127,13 @@ documented in [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](./sdk
 > a retry to avoid double-execution. Full spec:
 > [`docs/architecture/durable-execution-finality.md`](./docs/architecture/durable-execution-finality.md).
 
+> **Work Orders** turn an agent call into a task-grade contract: typed input/output schema, a budget
+> ceiling, and a self-verifying receipt. Submit an order against a registered type (`claw.submitWorkOrder`),
+> let any worker `claim` and `complete` it, and get back a SHA-256 receipt with cost, output hash, and the
+> governance trail. DashClaw stays the control plane — execution is external workers via `claim`/`complete`.
+> Page at [`/work-orders`](http://localhost:3000/work-orders); ~100-line reference worker in
+> [`examples/work-order-worker/`](./examples/work-order-worker/).
+
 ---
 
 ## Essential Docs for Developers

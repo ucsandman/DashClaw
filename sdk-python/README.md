@@ -15,14 +15,14 @@ pip install dashclaw
 Python agents typically pair the SDK with one or more of these:
 
 - **[`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli)** — `dashclaw approvals`, `dashclaw approve <id>`, `dashclaw deny <id>` for terminal approvals. Also `dashclaw doctor` (diagnose + auto-fix) and `dashclaw logout`. Config at env vars or `~/.dashclaw/config.json` (`600`).
-- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **30 tools** across 11 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`), optimal files (`dashclaw_optimal_files_preview/manifest`), session continuity (`dashclaw_handoff_create/latest/consume`), credential hygiene (`dashclaw_secret_list/due/mark_rotated`), skill safety (`dashclaw_skill_scan`), open loops (`dashclaw_loop_add/list/close`), learning + retrospection (`dashclaw_learning_log/query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent inbox (`dashclaw_inbox_list`, `dashclaw_messages_mark_read`), agent identity (`dashclaw_pair`), behavior learning (`dashclaw_behavior_suggestions`), and governance posture (`dashclaw_posture`, `dashclaw_posture_next` — read-only). Plus 6 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`. stdio or Streamable HTTP at `POST /api/mcp`.
+- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **32 tools** across 12 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`), optimal files (`dashclaw_optimal_files_preview/manifest`), session continuity (`dashclaw_handoff_create/latest/consume`), credential hygiene (`dashclaw_secret_list/due/mark_rotated`), skill safety (`dashclaw_skill_scan`), open loops (`dashclaw_loop_add/list/close`), learning + retrospection (`dashclaw_learning_log/query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent inbox (`dashclaw_inbox_list`, `dashclaw_messages_mark_read`), agent identity (`dashclaw_pair`), behavior learning (`dashclaw_behavior_suggestions`), governance posture (`dashclaw_posture`, `dashclaw_posture_next` — read-only), and work orders (`dashclaw_work_order_submit`, `dashclaw_work_order_status`). Plus 6 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`. stdio or Streamable HTTP at `POST /api/mcp`.
 - **[`@dashclaw/openclaw-plugin`](https://www.npmjs.com/package/@dashclaw/openclaw-plugin)** — Governance plugin for OpenClaw lifecycle hooks (`PreToolUse` / `PostToolUse`) that calls guard / record / wait-for-approval automatically.
 - **Self-host Doctor** — Operators run `npm run doctor` on the DashClaw host for filesystem-level fixes (env writes, migrations, default policy seed, drift guard).
 - **Claude governance skill** — Anthropic Managed Agents or Claude Code can load the `@dashclaw/governance` skill to teach the agent the MCP usage protocol. Pairs with the MCP server.
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (225 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (233 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1013,9 +1013,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (225 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (233 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **129 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **137 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1039,6 +1039,9 @@ The Node.js v2 SDK exposes a curated subset of **129 methods** focused on agent 
 | Handoffs | `createHandoff` | `create_handoff` | Yes |
 | Handoffs | `getLatestHandoff` | `get_latest_handoff` | Yes |
 | Security | `scanPromptInjection` | `scan_prompt_injection` | Yes |
+| Work Orders | `submitWorkOrder` | `submit_work_order` | Yes |
+| Work Orders | `claimWorkOrder` | `claim_work_order` | Yes |
+| Work Orders | `completeWorkOrder` | `complete_work_order` | Yes |
 | Scoring | _(17 scoring/risk methods)_ | _(equivalent methods)_ | Yes |
 
 Methods like `createWebhook`, `getActivityLogs`, `mapCompliance`, and `getProofReport` are available in this Python SDK but are **v1 only** in the Node.js SDK.
@@ -1387,6 +1390,66 @@ settled = claw.record_x402_purchase(
 > **Note:** There is no `record_purchase_result` in the Python SDK. To attach an x402 result snapshot to a purchase action, post directly to `POST /api/artifacts` with `artifact_type='x402_purchase_result'` and `source_action_id` set to the `act_` id from `record_purchase`. The Node SDK ships a convenience wrapper for this; Python callers use the artifacts endpoint directly. (`record_x402_purchase` handles the receipt internally, so most self-report callers don't need the raw artifact POST.)
 
 > **Operator surface (no SDK wrapper):** The platform also exposes `GET /api/finops/spend?lens=fleet|claude-code` — a read-only operator rollup that aggregates agent LLM cost + x402 purchases (Fleet lens) or Code Sessions cost (Claude-Code lens). It is a presentation layer backed by repository functions (`getFleetSpend` / `getClaudeCodeSpend`), **not** an SDK method, so it does not appear in the method count. Query it directly over HTTP.
+
+## Work Orders
+
+Work Orders are task-grade contracts with budget ceilings and self-verifying receipts. An orchestrator submits a typed, guard-gated order against a registered contract; any worker agent claims it, executes the work, and reports completion — at which point DashClaw builds a SHA-256-hashed receipt encoding cost, output hash, and the full governance trail. DashClaw stays the control plane: execution is external workers via `claim_work_order` / `complete_work_order`.
+
+### Claim → complete worker loop
+
+```python
+import time
+from dashclaw import DashClaw
+
+claw = DashClaw(
+    base_url=os.environ["DASHCLAW_URL"],
+    api_key=os.environ["DASHCLAW_API_KEY"],
+    agent_id="research-worker",
+)
+
+while True:
+    order = claw.claim_work_order(types=["research_brief"]).get("work_order")
+    if not order:
+        time.sleep(5)
+        continue
+
+    try:
+        output = {"title": "Agent rails", "summary": "…", "findings": ["…"], "sources": []}
+        cost = {"input_tokens": 4200, "output_tokens": 1800, "total_usd": 0.11}
+        res = claw.complete_work_order(order["id"], {"status": "completed", "output": output, "cost": cost})
+        print("receipt hash:", res["receipt"]["receipt_hash"])
+    except Exception as err:
+        claw.complete_work_order(order["id"], {"status": "failed", "error": {"code": "worker_error", "message": str(err)}})
+```
+
+### Submitting from an orchestrator
+
+```python
+res = claw.submit_work_order({
+    "type": "research_brief",
+    "input": {"topic": "Agent governance market", "depth": "standard"},
+    "budget": {"max_cost_usd": 2.50, "timeout_seconds": 600},
+})
+# res["work_order_id"], res["status"] ("queued" | "pending_approval" | "blocked"), res["guard"]
+
+# Poll for the receipt
+detail = claw.get_work_order(res["work_order_id"])
+if detail.get("receipt"):
+    print(detail["work_order"]["status"], detail["receipt"]["receipt_hash"])
+```
+
+### Methods
+
+| Method | Description |
+|---|---|
+| `submit_work_order(order)` | Submit a work order against a registered contract. Guard-gated — may be blocked or parked for approval. |
+| `get_work_order(work_order_id)` | Fetch a work order and its receipt (populated once terminal). |
+| `list_work_orders(filters=None)` | List work orders. Filters: `status`, `type`, `agent`, `limit`, `offset`. |
+| `cancel_work_order(work_order_id)` | Cancel a queued, claimed, or pending-approval work order. |
+| `claim_work_order(types=None, agent_id=None)` | Atomically claim the next queued order of matching type(s). Returns `work_order: None` when the queue is empty. |
+| `complete_work_order(work_order_id, result)` | Report completion or failure. On success, validates output against the contract and builds a verifiable receipt. |
+| `list_work_order_types()` | List registered work order contracts. |
+| `register_work_order_type(definition)` | Register a new work order contract with input/output JSON Schema. |
 
 ## Hosted provisioning (operator surface — not an SDK method)
 
