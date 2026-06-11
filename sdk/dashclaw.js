@@ -1752,7 +1752,7 @@ class DashClaw {
    * @returns {Promise<{ work_order: Object }>}
    */
   async cancelWorkOrder(workOrderId) {
-    return this._request(`/api/work-orders/${workOrderId}`, 'DELETE');
+    return this._delete(`/api/work-orders/${workOrderId}`);
   }
 
   /**
