@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:33d8bdf2f7b2b77c6cd7475e45d26ead20c64732",
+  "timestamp": "sha1:47a2f8b13b47a360780d107ff829e187cee973bd",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5069,7 +5069,6 @@
       "name": "VERCEL_TOKEN",
       "required": false,
       "files": [
-        "mcp-server/.tmp-trial-provision.mjs",
         "mcp-server/lib/context.js",
         "mcp-server/src/context.ts",
         "mcp-server/test/core.test.ts",
