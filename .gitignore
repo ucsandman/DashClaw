@@ -143,6 +143,9 @@ secrets/
 # Behavior-learning telemetry (machine-local; redacted samples + dismissals)
 .dashclaw/
 
+# @dashclaw/mcp-server local launch-plan storage (machine-local)
+.dashclaw-local/
+
 # Full audit evidence log (untracked working artifact)
 .audit-findings-full.md
 

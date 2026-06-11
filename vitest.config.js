@@ -29,6 +29,11 @@ export default defineConfig({
       '**/playwright-report/**',
       '**/test-results/**',
       'cli/test/**',
+      // mcp-server's TS package suite runs separately via `cd mcp-server &&
+      // npm run verify` (its own vitest); lib/ and dist/ are compiled output.
+      'mcp-server/test/**',
+      'mcp-server/lib/**',
+      'mcp-server/dist/**',
       // Git worktrees may hold sibling-branch copies of the test suite with
       // their own divergent state; vitest should never walk into them. Cover
       // both a top-level `.worktrees/` and Claude Code's `.claude/worktrees/`.

@@ -12,3 +12,9 @@ test-results/
 
 # Graphify generated output — read-only
 graphify-out/
+
+# mcp-server TS package — linted/verified by its own toolchain
+# (`cd mcp-server && npm run verify`); lib/ is compiled output
+mcp-server/src/
+mcp-server/test/
+mcp-server/lib/
