@@ -1,0 +1,44 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.ucsandman/dashclaw",
+  "description": "MCP server for DashClaw governance — guard, record, invoke, and discover capabilities.",
+  "repository": {
+    "url": "https://github.com/ucsandman/DashClaw",
+    "source": "github",
+    "subfolder": "mcp-server"
+  },
+  "version": "1.0.3",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@dashclaw/mcp-server",
+      "version": "1.0.3",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "description": "Base URL of your DashClaw instance (e.g. https://your-app.vercel.app)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": false,
+          "name": "DASHCLAW_URL"
+        },
+        {
+          "description": "DashClaw workspace API key (oc_live_...)",
+          "isRequired": true,
+          "format": "string",
+          "isSecret": true,
+          "name": "DASHCLAW_API_KEY"
+        },
+        {
+          "description": "Optional agent identifier used to attribute governed actions",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false,
+          "name": "DASHCLAW_AGENT_ID"
+        }
+      ]
+    }
+  ]
+}

@@ -29,6 +29,8 @@
     "ai-agent",
     "decision-infrastructure",
     "agent-governance",
+    "ai-governance",
+    "claude-code",
     "guardrails",
     "dashclaw"
   ],

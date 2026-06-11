@@ -3,6 +3,13 @@
   "version": "0.3.2",
   "description": "DashClaw terminal client — approve agent actions and diagnose your instance",
   "type": "module",
+  "keywords": [
+    "dashclaw",
+    "cli",
+    "claude-code",
+    "ai-governance",
+    "agent-governance"
+  ],
   "bin": {
     "dashclaw": "./bin/dashclaw.js"
   },

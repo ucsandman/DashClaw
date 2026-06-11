@@ -1,6 +1,7 @@
 {
   "name": "@dashclaw/mcp-server",
   "version": "1.0.3",
+  "mcpName": "io.github.ucsandman/dashclaw",
   "description": "MCP server for DashClaw governance — guard, record, invoke, and discover capabilities.",
   "type": "module",
   "bin": {
@@ -21,7 +22,9 @@
   ],
   "keywords": [
     "mcp",
+    "mcp-server",
     "model-context-protocol",
+    "claude-code",
     "dashclaw",
     "ai-governance",
     "agent-governance"
