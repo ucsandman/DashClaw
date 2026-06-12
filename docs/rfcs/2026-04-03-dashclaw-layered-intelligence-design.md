@@ -1,5 +1,9 @@
 # DashClaw Layered Intelligence — Design Spec
 
+> **SUPERSEDED (2026-06-12):** the design described here shipped (commit `4c614e2e`, 2026-04-04) and has since evolved with the 4.x architecture (single-call guard path, strict-TS migration, W3 signals).
+> Current state + remaining work: **`docs/plans/2026-06-12-layered-intelligence-rebaselined.md`**. This RFC is kept as the historical design rationale.
+
+
 **Date:** 2026-04-03
 **Status:** Approved
 **Approach:** C — Layered Intelligence (fast local classification + smart server governance)

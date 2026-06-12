@@ -1,5 +1,9 @@
 # DashClaw Layered Intelligence — Implementation Plan
 
+> **SUPERSEDED (2026-06-12):** this plan was executed in commit `4c614e2e` (2026-04-04) and audited against main @ v4.16.0 on 2026-06-12 — 15/17 tasks fully SHIPPED, 2 test-coverage gaps remain.
+> The executable remainder and the full verdict table live in **`docs/plans/2026-06-12-layered-intelligence-rebaselined.md`**. Do not execute this document; its code anchors predate the 4.x architecture.
+
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Port claw-code-parity's deep agent tool intelligence into DashClaw as a layered system — fast local classification via a Python module + smart server-side governance via expanded guard/signals/sessions APIs.
