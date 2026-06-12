@@ -36,9 +36,14 @@ describe('ContractPanel', () => {
     });
   });
 
-  it('renders grants as removable lines', async () => {
+  // Superseded 2026-06-12: grants no longer render as an inline wall — they collapse
+  // to a rollup with grouped expand (see policies-contract-panel.test.tsx for the
+  // full redesign contract).
+  it('rolls grants up to a collapsed suppressed-patterns line', async () => {
+    localStorage.clear();
     vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => contract })));
     const { container } = render(<ContractPanel onChangeMode={() => {}} onContractChanged={() => {}} shields={shields} />);
-    await waitFor(() => expect(container.textContent).toContain('api → api.stripe.com'));
+    await waitFor(() => expect(container.textContent).toContain('1 suppressed pattern'));
+    expect(container.textContent).not.toContain('api → api.stripe.com');
   });
 });

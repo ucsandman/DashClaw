@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { Skeleton } from '../../components/ui/Skeleton';
 import Disclosure from './Disclosure';
@@ -10,6 +10,7 @@ import {
   type ContractView,
 } from '../lib/contractClient';
 import { SHIELDS, matchShieldsToPolicies, buildShieldPayload } from '../lib/shields';
+import { groupGrants, formatTarget, addedWithinDays, type SuppressedGroup, type SuppressedRow } from '../lib/grantGrouping';
 import type { ContractSentence, ContractGrant } from '../../lib/policy-modes/contract';
 import type { PolicySummaryShield } from '../../lib/policy-modes/summary';
 
@@ -84,15 +85,18 @@ function SentenceRow({
   );
 }
 
-function GrantRow({ grant, onRemove }: { grant: ContractGrant; onRemove: (id: string) => Promise<void> }) {
+const GRANTS_OPEN_KEY = 'dashclaw_contract_grants_open';
+
+function PatternRow({ row, onRemove }: { row: SuppressedRow; onRemove: (ids: string[]) => Promise<void> }) {
   const [removeError, setRemoveError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const target = formatTarget(row.target);
 
   const handleRemove = async () => {
     setBusy(true);
     setRemoveError(null);
     try {
-      await onRemove(grant.policy_id);
+      await onRemove(row.policy_ids);
     } catch (e) {
       setRemoveError((e as Error).message);
       setBusy(false);
@@ -102,21 +106,123 @@ function GrantRow({ grant, onRemove }: { grant: ContractGrant; onRemove: (id: st
   return (
     <li
       data-entity-type="policy"
-      data-entity-id={grant.policy_id}
+      data-entity-id={row.policy_ids[0]}
       className="flex items-baseline justify-between gap-3 py-1"
     >
-      <span className="text-sm text-secondary">&middot; {grant.label}</span>
+      <span className="min-w-0 truncate font-mono text-xs text-secondary" title={target.full || row.shape_key}>
+        {target.display}
+        {row.policy_ids.length > 1 && (
+          <span className="ml-1.5 tabular-nums text-tertiary" title={`${row.policy_ids.length} duplicate rules collapsed`}>
+            &times;{row.policy_ids.length}
+          </span>
+        )}
+      </span>
       <button
         type="button"
         disabled={busy}
         onClick={handleRemove}
-        aria-label={`Remove grant for ${grant.label}`}
+        aria-label={`Remove suppress rule ${target.full || row.shape_key}`}
         className="shrink-0 text-xs text-tertiary transition-colors hover:text-status-error disabled:opacity-50 motion-reduce:transition-none"
       >
         &times;
       </button>
       {removeError && <span className="block w-full text-xs text-status-error">{removeError}</span>}
     </li>
+  );
+}
+
+/**
+ * "Never bother me about" — the learned suppress-rules. Collapsed to a one-line
+ * rollup by default (the wall of raw paths buried the rest of /policies);
+ * expanded it groups by action type inside a bounded scroll region.
+ */
+function SuppressedPatterns({
+  grants,
+  onRemove,
+}: {
+  grants: ContractGrant[];
+  onRemove: (ids: string[]) => Promise<void>;
+}) {
+  const [open, setOpen] = useState(() => {
+    if (typeof window === 'undefined') return false;
+    try { return localStorage.getItem(GRANTS_OPEN_KEY) === 'true'; } catch { return false; }
+  });
+  const [groupError, setGroupError] = useState<string | null>(null);
+  const [busyGroup, setBusyGroup] = useState<string | null>(null);
+
+  const toggle = () => {
+    setOpen((prev) => {
+      const next = !prev;
+      try { localStorage.setItem(GRANTS_OPEN_KEY, String(next)); } catch { /* private mode */ }
+      return next;
+    });
+  };
+
+  const groups = useMemo(() => groupGrants(grants), [grants]);
+  const recent = useMemo(() => addedWithinDays(grants, 7), [grants]);
+
+  const clearGroup = async (group: SuppressedGroup) => {
+    setBusyGroup(group.type);
+    setGroupError(null);
+    try {
+      await onRemove(group.policy_ids);
+    } catch (e) {
+      setGroupError((e as Error).message);
+    } finally {
+      setBusyGroup(null);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex items-baseline justify-between gap-3">
+        <p className="text-sm text-secondary">
+          Never bother me about:{' '}
+          <span className="tabular-nums">{grants.length}</span> suppressed pattern{grants.length !== 1 ? 's' : ''}
+          {recent > 0 && (
+            <span className="text-tertiary"> &middot; <span className="tabular-nums">{recent}</span> added this week</span>
+          )}
+        </p>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-label={`${open ? 'Hide' : 'Show'} suppressed patterns`}
+          className="shrink-0 text-xs text-tertiary transition-colors hover:text-secondary motion-reduce:transition-none"
+        >
+          {open ? 'Hide' : 'Show'} {open ? '▴' : '▾'}
+        </button>
+      </div>
+
+      {open && (
+        <ul aria-label="Suppressed patterns" className="mt-2 max-h-80 divide-y divide-border overflow-y-auto rounded-lg border border-border">
+          {groups.map((group) => (
+            <li key={group.type} className="px-3 py-2">
+              <div className="flex items-center justify-between gap-3">
+                <span className="font-mono text-xs uppercase tracking-wider text-tertiary">
+                  {group.type} <span className="tabular-nums">({group.rows.length})</span>
+                </span>
+                <button
+                  type="button"
+                  disabled={busyGroup === group.type}
+                  onClick={() => clearGroup(group)}
+                  aria-label={`Clear group ${group.type}`}
+                  className="text-xs text-tertiary transition-colors hover:text-status-error disabled:opacity-50 motion-reduce:transition-none"
+                >
+                  clear group
+                </button>
+              </div>
+              <ul className="mt-1 space-y-0.5">
+                {group.rows.map((row) => (
+                  <PatternRow key={row.shape_key} row={row} onRemove={onRemove} />
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      )}
+      {groupError && <p className="mt-1 text-xs text-status-error">{groupError}</p>}
+    </div>
   );
 }
 
@@ -155,10 +261,15 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
     onContractChanged();
   }, [load, onContractChanged]);
 
-  const handleRemoveGrant = useCallback(
-    async (policyId: string) => {
-      const res = await fetch(`/api/policies?id=${encodeURIComponent(policyId)}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error(`Failed to remove grant (${res.status})`);
+  // One id → the existing single-delete; several (duplicate shapes / clear-group)
+  // → the existing bulk ?ids= form of the same endpoint. No new API surface.
+  const handleRemoveGrants = useCallback(
+    async (policyIds: string[]) => {
+      const query = policyIds.length === 1
+        ? `id=${encodeURIComponent(policyIds[0]!)}`
+        : `ids=${policyIds.map(encodeURIComponent).join(',')}`;
+      const res = await fetch(`/api/policies?${query}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error(`Failed to remove rule${policyIds.length !== 1 ? 's' : ''} (${res.status})`);
       await load();
       onContractChanged();
     },
@@ -287,16 +398,9 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
         </div>
       )}
 
-      {/* Grants */}
+      {/* Grants — collapsed rollup; grouped, deduped, bounded on expand */}
       {contract.grants.length > 0 && (
-        <div>
-          <p className="text-sm text-secondary">Never bother me about:</p>
-          <ul className="mt-1 space-y-0.5">
-            {contract.grants.map((g) => (
-              <GrantRow key={g.policy_id} grant={g} onRemove={handleRemoveGrant} />
-            ))}
-          </ul>
-        </div>
+        <SuppressedPatterns grants={contract.grants} onRemove={handleRemoveGrants} />
       )}
 
       {/* Custom rules */}

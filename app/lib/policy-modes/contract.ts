@@ -18,6 +18,8 @@ export interface ContractGrant {
   policy_id: string;
   label: string;
   shape_key: string;
+  /** When the rule was learned/created — drives the "added this week" rollup. */
+  created_at: string | null;
 }
 
 export interface ContractView {
@@ -37,6 +39,7 @@ interface PolicyRowLike {
   policy_type: string;
   rules: string;
   active?: number;
+  created_at?: string | Date | null;
 }
 
 const SECONDS_PER_INTERRUPT = 20;
@@ -132,6 +135,7 @@ export function buildContract(
           policy_id: row.id,
           label: tp ? `${at} → ${tp}` : at,
           shape_key: shapeKey(at, tp),
+          created_at: row.created_at == null ? null : String(row.created_at),
         });
         break;
       }

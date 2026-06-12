@@ -609,7 +609,7 @@ export function demoContract(): import('../policy-modes/contract').ContractView 
       },
     ],
     grants: [
-      { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/' },
+      { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/', created_at: null },
     ],
     custom: [],
     friction: { interrupts_7d: 13, est_seconds: 260 },
