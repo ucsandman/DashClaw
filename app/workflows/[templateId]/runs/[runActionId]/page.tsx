@@ -15,6 +15,7 @@ export default function WorkflowRunDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [resuming, setResuming] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   const loadRun = useCallback(async () => {
     try {
@@ -53,6 +54,7 @@ export default function WorkflowRunDetailPage() {
 
   async function handleCancel() {
     setCancelling(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/workflows/templates/${templateId}/runs/${runActionId}/cancel`, {
         method: 'POST',
@@ -61,11 +63,11 @@ export default function WorkflowRunDetailPage() {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(err.message || 'Cancel failed');
+        setActionError(err.message || 'Cancel failed');
       }
       await loadRun();
     } catch {
-      alert('Cancel failed');
+      setActionError('Cancel failed');
     } finally {
       setCancelling(false);
     }
@@ -76,6 +78,7 @@ export default function WorkflowRunDetailPage() {
     // real step_id (the per-step "Resume from here" affordance).
     const fromStep = typeof stepId === 'string' ? stepId : null;
     setResuming(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/workflows/templates/${templateId}/runs/${runActionId}/resume`, {
         method: 'POST',
@@ -87,10 +90,10 @@ export default function WorkflowRunDetailPage() {
         window.location.href = `/workflows/${templateId}/runs/${data.action_id}`;
       } else {
         const err = await res.json().catch(() => ({}));
-        alert(err.message || 'Resume failed');
+        setActionError(err.message || 'Resume failed');
       }
     } catch {
-      alert('Resume failed');
+      setActionError('Resume failed');
     } finally {
       setResuming(false);
     }
@@ -133,6 +136,11 @@ export default function WorkflowRunDetailPage() {
   return (
     <PageLayout title={run.template_name || 'Workflow Run'} maturity="beta">
       <div className="space-y-8">
+        {actionError && (
+          <div role="alert" className="rounded-lg border border-border bg-error-subtle p-3 text-sm text-error">
+            {actionError}
+          </div>
+        )}
         <WorkflowRunHeader run={run} templateId={templateId} onResume={handleResume} resuming={resuming} onCancel={handleCancel} cancelling={cancelling} />
         <div>
           <h2 className="text-sm font-medium text-secondary mb-3">Steps</h2>

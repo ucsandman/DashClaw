@@ -118,6 +118,10 @@ describe('WorkflowsPage', () => {
     fireEvent.click(screen.getByLabelText(/select test workflow/i));
     fireEvent.click(screen.getByRole('button', { name: /delete selected \(1\)/i }));
 
+    // Destructive bulk delete is a two-step inline confirmation now (window.confirm is banned).
+    expect(screen.getByText(/delete 1 template\?/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /^yes$/i }));
+
     await waitFor(() => {
       // Bulk delete fans out plain same-origin DELETEs; the server resolves the
       // caller's role from the session (the old inert x-org-role header was removed).

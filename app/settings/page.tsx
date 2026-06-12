@@ -300,7 +300,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
               ) : (
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-zinc-500" />
+                    <span aria-hidden="true" className="h-2 w-2 rounded-full bg-border" />
                     <span className="text-sm text-secondary">Not signed in</span>
                   </div>
                   <Link

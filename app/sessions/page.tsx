@@ -220,7 +220,7 @@ export default function SessionsPage() {
                     <th className="px-6 py-4 text-right">View</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/5">
+                <tbody className="divide-y divide-border">
                   {filtered.map((session) => (
                     <tr key={session.id} data-entity-type="session" data-entity-id={session.id} data-entity-status={session.status} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-3"><SelectCheckbox checked={selection.isSelected(session.id)} onToggle={(e) => { e.stopPropagation(); selection.selectClick(session.id, e.shiftKey); }} label="Select row" /></td>

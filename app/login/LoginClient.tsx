@@ -64,7 +64,7 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
           <div className="mb-4 flex justify-center">
             <DashClawLogo size={32} />
           </div>
-          <h1 className="text-2xl font-semibold tracking-tight text-white">Sign in to DashClaw</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-primary">Sign in to DashClaw</h1>
           <p className="mt-2 text-sm text-secondary">
             {localPasswordEnabled
               ? 'Use the admin password you set during setup, or choose an identity provider.'

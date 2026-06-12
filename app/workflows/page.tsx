@@ -154,6 +154,7 @@ export default function WorkflowsPage() {
   const selection = useSelection<any>(templates, (t) => t.template_id);
   const selectedIds = selection.selectedIds;
   const [deleting, setDeleting] = useState(false);
+  const [confirmingBulkDelete, setConfirmingBulkDelete] = useState(false);
   useSelectAllHotkey(selection.toggleAll, selectionMode);
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -207,9 +208,6 @@ export default function WorkflowsPage() {
 
   async function handleDeleteSelected() {
     if (selectedIds.length === 0 || deleting) return;
-    if (typeof window !== 'undefined' && !window.confirm(`Delete ${selectedIds.length} workflow template${selectedIds.length === 1 ? '' : 's'}?`)) {
-      return;
-    }
 
     setDeleting(true);
     try {
@@ -225,6 +223,7 @@ export default function WorkflowsPage() {
       setSelectionMode(false);
     } finally {
       setDeleting(false);
+      setConfirmingBulkDelete(false);
     }
   }
 
@@ -262,6 +261,7 @@ export default function WorkflowsPage() {
             onClick={() => {
               setSelectionMode((value) => !value);
               selection.clear();
+              setConfirmingBulkDelete(false);
             }}
             className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs text-secondary transition-colors hover:border-border-hover hover:text-white"
           >
@@ -306,15 +306,37 @@ export default function WorkflowsPage() {
                 >
                   {allSelected ? 'Clear all' : 'Select all'}
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteSelected}
-                  disabled={selectedIds.length === 0 || deleting}
-                  className="flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-subtle px-3 py-1.5 text-xs text-error transition-colors hover:border-error/50 hover:bg-error-subtle disabled:opacity-50"
-                >
-                  <Trash2 size={14} aria-hidden="true" />
-                  {deleting ? 'Deleting…' : `Delete selected${selectedIds.length ? ` (${selectedIds.length})` : ''}`}
-                </button>
+                {confirmingBulkDelete && selectedIds.length > 0 ? (
+                  <span className="flex items-center gap-2 rounded-lg border border-error/30 bg-error-subtle px-3 py-1.5 text-xs">
+                    <span className="text-secondary">Delete {selectedIds.length} template{selectedIds.length === 1 ? '' : 's'}?</span>
+                    <button
+                      type="button"
+                      onClick={handleDeleteSelected}
+                      disabled={deleting}
+                      className="font-semibold text-error transition-colors hover:text-error disabled:opacity-50"
+                    >
+                      {deleting ? 'Deleting…' : 'Yes'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmingBulkDelete(false)}
+                      disabled={deleting}
+                      className="text-secondary transition-colors hover:text-white disabled:opacity-50"
+                    >
+                      No
+                    </button>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmingBulkDelete(true)}
+                    disabled={selectedIds.length === 0 || deleting}
+                    className="flex items-center gap-1.5 rounded-lg border border-error/30 bg-error-subtle px-3 py-1.5 text-xs text-error transition-colors hover:border-error/50 hover:bg-error-subtle disabled:opacity-50"
+                  >
+                    <Trash2 size={14} aria-hidden="true" />
+                    {`Delete selected${selectedIds.length ? ` (${selectedIds.length})` : ''}`}
+                  </button>
+                )}
               </div>
             ) : (
               <Link

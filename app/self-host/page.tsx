@@ -375,7 +375,7 @@ dashclaw doctor`}</pre>
             <a
               href="/downloads/dashclaw-platform-intelligence.zip"
               download
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-hover transition-colors"
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors"
             >
               <Download size={16} /> Download Skill
             </a>

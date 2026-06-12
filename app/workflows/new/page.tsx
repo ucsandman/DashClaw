@@ -152,7 +152,7 @@ export default function NewWorkflowTemplatePage() {
         <div className="rounded-xl border border-active/20 bg-brand/10 p-4">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
-              <div className="text-sm font-medium text-orange-100">Prefer to describe the workflow instead?</div>
+              <div className="text-sm font-medium text-secondary">Prefer to describe the workflow instead?</div>
               <p className="mt-1 text-sm text-orange-200/80">
                 Use AI to draft the workflow basics, linked resources, and executable steps into this editor, then review and save it manually.
               </p>
@@ -178,7 +178,7 @@ export default function NewWorkflowTemplatePage() {
 
         {draftNotes.length > 0 && (
           <div className="rounded-lg border border-warning/20 bg-warning-subtle px-4 py-3 text-sm text-warning">
-            <div className="font-medium text-amber-200 mb-1">Draft review notes</div>
+            <div className="font-medium text-warning mb-1">Draft review notes</div>
             <ul className="space-y-1">
               {draftNotes.map((note) => (
                 <li key={note}>• {note}</li>

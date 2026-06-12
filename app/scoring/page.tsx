@@ -1008,7 +1008,7 @@ export default function ScoringPage() {
                       <div className="absolute inset-y-0 bg-error-subtle" style={{
                         left: '0%', width: `${distributionSegmentPct(s.distribution.min, s.distribution.p25, s.distribution.min, s.distribution.max)}%`
                       }} />
-                      <div className="absolute inset-y-0 bg-status-warning/20" style={{
+                      <div className="absolute inset-y-0 bg-warning-subtle" style={{
                         left: `${distributionSegmentPct(s.distribution.min, s.distribution.p25, s.distribution.min, s.distribution.max)}%`,
                         width: `${distributionSegmentPct(s.distribution.p25, s.distribution.p75, s.distribution.min, s.distribution.max)}%`
                       }} />

@@ -330,7 +330,7 @@ export default function IdentitiesPage() {
 
       {/* Success banner */}
       {successMsg && (
-        <div className="mb-4 p-3 bg-status-success/10 border border-green-500/20 rounded-lg text-sm text-success flex items-center justify-between">
+        <div className="mb-4 p-3 bg-status-success/10 border border-status-success/20 rounded-lg text-sm text-success flex items-center justify-between">
           <div className="flex items-center gap-2">
             <CheckCircle size={14} />
             <span>{successMsg}</span>

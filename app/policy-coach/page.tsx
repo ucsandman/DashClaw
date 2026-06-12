@@ -536,7 +536,7 @@ export default function PolicyCoachPage() {
             placeholder="e.g. false positive — this agent is allowed to do this"
           />
           <label className="mb-4 flex items-center gap-2 text-xs text-secondary">
-            <input type="checkbox" checked={suppressSimilar} onChange={(e) => setSuppressSimilar(e.target.checked)} className="accent-[color:var(--color-brand)]" />
+            <input type="checkbox" checked={suppressSimilar} onChange={(e) => setSuppressSimilar(e.target.checked)} className="accent-brand" />
             Suppress similar suggestions of this type for this agent
           </label>
           <div className="flex justify-end gap-2">

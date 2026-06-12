@@ -385,7 +385,7 @@ if (decision === "allow") {
                     <Icon size={24} className="text-brand" />
 
                     {/* Hover Cards for all Primitives */}
-                    <div className="absolute -top-36 left-1/2 -translate-x-1/2 w-52 p-3 rounded-xl bg-black border border-border-hover shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-20 scale-90 group-hover:scale-100 origin-bottom">
+                    <div className="absolute -top-36 left-1/2 -translate-x-1/2 w-52 p-3 rounded-xl bg-surface-elevated border border-border-hover shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-20 scale-90 group-hover:scale-100 origin-bottom">
 
                       {primitive.title === 'Intent' && (
                         <>

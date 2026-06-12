@@ -229,6 +229,16 @@ function DecisionsLedgerInner() {
 
   useEffect(() => () => { if (liveTimer.current) clearTimeout(liveTimer.current); }, []);
 
+  // Inline toast for mutation feedback (mirrors /decisions/[actionId]) — window.alert is banned.
+  const [toast, setToast] = useState<{ msg: string; kind: 'success' | 'error' } | null>(null);
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const showToast = useCallback((msg: string, kind: 'success' | 'error' = 'error') => {
+    setToast({ msg, kind });
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(null), 3000);
+  }, []);
+  useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
+
   // Visible, individually clearable indicators for every active filter — a
   // deep-linked arrival must be able to SEE why the list is narrowed.
   const activeFilterChips = useMemo(() => {
@@ -260,15 +270,15 @@ function DecisionsLedgerInner() {
       const res = await fetch(`/api/actions?${params}`, { method: 'DELETE' });
       if (res.ok) {
         const data = await res.json();
-        alert(`Deleted ${data.deleted} action(s).`);
+        showToast(`Deleted ${data.deleted} action(s).`, 'success');
         setPage(0);
         fetchActions();
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to delete actions');
+        showToast(err.error || 'Failed to delete actions');
       }
     } catch {
-      alert('Failed to delete actions');
+      showToast('Failed to delete actions');
     } finally {
       setClearing(false);
     }
@@ -280,13 +290,13 @@ function DecisionsLedgerInner() {
       const res = await fetch('/api/admin/trigger-outcome-sweep', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
-        alert(`Swept ${data.rows_swept} timed-out action(s).`);
+        showToast(`Swept ${data.rows_swept} timed-out action(s).`, 'success');
         fetchActions();
       } else {
-        alert(data.error || 'Sweep failed');
+        showToast(data.error || 'Sweep failed');
       }
     } catch {
-      alert('Sweep failed');
+      showToast('Sweep failed');
     } finally {
       setSweeping(false);
     }
@@ -304,10 +314,10 @@ function DecisionsLedgerInner() {
         setTotal(prev => Math.max(0, prev - 1));
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to delete action');
+        showToast(err.error || 'Failed to delete action');
       }
     } catch {
-      alert('Failed to delete action');
+      showToast('Failed to delete action');
     } finally {
       setDeletingId(null);
     }
@@ -329,10 +339,10 @@ function DecisionsLedgerInner() {
         if (expandedId && selectedActions.has(expandedId)) setExpandedId(null);
       } else {
         const err = await res.json();
-        alert(err.error || 'Failed to delete actions');
+        showToast(err.error || 'Failed to delete actions');
       }
     } catch {
-      alert('Failed to delete actions');
+      showToast('Failed to delete actions');
     } finally {
       setBulkDeleting(false);
     }
@@ -447,6 +457,19 @@ function DecisionsLedgerInner() {
         </div>
       }
     >
+      {toast && (
+        <div
+          className={`fixed inset-x-4 bottom-4 z-30 rounded-lg border p-3 text-center text-sm ${
+            toast.kind === 'success'
+              ? 'border-success/30 bg-success-subtle text-success'
+              : 'border-error/30 bg-error-subtle text-error'
+          }`}
+          role="alert"
+        >
+          {toast.msg}
+        </div>
+      )}
+
       {/* Stats rail — instrument strip, not a grid of identical cards */}
       <div className="mb-6 overflow-hidden rounded-xl border border-border bg-surface-tertiary">
         <div className="grid grid-cols-2 divide-x divide-border md:grid-cols-5">
@@ -859,7 +882,7 @@ function DecisionsLedgerInner() {
                               e.stopPropagation();
                               const url = `${window.location.origin}/replay/${action.action_id}`;
                               navigator.clipboard.writeText(url);
-                              alert('Replay link copied to clipboard.');
+                              showToast('Replay link copied to clipboard.', 'success');
                             }}
                             className="inline-flex items-center gap-1.5 text-xs text-tertiary transition-colors hover:text-secondary"
                           >

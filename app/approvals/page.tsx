@@ -65,8 +65,9 @@ export default function ApprovalsPage() {
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
-    } catch {
-      // Swallow — the list stays as-is and the user can retry with the refresh button
+    } catch (error) {
+      // The list stays as-is and the user can retry with the refresh button
+      console.warn('Failed to fetch pending actions:', error);
     } finally {
       setLoading(false);
     }

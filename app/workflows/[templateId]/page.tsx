@@ -79,8 +79,8 @@ export default function WorkflowTemplateDetailPage() {
         setRuns(data.runs || []);
         setRunsTotal(typeof data.total === 'number' ? data.total : (data.runs || []).length);
       }
-    } catch {
-      // ignore
+    } catch (err) {
+      console.warn('Failed to load workflow runs:', err);
     } finally {
       setRunsLoading(false);
     }
@@ -174,8 +174,8 @@ export default function WorkflowTemplateDetailPage() {
         router.push(`/workflows/${dup.template_id}`);
         return;
       }
-    } catch {
-      // noop
+    } catch (err) {
+      console.warn('Failed to duplicate workflow template:', err);
     }
     setDuplicating(false);
   };

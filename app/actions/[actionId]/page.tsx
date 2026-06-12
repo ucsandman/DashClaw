@@ -306,7 +306,7 @@ export default function DecisionReplayPage() {
         </Card>
         <Card hover={false}>
           <CardContent className="pt-4 pb-4 text-center">
-            <div className="text-2xl font-semibold tabular-nums text-purple-400">${parseFloat(action.cost_estimate || 0).toFixed(4)}</div>
+            <div className="text-2xl font-semibold tabular-nums text-info">${parseFloat(action.cost_estimate || 0).toFixed(4)}</div>
             <div className="text-[10px] text-tertiary uppercase tracking-wider mt-1">Cost</div>
           </CardContent>
         </Card>
