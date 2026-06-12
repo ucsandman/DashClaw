@@ -1,18 +1,20 @@
 {
   "node": {
-    "current_version": "4.19.1",
-    "next_bump": "none",
-    "reason": "4.19.1 is a docs/media-only patch (README overhaul: Remotion-rendered governance-loop hero GIF, live product screenshots, control-plane tour section; standalone media/remotion subproject) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "current_version": "4.20.0",
+    "next_bump": "minor",
+    "reason": "4.20.0 ships the guard enforcement contract (organ-3): SDK SOURCE CHANGED - createAction now auto-derives an idempotency_key when the caller didn't supply one (explicit key wins; deriveIdempotencyKey is the cross-surface reference implementation). Republish owed: npm publish at 4.20.0 (registries last at 4.11.0).",
     "domains": [
-      "platform"
+      "platform",
+      "sdk"
     ]
   },
   "python": {
-    "current_version": "4.19.1",
-    "next_bump": "none",
-    "reason": "4.19.1 is a docs/media-only patch (README overhaul: Remotion-rendered governance-loop hero GIF, live product screenshots, control-plane tour section; standalone media/remotion subproject) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "current_version": "4.20.0",
+    "next_bump": "minor",
+    "reason": "4.20.0 ships the guard enforcement contract (organ-3): SDK SOURCE CHANGED - create_action now auto-derives an idempotency_key when the caller didn't supply one (explicit key wins; derive_idempotency_key mirrors the Node reference, pinned by golden vectors). Republish owed: PyPI publish at 4.20.0 (registries last at 4.11.0).",
     "domains": [
-      "platform"
+      "platform",
+      "sdk"
     ]
   }
 }
