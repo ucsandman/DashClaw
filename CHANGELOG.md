@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.15.0] — 2026-06-12
+
+### Added
+
+- **Interruption budget / approval flood guard (W3).** No single policy — or the fleet — can generate unbounded approval interruptions anymore. When a policy exceeds the org budget (`DASHCLAW_INTERRUPT_BUDGET`, default 10 `require_approval` interrupts per `DASHCLAW_INTERRUPT_WINDOW_MIN` 15-minute window; fleet-wide cap `DASHCLAW_INTERRUPT_BUDGET_FLEET`, default 30), per-action Discord/Telegram prompts pause for that source and ONE flood event goes out through the notification adapters instead. Pending approvals are never auto-resolved and machine webhooks are never suppressed; every fail-open path falls back to today's per-action behavior. Flood state lives in a settings marker with hysteresis (clears below half-budget), evaluated on read so floods also clear once traffic stops.
+- **Flood resolution surfaces.** `GET /api/approvals/floods` reports tripped budgets; `POST /api/approvals/bulk` (admin-only, capped at 500, one batched UPDATE with the same per-row race guard as single approvals, fully audited) bulk-allows or bulk-denies the pending actions a flooding policy produced; a calm warning banner on `/approvals` and `/policies` offers pause-rule / approve-all / deny-all behind two-step confirms.
+- **Fleet digest.** `GET /api/digest/fleet` composes a compact 24h digest (decision mix vs prior day, pending approvals with oldest age, flood state, attribution coverage, spend, top signals — one line when the fleet is quiet) and a request-piggybacked digest tick (no cron; claimed-marker pattern, `DASHCLAW_DIGEST_INTERVAL_HOURS`, default 24, `0` disables) delivers it daily through the configured Slack/Discord/email adapters. `?lite=1` serves the SessionStart hook within its 1.4s budget, and the session digest now surfaces pending approvals and active floods at the start of every Claude Code session. See `docs/fleet-digest.md`.
+- **Two new risk signal types (16 → 18).** `approval_flood` (red) mirrors the interruption-budget state; `coverage_drop` (amber) fires when token-attribution coverage falls below 90% over 7 days with ≥50 actions.
+
+### Fixed
+
+- **The compiled MCP server lib lagged its source.** `/api/mcp` was serving 30 tools while the docs (correctly) cited 32 — `dashclaw_work_order_submit` and `dashclaw_work_order_status` existed in `mcp-server/src/tools.ts` but had never been compiled into `lib/tools.js`. Recompiled; the work-order tools are now actually served.
+
+### Notes
+
+- The signal dedup hash now includes `policy_id`, so the first signal sweep after this deploy re-alerts every currently-active signal once; dedup re-stabilizes on the next tick.
+
 ## [4.14.0] — 2026-06-11
 
 ### Fixed

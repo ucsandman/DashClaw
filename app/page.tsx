@@ -614,8 +614,8 @@ if (decision === "allow") {
               {
                 icon: MessageSquare,
                 title: 'Approval Surfaces',
-                description: 'Approvers resolve pending actions wherever they already work, against the same governance endpoint. Claude Code lifecycle hooks add an inline prompt path for terminal workflows.',
-                items: ['Dashboard inbox at /approvals', 'CLI with dashclaw approve and approvals', 'Mobile PWA at /approve', 'Discord DM with inline Approve and Deny buttons', 'Telegram inline Approve and Reject buttons'],
+                description: 'Approvers resolve pending actions wherever they already work, against the same governance endpoint. Claude Code lifecycle hooks add an inline prompt path for terminal workflows, and an interruption budget collapses approval floods into one bulk-resolvable event.',
+                items: ['Dashboard inbox at /approvals', 'CLI with dashclaw approve and approvals', 'Mobile PWA at /approve', 'Discord DM with inline Approve and Deny buttons', 'Telegram inline Approve and Reject buttons', 'Flood guard with pause-rule and bulk allow/deny'],
               },
               {
                 icon: FileCheck,

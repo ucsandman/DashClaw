@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.14.0",
+    "current_version": "4.15.0",
     "next_bump": "none",
-    "reason": "4.14.0 is platform-only (guard target_prefix narrowing for require_approval rules, OpenClaw plugin 1.4.0) \u2014 no Node SDK source change; version advances per the unified model but the SDK is NOT republished; npm stays at 4.11.0.",
+    "reason": "4.15.0 is platform-only (W3 interruption budget / approval flood guard + bulk resolution, fleet digest + digest tick, signals 16->18, mcp-server lib recompile) — no Node SDK source change; version advances per the unified model but the SDK is NOT republished; npm stays at 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.14.0",
+    "current_version": "4.15.0",
     "next_bump": "none",
-    "reason": "4.14.0 is platform-only (guard target_prefix narrowing for require_approval rules, OpenClaw plugin 1.4.0) \u2014 no Python SDK source change; version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.11.0.",
+    "reason": "4.15.0 is platform-only (W3 interruption budget / approval flood guard + bulk resolution, fleet digest + digest tick, signals 16->18, mcp-server lib recompile) — no Python SDK source change; version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.11.0.",
     "domains": [
       "platform"
     ]
