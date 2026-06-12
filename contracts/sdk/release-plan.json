@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.16.0",
+    "current_version": "4.17.0",
     "next_bump": "none",
-    "reason": "4.16.0 is platform-only (W4 dashclaw doctor --fix: data-hygiene category + normalize_timestamps org-scoped remote fix, CLI local machine/repo checks + report-only default flip, admin-gated /api/doctor/fix, MCP doctor platform section; CLI 0.4.0 separately) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
+    "reason": "4.17.0 is platform-only (layered-intelligence close-out: hooks now surface guard recovery guidance via _log_recovery; +31 tests from the gap audit \u2014 signals-intel, layered-intel pipeline, full e2e) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.16.0",
+    "current_version": "4.17.0",
     "next_bump": "none",
-    "reason": "4.16.0 is platform-only (W4 dashclaw doctor --fix: data-hygiene category + normalize_timestamps org-scoped remote fix, CLI local machine/repo checks + report-only default flip, admin-gated /api/doctor/fix, MCP doctor platform section; CLI 0.4.0 separately) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
+    "reason": "4.17.0 is platform-only (layered-intelligence close-out: hooks now surface guard recovery guidance via _log_recovery; +31 tests from the gap audit \u2014 signals-intel, layered-intel pipeline, full e2e) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
     "domains": [
       "platform"
     ]

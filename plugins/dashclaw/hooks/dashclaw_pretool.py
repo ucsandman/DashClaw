@@ -624,11 +624,11 @@ def _log_recovery(guard_resp):
         return
     suggestion = recovery.get("suggestion")
     if suggestion:
-        log("[DashClaw] Recovery: " + str(suggestion))
+        log("[DashClaw] Recovery: " + str(suggestion)[:500])
     steps = recovery.get("steps")
     if isinstance(steps, list):
         for step in steps[:5]:
-            log("  - " + str(step))
+            log("  - " + str(step)[:300])
 
 
 def handle_warn(guard_resp, context, tool_use_id):

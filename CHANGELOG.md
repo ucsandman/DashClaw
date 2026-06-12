@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.17.0] — 2026-06-12
+
+Layered-intelligence close-out: the 2026-04-03 plan was audited against current main (it had already shipped in April — 15/17 tasks live); this release closes the two real gaps the audit found.
+
+### Fixed
+
+- **Hooks now surface guard recovery guidance.** The server has attached recovery recipes (suggestion + steps) to warn/block guard decisions since the layered-intelligence ship, but `dashclaw_pretool.py` silently discarded them — agents never saw the guidance. `handle_warn`/`handle_block` now print the recovery suggestion and up to 5 steps (length-bounded) to stderr; hook exit codes are unchanged.
+
+### Added
+
+- **Test hardening from the layered-intelligence gap audit** (`docs/plans/2026-06-12-layered-intelligence-rebaselined.md`): dedicated unit tests for the 4 intel signal types (`session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`); a true end-to-end integration suite — real pretool hook subprocess vs a mock guard returning recovery (Python), and guard-recovery→session `blocked_reason` linkage (JS). The stale 2026-04-03 plan + RFC carry SUPERSEDED banners pointing at the re-baselined plan.
+
 ## [4.16.0] — 2026-06-12
 
 W4 "kill the setup tax": `dashclaw doctor --fix` one-command self-repair across the instance, the repo checkout, and the operator machine.
