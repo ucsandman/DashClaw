@@ -25,7 +25,7 @@
 | 6 | `5407b6ca` | `idempotency_key` validated, persisted, and short-circuited in `POST /api/actions`; `getActionByIdempotencyKey` repo helper; Node `deriveIdempotencyKey` + Python `derive_idempotency_key` SHA-256 helpers; 4 Node + 4 Python helper tests + 3 route short-circuit tests. |
 | Bonus | `0f07fc50` | Dockerfile fix: add `python3 make g++` to deps stage so `better-sqlite3@12.10.0` (no musl prebuilt) can compile from source. Unrelated to the finality work; uncovered when CI ran the demo image build. |
 
-Spec: [`docs/architecture/durable-execution-finality.md`](docs/architecture/durable-execution-finality.md). Tracking issue: [#105](https://github.com/ucsandman/DashClaw/issues/105).
+Spec: [`docs/architecture/durable-execution-finality.md`](../architecture/durable-execution-finality.md). Tracking issue: [#105](https://github.com/ucsandman/DashClaw/issues/105).
 
 ---
 
