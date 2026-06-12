@@ -69,13 +69,8 @@ export function prefixMatches(prefix: string, candidate: string): boolean {
   return candidate.endsWith(`.${prefix}`);
 }
 
-/** Does an allow_grant's shape match this guard context? */
-export function grantMatches(rules: GrantRules, context: GrantContext): boolean {
-  if (typeof rules.action_type !== 'string' || rules.action_type !== context.action_type) {
-    return false;
-  }
-  if (rules.target_prefix === undefined || rules.target_prefix === null) return true;
-  const prefix = String(rules.target_prefix);
+/** Does this guard context's target (or any write path) match a target prefix? */
+export function targetPrefixMatches(prefix: string, context: GrantContext): boolean {
   const candidates: string[] = [];
   const t = normalizeTarget(typeof context.target === 'string' ? context.target : null);
   if (t) candidates.push(t);
@@ -86,6 +81,15 @@ export function grantMatches(rules: GrantRules, context: GrantContext): boolean 
     }
   }
   return candidates.some((c) => prefixMatches(prefix, c));
+}
+
+/** Does an allow_grant's shape match this guard context? */
+export function grantMatches(rules: GrantRules, context: GrantContext): boolean {
+  if (typeof rules.action_type !== 'string' || rules.action_type !== context.action_type) {
+    return false;
+  }
+  if (rules.target_prefix === undefined || rules.target_prefix === null) return true;
+  return targetPrefixMatches(String(rules.target_prefix), context);
 }
 
 /** Shape of a stored guard_decisions row (action_type column + context JSON text). */

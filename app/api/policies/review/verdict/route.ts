@@ -104,7 +104,10 @@ export async function POST(request: Request) {
     }
 
     // tighten: path shapes (prefix contains '/') become protected_path;
-    // host/type shapes become require_approval
+    // host/type shapes become require_approval, narrowed to the shape's
+    // target_prefix when one exists (dropping it would gate the whole
+    // action_type org-wide — that mistake once routed every routine swarm
+    // action into approval).
     const isPath = !!prefix && prefix.includes('/');
     const policy = await insertPolicy(sql, orgId, {
       id: gpId(),
@@ -112,7 +115,11 @@ export async function POST(request: Request) {
       policyType: isPath ? 'protected_path' : 'require_approval',
       rules: isPath
         ? JSON.stringify({ paths: [`${prefix}**`], action: 'require_approval', _tightened: true })
-        : JSON.stringify({ action_types: [shape.action_type], _tightened: true }),
+        : JSON.stringify({
+            action_types: [shape.action_type],
+            ...(prefix ? { target_prefix: prefix } : {}),
+            _tightened: true,
+          }),
     });
     return NextResponse.json({ ok: true, policy }, { status: 201 });
   } catch (err) {

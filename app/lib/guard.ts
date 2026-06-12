@@ -15,7 +15,7 @@ import { getLearningContext } from './learning-context';
 import { evaluateRecoveryRecipes } from './recovery';
 import { getActBindingMode } from './act-binding';
 import { matchesProtectedPath } from './behavior/path-match';
-import { grantMatches } from './policy-shapes';
+import { grantMatches, targetPrefixMatches } from './policy-shapes';
 import { verify } from './integrity/verify';
 import type { SourceOfTruth } from './integrity/verify';
 import { issueReceipt } from './integrity/receipt';
@@ -98,6 +98,7 @@ interface PolicyRules {
   threshold?: number;
   action?: string;
   action_types?: string[];
+  target_prefix?: string;
   paths?: string[];
   max_actions?: number;
   window_minutes?: number;
@@ -958,10 +959,17 @@ function matchActionType(
   reason: (type: string) => string,
 ): PolicyResult | null {
   const actionTypes = rules.action_types || [];
-  if (context.action_type !== undefined && actionTypes.includes(context.action_type)) {
-    return { action, reason: reason(context.action_type) };
+  if (context.action_type === undefined || !actionTypes.includes(context.action_type)) {
+    return null;
   }
-  return null;
+  // Optional narrowing: a rule born from a targeted shape (review-feed
+  // "tighten") only fires when the action's target matches the prefix —
+  // without this, a narrow tighten gates the whole action_type org-wide.
+  if (typeof rules.target_prefix === 'string' && rules.target_prefix &&
+      !targetPrefixMatches(rules.target_prefix, context)) {
+    return null;
+  }
+  return { action, reason: reason(context.action_type) };
 }
 
 // ── non_fabrication evaluation (decomposed) ──

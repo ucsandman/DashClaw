@@ -267,6 +267,7 @@ describe('POST /api/policies/review/verdict', () => {
     const call = mockInsertPolicy.mock.calls[0]![2];
     const rules = JSON.parse(call.rules as string);
     expect(rules.action_types).toContain('bash');
+    expect(rules.target_prefix).toBe('stripe.com');
     expect(rules._tightened).toBe(true);
   });
 

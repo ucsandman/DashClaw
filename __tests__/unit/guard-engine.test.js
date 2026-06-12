@@ -115,6 +115,43 @@ describe('evaluateGuard', () => {
     expect(result.decision).toBe('allow');
   });
 
+  // --- require_approval narrowed by target_prefix (review-feed "tighten") ---
+
+  it('require_approval with target_prefix fires when the target matches', async () => {
+    const sql = makeSql([
+      makePolicy('require_approval', { action_types: ['other'], target_prefix: 'stripe.com' }),
+    ]);
+    const result = await evaluateGuard(
+      'org_1',
+      { action_type: 'other', target: 'api.stripe.com' },
+      sql,
+    );
+    expect(result.decision).toBe('require_approval');
+  });
+
+  it('require_approval with target_prefix stays allow for a non-matching target', async () => {
+    const sql = makeSql([
+      makePolicy('require_approval', { action_types: ['other'], target_prefix: 'stripe.com' }),
+    ]);
+    const result = await evaluateGuard(
+      'org_1',
+      { action_type: 'other', target: 'github.com' },
+      sql,
+    );
+    expect(result.decision).toBe('allow');
+  });
+
+  it('require_approval with target_prefix stays allow when the action has no target', async () => {
+    // A rule scoped to a target must not gate the whole action_type org-wide
+    // (regression: a review-feed tighten with a dropped prefix once routed
+    // every routine swarm action into approval).
+    const sql = makeSql([
+      makePolicy('require_approval', { action_types: ['other'], target_prefix: 'stripe.com' }),
+    ]);
+    const result = await evaluateGuard('org_1', { action_type: 'other' }, sql);
+    expect(result.decision).toBe('allow');
+  });
+
   it('fires identically for a custom action_type whether authored via the form or imported via YAML', async () => {
     // Regression guard for the "New policy form can only target preset tags" trap:
     // the form now lets operators TYPE arbitrary action types (e.g. marketplace_publish).

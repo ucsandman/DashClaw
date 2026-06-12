@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.14.0] — 2026-06-11
+
+### Fixed
+
+- **A review-feed "tighten" can no longer gate an entire action type org-wide.** `POST /api/policies/review/verdict` dropped the shape's `target_prefix` when compiling non-path tighten verdicts, so a narrow "tighten `other` → host" verdict produced `require_approval` over ALL `other` actions for every agent — which routed the whole swarm's routine traffic into approval and flooded the operator (live incident, 2026-06-11). The guard engine now supports an optional `target_prefix` on `require_approval`/`block_action_type` rules (boundary-aware host/path matching shared with `allow_grant` via `targetPrefixMatches`), the verdict route carries the prefix through, and a rule scoped to a target never fires for target-less actions. The offending live policy was deactivated.
+
+### dashclaw OpenClaw plugin [1.4.0]
+
+- **Codex turns that end a run without usage are surfaced, never silently dropped.** Investigation confirmed the Codex app-server genuinely emits no usage notification for some turns (not a race): fold-forward distribution onto the next usage-bearing turn already recovers mid-run gaps, and `agent_end` now logs a warn breadcrumb (runId + unattributed count) for the trailing-turn residue that is unrecoverable in-process. Three new tests pin fold-forward arithmetic, the double-counting guard, and the breadcrumb. The gateway's `defaultModel` was corrected from `openai-codex/gpt-5.5` to the swarm's actual `claude-fable-5`.
+
 ## [4.13.0] — 2026-06-11
 
 ### Added
