@@ -343,3 +343,140 @@ describe('@dashclaw/openclaw-plugin', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Codex late/absent-usage recovery (v1.4.0)
+//
+// 51.6% of codex LLM-turn actions fire `llm_output` with absent/all-zero
+// usage (the Codex app-server never emitted `thread/tokenUsage/updated` for
+// that turn). The plugin must hold those turns' action_ids and fold them into
+// the next usage-bearing `llm_output` on the same run — never drop them
+// silently, and never PATCH any action twice.
+// ---------------------------------------------------------------------------
+
+// Distinct per-tool-call action_ids so we can assert which actions got usage.
+function installSequentialActionFetchMock() {
+  let n = 0;
+  const calls = installFetchMock((request) => {
+    if (request.path === '/api/actions' && request.method === 'POST') {
+      n += 1;
+      const id = `act_${n}`;
+      return { action_id: id, action: { action_id: id, status: 'running' } };
+    }
+    return defaultFetchHandler(request);
+  });
+  return calls;
+}
+
+async function openToolCall(api, runId, callId) {
+  await api.emit('before_tool_call', {
+    toolName: 'read',
+    params: { file_path: `app/${callId}.tsx` },
+    toolCallId: callId,
+    runId,
+  });
+}
+
+describe('@dashclaw/openclaw-plugin — codex absent-usage recovery', () => {
+  beforeEach(() => {
+    vi.unstubAllEnvs();
+    installFetchMock();
+  });
+
+  it('folds a usage-absent turn’s actions into the next usage-bearing turn', async () => {
+    const calls = installSequentialActionFetchMock();
+    const { api } = await registerPlugin({
+      pluginConfig: { defaultModel: 'gpt-test' },
+    });
+
+    // Turn A: usage-bearing → opens act_1.
+    await api.emit('llm_output', {
+      runId: 'run_fold',
+      model: 'codex-a',
+      usage: { input: 50, output: 10 },
+    });
+    await openToolCall(api, 'run_fold', 'a1'); // act_1
+
+    // Turn B: usage ABSENT (codex omission) → opens act_2.
+    // Turn A's usage flushes onto act_1 here; act_2 is held.
+    await api.emit('llm_output', { runId: 'run_fold' });
+    await openToolCall(api, 'run_fold', 'b1'); // act_2
+
+    // Turn C: usage-bearing again → opens act_3, then agent_end flushes.
+    await api.emit('llm_output', {
+      runId: 'run_fold',
+      model: 'codex-c',
+      usage: { input: 60, output: 30 },
+    });
+    await openToolCall(api, 'run_fold', 'c1'); // act_3
+    await api.emit('agent_end', {}, { runId: 'run_fold' });
+
+    // act_1 got turn A's usage alone.
+    assert.equal(actionPatch(calls, 'act_1').body.tokens_in, 50);
+    assert.equal(actionPatch(calls, 'act_1').body.tokens_out, 10);
+
+    // The held act_2 (usage-absent turn) is NOT dropped — it shares turn C's
+    // usage with act_3, split evenly: 60 in / 30 out across 2 actions = 30/15.
+    assert.equal(actionPatch(calls, 'act_2').body.tokens_in, 30);
+    assert.equal(actionPatch(calls, 'act_2').body.tokens_out, 15);
+    assert.equal(actionPatch(calls, 'act_3').body.tokens_in, 30);
+    assert.equal(actionPatch(calls, 'act_3').body.tokens_out, 15);
+  });
+
+  it('never PATCHes the same action twice when usage flushes are replayed', async () => {
+    const calls = installSequentialActionFetchMock();
+    const { api } = await registerPlugin({
+      pluginConfig: { defaultModel: 'gpt-test' },
+    });
+
+    await api.emit('llm_output', {
+      runId: 'run_dbl',
+      model: 'codex-a',
+      usage: { input: 40, output: 8 },
+    });
+    await openToolCall(api, 'run_dbl', 'a1'); // act_1
+
+    // First flush: the next usage-bearing turn distributes onto act_1.
+    await api.emit('llm_output', {
+      runId: 'run_dbl',
+      model: 'codex-b',
+      usage: { input: 20, output: 4 },
+    });
+    // agent_end must not re-distribute act_1 (already attributed once).
+    await api.emit('agent_end', {}, { runId: 'run_dbl' });
+
+    const act1Patches = calls.filter(
+      (c) => c.path === '/api/actions/act_1' && c.method === 'PATCH'
+    );
+    assert.equal(act1Patches.length, 1);
+    assert.equal(act1Patches[0].body.tokens_in, 40);
+    assert.equal(act1Patches[0].body.tokens_out, 8);
+  });
+
+  it('warns (does not silently drop) when a run ends with unattributed actions', async () => {
+    const calls = installSequentialActionFetchMock();
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const { api } = await registerPlugin({
+      pluginConfig: { defaultModel: 'gpt-test' },
+    });
+
+    try {
+      // Single usage-absent turn opens act_1, then the run ends with no usage.
+      await api.emit('llm_output', { runId: 'run_drop' });
+      await openToolCall(api, 'run_drop', 'a1'); // act_1
+      await api.emit('agent_end', {}, { runId: 'run_drop' });
+
+      // No usage ever arrived → no token PATCH on act_1.
+      assert.equal(actionPatch(calls, 'act_1'), undefined);
+
+      // But the drop is logged with runId + count (never silent).
+      const breadcrumb = warnSpy.mock.calls
+        .map((args) => String(args[0]))
+        .find((msg) => msg.includes('run_drop') && /unattributed/i.test(msg));
+      assert.ok(breadcrumb, 'expected an unattributed-actions warn breadcrumb');
+      assert.match(breadcrumb, /1/);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});

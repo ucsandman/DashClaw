@@ -883,6 +883,18 @@ async function handleAgentEnd(ctx, config) {
     if (client && state.pendingUsage && state.turnActionIds.length > 0) {
         await distributePendingTokens(client, state);
     }
+    // Codex turns whose `llm_output` fired without usage stash their action_ids
+    // to fold into the NEXT usage-bearing turn (the only in-process recovery
+    // signal — the Codex app-server emits no late/secondary usage event). When a
+    // run ends on such a turn, no later signal ever arrives and those actions
+    // stay unattributed (their tokens are genuinely unrecoverable). That's the
+    // existing behavior; we just refuse to drop them silently. (background path
+    // → console.warn with context, never a bare drop.)
+    if (state.turnActionIds.length > 0) {
+        console.warn(`[dashclaw-governance] agent_end for run ${runId}: ${state.turnActionIds.length} ` +
+            `action(s) end the run unattributed — their codex turn(s) reported no token ` +
+            `usage and no later usage-bearing turn followed. tokens_in/out stay unrecorded.`);
+    }
     if (client && state.sessionId) {
         await closeSession(client, state.sessionId);
     }
