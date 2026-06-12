@@ -25,14 +25,41 @@ import { parseUpArgs } from './args.js';
 import { ask } from '../config.js';
 
 /**
+ * Kill a process and its entire child tree. On Windows, `process.kill` only
+ * terminates the cmd.exe shell wrapper that `shell:true` spawns — taskkill /T
+ * reaches the actual Next server underneath.
+ */
+export function killTree(pid) {
+  if (process.platform === 'win32') {
+    spawnSync('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore' });
+  } else {
+    process.kill(pid);
+  }
+}
+
+/**
+ * Resolve the base state directory from parsed args.
+ * Exported so upCommand + cmdDown can unit-test the wiring without spawning.
+ */
+export function resolveBaseDir(args) {
+  return args.dir ?? join(homedir(), '.dashclaw');
+}
+
+/**
  * Run the app's setup script in-process via spawnSync, contract:
  *   node --import tsx scripts/setup.mjs --yes --json --database-url <url>
  * prints EXACTLY ONE JSON line: {ok:true, apiKey, adminPassword} or
  * {ok:false, error} with a non-zero exit. We parse the LAST stdout line.
+ *
+ * @param {object} opts
+ * @param {string} opts.appDir
+ * @param {string} opts.databaseUrl
+ * @param {object} [opts.logger]
+ * @param {Function} [opts.spawn]  injectable spawnSync for testing (default: spawnSync)
  */
-export function runSetupScriptReal({ appDir, databaseUrl, logger = console }) {
+export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spawn: spawnFn = spawnSync }) {
   logger.error('-> Running setup (migrations + first admin) ...');
-  const res = spawnSync(
+  const res = spawnFn(
     'node',
     ['--import', 'tsx', 'scripts/setup.mjs', '--yes', '--json', '--database-url', databaseUrl],
     { cwd: appDir, encoding: 'utf8', shell: process.platform === 'win32' },
@@ -41,7 +68,9 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console }) {
   const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
   let parsed = null;
   if (lines.length) {
-    try { parsed = JSON.parse(lines[lines.length - 1]); } catch { /* fall through */ }
+    try { parsed = JSON.parse(lines[lines.length - 1]); } catch {
+      throw new Error(`Setup output was not parseable JSON. Last line: ${lines[lines.length - 1]}`);
+    }
   }
   if (res.status !== 0 || parsed?.ok === false) {
     const detail = parsed?.error
@@ -129,6 +158,8 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
     if (out.ok === false) throw new Error(out.error || 'Setup failed.');
     apiKey = out.apiKey;
     inst = saveInstance(baseDir, { apiKey });
+    // setup.mjs already prints the password once (to stderr) and writes it to
+    // .env.local; we deliberately do NOT echo it again here — no secrets twice.
     if (out.adminPassword) {
       logger.error('[ok] First admin created — credentials written to .env.local (printed once).');
     }
@@ -144,7 +175,15 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   // 6. start (always — the server is not persistent across `up` invocations)
   const child = deps.startServer({ appDir, port, logger });
   inst = saveInstance(baseDir, { pid: child.pid });
-  await deps.waitForHealth({ baseUrl });
+  try {
+    await deps.waitForHealth({ baseUrl });
+  } catch (e) {
+    // Health timeout: kill the orphaned server and clear the stale pid so the
+    // next `dashclaw up` doesn't try to resume a dead process.
+    try { killTree(child.pid); } catch { /* already gone */ }
+    saveInstance(baseDir, { pid: null });
+    throw e;
+  }
   logger.log(`[ok] Server running at ${baseUrl}   (Ctrl+C stops it; \`dashclaw up\` restarts it)`);
 
   // 7. connected ------------------------------------------------------------
@@ -173,8 +212,19 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
  * Stop the local instance: kill the server child (if recorded) and stop the
  * Docker container if we started one. Embedded Postgres dies with the up
  * process, so there is nothing to stop for that mode.
+ *
+ * @param {object} [opts]
+ * @param {string} [opts.baseDir]     state dir (default ~/.dashclaw)
+ * @param {object} [opts.logger]      logger (default console)
+ * @param {Function} [opts.kill]      injectable kill fn for testing (default killTree)
+ * @param {Function} [opts.dockerStop] injectable docker-stop fn for testing
  */
-export async function runDown({ baseDir = join(homedir(), '.dashclaw'), logger = console } = {}) {
+export async function runDown({
+  baseDir = join(homedir(), '.dashclaw'),
+  logger = console,
+  kill = killTree,
+  dockerStop = (container) => spawnSync('docker', ['stop', container], { stdio: 'ignore' }),
+} = {}) {
   const inst = loadInstance(baseDir);
   if (!inst) {
     logger.log('No local DashClaw instance recorded — nothing to stop.');
@@ -182,7 +232,7 @@ export async function runDown({ baseDir = join(homedir(), '.dashclaw'), logger =
   }
   if (inst.pid) {
     try {
-      process.kill(inst.pid);
+      kill(inst.pid);
       logger.log(`[ok] Stopped server (pid ${inst.pid}).`);
     } catch {
       logger.log('Server was not running.');
@@ -191,7 +241,7 @@ export async function runDown({ baseDir = join(homedir(), '.dashclaw'), logger =
   }
   if (inst.dbMode === 'docker') {
     // No shell — house decision (see db.js): docker args are passed directly.
-    spawnSync('docker', ['stop', 'dashclaw-pg'], { stdio: 'ignore' });
+    dockerStop('dashclaw-pg');
     logger.log('[ok] Stopped Docker Postgres (container dashclaw-pg).');
   }
 }
@@ -203,14 +253,21 @@ export async function runDown({ baseDir = join(homedir(), '.dashclaw'), logger =
  */
 export async function upCommand(argv) {
   const args = parseUpArgs(argv);
-  const { child, stopDb } = await runUp({ args });
+  const baseDir = resolveBaseDir(args);
+  const { child, stopDb } = await runUp({ args, baseDir });
 
   let stopping = false;
   const shutdown = async () => {
     if (stopping) return;
     stopping = true;
+    // Kill the server child first — on Windows the recorded pid is a cmd.exe
+    // wrapper; killTree reaches the actual Next process via taskkill /T /F.
+    try { killTree(child.pid); } catch { /* already gone */ }
     await stopDb();
-    process.exit(0);
+    // Hard exit is intentional here: stopDb has resolved, and we need to
+    // ensure the process doesn't linger on SIGINT (especially on Windows where
+    // the event loop may keep running after the child exits).
+    process.exit(0); // eslint-disable-line no-process-exit
   };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);

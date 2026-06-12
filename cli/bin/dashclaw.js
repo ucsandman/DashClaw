@@ -22,7 +22,7 @@ import {
 } from '../lib/code/ingest-codex.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { installClaude } from '../lib/claude/install.js';
-import { upCommand, runDown } from '../lib/up/index.js';
+import { upCommand, runDown, resolveBaseDir } from '../lib/up/index.js';
 import { runCost } from '../lib/cost.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
@@ -577,7 +577,12 @@ async function cmdUp() {
 
 async function cmdDown() {
   try {
-    await runDown({});
+    // Parse --dir so `dashclaw down --dir /path` targets the right state directory.
+    const downArgv = args.slice(1);
+    const dirIdx = downArgv.indexOf('--dir');
+    const dir = dirIdx !== -1 ? downArgv[dirIdx + 1] : null;
+    const baseDir = resolveBaseDir({ dir });
+    await runDown({ baseDir });
   } catch (err) {
     console.error(red(`Error: ${err.message}`));
     process.exitCode = 1;

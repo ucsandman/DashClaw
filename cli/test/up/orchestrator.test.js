@@ -9,7 +9,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { runUp } from '../../lib/up/index.js';
+import { runUp, runDown } from '../../lib/up/index.js';
 import { loadInstance, saveInstance, checkpoint, STEPS } from '../../lib/up/instance.js';
 
 function tempBase() {
@@ -141,5 +141,55 @@ describe('runUp — setup failure', () => {
     );
     const inst = loadInstance(baseDir);
     assert.ok(!inst.completed.includes('setup_done'));
+  });
+});
+
+describe('runUp — --update flag', () => {
+  test('re-runs the full pipeline even when all six steps are already completed', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_old',
+      completed: [...STEPS],
+    });
+
+    const { deps, calls } = makeDeps();
+    await runUp({ args: { update: true, yes: true, db: 'embedded', noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.downloadAndExtract, 1);
+    assert.strictEqual(calls.runSetupScript, 1);
+  });
+});
+
+describe('runDown', () => {
+  test('no instance → logs and does nothing', async () => {
+    const baseDir = tempBase();
+    const killCalls = [];
+    const logger = { log(m) {}, error() {} };
+    const kill = (pid) => { killCalls.push(pid); };
+    await runDown({ baseDir, logger, kill });
+    assert.strictEqual(killCalls.length, 0);
+  });
+
+  test('instance with pid → kill called, pid cleared in instance', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, { pid: 9999, dbMode: 'embedded' });
+    const killCalls = [];
+    const logger = { log() {}, error() {} };
+    const kill = (pid) => { killCalls.push(pid); };
+    await runDown({ baseDir, logger, kill });
+    assert.deepStrictEqual(killCalls, [9999]);
+    const inst = loadInstance(baseDir);
+    assert.strictEqual(inst.pid, null);
+  });
+
+  test('dbMode docker → dockerStop called', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, { pid: null, dbMode: 'docker' });
+    const dockerCalls = [];
+    const logger = { log() {}, error() {} };
+    const dockerStop = (container) => { dockerCalls.push(container); };
+    await runDown({ baseDir, logger, kill: () => {}, dockerStop });
+    assert.deepStrictEqual(dockerCalls, ['dashclaw-pg']);
   });
 });

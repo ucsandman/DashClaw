@@ -30,7 +30,9 @@ export function saveInstance(dir, data) {
   mkdirSync(dir, { recursive: true });
   const current = loadInstance(dir) ?? { completed: [] };
   const next = { ...current, ...data, completed: data.completed ?? current.completed ?? [] };
-  writeFileSync(fileFor(dir), JSON.stringify(next, null, 2) + '\n');
+  // mode 0o600: instance.json stores apiKey + possibly a postgresql:// URL with
+  // credentials. No-op on Windows; protects Linux/macOS (matches config.json).
+  writeFileSync(fileFor(dir), JSON.stringify(next, null, 2) + '\n', { mode: 0o600 });
   return next;
 }
 
@@ -39,6 +41,6 @@ export function checkpoint(dir, step) {
   mkdirSync(dir, { recursive: true });
   const inst = loadInstance(dir) ?? { completed: [] };
   if (!inst.completed.includes(step)) inst.completed.push(step);
-  writeFileSync(fileFor(dir), JSON.stringify(inst, null, 2) + '\n');
+  writeFileSync(fileFor(dir), JSON.stringify(inst, null, 2) + '\n', { mode: 0o600 });
   return inst;
 }
