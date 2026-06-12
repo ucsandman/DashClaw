@@ -32,6 +32,21 @@ describe('ApprovalFloodBanner', () => {
     });
   });
 
+  it('surfaces a failed bulk action inline and re-enables the buttons', async () => {
+    const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
+      if (init?.method === 'POST') return { ok: false, status: 403, json: async () => ({ error: 'Admin access required' }) };
+      return { ok: true, json: async () => ({ floods: [flood], budget: { perPolicy: 10, windowMin: 15, fleetWide: 30 } }) };
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    const { container, getByText, getByRole } = render(<ApprovalFloodBanner />);
+    await waitFor(() => expect(container.textContent).toContain('[Tightened] other'));
+    fireEvent.click(getByText(/approve all/i));
+    fireEvent.click(getByText(/^confirm$/i));
+    await waitFor(() => expect(getByRole('alert').textContent).toContain('Admin access required'));
+    // Buttons re-enabled after the failure (busy reset).
+    expect((getByText(/^confirm$/i) as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('pause rule PATCHes the policy inactive after confirm', async () => {
     const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === 'PATCH') return { ok: true, json: async () => ({ ok: true }) };

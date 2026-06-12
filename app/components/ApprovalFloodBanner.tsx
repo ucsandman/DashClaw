@@ -89,7 +89,8 @@ export default function ApprovalFloodBanner({ onResolved }: { onResolved?: () =>
                   {confirming.kind === 'allow' && `Approve all pending actions matched by "${flood.name}"?`}
                   {confirming.kind === 'deny' && `Deny all pending actions matched by "${flood.name}"?`}
                 </span>
-                <button type="button" disabled={busy} onClick={() => act(flood, confirming.kind)} className={`${BTN_WARNING} disabled:opacity-50`}>
+                {/* autoFocus: the opener just unmounted; keep keyboard focus in the flow */}
+                <button type="button" autoFocus disabled={busy} onClick={() => act(flood, confirming.kind)} className={`${BTN_WARNING} disabled:opacity-50`}>
                   Confirm
                 </button>
                 <button type="button" disabled={busy} onClick={() => setConfirm(null)} className={BTN_NEUTRAL}>
@@ -98,13 +99,15 @@ export default function ApprovalFloodBanner({ onResolved }: { onResolved?: () =>
               </span>
             ) : (
               <span className="flex items-center gap-2">
-                <button type="button" onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'pause' })} className={BTN_NEUTRAL}>
+                {/* disabled while busy: opening another row's confirm would silently
+                    dismiss the in-flight row's confirmation mid-action */}
+                <button type="button" disabled={busy} onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'pause' })} className={`${BTN_NEUTRAL} disabled:opacity-50`}>
                   Pause rule&hellip;
                 </button>
-                <button type="button" onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'allow' })} className={BTN_NEUTRAL}>
+                <button type="button" disabled={busy} onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'allow' })} className={`${BTN_NEUTRAL} disabled:opacity-50`}>
                   Approve all&hellip;
                 </button>
-                <button type="button" onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'deny' })} className={BTN_WARNING}>
+                <button type="button" disabled={busy} onClick={() => setConfirm({ policyId: flood.policy_id, kind: 'deny' })} className={`${BTN_WARNING} disabled:opacity-50`}>
                   Deny all&hellip;
                 </button>
               </span>
@@ -112,7 +115,7 @@ export default function ApprovalFloodBanner({ onResolved }: { onResolved?: () =>
           </div>
         );
       })}
-      {error && <p className="text-xs text-status-error">{error}</p>}
+      {error && <p role="alert" className="text-xs text-status-error">{error}</p>}
     </div>
   );
 }
