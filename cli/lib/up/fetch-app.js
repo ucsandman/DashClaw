@@ -55,6 +55,7 @@ export function tarballUrl(version) {
 export async function downloadAndExtract({ version, baseDir, fetchImpl = fetch, logger = console }) {
   const target = join(baseDir, 'app', version);
   if (existsSync(join(target, 'package.json'))) {
+    // Resume-skip: a pre-existing package.json means a prior successful extract.
     logger.error(`[ok] App ${version} already present at ${target}`);
     return target;
   }
@@ -66,10 +67,16 @@ export async function downloadAndExtract({ version, baseDir, fetchImpl = fetch, 
       `Download failed (${res.status}) for ${tarballUrl(version)} — does tag v${version} exist?`,
     );
   }
-  await pipeline(Readable.fromWeb(res.body), tar.x({ cwd: target, strip: 1 }));
-  if (!existsSync(join(target, 'package.json'))) {
+  try {
+    await pipeline(Readable.fromWeb(res.body), tar.x({ cwd: target, strip: 1 }));
+    if (!existsSync(join(target, 'package.json'))) {
+      throw new Error('Extracted tarball did not contain package.json — aborting.');
+    }
+  } catch (e) {
     rmSync(target, { recursive: true, force: true });
-    throw new Error('Extracted tarball did not contain package.json — aborting.');
+    throw e;
   }
+  // Invariant: a target dir with package.json present can only result from a
+  // successful prior extract because every failure path above removes the dir.
   return target;
 }

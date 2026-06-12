@@ -71,4 +71,38 @@ describe('downloadAndExtract', () => {
     assert.ok(out.endsWith(join('app', '9.9.9')), `expected path ending in app/9.9.9, got: ${out}`);
     assert.ok(existsSync(join(out, 'package.json')), 'package.json must exist in extracted dir');
   });
+
+  test('rejects on truncated/corrupt stream and removes partial target dir', async () => {
+    const work = tempDir();
+    const fetchImpl = async () =>
+      new Response(Buffer.from('not a tarball'), { status: 200 });
+
+    await assert.rejects(
+      () => downloadAndExtract({
+        version: '9.9.8',
+        baseDir: work,
+        fetchImpl,
+        logger: { error() {} },
+      }),
+    );
+    const target = join(work, 'app', '9.9.8');
+    assert.strictEqual(existsSync(target), false, 'partial target dir must be removed on pipeline failure');
+  });
+
+  test('skips fetch entirely when target already has package.json (resume)', async () => {
+    const work = tempDir();
+    const target = join(work, 'app', '9.9.7');
+    mkdirSync(target, { recursive: true });
+    writeFileSync(join(target, 'package.json'), JSON.stringify({ name: 'cached' }));
+
+    const fetchImpl = () => { throw new Error('must not fetch'); };
+
+    const out = await downloadAndExtract({
+      version: '9.9.7',
+      baseDir: work,
+      fetchImpl,
+      logger: { error() {} },
+    });
+    assert.strictEqual(out, target);
+  });
 });

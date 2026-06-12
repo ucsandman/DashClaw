@@ -6,15 +6,15 @@ import { spawn, spawnSync } from 'node:child_process';
 
 const shell = process.platform === 'win32';
 
-function npm(args, cwd, logger) {
+function npm(args, cwd, logger, runner) {
   logger.error(`-> npm ${args.join(' ')}`);
-  const res = spawnSync('npm', args, { cwd, stdio: ['ignore', 'inherit', 'inherit'], shell });
+  const res = runner('npm', args, { cwd, stdio: ['ignore', 'inherit', 'inherit'], shell });
   if (res.status !== 0) throw new Error(`npm ${args[0]} failed (exit ${res.status}). Re-run \`npx dashclaw up\` to resume from this step.`);
 }
 
-export function installDeps(appDir, logger = console) {
-  try { npm(['ci', '--no-audit', '--no-fund'], appDir, logger); }
-  catch { npm(['install', '--no-audit', '--no-fund'], appDir, logger); } // lockfile mismatch fallback
+export function installDeps(appDir, logger = console, runner = spawnSync) {
+  try { npm(['ci', '--no-audit', '--no-fund'], appDir, logger, runner); }
+  catch { npm(['install', '--no-audit', '--no-fund'], appDir, logger, runner); } // lockfile mismatch fallback
 }
 
 export function buildApp(appDir, logger = console) {

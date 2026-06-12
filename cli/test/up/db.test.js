@@ -5,7 +5,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { chooseDbMode, dockerCommandFor } from '../../lib/up/db.js';
+import { chooseDbMode, dockerCommandFor, provisionDatabase } from '../../lib/up/db.js';
 
 describe('chooseDbMode', () => {
   test('honors explicit flagDb even when docker is available', async () => {
@@ -29,6 +29,15 @@ describe('chooseDbMode', () => {
     const mode = await chooseDbMode({ flagDb: null, dockerAvailable: true, yes: false, promptFn });
     assert.strictEqual(mode, 'url');
     assert.strictEqual(callCount, 1);
+  });
+});
+
+describe('provisionDatabase — url mode', () => {
+  test('rejects non-postgresql:// connection strings', async () => {
+    await assert.rejects(
+      () => provisionDatabase({ mode: 'url', promptFn: async () => 'mysql://x' }),
+      /postgresql:\/\//,
+    );
   });
 });
 

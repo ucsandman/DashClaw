@@ -5,7 +5,32 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { waitForHealth } from '../../lib/up/run.js';
+import { waitForHealth, installDeps } from '../../lib/up/run.js';
+
+describe('installDeps — ci→install fallback', () => {
+  test('falls back to npm install when npm ci fails', () => {
+    const calls = [];
+    const runner = (_cmd, args, _opts) => {
+      calls.push(args[0]);
+      // Fail ci, succeed install
+      return { status: args[0] === 'ci' ? 1 : 0 };
+    };
+    const logger = { error() {} };
+    installDeps('/fake/app', logger, runner);
+    assert.deepStrictEqual(calls, ['ci', 'install']);
+  });
+
+  test('does not attempt install when npm ci succeeds', () => {
+    const calls = [];
+    const runner = (_cmd, args, _opts) => {
+      calls.push(args[0]);
+      return { status: 0 };
+    };
+    const logger = { error() {} };
+    installDeps('/fake/app', logger, runner);
+    assert.deepStrictEqual(calls, ['ci']);
+  });
+});
 
 describe('waitForHealth', () => {
   test('resolves once /api/health returns 200', async () => {

@@ -8,16 +8,19 @@
 //   url      — prompts for a postgresql:// connection string from the user
 
 import { join } from 'node:path';
+import { existsSync, rmSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
+
+// Keep this in sync with the "embedded-postgres" version in cli/package.json.
+const EMBEDDED_PG_VERSION = 'embedded-postgres@18.4.0-beta.17';
 
 export const LOCAL_DB_URL = 'postgresql://dashclaw:dashclaw@localhost:5433/dashclaw';
 
 const CONTAINER = 'dashclaw-pg';
-const shell = process.platform === 'win32';
 
 /** Returns true when the `docker` binary is available and responsive. */
 export function dockerAvailableSync() {
-  return spawnSync('docker', ['--version'], { stdio: 'ignore', shell }).status === 0;
+  return spawnSync('docker', ['--version'], { stdio: 'ignore' }).status === 0;
 }
 
 /**
@@ -76,13 +79,13 @@ export function dockerCommandFor() {
 function dockerStartOrRun(logger) {
   const ps = spawnSync(
     'docker', ['ps', '-aq', '--filter', `name=^${CONTAINER}$`],
-    { encoding: 'utf8', shell },
+    { encoding: 'utf8' },
   );
   if ((ps.stdout || '').trim()) {
-    execFileSync('docker', ['start', CONTAINER], { stdio: 'ignore', shell });
+    execFileSync('docker', ['start', CONTAINER], { stdio: 'ignore' });
   } else {
     const { cmd, args } = dockerCommandFor();
-    execFileSync(cmd, args, { stdio: 'ignore', shell });
+    execFileSync(cmd, args, { stdio: 'ignore' });
   }
   logger.error('[ok] Docker Postgres running (container dashclaw-pg, port 5433)');
 }
@@ -112,15 +115,29 @@ export async function provisionDatabase({ mode, baseDir, promptFn, logger = cons
 
   // mode === 'embedded'
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
+  const pgDir = join(baseDir, 'pg');
+  // Record whether the data dir existed BEFORE this run.
+  // Only clean up on failure when WE created it (a pre-existing dir means
+  // a working prior install whose data we must not delete).
+  const dirPreExisted = existsSync(pgDir);
   const pg = new EmbeddedPostgres({
-    databaseDir: join(baseDir, 'pg'),
+    databaseDir: pgDir,
     user: 'dashclaw',
     password: 'dashclaw',
     port: 5433,
     persistent: true,
   });
-  await pg.initialise();
-  await pg.start();
+  try {
+    await pg.initialise();
+    await pg.start();
+  } catch (e) {
+    if (!dirPreExisted) {
+      rmSync(pgDir, { recursive: true, force: true });
+    }
+    throw new Error(
+      `Embedded Postgres (${EMBEDDED_PG_VERSION}) failed: ${e.message}. Retry with --db docker or --db url.`,
+    );
+  }
   try { await pg.createDatabase('dashclaw'); } catch { /* already exists on resume — fine */ }
   logger.error('[ok] Embedded Postgres running (port 5433, data in ~/.dashclaw/pg)');
   return { databaseUrl: LOCAL_DB_URL, stop: () => pg.stop() };
