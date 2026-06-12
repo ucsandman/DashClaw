@@ -1,12 +1,13 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+export const maxDuration = 60;
 
 import { NextResponse, after } from 'next/server';
 import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
-import { listPendingApprovalIdsByActionTypes, recordApproval } from '../../../lib/repositories/actions.repository';
+import { listPendingApprovalIdsByActionTypes, recordBulkApprovals } from '../../../lib/repositories/actions.repository';
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 
@@ -75,26 +76,24 @@ export async function POST(request: Request) {
     const decision = body.decision as 'allow' | 'deny';
     const newStatus = decision === 'allow' ? 'running' : 'failed';
     const reasoning = `Bulk ${decision} via approval-flood resolution (policy ${policy.name ?? policyId})`;
-    let resolved = 0;
-    let failed = 0;
-    for (const actionId of ids) {
-      try {
-        const updated = await recordApproval(sql as never, orgId, actionId, {
-          newStatus,
-          errorMessage: decision === 'deny' ? reasoning : null,
-          decision,
-          userId,
-          safeReasoning: reasoning,
-        });
-        if (!updated) { failed++; continue; }
-        resolved++;
-        after(() => clearApprovalNotifications(sql, {
+
+    const resolvedIds = await recordBulkApprovals(sql as never, orgId, ids, {
+      newStatus,
+      errorMessage: decision === 'deny' ? reasoning : null,
+      decision,
+      userId,
+      safeReasoning: reasoning,
+    });
+    const resolved = resolvedIds.length;
+    const failed = ids.length - resolved;
+
+    after(async () => {
+      for (const actionId of resolvedIds) {
+        await clearApprovalNotifications(sql, {
           orgId, actionId, decision, resolvedBy: userId, resolvedVia: 'dashboard',
-        }));
-      } catch {
-        failed++;
+        });
       }
-    }
+    });
 
     logActivity({
       orgId, actorId: userId, action: `approvals.bulk_${decision}`,

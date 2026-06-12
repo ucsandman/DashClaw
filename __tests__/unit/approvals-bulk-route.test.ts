@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockListIds, mockRecord, mockClear, mockRole, mockGetPolicy } = vi.hoisted(() => ({
+const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy } = vi.hoisted(() => ({
   mockListIds: vi.fn(async () => ['act_1', 'act_2']),
-  mockRecord: vi.fn(async () => ({ action_id: 'x', status: 'running' })),
+  mockBulkRecord: vi.fn(async () => ['act_1', 'act_2']),
   mockClear: vi.fn(async () => {}),
   mockRole: vi.fn(() => 'admin'),
   mockGetPolicy: vi.fn(async () => ({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) })),
@@ -11,7 +11,7 @@ vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRo
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
 vi.mock('../../app/lib/repositories/actions.repository', () => ({
   listPendingApprovalIdsByActionTypes: mockListIds,
-  recordApproval: mockRecord,
+  recordBulkApprovals: mockBulkRecord,
 }));
 vi.mock('../../app/lib/repositories/guardrails.repository', () => ({ getPolicyById: mockGetPolicy }));
 vi.mock('../../app/lib/approvalNotifications', () => ({ clearApprovalNotifications: mockClear }));
@@ -31,7 +31,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockRole.mockReturnValue('admin');
   mockListIds.mockResolvedValue(['act_1', 'act_2']);
-  mockRecord.mockResolvedValue({ action_id: 'x', status: 'running' });
+  mockBulkRecord.mockResolvedValue(['act_1', 'act_2']);
   mockGetPolicy.mockResolvedValue({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) });
 });
 
@@ -51,17 +51,23 @@ describe('POST /api/approvals/bulk', () => {
     mockGetPolicy.mockResolvedValue({ id: 'gp_p', name: 'p', policy_type: 'protected_path', rules: JSON.stringify({ paths: ['/etc/**'] }) });
     expect((await POST(req({ decision: 'allow', filter: { policy_id: 'gp_p' } }))).status).toBe(400);
   });
-  it('resolves each matching pending action via recordApproval', async () => {
+  it('resolves each matching pending action via recordBulkApprovals (one call, org scoped)', async () => {
     const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));
     const body = await res.json();
     expect(res.status).toBe(200);
     expect(body.resolved).toBe(2);
-    expect(mockRecord).toHaveBeenCalledTimes(2);
-    expect((mockRecord.mock.calls[0] as unknown[])[3]).toMatchObject({ decision: 'allow', newStatus: 'running' });
+    expect(mockBulkRecord).toHaveBeenCalledTimes(1);
+    expect(mockBulkRecord).toHaveBeenCalledWith(
+      expect.anything(),
+      'org1',
+      ['act_1', 'act_2'],
+      expect.objectContaining({ decision: 'allow', newStatus: 'running' }),
+    );
     expect(mockClear).toHaveBeenCalledTimes(2);
   });
   it('reports per-action failures without aborting the batch', async () => {
-    mockRecord.mockResolvedValueOnce(null as unknown as { action_id: string; status: string }); // already resolved by someone else
+    // recordBulkApprovals returns only act_1 — act_2 was already resolved by a race
+    mockBulkRecord.mockResolvedValueOnce(['act_1']);
     const res = await POST(req({ decision: 'deny', filter: { policy_id: 'gp_a' } }));
     const body = await res.json();
     expect(body.resolved).toBe(1);

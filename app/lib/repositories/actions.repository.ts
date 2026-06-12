@@ -86,6 +86,49 @@ Reason: ' || ${safeReasoning} ELSE '' END
   return result[0] || null;
 }
 
+interface RecordBulkApprovalsData {
+  newStatus: string;
+  errorMessage: string | null;
+  decision: string;
+  userId: string;
+  safeReasoning: string;
+}
+
+/**
+ * Bulk variant of recordApproval: one UPDATE over many ids. The same
+ * status='pending_approval' WHERE guard applies per row, so racing
+ * resolutions are simply not returned (callers count them as failed).
+ * Returns the action_ids actually resolved.
+ */
+export async function recordBulkApprovals(
+  sql: SqlClient,
+  orgId: string,
+  actionIds: string[],
+  data: RecordBulkApprovalsData,
+): Promise<string[]> {
+  if (!actionIds.length) return [];
+  const { newStatus, errorMessage, decision, userId, safeReasoning } = data;
+  const decisionUpper = decision.toUpperCase();
+  const approvedBy = decisionUpper === 'ALLOW' ? userId : null;
+  const reasoningAppend =
+    `\n\n[HITL Decision: ${decisionUpper} by ${userId}]` +
+    (safeReasoning ? `\nReason: ${safeReasoning}` : '');
+  const rows = await sql.query(
+    `UPDATE action_records
+     SET status = $1,
+         error_message = $2,
+         approved_by = $3,
+         approved_at = CASE WHEN $4 THEN CURRENT_TIMESTAMP ELSE NULL END,
+         reasoning = COALESCE(reasoning, '') || $5
+     WHERE org_id = $6
+       AND action_id = ANY($7)
+       AND status = 'pending_approval'
+     RETURNING action_id`,
+    [newStatus, errorMessage, approvedBy, decisionUpper === 'ALLOW', reasoningAppend, orgId, actionIds],
+  );
+  return rows.map((r) => r.action_id as string);
+}
+
 interface ListActionsFilters {
   agent_id?: string;
   swarm_id?: string;
