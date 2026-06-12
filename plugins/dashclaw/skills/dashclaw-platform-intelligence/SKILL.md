@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:9ed00e1c19ea3e0f5390ff2c731fed98b1965cb4`
+**Shape snapshot:** `sha1:a821bc9bd9d9763cb5773262e0ee66b9c1f65043`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **270** active API routes across **64** categories (318 total including archived)
-- **4** required + **181** optional environment variables
+- **4** required + **179** optional environment variables
 - **100** database tables
 
 ## API Surface
@@ -517,8 +517,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 75 file(s)
-- **`DATABASE_URL`** - referenced in 97 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 74 file(s)
+- **`DATABASE_URL`** - referenced in 96 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
 
@@ -674,7 +674,6 @@ These have fallbacks or only activate specific features.
 - `S` *(undocumented)*
 - `SENTRY_AUTH_TOKEN` *(undocumented)*
 - `SERVICE_NAME` *(undocumented)*
-- `SQL_CAPTURE_FILE` *(undocumented)*
 - `STARTUP_SMOKE_BASE_URL` *(undocumented)*
 - `STARTUP_SMOKE_INTERVAL_MS` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
@@ -684,7 +683,6 @@ These have fallbacks or only activate specific features.
 - `STRIPE_SECRET_KEY` *(undocumented)*
 - `STRIPE_TEST_SECRET_KEY` *(undocumented)*
 - `STRIPE_WEBHOOK_SECRET` *(undocumented)*
-- `STUB_FAIL_CREATES` *(undocumented)*
 - `SUPABASE_ACCESS_TOKEN` *(undocumented)*
 - `TARGET_ENV` *(undocumented)*
 - `TELEGRAM_ADMIN_CHAT_ID` *(undocumented)*
