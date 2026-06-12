@@ -139,6 +139,7 @@ _INTENT_TO_ACTION: dict[str, str] = {
     "process_management": "security",
     "package_management": "build",
     "system_admin": "deploy",
+    "interpreter": "build",  # server base 25 — client classifier score drives the decision
     "unknown": "other",
 }
 

@@ -316,6 +316,86 @@ class TestWrapperDetection(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
+# Interpreter commands (node, python, etc.)
+# ---------------------------------------------------------------------------
+
+class TestInterpreterClassification(unittest.TestCase):
+    """Interpreters get honest scoring instead of the unknown-command fallback.
+
+    Before this intent existed, `node -e` classified as "unknown" and the
+    pretool hook pinned it to the Bash tool's blunt base risk (70) — exactly
+    RISK_HIGH_MIN — so every inline node/python invocation hit the block band
+    by accident, not by analysis.
+    """
+
+    def test_node_script_is_interpreter(self):
+        r = classify_bash("node scripts/build.js")
+        self.assertEqual(r["intent"], "interpreter")
+
+    def test_node_script_lands_in_allow_band(self):
+        r = classify_bash("node scripts/build.js")
+        self.assertLess(r["risk_score"], 40)
+
+    def test_python_script_is_interpreter(self):
+        r = classify_bash("python scripts/gen_report.py")
+        self.assertEqual(r["intent"], "interpreter")
+        self.assertLess(r["risk_score"], 40)
+
+    def test_node_inline_eval_warns(self):
+        r = classify_bash("node -e \"console.log(require('./package.json').version)\"")
+        self.assertEqual(r["intent"], "interpreter")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("interpreter_validation", checks)
+        self.assertEqual(checks["interpreter_validation"]["result"], "warn")
+
+    def test_node_inline_eval_lands_in_warn_band(self):
+        r = classify_bash("node -e \"console.log(1)\"")
+        self.assertGreaterEqual(r["risk_score"], 40)
+        self.assertLess(r["risk_score"], 70)
+
+    def test_python_dash_c_lands_in_warn_band(self):
+        r = classify_bash("python -c 'print(1+1)'")
+        self.assertEqual(r["intent"], "interpreter")
+        self.assertGreaterEqual(r["risk_score"], 40)
+        self.assertLess(r["risk_score"], 70)
+
+    def test_deno_eval_subcommand_warns(self):
+        r = classify_bash("deno eval 'console.log(1)'")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("interpreter_validation", checks)
+        self.assertEqual(checks["interpreter_validation"]["result"], "warn")
+
+    def test_python_dash_e_is_not_inline_eval(self):
+        # python -E (ignore env) is not inline eval; only -c is for python.
+        r = classify_bash("python -E scripts/gen_report.py")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["interpreter_validation"]["result"], "allow")
+        self.assertLess(r["risk_score"], 40)
+
+    def test_inline_payload_with_escape_hatch_boosts_risk(self):
+        plain = classify_bash("node -e \"console.log(1)\"")
+        spawny = classify_bash(
+            "node -e \"require('child_process').execSync('git status')\""
+        )
+        self.assertGreater(spawny["risk_score"], plain["risk_score"])
+        self.assertLess(spawny["risk_score"], 70)
+
+    def test_sudo_node_is_system_admin(self):
+        r = classify_bash("sudo node server.js")
+        self.assertEqual(r["intent"], "system_admin")
+
+    def test_readonly_mode_blocks_interpreter(self):
+        r = classify_bash("node -e \"console.log(1)\"", mode="readonly")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("read_only_validation", checks)
+        self.assertEqual(checks["read_only_validation"]["result"], "block")
+
+    def test_interpreter_is_reversible(self):
+        r = classify_bash("node scripts/build.js")
+        self.assertTrue(r["reversible"])
+
+
+# ---------------------------------------------------------------------------
 # Git edge cases
 # ---------------------------------------------------------------------------
 

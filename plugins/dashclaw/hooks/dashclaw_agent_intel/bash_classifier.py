@@ -75,6 +75,43 @@ PACKAGE_COMMANDS = frozenset({
     "composer", "dotnet", "nuget",
 })
 
+# Language interpreters / script runners. Without this category they fall
+# through to "unknown", and the pretool hook replaces the classifier score
+# with the Bash tool's blunt base risk (70 = RISK_HIGH_MIN) — so `node -e`
+# was blocked by fallback, not by analysis.
+INTERPRETER_COMMANDS = frozenset({
+    "node", "nodejs", "python", "python2", "python3",
+    "ruby", "perl", "php", "deno", "bun", "tsx", "ts-node",
+})
+
+# Per-interpreter inline-eval flags. Flag meanings collide across
+# interpreters (python -E ignores env vars; perl -E is eval with features),
+# so each base command gets its own set rather than one shared list.
+_INLINE_EVAL_FLAGS = {
+    "node": frozenset({"-e", "--eval", "-p", "--print"}),
+    "nodejs": frozenset({"-e", "--eval", "-p", "--print"}),
+    "bun": frozenset({"-e", "--eval", "-p", "--print"}),
+    "tsx": frozenset({"-e", "--eval", "-p", "--print"}),
+    "ts-node": frozenset({"-e", "--eval", "-p", "--print"}),
+    "deno": frozenset({"--eval"}),
+    "python": frozenset({"-c"}),
+    "python2": frozenset({"-c"}),
+    "python3": frozenset({"-c"}),
+    "ruby": frozenset({"-e"}),
+    "perl": frozenset({"-e", "-E"}),
+    "php": frozenset({"-r"}),
+}
+
+# Escape hatches inside an inline-eval payload: spawning processes, deleting
+# files, or shelling out from within the one-liner. These warrant an extra
+# warn on top of the inline-eval warn — still below the block band; the
+# server-side guard sees the full command and can escalate further.
+_INLINE_ESCAPE_HATCH_RE = re.compile(
+    r"child_process|subprocess|os\.system|execSync|spawnSync"
+    r"|fs\.(?:rm|unlink|rmdir)|rmtree|rm\s+-rf|shutil",
+    re.IGNORECASE,
+)
+
 SYSTEM_ADMIN_COMMANDS = frozenset({
     "systemctl", "service", "journalctl",
     "useradd", "userdel", "usermod", "groupadd", "groupdel",
@@ -111,6 +148,7 @@ _RISK_BASE = {
     "process_management": 50,
     "package_management": 30,
     "system_admin": 75,
+    "interpreter": 35,  # running a script file is routine; inline eval warns on top
     "unknown": 20,
 }
 
@@ -195,6 +233,12 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
             return "system_admin"
         return "package_management"
 
+    # Interpreters: sudo + interpreter = system_admin (root code execution).
+    if base_name in INTERPRETER_COMMANDS:
+        if wrapper == "sudo":
+            return "system_admin"
+        return "interpreter"
+
     # Walk through categories in priority order.
     if base_name in DESTRUCTIVE_COMMANDS:
         return "destructive"
@@ -238,8 +282,9 @@ def _run_read_only_validation(
             "reason": f"file redirection in readonly mode",
         }
 
-    # Block non-readonly intents.
-    if intent in ("write", "destructive", "process_management", "system_admin", "package_management"):
+    # Block non-readonly intents. Interpreters can write files and spawn
+    # processes, so they are not readonly-safe.
+    if intent in ("write", "destructive", "process_management", "system_admin", "package_management", "interpreter"):
         return {
             "check": "read_only_validation",
             "result": "block",
@@ -401,6 +446,42 @@ def _run_sed_validation(
     }
 
 
+def _run_interpreter_validation(
+    parsed: dict, intent: str, raw_command: str,
+) -> Optional[dict]:
+    """Submodule: grade interpreter invocations.
+
+    Inline eval (`node -e`, `python -c`, `deno eval`, ...) is arbitrary code
+    execution and warns; running a named script file is routine and allows.
+    An inline payload that spawns processes or deletes files warns harder
+    (extra +10 via the escape-hatch check in _compute_risk).
+    """
+    if intent != "interpreter":
+        return None
+
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
+    flags = parsed.get("flags", [])
+    targets = parsed.get("targets", [])
+
+    eval_flags = _INLINE_EVAL_FLAGS.get(base, frozenset())
+    inline = any(f in eval_flags for f in flags)
+    # deno's eval is a subcommand, not a flag.
+    if base == "deno" and targets and targets[0] == "eval":
+        inline = True
+
+    if inline:
+        return {
+            "check": "interpreter_validation",
+            "result": "warn",
+            "reason": f"inline code execution via {base}",
+        }
+    return {
+        "check": "interpreter_validation",
+        "result": "allow",
+        "reason": f"{base} running a script file",
+    }
+
+
 def _run_path_validation(
     parsed: dict, workspace: Optional[str],
 ) -> Optional[dict]:
@@ -473,6 +554,15 @@ def _compute_risk(
         elif v["result"] == "warn":
             score += 10
 
+    # Inline-eval payloads that spawn processes / delete files / shell out
+    # get one extra boost — surfaced in the warn band, not auto-blocked.
+    inline_eval = any(
+        v["check"] == "interpreter_validation" and v["result"] == "warn"
+        for v in validations
+    )
+    if inline_eval and _INLINE_ESCAPE_HATCH_RE.search(raw_command):
+        score += 10
+
     return min(score, 100)
 
 
@@ -520,6 +610,10 @@ def classify_bash(
     v5 = _run_path_validation(parsed, workspace)
     if v5 is not None:
         validations.append(v5)
+
+    v_interp = _run_interpreter_validation(parsed, intent, command)
+    if v_interp is not None:
+        validations.append(v_interp)
 
     v6 = _run_command_semantics(parsed, intent)
     validations.append(v6)

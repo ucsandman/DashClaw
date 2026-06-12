@@ -516,6 +516,40 @@ class TestPretoolIntegration(unittest.TestCase):
         self.assertEqual(body["action_type"], "api")
         self.assertEqual(body["intel"]["bash"]["intent"], "network")
 
+    def test_bash_node_inline_eval_warns_not_blocks(self):
+        """`node -e` must classify as interpreter (action_type build) and land
+        in the warn band — not inherit the Bash tool's blunt 70 base via the
+        unknown-command fallback, which put it in the block band by accident."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "node -e \"console.log(require('./package.json').version)\""},
+                "tool_use_id": "tu-017b",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        reqs = self.log.get_all()
+        guard_reqs = [r for r in reqs if r["path"] == "/api/guard"]
+        body = guard_reqs[0]["body"]
+
+        self.assertEqual(body["intel"]["bash"]["intent"], "interpreter")
+        self.assertEqual(body["action_type"], "build")
+        self.assertGreaterEqual(body["risk_score"], 40)
+        self.assertLess(body["risk_score"], 70)
+
+    def test_bash_node_script_is_low_risk(self):
+        """Running a named script file is routine agent work — allow band."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Bash", "tool_input": {"command": "node scripts/build.js"}, "tool_use_id": "tu-017c"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["intel"]["bash"]["intent"], "interpreter")
+        self.assertLess(body["risk_score"], 40)
+
     # -----------------------------------------------------------------------
     # 14. NotebookEdit is governed as file_io
     # -----------------------------------------------------------------------
