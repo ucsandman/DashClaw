@@ -365,6 +365,12 @@ export async function POST(request: Request) {
 
     fireApprovalSurfaces(createdAction as Record<string, unknown>, sql, orgId, guardDecision as Record<string, unknown> | null);
 
+    // W3 digest cadence: piggyback on agent traffic (post-response, fail-quiet).
+    after(() => {
+      void import('../../lib/digest-tick').then(({ maybeRunDigestTick }) => maybeRunDigestTick(sql, orgId))
+        .catch((err: unknown) => console.warn('[digest-tick] hook failed:', (err as Error)?.message));
+    });
+
     // Launch-window new-connect alert (DOG-04 telemetry).
     // Fires only if this is the org's first action_record AND the webhook
     // env var is configured. Fire-and-forget: never awaits, never blocks
