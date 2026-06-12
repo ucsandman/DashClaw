@@ -233,7 +233,7 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 |---|---|---|---|
 | `/api/actions/signals` | GET | `getSignals` | `get_signals` |
 
-**16 signal types:** `agent_silent`, `autonomy_spike`, `high_impact_low_oversight`, `repeated_failures`, `stale_loop`, `assumption_drift`, `drift_alert`, `stale_assumption`, `stale_running_action`, `workflow_stuck`, `approval_backlog`, `integration_mismatch`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`
+**18 signal types:** `agent_silent`, `autonomy_spike`, `high_impact_low_oversight`, `repeated_failures`, `stale_loop`, `assumption_drift`, `drift_alert`, `stale_assumption`, `stale_running_action`, `workflow_stuck`, `approval_backlog`, `integration_mismatch`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`, `approval_flood`, `coverage_drop`
 
 ## Behavior Guard
 

@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:9ed00e1c19ea3e0f5390ff2c731fed98b1965cb4`
+**Shape snapshot:** `sha1:8c6f4895f69d318d60765f293e27b807b16c13ac`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -817,9 +817,11 @@ All 100 tables defined in `schema/schema.js` (Drizzle ORM):
 
 These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNativeNotifications`. Webhooks can subscribe to any subset by putting the type in their `events: [...]` array (or use `['all']` for everything).
 
+- `approval_flood`
 - `autonomy_spike`
 - `branch_stale`
 - `cost_exceeded`
+- `coverage_drop`
 - `green_insufficient`
 - `integration_health_changed`
 - `integration_mismatch`

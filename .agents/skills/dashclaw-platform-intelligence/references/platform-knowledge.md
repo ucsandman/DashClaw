@@ -256,7 +256,7 @@ Route inventory for tools is emitted from the shape to `mcp-server/lib/routes-in
 
 ## Signal Types
 
-DashClaw computes 16 signal types (`computeSignals` in `app/lib/signals.ts`). All are evaluated server-side without an LLM.
+DashClaw computes 18 signal types (`computeSignals` in `app/lib/signals.ts`). All are evaluated server-side without an LLM.
 
 | Signal Type | Trigger |
 |---|---|
@@ -276,6 +276,8 @@ DashClaw computes 16 signal types (`computeSignals` in `app/lib/signals.ts`). Al
 | `branch_stale` | Working branch fell behind main (red at 5+ commits behind) |
 | `mcp_degraded` | MCP server unhealthy in recent guard intel |
 | `green_insufficient` | Deploy/merge attempted without sufficient test verification |
+| `approval_flood` | A policy (or the fleet) exceeded the approval interruption budget; per-action pings paused — review /approvals (red) |
+| `coverage_drop` | Token attribution coverage fell below 90% over the last 7d (≥50 actions) (amber) |
 
 Session lifecycle, signal emission, and recovery workflows all operate without an LLM provider configured. They use rule-based evaluation and threshold checks only.
 

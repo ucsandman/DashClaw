@@ -16,7 +16,7 @@ import { getExistingSignalHashes, upsertSignalSnapshots } from '../../../lib/rep
  * Hash a signal into a stable identifier for deduplication.
  * Uses type + relevant IDs to create a unique fingerprint.
  */
-function hashSignal(signal: {
+export function hashSignal(signal: {
   type: string;
   agent_id?: string | null;
   action_id?: string | null;
