@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `319`
+- Total routes: `320`
 - Stable routes: `54`
 - Beta routes: `24`
-- Experimental routes: `241`
+- Experimental routes: `242`
 
 ## Routes
 
@@ -161,6 +161,7 @@ doc-type: architecture
 | `/api/cron/reset-meters` | `GET` | `beta` | `/api/cron` | `app/api/cron/reset-meters/route.ts` |
 | `/api/cron/routing-maintenance` | `POST` | `beta` | `/api/cron` | `app/api/cron/routing-maintenance/route.ts` |
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.ts` |
+| `/api/digest/fleet` | `GET` | `experimental` | `(default)` | `app/api/digest/fleet/route.ts` |
 | `/api/discord/interactions` | `POST` | `experimental` | `(default)` | `app/api/discord/interactions/route.ts` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
 | `/api/doctor` | `GET` | `experimental` | `(default)` | `app/api/doctor/route.ts` |

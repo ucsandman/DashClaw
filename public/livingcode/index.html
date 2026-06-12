@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:04d42da27fc80d924c17009af516b92fdb884a63 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:80aeab798d5b99cde30e8dc0976dd6835d089c94 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">272</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">273</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">181</div><div class="k">Optional env vars</div></div>
@@ -192,8 +192,9 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>40</b> env_vars added, <b>1</b> env_vars removed, <b>12</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>40</b> env_vars added, <b>1</b> env_vars removed, <b>13</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
@@ -341,6 +342,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/cron/reset-meters"><td><code>/api/cron/reset-meters</code></td><td>GET</td><td class="sig">app/api/cron/reset-meters/route.ts</td></tr>
     <tr data-path="/api/cron/routing-maintenance"><td><code>/api/cron/routing-maintenance</code></td><td>POST</td><td class="sig">app/api/cron/routing-maintenance/route.ts</td></tr>
     <tr data-path="/api/cron/signals"><td><code>/api/cron/signals</code></td><td>GET</td><td class="sig">app/api/cron/signals/route.ts</td></tr></tbody></table></details>
+<details><summary>/digest/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/digest/fleet"><td><code>/api/digest/fleet</code></td><td>GET</td><td class="sig">app/api/digest/fleet/route.ts</td></tr></tbody></table></details>
 <details><summary>/discord/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/discord/interactions"><td><code>/api/discord/interactions</code></td><td>POST</td><td class="sig">app/api/discord/interactions/route.ts</td></tr></tbody></table></details>
 <details><summary>/docs/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/docs/raw"><td><code>/api/docs/raw</code></td><td>GET</td><td class="sig">app/api/docs/raw/route.ts</td></tr></tbody></table></details>
 <details><summary>/doctor/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/doctor"><td><code>/api/doctor</code></td><td>GET</td><td class="sig">app/api/doctor/route.ts</td></tr>

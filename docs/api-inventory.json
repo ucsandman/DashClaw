@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 319,
+    "total_routes": 320,
     "stable_routes": 54,
     "beta_routes": 24,
-    "experimental_routes": 241
+    "experimental_routes": 242
   },
   "routes": [
     {
@@ -1366,6 +1366,15 @@
       "maturity": "beta",
       "matched_prefix": "/api/cron",
       "file": "app/api/cron/signals/route.ts"
+    },
+    {
+      "path": "/api/digest/fleet",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/digest/fleet/route.ts"
     },
     {
       "path": "/api/discord/interactions",

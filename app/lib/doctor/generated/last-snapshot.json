@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:04d42da27fc80d924c17009af516b92fdb884a63",
+  "timestamp": "sha1:80aeab798d5b99cde30e8dc0976dd6835d089c94",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1414,6 +1414,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/cron/signals/route.ts"
+    },
+    {
+      "path": "/api/digest/fleet",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/digest/fleet/route.ts"
     },
     {
       "path": "/api/discord/interactions",
