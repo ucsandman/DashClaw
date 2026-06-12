@@ -21,6 +21,8 @@ export interface FloodEvaluation {
   fleetTripped: boolean;
   /** the evaluated window, so callers don't re-read settings for labels */
   windowMin: number;
+  /** the budget the evaluation ran against, so read endpoints don't re-fetch */
+  budget: FloodBudget;
 }
 
 const DEFAULTS: FloodBudget = { perPolicy: 10, windowMin: 15, fleetWide: 30 };
@@ -60,23 +62,26 @@ export async function getFloodState(sql: SqlTag, orgId: string): Promise<FloodSt
  * behavior, never silence).
  */
 export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise<FloodEvaluation> {
-  const empty: FloodEvaluation = { state: {}, suppressed: new Set(), newlyTripped: [], fleetTripped: false, windowMin: DEFAULTS.windowMin };
+  const empty: FloodEvaluation = { state: {}, suppressed: new Set(), newlyTripped: [], fleetTripped: false, windowMin: DEFAULTS.windowMin, budget: { ...DEFAULTS } };
   try {
     const budget = await getInterruptBudget(sql, orgId);
     const counts = await getRecentApprovalCountsByPolicy(sql as never, orgId, budget.windowMin);
     const state = await getFloodState(sql, orgId);
     const now = new Date().toISOString();
     const newlyTripped: FloodEvaluation['newlyTripped'] = [];
-    let changed = false;
+    // Persist only on membership transitions (trip/clear). Count drift is
+    // refreshed in-memory for this evaluation's consumers but not written —
+    // this endpoint family is polled, and a write per count delta would churn
+    // the settings row every few seconds during an active flood.
+    let membershipChanged = false;
 
     for (const [policyId, count] of Object.entries(counts)) {
       if (count > budget.perPolicy && !state[policyId]) {
         state[policyId] = { tripped_at: now, count };
         newlyTripped.push({ policy_id: policyId, count });
-        changed = true;
+        membershipChanged = true;
       } else if (state[policyId] && state[policyId].count !== count) {
         state[policyId].count = count;
-        changed = true;
       }
     }
 
@@ -84,10 +89,9 @@ export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise
     if (total > budget.fleetWide && !state[FLEET_KEY]) {
       state[FLEET_KEY] = { tripped_at: now, count: total };
       newlyTripped.push({ policy_id: FLEET_KEY, count: total });
-      changed = true;
+      membershipChanged = true;
     } else if (state[FLEET_KEY] && state[FLEET_KEY].count !== total) {
       state[FLEET_KEY].count = total;
-      changed = true;
     }
 
     // Hysteresis: clear once the current window falls below half the budget.
@@ -96,14 +100,14 @@ export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise
       const bar = key === FLEET_KEY ? budget.fleetWide : budget.perPolicy;
       if (current < bar / 2) {
         delete state[key];
-        changed = true;
+        membershipChanged = true;
       }
     }
 
     // Best-effort persistence: concurrent evaluations are last-writer-wins
     // (no claimed marker like drift-tick). Worst case is a duplicate flood
     // notification or a clear delayed one cycle — tolerable for suppression.
-    if (changed) {
+    if (membershipChanged) {
       try {
         await upsertSetting(sql, orgId, {
           key: APPROVAL_FLOOD_STATE_KEY,
@@ -115,7 +119,7 @@ export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise
       }
     }
 
-    return { state, suppressed: new Set(Object.keys(state)), newlyTripped, fleetTripped: !!state[FLEET_KEY], windowMin: budget.windowMin };
+    return { state, suppressed: new Set(Object.keys(state)), newlyTripped, fleetTripped: !!state[FLEET_KEY], windowMin: budget.windowMin, budget };
   } catch (err) {
     console.warn('[approval-flood] evaluation failed — failing open:', (err as Error)?.message);
     return empty;
