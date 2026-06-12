@@ -22,7 +22,32 @@ function delta(curr: number, prev: number): string {
   return ` (${pct > 0 ? '+' : ''}${pct}% vs prior 24h)`;
 }
 
-export async function composeFleetDigest(sql: SqlTag, orgId: string): Promise<FleetDigest> {
+export async function composeFleetDigest(
+  sql: SqlTag,
+  orgId: string,
+  opts: { lite?: boolean } = {},
+): Promise<FleetDigest> {
+  if (opts.lite) {
+    const [pendingSummary, floodState] = await Promise.all([
+      getPendingApprovalSummary(sql as never, orgId),
+      getFloodState(sql, orgId),
+    ]);
+    const floodIds = Object.keys(floodState).filter((k) => k !== FLEET_KEY);
+    const names = await getPolicyNamesByIds(sql as never, orgId, floodIds);
+    const floods = floodIds.map((id) => ({ policy_id: id, name: names[id] ?? id, count: floodState[id]?.count ?? 0 }));
+    const oldestMin = pendingSummary.oldest_at
+      ? Math.max(0, Math.round((Date.now() - new Date(pendingSummary.oldest_at).getTime()) / 60000))
+      : null;
+    return {
+      quiet: pendingSummary.pending === 0 && floods.length === 0,
+      text: '',
+      pending_approvals: pendingSummary.pending,
+      oldest_pending_minutes: oldestMin,
+      floods,
+      coverage_pct: null,
+    };
+  }
+
   const [mix, pendingSummary, cost, floodState] = await Promise.all([
     getGuardDecisionMix(sql as never, orgId, 24),
     getPendingApprovalSummary(sql as never, orgId),

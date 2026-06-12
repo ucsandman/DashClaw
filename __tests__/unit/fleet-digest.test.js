@@ -52,4 +52,44 @@ describe('composeFleetDigest', () => {
     expect(d.pending_approvals).toBe(47);
     expect(d.floods).toHaveLength(1);
   });
+
+  it('lite path skips signals, cost, and mix', async () => {
+    mockPending.mockResolvedValue({ pending: 3, oldest_at: new Date(Date.now() - 10 * 60e3).toISOString() });
+    mockFlood.mockResolvedValue({ gp_b: { tripped_at: '2026-06-11T00:00:00Z', count: 5 } });
+    mockNames.mockResolvedValue({ gp_b: 'WritePolicy' });
+    const d = await composeFleetDigest({}, 'org1', { lite: true });
+    expect(mockSignals).not.toHaveBeenCalled();
+    expect(mockCost).not.toHaveBeenCalled();
+    expect(mockMix).not.toHaveBeenCalled();
+    expect(d.pending_approvals).toBe(3);
+    expect(d.oldest_pending_minutes).toBeGreaterThan(0);
+    expect(d.floods).toHaveLength(1);
+    expect(d.floods[0].name).toBe('WritePolicy');
+    expect(d.coverage_pct).toBeNull();
+    expect(d.text).toBe('');
+  });
+
+  it('lite path quiet flag reflects pending+floods only', async () => {
+    const d = await composeFleetDigest({}, 'org1', { lite: true });
+    expect(d.quiet).toBe(true);
+  });
+
+  it('signals rejection does not throw — full digest still returns', async () => {
+    mockSignals.mockRejectedValue(new Error('signals down'));
+    const d = await composeFleetDigest({}, 'org1');
+    expect(d.quiet).toBe(true);
+    expect(d.text).toMatch(/quiet/i);
+  });
+
+  it('delta: prior 0 with curr>0 shows "(new)" in text', async () => {
+    mockMix.mockResolvedValue({ current: { allow: 5 }, prior: {} });
+    const d = await composeFleetDigest({}, 'org1');
+    expect(d.text).toContain('(new)');
+  });
+
+  it('delta: <10% change produces no "(vs prior" in text', async () => {
+    mockMix.mockResolvedValue({ current: { allow: 1050 }, prior: { allow: 1000 } });
+    const d = await composeFleetDigest({}, 'org1');
+    expect(d.text).not.toContain('vs prior');
+  });
 });

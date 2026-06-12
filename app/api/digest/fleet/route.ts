@@ -14,8 +14,8 @@ import { composeFleetDigest } from '../../../lib/fleet-digest';
 export async function GET(request: Request) {
   try {
     const orgId = getOrgId(request);
-    const digest = await composeFleetDigest(getSql(), orgId);
     const lite = new URL(request.url).searchParams.get('lite') === '1';
+    const digest = await composeFleetDigest(getSql(), orgId, { lite });
     if (lite) {
       return NextResponse.json({
         pending_approvals: digest.pending_approvals,
