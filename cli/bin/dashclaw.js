@@ -22,6 +22,7 @@ import {
 } from '../lib/code/ingest-codex.js';
 import { installCodex, codexConfigPath, codexHooksDir } from '../lib/codex/install.js';
 import { installClaude } from '../lib/claude/install.js';
+import { upCommand, runDown } from '../lib/up/index.js';
 import { runCost } from '../lib/cost.js';
 import { runCodexNotify } from '../lib/codex/notify.js';
 import { apiRequest } from '../lib/api.js';
@@ -78,6 +79,13 @@ async function cmdHelp() {
 ${bold('DashClaw CLI')} — terminal approval client
 
 ${bold('Usage:')}
+  dashclaw up                            Install + start a local DashClaw (one command, resumable)
+    --update                             Re-fetch + rebuild from the latest published version
+    --yes                                Non-interactive (auto-pick DB, auto-connect Claude Code)
+    --db docker|embedded|url             Database mode (default: prompt; docker if detected)
+    --port <n>                           Server port (default: 3000)
+    --no-browser                         Do not open the browser when ready
+  dashclaw down                          Stop the local DashClaw server (and Docker DB if we started it)
   dashclaw approvals                     Interactive approval inbox
   dashclaw approve <actionId> [--reason]  Approve an action
   dashclaw deny <actionId> [--reason]     Deny an action
@@ -553,6 +561,26 @@ async function cmdInstall() {
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
                     'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>]');
       process.exitCode = 1;
+  }
+}
+
+// -- up / down (one-command local install) -----------------------------------
+
+async function cmdUp() {
+  try {
+    await upCommand(args.slice(1));
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exitCode = 1;
+  }
+}
+
+async function cmdDown() {
+  try {
+    await runDown({});
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exitCode = 1;
   }
 }
 
@@ -1308,6 +1336,8 @@ const COMMAND_HANDLERS = {
   doctor: cmdDoctor,
   logout: cmdLogout,
   code: cmdCode,
+  up: cmdUp,
+  down: cmdDown,
   install: cmdInstall,
   codex: cmdCodex,
   prompts: cmdPrompts,
