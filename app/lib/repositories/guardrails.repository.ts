@@ -256,6 +256,7 @@ export async function getRecentApprovalCountsByPolicy(
   );
   const out: Record<string, number> = {};
   for (const r of rows as Array<{ policy_id: string; cnt: number }>) {
+    if (typeof r.policy_id !== 'string') continue;
     out[r.policy_id] = Number(r.cnt) || 0;
   }
   return out;
