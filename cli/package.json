@@ -25,7 +25,8 @@
     "test": "node --test test/**/*.test.js"
   },
   "dependencies": {
-    "dashclaw": "^2.2.1"
+    "dashclaw": "^2.2.1",
+    "tar": "^7.4.0"
   },
   "license": "MIT",
   "publishConfig": {
