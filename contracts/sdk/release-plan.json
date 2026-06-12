@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.18.0",
+    "current_version": "4.19.0",
     "next_bump": "none",
-    "reason": "4.18.0 is a platform/docs-only minor (governance-posture close-out: adversarially verified re-baseline audit confirming plan Tasks 8-19 shipped; SUPERSEDED banners on the stale plan/PROGRESS docs; stale SDK-count fix in skill knowledge; .playwright-mcp gitignore) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.19.0 is a platform-only minor (polish run Phases 4-6: mission-control signal-occurrence grouping w/ dismiss_keys+occurrence_count on the operations feed; /policies interruption-contract collapsed rollup w/ ContractGrant.created_at; work-orders select token fix; 88-page UI sweep fixes; 7-dimension backend sweep incl. after()-deferred meter/index work and scoring-profile clamps) - no Node/Python SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.18.0",
+    "current_version": "4.19.0",
     "next_bump": "none",
-    "reason": "4.18.0 is a platform/docs-only minor (governance-posture close-out: adversarially verified re-baseline audit confirming plan Tasks 8-19 shipped; SUPERSEDED banners on the stale plan/PROGRESS docs; stale SDK-count fix in skill knowledge; .playwright-mcp gitignore) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.19.0 is a platform-only minor (polish run Phases 4-6: mission-control signal-occurrence grouping w/ dismiss_keys+occurrence_count on the operations feed; /policies interruption-contract collapsed rollup w/ ContractGrant.created_at; work-orders select token fix; 88-page UI sweep fixes; 7-dimension backend sweep incl. after()-deferred meter/index work and scoring-profile clamps) - no Node/Python SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]

@@ -39,9 +39,9 @@
 
 Verified in three layers, all with passing tests: API (`api-posture-resolve.test.ts` — draft is `active: 0`, state `drafted`), UI (`posture-page.test.tsx:108-126` — on-page score unchanged after Create draft), and engine (replay map built exclusively from `WHERE active = 1` policies, so a draft cannot change coverage). Drafting a policy never raises the score.
 
-## Disposition ledger (updated per run phase)
+## Disposition ledger (final — 2026-06-12 run complete)
 
 | Task | Final state |
 |------|-------------|
-| 8–19 | DONE (shipped pre-run; functionally verified 2026-06-12, commits in 4.x history) |
-| 20 | DESCOPED→ABSORBED into Phase 3 ship of the 2026-06-12 run (publish tail owner-owed) |
+| 8–19 | DONE — shipped in the v4.3.0 posture release (merged to main at `3ca3443b`, 2026-06-06) and extended through 4.x; functionally re-verified 2026-06-12 by adversarial audit (table above), re-baseline committed at `5bf7f913` |
+| 20 | DESCOPED→ABSORBED — version bump + sync re-ran at the v4.18.0 release (`1fd51331`, version:sync:check green); the `npm run release:sdks` publish tail stays owner-owed (credential-gated; SDKs republish only on SDK source change per the conditional-publish policy) |

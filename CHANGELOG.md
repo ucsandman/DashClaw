@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.19.0] — 2026-06-12
+
+Full-app polish run (Phases 4–6 of the 2026-06-12 close-out): three user-reported UI defects root-caused and fixed, an 88-page UI sweep, and a 7-dimension backend sweep — every fix adversarially verified before landing.
+
+### Added
+- Mission Control: repeated occurrences of one signal now collapse into a single governed-events row with a ×N occurrence chip; the X dismisses every occurrence (feed items carry `dismiss_keys` + `occurrence_count`). Fixes the "dismiss does nothing" defect (45 identical rows shared one feed id).
+- /policies: the interruption contract's learned suppress-rules collapse to a one-line rollup ("N suppressed patterns · M added this week"), expanding to action-type groups with deduped shapes, basename-first paths, bounded scroll, per-rule remove and clear-group (existing DELETE endpoints), and a persisted open state. `ContractGrant` now carries `created_at`.
+
+### Fixed
+- Work Orders: the status filter rendered as an empty white box (`bg-surface` is not a theme class — the native select kept the browser's white background under inherited white text). Now tokenized like every other input.
+- UI sweep (15 files): raw-palette classes replaced with theme tokens; `window.alert`/`window.confirm` replaced with inline toasts and two-step confirmations (decisions, workflow runs, workflows bulk delete); bare catch blocks now log with context.
+- Backend sweep: silent `.catch(() => {})` on learning rebuilds, presence heartbeats, x402 compensation deletes, and hosted orphan cleanup now log; the un-awaited meter/index work on `POST /api/actions` runs in `after()` (Vercel killed it at response end); `GET /api/scoring/profiles` clamps `limit`/`offset`; broadcast read updates batched; billing-portal SQL moved into the orgsTeam repository (route-sql 79→78). Security review of the sweep diff: PASS.
+
 ## [4.18.0] — 2026-06-12
 
 Governance-posture close-out (Mission A of the 2026-06-12 run).
