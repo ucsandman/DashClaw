@@ -29,6 +29,10 @@ export const TOOL_DEFINITIONS = [
                 agent_id: { type: 'string', description: 'Override default agent ID' },
                 systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected (e.g., production, database, email)' },
                 reversible: { type: 'boolean', description: 'Whether the action can be undone' },
+                target: { type: 'string', description: 'Primary file path, URL, or resource the action touches (lets protected-path policies match)' },
+                write_paths: { type: 'array', items: { type: 'string' }, description: 'File paths the action will write or modify (protected-path policy matching)' },
+                content: { type: 'string', description: 'Outbound content excerpt (file content, message body) so secret-scan and content policies can evaluate it' },
+                tool_name: { type: 'string', description: 'Name of the tool that will perform the action (e.g., Write, Bash, send_email)' },
             },
             required: ['action_type', 'declared_goal', 'risk_score'],
         },
@@ -495,6 +499,34 @@ export const TOOL_DEFINITIONS = [
         },
     },
 ];
+// ── Guard availability mapping (fail closed) ──
+// Mirrors the discipline of src/actions.ts guardWithDashclaw ("DashClaw
+// unavailable; refusing risky action"): a transport error must never read as
+// permission. DASHCLAW_GUARD_UNAVAILABLE_POLICY matches the Python hook's env
+// name and default (block); `allow` is the documented self-hoster escape hatch.
+function guardUnavailablePolicy() {
+    const v = (process.env.DASHCLAW_GUARD_UNAVAILABLE_POLICY || 'block').toLowerCase();
+    return v === 'allow' ? 'allow' : 'block';
+}
+// DashClawClient maps fetch failures to { error, _status: 0 } and non-2xx to
+// { ...body, _status }; a successful response never carries _status.
+function transportFailed(result) {
+    return !result || typeof result !== 'object' || result._status != null;
+}
+// Guard responses must carry a decision string; anything else (transport
+// error, non-2xx, malformed 200) is treated as guard-unavailable.
+function guardUnavailable(result) {
+    return transportFailed(result) || typeof result.decision !== 'string';
+}
+function transportDetail(result) {
+    if (!result || typeof result !== 'object')
+        return 'no response';
+    if (result.error)
+        return String(result.error);
+    if (result._status != null && result._status !== 0)
+        return `HTTP ${result._status}`;
+    return 'no decision in response';
+}
 /**
  * Create tool handler functions bound to a DashClawClient instance.
  * Each handler accepts input args and returns a JSON string (MCP text content).
@@ -524,6 +556,12 @@ export function createToolHandlers(client) {
             const result = await client.post(`/api/code-sessions/sessions/${encodeURIComponent(input.session_id)}/optimal-files/manifest`, { selections: input.selections || [] }, { timeout: 20000 });
             return JSON.stringify(result);
         },
+        // Record semantics: deliberately NOT ?record=true (the hook's single-call
+        // path). The hook records a "running" action at pretool and patches it at
+        // posttool; MCP's dashclaw_record is a separate tool carrying outcome data
+        // at completion time. Adopting record=true here would double-record every
+        // guarded action (guard insert + record insert) or force dashclaw_record
+        // into update semantics, breaking its documented contract.
         async dashclaw_guard(input) {
             const result = await client.post('/api/guard', {
                 action_type: input.action_type,
@@ -532,7 +570,31 @@ export function createToolHandlers(client) {
                 agent_id: agentId(input),
                 systems_touched: input.systems_touched,
                 reversible: input.reversible,
+                // Context enrichment toward hook parity: the guard input schema accepts
+                // target / write_paths / content / tool, so protected-path, secret-scan,
+                // and content policies can fire on MCP-originated calls too. Only fields
+                // the tool input can honestly supply are forwarded — the hook-side
+                // enrichment (category classification, autoscan, subagent provenance,
+                // intel) has no MCP equivalent and is intentionally absent.
+                ...(typeof input.target === 'string' && input.target ? { target: input.target } : {}),
+                ...(Array.isArray(input.write_paths) && input.write_paths.length > 0 ? { write_paths: input.write_paths.slice(0, 100) } : {}),
+                ...(typeof input.content === 'string' && input.content ? { content: input.content.slice(0, 20000) } : {}),
+                ...(typeof input.tool_name === 'string' && input.tool_name ? { tool: { name: input.tool_name } } : {}),
             }, { timeout: 10000 });
+            if (guardUnavailable(result)) {
+                const policy = guardUnavailablePolicy();
+                const detail = transportDetail(result);
+                return JSON.stringify({
+                    decision: policy === 'allow' ? 'allow' : 'block',
+                    degraded: true,
+                    reason: policy === 'allow'
+                        ? `DashClaw guard unreachable; failing open (DASHCLAW_GUARD_UNAVAILABLE_POLICY=allow) — ${detail}`
+                        : `DashClaw guard unreachable; refusing risky action (fail closed) — ${detail}`,
+                    guidance: policy === 'allow'
+                        ? 'Guard policies were NOT evaluated for this action.'
+                        : 'Do NOT proceed with the action. Check DASHCLAW_URL / DASHCLAW_API_KEY, then retry dashclaw_guard.',
+                });
+            }
             return JSON.stringify(result);
         },
         async dashclaw_record(input) {
@@ -555,6 +617,15 @@ export function createToolHandlers(client) {
                 ...(sessionId ? { session_id: sessionId } : {}),
             };
             const result = await client.post('/api/actions', body, { timeout: 10000 });
+            // Fail loud (same mapping as dashclaw_guard): a swallowed transport error
+            // here would silently drop the action from the audit ledger.
+            if (transportFailed(result)) {
+                return JSON.stringify({
+                    recorded: false,
+                    error: `DashClaw record failed — the action was NOT written to the audit ledger: ${transportDetail(result)}`,
+                    guidance: 'Retry dashclaw_record; if the instance stays unreachable, surface this to the user instead of continuing silently.',
+                });
+            }
             return JSON.stringify(result);
         },
         async dashclaw_invoke(input) {
