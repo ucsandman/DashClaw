@@ -13,7 +13,6 @@ vi.mock('next/server', () => ({ after: (fn) => { afterCalls.push(fn); } }));
 vi.mock('../../app/lib/approval-flood', () => ({
   evaluateApprovalFlood: mockEval,
   notifyNewFloods: mockNotify,
-  getInterruptBudget: vi.fn(async () => ({ perPolicy: 10, windowMin: 15, fleetWide: 30 })),
   matchedPolicyIds: (gd) => (Array.isArray(gd?.matched_policies) ? gd.matched_policies : []),
 }));
 vi.mock('../../app/lib/telegramApprovals', () => ({ fireTelegramApproval: mockTelegram }));
@@ -36,6 +35,22 @@ describe('fireApprovalSurfaces flood gating', () => {
     expect(mockTelegram).toHaveBeenCalled();
     expect(mockDiscord).toHaveBeenCalled();
     expect(mockWebhooks).toHaveBeenCalled();
+  });
+
+  it('suppresses prompts (not webhooks) on a fleet-wide flood even when the policy did not individually trip', async () => {
+    mockEval.mockResolvedValue({ state: {}, suppressed: new Set(), newlyTripped: [], fleetTripped: true, windowMin: 15 });
+    fireApprovalSurfaces(action, {}, 'org1', { matched_policies: ['gp_x'] });
+    await drainAfter();
+    expect(mockTelegram).not.toHaveBeenCalled();
+    expect(mockDiscord).not.toHaveBeenCalled();
+    expect(mockWebhooks).toHaveBeenCalled();
+  });
+
+  it('passes the evaluated window to the flood notification', async () => {
+    mockEval.mockResolvedValue({ state: {}, suppressed: new Set(['gp_a']), newlyTripped: [{ policy_id: 'gp_a', count: 47 }], fleetTripped: false, windowMin: 7 });
+    fireApprovalSurfaces(action, {}, 'org1', { matched_policies: ['gp_a'] });
+    await drainAfter();
+    expect(mockNotify).toHaveBeenCalledWith({}, 'org1', [{ policy_id: 'gp_a', count: 47 }], 7);
   });
 
   it('suppresses prompts (not webhooks) when a matched policy is tripped', async () => {

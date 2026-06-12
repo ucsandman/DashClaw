@@ -19,6 +19,8 @@ export interface FloodEvaluation {
   suppressed: Set<string>;
   newlyTripped: Array<{ policy_id: string; count: number }>;
   fleetTripped: boolean;
+  /** the evaluated window, so callers don't re-read settings for labels */
+  windowMin: number;
 }
 
 const DEFAULTS: FloodBudget = { perPolicy: 10, windowMin: 15, fleetWide: 30 };
@@ -58,7 +60,7 @@ export async function getFloodState(sql: SqlTag, orgId: string): Promise<FloodSt
  * behavior, never silence).
  */
 export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise<FloodEvaluation> {
-  const empty: FloodEvaluation = { state: {}, suppressed: new Set(), newlyTripped: [], fleetTripped: false };
+  const empty: FloodEvaluation = { state: {}, suppressed: new Set(), newlyTripped: [], fleetTripped: false, windowMin: DEFAULTS.windowMin };
   try {
     const budget = await getInterruptBudget(sql, orgId);
     const counts = await getRecentApprovalCountsByPolicy(sql as never, orgId, budget.windowMin);
@@ -113,7 +115,7 @@ export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise
       }
     }
 
-    return { state, suppressed: new Set(Object.keys(state)), newlyTripped, fleetTripped: !!state[FLEET_KEY] };
+    return { state, suppressed: new Set(Object.keys(state)), newlyTripped, fleetTripped: !!state[FLEET_KEY], windowMin: budget.windowMin };
   } catch (err) {
     console.warn('[approval-flood] evaluation failed — failing open:', (err as Error)?.message);
     return empty;

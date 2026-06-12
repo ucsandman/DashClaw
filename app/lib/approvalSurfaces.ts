@@ -49,11 +49,10 @@ export function fireApprovalSurfaces(
   after(async () => {
     let suppress = false;
     try {
-      const { evaluateApprovalFlood, notifyNewFloods, matchedPolicyIds, getInterruptBudget } = await import('./approval-flood');
+      const { evaluateApprovalFlood, notifyNewFloods, matchedPolicyIds } = await import('./approval-flood');
       const flood = await evaluateApprovalFlood(sql, orgId);
       if (flood.newlyTripped.length) {
-        const budget = await getInterruptBudget(sql, orgId);
-        await notifyNewFloods(sql, orgId, flood.newlyTripped, budget.windowMin);
+        await notifyNewFloods(sql, orgId, flood.newlyTripped, flood.windowMin);
       }
       const matched = matchedPolicyIds(guardDecision);
       suppress = flood.fleetTripped || matched.some((id) => flood.suppressed.has(id));
