@@ -61,6 +61,8 @@ Capture that survives imperfect hooks (PostToolUse ~96% miss world): candidates 
 
 Push surfaces: daily fleet digest through the existing notification adapters; the SessionStart digest hook (shipped in 4.12.0) was step one. Not specced here.
 
+**Status: SHIPPED 2026-06-12** — interruption budget + flood guard + bulk resolution + fleet digest + 2 new signals (see docs/superpowers/specs/2026-06-11-w3-push-value-surfaces-design.md).
+
 ### W4 — kill the setup tax (own cycle)
 
 `dashclaw doctor --fix` one-command self-repair across projects/machines. Not specced here.
