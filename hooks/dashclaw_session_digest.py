@@ -155,8 +155,10 @@ def main():
             suffix = f" (oldest {int(age)}m)" if isinstance(age, (int, float)) else ""
             lines.append(f"{pa} approval(s) pending{suffix} - review at {BASE_URL}/approvals")
         for f in (lite.get("floods") or [])[:2]:
-            name = f.get("name") or f.get("policy_id") or "policy"
-            lines.append(f"WARNING approval flood active: {name} ({f.get('count')} in window)")
+            # _short(): API-sourced names reach session context — strip newlines, cap length
+            name = _short(f.get("name") or f.get("policy_id") or "policy", 40)
+            count = int(f.get("count")) if isinstance(f.get("count"), (int, float)) else 0
+            lines.append(f"WARNING approval flood active: {name} ({count} in window)")
     except Exception:
         pass
 
