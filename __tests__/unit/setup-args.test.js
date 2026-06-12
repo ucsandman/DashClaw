@@ -12,4 +12,17 @@ describe('parseSetupArgs', () => {
   it('rejects a non-postgres database-url', () => {
     expect(() => parseSetupArgs(['--database-url', 'mysql://x'])).toThrow(/postgresql:\/\//);
   });
+  it('throws when --database-url has no value (end of args)', () => {
+    expect(() => parseSetupArgs(['--database-url'])).toThrow(/requires a value/);
+  });
+  it('throws when --database-url is given an empty string', () => {
+    expect(() => parseSetupArgs(['--database-url', ''])).toThrow(/requires a value/);
+  });
+  it('is flag-order independent (--json before --yes)', () => {
+    expect(parseSetupArgs(['--json', '--yes']))
+      .toEqual({ yes: true, databaseUrl: null, json: true });
+  });
+  it('returns databaseUrl: null when only --yes --json passed', () => {
+    expect(parseSetupArgs(['--yes', '--json'])).toMatchObject({ databaseUrl: null });
+  });
 });

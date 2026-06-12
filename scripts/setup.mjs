@@ -60,6 +60,12 @@ function askSecret(question) {
   });
 }
 
+// New prompts MUST use askOr so they are non-interactive-safe when --yes is set.
+function askOr(question, fallback) {
+  if (cliArgs.yes) return Promise.resolve(fallback);
+  return ask(question);
+}
+
 function log(msg) {
   if (cliArgs.json) {
     process.stderr.write(`${msg}\n`);
@@ -91,7 +97,10 @@ function fail(msg) {
 
 function run(cmd, args, opts = {}) {
   try {
-    execFileSync(cmd, args, { stdio: 'inherit', shell: true, ...opts });
+    // In --json mode route child stdout to our stderr so that stdout remains
+    // exactly one JSON line (the final result object).
+    const childStdio = cliArgs.json ? ['inherit', process.stderr, 'inherit'] : 'inherit';
+    execFileSync(cmd, args, { stdio: childStdio, shell: true, ...opts });
     return true;
   } catch {
     return false;
@@ -313,7 +322,7 @@ async function maybeConfigureLocalAdminPassword(env) {
   log('  For solo/local use, the easiest path is a local admin password.');
   if (cliArgs.yes) {
     env.DASHCLAW_LOCAL_ADMIN_PASSWORD = b64url(18);
-    log(`  ✓ Local admin password: ${env.DASHCLAW_LOCAL_ADMIN_PASSWORD} (printed ONCE — written only to .env.local)`);
+    ok(`Local admin password: ${env.DASHCLAW_LOCAL_ADMIN_PASSWORD} (printed ONCE — written only to .env.local)`);
     return;
   }
 
@@ -360,7 +369,7 @@ async function configureDatabase(env) {
   } else if (env.DATABASE_URL) {
     const masked = env.DATABASE_URL.replace(/\/\/[^@]+@/, '//***@').replace(/\?.*/, '');
     ok(`DATABASE_URL already set (${masked})`);
-    const change = cliArgs.yes ? 'n' : await ask('  Change it? [y/N]: ');
+    const change = await askOr('  Change it? [y/N]: ', 'n');
     if (change.toLowerCase() === 'y') delete env.DATABASE_URL;
   }
 
@@ -634,10 +643,19 @@ async function main() {
   printSetupReport({ env, deployUrl, dockerInstalled, buildOk, ...migrationState });
   if (cliArgs.json) {
     console.log(JSON.stringify({
+      ok: true,
       apiKey: env.DASHCLAW_API_KEY,
       adminPassword: env.DASHCLAW_LOCAL_ADMIN_PASSWORD ?? null,
     }));
   }
 }
 
-main();
+main().catch((err) => {
+  if (cliArgs.json) {
+    // Guarantee exactly one JSON line on stdout even on failure.
+    console.log(JSON.stringify({ ok: false, error: err.message }));
+  } else {
+    process.stderr.write(`  [fail] ${err.message}\n`);
+  }
+  process.exit(1);
+});

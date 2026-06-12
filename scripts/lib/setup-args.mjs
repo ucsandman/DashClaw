@@ -7,7 +7,10 @@ export function parseSetupArgs(argv) {
     else if (a === '--json') out.json = true;
     else if (a === '--database-url') {
       const v = argv[++i];
-      if (!v || !v.startsWith('postgresql://')) {
+      if (v === undefined || v === '') {
+        throw new Error('--database-url requires a value');
+      }
+      if (!v.startsWith('postgresql://')) {
         throw new Error('--database-url must be a postgresql:// connection string');
       }
       out.databaseUrl = v;
