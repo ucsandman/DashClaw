@@ -25,10 +25,16 @@ export async function fetchReview(): Promise<ReviewPayload> {
   return res.json();
 }
 
+export interface VerdictResult {
+  ok?: boolean;
+  /** Present for policy-creating verdicts (always_allow, tighten); enables undo. */
+  policy?: { id?: string };
+}
+
 export async function postVerdict(
   verdict: ReviewVerdict,
   shape?: { action_type: string; target_prefix: string | null },
-): Promise<void> {
+): Promise<VerdictResult> {
   const res = await fetch('/api/policies/review/verdict', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -38,6 +44,7 @@ export async function postVerdict(
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error || `Verdict failed (${res.status})`);
   }
+  return res.json().catch(() => ({}));
 }
 
 /** Update a single editable threshold on a policy (spend approve/block). */

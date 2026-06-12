@@ -22,6 +22,8 @@ export default function PolicyCockpit() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  // Bumped when the review feed creates/removes a policy, so the contract refetches.
+  const [contractRefresh, setContractRefresh] = useState(0);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -91,8 +93,8 @@ export default function PolicyCockpit() {
 
   return (
     <div className="max-w-3xl space-y-8">
-      <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} shields={summary.shields} />
-      <ReviewFeed />
+      <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} shields={summary.shields} refreshSignal={contractRefresh} />
+      <ReviewFeed onPolicyChange={() => { setContractRefresh((n) => n + 1); load(); }} />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
     </div>
   );

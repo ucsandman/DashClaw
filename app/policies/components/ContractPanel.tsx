@@ -29,6 +29,8 @@ interface ContractPanelProps {
    * When omitted every shield renders as inactive (safe default).
    */
   shields?: PolicySummaryShield[];
+  /** Bump to force a contract refetch (e.g. after a review-feed verdict creates a rule). */
+  refreshSignal?: number;
 }
 
 function SentenceRow({
@@ -124,7 +126,7 @@ function GrantRow({ grant, onRemove }: { grant: ContractGrant; onRemove: (id: st
  * Editable thresholds use inline selects; grants have a remove button.
  * Shield toggles live in a collapsed "Add protection" disclosure.
  */
-export default function ContractPanel({ onChangeMode, onContractChanged, highlight, shields: shieldsProp = [] }: ContractPanelProps) {
+export default function ContractPanel({ onChangeMode, onContractChanged, highlight, shields: shieldsProp = [], refreshSignal = 0 }: ContractPanelProps) {
   const [contract, setContract] = useState<ContractView | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -146,7 +148,7 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
 
   useEffect(() => {
     load();
-  }, [load]);
+  }, [load, refreshSignal]);
 
   const handleRefetch = useCallback(async () => {
     await load();
@@ -233,7 +235,8 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
         <button
           type="button"
           onClick={onChangeMode}
-          className="text-xs text-tertiary transition-colors hover:text-secondary motion-reduce:transition-none"
+          aria-label="Change mode"
+          className="rounded-md border border-border bg-surface-secondary px-2.5 py-1 text-xs font-medium text-secondary transition-colors hover:border-border-hover hover:text-primary motion-reduce:transition-none"
         >
           mode: {contract.mode_id ?? 'custom'} &#9660;
         </button>
