@@ -20,6 +20,7 @@ import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
 import { EntityLink } from '../components/context-menu/EntityLink';
+import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -166,6 +167,7 @@ export default function ApprovalsPage() {
       }
     >
       <div className="mx-auto max-w-5xl">
+        <ApprovalFloodBanner onResolved={() => fetchPending({ silent: true })} />
         {isDemo && (
           <Banner icon={Info} tone="neutral" title="Demo Mode">
             Approvals are read-only in the demo. Self-host to approve or deny actions for real agents.

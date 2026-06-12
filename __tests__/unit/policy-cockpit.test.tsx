@@ -18,6 +18,7 @@ vi.mock('@/policies/components/ReviewFeed', () => ({ default: () => <div data-te
 vi.mock('@/policies/components/ModeDrawer', () => ({
   default: ({ open }: { open: boolean }) => <div data-testid="mode-drawer" data-open={String(open)} />,
 }));
+vi.mock('@/components/ApprovalFloodBanner', () => ({ default: () => <div data-testid="flood-banner" /> }));
 
 import PolicyCockpit from '@/policies/components/PolicyCockpit';
 

@@ -49,6 +49,7 @@ const agentFilterState = vi.hoisted(() => ({ agentId: null }));
 vi.mock('@/lib/AgentFilterContext', () => ({
   useAgentFilter: () => ({ agentId: agentFilterState.agentId }),
 }));
+vi.mock('@/components/ApprovalFloodBanner', () => ({ default: () => null }));
 
 const READ_ONLY_TEXT = /Only administrators can approve or deny actions/i;
 

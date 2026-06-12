@@ -8,6 +8,7 @@ import { fetchSummary, type PolicySummary } from '../lib/modesClient';
 import ContractPanel from './ContractPanel';
 import ReviewFeed from './ReviewFeed';
 import ModeDrawer from './ModeDrawer';
+import ApprovalFloodBanner from '../../components/ApprovalFloodBanner';
 
 /**
  * The /policies "posture cockpit": a read-first view of what is governing the
@@ -93,6 +94,7 @@ export default function PolicyCockpit() {
 
   return (
     <div className="max-w-3xl space-y-8">
+      <ApprovalFloodBanner onResolved={load} />
       <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} shields={summary.shields} refreshSignal={contractRefresh} />
       <ReviewFeed onPolicyChange={() => { setContractRefresh((n) => n + 1); load(); }} />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
