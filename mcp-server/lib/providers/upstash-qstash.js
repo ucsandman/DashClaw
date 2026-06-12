@@ -1,10 +1,11 @@
+import { stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 const DEFAULT_QSTASH_URL = "https://qstash.upstash.io";
 const DEFAULT_QSTASH_TOKEN_ENV_VAR = "QSTASH_TOKEN";
 const DEFAULT_QSTASH_CURRENT_SIGNING_KEY_ENV_VAR = "QSTASH_CURRENT_SIGNING_KEY";
 const DEFAULT_QSTASH_NEXT_SIGNING_KEY_ENV_VAR = "QSTASH_NEXT_SIGNING_KEY";
 function cleanUrl(value) {
-    return (value ?? DEFAULT_QSTASH_URL).trim().replace(/\/+$/, "") || DEFAULT_QSTASH_URL;
+    return stripTrailingSlashes((value ?? DEFAULT_QSTASH_URL).trim()) || DEFAULT_QSTASH_URL;
 }
 function headers(token, extra = {}) {
     const result = { Authorization: `Bearer ${token}` };

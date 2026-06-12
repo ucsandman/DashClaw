@@ -6,6 +6,7 @@ export interface HttpOptions {
     query?: Record<string, string | undefined>;
     timeoutMs?: number;
 }
+export declare function redactSecrets(text: string): string;
 /**
  * Minimal JSON HTTP client built on global fetch (Node 18+). Centralizes error
  * handling so adapters surface clean, agent-readable messages. Never logs

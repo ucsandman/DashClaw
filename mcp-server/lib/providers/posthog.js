@@ -1,3 +1,4 @@
+import { stripTrailingSlashes } from "../util.js";
 import { httpJson } from "./http.js";
 const DEFAULT_API_HOST = "https://us.posthog.com";
 const DEFAULT_INGEST_HOST = "https://us.i.posthog.com";
@@ -6,7 +7,7 @@ function enc(value) {
 }
 function cleanHost(value, fallback) {
     const host = (value ?? fallback).trim();
-    return (host || fallback).replace(/\/+$/, "");
+    return stripTrailingSlashes(host || fallback);
 }
 export function resolveHosts(apiHost, ingestHost) {
     const api = cleanHost(apiHost, DEFAULT_API_HOST);

@@ -68,11 +68,11 @@ function isReversible(ctx) {
 }
 export function sanitizeDashclawText(value) {
     return value
-        .replace(/\b(?:[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN|DATABASE_URL)[A-Z0-9_]*)\s*=\s*[^\s,;}]+/gi, "[redacted]")
+        .replace(/\b(?=[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN|DATABASE_URL))[A-Z0-9_]+\s*=\s*[^\s,;}]+/gi, "[redacted]")
         .replace(/\b(?:sk|pk)_(?:live|test)_[A-Za-z0-9_]+/g, "[redacted]")
         .replace(/\bwhsec_[A-Za-z0-9]+/g, "[redacted]")
         .replace(/\b(?:postgres|postgresql|mysql|mongodb|redis):\/\/[^\s,;}]+/gi, "[redacted]")
-        .replace(/\b[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN|DATABASE_URL)[A-Z0-9_]*\b/gi, "[redacted]");
+        .replace(/\b(?=[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN|DATABASE_URL))[A-Z0-9_]+\b/gi, "[redacted]");
 }
 function safeOptionalString(value) {
     return value === undefined ? undefined : sanitizeDashclawText(value);

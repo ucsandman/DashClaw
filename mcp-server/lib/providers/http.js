@@ -12,11 +12,11 @@ function withQuery(url, query) {
     const qs = params.toString();
     return qs ? `${url}${url.includes("?") ? "&" : "?"}${qs}` : url;
 }
-function redactSecrets(text) {
+export function redactSecrets(text) {
     return text
-        .replace(/([?&][^=&]*(?:token|secret|password|api_?key|access_token)[^=&]*=)[^&\s"]+/gi, "$1***REDACTED***")
-        .replace(/("([^"]*(?:token|secret|password|api_?key|access_token)[^"]*)"\s*:\s*")([^"]*)(")/gi, "$1***REDACTED***$4")
-        .replace(/\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN)[A-Z0-9_]*)\s*[=:]\s*("?)[^\s",}]+\2/gi, "$1=***REDACTED***");
+        .replace(/([?&](?=[^=&]*(?:token|secret|password|api_?key|access_token))[^=&]+=)[^&\s"]+/gi, "$1***REDACTED***")
+        .replace(/("(?=[^"]*(?:token|secret|password|api_?key|access_token))([^"]+)"\s*:\s*")([^"]*)(")/gi, "$1***REDACTED***$4")
+        .replace(/\b((?=[A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN))[A-Z0-9_]+)\s*[=:]\s*("?)[^\s",}]+\2/gi, "$1=***REDACTED***");
 }
 function readTimeoutMs(timeoutMs) {
     const raw = timeoutMs ?? process.env.DASHCLAW_HTTP_TIMEOUT_MS ?? DEFAULT_HTTP_TIMEOUT_MS;

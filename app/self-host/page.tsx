@@ -230,7 +230,7 @@ dashclaw doctor`}</pre>
                 features: [
                   'Real-time SSE event stream',
                   'Token usage and cost tracking',
-                  'Risk signal monitoring (16 signal types)',
+                  'Risk signal monitoring (18 signal types)',
                   'Behavioral drift detection with z-score alerts',
                 ],
               },
