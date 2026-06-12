@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "dashclaw": "^2.2.1",
+    "embedded-postgres": "18.4.0-beta.17",
     "tar": "^7.4.0"
   },
   "license": "MIT",
