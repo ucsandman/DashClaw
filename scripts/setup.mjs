@@ -229,6 +229,11 @@ async function chooseDatabaseUrl(env) {
   }
 
   if (!env.DATABASE_URL) {
+    if (cliArgs.yes) {
+      throw new Error(
+        'Non-interactive mode (--yes) requires --database-url or an existing DATABASE_URL in .env.local.',
+      );
+    }
     while (!env.DATABASE_URL) {
       printDatabaseChoices(dockerInstalled);
       const choice = await ask('  Choose [1/2/3]: ');
