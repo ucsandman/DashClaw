@@ -1,5 +1,7 @@
 # Governance Posture Score — Progress & Handoff (2026-06-06)
 
+> ⚠️ **SUPERSEDED (2026-06-12).** This handoff describes a 2026-06-06 worktree state that has since been merged and extended on `main` (the `/posture` page, posture APIs, storage, and MCP tools shipped in later 4.x releases; the branch named below is gone). **Do not resume from this document.** Current per-task dispositions and the remaining backlog live at `docs/plans/2026-06-12-posture-score-rebaseline.md`.
+
 ## TL;DR
 
 **Phase 1 of the posture-score plan is COMPLETE and committed** (pure engine + signals I/O + `GET /api/posture`). The branch was rebased onto post-TypeScript-migration `main`. **Next step:** run the full-suite differential to confirm the gate, then start **Task 8** (Phase 2: migration + storage).

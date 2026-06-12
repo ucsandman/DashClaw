@@ -1,5 +1,7 @@
 # Governance Posture Score + Remediation Loop — Implementation Plan
 
+> ⚠️ **SUPERSEDED (2026-06-12).** This plan is stale relative to `main` @ v4.17.1 — much of Tasks 8–20 shipped in later 4.x releases. **Do not execute from this document.** The audited re-baseline (per-task dispositions + the only remaining executable backlog) lives at `docs/plans/2026-06-12-posture-score-rebaseline.md`. The spec (`docs/superpowers/specs/2026-06-05-governance-posture-score-design.md`) remains the design source of truth.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship a gaming-resistant org-wide governance posture score (0–100) with a prioritized, human-gated remediation loop, surfaced via `/posture` page + `/api/posture` + CLI + MCP.
