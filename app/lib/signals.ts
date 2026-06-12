@@ -24,6 +24,7 @@ interface Signal {
   assumption_id?: string | null;
   session_id?: string | null;
   provider?: string | null;
+  policy_id?: string | null;
   trigger?: string | null;
 }
 
@@ -31,7 +32,7 @@ interface Signal {
 type Row = Record<string, any>;
 
 /**
- * Compute all 16 risk signal types for an org.
+ * Compute all 18 risk signal types for an org.
  *
  * @param orgId
  * @param filterAgentId - optional agent filter
@@ -525,6 +526,41 @@ export async function computeSignals(
   } catch (e) {
     console.warn('[signals] green_insufficient category failed:', (e as Error)?.message || e);
   }
+
+  // ── W3: approval flood (red) — mirrors the interruption-budget state ──
+  try {
+    const { getFloodState, FLEET_KEY } = await import('./approval-flood');
+    const flood = await getFloodState(sql as never, orgId);
+    for (const [policyId, entry] of Object.entries(flood)) {
+      signals.push({
+        type: 'approval_flood',
+        severity: 'red',
+        label: policyId === FLEET_KEY
+          ? `Approval flood: fleet-wide (${entry.count} interrupts in window)`
+          : `Approval flood: policy ${policyId} (${entry.count} interrupts in window)`,
+        detail: 'A single source is generating bulk approval interruptions. Per-action pings are paused; pending approvals are intact.',
+        help: 'Review /approvals — pause the rule or bulk-resolve. A flood almost always means an over-broad require_approval rule.',
+        policy_id: policyId,
+        detected_at: entry.tripped_at,
+      });
+    }
+  } catch (e) { warnNull('approval_flood')(e); }
+
+  // ── W3: attribution coverage drop (amber) ──
+  try {
+    const { getCostAggregation } = await import('./repositories/actions.repository');
+    const cost = await getCostAggregation(sql as never, orgId, { period: '7d' });
+    const cov = cost.attribution;
+    if (cov && cov.total_count >= 50 && cov.coverage_pct !== null && cov.coverage_pct < 90) {
+      signals.push({
+        type: 'coverage_drop',
+        severity: 'amber',
+        label: `Token attribution coverage at ${cov.coverage_pct}%`,
+        detail: `${cov.attributed_count} of ${cov.total_count} actions in the last 7d carry token usage — cost reporting is undercounting.`,
+        help: 'Check that runtime plugins emit usage (see /spend). A disabled plugin or unsupported runtime drops attribution.',
+      });
+    }
+  } catch (e) { warnNull('coverage_drop')(e); }
 
   // Post-filter by agent_id if requested
   const filteredSignals = filterAgentId

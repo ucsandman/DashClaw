@@ -24,6 +24,7 @@ function hashSignal(signal: {
   assumption_id?: string | null;
   session_id?: string | null;
   provider?: string | null;
+  policy_id?: string | null;
 }): string {
   // Include every resource-id-like field that might uniquely distinguish
   // signals of the same type for the same agent. session_stalled carried
@@ -40,6 +41,7 @@ function hashSignal(signal: {
     signal.assumption_id || '',
     signal.session_id || '',
     signal.provider || '',
+    signal.policy_id || '',
   ].join(':');
   // SHA-256 (not MD5): this is a dedup fingerprint, but using a non-broken
   // digest keeps the codebase free of weak-crypto findings. Truncate to 32 hex
