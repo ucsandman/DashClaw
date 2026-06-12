@@ -53,9 +53,17 @@ function byId(checks, id) {
 beforeEach(() => vi.clearAllMocks());
 
 describe('detectRepoRoot', () => {
-  it('detects a DashClaw checkout by package.json name', () => {
-    const fs = makeFs({ files: { '/repo/package.json': JSON.stringify({ name: 'dashclaw' }) } });
+  it('detects the real checkout by its package.json name (dashclaw-platform)', () => {
+    const fs = makeFs({ files: { '/repo/package.json': JSON.stringify({ name: 'dashclaw-platform' }) } });
     expect(detectRepoRoot({ cwd: '/repo', fs })).toBe('/repo');
+  });
+
+  it('detects a renamed fork by structural markers (drizzle/ + mcp-server/)', () => {
+    const fs = makeFs({
+      files: { '/fork/package.json': JSON.stringify({ name: 'my-fork' }) },
+      dirs: { '/fork/drizzle': true, '/fork/mcp-server': true },
+    });
+    expect(detectRepoRoot({ cwd: '/fork', fs })).toBe('/fork');
   });
 
   it('returns null outside a DashClaw checkout', () => {
@@ -157,10 +165,11 @@ describe('local_schema_behind (repo)', () => {
   it('flags with run_db_migrate fix when the engine probe reports schema failures', async () => {
     const exec = vi.fn(async (cmd, args = []) => {
       const line = [cmd, ...args].join(' ');
-      if (line.includes('doctor.mjs')) {
+      if (line.includes('run doctor')) {
         return {
           code: 1,
-          stdout: JSON.stringify({
+          // npm prepends a script banner before the JSON output
+          stdout: '\n> dashclaw-platform@0.0.0 doctor\n\n' + JSON.stringify({
             status: 'unhealthy',
             checks: [{ id: 'db_schema', status: 'fail', message: 'Missing 2 core table(s)' }],
           }),
@@ -179,7 +188,7 @@ describe('local_schema_behind (repo)', () => {
   it('degrades to warn when the probe is unreadable', async () => {
     const exec = vi.fn(async (cmd, args = []) => {
       const line = [cmd, ...args].join(' ');
-      if (line.includes('doctor.mjs')) return { code: 1, stdout: 'not json', stderr: 'boom' };
+      if (line.includes('run doctor')) return { code: 1, stdout: 'not json', stderr: 'boom' };
       return { code: 0, stdout: '', stderr: '' };
     });
     const ctx = ctxDefaults({ repoRoot: '/repo', env: { DATABASE_URL: 'postgres://x' }, exec });

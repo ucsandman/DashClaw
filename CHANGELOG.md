@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.17.1] — 2026-06-12
+
+Polish-pass patch.
+
+### Fixed
+
+- **CLI doctor repo checks now actually run in a DashClaw checkout** — repo detection matched a stale package name (`dashclaw` vs the real `dashclaw-platform`; structural fallback added for renamed forks), and the schema-behind probe now goes through `npm run doctor` (which carries the tsx loader) with env passthrough, so it verifies the local DB for real instead of degrading to a warning.
+- **Bulk approval resolution emits one aggregate `action.updated` event** so live dashboards refresh after a flood resolution (no per-action publish storm).
+- Recovery suggestion/steps echoed by the hooks are length-bounded (defense-in-depth from the preship review).
+
 ## [4.17.0] — 2026-06-12
 
 Layered-intelligence close-out: the 2026-04-03 plan was audited against current main (it had already shipped in April — 15/17 tasks live); this release closes the two real gaps the audit found.

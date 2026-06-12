@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.17.0",
+    "current_version": "4.17.1",
     "next_bump": "none",
-    "reason": "4.17.0 is platform-only (layered-intelligence close-out: hooks now surface guard recovery guidance via _log_recovery; +31 tests from the gap audit \u2014 signals-intel, layered-intel pipeline, full e2e) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
+    "reason": "4.17.1 is a platform-only patch (polish pass: CLI repo detection matched the wrong package name so repo checks never ran in a real checkout; schema probe now uses npm run doctor w/ tsx loader + env passthrough; bulk approval resolution emits one aggregate action.updated event) \u2014 no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.17.0",
+    "current_version": "4.17.1",
     "next_bump": "none",
-    "reason": "4.17.0 is platform-only (layered-intelligence close-out: hooks now surface guard recovery guidance via _log_recovery; +31 tests from the gap audit \u2014 signals-intel, layered-intel pipeline, full e2e) \u2014 no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registries stay at 4.11.0.",
+    "reason": "4.17.1 is a platform-only patch (polish pass: CLI repo detection matched the wrong package name so repo checks never ran in a real checkout; schema probe now uses npm run doctor w/ tsx loader + env passthrough; bulk approval resolution emits one aggregate action.updated event) \u2014 no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]

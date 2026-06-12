@@ -10,6 +10,7 @@ import { logActivity } from '../../../lib/audit';
 import { listPendingApprovalIdsByActionTypes, recordBulkApprovals } from '../../../lib/repositories/actions.repository';
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
+import { EVENTS, publishOrgEvent } from '../../../lib/events';
 
 const MAX_BULK = 500;
 
@@ -87,6 +88,15 @@ export async function POST(request: Request) {
     });
     const resolved = resolvedIds.length;
     const failed = ids.length - resolved;
+
+    // One aggregate event (not N) so live dashboards refresh after a bulk
+    // resolution without a per-action publish storm.
+    if (resolved > 0) {
+      void publishOrgEvent(EVENTS.ACTION_UPDATED, {
+        orgId,
+        bulk: { decision, resolved, policy_id: policyId, action_ids: resolvedIds },
+      });
+    }
 
     after(async () => {
       for (const actionId of resolvedIds) {

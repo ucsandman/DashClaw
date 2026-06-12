@@ -23,7 +23,13 @@ function realExec(cmd, args = [], opts = {}) {
     execFile(
       command,
       commandArgs,
-      { timeout: opts.timeout ?? 30_000, shell: useShell, cwd: opts.cwd, windowsHide: true },
+      {
+        timeout: opts.timeout ?? 30_000,
+        shell: useShell,
+        cwd: opts.cwd,
+        windowsHide: true,
+        ...(opts.env ? { env: { ...process.env, ...opts.env } } : {}),
+      },
       (err, stdout, stderr) => {
         if (err && err.code === 'ENOENT') {
           resolvePromise({ code: -1, stdout: '', stderr: 'ENOENT', notFound: true });
@@ -84,11 +90,16 @@ export function buildContext(overrides = {}) {
   };
 }
 
-/** A directory is a DashClaw checkout iff its package.json is named "dashclaw". */
+/**
+ * A directory is a DashClaw checkout if its package.json carries the platform
+ * name, or (renamed forks) it has the structural markers drizzle/ + mcp-server/.
+ */
 export function detectRepoRoot({ cwd, fs = realFs }) {
   try {
     const pkg = JSON.parse(fs.readFileSync(join(cwd, 'package.json'), 'utf8'));
-    return pkg?.name === 'dashclaw' ? cwd : null;
+    if (pkg?.name === 'dashclaw-platform' || pkg?.name === 'dashclaw') return cwd;
+    if (fs.existsSync(join(cwd, 'drizzle')) && fs.existsSync(join(cwd, 'mcp-server'))) return cwd;
+    return null;
   } catch {
     return null;
   }
@@ -169,15 +180,18 @@ async function checkSchemaBehind(ctx) {
     );
   }
 
-  // Reuse the repo's own engine probe (scripts/doctor.mjs is report-only).
+  // Reuse the repo's own engine probe via the npm script (report-only) — the
+  // script carries the tsx loader the engine's extensionless .ts imports need.
   const probe = await ctx.exec(
-    process.execPath ?? 'node',
-    ['scripts/doctor.mjs', '--json', '--no-fix', '--category', 'database'],
-    { cwd: ctx.repoRoot, timeout: 30_000, env: { ...ctx.env, DATABASE_URL: dbUrl } },
+    'npm',
+    ['run', 'doctor', '--', '--json', '--no-fix', '--category', 'database'],
+    { cwd: ctx.repoRoot, shell: ctx.platform === 'win32', timeout: 60_000, env: { ...ctx.env, DATABASE_URL: dbUrl } },
   );
   let result = null;
   try {
-    result = JSON.parse(probe.stdout);
+    // npm prepends a script banner before the JSON — parse from the first brace.
+    const stdout = probe.stdout || '';
+    result = JSON.parse(stdout.slice(stdout.indexOf('{')));
   } catch {
     return check(
       'local_schema_behind',
