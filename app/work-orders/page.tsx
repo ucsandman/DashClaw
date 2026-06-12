@@ -131,7 +131,7 @@ export default function WorkOrdersPage() {
               <CardHeader
                 title="Ledger"
                 action={
-                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-surface px-2 py-1 text-xs">
+                  <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="rounded-lg border border-border bg-surface-tertiary px-2 py-1 text-xs text-primary focus:border-brand/50 focus:outline-none">
                     <option value="">All statuses</option>
                     {['queued', 'claimed', 'pending_approval', 'completed', 'failed', 'timed_out', 'cancelled', 'blocked'].map((s) => <option key={s} value={s}>{s}</option>)}
                   </select>

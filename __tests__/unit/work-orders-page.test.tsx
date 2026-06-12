@@ -55,6 +55,20 @@ describe('WorkOrdersPage', () => {
     expect(screen.getAllByText('completed').length).toBeGreaterThan(0);
   });
 
+  it('status filter select uses real surface tokens (regression: bare bg-surface is not a theme class → browser-default white box)', async () => {
+    const { container } = render(<WorkOrdersPage />);
+    await waitFor(() => expect(screen.getByText('wo_1')).toBeTruthy());
+    const select = container.querySelector('select');
+    expect(select).toBeTruthy();
+    const cls = select!.className;
+    // bg-surface (no suffix) does not exist in tailwind.config.js — it compiles to
+    // nothing and the native select keeps the browser's white background while
+    // inheriting white text: an "empty white box".
+    expect(/\bbg-surface\b(?!-)/.test(cls)).toBe(false);
+    expect(cls).toContain('bg-surface-tertiary');
+    expect(cls).toContain('text-primary');
+  });
+
   it('switches to the Contracts tab and lists registered types', async () => {
     render(<WorkOrdersPage />);
     await waitFor(() => expect(screen.getByText('wo_1')).toBeTruthy());
