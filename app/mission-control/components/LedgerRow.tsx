@@ -51,6 +51,14 @@ export function LedgerRow({ item, onApprove, onDeny, onRetry, onDisable, onCance
       <div className="min-w-0 flex-1">
         <div className="mb-1 flex items-center gap-2">
           <span className={`rounded border px-1.5 py-0.5 text-[10px] font-medium ${pill.cls}`}>{pill.label}</span>
+          {(item.occurrence_count ?? 1) > 1 && (
+            <span
+              className="rounded border border-border bg-white/5 px-1.5 py-0.5 text-[10px] font-medium tabular-nums text-tertiary"
+              title={`${item.occurrence_count} occurrences collapsed — dismissing clears all of them`}
+            >
+              ×{item.occurrence_count}
+            </span>
+          )}
           <span className="text-[10px] font-medium uppercase tracking-wide text-tertiary">{sev.word}</span>
           {item.agent_id && <span className="max-w-[140px] truncate text-[11px] text-tertiary">{item.agent_id}</span>}
           <span className="ml-auto shrink-0 text-[11px] tabular-nums text-tertiary">{formatRelativeTime(item.timestamp)}</span>

@@ -10,7 +10,7 @@ import QuickStart from '../components/QuickStart';
 import { isDemoMode } from '../lib/isDemoMode';
 import { computePosture } from '../components/SystemStatusBar';
 import { useMissionData } from './lib/useMissionData';
-import { buildInterventionList } from './lib/missionHelpers';
+import { buildInterventionList, isSignalDismissed } from './lib/missionHelpers';
 import { signalDismissKey as getSignalHashShared } from '../lib/signal-hash';
 import { CommandStrip } from './components/CommandStrip';
 import { PostureScorecard } from './components/PostureScorecard';
@@ -131,7 +131,7 @@ export default function MissionControlPage() {
   // can't show CRITICAL rows while the header reads "All clear". Each feed signal item carries
   // a `dismiss_key` (operations-feed mapSignals) matching the dismissedSet keys.
   const visibleFeedItems = useMemo(
-    () => feedItems.filter((i: any) => !(i.category === 'signal' && i.dismiss_key && dismissedSet.has(i.dismiss_key))),
+    () => feedItems.filter((i: any) => !isSignalDismissed(i, dismissedSet)),
     [feedItems, dismissedSet],
   );
 

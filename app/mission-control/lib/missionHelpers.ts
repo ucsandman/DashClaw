@@ -87,3 +87,17 @@ export function buildInterventionList(pendingActions: any[], openLoops: any[]): 
 export function categoryCount(feedItems: any[], agentId: any, predicate: (i: any) => boolean): number {
   return feedItems.filter((i) => matchesAgent(i, agentId) && predicate(i)).length;
 }
+
+/**
+ * Whether a feed signal item is fully dismissed. Collapsed items carry every
+ * occurrence key in `dismiss_keys`; the row hides only when ALL occurrences are
+ * dismissed, so a new occurrence (new key) re-fires the row by design.
+ */
+export function isSignalDismissed(item: any, dismissedSet: Set<unknown>): boolean {
+  if (item?.category !== 'signal') return false;
+  const keys: unknown[] = Array.isArray(item.dismiss_keys) && item.dismiss_keys.length
+    ? item.dismiss_keys
+    : item.dismiss_key ? [item.dismiss_key] : [];
+  if (!keys.length) return false;
+  return keys.every((k) => dismissedSet.has(k));
+}

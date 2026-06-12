@@ -110,6 +110,43 @@ describe('mapSignals', () => {
     expect(items[0].timestamp).toBe('2026-04-08T14:00:00Z');
   });
 
+  it('collapses repeated occurrences of the same signal into one item carrying every dismiss key', () => {
+    // Real fleets accumulate dozens of e.g. session_stalled occurrences for one agent.
+    // Un-grouped they render as identical rows (same feed id → duplicate React keys) and
+    // dismissing one occurrence is visually a no-op.
+    const occ = (detected_at) => ({
+      type: 'session_stalled',
+      severity: 'red',
+      label: 'Session stalled: openclaw',
+      detail: 'No activity',
+      agent_id: 'openclaw',
+      detected_at,
+    });
+    const items = mapSignals([
+      occ('2026-06-10T02:31:21Z'),
+      occ('2026-06-12T04:31:15Z'), // newest, deliberately not first
+      occ('2026-06-11T03:17:40Z'),
+    ]);
+
+    expect(items).toHaveLength(1);
+    expect(items[0].occurrence_count).toBe(3);
+    expect(items[0].dismiss_keys).toHaveLength(3);
+    // The group is represented by its newest occurrence.
+    expect(items[0].timestamp).toBe('2026-06-12T04:31:15Z');
+    expect(items[0].dismiss_key).toBe(items[0].dismiss_keys[0]);
+    expect(new Set(items[0].dismiss_keys).size).toBe(3);
+  });
+
+  it('keeps distinct signals (different agent or ref) as separate items', () => {
+    const items = mapSignals([
+      { type: 'session_stalled', severity: 'red', label: 'A', agent_id: 'a1', detected_at: '2026-06-12T00:00:00Z' },
+      { type: 'session_stalled', severity: 'red', label: 'B', agent_id: 'a2', detected_at: '2026-06-12T00:00:00Z' },
+      { type: 'workflow_stuck', severity: 'red', label: 'C', agent_id: 'a1', action_id: 'act_1', detected_at: '2026-06-12T00:00:00Z' },
+    ]);
+    expect(items).toHaveLength(3);
+    expect(items.every((i) => i.occurrence_count === 1)).toBe(true);
+  });
+
   it('returns null timestamp when source has no detected_at (no Date.now fallback)', () => {
     const items = mapSignals([{
       type: 'integration_mismatch',

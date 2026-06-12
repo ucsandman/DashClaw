@@ -29,6 +29,11 @@ export interface FeedItem {
   /** Per-instance dismissal key (signal items only) so the client can hide signals
    *  dismissed in posture, keeping the feed and the "active signals" count in sync. */
   dismiss_key?: string | null;
+  /** All occurrence keys when repeated occurrences of one signal are collapsed
+   *  into a single feed item (newest first). Dismissing the row dismisses every one. */
+  dismiss_keys?: string[];
+  /** How many occurrences this signal item represents (1 when not collapsed). */
+  occurrence_count?: number;
 }
 
 // ─── Mappers ───────────────────────────────────────────────────
@@ -86,26 +91,47 @@ export function mapFailures(actions: Row[] | null | undefined): FeedItem[] {
 }
 
 export function mapSignals(signals: Row[] | null | undefined): FeedItem[] {
-  return (signals || []).map((s) => ({
-    id: `signal:${s.type || s.signal_type}:${s.agent_id || 'system'}:${s.action_id || s.loop_id || s.assumption_id || ''}`,
-    category: 'signal',
-    severity: s.severity === 'red' ? 'critical' : 'high',
-    title: s.label || `${s.type || s.signal_type}: ${s.agent_id || 'system'}`,
-    detail: s.detail || '',
-    source: 'signal',
-    source_id: s.action_id || s.loop_id || s.assumption_id || null,
-    dismiss_key: signalDismissKey(s),
-    agent_id: s.agent_id || null,
-    timestamp: s.detected_at || null,
-    action_url: s.agent_id ? `/agents/${encodeURIComponent(s.agent_id)}` : '/security',
-    suggested_action: s.type === 'integration_mismatch' ? 'disable' : s.type === 'workflow_stuck' ? 'cancel' : 'investigate',
-    ...(s.type === 'workflow_stuck' && s.action_id ? {
-      metadata: {
-        run_action_id: s.action_id,
-        template_id: (s.trigger && s.trigger.startsWith('workflow:')) ? s.trigger.slice('workflow:'.length) : null,
-      },
-    } : {}),
-  }));
+  // Collapse repeated occurrences of the same signal (same type+agent+ref) into one
+  // feed item. Real fleets accumulate dozens of e.g. session_stalled occurrences per
+  // agent; un-grouped they share one feed id (duplicate React keys) and dismissing a
+  // single occurrence is visually a no-op. The newest occurrence represents the group;
+  // dismiss_keys carries every occurrence so one X clears them all.
+  const groups = new Map<string, Row[]>();
+  for (const s of signals || []) {
+    const id = `signal:${s.type || s.signal_type}:${s.agent_id || 'system'}:${s.action_id || s.loop_id || s.assumption_id || ''}`;
+    const group = groups.get(id);
+    if (group) group.push(s);
+    else groups.set(id, [s]);
+  }
+
+  return [...groups.entries()].map(([id, occurrences]) => {
+    const sorted = [...occurrences].sort(
+      (a, b) => new Date(b.detected_at || 0).getTime() - new Date(a.detected_at || 0).getTime(),
+    );
+    const s = sorted[0]!;
+    return {
+      id,
+      category: 'signal',
+      severity: s.severity === 'red' ? 'critical' : 'high',
+      title: s.label || `${s.type || s.signal_type}: ${s.agent_id || 'system'}`,
+      detail: s.detail || '',
+      source: 'signal',
+      source_id: s.action_id || s.loop_id || s.assumption_id || null,
+      dismiss_key: signalDismissKey(s),
+      dismiss_keys: sorted.map((o) => signalDismissKey(o)),
+      occurrence_count: sorted.length,
+      agent_id: s.agent_id || null,
+      timestamp: s.detected_at || null,
+      action_url: s.agent_id ? `/agents/${encodeURIComponent(s.agent_id)}` : '/security',
+      suggested_action: s.type === 'integration_mismatch' ? 'disable' : s.type === 'workflow_stuck' ? 'cancel' : 'investigate',
+      ...(s.type === 'workflow_stuck' && s.action_id ? {
+        metadata: {
+          run_action_id: s.action_id,
+          template_id: (s.trigger && s.trigger.startsWith('workflow:')) ? s.trigger.slice('workflow:'.length) : null,
+        },
+      } : {}),
+    };
+  });
 }
 
 export function mapCapabilityHealth(capabilities: Row[] | null | undefined): FeedItem[] {

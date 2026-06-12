@@ -64,6 +64,33 @@ describe('LiveStream signal dismissal', () => {
     expect(onDismissSignals).toHaveBeenCalledWith(['agent_silent:ps-qa::::t1']);
   });
 
+  it('a grouped signal row renders once and its X dismisses every occurrence', () => {
+    const grouped = {
+      id: 'sg', category: 'signal', severity: 'critical', title: 'Session stalled: openclaw',
+      detail: '', source: 'signal', source_id: null, agent_id: 'openclaw', timestamp: null,
+      action_url: '/security', dismiss_key: 'k1', dismiss_keys: ['k1', 'k2', 'k3'], occurrence_count: 3,
+    };
+    const onDismissSignals = vi.fn();
+    const { container, getByText } = render(
+      <LiveStream
+        feedItems={[grouped, failure]}
+        agentId={null}
+        activeCategory={null}
+        onClearFilter={() => {}}
+        livePulse={false}
+        loading={false}
+        handlers={handlers}
+        onDismissSignals={onDismissSignals}
+      />,
+    );
+    const buttons = container.querySelectorAll('[aria-label="Dismiss signal"]');
+    expect(buttons.length).toBe(1);
+    // Header clear counts occurrences, not rows.
+    expect(getByText('Clear 3 signals')).toBeTruthy();
+    fireEvent.click(buttons[0]);
+    expect(onDismissSignals).toHaveBeenCalledWith(['k1', 'k2', 'k3']);
+  });
+
   it('renders no clear action without onDismissSignals or without dismissable signals', () => {
     const { queryByText } = renderStream();
     expect(queryByText(/Clear \d+ signal/)).toBeNull();

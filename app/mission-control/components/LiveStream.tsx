@@ -44,10 +44,14 @@ export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, 
     .filter((i) => !activeCategory || i.category === activeCategory);
   const shown = visible.slice(0, STREAM_CAP);
 
-  // Dismissal targets every matching signal instance (not just the 40 shown),
+  // Every occurrence key carried by a signal item (collapsed items carry all of them).
+  const keysOf = (i: any): string[] =>
+    Array.isArray(i.dismiss_keys) && i.dismiss_keys.length ? i.dismiss_keys : i.dismiss_key ? [i.dismiss_key] : [];
+
+  // Dismissal targets every matching signal occurrence (not just the 40 shown),
   // so "Clear signals" empties the whole backlog, including the deep-link tail.
   const dismissableKeys = onDismissSignals
-    ? visible.filter((i) => i.category === 'signal' && i.dismiss_key).map((i) => i.dismiss_key as string)
+    ? visible.filter((i) => i.category === 'signal').flatMap(keysOf)
     : [];
 
   return (
@@ -102,8 +106,8 @@ export function LiveStream({ feedItems, agentId, activeCategory, onClearFilter, 
                 onCancel={item.suggested_action === 'cancel' ? handlers.onCancel : undefined}
                 onDisable={item.suggested_action === 'disable' ? handlers.onDisable : undefined}
                 onDismiss={
-                  onDismissSignals && item.category === 'signal' && item.dismiss_key
-                    ? () => onDismissSignals([item.dismiss_key])
+                  onDismissSignals && item.category === 'signal' && keysOf(item).length
+                    ? () => onDismissSignals(keysOf(item))
                     : undefined
                 }
               />

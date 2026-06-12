@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
-import { matchesAgent, buildInterventionList, categoryCount } from '@/mission-control/lib/missionHelpers';
+import { matchesAgent, buildInterventionList, categoryCount, isSignalDismissed } from '@/mission-control/lib/missionHelpers';
+
+describe('isSignalDismissed', () => {
+  const set = new Set(['k1', 'k2']);
+  it('hides a single-occurrence signal whose key is dismissed', () => {
+    expect(isSignalDismissed({ category: 'signal', dismiss_key: 'k1' }, set)).toBe(true);
+    expect(isSignalDismissed({ category: 'signal', dismiss_key: 'k9' }, set)).toBe(false);
+  });
+  it('hides a grouped signal only when every occurrence key is dismissed', () => {
+    expect(isSignalDismissed({ category: 'signal', dismiss_key: 'k1', dismiss_keys: ['k1', 'k2'] }, set)).toBe(true);
+    expect(isSignalDismissed({ category: 'signal', dismiss_key: 'k1', dismiss_keys: ['k1', 'k9'] }, set)).toBe(false);
+  });
+  it('never hides non-signal items or items without keys', () => {
+    expect(isSignalDismissed({ category: 'failure', dismiss_key: 'k1' }, set)).toBe(false);
+    expect(isSignalDismissed({ category: 'signal' }, set)).toBe(false);
+  });
+});
 
 describe('matchesAgent', () => {
   it('matches everything when no agent is selected', () => {
