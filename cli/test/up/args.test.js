@@ -35,4 +35,15 @@ describe('parseUpArgs', () => {
       /port/i
     );
   });
+
+  test('rejects unknown flags', () => {
+    assert.throws(
+      () => parseUpArgs(['--prot', '3000']),
+      /Unknown flag: --prot/
+    );
+  });
+
+  test('accepts --update without error', () => {
+    assert.doesNotThrow(() => parseUpArgs(['--update']));
+  });
 });

@@ -9,7 +9,7 @@ export function parseUpArgs(argv) {
     else if (a === '--no-browser') out.noBrowser = true;
     else if (a === '--db') {
       const v = argv[++i];
-      if (!DB_MODES.includes(v)) throw new Error(`--db must be one of: ${DB_MODES.join(', ')} (docker, embedded, url)`);
+      if (!DB_MODES.includes(v)) throw new Error(`--db must be one of: ${DB_MODES.join(', ')}`);
       out.db = v;
     } else if (a === '--dir') out.dir = argv[++i] ?? null;
     else if (a === '--source-dir') out.sourceDir = argv[++i] ?? null;
@@ -17,6 +17,8 @@ export function parseUpArgs(argv) {
       const v = Number(argv[++i]);
       if (!Number.isInteger(v) || v < 1 || v > 65535) throw new Error('--port must be an integer 1-65535');
       out.port = v;
+    } else if (a.startsWith('--')) {
+      throw new Error(`Unknown flag: ${a}. Run 'dashclaw help' for usage.`);
     }
   }
   return out;

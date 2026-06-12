@@ -28,6 +28,15 @@ describe('loadInstance', () => {
   });
 });
 
+describe('checkpoint', () => {
+  test('creates the dir when it does not exist and returns completed', () => {
+    const base = mkdtempSync(join(tmpdir(), 'dashclaw-instance-test-'));
+    const dir = join(base, 'never', 'existed');
+    const inst = checkpoint(dir, 'db_ready');
+    assert.deepStrictEqual(inst.completed, ['db_ready']);
+  });
+});
+
 describe('saveInstance + checkpoint', () => {
   test('round-trips and checkpoints in order', () => {
     const dir = tempDir();

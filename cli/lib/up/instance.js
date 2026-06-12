@@ -36,6 +36,7 @@ export function saveInstance(dir, data) {
 
 /** Appends `step` to `completed` (idempotent) and writes to disk. */
 export function checkpoint(dir, step) {
+  mkdirSync(dir, { recursive: true });
   const inst = loadInstance(dir) ?? { completed: [] };
   if (!inst.completed.includes(step)) inst.completed.push(step);
   writeFileSync(fileFor(dir), JSON.stringify(inst, null, 2) + '\n');
