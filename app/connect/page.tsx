@@ -465,7 +465,7 @@ DISCORD_PUBLIC_KEY=<discord-app-public-key>`}</CodeBlock>
                 <div className="text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary mb-2">From any terminal</div>
                 <h3 className="text-sm font-semibold text-text-primary mb-2">dashclaw doctor</h3>
                 <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                  Diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, and shape drift. Auto fixes safe issues.
+                  Diagnoses your instance and this machine. Report-only by default; --fix applies safe repairs and prints what changed.
                 </p>
                 <CodeBlock>{`npm install -g @dashclaw/cli
 dashclaw doctor`}</CodeBlock>

@@ -784,7 +784,7 @@ if (decision === "allow") {
                 >
                   <div className="text-[10px] uppercase tracking-wider text-text-tertiary mb-2 font-mono">Diagnostics</div>
                   <h3 className="text-sm font-semibold text-text-primary mb-1.5 group-hover:text-brand transition-colors">dashclaw doctor</h3>
-                  <p className="text-xs text-text-secondary leading-relaxed mb-3">Diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, and shape drift. Auto-fixes safe issues.</p>
+                  <p className="text-xs text-text-secondary leading-relaxed mb-3">Diagnoses your instance and this machine — database, config, auth, deployment, SDK reachability, data hygiene, stale installs. Report-only by default; --fix applies safe repairs.</p>
                   <pre className="bg-surface-primary rounded-lg px-3 py-2 text-[10px] sm:text-xs text-text-secondary font-mono whitespace-pre-wrap break-words">dashclaw doctor</pre>
                 </Link>
                 <Link

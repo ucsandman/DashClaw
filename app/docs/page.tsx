@@ -575,20 +575,20 @@ instance runs its own OAuth (DCR + PKCE). Guide: docs/CLAUDE-DESKTOP-PLUGIN.md`}
             <div id="dashclaw-doctor" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">dashclaw doctor</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                Diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, and livingcode shape drift — auto-fixing safe issues. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code>. For operators, <code className="font-mono text-text-secondary">npm run doctor</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
+                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, livingcode shape drift) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
               </p>
               <CodeBlock title="dashclaw doctor">{`npm install -g @dashclaw/cli
 
-dashclaw doctor                          # rich terminal output, auto-fix safe issues
-dashclaw doctor --json                   # CI / scripts
-dashclaw doctor --no-fix                 # diagnose only
+dashclaw doctor                          # report-only (default — applies nothing)
+dashclaw doctor --fix                    # apply safe fixes, re-check, report what changed
+dashclaw doctor --json                   # CI / scripts (includes local machine checks)
 dashclaw doctor --category database,config
 
 # Config resolution: env vars → ~/.dashclaw/config.json (600) → interactive prompt
 dashclaw logout                          # remove saved config
 
-# Self-host operator (filesystem-level fixes)
-npm run doctor`}</CodeBlock>
+# Self-host operator (filesystem-level fixes need --fix)
+npm run doctor -- --fix`}</CodeBlock>
             </div>
 
             <div id="claude-code-plugin" className="scroll-mt-20 mb-10">

@@ -291,7 +291,9 @@ The same binary doubles as an operational CLI — `dashclaw-mcp <subcommand>`:
 `simulate`, `audit`, `snapshot`, `dashclaw`, `context`. Bare `dashclaw-mcp`
 (or any `--url`/`--key`/`--agent-id` flags) boots the stdio MCP server.
 `dashclaw-mcp doctor --json` is the fastest way to check credentials and
-mappings; `dashclaw-mcp context` prints the production-context summary.
+mappings; when `DASHCLAW_URL` + `DASHCLAW_API_KEY` are configured, the doctor
+tool also appends a read-only `platform` section from your instance's
+`GET /api/doctor`. `dashclaw-mcp context` prints the production-context summary.
 
 ## Storage
 

@@ -583,9 +583,9 @@ dashclaw deny <actionId>        # deny a specific action
 **Diagnostics:**
 
 ```bash
-dashclaw doctor                 # diagnose + auto-fix safe issues (database, config, auth, deployment, SDK, governance, drift)
+dashclaw doctor                 # report-only diagnosis (instance + this machine)
+dashclaw doctor --fix           # apply safe fixes, re-check, report what changed
 dashclaw doctor --json          # CI/machine-readable
-dashclaw doctor --no-fix        # diagnose only
 dashclaw doctor --category database,config
 ```
 

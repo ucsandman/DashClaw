@@ -116,7 +116,7 @@ export default function SelfHostPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Verify</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">Confirm your deployment is healthy</h2>
           <p className="mt-2 text-text-secondary">
-            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, and shape drift, and auto-fixes safe issues. Run it as the first thing after your instance comes up.
+            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, and shape drift. It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
           </p>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">

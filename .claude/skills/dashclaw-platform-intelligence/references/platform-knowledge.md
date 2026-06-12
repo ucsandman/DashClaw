@@ -204,7 +204,7 @@ The left sidebar is organized into five groups (`app/components/Sidebar.js`). **
 - `dashclaw approvals` — interactive inbox (arrow keys, `A`/`D`/`O`/`Q`)
 - `dashclaw approve <actionId> [--reason ...]`
 - `dashclaw deny <actionId> [--reason ...]`
-- `dashclaw doctor [--json] [--no-fix] [--category ...]` — diagnoses instance and auto-fixes safe issues by invoking `/api/doctor` and `/api/doctor/fix`
+- `dashclaw doctor [--fix] [--json] [--category ...] [--repo <path>]` — diagnoses the instance AND the operator machine (stale mcp-server lib, .gitattributes drift, schema behind code, stale global shim, broken hook installs, leaked env vars). Report-only by default; `--fix` applies safe fixes via local handlers + `POST /api/doctor/fix` (admin keys), re-checks, and prints a what-changed report
 - `dashclaw logout` — removes saved config
 
 Config resolution order:
@@ -220,7 +220,7 @@ Approvals use `POST /api/actions/:id/approve`; real-time sync via Redis SSE.
 
 **Approval sync architecture**: Browser, CLI, mobile `/approve` PWA, and SDK polling all converge at `POST /api/actions/:id/approve`. The API commits to Neon Postgres, publishes `action.updated` to the Redis stream, and every connected SSE listener receives the decision within the SSE heartbeat window (~1 second).
 
-**DashClaw Doctor (`npm run doctor` + `/api/doctor`)**: Self-host diagnostic and auto-fix engine. Runs check modules for database schema, configuration, auth, deployment, SDK reachability, and governance staleness. Local mode (`npm run doctor`) handles filesystem-level fixes — e.g., writing env vars to `.env` (always backing up), generating secrets, CORS config, seeding a default policy, running DB migrations. API endpoints (`GET /api/doctor`, `POST /api/doctor/fix`) are used by the CLI and by CI pipelines. Check modules and constants are emitted from the livingcode shape (see `app/lib/doctor/generated/checks-from-shape.mjs`).
+**DashClaw Doctor (`npm run doctor` + `/api/doctor`)**: Self-host diagnostic engine — report-only by default, `--fix` opts into applying. Runs check modules for database schema, configuration, auth, deployment, SDK reachability, and governance staleness. Local mode (`npm run doctor -- --fix`) handles filesystem-level fixes — e.g., writing env vars to `.env` (always backing up), generating secrets, CORS config, seeding a default policy, running DB migrations. API endpoints (`GET /api/doctor`, `POST /api/doctor/fix`) are used by the CLI and by CI pipelines. Check modules and constants are emitted from the livingcode shape (see `app/lib/doctor/generated/checks-from-shape.mjs`).
 
 ## Extension Layer
 

@@ -55,9 +55,9 @@
 | Endpoint | Methods | Purpose |
 |---|---|---|
 | `/api/doctor` | GET | Run all check modules (database, config, auth, deployment, SDK, governance, drift guard). Returns per-check pass/fail + summary. |
-| `/api/doctor/fix` | POST | Apply safe auto-fixes (migrate DB, generate secrets, CORS config, seed default policy). Backs up `.env` before any write. |
+| `/api/doctor/fix` | POST | Apply a named safe fix (admin keys + org context required; migrate DB, seed default policy, normalize timestamps — tenant-scoped). Local-scope fixes are refused; `.env` writes are operator-local only. |
 
-The CLI (`dashclaw doctor`) invokes these endpoints. Local mode (`npm run doctor`) runs the same engine with filesystem access for env writes. Check modules + constants are emitted from the livingcode shape into `app/lib/doctor/generated/checks-from-shape.mjs`.
+The CLI (`dashclaw doctor`) invokes these endpoints and merges in operator-machine checks; both are report-only by default (`--fix` applies). Local mode (`npm run doctor -- --fix`) runs the same engine with filesystem access for env writes. Check modules + constants are emitted from the livingcode shape into `app/lib/doctor/generated/checks-from-shape.mjs`.
 
 ## MCP Server
 
