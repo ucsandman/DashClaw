@@ -48,6 +48,11 @@ The 2026-04-03 plan was **already executed** — landed as commit `4c614e2e` ("f
 
 ## Executable tasks (Phase 6 runs from this section alone)
 
+> **Dispositions (2026-06-12, Phase 6):**
+> - **LI-1: DONE** — `__tests__/unit/signals-intel.test.js` (20 tests; firing/clean/severity/dedup per type). No app-code changes; no behavior discrepancies found.
+> - **LI-2: DONE** — `hooks/tests/test_full_pipeline_e2e.py` (4 tests) + `__tests__/integration/layered-intel-pipeline.test.js` (7 tests). The TDD red step found a TRUE WIRING BUG: `handle_warn`/`handle_block` in `hooks/dashclaw_pretool.py` dropped the guard's `recovery` object — fixed by adding `_log_recovery()` (suggestion + first 5 steps to stderr) at both call sites; exit-code contract unchanged. Opus review PASS (one doc-rot finding in test docstrings, fixed same turn).
+> Commit ref: see Phase 6 commit on main (layered-intel test hardening + recovery surfacing fix).
+
 ### LI-1 — Dedicated unit tests for the 4 intel signal types (closes T12)
 
 - **Target files:** none in `app/` (tests only). NEW test file: `__tests__/unit/signals-intel.test.js`.
