@@ -87,6 +87,31 @@ export function askSecret(question) {
   });
 }
 
+// The CLI sends x-api-key over whatever scheme baseUrl has. Plaintext http to
+// a non-local host exposes the key to the network path — warn once per
+// process (don't refuse: LAN self-hosting over http is a supported setup).
+const LOCAL_HOSTNAMES = new Set(['localhost', '127.0.0.1', '[::1]', '::1', '0.0.0.0']);
+let warnedInsecureUrl = false;
+
+export function __resetInsecureUrlWarning() {
+  warnedInsecureUrl = false;
+}
+
+function warnIfInsecureBaseUrl(baseUrl) {
+  if (warnedInsecureUrl) return;
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol === 'http:' && !LOCAL_HOSTNAMES.has(url.hostname)) {
+      warnedInsecureUrl = true;
+      console.error(yellow(
+        `Warning: DashClaw base URL ${url.origin} uses plaintext http — your API key is sent unencrypted. Use https for non-local instances.`
+      ));
+    }
+  } catch {
+    // Unparseable URL — the request itself will surface the real error.
+  }
+}
+
 /**
  * Resolve config from env, then file, then interactive prompt.
  * @returns {Promise<{ baseUrl, apiKey, agentId, source } | null>}
@@ -112,6 +137,7 @@ export async function resolveConfig({ env = process.env, interactive = true } = 
   }
 
   if (baseUrl && apiKey) {
+    warnIfInsecureBaseUrl(baseUrl);
     return { baseUrl, apiKey, agentId: agentId || 'cli-operator', source };
   }
 
@@ -156,5 +182,6 @@ export async function resolveConfig({ env = process.env, interactive = true } = 
   }
   console.log();
 
+  warnIfInsecureBaseUrl(baseUrl);
   return { baseUrl, apiKey, agentId, source: 'prompted' };
 }

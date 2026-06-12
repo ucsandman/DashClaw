@@ -45,6 +45,7 @@ const PUBLIC_ROUTES = [
   '/api/cron',
   '/api/telegram/webhook',  // auth: x-telegram-bot-api-secret-token + chat-id allowlist (in route)
   '/api/discord/interactions',  // auth: Ed25519 signature + user_id allowlist (in route)
+  '/api/webhooks/stripe',  // auth: Stripe signature verification on raw body (in route); Stripe POSTs carry no API key
   // Public read-only content endpoints
   '/api/docs/raw',
   // Integrity re-verification surfaces — must be reachable without an API key so
@@ -1590,8 +1591,11 @@ async function handleApiRequest(request, pathname) {
   const oversizedBody = enforceBodySizeCap(request, pathname);
   if (oversizedBody) return oversizedBody;
 
-  // Allow public routes without auth
-  if (PUBLIC_ROUTES.some(route => pathname.startsWith(route)) ||
+  // Allow public routes without auth. Boundary-aware: an entry matches itself
+  // and its subpaths only — bare startsWith let any future sibling sharing a
+  // public prefix (/api/cron -> /api/cron-report) ship unauthenticated, the
+  // same foot-gun that previously exposed the whole /api/prompts surface.
+  if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/')) ||
       isHostedPublicRequest(pathname, request.method)) {
     return forwardPublicApi(request, strippedApiRequestHeaders, ip);
   }

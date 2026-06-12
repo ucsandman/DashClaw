@@ -98,6 +98,35 @@ describe('middleware API-key auth', () => {
     expect(res.status).toBe(200);
   });
 
+  it('stripe webhook is reachable without an api key (Stripe signs, route verifies)', async () => {
+    // Regression: /api/webhooks/stripe was missing from PUBLIC_ROUTES, so
+    // Stripe's unauthenticated POST got 401'd by default-deny middleware
+    // before the handler's signature verification ever ran. Dormant until
+    // STRIPE_SECRET_KEY is set, then billing desyncs silently.
+    const res = await middleware(req('/api/webhooks/stripe', { method: 'POST' }));
+    expect(res.status).toBe(200);
+  });
+
+  it('other webhook subpaths stay default-deny: /api/webhooks/whatever is 401', async () => {
+    const res = await middleware(req('/api/webhooks/whatever', {
+      method: 'POST', headers: { origin: 'https://other.example' },
+    }));
+    expect(res.status).toBe(401);
+  });
+
+  it('public-route matching is boundary-aware: /api/cron-report sibling is 401', async () => {
+    // Regression guard: PUBLIC_ROUTES used bare startsWith, so any future
+    // sibling sharing a public prefix (/api/cron -> /api/cron-report) would
+    // ship unauthenticated. Same foot-gun previously hit /api/prompts.
+    const res = await middleware(req('/api/cron-report', { headers: { origin: 'https://other.example' } }));
+    expect(res.status).toBe(401);
+  });
+
+  it('public prefixes still cover their subpaths: /api/auth/local needs no key', async () => {
+    const res = await middleware(req('/api/auth/local', { method: 'POST' }));
+    expect(res.status).not.toBe(401);
+  });
+
   // OAuth connector path (Leg 2): /api/mcp answers an unauthenticated request with
   // 401 + WWW-Authenticate so Claude starts OAuth discovery; a live Bearer token
   // resolves to an org and passes through. Inherits the beforeEach env + sqlMock.

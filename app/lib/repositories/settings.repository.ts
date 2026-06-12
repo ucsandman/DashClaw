@@ -91,6 +91,10 @@ export const VALID_SETTING_KEYS = [
   // Written ONLY by the admin-gated /api/halt route; read on the guard hot
   // path (piggybacked on the cached settings read in guard.ts).
   'DASHCLAW_ORG_HALT',
+  // Local admin login brute-force guard — JSON {fails, last_fail_at}.
+  // Written by the system (login-guard.repository via /api/auth/local);
+  // listed here so an admin can inspect/clear a lockout via the settings API.
+  'LOCAL_ADMIN_LOGIN_GUARD',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];

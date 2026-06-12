@@ -21,6 +21,31 @@ function readTimeout(): number {
   return parsed;
 }
 
+// Requests send x-api-key over whatever scheme DASHCLAW_URL has. Plaintext
+// http to a non-local host exposes the key to the network path — warn once
+// per process (don't refuse: LAN self-hosting over http is a supported setup).
+const LOCAL_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]", "::1", "0.0.0.0"]);
+let warnedInsecureUrl = false;
+
+export function __resetInsecureUrlWarning(): void {
+  warnedInsecureUrl = false;
+}
+
+function warnIfInsecureBaseUrl(baseUrl: string): void {
+  if (warnedInsecureUrl) return;
+  try {
+    const url = new URL(baseUrl);
+    if (url.protocol === "http:" && !LOCAL_HOSTNAMES.has(url.hostname)) {
+      warnedInsecureUrl = true;
+      console.error(
+        `[dashclaw-mcp] Warning: DASHCLAW_URL ${url.origin} uses plaintext http — your API key is sent unencrypted. Use https for non-local instances.`,
+      );
+    }
+  } catch {
+    // Unparseable URL — the fetch itself will surface the real error.
+  }
+}
+
 export function dashclawConfigFromEnv(): DashclawConfig {
   const baseUrl = process.env.DASHCLAW_URL?.trim();
   if (!baseUrl) throw new DashclawError("DASHCLAW_URL is required for DashClaw authoritative mode.");
@@ -30,6 +55,7 @@ export function dashclawConfigFromEnv(): DashclawConfig {
   if (mode !== "authoritative") {
     throw new DashclawError('DASHCLAW_MODE must be "authoritative" for this version.');
   }
+  warnIfInsecureBaseUrl(baseUrl);
   return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey, timeoutMs: readTimeout(), mode };
 }
 

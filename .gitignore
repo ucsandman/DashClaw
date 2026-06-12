@@ -163,6 +163,9 @@ docs/plans/Rowboat-win32-x64-0.5.4-setup.exe
 .gate-*.log
 gate-*.log
 gate-*.exit
+*-output.txt
+# Marketing video — hosted externally, never in git (32 MB; history strip pending owner BFG decision)
+DashClaw__AI_Governance.mp4
 *.bak
 .supergoalpreflight-*.log
 .task3-*.log
