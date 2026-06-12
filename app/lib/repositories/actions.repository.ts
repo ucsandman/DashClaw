@@ -1734,3 +1734,18 @@ export async function listPendingApprovalIdsByActionTypes(
   );
   return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
 }
+
+/** Pending-approval queue summary for the fleet digest / session hook. */
+export async function getPendingApprovalSummary(
+  sql: SqlClient,
+  orgId: string,
+): Promise<{ pending: number; oldest_at: string | null }> {
+  const rows = await sql.query(
+    `SELECT COUNT(*)::int AS pending, MIN(created_at::timestamptz) AS oldest_at
+     FROM action_records
+     WHERE org_id = $1 AND status = 'pending_approval'`,
+    [orgId],
+  );
+  const row = (rows as Array<{ pending: number; oldest_at: string | null }>)[0] ?? { pending: 0, oldest_at: null };
+  return { pending: Number(row.pending) || 0, oldest_at: row.oldest_at ? String(row.oldest_at) : null };
+}
