@@ -231,6 +231,52 @@ export async function getDecisionOutcomeCounts(
   return { total, allow: Math.max(0, total - warn - require_approval - block), warn, require_approval, block };
 }
 
+/**
+ * require_approval decision counts per matched policy inside a short window
+ * (minutes). Drives the W3 interruption budget / approval flood guard.
+ */
+export async function getRecentApprovalCountsByPolicy(
+  sql: SqlClient,
+  orgId: string,
+  windowMinutes = 15,
+): Promise<Record<string, number>> {
+  const rows = await sql.query(
+    `SELECT sub.policy_id AS policy_id, COUNT(*)::int AS cnt
+     FROM (
+       SELECT jsonb_array_elements_text(matched_policies::jsonb) AS policy_id
+       FROM guard_decisions
+       WHERE org_id = $1
+         AND decision = 'require_approval'
+         AND created_at::timestamptz > NOW() - make_interval(mins => $2::int)
+         AND matched_policies IS NOT NULL
+         AND matched_policies LIKE '[%'
+     ) sub
+     GROUP BY sub.policy_id`,
+    [orgId, windowMinutes],
+  );
+  const out: Record<string, number> = {};
+  for (const r of rows as Array<{ policy_id: string; cnt: number }>) {
+    out[r.policy_id] = Number(r.cnt) || 0;
+  }
+  return out;
+}
+
+/** id → name for a bounded set of guard policies (flood labels). */
+export async function getPolicyNamesByIds(
+  sql: SqlClient,
+  orgId: string,
+  ids: string[],
+): Promise<Record<string, string>> {
+  if (!ids.length) return {};
+  const rows = await sql.query(
+    `SELECT id, name FROM guard_policies WHERE org_id = $1 AND id = ANY($2) LIMIT 100`,
+    [orgId, ids],
+  );
+  const out: Record<string, string> = {};
+  for (const r of rows as Array<{ id: string; name: string }>) out[r.id] = r.name;
+  return out;
+}
+
 export async function insertPolicy(
   sql: SqlTag,
   orgId: string,

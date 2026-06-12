@@ -80,6 +80,13 @@ export const VALID_SETTING_KEYS = [
   //                          of per-shape dismissals ("fine" verdict).
   'policy_review_cursor',
   'policy_review_dismissed',
+  // W3 interruption budget / digest (close-the-loop spec 2026-06-11)
+  'DASHCLAW_INTERRUPT_BUDGET',
+  'DASHCLAW_INTERRUPT_WINDOW_MIN',
+  'DASHCLAW_INTERRUPT_BUDGET_FLEET',
+  'APPROVAL_FLOOD_STATE',
+  'DASHCLAW_DIGEST_INTERVAL_HOURS',
+  'DIGEST_TICK_LAST_RUN_AT',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];
