@@ -24,6 +24,9 @@ import {
   buildSetupMigrationCommands,
   SETUP_MIGRATION_SCRIPTS,
 } from '../app/lib/setup/runtime-prerequisites.mjs';
+import { parseSetupArgs } from './lib/setup-args.mjs';
+
+const cliArgs = parseSetupArgs(process.argv.slice(2));
 
 function ask(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -57,25 +60,33 @@ function askSecret(question) {
   });
 }
 
+function log(msg) {
+  if (cliArgs.json) {
+    process.stderr.write(`${msg}\n`);
+  } else {
+    console.log(msg);
+  }
+}
+
 function banner(text) {
   const line = '='.repeat(48);
-  console.log(`\n  ${line}\n   ${text}\n  ${line}\n`);
+  log(`\n  ${line}\n   ${text}\n  ${line}\n`);
 }
 
 function step(n, total, msg) {
-  console.log(`\n  [${n}/${total}] ${msg}\n`);
+  log(`\n  [${n}/${total}] ${msg}\n`);
 }
 
 function ok(msg) {
-  console.log(`  [ok] ${msg}`);
+  log(`  [ok] ${msg}`);
 }
 
 function warn(msg) {
-  console.log(`  [warn] ${msg}`);
+  log(`  [warn] ${msg}`);
 }
 
 function fail(msg) {
-  console.error(`  [fail] ${msg}`);
+  process.stderr.write(`  [fail] ${msg}\n`);
 }
 
 function run(cmd, args, opts = {}) {
@@ -212,6 +223,11 @@ async function runAsync(cmd, args, opts = {}) {
 async function chooseDatabaseUrl(env) {
   const dockerInstalled = runQuiet('docker', ['--version']).ok;
 
+  if (cliArgs.databaseUrl) {
+    env.DATABASE_URL = cliArgs.databaseUrl;
+    return { dockerInstalled };
+  }
+
   if (!env.DATABASE_URL) {
     while (!env.DATABASE_URL) {
       printDatabaseChoices(dockerInstalled);
@@ -224,21 +240,21 @@ async function chooseDatabaseUrl(env) {
 }
 
 function printDatabaseChoices(dockerInstalled) {
-  console.log('  You need a PostgreSQL database. Pick one:\n');
+  log('  You need a PostgreSQL database. Pick one:\n');
   printDockerChoice(dockerInstalled);
-  console.log('  [2] Neon (free cloud Postgres)');
-  console.log('      Sign up at https://neon.tech, create a project, copy the URL.\n');
-  console.log('  [3] Other Postgres');
-  console.log('      Paste any postgresql:// connection string.\n');
+  log('  [2] Neon (free cloud Postgres)');
+  log('      Sign up at https://neon.tech, create a project, copy the URL.\n');
+  log('  [3] Other Postgres');
+  log('      Paste any postgresql:// connection string.\n');
 }
 
 function printDockerChoice(dockerInstalled) {
   if (dockerInstalled) {
-    console.log('  [1] Local Docker (fastest for dev)');
-    console.log("      Requires Docker Desktop. We'll start it for you.\n");
+    log('  [1] Local Docker (fastest for dev)');
+    log("      Requires Docker Desktop. We'll start it for you.\n");
   } else {
-    console.log('  [1] Local Docker (unavailable)');
-    console.log('      Docker was not found on this machine. Use Neon or another Postgres URL instead.\n');
+    log('  [1] Local Docker (unavailable)');
+    log('      Docker was not found on this machine. Use Neon or another Postgres URL instead.\n');
   }
 }
 
@@ -254,10 +270,10 @@ async function applyDockerDatabaseChoice(env, dockerInstalled) {
     return;
   }
 
-  console.log('\n  Starting Docker Postgres...');
+  log('\n  Starting Docker Postgres...');
   if (!run('docker', ['compose', 'up', '-d', 'db'])) {
     warn('Docker was found, but DashClaw could not start the local database.');
-    console.log('  Next step: start Docker Desktop, then re-run this step or choose Neon/Other Postgres.');
+    log('  Next step: start Docker Desktop, then re-run this step or choose Neon/Other Postgres.');
     return;
   }
 
@@ -288,9 +304,9 @@ async function maybeConfigureLocalAdminPassword(env) {
     return;
   }
 
-  console.log('  DashClaw needs a dashboard sign-in method.');
-  console.log('  For solo/local use, the easiest path is a local admin password.');
-  const answer = await ask('  Set a local admin password now? [Y/n]: ');
+  log('  DashClaw needs a dashboard sign-in method.');
+  log('  For solo/local use, the easiest path is a local admin password.');
+  const answer = cliArgs.yes ? 'n' : await ask('  Set a local admin password now? [Y/n]: ');
   if (answer.toLowerCase() === 'n') {
     warn('Skipped dashboard sign-in setup. You will need DASHCLAW_LOCAL_ADMIN_PASSWORD or OAuth before you can sign in.');
     return;
@@ -333,7 +349,7 @@ async function configureDatabase(env) {
   } else if (env.DATABASE_URL) {
     const masked = env.DATABASE_URL.replace(/\/\/[^@]+@/, '//***@').replace(/\?.*/, '');
     ok(`DATABASE_URL already set (${masked})`);
-    const change = await ask('  Change it? [y/N]: ');
+    const change = cliArgs.yes ? 'n' : await ask('  Change it? [y/N]: ');
     if (change.toLowerCase() === 'y') delete env.DATABASE_URL;
   }
 
@@ -345,23 +361,27 @@ async function configureDeploymentUrl(env) {
   step(2, TOTAL_SETUP_STEPS, 'Deployment mode');
   let deployUrl = env.NEXTAUTH_URL;
   if (!deployUrl || deployUrl === 'http://localhost:3000') {
-    console.log('  How will you access the dashboard?\n');
-    console.log('  [1] Local only (http://localhost:3000)');
-    console.log('      Run "npm run dev" on this machine.\n');
-    console.log('  [2] Cloud (Vercel, Railway, etc.)');
-    console.log('      Access from anywhere.\n');
+    if (cliArgs.yes) {
+      deployUrl = 'http://localhost:3000';
+    } else {
+      log('  How will you access the dashboard?\n');
+      log('  [1] Local only (http://localhost:3000)');
+      log('      Run "npm run dev" on this machine.\n');
+      log('  [2] Cloud (Vercel, Railway, etc.)');
+      log('      Access from anywhere.\n');
 
-    const deployChoice = await ask('  Choose [1/2]: ');
-    if (deployChoice === '2') {
-      const url = await ask('  Your deployment URL (for example https://my-dashclaw.vercel.app): ');
-      if (url && url.startsWith('http')) {
-        deployUrl = url.replace(/\/+$/, '');
+      const deployChoice = await ask('  Choose [1/2]: ');
+      if (deployChoice === '2') {
+        const url = await ask('  Your deployment URL (for example https://my-dashclaw.vercel.app): ');
+        if (url && url.startsWith('http')) {
+          deployUrl = url.replace(/\/+$/, '');
+        } else {
+          warn('Invalid URL. Defaulting to http://localhost:3000');
+          deployUrl = 'http://localhost:3000';
+        }
       } else {
-        warn('Invalid URL. Defaulting to http://localhost:3000');
         deployUrl = 'http://localhost:3000';
       }
-    } else {
-      deployUrl = 'http://localhost:3000';
     }
   } else {
     ok(`Dashboard URL: ${deployUrl}`);
@@ -388,12 +408,12 @@ async function configureSecretsAndLogin(env, deployUrl) {
     // First run only: show the full key once so the user can save it.
     // On re-runs, .env.local already holds the key and we only print the
     // redacted summary below to avoid leaking it in scrollback.
-    console.log('');
-    console.log("  API Key (save this — it won't be shown in full again):");
-    console.log(`    ${env.DASHCLAW_API_KEY}`);
+    log('');
+    log("  API Key (save this — it won't be shown in full again):");
+    log(`    ${env.DASHCLAW_API_KEY}`);
   }
-  console.log(`\n  API key: ${redactSecret(env.DASHCLAW_API_KEY)}`);
-  console.log(`  Dashboard URL: ${deployUrl}`);
+  log(`\n  API key: ${redactSecret(env.DASHCLAW_API_KEY)}`);
+  log(`  Dashboard URL: ${deployUrl}`);
 }
 
 function installDependencies() {
@@ -430,9 +450,10 @@ async function runMigrationScript(script, migrationEnv) {
   const name = script.replace('scripts/', '').replace('.mjs', '');
   const start = Date.now();
   let frame = 0;
+  const out = cliArgs.json ? process.stderr : process.stdout;
   const spinner = setInterval(() => {
     const elapsed = Math.floor((Date.now() - start) / 1000);
-    process.stdout.write(`\r  ${frames[frame++ % frames.length]} Running ${name}... (${elapsed}s)`);
+    out.write(`\r  ${frames[frame++ % frames.length]} Running ${name}... (${elapsed}s)`);
   }, 100);
 
   const result = await runAsync('node', [script], { env: migrationEnv });
@@ -441,13 +462,14 @@ async function runMigrationScript(script, migrationEnv) {
 }
 
 function formatMigrationResult(script, name, result) {
+  const out = cliArgs.json ? process.stderr : process.stdout;
   if (result.code === 0) {
-    process.stdout.write(`\r  [ok] ${name}${' '.repeat(30)}\n`);
+    out.write(`\r  [ok] ${name}${' '.repeat(30)}\n`);
     return { script, ok: true };
   }
-  process.stdout.write(`\r  [fail] ${name}${' '.repeat(30)}\n`);
+  out.write(`\r  [fail] ${name}${' '.repeat(30)}\n`);
   const firstLine = result.stderr.trim().split('\n')[0];
-  if (firstLine) console.log(`     ${firstLine}`);
+  if (firstLine) log(`     ${firstLine}`);
   return { script, ok: false, error: firstLine || 'Migration failed' };
 }
 
@@ -476,7 +498,7 @@ function setupReadiness({ env, setupStatus, buildOk }) {
 }
 
 function printSuccessSummary({ migrationResults, buildOk }) {
-  console.log('  What succeeded:');
+  log('  What succeeded:');
   ok('.env.local was written with generated secrets');
   ok('Dependencies installed');
   if (migrationResults.some((result) => result.ok)) {
@@ -486,7 +508,7 @@ function printSuccessSummary({ migrationResults, buildOk }) {
 }
 
 function printCurrentStatus({ setupStatus, databaseReady, signInReady, signInMethods, migrationFailures, buildOk }) {
-  console.log('\n  Current status:');
+  log('\n  Current status:');
   if (databaseReady) {
     ok('Database is reachable and core setup tables exist');
   } else if (setupStatus?.reason === 'connection_error') {
@@ -514,19 +536,19 @@ function printCurrentStatus({ setupStatus, databaseReady, signInReady, signInMet
 function printDatabaseNextSteps({ setupStatus, env, dockerInstalled, nextStepNumber }) {
   if (setupStatus?.reason === 'connection_error') {
     if (env.DATABASE_URL?.includes('localhost')) {
-      console.log(`  ${nextStepNumber}. Start or verify your local Postgres server.`);
+      log(`  ${nextStepNumber}. Start or verify your local Postgres server.`);
       if (dockerInstalled) {
-        console.log('     Command: docker compose up -d db');
+        log('     Command: docker compose up -d db');
       }
     } else {
-      console.log(`  ${nextStepNumber}. Verify that DATABASE_URL points to a reachable Postgres instance.`);
+      log(`  ${nextStepNumber}. Verify that DATABASE_URL points to a reachable Postgres instance.`);
     }
     nextStepNumber += 1;
   }
 
-  console.log(`  ${nextStepNumber}. Re-run the migration step after the database is reachable:`);
+  log(`  ${nextStepNumber}. Re-run the migration step after the database is reachable:`);
   for (const command of buildSetupMigrationCommands()) {
-    console.log(`     ${command}`);
+    log(`     ${command}`);
   }
   return nextStepNumber + 1;
 }
@@ -534,19 +556,19 @@ function printDatabaseNextSteps({ setupStatus, env, dockerInstalled, nextStepNum
 function printReadyNextSteps({ deployUrl, signInMethods, nextStepNumber }) {
   const isCloud = deployUrl !== 'http://localhost:3000';
   if (isCloud) {
-    console.log(`  ${nextStepNumber}. Push this repo to GitHub, add the values from .env.local to your host, and deploy.`);
+    log(`  ${nextStepNumber}. Push this repo to GitHub, add the values from .env.local to your host, and deploy.`);
     nextStepNumber += 1;
-    console.log(`  ${nextStepNumber}. Open ${deployUrl}/dashboard and sign in with ${signInMethods[0]}.`);
+    log(`  ${nextStepNumber}. Open ${deployUrl}/dashboard and sign in with ${signInMethods[0]}.`);
   } else {
-    console.log(`  ${nextStepNumber}. Start the app locally.`);
-    console.log('     Command: npm run dev');
+    log(`  ${nextStepNumber}. Start the app locally.`);
+    log('     Command: npm run dev');
     nextStepNumber += 1;
-    console.log(`  ${nextStepNumber}. Open http://localhost:3000/dashboard and sign in with ${signInMethods[0]}.`);
+    log(`  ${nextStepNumber}. Open http://localhost:3000/dashboard and sign in with ${signInMethods[0]}.`);
   }
 }
 
 function printNextSteps({ databaseReady, signInReady, buildOk, setupStatus, env, dockerInstalled, deployUrl, signInMethods }) {
-  console.log('\n  Next steps:');
+  log('\n  Next steps:');
   let nextStepNumber = 1;
 
   if (!databaseReady) {
@@ -554,30 +576,30 @@ function printNextSteps({ databaseReady, signInReady, buildOk, setupStatus, env,
   }
 
   if (!signInReady) {
-    console.log(`  ${nextStepNumber}. Configure a dashboard login method.`);
-    console.log('     Easiest local path: set DASHCLAW_LOCAL_ADMIN_PASSWORD in .env.local and rerun setup.');
-    console.log('     Team path: add GitHub, Google, or OIDC environment variables.');
+    log(`  ${nextStepNumber}. Configure a dashboard login method.`);
+    log('     Easiest local path: set DASHCLAW_LOCAL_ADMIN_PASSWORD in .env.local and rerun setup.');
+    log('     Team path: add GitHub, Google, or OIDC environment variables.');
     nextStepNumber += 1;
   }
 
   if (!buildOk) {
-    console.log(`  ${nextStepNumber}. Re-run the build once the error above is fixed.`);
-    console.log('     Command: npm run build');
+    log(`  ${nextStepNumber}. Re-run the build once the error above is fixed.`);
+    log('     Command: npm run build');
     nextStepNumber += 1;
   }
 
   if (databaseReady && signInReady && buildOk) {
     printReadyNextSteps({ deployUrl, signInMethods, nextStepNumber });
   } else {
-    console.log(`  ${nextStepNumber}. Re-run node scripts/setup.mjs after you fix the items above.`);
+    log(`  ${nextStepNumber}. Re-run node scripts/setup.mjs after you fix the items above.`);
   }
 }
 
 function printAgentSnippet(env, deployUrl) {
-  console.log('\n  Agent connection snippet:\n');
-  console.log(`    DASHCLAW_BASE_URL=${deployUrl}`);
-  console.log(`    DASHCLAW_API_KEY=${env.DASHCLAW_API_KEY}`);
-  console.log('    DASHCLAW_AGENT_ID=my-agent\n');
+  log('\n  Agent connection snippet:\n');
+  log(`    DASHCLAW_BASE_URL=${deployUrl}`);
+  log(`    DASHCLAW_API_KEY=${env.DASHCLAW_API_KEY}`);
+  log('    DASHCLAW_AGENT_ID=my-agent\n');
 }
 
 function printSetupReport(context) {
@@ -599,6 +621,12 @@ async function main() {
   const migrationState = await runMigrationsAndCheckSetup(env);
   const buildOk = buildDashboard(migrationState.migrationEnv);
   printSetupReport({ env, deployUrl, dockerInstalled, buildOk, ...migrationState });
+  if (cliArgs.json) {
+    console.log(JSON.stringify({
+      apiKey: env.DASHCLAW_API_KEY,
+      adminPassword: env.DASHCLAW_LOCAL_ADMIN_PASSWORD ?? null,
+    }));
+  }
 }
 
 main();
