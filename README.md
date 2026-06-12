@@ -354,7 +354,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 | Recovery recipes | Six built-in recipes mapping signals to remediations. | [SDK: Learning](./sdk/README.md#learning-loop) |
 | Agent profiles | Per-agent governance dashboard at `/agents/[agentId]`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
 | Analytics | Cost trends, action volume, agent and type breakdowns, policy enforcement stats, and token efficiency at `/analytics`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
-| Doctor | `npm run doctor` (local) or `dashclaw doctor` (remote). Auto-fixes missing migrations, default policy, CORS, and more. | [SDK README](./sdk/README.md) |
+| Doctor | `npm run doctor` (local) or `dashclaw doctor` (remote + machine checks). Report-only by default; `--fix` applies safe auto-fixes (migrations, default policy, CORS, timestamp hygiene, stale mcp-server lib, and more). | [SDK README](./sdk/README.md) |
 
 ---
 

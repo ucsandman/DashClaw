@@ -164,6 +164,31 @@ export interface DoctorReport {
     };
     checks: DoctorCheck[];
 }
+/** A single check item returned by the platform /api/doctor endpoint, with all fix metadata stripped. */
+export interface PlatformDoctorCheck {
+    id: string;
+    category: string;
+    status: string;
+    title: string;
+    message: string;
+}
+export type PlatformSection = {
+    available: true;
+    status: string;
+    summary: Record<string, unknown>;
+    checks: PlatformDoctorCheck[];
+} | {
+    available: false;
+    reason: string;
+};
+/**
+ * Fetch the platform's own doctor report from GET {DASHCLAW_URL}/api/doctor.
+ * Returns null when DASHCLAW_URL or DASHCLAW_API_KEY are not configured.
+ * On success (200 or 503 with a parseable doctor body) returns available:true
+ * with fix metadata stripped from each check. On any other failure returns
+ * available:false with a short reason that never contains the API key value.
+ */
+export declare function platformDoctor(): Promise<PlatformSection | null>;
 export declare function doctor(store: Store, input?: {
     project?: string;
     environment?: string;

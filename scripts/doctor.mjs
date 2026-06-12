@@ -4,9 +4,10 @@
  * Imports the doctor engine directly for full filesystem + DB access.
  *
  * Usage:
- *   npm run doctor
+ *   npm run doctor                       Report-only (default)
+ *   npm run doctor -- --fix              Apply auto-fixes, then re-check
  *   npm run doctor -- --json
- *   npm run doctor -- --no-fix
+ *   npm run doctor -- --no-fix           Accepted no-op alias (report-only is the default)
  *   npm run doctor -- --strict
  *   npm run doctor -- --category database,config
  */
@@ -38,7 +39,9 @@ const { formatDoctorResult, formatFixResult, formatManualSummary } = await impor
 
 const args = process.argv.slice(2);
 const jsonMode = args.includes('--json');
-const noFix = args.includes('--no-fix');
+// Report-only is the default (W4); --fix opts into applying. --no-fix stays
+// accepted as a no-op alias and wins if both are passed.
+const fixMode = args.includes('--fix') && !args.includes('--no-fix');
 const strict = args.includes('--strict');
 const categoryIdx = args.indexOf('--category');
 const categories =
@@ -87,7 +90,7 @@ if (!existsSync(resolve(process.cwd(), 'node_modules'))) {
 }
 
 // --- Run doctor engine ---
-const result = await runDoctor({ categories, includeFixes: !noFix });
+const result = await runDoctor({ categories, includeFixes: true });
 
 // Merge local checks into result
 result.checks = [...localChecks, ...result.checks];
@@ -105,15 +108,15 @@ if (jsonMode) {
   process.exit(doctorExitCode(result, { strict }));
 }
 
-// --- Rich mode + auto-fix ---
+// --- Rich mode ---
 console.log(formatDoctorResult(result));
 
-if (!noFix) {
-  const fixable = result.checks.filter((c) => c.status === 'fail' && c.fix?.type === 'auto');
-  const manual = result.checks.filter(
-    (c) => (c.status === 'fail' || c.status === 'warn') && (!c.fix || c.fix.type === 'manual'),
-  );
+const fixable = result.checks.filter((c) => c.status === 'fail' && c.fix?.type === 'auto');
+const manual = result.checks.filter(
+  (c) => (c.status === 'fail' || c.status === 'warn') && (!c.fix || c.fix.type === 'manual'),
+);
 
+if (fixMode) {
   let fixCount = 0;
 
   for (const check of fixable) {
@@ -129,6 +132,13 @@ if (!noFix) {
     console.log(formatDoctorResult(updated));
   }
 
+  console.log(formatManualSummary(manual));
+} else {
+  if (fixable.length > 0) {
+    console.log(
+      `\n ${fixable.length} issue${fixable.length !== 1 ? 's' : ''} can be auto-fixed. Run: npm run doctor -- --fix\n`,
+    );
+  }
   console.log(formatManualSummary(manual));
 }
 

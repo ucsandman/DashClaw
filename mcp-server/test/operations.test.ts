@@ -13,6 +13,7 @@ import {
   exportDashclawEvidence,
   governedActionSummary,
   listConnections,
+  platformDoctor,
   simulateAction,
 } from "../src/service.js";
 
@@ -420,5 +421,113 @@ describe("DashClaw operations", () => {
         },
       ],
     });
+  });
+});
+
+describe("platformDoctor", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    delete process.env.DASHCLAW_URL;
+    delete process.env.DASHCLAW_API_KEY;
+  });
+
+  it("returns null when DASHCLAW_URL is not set", async () => {
+    process.env.DASHCLAW_API_KEY = "dc_key";
+    const result = await platformDoctor();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when DASHCLAW_API_KEY is not set", async () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    const result = await platformDoctor();
+    expect(result).toBeNull();
+  });
+
+  it("returns null when both env vars are missing", async () => {
+    const result = await platformDoctor();
+    expect(result).toBeNull();
+  });
+
+  it("returns platform section with checks stripped of fix metadata on success", async () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_API_KEY = "dc_key_secret";
+
+    const mockDoctorBody = {
+      status: "warn",
+      summary: { pass: 3, warn: 1, fail: 0, total: 4 },
+      checks: [
+        { id: "db", category: "core", status: "pass", title: "Database", message: "OK" },
+        { id: "env", category: "config", status: "warn", title: "Env var", message: "Missing opt", fix: { action: "set_env", key: "FOO" }, fixable: true },
+      ],
+    };
+
+    vi.stubGlobal("fetch", vi.fn(async (url: string, opts: RequestInit) => {
+      expect(url).toBe("https://dashclaw.example/api/doctor");
+      expect((opts.headers as Record<string, string>)["x-api-key"]).toBe("dc_key_secret");
+      return new Response(JSON.stringify(mockDoctorBody), { status: 200 });
+    }));
+
+    const result = await platformDoctor();
+
+    expect(result).not.toBeNull();
+    expect(result!.available).toBe(true);
+    expect(result!.status).toBe("warn");
+    expect(result!.summary).toEqual({ pass: 3, warn: 1, fail: 0, total: 4 });
+    expect(result!.checks).toHaveLength(2);
+    // fix metadata must be stripped
+    expect(result!.checks[0]).toEqual({ id: "db", category: "core", status: "pass", title: "Database", message: "OK" });
+    expect(result!.checks[1]).toEqual({ id: "env", category: "config", status: "warn", title: "Env var", message: "Missing opt" });
+    expect((result!.checks[1] as Record<string, unknown>)["fix"]).toBeUndefined();
+    expect((result!.checks[1] as Record<string, unknown>)["fixable"]).toBeUndefined();
+  });
+
+  it("treats a 503 with a parseable JSON body as success", async () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_API_KEY = "dc_key";
+
+    const body = {
+      status: "fail",
+      summary: { pass: 0, warn: 0, fail: 1, total: 1 },
+      checks: [{ id: "db", category: "core", status: "fail", title: "DB", message: "Down" }],
+    };
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify(body), { status: 503 })));
+
+    const result = await platformDoctor();
+
+    expect(result).not.toBeNull();
+    expect(result!.available).toBe(true);
+    expect(result!.status).toBe("fail");
+    expect(result!.checks).toHaveLength(1);
+  });
+
+  it("returns available:false with a reason on non-OK status (non-503)", async () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_API_KEY = "dc_key_secret";
+
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: "forbidden" }), { status: 403 })));
+
+    const result = await platformDoctor();
+
+    expect(result).not.toBeNull();
+    expect(result!.available).toBe(false);
+    expect("reason" in result!).toBe(true);
+    // API key must NOT appear in the reason
+    expect((result as { available: false; reason: string }).reason).not.toContain("dc_key_secret");
+  });
+
+  it("returns available:false with a reason and no API key on network failure", async () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_API_KEY = "dc_key_secret";
+
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new Error("network unreachable dc_key_secret"); }));
+
+    const result = await platformDoctor();
+
+    expect(result).not.toBeNull();
+    expect(result!.available).toBe(false);
+    const reason = (result as { available: false; reason: string }).reason;
+    expect(reason).toBeTruthy();
+    expect(reason).not.toContain("dc_key_secret");
   });
 });

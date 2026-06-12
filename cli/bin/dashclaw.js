@@ -81,10 +81,12 @@ ${bold('Usage:')}
   dashclaw approvals                     Interactive approval inbox
   dashclaw approve <actionId> [--reason]  Approve an action
   dashclaw deny <actionId> [--reason]     Deny an action
-  dashclaw doctor                        Diagnose and auto-fix your DashClaw instance
+  dashclaw doctor                        Diagnose your instance + this machine (report-only)
+    --fix                                Apply safe auto-fixes, then re-check and report
     --json                               Output as JSON (for CI/scripts)
-    --no-fix                             Diagnose only, skip auto-fixes
-    --category <list>                    Filter checks (e.g., database,config)
+    --no-fix                             Accepted no-op alias (report-only is the default)
+    --category <list>                    Filter remote checks (e.g., database,config)
+    --repo <path>                        Treat <path> as the DashClaw checkout for repo checks
   dashclaw code ingest [--dry-run]       Backfill Claude Code transcripts from ~/.claude/projects
     --projects-dir <path>                Override the default scan directory
   dashclaw code ingest-codex [--dry-run] Backfill Codex transcripts from ~/.codex/sessions
@@ -164,15 +166,23 @@ async function cmdLogout() {
 
 async function cmdDoctor() {
   const jsonFlag = args.includes('--json');
+  const fixFlag = args.includes('--fix');
   const noFixFlag = args.includes('--no-fix');
   const catIdx = args.indexOf('--category');
   const catValue = catIdx !== -1 ? args[catIdx + 1] : undefined;
+  const repoIdx = args.indexOf('--repo');
+  const repoValue = repoIdx !== -1 ? args[repoIdx + 1] : undefined;
+  const pkgPath = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+  const pkg = JSON.parse(readFileSync(pkgPath, 'utf8'));
   await runDoctorCommand({
     baseUrl,
     apiKey,
     json: jsonFlag,
+    fix: fixFlag,
     noFix: noFixFlag,
     category: catValue,
+    repo: repoValue,
+    cliVersion: pkg.version,
   });
 }
 

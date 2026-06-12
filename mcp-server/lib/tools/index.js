@@ -276,12 +276,18 @@ export function registerTools(server, store) {
     })));
     server.registerTool("doctor", {
         title: "Doctor",
-        description: "Run local readiness checks: project/environment resolution, mappings, credential env vars, and audit writability.",
+        description: "Run local readiness checks: project/environment resolution, mappings, credential env vars, and audit writability. " +
+            "When DASHCLAW_URL and DASHCLAW_API_KEY are configured, the result also includes a read-only `report.platform` section " +
+            "fetched from the DashClaw platform's own /api/doctor endpoint.",
         inputSchema: {
             project: optionalNonEmptyString("Project id or slug; uses selected if omitted"),
             environment: optionalNonEmptyString("Environment id or name to focus on"),
         },
-    }, guard((a) => ({ status: "ok", report: svc.doctor(store, a) })));
+    }, guard(async (a) => {
+        const report = svc.doctor(store, a);
+        const platform = await svc.platformDoctor();
+        return { status: "ok", report: platform ? { ...report, platform } : report };
+    }));
     server.registerTool("approve_action", {
         title: "Approve action",
         description: "Approve a pending action request for one matching rerun. This never executes " +

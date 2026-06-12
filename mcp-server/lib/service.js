@@ -554,6 +554,77 @@ export function listAuditLog(store, input = {}) {
         provider: input.provider,
     });
 }
+/**
+ * Fetch the platform's own doctor report from GET {DASHCLAW_URL}/api/doctor.
+ * Returns null when DASHCLAW_URL or DASHCLAW_API_KEY are not configured.
+ * On success (200 or 503 with a parseable doctor body) returns available:true
+ * with fix metadata stripped from each check. On any other failure returns
+ * available:false with a short reason that never contains the API key value.
+ */
+export async function platformDoctor() {
+    const baseUrl = process.env.DASHCLAW_URL?.trim();
+    const apiKey = process.env.DASHCLAW_API_KEY?.trim();
+    if (!baseUrl || !apiKey)
+        return null;
+    const url = `${baseUrl.replace(/\/+$/, "")}/api/doctor`;
+    const safeKey = apiKey;
+    function redactKey(text) {
+        return text.split(safeKey).join("***REDACTED***");
+    }
+    let response;
+    try {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10_000);
+        try {
+            response = await fetch(url, {
+                headers: { "x-api-key": apiKey },
+                signal: controller.signal,
+            });
+        }
+        finally {
+            clearTimeout(timer);
+        }
+    }
+    catch (err) {
+        const raw = err instanceof Error ? err.message : String(err);
+        return { available: false, reason: redactKey(raw) };
+    }
+    let body;
+    try {
+        body = await response.json();
+    }
+    catch {
+        body = undefined;
+    }
+    // 503 with a parseable doctor body is treated as a successful (unhealthy) report.
+    const isOkLike = response.ok || (response.status === 503 && isDoctorBody(body));
+    if (!isOkLike) {
+        const detail = typeof body === "object" && body !== null ? JSON.stringify(body) : String(body ?? "");
+        return { available: false, reason: redactKey(`${response.status} from DashClaw platform doctor: ${detail}`.slice(0, 200)) };
+    }
+    if (!isDoctorBody(body)) {
+        return { available: false, reason: "Platform doctor returned an unexpected response shape." };
+    }
+    const checks = (body.checks ?? []).map((raw) => {
+        const c = raw;
+        return {
+            id: String(c["id"] ?? ""),
+            category: String(c["category"] ?? ""),
+            status: String(c["status"] ?? ""),
+            title: String(c["title"] ?? ""),
+            message: String(c["message"] ?? ""),
+        };
+    });
+    return { available: true, status: String(body.status), summary: body.summary, checks };
+}
+function isDoctorBody(v) {
+    return (typeof v === "object" &&
+        v !== null &&
+        "status" in v &&
+        "summary" in v &&
+        "checks" in v &&
+        Array.isArray(v.checks));
+}
 function combineDoctorStatus(checks) {
     if (checks.some((check) => check.status === "fail"))
         return "fail";

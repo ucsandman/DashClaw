@@ -1,5 +1,11 @@
 // cli/lib/doctor.js
 import { bold, dim, green, yellow, red } from './render.js';
+import {
+  buildContext,
+  detectRepoRoot,
+  runLocalChecks,
+  applyLocalFixes,
+} from './local-doctor.js';
 
 // Brand orange (256-color ANSI). Used sparingly — header + key accents only.
 const BRAND = (s) => `\x1b[38;5;208m${s}\x1b[0m`;
@@ -19,9 +25,17 @@ const CATEGORY_LABELS = {
   governance: 'Governance',
   shape: 'Shape (generated)',
   drift: 'Drift',
+  'openclaw-plugin': 'OpenClaw Plugin',
+  hosted: 'Hosted',
+  'data-hygiene': 'Data Hygiene',
+  'local-repo': 'Local Repo (this machine)',
+  'local-machine': 'Machine Setup (this machine)',
 };
 
-const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'shape', 'drift'];
+const CATEGORY_ORDER = [
+  'database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'shape', 'drift',
+  'openclaw-plugin', 'hosted', 'data-hygiene', 'local-repo', 'local-machine',
+];
 
 // Next-step guidance by check ID, used when the check has no auto-fix.
 // Keep each line short and actionable.
@@ -36,6 +50,8 @@ const GUIDANCE = {
   sdk_auth: 'API key rejected — verify DASHCLAW_API_KEY matches the key on your instance.',
   gov_actions: 'Send your first governed action with claw.guard() via the SDK.',
   gov_stale: "Agents haven't reported in 7 days — check your agent pairings.",
+  remote_unreachable: 'Check DASHCLAW_BASE_URL and confirm your instance is deployed and awake.',
+  remote_auth: 'API key rejected — verify DASHCLAW_API_KEY matches the key on your instance.',
 };
 
 function hr(width = 72) {
@@ -44,16 +60,22 @@ function hr(width = 72) {
 
 /**
  * Return an actionable next-step string for a non-passing check, or null.
+ * In report-only mode (the default), fixable checks point at --fix.
  */
-function nextStepFor(check, { noFix }) {
+function nextStepFor(check, { fixMode }) {
   if (!check || check.status === 'pass') return null;
 
   // Auto-fixable check: direct the user to the fix.
   if (check.fix?.type === 'auto') {
-    if (noFix) {
-      return `${check.fix.description}. Re-run without ${bold('--no-fix')} to apply.`;
+    if (!isFixableByCli(check)) {
+      // Remote warn-status fix — POST /api/doctor/fix only applies on fail, so
+      // --fix won't attempt it; don't promise what this CLI won't do.
+      return `${check.fix.description} — run ${bold('npm run doctor -- --fix')} on the instance host.`;
     }
-    // Fix was attempted (or will run in this invocation); describe what it does.
+    if (!fixMode) {
+      return `would fix: ${check.fix.description}. Run ${bold('dashclaw doctor --fix')} to apply.`;
+    }
+    // Fix runs in this invocation; describe what it does.
     return check.fix.description + '.';
   }
 
@@ -71,42 +93,71 @@ function doctorHeaders(apiKey) {
   return { 'Content-Type': 'application/json', 'x-api-key': apiKey };
 }
 
-function exitFetchError(base, err) {
-  console.error(red(`\nError: Could not reach DashClaw at ${base}`));
-  console.error(dim(`  ${err.cause?.code || err.message}`));
-  console.error(dim(`  Check DASHCLAW_BASE_URL and confirm your instance is running.\n`));
-  process.exit(1);
+function unreachableCheck(base, detail) {
+  return {
+    id: 'remote_unreachable',
+    category: 'sdk',
+    status: 'fail',
+    title: 'Instance Reachable',
+    message: `Could not reach DashClaw at ${base} (${detail})`,
+    fix: null,
+  };
 }
 
-async function fetchDoctorResult({ base, apiKey, category }) {
+function authRejectedCheck(base, status) {
+  return {
+    id: 'remote_auth',
+    category: 'sdk',
+    status: 'fail',
+    title: 'API Key Accepted',
+    message: `API key rejected by ${base} (${status})`,
+    fix: null,
+  };
+}
+
+/**
+ * Fetch /api/doctor, degrading to a synthetic fail check instead of exiting —
+ * local checks still run and report when the instance is down.
+ */
+async function fetchRemoteResult({ base, apiKey, category, fetchImpl }) {
   const headers = doctorHeaders(apiKey);
   let res;
   try {
-    res = await fetch(doctorUrl(base, category), { headers });
+    res = await fetchImpl(doctorUrl(base, category), { headers });
   } catch (err) {
-    exitFetchError(base, err);
+    return { result: null, degraded: unreachableCheck(base, err.cause?.code || err.message), headers };
   }
-  await handleDoctorResponse(base, res);
-  return { result: await res.json(), headers };
-}
 
-async function handleDoctorResponse(base, res) {
   if (res.status === 401 || res.status === 403) {
-    console.error(red(`\nError: API key rejected by ${base} (${res.status}).`));
-    console.error(dim(`  Check DASHCLAW_API_KEY matches the key on your instance.\n`));
-    process.exit(1);
+    return { result: null, degraded: authRejectedCheck(base, res.status), headers };
   }
-
   if (!res.ok && res.status !== 503) {
     const errText = await res.text().catch(() => '');
-    console.error(red(`Doctor check failed (${res.status}): ${errText}`));
-    process.exit(1);
+    return { result: null, degraded: unreachableCheck(base, `${res.status} ${errText.slice(0, 120)}`), headers };
+  }
+
+  try {
+    return { result: await res.json(), degraded: null, headers };
+  } catch (err) {
+    return { result: null, degraded: unreachableCheck(base, `unparseable response: ${err.message}`), headers };
   }
 }
 
-function exitJson(result) {
-  console.log(JSON.stringify(result, null, 2));
-  process.exit(result.status === 'healthy' ? 0 : 1);
+function computeSummary(checks) {
+  const summary = { pass: 0, warn: 0, fail: 0 };
+  for (const check of checks) {
+    if (check.status in summary) summary[check.status]++;
+  }
+  return summary;
+}
+
+/** Merge remote result + local checks into one report (engine status semantics). */
+function mergeReport(remoteResult, degradedCheck, localChecks) {
+  const remoteChecks = remoteResult?.checks || [];
+  const checks = [...remoteChecks, ...(degradedCheck ? [degradedCheck] : []), ...localChecks];
+  const summary = computeSummary(checks);
+  const status = summary.fail > 0 ? 'unhealthy' : summary.warn > 0 ? 'needs_attention' : 'healthy';
+  return { status, summary, checks, timestamp: remoteResult?.timestamp || new Date().toISOString() };
 }
 
 function renderHeader(base) {
@@ -125,73 +176,86 @@ function groupChecks(checks) {
   return grouped;
 }
 
-function renderCheck(check, noFix) {
+function renderCheck(check, fixMode) {
   const icon = ICONS[check.status] || '?';
   const titleStyled = check.status === 'pass' ? check.title : bold(check.title);
   console.log(`  ${icon} ${titleStyled}`);
 
   if (check.status !== 'pass') {
     console.log(`    ${dim(check.message)}`);
-    const tip = nextStepFor(check, { noFix });
+    const tip = nextStepFor(check, { fixMode });
     if (tip) {
       console.log(`    ${dim('\u2192')} ${tip}`);
     }
   }
 }
 
-function renderGroupedChecks(checks, noFix) {
+function renderGroupedChecks(checks, fixMode) {
   const grouped = groupChecks(checks);
-  for (const cat of CATEGORY_ORDER) {
+  const orderedCategories = [
+    ...CATEGORY_ORDER,
+    ...Object.keys(grouped).filter((c) => !CATEGORY_ORDER.includes(c)),
+  ];
+  for (const cat of orderedCategories) {
     const categoryChecks = grouped[cat];
     if (!categoryChecks || categoryChecks.length === 0) continue;
 
     console.log(`  ${bold(CATEGORY_LABELS[cat] || cat)}`);
     for (const check of categoryChecks) {
-      renderCheck(check, noFix);
+      renderCheck(check, fixMode);
     }
     console.log();
   }
 }
 
-function autoFixableChecks(result) {
-  return result.checks.filter((c) => c.status === 'fail' && c.fix?.type === 'auto');
+/**
+ * A check this invocation's --fix would actually attempt: any non-pass local
+ * check with an auto fix, or a remote FAIL with an auto fix (the remote apply
+ * path posts fail-status checks only — warn-status remote fixes are server-side).
+ */
+function isFixableByCli(check) {
+  if (!check?.fix || check.fix.type !== 'auto' || check.status === 'pass') return false;
+  return check.local ? true : check.status === 'fail';
 }
 
-async function applyDoctorFix({ base, headers, check }) {
+function fixableChecks(checks) {
+  return checks.filter(isFixableByCli);
+}
+
+async function applyRemoteFix({ base, headers, check, fetchImpl }) {
   try {
-    const fixRes = await fetch(`${base}/api/doctor/fix`, {
+    const fixRes = await fetchImpl(`${base}/api/doctor/fix`, {
       method: 'POST',
       headers,
       body: JSON.stringify({ action: check.fix.action }),
     });
     const fixResult = await fixRes.json();
-    if (fixResult.applied) {
-      console.log(`  ${green('\u2192')} Fixed: ${fixResult.description}`);
-      return { fixed: 1, recheck: fixResult.recheck || null };
-    }
-    console.log(`  ${dim('\u2192')} Skipped: ${fixResult.description}`);
+    return { id: check.id, action: check.fix.action, applied: !!fixResult.applied, description: fixResult.description };
   } catch (err) {
-    console.log(`  ${red('\u2717')} Fix "${check.fix.action}" failed: ${err.cause?.code || err.message}`);
+    return {
+      id: check.id,
+      action: check.fix.action,
+      applied: false,
+      description: `Fix request failed: ${err.cause?.code || err.message}`,
+    };
   }
-  return { fixed: 0, recheck: null };
 }
 
-async function applyAutoFixes({ base, headers, result, noFix }) {
-  let fixCount = 0;
-  let latestRecheck = null;
-  if (noFix) return { fixCount, latestRecheck };
-
-  const fixable = autoFixableChecks(result);
-  if (fixable.length === 0) return { fixCount, latestRecheck };
-
-  console.log(`  ${bold('Applying auto-fixes...')}`);
-  for (const check of fixable) {
-    const outcome = await applyDoctorFix({ base, headers, check });
-    fixCount += outcome.fixed;
-    latestRecheck = outcome.recheck || latestRecheck;
+function renderWhatChanged(fixResults) {
+  console.log(`  ${bold('What changed')}`);
+  if (fixResults.length === 0) {
+    console.log(`  ${dim('Nothing \u2014 no auto-fixable issues found.')}`);
+    console.log();
+    return;
+  }
+  for (const result of fixResults) {
+    if (result.applied) {
+      console.log(`  ${green('\u2713')} Applied ${bold(result.action)}: ${result.description}`);
+    } else {
+      console.log(`  ${yellow('\u26a0')} Skipped ${bold(result.action)}: ${result.description}`);
+    }
   }
   console.log();
-  return { fixCount, latestRecheck };
 }
 
 function renderSummary(reporting) {
@@ -208,20 +272,12 @@ function renderSummary(reporting) {
   console.log();
 }
 
-function renderFixCount(fixCount) {
-  if (fixCount > 0) {
-    console.log(`  ${green('\u2713')} ${fixCount} issue${fixCount !== 1 ? 's' : ''} auto-fixed this run.`);
-  }
-}
-
-function renderNoFixHint(result, noFix) {
-  if (!noFix) return;
-  const autoFixable = result.checks.filter(
-    (c) => c.status !== 'pass' && c.fix?.type === 'auto',
-  ).length;
-  if (autoFixable > 0) {
+function renderFixHint(report, fixMode) {
+  if (fixMode) return;
+  const fixable = fixableChecks(report.checks).length;
+  if (fixable > 0) {
     console.log(
-      `  ${BRAND('\u2192')} ${autoFixable} issue${autoFixable !== 1 ? 's' : ''} can be auto-fixed. Run: ${bold('dashclaw doctor')}`,
+      `  ${BRAND('\u2192')} ${fixable} issue${fixable !== 1 ? 's' : ''} can be auto-fixed. Run: ${bold('dashclaw doctor --fix')}`,
     );
   }
 }
@@ -236,35 +292,80 @@ function renderHealthFooter(base, healthy) {
 }
 
 /**
- * Run doctor via the API and render results.
- * @param {{ baseUrl: string, apiKey: string, json?: boolean, noFix?: boolean, category?: string }} options
+ * Doctor flow: merged local + remote report; report-only by default; --fix
+ * applies local fixes locally and remote auto-fixes via POST /api/doctor/fix,
+ * re-checks, and prints a what-changed report. Returns the exit code.
+ *
+ * @param {{ baseUrl: string, apiKey: string, json?: boolean, fix?: boolean,
+ *           noFix?: boolean, category?: string, repo?: string, cliVersion?: string }} options
+ * @param {{ fetchImpl?: typeof fetch, local?: object }} [deps] - injectable for tests
  */
-export async function runDoctor({ baseUrl, apiKey, json, noFix, category }) {
-  const base = baseUrl.replace(/\/+$/, '');
-  const { result, headers } = await fetchDoctorResult({ base, apiKey, category });
+export async function runDoctorFlow(options, deps = {}) {
+  const { baseUrl, apiKey, json, fix, noFix, category, repo, cliVersion = '0.0.0' } = options;
+  const fetchImpl = deps.fetchImpl || fetch;
+  const local = deps.local || { buildContext, detectRepoRoot, runLocalChecks, applyLocalFixes };
 
-  if (json) {
-    exitJson(result);
+  // --no-fix is a no-op alias for the (report-only) default; it wins over --fix.
+  const fixMode = !!fix && !noFix;
+  const base = baseUrl.replace(/\/+$/, '');
+
+  const ctx = local.buildContext({ cliVersion });
+  ctx.repoRoot = repo || local.detectRepoRoot({ cwd: ctx.cwd, fs: ctx.fs });
+
+  // Local checks run concurrently with the remote fetch — added wall-clock is
+  // max(local, remote) - remote, not the sum.
+  const [remote, localChecks] = await Promise.all([
+    fetchRemoteResult({ base, apiKey, category, fetchImpl }),
+    local.runLocalChecks(ctx),
+  ]);
+
+  let report = mergeReport(remote.result, remote.degraded, localChecks);
+  let fixResults = [];
+
+  if (fixMode) {
+    const localFixable = fixableChecks(localChecks);
+    const remoteFixable = (remote.result?.checks || []).filter(
+      (c) => c.status === 'fail' && c.fix?.type === 'auto',
+    );
+
+    fixResults = await local.applyLocalFixes(localFixable, ctx);
+    for (const check of remoteFixable) {
+      fixResults.push(await applyRemoteFix({ base, headers: remote.headers, check, fetchImpl }));
+    }
+
+    // Re-check after applying so the report reflects the new state.
+    if (fixResults.some((r) => r.applied)) {
+      const [remote2, localChecks2] = await Promise.all([
+        fetchRemoteResult({ base, apiKey, category, fetchImpl }),
+        local.runLocalChecks(ctx),
+      ]);
+      report = mergeReport(remote2.result, remote2.degraded, localChecks2);
+    }
   }
 
-  // --- Header ----------------------------------------------------------------
+  const healthy = report.status === 'healthy';
+
+  if (json) {
+    console.log(JSON.stringify(fixMode ? { ...report, fixes: fixResults } : report, null, 2));
+    return healthy ? 0 : 1;
+  }
+
   renderHeader(base);
-
-  // --- Grouped checks --------------------------------------------------------
-  renderGroupedChecks(result.checks, noFix);
-
-  // --- Auto-fix (remote fixes only; local-only fixes blocked by API) --------
-  const { fixCount, latestRecheck } = await applyAutoFixes({ base, headers, result, noFix });
-
-  // --- Summary ---------------------------------------------------------------
-  const reporting = latestRecheck || result;
-  renderSummary(reporting);
-
-  // --- Contextual footer -----------------------------------------------------
-  const healthy = reporting.status === 'healthy';
-  renderFixCount(fixCount);
-  renderNoFixHint(result, noFix);
+  renderGroupedChecks(report.checks, fixMode);
+  if (fixMode) renderWhatChanged(fixResults);
+  renderSummary(report);
+  renderFixHint(report, fixMode);
   renderHealthFooter(base, healthy);
 
-  process.exit(healthy ? 0 : 1);
+  return healthy ? 0 : 1;
+}
+
+/**
+ * Run doctor and exit with its code (CLI entry).
+ * @param {{ baseUrl: string, apiKey: string, json?: boolean, fix?: boolean,
+ *           noFix?: boolean, category?: string, repo?: string, cliVersion?: string }} options
+ */
+export async function runDoctor(options) {
+  const code = await runDoctorFlow(options);
+  process.exit(code);
 }

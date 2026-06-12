@@ -718,6 +718,98 @@ export interface DoctorReport {
   checks: DoctorCheck[];
 }
 
+/** A single check item returned by the platform /api/doctor endpoint, with all fix metadata stripped. */
+export interface PlatformDoctorCheck {
+  id: string;
+  category: string;
+  status: string;
+  title: string;
+  message: string;
+}
+
+export type PlatformSection =
+  | { available: true; status: string; summary: Record<string, unknown>; checks: PlatformDoctorCheck[] }
+  | { available: false; reason: string };
+
+/**
+ * Fetch the platform's own doctor report from GET {DASHCLAW_URL}/api/doctor.
+ * Returns null when DASHCLAW_URL or DASHCLAW_API_KEY are not configured.
+ * On success (200 or 503 with a parseable doctor body) returns available:true
+ * with fix metadata stripped from each check. On any other failure returns
+ * available:false with a short reason that never contains the API key value.
+ */
+export async function platformDoctor(): Promise<PlatformSection | null> {
+  const baseUrl = process.env.DASHCLAW_URL?.trim();
+  const apiKey = process.env.DASHCLAW_API_KEY?.trim();
+  if (!baseUrl || !apiKey) return null;
+
+  const url = `${baseUrl.replace(/\/+$/, "")}/api/doctor`;
+
+  const safeKey: string = apiKey;
+  function redactKey(text: string): string {
+    return text.split(safeKey).join("***REDACTED***");
+  }
+
+  let response: Response;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    try {
+      response = await fetch(url, {
+        headers: { "x-api-key": apiKey },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : String(err);
+    return { available: false, reason: redactKey(raw) };
+  }
+
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = undefined;
+  }
+
+  // 503 with a parseable doctor body is treated as a successful (unhealthy) report.
+  const isOkLike = response.ok || (response.status === 503 && isDoctorBody(body));
+  if (!isOkLike) {
+    const detail = typeof body === "object" && body !== null ? JSON.stringify(body) : String(body ?? "");
+    return { available: false, reason: redactKey(`${response.status} from DashClaw platform doctor: ${detail}`.slice(0, 200)) };
+  }
+
+  if (!isDoctorBody(body)) {
+    return { available: false, reason: "Platform doctor returned an unexpected response shape." };
+  }
+
+  const checks: PlatformDoctorCheck[] = (body.checks ?? []).map((raw: unknown) => {
+    const c = raw as Record<string, unknown>;
+    return {
+      id: String(c["id"] ?? ""),
+      category: String(c["category"] ?? ""),
+      status: String(c["status"] ?? ""),
+      title: String(c["title"] ?? ""),
+      message: String(c["message"] ?? ""),
+    };
+  });
+
+  return { available: true, status: String(body.status), summary: body.summary as Record<string, unknown>, checks };
+}
+
+function isDoctorBody(v: unknown): v is { status: unknown; summary: unknown; checks: unknown[] } {
+  return (
+    typeof v === "object" &&
+    v !== null &&
+    "status" in v &&
+    "summary" in v &&
+    "checks" in v &&
+    Array.isArray((v as Record<string, unknown>).checks)
+  );
+}
+
 function combineDoctorStatus(checks: DoctorCheck[]): DoctorStatus {
   if (checks.some((check) => check.status === "fail")) return "fail";
   if (checks.some((check) => check.status === "warn")) return "warn";

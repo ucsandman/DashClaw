@@ -398,13 +398,19 @@ export function registerTools(server: McpServer, store: Store): void {
     {
       title: "Doctor",
       description:
-        "Run local readiness checks: project/environment resolution, mappings, credential env vars, and audit writability.",
+        "Run local readiness checks: project/environment resolution, mappings, credential env vars, and audit writability. " +
+        "When DASHCLAW_URL and DASHCLAW_API_KEY are configured, the result also includes a read-only `report.platform` section " +
+        "fetched from the DashClaw platform's own /api/doctor endpoint.",
       inputSchema: {
         project: optionalNonEmptyString("Project id or slug; uses selected if omitted"),
         environment: optionalNonEmptyString("Environment id or name to focus on"),
       },
     },
-    guard((a: { project?: string; environment?: string }) => ({ status: "ok", report: svc.doctor(store, a) })),
+    guard(async (a: { project?: string; environment?: string }) => {
+      const report = svc.doctor(store, a);
+      const platform = await svc.platformDoctor();
+      return { status: "ok", report: platform ? { ...report, platform } : report };
+    }),
   );
 
   server.registerTool(

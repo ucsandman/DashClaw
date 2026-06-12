@@ -83,16 +83,20 @@ Outputs an aligned table (total, sessions, cache savings, by-project breakdown f
 
 ### `dashclaw doctor`
 
-Diagnose your DashClaw instance and auto-fix safe issues. Checks database, configuration, auth, deployment, SDK reachability, and governance.
+Diagnose your DashClaw instance **and this machine**. Remote checks cover database, configuration, auth, deployment, SDK reachability, governance, and data hygiene; local checks cover what the server can't see — a stale compiled `mcp-server/lib`, `.gitattributes` drift, a local DB schema behind code, a disabled OpenClaw runtime plugin, a stale global CLI shim, broken Claude hook installs, and leaked machine-scope `DASHCLAW_*` env vars.
 
 ```bash
-dashclaw doctor                          # rich terminal output, auto-fix what it can
-dashclaw doctor --json                   # JSON output for CI/scripts
-dashclaw doctor --no-fix                 # diagnose only
-dashclaw doctor --category database,config
+dashclaw doctor                          # report-only (DEFAULT — applies nothing)
+dashclaw doctor --fix                    # apply safe auto-fixes, re-check, report what changed
+dashclaw doctor --json                   # JSON output for CI/scripts (includes local checks)
+dashclaw doctor --category database,config   # filter remote checks
+dashclaw doctor --repo /path/to/dashclaw     # point repo checks at a checkout
+dashclaw doctor --no-fix                 # accepted no-op alias (report-only is the default)
 ```
 
-The CLI invokes your instance's `/api/doctor` endpoints, so fixes that need filesystem access (env writes) are handled separately by self-hosters running `npm run doctor` locally.
+> **Changed in 0.4.0:** `dashclaw doctor` no longer applies remote auto-fixes by default — it reports and prints would-fix entries. Pass `--fix` to apply. Exit codes are unchanged (0 healthy, 1 otherwise).
+
+Detect-only classes are never auto-fixed: leaked machine env vars (removal instructions printed) and OpenClaw gateway configs (remediation text printed). The `.gitattributes` restore runs only when the diff is provably line-ending/whitespace-only. Remote fixes go through `POST /api/doctor/fix`; fixes that need server filesystem access remain self-hoster territory via `npm run doctor` (also report-only by default now, same `--fix` opt-in).
 
 ### `dashclaw code`
 
