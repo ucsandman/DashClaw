@@ -306,7 +306,13 @@ async function maybeConfigureLocalAdminPassword(env) {
 
   log('  DashClaw needs a dashboard sign-in method.');
   log('  For solo/local use, the easiest path is a local admin password.');
-  const answer = cliArgs.yes ? 'n' : await ask('  Set a local admin password now? [Y/n]: ');
+  if (cliArgs.yes) {
+    env.DASHCLAW_LOCAL_ADMIN_PASSWORD = b64url(18);
+    log(`  ✓ Local admin password: ${env.DASHCLAW_LOCAL_ADMIN_PASSWORD} (printed ONCE — written only to .env.local)`);
+    return;
+  }
+
+  const answer = await ask('  Set a local admin password now? [Y/n]: ');
   if (answer.toLowerCase() === 'n') {
     warn('Skipped dashboard sign-in setup. You will need DASHCLAW_LOCAL_ADMIN_PASSWORD or OAuth before you can sign in.');
     return;
