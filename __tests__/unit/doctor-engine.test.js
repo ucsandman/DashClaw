@@ -12,6 +12,7 @@ const {
   mockDriftChecks,
   mockOpenclawPluginChecks,
   mockHostedChecks,
+  mockDataHygieneChecks,
 } = vi.hoisted(() => ({
   mockDatabaseChecks: vi.fn(async () => []),
   mockConfigChecks: vi.fn(async () => []),
@@ -23,6 +24,7 @@ const {
   mockDriftChecks: vi.fn(async () => []),
   mockOpenclawPluginChecks: vi.fn(async () => []),
   mockHostedChecks: vi.fn(async () => []),
+  mockDataHygieneChecks: vi.fn(async () => []),
 }));
 
 vi.mock('@/lib/doctor/checks/database.mjs', () => ({ runChecks: mockDatabaseChecks }));
@@ -34,6 +36,7 @@ vi.mock('@/lib/doctor/checks/governance.mjs', () => ({ runChecks: mockGovernance
 vi.mock('@/lib/doctor/checks/drift.mjs', () => ({ runChecks: mockDriftChecks }));
 vi.mock('@/lib/doctor/checks/openclawPlugin.mjs', () => ({ runChecks: mockOpenclawPluginChecks }));
 vi.mock('@/lib/doctor/checks/hosted.mjs', () => ({ runChecks: mockHostedChecks }));
+vi.mock('@/lib/doctor/checks/data-hygiene.mjs', () => ({ runChecks: mockDataHygieneChecks }));
 vi.mock('@/lib/doctor/generated/checks-from-shape.mjs', () => ({ runShapeChecks: mockShapeChecks }));
 
 import { runDoctor, computeSummary } from '@/lib/doctor/engine.mjs';
@@ -50,6 +53,7 @@ beforeEach(() => {
   mockDriftChecks.mockResolvedValue([]);
   mockOpenclawPluginChecks.mockResolvedValue([]);
   mockHostedChecks.mockResolvedValue([]);
+  mockDataHygieneChecks.mockResolvedValue([]);
 });
 
 describe('runDoctor', () => {
@@ -103,6 +107,22 @@ describe('runDoctor', () => {
 
     expect(result.checks).toHaveLength(1);
     expect(result.checks[0].category).toBe('database');
+  });
+
+  it('runs the data-hygiene category and supports filtering to it', async () => {
+    mockDataHygieneChecks.mockResolvedValue([
+      { id: 'dh_timestamp_format', category: 'data-hygiene', status: 'pass', title: 'Timestamps', message: 'OK', fix: null },
+    ]);
+    mockDatabaseChecks.mockResolvedValue([
+      { id: 'db_connection', category: 'database', status: 'pass', title: 'DB', message: 'OK', fix: null },
+    ]);
+
+    const all = await runDoctor();
+    expect(all.checks.some((c) => c.category === 'data-hygiene')).toBe(true);
+
+    const filtered = await runDoctor({ categories: ['data-hygiene'] });
+    expect(filtered.checks).toHaveLength(1);
+    expect(filtered.checks[0].id).toBe('dh_timestamp_format');
   });
 
   it('strips fix metadata when includeFixes is false', async () => {

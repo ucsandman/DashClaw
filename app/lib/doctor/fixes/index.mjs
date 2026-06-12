@@ -8,6 +8,7 @@ import {
 import { apply as fixCors } from './fix-cors.mjs';
 import { apply as createDefaultPolicy } from './create-default-policy.mjs';
 import { apply as regenerateArtifacts } from './regenerate-artifacts.mjs';
+import { apply as normalizeTimestamps } from './normalize-timestamps.mjs';
 
 /**
  * Registry of fix action keys → handlers.
@@ -21,6 +22,7 @@ export const FIX_REGISTRY = {
   fix_cors:                 { handler: fixCors, scope: 'local' },
   create_default_policy:    { handler: createDefaultPolicy, scope: 'remote' },
   regenerate_artifacts:     { handler: regenerateArtifacts, scope: 'local' },
+  normalize_timestamps:     { handler: normalizeTimestamps, scope: 'remote' },
 };
 
 /**

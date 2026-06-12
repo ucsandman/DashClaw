@@ -68,6 +68,31 @@ describe('GET /api/doctor', () => {
       expect.objectContaining({ categories: ['database', 'config'] }),
     );
   });
+
+  it('passes the data-hygiene category filter through and returns its checks', async () => {
+    mockRunDoctor.mockResolvedValue({
+      status: 'unhealthy',
+      summary: { pass: 0, warn: 0, fail: 1 },
+      checks: [{
+        id: 'dh_timestamp_format', category: 'data-hygiene', status: 'fail',
+        title: 'Timestamp Format Hygiene', message: 'Non-ISO timestamp values found',
+        fix: { type: 'auto', description: 'Normalize parseable non-ISO timestamp values to ISO-8601', action: 'normalize_timestamps' },
+      }],
+      timestamp: '',
+    });
+
+    const req = makeRequest('http://localhost/api/doctor?category=data-hygiene', {
+      headers: { 'x-api-key': 'test' },
+    });
+    const res = await GET(req);
+    const body = await res.json();
+
+    expect(mockRunDoctor).toHaveBeenCalledWith(
+      expect.objectContaining({ categories: ['data-hygiene'] }),
+    );
+    expect(body.checks[0].id).toBe('dh_timestamp_format');
+    expect(body.checks[0].fix.action).toBe('normalize_timestamps');
+  });
 });
 
 describe('POST /api/doctor/fix', () => {
@@ -115,5 +140,26 @@ describe('POST /api/doctor/fix', () => {
     await POST(req);
 
     expect(mockApplyFix).toHaveBeenCalledWith('generate_secret', {}, { allowLocal: false });
+  });
+
+  it('accepts normalize_timestamps (remote scope) with allowLocal: false', async () => {
+    mockApplyFix.mockResolvedValue({
+      applied: true, action: 'normalize_timestamps',
+      description: 'Normalized 2 timestamp value(s) across 1 column(s) to ISO-8601.',
+    });
+    mockRunDoctor.mockResolvedValue({
+      status: 'healthy', summary: { pass: 1, warn: 0, fail: 0 }, checks: [], timestamp: '',
+    });
+
+    const req = makeRequest('http://localhost/api/doctor/fix', {
+      headers: { 'x-api-key': 'test' },
+      body: { action: 'normalize_timestamps' },
+    });
+    const res = await POST(req);
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(mockApplyFix).toHaveBeenCalledWith('normalize_timestamps', {}, { allowLocal: false });
+    expect(body.applied).toBe(true);
   });
 });
