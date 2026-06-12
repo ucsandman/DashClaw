@@ -335,10 +335,25 @@ class DashClaw {
    * @param {string} [action.session_id] Session to attribute this action to.
    */
   async createAction(action) {
-    return this._post('/api/actions', {
+    const payload = {
       ...action,
       agent_id: this.agentId,
-    });
+    };
+    // Auto-derive an idempotency key when the caller didn't supply one
+    // (explicit key always wins) so a blind retry returns the original row
+    // instead of duplicating the ledger. The hour bucket scopes
+    // content-identical actions: a retry seconds later dedupes; the same
+    // logical goal re-run much later is a new action.
+    if (!payload.idempotency_key) {
+      payload.idempotency_key = this.deriveIdempotencyKey({
+        agent_id: payload.agent_id ?? '',
+        action_type: payload.action_type ?? '',
+        declared_goal: payload.declared_goal ?? '',
+        session_id: payload.session_id ?? '',
+        ts_bucket: Math.floor(Date.now() / 3600000),
+      });
+    }
+    return this._post('/api/actions', payload);
   }
 
   /**

@@ -1,0 +1,42 @@
+[
+  {
+    "name": "hook-style: tool_use_id discriminator",
+    "parts": {
+      "agent_id": "agt_1",
+      "action_type": "deploy",
+      "tool_use_id": "toolu_abc123"
+    },
+    "expected": "7ead65ffa65254f17ef49aaab52790356198293c024b9856f64a8e7d7eb2709e"
+  },
+  {
+    "name": "empty + null + numeric bucket",
+    "parts": {
+      "agent_id": "",
+      "action_type": "api_call",
+      "declared_goal": null,
+      "ts_bucket": 494525
+    },
+    "expected": "af4892d19df7f0d8e43fd1900c89bd288c1df1a1fd1742ba2bf5d9d962389fa9"
+  },
+  {
+    "name": "unicode content",
+    "parts": {
+      "agent_id": "agént-ü",
+      "action_type": "message",
+      "declared_goal": "déjà vu — test"
+    },
+    "expected": "ddf2b82791c08558e5ba5c229630ce0569979f8d8d96a113679b62f2ab3a506c"
+  },
+  {
+    "name": "mcp-style: guard parts",
+    "parts": {
+      "agent_id": "mcp-agent",
+      "action_type": "code_change",
+      "declared_goal": "update auth",
+      "target": "app/lib/auth.ts",
+      "tool_name": "Write",
+      "ts_bucket": 494525
+    },
+    "expected": "42c89ad5e281c00cd40cffdf6d0239571063ac564a59b7b825f1adba5c20915c"
+  }
+]

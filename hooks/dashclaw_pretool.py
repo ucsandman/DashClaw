@@ -164,6 +164,24 @@ def log(msg):
 AUTH_FAILED = object()
 
 
+def derive_idempotency_key(parts):
+    """Derive a stable idempotency key from the intent of an action.
+
+    Mirror of the reference implementation in sdk/dashclaw.js
+    deriveIdempotencyKey (and sdk-python derive_idempotency_key): sorted
+    "k=v" pairs joined with "|", SHA-256 hex. Identical parts must derive
+    identical keys on every surface (hook / MCP / SDK), so a blind retry of
+    the same tool call dedupes server-side instead of duplicating the
+    ledger. Use only strings/numbers/None as values (bool formatting
+    differs between languages).
+    """
+    ordered = "|".join(
+        "%s=%s" % (k, parts.get(k) if parts.get(k) is not None else "")
+        for k in sorted(parts)
+    )
+    return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
+
+
 def api_request(method, path, body=None, timeout=None, retries=2, distinguish_auth=False):
     """Make an HTTP request to the DashClaw API. Returns parsed JSON or None.
 
@@ -1213,6 +1231,18 @@ def main():
     context = _build_guard_context(tool_name, tool_info, enrichment)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
+
+    # Idempotency: tool_use_id is unique per tool call, so a blind retry of
+    # the SAME call derives the same key (server dedupes the guard decision
+    # and the ?record=true action row) while distinct calls never collide.
+    # Skipped when the harness supplied no tool_use_id — a shared "unknown"
+    # discriminator would wrongly dedupe distinct calls.
+    if data.get("tool_use_id"):
+        context["idempotency_key"] = derive_idempotency_key({
+            "agent_id": context.get("agent_id") or "",
+            "action_type": context.get("action_type") or "",
+            "tool_use_id": data.get("tool_use_id"),
+        })
 
     # Step 5: POST /api/guard with enriched context
     guard_resp = guard_check(context)

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:8999f67f373f3d03763f5cdc0e7db985c5699707",
+  "timestamp": "sha1:72bd37516cf93972ebc22de83878d01eed6c1950",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3776,7 +3776,10 @@
       "name": "DASHCLAW_GUARD_UNAVAILABLE_POLICY",
       "required": false,
       "files": [
-        "examples/governed-chat-harness/index.js"
+        "examples/governed-chat-harness/index.js",
+        "mcp-server/lib/tools.js",
+        "mcp-server/src/tools.ts",
+        "mcp-server/test/tools-guard.test.ts"
       ],
       "in_env_example": false
     },
@@ -3916,6 +3919,7 @@
       "files": [
         "__tests__/unit/guard-agent-attribution.test.js",
         "__tests__/unit/guard-jwks-verification.test.js",
+        "__tests__/unit/guard-route-idempotency.test.js",
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health.route.test.js",
         "app/api/health/route.ts",
@@ -4051,6 +4055,7 @@
         "__tests__/unit/guard-characterization.test.js",
         "__tests__/unit/guard-hotpath.test.js",
         "__tests__/unit/guard-jwks-verification.test.js",
+        "__tests__/unit/guard-route-idempotency.test.js",
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health-tables.test.js",
         "__tests__/unit/health.route.test.js",

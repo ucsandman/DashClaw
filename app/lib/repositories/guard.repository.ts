@@ -111,3 +111,36 @@ export async function listGuardDecisions(
     throw err;
   }
 }
+
+/**
+ * Look up a recent guard decision by idempotency key (Organ 3 Phase 3).
+ *
+ * Replay short-circuiting exists to absorb blind client retries (seconds
+ * apart), not to cache decisions against policy changes — hence the
+ * 10-minute bound. `context` is a text column holding JSON, so the key is
+ * matched via a per-row jsonb cast inside the bounded window. Fails open:
+ * a lookup error means a replay miss, and the caller re-evaluates — the
+ * pre-idempotency behavior.
+ */
+export async function getGuardDecisionByIdempotencyKey(
+  sql: SqlQueryClient,
+  orgId: string,
+  idempotencyKey: string | null | undefined,
+): Promise<Row | null> {
+  if (!idempotencyKey) return null;
+  try {
+    const rows = await sql.query(
+      `SELECT * FROM guard_decisions
+       WHERE org_id = $1
+         AND created_at > NOW() - INTERVAL '10 minutes'
+         AND context::jsonb->>'idempotency_key' = $2
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [orgId, idempotencyKey]
+    );
+    return rows[0] || null;
+  } catch (err) {
+    console.warn('[Guard] idempotency replay lookup failed (re-evaluating):', (err as Error).message);
+    return null;
+  }
+}

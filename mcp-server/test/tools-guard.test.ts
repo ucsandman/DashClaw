@@ -129,6 +129,31 @@ describe("dashclaw_guard context enrichment", () => {
   });
 });
 
+describe("idempotency keys (Organ 3 Phase 3)", () => {
+  it("guard sends a derived idempotency key; identical calls derive identical keys", async () => {
+    const handlers = makeHandlers();
+    await handlers.dashclaw_guard(GUARD_INPUT);
+    const first = lastRequestBody().idempotency_key;
+    expect(first).toMatch(/^[0-9a-f]{64}$/);
+    await handlers.dashclaw_guard(GUARD_INPUT);
+    expect(lastRequestBody().idempotency_key).toBe(first);
+  });
+
+  it("distinct guard questions derive distinct keys", async () => {
+    const handlers = makeHandlers();
+    await handlers.dashclaw_guard(GUARD_INPUT);
+    const first = lastRequestBody().idempotency_key;
+    await handlers.dashclaw_guard({ ...GUARD_INPUT, declared_goal: "something else" });
+    expect(lastRequestBody().idempotency_key).not.toBe(first);
+  });
+
+  it("record sends a derived idempotency key", async () => {
+    fetchMock.mockResolvedValue(mockOk({ action: { action_id: "act_1" } }));
+    await makeHandlers().dashclaw_record({ action_type: "deploy", declared_goal: "shipped", status: "completed" });
+    expect(lastRequestBody().idempotency_key).toMatch(/^[0-9a-f]{64}$/);
+  });
+});
+
 describe("agent identity stays server-priority", () => {
   it("server-configured agent id beats tool-call input", async () => {
     await makeHandlers("srv-agent").dashclaw_guard({ ...GUARD_INPUT, agent_id: "llm-chosen-impostor" });

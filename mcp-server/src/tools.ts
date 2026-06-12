@@ -13,6 +13,7 @@
  * a new tool wrapper is warranted.
  */
 
+import { createHash } from "node:crypto";
 import type { DashClawClient } from "./client.js";
 
 export interface ToolSchemaProperty {
@@ -586,6 +587,25 @@ function transportDetail(result: any): string {
   return 'no decision in response';
 }
 
+// Idempotency key derivation — mirror of the reference implementation in
+// sdk/dashclaw.js deriveIdempotencyKey (and the Python hook/SDK mirrors):
+// sorted "k=v" pairs joined with "|", SHA-256 hex. Identical parts must derive
+// identical keys on every surface. MCP has no tool_use_id, so an hour bucket
+// scopes content-identical calls: a blind retry seconds later dedupes, the
+// same logical action re-run much later is a new action. Use only
+// strings/numbers/null as values (bool formatting differs between languages).
+function deriveIdempotencyKey(parts: Record<string, unknown>): string {
+  const ordered = Object.keys(parts)
+    .sort()
+    .map((k) => `${k}=${parts[k] ?? ''}`)
+    .join('|');
+  return createHash('sha256').update(ordered).digest('hex');
+}
+
+function hourBucket(): number {
+  return Math.floor(Date.now() / 3_600_000);
+}
+
 /**
  * Create tool handler functions bound to a DashClawClient instance.
  * Each handler accepts input args and returns a JSON string (MCP text content).
@@ -644,6 +664,17 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         ...(Array.isArray(input.write_paths) && input.write_paths.length > 0 ? { write_paths: input.write_paths.slice(0, 100) } : {}),
         ...(typeof input.content === 'string' && input.content ? { content: input.content.slice(0, 20000) } : {}),
         ...(typeof input.tool_name === 'string' && input.tool_name ? { tool: { name: input.tool_name } } : {}),
+        // Blind retries of the same guard question dedupe server-side (the
+        // prior decision is replayed instead of double-counting in
+        // flood/signal windows). Derived, never LLM-chosen.
+        idempotency_key: deriveIdempotencyKey({
+          agent_id: agentId(input) ?? '',
+          action_type: input.action_type ?? '',
+          declared_goal: input.declared_goal ?? '',
+          target: input.target ?? '',
+          tool_name: input.tool_name ?? '',
+          ts_bucket: hourBucket(),
+        }),
       }, { timeout: 10000 });
 
       if (guardUnavailable(result)) {
@@ -681,6 +712,16 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         model: input.model,
         cost_estimate: input.cost_estimate,
         ...(sessionId ? { session_id: sessionId } : {}),
+        // A retried record call returns the original ledger row instead of
+        // inserting a duplicate. Derived, never LLM-chosen.
+        idempotency_key: deriveIdempotencyKey({
+          agent_id: agentId(input) ?? '',
+          action_type: input.action_type ?? '',
+          declared_goal: input.declared_goal ?? '',
+          status: input.status ?? '',
+          session_id: sessionId ?? '',
+          ts_bucket: hourBucket(),
+        }),
       };
       const result = await client.post('/api/actions', body, { timeout: 10000 });
       // Fail loud (same mapping as dashclaw_guard): a swallowed transport error

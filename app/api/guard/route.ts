@@ -11,8 +11,8 @@ import { apiErrorResponse } from '../../lib/apiErrors';
 import { scanForPromptInjection } from '../../lib/promptInjection';
 import { scanSensitiveData, redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
-import { listGuardDecisions } from '../../lib/repositories/guard.repository';
-import { createActionRecord } from '../../lib/repositories/actions.repository';
+import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/repositories/guard.repository';
+import { createActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
 import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
@@ -43,6 +43,15 @@ async function recordRunningAction(
   if (result.decision === 'block') return { recorded: false, reason: 'decision is block' };
   if (!data.agent_id || !data.declared_goal) {
     return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
+  }
+
+  // Idempotency short-circuit, mirroring POST /api/actions: a retried call
+  // returns the existing row instead of inserting a duplicate.
+  if (typeof data.idempotency_key === 'string' && data.idempotency_key) {
+    const existing = await getActionByIdempotencyKey(sql, orgId, data.idempotency_key);
+    if (existing) {
+      return { recorded: true, action_id: String(existing.action_id ?? existing.id) };
+    }
   }
 
   // Same quota gate POST /api/actions applies — record=true must not bypass
@@ -280,6 +289,51 @@ export async function POST(request: Request) {
       }
     }
 
+    // End-to-end idempotency (Organ 3 Phase 3): a duplicate-key call inside
+    // the replay window returns the PRIOR decision instead of re-evaluating.
+    // No new guard_decisions row is written for a replay, so blind client
+    // retries cannot double-count in approval-flood / signal / digest windows
+    // — and the original audit row stays untouched. The lookup window is
+    // short (10 min, see repository): dedupe absorbs retries, not policy
+    // changes. Lookup failures fall through to a normal evaluation.
+    const recordParam = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true';
+    if (typeof data.idempotency_key === 'string' && data.idempotency_key) {
+      const prior = await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
+      if (prior) {
+        let priorPolicies: unknown[] = [];
+        try { priorPolicies = JSON.parse(String(prior.matched_policies ?? '[]')); } catch { priorPolicies = []; }
+        const replay: Record<string, unknown> = {
+          decision: prior.decision,
+          decision_id: prior.id,
+          action_id: prior.id, // deprecated alias of decision_id (overwritten by the record id below)
+          reason: prior.reason,
+          risk_score: prior.risk_score != null ? Number(prior.risk_score) : null,
+          matched_policies: priorPolicies,
+          verification_status: prior.verification_status,
+          agent_id: prior.agent_id,
+          agent_name: prior.agent_name,
+          evaluated_at: prior.created_at,
+          idempotent_replay: true,
+        };
+        if (secretScan) replay.secret_scan = secretScan;
+        if (recordParam) {
+          try {
+            // recordRunningAction short-circuits on the existing action row;
+            // when the prior record attempt failed it heals by creating one.
+            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined });
+            replay.recorded = rec.recorded;
+            if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
+            else if (rec.reason) replay.recorded_error = rec.reason;
+          } catch (err) {
+            console.error('[Guard] record=true replay record failed:', (err as Error).message);
+            replay.recorded = false;
+            replay.recorded_error = 'Failed to create action record';
+          }
+        }
+        return NextResponse.json(replay, { status: 200 });
+      }
+    }
+
     const includeSignals = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('include_signals') === 'true';
 
     let computeSignalsFn = null;
@@ -298,7 +352,7 @@ export async function POST(request: Request) {
     // Optional ?record=true — also create the running action record and return
     // its action_id (one HTTP call for governed hooks instead of two). Without
     // the param the response is byte-identical to the pre-record behavior.
-    if ((request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true') {
+    if (recordParam) {
       const mutable = result as Record<string, unknown>;
       try {
         const rec = await recordRunningAction(sql, orgId, data, result);

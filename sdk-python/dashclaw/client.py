@@ -318,11 +318,26 @@ class DashClaw:
         if session_id is not None:
             payload["session_id"] = session_id
 
+        # Auto-derive an idempotency key when the caller didn't supply one
+        # (explicit key always wins) so a blind retry returns the original
+        # row instead of duplicating the ledger. The hour bucket scopes
+        # content-identical actions: a retry seconds later dedupes; the same
+        # logical goal re-run much later is a new action. Mirrors
+        # sdk/dashclaw.js createAction.
+        if not payload.get("idempotency_key"):
+            payload["idempotency_key"] = self.derive_idempotency_key({
+                "agent_id": payload.get("agent_id") or "",
+                "action_type": payload.get("action_type") or "",
+                "declared_goal": payload.get("declared_goal") or "",
+                "session_id": payload.get("session_id") or "",
+                "ts_bucket": int(time.time() // 3600),
+            })
+
         # Identity Verification: Sign the payload if a private key is available.
         signature = self._sign_payload(payload)
         if signature:
             payload["_signature"] = signature
-            
+
         return self._request("/api/actions", "POST", json=payload)
 
     def record_assumption(self, assumption):

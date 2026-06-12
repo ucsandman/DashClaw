@@ -75,12 +75,15 @@ describe('Tool Handlers', () => {
         risk_score: 30,
       });
 
-      expect(mockPost).toHaveBeenCalledWith('/api/guard', {
+      expect(mockPost).toHaveBeenCalledWith('/api/guard', expect.objectContaining({
         action_type: 'deploy',
         declared_goal: 'Deploy to staging',
         risk_score: 30,
         agent_id: 'default-agent',
-      }, { timeout: 10000 });
+        // Phase 3: every guard call carries a derived idempotency key so
+        // blind retries dedupe server-side instead of double-counting.
+        idempotency_key: expect.stringMatching(/^[0-9a-f]{64}$/),
+      }), { timeout: 10000 });
       expect(result).toContain('"decision":"allow"');
     });
 
