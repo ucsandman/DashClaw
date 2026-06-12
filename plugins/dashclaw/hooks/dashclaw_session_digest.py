@@ -8,7 +8,7 @@ adds SessionStart stdout to the session context, so the agent starts every
 session already knowing what it learned and what was handed off.
 
 Read-only, fail-silent: any missing config, network error, or slow API
-produces NO output and exit 0. Total budget ~3s (two requests, 1.4s each).
+produces NO output and exit 0. Total budget ~4.2s (three requests, 1.4s each).
 
 Config (env or .env.local discovered by walking up from this file):
   DASHCLAW_BASE_URL (or DASHCLAW_URL), DASHCLAW_API_KEY,
@@ -69,7 +69,7 @@ _load_dotenv()
 BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
 AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
-TIMEOUT_S = 1.4  # per request; two requests stay inside the ~3s budget
+TIMEOUT_S = 1.4  # per request; three requests stay inside the ~4.2s budget
 MAX_DECISIONS = 5
 MAX_LESSONS = 3
 
