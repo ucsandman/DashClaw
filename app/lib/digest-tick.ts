@@ -15,30 +15,34 @@ export interface DigestTickResult {
   delivered?: number;
 }
 
-async function readSetting(sql: SqlTag, orgId: string, key: string): Promise<string | null> {
-  try {
-    const rows = await getSettings(sql, orgId, { key });
-    return rows[0]?.value != null ? String(rows[0].value) : null;
-  } catch {
-    return null;
-  }
+interface SettingRowLike {
+  key?: unknown;
+  value?: unknown;
+  category?: unknown;
 }
 
 export async function maybeRunDigestTick(sql: SqlTag, orgId: string): Promise<DigestTickResult> {
   try {
-    // Cheapest checks first: creds, then interval, then marker.
-    const integration = await getSettings(sql, orgId, { category: 'integration' });
-    if (!integration.length) return { ran: false, reason: 'no_adapters' };
+    // ONE settings read serves every gate (this runs inside after() on the
+    // actions hot path — hundreds of calls/hr; the debounced steady state
+    // must stay a single query).
+    const rows = (await getSettings(sql, orgId, {})) as SettingRowLike[];
+    const byKey = new Map(rows.map((r) => [String(r.key), r]));
 
-    const intervalRaw = await readSetting(sql, orgId, 'DASHCLAW_DIGEST_INTERVAL_HOURS');
-    const intervalHours = intervalRaw === null ? DEFAULT_INTERVAL_HOURS : Number(intervalRaw);
+    const intervalRaw = byKey.get('DASHCLAW_DIGEST_INTERVAL_HOURS')?.value;
+    const intervalHours = intervalRaw == null ? DEFAULT_INTERVAL_HOURS : Number(intervalRaw);
     if (!Number.isFinite(intervalHours) || intervalHours <= 0) return { ran: false, reason: 'disabled' };
 
-    const markerRaw = await readSetting(sql, orgId, DIGEST_TICK_MARKER_KEY);
+    const markerRaw = byKey.get(DIGEST_TICK_MARKER_KEY)?.value != null
+      ? String(byKey.get(DIGEST_TICK_MARKER_KEY)?.value)
+      : null;
     const lastRunAt = markerRaw ? Date.parse(markerRaw) : NaN;
     if (Number.isFinite(lastRunAt) && Date.now() - lastRunAt < intervalHours * 3_600_000) {
       return { ran: false, reason: 'debounced' };
     }
+
+    const integration = rows.filter((r) => r.category === 'integration');
+    if (!integration.length) return { ran: false, reason: 'no_adapters' };
 
     // Claim before running (thundering-herd guard, same as drift-tick).
     try {
@@ -49,6 +53,9 @@ export async function maybeRunDigestTick(sql: SqlTag, orgId: string): Promise<Di
     }
 
     const digest = await composeFleetDigest(sql, orgId);
+    // The quiet digest still ships: a daily heartbeat is the feature — silence
+    // would be indistinguishable from broken delivery. 'amber' is the lowest
+    // severity the adapters render; the label carries the "all clear" meaning.
     const signal = {
       severity: digest.quiet ? 'amber' : 'red',
       label: digest.quiet ? 'Daily fleet digest' : 'Daily fleet digest — needs attention',
