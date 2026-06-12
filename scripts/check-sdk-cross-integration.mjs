@@ -22,18 +22,21 @@ function deepOmitUndefined(value) {
   return out;
 }
 
-function normalizeTimestamp(body) {
+function normalizeVolatileFields(body) {
   if (!body || typeof body !== 'object') return body;
-  if (Object.prototype.hasOwnProperty.call(body, 'timestamp_end') && typeof body.timestamp_end === 'string') {
-    return { ...body, timestamp_end: '<timestamp>' };
-  }
-  return body;
+  const out = { ...body };
+  // Mask values that legitimately vary run-to-run so the contract pins the
+  // shape, not the volatile value: timestamps and the auto-derived
+  // idempotency key (its hash rotates with createAction's hour bucket).
+  if (typeof out.timestamp_end === 'string') out.timestamp_end = '<timestamp>';
+  if (typeof out.idempotency_key === 'string') out.idempotency_key = '<idempotency_key>';
+  return out;
 }
 
 function normalizeCall(call) {
   const parsed = new URL(call.path, 'https://example.test');
   const query = Array.from(parsed.searchParams.entries()).sort(([a], [b]) => a.localeCompare(b));
-  const body = normalizeTimestamp(deepOmitUndefined(call.body));
+  const body = normalizeVolatileFields(deepOmitUndefined(call.body));
   return {
     method: String(call.method || '').toUpperCase(),
     pathname: parsed.pathname,

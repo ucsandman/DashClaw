@@ -21,7 +21,8 @@
       "body": {
         "action_type": "deploy",
         "declared_goal": "Ship release",
-        "agent_id": "agent-1"
+        "agent_id": "agent-1",
+        "idempotency_key": "<idempotency_key>"
       }
     }
   },
