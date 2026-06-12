@@ -28,7 +28,10 @@ def _group_routes_by_category(shape: ShapeModel) -> dict[str, list]:
 
 def emit_skill(shape: ShapeModel) -> str:
     """Render the shape model as a platform-intelligence skill markdown file."""
-    active = [r for r in shape.routes if not r.archived]
+    # Count on the same basis as docs/api-inventory.json: the NextAuth
+    # catch-all handler is framework plumbing, not a governable API route.
+    governable = [r for r in shape.routes if "[...nextauth]" not in r.path]
+    active = [r for r in governable if not r.archived]
     required_env = sorted(
         [e for e in shape.env_vars if e.required], key=lambda e: e.name
     )
@@ -91,7 +94,7 @@ def emit_skill(shape: ShapeModel) -> str:
         "## At a Glance",
         "",
         f"- **{len(active)}** active API routes across **{len(route_groups)}** categories"
-        f" ({len(shape.routes)} total including archived)",
+        f" ({len(governable)} total including archived)",
         f"- **{len(required_env)}** required + **{len(optional_env)}** optional environment variables",
         f"- **{len(shape.tables)}** database tables",
         "",

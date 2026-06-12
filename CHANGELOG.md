@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.16.0] — 2026-06-12
+
+W4 "kill the setup tax": `dashclaw doctor --fix` one-command self-repair across the instance, the repo checkout, and the operator machine.
+
+### Changed (behavior)
+
+- **CLI `dashclaw doctor` is now report-only by default** (it previously auto-applied remote fixes). Pass `--fix` to apply safe auto-fixes; doctor then re-checks and prints a what-changed report. `--no-fix` stays accepted as a no-op alias and wins over `--fix`. Exit codes are unchanged (0 healthy, 1 otherwise); `--json` is additive (local checks carry `local: true`). `npm run doctor` follows the same report-only default with the same `--fix` opt-in. CLI bumps to 0.4.0 (npm publish owner-gated).
+- **`POST /api/doctor/fix` now requires an admin-role API key and an org context** (403 otherwise). Remote fixes and the data-hygiene probe are scoped to the caller's org — hosted deployments share one database, so cross-org reads/writes from doctor are no longer possible. Unscoped instance-wide runs remain operator-local only (`npm run doctor`).
+
+### Added
+
+- **Doctor `data-hygiene` category** (11th engine category): detects non-ISO strings in client-written TEXT timestamp columns (the `Date.toString()` incident class), classifying parseable (fixable) vs unparseable (reported, never mutated) values.
+- **`normalize_timestamps` remote fix**: idempotently rewrites parseable non-ISO timestamp values to ISO-8601 with exact per-column row counts; a second run changes 0 rows.
+- **CLI local doctor checks** (merged with the remote report; the server can't see these): stale compiled `mcp-server/lib`, `.gitattributes` drift (auto-restore only under a provable line-ending/whitespace-only diff), local DB schema behind code, OpenClaw runtime plugin disabled/stale (detect-only), stale global CLI shim, broken/missing DashClaw Claude-hook installs, and leaked machine-scope `DASHCLAW_*` env vars (detect-only, prints names + removal instructions, never values).
+- **MCP `doctor` tool platform section**: when `DASHCLAW_URL` + `DASHCLAW_API_KEY` are configured, the existing tool appends a read-only `platform` report from `GET /api/doctor` (fix metadata stripped, API key redacted from errors). Tool count stays 32; the report is unchanged when credentials are absent.
+- **CLI doctor degrades instead of dying**: when the instance is unreachable, local machine/repo checks still run and report (synthetic `remote_unreachable` check, exit 1).
+
 ## [4.15.0] — 2026-06-12
 
 ### Added

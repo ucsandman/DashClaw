@@ -162,6 +162,8 @@ docs/plans/Rowboat-win32-x64-0.5.4-setup.exe
 *.tmp
 .gate-*.log
 gate-*.log
+gate-*.exit
+*.bak
 .supergoalpreflight-*.log
 .task3-*.log
 .handoff-notes-*.md
