@@ -613,11 +613,30 @@ def handle_allow(guard_resp, context, tool_use_id):
     sys.exit(0)
 
 
+def _log_recovery(guard_resp):
+    """Surface the guard's recovery recipe (suggestion + steps) to the agent.
+
+    The server has attached recovery objects to warn/block decisions since the
+    layered-intelligence ship; without this the guidance is silently dropped.
+    """
+    recovery = guard_resp.get("recovery")
+    if not isinstance(recovery, dict):
+        return
+    suggestion = recovery.get("suggestion")
+    if suggestion:
+        log("[DashClaw] Recovery: " + str(suggestion))
+    steps = recovery.get("steps")
+    if isinstance(steps, list):
+        for step in steps[:5]:
+            log("  - " + str(step))
+
+
 def handle_warn(guard_resp, context, tool_use_id):
-    """Print warning, record action, exit 0."""
+    """Print warning (+ recovery guidance), record action, exit 0."""
     warnings = guard_resp.get("warnings") or guard_resp.get("reasons") or []
     msg = warnings[0] if warnings else "Policy warning"
     log("[DashClaw] Warning: " + msg)
+    _log_recovery(guard_resp)
     if not _persist_guard_recorded_action(guard_resp, tool_use_id):
         _record_running_action("handle_warn", context, tool_use_id)
     sys.exit(0)
@@ -641,6 +660,7 @@ def handle_block(guard_resp, context):
     log("[DashClaw] Blocked by policy: " + reason)
     log("Policy: " + policy)
     log("Action: " + context["declared_goal"])
+    _log_recovery(guard_resp)
     log("Run 'dashclaw approvals' to review or override.")
     sys.exit(2)
 
