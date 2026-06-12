@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.19.1] — 2026-06-12
+
+Docs/media patch.
+
+### Added
+- README overhaul: a Remotion-rendered governance-loop animation (intent → guard → approve → record, in the product's token palette) plus a "control plane, running" tour with live screenshots of the Decisions Ledger, Mission Control, Analytics, and Governance Posture. Animation source lives in `media/remotion/` (standalone subproject, not part of the platform dependency tree); render with `npm run render:gif`.
+
 ## [4.19.0] — 2026-06-12
 
 Full-app polish run (Phases 4–6 of the 2026-06-12 close-out): three user-reported UI defects root-caused and fixed, an 88-page UI sweep, and a 7-dimension backend sweep — every fix adversarially verified before landing.

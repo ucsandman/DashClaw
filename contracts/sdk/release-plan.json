@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.19.0",
+    "current_version": "4.19.1",
     "next_bump": "none",
-    "reason": "4.19.0 is a platform-only minor (polish run Phases 4-6: mission-control signal-occurrence grouping w/ dismiss_keys+occurrence_count on the operations feed; /policies interruption-contract collapsed rollup w/ ContractGrant.created_at; work-orders select token fix; 88-page UI sweep fixes; 7-dimension backend sweep incl. after()-deferred meter/index work and scoring-profile clamps) - no Node/Python SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.19.1 is a docs/media-only patch (README overhaul: Remotion-rendered governance-loop hero GIF, live product screenshots, control-plane tour section; standalone media/remotion subproject) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.19.0",
+    "current_version": "4.19.1",
     "next_bump": "none",
-    "reason": "4.19.0 is a platform-only minor (polish run Phases 4-6: mission-control signal-occurrence grouping w/ dismiss_keys+occurrence_count on the operations feed; /policies interruption-contract collapsed rollup w/ ContractGrant.created_at; work-orders select token fix; 88-page UI sweep fixes; 7-dimension backend sweep incl. after()-deferred meter/index work and scoring-profile clamps) - no Node/Python SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.19.1 is a docs/media-only patch (README overhaul: Remotion-rendered governance-loop hero GIF, live product screenshots, control-plane tour section; standalone media/remotion subproject) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]

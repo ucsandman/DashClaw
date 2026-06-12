@@ -1,0 +1,17 @@
+{
+  "name": "dashclaw-readme-media",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remotion project that renders the README governance-loop animation. Standalone — not part of the platform dependency tree.",
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render:gif": "remotion render src/index.ts GovernanceLoop ../../docs/media/governance-loop.gif --codec=gif --every-nth-frame=2",
+    "render:mp4": "remotion render src/index.ts GovernanceLoop out/governance-loop.mp4"
+  },
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0"
+  }
+}

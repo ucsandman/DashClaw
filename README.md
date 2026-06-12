@@ -28,6 +28,12 @@
     <a href="https://www.npmjs.com/package/dashclaw"><img src="https://img.shields.io/npm/v/dashclaw?style=flat-square&color=orange" alt="npm" /></a>
     <a href="https://pypi.org/project/dashclaw/"><img src="https://img.shields.io/pypi/v/dashclaw?style=flat-square&color=orange" alt="PyPI" /></a>
   </p>
+
+  <br />
+
+  <img src="docs/media/governance-loop.gif" alt="The governance loop: an agent declares intent, guard evaluates policy and scores risk, a human approves, and a replayable decision record is written" width="780" />
+
+  <p><sub>The loop, end to end: <strong>intent → guard → approve → record</strong>. Rendered with <a href="https://github.com/remotion-dev/remotion">Remotion</a> from <a href="media/remotion/">media/remotion/</a>.</sub></p>
 </div>
 
 <br />
@@ -51,6 +57,33 @@
 | **Finalize** | Terminal outcomes are one-shot and durable. Lost confirmations are swept and surfaced, so retries do not double-execute. |
 | **Govern external systems** | The capability registry wraps real HTTP APIs with per-agent access rules, rate limits, and audit. Workflows compose these into multi-step governed runs. |
 | **Improve** | Code Sessions ingests Claude Code transcripts (Stop-hook live or JSONL backfill), prices the spend, surfaces optimizer signals (stuck loops, cache crater, context gaps), and distills sessions into an Optimal Files bundle — root CLAUDE.md, path-scoped rules, hooks, and skill packs — applied locally via `dashclaw code apply`. |
+
+---
+
+## The control plane, running
+
+Real screenshots from a live instance governing a working agent fleet. Dark instrument panel, orange only where attention is required.
+
+**The decisions ledger.** Every governed action lands here with its risk score, matched policies, signature state, and terminal outcome. 77,000+ decisions on this instance; each one replayable.
+
+<img src="docs/media/shot-decisions.png" alt="Decisions Ledger: a global stream of governed agent actions with risk scores, governance chips, completed outcomes, success rate, and tracked spend" width="100%" />
+
+**Mission Control.** Fleet posture, the intervention queue, and a live ledger of governed events on one calm screen. Repeated signal occurrences collapse into one row; dismissing it clears them all.
+
+<img src="docs/media/shot-mission-control.png" alt="Mission Control: fleet posture summary, governance categories, runtime stats, and a live stream of governed events for 58 agents" width="100%" />
+
+**Spend and posture, measured.** Analytics prices every action and breaks enforcement down by agent and type. Governance posture is one gaming-resistant score: a policy only counts when replaying real traffic proves it fires, and drafting a policy never raises the number.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/media/shot-analytics.png" alt="Analytics: total cost, action volume, cost trend, per-agent spend, and policy enforcement counts (blocked, approvals, warnings)" /></td>
+    <td width="50%"><img src="docs/media/shot-posture.png" alt="Governance posture: a 0-100 risk-weighted score with a prioritized remediation queue of not-fully-governed action types" /></td>
+  </tr>
+  <tr>
+    <td align="center"><sub><code>/analytics</code> · cost, volume, enforcement</sub></td>
+    <td align="center"><sub><code>/posture</code> · proven coverage, not vibes</sub></td>
+  </tr>
+</table>
 
 ---
 
