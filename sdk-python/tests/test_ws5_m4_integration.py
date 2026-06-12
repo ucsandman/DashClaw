@@ -38,8 +38,14 @@ def normalize_call(call):
     query = sorted([list(item) for item in urllib.parse.parse_qsl(parsed.query, keep_blank_values=True)])
     body = call.get("body")
 
-    if isinstance(body, dict) and isinstance(body.get("timestamp_end"), str):
-        body = {**body, "timestamp_end": "<timestamp>"}
+    if isinstance(body, dict):
+        # Mask values that legitimately vary run-to-run so the contract pins
+        # the shape, not the volatile value: timestamps and the auto-derived
+        # idempotency key (its hash rotates with create_action's hour bucket).
+        if isinstance(body.get("timestamp_end"), str):
+            body = {**body, "timestamp_end": "<timestamp>"}
+        if isinstance(body.get("idempotency_key"), str):
+            body = {**body, "idempotency_key": "<idempotency_key>"}
 
     return {
         "method": str(call.get("method", "")).upper(),
