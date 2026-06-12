@@ -5,7 +5,7 @@
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { waitForHealth, installDeps } from '../../lib/up/run.js';
+import { waitForHealth, installDeps, buildApp } from '../../lib/up/run.js';
 
 describe('installDeps — ci→install fallback', () => {
   test('falls back to npm install when npm ci fails', () => {
@@ -29,6 +29,20 @@ describe('installDeps — ci→install fallback', () => {
     const logger = { error() {} };
     installDeps('/fake/app', logger, runner);
     assert.deepStrictEqual(calls, ['ci']);
+  });
+});
+
+describe('buildApp', () => {
+  test('runs npm run build via the injected runner', () => {
+    const calls = [];
+    const runner = (_cmd, args, _opts) => { calls.push(args); return { status: 0 }; };
+    buildApp('/fake/app', { error() {} }, runner);
+    assert.deepStrictEqual(calls, [['run', 'build']]);
+  });
+
+  test('throws a resume hint when the build fails', () => {
+    const runner = () => ({ status: 1 });
+    assert.throws(() => buildApp('/fake/app', { error() {} }, runner), /resume/i);
   });
 });
 

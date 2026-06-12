@@ -6,7 +6,7 @@ import { spawn, spawnSync } from 'node:child_process';
 
 const shell = process.platform === 'win32';
 
-function npm(args, cwd, logger, runner) {
+function npm(args, cwd, logger, runner = spawnSync) {
   logger.error(`-> npm ${args.join(' ')}`);
   const res = runner('npm', args, { cwd, stdio: ['ignore', 'inherit', 'inherit'], shell });
   if (res.status !== 0) throw new Error(`npm ${args[0]} failed (exit ${res.status}). Re-run \`npx dashclaw up\` to resume from this step.`);
@@ -17,8 +17,8 @@ export function installDeps(appDir, logger = console, runner = spawnSync) {
   catch { npm(['install', '--no-audit', '--no-fund'], appDir, logger, runner); } // lockfile mismatch fallback
 }
 
-export function buildApp(appDir, logger = console) {
-  npm(['run', 'build'], appDir, logger);
+export function buildApp(appDir, logger = console, runner = spawnSync) {
+  npm(['run', 'build'], appDir, logger, runner);
 }
 
 /** Start `next start` as a child; .env.local in appDir is loaded by Next itself. */
