@@ -217,7 +217,7 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**320 routes**: 54 stable, 24 beta, 242 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**321 routes**: 54 stable, 24 beta, 243 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Work Orders — task-grade contracts + receipts
 
@@ -399,6 +399,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 - [SDK parity matrix](./docs/sdk-parity.md): Node v2 vs Python coverage.
 - [Agent identity guide](./docs/agent-identity.md): JWKS verification, replay protection, and action binding (Phase 2 / 2b / 2c).
 - [Runtime API contract](./docs/architecture/runtime-api.md): minimal core governance endpoints.
+- [Guard enforcement contract](./docs/guard-enforcement-contract.md): fail-closed degradation, evaluation deadline, MCP/hook unavailable policy, idempotency keys, org kill switch.
 - [API inventory](./docs/api-inventory.md): full route list with maturity tier.
 - [Durable execution finality spec](./docs/architecture/durable-execution-finality.md): five-state machine, sweep, idempotency.
 - [Architecture map](./PROJECT_DETAILS.md): system boundaries and SDK surface inventory.

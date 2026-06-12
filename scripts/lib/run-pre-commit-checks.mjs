@@ -47,6 +47,23 @@ const STEPS = [
       'public/downloads/dashclaw-governance-plugin.zip.manifest',
       'plugins/dashclaw/skills/dashclaw-platform-intelligence',
       'plugins/dashclaw/skills/dashclaw-governance',
+      // Plugin hook mirrors (PLUGIN_HOOK_SCRIPTS outputs + the agent_intel
+      // module) — regenerated from canonical hooks/ on every refresh but
+      // previously NOT auto-staged, so every hooks/ commit left the plugin
+      // mirrors for a follow-up sync commit (e.g. ccac301e; recurred in the
+      // organ-3 run). Scripts are listed individually so the AUTHORED
+      // plugins/dashclaw/hooks/hooks.json is never swept in.
+      'plugins/dashclaw/hooks/dashclaw_pretool.py',
+      'plugins/dashclaw/hooks/dashclaw_posttool.py',
+      'plugins/dashclaw/hooks/dashclaw_stop.py',
+      'plugins/dashclaw/hooks/dashclaw_code_session_reporter.py',
+      'plugins/dashclaw/hooks/dashclaw_session_digest.py',
+      'plugins/dashclaw/hooks/dashclaw_agent_intel',
+      // Platform-intelligence skill mirrors written by the refresh outside
+      // public/downloads — same orphaning symptom, same fix.
+      '.agents/skills/dashclaw-platform-intelligence',
+      '.claude/skills/dashclaw-platform-intelligence',
+      '.hermes/skills/dashclaw-platform-intelligence',
       'mcp-server/lib/routes-inventory.generated.json',
       'public/livingcode/index.html',
     ],

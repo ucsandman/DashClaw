@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.20.0] — 2026-06-12
+
+Guard Enforcement Contract (Organ 3 / One-System program, Phase 1): the trust spine now fails closed. Full reference: `docs/guard-enforcement-contract.md`.
+
+### Added
+- **Evaluation deadline** — guard policy evaluation is bounded (default 3500ms, `DASHCLAW_GUARD_DEADLINE_MS`); on overrun a degraded decision is built from accumulated state (never downgrading an already-found block), still persisted through the audit gate, with recovery marked partial. The hooks' 5s/zero-retry HTTP budget can no longer be bricked by a slow webhook or LLM phase.
+- **Org kill switch** — `POST/GET /api/halt` (admin-only, both transitions audited via activity_logs) + `dashclaw halt on|off|status [--reason]`. While halted, every guard evaluation for the org returns an immediate audited block across hook/MCP/SDK/API; eager cache invalidation makes it effective on the very next call (no 30s TTL lag); the halt read piggybacks the existing hot-path settings query.
+- **End-to-end idempotency** — every auto-retrying client derives an idempotency key (one convention, reference `sdk/dashclaw.js deriveIdempotencyKey`, pinned by cross-language golden vectors): hooks key on `tool_use_id`, MCP/SDKs on content + hour bucket; SDK `createAction` auto-derives when the caller didn't supply one (explicit key wins). `/api/guard` accepts `idempotency_key`; `?record=true` short-circuits on the existing action row; a duplicate guard call inside a 10-minute window replays the prior decision (`idempotent_replay: true`) and writes NO new guard_decisions row, keeping approval-flood/signal/digest counts honest.
+- MCP guard context enrichment toward hook parity: optional `target`, `write_paths`, `content` (capped 20k), `tool_name` inputs let protected-path, secret-scan, and content policies fire on MCP-originated calls.
+- `docs/guard-enforcement-contract.md` — degradation precedence, deadline, cross-surface unavailable policy, idempotency derivation, kill switch.
+
+### Changed
+- **Fail-closed degradation defaults** — webhook `on_timeout` and semantic-check `fallback` defaults flipped from `allow` to the global contract: per-policy override → `DASHCLAW_GUARD_FALLBACK` → `require_approval`. `DASHCLAW_GUARD_FALLBACK=allow` is the explicit self-hoster escape hatch; the env enum now accepts `require_approval`. Policy-builder UI defaults flipped to match (existing policies with explicit values are untouched).
+- **MCP fail-closed mapping** — `dashclaw_guard` maps transport errors / non-2xx / malformed responses to an explicit fail-closed result governed by `DASHCLAW_GUARD_UNAVAILABLE_POLICY` (default `block`, same env name + default as the Python hooks); `dashclaw_record` fails loud ("NOT written to the audit ledger") instead of returning a raw error blob.
+- Hook HTTP retries are transient-only: non-transient 4xx fail immediately (408/429/5xx still retry); the AUTH_FAILED sentinel is preserved.
+
+### Fixed
+- Livingcode mirror pipeline: plugin hook mirrors (`plugins/dashclaw/hooks/*.py` + `dashclaw_agent_intel/`) and the platform-intelligence skill mirrors are now auto-staged into the SAME commit as their canonical source (previously they landed in follow-up sync commits); `dashclaw_session_digest.py` added to the living-merge post-merge regen manifest.
+
 ## [4.19.1] — 2026-06-12
 
 Docs/media patch.
