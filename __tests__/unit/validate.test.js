@@ -120,6 +120,44 @@ describe('validateActionRecord', () => {
     expect(result.data.recommendation_id).toBe('lrec_123');
     expect(result.data.recommendation_applied).toBe(false);
   });
+
+  it('normalizes Date.toString()-style timestamps to ISO (breaks ::timestamptz casts otherwise)', () => {
+    const record = {
+      agent_id: 'agent-123',
+      action_type: 'build',
+      declared_goal: 'Build the project',
+      timestamp_start: 'Thu Jun 11 2026 15:45:25 GMT-0400',
+    };
+    const result = validateActionRecord(record);
+    expect(result.valid).toBe(true);
+    expect(result.data.timestamp_start).toBe('2026-06-11T19:45:25.000Z');
+  });
+
+  it('passes ISO timestamps through unchanged', () => {
+    const record = {
+      agent_id: 'agent-123',
+      action_type: 'build',
+      declared_goal: 'Build the project',
+      timestamp_start: '2026-06-11T19:45:25.000Z',
+      timestamp_end: '2026-06-11T19:46:00.000Z',
+    };
+    const result = validateActionRecord(record);
+    expect(result.valid).toBe(true);
+    expect(result.data.timestamp_start).toBe('2026-06-11T19:45:25.000Z');
+    expect(result.data.timestamp_end).toBe('2026-06-11T19:46:00.000Z');
+  });
+
+  it('rejects unparseable timestamps', () => {
+    const record = {
+      agent_id: 'agent-123',
+      action_type: 'build',
+      declared_goal: 'Build the project',
+      timestamp_start: 'not-a-date',
+    };
+    const result = validateActionRecord(record);
+    expect(result.valid).toBe(false);
+    expect(result.errors[0]).toMatch(/timestamp_start must be a parseable timestamp/);
+  });
 });
 
 describe('isValidWebhookUrl', () => {

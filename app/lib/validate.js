@@ -49,8 +49,8 @@ const ACTION_RECORD_SCHEMA = {
   artifacts_created:    { type: 'array', maxItems: 100 },
   error_message:        { type: 'string', maxLength: 4000 },
   // Meta
-  timestamp_start:      { type: 'string', maxLength: 64 },
-  timestamp_end:        { type: 'string', maxLength: 64 },
+  timestamp_start:      { type: 'string', maxLength: 64, format: 'datetime' },
+  timestamp_end:        { type: 'string', maxLength: 64, format: 'datetime' },
   duration_ms:          { type: 'integer', min: 0 },
   cost_estimate:        { type: 'number', min: 0 },
   tokens_in:            { type: 'integer', min: 0 },
@@ -112,6 +112,13 @@ const FIELD_TYPE_VALIDATORS = {
     if (value.length === 0 && rule.required) return `${key} cannot be empty`;
     if (rule.maxLength && value.length > rule.maxLength) return `${key} exceeds max length of ${rule.maxLength}`;
     if (rule.enum && !rule.enum.includes(value)) return `${key} must be one of: ${rule.enum.join(', ')}`;
+    // Timestamps must be Date-parseable; they are normalized to ISO in
+    // validate() so text columns never hold strings that break ::timestamptz
+    // casts downstream (signals, operations feed). Empty strings pass through
+    // and fall back to "now" at the route layer.
+    if (rule.format === 'datetime' && value.length > 0 && Number.isNaN(new Date(value).getTime())) {
+      return `${key} must be a parseable timestamp (ISO 8601 recommended)`;
+    }
     return null;
   },
   integer: (key, value, rule) => {
@@ -185,7 +192,11 @@ function validate(body, schema) {
     if (error) {
       errors.push(error);
     } else if (value != null) {
-      data[key] = value;
+      // Normalize datetime strings to ISO (e.g. a client sending
+      // Date.toString() output like "Thu Jun 11 2026 ... GMT-0400 (...)").
+      data[key] = (rule.format === 'datetime' && typeof value === 'string' && value.length > 0)
+        ? new Date(value).toISOString()
+        : value;
     }
   }
 
