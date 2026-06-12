@@ -3,7 +3,7 @@
 // a settings-key marker (drift-tick pattern). Collapses NOTIFICATIONS only —
 // never resolves or suppresses the pending approvals themselves.
 import { getSettings, upsertSetting } from './repositories/settings.repository';
-import { getRecentApprovalCountsByPolicy } from './repositories/guardrails.repository';
+import { getRecentApprovalCountsByPolicy, getPolicyNamesByIds } from './repositories/guardrails.repository';
 import type { SqlTag } from './types/db';
 
 export const APPROVAL_FLOOD_STATE_KEY = 'APPROVAL_FLOOD_STATE';
@@ -128,4 +128,31 @@ export function matchedPolicyIds(guardDecision: { matched_policies?: unknown } |
     try { return (JSON.parse(raw) as unknown[]).map(String); } catch { return []; }
   }
   return [];
+}
+
+/** One native notification per newly tripped budget (never throws). */
+export async function notifyNewFloods(
+  sql: SqlTag,
+  orgId: string,
+  newlyTripped: Array<{ policy_id: string; count: number }>,
+  windowMin: number,
+): Promise<void> {
+  if (!newlyTripped.length) return;
+  try {
+    const { deliverNativeNotifications } = await import('./notification-adapters/index');
+    const ids = newlyTripped.map((t) => t.policy_id).filter((id) => id !== FLEET_KEY);
+    const names = await getPolicyNamesByIds(sql as never, orgId, ids);
+    const signals = newlyTripped.map((t) => ({
+      severity: 'red',
+      label: t.policy_id === FLEET_KEY
+        ? `Approval flood: fleet-wide (${t.count} interrupts in ${windowMin}m)`
+        : `Approval flood: ${names[t.policy_id] ?? t.policy_id} (${t.count} interrupts in ${windowMin}m)`,
+      detail: 'Per-action approval pings are paused for this source. Pending approvals are intact — review on /approvals: pause the rule or bulk-resolve.',
+      help: 'A flood almost always means an over-broad require_approval rule, not N risky actions.',
+    }));
+    const settings = await getSettings(sql, orgId, { category: 'integration' });
+    await deliverNativeNotifications(orgId, signals, settings as unknown as import('./notification-adapters/index').SettingRow[], sql);
+  } catch (err) {
+    console.warn('[approval-flood] flood notification failed:', (err as Error)?.message);
+  }
 }

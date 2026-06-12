@@ -14,10 +14,8 @@ import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { generateActionEmbedding, isEmbeddingsEnabled } from '../../lib/embeddings';
 import { evaluateGuard } from '../../lib/guard';
 import { fireActionAlert } from '../../lib/actionAlerts';
-import { fireTelegramApproval } from '../../lib/telegramApprovals';
-import { fireDiscordApproval } from '../../lib/discordApprovals';
 import { fireNewConnectAlert } from '../../lib/notification-adapters/discord';
-import { fireWebhooksForApproval } from '../../lib/webhooks';
+import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { redactAny } from '../../lib/security';
 import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
@@ -365,15 +363,7 @@ export async function POST(request: Request) {
       after(() => fireActionAlert('high_risk', createdAction as Record<string, unknown>, sql, orgId));
     }
 
-    if (createdAction?.status === 'pending_approval') {
-      after(() => fireTelegramApproval(createdAction as Record<string, unknown>, sql, orgId));
-      after(() => fireDiscordApproval(createdAction as Record<string, unknown>, sql, orgId));
-      after(() => fireWebhooksForApproval(orgId, 'approval_pending', {
-        ...createdAction,
-        matched_policies: guardDecision?.matched_policies,
-        reason: guardDecision?.reason,
-      }, sql).catch(() => {}));
-    }
+    fireApprovalSurfaces(createdAction as Record<string, unknown>, sql, orgId, guardDecision as Record<string, unknown> | null);
 
     // Launch-window new-connect alert (DOG-04 telemetry).
     // Fires only if this is the org's first action_record AND the webhook

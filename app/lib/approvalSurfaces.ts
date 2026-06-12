@@ -27,6 +27,10 @@ interface GuardDecisionLike {
  * freezes the lambda once the response returns unless `after()` is used); each
  * surface no-ops when its channel is unconfigured.
  *
+ * Human-facing prompts (Telegram, Discord) go through the interruption budget —
+ * suppressed when a matched policy or the fleet has tripped its flood threshold.
+ * Machine-facing webhooks are never suppressed.
+ *
  * @param createdAction  the action record returned by createActionRecord
  * @param sql            the Neon sql tag
  * @param orgId
@@ -39,8 +43,31 @@ export function fireApprovalSurfaces(
   guardDecision: GuardDecisionLike | null = null,
 ): void {
   if (!createdAction || createdAction.status !== 'pending_approval') return;
-  after(() => fireTelegramApproval(createdAction, sql, orgId));
-  after(() => fireDiscordApproval(createdAction, sql, orgId));
+
+  // Human-facing prompts go through the interruption budget. Fail-open: any
+  // flood-check error falls back to today's per-action behavior.
+  after(async () => {
+    let suppress = false;
+    try {
+      const { evaluateApprovalFlood, notifyNewFloods, matchedPolicyIds, getInterruptBudget } = await import('./approval-flood');
+      const flood = await evaluateApprovalFlood(sql, orgId);
+      if (flood.newlyTripped.length) {
+        const budget = await getInterruptBudget(sql, orgId);
+        await notifyNewFloods(sql, orgId, flood.newlyTripped, budget.windowMin);
+      }
+      const matched = matchedPolicyIds(guardDecision);
+      suppress = flood.fleetTripped || matched.some((id) => flood.suppressed.has(id));
+    } catch (err) {
+      console.warn('[approval-flood] check failed — keeping per-action prompts:', (err as Error)?.message);
+    }
+    if (!suppress) {
+      await Promise.allSettled([
+        fireTelegramApproval(createdAction, sql, orgId),
+        fireDiscordApproval(createdAction, sql, orgId),
+      ]);
+    }
+  });
+
   after(() => fireWebhooksForApproval(orgId, 'approval_pending', {
     ...createdAction,
     matched_policies: guardDecision?.matched_policies as unknown[] | undefined,
