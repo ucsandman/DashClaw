@@ -4,11 +4,10 @@
 // never resolves or suppresses the pending approvals themselves.
 import { getSettings, upsertSetting } from './repositories/settings.repository';
 import { getRecentApprovalCountsByPolicy } from './repositories/guardrails.repository';
+import type { SqlTag } from './types/db';
 
 export const APPROVAL_FLOOD_STATE_KEY = 'APPROVAL_FLOOD_STATE';
 export const FLEET_KEY = '_fleet';
-
-type SqlTag = unknown; // repositories own typing; this module just threads it
 
 export interface FloodBudget { perPolicy: number; windowMin: number; fleetWide: number }
 export interface FloodEntry { tripped_at: string; count: number }
@@ -31,7 +30,7 @@ function num(value: unknown, fallback: number): number {
 
 export async function getInterruptBudget(sql: SqlTag, orgId: string): Promise<FloodBudget> {
   try {
-    const rows = (await getSettings(sql as never, orgId, {})) as Array<{ key?: string; value?: unknown }>;
+    const rows = (await getSettings(sql, orgId, {})) as Array<{ key?: string; value?: unknown }>;
     const byKey = Object.fromEntries(rows.map((r) => [r.key, r.value]));
     return {
       perPolicy: num(byKey.DASHCLAW_INTERRUPT_BUDGET, DEFAULTS.perPolicy),
@@ -45,7 +44,7 @@ export async function getInterruptBudget(sql: SqlTag, orgId: string): Promise<Fl
 
 export async function getFloodState(sql: SqlTag, orgId: string): Promise<FloodState> {
   try {
-    const rows = (await getSettings(sql as never, orgId, { key: APPROVAL_FLOOD_STATE_KEY })) as Array<{ value?: unknown }>;
+    const rows = (await getSettings(sql, orgId, { key: APPROVAL_FLOOD_STATE_KEY })) as Array<{ value?: unknown }>;
     const parsed = JSON.parse(String(rows[0]?.value ?? '{}'));
     return parsed && typeof parsed === 'object' ? (parsed as FloodState) : {};
   } catch {
@@ -99,9 +98,12 @@ export async function evaluateApprovalFlood(sql: SqlTag, orgId: string): Promise
       }
     }
 
+    // Best-effort persistence: concurrent evaluations are last-writer-wins
+    // (no claimed marker like drift-tick). Worst case is a duplicate flood
+    // notification or a clear delayed one cycle — tolerable for suppression.
     if (changed) {
       try {
-        await upsertSetting(sql as never, orgId, {
+        await upsertSetting(sql, orgId, {
           key: APPROVAL_FLOOD_STATE_KEY,
           value: JSON.stringify(state),
           category: 'system',
