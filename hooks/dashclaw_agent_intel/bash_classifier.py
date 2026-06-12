@@ -10,6 +10,7 @@ import re
 from typing import Optional
 
 from dashclaw_agent_intel.command_parser import parse_command
+from dashclaw_agent_intel.file_scanner import is_placeholder_path
 
 # ---------------------------------------------------------------------------
 # Intent lookup tables
@@ -112,6 +113,31 @@ _RISK_BASE = {
     "system_admin": 75,
     "unknown": 20,
 }
+
+# A bounded rm (non-recursive, explicit non-glob targets) is irreversible but
+# routine — deleting one named file is everyday agent work, not `rm -rf`.
+# The full destructive base (90) pushed every single-file delete into block
+# territory while the policy engine, given honest context, allowed it.
+_BOUNDED_RM_BASE = 55
+_BOUNDED_RM_MAX_TARGETS = 3
+_GLOB_CHARS = "*?["
+
+
+def is_bounded_rm(parsed: dict) -> bool:
+    """True for a non-recursive rm with a few explicit, non-glob targets."""
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
+    if base != "rm":
+        return False
+    flags = parsed.get("flags", [])
+    recursive = "--recursive" in flags or any(
+        f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
+    )
+    if recursive:
+        return False
+    targets = parsed.get("targets", [])
+    if not targets or len(targets) > _BOUNDED_RM_MAX_TARGETS:
+        return False
+    return not any(ch in t for t in targets for ch in _GLOB_CHARS)
 
 
 # ---------------------------------------------------------------------------
@@ -276,25 +302,34 @@ def _run_destructive_command_validation(
                 "reason": "dd with output file is destructive",
             }
 
-    # rm -rf / or rm -rf /* — catastrophic.
+    # rm — graded: root targets block, recursive/glob/multi-target warns,
+    # a bounded single-file delete is routine and passes.
     if base == "rm":
-        has_rf = any("r" in f and "f" in f for f in flags) or ("-r" in flags and "-f" in flags)
-        if has_rf:
+        recursive = "--recursive" in flags or any(
+            f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
+        )
+        if recursive:
             # Check for root targets.
             for t in targets:
                 if t in ("/", "/*", "/.", "/.."):
                     return {
                         "check": "destructive_command",
                         "result": "block",
-                        "reason": "rm -rf with root target",
+                        "reason": "recursive rm with root target",
                     }
-            # Non-root rm -rf — warn.
+            # Non-root recursive rm — warn.
             return {
                 "check": "destructive_command",
                 "result": "warn",
                 "reason": "rm -rf on non-root path",
             }
-        # Plain rm — warn.
+        if is_bounded_rm(parsed):
+            return {
+                "check": "destructive_command",
+                "result": "allow",
+                "reason": "bounded non-recursive rm (explicit targets)",
+            }
+        # Non-recursive but unbounded (globs / many targets / no targets) — warn.
         return {
             "check": "destructive_command",
             "result": "warn",
@@ -415,13 +450,19 @@ def _compute_risk(
     """Compute risk score 0-100 from intent, validations, and targets."""
     score = _RISK_BASE.get(intent, 20)
 
-    # Sensitive target boost.
+    # A bounded non-recursive rm is destructive in kind (irreversible) but a
+    # routine single-file delete in degree — grade it below the catastrophic
+    # destructive base so it lands in the warn band, not the block band.
+    if intent == "destructive" and is_bounded_rm(parsed):
+        score = min(score, _BOUNDED_RM_BASE)
+
+    # Sensitive target boost (placeholder/template files exempt).
     targets = parsed.get("targets", [])
     redirections = parsed.get("redirections", [])
     all_paths = list(targets) + [r.get("target", "") for r in redirections]
 
     for path in all_paths:
-        if SENSITIVE_PATTERNS.search(path):
+        if SENSITIVE_PATTERNS.search(path) and not is_placeholder_path(path):
             score += 15
             break  # Only boost once.
 

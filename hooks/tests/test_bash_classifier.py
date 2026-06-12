@@ -116,6 +116,34 @@ class TestDestructiveCommandValidation(unittest.TestCase):
         self.assertIn("destructive_command", checks)
         self.assertEqual(checks["destructive_command"]["result"], "block")
 
+    def test_bounded_rm_allows(self):
+        r = classify_bash("rm build-output.txt")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertIn("destructive_command", checks)
+        self.assertEqual(checks["destructive_command"]["result"], "allow")
+
+    def test_rm_f_single_file_allows(self):
+        # -f without -r is still bounded (force, not recursive).
+        r = classify_bash("rm -f stale.lock")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "allow")
+
+    def test_rm_glob_warns(self):
+        r = classify_bash("rm *.log")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "warn")
+
+    def test_rm_r_without_f_warns(self):
+        r = classify_bash("rm -r build/")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "warn")
+
+    def test_rm_r_root_blocks(self):
+        # Recursive root delete blocks even without -f.
+        r = classify_bash("rm -r /")
+        checks = {v["check"]: v for v in r["validations"]}
+        self.assertEqual(checks["destructive_command"]["result"], "block")
+
 
 class TestModeValidation(unittest.TestCase):
     """Submodule 3: mode_validation."""
@@ -203,6 +231,33 @@ class TestRiskScore(unittest.TestCase):
     def test_risk_capped_at_100(self):
         r = classify_bash("rm -rf /")
         self.assertLessEqual(r["risk_score"], 100)
+
+    def test_bounded_rm_graded_below_block_band(self):
+        # Single explicit file delete: irreversible but routine — warn band.
+        r = classify_bash("rm build-output.txt")
+        self.assertEqual(r["intent"], "destructive")
+        self.assertLessEqual(r["risk_score"], 60)
+        self.assertGreaterEqual(r["risk_score"], 35)
+
+    def test_recursive_rm_keeps_full_destructive_risk(self):
+        r = classify_bash("rm -rf node_modules")
+        self.assertGreaterEqual(r["risk_score"], 90)
+
+    def test_env_prefix_classifies_real_command(self):
+        # KEY=value prefixes (e.g. fake dry-run creds) must not collapse the
+        # command to "unknown" or trip the sensitive-target boost.
+        r = classify_bash("STRIPE_SECRET_KEY=sk_test_123 API_TOKEN=fake npm run dry-run")
+        self.assertEqual(r["intent"], "package_management")
+        self.assertLessEqual(r["risk_score"], 40)
+
+    def test_placeholder_env_file_not_boosted(self):
+        plain = classify_bash("cat README.md")
+        placeholder = classify_bash("cat .env.example")
+        self.assertEqual(placeholder["risk_score"], plain["risk_score"])
+
+    def test_real_env_file_still_boosted(self):
+        r = classify_bash("cat .env")
+        self.assertGreaterEqual(r["risk_score"], 20)
 
 
 # ---------------------------------------------------------------------------

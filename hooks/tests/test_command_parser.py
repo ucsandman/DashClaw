@@ -281,11 +281,30 @@ class TestReturnShape(unittest.TestCase):
             "flags",
             "targets",
             "wrapper",
+            "env_assignments",
             "pipes",
             "redirections",
             "chains",
         }
         self.assertEqual(set(result.keys()), expected_keys)
+
+    def test_env_assignment_prefix_stripped(self):
+        result = parse_command("FOO=1 BAR=baz npm run test")
+        self.assertEqual(result["base_command"], "npm")
+        self.assertEqual(result["subcommand"], "run")
+        self.assertEqual(result["env_assignments"], ["FOO=1", "BAR=baz"])
+        self.assertNotIn("FOO=1", result["targets"])
+
+    def test_env_assignment_with_secret_value_not_a_target(self):
+        result = parse_command("STRIPE_SECRET_KEY=sk_test_123 node billing.js")
+        self.assertEqual(result["base_command"], "node")
+        self.assertEqual(result["targets"], ["billing.js"])
+        self.assertEqual(result["env_assignments"], ["STRIPE_SECRET_KEY=sk_test_123"])
+
+    def test_assignment_only_command(self):
+        result = parse_command("FOO=1")
+        self.assertEqual(result["base_command"], "")
+        self.assertEqual(result["env_assignments"], ["FOO=1"])
 
     def test_types(self):
         result = parse_command("sudo git push origin main")

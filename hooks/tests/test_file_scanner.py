@@ -105,6 +105,16 @@ class TestSensitivePatterns(unittest.TestCase):
         self.assertTrue(result["sensitive_path"])
         self.assertEqual(result["sensitive_pattern"], "env_file")
 
+    def test_env_example_is_placeholder_not_sensitive(self):
+        result = scan_file_operation(".env.example", workspace="/tmp/project")
+        self.assertFalse(result["sensitive_path"])
+        self.assertIsNone(result["sensitive_pattern"])
+
+    def test_env_template_variants_not_sensitive(self):
+        for name in (".env.sample", ".env.template", ".env.dist"):
+            result = scan_file_operation(name, workspace="/tmp/project")
+            self.assertFalse(result["sensitive_path"], name)
+
     def test_credentials_file(self):
         result = scan_file_operation("credentials.json", workspace="/tmp/project")
         self.assertTrue(result["sensitive_path"])

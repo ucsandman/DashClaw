@@ -20,11 +20,25 @@ _BINARY_SCAN_WINDOW = 8 * 1024
 _SYSTEM_PREFIXES = ("/etc/", "/boot/", "/sys/", "/proc/", "/dev/",
                     "/sbin/", "/usr/sbin/", "/var/run/", "/var/lock/")
 
+# Placeholder/template env files (.env.example and friends) hold placeholder
+# values by convention — every project ships one, and agents are routinely
+# asked to update it. Treating them as secrets blocks benign work, so the
+# env_file rule (and the bash/pretool sensitive boosts) exempt them.
+_PLACEHOLDER_SUFFIXES = (".example", ".sample", ".template", ".dist")
+
+
+def is_placeholder_path(path: str) -> bool:
+    """True when *path*'s basename marks a placeholder/template file."""
+    basename = path.replace("\\", "/").rstrip("/").rsplit("/", 1)[-1]
+    return basename.lower().endswith(_PLACEHOLDER_SUFFIXES)
+
+
 # Sensitive pattern rules: list of (match_fn, pattern_name).
 # match_fn receives (basename, full_path) and returns True on match.
 _SENSITIVE_RULES: list[tuple] = [
-    # .env files — exact basename or basename starting with ".env"
-    (lambda b, _p: b == ".env" or b.startswith(".env."), "env_file"),
+    # .env files — exact basename or basename starting with ".env",
+    # except placeholder/template variants (.env.example etc.)
+    (lambda b, _p: (b == ".env" or b.startswith(".env.")) and not is_placeholder_path(b), "env_file"),
 
     # credential / secret in basename (case-insensitive)
     (lambda b, _p: "credential" in b.lower() or "secret" in b.lower(), "credentials"),

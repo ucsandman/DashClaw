@@ -562,6 +562,55 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
   }
 }
 
+// How long a HITL approval covers a re-evaluation of the same action. Short on
+// purpose: it absorbs the "operator approved after the hook's wait timed out,
+// agent retries the identical call" loop, not standing permission.
+const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
+
+/**
+ * Operator-approval post-pass: a recent HITL approval for the same agent and
+ * the exact same declared_goal downgrades require_approval to allow.
+ *
+ * Why: the hook's approval wait times out (~30s) long before most operators
+ * click approve. The retried tool call is a NEW evaluation with a new
+ * idempotency key, so without this pass it re-queues for approval and the
+ * granted approval is never honored. `approved_by` is only ever set by the
+ * admin-gated approvals routes, and only on ALLOW (deny leaves it NULL), so
+ * its presence IS the grant.
+ *
+ * Like allow_grant, this can NEVER override block — blocks are absolute.
+ * Best-effort: a lookup failure leaves the decision at require_approval
+ * (fails closed).
+ */
+async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
+  if (acc.highestDecision !== 'require_approval') return;
+  const { context, sql, orgId } = deps;
+  if (!context.agent_id || !context.declared_goal) return;
+  try {
+    const rows = await sql`
+      SELECT action_id, approved_by
+      FROM action_records
+      WHERE org_id = ${orgId}
+        AND agent_id = ${context.agent_id}
+        AND declared_goal = ${context.declared_goal}
+        AND approved_by IS NOT NULL
+        AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
+      ORDER BY approved_at DESC
+      LIMIT 1
+    `;
+    const grant = rows[0];
+    if (!grant) return;
+    acc.warnings.push(
+      `Covered by operator approval ${grant.action_id} (approved by ${grant.approved_by}) — require_approval downgraded to allow`
+    );
+    acc.matchedPolicies.push('builtin:operator_approval');
+    acc.highestDecision = 'allow';
+    acc.reasons.length = 0; // gating reasons no longer apply
+  } catch (err) {
+    console.warn('[Guard] operator-approval lookup failed:', (err as Error).message);
+  }
+}
+
 // Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true).
 function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): void {
   if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') return;
@@ -1002,8 +1051,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // Grants run after the LAST phase where org policies can raise warn /
     // require_approval (webhook_check, above). The later phases can only append
     // warnings (runSignalChecks) or raise to block (replay/act overrides), which
-    // grants never touch — so a downgrade decided here is final.
+    // grants never touch — so a downgrade decided here is final. The operator-
+    // approval pass runs after policy grants: it only fires when the decision
+    // is still require_approval.
     applyAllowGrants(policies, context, liveAcc);
+    await applyOperatorApprovalGrant(deps, liveAcc);
     await runSignalChecks(deps, options, liveAcc);
     return 'completed';
   };

@@ -59,6 +59,8 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 
 `decision_id` is the canonical id of this guard evaluation (`act_gd_…`). `action_id` is a **deprecated alias** of the same value, kept for back-compat. Do not pass either to `waitForApproval` / `GET /api/actions/:id` — use the `action_id` returned by `POST /api/actions` (an `act_…` id) for follow-up calls.
 
+**Granted operator approvals are honored on re-evaluation.** When a decision would be `require_approval`, the guard first checks the action ledger for a recent human approval of the identical action — same `agent_id`, same exact `declared_goal`, approved within the last 15 minutes. A match downgrades the decision to `allow`, adds `builtin:operator_approval` to `matched_policies`, and names the covering approval in `warnings`. This closes the loop where an operator approves after the client's approval wait timed out and the retried call would otherwise re-queue for approval. A `block` decision is never downgraded — blocks are absolute.
+
 `GET /api/guard` lists recent guard decisions and supports filters such as `agent_id`, `decision`, `limit`, and `offset`.
 
 ### 2. Actions (`POST /api/actions`)

@@ -81,6 +81,8 @@ _load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
+from dashclaw_agent_intel.bash_classifier import is_bounded_rm
+from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 from dashclaw_agent_intel import behavior_recorder
 
@@ -313,8 +315,15 @@ def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
     command = tool_input.get("command") or ""
     bash_intel = classify_bash(command, mode=PERMISSION_MODE, workspace=WORKSPACE)
 
-    # Map bash intent to action_type
-    action_type = _INTENT_TO_ACTION.get(bash_intel["intent"], "other")
+    # Map bash intent to action_type. A bounded single-file rm maps to
+    # "cleanup", not "security": the server takes max(server base, client
+    # score), and the security base (80) + irreversible modifier alone would
+    # push every routine delete into the block band regardless of the
+    # classifier's graded score.
+    if bash_intel["intent"] == "destructive" and is_bounded_rm(bash_intel.get("parsed") or {}):
+        action_type = "cleanup"
+    else:
+        action_type = _INTENT_TO_ACTION.get(bash_intel["intent"], "other")
 
     risk_score = _bash_base_risk_score(bash_intel, tool_info)
 
@@ -461,7 +470,12 @@ def _enrich_default(tool_name: str, tool_input: dict, tool_info: dict) -> dict:
 
 
 def _is_sensitive_path(path: str) -> bool:
-    """Quick check if a path string matches common sensitive patterns."""
+    """Quick check if a path string matches common sensitive patterns.
+
+    Placeholder/template files (.env.example, .env.sample, ...) are exempt —
+    they hold placeholders by convention and updating them is routine work."""
+    if is_placeholder_path(path):
+        return False
     lower = path.lower()
     for pattern in (".env", "secret", "credential", "private_key", ".pem", "id_rsa", ".key"):
         if pattern in lower:

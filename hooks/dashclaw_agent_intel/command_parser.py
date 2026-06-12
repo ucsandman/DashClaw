@@ -7,8 +7,15 @@ redirections, and chained commands.
 Uses only the Python standard library.
 """
 
+import re
 import shlex
 from typing import Optional
+
+# Leading KEY=VALUE environment assignments (`FOO=1 BAR=2 cmd ...`). Without
+# stripping these, the first assignment becomes base_command and the whole
+# command classifies as "unknown" — which inflates risk to the blunt Bash
+# base instead of the real command's intent.
+_ENV_ASSIGNMENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*=")
 
 # Commands whose first positional argument is a subcommand.
 SUBCOMMAND_TOOLS = frozenset({
@@ -184,6 +191,7 @@ def _parse_segment(tokens: list[str]) -> dict:
         "flags": [],
         "targets": [],
         "wrapper": None,
+        "env_assignments": [],
         "pipes": [],
         "redirections": [],
         "chains": [],
@@ -195,6 +203,15 @@ def _parse_segment(tokens: list[str]) -> dict:
     # Strip redirections first.
     tokens, redirections = _extract_redirections(tokens)
     result["redirections"] = redirections
+
+    if not tokens:
+        return result
+
+    # Strip leading KEY=VALUE assignments so `FOO=1 BAR=2 cmd` classifies as
+    # `cmd`. They are kept in env_assignments, never in targets, so a fake
+    # credential value in the prefix cannot trip the sensitive-target boost.
+    while tokens and _ENV_ASSIGNMENT_RE.match(tokens[0]):
+        result["env_assignments"].append(tokens.pop(0))
 
     if not tokens:
         return result
@@ -250,6 +267,7 @@ def parse_command(command_str: str) -> dict:
             "flags": [],
             "targets": [],
             "wrapper": None,
+            "env_assignments": [],
             "pipes": [],
             "redirections": [],
             "chains": [],
@@ -274,6 +292,7 @@ def parse_command(command_str: str) -> dict:
             "flags": first["flags"],
             "targets": first["targets"],
             "wrapper": first["wrapper"],
+            "env_assignments": first["env_assignments"],
             "pipes": first["pipes"],
             "redirections": first["redirections"],
             "chains": chains,
@@ -298,6 +317,7 @@ def parse_command(command_str: str) -> dict:
             "flags": first["flags"],
             "targets": first["targets"],
             "wrapper": first["wrapper"],
+            "env_assignments": first["env_assignments"],
             "pipes": pipes,
             "redirections": first["redirections"],
             "chains": [],
