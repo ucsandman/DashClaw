@@ -276,8 +276,9 @@ export default function PolicyRuleBuilderSection({
               onChange={(event) => onChange('webhookOnTimeout', event.target.value)}
               className={selectClass}
             >
-              <option value="allow">Allow (fail-open)</option>
-              <option value="block">Block (fail-closed)</option>
+              <option value="require_approval">Require approval (fail-closed default)</option>
+              <option value="block">Block (strict fail-closed)</option>
+              <option value="allow">Allow (fail-open escape hatch)</option>
             </select>
           </div>
         </div>
@@ -305,8 +306,9 @@ export default function PolicyRuleBuilderSection({
               onChange={(event) => onChange('fallback', event.target.value)}
               className={selectClass}
             >
-              <option value="allow">Allow (Fail Open - Recommended)</option>
-              <option value="block">Block (Fail Closed)</option>
+              <option value="require_approval">Require approval (fail-closed default)</option>
+              <option value="block">Block (strict fail-closed)</option>
+              <option value="allow">Allow (fail-open escape hatch)</option>
             </select>
             <p className="text-xs text-tertiary mt-1">
               To enable this, set <code className="text-secondary">GUARD_LLM_KEY</code> (or OPENAI_API_KEY) in your environment variables.

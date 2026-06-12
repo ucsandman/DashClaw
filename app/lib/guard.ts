@@ -27,6 +27,35 @@ const SEVERITY = DECISION_SEVERITY as Record<string, number>;
 const sevOf = (d: string): number => SEVERITY[d] ?? 0;
 const hasSev = (d: string): boolean => SEVERITY[d] !== undefined;
 
+// ── Global guard-degradation contract ──
+// What the guard returns when it cannot complete an evaluation: webhook
+// timeout/failure, semantic LLM failure, or the evaluation deadline firing.
+// Precedence: per-policy override → DASHCLAW_GUARD_FALLBACK env → fail-closed
+// default (require_approval). `allow` is the documented self-hoster escape
+// hatch that restores the old fail-open behavior.
+const DEGRADED_ACTIONS = ['allow', 'block', 'require_approval'] as const;
+type DegradedAction = (typeof DEGRADED_ACTIONS)[number];
+
+export function resolveDegradedAction(policyOverride?: string | null): DegradedAction {
+  for (const candidate of [policyOverride, process.env.DASHCLAW_GUARD_FALLBACK]) {
+    if (candidate && (DEGRADED_ACTIONS as readonly string[]).includes(candidate)) {
+      return candidate as DegradedAction;
+    }
+  }
+  return 'require_approval';
+}
+
+// Evaluation deadline: the hook gives the whole guard call one attempt with a
+// 5s read timeout (GUARD_TIMEOUT, GUARD_RETRIES=0) — the server must answer
+// safely inside that window, so the policy-evaluation phases are bounded and a
+// degraded decision is returned (and still persisted) when they overrun.
+const DEFAULT_GUARD_DEADLINE_MS = 3500;
+
+function guardDeadlineMs(): number {
+  const raw = Number(process.env.DASHCLAW_GUARD_DEADLINE_MS);
+  return Number.isFinite(raw) && raw > 0 ? raw : DEFAULT_GUARD_DEADLINE_MS;
+}
+
 const ACTION_TYPE_BASE_SCORES = {
   deploy: 75, security: 80, migrate: 70, apply: 60, sync: 40,
   api: 35, build: 25, fix: 20, refactor: 20, test: 15,
@@ -877,41 +906,118 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const replayBlockReason = computeReplayBlockReason(context, orgId);
   const actBlockReason = computeActBindingBlockReason(context, orgId);
 
-  const policies = await loadApplicablePolicies(sql, orgId, context.agent_id || null);
+  const liveAcc = newAccumulator();
 
-  const { agentRiskScore, effectiveRiskScore, breakdownBase } = await computeRiskAssessment(sql, orgId, context);
-  const predictiveRisk = await computePredictiveRisk(sql, orgId, context, effectiveRiskScore) as
+  // Defaults available even when the deadline fires before the async risk
+  // assessment completes: the cheap synchronous server heuristic.
+  const syncTerms = serverRiskTerms(context);
+  const { agentRiskScore: syncAgentRisk } = computeEffectiveRisk(context);
+  let agentRiskScore: number | null = syncAgentRisk;
+  let adjustedRiskScore = syncTerms.total;
+  let predictiveRisk:
     | { total_adjustment?: number; statistical?: { adjustment?: number; basis?: string; failure_rate?: number; total_actions?: number } | null }
-    | null;
-  const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
-  const adjustedRiskScore = Math.round(Math.max(0, Math.min(effectiveRiskScore + predictiveAdjustment, 100)));
-
-  // Full derivation ledger — returned with the result and persisted with the
-  // decision so every score is provable after the fact.
-  const riskBreakdown: RiskBreakdown = {
-    ...breakdownBase,
-    predictive: predictiveRisk
-      ? {
-          adjustment: predictiveAdjustment,
-          basis: predictiveRisk.statistical?.basis,
-          failure_rate: predictiveRisk.statistical?.failure_rate,
-          total_actions: predictiveRisk.statistical?.total_actions,
-        }
-      : null,
-    final: adjustedRiskScore,
+    | null = null;
+  let riskBreakdown: RiskBreakdown = {
+    base: syncTerms.base,
+    modifiers: syncTerms.modifiers,
+    server_total: syncTerms.total,
+    template: null,
+    client_reported: null,
+    effective: syncTerms.total,
+    predictive: null,
+    final: syncTerms.total,
   };
 
-  const deps: GuardPhaseDeps = { context, sql, orgId };
-  const acc = newAccumulator();
-  await runLocalPolicies(policies, deps, adjustedRiskScore, acc);
-  scanPromptInjection(context, acc);
-  await runWebhookPolicies(policies, deps, acc);
-  // Grants run after the LAST phase where org policies can raise warn /
-  // require_approval (webhook_check, above). The later phases can only append
-  // warnings (runSignalChecks) or raise to block (replay/act overrides), which
-  // grants never touch — so a downgrade decided here is final.
-  applyAllowGrants(policies, context, acc);
-  await runSignalChecks(deps, options, acc);
+  // Policy evaluation is bounded by a deadline (DASHCLAW_GUARD_DEADLINE_MS,
+  // default 3500ms): the hook's whole HTTP budget is 5s with zero retries, so
+  // an overrunning webhook/LLM/DB phase must yield a degraded decision instead
+  // of bricking the hook into its timeout. The webhook caller has no
+  // AbortSignal support, so the race abandons (not cancels) the slow phase.
+  const runEvaluation = async (): Promise<'completed'> => {
+    const policies = await loadApplicablePolicies(sql, orgId, context.agent_id || null);
+
+    const riskAssessment = await computeRiskAssessment(sql, orgId, context);
+    agentRiskScore = riskAssessment.agentRiskScore;
+    predictiveRisk = await computePredictiveRisk(sql, orgId, context, riskAssessment.effectiveRiskScore) as typeof predictiveRisk;
+    const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
+    adjustedRiskScore = Math.round(Math.max(0, Math.min(riskAssessment.effectiveRiskScore + predictiveAdjustment, 100)));
+
+    // Full derivation ledger — returned with the result and persisted with the
+    // decision so every score is provable after the fact.
+    riskBreakdown = {
+      ...riskAssessment.breakdownBase,
+      predictive: predictiveRisk
+        ? {
+            adjustment: predictiveAdjustment,
+            basis: predictiveRisk.statistical?.basis,
+            failure_rate: predictiveRisk.statistical?.failure_rate,
+            total_actions: predictiveRisk.statistical?.total_actions,
+          }
+        : null,
+      final: adjustedRiskScore,
+    };
+
+    const deps: GuardPhaseDeps = { context, sql, orgId };
+    await runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc);
+    scanPromptInjection(context, liveAcc);
+    await runWebhookPolicies(policies, deps, liveAcc);
+    // Grants run after the LAST phase where org policies can raise warn /
+    // require_approval (webhook_check, above). The later phases can only append
+    // warnings (runSignalChecks) or raise to block (replay/act overrides), which
+    // grants never touch — so a downgrade decided here is final.
+    applyAllowGrants(policies, context, liveAcc);
+    await runSignalChecks(deps, options, liveAcc);
+    return 'completed';
+  };
+
+  const deadlineMs = guardDeadlineMs();
+  let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  const deadlinePromise = new Promise<'deadline'>((resolve) => {
+    deadlineTimer = setTimeout(() => resolve('deadline'), deadlineMs);
+  });
+
+  let deadlineExceeded = false;
+  try {
+    const evalPromise = runEvaluation();
+    const winner = await Promise.race([evalPromise, deadlinePromise]);
+    deadlineExceeded = winner === 'deadline';
+    if (deadlineExceeded) {
+      // The abandoned evaluation keeps running in the background; swallow its
+      // eventual rejection so it cannot surface as an unhandled rejection.
+      evalPromise.catch((err: unknown) => {
+        console.warn('[Guard] abandoned evaluation failed after deadline:', (err as Error)?.message || err);
+      });
+    }
+  } finally {
+    clearTimeout(deadlineTimer);
+  }
+
+  // On deadline, snapshot the accumulator: the abandoned evaluation may still
+  // be mutating the live one while we finalize and persist.
+  const acc: GuardAccumulator = deadlineExceeded
+    ? {
+        reasons: [...liveAcc.reasons],
+        warnings: [...liveAcc.warnings],
+        matchedPolicies: [...liveAcc.matchedPolicies],
+        nonFabEvidence: [...liveAcc.nonFabEvidence],
+        nonFabStripPaths: new Set(liveAcc.nonFabStripPaths),
+        highestDecision: liveAcc.highestDecision,
+      }
+    : liveAcc;
+
+  if (deadlineExceeded) {
+    const degraded = resolveDegradedAction();
+    const note = `Guard evaluation exceeded deadline (${deadlineMs}ms) — degraded decision (${degraded})`;
+    if (degraded === 'allow') {
+      // Explicit fail-open escape hatch: surface the degradation as a warning.
+      acc.warnings.push(note);
+    } else {
+      // Never downgrade a decision already reached from accumulated state.
+      raiseDecision(acc, degraded);
+      acc.reasons.unshift(note);
+    }
+    console.warn('[Guard] evaluation deadline exceeded:', { org_id: orgId, agent_id: context.agent_id || null, deadline_ms: deadlineMs, degraded });
+  }
 
   const evaluatedAt = new Date().toISOString();
   const decisionId = `act_gd_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
@@ -923,9 +1029,16 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   applyBlockOverride(acc, replayBlockReason);
   applyBlockOverride(acc, actBlockReason);
 
-  // Learning context — best-effort enrichment.
-  const learningContext = await getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type });
-  const recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
+  // Learning context — best-effort enrichment. Skipped on a degraded decision:
+  // the remaining budget is reserved for the mandatory audit persist.
+  const learningContext = deadlineExceeded
+    ? null
+    : await getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type });
+  let recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
+  if (deadlineExceeded && recovery) {
+    // Recovery was computed from partial (pre-deadline) state — mark it so.
+    recovery = { ...(recovery as Record<string, unknown>), partial: true, partial_reason: 'evaluation degraded by deadline; recovery computed from accumulated partial state' };
+  }
 
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
@@ -1179,7 +1292,9 @@ async function evaluateSemanticCheckPolicy({ context, rules }: PolicyEvalArgs): 
   const instruction = rules.instruction;
   if (!instruction) return null;
 
-  const fallback = rules.fallback || process.env.DASHCLAW_GUARD_FALLBACK || 'allow';
+  // Degradation contract: per-policy fallback → DASHCLAW_GUARD_FALLBACK →
+  // fail-closed default (require_approval). 'allow' is the explicit escape hatch.
+  const fallback = resolveDegradedAction(rules.fallback);
   const model = rules.model || 'gpt-4o-mini';
 
   if (!hasGuardLlmKey()) {
@@ -1407,9 +1522,10 @@ function interpretWebhookResponse(
   onTimeout: string,
 ): PolicyResult | null {
   if (!result.success || !result.response) {
-    return onTimeout === 'block'
-      ? { action: 'block', reason: 'Webhook check failed or timed out (on_timeout: block)' }
-      : null; // fail-open
+    if (onTimeout === 'block' || onTimeout === 'require_approval') {
+      return { action: onTimeout, reason: `Webhook check failed or timed out (on_timeout: ${onTimeout})` };
+    }
+    return null; // onTimeout === 'allow' — explicit fail-open escape hatch
   }
 
   const resp = result.response as { decision?: string; reasons?: unknown; warnings?: unknown };
@@ -1436,7 +1552,9 @@ export async function evaluateWebhookPolicy(
 ): Promise<PolicyResult | null> {
   const payload = buildWebhookPayload(context, orgId, preliminary);
   const timeoutMs = rules.timeout_ms || 5000;
-  const onTimeout = rules.on_timeout || 'allow';
+  // Degradation contract: per-policy on_timeout → DASHCLAW_GUARD_FALLBACK →
+  // fail-closed default (require_approval). 'allow' is the explicit escape hatch.
+  const onTimeout = resolveDegradedAction(rules.on_timeout);
 
   const result = await deliverGuardWebhook({
     // rules.url is string|undefined on the loose policy-config type; a webhook

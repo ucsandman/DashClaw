@@ -49,7 +49,7 @@ export type GuardPolicy =
   | { policy_type: 'allow_grant'; rules: { action_type: string; target_prefix?: string } }
   | { policy_type: 'protected_path'; rules: { paths: string[]; action?: DecisionType } }
   | { policy_type: 'rate_limit'; rules: { max_actions?: number; window_minutes?: number; action?: DecisionType } }
-  | { policy_type: 'webhook_check'; rules: { url: string; timeout_ms?: number; on_timeout?: 'allow' | 'block' } }
+  | { policy_type: 'webhook_check'; rules: { url: string; timeout_ms?: number; on_timeout?: 'allow' | 'block' | 'require_approval' } }
   | {
       policy_type: 'non_fabrication';
       rules: { action_types?: string[]; content_path?: string; source_path?: string; on_violation?: 'block' | 'require_approval' };

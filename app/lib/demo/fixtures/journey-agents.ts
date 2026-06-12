@@ -642,7 +642,7 @@ const stepsByAgent: JourneyStep[][] = [
     {
       action_type: 'configure',
       declared_goal: 'Harden your DashClaw deployment for production',
-      output_summary: 'Enable ENFORCE_AGENT_SIGNATURES to require cryptographic signing on all agent actions. Set DASHCLAW_CLOSED_ENROLLMENT to prevent unregistered agents from connecting. Configure DASHCLAW_GUARD_FALLBACK=block so actions are denied when the guard is unavailable. These three settings form the production security baseline.',
+      output_summary: 'Enable ENFORCE_AGENT_SIGNATURES to require cryptographic signing on all agent actions. Set DASHCLAW_CLOSED_ENROLLMENT to prevent unregistered agents from connecting. Optionally set DASHCLAW_GUARD_FALLBACK=block to deny (rather than the default require_approval) actions the guard cannot evaluate. These settings form the production security baseline.',
       reasoning: 'Production hardening prevents unauthorized agents and ensures fail-closed behavior under system stress.',
       metadata: JSON.stringify({ env: {
         ENFORCE_AGENT_SIGNATURES: 'true',

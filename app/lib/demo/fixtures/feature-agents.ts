@@ -227,7 +227,7 @@ const stepsByAgent: Record<string, AgentStep[]> = {
     {
       declared_goal: 'Configure the DASHCLAW_GUARD_FALLBACK setting',
       reasoning: 'Fallback behavior determines safety posture when the LLM is unavailable',
-      output_summary: 'Set DASHCLAW_GUARD_FALLBACK to control behavior when the semantic guard LLM is unreachable. "block" (recommended for production) fails closed — actions are blocked until the guard is available. "allow" fails open — actions proceed without semantic checks. Default is "block" in production.',
+      output_summary: 'Set DASHCLAW_GUARD_FALLBACK to control behavior when the guard cannot complete an evaluation (semantic LLM unreachable, webhook timeout, deadline exceeded). Default is "require_approval" — degraded actions wait for a human. "block" is the strictest posture; "allow" fails open and skips the check (escape hatch, not recommended). Per-policy on_timeout/fallback rules override the global.',
       risk_score: 25,
     },
     {

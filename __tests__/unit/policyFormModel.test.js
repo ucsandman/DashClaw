@@ -256,7 +256,7 @@ describe('policyFormModel — full-type characterization', () => {
     expect(rulesOf({ type: 'webhook_check', webhookUrl: '  https://x.com/c  ', webhookTimeout: 3000, webhookOnTimeout: 'block', agentIds: [] }))
       .toEqual({ url: 'https://x.com/c', timeout_ms: 3000, on_timeout: 'block' });
     expect(rulesOf({ type: 'webhook_check', webhookUrl: 'https://y.com', agentIds: [] }))
-      .toEqual({ url: 'https://y.com', timeout_ms: 5000, on_timeout: 'allow' });
+      .toEqual({ url: 'https://y.com', timeout_ms: 5000, on_timeout: 'require_approval' });
   });
 
   it('compiles behavioral_anomaly (clamps similarity 0..1, min_history >=1)', () => {

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:9d4fc1236c033ef9d7c4d5f35ae9a70f36af32cc",
+  "timestamp": "sha1:8999f67f373f3d03763f5cdc0e7db985c5699707",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3557,7 +3557,7 @@
         ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".supergoal/tmp/migrate-under-test.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -3635,7 +3635,7 @@
       "name": "DASHCLAW_API_KEY_ORG",
       "required": false,
       "files": [
-        ".supergoal/tmp/migrate-under-test.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "app/api/auth/local/route.ts",
         "app/api/setup/migrate/route.ts",
         "middleware.js",
@@ -3755,9 +3755,19 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_GUARD_DEADLINE_MS",
+      "required": false,
+      "files": [
+        "__tests__/unit/guard-degradation.test.js",
+        "app/lib/guard.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_GUARD_FALLBACK",
       "required": false,
       "files": [
+        "__tests__/unit/guard-degradation.test.js",
         "app/lib/guard.ts"
       ],
       "in_env_example": false
@@ -4019,7 +4029,7 @@
       "name": "DATABASE_URL",
       "required": true,
       "files": [
-        ".supergoal/tmp/migrate-under-test.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions-loops.route.test.js",
         "__tests__/unit/actions.route.test.js",
@@ -4306,6 +4316,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
+        "__tests__/unit/guard-degradation.test.js",
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
@@ -4665,6 +4676,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
+        "__tests__/unit/guard-degradation.test.js",
         "app/lib/embeddings.ts",
         "app/lib/guard.ts",
         "app/lib/knowledge-ingest.ts",
@@ -4912,8 +4924,8 @@
       "name": "SQL_CAPTURE_FILE",
       "required": false,
       "files": [
-        ".supergoal/phase9-stub-db.mjs",
-        ".supergoal/tmp/_db.mjs"
+        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
       ],
       "in_env_example": false
     },
@@ -5003,8 +5015,8 @@
       "name": "STUB_FAIL_CREATES",
       "required": false,
       "files": [
-        ".supergoal/phase9-stub-db.mjs",
-        ".supergoal/tmp/_db.mjs"
+        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
       ],
       "in_env_example": false
     },

@@ -229,11 +229,11 @@ describe('evaluateGuard', () => {
     expect(result.decision).toBe('allow');
   });
 
-  it('falls back to allow when semantic check fails (default fail-open)', async () => {
+  it('falls back to require_approval when semantic check fails (default fail-closed)', async () => {
     mockCheckSemantic.mockResolvedValue(null);
     const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check' })]);
     const result = await evaluateGuard('org_1', { action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('allow');
+    expect(result.decision).toBe('require_approval');
   });
 
   it('falls back to block when semantic check fails and fallback=block', async () => {

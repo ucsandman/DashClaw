@@ -352,7 +352,7 @@ const PERSONAS: Persona[] = [
         declared_goal: 'Configuring guard fail-closed mode during an active incident',
         reasoning: 'During incidents, fail-closed mode ensures unknown or unclassified actions are blocked rather than allowed.',
         output_summary:
-          'Set DASHCLAW_GUARD_FALLBACK=block in the environment and restart. In fail-closed mode, any action that the guard cannot evaluate (LLM unavailable, policy engine timeout, malformed payload) is automatically blocked instead of defaulting to allow. This is the safest posture during an incident but will increase block rates — warn your team before enabling. Revert to DASHCLAW_GUARD_FALLBACK=allow after the incident is resolved and verified.',
+          'Set DASHCLAW_GUARD_FALLBACK=block in the environment and restart. Any action the guard cannot evaluate (LLM unavailable, policy timeout, evaluation deadline exceeded) is then blocked outright instead of the default require_approval degradation. This is the strictest posture during an incident but will increase block rates — warn your team before enabling. Unset the variable after the incident to return to the require_approval default; DASHCLAW_GUARD_FALLBACK=allow restores fail-open and is not recommended.',
       },
     ],
   },

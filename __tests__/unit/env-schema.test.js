@@ -20,6 +20,12 @@ describe('env schema (Phase 3 — centralized env contract)', () => {
     expect(r.errors.join(' ')).toMatch(/DASHCLAW_JTI_REPLAY_PROTECTION/);
   });
 
+  it('accepts require_approval for DASHCLAW_GUARD_FALLBACK (global degradation contract)', () => {
+    expect(validateEnv({ DASHCLAW_GUARD_FALLBACK: 'require_approval' }).ok).toBe(true);
+    expect(validateEnv({ DASHCLAW_GUARD_FALLBACK: 'block' }).ok).toBe(true);
+    expect(validateEnv({ DASHCLAW_GUARD_FALLBACK: 'banana' }).ok).toBe(false);
+  });
+
   it('is behavior-preserving: missing optional vars are OK, unknown vars pass through', () => {
     expect(validateEnv({}).ok).toBe(true);
     expect(validateEnv({ SOME_UNREGISTERED_VAR: 'x' }).ok).toBe(true);

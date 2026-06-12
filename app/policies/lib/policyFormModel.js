@@ -8,9 +8,9 @@ const DEFAULT_FORM_STATE = {
   windowMinutes: 60,
   webhookUrl: '',
   webhookTimeout: 5000,
-  webhookOnTimeout: 'allow',
+  webhookOnTimeout: 'require_approval',
   instruction: '',
-  fallback: 'allow',
+  fallback: 'require_approval',
   // non_fabrication
   contentPath: 'content',
   sourcePath: 'source_of_truth',
@@ -201,7 +201,7 @@ const POLICY_TYPE_HANDLERS = {
     compile: (form) => ({
       url: cleanString(form.webhookUrl),
       timeout_ms: Number(form.webhookTimeout) || 5000,
-      on_timeout: form.webhookOnTimeout || 'allow',
+      on_timeout: form.webhookOnTimeout || 'require_approval',
     }),
     summary: (form, scoped) => {
       let host = cleanString(form.webhookUrl);
@@ -210,13 +210,13 @@ const POLICY_TYPE_HANDLERS = {
       } catch {
         // keep raw string
       }
-      return `Call ${host || 'the configured webhook'} before allowing the action. If the webhook times out, ${form.webhookOnTimeout || 'allow'} the action${scoped}.`;
+      return `Call ${host || 'the configured webhook'} before allowing the action. If the webhook times out, ${form.webhookOnTimeout || 'require_approval'} the action${scoped}.`;
     },
   },
   semantic_check: {
     compile: (form) => ({
       instruction: cleanString(form.instruction),
-      fallback: form.fallback || 'allow',
+      fallback: form.fallback || 'require_approval',
     }),
     summary: (form, scoped) =>
       `Use a semantic check to evaluate whether the action violates the instruction: "${cleanString(form.instruction)}"${scoped}.`,
