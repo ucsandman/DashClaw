@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 317,
+    "total_routes": 318,
     "stable_routes": 54,
     "beta_routes": 24,
-    "experimental_routes": 239
+    "experimental_routes": 240
   },
   "routes": [
     {
@@ -735,6 +735,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/analytics/route.ts"
+    },
+    {
+      "path": "/api/approvals/floods",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/approvals/floods/route.ts"
     },
     {
       "path": "/api/approvals/{actionId}",

@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:8c6f4895f69d318d60765f293e27b807b16c13ac · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:08e371e9bfadbd157ec8a2fe77970860919a1354 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">270</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">271</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">181</div><div class="k">Optional env vars</div></div>
@@ -192,7 +192,8 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>40</b> env_vars added, <b>1</b> env_vars removed, <b>10</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>40</b> env_vars added, <b>1</b> env_vars removed, <b>11</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders <span class="sig">New route: GET, POST</span></li>
@@ -270,7 +271,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/agents/registry/[id]"><td><code>/api/agents/registry/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/agents/registry/[id]/route.ts</td></tr>
     <tr data-path="/api/agents/registry/[id]/capabilities"><td><code>/api/agents/registry/[id]/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/[id]/capabilities/route.ts</td></tr></tbody></table></details>
 <details><summary>/analytics/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/analytics"><td><code>/api/analytics</code></td><td>GET</td><td class="sig">app/api/analytics/route.ts</td></tr></tbody></table></details>
-<details><summary>/approvals/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/approvals/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.ts</td></tr>
+    <tr data-path="/api/approvals/floods"><td><code>/api/approvals/floods</code></td><td>GET</td><td class="sig">app/api/approvals/floods/route.ts</td></tr></tbody></table></details>
 <details><summary>/artifacts/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/artifacts"><td><code>/api/artifacts</code></td><td>GET, POST</td><td class="sig">app/api/artifacts/route.ts</td></tr>
     <tr data-path="/api/artifacts/[artifactId]"><td><code>/api/artifacts/[artifactId]</code></td><td>DELETE, GET</td><td class="sig">app/api/artifacts/[artifactId]/route.ts</td></tr>
     <tr data-path="/api/artifacts/evidence-bundle"><td><code>/api/artifacts/evidence-bundle</code></td><td>POST</td><td class="sig">app/api/artifacts/evidence-bundle/route.ts</td></tr></tbody></table></details>
