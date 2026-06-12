@@ -50,6 +50,14 @@ describe('/api/actions/loops GET', () => {
     expect(data.total).toBe(3);
   });
 
+  it('filters by action_id (regression: the param was parsed by MCP loop_list but ignored here)', async () => {
+    const res = await GET(makeRequest('http://localhost/api/actions/loops?action_id=act_123'));
+    expect(res.status).toBe(200);
+    const mainCall = mockSql.query.mock.calls.find(([text]) => /ol\.action_id\s*=\s*\$\d/.test(text));
+    expect(mainCall).toBeTruthy();
+    expect(mainCall[1]).toContain('act_123');
+  });
+
   it('count query joins action_records so ar.* filters resolve (regression)', async () => {
     await GET(makeRequest('http://localhost/api/actions/loops?agent_id=agent-x'));
     const countCall = mockSql.query.mock.calls.find(([text]) => /count\(\*\)/i.test(text));

@@ -1,20 +1,18 @@
 {
   "node": {
-    "current_version": "4.20.0",
+    "current_version": "4.20.1",
     "next_bump": "minor",
-    "reason": "4.20.0 ships the guard enforcement contract (organ-3): SDK SOURCE CHANGED - createAction now auto-derives an idempotency_key when the caller didn't supply one (explicit key wins; deriveIdempotencyKey is the cross-surface reference implementation). Republish owed: npm publish at 4.20.0 (registries last at 4.11.0).",
+    "reason": "4.20.1 is a platform/MCP-only patch (MCP read-tool agent_id filter precedence, loops action_id filter, launch doc fixes): SDK source unchanged. Republish still owed from 4.20.0 (idempotency auto-derive; registries last at 4.11.0) - publish at 4.20.1.",
     "domains": [
-      "platform",
-      "sdk"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "4.20.0",
+    "current_version": "4.20.1",
     "next_bump": "minor",
-    "reason": "4.20.0 ships the guard enforcement contract (organ-3): SDK SOURCE CHANGED - create_action now auto-derives an idempotency_key when the caller didn't supply one (explicit key wins; derive_idempotency_key mirrors the Node reference, pinned by golden vectors). Republish owed: PyPI publish at 4.20.0 (registries last at 4.11.0).",
+    "reason": "4.20.1 is a platform/MCP-only patch (MCP read-tool agent_id filter precedence, loops action_id filter, launch doc fixes): SDK source unchanged. Republish still owed from 4.20.0 (idempotency auto-derive; registries last at 4.11.0) - publish at 4.20.1.",
     "domains": [
-      "platform",
-      "sdk"
+      "platform"
     ]
   }
 }

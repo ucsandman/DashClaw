@@ -52,7 +52,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         action_type: { type: 'string', description: 'Category of action (e.g., deploy, send_email, database_write, api_call)' },
         declared_goal: { type: 'string', description: 'What you intend to do, in plain language' },
         risk_score: { type: 'integer', description: 'Estimated risk 0-100. Use 70+ for production systems.' },
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected (e.g., production, database, email)' },
         reversible: { type: 'boolean', description: 'Whether the action can be undone' },
         target: { type: 'string', description: 'Primary file path, URL, or resource the action touches (lets protected-path policies match)' },
@@ -76,7 +76,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         declared_goal: { type: 'string', description: 'What was accomplished' },
         status: { type: 'string', enum: ['running', 'completed', 'failed', 'pending_approval'], description: 'Outcome status' },
         risk_score: { type: 'integer', description: 'Risk level 0-100 (default 30)' },
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         reasoning: { type: 'string', description: 'Why this action was chosen' },
         confidence: { type: 'integer', description: 'Confidence 0-100' },
         systems_touched: { type: 'array', items: { type: 'string' }, description: 'Systems affected' },
@@ -103,7 +103,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       properties: {
         capability_id: { type: 'string', description: 'The capability ID (e.g., cap_abc123)' },
         declared_goal: { type: 'string', description: 'What you\'re trying to accomplish' },
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         payload: { type: 'object', description: 'Request payload for the capability' },
       },
       required: ['capability_id', 'declared_goal'],
@@ -225,7 +225,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: { type: 'string', description: 'Agent ID (override default)' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         project_id: { type: 'string', description: 'Optional project ID — handoff is project-scoped' },
         bundle: {
           type: 'object',
@@ -458,7 +458,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Filter to one agent (defaults to the configured agent id)' },
         direction: { type: 'string', enum: ['inbox', 'sent'], description: 'inbox (received) or sent. Default inbox.' },
         unread: { type: 'boolean', description: 'When true, return only unread messages.' },
         type: { type: 'string', description: 'Filter by message type (action, info, lesson, question, status).' },
@@ -476,7 +476,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: 'object',
       properties: {
         message_ids: { type: 'array', items: { type: 'string' }, description: 'Message IDs (msg_*) to mark read.' },
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
       },
       required: ['message_ids'],
     },
@@ -493,7 +493,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     inputSchema: {
       type: 'object',
       properties: {
-        agent_id: { type: 'string', description: 'Override default agent ID' },
+        agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
         agent_name: { type: 'string', description: 'Human-readable agent name shown to the approving admin.' },
         wait: { type: 'boolean', description: 'Poll the pairing until approved/expired (default false).' },
       },
@@ -611,7 +611,7 @@ function hourBucket(): number {
  * Each handler accepts input args and returns a JSON string (MCP text content).
  */
 export function createToolHandlers(client: DashClawClient): Record<string, ToolHandler> {
-  // Priority: server-configured agent_id (DASHCLAW_AGENT_ID / --agent-id /
+  // WRITE identity: server-configured agent_id (DASHCLAW_AGENT_ID / --agent-id /
   // auto-derived from MCP clientInfo) wins over anything the LLM passes in the
   // tool call. This is deliberate: agent identity is a governance primitive,
   // and letting the LLM pick its own agent_id based on prompt context (e.g.
@@ -620,6 +620,13 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
   // input.agent_id field is preserved only as a last-resort fallback for
   // configurations that intentionally run without a server-level default.
   const agentId = (input: any) => client.agentId || input.agent_id;
+
+  // READ filter: the opposite precedence. On query tools agent_id is a filter,
+  // not an identity claim — "show me moltfire's loops" must not be silently
+  // rewritten to the server's own agent_id (that bug made every cross-agent
+  // read return the caller's rows). Explicit filter wins; the configured
+  // identity is only the default scope when the caller passes nothing.
+  const agentIdFilter = (input: any) => input.agent_id || client.agentId;
 
   // Ambient session: dashclaw_session_start stashes the created session id here
   // so dashclaw_record auto-stamps it without the LLM re-threading it. Lives in
@@ -837,7 +844,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
 
     async dashclaw_handoff_latest(args: any) {
       const params = new URLSearchParams();
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       if (args.project_id) params.set('project_id', args.project_id);
       const res = await client.fetch(`/api/handoffs/latest?${params}`);
@@ -857,7 +864,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
 
     async dashclaw_secret_list(args: any) {
       const params = new URLSearchParams();
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       const res = await client.fetch(`/api/secrets?${params}`);
       const data = await res.json();
@@ -867,7 +874,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
     async dashclaw_secret_due(args: any) {
       const params = new URLSearchParams();
       if (args.within_days != null) params.set('within_days', String(args.within_days));
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       const res = await client.fetch(`/api/secrets/rotation-due?${params}`);
       const data = await res.json();
@@ -915,7 +922,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       if (args.action_id) params.set('action_id', args.action_id);
       if (args.status) params.set('status', args.status);
       if (args.priority) params.set('priority', args.priority);
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       if (args.from) params.set('from', args.from);
       if (args.to) params.set('to', args.to);
@@ -976,7 +983,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       // instances that ignore these params (they return the recent window, and
       // we narrow it here).
       const params = new URLSearchParams();
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       if (args.query) params.set('q', String(args.query));
       if (Number.isInteger(args.limit) && args.limit > 0) params.set('limit', String(args.limit));
@@ -998,7 +1005,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
 
     async dashclaw_decisions_recent(args: any) {
       const params = new URLSearchParams();
-      const aid = agentId(args);
+      const aid = agentIdFilter(args);
       if (aid) params.set('agent_id', aid);
       if (args.action_type) params.set('action_type', args.action_type);
       if (args.decision) params.set('decision', args.decision);
@@ -1013,7 +1020,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       // GET /api/behavior/suggestions — analyzes the local behavior-sample log.
       // Read-only; adopt/dismiss are UI-only in V1 (they require simulation review).
       const result = await client.get('/api/behavior/suggestions', {
-        agent_id: agentId(input),
+        agent_id: agentIdFilter(input),
       }, { timeout: 15000 });
       return JSON.stringify(result);
     },
@@ -1022,7 +1029,7 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       // GET /api/messages — the canonical inbox read. unread is a string flag
       // server-side (checks === 'true'); undefined params are dropped by client.get.
       const result = await client.get('/api/messages', {
-        agent_id: agentId(input),
+        agent_id: agentIdFilter(input),
         direction: input.direction || 'inbox',
         unread: input.unread ? 'true' : undefined,
         type: input.type,

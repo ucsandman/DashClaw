@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.20.1] — 2026-06-12
+
+Launch-readiness patch (Show HN prep): MCP read-path fixes + doc hygiene.
+
+### Fixed
+- **MCP read tools honor explicit `agent_id` filters** (`@dashclaw/mcp-server` 2.0.1): on the 8 query tools (`loop_list`, `learning_query`, `decisions_recent`, `handoff_latest`, `secret_list`, `secret_due`, `inbox_list`, `behavior_suggestions`) the server-configured agent id no longer silently rewrites an explicit per-call filter — "show me agent X's loops" used to return the caller's own rows. Write tools keep server-priority identity pinning (impersonation guard, unchanged) and their tool descriptions now say so instead of promising an override.
+- `GET /api/actions/loops` actually filters by `action_id` — the MCP `loop_list` tool has always advertised and sent the param, but the route silently ignored it and returned every loop.
+- README: dropped the stale `(v2.13.3)` version label from the Durable execution finality section (platform versions are 4.x; the label read as the current release).
+- Removed `docs/homepage-draft-claude-code.md` — a superseded Phase-3 homepage draft whose maintainer checklist (unpublished screencast URL) was visible in the public repo.
+
+### Notes
+- The May 2026 smoke-test reports of `loop_list`/`learning_query` returning 500s were re-verified against the live instance: both were fixed by the earlier loops-route join fix and are healthy; the agent_id filter rewrite above was the remaining real defect.
+- Republish owed: npm `@dashclaw/mcp-server` 2.0.1, plus the SDK 4.20.x republish carried over from 4.20.0 (registries last at 4.11.0).
+
 ## [4.20.0] — 2026-06-12
 
 Guard Enforcement Contract (Organ 3 / One-System program, Phase 1): the trust spine now fails closed. Full reference: `docs/guard-enforcement-contract.md`.

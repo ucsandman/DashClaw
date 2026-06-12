@@ -125,11 +125,10 @@ describe('MCP toolkit tools', () => {
     expect(out.decisions).toHaveLength(2);
   });
 
-  it('server-configured agent_id wins over LLM-supplied agent_id across toolkit handlers (regression for 61d3be25)', async () => {
-    // Governance: a confused or adversarial prompt must not attribute actions
-    // to a different agent than the server is configured with. The guard
-    // handler is covered in mcp-tools.test.js; this locks the same precedence
-    // for the toolkit handlers that resolve agent_id via agentId().
+  it('server-configured agent_id wins on WRITE operations; READ filters respect explicit agent_id', async () => {
+    // Identity vs Filter precedence:
+    // - WRITE (dashclaw_handoff_create): server-agent wins (governance primitive)
+    // - READ (loop_list/learning_query/etc): explicit filter wins ("show me moltfire's loops")
     const captured = [];
     const client = {
       agentId: 'server-agent',
@@ -140,15 +139,16 @@ describe('MCP toolkit tools', () => {
     };
     const handlers = createToolHandlers(client);
 
+    // READ filters: spoofed agent_id should appear in the request
     await handlers.dashclaw_loop_list({ agent_id: 'spoofed' });
     await handlers.dashclaw_learning_query({ agent_id: 'spoofed' });
     await handlers.dashclaw_decisions_recent({ agent_id: 'spoofed' });
     await handlers.dashclaw_secret_list({ agent_id: 'spoofed' });
     for (const c of captured) {
-      expect(c.path).toMatch(/agent_id=server-agent/);
-      expect(c.path).not.toMatch(/spoofed/);
+      expect(c.path).toMatch(/agent_id=spoofed/);
     }
 
+    // WRITE identity: server-agent wins, spoofed is rejected
     captured.length = 0;
     await handlers.dashclaw_handoff_create({ agent_id: 'spoofed', bundle: { summary: 's' } });
     expect(JSON.parse(captured[0].body).agent_id).toBe('server-agent');

@@ -312,7 +312,7 @@ Python uses the same shape with `snake_case`. Full reference: [`sdk/README.md`](
 
 ---
 
-## Durable execution finality (v2.13.3)
+## Durable execution finality
 
 Approved actions now carry a terminal outcome separate from their lifecycle status. Five states, one-shot transitions, repository-level enforcement:
 
