@@ -1670,3 +1670,24 @@ export async function listActionsForSimulation(
     LIMIT ${parseInt(limit as string, 10)}
   `;
 }
+
+/** Pending-approval action ids matching a set of action_types since a cutoff (bulk flood resolution). */
+export async function listPendingApprovalIdsByActionTypes(
+  sql: SqlClient,
+  orgId: string,
+  actionTypes: string[],
+  sinceIso: string,
+  limit = 500,
+): Promise<string[]> {
+  if (!actionTypes.length) return [];
+  const rows = await sql.query(
+    `SELECT action_id FROM action_records
+     WHERE org_id = $1 AND status = 'pending_approval'
+       AND action_type = ANY($2)
+       AND created_at::timestamptz >= $3::timestamptz
+     ORDER BY created_at ASC
+     LIMIT $4`,
+    [orgId, actionTypes, sinceIso, Math.min(Math.max(1, limit), 500)],
+  );
+  return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
+}

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:08e371e9bfadbd157ec8a2fe77970860919a1354",
+  "timestamp": "sha1:04d42da27fc80d924c17009af516b92fdb884a63",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -738,6 +738,15 @@
       ],
       "archived": false,
       "file_path": "app/api/approvals/[actionId]/route.ts"
+    },
+    {
+      "path": "/api/approvals/bulk",
+      "methods": [
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/approvals/bulk/route.ts"
     },
     {
       "path": "/api/approvals/floods",

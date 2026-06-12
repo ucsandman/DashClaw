@@ -262,6 +262,19 @@ export async function getRecentApprovalCountsByPolicy(
   return out;
 }
 
+/** Single policy fetch (bulk approval resolution reads its rules). */
+export async function getPolicyById(
+  sql: SqlClient,
+  orgId: string,
+  id: string,
+): Promise<{ id: string; name: string; policy_type: string; rules: string | null } | null> {
+  const rows = await sql.query(
+    `SELECT id, name, policy_type, rules FROM guard_policies WHERE org_id = $1 AND id = $2 LIMIT 1`,
+    [orgId, id],
+  );
+  return (rows as Array<{ id: string; name: string; policy_type: string; rules: string | null }>)[0] ?? null;
+}
+
 /** id → name for a bounded set of guard policies (flood labels). */
 export async function getPolicyNamesByIds(
   sql: SqlClient,
