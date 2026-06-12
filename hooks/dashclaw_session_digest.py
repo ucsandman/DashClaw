@@ -146,6 +146,20 @@ def main():
     except Exception:
         pass  # 404 no_handoff or network blip: digest still useful without it
 
+    # W3: pending approvals + flood state (one extra request, fail-silent).
+    try:
+        lite = _get("/api/digest/fleet?lite=1") or {}
+        pa = lite.get("pending_approvals")
+        if isinstance(pa, int) and pa > 0:
+            age = lite.get("oldest_pending_minutes")
+            suffix = f" (oldest {int(age)}m)" if isinstance(age, (int, float)) else ""
+            lines.append(f"{pa} approval(s) pending{suffix} - review at {BASE_URL}/approvals")
+        for f in (lite.get("floods") or [])[:2]:
+            name = f.get("name") or f.get("policy_id") or "policy"
+            lines.append(f"WARNING approval flood active: {name} ({f.get('count')} in window)")
+    except Exception:
+        pass
+
     if len(lines) > 1:
         lines.append("Query details: dashclaw_learning_query | full export: GET /api/learning/export")
         try:
