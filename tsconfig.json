@@ -54,6 +54,7 @@
     ".claude/worktrees",
     "coverage",
     ".supergoal",
-    "docs/integrity"
+    "docs/integrity",
+    "media"
   ]
 }
