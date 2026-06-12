@@ -18,12 +18,16 @@
       "require": "./legacy/index-v1.cjs"
     }
   },
+  "bin": {
+    "dashclaw": "./bin/dashclaw-shim.js"
+  },
   "files": [
     "dashclaw.js",
     "index.cjs",
     "LICENSE",
     "README.md",
-    "legacy/"
+    "legacy/",
+    "bin/"
   ],
   "keywords": [
     "ai-agent",
