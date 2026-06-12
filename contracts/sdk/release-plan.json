@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.17.1",
+    "current_version": "4.18.0",
     "next_bump": "none",
-    "reason": "4.17.1 is a platform-only patch (polish pass: CLI repo detection matched the wrong package name so repo checks never ran in a real checkout; schema probe now uses npm run doctor w/ tsx loader + env passthrough; bulk approval resolution emits one aggregate action.updated event) \u2014 no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.18.0 is a platform/docs-only minor (governance-posture close-out: adversarially verified re-baseline audit confirming plan Tasks 8-19 shipped; SUPERSEDED banners on the stale plan/PROGRESS docs; stale SDK-count fix in skill knowledge; .playwright-mcp gitignore) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.17.1",
+    "current_version": "4.18.0",
     "next_bump": "none",
-    "reason": "4.17.1 is a platform-only patch (polish pass: CLI repo detection matched the wrong package name so repo checks never ran in a real checkout; schema probe now uses npm run doctor w/ tsx loader + env passthrough; bulk approval resolution emits one aggregate action.updated event) \u2014 no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
+    "reason": "4.18.0 is a platform/docs-only minor (governance-posture close-out: adversarially verified re-baseline audit confirming plan Tasks 8-19 shipped; SUPERSEDED banners on the stale plan/PROGRESS docs; stale SDK-count fix in skill knowledge; .playwright-mcp gitignore) - no SDK source change; SDKs NOT republished; registries stay 4.11.0.",
     "domains": [
       "platform"
     ]

@@ -169,3 +169,4 @@ gate-*.exit
 .handoff-notes-*.md
 .offlocal/
 .playwright-cli/
+.playwright-mcp/

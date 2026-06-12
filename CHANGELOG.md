@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.18.0] — 2026-06-12
+
+Governance-posture close-out (Mission A of the 2026-06-12 run).
+
+### Added
+- `docs/plans/2026-06-12-posture-score-rebaseline.md` — adversarially verified audit of the 2026-06-05 posture plan: Tasks 8–19 confirmed SHIPPED on main with named passing tests (17-agent fan-out, refute-by-default verification); only the recurring SDK-publish tail remains open.
+
+### Fixed
+- SUPERSEDED banners on the stale 2026-06-05 posture plan and 2026-06-06 PROGRESS handoff (both previously read as resumable work).
+- Stale "44-method stable surface" SDK count in the dashclaw-agent skill knowledge (now points at the canonical SDK READMEs instead of hardcoding a number).
+- `.playwright-mcp/` added to `.gitignore` so Playwright MCP discovery artifacts can't be swept into commits.
+
 ## [4.17.1] — 2026-06-12
 
 Polish-pass patch.

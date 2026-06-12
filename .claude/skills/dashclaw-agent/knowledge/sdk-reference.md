@@ -1,6 +1,6 @@
 # DashClaw SDK Reference (V2)
 
-Zero-dependency clients for Node.js and Python. 44-method stable surface.
+Zero-dependency clients for Node.js and Python. Full v2 method catalogue lives in `sdk/README.md` (Node) and `sdk-python/README.md` (Python).
 
 ## Installation
 
