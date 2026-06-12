@@ -173,6 +173,58 @@ describe('doctor/fixes/normalize-timestamps', () => {
   });
 });
 
+describe('tenancy scoping (hosted deployments share one DB)', () => {
+  it('scopes the probe to the org when orgId is provided', async () => {
+    await runChecks({ env: { DATABASE_URL: 'postgres://test' }, orgId: 'org_a' });
+
+    for (const [text, params] of mockQuery.mock.calls) {
+      expect(text).toMatch(/AND (org_id = \$2|session_id IN \(SELECT id FROM code_sessions WHERE org_id = \$2\))/);
+      expect(params[1]).toBe('org_a');
+    }
+    expect(mockQuery.mock.calls.length).toBeGreaterThan(0);
+  });
+
+  it('scopes child tables through code_sessions', async () => {
+    await runChecks({ env: { DATABASE_URL: 'postgres://test' }, orgId: 'org_a' });
+
+    const childCalls = mockQuery.mock.calls.filter(([text]) =>
+      text.includes('code_session_messages') || text.includes('code_session_tool_uses'),
+    );
+    expect(childCalls.length).toBe(2);
+    for (const [text] of childCalls) {
+      expect(text).toContain('session_id IN (SELECT id FROM code_sessions WHERE org_id = $2)');
+    }
+  });
+
+  it('runs unscoped only when no orgId is given (operator-local mode)', async () => {
+    await runChecks({ env: { DATABASE_URL: 'postgres://test' } });
+
+    for (const [text, params] of mockQuery.mock.calls) {
+      expect(text).not.toContain('org_id');
+      expect(params).toHaveLength(1);
+    }
+  });
+
+  it('org-scopes every UPDATE in the fix when orgId is provided', async () => {
+    routeSelects([
+      [
+        { table: 'action_records', column: 'timestamp_start' },
+        [{ value: DATE_TOSTRING, count: 2 }],
+      ],
+    ]);
+
+    const result = await applyNormalizeTimestamps({ orgId: 'org_a' });
+
+    const updates = mockQuery.mock.calls.filter(([text]) =>
+      text.trimStart().toUpperCase().startsWith('UPDATE'),
+    );
+    expect(updates).toHaveLength(1);
+    expect(updates[0][0]).toContain('AND org_id = $3');
+    expect(updates[0][1]).toEqual([new Date(DATE_TOSTRING).toISOString(), DATE_TOSTRING, 'org_a']);
+    expect(result.applied).toBe(true);
+  });
+});
+
 describe('FIX_REGISTRY wiring', () => {
   it('registers normalize_timestamps with remote scope', () => {
     expect(FIX_REGISTRY.normalize_timestamps).toBeDefined();

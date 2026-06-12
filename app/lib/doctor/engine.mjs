@@ -33,6 +33,8 @@ const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'gove
  * @param {boolean} [options.includeFixes=true] - Include fix metadata
  * @param {Object} [options.env=process.env] - Environment to check
  * @param {string} [options.host=''] - Host for deploy/SDK checks
+ * @param {string|null} [options.orgId=null] - Tenant scope for data probes
+ *   (set from x-org-id for API callers; null = operator-local, instance-wide)
  */
 export async function runDoctor(options = {}) {
   const {
@@ -40,6 +42,7 @@ export async function runDoctor(options = {}) {
     includeFixes = true,
     env = process.env,
     host = '',
+    orgId = null,
   } = options;
 
   const activeCategories = categories
@@ -47,7 +50,7 @@ export async function runDoctor(options = {}) {
     : CATEGORY_ORDER;
 
   const checkArrays = await Promise.all(
-    activeCategories.map((cat) => CHECK_RUNNERS[cat]({ env, host })),
+    activeCategories.map((cat) => CHECK_RUNNERS[cat]({ env, host, orgId })),
   );
 
   let checks = checkArrays.flat();

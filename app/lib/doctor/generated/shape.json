@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:80aeab798d5b99cde30e8dc0976dd6835d089c94",
+  "timestamp": "sha1:9d4fc1236c033ef9d7c4d5f35ae9a70f36af32cc",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3591,9 +3591,11 @@
         "mcp-server/lib/dashclaw/client.js",
         "mcp-server/lib/index.js",
         "mcp-server/lib/server.js",
+        "mcp-server/lib/service.js",
         "mcp-server/src/dashclaw/client.ts",
         "mcp-server/src/index.ts",
         "mcp-server/src/server.ts",
+        "mcp-server/src/service.ts",
         "mcp-server/test/actions.test.ts",
         "mcp-server/test/dashclaw.test.ts",
         "mcp-server/test/launch-integration.test.ts",
@@ -3987,9 +3989,11 @@
         "mcp-server/lib/dashclaw/client.js",
         "mcp-server/lib/index.js",
         "mcp-server/lib/server.js",
+        "mcp-server/lib/service.js",
         "mcp-server/src/dashclaw/client.ts",
         "mcp-server/src/index.ts",
         "mcp-server/src/server.ts",
+        "mcp-server/src/service.ts",
         "mcp-server/test/actions.test.ts",
         "mcp-server/test/dashclaw.test.ts",
         "mcp-server/test/launch-integration.test.ts",

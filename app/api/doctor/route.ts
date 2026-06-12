@@ -20,7 +20,11 @@ export async function GET(request: Request) {
       ? categoryParam.split(',').map((c) => c.trim()).filter(Boolean)
       : null;
 
-    const result = await runDoctor({ categories: categories ?? undefined, includeFixes, host });
+    // Tenant scope for data probes — set server-side by middleware; hosted
+    // deployments share one DB, so API callers never probe cross-org.
+    const orgId = request.headers.get('x-org-id') || null;
+
+    const result = await runDoctor({ categories: categories ?? undefined, includeFixes, host, orgId });
 
     return NextResponse.json(result, {
       status: result.status === 'unhealthy' ? 503 : 200,

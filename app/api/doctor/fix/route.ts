@@ -7,6 +7,18 @@ export const maxDuration = 30;
 
 export async function POST(request: Request) {
   try {
+    // Remote fixes mutate instance/tenant state — admin keys only. The
+    // x-org-role / x-org-id headers are set server-side by middleware (client
+    // copies are stripped), so they are trustworthy here.
+    const role = request.headers.get('x-org-role');
+    if (role !== 'admin') {
+      return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
+    }
+    const orgId = request.headers.get('x-org-id');
+    if (!orgId) {
+      return NextResponse.json({ error: 'Organization context required' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { action, ...params } = body;
 
@@ -17,9 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    // API endpoint never allows local-only fixes (env file writes)
-    const result = await applyFix(action, params, { allowLocal: false });
-    const recheck = await runDoctor({ includeFixes: true });
+    // API endpoint never allows local-only fixes (env file writes); orgId from
+    // the verified header overrides any client-supplied value so tenant-scoped
+    // fixes (normalize_timestamps) can never reach across orgs.
+    const result = await applyFix(action, { ...params, orgId }, { allowLocal: false });
+    const recheck = await runDoctor({ includeFixes: true, orgId });
 
     return NextResponse.json({ ...result, recheck });
   } catch (err) {

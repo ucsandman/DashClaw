@@ -4,9 +4,15 @@
 // construction — normalized values match the ISO prefix regex and are never
 // re-selected on a second run.
 import { getSql } from '../../db';
-import { probeColumns } from '../checks/data-hygiene.mjs';
+import { orgPredicate, probeColumns } from '../checks/data-hygiene.mjs';
 
-export async function apply() {
+/**
+ * @param {{ orgId?: string|null }} [params] - orgId scopes every UPDATE to one
+ *   tenant. The API fix route ALWAYS supplies it (hosted deployments share one
+ *   DB); only the operator-local script may run unscoped.
+ */
+export async function apply(params = {}) {
+  const orgId = params.orgId || null;
   let sql;
   try {
     sql = getSql();
@@ -16,7 +22,7 @@ export async function apply() {
 
   let findings;
   try {
-    findings = await probeColumns(sql);
+    findings = await probeColumns(sql, { orgId });
   } catch (err) {
     return { applied: false, description: `Timestamp probe failed: ${err.message}` };
   }
@@ -26,16 +32,17 @@ export async function apply() {
   let totalChanged = 0;
 
   for (const finding of findings) {
-    const { table, column, parseableValues, garbageRows } = finding;
+    const { table, column, entry, parseableValues, garbageRows } = finding;
     if (garbageRows > 0) garbage.push({ table, column, rows: garbageRows });
 
+    const scope = orgId ? orgPredicate(entry, '$3') : '';
     let rowsChanged = 0;
     for (const value of parseableValues) {
       const iso = new Date(value).toISOString();
       try {
         const rows = await sql.query(
-          `UPDATE ${table} SET ${column} = $1 WHERE ${column} = $2 RETURNING 1`,
-          [iso, value],
+          `UPDATE ${table} SET ${column} = $1 WHERE ${column} = $2${scope} RETURNING 1`,
+          orgId ? [iso, value, orgId] : [iso, value],
         );
         rowsChanged += rows?.length ?? 0;
       } catch (err) {

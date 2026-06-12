@@ -96,6 +96,8 @@ describe('GET /api/doctor', () => {
 });
 
 describe('POST /api/doctor/fix', () => {
+  const ADMIN_HEADERS = { 'x-api-key': 'test', 'x-org-role': 'admin', 'x-org-id': 'org_default' };
+
   it('applies a fix and returns result with recheck', async () => {
     mockApplyFix.mockResolvedValue({
       applied: true, action: 'migrate', description: 'Ran migrations',
@@ -107,7 +109,7 @@ describe('POST /api/doctor/fix', () => {
     });
 
     const req = makeRequest('http://localhost/api/doctor/fix', {
-      headers: { 'x-api-key': 'test' },
+      headers: ADMIN_HEADERS,
       body: { action: 'migrate' },
     });
     const res = await POST(req);
@@ -120,29 +122,51 @@ describe('POST /api/doctor/fix', () => {
 
   it('returns 400 for missing action', async () => {
     const req = makeRequest('http://localhost/api/doctor/fix', {
-      headers: { 'x-api-key': 'test' },
+      headers: ADMIN_HEADERS,
       body: {},
     });
     const res = await POST(req);
     expect(res.status).toBe(400);
   });
 
-  it('passes allowLocal: false to applyFix', async () => {
+  it('rejects non-admin callers with 403 before touching applyFix', async () => {
+    const req = makeRequest('http://localhost/api/doctor/fix', {
+      headers: { 'x-api-key': 'test', 'x-org-role': 'member', 'x-org-id': 'org_default' },
+      body: { action: 'normalize_timestamps' },
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(mockApplyFix).not.toHaveBeenCalled();
+  });
+
+  it('rejects admin callers without an org context with 403', async () => {
+    const req = makeRequest('http://localhost/api/doctor/fix', {
+      headers: { 'x-api-key': 'test', 'x-org-role': 'admin' },
+      body: { action: 'normalize_timestamps' },
+    });
+    const res = await POST(req);
+
+    expect(res.status).toBe(403);
+    expect(mockApplyFix).not.toHaveBeenCalled();
+  });
+
+  it('passes allowLocal: false and the header orgId to applyFix', async () => {
     mockApplyFix.mockResolvedValue({ applied: false, action: 'generate_secret', description: 'requires local' });
     mockRunDoctor.mockResolvedValue({
       status: 'healthy', summary: { pass: 0, warn: 0, fail: 0 }, checks: [], timestamp: '',
     });
 
     const req = makeRequest('http://localhost/api/doctor/fix', {
-      headers: { 'x-api-key': 'test' },
+      headers: ADMIN_HEADERS,
       body: { action: 'generate_secret' },
     });
     await POST(req);
 
-    expect(mockApplyFix).toHaveBeenCalledWith('generate_secret', {}, { allowLocal: false });
+    expect(mockApplyFix).toHaveBeenCalledWith('generate_secret', { orgId: 'org_default' }, { allowLocal: false });
   });
 
-  it('accepts normalize_timestamps (remote scope) with allowLocal: false', async () => {
+  it('accepts normalize_timestamps and the header orgId beats a client-supplied one', async () => {
     mockApplyFix.mockResolvedValue({
       applied: true, action: 'normalize_timestamps',
       description: 'Normalized 2 timestamp value(s) across 1 column(s) to ISO-8601.',
@@ -152,14 +176,18 @@ describe('POST /api/doctor/fix', () => {
     });
 
     const req = makeRequest('http://localhost/api/doctor/fix', {
-      headers: { 'x-api-key': 'test' },
-      body: { action: 'normalize_timestamps' },
+      headers: ADMIN_HEADERS,
+      body: { action: 'normalize_timestamps', orgId: 'org_attacker' },
     });
     const res = await POST(req);
     const body = await res.json();
 
     expect(res.status).toBe(200);
-    expect(mockApplyFix).toHaveBeenCalledWith('normalize_timestamps', {}, { allowLocal: false });
+    expect(mockApplyFix).toHaveBeenCalledWith(
+      'normalize_timestamps',
+      { orgId: 'org_default' },
+      { allowLocal: false },
+    );
     expect(body.applied).toBe(true);
   });
 });
