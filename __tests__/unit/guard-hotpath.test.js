@@ -79,7 +79,8 @@ describe('guard hot path — DB round-trip budget', () => {
 describe('guard hot path — policy cache', () => {
   it('serves policies from cache within the TTL and re-queries after invalidation', async () => {
     const org = freshOrg();
-    const sql1 = createSqlMock({ taggedResponses: [[blockPolicy]] });
+    // Response order: settings (halt check, P4) first, then guard_policies.
+    const sql1 = createSqlMock({ taggedResponses: [[], [blockPolicy]] });
     const r1 = await evaluateGuard(org, { ...CTX, action_type: 'deploy' }, sql1);
     expect(r1.decision).toBe('block');
 
@@ -101,7 +102,8 @@ describe('guard hot path — policy cache', () => {
     vi.useFakeTimers();
     try {
       const org = freshOrg();
-      const sql1 = createSqlMock({ taggedResponses: [[blockPolicy]] });
+      // Response order: settings (halt check, P4) first, then guard_policies.
+      const sql1 = createSqlMock({ taggedResponses: [[], [blockPolicy]] });
       await evaluateGuard(org, { ...CTX, action_type: 'deploy' }, sql1);
 
       vi.advanceTimersByTime(61_000);
@@ -184,7 +186,8 @@ describe('POST /api/guard?record=true', () => {
 
   it('block decision → no action record created, recorded:false', async () => {
     routeSqlHolder.sql = createSqlMock({
-      taggedResponses: [[{
+      // Response order: settings (halt check, P4) first, then guard_policies.
+      taggedResponses: [[], [{
         id: 'gp_block', name: 'Block', policy_type: 'block_action_type',
         rules: JSON.stringify({ action_types: ['deploy'] }),
       }]],
@@ -201,7 +204,8 @@ describe('POST /api/guard?record=true', () => {
 
   it('require_approval decision → record created with pending_approval status', async () => {
     routeSqlHolder.sql = createSqlMock({
-      taggedResponses: [[{
+      // Response order: settings (halt check, P4) first, then guard_policies.
+      taggedResponses: [[], [{
         id: 'gp_appr', name: 'Approve', policy_type: 'require_approval',
         rules: JSON.stringify({ action_types: ['deploy'] }),
       }]],

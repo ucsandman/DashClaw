@@ -28,6 +28,10 @@ const { mockDeliverGuardWebhook, mockCheckSemantic, mockIsEmbeddingsEnabled, moc
 
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
+// Halt/predictive settings ride a repository read at the top of evaluateGuard
+// (Organ 3 Phase 4); without this mock the REAL getSettings would consume the
+// first taggedResponse meant for the policy loader (mock calls are ordered).
+vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: mockGenerateEmbedding }));
 
 import { evaluateGuard } from '@/lib/guard.js';

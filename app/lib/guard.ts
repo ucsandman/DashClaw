@@ -357,7 +357,14 @@ function computeActBindingBlockReason(context: GuardEvalContext, orgId: string):
 // invalidate eagerly via invalidateGuardPolicyCache().
 const GUARD_CACHE_TTL_MS = 30_000;
 const policyCache = new Map<string, { rows: PolicyRow[]; expires: number }>();
-const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; expires: number }>();
+interface OrgHaltState {
+  halted: boolean;
+  actor?: string;
+  reason?: string;
+  at?: string;
+}
+
+const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; halt: OrgHaltState | null; expires: number }>();
 const riskTemplateCache = new Map<string, { rows: Array<Record<string, unknown>>; expires: number }>();
 
 /** Called by policy mutation paths so a changed policy takes effect immediately. */
@@ -370,6 +377,15 @@ export function invalidateGuardPolicyCache(orgId?: string): void {
 export function invalidateGuardRiskTemplateCache(orgId?: string): void {
   if (orgId) riskTemplateCache.delete(orgId);
   else riskTemplateCache.clear();
+}
+
+/**
+ * Called by the /api/halt endpoint so the org kill switch takes effect
+ * immediately instead of after the ~30s settings-cache TTL.
+ */
+export function invalidateGuardSettingsCache(orgId?: string): void {
+  if (orgId) predictiveSettingsCache.delete(orgId);
+  else predictiveSettingsCache.clear();
 }
 
 /** Test-only: clear all guard hot-path caches. */
@@ -434,7 +450,19 @@ async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgent
 
 // Predictive-risk org settings, served from the short-TTL cache so the
 // settings table is read at most once per org per TTL window.
-async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number }> {
+// The org kill switch rides this same cache entry (hot-path discipline: one
+// settings read per org per TTL window, shared by predictive risk and halt).
+function parseHaltSetting(value: unknown): OrgHaltState | null {
+  if (typeof value !== 'string' || !value) return null;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' ? (parsed as OrgHaltState) : null;
+  } catch {
+    return null;
+  }
+}
+
+async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null }> {
   const hit = predictiveSettingsCache.get(orgId);
   if (hit && hit.expires > Date.now()) return hit;
   const { getSettings } = await import('./repositories/settings.repository');
@@ -443,6 +471,7 @@ async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ en
   const entry = {
     enabled: settingsList.find((s) => s.key === 'PREDICTIVE_RISK_ENABLED')?.value === 'true',
     threshold: parseInt(String(settingsList.find((s) => s.key === 'PREDICTIVE_RISK_THRESHOLD')?.value ?? ''), 10) || 60,
+    halt: parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value),
     expires: Date.now() + GUARD_CACHE_TTL_MS,
   };
   predictiveSettingsCache.set(orgId, entry);
@@ -906,6 +935,15 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const replayBlockReason = computeReplayBlockReason(context, orgId);
   const actBlockReason = computeActBindingBlockReason(context, orgId);
 
+  // Org kill switch — checked FIRST. The read rides the same 30s-TTL cached
+  // settings entry the predictive layer uses (no extra hot-path query); the
+  // /api/halt endpoint calls invalidateGuardSettingsCache so a flipped switch
+  // takes effect immediately, not after the TTL. A halted org evaluates no
+  // policies: the decision is an immediate block, still persisted through the
+  // audit gate below like any other decision.
+  const orgHalt = (await getPredictiveSettings(sql, orgId)).halt;
+  const orgHalted = !!orgHalt?.halted;
+
   const liveAcc = newAccumulator();
 
   // Defaults available even when the deadline fires before the async risk
@@ -971,25 +1009,27 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   };
 
   const deadlineMs = guardDeadlineMs();
-  let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
-  const deadlinePromise = new Promise<'deadline'>((resolve) => {
-    deadlineTimer = setTimeout(() => resolve('deadline'), deadlineMs);
-  });
-
   let deadlineExceeded = false;
-  try {
-    const evalPromise = runEvaluation();
-    const winner = await Promise.race([evalPromise, deadlinePromise]);
-    deadlineExceeded = winner === 'deadline';
-    if (deadlineExceeded) {
-      // The abandoned evaluation keeps running in the background; swallow its
-      // eventual rejection so it cannot surface as an unhandled rejection.
-      evalPromise.catch((err: unknown) => {
-        console.warn('[Guard] abandoned evaluation failed after deadline:', (err as Error)?.message || err);
-      });
+  if (!orgHalted) {
+    let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+    const deadlinePromise = new Promise<'deadline'>((resolve) => {
+      deadlineTimer = setTimeout(() => resolve('deadline'), deadlineMs);
+    });
+
+    try {
+      const evalPromise = runEvaluation();
+      const winner = await Promise.race([evalPromise, deadlinePromise]);
+      deadlineExceeded = winner === 'deadline';
+      if (deadlineExceeded) {
+        // The abandoned evaluation keeps running in the background; swallow its
+        // eventual rejection so it cannot surface as an unhandled rejection.
+        evalPromise.catch((err: unknown) => {
+          console.warn('[Guard] abandoned evaluation failed after deadline:', (err as Error)?.message || err);
+        });
+      }
+    } finally {
+      clearTimeout(deadlineTimer);
     }
-  } finally {
-    clearTimeout(deadlineTimer);
   }
 
   // On deadline, snapshot the accumulator: the abandoned evaluation may still
@@ -1004,6 +1044,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
         highestDecision: liveAcc.highestDecision,
       }
     : liveAcc;
+
+  if (orgHalted) {
+    // Halt means stop: an immediate block, regardless of policy outcome.
+    applyBlockOverride(acc, `Org halted by ${orgHalt?.actor || 'admin'}: ${orgHalt?.reason || 'no reason given'}`);
+  }
 
   if (deadlineExceeded) {
     const degraded = resolveDegradedAction();

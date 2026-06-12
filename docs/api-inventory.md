@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `320`
+- Total routes: `321`
 - Stable routes: `54`
 - Beta routes: `24`
-- Experimental routes: `242`
+- Experimental routes: `243`
 
 ## Routes
 
@@ -182,6 +182,7 @@ doc-type: architecture
 | `/api/finops/spend` | `GET` | `experimental` | `(default)` | `app/api/finops/spend/route.ts` |
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.ts` |
 | `/api/guard/decisions` | `GET` | `stable` | `/api/guard` | `app/api/guard/decisions/route.ts` |
+| `/api/halt` | `GET, POST` | `experimental` | `(default)` | `app/api/halt/route.ts` |
 | `/api/handoffs` | `GET, POST` | `stable` | `/api/handoffs` | `app/api/handoffs/route.ts` |
 | `/api/handoffs/latest` | `GET` | `stable` | `/api/handoffs` | `app/api/handoffs/latest/route.ts` |
 | `/api/handoffs/{id}` | `GET` | `stable` | `/api/handoffs` | `app/api/handoffs/[id]/route.ts` |

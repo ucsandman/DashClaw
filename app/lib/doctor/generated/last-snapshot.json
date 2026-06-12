@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:72bd37516cf93972ebc22de83878d01eed6c1950",
+  "timestamp": "sha1:805f598ffca619b69c179bb9f2ece18e4e58f10d",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1618,6 +1618,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/guard/decisions/route.ts"
+    },
+    {
+      "path": "/api/halt",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/halt/route.ts"
     },
     {
       "path": "/api/handoffs",

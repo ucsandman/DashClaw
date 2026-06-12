@@ -81,6 +81,7 @@ ${bold('Usage:')}
   dashclaw approvals                     Interactive approval inbox
   dashclaw approve <actionId> [--reason]  Approve an action
   dashclaw deny <actionId> [--reason]     Deny an action
+  dashclaw halt on|off|status [--reason]  Org kill switch: halt/resume every governed action (admin)
   dashclaw doctor                        Diagnose your instance + this machine (report-only)
     --fix                                Apply safe auto-fixes, then re-check and report
     --json                               Output as JSON (for CI/scripts)
@@ -444,6 +445,54 @@ async function cmdInstallCodex() {
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
+  }
+}
+
+async function cmdHalt() {
+  const sub = args[1];
+  if (!['on', 'off', 'status'].includes(sub || '')) {
+    console.error('Usage: dashclaw halt on|off|status [--reason "<why>"]');
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    if (sub === 'status') {
+      const { halt } = await apiRequest({ baseUrl, apiKey }, 'GET', '/api/halt');
+      if (halt?.halted) {
+        console.log(`
+  ${red('HALTED')} — every governed action for this org is blocked.`);
+        console.log(`  By:     ${halt.actor || 'admin'}`);
+        console.log(`  Reason: ${halt.reason || '(none given)'}`);
+        console.log(`  Since:  ${halt.at || 'unknown'}
+`);
+      } else {
+        console.log(`
+  ${green('Running')} — org is not halted.
+`);
+      }
+      return;
+    }
+    const halted = sub === 'on';
+    const reason = getFlag('--reason') || null;
+    const { halt } = await apiRequest({ baseUrl, apiKey }, 'POST', '/api/halt', { body: { halted, reason } });
+    if (halted) {
+      console.log(`
+  ${red('HALTED')} — every governed action for this org now blocks immediately.`);
+      if (halt?.reason) console.log(`  Reason: ${halt.reason}`);
+      console.log(`  Resume with: dashclaw halt off
+`);
+    } else {
+      console.log(`
+  ${green('Resumed')} — guard evaluation is back to normal.
+`);
+    }
+  } catch (err) {
+    if (err.status === 401 || err.status === 403) {
+      console.error('Rejected (admin access required). The kill switch needs an admin API key.');
+    } else {
+      console.error(`Halt request failed: ${err.message}`);
+    }
+    process.exitCode = 1;
   }
 }
 
@@ -1215,7 +1264,7 @@ async function cmdEnv() {
 
 // -- Router -------------------------------------------------------------------
 
-const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next', 'env']);
+const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next', 'env', 'halt']);
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
@@ -1266,6 +1315,7 @@ const COMMAND_HANDLERS = {
   behavior: cmdBehavior,
   posture: cmdPosture,
   cost: cmdCost,
+  halt: cmdHalt,
   next: cmdNext,
   env: cmdEnv,
   help: cmdHelp,

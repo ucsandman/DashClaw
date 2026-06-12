@@ -96,6 +96,13 @@ describe("dashclaw_guard fail-closed mapping", () => {
     expect(out.decision).toBe("require_approval");
     expect(out.degraded).toBeUndefined();
   });
+
+  it("passes an org-halt block through with the halt reason (kill switch honored on MCP)", async () => {
+    fetchMock.mockResolvedValue(mockOk({ decision: "block", reason: "Org halted by alice: incident response" }));
+    const out = JSON.parse(await makeHandlers().dashclaw_guard(GUARD_INPUT));
+    expect(out.decision).toBe("block");
+    expect(out.reason).toContain("Org halted by alice");
+  });
 });
 
 describe("dashclaw_guard context enrichment", () => {

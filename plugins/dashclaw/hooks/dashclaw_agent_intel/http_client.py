@@ -16,6 +16,7 @@ Stdlib only. No third party dependencies.
 
 import os
 import time
+import urllib.error
 import urllib.request
 
 
@@ -47,6 +48,17 @@ def request_with_retry(req, timeout, retries=2):
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.read()
+        except urllib.error.HTTPError as exc:
+            # Transient-only retries: a non-transient 4xx (auth failure,
+            # validation error) fails identically on every attempt —
+            # retrying burns latency and duplicates work downstream.
+            # 408 (request timeout) and 429 (rate limit) stay retryable,
+            # as do all 5xx.
+            if exc.code < 500 and exc.code not in (408, 429):
+                raise
+            last_exc = exc
+            if attempt < retries:
+                time.sleep(0.4 * (2 ** attempt))
         except Exception as exc:
             last_exc = exc
             if attempt < retries:

@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 320,
+    "total_routes": 321,
     "stable_routes": 54,
     "beta_routes": 24,
-    "experimental_routes": 242
+    "experimental_routes": 243
   },
   "routes": [
     {
@@ -1564,6 +1564,16 @@
       "maturity": "stable",
       "matched_prefix": "/api/guard",
       "file": "app/api/guard/decisions/route.ts"
+    },
+    {
+      "path": "/api/halt",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/halt/route.ts"
     },
     {
       "path": "/api/handoffs",

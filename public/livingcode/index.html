@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:72bd37516cf93972ebc22de83878d01eed6c1950 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:805f598ffca619b69c179bb9f2ece18e4e58f10d · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">273</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">274</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">182</div><div class="k">Optional env vars</div></div>
@@ -192,9 +192,10 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>41</b> env_vars added, <b>1</b> env_vars removed, <b>13</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>41</b> env_vars added, <b>1</b> env_vars removed, <b>14</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
@@ -364,6 +365,7 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/finops/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/finops/spend"><td><code>/api/finops/spend</code></td><td>GET</td><td class="sig">app/api/finops/spend/route.ts</td></tr></tbody></table></details>
 <details><summary>/guard/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/guard"><td><code>/api/guard</code></td><td>GET, POST</td><td class="sig">app/api/guard/route.ts</td></tr>
     <tr data-path="/api/guard/decisions"><td><code>/api/guard/decisions</code></td><td>GET</td><td class="sig">app/api/guard/decisions/route.ts</td></tr></tbody></table></details>
+<details><summary>/halt/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/halt"><td><code>/api/halt</code></td><td>GET, POST</td><td class="sig">app/api/halt/route.ts</td></tr></tbody></table></details>
 <details><summary>/handoffs/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/handoffs"><td><code>/api/handoffs</code></td><td>GET, POST</td><td class="sig">app/api/handoffs/route.ts</td></tr>
     <tr data-path="/api/handoffs/[id]"><td><code>/api/handoffs/[id]</code></td><td>GET</td><td class="sig">app/api/handoffs/[id]/route.ts</td></tr>
     <tr data-path="/api/handoffs/[id]/consume"><td><code>/api/handoffs/[id]/consume</code></td><td>POST</td><td class="sig">app/api/handoffs/[id]/consume/route.ts</td></tr>

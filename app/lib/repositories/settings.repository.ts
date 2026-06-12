@@ -87,6 +87,10 @@ export const VALID_SETTING_KEYS = [
   'APPROVAL_FLOOD_STATE',
   'DASHCLAW_DIGEST_INTERVAL_HOURS',
   'DIGEST_TICK_LAST_RUN_AT',
+  // Org kill switch (Organ 3 Phase 4) — JSON {halted, actor, reason, at}.
+  // Written ONLY by the admin-gated /api/halt route; read on the guard hot
+  // path (piggybacked on the cached settings read in guard.ts).
+  'DASHCLAW_ORG_HALT',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];
