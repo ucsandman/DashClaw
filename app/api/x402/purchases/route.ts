@@ -232,7 +232,9 @@ export async function POST(request: Request) {
         execution_status: isPending ? 'pending' : 'approved',
       });
     } catch (purchaseErr) {
-      await deleteActionsByIds(sql, orgId, [action_id]).catch(() => {});
+      await deleteActionsByIds(sql, orgId, [action_id]).catch((err: unknown) => {
+        console.error('[X402] Compensation delete failed for action', action_id, ':', (err as Error)?.message);
+      });
       createdActionId = null; // already compensated; don't double-delete in outer catch
       throw purchaseErr;
     }
@@ -243,7 +245,10 @@ export async function POST(request: Request) {
   } catch (err) {
     // Best-effort compensation if we threw after creating the action.
     if (createdActionId && sql && orgId) {
-      await deleteActionsByIds(sql, orgId, [createdActionId]).catch(() => {});
+      const orphanId = createdActionId;
+      await deleteActionsByIds(sql, orgId, [orphanId]).catch((cleanupErr: unknown) => {
+        console.error('[X402] Cleanup failed for action', orphanId, ':', (cleanupErr as Error)?.message);
+      });
     }
     return apiErrorResponse(err, 'X402/PURCHASES POST');
   }

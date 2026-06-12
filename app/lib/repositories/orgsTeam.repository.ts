@@ -1,5 +1,13 @@
 import type { SqlTag } from '../types/db';
 
+export async function getOrgStripeCustomerId(
+  sql: SqlTag,
+  orgId: string
+): Promise<string | null> {
+  const rows = await sql`SELECT stripe_customer_id FROM organizations WHERE id = ${orgId} LIMIT 1`;
+  return (rows[0]?.stripe_customer_id as string | null | undefined) ?? null;
+}
+
 export async function getTeamOrgAndMembers(
   sql: SqlTag,
   orgId: string

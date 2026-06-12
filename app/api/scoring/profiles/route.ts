@@ -12,8 +12,8 @@ export async function GET(request: Request) {
     const url = new URL(request.url);
     const action_type = url.searchParams.get('action_type');
     const status = url.searchParams.get('status') || 'active';
-    const limit = parseInt(url.searchParams.get('limit') || '50');
-    const offset = parseInt(url.searchParams.get('offset') || '0');
+    const limit = Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10) || 0, 0);
 
     const profiles = await listProfiles(sql, orgId, { action_type: action_type ?? undefined, status, limit, offset });
     return Response.json({ profiles });

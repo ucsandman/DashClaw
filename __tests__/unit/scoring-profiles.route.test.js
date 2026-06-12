@@ -61,6 +61,31 @@ describe('GET /api/scoring/profiles', () => {
     expect(data.profiles).toHaveLength(1);
     expect(data.profiles[0].name).toBe('Deploy Quality');
   });
+
+  it('clamps and defaults limit/offset (radix 10, bounded, no negatives)', async () => {
+    const { GET } = await import('@/api/scoring/profiles/route');
+    mocks.listProfiles.mockResolvedValue([]);
+
+    // Defaults
+    mocks.listProfiles.mockClear();
+    await GET(makeRequest('/api/scoring/profiles'));
+    expect(mocks.listProfiles.mock.calls[0][2]).toMatchObject({ limit: 50, offset: 0 });
+
+    // limit=0 and negative offset are clamped
+    mocks.listProfiles.mockClear();
+    await GET(makeRequest('/api/scoring/profiles?limit=0&offset=-5'));
+    expect(mocks.listProfiles.mock.calls[0][2]).toMatchObject({ limit: 50, offset: 0 });
+
+    // Oversized limit is capped at 200
+    mocks.listProfiles.mockClear();
+    await GET(makeRequest('/api/scoring/profiles?limit=99999'));
+    expect(mocks.listProfiles.mock.calls[0][2]).toMatchObject({ limit: 200 });
+
+    // Non-numeric falls back to defaults
+    mocks.listProfiles.mockClear();
+    await GET(makeRequest('/api/scoring/profiles?limit=abc&offset=xyz'));
+    expect(mocks.listProfiles.mock.calls[0][2]).toMatchObject({ limit: 50, offset: 0 });
+  });
 });
 
 describe('POST /api/scoring/profiles', () => {

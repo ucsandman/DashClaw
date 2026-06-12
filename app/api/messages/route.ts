@@ -367,11 +367,12 @@ export async function PATCH(request: Request) {
       const directCount = await batchMarkMessagesRead(sql, orgId, directReadIds, now);
       updated += directCount;
 
-      // Broadcast read_by updates must remain per-message (each has unique read_by array)
-      for (const { id, readBy } of broadcastUpdates) {
-        await markBroadcastRead(sql, orgId, id, readBy);
-        updated++;
-      }
+      // Broadcast read_by updates must remain per-message (each has unique read_by array),
+      // but the writes are independent — run them in parallel
+      await Promise.all(
+        broadcastUpdates.map(({ id, readBy }) => markBroadcastRead(sql, orgId, id, readBy))
+      );
+      updated += broadcastUpdates.length;
     } else {
       // Batch archive in one query instead of N sequential queries
       updated = await batchArchiveMessages(sql, orgId, message_ids, now);

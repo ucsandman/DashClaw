@@ -105,7 +105,9 @@ export async function provisionHostedWorkspace(
   } catch (err) {
     // Best-effort cleanup — prevents orphaned trial orgs when key insert fails.
     // If this also fails, the sweep job will collect it once trial_ends_at passes.
-    await sql`DELETE FROM organizations WHERE id = ${orgId} AND hosted_mode = TRUE`.catch(() => {});
+    await sql`DELETE FROM organizations WHERE id = ${orgId} AND hosted_mode = TRUE`.catch((cleanupErr) =>
+      console.error(`[HOSTED] Cleanup failed for orphan org ${orgId}:`, (cleanupErr as Error)?.message),
+    );
     throw err;
   }
 }

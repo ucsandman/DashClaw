@@ -310,7 +310,10 @@ export async function POST(request: Request) {
           current_task_id: action_id,
           metadata: null,
           timestamp: new Date().toISOString(),
-        }).catch(() => {}) as Promise<void> // best-effort, never block action creation
+        }).catch((err: unknown) => {
+          // best-effort, never block action creation — but log so failures are diagnosable
+          console.debug('[presence] heartbeat skipped:', (err as Error)?.message);
+        }) as Promise<void>
       );
     }
 
@@ -332,9 +335,11 @@ export async function POST(request: Request) {
       }
     };
 
-    Promise.all([...meterUpdates, indexAction()]).catch((err: unknown) => {
+    // after() keeps the lambda alive until the returned promise settles —
+    // un-awaited writes get killed when the response ends on Vercel.
+    after(() => Promise.all([...meterUpdates, indexAction()]).catch((err: unknown) => {
       console.warn('[API] Background meter/index update failed:', (err as Error).message);
-    });
+    }));
 
     const response = NextResponse.json({
       action: createdAction,

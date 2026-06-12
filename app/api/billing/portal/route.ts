@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
 import { apiErrorResponse } from '../../../lib/apiErrors';
+import { getOrgStripeCustomerId } from '../../../lib/repositories/orgsTeam.repository';
 
 export async function GET(request: Request) {
   try {
@@ -19,8 +20,7 @@ export async function GET(request: Request) {
     const sql = getSql();
     const orgId = getOrgId(request);
 
-    const orgs = await sql`SELECT stripe_customer_id FROM organizations WHERE id = ${orgId} LIMIT 1`;
-    const customerId = (orgs[0]?.stripe_customer_id as string | null | undefined) ?? null;
+    const customerId = await getOrgStripeCustomerId(sql, orgId);
 
     if (!customerId) {
       return NextResponse.json(

@@ -207,7 +207,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
         ]);
       }
       // Auto-rebuild recommendations if enough new episodes have accumulated
-      void maybeRebuildRecommendations(sql, orgId).catch(() => {});
+      void maybeRebuildRecommendations(sql, orgId).catch((err) =>
+        console.warn('[LEARNING] Recommendation rebuild failed:', (err as Error)?.message),
+      );
     } catch (learningError) {
       console.warn('[LEARNING] Failed to score action episode:', (learningError as Error).message);
     }
