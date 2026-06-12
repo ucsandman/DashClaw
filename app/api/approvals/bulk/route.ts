@@ -18,8 +18,9 @@ const MAX_BULK = 500;
  * Body: { decision: 'allow'|'deny', filter: { policy_id }, limit? }
  *
  * Matches pending_approval actions by the policy's compiled action_types in
- * the last 24h. Each action resolves through recordApproval (full audit
- * trail); per-action failures don't abort the batch.
+ * the last 24h. All matches resolve in ONE batched UPDATE (recordBulkApprovals)
+ * with the same per-row pending_approval race guard as recordApproval; rows
+ * lost to a concurrent resolution are reported as failed, never re-resolved.
  *
  * Webhooks intentionally skipped in bulk — a per-action webhook fan-out
  * would stampede the destination; the audit log entry carries the record.
