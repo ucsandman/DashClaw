@@ -89,7 +89,7 @@
     "dashclaw": "^4.7.2",
     "docx": "^9.7.1",
     "drizzle-orm": "^0.45.2",
-    "esbuild": "^0.28.0",
+    "esbuild": "^0.28.1",
     "fflate": "^0.8.3",
     "html2pdf.js": "^0.14.0",
     "js-yaml": "^4.2.0",
