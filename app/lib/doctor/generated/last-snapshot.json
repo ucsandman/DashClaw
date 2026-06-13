@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:805f598ffca619b69c179bb9f2ece18e4e58f10d",
+  "timestamp": "sha1:bf89b38dfc462393fa4e2260440fc53a1e66fe55",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5179,6 +5179,14 @@
         "app/layout.tsx",
         "app/lib/behavior/sample-store.ts",
         "middleware.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "VERCEL_ENV",
+      "required": false,
+      "files": [
+        "scripts/auto-migrate.mjs"
       ],
       "in_env_example": false
     },

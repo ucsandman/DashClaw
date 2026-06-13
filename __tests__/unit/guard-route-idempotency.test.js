@@ -18,7 +18,7 @@ import { makeRequest } from '../helpers.js';
 
 const {
   mockSql, mockValidateGuardInput, mockEvaluateGuard, mockListGuardDecisions,
-  mockGetPriorDecision, mockCreateActionRecord, mockGetActionByKey,
+  mockGetPriorDecision, mockCreateActionRecord, mockGetActionByKey, mockGetOrgHalt,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockValidateGuardInput: vi.fn(),
@@ -27,11 +27,12 @@ const {
   mockGetPriorDecision: vi.fn(),
   mockCreateActionRecord: vi.fn(),
   mockGetActionByKey: vi.fn(),
+  mockGetOrgHalt: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput }));
-vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard }));
+vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard, getOrgHaltState: mockGetOrgHalt }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({
   listGuardDecisions: mockListGuardDecisions,
   getGuardDecisionByIdempotencyKey: mockGetPriorDecision,
@@ -87,6 +88,7 @@ describe('/api/guard idempotency replay', () => {
     mockSql.query.mockImplementation(async () => []);
     mockGetPriorDecision.mockResolvedValue(null);
     mockGetActionByKey.mockResolvedValue(null);
+    mockGetOrgHalt.mockResolvedValue(null); // not halted by default
     mockEvaluateGuard.mockResolvedValue({ decision: 'allow', reasons: [], warnings: [], matched_policies: [], risk_score: 10 });
     mockCreateActionRecord.mockResolvedValue({ action_id: 'act_new1' });
   });
@@ -165,5 +167,33 @@ describe('/api/guard idempotency replay', () => {
     await post('http://localhost/api/guard', guardData({ idempotency_key: 'k1'.padEnd(64, '0') }));
     await post('http://localhost/api/guard', guardData({ idempotency_key: 'k2'.padEnd(64, '0') }));
     expect(mockEvaluateGuard).toHaveBeenCalledTimes(2);
+  });
+
+  it('HALTED org does NOT replay a prior decision — it re-evaluates so the kill switch blocks (Organ-3 seam fix)', async () => {
+    // Regression: the idempotency replay returned the cached prior decision
+    // BEFORE evaluateGuard ran, and halt is only enforced inside evaluateGuard.
+    // So a retried action under an emergency halt was served its old
+    // allow/warn/require_approval for up to 10 min. A halted org must skip the
+    // replay short-circuit and flow into evaluateGuard (which returns block).
+    mockGetOrgHalt.mockResolvedValue({ halted: true, actor: 'usr_admin', reason: 'incident', at: '2026-06-13T00:00:00.000Z' });
+    mockGetPriorDecision.mockResolvedValue({ ...PRIOR_ROW, decision: 'require_approval' });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'block', reasons: ['Org halted'], warnings: [], matched_policies: ['__org_halt__'], risk_score: 100 });
+
+    const res = await post();
+    const body = await res.json();
+
+    // The replay must NOT short-circuit: evaluateGuard runs and the halt blocks.
+    expect(body.idempotent_replay).toBeUndefined();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
+  });
+
+  it('a halted org with NO prior decision is unaffected (still evaluates → block)', async () => {
+    mockGetOrgHalt.mockResolvedValue({ halted: true });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'block', reasons: ['Org halted'], warnings: [], matched_policies: ['__org_halt__'], risk_score: 100 });
+    const res = await post();
+    const body = await res.json();
+    expect(body.decision).toBe('block');
+    expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
   });
 });

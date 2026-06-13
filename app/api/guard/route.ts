@@ -5,7 +5,7 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../lib/org';
 import { validateGuardInput } from '../../lib/validate';
-import { evaluateGuard } from '../../lib/guard';
+import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
 import { getSql } from '../../lib/db';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { scanForPromptInjection } from '../../lib/promptInjection';
@@ -298,7 +298,15 @@ export async function POST(request: Request) {
     // changes. Lookup failures fall through to a normal evaluation.
     const recordParam = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true';
     if (typeof data.idempotency_key === 'string' && data.idempotency_key) {
-      const prior = await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
+      // Org halt is an emergency override with an immediate-block guarantee, NOT
+      // an ordinary policy change the dedupe window may absorb. A halted org
+      // must skip the replay short-circuit so the request flows into
+      // evaluateGuard (which returns the halt block) — otherwise a retried
+      // action carrying a matching idempotency_key would be served its cached
+      // pre-halt decision for up to the replay window. (Same cached settings
+      // read evaluateGuard uses, so /api/halt's eager invalidation still wins.)
+      const orgHalted = !!(await getOrgHaltState(sql, orgId))?.halted;
+      const prior = orgHalted ? null : await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
       if (prior) {
         let priorPolicies: unknown[] = [];
         try { priorPolicies = JSON.parse(String(prior.matched_policies ?? '[]')); } catch { priorPolicies = []; }

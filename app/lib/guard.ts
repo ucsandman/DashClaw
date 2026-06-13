@@ -388,6 +388,18 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
   else predictiveSettingsCache.clear();
 }
 
+/**
+ * Read just the org kill-switch (halt) state. Shares the predictive-settings
+ * cache + eager invalidation, so /api/halt still takes effect immediately.
+ * Exposed for the guard route's pre-replay halt check: the idempotency replay
+ * short-circuit must NOT absorb an emergency halt the way it deliberately
+ * absorbs ordinary retries (halt is an override with its own immediate-block
+ * guarantee, not a policy change).
+ */
+export async function getOrgHaltState(sql: GuardSql, orgId: string): Promise<OrgHaltState | null> {
+  return (await getPredictiveSettings(sql, orgId)).halt;
+}
+
 /** Test-only: clear all guard hot-path caches. */
 export function __resetGuardCaches(): void {
   policyCache.clear();
