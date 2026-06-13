@@ -1,0 +1,50 @@
+name: up-smoke
+on:
+  pull_request:
+    paths: ['cli/**', 'scripts/setup.mjs', 'scripts/lib/**', '.github/workflows/up-smoke.yml']
+  workflow_dispatch:
+
+jobs:
+  up:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+
+      - name: Install CLI deps
+        run: npm ci --no-audit --no-fund
+        working-directory: cli
+
+      - name: Run up (embedded DB, non-interactive, no browser)
+        run: node cli/bin/dashclaw.js up --yes --db embedded --no-browser --source-dir . &
+        shell: bash
+
+      - name: Wait for health
+        run: |
+          for i in $(seq 1 120); do
+            if curl -fsS http://localhost:3000/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 5
+          done
+          echo "server never became healthy"; exit 1
+        shell: bash
+
+      - name: Record one governed action with the minted key
+        run: |
+          KEY=$(node -e "console.log(JSON.parse(require('fs').readFileSync(require('os').homedir()+'/.dashclaw/instance.json','utf8')).apiKey)")
+          curl -fsS -X POST http://localhost:3000/api/actions \
+            -H "x-api-key: $KEY" -H "content-type: application/json" \
+            -d '{"agent_id":"ci-smoke","action_type":"test","declared_goal":"up-smoke verification"}'
+        shell: bash
+
+      - name: Down
+        run: node cli/bin/dashclaw.js down
+        shell: bash
