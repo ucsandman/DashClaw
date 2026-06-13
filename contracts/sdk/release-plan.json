@@ -1,16 +1,18 @@
 {
   "node": {
-    "current_version": "4.20.2",
+    "current_version": "4.21.0",
     "next_bump": "none",
-    "reason": "4.20.2 is a platform-only security/reliability patch (halt vs idempotency-replay seam, security-review landmines, context-menu silent-failure, vercel preview auto-migrate, interpreter classifier, HITL re-eval): NO Node SDK source change. Version advances per the unified model but the SDK is NOT republished at 4.20.2 - npm stays at its last published version. The pre-existing 4.20.x republish (idempotency auto-derive) remains owed separately.",
+    "reason": "4.21.0 ships the npx dashclaw up one-command local installer. SDK source CHANGED: the dashclaw package gained a bin shim (sdk/bin/dashclaw-shim.js + bin field) so `npx dashclaw <args>` forwards to @dashclaw/cli. Republish OWED at 4.21.0 (this also clears the carried-over 4.20.x republish — idempotency auto-derive). @dashclaw/cli bumps independently to 0.5.0 and must be published too for `npx dashclaw up` to work.",
     "domains": [
-      "platform"
+      "platform",
+      "sdk-node",
+      "cli"
     ]
   },
   "python": {
-    "current_version": "4.20.2",
+    "current_version": "4.21.0",
     "next_bump": "none",
-    "reason": "4.20.2 is a platform-only security/reliability patch (halt vs idempotency-replay seam, security-review landmines, context-menu silent-failure, vercel preview auto-migrate, interpreter classifier, HITL re-eval): NO Python SDK source change. Version advances per the unified model but the SDK is NOT republished at 4.20.2 - PyPI stays at its last published version. The pre-existing 4.20.x republish remains owed separately.",
+    "reason": "4.21.0 unified bump. No Python SDK source change in the up installer (it is a Node CLI + Node SDK bin shim), but the unified version advances; republish the Python SDK at 4.21.0 alongside Node so the registries stay aligned with the carried-over 4.20.x republish.",
     "domains": [
       "platform"
     ]

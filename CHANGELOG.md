@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.21.0] — 2026-06-13
+
+One-command local install: `npx dashclaw up`.
+
+### Added
+- **`npx dashclaw up` — one command from nothing to a running, governed local DashClaw.** Installs the app to `~/.dashclaw`, provisions Postgres (Docker if present → embedded Postgres, no accounts → paste a `postgresql://` URL), generates secrets, mints the admin API key, applies migrations, builds, starts on `:3000`, and offers to wire Claude Code hooks. Re-running boots an existing install; `npx dashclaw down` stops it; `--update` upgrades; failures checkpoint and resume. Flags: `--yes --no-browser --db docker|embedded|url --dir --port --source-dir --update`.
+- **SDK bin shim:** the `dashclaw` npm package now exposes a `dashclaw` bin that forwards `npx dashclaw <args>` to `@dashclaw/cli` (`@dashclaw/cli` 0.5.0 carries the `up`/`down` commands).
+- **`scripts/setup.mjs` non-interactive mode** (`--yes --database-url --json --skip-install --skip-build`) so the installer can drive it as a child process with a single-line JSON contract on stdout.
+- **3-OS CI smoke** (`.github/workflows/up-smoke.yml`): end-to-end `up` against embedded Postgres on ubuntu/windows/macos.
+
+### Fixed
+- `up` installer hardening from review + a real end-to-end run: stdin-`ignore` so a stray prompt can't hang setup; `--database-url` overrides a stale `.env.local`; non-interactive setup fails loudly on an unreachable DB; `--json` never echoes a pre-existing admin password; url-mode reuses the saved DB URL on resume instead of re-prompting; boot detects a live server and reuses it instead of spawning a duplicate; setup skips its redundant install+build when driven by `up`; Windows docker-filter caret + embedded-init cleanup + tarball-failure cleanup.
+
 ## [4.20.2] — 2026-06-13
 
 Security + reliability hardening from an adversarial review and a security pass. Platform-only — no SDK source change, so the Node + Python SDKs are intentionally not republished at this version.
