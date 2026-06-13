@@ -37,23 +37,26 @@ Self-hosting instead? Continue below.
 
 ## Step 1: Deploy DashClaw
 
-### Option A: Local (full environment)
+### Option A: Local (one command)
 
-1. **Clone the repo**:
-   ```bash
-   git clone https://github.com/ucsandman/DashClaw.git
-   cd DashClaw
-   ```
-2. **Run the setup**:
-   ```bash
-   npm install
-   npm run setup
-   ```
-   `npm run setup` is interactive. It provisions a local DB if you don't already have one, generates `NEXTAUTH_SECRET` and `ENCRYPTION_KEY`, mints a workspace API key into `.env.local`, and applies migrations.
-3. **Start the server**:
-   ```bash
-   npm run dev
-   ```
+```bash
+npx dashclaw up
+```
+
+Everything is interactive-with-defaults: it installs the app to `~/.dashclaw`, provisions Postgres
+(Docker if you have it, embedded Postgres otherwise — no accounts, no extra installs), generates
+secrets, mints your API key, applies migrations, starts the server at http://localhost:3000, and
+offers to wire Claude Code hooks so your next session is governed. Re-run `npx dashclaw up` any
+time to start it again; `npx dashclaw down` stops it; `npx dashclaw up --update` upgrades.
+
+<details><summary>Working from a clone instead (contributors)</summary>
+
+```bash
+git clone https://github.com/ucsandman/DashClaw.git && cd DashClaw
+npm install && npm run setup && npm run dev
+```
+
+</details>
 
 ### Option B: Cloud (Vercel + Neon, $0 to deploy)
 

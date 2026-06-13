@@ -294,6 +294,16 @@ Python uses the same shape with `snake_case`. Full reference: [`sdk/README.md`](
 
 ## Deploy
 
+### Local
+
+```bash
+npx dashclaw up
+```
+
+Installs the app, provisions Postgres (Docker or embedded), generates secrets, mints your API key, applies migrations, starts on :3000, and offers to wire Claude Code hooks — one command, no accounts required.
+
+### Cloud
+
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fucsandman%2FDashClaw&env=DATABASE_URL,DASHCLAW_API_KEY,ENCRYPTION_KEY,NEXTAUTH_SECRET,NEXTAUTH_URL,CRON_SECRET,DASHCLAW_LOCAL_ADMIN_PASSWORD&envDescription=Required%20DashClaw%20configuration.%20See%20.env.example%20for%20details.&envLink=https%3A%2F%2Fgithub.com%2Fucsandman%2FDashClaw%2Fblob%2Fmain%2F.env.example&project-name=my-dashclaw&repository-name=my-dashclaw&products=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22neon%22%2C%22productSlug%22%3A%22neon%22%2C%22protocol%22%3A%22storage%22%7D%5D&skippable-integrations=1)
 
 **$0 to deploy.** Vercel free tier plus Neon free tier. Click the button, add the Neon integration when prompted, fill in the env vars listed in [`.env.example`](./.env.example). The schema migration runs as part of the build, so there is no manual migration step.

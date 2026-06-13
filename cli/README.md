@@ -37,6 +37,33 @@ Optionally set `DASHCLAW_AGENT_ID` (defaults to `cli-operator`) for audit attrib
 
 ## Commands
 
+### `dashclaw up`
+
+Install + start a local DashClaw (one command, resumable).
+
+```bash
+npx dashclaw up
+npx dashclaw up --update            # upgrade an existing install in place
+npx dashclaw up --yes               # non-interactive, accept all defaults
+npx dashclaw up --no-browser        # skip opening /setup in the browser
+npx dashclaw up --db docker         # force Docker Postgres
+npx dashclaw up --db embedded       # force embedded Postgres (~40 MB download)
+npx dashclaw up --db <url>          # use an existing postgresql:// connection string
+npx dashclaw up --dir <path>        # install to a custom directory (default: ~/.dashclaw)
+npx dashclaw up --port <n>          # bind to a custom port (default: 3000)
+npx dashclaw up --source-dir <path> # use a local repo checkout instead of the published tarball
+```
+
+Re-running `npx dashclaw up` on an existing install boots the server without re-provisioning. Failures checkpoint and resume from where they stopped.
+
+### `dashclaw down`
+
+Stop the local server (and the Docker DB if `up` started it).
+
+```bash
+npx dashclaw down
+```
+
 ### `dashclaw approvals`
 
 Interactive inbox for all pending approval requests. Use arrow keys to navigate, `A` to approve, `D` to deny, `O` to open the replay link, `Q` to quit.
