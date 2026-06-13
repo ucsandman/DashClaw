@@ -89,24 +89,40 @@ function promptReason(message: string): string | null {
   return reason && reason.trim() ? reason.trim() : null;
 }
 
+// Governance mutations must NOT silently succeed on a server rejection. The
+// menu is wired site-wide with no per-action role/demo gating, so a non-admin
+// (or a demo session, or any 401/403/409/500) would otherwise see the menu
+// close and the page refresh as if the action worked. Throw on !res.ok so the
+// caller's ctx.refresh() is skipped and ContextMenu.activate surfaces the
+// failure — mirroring the hardened approvals page.
+async function throwIfNotOk(res: Response): Promise<void> {
+  if (res.ok) return;
+  let detail = '';
+  try { detail = ((await res.json()) as { error?: string })?.error ?? ''; } catch { /* non-JSON error body */ }
+  throw new Error(detail || `Request failed (${res.status})`);
+}
+
 async function postJson(url: string, body: unknown): Promise<void> {
-  await fetch(url, {
+  const res = await fetch(url, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+  await throwIfNotOk(res);
 }
 
 async function patchJson(url: string, body: unknown): Promise<void> {
-  await fetch(url, {
+  const res = await fetch(url, {
     method: 'PATCH',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
+  await throwIfNotOk(res);
 }
 
 async function del(url: string): Promise<void> {
-  await fetch(url, { method: 'DELETE' });
+  const res = await fetch(url, { method: 'DELETE' });
+  await throwIfNotOk(res);
 }
 
 const enc = encodeURIComponent;

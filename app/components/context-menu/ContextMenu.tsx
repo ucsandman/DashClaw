@@ -63,6 +63,13 @@ export function ContextMenu({ entity, items, x, y, push, refresh, onClose }: Con
       const ctx: ActionContext = { entity, push, refresh, close: onClose };
       try {
         await item.run(ctx);
+      } catch (err) {
+        // A failed governed mutation throws (see actionRegistry throwIfNotOk).
+        // Surface it instead of closing as if it worked; the handler's own
+        // refresh was skipped by the throw, so the stale state is not masked.
+        if (typeof window !== 'undefined' && typeof window.alert === 'function') {
+          window.alert(`${item.label} failed: ${(err as Error)?.message || 'request failed'}`);
+        }
       } finally {
         onClose();
       }

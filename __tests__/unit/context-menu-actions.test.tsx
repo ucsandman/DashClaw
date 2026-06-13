@@ -34,6 +34,26 @@ async function run(type: string, id: string, actionId: string, data: Record<stri
   await find(getActionsFor(e), actionId).run(ctxFor(e));
 }
 
+describe('context-menu failure surfacing (no silent success)', () => {
+  it('a 403 makes the action reject and does NOT refresh the page', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve({ ok: false, status: 403, json: async () => ({ error: 'Forbidden' }) }));
+    const e = ent('decision', 'act_1', { entityStatus: 'pending_approval' });
+    const ctx = ctxFor(e);
+    const deny = find(getActionsFor(e), 'deny');
+    await expect(deny.run(ctx)).rejects.toThrow(/Forbidden/);
+    expect(ctx.refresh).not.toHaveBeenCalled();
+  });
+
+  it('a 500 with a non-JSON body still rejects with the status code', async () => {
+    fetchMock.mockImplementation(() => Promise.resolve({ ok: false, status: 500, json: async () => { throw new Error('not json'); } }));
+    const e = ent('decision', 'act_2', { entityStatus: 'pending_approval' });
+    const ctx = ctxFor(e);
+    const approve = find(getActionsFor(e), 'approve');
+    await expect(approve.run(ctx)).rejects.toThrow(/500/);
+    expect(ctx.refresh).not.toHaveBeenCalled();
+  });
+});
+
 describe('context-menu governance routes', () => {
   it('decision deny → POST /api/approvals/:id {decision:deny}', async () => {
     await run('decision', 'act_1', 'deny', { entityStatus: 'pending_approval' });
