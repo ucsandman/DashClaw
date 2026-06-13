@@ -13,6 +13,24 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.20.2] — 2026-06-13
+
+Security + reliability hardening from an adversarial review and a security pass. Platform-only — no SDK source change, so the Node + Python SDKs are intentionally not republished at this version.
+
+### Security
+- **Org kill-switch (halt) can no longer be bypassed by the idempotency replay (CRITICAL).** A halted org's retried action carrying a matching `idempotency_key` was served its cached pre-halt decision (allow/warn/require_approval) for up to the 10-minute replay window — and with `?record=true` recorded as running. Halt is now read before the replay short-circuit (new `getOrgHaltState`, sharing the cached settings read + eager invalidation), so every evaluation under a halt blocks as documented.
+- **`/api/webhooks/stripe` is reachable for Stripe's unauthenticated signed POST** — added to the public routes so billing events stop 401ing before signature verification (dormant until `STRIPE_SECRET_KEY` is set, but would have silently desynced billing from entitlements).
+- **Public-route matching is boundary-aware** (`pathname === route || startsWith(route + '/')`) so a future sibling of a public prefix (e.g. `/api/cron-report`) cannot ship unauthenticated — the foot-gun that once exposed the whole `/api/prompts` surface.
+- **Local admin login is brute-force resistant** — a DB-backed per-target failure counter locks the login after repeated failures (previously only the per-instance in-memory rate limiter), fail-open so a broken store can't lock the operator out.
+- **CLI and MCP client warn on a plaintext-`http` base URL** to a non-local host, where the API key would travel unencrypted.
+
+### Fixed
+- **Context-menu governance actions surface server failures instead of silently succeeding (MAJOR).** Site-wide right-click Approve/Deny/Delete/Revoke checked no response status and refreshed unconditionally, so a 401/403/500 looked like success; they now throw on `!res.ok` and surface the failure, matching the hardened approvals page.
+- **Vercel preview deployments build again** — `auto-migrate` skips on a non-production build with no `DATABASE_URL` (the preview environment has none) instead of hard-failing, while a production build missing it still fails loudly. Stops failed-preview emails on every Dependabot PR.
+- **HITL approvals are honored on guard re-evaluation**, and the hook text scorer is calibrated.
+- **`node -e` / `python -c` are no longer blocked by accident** — the bash classifier gained an interpreter intent so inline eval lands in the warn band instead of inheriting the worst-case unknown-command risk that pushed it into the block band.
+- Repo hygiene: the marketing "Run live demo" button is wired to the live-demo anchor; stale gate logs and one-off reports were cleaned up; the 32 MB marketing video was untracked.
+
 ## [4.20.1] — 2026-06-12
 
 Launch-readiness patch (Show HN prep): MCP read-path fixes + doc hygiene.
