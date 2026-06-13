@@ -305,6 +305,10 @@ async function applyPostgresUrlChoice(env) {
   ok('Database URL saved');
 }
 
+// Set only when THIS RUN created the password. The --json payload must never
+// echo a pre-existing password from .env.local back to a parent process.
+let generatedAdminPassword = null;
+
 async function maybeConfigureLocalAdminPassword(env) {
   const authConfig = getAuthConfig(env);
   if (authConfig.hasLocalPassword) {
@@ -322,6 +326,7 @@ async function maybeConfigureLocalAdminPassword(env) {
   log('  For solo/local use, the easiest path is a local admin password.');
   if (cliArgs.yes) {
     env.DASHCLAW_LOCAL_ADMIN_PASSWORD = b64url(18);
+    generatedAdminPassword = env.DASHCLAW_LOCAL_ADMIN_PASSWORD;
     ok(`Local admin password: ${env.DASHCLAW_LOCAL_ADMIN_PASSWORD} (printed ONCE — written only to .env.local)`);
     return;
   }
@@ -350,6 +355,7 @@ async function maybeConfigureLocalAdminPassword(env) {
     }
 
     env.DASHCLAW_LOCAL_ADMIN_PASSWORD = password;
+    generatedAdminPassword = password;
     ok('Local admin password saved to .env.local');
   }
 }
@@ -363,6 +369,15 @@ function loadLocalEnv() {
 
 async function configureDatabase(env) {
   step(1, TOTAL_SETUP_STEPS, 'Database connection');
+  // An explicit --database-url wins over EVERYTHING (pre-existing .env.local,
+  // process env). Without this, the keep-existing path below silently ignored
+  // the flag and the installer could migrate the wrong database.
+  if (cliArgs.databaseUrl) {
+    env.DATABASE_URL = cliArgs.databaseUrl;
+    ok(`Using DATABASE_URL from --database-url (${cliArgs.databaseUrl.replace(/\/\/[^@]+@/, '//***@').replace(/\?.*/, '')})`);
+    const { dockerInstalled } = await chooseDatabaseUrl(env);
+    return dockerInstalled;
+  }
   if (process.env.DATABASE_URL && process.env.DATABASE_URL !== env.DATABASE_URL) {
     env.DATABASE_URL = process.env.DATABASE_URL;
     ok(`Using DATABASE_URL from environment (${env.DATABASE_URL.replace(/\/\/[^@]+@/, '//***@').replace(/\?.*/, '')})`);
@@ -639,13 +654,22 @@ async function main() {
   await configureSecretsAndLogin(env, deployUrl);
   installDependencies();
   const migrationState = await runMigrationsAndCheckSetup(env);
+  // Non-interactive callers (npx dashclaw up) trust ok:true to mean the DB is
+  // genuinely ready — an unreachable database must be a hard failure, not a
+  // warn-and-continue status line.
+  if (cliArgs.yes && !migrationState.setupStatus?.configured) {
+    throw new Error(
+      `Database is not ready after setup (${migrationState.setupStatus?.reason || 'unknown'}). ` +
+      'Check that the configured DATABASE_URL is reachable, then re-run.'
+    );
+  }
   const buildOk = buildDashboard(migrationState.migrationEnv);
   printSetupReport({ env, deployUrl, dockerInstalled, buildOk, ...migrationState });
   if (cliArgs.json) {
     console.log(JSON.stringify({
       ok: true,
       apiKey: env.DASHCLAW_API_KEY,
-      adminPassword: env.DASHCLAW_LOCAL_ADMIN_PASSWORD ?? null,
+      adminPassword: generatedAdminPassword,
     }));
   }
 }

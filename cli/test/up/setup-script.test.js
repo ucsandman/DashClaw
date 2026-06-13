@@ -26,6 +26,16 @@ describe('runSetupScriptReal — success', () => {
     assert.strictEqual(result.apiKey, 'oc_live_x');
     assert.strictEqual(result.adminPassword, null);
   });
+
+  test("spawns the child with stdin 'ignore' (an open pipe hangs any stray prompt forever)", () => {
+    let seenOpts = null;
+    const spawn = (_cmd, _args, opts) => {
+      seenOpts = opts;
+      return { status: 0, stdout: '{"ok":true,"apiKey":"k","adminPassword":null}\n', stderr: '' };
+    };
+    runSetupScriptReal({ appDir: '/app', databaseUrl: 'postgresql://x', logger: silentLogger, spawn });
+    assert.deepStrictEqual(seenOpts.stdio, ['ignore', 'pipe', 'pipe']);
+  });
 });
 
 describe('runSetupScriptReal — non-zero exit', () => {

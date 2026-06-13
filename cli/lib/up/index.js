@@ -62,7 +62,9 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spaw
   const res = spawnFn(
     'node',
     ['--import', 'tsx', 'scripts/setup.mjs', '--yes', '--json', '--database-url', databaseUrl],
-    { cwd: appDir, encoding: 'utf8', shell: process.platform === 'win32' },
+    // stdin MUST be 'ignore': the default open pipe makes any stray readline
+    // prompt in the child hang forever (observed: 12-minute silent hang).
+    { cwd: appDir, encoding: 'utf8', shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'] },
   );
   const stdout = res.stdout || '';
   const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
