@@ -45,6 +45,16 @@ function fail(msg) {
 
 // ── Step 0: Guard ──────────────────────────────────────────────────────────
 if (!process.env.DATABASE_URL) {
+  // Preview / non-production builds (e.g. Dependabot PRs on Vercel) get no
+  // DATABASE_URL — it is scoped to the Production environment. There is no
+  // database to migrate, so skip cleanly and let `next build` proceed instead
+  // of failing the deploy and emailing a build-error on every PR. A PRODUCTION
+  // build missing DATABASE_URL is a real misconfiguration and still fails loud.
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (vercelEnv && vercelEnv !== 'production') {
+    log(`No DATABASE_URL on a ${vercelEnv} build — skipping schema migration (nothing to migrate).`);
+    process.exit(0);
+  }
   fail('DATABASE_URL is not set. Cannot run schema migration.');
 }
 
