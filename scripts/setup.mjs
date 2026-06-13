@@ -652,7 +652,9 @@ async function main() {
   const dockerInstalled = await configureDatabase(env);
   const deployUrl = await configureDeploymentUrl(env);
   await configureSecretsAndLogin(env, deployUrl);
-  installDependencies();
+  if (!cliArgs.skipInstall) {
+    installDependencies();
+  }
   const migrationState = await runMigrationsAndCheckSetup(env);
   // Non-interactive callers (npx dashclaw up) trust ok:true to mean the DB is
   // genuinely ready — an unreachable database must be a hard failure, not a
@@ -663,7 +665,7 @@ async function main() {
       'Check that the configured DATABASE_URL is reachable, then re-run.'
     );
   }
-  const buildOk = buildDashboard(migrationState.migrationEnv);
+  const buildOk = cliArgs.skipBuild ? true : buildDashboard(migrationState.migrationEnv);
   printSetupReport({ env, deployUrl, dockerInstalled, buildOk, ...migrationState });
   if (cliArgs.json) {
     console.log(JSON.stringify({

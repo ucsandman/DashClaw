@@ -61,7 +61,13 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spaw
   logger.error('-> Running setup (migrations + first admin) ...');
   const res = spawnFn(
     'node',
-    ['--import', 'tsx', 'scripts/setup.mjs', '--yes', '--json', '--database-url', databaseUrl],
+    [
+      '--import', 'tsx', 'scripts/setup.mjs',
+      '--yes', '--json', '--database-url', databaseUrl,
+      // The orchestrator owns install (step 2) and build (step 5); skip them
+      // inside setup.mjs to avoid doing both twice on a fresh install.
+      '--skip-install', '--skip-build',
+    ],
     // stdin MUST be 'ignore': the default open pipe makes any stray readline
     // prompt in the child hang forever (observed: 12-minute silent hang).
     { cwd: appDir, encoding: 'utf8', shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'] },
@@ -84,6 +90,11 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spaw
   return parsed;
 }
 
+/** Default process-liveness probe: signal 0 succeeds iff the pid exists. */
+export function defaultProcessAlive(pid) {
+  try { process.kill(pid, 0); return true; } catch { return false; }
+}
+
 /** The real effect wiring — swapped wholesale by tests. */
 export function realDeps() {
   return {
@@ -101,6 +112,7 @@ export function realDeps() {
     promptFn: ask,
     logger: console,
     dockerAvailable: dockerAvailableSync(),
+    processAlive: defaultProcessAlive,
   };
 }
 
@@ -111,7 +123,7 @@ export function realDeps() {
  * @param {object} opts.args      parsed up args (yes, noBrowser, db, port, sourceDir, update)
  * @param {string} [opts.baseDir] state + data dir (default ~/.dashclaw)
  * @param {object} [opts.deps]    injected effects (default realDeps())
- * @returns {Promise<{ child, stopDb, baseUrl }>}
+ * @returns {Promise<{ child, stopDb, baseUrl, reusedServer }>}
  */
 export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps = realDeps() }) {
   const { logger } = deps;
@@ -142,11 +154,16 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
 
   // 3. db_ready -------------------------------------------------------------
   // provisionDatabase is idempotent and restarts a stopped DB, so we call it
-  // every run (including boot) — but only choose the mode + checkpoint once.
+  // every run (including boot) for docker/embedded — but url-mode has no DB
+  // process to start, and re-prompting on every resume (or under --yes/non-TTY)
+  // is both wrong and hangs. Reuse the saved URL when db_ready is already
+  // checkpointed and inst.databaseUrl is set.
   const dbMode = inst.dbMode ?? await deps.chooseDbMode({
     flagDb: args.db, dockerAvailable: deps.dockerAvailable, yes: args.yes, promptFn: deps.promptFn,
   });
-  const db = await deps.provisionDatabase({ mode: dbMode, baseDir, promptFn: deps.promptFn, logger });
+  const db = (dbMode === 'url' && done('db_ready') && inst.databaseUrl)
+    ? { databaseUrl: inst.databaseUrl, stop: async () => {} }
+    : await deps.provisionDatabase({ mode: dbMode, baseDir, promptFn: deps.promptFn, logger });
   if (!done('db_ready')) {
     inst = saveInstance(baseDir, { dbMode, databaseUrl: db.databaseUrl });
     inst = checkpoint(baseDir, 'db_ready');
@@ -174,17 +191,36 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
     inst = checkpoint(baseDir, 'built');
   }
 
-  // 6. start (always — the server is not persistent across `up` invocations)
-  const child = deps.startServer({ appDir, port, logger });
-  inst = saveInstance(baseDir, { pid: child.pid });
-  try {
-    await deps.waitForHealth({ baseUrl });
-  } catch (e) {
-    // Health timeout: kill the orphaned server and clear the stale pid so the
-    // next `dashclaw up` doesn't try to resume a dead process.
-    try { killTree(child.pid); } catch { /* already gone */ }
-    saveInstance(baseDir, { pid: null });
-    throw e;
+  // 6. start (skipped when a previously-recorded server pid is still live)
+  // Without this check, a second `dashclaw up` would spawn a duplicate
+  // `next start` on the same port; the duplicate fails to bind, waitForHealth
+  // passes against the ORIGINAL, and upCommand's child.on('exit') fires
+  // immediately → stopDb → exits, orphaning the original server.
+  let child;
+  let reusedServer = false;
+  if (inst.pid && deps.processAlive(inst.pid)) {
+    try {
+      await deps.waitForHealth({ baseUrl });
+      // Original server is alive and healthy — reuse it.
+      logger.log(`[ok] Reusing server already running on :${port} (pid ${inst.pid})`);
+      child = { pid: inst.pid, on: () => {} };
+      reusedServer = true;
+    } catch {
+      // Pid alive but health check failed — fall through to a fresh start.
+    }
+  }
+  if (!reusedServer) {
+    child = deps.startServer({ appDir, port, logger });
+    inst = saveInstance(baseDir, { pid: child.pid });
+    try {
+      await deps.waitForHealth({ baseUrl });
+    } catch (e) {
+      // Health timeout: kill the orphaned server and clear the stale pid so the
+      // next `dashclaw up` doesn't try to resume a dead process.
+      try { killTree(child.pid); } catch { /* already gone */ }
+      saveInstance(baseDir, { pid: null });
+      throw e;
+    }
   }
   logger.log(`[ok] Server running at ${baseUrl}   (Ctrl+C stops it; \`dashclaw up\` restarts it)`);
 
@@ -207,7 +243,7 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   }
   logger.log(`Done. First steps: ${baseUrl}/connect`);
 
-  return { child, stopDb: db.stop, baseUrl };
+  return { child, stopDb: db.stop, baseUrl, reusedServer };
 }
 
 /**
@@ -256,7 +292,7 @@ export async function runDown({
 export async function upCommand(argv) {
   const args = parseUpArgs(argv);
   const baseDir = resolveBaseDir(args);
-  const { child, stopDb } = await runUp({ args, baseDir });
+  const { child, stopDb, reusedServer } = await runUp({ args, baseDir });
 
   let stopping = false;
   const shutdown = async () => {
@@ -264,7 +300,11 @@ export async function upCommand(argv) {
     stopping = true;
     // Kill the server child first — on Windows the recorded pid is a cmd.exe
     // wrapper; killTree reaches the actual Next process via taskkill /T /F.
-    try { killTree(child.pid); } catch { /* already gone */ }
+    // When reusing an existing server we deliberately do NOT kill it: the user
+    // did not start it in this session and Ctrl+C should only stop THIS process.
+    if (!reusedServer) {
+      try { killTree(child.pid); } catch { /* already gone */ }
+    }
     await stopDb();
     // Hard exit is intentional here: stopDb has resolved, and we need to
     // ensure the process doesn't linger on SIGINT (especially on Windows where
@@ -274,6 +314,12 @@ export async function upCommand(argv) {
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  await new Promise((resolve) => child.on('exit', resolve));
-  await stopDb();
+  if (reusedServer) {
+    // The reused child stub has a no-op .on(); wait for a signal instead of an
+    // exit event that will never fire.
+    await new Promise(() => {}); // resolved only by SIGINT/SIGTERM above
+  } else {
+    await new Promise((resolve) => child.on('exit', resolve));
+    await stopDb();
+  }
 }

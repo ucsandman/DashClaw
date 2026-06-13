@@ -54,6 +54,7 @@ function makeDeps(overrides = {}) {
     promptFn: async () => '',
     logger: { error() {}, log() {} },
     dockerAvailable: false,
+    processAlive: () => false,
     ...overrides,
   };
   return { deps, calls };
@@ -158,6 +159,120 @@ describe('runUp — --update flag', () => {
 
     assert.strictEqual(calls.downloadAndExtract, 1);
     assert.strictEqual(calls.runSetupScript, 1);
+  });
+});
+
+describe('runUp — bug#3: url-mode skips provisionDatabase on resume', () => {
+  test('does not call provisionDatabase when db_ready is done + databaseUrl saved', async () => {
+    const baseDir = tempBase();
+    const savedUrl = 'postgresql://user:pass@host:5432/db';
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'url',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      databaseUrl: savedUrl,
+      completed: [...STEPS],
+    });
+
+    const { deps, calls } = makeDeps({ chooseDbMode: async () => 'url' });
+    await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.provisionDatabase, 0, 'provisionDatabase must not be called for url-mode resume');
+  });
+
+  test('still calls provisionDatabase for url-mode on first run (db_ready not checkpointed)', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'url',
+      appDir: join(baseDir, 'app', '9.9.9'),
+    });
+    checkpoint(baseDir, 'app_fetched');
+    checkpoint(baseDir, 'deps_installed');
+
+    const { deps, calls } = makeDeps({ chooseDbMode: async () => 'url' });
+    await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.provisionDatabase, 1, 'provisionDatabase must be called on first url-mode run');
+  });
+});
+
+describe('runUp — bug#9: live pid skips duplicate startServer', () => {
+  test('does not call startServer when recorded pid is alive and health ok', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      pid: 4242,
+      completed: [...STEPS],
+    });
+
+    const { deps, calls } = makeDeps({
+      processAlive: (pid) => pid === 4242,
+    });
+
+    const result = await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.startServer, 0, 'startServer must not be called when pid is alive');
+    assert.strictEqual(result.reusedServer, true, 'reusedServer must be true');
+  });
+
+  test('calls startServer when recorded pid is dead', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      pid: 9001,
+      completed: [...STEPS],
+    });
+
+    const { deps, calls } = makeDeps({
+      processAlive: () => false,
+    });
+
+    const result = await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.startServer, 1, 'startServer must be called when pid is dead');
+    assert.strictEqual(result.reusedServer, false, 'reusedServer must be false');
+  });
+
+  test('calls startServer when no pid is recorded', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      completed: [...STEPS],
+    });
+
+    const { deps, calls } = makeDeps({ processAlive: () => true });
+
+    const result = await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.startServer, 1, 'startServer must be called when no pid recorded');
+    assert.strictEqual(result.reusedServer, false);
+  });
+
+  test('falls through to startServer when pid alive but health check fails', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      pid: 4242,
+      completed: [...STEPS],
+    });
+
+    let healthCallCount = 0;
+    const { deps, calls } = makeDeps({
+      processAlive: (pid) => pid === 4242,
+      // First call (pid alive probe) rejects; second call (after fresh start) resolves.
+      waitForHealth: async () => {
+        healthCallCount++;
+        if (healthCallCount === 1) throw new Error('not yet up');
+      },
+    });
+
+    const result = await runUp({ args: { yes: true, noBrowser: true }, baseDir, deps });
+
+    assert.strictEqual(calls.startServer, 1, 'startServer must be called when health check fails');
+    assert.strictEqual(result.reusedServer, false);
   });
 });
 
