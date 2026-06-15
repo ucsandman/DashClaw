@@ -9,7 +9,7 @@
     "render:mp4": "remotion render src/index.ts GovernanceLoop out/governance-loop.mp4"
   },
   "dependencies": {
-    "@remotion/cli": "^4.0.0",
+    "@remotion/cli": "^4.0.477",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "remotion": "^4.0.0"
