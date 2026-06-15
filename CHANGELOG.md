@@ -13,6 +13,13 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.21.1] — 2026-06-15
+
+Security: patch the transitive esbuild and vite advisories.
+
+### Security
+- **Cleared 5 high-severity dependency advisories** (`npm audit`: 5 high → 0). Replaced the too-low scoped `@esbuild-kit/core-utils → esbuild ^0.25.0` override with a global `esbuild: ^0.28.1` and added `vite: ^8.0.16`, lifting every resolution out of the vulnerable ranges. Fixes esbuild RCE (GHSA-gv7w-rqvm-qjhr) and Windows arbitrary-file-read (GHSA-g7r4-m6w7-qqqr) across the direct, `vite`, `tsx`, and `drizzle-kit` paths, plus vite's `server.fs.deny` bypass (GHSA-fx2h-pf6j-xcff) and launch-editor NTLM hash disclosure (GHSA-v6wh-96g9-6wx3). The global override also deduplicated 3 separate esbuild installs into one. No source changes; full vitest suite, lint, and build all pass. Platform-only release — SDK source unchanged, so npm/PyPI stay at their last SDK number.
+
 ## [4.21.0] — 2026-06-13
 
 One-command local install: `npx dashclaw up`.
