@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:6469797479b89a55091842d988ea1941755d2f99 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:32cf054b62acd678e1e46e0fe3b7f63cb88e0da4 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">237</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">274</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">137</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">89</div><div class="k">Tables</div></div>
-      <div class="cell"><div class="n">15</div><div class="k">Events</div></div>
-      <div class="cell"><div class="n">10</div><div class="k">Signals</div></div>
-      <div class="cell"><div class="n">5</div><div class="k">Adapters</div></div>
-      <div class="cell"><div class="n">81</div><div class="k">Setting keys</div></div>
+      <div class="cell"><div class="n">181</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">100</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
+      <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
+      <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
+      <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (89)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (100)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -72,7 +72,10 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>agent_schedules</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_sessions</code></td><td class="sig">—</td></tr>
     <tr><td><code>api_keys</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>approval_notifications</code></td><td class="sig">governance</td></tr>
     <tr><td><code>assumptions</code></td><td class="sig">—</td></tr>
+    <tr><td><code>behavior_dismissals</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>behavior_samples</code></td><td class="sig">governance</td></tr>
     <tr><td><code>calendar_events</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_optimal_file_manifests</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_projects</code></td><td class="sig">—</td></tr>
@@ -83,6 +86,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>code_session_signals</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_session_tool_uses</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_sessions</code></td><td class="sig">—</td></tr>
+    <tr><td><code>compliance_exports</code></td><td class="sig">—</td></tr>
+    <tr><td><code>compliance_schedules</code></td><td class="sig">—</td></tr>
     <tr><td><code>compliance_snapshots</code></td><td class="sig">—</td></tr>
     <tr><td><code>contacts</code></td><td class="sig">—</td></tr>
     <tr><td><code>content</code></td><td class="sig">—</td></tr>
@@ -95,6 +100,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>drift_snapshots</code></td><td class="sig">—</td></tr>
     <tr><td><code>entities</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_runs</code></td><td class="sig">—</td></tr>
+    <tr><td><code>eval_scorers</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_scores</code></td><td class="sig">—</td></tr>
     <tr><td><code>executions</code></td><td class="sig">—</td></tr>
     <tr><td><code>feedback</code></td><td class="sig">—</td></tr>
@@ -120,6 +126,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>oauth_clients</code></td><td class="sig">governance</td></tr>
     <tr><td><code>open_loops</code></td><td class="sig">—</td></tr>
     <tr><td><code>organizations</code></td><td class="sig">—</td></tr>
+    <tr><td><code>posture_findings_state</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>posture_snapshots</code></td><td class="sig">governance</td></tr>
     <tr><td><code>profile_scores</code></td><td class="sig">—</td></tr>
     <tr><td><code>prompt_runs</code></td><td class="sig">—</td></tr>
     <tr><td><code>prompt_templates</code></td><td class="sig">—</td></tr>
@@ -149,411 +157,297 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>waitlist</code></td><td class="sig">—</td></tr>
     <tr><td><code>webhook_deliveries</code></td><td class="sig">—</td></tr>
     <tr><td><code>webhooks</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_order_receipts</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_order_types</code></td><td class="sig">—</td></tr>
+    <tr><td><code>work_orders</code></td><td class="sig">—</td></tr>
     <tr><td><code>workflows</code></td><td class="sig">—</td></tr></tbody></table></details>
-<details><summary>Events (15)</summary><table><thead><tr><th>Constant</th><th>Event</th></tr></thead><tbody>    <tr><td><code>ACTION_COST_EXCEEDED</code></td><td><code>action.cost_exceeded</code></td></tr>
-    <tr><td><code>ACTION_CREATED</code></td><td><code>action.created</code></td></tr>
-    <tr><td><code>ACTION_UPDATED</code></td><td><code>action.updated</code></td></tr>
-    <tr><td><code>DECISION_CREATED</code></td><td><code>decision.created</code></td></tr>
-    <tr><td><code>GOAL_CREATED</code></td><td><code>goal.created</code></td></tr>
-    <tr><td><code>GOAL_UPDATED</code></td><td><code>goal.updated</code></td></tr>
-    <tr><td><code>GUARD_DECISION_CREATED</code></td><td><code>guard.decision.created</code></td></tr>
-    <tr><td><code>LOOP_CREATED</code></td><td><code>loop.created</code></td></tr>
-    <tr><td><code>LOOP_UPDATED</code></td><td><code>loop.updated</code></td></tr>
-    <tr><td><code>MESSAGE_CREATED</code></td><td><code>message.created</code></td></tr>
-    <tr><td><code>POLICY_UPDATED</code></td><td><code>policy.updated</code></td></tr>
-    <tr><td><code>SIGNAL_DETECTED</code></td><td><code>signal.detected</code></td></tr>
-    <tr><td><code>TASK_ASSIGNED</code></td><td><code>task.assigned</code></td></tr>
-    <tr><td><code>TASK_COMPLETED</code></td><td><code>task.completed</code></td></tr>
-    <tr><td><code>TOKEN_USAGE</code></td><td><code>token.usage</code></td></tr></tbody></table></details>
-<details><summary>Adapters (5)</summary><table><thead><tr><th>Name</th><th>Required keys</th></tr></thead><tbody>    <tr><td><code>email</code></td><td class="sig">RESEND_API_KEY, SENDGRID_API_KEY</td></tr>
-    <tr><td><code>github</code></td><td class="sig">GITHUB_TOKEN</td></tr>
-    <tr><td><code>linear</code></td><td class="sig">LINEAR_API_KEY</td></tr>
-    <tr><td><code>org_id</code></td><td class="sig">DISCORD_WEBHOOK_URL</td></tr>
-    <tr><td><code>slack</code></td><td class="sig">SLACK_BOT_TOKEN, SLACK_WEBHOOK_URL</td></tr></tbody></table></details>
-<details><summary>Signals (10)</summary><ul class="diff">    <li><code>autonomy_spike</code></li>
+<details><summary>Signals (13)</summary><ul class="diff">    <li><code>approval_flood</code></li>
+    <li><code>autonomy_spike</code></li>
     <li><code>branch_stale</code></li>
     <li><code>cost_exceeded</code></li>
+    <li><code>coverage_drop</code></li>
     <li><code>green_insufficient</code></li>
     <li><code>integration_health_changed</code></li>
     <li><code>integration_mismatch</code></li>
     <li><code>lost_confirmation</code></li>
     <li><code>mcp_degraded</code></li>
+    <li><code>message</code></li>
     <li><code>stale_action</code></li>
-    <li><code>test</code></li></ul></details>
-<details><summary>Setting keys (81)</summary><table><thead><tr><th>Key</th><th>Section</th></tr></thead><tbody>    <tr><td><code>AIRTABLE_API_KEY</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>AIRTABLE_BASE_ID</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>ANTHROPIC_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>BEHAVIOR_RECORDER_ENABLED</code></td><td class="sig">DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var still overrides them.</td></tr>
-    <tr><td><code>BEHAVIOR_RECORDER_UNTIL</code></td><td class="sig">DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var still overrides them.</td></tr>
-    <tr><td><code>BRAVE_API_KEY</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>CALENDLY_API_KEY</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>CLOUDFLARE_ACCOUNT_ID</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>CLOUDFLARE_API_TOKEN</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>DASHCLAW_ACTION_COST_THRESHOLD</code></td><td class="sig">webhooks + native adapters deliver a signal. Empty/unset = disabled.</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_DISCORD</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_EMAIL</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_GITHUB</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_LINEAR</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_SLACK</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_ALERTS_TELEGRAM</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>DASHCLAW_ALERT_EMAIL</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>DASHCLAW_AUTOSCAN_BLOCK</code></td><td class="sig">content contains a detected secret/credential. Default (unset) = warn only.</td></tr>
-    <tr><td><code>DASHCLAW_OUTCOME_TIMEOUT_MINUTES</code></td><td class="sig">docs/architecture/durable-execution-finality.md.</td></tr>
-    <tr><td><code>DATABASE_URL</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>DISCORD_BOT_TOKEN</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>DISCORD_CLIENT_ID</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>DISCORD_GUILD_ID</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>DISCORD_WEBHOOK_URL</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>ELEVENLABS_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>ELEVENLABS_VOICE_ID</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>ENFORCE_AGENT_SIGNATURES</code></td><td class="sig">System configuration</td></tr>
-    <tr><td><code>GITHUB_REPO</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>GITHUB_TOKEN</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>GITHUB_USERNAME</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>GOOGLE_ACCOUNT</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>GOOGLE_CREDENTIALS_PATH</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>GROQ_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>HUGGINGFACE_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>LEMONSQUEEZY_API_KEY</code></td><td class="sig">Payments</td></tr>
-    <tr><td><code>LINEAR_API_KEY</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>MODEL_PRICING</code></td><td class="sig">System configuration</td></tr>
-    <tr><td><code>MOLTBOOK_API_KEY</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>MONGODB_URI</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>NOTION_API_KEY</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>NOTION_PARENT_PAGE_ID</code></td><td class="sig">Productivity</td></tr>
-    <tr><td><code>OPENAI_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>OPENAI_ORG_ID</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>PERPLEXITY_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>PINECONE_API_KEY</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>PINECONE_ENVIRONMENT</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>PLANETSCALE_URL</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>PREDICTIVE_RISK_ENABLED</code></td><td class="sig">Predictive risk scoring</td></tr>
-    <tr><td><code>PREDICTIVE_RISK_THRESHOLD</code></td><td class="sig">Predictive risk scoring</td></tr>
-    <tr><td><code>RAILWAY_TOKEN</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>REDIS_URL</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>REPLICATE_API_TOKEN</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>RESEND_API_KEY</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>SENDGRID_API_KEY</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>SENDGRID_DEFAULT_TO</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>SENDGRID_FROM_EMAIL</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>SENTRY_AUTH_TOKEN</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>SENTRY_DSN</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>SLACK_APP_TOKEN</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>SLACK_BOT_TOKEN</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>SLACK_CHANNEL_ID</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>SLACK_SIGNING_SECRET</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>SLACK_WEBHOOK_URL</code></td><td class="sig">Native governance alert settings</td></tr>
-    <tr><td><code>STRIPE_PUBLISHABLE_KEY</code></td><td class="sig">Payments</td></tr>
-    <tr><td><code>STRIPE_SECRET_KEY</code></td><td class="sig">Payments</td></tr>
-    <tr><td><code>STRIPE_WEBHOOK_SECRET</code></td><td class="sig">Payments</td></tr>
-    <tr><td><code>SUPABASE_ANON_KEY</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>SUPABASE_SERVICE_KEY</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>SUPABASE_URL</code></td><td class="sig">Databases</td></tr>
-    <tr><td><code>TELEGRAM_ADMIN_CHAT_ID</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>TELEGRAM_BOT_TOKEN</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>TOGETHER_API_KEY</code></td><td class="sig">AI Providers</td></tr>
-    <tr><td><code>TWILIO_ACCOUNT_SID</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>TWILIO_AUTH_TOKEN</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>TWILIO_PHONE_NUMBER</code></td><td class="sig">Communication</td></tr>
-    <tr><td><code>TWITTER_ACCESS_SECRET</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>TWITTER_ACCESS_TOKEN</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>TWITTER_API_KEY</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>TWITTER_API_SECRET</code></td><td class="sig">Social</td></tr>
-    <tr><td><code>VERCEL_PROJECT_ID</code></td><td class="sig">Development</td></tr>
-    <tr><td><code>VERCEL_TOKEN</code></td><td class="sig">Development</td></tr></tbody></table></details></section>
+    <li><code>test</code></li></ul></details></section>
 
-<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 212)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,39.2 212.0,39.2 316.0,4.0"/></svg></figure>
-<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,44.0 212.0,44.0 316.0,44.0"/></svg></figure>
-<figure><figcaption>Tables over time <span class="sig">(73 → 85)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 108.0,44.0 212.0,44.0 316.0,4.0"/></svg></figure></section>
-
-<section><h2>Health</h2><div class="grid">      <div class="cell"><div class="n">16</div><div class="k">Commits 7d</div></div>
-      <div class="cell danger"><div class="n">1</div><div class="k">Bus factor</div></div>
-      <div class="cell"><div class="n">Wes Sander</div><div class="k">Top contributor</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">JS tests</div></div>
-      <div class="cell"><div class="n">n/a</div><div class="k">Python tests</div></div>
-      <div class="cell"><div class="n">0.28</div><div class="k">Test file ratio</div></div>
-      <div class="cell danger"><div class="n">111</div><div class="k">Untested routes</div></div>
-      <div class="cell"><div class="n">0</div><div class="k">Vulnerabilities</div></div>
-      <div class="cell"><div class="n">0d</div><div class="k">Lockfile age</div></div>
-      <div class="cell"><div class="n">100.0%</div><div class="k">CI pass 30d</div></div>
-      <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
-      <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
-
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>8</b> env_vars added, <b>25</b> routes added, <b>1</b> routes changed, <b>4</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/admin/trigger-outcome-sweep <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/invoke <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">New route: GET, PATCH</span></li>
-    <li><code>added</code> <b>routes</b>: /api/agents/registry/[id]/capabilities <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/recorder <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/samples <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/simulate <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/evaluations/scorers/preview <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/integrity/jwks <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/integrity/verify <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/invite/[token] <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/authorize <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/metadata/authorization-server <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/metadata/protected-resource <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/register <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/oauth/token <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId] <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/events <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/receipt <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/recompute <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/agents/[agentId]/summary <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/leaderboard <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/reputation/verify <span class="sig">New route: POST</span></li>
-    <li><code>changed</code> <b>routes</b>: /api/handoffs <span class="sig">Methods: POST -&gt; GET, POST</span></li>
-    <li><code>added</code> <b>env_vars</b>: ANTHROPIC_MODEL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_DIR <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_ENABLED <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_GUARD_UNAVAILABLE_POLICY <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_PAIRING_TTL_MINUTES <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: DASHCLAW_SIGNING_KEY_JWK <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: S <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: VERCEL_PROJECT_PRODUCTION_URL <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_access_tokens <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_authorization_codes <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: oauth_clients <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: server_signing_keys <span class="sig">New table in schema</span></li></ul></section>
-
-<section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]/artifacts"><td><code>/api/actions/[actionId]/artifacts</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/artifacts/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]/graph"><td><code>/api/actions/[actionId]/graph</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/graph/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]/messages"><td><code>/api/actions/[actionId]/messages</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/messages/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]/outcome"><td><code>/api/actions/[actionId]/outcome</code></td><td>GET, POST</td><td class="sig">app/api/actions/[actionId]/outcome/route.js</td></tr>
-    <tr data-path="/api/actions/[actionId]/trace"><td><code>/api/actions/[actionId]/trace</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/trace/route.js</td></tr>
-    <tr data-path="/api/actions/costs"><td><code>/api/actions/costs</code></td><td>GET</td><td class="sig">app/api/actions/costs/route.js</td></tr>
-    <tr data-path="/api/actions/loops"><td><code>/api/actions/loops</code></td><td>GET, POST</td><td class="sig">app/api/actions/loops/route.js</td></tr>
-    <tr data-path="/api/actions/loops/[loopId]"><td><code>/api/actions/loops/[loopId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/loops/[loopId]/route.js</td></tr>
-    <tr data-path="/api/actions/stats"><td><code>/api/actions/stats</code></td><td>GET</td><td class="sig">app/api/actions/stats/route.js</td></tr></tbody></table></details>
-<details><summary>/activity/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/activity"><td><code>/api/activity</code></td><td>GET</td><td class="sig">app/api/activity/route.js</td></tr></tbody></table></details>
-<details><summary>/admin/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/admin/trigger-outcome-sweep"><td><code>/api/admin/trigger-outcome-sweep</code></td><td>POST</td><td class="sig">app/api/admin/trigger-outcome-sweep/route.js</td></tr></tbody></table></details>
-<details><summary>/agents/* (9)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents"><td><code>/api/agents</code></td><td>GET</td><td class="sig">app/api/agents/route.js</td></tr>
-    <tr data-path="/api/agents/[agentId]"><td><code>/api/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/route.js</td></tr>
-    <tr data-path="/api/agents/[agentId]/profile"><td><code>/api/agents/[agentId]/profile</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/profile/route.js</td></tr>
-    <tr data-path="/api/agents/connections"><td><code>/api/agents/connections</code></td><td>GET, POST</td><td class="sig">app/api/agents/connections/route.js</td></tr>
-    <tr data-path="/api/agents/heartbeat"><td><code>/api/agents/heartbeat</code></td><td>POST</td><td class="sig">app/api/agents/heartbeat/route.js</td></tr>
-    <tr data-path="/api/agents/invoke"><td><code>/api/agents/invoke</code></td><td>POST</td><td class="sig">app/api/agents/invoke/route.js</td></tr>
-    <tr data-path="/api/agents/registry"><td><code>/api/agents/registry</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/route.js</td></tr>
-    <tr data-path="/api/agents/registry/[id]"><td><code>/api/agents/registry/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/agents/registry/[id]/route.js</td></tr>
-    <tr data-path="/api/agents/registry/[id]/capabilities"><td><code>/api/agents/registry/[id]/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/[id]/capabilities/route.js</td></tr></tbody></table></details>
-<details><summary>/analytics/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/analytics"><td><code>/api/analytics</code></td><td>GET</td><td class="sig">app/api/analytics/route.js</td></tr></tbody></table></details>
-<details><summary>/approvals/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.js</td></tr></tbody></table></details>
-<details><summary>/artifacts/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/artifacts"><td><code>/api/artifacts</code></td><td>GET, POST</td><td class="sig">app/api/artifacts/route.js</td></tr>
-    <tr data-path="/api/artifacts/[artifactId]"><td><code>/api/artifacts/[artifactId]</code></td><td>DELETE, GET</td><td class="sig">app/api/artifacts/[artifactId]/route.js</td></tr>
-    <tr data-path="/api/artifacts/evidence-bundle"><td><code>/api/artifacts/evidence-bundle</code></td><td>POST</td><td class="sig">app/api/artifacts/evidence-bundle/route.js</td></tr></tbody></table></details>
-<details><summary>/assumptions/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/assumptions"><td><code>/api/assumptions</code></td><td>GET, POST</td><td class="sig">app/api/assumptions/route.js</td></tr>
-    <tr data-path="/api/assumptions/[assumptionId]"><td><code>/api/assumptions/[assumptionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/assumptions/[assumptionId]/route.js</td></tr></tbody></table></details>
-<details><summary>/auth/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/auth/[...nextauth]"><td><code>/api/auth/[...nextauth]</code></td><td></td><td class="sig">app/api/auth/[...nextauth]/route.js</td></tr>
-    <tr data-path="/api/auth/config"><td><code>/api/auth/config</code></td><td>GET</td><td class="sig">app/api/auth/config/route.js</td></tr>
-    <tr data-path="/api/auth/local"><td><code>/api/auth/local</code></td><td>DELETE, POST</td><td class="sig">app/api/auth/local/route.js</td></tr></tbody></table></details>
-<details><summary>/behavior/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/behavior/recorder"><td><code>/api/behavior/recorder</code></td><td>GET, POST</td><td class="sig">app/api/behavior/recorder/route.js</td></tr>
-    <tr data-path="/api/behavior/samples"><td><code>/api/behavior/samples</code></td><td>GET</td><td class="sig">app/api/behavior/samples/route.js</td></tr>
-    <tr data-path="/api/behavior/simulate"><td><code>/api/behavior/simulate</code></td><td>POST</td><td class="sig">app/api/behavior/simulate/route.js</td></tr>
-    <tr data-path="/api/behavior/suggestions"><td><code>/api/behavior/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/behavior/suggestions/route.js</td></tr></tbody></table></details>
-<details><summary>/billing/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/billing/checkout"><td><code>/api/billing/checkout</code></td><td>POST</td><td class="sig">app/api/billing/checkout/route.js</td></tr>
-    <tr data-path="/api/billing/portal"><td><code>/api/billing/portal</code></td><td>GET</td><td class="sig">app/api/billing/portal/route.js</td></tr></tbody></table></details>
-<details><summary>/capabilities/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/capabilities"><td><code>/api/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]"><td><code>/api/capabilities/[capabilityId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/capabilities/[capabilityId]/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/access"><td><code>/api/capabilities/[capabilityId]/access</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/[capabilityId]/access/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/access/[ruleId]"><td><code>/api/capabilities/[capabilityId]/access/[ruleId]</code></td><td>DELETE</td><td class="sig">app/api/capabilities/[capabilityId]/access/[ruleId]/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/access/check"><td><code>/api/capabilities/[capabilityId]/access/check</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/access/check/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/health"><td><code>/api/capabilities/[capabilityId]/health</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/health/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/history"><td><code>/api/capabilities/[capabilityId]/history</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/history/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.js</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.js</td></tr>
-    <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.js</td></tr></tbody></table></details>
-<details><summary>/code-sessions/* (16)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.js</td></tr>
-    <tr data-path="/api/code-sessions/alerts/read-all"><td><code>/api/code-sessions/alerts/read-all</code></td><td>POST</td><td class="sig">app/api/code-sessions/alerts/read-all/route.js</td></tr>
-    <tr data-path="/api/code-sessions/ingest-jsonl"><td><code>/api/code-sessions/ingest-jsonl</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-jsonl/route.js</td></tr>
-    <tr data-path="/api/code-sessions/ingest-live"><td><code>/api/code-sessions/ingest-live</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-live/route.js</td></tr>
-    <tr data-path="/api/code-sessions/manifests/[manifestId]"><td><code>/api/code-sessions/manifests/[manifestId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/manifests/[manifestId]/route.js</td></tr>
-    <tr data-path="/api/code-sessions/memos"><td><code>/api/code-sessions/memos</code></td><td>GET</td><td class="sig">app/api/code-sessions/memos/route.js</td></tr>
-    <tr data-path="/api/code-sessions/memos/regenerate"><td><code>/api/code-sessions/memos/regenerate</code></td><td>POST</td><td class="sig">app/api/code-sessions/memos/regenerate/route.js</td></tr>
-    <tr data-path="/api/code-sessions/projects"><td><code>/api/code-sessions/projects</code></td><td>GET</td><td class="sig">app/api/code-sessions/projects/route.js</td></tr>
-    <tr data-path="/api/code-sessions/projects/[projectId]/sessions"><td><code>/api/code-sessions/projects/[projectId]/sessions</code></td><td>GET</td><td class="sig">app/api/code-sessions/projects/[projectId]/sessions/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]"><td><code>/api/code-sessions/sessions/[sessionId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]/autopsy"><td><code>/api/code-sessions/sessions/[sessionId]/autopsy</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/autopsy/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]/insights"><td><code>/api/code-sessions/sessions/[sessionId]/insights</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/insights/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/manifest"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/manifest</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview/route.js</td></tr>
-    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/preview"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/preview</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/preview/route.js</td></tr>
-    <tr data-path="/api/code-sessions/subagent-roi"><td><code>/api/code-sessions/subagent-roi</code></td><td>GET</td><td class="sig">app/api/code-sessions/subagent-roi/route.js</td></tr></tbody></table></details>
-<details><summary>/compliance/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/compliance/evidence"><td><code>/api/compliance/evidence</code></td><td>GET</td><td class="sig">app/api/compliance/evidence/route.js</td></tr>
-    <tr data-path="/api/compliance/exports"><td><code>/api/compliance/exports</code></td><td>GET, POST</td><td class="sig">app/api/compliance/exports/route.js</td></tr>
-    <tr data-path="/api/compliance/exports/[exportId]"><td><code>/api/compliance/exports/[exportId]</code></td><td>DELETE, GET</td><td class="sig">app/api/compliance/exports/[exportId]/route.js</td></tr>
-    <tr data-path="/api/compliance/exports/[exportId]/download"><td><code>/api/compliance/exports/[exportId]/download</code></td><td>GET</td><td class="sig">app/api/compliance/exports/[exportId]/download/route.js</td></tr>
-    <tr data-path="/api/compliance/frameworks"><td><code>/api/compliance/frameworks</code></td><td>GET</td><td class="sig">app/api/compliance/frameworks/route.js</td></tr>
-    <tr data-path="/api/compliance/gaps"><td><code>/api/compliance/gaps</code></td><td>GET</td><td class="sig">app/api/compliance/gaps/route.js</td></tr>
-    <tr data-path="/api/compliance/map"><td><code>/api/compliance/map</code></td><td>GET</td><td class="sig">app/api/compliance/map/route.js</td></tr>
-    <tr data-path="/api/compliance/report"><td><code>/api/compliance/report</code></td><td>GET</td><td class="sig">app/api/compliance/report/route.js</td></tr>
-    <tr data-path="/api/compliance/schedules"><td><code>/api/compliance/schedules</code></td><td>GET, POST</td><td class="sig">app/api/compliance/schedules/route.js</td></tr>
-    <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.js</td></tr>
-    <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.js</td></tr></tbody></table></details>
-<details><summary>/cron/* (12)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.js</td></tr>
-    <tr data-path="/api/cron/code-session-weekly-memo"><td><code>/api/cron/code-session-weekly-memo</code></td><td>GET</td><td class="sig">app/api/cron/code-session-weekly-memo/route.js</td></tr>
-    <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.js</td></tr>
-    <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.js</td></tr>
-    <tr data-path="/api/cron/learning-episodes-backfill"><td><code>/api/cron/learning-episodes-backfill</code></td><td>GET</td><td class="sig">app/api/cron/learning-episodes-backfill/route.js</td></tr>
-    <tr data-path="/api/cron/learning-recommendations"><td><code>/api/cron/learning-recommendations</code></td><td>GET</td><td class="sig">app/api/cron/learning-recommendations/route.js</td></tr>
-    <tr data-path="/api/cron/memory-maintenance"><td><code>/api/cron/memory-maintenance</code></td><td>GET</td><td class="sig">app/api/cron/memory-maintenance/route.js</td></tr>
-    <tr data-path="/api/cron/outcome-sweep"><td><code>/api/cron/outcome-sweep</code></td><td>GET</td><td class="sig">app/api/cron/outcome-sweep/route.js</td></tr>
-    <tr data-path="/api/cron/policy-suggestions"><td><code>/api/cron/policy-suggestions</code></td><td>GET</td><td class="sig">app/api/cron/policy-suggestions/route.js</td></tr>
-    <tr data-path="/api/cron/reset-meters"><td><code>/api/cron/reset-meters</code></td><td>GET</td><td class="sig">app/api/cron/reset-meters/route.js</td></tr>
-    <tr data-path="/api/cron/routing-maintenance"><td><code>/api/cron/routing-maintenance</code></td><td>POST</td><td class="sig">app/api/cron/routing-maintenance/route.js</td></tr>
-    <tr data-path="/api/cron/signals"><td><code>/api/cron/signals</code></td><td>GET</td><td class="sig">app/api/cron/signals/route.js</td></tr></tbody></table></details>
-<details><summary>/discord/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/discord/interactions"><td><code>/api/discord/interactions</code></td><td>POST</td><td class="sig">app/api/discord/interactions/route.js</td></tr></tbody></table></details>
-<details><summary>/docs/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/docs/raw"><td><code>/api/docs/raw</code></td><td>GET</td><td class="sig">app/api/docs/raw/route.js</td></tr></tbody></table></details>
-<details><summary>/doctor/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/doctor"><td><code>/api/doctor</code></td><td>GET</td><td class="sig">app/api/doctor/route.js</td></tr>
-    <tr data-path="/api/doctor/fix"><td><code>/api/doctor/fix</code></td><td>POST</td><td class="sig">app/api/doctor/fix/route.js</td></tr></tbody></table></details>
-<details><summary>/drift/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/drift/alerts"><td><code>/api/drift/alerts</code></td><td>GET, POST</td><td class="sig">app/api/drift/alerts/route.js</td></tr>
-    <tr data-path="/api/drift/alerts/[alertId]"><td><code>/api/drift/alerts/[alertId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/drift/alerts/[alertId]/route.js</td></tr>
-    <tr data-path="/api/drift/metrics"><td><code>/api/drift/metrics</code></td><td>GET</td><td class="sig">app/api/drift/metrics/route.js</td></tr>
-    <tr data-path="/api/drift/snapshots"><td><code>/api/drift/snapshots</code></td><td>GET</td><td class="sig">app/api/drift/snapshots/route.js</td></tr>
-    <tr data-path="/api/drift/stats"><td><code>/api/drift/stats</code></td><td>GET</td><td class="sig">app/api/drift/stats/route.js</td></tr></tbody></table></details>
-<details><summary>/evaluations/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/evaluations"><td><code>/api/evaluations</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/route.js</td></tr>
-    <tr data-path="/api/evaluations/runs"><td><code>/api/evaluations/runs</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/runs/route.js</td></tr>
-    <tr data-path="/api/evaluations/runs/[runId]"><td><code>/api/evaluations/runs/[runId]</code></td><td>GET, PATCH</td><td class="sig">app/api/evaluations/runs/[runId]/route.js</td></tr>
-    <tr data-path="/api/evaluations/scorers"><td><code>/api/evaluations/scorers</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/scorers/route.js</td></tr>
-    <tr data-path="/api/evaluations/scorers/[scorerId]"><td><code>/api/evaluations/scorers/[scorerId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/evaluations/scorers/[scorerId]/route.js</td></tr>
-    <tr data-path="/api/evaluations/scorers/preview"><td><code>/api/evaluations/scorers/preview</code></td><td>POST</td><td class="sig">app/api/evaluations/scorers/preview/route.js</td></tr>
-    <tr data-path="/api/evaluations/stats"><td><code>/api/evaluations/stats</code></td><td>GET</td><td class="sig">app/api/evaluations/stats/route.js</td></tr></tbody></table></details>
-<details><summary>/guard/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/guard"><td><code>/api/guard</code></td><td>GET, POST</td><td class="sig">app/api/guard/route.js</td></tr>
-    <tr data-path="/api/guard/decisions"><td><code>/api/guard/decisions</code></td><td>GET</td><td class="sig">app/api/guard/decisions/route.js</td></tr></tbody></table></details>
-<details><summary>/handoffs/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/handoffs"><td><code>/api/handoffs</code></td><td>GET, POST</td><td class="sig">app/api/handoffs/route.js</td></tr>
-    <tr data-path="/api/handoffs/[id]"><td><code>/api/handoffs/[id]</code></td><td>GET</td><td class="sig">app/api/handoffs/[id]/route.js</td></tr>
-    <tr data-path="/api/handoffs/[id]/consume"><td><code>/api/handoffs/[id]/consume</code></td><td>POST</td><td class="sig">app/api/handoffs/[id]/consume/route.js</td></tr>
-    <tr data-path="/api/handoffs/latest"><td><code>/api/handoffs/latest</code></td><td>GET</td><td class="sig">app/api/handoffs/latest/route.js</td></tr></tbody></table></details>
-<details><summary>/health/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/health"><td><code>/api/health</code></td><td>GET</td><td class="sig">app/api/health/route.js</td></tr></tbody></table></details>
-<details><summary>/hosted/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/hosted/cleanup"><td><code>/api/hosted/cleanup</code></td><td>POST</td><td class="sig">app/api/hosted/cleanup/route.js</td></tr>
-    <tr data-path="/api/hosted/workspaces"><td><code>/api/hosted/workspaces</code></td><td>GET, POST</td><td class="sig">app/api/hosted/workspaces/route.js</td></tr>
-    <tr data-path="/api/hosted/workspaces/[workspaceId]"><td><code>/api/hosted/workspaces/[workspaceId]</code></td><td>DELETE, GET</td><td class="sig">app/api/hosted/workspaces/[workspaceId]/route.js</td></tr></tbody></table></details>
-<details><summary>/identities/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/identities"><td><code>/api/identities</code></td><td>GET, POST</td><td class="sig">app/api/identities/route.js</td></tr>
-    <tr data-path="/api/identities/[agentId]"><td><code>/api/identities/[agentId]</code></td><td>DELETE</td><td class="sig">app/api/identities/[agentId]/route.js</td></tr></tbody></table></details>
-<details><summary>/integrations/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/integrations/health"><td><code>/api/integrations/health</code></td><td>GET</td><td class="sig">app/api/integrations/health/route.js</td></tr>
-    <tr data-path="/api/integrations/health/refresh"><td><code>/api/integrations/health/refresh</code></td><td>POST</td><td class="sig">app/api/integrations/health/refresh/route.js</td></tr></tbody></table></details>
-<details><summary>/integrity/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/integrity/jwks"><td><code>/api/integrity/jwks</code></td><td>GET</td><td class="sig">app/api/integrity/jwks/route.js</td></tr>
-    <tr data-path="/api/integrity/verify"><td><code>/api/integrity/verify</code></td><td>POST</td><td class="sig">app/api/integrity/verify/route.js</td></tr></tbody></table></details>
-<details><summary>/invite/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/invite/[token]"><td><code>/api/invite/[token]</code></td><td>GET, POST</td><td class="sig">app/api/invite/[token]/route.js</td></tr></tbody></table></details>
-<details><summary>/keys/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/keys"><td><code>/api/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/keys/route.js</td></tr>
-    <tr data-path="/api/keys/reveal"><td><code>/api/keys/reveal</code></td><td>GET</td><td class="sig">app/api/keys/reveal/route.js</td></tr></tbody></table></details>
-<details><summary>/knowledge/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/knowledge/collections"><td><code>/api/knowledge/collections</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/route.js</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]"><td><code>/api/knowledge/collections/[collectionId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/knowledge/collections/[collectionId]/route.js</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/items"><td><code>/api/knowledge/collections/[collectionId]/items</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/items/route.js</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/search"><td><code>/api/knowledge/collections/[collectionId]/search</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/search/route.js</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/sync"><td><code>/api/knowledge/collections/[collectionId]/sync</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/sync/route.js</td></tr></tbody></table></details>
-<details><summary>/learning/* (12)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/learning"><td><code>/api/learning</code></td><td>GET, POST</td><td class="sig">app/api/learning/route.js</td></tr>
-    <tr data-path="/api/learning/analytics/curves"><td><code>/api/learning/analytics/curves</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/curves/route.js</td></tr>
-    <tr data-path="/api/learning/analytics/maturity"><td><code>/api/learning/analytics/maturity</code></td><td>GET</td><td class="sig">app/api/learning/analytics/maturity/route.js</td></tr>
-    <tr data-path="/api/learning/analytics/summary"><td><code>/api/learning/analytics/summary</code></td><td>GET</td><td class="sig">app/api/learning/analytics/summary/route.js</td></tr>
-    <tr data-path="/api/learning/analytics/velocity"><td><code>/api/learning/analytics/velocity</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/velocity/route.js</td></tr>
-    <tr data-path="/api/learning/code-signals"><td><code>/api/learning/code-signals</code></td><td>GET</td><td class="sig">app/api/learning/code-signals/route.js</td></tr>
-    <tr data-path="/api/learning/lessons"><td><code>/api/learning/lessons</code></td><td>GET</td><td class="sig">app/api/learning/lessons/route.js</td></tr>
-    <tr data-path="/api/learning/recommendations"><td><code>/api/learning/recommendations</code></td><td>GET, POST</td><td class="sig">app/api/learning/recommendations/route.js</td></tr>
-    <tr data-path="/api/learning/recommendations/[recommendationId]"><td><code>/api/learning/recommendations/[recommendationId]</code></td><td>PATCH</td><td class="sig">app/api/learning/recommendations/[recommendationId]/route.js</td></tr>
-    <tr data-path="/api/learning/recommendations/events"><td><code>/api/learning/recommendations/events</code></td><td>POST</td><td class="sig">app/api/learning/recommendations/events/route.js</td></tr>
-    <tr data-path="/api/learning/recommendations/metrics"><td><code>/api/learning/recommendations/metrics</code></td><td>GET</td><td class="sig">app/api/learning/recommendations/metrics/route.js</td></tr>
-    <tr data-path="/api/learning/suggestions"><td><code>/api/learning/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/learning/suggestions/route.js</td></tr></tbody></table></details>
-<details><summary>/marketing/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/marketing/event"><td><code>/api/marketing/event</code></td><td>POST</td><td class="sig">app/api/marketing/event/route.js</td></tr></tbody></table></details>
-<details><summary>/mcp/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/mcp"><td><code>/api/mcp</code></td><td>POST</td><td class="sig">app/api/mcp/route.js</td></tr></tbody></table></details>
-<details><summary>/messages/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/messages"><td><code>/api/messages</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/route.js</td></tr>
-    <tr data-path="/api/messages/attachments"><td><code>/api/messages/attachments</code></td><td>GET</td><td class="sig">app/api/messages/attachments/route.js</td></tr>
-    <tr data-path="/api/messages/threads"><td><code>/api/messages/threads</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/threads/route.js</td></tr>
-    <tr data-path="/api/messages/threads/[threadId]"><td><code>/api/messages/threads/[threadId]</code></td><td>GET</td><td class="sig">app/api/messages/threads/[threadId]/route.js</td></tr></tbody></table></details>
-<details><summary>/model-strategies/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/model-strategies"><td><code>/api/model-strategies</code></td><td>GET, POST</td><td class="sig">app/api/model-strategies/route.js</td></tr>
-    <tr data-path="/api/model-strategies/[strategyId]"><td><code>/api/model-strategies/[strategyId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/model-strategies/[strategyId]/route.js</td></tr>
-    <tr data-path="/api/model-strategies/[strategyId]/complete"><td><code>/api/model-strategies/[strategyId]/complete</code></td><td>POST</td><td class="sig">app/api/model-strategies/[strategyId]/complete/route.js</td></tr></tbody></table></details>
-<details><summary>/oauth/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/oauth/authorize"><td><code>/api/oauth/authorize</code></td><td>GET, POST</td><td class="sig">app/api/oauth/authorize/route.js</td></tr>
-    <tr data-path="/api/oauth/metadata/authorization-server"><td><code>/api/oauth/metadata/authorization-server</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/authorization-server/route.js</td></tr>
-    <tr data-path="/api/oauth/metadata/protected-resource"><td><code>/api/oauth/metadata/protected-resource</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/protected-resource/route.js</td></tr>
-    <tr data-path="/api/oauth/register"><td><code>/api/oauth/register</code></td><td>POST</td><td class="sig">app/api/oauth/register/route.js</td></tr>
-    <tr data-path="/api/oauth/token"><td><code>/api/oauth/token</code></td><td>POST</td><td class="sig">app/api/oauth/token/route.js</td></tr></tbody></table></details>
-<details><summary>/operations/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/operations/feed"><td><code>/api/operations/feed</code></td><td>GET</td><td class="sig">app/api/operations/feed/route.js</td></tr>
-    <tr data-path="/api/operations/summary"><td><code>/api/operations/summary</code></td><td>GET</td><td class="sig">app/api/operations/summary/route.js</td></tr></tbody></table></details>
-<details><summary>/orgs/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/orgs"><td><code>/api/orgs</code></td><td>GET, POST</td><td class="sig">app/api/orgs/route.js</td></tr>
-    <tr data-path="/api/orgs/[orgId]"><td><code>/api/orgs/[orgId]</code></td><td>GET, PATCH</td><td class="sig">app/api/orgs/[orgId]/route.js</td></tr>
-    <tr data-path="/api/orgs/[orgId]/keys"><td><code>/api/orgs/[orgId]/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/orgs/[orgId]/keys/route.js</td></tr></tbody></table></details>
-<details><summary>/pairings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/pairings"><td><code>/api/pairings</code></td><td>GET, POST</td><td class="sig">app/api/pairings/route.js</td></tr>
-    <tr data-path="/api/pairings/[pairingId]"><td><code>/api/pairings/[pairingId]</code></td><td>GET, PATCH</td><td class="sig">app/api/pairings/[pairingId]/route.js</td></tr>
-    <tr data-path="/api/pairings/[pairingId]/approve"><td><code>/api/pairings/[pairingId]/approve</code></td><td>POST</td><td class="sig">app/api/pairings/[pairingId]/approve/route.js</td></tr></tbody></table></details>
-<details><summary>/policies/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.js</td></tr>
-    <tr data-path="/api/policies/generate"><td><code>/api/policies/generate</code></td><td>POST</td><td class="sig">app/api/policies/generate/route.js</td></tr>
-    <tr data-path="/api/policies/import"><td><code>/api/policies/import</code></td><td>POST</td><td class="sig">app/api/policies/import/route.js</td></tr>
-    <tr data-path="/api/policies/proof"><td><code>/api/policies/proof</code></td><td>GET</td><td class="sig">app/api/policies/proof/route.js</td></tr>
-    <tr data-path="/api/policies/simulate"><td><code>/api/policies/simulate</code></td><td>POST</td><td class="sig">app/api/policies/simulate/route.js</td></tr>
-    <tr data-path="/api/policies/templates"><td><code>/api/policies/templates</code></td><td>GET</td><td class="sig">app/api/policies/templates/route.js</td></tr>
-    <tr data-path="/api/policies/test"><td><code>/api/policies/test</code></td><td>POST</td><td class="sig">app/api/policies/test/route.js</td></tr></tbody></table></details>
-<details><summary>/prompts/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/prompts/agent-connect/raw"><td><code>/api/prompts/agent-connect/raw</code></td><td>GET</td><td class="sig">app/api/prompts/agent-connect/raw/route.js</td></tr>
-    <tr data-path="/api/prompts/render"><td><code>/api/prompts/render</code></td><td>POST</td><td class="sig">app/api/prompts/render/route.js</td></tr>
-    <tr data-path="/api/prompts/runs"><td><code>/api/prompts/runs</code></td><td>GET</td><td class="sig">app/api/prompts/runs/route.js</td></tr>
-    <tr data-path="/api/prompts/sdk-coverage/raw"><td><code>/api/prompts/sdk-coverage/raw</code></td><td>GET</td><td class="sig">app/api/prompts/sdk-coverage/raw/route.js</td></tr>
-    <tr data-path="/api/prompts/server-setup/raw"><td><code>/api/prompts/server-setup/raw</code></td><td>GET</td><td class="sig">app/api/prompts/server-setup/raw/route.js</td></tr>
-    <tr data-path="/api/prompts/stats"><td><code>/api/prompts/stats</code></td><td>GET</td><td class="sig">app/api/prompts/stats/route.js</td></tr>
-    <tr data-path="/api/prompts/templates"><td><code>/api/prompts/templates</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/route.js</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]"><td><code>/api/prompts/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/prompts/templates/[templateId]/route.js</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]/versions"><td><code>/api/prompts/templates/[templateId]/versions</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/route.js</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]/versions/[versionId]"><td><code>/api/prompts/templates/[templateId]/versions/[versionId]</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/[versionId]/route.js</td></tr></tbody></table></details>
-<details><summary>/reputation/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/reputation/agents/[agentId]"><td><code>/api/reputation/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/route.js</td></tr>
-    <tr data-path="/api/reputation/agents/[agentId]/events"><td><code>/api/reputation/agents/[agentId]/events</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/events/route.js</td></tr>
-    <tr data-path="/api/reputation/agents/[agentId]/receipt"><td><code>/api/reputation/agents/[agentId]/receipt</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/receipt/route.js</td></tr>
-    <tr data-path="/api/reputation/agents/[agentId]/recompute"><td><code>/api/reputation/agents/[agentId]/recompute</code></td><td>POST</td><td class="sig">app/api/reputation/agents/[agentId]/recompute/route.js</td></tr>
-    <tr data-path="/api/reputation/agents/[agentId]/summary"><td><code>/api/reputation/agents/[agentId]/summary</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/summary/route.js</td></tr>
-    <tr data-path="/api/reputation/leaderboard"><td><code>/api/reputation/leaderboard</code></td><td>GET</td><td class="sig">app/api/reputation/leaderboard/route.js</td></tr>
-    <tr data-path="/api/reputation/verify"><td><code>/api/reputation/verify</code></td><td>POST</td><td class="sig">app/api/reputation/verify/route.js</td></tr></tbody></table></details>
-<details><summary>/scoring/* (8)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/scoring/calibrate"><td><code>/api/scoring/calibrate</code></td><td>POST</td><td class="sig">app/api/scoring/calibrate/route.js</td></tr>
-    <tr data-path="/api/scoring/profiles"><td><code>/api/scoring/profiles</code></td><td>GET, POST</td><td class="sig">app/api/scoring/profiles/route.js</td></tr>
-    <tr data-path="/api/scoring/profiles/[profileId]"><td><code>/api/scoring/profiles/[profileId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/scoring/profiles/[profileId]/route.js</td></tr>
-    <tr data-path="/api/scoring/profiles/[profileId]/dimensions"><td><code>/api/scoring/profiles/[profileId]/dimensions</code></td><td>POST</td><td class="sig">app/api/scoring/profiles/[profileId]/dimensions/route.js</td></tr>
-    <tr data-path="/api/scoring/profiles/[profileId]/dimensions/[dimensionId]"><td><code>/api/scoring/profiles/[profileId]/dimensions/[dimensionId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.js</td></tr>
-    <tr data-path="/api/scoring/risk-templates"><td><code>/api/scoring/risk-templates</code></td><td>GET, POST</td><td class="sig">app/api/scoring/risk-templates/route.js</td></tr>
-    <tr data-path="/api/scoring/risk-templates/[templateId]"><td><code>/api/scoring/risk-templates/[templateId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/scoring/risk-templates/[templateId]/route.js</td></tr>
-    <tr data-path="/api/scoring/score"><td><code>/api/scoring/score</code></td><td>GET, POST</td><td class="sig">app/api/scoring/score/route.js</td></tr></tbody></table></details>
-<details><summary>/secrets/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/secrets"><td><code>/api/secrets</code></td><td>GET, POST</td><td class="sig">app/api/secrets/route.js</td></tr>
-    <tr data-path="/api/secrets/[id]"><td><code>/api/secrets/[id]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/secrets/[id]/route.js</td></tr>
-    <tr data-path="/api/secrets/rotation-due"><td><code>/api/secrets/rotation-due</code></td><td>GET</td><td class="sig">app/api/secrets/rotation-due/route.js</td></tr></tbody></table></details>
-<details><summary>/security/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/security/prompt-injection"><td><code>/api/security/prompt-injection</code></td><td>GET, POST</td><td class="sig">app/api/security/prompt-injection/route.js</td></tr>
-    <tr data-path="/api/security/scan"><td><code>/api/security/scan</code></td><td>POST</td><td class="sig">app/api/security/scan/route.js</td></tr>
-    <tr data-path="/api/security/status"><td><code>/api/security/status</code></td><td>GET</td><td class="sig">app/api/security/status/route.js</td></tr></tbody></table></details>
-<details><summary>/session/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/session/effective"><td><code>/api/session/effective</code></td><td>GET</td><td class="sig">app/api/session/effective/route.js</td></tr></tbody></table></details>
-<details><summary>/sessions/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/sessions"><td><code>/api/sessions</code></td><td>GET, POST</td><td class="sig">app/api/sessions/route.js</td></tr>
-    <tr data-path="/api/sessions/[sessionId]"><td><code>/api/sessions/[sessionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/sessions/[sessionId]/route.js</td></tr>
-    <tr data-path="/api/sessions/[sessionId]/events"><td><code>/api/sessions/[sessionId]/events</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/events/route.js</td></tr></tbody></table></details>
-<details><summary>/settings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/settings"><td><code>/api/settings</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/settings/route.js</td></tr>
-    <tr data-path="/api/settings/llm-status"><td><code>/api/settings/llm-status</code></td><td>GET</td><td class="sig">app/api/settings/llm-status/route.js</td></tr>
-    <tr data-path="/api/settings/test"><td><code>/api/settings/test</code></td><td>POST</td><td class="sig">app/api/settings/test/route.js</td></tr></tbody></table></details>
-<details><summary>/setup/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/setup/live-proof"><td><code>/api/setup/live-proof</code></td><td>POST</td><td class="sig">app/api/setup/live-proof/route.js</td></tr>
-    <tr data-path="/api/setup/migrate"><td><code>/api/setup/migrate</code></td><td>POST</td><td class="sig">app/api/setup/migrate/route.js</td></tr>
-    <tr data-path="/api/setup/ping"><td><code>/api/setup/ping</code></td><td>POST</td><td class="sig">app/api/setup/ping/route.js</td></tr>
-    <tr data-path="/api/setup/proof"><td><code>/api/setup/proof</code></td><td>GET</td><td class="sig">app/api/setup/proof/route.js</td></tr>
-    <tr data-path="/api/setup/status"><td><code>/api/setup/status</code></td><td>GET</td><td class="sig">app/api/setup/status/route.js</td></tr></tbody></table></details>
-<details><summary>/signals/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/signals"><td><code>/api/signals</code></td><td>GET</td><td class="sig">app/api/signals/route.js</td></tr></tbody></table></details>
-<details><summary>/skills/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/skills/scan"><td><code>/api/skills/scan</code></td><td>POST</td><td class="sig">app/api/skills/scan/route.js</td></tr>
-    <tr data-path="/api/skills/scans/[id]"><td><code>/api/skills/scans/[id]</code></td><td>GET</td><td class="sig">app/api/skills/scans/[id]/route.js</td></tr></tbody></table></details>
-<details><summary>/stream/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/stream"><td><code>/api/stream</code></td><td>GET</td><td class="sig">app/api/stream/route.js</td></tr></tbody></table></details>
-<details><summary>/swarm/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/swarm/graph"><td><code>/api/swarm/graph</code></td><td>GET</td><td class="sig">app/api/swarm/graph/route.js</td></tr>
-    <tr data-path="/api/swarm/link"><td><code>/api/swarm/link</code></td><td>GET</td><td class="sig">app/api/swarm/link/route.js</td></tr></tbody></table></details>
-<details><summary>/team/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/team"><td><code>/api/team</code></td><td>GET</td><td class="sig">app/api/team/route.js</td></tr>
-    <tr data-path="/api/team/[userId]"><td><code>/api/team/[userId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/team/[userId]/route.js</td></tr>
-    <tr data-path="/api/team/invite"><td><code>/api/team/invite</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/team/invite/route.js</td></tr></tbody></table></details>
-<details><summary>/telegram/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/telegram/webhook"><td><code>/api/telegram/webhook</code></td><td>POST</td><td class="sig">app/api/telegram/webhook/route.js</td></tr></tbody></table></details>
-<details><summary>/usage/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/usage"><td><code>/api/usage</code></td><td>GET</td><td class="sig">app/api/usage/route.js</td></tr>
-    <tr data-path="/api/usage/costs"><td><code>/api/usage/costs</code></td><td>GET</td><td class="sig">app/api/usage/costs/route.js</td></tr></tbody></table></details>
-<details><summary>/webhooks/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/webhooks"><td><code>/api/webhooks</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/webhooks/route.js</td></tr>
-    <tr data-path="/api/webhooks/[webhookId]/deliveries"><td><code>/api/webhooks/[webhookId]/deliveries</code></td><td>GET</td><td class="sig">app/api/webhooks/[webhookId]/deliveries/route.js</td></tr>
-    <tr data-path="/api/webhooks/[webhookId]/test"><td><code>/api/webhooks/[webhookId]/test</code></td><td>POST</td><td class="sig">app/api/webhooks/[webhookId]/test/route.js</td></tr>
-    <tr data-path="/api/webhooks/stripe"><td><code>/api/webhooks/stripe</code></td><td>POST</td><td class="sig">app/api/webhooks/stripe/route.js</td></tr></tbody></table></details>
-<details><summary>/workflows/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workflows/draft"><td><code>/api/workflows/draft</code></td><td>POST</td><td class="sig">app/api/workflows/draft/route.js</td></tr>
-    <tr data-path="/api/workflows/templates"><td><code>/api/workflows/templates</code></td><td>GET, POST</td><td class="sig">app/api/workflows/templates/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]"><td><code>/api/workflows/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/workflows/templates/[templateId]/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/duplicate"><td><code>/api/workflows/templates/[templateId]/duplicate</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/duplicate/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/execute"><td><code>/api/workflows/templates/[templateId]/execute</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/execute/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/launch"><td><code>/api/workflows/templates/[templateId]/launch</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/launch/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs"><td><code>/api/workflows/templates/[templateId]/runs</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/cancel"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/cancel</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.js</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/resume"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/resume</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.js</td></tr></tbody></table></details></section>
+<section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]/artifacts"><td><code>/api/actions/[actionId]/artifacts</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/artifacts/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]/graph"><td><code>/api/actions/[actionId]/graph</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/graph/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]/messages"><td><code>/api/actions/[actionId]/messages</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/messages/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]/outcome"><td><code>/api/actions/[actionId]/outcome</code></td><td>GET, POST</td><td class="sig">app/api/actions/[actionId]/outcome/route.ts</td></tr>
+    <tr data-path="/api/actions/[actionId]/trace"><td><code>/api/actions/[actionId]/trace</code></td><td>GET</td><td class="sig">app/api/actions/[actionId]/trace/route.ts</td></tr>
+    <tr data-path="/api/actions/costs"><td><code>/api/actions/costs</code></td><td>GET</td><td class="sig">app/api/actions/costs/route.ts</td></tr>
+    <tr data-path="/api/actions/loops"><td><code>/api/actions/loops</code></td><td>GET, POST</td><td class="sig">app/api/actions/loops/route.ts</td></tr>
+    <tr data-path="/api/actions/loops/[loopId]"><td><code>/api/actions/loops/[loopId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/loops/[loopId]/route.ts</td></tr>
+    <tr data-path="/api/actions/stats"><td><code>/api/actions/stats</code></td><td>GET</td><td class="sig">app/api/actions/stats/route.ts</td></tr></tbody></table></details>
+<details><summary>/activity/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/activity"><td><code>/api/activity</code></td><td>GET</td><td class="sig">app/api/activity/route.ts</td></tr></tbody></table></details>
+<details><summary>/admin/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/admin/trigger-outcome-sweep"><td><code>/api/admin/trigger-outcome-sweep</code></td><td>POST</td><td class="sig">app/api/admin/trigger-outcome-sweep/route.ts</td></tr></tbody></table></details>
+<details><summary>/agents/* (9)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents"><td><code>/api/agents</code></td><td>GET</td><td class="sig">app/api/agents/route.ts</td></tr>
+    <tr data-path="/api/agents/[agentId]"><td><code>/api/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/route.ts</td></tr>
+    <tr data-path="/api/agents/[agentId]/profile"><td><code>/api/agents/[agentId]/profile</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/profile/route.ts</td></tr>
+    <tr data-path="/api/agents/connections"><td><code>/api/agents/connections</code></td><td>GET, POST</td><td class="sig">app/api/agents/connections/route.ts</td></tr>
+    <tr data-path="/api/agents/heartbeat"><td><code>/api/agents/heartbeat</code></td><td>POST</td><td class="sig">app/api/agents/heartbeat/route.ts</td></tr>
+    <tr data-path="/api/agents/invoke"><td><code>/api/agents/invoke</code></td><td>POST</td><td class="sig">app/api/agents/invoke/route.ts</td></tr>
+    <tr data-path="/api/agents/registry"><td><code>/api/agents/registry</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/route.ts</td></tr>
+    <tr data-path="/api/agents/registry/[id]"><td><code>/api/agents/registry/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/agents/registry/[id]/route.ts</td></tr>
+    <tr data-path="/api/agents/registry/[id]/capabilities"><td><code>/api/agents/registry/[id]/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/[id]/capabilities/route.ts</td></tr></tbody></table></details>
+<details><summary>/analytics/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/analytics"><td><code>/api/analytics</code></td><td>GET</td><td class="sig">app/api/analytics/route.ts</td></tr></tbody></table></details>
+<details><summary>/approvals/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.ts</td></tr>
+    <tr data-path="/api/approvals/bulk"><td><code>/api/approvals/bulk</code></td><td>POST</td><td class="sig">app/api/approvals/bulk/route.ts</td></tr>
+    <tr data-path="/api/approvals/floods"><td><code>/api/approvals/floods</code></td><td>GET</td><td class="sig">app/api/approvals/floods/route.ts</td></tr></tbody></table></details>
+<details><summary>/artifacts/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/artifacts"><td><code>/api/artifacts</code></td><td>GET, POST</td><td class="sig">app/api/artifacts/route.ts</td></tr>
+    <tr data-path="/api/artifacts/[artifactId]"><td><code>/api/artifacts/[artifactId]</code></td><td>DELETE, GET</td><td class="sig">app/api/artifacts/[artifactId]/route.ts</td></tr>
+    <tr data-path="/api/artifacts/evidence-bundle"><td><code>/api/artifacts/evidence-bundle</code></td><td>POST</td><td class="sig">app/api/artifacts/evidence-bundle/route.ts</td></tr></tbody></table></details>
+<details><summary>/assumptions/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/assumptions"><td><code>/api/assumptions</code></td><td>GET, POST</td><td class="sig">app/api/assumptions/route.ts</td></tr>
+    <tr data-path="/api/assumptions/[assumptionId]"><td><code>/api/assumptions/[assumptionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/assumptions/[assumptionId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/auth/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/auth/[...nextauth]"><td><code>/api/auth/[...nextauth]</code></td><td></td><td class="sig">app/api/auth/[...nextauth]/route.ts</td></tr>
+    <tr data-path="/api/auth/config"><td><code>/api/auth/config</code></td><td>GET</td><td class="sig">app/api/auth/config/route.ts</td></tr>
+    <tr data-path="/api/auth/local"><td><code>/api/auth/local</code></td><td>DELETE, POST</td><td class="sig">app/api/auth/local/route.ts</td></tr></tbody></table></details>
+<details><summary>/behavior/* (6)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/behavior/insights"><td><code>/api/behavior/insights</code></td><td>GET, POST</td><td class="sig">app/api/behavior/insights/route.ts</td></tr>
+    <tr data-path="/api/behavior/recorder"><td><code>/api/behavior/recorder</code></td><td>GET, POST</td><td class="sig">app/api/behavior/recorder/route.ts</td></tr>
+    <tr data-path="/api/behavior/samples"><td><code>/api/behavior/samples</code></td><td>GET</td><td class="sig">app/api/behavior/samples/route.ts</td></tr>
+    <tr data-path="/api/behavior/samples/ingest"><td><code>/api/behavior/samples/ingest</code></td><td>POST</td><td class="sig">app/api/behavior/samples/ingest/route.ts</td></tr>
+    <tr data-path="/api/behavior/simulate"><td><code>/api/behavior/simulate</code></td><td>POST</td><td class="sig">app/api/behavior/simulate/route.ts</td></tr>
+    <tr data-path="/api/behavior/suggestions"><td><code>/api/behavior/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/behavior/suggestions/route.ts</td></tr></tbody></table></details>
+<details><summary>/billing/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/billing/checkout"><td><code>/api/billing/checkout</code></td><td>POST</td><td class="sig">app/api/billing/checkout/route.ts</td></tr>
+    <tr data-path="/api/billing/portal"><td><code>/api/billing/portal</code></td><td>GET</td><td class="sig">app/api/billing/portal/route.ts</td></tr></tbody></table></details>
+<details><summary>/capabilities/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/capabilities"><td><code>/api/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]"><td><code>/api/capabilities/[capabilityId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/capabilities/[capabilityId]/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/access"><td><code>/api/capabilities/[capabilityId]/access</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/[capabilityId]/access/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/access/[ruleId]"><td><code>/api/capabilities/[capabilityId]/access/[ruleId]</code></td><td>DELETE</td><td class="sig">app/api/capabilities/[capabilityId]/access/[ruleId]/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/access/check"><td><code>/api/capabilities/[capabilityId]/access/check</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/access/check/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/health"><td><code>/api/capabilities/[capabilityId]/health</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/health/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/history"><td><code>/api/capabilities/[capabilityId]/history</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/history/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.ts</td></tr>
+    <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.ts</td></tr>
+    <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.ts</td></tr></tbody></table></details>
+<details><summary>/code-sessions/* (17)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/code-sessions/alerts"><td><code>/api/code-sessions/alerts</code></td><td>GET</td><td class="sig">app/api/code-sessions/alerts/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/alerts/read-all"><td><code>/api/code-sessions/alerts/read-all</code></td><td>POST</td><td class="sig">app/api/code-sessions/alerts/read-all/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/ingest-jsonl"><td><code>/api/code-sessions/ingest-jsonl</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-jsonl/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/ingest-live"><td><code>/api/code-sessions/ingest-live</code></td><td>POST</td><td class="sig">app/api/code-sessions/ingest-live/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/manifests/[manifestId]"><td><code>/api/code-sessions/manifests/[manifestId]</code></td><td>GET</td><td class="sig">app/api/code-sessions/manifests/[manifestId]/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/memos"><td><code>/api/code-sessions/memos</code></td><td>GET</td><td class="sig">app/api/code-sessions/memos/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/memos/regenerate"><td><code>/api/code-sessions/memos/regenerate</code></td><td>POST</td><td class="sig">app/api/code-sessions/memos/regenerate/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/projects"><td><code>/api/code-sessions/projects</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/projects/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/projects/[projectId]"><td><code>/api/code-sessions/projects/[projectId]</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/projects/[projectId]/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/projects/[projectId]/sessions"><td><code>/api/code-sessions/projects/[projectId]/sessions</code></td><td>GET</td><td class="sig">app/api/code-sessions/projects/[projectId]/sessions/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]"><td><code>/api/code-sessions/sessions/[sessionId]</code></td><td>DELETE, GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]/autopsy"><td><code>/api/code-sessions/sessions/[sessionId]/autopsy</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]/insights"><td><code>/api/code-sessions/sessions/[sessionId]/insights</code></td><td>GET</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/insights/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/manifest"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/manifest</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/sessions/[sessionId]/optimal-files/preview"><td><code>/api/code-sessions/sessions/[sessionId]/optimal-files/preview</code></td><td>POST</td><td class="sig">app/api/code-sessions/sessions/[sessionId]/optimal-files/preview/route.ts</td></tr>
+    <tr data-path="/api/code-sessions/subagent-roi"><td><code>/api/code-sessions/subagent-roi</code></td><td>GET</td><td class="sig">app/api/code-sessions/subagent-roi/route.ts</td></tr></tbody></table></details>
+<details><summary>/compliance/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/compliance/evidence"><td><code>/api/compliance/evidence</code></td><td>GET</td><td class="sig">app/api/compliance/evidence/route.ts</td></tr>
+    <tr data-path="/api/compliance/exports"><td><code>/api/compliance/exports</code></td><td>GET, POST</td><td class="sig">app/api/compliance/exports/route.ts</td></tr>
+    <tr data-path="/api/compliance/exports/[exportId]"><td><code>/api/compliance/exports/[exportId]</code></td><td>DELETE, GET</td><td class="sig">app/api/compliance/exports/[exportId]/route.ts</td></tr>
+    <tr data-path="/api/compliance/exports/[exportId]/download"><td><code>/api/compliance/exports/[exportId]/download</code></td><td>GET</td><td class="sig">app/api/compliance/exports/[exportId]/download/route.ts</td></tr>
+    <tr data-path="/api/compliance/frameworks"><td><code>/api/compliance/frameworks</code></td><td>GET</td><td class="sig">app/api/compliance/frameworks/route.ts</td></tr>
+    <tr data-path="/api/compliance/gaps"><td><code>/api/compliance/gaps</code></td><td>GET</td><td class="sig">app/api/compliance/gaps/route.ts</td></tr>
+    <tr data-path="/api/compliance/map"><td><code>/api/compliance/map</code></td><td>GET</td><td class="sig">app/api/compliance/map/route.ts</td></tr>
+    <tr data-path="/api/compliance/report"><td><code>/api/compliance/report</code></td><td>GET</td><td class="sig">app/api/compliance/report/route.ts</td></tr>
+    <tr data-path="/api/compliance/schedules"><td><code>/api/compliance/schedules</code></td><td>GET, POST</td><td class="sig">app/api/compliance/schedules/route.ts</td></tr>
+    <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.ts</td></tr>
+    <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.ts</td></tr></tbody></table></details>
+<details><summary>/cron/* (12)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
+    <tr data-path="/api/cron/code-session-weekly-memo"><td><code>/api/cron/code-session-weekly-memo</code></td><td>GET</td><td class="sig">app/api/cron/code-session-weekly-memo/route.ts</td></tr>
+    <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>
+    <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.ts</td></tr>
+    <tr data-path="/api/cron/learning-episodes-backfill"><td><code>/api/cron/learning-episodes-backfill</code></td><td>GET</td><td class="sig">app/api/cron/learning-episodes-backfill/route.ts</td></tr>
+    <tr data-path="/api/cron/learning-recommendations"><td><code>/api/cron/learning-recommendations</code></td><td>GET</td><td class="sig">app/api/cron/learning-recommendations/route.ts</td></tr>
+    <tr data-path="/api/cron/memory-maintenance"><td><code>/api/cron/memory-maintenance</code></td><td>GET</td><td class="sig">app/api/cron/memory-maintenance/route.ts</td></tr>
+    <tr data-path="/api/cron/outcome-sweep"><td><code>/api/cron/outcome-sweep</code></td><td>GET</td><td class="sig">app/api/cron/outcome-sweep/route.ts</td></tr>
+    <tr data-path="/api/cron/policy-suggestions"><td><code>/api/cron/policy-suggestions</code></td><td>GET</td><td class="sig">app/api/cron/policy-suggestions/route.ts</td></tr>
+    <tr data-path="/api/cron/reset-meters"><td><code>/api/cron/reset-meters</code></td><td>GET</td><td class="sig">app/api/cron/reset-meters/route.ts</td></tr>
+    <tr data-path="/api/cron/routing-maintenance"><td><code>/api/cron/routing-maintenance</code></td><td>POST</td><td class="sig">app/api/cron/routing-maintenance/route.ts</td></tr>
+    <tr data-path="/api/cron/signals"><td><code>/api/cron/signals</code></td><td>GET</td><td class="sig">app/api/cron/signals/route.ts</td></tr></tbody></table></details>
+<details><summary>/digest/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/digest/fleet"><td><code>/api/digest/fleet</code></td><td>GET</td><td class="sig">app/api/digest/fleet/route.ts</td></tr></tbody></table></details>
+<details><summary>/discord/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/discord/interactions"><td><code>/api/discord/interactions</code></td><td>POST</td><td class="sig">app/api/discord/interactions/route.ts</td></tr></tbody></table></details>
+<details><summary>/docs/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/docs/raw"><td><code>/api/docs/raw</code></td><td>GET</td><td class="sig">app/api/docs/raw/route.ts</td></tr></tbody></table></details>
+<details><summary>/doctor/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/doctor"><td><code>/api/doctor</code></td><td>GET</td><td class="sig">app/api/doctor/route.ts</td></tr>
+    <tr data-path="/api/doctor/fix"><td><code>/api/doctor/fix</code></td><td>POST</td><td class="sig">app/api/doctor/fix/route.ts</td></tr></tbody></table></details>
+<details><summary>/drift/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/drift/alerts"><td><code>/api/drift/alerts</code></td><td>GET, POST</td><td class="sig">app/api/drift/alerts/route.ts</td></tr>
+    <tr data-path="/api/drift/alerts/[alertId]"><td><code>/api/drift/alerts/[alertId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/drift/alerts/[alertId]/route.ts</td></tr>
+    <tr data-path="/api/drift/metrics"><td><code>/api/drift/metrics</code></td><td>GET</td><td class="sig">app/api/drift/metrics/route.ts</td></tr>
+    <tr data-path="/api/drift/snapshots"><td><code>/api/drift/snapshots</code></td><td>GET</td><td class="sig">app/api/drift/snapshots/route.ts</td></tr>
+    <tr data-path="/api/drift/stats"><td><code>/api/drift/stats</code></td><td>GET</td><td class="sig">app/api/drift/stats/route.ts</td></tr></tbody></table></details>
+<details><summary>/echo/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/echo"><td><code>/api/echo</code></td><td>GET, POST</td><td class="sig">app/api/echo/route.ts</td></tr></tbody></table></details>
+<details><summary>/evaluations/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/evaluations"><td><code>/api/evaluations</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/route.ts</td></tr>
+    <tr data-path="/api/evaluations/runs"><td><code>/api/evaluations/runs</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/runs/route.ts</td></tr>
+    <tr data-path="/api/evaluations/runs/[runId]"><td><code>/api/evaluations/runs/[runId]</code></td><td>GET, PATCH</td><td class="sig">app/api/evaluations/runs/[runId]/route.ts</td></tr>
+    <tr data-path="/api/evaluations/scorers"><td><code>/api/evaluations/scorers</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/scorers/route.ts</td></tr>
+    <tr data-path="/api/evaluations/scorers/[scorerId]"><td><code>/api/evaluations/scorers/[scorerId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/evaluations/scorers/[scorerId]/route.ts</td></tr>
+    <tr data-path="/api/evaluations/scorers/preview"><td><code>/api/evaluations/scorers/preview</code></td><td>POST</td><td class="sig">app/api/evaluations/scorers/preview/route.ts</td></tr>
+    <tr data-path="/api/evaluations/stats"><td><code>/api/evaluations/stats</code></td><td>GET</td><td class="sig">app/api/evaluations/stats/route.ts</td></tr></tbody></table></details>
+<details><summary>/finops/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/finops/spend"><td><code>/api/finops/spend</code></td><td>GET</td><td class="sig">app/api/finops/spend/route.ts</td></tr></tbody></table></details>
+<details><summary>/guard/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/guard"><td><code>/api/guard</code></td><td>GET, POST</td><td class="sig">app/api/guard/route.ts</td></tr>
+    <tr data-path="/api/guard/decisions"><td><code>/api/guard/decisions</code></td><td>GET</td><td class="sig">app/api/guard/decisions/route.ts</td></tr></tbody></table></details>
+<details><summary>/halt/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/halt"><td><code>/api/halt</code></td><td>GET, POST</td><td class="sig">app/api/halt/route.ts</td></tr></tbody></table></details>
+<details><summary>/handoffs/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/handoffs"><td><code>/api/handoffs</code></td><td>GET, POST</td><td class="sig">app/api/handoffs/route.ts</td></tr>
+    <tr data-path="/api/handoffs/[id]"><td><code>/api/handoffs/[id]</code></td><td>GET</td><td class="sig">app/api/handoffs/[id]/route.ts</td></tr>
+    <tr data-path="/api/handoffs/[id]/consume"><td><code>/api/handoffs/[id]/consume</code></td><td>POST</td><td class="sig">app/api/handoffs/[id]/consume/route.ts</td></tr>
+    <tr data-path="/api/handoffs/latest"><td><code>/api/handoffs/latest</code></td><td>GET</td><td class="sig">app/api/handoffs/latest/route.ts</td></tr></tbody></table></details>
+<details><summary>/health/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/health"><td><code>/api/health</code></td><td>GET</td><td class="sig">app/api/health/route.ts</td></tr></tbody></table></details>
+<details><summary>/hosted/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/hosted/capacity"><td><code>/api/hosted/capacity</code></td><td>GET</td><td class="sig">app/api/hosted/capacity/route.ts</td></tr>
+    <tr data-path="/api/hosted/cleanup"><td><code>/api/hosted/cleanup</code></td><td>POST</td><td class="sig">app/api/hosted/cleanup/route.ts</td></tr>
+    <tr data-path="/api/hosted/workspaces"><td><code>/api/hosted/workspaces</code></td><td>GET, POST</td><td class="sig">app/api/hosted/workspaces/route.ts</td></tr>
+    <tr data-path="/api/hosted/workspaces/[workspaceId]"><td><code>/api/hosted/workspaces/[workspaceId]</code></td><td>DELETE, GET</td><td class="sig">app/api/hosted/workspaces/[workspaceId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/identities/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/identities"><td><code>/api/identities</code></td><td>GET, POST</td><td class="sig">app/api/identities/route.ts</td></tr>
+    <tr data-path="/api/identities/[agentId]"><td><code>/api/identities/[agentId]</code></td><td>DELETE</td><td class="sig">app/api/identities/[agentId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/integrations/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/integrations/health"><td><code>/api/integrations/health</code></td><td>GET</td><td class="sig">app/api/integrations/health/route.ts</td></tr>
+    <tr data-path="/api/integrations/health/refresh"><td><code>/api/integrations/health/refresh</code></td><td>POST</td><td class="sig">app/api/integrations/health/refresh/route.ts</td></tr></tbody></table></details>
+<details><summary>/integrity/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/integrity/jwks"><td><code>/api/integrity/jwks</code></td><td>GET</td><td class="sig">app/api/integrity/jwks/route.ts</td></tr>
+    <tr data-path="/api/integrity/verify"><td><code>/api/integrity/verify</code></td><td>POST</td><td class="sig">app/api/integrity/verify/route.ts</td></tr></tbody></table></details>
+<details><summary>/invite/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/invite/[token]"><td><code>/api/invite/[token]</code></td><td>GET, POST</td><td class="sig">app/api/invite/[token]/route.ts</td></tr></tbody></table></details>
+<details><summary>/keys/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/keys"><td><code>/api/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/keys/route.ts</td></tr>
+    <tr data-path="/api/keys/reveal"><td><code>/api/keys/reveal</code></td><td>GET</td><td class="sig">app/api/keys/reveal/route.ts</td></tr></tbody></table></details>
+<details><summary>/knowledge/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/knowledge/collections"><td><code>/api/knowledge/collections</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/route.ts</td></tr>
+    <tr data-path="/api/knowledge/collections/[collectionId]"><td><code>/api/knowledge/collections/[collectionId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/knowledge/collections/[collectionId]/route.ts</td></tr>
+    <tr data-path="/api/knowledge/collections/[collectionId]/items"><td><code>/api/knowledge/collections/[collectionId]/items</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/items/route.ts</td></tr>
+    <tr data-path="/api/knowledge/collections/[collectionId]/search"><td><code>/api/knowledge/collections/[collectionId]/search</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/search/route.ts</td></tr>
+    <tr data-path="/api/knowledge/collections/[collectionId]/sync"><td><code>/api/knowledge/collections/[collectionId]/sync</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/sync/route.ts</td></tr></tbody></table></details>
+<details><summary>/learning/* (13)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/learning"><td><code>/api/learning</code></td><td>GET, POST</td><td class="sig">app/api/learning/route.ts</td></tr>
+    <tr data-path="/api/learning/analytics/curves"><td><code>/api/learning/analytics/curves</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/curves/route.ts</td></tr>
+    <tr data-path="/api/learning/analytics/maturity"><td><code>/api/learning/analytics/maturity</code></td><td>GET</td><td class="sig">app/api/learning/analytics/maturity/route.ts</td></tr>
+    <tr data-path="/api/learning/analytics/summary"><td><code>/api/learning/analytics/summary</code></td><td>GET</td><td class="sig">app/api/learning/analytics/summary/route.ts</td></tr>
+    <tr data-path="/api/learning/analytics/velocity"><td><code>/api/learning/analytics/velocity</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/velocity/route.ts</td></tr>
+    <tr data-path="/api/learning/code-signals"><td><code>/api/learning/code-signals</code></td><td>GET</td><td class="sig">app/api/learning/code-signals/route.ts</td></tr>
+    <tr data-path="/api/learning/export"><td><code>/api/learning/export</code></td><td>GET</td><td class="sig">app/api/learning/export/route.ts</td></tr>
+    <tr data-path="/api/learning/lessons"><td><code>/api/learning/lessons</code></td><td>GET</td><td class="sig">app/api/learning/lessons/route.ts</td></tr>
+    <tr data-path="/api/learning/recommendations"><td><code>/api/learning/recommendations</code></td><td>GET, POST</td><td class="sig">app/api/learning/recommendations/route.ts</td></tr>
+    <tr data-path="/api/learning/recommendations/[recommendationId]"><td><code>/api/learning/recommendations/[recommendationId]</code></td><td>PATCH</td><td class="sig">app/api/learning/recommendations/[recommendationId]/route.ts</td></tr>
+    <tr data-path="/api/learning/recommendations/events"><td><code>/api/learning/recommendations/events</code></td><td>POST</td><td class="sig">app/api/learning/recommendations/events/route.ts</td></tr>
+    <tr data-path="/api/learning/recommendations/metrics"><td><code>/api/learning/recommendations/metrics</code></td><td>GET</td><td class="sig">app/api/learning/recommendations/metrics/route.ts</td></tr>
+    <tr data-path="/api/learning/suggestions"><td><code>/api/learning/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/learning/suggestions/route.ts</td></tr></tbody></table></details>
+<details><summary>/marketing/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/marketing/event"><td><code>/api/marketing/event</code></td><td>POST</td><td class="sig">app/api/marketing/event/route.ts</td></tr></tbody></table></details>
+<details><summary>/mcp/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/mcp"><td><code>/api/mcp</code></td><td>POST</td><td class="sig">app/api/mcp/route.ts</td></tr></tbody></table></details>
+<details><summary>/messages/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/messages"><td><code>/api/messages</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/route.ts</td></tr>
+    <tr data-path="/api/messages/attachments"><td><code>/api/messages/attachments</code></td><td>GET</td><td class="sig">app/api/messages/attachments/route.ts</td></tr>
+    <tr data-path="/api/messages/threads"><td><code>/api/messages/threads</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/threads/route.ts</td></tr>
+    <tr data-path="/api/messages/threads/[threadId]"><td><code>/api/messages/threads/[threadId]</code></td><td>GET</td><td class="sig">app/api/messages/threads/[threadId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/model-strategies/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/model-strategies"><td><code>/api/model-strategies</code></td><td>GET, POST</td><td class="sig">app/api/model-strategies/route.ts</td></tr>
+    <tr data-path="/api/model-strategies/[strategyId]"><td><code>/api/model-strategies/[strategyId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/model-strategies/[strategyId]/route.ts</td></tr>
+    <tr data-path="/api/model-strategies/[strategyId]/complete"><td><code>/api/model-strategies/[strategyId]/complete</code></td><td>POST</td><td class="sig">app/api/model-strategies/[strategyId]/complete/route.ts</td></tr></tbody></table></details>
+<details><summary>/oauth/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/oauth/authorize"><td><code>/api/oauth/authorize</code></td><td>GET, POST</td><td class="sig">app/api/oauth/authorize/route.ts</td></tr>
+    <tr data-path="/api/oauth/metadata/authorization-server"><td><code>/api/oauth/metadata/authorization-server</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/authorization-server/route.ts</td></tr>
+    <tr data-path="/api/oauth/metadata/protected-resource"><td><code>/api/oauth/metadata/protected-resource</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/protected-resource/route.ts</td></tr>
+    <tr data-path="/api/oauth/register"><td><code>/api/oauth/register</code></td><td>POST</td><td class="sig">app/api/oauth/register/route.ts</td></tr>
+    <tr data-path="/api/oauth/token"><td><code>/api/oauth/token</code></td><td>POST</td><td class="sig">app/api/oauth/token/route.ts</td></tr></tbody></table></details>
+<details><summary>/operations/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/operations/feed"><td><code>/api/operations/feed</code></td><td>GET</td><td class="sig">app/api/operations/feed/route.ts</td></tr>
+    <tr data-path="/api/operations/summary"><td><code>/api/operations/summary</code></td><td>GET</td><td class="sig">app/api/operations/summary/route.ts</td></tr></tbody></table></details>
+<details><summary>/orgs/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/orgs"><td><code>/api/orgs</code></td><td>GET, POST</td><td class="sig">app/api/orgs/route.ts</td></tr>
+    <tr data-path="/api/orgs/[orgId]"><td><code>/api/orgs/[orgId]</code></td><td>GET, PATCH</td><td class="sig">app/api/orgs/[orgId]/route.ts</td></tr>
+    <tr data-path="/api/orgs/[orgId]/keys"><td><code>/api/orgs/[orgId]/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/orgs/[orgId]/keys/route.ts</td></tr></tbody></table></details>
+<details><summary>/pairings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/pairings"><td><code>/api/pairings</code></td><td>GET, POST</td><td class="sig">app/api/pairings/route.ts</td></tr>
+    <tr data-path="/api/pairings/[pairingId]"><td><code>/api/pairings/[pairingId]</code></td><td>GET, PATCH</td><td class="sig">app/api/pairings/[pairingId]/route.ts</td></tr>
+    <tr data-path="/api/pairings/[pairingId]/approve"><td><code>/api/pairings/[pairingId]/approve</code></td><td>POST</td><td class="sig">app/api/pairings/[pairingId]/approve/route.ts</td></tr></tbody></table></details>
+<details><summary>/policies/* (14)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.ts</td></tr>
+    <tr data-path="/api/policies/contract"><td><code>/api/policies/contract</code></td><td>GET</td><td class="sig">app/api/policies/contract/route.ts</td></tr>
+    <tr data-path="/api/policies/generate"><td><code>/api/policies/generate</code></td><td>POST</td><td class="sig">app/api/policies/generate/route.ts</td></tr>
+    <tr data-path="/api/policies/import"><td><code>/api/policies/import</code></td><td>POST</td><td class="sig">app/api/policies/import/route.ts</td></tr>
+    <tr data-path="/api/policies/modes"><td><code>/api/policies/modes</code></td><td>GET</td><td class="sig">app/api/policies/modes/route.ts</td></tr>
+    <tr data-path="/api/policies/modes/import"><td><code>/api/policies/modes/import</code></td><td>POST</td><td class="sig">app/api/policies/modes/import/route.ts</td></tr>
+    <tr data-path="/api/policies/modes/preview"><td><code>/api/policies/modes/preview</code></td><td>POST</td><td class="sig">app/api/policies/modes/preview/route.ts</td></tr>
+    <tr data-path="/api/policies/proof"><td><code>/api/policies/proof</code></td><td>GET</td><td class="sig">app/api/policies/proof/route.ts</td></tr>
+    <tr data-path="/api/policies/review"><td><code>/api/policies/review</code></td><td>GET</td><td class="sig">app/api/policies/review/route.ts</td></tr>
+    <tr data-path="/api/policies/review/verdict"><td><code>/api/policies/review/verdict</code></td><td>POST</td><td class="sig">app/api/policies/review/verdict/route.ts</td></tr>
+    <tr data-path="/api/policies/simulate"><td><code>/api/policies/simulate</code></td><td>POST</td><td class="sig">app/api/policies/simulate/route.ts</td></tr>
+    <tr data-path="/api/policies/summary"><td><code>/api/policies/summary</code></td><td>GET</td><td class="sig">app/api/policies/summary/route.ts</td></tr>
+    <tr data-path="/api/policies/templates"><td><code>/api/policies/templates</code></td><td>GET</td><td class="sig">app/api/policies/templates/route.ts</td></tr>
+    <tr data-path="/api/policies/test"><td><code>/api/policies/test</code></td><td>POST</td><td class="sig">app/api/policies/test/route.ts</td></tr></tbody></table></details>
+<details><summary>/posture/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/posture"><td><code>/api/posture</code></td><td>GET</td><td class="sig">app/api/posture/route.ts</td></tr>
+    <tr data-path="/api/posture/findings"><td><code>/api/posture/findings</code></td><td>GET</td><td class="sig">app/api/posture/findings/route.ts</td></tr>
+    <tr data-path="/api/posture/findings/[key]/resolve"><td><code>/api/posture/findings/[key]/resolve</code></td><td>POST</td><td class="sig">app/api/posture/findings/[key]/resolve/route.ts</td></tr>
+    <tr data-path="/api/posture/scan"><td><code>/api/posture/scan</code></td><td>POST</td><td class="sig">app/api/posture/scan/route.ts</td></tr></tbody></table></details>
+<details><summary>/prompts/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/prompts/agent-connect/raw"><td><code>/api/prompts/agent-connect/raw</code></td><td>GET</td><td class="sig">app/api/prompts/agent-connect/raw/route.ts</td></tr>
+    <tr data-path="/api/prompts/render"><td><code>/api/prompts/render</code></td><td>POST</td><td class="sig">app/api/prompts/render/route.ts</td></tr>
+    <tr data-path="/api/prompts/runs"><td><code>/api/prompts/runs</code></td><td>GET</td><td class="sig">app/api/prompts/runs/route.ts</td></tr>
+    <tr data-path="/api/prompts/sdk-coverage/raw"><td><code>/api/prompts/sdk-coverage/raw</code></td><td>GET</td><td class="sig">app/api/prompts/sdk-coverage/raw/route.ts</td></tr>
+    <tr data-path="/api/prompts/server-setup/raw"><td><code>/api/prompts/server-setup/raw</code></td><td>GET</td><td class="sig">app/api/prompts/server-setup/raw/route.ts</td></tr>
+    <tr data-path="/api/prompts/stats"><td><code>/api/prompts/stats</code></td><td>GET</td><td class="sig">app/api/prompts/stats/route.ts</td></tr>
+    <tr data-path="/api/prompts/templates"><td><code>/api/prompts/templates</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/route.ts</td></tr>
+    <tr data-path="/api/prompts/templates/[templateId]"><td><code>/api/prompts/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/prompts/templates/[templateId]/route.ts</td></tr>
+    <tr data-path="/api/prompts/templates/[templateId]/versions"><td><code>/api/prompts/templates/[templateId]/versions</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/route.ts</td></tr>
+    <tr data-path="/api/prompts/templates/[templateId]/versions/[versionId]"><td><code>/api/prompts/templates/[templateId]/versions/[versionId]</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/[versionId]/route.ts</td></tr></tbody></table></details>
+<details><summary>/reputation/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/reputation/agents/[agentId]"><td><code>/api/reputation/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/route.ts</td></tr>
+    <tr data-path="/api/reputation/agents/[agentId]/events"><td><code>/api/reputation/agents/[agentId]/events</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/events/route.ts</td></tr>
+    <tr data-path="/api/reputation/agents/[agentId]/receipt"><td><code>/api/reputation/agents/[agentId]/receipt</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/receipt/route.ts</td></tr>
+    <tr data-path="/api/reputation/agents/[agentId]/recompute"><td><code>/api/reputation/agents/[agentId]/recompute</code></td><td>POST</td><td class="sig">app/api/reputation/agents/[agentId]/recompute/route.ts</td></tr>
+    <tr data-path="/api/reputation/agents/[agentId]/summary"><td><code>/api/reputation/agents/[agentId]/summary</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/summary/route.ts</td></tr>
+    <tr data-path="/api/reputation/leaderboard"><td><code>/api/reputation/leaderboard</code></td><td>GET</td><td class="sig">app/api/reputation/leaderboard/route.ts</td></tr>
+    <tr data-path="/api/reputation/verify"><td><code>/api/reputation/verify</code></td><td>POST</td><td class="sig">app/api/reputation/verify/route.ts</td></tr></tbody></table></details>
+<details><summary>/scoring/* (8)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/scoring/calibrate"><td><code>/api/scoring/calibrate</code></td><td>POST</td><td class="sig">app/api/scoring/calibrate/route.ts</td></tr>
+    <tr data-path="/api/scoring/profiles"><td><code>/api/scoring/profiles</code></td><td>GET, POST</td><td class="sig">app/api/scoring/profiles/route.ts</td></tr>
+    <tr data-path="/api/scoring/profiles/[profileId]"><td><code>/api/scoring/profiles/[profileId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/scoring/profiles/[profileId]/route.ts</td></tr>
+    <tr data-path="/api/scoring/profiles/[profileId]/dimensions"><td><code>/api/scoring/profiles/[profileId]/dimensions</code></td><td>POST</td><td class="sig">app/api/scoring/profiles/[profileId]/dimensions/route.ts</td></tr>
+    <tr data-path="/api/scoring/profiles/[profileId]/dimensions/[dimensionId]"><td><code>/api/scoring/profiles/[profileId]/dimensions/[dimensionId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.ts</td></tr>
+    <tr data-path="/api/scoring/risk-templates"><td><code>/api/scoring/risk-templates</code></td><td>GET, POST</td><td class="sig">app/api/scoring/risk-templates/route.ts</td></tr>
+    <tr data-path="/api/scoring/risk-templates/[templateId]"><td><code>/api/scoring/risk-templates/[templateId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/scoring/risk-templates/[templateId]/route.ts</td></tr>
+    <tr data-path="/api/scoring/score"><td><code>/api/scoring/score</code></td><td>GET, POST</td><td class="sig">app/api/scoring/score/route.ts</td></tr></tbody></table></details>
+<details><summary>/secrets/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/secrets"><td><code>/api/secrets</code></td><td>GET, POST</td><td class="sig">app/api/secrets/route.ts</td></tr>
+    <tr data-path="/api/secrets/[id]"><td><code>/api/secrets/[id]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/secrets/[id]/route.ts</td></tr>
+    <tr data-path="/api/secrets/[id]/value"><td><code>/api/secrets/[id]/value</code></td><td>POST</td><td class="sig">app/api/secrets/[id]/value/route.ts</td></tr>
+    <tr data-path="/api/secrets/env"><td><code>/api/secrets/env</code></td><td>GET</td><td class="sig">app/api/secrets/env/route.ts</td></tr>
+    <tr data-path="/api/secrets/rotation-due"><td><code>/api/secrets/rotation-due</code></td><td>GET</td><td class="sig">app/api/secrets/rotation-due/route.ts</td></tr></tbody></table></details>
+<details><summary>/security/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/security/prompt-injection"><td><code>/api/security/prompt-injection</code></td><td>GET, POST</td><td class="sig">app/api/security/prompt-injection/route.ts</td></tr>
+    <tr data-path="/api/security/scan"><td><code>/api/security/scan</code></td><td>POST</td><td class="sig">app/api/security/scan/route.ts</td></tr>
+    <tr data-path="/api/security/status"><td><code>/api/security/status</code></td><td>GET</td><td class="sig">app/api/security/status/route.ts</td></tr></tbody></table></details>
+<details><summary>/session/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/session/effective"><td><code>/api/session/effective</code></td><td>GET</td><td class="sig">app/api/session/effective/route.ts</td></tr></tbody></table></details>
+<details><summary>/sessions/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/sessions"><td><code>/api/sessions</code></td><td>GET, POST</td><td class="sig">app/api/sessions/route.ts</td></tr>
+    <tr data-path="/api/sessions/[sessionId]"><td><code>/api/sessions/[sessionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/sessions/[sessionId]/route.ts</td></tr>
+    <tr data-path="/api/sessions/[sessionId]/actions"><td><code>/api/sessions/[sessionId]/actions</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/actions/route.ts</td></tr>
+    <tr data-path="/api/sessions/[sessionId]/events"><td><code>/api/sessions/[sessionId]/events</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/events/route.ts</td></tr></tbody></table></details>
+<details><summary>/settings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/settings"><td><code>/api/settings</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/settings/route.ts</td></tr>
+    <tr data-path="/api/settings/llm-status"><td><code>/api/settings/llm-status</code></td><td>GET</td><td class="sig">app/api/settings/llm-status/route.ts</td></tr>
+    <tr data-path="/api/settings/test"><td><code>/api/settings/test</code></td><td>POST</td><td class="sig">app/api/settings/test/route.ts</td></tr></tbody></table></details>
+<details><summary>/setup/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/setup/live-proof"><td><code>/api/setup/live-proof</code></td><td>POST</td><td class="sig">app/api/setup/live-proof/route.ts</td></tr>
+    <tr data-path="/api/setup/migrate"><td><code>/api/setup/migrate</code></td><td>POST</td><td class="sig">app/api/setup/migrate/route.ts</td></tr>
+    <tr data-path="/api/setup/ping"><td><code>/api/setup/ping</code></td><td>POST</td><td class="sig">app/api/setup/ping/route.ts</td></tr>
+    <tr data-path="/api/setup/proof"><td><code>/api/setup/proof</code></td><td>GET</td><td class="sig">app/api/setup/proof/route.ts</td></tr>
+    <tr data-path="/api/setup/status"><td><code>/api/setup/status</code></td><td>GET</td><td class="sig">app/api/setup/status/route.ts</td></tr></tbody></table></details>
+<details><summary>/signals/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/signals"><td><code>/api/signals</code></td><td>GET</td><td class="sig">app/api/signals/route.ts</td></tr></tbody></table></details>
+<details><summary>/skills/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/skills/scan"><td><code>/api/skills/scan</code></td><td>POST</td><td class="sig">app/api/skills/scan/route.ts</td></tr>
+    <tr data-path="/api/skills/scans/[id]"><td><code>/api/skills/scans/[id]</code></td><td>GET</td><td class="sig">app/api/skills/scans/[id]/route.ts</td></tr></tbody></table></details>
+<details><summary>/stream/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/stream"><td><code>/api/stream</code></td><td>GET</td><td class="sig">app/api/stream/route.ts</td></tr></tbody></table></details>
+<details><summary>/swarm/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/swarm/graph"><td><code>/api/swarm/graph</code></td><td>GET</td><td class="sig">app/api/swarm/graph/route.ts</td></tr>
+    <tr data-path="/api/swarm/link"><td><code>/api/swarm/link</code></td><td>GET</td><td class="sig">app/api/swarm/link/route.ts</td></tr></tbody></table></details>
+<details><summary>/team/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/team"><td><code>/api/team</code></td><td>GET</td><td class="sig">app/api/team/route.ts</td></tr>
+    <tr data-path="/api/team/[userId]"><td><code>/api/team/[userId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/team/[userId]/route.ts</td></tr>
+    <tr data-path="/api/team/invite"><td><code>/api/team/invite</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/team/invite/route.ts</td></tr></tbody></table></details>
+<details><summary>/telegram/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/telegram/webhook"><td><code>/api/telegram/webhook</code></td><td>POST</td><td class="sig">app/api/telegram/webhook/route.ts</td></tr></tbody></table></details>
+<details><summary>/usage/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/usage"><td><code>/api/usage</code></td><td>GET</td><td class="sig">app/api/usage/route.ts</td></tr>
+    <tr data-path="/api/usage/costs"><td><code>/api/usage/costs</code></td><td>GET</td><td class="sig">app/api/usage/costs/route.ts</td></tr></tbody></table></details>
+<details><summary>/webhooks/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/webhooks"><td><code>/api/webhooks</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/webhooks/route.ts</td></tr>
+    <tr data-path="/api/webhooks/[webhookId]/deliveries"><td><code>/api/webhooks/[webhookId]/deliveries</code></td><td>GET</td><td class="sig">app/api/webhooks/[webhookId]/deliveries/route.ts</td></tr>
+    <tr data-path="/api/webhooks/[webhookId]/test"><td><code>/api/webhooks/[webhookId]/test</code></td><td>POST</td><td class="sig">app/api/webhooks/[webhookId]/test/route.ts</td></tr>
+    <tr data-path="/api/webhooks/stripe"><td><code>/api/webhooks/stripe</code></td><td>POST</td><td class="sig">app/api/webhooks/stripe/route.ts</td></tr></tbody></table></details>
+<details><summary>/widget/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/widget/summary"><td><code>/api/widget/summary</code></td><td>GET</td><td class="sig">app/api/widget/summary/route.ts</td></tr></tbody></table></details>
+<details><summary>/work-orders/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/work-orders"><td><code>/api/work-orders</code></td><td>GET, POST</td><td class="sig">app/api/work-orders/route.ts</td></tr>
+    <tr data-path="/api/work-orders/[workOrderId]"><td><code>/api/work-orders/[workOrderId]</code></td><td>DELETE, GET</td><td class="sig">app/api/work-orders/[workOrderId]/route.ts</td></tr>
+    <tr data-path="/api/work-orders/[workOrderId]/artifacts"><td><code>/api/work-orders/[workOrderId]/artifacts</code></td><td>GET</td><td class="sig">app/api/work-orders/[workOrderId]/artifacts/route.ts</td></tr>
+    <tr data-path="/api/work-orders/[workOrderId]/complete"><td><code>/api/work-orders/[workOrderId]/complete</code></td><td>POST</td><td class="sig">app/api/work-orders/[workOrderId]/complete/route.ts</td></tr>
+    <tr data-path="/api/work-orders/claim"><td><code>/api/work-orders/claim</code></td><td>POST</td><td class="sig">app/api/work-orders/claim/route.ts</td></tr>
+    <tr data-path="/api/work-orders/types"><td><code>/api/work-orders/types</code></td><td>GET, POST</td><td class="sig">app/api/work-orders/types/route.ts</td></tr>
+    <tr data-path="/api/work-orders/types/[type]"><td><code>/api/work-orders/types/[type]</code></td><td>DELETE, GET, PUT</td><td class="sig">app/api/work-orders/types/[type]/route.ts</td></tr></tbody></table></details>
+<details><summary>/workflows/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workflows/draft"><td><code>/api/workflows/draft</code></td><td>POST</td><td class="sig">app/api/workflows/draft/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates"><td><code>/api/workflows/templates</code></td><td>GET, POST</td><td class="sig">app/api/workflows/templates/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]"><td><code>/api/workflows/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/workflows/templates/[templateId]/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/duplicate"><td><code>/api/workflows/templates/[templateId]/duplicate</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/duplicate/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/execute"><td><code>/api/workflows/templates/[templateId]/execute</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/execute/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/launch"><td><code>/api/workflows/templates/[templateId]/launch</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/launch/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/runs"><td><code>/api/workflows/templates/[templateId]/runs</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/cancel"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/cancel</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts</td></tr>
+    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/resume"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/resume</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts</td></tr></tbody></table></details>
+<details><summary>/x402/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/x402/providers"><td><code>/api/x402/providers</code></td><td>GET, POST</td><td class="sig">app/api/x402/providers/route.ts</td></tr>
+    <tr data-path="/api/x402/providers/[id]"><td><code>/api/x402/providers/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/x402/providers/[id]/route.ts</td></tr>
+    <tr data-path="/api/x402/providers/[id]/endpoints"><td><code>/api/x402/providers/[id]/endpoints</code></td><td>GET, POST</td><td class="sig">app/api/x402/providers/[id]/endpoints/route.ts</td></tr>
+    <tr data-path="/api/x402/purchases"><td><code>/api/x402/purchases</code></td><td>GET, POST</td><td class="sig">app/api/x402/purchases/route.ts</td></tr></tbody></table></details></section>
 
 </body></html>
