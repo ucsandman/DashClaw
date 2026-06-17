@@ -106,7 +106,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('renders a not-found fallback with a link back to the registry', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_missing' });
     global.fetch = vi.fn().mockResolvedValueOnce({
       ok: false,
       json: async () => ({ error: 'Capability not found' }),
@@ -114,7 +114,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_missing' }} />);
+    render(<CapabilityDetailPage />);
 
     expect(await screen.findByText('Capability unavailable')).toBeTruthy();
     expect(await screen.findByText(/capability not found/i)).toBeTruthy();
@@ -122,7 +122,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('renders capability metadata, health, and history on load', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_1' });
     global.fetch = vi.fn()
       .mockResolvedValueOnce(okJson({
         capability: {
@@ -226,7 +226,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_1' }} />);
+    render(<CapabilityDetailPage />);
 
     const capabilityNames = await screen.findAllByText('Research Agent');
     expect(capabilityNames.length).toBeGreaterThan(0);
@@ -277,7 +277,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('keeps the page usable when history fails and allows retry into an empty state', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_1' });
     global.fetch = vi.fn()
       .mockResolvedValueOnce(okJson({
         capability: {
@@ -318,7 +318,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_1' }} />);
+    render(<CapabilityDetailPage />);
 
     expect(await screen.findByText('Research Agent')).toBeTruthy();
     expect(await screen.findByText(/history unavailable/i)).toBeTruthy();
@@ -329,7 +329,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('keeps the page usable when health fails after the capability metadata loads', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_1' });
     global.fetch = vi.fn()
       .mockResolvedValueOnce(okJson({
         capability: {
@@ -372,7 +372,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_1' }} />);
+    render(<CapabilityDetailPage />);
 
     expect(await screen.findByText('Research Agent')).toBeTruthy();
     expect(screen.queryByText('Capability unavailable')).toBeNull();
@@ -382,7 +382,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('disables test submission for invalid json and while a test is in flight', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_1' });
     let resolveTest;
     const pendingTest = new Promise((resolve) => {
       resolveTest = resolve;
@@ -435,7 +435,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_1' }} />);
+    render(<CapabilityDetailPage />);
 
     fireEvent.click(await screen.findByRole('button', { name: /run test/i }));
     fireEvent.click(await screen.findByRole('button', { name: /use advanced json/i }));
@@ -472,7 +472,7 @@ describe('CapabilityDetailPage', () => {
   });
 
   it('hides runtime test affordances for registry-only capabilities', async () => {
-    mockUseParams.mockReturnValue({});
+    mockUseParams.mockReturnValue({ capabilityId: 'cap_1' });
     global.fetch = vi.fn()
       .mockResolvedValueOnce(okJson({
         capability: {
@@ -497,7 +497,7 @@ describe('CapabilityDetailPage', () => {
 
     const { default: CapabilityDetailPage } = await import('@/capabilities/[capabilityId]/page.jsx');
 
-    render(<CapabilityDetailPage params={{ capabilityId: 'cap_1' }} />);
+    render(<CapabilityDetailPage />);
 
     expect(await screen.findByText('Slack Notify Registry')).toBeTruthy();
     expect(screen.queryByRole('button', { name: /run test/i })).toBeNull();

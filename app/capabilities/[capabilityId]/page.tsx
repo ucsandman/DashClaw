@@ -38,9 +38,12 @@ interface SubmitArgs {
   agentId?: string;
 }
 
-export default function CapabilityDetailPage({ params }: { params?: { capabilityId?: string } }) {
+export default function CapabilityDetailPage() {
+  // Client component: read the route param via the useParams() hook only.
+  // The `params` prop is a Promise in Next.js 16 and must not be read
+  // synchronously (it logs "params accessed directly — use React.use()").
   const routeParams = useParams() as Record<string, any> | null;
-  const capabilityId = params?.capabilityId || routeParams?.capabilityId;
+  const capabilityId = routeParams?.capabilityId;
   const [capability, setCapability] = useState<any>(null);
   const [health, setHealth] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);

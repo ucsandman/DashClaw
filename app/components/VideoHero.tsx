@@ -10,6 +10,8 @@
 //
 // Styling: CSS tokens only per .impeccable.md. No hardcoded hex.
 
+import { Clapperboard } from 'lucide-react';
+
 interface VideoHeroProps {
   src: string;
   title?: string;
@@ -29,6 +31,22 @@ export default function VideoHero({ src, title }: VideoHeroProps) {
 
   if (!isLoom && !isYouTubeNoCookie) {
     throw new Error('VideoHero: src must be Loom or YouTube URL');
+  }
+
+  // Until the real walkthrough is recorded, both the homepage hero and the
+  // blog embed point at a PLACEHOLDER_VIDEO_ID. Rendering that as an iframe
+  // produces a 404 + an X-Frame-Options error in the console and a broken
+  // frame on a public page. Show a calm "coming soon" poster instead; when
+  // src is backfilled with a real id this check is false and the iframe renders.
+  if (src.includes('PLACEHOLDER')) {
+    return (
+      <div className="relative flex w-full aspect-video items-center justify-center overflow-hidden rounded-xl border border-border bg-surface-secondary">
+        <div className="flex flex-col items-center gap-2 text-center">
+          <Clapperboard size={28} className="text-text-tertiary" aria-hidden="true" />
+          <p className="text-sm text-text-secondary">Walkthrough recording coming soon</p>
+        </div>
+      </div>
+    );
   }
 
   return (

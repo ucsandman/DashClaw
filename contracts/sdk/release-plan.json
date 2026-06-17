@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.21.1",
+    "current_version": "4.21.2",
     "next_bump": "none",
-    "reason": "4.21.1 is a platform-only security patch — a global esbuild ^0.28.1 + vite ^8.0.16 override clearing 5 high-severity advisories. NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.21.2 is a platform-only UI-polish patch (capabilities async-params fix, VideoHero placeholder poster, mission-control/codebase launcher, smoke coverage to 88 routes). NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.21.1",
+    "current_version": "4.21.2",
     "next_bump": "none",
-    "reason": "4.21.1 is a platform-only security patch (esbuild/vite dependency overrides). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
+    "reason": "4.21.2 is a platform-only UI-polish patch. No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
     "domains": [
       "platform"
     ]
