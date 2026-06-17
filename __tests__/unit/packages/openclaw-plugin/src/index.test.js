@@ -178,7 +178,11 @@ describe('@dashclaw/openclaw-plugin', () => {
       systems_touched: [],
       agent_id: 'openclaw-test',
     });
-    assert.deepEqual(findCall(calls, '/api/actions', 'POST').body, {
+    const actionsPostBody = findCall(calls, '/api/actions', 'POST').body;
+    // dashclaw >=4.21 auto-derives an idempotency_key (hourly ts_bucket → non-deterministic value)
+    assert.match(actionsPostBody.idempotency_key, /^[0-9a-f]{64}$/);
+    const { idempotency_key: _ik, ...actionsPostBodyRest } = actionsPostBody;
+    assert.deepEqual(actionsPostBodyRest, {
       action_type: 'review',
       declared_goal: 'Bash: git status --short',
       risk_score: 10,
