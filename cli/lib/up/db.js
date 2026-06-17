@@ -120,11 +120,14 @@ export async function provisionDatabase({ mode, baseDir, promptFn, logger = cons
   // Only clean up on failure when WE created it (a pre-existing dir means
   // a working prior install whose data we must not delete).
   const dirPreExisted = existsSync(pgDir);
+  // Derive credentials from LOCAL_DB_URL so the local dev creds live in
+  // exactly one place rather than being duplicated as bare literals here.
+  const localDb = new URL(LOCAL_DB_URL);
   const pg = new EmbeddedPostgres({
     databaseDir: pgDir,
-    user: 'dashclaw',
-    password: 'dashclaw',
-    port: 5433,
+    user: localDb.username,
+    password: localDb.password,
+    port: Number(localDb.port),
     persistent: true,
   });
   try {

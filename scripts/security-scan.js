@@ -49,6 +49,11 @@ const PLACEHOLDER_PATTERNS = [
   'user:password@',
   'username:password@',
   'postgresql://username:password@',
+  // localhost / 127.0.0.1 connection strings are local dev-DB defaults
+  // (e.g. the `dashclaw up` installer's embedded/docker Postgres), not
+  // deployable secrets — a real leaked credential points at a remote host.
+  '@localhost',
+  '@127.0.0.1',
   'your-api-key',
   'your_api_key',
   'xxx',
@@ -84,9 +89,11 @@ function isPlaceholder(line) {
 }
 
 function scanFile(filePath) {
-  // .env.local is expected to contain real secrets on every machine.
-  // Don’t flag it as a repo issue (git tracking check handles that).
-  if (path.basename(filePath) === '.env.local') return;
+  // Local env files (.env, .env.local) are gitignored and expected to hold
+  // real secrets on every machine — content-scanning them only yields false
+  // positives. checkGitTracking() catches any that are committed.
+  const base = path.basename(filePath);
+  if (base === '.env' || base === '.env.local') return;
   const ext = path.extname(filePath);
   const validExtensions = ['.js', '.jsx', '.ts', '.tsx', '.json', '.html', '.env'];
   
