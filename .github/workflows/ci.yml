@@ -28,7 +28,7 @@ jobs:
       # without this every run compiles cold. Content-hashed, so a stale cache
       # never produces a wrong build. Shared by key with the startup-smoke job.
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .next/cache
           key: ${{ runner.os }}-nextcache-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
@@ -124,7 +124,7 @@ jobs:
       # Same incremental Next.js build cache as build-and-test (shared key), so
       # this job's build is also warm instead of compiling cold every run.
       - name: Cache Next.js build
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .next/cache
           key: ${{ runner.os }}-nextcache-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
