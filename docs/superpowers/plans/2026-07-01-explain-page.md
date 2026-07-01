@@ -1,0 +1,1105 @@
+# /explain Interactive Explainer Page — Implementation Plan
+
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Goal:** Build `public/explain/index.html` — a single self-contained interactive HTML page that explains DashClaw to evaluators (top) and integrators (bottom), per `docs/superpowers/specs/2026-07-01-explain-page-design.md`.
+
+**Architecture:** One hand-authored HTML file with inline CSS and vanilla JS, built incrementally section by section. All interactive logic is illustrative simulation (no API calls). A throwaway Playwright check script in the session scratchpad verifies each increment (console-error-free load + per-section behavioral assertions) against the `file://` URL, proving the page is truly self-contained.
+
+**Tech Stack:** HTML5, vanilla ES2020 JS (single inline `<script>`), inline CSS custom properties, inline SVG. Verification via `@playwright/test`'s chromium (already a root devDependency).
+
+## Global Constraints
+
+Copied from the spec — every task implicitly includes these:
+
+- **One deliverable file:** `public/explain/index.html`. Only other repo file touched: `README.md` (Task 8, one line).
+- **Zero dependencies, zero build step, zero network requests.** No external fonts, scripts, styles, or images. System font stack. Inline SVG only.
+- **No version numbers and no drift-prone counts** (routes, SDK methods, MCP tools, policies) anywhere in the page copy.
+- **No live API calls, no auth, no analytics.**
+- **Brand:** dark-only. Use the CSS custom properties defined in Task 1 (values mirrored from `app/globals.css`) — never an ad-hoc hex outside the token block. Orange `--brand` is a signal (active state, CTA, attention), never decoration. No gradients, no emoji, no glow-spam. Voice: direct, technical, declarative; verbs like *intercept, enforce, record, verify*; no exclamation marks.
+- **Accessibility:** every control keyboard-operable, `:focus-visible` brand ring, `prefers-reduced-motion` collapses all animation, status never conveyed by color alone (always paired with text), semantic HTML (`<section>`, `<nav>`, `<button>`, ARIA where stated).
+- **Anchors are the API of the page:** section ids are exactly `problem`, `loop`, `simulator`, `policies`, `integrate`, `practices`, `architecture`, `go-deeper`. Do not rename them after Task 1 — the nav, the check script, and README link depend on them.
+- **Illustrative labeling:** the simulator and playground each carry the meta-label `ILLUSTRATIVE SIMULATION` and the sentence "Illustrative simulation — production decisions come from the guard runtime."
+- **Commit after every task.** Scratchpad check script is never committed.
+
+**Scratchpad path (for the check script):**
+`C:\Users\sandm\AppData\Local\Temp\claude\C--Projects-DashClaw\a0212990-6493-490d-90e8-46e7f3b4258d\scratchpad\check-explain.mjs`
+
+---
+
+### Task 1: Verification harness + page skeleton (tokens, nav, hero)
+
+**Files:**
+- Create: `C:\Users\sandm\AppData\Local\Temp\claude\C--Projects-DashClaw\a0212990-6493-490d-90e8-46e7f3b4258d\scratchpad\check-explain.mjs` (never committed)
+- Create: `public/explain/index.html`
+
+**Interfaces:**
+- Produces: the check script contract used by every later task: `node <scratchpad>\check-explain.mjs "<JS expression>"` → exits 0 printing `PASS` iff the page loads from `file://` with zero console/page errors AND the expression evaluates truthy in the page; exits 1 otherwise.
+- Produces: CSS custom properties (`--bg-0/-1/-2/-3`, `--border`, `--border-hover`, `--text-1/-2/-3`, `--brand`, `--brand-subtle`, `--ok`, `--warn`, `--err`, `--info` + `-subtle` variants), base classes `.card`, `.meta-label`, `.chip` + `.chip--allow/--warn/--block/--approval`, `.btn`, `.mono`, and helper `el(tag, attrs, children)` + `$` in the inline script. All later tasks consume these.
+- Produces: empty placeholder `<section>` elements with the eight anchor ids listed in Global Constraints, so the nav works from day one.
+
+- [ ] **Step 1: Write the check script**
+
+```js
+// check-explain.mjs — throwaway harness, lives in scratchpad only.
+// Usage: node check-explain.mjs ["<JS expression evaluated in the page>"]
+import { chromium } from '@playwright/test';
+
+const assertion = process.argv[2];
+const url = 'file:///C:/Projects/DashClaw/public/explain/index.html';
+
+const browser = await chromium.launch();
+const page = await browser.newPage();
+const errors = [];
+page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+page.on('pageerror', (e) => errors.push(String(e)));
+page.on('requestfailed', (r) => errors.push('REQUEST FAILED: ' + r.url()));
+page.on('request', (r) => {
+  if (!r.url().startsWith('file://')) errors.push('NETWORK REQUEST (page must be self-contained): ' + r.url());
+});
+
+await page.goto(url);
+await page.waitForTimeout(400);
+
+let failed = false;
+if (assertion) {
+  const ok = await page.evaluate(assertion).catch((e) => { errors.push('EVAL ERROR: ' + e.message); return false; });
+  if (!ok) { console.error('ASSERTION FAILED: ' + assertion); failed = true; }
+}
+if (errors.length) { console.error(errors.join('\n')); failed = true; }
+console.log(failed ? 'FAIL' : 'PASS');
+await browser.close();
+process.exitCode = failed ? 1 : 0;
+```
+
+- [ ] **Step 2: Run it to verify it fails (no page yet)**
+
+Run: `node "C:\Users\sandm\AppData\Local\Temp\claude\C--Projects-DashClaw\a0212990-6493-490d-90e8-46e7f3b4258d\scratchpad\check-explain.mjs"`
+Expected: FAIL (navigation error — file does not exist).
+
+- [ ] **Step 3: Create the skeleton `public/explain/index.html`**
+
+Structure (all in one file; the CSS/JS blocks below are the actual required content):
+
+```html
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DashClaw, explained — decision infrastructure for AI agents</title>
+<meta name="description" content="An interactive explainer: how DashClaw intercepts, enforces, records, and verifies AI-agent actions.">
+<style>
+/* Tokens mirrored from app/globals.css (source of truth). If they diverge, globals.css wins. */
+:root {
+  --brand: #f97316;
+  --brand-subtle: rgba(249, 115, 22, 0.12);
+  --brand-hover: #fb923c;
+  --bg-0: #0e1014;
+  --bg-1: #15171c;
+  --bg-2: #1d2026;
+  --bg-3: #272b32;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(249, 115, 22, 0.4);
+  --text-1: #fafafa;
+  --text-2: #c2c2cc;
+  --text-3: #9b9ba8;
+  --text-disabled: #5c5c66;
+  --ok: #22c55e;      --ok-subtle: rgba(34, 197, 94, 0.12);
+  --warn: #eab308;    --warn-subtle: rgba(234, 179, 8, 0.12);
+  --err: #ef4444;     --err-subtle: rgba(239, 68, 68, 0.12);
+  --info: #3b82f6;    --info-subtle: rgba(59, 130, 246, 0.12);
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg-0); color: var(--text-1); font-family: var(--sans); line-height: 1.6; font-size: 16px; }
+::selection { background: rgba(249, 115, 22, 0.28); color: #fff; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  html { scroll-behavior: auto; }
+}
+a { color: var(--text-2); }
+a:hover { color: var(--text-1); }
+code, pre, .mono { font-family: var(--mono); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+section { padding: 72px 0; border-top: 1px solid var(--border); }
+h1 { font-size: 40px; line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+h2 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -0.01em; }
+p.lede { color: var(--text-2); font-size: 18px; max-width: 62ch; }
+p, li { color: var(--text-2); }
+.meta-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; }
+.card:hover { border-color: var(--border-hover); }
+.btn { font: inherit; cursor: pointer; background: var(--bg-2); color: var(--text-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+.btn:hover { border-color: var(--border-hover); }
+.btn[aria-pressed="true"], .btn--primary { background: var(--brand); border-color: var(--brand); color: #0e1014; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+.chip--allow    { color: var(--ok);   background: var(--ok-subtle); }
+.chip--warn     { color: var(--warn); background: var(--warn-subtle); }
+.chip--block    { color: var(--err);  background: var(--err-subtle); }
+.chip--approval { color: var(--info); background: var(--info-subtle); }
+.tabular { font-variant-numeric: tabular-nums; }
+/* Sticky nav */
+.topnav { position: sticky; top: 0; z-index: 10; background: rgba(14, 16, 20, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.topnav .wrap { display: flex; align-items: center; gap: 20px; height: 56px; overflow-x: auto; }
+.topnav a { font-size: 13px; text-decoration: none; color: var(--text-3); white-space: nowrap; }
+.topnav a:hover { color: var(--text-1); }
+.topnav .brandmark { color: var(--text-1); font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+.topnav .brandmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+</style>
+</head>
+<body>
+<nav class="topnav" aria-label="Sections">
+  <div class="wrap">
+    <a class="brandmark" href="#top"><span class="dot" aria-hidden="true"></span>DashClaw</a>
+    <a href="#problem">The problem</a>
+    <a href="#loop">The loop</a>
+    <a href="#simulator">Guard simulator</a>
+    <a href="#policies">Policy playground</a>
+    <a href="#integrate">Integrate</a>
+    <a href="#practices">Best practices</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#go-deeper">Go deeper</a>
+  </div>
+</nav>
+
+<header id="top" style="padding: 96px 0 72px;">
+  <div class="wrap">
+    <div class="meta-label">Interactive explainer</div>
+    <h1>Decision infrastructure for AI&nbsp;agents.</h1>
+    <p class="lede">DashClaw is a governance runtime. It sits between an agent's intent and the real world: every consequential action is checked against policy before it happens, recorded while it happens, and verified after it happens. This page explains the model — then lets you play with it.</p>
+    <p class="lede">Four things, and only four: <strong style="color: var(--text-1)">policy enforcement</strong>, <strong style="color: var(--text-1)">decision recording</strong>, <strong style="color: var(--text-1)">assumption tracking</strong>, and <strong style="color: var(--text-1)">risk signals</strong>. It does not give agents tools to achieve goals — it governs the goals they already have.</p>
+    <p><a class="btn btn--primary" href="#problem" style="text-decoration:none; display:inline-block; margin-top:8px;">See how it works</a></p>
+  </div>
+</header>
+
+<section id="problem"><div class="wrap"><h2>The problem</h2></div></section>
+<section id="loop"><div class="wrap"><h2>The governance loop</h2></div></section>
+<section id="simulator"><div class="wrap"><h2>Guard decision simulator</h2></div></section>
+<section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
+<section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
+<section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
+<section id="architecture"><div class="wrap"><h2>Architecture at a glance</h2></div></section>
+<section id="go-deeper"><div class="wrap"><h2>Go deeper</h2></div></section>
+
+<footer style="border-top: 1px solid var(--border); padding: 32px 0; ">
+  <div class="wrap"><p class="meta-label">DashClaw — govern the goals, not the tools.</p></div>
+</footer>
+
+<script>
+'use strict';
+// ---- shared helpers (consumed by every section script added in later tasks) ----
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') node.textContent = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const child of [].concat(children)) node.append(child);
+  return node;
+}
+const DECISION_META = {
+  allow:            { cls: 'chip--allow',    label: 'allow' },
+  warn:             { cls: 'chip--warn',     label: 'warn' },
+  block:            { cls: 'chip--block',    label: 'block' },
+  require_approval: { cls: 'chip--approval', label: 'require_approval' },
+};
+function decisionChip(decision) {
+  const meta = DECISION_META[decision];
+  return el('span', { class: 'chip ' + meta.cls, text: meta.label });
+}
+</script>
+</body>
+</html>
+```
+
+- [ ] **Step 4: Verify skeleton passes**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('section[id]').length === 8 && !!document.querySelector('.topnav') && typeof decisionChip === 'function'"`
+Expected: PASS
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): skeleton for /explain interactive explainer (tokens, nav, hero)"
+```
+
+---
+
+### Task 2: The problem — ungoverned vs governed feed
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#problem`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`, `decisionChip`, `.card`, `.chip`, `.meta-label`, `.btn`.
+- Produces: nothing later tasks depend on (self-contained section).
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#problem-feed li').length >= 5 && document.querySelectorAll('#problem .chip').length === 0"`
+Expected: FAIL (feed not built yet).
+
+- [ ] **Step 2: Implement the section**
+
+Markup inside `<section id="problem">`'s `.wrap` (replace the bare `<h2>`):
+
+```html
+<div class="meta-label">Why governance</div>
+<h2>An agent's afternoon, twice</h2>
+<p class="lede">Same agent, same tasks. The only difference is whether a governance runtime sits between intent and execution.</p>
+<div role="group" aria-label="Governance mode" style="display:flex; gap:8px; margin:16px 0;">
+  <button class="btn" id="mode-ungoverned" aria-pressed="true">Ungoverned</button>
+  <button class="btn" id="mode-governed" aria-pressed="false">Governed</button>
+</div>
+<ol id="problem-feed" style="list-style:none; margin:0; padding:0; display:grid; gap:8px;"></ol>
+<p id="problem-summary" class="mono" style="font-size:13px; color:var(--text-3); margin-top:16px;" aria-live="polite"></p>
+```
+
+Append to the inline `<script>` (data is the actual copy — use verbatim):
+
+```js
+// ---- #problem: before/after feed ----
+const FEED_EVENTS = [
+  { time: '14:02', type: 'data.read',      goal: 'Read the Q2 revenue sheet',                          decision: 'allow' },
+  { time: '14:09', type: 'message.send',   goal: 'Email the Q2 summary to finance@',                   decision: 'allow' },
+  { time: '14:21', type: 'message.send',   goal: 'Email the Q2 summary to an external list (1,400 recipients)', decision: 'warn' },
+  { time: '14:34', type: 'payment.create', goal: 'Pay a new vendor invoice — $4,800',                  decision: 'require_approval' },
+  { time: '14:48', type: 'file.delete',    goal: 'Clean up: delete the shared /reports directory',     decision: 'block' },
+  { time: '15:03', type: 'deploy',         goal: 'Deploy the hotfix to production',                    decision: 'require_approval' },
+];
+function renderFeed(governed) {
+  const list = $('#problem-feed');
+  list.textContent = '';
+  let intercepted = 0;
+  for (const ev of FEED_EVENTS) {
+    const row = el('li', { class: 'card', style: 'display:flex; align-items:center; gap:12px; padding:10px 14px;' });
+    row.append(el('span', { class: 'mono tabular', style: 'color:var(--text-3); font-size:12px;', text: ev.time }));
+    row.append(el('code', { style: 'color:var(--text-3); font-size:12px;', text: ev.type }));
+    row.append(el('span', { style: 'flex:1; color:var(--text-2); font-size:14px;', text: ev.goal }));
+    if (governed) {
+      row.append(decisionChip(ev.decision));
+      if (ev.decision !== 'allow') intercepted++;
+    } else {
+      row.append(el('span', { class: 'mono', style: 'color:var(--text-disabled); font-size:12px;', text: 'executed silently' }));
+    }
+    list.append(row);
+  }
+  $('#problem-summary').textContent = governed
+    ? `${intercepted} of ${FEED_EVENTS.length} actions intercepted before execution. Every one of the ${FEED_EVENTS.length} is now in the decision ledger.`
+    : `${FEED_EVENTS.length} actions executed. No record, no policy check, no approval. You find out when someone asks about the invoice.`;
+  $('#mode-ungoverned').setAttribute('aria-pressed', String(!governed));
+  $('#mode-governed').setAttribute('aria-pressed', String(governed));
+}
+$('#mode-ungoverned').addEventListener('click', () => renderFeed(false));
+$('#mode-governed').addEventListener('click', () => renderFeed(true));
+renderFeed(false);
+```
+
+- [ ] **Step 3: Verify (ungoverned default shows no chips; toggling shows chips)**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { const before = document.querySelectorAll('#problem .chip').length; document.getElementById('mode-governed').click(); const after = document.querySelectorAll('#problem .chip').length; return before === 0 && after === 6 && document.getElementById('problem-summary').textContent.includes('intercepted'); })()"`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): before/after governed-feed section"
+```
+
+---
+
+### Task 3: The governance loop — step-through walkthrough
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#loop`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`, `$$`.
+- Produces: nothing later tasks depend on.
+
+The four steps and payloads come verbatim from `docs/architecture/runtime-api.md` (already condensed into the data below — implementer does not need to re-read it).
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#loop-steps button').length === 4 && document.getElementById('loop-detail').textContent.includes('/api/guard')"`
+Expected: FAIL.
+
+- [ ] **Step 2: Implement the section**
+
+Markup inside `<section id="loop">`'s `.wrap`:
+
+```html
+<div class="meta-label">How it works</div>
+<h2>The governance loop</h2>
+<p class="lede">A fully governed action makes four calls. Click each step — or use the arrow keys — to see what actually goes over the wire.</p>
+<div id="loop-steps" role="tablist" aria-label="Governance loop steps" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:20px 0;"></div>
+<div id="loop-detail" class="card" style="padding:20px;" role="tabpanel" aria-live="polite"></div>
+```
+
+Append JS. The `LOOP_STEPS` array below is complete content — use verbatim:
+
+```js
+// ---- #loop: step-through walkthrough ----
+const LOOP_STEPS = [
+  {
+    n: 1, name: 'Guard', q: '"Can I do this?"', method: 'POST', path: '/api/guard',
+    explain: 'Before acting, the agent declares what it intends to do. The runtime evaluates active policies and computed risk, then answers: allow, warn, block, or require_approval. Nothing has happened yet — this is interception before execution.',
+    payload: `{
+  "action_type": "deploy",
+  "declared_goal": "Deploy build #402 to production",
+  "systems_touched": ["production"],
+  "reversible": false
+}
+// -> { "decision": "require_approval", "risk_score": 85,
+//      "signals": ["Production access", "High risk score"], ... }`,
+  },
+  {
+    n: 2, name: 'Record', q: '"I am doing this."', method: 'POST', path: '/api/actions',
+    explain: 'The agent records the action in the ledger before executing. Recording runs guard evaluation internally too — a blocked action is stored as blocked and refused. An idempotency key makes retries safe: the same key returns the existing record instead of a duplicate.',
+    payload: `{
+  "agent_id": "deploy-agent-1",
+  "action_type": "deploy",
+  "declared_goal": "Deploy build #402 to production",
+  "idempotency_key": "sha256:..."
+}
+// -> { "action_id": "act_...", "status": "running" }`,
+  },
+  {
+    n: 3, name: 'Assumption', q: '"This belief matters while I act."', method: 'POST', path: '/api/assumptions',
+    explain: 'Optional but recommended: the agent states the beliefs its action depends on. If an assumption later proves false, you can find every action that was built on it. This is what makes post-incident review causal instead of archaeological.',
+    payload: `{
+  "action_id": "act_...",
+  "assumption": "The staging tests passed successfully.",
+  "basis": "CI run 402 was green before deploy."
+}
+// -> { "assumption_id": "asm_...", ... }`,
+  },
+  {
+    n: 4, name: 'Outcome', q: '"This actually completed — or failed."', method: 'POST', path: '/api/actions/:actionId/outcome',
+    explain: 'The agent reports the terminal result: completed, partial, or failed. First terminal outcome wins; a later report is rejected. failed requires an error message; partial requires a progress object. The ledger now holds the full story: intent, decision, beliefs, result.',
+    payload: `{
+  "status": "completed",
+  "summary": "Success: build #402 is live."
+}
+// A later POST -> 409 { "error": "outcome already set" }`,
+  },
+];
+let loopIndex = 0;
+function renderLoopDetail() {
+  const s = LOOP_STEPS[loopIndex];
+  const detail = $('#loop-detail');
+  detail.textContent = '';
+  detail.append(
+    el('div', { class: 'meta-label', text: `Step ${s.n} of 4 — ${s.q}` }),
+    el('div', { class: 'mono', style: 'margin:10px 0; color:var(--text-1); font-size:14px;', text: `${s.method} ${s.path}` }),
+    el('p', { style: 'margin:0 0 14px; max-width:70ch;', text: s.explain }),
+    el('pre', { class: 'mono', style: 'margin:0; padding:14px; background:var(--bg-0); border:1px solid var(--border); border-radius:8px; font-size:12.5px; overflow-x:auto; color:var(--text-2);', text: s.payload }),
+  );
+  $$('#loop-steps button').forEach((b, i) => {
+    b.setAttribute('aria-selected', String(i === loopIndex));
+    b.style.borderColor = i === loopIndex ? 'var(--border-active)' : 'var(--border)';
+    b.style.background = i === loopIndex ? 'var(--brand-subtle)' : 'var(--bg-1)';
+  });
+}
+LOOP_STEPS.forEach((s, i) => {
+  $('#loop-steps').append(el('button', {
+    class: 'btn', role: 'tab', 'aria-selected': 'false', style: 'padding:14px; text-align:left;',
+    onclick: () => { loopIndex = i; renderLoopDetail(); },
+  }, [
+    el('div', { class: 'meta-label', text: `Step ${s.n}` }),
+    el('div', { style: 'font-weight:600; margin-top:4px;', text: s.name }),
+  ]));
+});
+$('#loop-steps').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { loopIndex = (loopIndex + 1) % 4; renderLoopDetail(); $$('#loop-steps button')[loopIndex].focus(); }
+  if (e.key === 'ArrowLeft') { loopIndex = (loopIndex + 3) % 4; renderLoopDetail(); $$('#loop-steps button')[loopIndex].focus(); }
+});
+renderLoopDetail();
+```
+
+- [ ] **Step 3: Verify (default shows Guard; clicking step 4 shows outcome endpoint)**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { const d = document.getElementById('loop-detail'); if (!d.textContent.includes('/api/guard')) return false; document.querySelectorAll('#loop-steps button')[3].click(); return d.textContent.includes('/outcome') && d.textContent.includes('409'); })()"`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): governance-loop step-through walkthrough"
+```
+
+---
+
+### Task 4: Guard decision simulator
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#simulator`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`, `decisionChip`.
+- Produces: `SIM_ACTION_TYPES` (object keyed by action type: `{ base, label }`) and `assessRisk(inputs) -> { score, signals: [{delta, label}] }` and `decideFromScore(score, requireApprovalHighRisk) -> decision string` — **Task 5 reuses `decideFromScore` and the 40/70 band constants `BAND_WARN = 40`, `BAND_HIGH = 70`.**
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "typeof assessRisk === 'function' && typeof decideFromScore === 'function' && BAND_WARN === 40 && BAND_HIGH === 70"`
+Expected: FAIL.
+
+- [ ] **Step 2: Implement the section**
+
+Markup inside `<section id="simulator">`'s `.wrap`:
+
+```html
+<div class="meta-label">Illustrative simulation</div>
+<h2>Guard decision simulator</h2>
+<p class="lede">Describe a hypothetical action and watch the decision change. Illustrative simulation — production decisions come from the guard runtime, which computes risk server-side from the declared fields.</p>
+<div style="display:grid; grid-template-columns: 340px 1fr; gap:20px; margin-top:20px;" id="sim-grid">
+  <form class="card" style="padding:20px; display:grid; gap:14px;" id="sim-form">
+    <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Action type
+      <select id="sim-type" class="btn" style="width:100%;"></select>
+    </label>
+    <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend (USD)
+      <input id="sim-spend" class="btn" type="number" min="0" max="100000" value="0" style="width:100%;">
+    </label>
+    <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+      <input id="sim-irreversible" type="checkbox"> Irreversible
+    </label>
+    <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+      <input id="sim-production" type="checkbox"> Touches production
+    </label>
+    <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Agent track record
+      <input id="sim-trust" type="range" min="0" max="100" value="50">
+      <span id="sim-trust-label" class="mono" style="font-size:12px;"></span>
+    </label>
+    <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+      <input id="sim-approval-policy" type="checkbox" checked> Policy: high risk requires human approval
+    </label>
+  </form>
+  <div class="card" style="padding:20px;" aria-live="polite">
+    <div class="meta-label">Decision</div>
+    <div id="sim-decision" style="margin:10px 0;"></div>
+    <div class="meta-label" style="margin-top:14px;">Risk score</div>
+    <div id="sim-gauge" style="margin:10px 0;"></div>
+    <div class="meta-label" style="margin-top:14px;">Why</div>
+    <ul id="sim-why" class="mono" style="font-size:12.5px; margin:8px 0 0; padding-left:18px; color:var(--text-2);"></ul>
+  </div>
+</div>
+```
+
+Append JS (this is the complete illustrative model — use verbatim):
+
+```js
+// ---- #simulator: illustrative risk model ----
+const BAND_WARN = 40;  // real band: >= 40 is elevated
+const BAND_HIGH = 70;  // real band: >= 70 is high risk
+const SIM_ACTION_TYPES = {
+  'data.read':      { base: 10, label: 'Read data' },
+  'message.send':   { base: 25, label: 'Send a message' },
+  'file.write':     { base: 30, label: 'Write a file' },
+  'file.delete':    { base: 55, label: 'Delete files' },
+  'payment.create': { base: 60, label: 'Create a payment' },
+  'deploy':         { base: 65, label: 'Deploy' },
+};
+function assessRisk({ actionType, spendUsd, irreversible, production, trust }) {
+  const signals = [];
+  let score = SIM_ACTION_TYPES[actionType].base;
+  signals.push({ delta: score, label: `base risk for ${actionType}` });
+  if (spendUsd > 0) {
+    const d = Math.min(30, Math.round(Math.sqrt(spendUsd) / 2));
+    if (d > 0) { score += d; signals.push({ delta: d, label: `$${spendUsd} spend` }); }
+  }
+  if (irreversible) { score += 15; signals.push({ delta: 15, label: 'irreversible' }); }
+  if (production)   { score += 15; signals.push({ delta: 15, label: 'touches production' }); }
+  const trustAdj = Math.round((50 - trust) / 5);
+  if (trustAdj !== 0) signals.push({ delta: trustAdj, label: trust < 50 ? 'weak agent track record' : 'strong agent track record' });
+  score = Math.max(0, Math.min(100, score + trustAdj));
+  return { score, signals };
+}
+function decideFromScore(score, requireApprovalHighRisk) {
+  if (score >= BAND_HIGH) return requireApprovalHighRisk ? 'require_approval' : 'block';
+  if (score >= BAND_WARN) return 'warn';
+  return 'allow';
+}
+const DECISION_EXPLAIN = {
+  allow: 'Below the elevated band. The action proceeds and is recorded.',
+  warn: 'Elevated. The action proceeds, but the decision and its signals go to the ledger and the risk feed.',
+  block: 'High risk with no approval path configured. The action is refused and recorded as blocked. Blocks are absolute.',
+  require_approval: 'High risk. Execution pauses until a human approves — dashboard, CLI, or chat. An approval covers the identical action for 15 minutes.',
+};
+function renderSim() {
+  const inputs = {
+    actionType: $('#sim-type').value,
+    spendUsd: Number($('#sim-spend').value) || 0,
+    irreversible: $('#sim-irreversible').checked,
+    production: $('#sim-production').checked,
+    trust: Number($('#sim-trust').value),
+  };
+  const { score, signals } = assessRisk(inputs);
+  const decision = decideFromScore(score, $('#sim-approval-policy').checked);
+  $('#sim-trust-label').textContent = inputs.trust < 34 ? 'new / erratic' : inputs.trust < 67 ? 'established' : 'long, clean history';
+  const dbox = $('#sim-decision'); dbox.textContent = '';
+  dbox.append(decisionChip(decision), el('p', { style: 'margin:8px 0 0; font-size:14px;', text: DECISION_EXPLAIN[decision] }));
+  const gauge = $('#sim-gauge'); gauge.textContent = '';
+  const bar = el('div', { style: 'position:relative; height:10px; border-radius:5px; background:var(--bg-3); overflow:hidden;', role: 'img', 'aria-label': `Risk score ${score} of 100` });
+  const fillColor = score >= BAND_HIGH ? 'var(--err)' : score >= BAND_WARN ? 'var(--warn)' : 'var(--ok)';
+  bar.append(el('div', { style: `width:${score}%; height:100%; background:${fillColor}; transition: width .25s;` }));
+  gauge.append(bar);
+  const ticks = el('div', { class: 'mono', style: 'display:flex; justify-content:space-between; font-size:11px; color:var(--text-3); margin-top:4px;' });
+  ticks.append(el('span', { text: '0' }), el('span', { text: '40 · warn' }), el('span', { text: '70 · high' }), el('span', { class: 'tabular', text: `${score} / 100` }));
+  gauge.append(ticks);
+  const why = $('#sim-why'); why.textContent = '';
+  for (const s of signals) why.append(el('li', { text: `${s.delta >= 0 ? '+' : ''}${s.delta}  ${s.label}` }));
+}
+for (const [value, meta] of Object.entries(SIM_ACTION_TYPES)) {
+  $('#sim-type').append(el('option', { value, text: `${meta.label} (${value})` }));
+}
+$('#sim-type').value = 'deploy';
+$('#sim-form').addEventListener('input', renderSim);
+renderSim();
+```
+
+Add a narrow-screen fallback in the `<style>` block:
+
+```css
+@media (max-width: 760px) { #sim-grid { grid-template-columns: 1fr !important; } }
+```
+
+- [ ] **Step 3: Verify behavior (deploy + production + irreversible ⇒ require_approval; unchecking approval policy ⇒ block)**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { document.getElementById('sim-production').checked = true; document.getElementById('sim-irreversible').checked = true; document.getElementById('sim-form').dispatchEvent(new Event('input')); const a = document.querySelector('#sim-decision .chip').textContent; document.getElementById('sim-approval-policy').checked = false; document.getElementById('sim-form').dispatchEvent(new Event('input')); const b = document.querySelector('#sim-decision .chip').textContent; return a === 'require_approval' && b === 'block'; })()"`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): illustrative guard decision simulator"
+```
+
+---
+
+### Task 5: Policy playground
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#policies`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`, `$$`, `decisionChip`, `decideFromScore`, `BAND_WARN`, `BAND_HIGH` from Task 4 (exact names).
+- Produces: nothing later tasks depend on.
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#policy-table tbody tr').length === 8"`
+Expected: FAIL.
+
+- [ ] **Step 2: Implement the section**
+
+Markup inside `<section id="policies">`'s `.wrap`:
+
+```html
+<div class="meta-label">Illustrative simulation</div>
+<h2>Policy playground</h2>
+<p class="lede">Policies are the contract between you and your agents. Compose one and watch it re-evaluate a day of agent activity. Illustrative simulation — production decisions come from the guard runtime.</p>
+<div class="card" style="padding:16px 20px; display:flex; flex-wrap:wrap; gap:20px; align-items:center; margin:20px 0;" id="policy-form">
+  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend cap (USD)
+    <input id="pol-cap" class="btn" type="number" min="0" value="1000" style="width:120px;">
+  </label>
+  <fieldset style="border:0; margin:0; padding:0; display:flex; gap:12px; font-size:13px; color:var(--text-3);">
+    <legend class="meta-label" style="padding:0; margin-bottom:4px;">Blocked action types</legend>
+    <label><input type="checkbox" class="pol-blocked" value="file.delete" checked> file.delete</label>
+    <label><input type="checkbox" class="pol-blocked" value="payment.create"> payment.create</label>
+    <label><input type="checkbox" class="pol-blocked" value="deploy"> deploy</label>
+  </fieldset>
+  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Require approval at risk ≥
+    <input id="pol-approve-at" class="btn" type="number" min="0" max="100" value="70" style="width:90px;">
+  </label>
+</div>
+<div class="card" style="overflow-x:auto;">
+  <table id="policy-table" style="width:100%; border-collapse:collapse; font-size:13.5px;">
+    <thead><tr>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Action</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Type</th>
+      <th style="text-align:right; padding:10px 14px;" class="meta-label">Spend</th>
+      <th style="text-align:right; padding:10px 14px;" class="meta-label">Risk</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Decision</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Because</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+```
+
+Append JS (sample-action data is complete — use verbatim):
+
+```js
+// ---- #policies: policy playground ----
+const SAMPLE_ACTIONS = [
+  { goal: 'Summarize yesterday’s support tickets',    type: 'data.read',      spend: 0,    risk: 8  },
+  { goal: 'Reply to a customer thread',                    type: 'message.send',   spend: 0,    risk: 22 },
+  { goal: 'Update the pricing page copy',                  type: 'file.write',     spend: 0,    risk: 34 },
+  { goal: 'Send the weekly digest to 1,400 subscribers',   type: 'message.send',   spend: 0,    risk: 48 },
+  { goal: 'Renew a SaaS subscription — $89',          type: 'payment.create', spend: 89,   risk: 52 },
+  { goal: 'Pay a new vendor invoice — $4,800',        type: 'payment.create', spend: 4800, risk: 74 },
+  { goal: 'Delete stale build artifacts',                  type: 'file.delete',    spend: 0,    risk: 58 },
+  { goal: 'Deploy the hotfix to production',               type: 'deploy',         spend: 0,    risk: 82 },
+];
+function evaluatePolicy(action, policy) {
+  if (policy.blockedTypes.includes(action.type)) return { decision: 'block', because: `action type ${action.type} is blocked by policy` };
+  if (policy.spendCap >= 0 && action.spend > policy.spendCap) return { decision: 'require_approval', because: `$${action.spend} exceeds the $${policy.spendCap} cap` };
+  if (action.risk >= policy.approveAt) return { decision: 'require_approval', because: `risk ${action.risk} ≥ approval threshold ${policy.approveAt}` };
+  if (action.risk >= BAND_WARN) return { decision: 'warn', because: `risk ${action.risk} is in the elevated band (≥ ${BAND_WARN})` };
+  return { decision: 'allow', because: `risk ${action.risk} is below the elevated band` };
+}
+function renderPolicyTable() {
+  const policy = {
+    spendCap: Number($('#pol-cap').value) || 0,
+    approveAt: Math.max(0, Math.min(100, Number($('#pol-approve-at').value) || 100)),
+    blockedTypes: $$('.pol-blocked:checked').map((c) => c.value),
+  };
+  const tbody = $('#policy-table tbody');
+  tbody.textContent = '';
+  for (const a of SAMPLE_ACTIONS) {
+    const { decision, because } = evaluatePolicy(a, policy);
+    const tr = el('tr', { style: 'border-top:1px solid var(--border);' });
+    tr.append(
+      el('td', { style: 'padding:10px 14px; color:var(--text-2);', text: a.goal }),
+      el('td', { style: 'padding:10px 14px;' }, el('code', { style: 'font-size:12px; color:var(--text-3);', text: a.type })),
+      el('td', { class: 'mono tabular', style: 'padding:10px 14px; text-align:right; color:var(--text-3);', text: a.spend ? `$${a.spend}` : '—' }),
+      el('td', { class: 'mono tabular', style: 'padding:10px 14px; text-align:right; color:var(--text-3);', text: String(a.risk) }),
+      el('td', { style: 'padding:10px 14px;' }, decisionChip(decision)),
+      el('td', { style: 'padding:10px 14px; font-size:12.5px; color:var(--text-3);', text: because }),
+    );
+    tbody.append(tr);
+  }
+}
+$('#policy-form').addEventListener('input', renderPolicyTable);
+renderPolicyTable();
+```
+
+- [ ] **Step 3: Verify (defaults: file.delete blocked, $4800 invoice needs approval; raising cap to 10000 and unblocking file.delete changes both)**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { const rows = () => Array.from(document.querySelectorAll('#policy-table tbody tr')).map(r => r.querySelector('.chip').textContent); const a = rows(); document.getElementById('pol-cap').value = '10000'; document.querySelector('.pol-blocked[value=\\'file.delete\\']').checked = false; document.getElementById('policy-form').dispatchEvent(new Event('input')); const b = rows(); return a[6] === 'block' && a[5] === 'require_approval' && b[6] === 'warn' && b[5] === 'require_approval'; })()"`
+Expected: PASS (row 5 stays require_approval on risk 74 ≥ 70 even after the cap is raised — that's the point: layered rules).
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): interactive policy playground"
+```
+
+---
+
+### Task 6: One action, four integrations
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#integrate`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`, `$$`.
+- Produces: nothing later tasks depend on.
+
+Snippet conventions: Node SDK is camelCase (`createAction`, `waitForApproval`), Python SDK is snake_case (`create_action`, `wait_for_approval`), MCP tools are `dashclaw_guard` / `dashclaw_record`, raw HTTP uses the endpoints from the loop section. These follow `sdk/README.md` and `docs/architecture/runtime-api.md` — the templates below are already checked against them; use verbatim.
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#integrate [role=tab]').length === 4 && document.getElementById('integrate-code').textContent.includes('guard')"`
+Expected: FAIL.
+
+- [ ] **Step 2: Implement the section**
+
+Markup inside `<section id="integrate">`'s `.wrap`:
+
+```html
+<div class="meta-label">Integration</div>
+<h2>One action, four integrations</h2>
+<p class="lede">The same governed action — guard, record, act, report — in whichever shape your stack speaks. Pick a scenario, pick a style, copy it out.</p>
+<div style="display:flex; gap:8px; margin:16px 0;" role="group" aria-label="Scenario">
+  <select id="int-scenario" class="btn"></select>
+</div>
+<div id="int-tabs" role="tablist" aria-label="Integration style" style="display:flex; gap:8px; margin-bottom:0;"></div>
+<div class="card" style="border-top-left-radius:0; position:relative;">
+  <button id="int-copy" class="btn" style="position:absolute; top:10px; right:10px; font-size:12px;">Copy</button>
+  <pre id="integrate-code" class="mono" style="margin:0; padding:20px; font-size:12.5px; overflow-x:auto; color:var(--text-2);"></pre>
+</div>
+```
+
+Append JS. `INT_SCENARIOS` and the four template functions are complete content — use verbatim:
+
+```js
+// ---- #integrate: scenario-driven code tabs ----
+const INT_SCENARIOS = [
+  { id: 'email',  label: 'Send a customer email',        type: 'message.send',   goal: 'Send the renewal reminder to acme-corp' },
+  { id: 'pay',    label: 'Pay a vendor invoice',          type: 'payment.create', goal: 'Pay invoice #8841 — $4,800 to Northwind' },
+  { id: 'deploy', label: 'Deploy to production',          type: 'deploy',         goal: 'Deploy build #402 to production' },
+];
+const INT_STYLES = [
+  { id: 'node', label: 'Node SDK', render: (s) => `import { DashClaw, GuardBlockedError } from 'dashclaw';
+
+const claw = new DashClaw({ baseUrl, apiKey, agentId: 'my-agent' });
+
+const decision = await claw.guard({
+  action_type: '${s.type}',
+  declared_goal: '${s.goal}',
+});
+if (decision.decision === 'block') throw new GuardBlockedError(decision);
+
+const { action, action_id } = await claw.createAction({
+  action_type: '${s.type}',
+  declared_goal: '${s.goal}',
+  idempotency_key: claw.deriveIdempotencyKey({
+    agent_id: 'my-agent', action_type: '${s.type}', declared_goal: '${s.goal}',
+  }),
+});
+if (action?.status === 'pending_approval') await claw.waitForApproval(action_id);
+
+try {
+  await doTheWork();
+  await claw.reportActionSuccess(action_id, 'Done.');
+} catch (err) {
+  await claw.reportActionFailure(action_id, err.message);
+  throw err;
+}` },
+  { id: 'python', label: 'Python SDK', render: (s) => `from dashclaw import DashClaw, GuardBlockedError
+
+claw = DashClaw(base_url=base_url, api_key=api_key, agent_id="my-agent")
+
+decision = claw.guard(
+    action_type="${s.type}",
+    declared_goal="${s.goal}",
+)
+if decision["decision"] == "block":
+    raise GuardBlockedError(decision)
+
+result = claw.create_action(
+    action_type="${s.type}",
+    declared_goal="${s.goal}",
+    idempotency_key=claw.derive_idempotency_key(
+        agent_id="my-agent", action_type="${s.type}", declared_goal="${s.goal}",
+    ),
+)
+if result["action"]["status"] == "pending_approval":
+    claw.wait_for_approval(result["action_id"])
+
+try:
+    do_the_work()
+    claw.report_action_success(result["action_id"], "Done.")
+except Exception as err:
+    claw.report_action_failure(result["action_id"], str(err))
+    raise` },
+  { id: 'mcp', label: 'MCP', render: (s) => `// In an MCP host (Claude Code, Claude Desktop, any MCP client)
+// with @dashclaw/mcp-server connected, the agent calls tools:
+
+dashclaw_guard({
+  "action_type": "${s.type}",
+  "declared_goal": "${s.goal}"
+})
+// -> decision: allow | warn | block | require_approval
+
+dashclaw_record({
+  "action_type": "${s.type}",
+  "declared_goal": "${s.goal}",
+  "status": "running"
+})
+// ...do the work, then report the outcome on the returned action_id.
+// If approval is required, dashclaw_wait_for_approval(action_id)
+// pauses until a human decides.` },
+  { id: 'http', label: 'Raw HTTP', render: (s) => `# 1. Guard — "Can I do this?"
+curl -X POST "$DASHCLAW_URL/api/guard" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"action_type":"${s.type}","declared_goal":"${s.goal}"}'
+
+# 2. Record — "I am doing this."
+curl -X POST "$DASHCLAW_URL/api/actions" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agent_id":"my-agent","action_type":"${s.type}","declared_goal":"${s.goal}"}'
+
+# 3. Do the work, then report the outcome.
+curl -X POST "$DASHCLAW_URL/api/actions/$ACTION_ID/outcome" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status":"completed","summary":"Done."}'` },
+];
+let intStyle = 'node';
+function renderIntegrate() {
+  const scenario = INT_SCENARIOS.find((s) => s.id === $('#int-scenario').value);
+  const style = INT_STYLES.find((st) => st.id === intStyle);
+  $('#integrate-code').textContent = style.render(scenario);
+  $$('#int-tabs [role=tab]').forEach((t) => {
+    const active = t.dataset.style === intStyle;
+    t.setAttribute('aria-selected', String(active));
+    t.style.borderColor = active ? 'var(--border-active)' : 'var(--border)';
+    t.style.background = active ? 'var(--brand-subtle)' : 'var(--bg-1)';
+  });
+}
+for (const s of INT_SCENARIOS) $('#int-scenario').append(el('option', { value: s.id, text: s.label }));
+for (const st of INT_STYLES) {
+  $('#int-tabs').append(el('button', {
+    class: 'btn', role: 'tab', 'aria-selected': 'false', 'data-style': st.id,
+    style: 'border-bottom-left-radius:0; border-bottom-right-radius:0;',
+    onclick: () => { intStyle = st.id; renderIntegrate(); }, text: st.label,
+  }));
+}
+$('#int-scenario').addEventListener('input', renderIntegrate);
+$('#int-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#integrate-code').textContent); $('#int-copy').textContent = 'Copied'; }
+  catch { $('#int-copy').textContent = 'Select + copy'; }
+  setTimeout(() => { $('#int-copy').textContent = 'Copy'; }, 1600);
+});
+renderIntegrate();
+```
+
+- [ ] **Step 3: Verify (scenario swap rewrites all tabs; python tab uses snake_case)**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { const code = document.getElementById('integrate-code'); document.getElementById('int-scenario').value = 'deploy'; document.getElementById('int-scenario').dispatchEvent(new Event('input')); if (!code.textContent.includes('build #402')) return false; document.querySelector('[data-style=python]').click(); return code.textContent.includes('create_action') && code.textContent.includes('deploy'); })()"`
+Expected: PASS
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): one-action-four-integrations code tabs"
+```
+
+---
+
+### Task 7: Best practices, architecture SVG, go-deeper links
+
+**Files:**
+- Modify: `public/explain/index.html` (fill `#practices`, `#architecture`, `#go-deeper`; append JS)
+
+**Interfaces:**
+- Consumes: `el`, `$`.
+- Produces: nothing later tasks depend on.
+
+- [ ] **Step 1: Write the failing assertion**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#practices details').length === 8 && !!document.querySelector('#architecture svg') && document.querySelectorAll('#go-deeper a').length >= 4"`
+Expected: FAIL.
+
+- [ ] **Step 2: Implement `#practices`**
+
+Markup inside `<section id="practices">`'s `.wrap`:
+
+```html
+<div class="meta-label">Operating well</div>
+<h2>Best practices</h2>
+<p class="lede">Distilled from running governed fleets. Each one exists because its absence has a failure story.</p>
+<div id="practice-list" style="display:grid; gap:8px; margin-top:16px;"></div>
+```
+
+JS — `PRACTICES` content is complete, use verbatim:
+
+```js
+// ---- #practices ----
+const PRACTICES = [
+  { t: 'Fail closed', d: 'When the guard is unreachable or a policy is ambiguous, treat it as a block, not an allow. A paused agent is an inconvenience; an ungoverned one is an incident. DashClaw’s own non-fabrication verifier blocks on any error or malformed input for exactly this reason.' },
+  { t: 'Record everything, idempotently', d: 'Every consequential action goes in the ledger before it executes, with an idempotency key derived from agent, type, and goal. Retries then return the existing record instead of double-recording — and double-executing paths get caught.' },
+  { t: 'Never self-approve', d: 'An agent must never approve its own pending action, and a block is absolute — it is never downgraded, not even by an operator approval. If your integration can reach the approvals API, scope that credential away from the acting agent.' },
+  { t: 'Declare goals honestly and specifically', d: '"Deploy build #402 to production" is governable; "run task" is not. Risk is computed from what you declare — vague declarations produce useless ledgers and let real risk hide. Approvals also match on the exact declared goal.' },
+  { t: 'Report outcomes — including failures', d: 'The loop is not done at execution. Report completed, partial, or failed; the first terminal outcome wins. A ledger of intents without outcomes cannot tell you what actually happened.' },
+  { t: 'Track the assumptions that carry weight', d: 'When an action rests on a belief — "staging was green", "this invoice is legitimate" — record it with its basis. When a belief turns out false, you can instantly find every action built on it.' },
+  { t: 'Use sessions to bound accountability', d: 'Start and end sessions around units of agent work. A decision trail scoped to a session answers "what did this run do" without archaeology across the whole ledger.' },
+  { t: 'Treat approvals as a contract, not a speed bump', d: 'Set approval thresholds where a human genuinely adds judgment — spend above a cap, irreversible operations, production access. Approve promptly or tune the threshold: a queue everyone rubber-stamps is worse than a lower gate.' },
+];
+for (const p of PRACTICES) {
+  $('#practice-list').append(el('details', { class: 'card', style: 'padding:14px 20px;' }, [
+    el('summary', { style: 'cursor:pointer; font-weight:600; color:var(--text-1);', text: p.t }),
+    el('p', { style: 'margin:10px 0 2px; max-width:75ch;', text: p.d }),
+  ]));
+}
+```
+
+- [ ] **Step 3: Implement `#architecture` (static inline SVG)**
+
+Markup inside `<section id="architecture">`'s `.wrap` (the SVG is complete — use verbatim; it uses `currentColor` and token vars only):
+
+```html
+<div class="meta-label">The shape of it</div>
+<h2>Architecture at a glance</h2>
+<p class="lede">Agents speak to the runtime through an SDK, MCP server, or plain HTTP. The runtime enforces policy and writes the ledger. Humans watch and decide through the dashboard.</p>
+<div class="card" style="padding:24px; margin-top:16px; overflow-x:auto;">
+<svg viewBox="0 0 920 300" role="img" aria-label="Diagram: agents connect via SDK, MCP, or HTTP to the DashClaw governance runtime backed by Postgres; the dashboard surfaces Mission Control, Decisions, and Policies for humans." style="min-width:720px; width:100%; font-family:var(--mono); font-size:13px;">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9b9ba8"/>
+    </marker>
+  </defs>
+  <!-- agents -->
+  <g stroke="#3a3f47" fill="#15171c">
+    <rect x="20" y="30"  width="150" height="52" rx="10"/>
+    <rect x="20" y="124" width="150" height="52" rx="10"/>
+    <rect x="20" y="218" width="150" height="52" rx="10"/>
+  </g>
+  <g fill="#c2c2cc" text-anchor="middle">
+    <text x="95" y="61">coding agent</text>
+    <text x="95" y="155">ops agent</text>
+    <text x="95" y="249">support agent</text>
+  </g>
+  <!-- transport -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="250" y="106" width="140" height="88" rx="10"/>
+  </g>
+  <g fill="#c2c2cc" text-anchor="middle">
+    <text x="320" y="138">SDK / MCP</text>
+    <text x="320" y="160" fill="#9b9ba8">or raw HTTP</text>
+  </g>
+  <!-- runtime -->
+  <g stroke="#f97316" fill="#15171c">
+    <rect x="470" y="76" width="200" height="148" rx="12" stroke-width="1.5"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="570" y="106" fill="#fafafa" font-weight="bold">governance runtime</text>
+    <text x="570" y="132" fill="#9b9ba8">guard · policies</text>
+    <text x="570" y="154" fill="#9b9ba8">ledger · assumptions</text>
+    <text x="570" y="176" fill="#9b9ba8">risk signals · approvals</text>
+    <text x="570" y="202" fill="#9b9ba8">outcomes · evidence</text>
+  </g>
+  <!-- postgres -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="750" y="120" width="150" height="60" rx="10"/>
+  </g>
+  <text x="825" y="155" fill="#c2c2cc" text-anchor="middle">Postgres</text>
+  <!-- dashboard -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="470" y="252" width="200" height="40" rx="10"/>
+  </g>
+  <text x="570" y="277" fill="#c2c2cc" text-anchor="middle">dashboard · humans</text>
+  <!-- edges -->
+  <g stroke="#9b9ba8" fill="none" marker-end="url(#arrow)">
+    <path d="M 170 56 C 215 56, 215 122, 250 132"/>
+    <path d="M 170 150 L 250 150"/>
+    <path d="M 170 244 C 215 244, 215 178, 250 168"/>
+    <path d="M 390 150 L 470 150"/>
+    <path d="M 670 150 L 750 150"/>
+    <path d="M 570 224 L 570 252"/>
+  </g>
+  <text x="430" y="140" fill="#5c5c66" text-anchor="middle" font-size="11">govern</text>
+  <text x="710" y="140" fill="#5c5c66" text-anchor="middle" font-size="11">persist</text>
+</svg>
+</div>
+<p style="font-size:13px; color:var(--text-3);">The dashboard surfaces are Mission Control (fleet posture and live decisions), Decisions (the causal-chain ledger), and Policies (the interruption contract). Note the direction of the human edge: people <em>observe and decide</em>; they are not in the data path of every action.</p>
+```
+
+Note: the SVG uses literal hex values matching the token block (`#f97316`, `#15171c`, `#1d2026`, `#9b9ba8`, `#c2c2cc`, `#fafafa`, `#5c5c66`, plus `#3a3f47` as the border stroke — SVG attributes cannot reference CSS vars in all contexts). This is the one sanctioned spot for literal hexes; keep them identical to the token values and add the comment `<!-- colors mirror the :root token block above -->` at the top of the SVG.
+
+- [ ] **Step 4: Implement `#go-deeper`**
+
+Markup inside `<section id="go-deeper">`'s `.wrap` (relative links so the page works on any instance host):
+
+```html
+<div class="meta-label">Next steps</div>
+<h2>Go deeper</h2>
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;">
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/connect">
+    <div style="font-weight:600; color:var(--text-1);">Wire up your first agent</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/connect — onboarding to the first governed action</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/mission-control">
+    <div style="font-weight:600; color:var(--text-1);">Watch a fleet live</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/mission-control — posture, interventions, decision stream</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/decisions">
+    <div style="font-weight:600; color:var(--text-1);">Read a real ledger</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/decisions — the causal chain of every governed action</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="https://github.com/ucsandman/DashClaw#readme">
+    <div style="font-weight:600; color:var(--text-1);">Quick start &amp; SDKs</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">README, QUICK-START, Node &amp; Python SDK docs</div>
+  </a>
+</div>
+```
+
+- [ ] **Step 5: Verify**
+
+Run: `node "<scratchpad>\check-explain.mjs" "document.querySelectorAll('#practices details').length === 8 && !!document.querySelector('#architecture svg') && document.querySelectorAll('#go-deeper a').length >= 4"`
+Expected: PASS
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add public/explain/index.html
+git commit -m "feat(explain): best practices, architecture diagram, go-deeper links"
+```
+
+---
+
+### Task 8: Full verification pass + README link
+
+**Files:**
+- Modify: `README.md` (one line)
+- Verify: `public/explain/index.html`
+
+**Interfaces:**
+- Consumes: everything.
+
+- [ ] **Step 1: Full-page interactive sweep via the check script**
+
+Run: `node "<scratchpad>\check-explain.mjs" "(() => { return document.querySelectorAll('section[id]').length === 8 && document.querySelectorAll('.topnav a').length === 9 && document.body.textContent.includes('Illustrative simulation'); })()"`
+Expected: PASS (also proves: zero console errors, zero non-file:// network requests across the whole page).
+
+- [ ] **Step 2: Grep the drift guards**
+
+Run (from repo root):
+```bash
+grep -n -E "4\.[0-9]+\.[0-9]+|v[0-9]+\.[0-9]+|[0-9]+ (routes|methods|tools|policies|endpoints)" public/explain/index.html
+```
+Expected: no matches. (No version strings, no counts. `#402`/`$4,800`/`risk 74` are fine — the pattern above is scoped to avoid them; eyeball any hit before judging.)
+
+- [ ] **Step 3: Serve-path check on the dev server**
+
+Run: `npm run dev` in background, wait for ready, then request `http://localhost:3000/explain/` (curl -s -o NUL -w "%{http_code}") — Expected: `200`. Then kill the dev server. (Gotcha from memory: make sure no other dev server is already running on :3000 first.)
+
+- [ ] **Step 4: README discoverability line**
+
+In `README.md`, find the documentation/links area (search for the line containing `QUICK-START`) and add one line in matching style:
+
+```markdown
+- **[/explain](https://dashclaw.io/explain/)** — interactive explainer: the governance loop, a guard-decision simulator, and a policy playground.
+```
+
+- [ ] **Step 5: Repo gates**
+
+Run and READ output:
+```bash
+npm run lint
+npx vitest run
+node scripts/check-doc-counts.mjs --strict
+```
+Expected: all pass (this change touches no app code; failures mean something unrelated is broken — investigate before shipping).
+
+- [ ] **Step 6: Reduced-motion + keyboard spot check**
+
+Run: `node "<scratchpad>\check-explain.mjs"` once more after adding `--force-prefers-reduced-motion` is NOT available via this script — instead verify in the page: the CSS media block from Task 1 exists (grep `prefers-reduced-motion` in the file) and every interactive control is a native `button`/`select`/`input`/`summary`/`a` (grep for `onclick` on non-button elements — expect none).
+
+```bash
+grep -c "prefers-reduced-motion" public/explain/index.html   # expect >= 1
+grep -n "div.*onclick\|span.*onclick" public/explain/index.html   # expect no matches
+```
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add public/explain/index.html README.md
+git commit -m "feat(explain): ship /explain interactive explainer + README link"
+```
+
+---
+
+## Self-Review (done at plan time)
+
+- **Spec coverage:** hero (T1), problem toggle (T2), loop walkthrough (T3), simulator (T4), policy playground (T5), four-way integration (T6), best practices + architecture SVG + go-deeper (T7), README line + verification (T8). All nine spec sections and both files covered.
+- **Placeholder scan:** all data arrays, copy, logic, and markup are verbatim in the plan; no TBDs.
+- **Type consistency:** `decideFromScore`, `BAND_WARN`, `BAND_HIGH` defined in Task 4 and consumed by Task 5 with matching names; `el`/`$`/`$$`/`decisionChip` defined in Task 1 and used consistently everywhere.
