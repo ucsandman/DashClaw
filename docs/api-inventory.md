@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-06-17
+last-verified: 2026-07-01
 doc-type: architecture
 ---
 
