@@ -149,7 +149,38 @@ p, li { color: var(--text-2); }
     </div>
   </div>
 </div></section>
-<section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
+<section id="policies"><div class="wrap">
+<div class="meta-label">Illustrative simulation</div>
+<h2>Policy playground</h2>
+<p class="lede">Policies are the contract between you and your agents. Compose one and watch it re-evaluate a day of agent activity. Illustrative simulation — production decisions come from the guard runtime.</p>
+<div class="card" style="padding:16px 20px; display:flex; flex-wrap:wrap; gap:20px; align-items:center; margin:20px 0;" id="policy-form">
+  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend cap (USD)
+    <input id="pol-cap" class="btn" type="number" min="0" value="1000" style="width:120px;">
+  </label>
+  <fieldset style="border:0; margin:0; padding:0; display:flex; gap:12px; font-size:13px; color:var(--text-3);">
+    <legend class="meta-label" style="padding:0; margin-bottom:4px;">Blocked action types</legend>
+    <label><input type="checkbox" class="pol-blocked" value="file.delete" checked> file.delete</label>
+    <label><input type="checkbox" class="pol-blocked" value="payment.create"> payment.create</label>
+    <label><input type="checkbox" class="pol-blocked" value="deploy"> deploy</label>
+  </fieldset>
+  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Require approval at risk ≥
+    <input id="pol-approve-at" class="btn" type="number" min="0" max="100" value="70" style="width:90px;">
+  </label>
+</div>
+<div class="card" style="overflow-x:auto;">
+  <table id="policy-table" style="width:100%; border-collapse:collapse; font-size:13.5px;">
+    <thead><tr>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Action</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Type</th>
+      <th style="text-align:right; padding:10px 14px;" class="meta-label">Spend</th>
+      <th style="text-align:right; padding:10px 14px;" class="meta-label">Risk</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Decision</th>
+      <th style="text-align:left; padding:10px 14px;" class="meta-label">Because</th>
+    </tr></thead>
+    <tbody></tbody>
+  </table>
+</div>
+</div></section>
 <section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
 <section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
 <section id="architecture"><div class="wrap"><h2>Architecture at a glance</h2></div></section>
@@ -365,6 +396,49 @@ for (const [value, meta] of Object.entries(SIM_ACTION_TYPES)) {
 $('#sim-type').value = 'deploy';
 $('#sim-form').addEventListener('input', renderSim);
 renderSim();
+
+// ---- #policies: policy playground ----
+const SAMPLE_ACTIONS = [
+  { goal: 'Summarize yesterday’s support tickets',    type: 'data.read',      spend: 0,    risk: 8  },
+  { goal: 'Reply to a customer thread',                    type: 'message.send',   spend: 0,    risk: 22 },
+  { goal: 'Update the pricing page copy',                  type: 'file.write',     spend: 0,    risk: 34 },
+  { goal: 'Send the weekly digest to 1,400 subscribers',   type: 'message.send',   spend: 0,    risk: 48 },
+  { goal: 'Renew a SaaS subscription — $89',          type: 'payment.create', spend: 89,   risk: 52 },
+  { goal: 'Pay a new vendor invoice — $4,800',        type: 'payment.create', spend: 4800, risk: 74 },
+  { goal: 'Delete stale build artifacts',                  type: 'file.delete',    spend: 0,    risk: 58 },
+  { goal: 'Deploy the hotfix to production',               type: 'deploy',         spend: 0,    risk: 82 },
+];
+function evaluatePolicy(action, policy) {
+  if (policy.blockedTypes.includes(action.type)) return { decision: 'block', because: `action type ${action.type} is blocked by policy` };
+  if (policy.spendCap >= 0 && action.spend > policy.spendCap) return { decision: 'require_approval', because: `$${action.spend} exceeds the $${policy.spendCap} cap` };
+  if (action.risk >= policy.approveAt) return { decision: 'require_approval', because: `risk ${action.risk} ≥ approval threshold ${policy.approveAt}` };
+  if (action.risk >= BAND_WARN) return { decision: 'warn', because: `risk ${action.risk} is in the elevated band (≥ ${BAND_WARN})` };
+  return { decision: 'allow', because: `risk ${action.risk} is below the elevated band` };
+}
+function renderPolicyTable() {
+  const policy = {
+    spendCap: Number($('#pol-cap').value) || 0,
+    approveAt: Math.max(0, Math.min(100, Number($('#pol-approve-at').value) || 100)),
+    blockedTypes: $$('.pol-blocked:checked').map((c) => c.value),
+  };
+  const tbody = $('#policy-table tbody');
+  tbody.textContent = '';
+  for (const a of SAMPLE_ACTIONS) {
+    const { decision, because } = evaluatePolicy(a, policy);
+    const tr = el('tr', { style: 'border-top:1px solid var(--border);' });
+    tr.append(
+      el('td', { style: 'padding:10px 14px; color:var(--text-2);', text: a.goal }),
+      el('td', { style: 'padding:10px 14px;' }, el('code', { style: 'font-size:12px; color:var(--text-3);', text: a.type })),
+      el('td', { class: 'mono tabular', style: 'padding:10px 14px; text-align:right; color:var(--text-3);', text: a.spend ? `$${a.spend}` : '—' }),
+      el('td', { class: 'mono tabular', style: 'padding:10px 14px; text-align:right; color:var(--text-3);', text: String(a.risk) }),
+      el('td', { style: 'padding:10px 14px;' }, decisionChip(decision)),
+      el('td', { style: 'padding:10px 14px; font-size:12.5px; color:var(--text-3);', text: because }),
+    );
+    tbody.append(tr);
+  }
+}
+$('#policy-form').addEventListener('input', renderPolicyTable);
+renderPolicyTable();
 </script>
 </body>
 </html>
