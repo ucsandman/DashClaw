@@ -94,7 +94,17 @@ p, li { color: var(--text-2); }
   </div>
 </header>
 
-<section id="problem"><div class="wrap"><h2>The problem</h2></div></section>
+<section id="problem"><div class="wrap">
+  <div class="meta-label">Why governance</div>
+  <h2>An agent's afternoon, twice</h2>
+  <p class="lede">Same agent, same tasks. The only difference is whether a governance runtime sits between intent and execution.</p>
+  <div role="group" aria-label="Governance mode" style="display:flex; gap:8px; margin:16px 0;">
+    <button class="btn" id="mode-ungoverned" aria-pressed="true">Ungoverned</button>
+    <button class="btn" id="mode-governed" aria-pressed="false">Governed</button>
+  </div>
+  <ol id="problem-feed" style="list-style:none; margin:0; padding:0; display:grid; gap:8px;"></ol>
+  <p id="problem-summary" class="mono" style="font-size:13px; color:var(--text-3); margin-top:16px;" aria-live="polite"></p>
+</div></section>
 <section id="loop"><div class="wrap"><h2>The governance loop</h2></div></section>
 <section id="simulator"><div class="wrap"><h2>Guard decision simulator</h2></div></section>
 <section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
@@ -132,6 +142,42 @@ function decisionChip(decision) {
   const meta = DECISION_META[decision];
   return el('span', { class: 'chip ' + meta.cls, text: meta.label });
 }
+
+// ---- #problem: before/after feed ----
+const FEED_EVENTS = [
+  { time: '14:02', type: 'data.read',      goal: 'Read the Q2 revenue sheet',                          decision: 'allow' },
+  { time: '14:09', type: 'message.send',   goal: 'Email the Q2 summary to finance@',                   decision: 'allow' },
+  { time: '14:21', type: 'message.send',   goal: 'Email the Q2 summary to an external list (1,400 recipients)', decision: 'warn' },
+  { time: '14:34', type: 'payment.create', goal: 'Pay a new vendor invoice — $4,800',                  decision: 'require_approval' },
+  { time: '14:48', type: 'file.delete',    goal: 'Clean up: delete the shared /reports directory',     decision: 'block' },
+  { time: '15:03', type: 'deploy',         goal: 'Deploy the hotfix to production',                    decision: 'require_approval' },
+];
+function renderFeed(governed) {
+  const list = $('#problem-feed');
+  list.textContent = '';
+  let intercepted = 0;
+  for (const ev of FEED_EVENTS) {
+    const row = el('li', { class: 'card', style: 'display:flex; align-items:center; gap:12px; padding:10px 14px;' });
+    row.append(el('span', { class: 'mono tabular', style: 'color:var(--text-3); font-size:12px;', text: ev.time }));
+    row.append(el('code', { style: 'color:var(--text-3); font-size:12px;', text: ev.type }));
+    row.append(el('span', { style: 'flex:1; color:var(--text-2); font-size:14px;', text: ev.goal }));
+    if (governed) {
+      row.append(decisionChip(ev.decision));
+      if (ev.decision !== 'allow') intercepted++;
+    } else {
+      row.append(el('span', { class: 'mono', style: 'color:var(--text-disabled); font-size:12px;', text: 'executed silently' }));
+    }
+    list.append(row);
+  }
+  $('#problem-summary').textContent = governed
+    ? `${intercepted} of ${FEED_EVENTS.length} actions intercepted before execution. Every one of the ${FEED_EVENTS.length} is now in the decision ledger.`
+    : `${FEED_EVENTS.length} actions executed. No record, no policy check, no approval. You find out when someone asks about the invoice.`;
+  $('#mode-ungoverned').setAttribute('aria-pressed', String(!governed));
+  $('#mode-governed').setAttribute('aria-pressed', String(governed));
+}
+$('#mode-ungoverned').addEventListener('click', () => renderFeed(false));
+$('#mode-governed').addEventListener('click', () => renderFeed(true));
+renderFeed(false);
 </script>
 </body>
 </html>
