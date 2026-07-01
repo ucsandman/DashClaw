@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DashClaw, explained — decision infrastructure for AI agents</title>
+<meta name="description" content="An interactive explainer: how DashClaw intercepts, enforces, records, and verifies AI-agent actions.">
+<style>
+/* Tokens mirrored from app/globals.css (source of truth). If they diverge, globals.css wins. */
+:root {
+  --brand: #f97316;
+  --brand-subtle: rgba(249, 115, 22, 0.12);
+  --brand-hover: #fb923c;
+  --bg-0: #0e1014;
+  --bg-1: #15171c;
+  --bg-2: #1d2026;
+  --bg-3: #272b32;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-hover: rgba(255, 255, 255, 0.14);
+  --border-active: rgba(249, 115, 22, 0.4);
+  --text-1: #fafafa;
+  --text-2: #c2c2cc;
+  --text-3: #9b9ba8;
+  --text-disabled: #5c5c66;
+  --ok: #22c55e;      --ok-subtle: rgba(34, 197, 94, 0.12);
+  --warn: #eab308;    --warn-subtle: rgba(234, 179, 8, 0.12);
+  --err: #ef4444;     --err-subtle: rgba(239, 68, 68, 0.12);
+  --info: #3b82f6;    --info-subtle: rgba(59, 130, 246, 0.12);
+  --sans: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+body { margin: 0; background: var(--bg-0); color: var(--text-1); font-family: var(--sans); line-height: 1.6; font-size: 16px; }
+::selection { background: rgba(249, 115, 22, 0.28); color: #fff; }
+:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  html { scroll-behavior: auto; }
+}
+a { color: var(--text-2); }
+a:hover { color: var(--text-1); }
+code, pre, .mono { font-family: var(--mono); }
+.wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+section { padding: 72px 0; border-top: 1px solid var(--border); }
+h1 { font-size: 40px; line-height: 1.15; margin: 0 0 16px; letter-spacing: -0.02em; }
+h2 { font-size: 26px; line-height: 1.25; margin: 0 0 8px; letter-spacing: -0.01em; }
+p.lede { color: var(--text-2); font-size: 18px; max-width: 62ch; }
+p, li { color: var(--text-2); }
+.meta-label { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text-3); }
+.card { background: var(--bg-1); border: 1px solid var(--border); border-radius: 12px; }
+.card:hover { border-color: var(--border-hover); }
+.btn { font: inherit; cursor: pointer; background: var(--bg-2); color: var(--text-1); border: 1px solid var(--border); border-radius: 8px; padding: 8px 14px; }
+.btn:hover { border-color: var(--border-hover); }
+.btn[aria-pressed="true"], .btn--primary { background: var(--brand); border-color: var(--brand); color: #0e1014; font-weight: 600; }
+.chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); }
+.chip--allow    { color: var(--ok);   background: var(--ok-subtle); }
+.chip--warn     { color: var(--warn); background: var(--warn-subtle); }
+.chip--block    { color: var(--err);  background: var(--err-subtle); }
+.chip--approval { color: var(--info); background: var(--info-subtle); }
+.tabular { font-variant-numeric: tabular-nums; }
+/* Sticky nav */
+.topnav { position: sticky; top: 0; z-index: 10; background: rgba(14, 16, 20, 0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); }
+.topnav .wrap { display: flex; align-items: center; gap: 20px; height: 56px; overflow-x: auto; }
+.topnav a { font-size: 13px; text-decoration: none; color: var(--text-3); white-space: nowrap; }
+.topnav a:hover { color: var(--text-1); }
+.topnav .brandmark { color: var(--text-1); font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
+.topnav .brandmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+</style>
+</head>
+<body>
+<nav class="topnav" aria-label="Sections">
+  <div class="wrap">
+    <a class="brandmark" href="#top"><span class="dot" aria-hidden="true"></span>DashClaw</a>
+    <a href="#problem">The problem</a>
+    <a href="#loop">The loop</a>
+    <a href="#simulator">Guard simulator</a>
+    <a href="#policies">Policy playground</a>
+    <a href="#integrate">Integrate</a>
+    <a href="#practices">Best practices</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#go-deeper">Go deeper</a>
+  </div>
+</nav>
+
+<header id="top" style="padding: 96px 0 72px;">
+  <div class="wrap">
+    <div class="meta-label">Interactive explainer</div>
+    <h1>Decision infrastructure for AI&nbsp;agents.</h1>
+    <p class="lede">DashClaw is a governance runtime. It sits between an agent's intent and the real world: every consequential action is checked against policy before it happens, recorded while it happens, and verified after it happens. This page explains the model — then lets you play with it.</p>
+    <p class="lede">Four things, and only four: <strong style="color: var(--text-1)">policy enforcement</strong>, <strong style="color: var(--text-1)">decision recording</strong>, <strong style="color: var(--text-1)">assumption tracking</strong>, and <strong style="color: var(--text-1)">risk signals</strong>. It does not give agents tools to achieve goals — it governs the goals they already have.</p>
+    <p><a class="btn btn--primary" href="#problem" style="text-decoration:none; display:inline-block; margin-top:8px;">See how it works</a></p>
+  </div>
+</header>
+
+<section id="problem"><div class="wrap"><h2>The problem</h2></div></section>
+<section id="loop"><div class="wrap"><h2>The governance loop</h2></div></section>
+<section id="simulator"><div class="wrap"><h2>Guard decision simulator</h2></div></section>
+<section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
+<section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
+<section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
+<section id="architecture"><div class="wrap"><h2>Architecture at a glance</h2></div></section>
+<section id="go-deeper"><div class="wrap"><h2>Go deeper</h2></div></section>
+
+<footer style="border-top: 1px solid var(--border); padding: 32px 0; ">
+  <div class="wrap"><p class="meta-label">DashClaw — govern the goals, not the tools.</p></div>
+</footer>
+
+<script>
+'use strict';
+// ---- shared helpers (consumed by every section script added in later tasks) ----
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+function el(tag, attrs = {}, children = []) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === 'text') node.textContent = v;
+    else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
+    else node.setAttribute(k, v);
+  }
+  for (const child of [].concat(children)) node.append(child);
+  return node;
+}
+const DECISION_META = {
+  allow:            { cls: 'chip--allow',    label: 'allow' },
+  warn:             { cls: 'chip--warn',     label: 'warn' },
+  block:            { cls: 'chip--block',    label: 'block' },
+  require_approval: { cls: 'chip--approval', label: 'require_approval' },
+};
+function decisionChip(decision) {
+  const meta = DECISION_META[decision];
+  return el('span', { class: 'chip ' + meta.cls, text: meta.label });
+}
+</script>
+</body>
+</html>
