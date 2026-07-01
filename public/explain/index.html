@@ -181,7 +181,19 @@ p, li { color: var(--text-2); }
   </table>
 </div>
 </div></section>
-<section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
+<section id="integrate"><div class="wrap">
+<div class="meta-label">Integration</div>
+<h2>One action, four integrations</h2>
+<p class="lede">The same governed action — guard, record, act, report — in whichever shape your stack speaks. Pick a scenario, pick a style, copy it out.</p>
+<div style="display:flex; gap:8px; margin:16px 0;" role="group" aria-label="Scenario">
+  <select id="int-scenario" class="btn"></select>
+</div>
+<div id="int-tabs" role="tablist" aria-label="Integration style" style="display:flex; gap:8px; margin-bottom:0;"></div>
+<div class="card" style="border-top-left-radius:0; position:relative;">
+  <button id="int-copy" class="btn" style="position:absolute; top:10px; right:10px; font-size:12px;">Copy</button>
+  <pre id="integrate-code" class="mono" style="margin:0; padding:20px; font-size:12.5px; overflow-x:auto; color:var(--text-2);"></pre>
+</div>
+</div></section>
 <section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
 <section id="architecture"><div class="wrap"><h2>Architecture at a glance</h2></div></section>
 <section id="go-deeper"><div class="wrap"><h2>Go deeper</h2></div></section>
@@ -441,6 +453,129 @@ function renderPolicyTable() {
 }
 $('#policy-form').addEventListener('input', renderPolicyTable);
 renderPolicyTable();
+
+// ---- #integrate: scenario-driven code tabs ----
+const INT_SCENARIOS = [
+  { id: 'email',  label: 'Send a customer email',        type: 'message.send',   goal: 'Send the renewal reminder to acme-corp' },
+  { id: 'pay',    label: 'Pay a vendor invoice',          type: 'payment.create', goal: 'Pay invoice #8841 — $4,800 to Northwind' },
+  { id: 'deploy', label: 'Deploy to production',          type: 'deploy',         goal: 'Deploy build #402 to production' },
+];
+const INT_STYLES = [
+  { id: 'node', label: 'Node SDK', render: (s) => `import { DashClaw, GuardBlockedError } from 'dashclaw';
+
+const claw = new DashClaw({ baseUrl, apiKey, agentId: 'my-agent' });
+
+const decision = await claw.guard({
+  action_type: '${s.type}',
+  declared_goal: '${s.goal}',
+});
+if (decision.decision === 'block') throw new GuardBlockedError(decision);
+
+const { action, action_id } = await claw.createAction({
+  action_type: '${s.type}',
+  declared_goal: '${s.goal}',
+  idempotency_key: claw.deriveIdempotencyKey({
+    agent_id: 'my-agent', action_type: '${s.type}', declared_goal: '${s.goal}',
+  }),
+});
+if (action?.status === 'pending_approval') await claw.waitForApproval(action_id);
+
+try {
+  await doTheWork();
+  await claw.reportActionSuccess(action_id, 'Done.');
+} catch (err) {
+  await claw.reportActionFailure(action_id, err.message);
+  throw err;
+}` },
+  { id: 'python', label: 'Python SDK', render: (s) => `from dashclaw import DashClaw, GuardBlockedError
+
+claw = DashClaw(base_url=base_url, api_key=api_key, agent_id="my-agent")
+
+decision = claw.guard(
+    action_type="${s.type}",
+    declared_goal="${s.goal}",
+)
+if decision["decision"] == "block":
+    raise GuardBlockedError(decision)
+
+result = claw.create_action(
+    action_type="${s.type}",
+    declared_goal="${s.goal}",
+    idempotency_key=claw.derive_idempotency_key(
+        agent_id="my-agent", action_type="${s.type}", declared_goal="${s.goal}",
+    ),
+)
+if result["action"]["status"] == "pending_approval":
+    claw.wait_for_approval(result["action_id"])
+
+try:
+    do_the_work()
+    claw.report_action_success(result["action_id"], "Done.")
+except Exception as err:
+    claw.report_action_failure(result["action_id"], str(err))
+    raise` },
+  { id: 'mcp', label: 'MCP', render: (s) => `// In an MCP host (Claude Code, Claude Desktop, any MCP client)
+// with @dashclaw/mcp-server connected, the agent calls tools:
+
+dashclaw_guard({
+  "action_type": "${s.type}",
+  "declared_goal": "${s.goal}"
+})
+// -> decision: allow | warn | block | require_approval
+
+dashclaw_record({
+  "action_type": "${s.type}",
+  "declared_goal": "${s.goal}",
+  "status": "running"
+})
+// ...do the work, then report the outcome on the returned action_id.
+// If approval is required, dashclaw_wait_for_approval(action_id)
+// pauses until a human decides.` },
+  { id: 'http', label: 'Raw HTTP', render: (s) => `# 1. Guard — "Can I do this?"
+curl -X POST "$DASHCLAW_URL/api/guard" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"action_type":"${s.type}","declared_goal":"${s.goal}"}'
+
+# 2. Record — "I am doing this."
+curl -X POST "$DASHCLAW_URL/api/actions" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"agent_id":"my-agent","action_type":"${s.type}","declared_goal":"${s.goal}"}'
+
+# 3. Do the work, then report the outcome.
+curl -X POST "$DASHCLAW_URL/api/actions/$ACTION_ID/outcome" \\
+  -H "Authorization: Bearer $DASHCLAW_API_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"status":"completed","summary":"Done."}'` },
+];
+let intStyle = 'node';
+function renderIntegrate() {
+  const scenario = INT_SCENARIOS.find((s) => s.id === $('#int-scenario').value);
+  const style = INT_STYLES.find((st) => st.id === intStyle);
+  $('#integrate-code').textContent = style.render(scenario);
+  $$('#int-tabs [role=tab]').forEach((t) => {
+    const active = t.dataset.style === intStyle;
+    t.setAttribute('aria-selected', String(active));
+    t.style.borderColor = active ? 'var(--border-active)' : 'var(--border)';
+    t.style.background = active ? 'var(--brand-subtle)' : 'var(--bg-1)';
+  });
+}
+for (const s of INT_SCENARIOS) $('#int-scenario').append(el('option', { value: s.id, text: s.label }));
+for (const st of INT_STYLES) {
+  $('#int-tabs').append(el('button', {
+    class: 'btn', role: 'tab', 'aria-selected': 'false', 'data-style': st.id,
+    style: 'border-bottom-left-radius:0; border-bottom-right-radius:0;',
+    onclick: () => { intStyle = st.id; renderIntegrate(); }, text: st.label,
+  }));
+}
+$('#int-scenario').addEventListener('input', renderIntegrate);
+$('#int-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText($('#integrate-code').textContent); $('#int-copy').textContent = 'Copied'; }
+  catch { $('#int-copy').textContent = 'Select + copy'; }
+  setTimeout(() => { $('#int-copy').textContent = 'Copy'; }, 1600);
+});
+renderIntegrate();
 </script>
 </body>
 </html>
