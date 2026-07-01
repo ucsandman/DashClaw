@@ -404,6 +404,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 ## Documentation
 
 - [Quick start](./QUICK-START.md): eight-minute walkthrough from clone to first governed action.
+- **[/explain](https://dashclaw.io/explain/)** — interactive explainer: the governance loop, a guard-decision simulator, and a policy playground.
 - [Node SDK reference](./sdk/README.md): canonical reference for the `dashclaw` npm package.
 - [Python SDK reference](./sdk-python/README.md): same surface, snake_case.
 - [SDK parity matrix](./docs/sdk-parity.md): Node v2 vs Python coverage.
