@@ -194,9 +194,101 @@ p, li { color: var(--text-2); }
   <pre id="integrate-code" class="mono" style="margin:0; padding:20px; font-size:12.5px; overflow-x:auto; color:var(--text-2);"></pre>
 </div>
 </div></section>
-<section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
-<section id="architecture"><div class="wrap"><h2>Architecture at a glance</h2></div></section>
-<section id="go-deeper"><div class="wrap"><h2>Go deeper</h2></div></section>
+<section id="practices"><div class="wrap">
+<div class="meta-label">Operating well</div>
+<h2>Best practices</h2>
+<p class="lede">Distilled from running governed fleets. Each one exists because its absence has a failure story.</p>
+<div id="practice-list" style="display:grid; gap:8px; margin-top:16px;"></div>
+</div></section>
+<section id="architecture"><div class="wrap">
+<div class="meta-label">The shape of it</div>
+<h2>Architecture at a glance</h2>
+<p class="lede">Agents speak to the runtime through an SDK, MCP server, or plain HTTP. The runtime enforces policy and writes the ledger. Humans watch and decide through the dashboard.</p>
+<div class="card" style="padding:24px; margin-top:16px; overflow-x:auto;">
+<svg viewBox="0 0 920 300" role="img" aria-label="Diagram: agents connect via SDK, MCP, or HTTP to the DashClaw governance runtime backed by Postgres; the dashboard surfaces Mission Control, Decisions, and Policies for humans." style="min-width:720px; width:100%; font-family:var(--mono); font-size:13px;">
+  <!-- colors mirror the :root token block above -->
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#9b9ba8"/>
+    </marker>
+  </defs>
+  <!-- agents -->
+  <g stroke="#3a3f47" fill="#15171c">
+    <rect x="20" y="30"  width="150" height="52" rx="10"/>
+    <rect x="20" y="124" width="150" height="52" rx="10"/>
+    <rect x="20" y="218" width="150" height="52" rx="10"/>
+  </g>
+  <g fill="#c2c2cc" text-anchor="middle">
+    <text x="95" y="61">coding agent</text>
+    <text x="95" y="155">ops agent</text>
+    <text x="95" y="249">support agent</text>
+  </g>
+  <!-- transport -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="250" y="106" width="140" height="88" rx="10"/>
+  </g>
+  <g fill="#c2c2cc" text-anchor="middle">
+    <text x="320" y="138">SDK / MCP</text>
+    <text x="320" y="160" fill="#9b9ba8">or raw HTTP</text>
+  </g>
+  <!-- runtime -->
+  <g stroke="#f97316" fill="#15171c">
+    <rect x="470" y="76" width="200" height="148" rx="12" stroke-width="1.5"/>
+  </g>
+  <g text-anchor="middle">
+    <text x="570" y="106" fill="#fafafa" font-weight="bold">governance runtime</text>
+    <text x="570" y="132" fill="#9b9ba8">guard · policies</text>
+    <text x="570" y="154" fill="#9b9ba8">ledger · assumptions</text>
+    <text x="570" y="176" fill="#9b9ba8">risk signals · approvals</text>
+    <text x="570" y="202" fill="#9b9ba8">outcomes · evidence</text>
+  </g>
+  <!-- postgres -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="750" y="120" width="150" height="60" rx="10"/>
+  </g>
+  <text x="825" y="155" fill="#c2c2cc" text-anchor="middle">Postgres</text>
+  <!-- dashboard -->
+  <g stroke="#3a3f47" fill="#1d2026">
+    <rect x="470" y="252" width="200" height="40" rx="10"/>
+  </g>
+  <text x="570" y="277" fill="#c2c2cc" text-anchor="middle">dashboard · humans</text>
+  <!-- edges -->
+  <g stroke="#9b9ba8" fill="none" marker-end="url(#arrow)">
+    <path d="M 170 56 C 215 56, 215 122, 250 132"/>
+    <path d="M 170 150 L 250 150"/>
+    <path d="M 170 244 C 215 244, 215 178, 250 168"/>
+    <path d="M 390 150 L 470 150"/>
+    <path d="M 670 150 L 750 150"/>
+    <path d="M 570 224 L 570 252"/>
+  </g>
+  <text x="430" y="140" fill="#5c5c66" text-anchor="middle" font-size="11">govern</text>
+  <text x="710" y="140" fill="#5c5c66" text-anchor="middle" font-size="11">persist</text>
+</svg>
+</div>
+<p style="font-size:13px; color:var(--text-3);">The dashboard surfaces are Mission Control (fleet posture and live decisions), Decisions (the causal-chain ledger), and Policies (the interruption contract). Note the direction of the human edge: people <em>observe and decide</em>; they are not in the data path of every action.</p>
+</div></section>
+<section id="go-deeper"><div class="wrap">
+<div class="meta-label">Next steps</div>
+<h2>Go deeper</h2>
+<div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px; margin-top:16px;">
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/connect">
+    <div style="font-weight:600; color:var(--text-1);">Wire up your first agent</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/connect — onboarding to the first governed action</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/mission-control">
+    <div style="font-weight:600; color:var(--text-1);">Watch a fleet live</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/mission-control — posture, interventions, decision stream</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="/decisions">
+    <div style="font-weight:600; color:var(--text-1);">Read a real ledger</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">/decisions — the causal chain of every governed action</div>
+  </a>
+  <a class="card" style="padding:16px 20px; text-decoration:none; display:block;" href="https://github.com/ucsandman/DashClaw#readme">
+    <div style="font-weight:600; color:var(--text-1);">Quick start &amp; SDKs</div>
+    <div style="font-size:13px; color:var(--text-3); margin-top:4px;">README, QUICK-START, Node &amp; Python SDK docs</div>
+  </a>
+</div>
+</div></section>
 
 <footer style="border-top: 1px solid var(--border); padding: 32px 0; ">
   <div class="wrap"><p class="meta-label">DashClaw — govern the goals, not the tools.</p></div>
@@ -576,6 +668,24 @@ $('#int-copy').addEventListener('click', async () => {
   setTimeout(() => { $('#int-copy').textContent = 'Copy'; }, 1600);
 });
 renderIntegrate();
+
+// ---- #practices ----
+const PRACTICES = [
+  { t: 'Fail closed', d: 'When the guard is unreachable or a policy is ambiguous, treat it as a block, not an allow. A paused agent is an inconvenience; an ungoverned one is an incident. DashClaw’s own non-fabrication verifier blocks on any error or malformed input for exactly this reason.' },
+  { t: 'Record everything, idempotently', d: 'Every consequential action goes in the ledger before it executes, with an idempotency key derived from agent, type, and goal. Retries then return the existing record instead of double-recording — and double-executing paths get caught.' },
+  { t: 'Never self-approve', d: 'An agent must never approve its own pending action, and a block is absolute — it is never downgraded, not even by an operator approval. If your integration can reach the approvals API, scope that credential away from the acting agent.' },
+  { t: 'Declare goals honestly and specifically', d: '"Deploy build #402 to production" is governable; "run task" is not. Risk is computed from what you declare — vague declarations produce useless ledgers and let real risk hide. Approvals also match on the exact declared goal.' },
+  { t: 'Report outcomes — including failures', d: 'The loop is not done at execution. Report completed, partial, or failed; the first terminal outcome wins. A ledger of intents without outcomes cannot tell you what actually happened.' },
+  { t: 'Track the assumptions that carry weight', d: 'When an action rests on a belief — "staging was green", "this invoice is legitimate" — record it with its basis. When a belief turns out false, you can instantly find every action built on it.' },
+  { t: 'Use sessions to bound accountability', d: 'Start and end sessions around units of agent work. A decision trail scoped to a session answers "what did this run do" without archaeology across the whole ledger.' },
+  { t: 'Treat approvals as a contract, not a speed bump', d: 'Set approval thresholds where a human genuinely adds judgment — spend above a cap, irreversible operations, production access. Approve promptly or tune the threshold: a queue everyone rubber-stamps is worse than a lower gate.' },
+];
+for (const p of PRACTICES) {
+  $('#practice-list').append(el('details', { class: 'card', style: 'padding:14px 20px;' }, [
+    el('summary', { style: 'cursor:pointer; font-weight:600; color:var(--text-1);', text: p.t }),
+    el('p', { style: 'margin:10px 0 2px; max-width:75ch;', text: p.d }),
+  ]));
+}
 </script>
 </body>
 </html>
