@@ -416,9 +416,11 @@ function evaluatePolicy(action, policy) {
   return { decision: 'allow', because: `risk ${action.risk} is below the elevated band` };
 }
 function renderPolicyTable() {
+  const approveRaw = $('#pol-approve-at').value.trim();
+  const approveNum = Number(approveRaw);
   const policy = {
     spendCap: Number($('#pol-cap').value) || 0,
-    approveAt: Math.max(0, Math.min(100, Number($('#pol-approve-at').value) || 100)),
+    approveAt: approveRaw === '' || !Number.isFinite(approveNum) ? 100 : Math.max(0, Math.min(100, approveNum)),
     blockedTypes: $$('.pol-blocked:checked').map((c) => c.value),
   };
   const tbody = $('#policy-table tbody');
