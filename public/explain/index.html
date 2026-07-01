@@ -67,6 +67,7 @@ p, li { color: var(--text-2); }
 .topnav a:hover { color: var(--text-1); }
 .topnav .brandmark { color: var(--text-1); font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
 .topnav .brandmark .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--brand); }
+@media (max-width: 760px) { #sim-grid { grid-template-columns: 1fr !important; } }
 </style>
 </head>
 <body>
@@ -112,7 +113,42 @@ p, li { color: var(--text-2); }
   <div id="loop-steps" role="tablist" aria-label="Governance loop steps" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:20px 0;"></div>
   <div id="loop-detail" class="card" style="padding:20px;" role="tabpanel" aria-live="polite"></div>
 </div></section>
-<section id="simulator"><div class="wrap"><h2>Guard decision simulator</h2></div></section>
+<section id="simulator"><div class="wrap">
+  <div class="meta-label">Illustrative simulation</div>
+  <h2>Guard decision simulator</h2>
+  <p class="lede">Describe a hypothetical action and watch the decision change. Illustrative simulation — production decisions come from the guard runtime, which computes risk server-side from the declared fields.</p>
+  <div style="display:grid; grid-template-columns: 340px 1fr; gap:20px; margin-top:20px;" id="sim-grid">
+    <form class="card" style="padding:20px; display:grid; gap:14px;" id="sim-form">
+      <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Action type
+        <select id="sim-type" class="btn" style="width:100%;"></select>
+      </label>
+      <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend (USD)
+        <input id="sim-spend" class="btn" type="number" min="0" max="100000" value="0" style="width:100%;">
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+        <input id="sim-irreversible" type="checkbox"> Irreversible
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+        <input id="sim-production" type="checkbox"> Touches production
+      </label>
+      <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Agent track record
+        <input id="sim-trust" type="range" min="0" max="100" value="50">
+        <span id="sim-trust-label" class="mono" style="font-size:12px;"></span>
+      </label>
+      <label style="display:flex; gap:8px; align-items:center; font-size:13px; color:var(--text-3);">
+        <input id="sim-approval-policy" type="checkbox" checked> Policy: high risk requires human approval
+      </label>
+    </form>
+    <div class="card" style="padding:20px;" aria-live="polite">
+      <div class="meta-label">Decision</div>
+      <div id="sim-decision" style="margin:10px 0;"></div>
+      <div class="meta-label" style="margin-top:14px;">Risk score</div>
+      <div id="sim-gauge" style="margin:10px 0;"></div>
+      <div class="meta-label" style="margin-top:14px;">Why</div>
+      <ul id="sim-why" class="mono" style="font-size:12.5px; margin:8px 0 0; padding-left:18px; color:var(--text-2);"></ul>
+    </div>
+  </div>
+</div></section>
 <section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
 <section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
 <section id="practices"><div class="wrap"><h2>Best practices</h2></div></section>
@@ -261,6 +297,74 @@ $('#loop-steps').addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft') { loopIndex = (loopIndex + 3) % 4; renderLoopDetail(); $$('#loop-steps button')[loopIndex].focus(); }
 });
 renderLoopDetail();
+
+// ---- #simulator: illustrative risk model ----
+const BAND_WARN = 40;  // real band: >= 40 is elevated
+const BAND_HIGH = 70;  // real band: >= 70 is high risk
+const SIM_ACTION_TYPES = {
+  'data.read':      { base: 10, label: 'Read data' },
+  'message.send':   { base: 25, label: 'Send a message' },
+  'file.write':     { base: 30, label: 'Write a file' },
+  'file.delete':    { base: 55, label: 'Delete files' },
+  'payment.create': { base: 60, label: 'Create a payment' },
+  'deploy':         { base: 65, label: 'Deploy' },
+};
+function assessRisk({ actionType, spendUsd, irreversible, production, trust }) {
+  const signals = [];
+  let score = SIM_ACTION_TYPES[actionType].base;
+  signals.push({ delta: score, label: `base risk for ${actionType}` });
+  if (spendUsd > 0) {
+    const d = Math.min(30, Math.round(Math.sqrt(spendUsd) / 2));
+    if (d > 0) { score += d; signals.push({ delta: d, label: `$${spendUsd} spend` }); }
+  }
+  if (irreversible) { score += 15; signals.push({ delta: 15, label: 'irreversible' }); }
+  if (production)   { score += 15; signals.push({ delta: 15, label: 'touches production' }); }
+  const trustAdj = Math.round((50 - trust) / 5);
+  if (trustAdj !== 0) signals.push({ delta: trustAdj, label: trust < 50 ? 'weak agent track record' : 'strong agent track record' });
+  score = Math.max(0, Math.min(100, score + trustAdj));
+  return { score, signals };
+}
+function decideFromScore(score, requireApprovalHighRisk) {
+  if (score >= BAND_HIGH) return requireApprovalHighRisk ? 'require_approval' : 'block';
+  if (score >= BAND_WARN) return 'warn';
+  return 'allow';
+}
+const DECISION_EXPLAIN = {
+  allow: 'Below the elevated band. The action proceeds and is recorded.',
+  warn: 'Elevated. The action proceeds, but the decision and its signals go to the ledger and the risk feed.',
+  block: 'High risk with no approval path configured. The action is refused and recorded as blocked. Blocks are absolute.',
+  require_approval: 'High risk. Execution pauses until a human approves — dashboard, CLI, or chat. An approval covers the identical action for 15 minutes.',
+};
+function renderSim() {
+  const inputs = {
+    actionType: $('#sim-type').value,
+    spendUsd: Number($('#sim-spend').value) || 0,
+    irreversible: $('#sim-irreversible').checked,
+    production: $('#sim-production').checked,
+    trust: Number($('#sim-trust').value),
+  };
+  const { score, signals } = assessRisk(inputs);
+  const decision = decideFromScore(score, $('#sim-approval-policy').checked);
+  $('#sim-trust-label').textContent = inputs.trust < 34 ? 'new / erratic' : inputs.trust < 67 ? 'established' : 'long, clean history';
+  const dbox = $('#sim-decision'); dbox.textContent = '';
+  dbox.append(decisionChip(decision), el('p', { style: 'margin:8px 0 0; font-size:14px;', text: DECISION_EXPLAIN[decision] }));
+  const gauge = $('#sim-gauge'); gauge.textContent = '';
+  const bar = el('div', { style: 'position:relative; height:10px; border-radius:5px; background:var(--bg-3); overflow:hidden;', role: 'img', 'aria-label': `Risk score ${score} of 100` });
+  const fillColor = score >= BAND_HIGH ? 'var(--err)' : score >= BAND_WARN ? 'var(--warn)' : 'var(--ok)';
+  bar.append(el('div', { style: `width:${score}%; height:100%; background:${fillColor}; transition: width .25s;` }));
+  gauge.append(bar);
+  const ticks = el('div', { class: 'mono', style: 'display:flex; justify-content:space-between; font-size:11px; color:var(--text-3); margin-top:4px;' });
+  ticks.append(el('span', { text: '0' }), el('span', { text: '40 · warn' }), el('span', { text: '70 · high' }), el('span', { class: 'tabular', text: `${score} / 100` }));
+  gauge.append(ticks);
+  const why = $('#sim-why'); why.textContent = '';
+  for (const s of signals) why.append(el('li', { text: `${s.delta >= 0 ? '+' : ''}${s.delta}  ${s.label}` }));
+}
+for (const [value, meta] of Object.entries(SIM_ACTION_TYPES)) {
+  $('#sim-type').append(el('option', { value, text: `${meta.label} (${value})` }));
+}
+$('#sim-type').value = 'deploy';
+$('#sim-form').addEventListener('input', renderSim);
+renderSim();
 </script>
 </body>
 </html>
