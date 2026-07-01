@@ -186,12 +186,12 @@ p, li { color: var(--text-2); }
 <h2>One action, four integrations</h2>
 <p class="lede">The same governed action — guard, record, act, report — in whichever shape your stack speaks. Pick a scenario, pick a style, copy it out.</p>
 <div style="display:flex; gap:8px; margin:16px 0;" role="group" aria-label="Scenario">
-  <select id="int-scenario" class="btn"></select>
+  <select id="int-scenario" class="btn" aria-label="Scenario"></select>
 </div>
 <div id="int-tabs" role="tablist" aria-label="Integration style" style="display:flex; gap:8px; margin-bottom:0;"></div>
-<div class="card" style="border-top-left-radius:0; position:relative;">
+<div class="card" style="border-top-left-radius:0; border-top-right-radius:0; position:relative;">
   <button id="int-copy" class="btn" style="position:absolute; top:10px; right:10px; font-size:12px;">Copy</button>
-  <pre id="integrate-code" class="mono" style="margin:0; padding:20px; font-size:12.5px; overflow-x:auto; color:var(--text-2);"></pre>
+  <pre id="integrate-code" class="mono" role="tabpanel" aria-label="Integration code" style="margin:0; padding:20px; font-size:12.5px; overflow-x:auto; color:var(--text-2);"></pre>
 </div>
 </div></section>
 <section id="practices"><div class="wrap">
@@ -342,7 +342,7 @@ function renderFeed(governed) {
       row.append(decisionChip(ev.decision));
       if (ev.decision !== 'allow') intercepted++;
     } else {
-      row.append(el('span', { class: 'mono', style: 'color:var(--text-disabled); font-size:12px;', text: 'executed silently' }));
+      row.append(el('span', { class: 'mono', style: 'color:var(--text-3); font-size:12px;', text: 'executed silently' }));
     }
     list.append(row);
   }
@@ -420,7 +420,7 @@ function renderLoopDetail() {
 }
 LOOP_STEPS.forEach((s, i) => {
   $('#loop-steps').append(el('button', {
-    class: 'btn', role: 'tab', 'aria-selected': 'false', style: 'padding:14px; text-align:left;',
+    class: 'btn', role: 'tab', 'aria-selected': 'false', 'aria-controls': 'loop-detail', style: 'padding:14px; text-align:left;',
     onclick: () => { loopIndex = i; renderLoopDetail(); },
   }, [
     el('div', { class: 'meta-label', text: `Step ${s.n}` }),
@@ -583,19 +583,19 @@ try {
 
 claw = DashClaw(base_url=base_url, api_key=api_key, agent_id="my-agent")
 
-decision = claw.guard(
-    action_type="${s.type}",
-    declared_goal="${s.goal}",
-)
+decision = claw.guard({
+    "action_type": "${s.type}",
+    "declared_goal": "${s.goal}",
+})
 if decision["decision"] == "block":
     raise GuardBlockedError(decision)
 
 result = claw.create_action(
     action_type="${s.type}",
     declared_goal="${s.goal}",
-    idempotency_key=claw.derive_idempotency_key(
-        agent_id="my-agent", action_type="${s.type}", declared_goal="${s.goal}",
-    ),
+    idempotency_key=claw.derive_idempotency_key({
+        "agent_id": "my-agent", "action_type": "${s.type}", "declared_goal": "${s.goal}",
+    }),
 )
 if result["action"]["status"] == "pending_approval":
     claw.wait_for_approval(result["action_id"])
@@ -656,7 +656,7 @@ function renderIntegrate() {
 for (const s of INT_SCENARIOS) $('#int-scenario').append(el('option', { value: s.id, text: s.label }));
 for (const st of INT_STYLES) {
   $('#int-tabs').append(el('button', {
-    class: 'btn', role: 'tab', 'aria-selected': 'false', 'data-style': st.id,
+    class: 'btn', role: 'tab', 'aria-selected': 'false', 'data-style': st.id, 'aria-controls': 'integrate-code',
     style: 'border-bottom-left-radius:0; border-bottom-right-radius:0;',
     onclick: () => { intStyle = st.id; renderIntegrate(); }, text: st.label,
   }));
