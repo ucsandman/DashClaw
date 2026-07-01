@@ -105,7 +105,13 @@ p, li { color: var(--text-2); }
   <ol id="problem-feed" style="list-style:none; margin:0; padding:0; display:grid; gap:8px;"></ol>
   <p id="problem-summary" class="mono" style="font-size:13px; color:var(--text-3); margin-top:16px;" aria-live="polite"></p>
 </div></section>
-<section id="loop"><div class="wrap"><h2>The governance loop</h2></div></section>
+<section id="loop"><div class="wrap">
+  <div class="meta-label">How it works</div>
+  <h2>The governance loop</h2>
+  <p class="lede">A fully governed action makes four calls. Click each step — or use the arrow keys — to see what actually goes over the wire.</p>
+  <div id="loop-steps" role="tablist" aria-label="Governance loop steps" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:20px 0;"></div>
+  <div id="loop-detail" class="card" style="padding:20px;" role="tabpanel" aria-live="polite"></div>
+</div></section>
 <section id="simulator"><div class="wrap"><h2>Guard decision simulator</h2></div></section>
 <section id="policies"><div class="wrap"><h2>Policy playground</h2></div></section>
 <section id="integrate"><div class="wrap"><h2>One action, four integrations</h2></div></section>
@@ -178,6 +184,83 @@ function renderFeed(governed) {
 $('#mode-ungoverned').addEventListener('click', () => renderFeed(false));
 $('#mode-governed').addEventListener('click', () => renderFeed(true));
 renderFeed(false);
+
+// ---- #loop: step-through walkthrough ----
+const LOOP_STEPS = [
+  {
+    n: 1, name: 'Guard', q: '"Can I do this?"', method: 'POST', path: '/api/guard',
+    explain: 'Before acting, the agent declares what it intends to do. The runtime evaluates active policies and computed risk, then answers: allow, warn, block, or require_approval. Nothing has happened yet — this is interception before execution.',
+    payload: `{
+  "action_type": "deploy",
+  "declared_goal": "Deploy build #402 to production",
+  "systems_touched": ["production"],
+  "reversible": false
+}
+// -> { "decision": "require_approval", "risk_score": 85,
+//      "signals": ["Production access", "High risk score"], ... }`,
+  },
+  {
+    n: 2, name: 'Record', q: '"I am doing this."', method: 'POST', path: '/api/actions',
+    explain: 'The agent records the action in the ledger before executing. Recording runs guard evaluation internally too — a blocked action is stored as blocked and refused. An idempotency key makes retries safe: the same key returns the existing record instead of a duplicate.',
+    payload: `{
+  "agent_id": "deploy-agent-1",
+  "action_type": "deploy",
+  "declared_goal": "Deploy build #402 to production",
+  "idempotency_key": "sha256:..."
+}
+// -> { "action_id": "act_...", "status": "running" }`,
+  },
+  {
+    n: 3, name: 'Assumption', q: '"This belief matters while I act."', method: 'POST', path: '/api/assumptions',
+    explain: 'Optional but recommended: the agent states the beliefs its action depends on. If an assumption later proves false, you can find every action that was built on it. This is what makes post-incident review causal instead of archaeological.',
+    payload: `{
+  "action_id": "act_...",
+  "assumption": "The staging tests passed successfully.",
+  "basis": "CI run 402 was green before deploy."
+}
+// -> { "assumption_id": "asm_...", ... }`,
+  },
+  {
+    n: 4, name: 'Outcome', q: '"This actually completed — or failed."', method: 'POST', path: '/api/actions/:actionId/outcome',
+    explain: 'The agent reports the terminal result: completed, partial, or failed. First terminal outcome wins; a later report is rejected. failed requires an error message; partial requires a progress object. The ledger now holds the full story: intent, decision, beliefs, result.',
+    payload: `{
+  "status": "completed",
+  "summary": "Success: build #402 is live."
+}
+// A later POST -> 409 { "error": "outcome already set" }`,
+  },
+];
+let loopIndex = 0;
+function renderLoopDetail() {
+  const s = LOOP_STEPS[loopIndex];
+  const detail = $('#loop-detail');
+  detail.textContent = '';
+  detail.append(
+    el('div', { class: 'meta-label', text: `Step ${s.n} of 4 — ${s.q}` }),
+    el('div', { class: 'mono', style: 'margin:10px 0; color:var(--text-1); font-size:14px;', text: `${s.method} ${s.path}` }),
+    el('p', { style: 'margin:0 0 14px; max-width:70ch;', text: s.explain }),
+    el('pre', { class: 'mono', style: 'margin:0; padding:14px; background:var(--bg-0); border:1px solid var(--border); border-radius:8px; font-size:12.5px; overflow-x:auto; color:var(--text-2);', text: s.payload }),
+  );
+  $$('#loop-steps button').forEach((b, i) => {
+    b.setAttribute('aria-selected', String(i === loopIndex));
+    b.style.borderColor = i === loopIndex ? 'var(--border-active)' : 'var(--border)';
+    b.style.background = i === loopIndex ? 'var(--brand-subtle)' : 'var(--bg-1)';
+  });
+}
+LOOP_STEPS.forEach((s, i) => {
+  $('#loop-steps').append(el('button', {
+    class: 'btn', role: 'tab', 'aria-selected': 'false', style: 'padding:14px; text-align:left;',
+    onclick: () => { loopIndex = i; renderLoopDetail(); },
+  }, [
+    el('div', { class: 'meta-label', text: `Step ${s.n}` }),
+    el('div', { style: 'font-weight:600; margin-top:4px;', text: s.name }),
+  ]));
+});
+$('#loop-steps').addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowRight') { loopIndex = (loopIndex + 1) % 4; renderLoopDetail(); $$('#loop-steps button')[loopIndex].focus(); }
+  if (e.key === 'ArrowLeft') { loopIndex = (loopIndex + 3) % 4; renderLoopDetail(); $$('#loop-steps button')[loopIndex].focus(); }
+});
+renderLoopDetail();
 </script>
 </body>
 </html>
