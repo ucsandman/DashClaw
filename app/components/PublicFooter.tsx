@@ -23,6 +23,9 @@ export default function PublicFooter() {
             <GithubIcon size={14} />
             GitHub
           </a>
+          <a href="/explain" className="hover:text-text-primary transition-colors">
+            How it works
+          </a>
           <Link href="/docs" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
             <BookOpen size={14} />
             Docs
