@@ -204,6 +204,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'No valid ids provided' }, { status: 400 });
       }
       const rows = await deletePoliciesByIds(sql, orgId, idList);
+      invalidateGuardPolicyCache(orgId);
       for (const row of rows) {
         void publishOrgEvent(EVENTS.POLICY_UPDATED, { orgId, policy_id: row.id, change_type: 'deleted' });
       }
@@ -217,6 +218,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'Policy not found' }, { status: 404 });
     }
 
+    invalidateGuardPolicyCache(orgId);
     void publishOrgEvent(EVENTS.POLICY_UPDATED, { orgId, policy_id: policyId, change_type: 'deleted' });
 
     return NextResponse.json({ deleted: true, id: policyId });

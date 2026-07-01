@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:32cf054b62acd678e1e46e0fe3b7f63cb88e0da4 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:27a0e5184070436e1e1568f19cecafdfe0e1a1fa · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">274</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">181</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">183</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">100</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
@@ -174,6 +174,84 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>message</code></li>
     <li><code>stale_action</code></li>
     <li><code>test</code></li></ul></details></section>
+
+<section><h2>Timeline</h2><figure><figcaption>Active routes over time <span class="sig">(170 → 260)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,41.8 160.0,41.8 238.0,25.3 316.0,4.0"/></svg></figure>
+<figure><figcaption>Required env vars over time <span class="sig">(4 → 4)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,44.0 160.0,44.0 238.0,44.0 316.0,44.0"/></svg></figure>
+<figure><figcaption>Tables over time <span class="sig">(73 → 97)</span></figcaption><svg width="320" height="48" viewBox="0 0 320 48"><polyline fill="none" stroke="var(--accent)" stroke-width="2" points="4.0,44.0 82.0,44.0 160.0,44.0 238.0,24.0 316.0,4.0"/></svg></figure></section>
+
+<section><h2>Health</h2><div class="grid">      <div class="cell"><div class="n">16</div><div class="k">Commits 7d</div></div>
+      <div class="cell danger"><div class="n">1</div><div class="k">Bus factor</div></div>
+      <div class="cell"><div class="n">Wes Sander</div><div class="k">Top contributor</div></div>
+      <div class="cell"><div class="n">n/a</div><div class="k">JS tests</div></div>
+      <div class="cell"><div class="n">n/a</div><div class="k">Python tests</div></div>
+      <div class="cell"><div class="n">0.28</div><div class="k">Test file ratio</div></div>
+      <div class="cell danger"><div class="n">111</div><div class="k">Untested routes</div></div>
+      <div class="cell"><div class="n">0</div><div class="k">Vulnerabilities</div></div>
+      <div class="cell"><div class="n">0d</div><div class="k">Lockfile age</div></div>
+      <div class="cell"><div class="n">100.0%</div><div class="k">CI pass 30d</div></div>
+      <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
+      <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
+
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>42</b> env_vars added, <b>1</b> env_vars removed, <b>14</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId] <span class="sig">New route: DELETE, GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId]/artifacts <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId]/complete <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/claim <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/types <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/work-orders/types/[type] <span class="sig">New route: DELETE, GET, PUT</span></li>
+    <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_GITHUB_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_SENTRY_A_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_SENTRY_B_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_SENTRY_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_STRIPE_TEST_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: CUSTOM_VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_AUDIT_MAX_ENTRIES <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_GUARD_DEADLINE_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_RETRIES <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_RETRY_BASE_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_TIMEOUT_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_LOCAL_HOME <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_LOCK_STALE_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_LOG_STARTUP <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_MEMORY_MAX_ENTRIES <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_TIMEOUT_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: MODEL <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_USER <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: NAMECHEAP_CLIENT_IP <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: NAMECHEAP_SANDBOX <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: NEON_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: POSTHOG_PERSONAL_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: QSTASH_CURRENT_SIGNING_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: QSTASH_NEXT_SIGNING_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: QSTASH_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: R2_ACCESS_KEY_ID <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: R2_SECRET_ACCESS_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: RAILWAY_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: SENTRY_AUTH_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: STRIPE_LIVE_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: STRIPE_TEST_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: SUPABASE_ACCESS_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: TWILIO_AUTH_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: UPSTASH_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: UPSTASH_EMAIL <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: VERCEL_ENV <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: VERCEL_TEAM_ID <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
+    <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>

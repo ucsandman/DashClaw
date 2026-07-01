@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:32cf054b62acd678e1e46e0fe3b7f63cb88e0da4",
+  "timestamp": "sha1:27a0e5184070436e1e1568f19cecafdfe0e1a1fa",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3567,6 +3567,7 @@
         ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -3625,6 +3626,7 @@
         "scripts/fuzz-api.mjs",
         "scripts/migrate-multi-tenant.mjs",
         "scripts/patch-demo-capability-endpoints.mjs",
+        "scripts/policy-smoke.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
         "scripts/seed-branch-finish-loop.mjs",
@@ -3644,6 +3646,7 @@
       "name": "DASHCLAW_API_KEY_ORG",
       "required": false,
       "files": [
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "app/api/auth/local/route.ts",
         "app/api/setup/migrate/route.ts",
         "middleware.js",
@@ -4041,6 +4044,7 @@
       "name": "DATABASE_URL",
       "required": true,
       "files": [
+        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions-loops.route.test.js",
         "__tests__/unit/actions.route.test.js",
@@ -4933,6 +4937,15 @@
       "in_env_example": false
     },
     {
+      "name": "SQL_CAPTURE_FILE",
+      "required": false,
+      "files": [
+        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "STARTUP_SMOKE_BASE_URL",
       "required": false,
       "files": [
@@ -5011,6 +5024,15 @@
       "required": false,
       "files": [
         "app/api/webhooks/stripe/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "STUB_FAIL_CREATES",
+      "required": false,
+      "files": [
+        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
+        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
       ],
       "in_env_example": false
     },

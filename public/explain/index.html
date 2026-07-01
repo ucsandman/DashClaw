@@ -116,7 +116,7 @@ p, li { color: var(--text-2); }
 <section id="simulator"><div class="wrap">
   <div class="meta-label">Illustrative simulation</div>
   <h2>Guard decision simulator</h2>
-  <p class="lede">Describe a hypothetical action and watch the decision change. Illustrative simulation — production decisions come from the guard runtime, which computes risk server-side from the declared fields.</p>
+  <p class="lede">Describe a hypothetical action and watch the decision change. Illustrative simulation — production decisions come from the guard runtime, which computes risk server-side from the declared fields. The 40/70 bands are how DashClaw labels risk across the product; whether a given score warns, blocks, or pauses for approval is set by your org's risk_threshold policies — the toggle below mirrors one.</p>
   <div style="display:grid; grid-template-columns: 340px 1fr; gap:20px; margin-top:20px;" id="sim-grid">
     <form class="card" style="padding:20px; display:grid; gap:14px;" id="sim-form">
       <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Action type
@@ -154,19 +154,20 @@ p, li { color: var(--text-2); }
 <h2>Policy playground</h2>
 <p class="lede">Policies are the contract between you and your agents. Compose one and watch it re-evaluate a day of agent activity. Illustrative simulation — production decisions come from the guard runtime.</p>
 <div class="card" style="padding:16px 20px; display:flex; flex-wrap:wrap; gap:20px; align-items:center; margin:20px 0;" id="policy-form">
-  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend cap (USD)
+  <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Spend cap (USD, x402 purchases)
     <input id="pol-cap" class="btn" type="number" min="0" value="1000" style="width:120px;">
   </label>
   <fieldset style="border:0; margin:0; padding:0; display:flex; gap:12px; font-size:13px; color:var(--text-3);">
     <legend class="meta-label" style="padding:0; margin-bottom:4px;">Blocked action types</legend>
     <label><input type="checkbox" class="pol-blocked" value="file.delete" checked> file.delete</label>
-    <label><input type="checkbox" class="pol-blocked" value="payment.create"> payment.create</label>
+    <label><input type="checkbox" class="pol-blocked" value="x402_purchase"> x402_purchase</label>
     <label><input type="checkbox" class="pol-blocked" value="deploy"> deploy</label>
   </fieldset>
   <label style="display:grid; gap:4px; font-size:13px; color:var(--text-3);">Require approval at risk ≥
     <input id="pol-approve-at" class="btn" type="number" min="0" max="100" value="70" style="width:90px;">
   </label>
 </div>
+<p style="font-size:13px; color:var(--text-3); margin:-8px 0 16px;">These mirror real policy types: the spend rule is x402_spend_limit and governs paid (x402) purchases; blocked types and the risk threshold mirror block_action_type and risk_threshold, which apply to any action.</p>
 <div class="card" style="overflow-x:auto;">
   <table id="policy-table" style="width:100%; border-collapse:collapse; font-size:13.5px;">
     <thead><tr>
@@ -507,14 +508,14 @@ const SAMPLE_ACTIONS = [
   { goal: 'Reply to a customer thread',                    type: 'message.send',   spend: 0,    risk: 22 },
   { goal: 'Update the pricing page copy',                  type: 'file.write',     spend: 0,    risk: 34 },
   { goal: 'Send the weekly digest to 1,400 subscribers',   type: 'message.send',   spend: 0,    risk: 48 },
-  { goal: 'Renew a SaaS subscription — $89',          type: 'payment.create', spend: 89,   risk: 52 },
-  { goal: 'Pay a new vendor invoice — $4,800',        type: 'payment.create', spend: 4800, risk: 74 },
+  { goal: 'Buy premium API credits over x402 — $89',  type: 'x402_purchase',  spend: 89,   risk: 52 },
+  { goal: 'Purchase a licensed dataset over x402 — $4,800', type: 'x402_purchase', spend: 4800, risk: 74 },
   { goal: 'Delete stale build artifacts',                  type: 'file.delete',    spend: 0,    risk: 58 },
   { goal: 'Deploy the hotfix to production',               type: 'deploy',         spend: 0,    risk: 82 },
 ];
 function evaluatePolicy(action, policy) {
   if (policy.blockedTypes.includes(action.type)) return { decision: 'block', because: `action type ${action.type} is blocked by policy` };
-  if (policy.spendCap >= 0 && action.spend > policy.spendCap) return { decision: 'require_approval', because: `$${action.spend} exceeds the $${policy.spendCap} cap` };
+  if (action.type === 'x402_purchase' && policy.spendCap >= 0 && action.spend > policy.spendCap) return { decision: 'require_approval', because: `$${action.spend} exceeds the $${policy.spendCap} x402 spend cap` };
   if (action.risk >= policy.approveAt) return { decision: 'require_approval', because: `risk ${action.risk} ≥ approval threshold ${policy.approveAt}` };
   if (action.risk >= BAND_WARN) return { decision: 'warn', because: `risk ${action.risk} is in the elevated band (≥ ${BAND_WARN})` };
   return { decision: 'allow', because: `risk ${action.risk} is below the elevated band` };
