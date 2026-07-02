@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ShieldAlert, Check, X, Clock, User, Zap,
-  RefreshCw, Info, Ban,
+  RefreshCw, Info, Ban, Hourglass,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent } from '../components/ui/Card';
@@ -54,6 +54,7 @@ function Banner({ icon: Icon, tone, title, children }: BannerProps) {
 export default function ApprovalsPage() {
   const { agentId } = useAgentFilter();
   const [pendingActions, setPendingActions] = useState<any[]>([]);
+  const [expiredActions, setExpiredActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
@@ -61,10 +62,18 @@ export default function ApprovalsPage() {
   const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
     try {
       if (!opts?.silent) setLoading(true);
-      const res = await fetch(`/api/actions?status=pending_approval&limit=50${agentId ? `&agent_id=${encodeURIComponent(agentId)}` : ''}`, { cache: 'no-store' });
+      const agentQs = agentId ? `&agent_id=${encodeURIComponent(agentId)}` : '';
+      const res = await fetch(`/api/actions?status=pending_approval&limit=50${agentQs}`, { cache: 'no-store' });
       if (!res.ok) throw new Error('Failed to load pending actions');
       const json = await res.json();
       setPendingActions(json.actions || []);
+      // Fetched AFTER the pending list on purpose: that request runs the
+      // server's lazy expiry sweep, so rows it just flipped show up here.
+      const expiredRes = await fetch(`/api/actions?status=expired&limit=20${agentQs}`, { cache: 'no-store' });
+      if (expiredRes.ok) {
+        const expiredJson = await expiredRes.json();
+        setExpiredActions(expiredJson.actions || []);
+      }
     } catch (error) {
       // The list stays as-is and the user can retry with the refresh button
       console.warn('Failed to fetch pending actions:', error);
@@ -313,6 +322,41 @@ export default function ApprovalsPage() {
                 </Card>
               );
             })}
+          </div>
+        )}
+
+        {expiredActions.length > 0 && (
+          <div className="mt-10">
+            <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+              <Hourglass size={12} /> Expired
+            </div>
+            <p className="mb-3 text-xs text-tertiary">
+              These approvals outlived the requesting agent&rsquo;s wait window — approving them
+              would release nothing. If the action is still wanted, have the agent retry it.
+            </p>
+            <div className="space-y-2">
+              {expiredActions.map((action) => (
+                <div
+                  key={action.action_id}
+                  data-entity-type="decision"
+                  data-entity-id={action.action_id}
+                  data-entity-status="expired"
+                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-border bg-surface-secondary px-4 py-2.5 opacity-70"
+                >
+                  <Badge variant="default" size="xs">Expired</Badge>
+                  <span className="min-w-0 flex-1 truncate text-sm text-secondary">{action.declared_goal}</span>
+                  <EntityLink
+                    type="agent"
+                    id={action.agent_id}
+                    name={action.agent_name || action.agent_id}
+                    className="text-xs text-tertiary"
+                  />
+                  <span className="text-xs tabular-nums text-tertiary">
+                    {new Date(action.timestamp_start).toLocaleString()}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

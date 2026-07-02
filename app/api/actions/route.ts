@@ -28,6 +28,7 @@ import {
   insertActionEmbedding,
   isFirstActionForOrg,
   listActions,
+  sweepExpiredApprovals,
 } from '../../lib/repositories/actions.repository';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
 import { guardDecisionExists } from '../../lib/repositories/guard.repository';
@@ -55,6 +56,26 @@ export async function GET(request: Request) {
     const days = searchParams.get('days') || undefined;
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Lazy expiry sweep (roadmap v2.3): the approval queue is exactly where a
+    // dead pending row would be mistaken for an approvable one, so flip
+    // overdue rows before listing (x402 reconcile rides inside the sweep).
+    // No cron on the free tier — this piggybacks on the page load that would
+    // otherwise show the lie.
+    if (status === 'pending_approval') {
+      const swept = await sweepExpiredApprovals(sql, orgId).catch((err: unknown) => {
+        console.warn('[ACTIONS GET] approval expiry sweep failed:', (err as Error)?.message);
+        return [] as Awaited<ReturnType<typeof sweepExpiredApprovals>>;
+      });
+      if (swept.length > 0) {
+        // One aggregate event (not N): dashboards refresh, and since a second
+        // sweep flips nothing, this cannot loop with the realtime refetch.
+        void publishOrgEvent(EVENTS.ACTION_UPDATED, {
+          orgId,
+          bulk: { decision: 'expire', resolved: swept.length, action_ids: swept.map((r) => String(r.action_id)) },
+        });
+      }
+    }
 
     const result = await listActions(sql, orgId, {
       agent_id,

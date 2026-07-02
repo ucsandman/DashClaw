@@ -50,16 +50,20 @@ Step 3: Inform the user
 Step 4: Wait for the decision
   dashclaw_wait_for_approval(action_id="act_xxx")
 
-Step 5: Handle the result. The response shape is { approved, action, timed_out }.
+Step 5: Handle the result. The response shape is { approved, denied, expired?, action, timed_out }.
   - approved == true → proceed with the deploy, then PATCH the outcome
                        (status="completed", optional tokens_in/tokens_out/model)
   - timed_out == true → operator never responded inside the configured timeout
-                        (default 300s; override with timeout_seconds). Either
-                        re-request, fall back, or stop with an explicit log.
-  - approved == false (timed_out == false) → operator denied OR action moved to
-                                              a non-completed terminal state.
-                                              Read action.error_message for the
-                                              operator's reason, then stop.
+                        (default 300s; override with timeout_seconds — declare
+                        the same window as approval_wait_seconds on the guard/
+                        record call so the pending row expires truthfully).
+                        Either re-request, fall back, or stop with an explicit log.
+  - denied == true → operator denied. Read denial_reason, then stop.
+  - expired == true → the server expired the approval (your wait window +
+                       retry grace passed). It can no longer be approved —
+                       re-request if the action is still wanted.
+  - approved == false otherwise → action moved to a non-completed terminal
+                                   state. Read action.error_message, then stop.
 
 ## Token + Cost Reporting Pattern
 

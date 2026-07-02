@@ -15,6 +15,8 @@ import {
   getActionStatus,
   getActionWithRelations,
   updateActionOutcome,
+  isApprovalOverdue,
+  expireOverdueApproval,
 } from '../../../lib/repositories/actions.repository';
 import {
   maybeRebuildRecommendations,
@@ -36,6 +38,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ acti
     const result = await getActionWithRelations(sql, orgId, actionId);
     if (!result) {
       return NextResponse.json({ error: 'Action not found' }, { status: 404 });
+    }
+
+    // Lazy expiry self-heal (roadmap v2.3, pairing-flow precedent): checked in
+    // JS first so the common poll path pays nothing; the flip's WHERE clause
+    // re-checks status + overdue, so a racing approval wins cleanly (x402
+    // reconcile rides inside the flip).
+    if (result.action?.status === 'pending_approval' && isApprovalOverdue(result.action)) {
+      const expired = await expireOverdueApproval(sql, orgId, actionId);
+      if (expired) {
+        void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, action: expired });
+        result.action = { ...result.action, ...expired };
+      }
     }
 
     return NextResponse.json(result);

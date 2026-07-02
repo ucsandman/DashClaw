@@ -287,6 +287,16 @@ pending = claw.get_pending_approvals(limit=25)
 | `approve_action(action_id, decision, reasoning=None)` | Approve or deny an action. Decision: "allow" or "deny" |
 | `get_pending_approvals(limit=20, offset=0)` | Get actions pending human approval |
 
+**Approval expiry.** `guard()` and `create_action()` declare an
+`approval_wait_seconds=300` window by default (pass your own value to
+override). A pending approval expires server-side once that window plus a
+15-minute retry grace passes: the row flips to `status="expired"`,
+`wait_for_approval()` raises `ApprovalDeniedError` with `decision="expired"`,
+and approving the dead request returns `410 APPROVAL_EXPIRED` instead of a
+fake success. If an operator approves before expiry but after your wait timed
+out, retrying the identical call within 15 minutes of the approval is
+auto-allowed (operator-approval grant).
+
 ## Behavior Guard
 
 Guard is the heart of DashClaw. Every action is checked against policies before execution.

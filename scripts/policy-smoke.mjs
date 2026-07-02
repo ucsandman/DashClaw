@@ -661,6 +661,92 @@ async function main() {
       `total=${deg?.total} degraded=${deg?.degraded} rate=${deg?.rate}`);
   }
 
+  // M: approvals lifecycle hygiene (owner roadmap v2.3)
+  // Spec: docs/plans/2026-07-02-approvals-lifecycle-hygiene.md
+  // A pending approval whose client stopped waiting must expire, render as
+  // expired, and refuse to "release" anything. Time cannot be faked over
+  // HTTP, so the past-the-window state is SEEDED by backdating
+  // approval_expires_at via direct SQL (DATABASE_URL — same .env.local / CI
+  // env the server reads); everything else is proven over real HTTP.
+  {
+    const agent = agentFor('m');
+    await createPolicy('lifecycle', 'risk_threshold',
+      { threshold: 60, action: 'require_approval' }, [agent]);
+
+    let seedSql = null;
+    try {
+      if (process.env.DATABASE_URL) {
+        const { createSqlFromEnv } = await import(new URL('./_db.mjs', import.meta.url));
+        seedSql = createSqlFromEnv();
+      }
+    } catch { /* reported via the failed checks below */ }
+
+    const guarded = await api('POST', '/api/guard?record=true', {
+      action_type: 'smoke.lifecycle', declared_goal: `expiring approval ${RUN}`,
+      agent_id: agent, risk_score: 75, approval_wait_seconds: 30,
+    });
+    const actionId = guarded.json?.action_id;
+    const detail = actionId ? await api('GET', `/api/actions/${actionId}`) : { json: {} };
+    const act = detail.json?.action || {};
+    // Measured against this script's clock, NOT created_at — created_at is a
+    // no-timezone column whose serialized form parses as local time.
+    const stampDelta = (new Date(act.approval_expires_at).getTime() - Date.now()) / 1000;
+    check('M1', 'pending approval carries expiry = declared wait (30s) + retry grace (900s)',
+      guarded.json?.decision === 'require_approval' && Number.isFinite(stampDelta)
+        && stampDelta > 900 - 60 && stampDelta <= 930 + 15,
+      `decision=${guarded.json?.decision} expires_at=${act.approval_expires_at} delta=${stampDelta}`);
+
+    if (actionId && seedSql) {
+      await seedSql`UPDATE action_records SET approval_expires_at = NOW() - interval '2 minutes' WHERE action_id = ${actionId}`;
+      // The pending-approval list runs the lazy sweep — the exact request
+      // /approvals makes on load.
+      await api('GET', `/api/actions?status=pending_approval&agent_id=${encodeURIComponent(agent)}&limit=5`);
+      const after = await api('GET', `/api/actions/${actionId}`);
+      const st = after.json?.action?.status;
+      check('M2', 'a pending approval past its window flips to expired on the queue read',
+        st === 'expired' && /expired/i.test(after.json?.action?.error_message || ''),
+        `status=${st} error=${after.json?.action?.error_message}`);
+
+      const approve = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow', reasoning: 'too late' });
+      check('M3', 'approving an expired record returns a truthful 410 (releases nothing)',
+        approve.status === 410 && approve.json?.code === 'APPROVAL_EXPIRED',
+        `status=${approve.status} body=${JSON.stringify(approve.json)?.slice(0, 200)}`);
+      const still = await api('GET', `/api/actions/${actionId}`);
+      check('M3', 'expired record stays expired after the approval attempt',
+        still.json?.action?.status === 'expired', `status=${still.json?.action?.status}`);
+
+      // x402 ride-along: an expired purchase approval must release its
+      // reserved budget row (execution_status pending → expired).
+      const purchase = await api('POST', '/api/x402/purchases', {
+        agent_id: agent, provider: 'smoke-provider', declared_goal: `expiring purchase ${RUN}`,
+        cost_estimate: 3, risk_score: 75, approval_wait_seconds: 30,
+        purchase_reason: 'lifecycle smoke', context_gap: 'expiry ride-along',
+        expected_value: 'proof that an expired purchase approval releases its reserved budget',
+      });
+      const pActionId = purchase.json?.action?.action_id || purchase.json?.action_id;
+      if (pActionId && purchase.json?.action?.status === 'pending_approval') {
+        await seedSql`UPDATE action_records SET approval_expires_at = NOW() - interval '2 minutes' WHERE action_id = ${pActionId}`;
+        await api('GET', `/api/actions?status=pending_approval&agent_id=${encodeURIComponent(agent)}&limit=5`);
+        const plist = await api('GET', `/api/x402/purchases?agent_id=${encodeURIComponent(agent)}`);
+        const prow = (plist.json?.purchases || []).find((p) => p.action_id === pActionId);
+        check('M4', "expired x402 approval reconciles the purchase to execution_status='expired'",
+          prow?.execution_status === 'expired', `purchase=${JSON.stringify(prow)?.slice(0, 200)}`);
+      } else {
+        check('M4', 'x402 expiry ride-along', false,
+          `purchase not pending: status=${purchase.json?.action?.status} body=${JSON.stringify(purchase.json)?.slice(0, 200)}`);
+      }
+    } else {
+      const why = actionId ? 'DATABASE_URL unavailable for the seeded backdate' : 'no action_id from guard?record=true';
+      check('M2', 'expiry flip on queue read', false, why);
+      check('M3', 'truthful 410 on expired', false, why);
+      check('M3', 'expired stays expired', false, why);
+      check('M4', 'x402 expiry ride-along', false, why);
+    }
+    // postgres.js keeps a live TCP pool that would hold the process open;
+    // Neon's HTTP driver has no end() — hence the guarded call.
+    if (typeof seedSql?.end === 'function') await seedSql.end().catch(() => {});
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

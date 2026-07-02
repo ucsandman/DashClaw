@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.30.0] — 2026-07-02
+
+Approvals lifecycle hygiene (owner roadmap v2.3). The item-2 live audit's third finding: approvals whose tool calls had already hard-blocked (hook timeout) still sat pending forever; approving them flipped the row to `running`, executed nothing, and reported nothing. Now a pending approval expires once its requesting client has provably stopped waiting, and acting on the dead record tells the truth. Spec: `docs/plans/2026-07-02-approvals-lifecycle-hygiene.md`.
+
+### Added
+- **Clients declare their wait window:** new optional `approval_wait_seconds` field (integer, 5–86400) on `POST /api/guard`, `POST /api/actions`, and `POST /api/x402/purchases`. The Python pretool hook sends its `DASHCLAW_APPROVAL_TIMEOUT` (default 30s); the MCP server and both SDKs send their 300s default. The server stamps `approval_expires_at = now + window + 15 min retry grace` on `pending_approval` rows (drizzle/0039 + partial index) — the grace mirrors the operator-approval grant window, so "operator approves after the hook timed out, agent retries" keeps working.
+- **`expired` is a first-class, server-set action status.** Lazy expiry (pairing-flow precedent, no cron): overdue pending rows flip on the approval-queue list, on action read, on the approve attempt, and before bulk resolution; legacy rows without a stamp expire 24h after creation, clearing the historical backlog. `POST /api/approvals/:id` on an expired record returns **410 `APPROVAL_EXPIRED`** ("approving it can no longer release anything") instead of a fake success, and external approval messages (Discord/Telegram) are edited to "Expired".
+- **`/approvals` renders an Expired section** — muted, non-approvable rows below the pending queue, so the queue itself only shows approvals that can still release something. Policy smoke M1–M4 (67 checks total) prove the lifecycle live, including a seeded past-the-window scenario and the x402 ride-along.
+
+### Changed
+- **x402 purchases ride the same lifecycle:** denying or expiring a pending x402 approval reconciles the paired purchase (`execution_status` `pending → denied`/`expired`) — previously a deny left it `pending` forever. The spend predicates (FinOps rollups + the guard's cumulative budget gate) now exclude `denied`/`expired` alongside `failed`, so dead approvals stop reserving budget.
+- **SDKs treat `expired` as terminal:** `waitForApproval()` / `wait_for_approval()` raise `ApprovalDeniedError` with status/decision `expired` (distinct from an operator deny); the pretool hook stops polling on `expired`.
+
+### Fixed
+- **MCP `dashclaw_wait_for_approval` misreported genuine approvals:** it checked `status === 'completed'`, but an approval flips the row to `running` — so real approvals returned `approved: false`. It now resolves on `approved_by`/`running`/`completed` and reports `expired: true` with a reason when the approval expired.
+
 ## [4.29.0] — 2026-07-02
 
 Agent identity & attribution v2, "who is asking" (owner roadmap v2.2). The item-2 live audit's second finding: every agent on the machine reported the same machine-wide `DASHCLAW_AGENT_ID`, so Wes couldn't tell who was asking for approval. Root cause verified in source: the hooks' `.env` loader gives the inherited environment precedence, `dashclaw install codex` never wired hook identity at all, and the Hermes shims used `setdefault`. Spec: `docs/plans/2026-07-02-agent-identity-attribution.md`.

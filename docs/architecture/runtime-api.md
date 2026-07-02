@@ -91,6 +91,10 @@ Required fields are `agent_id`, `action_type`, and `declared_goal`.
 running, completed, failed, cancelled, pending, pending_approval, blocked
 ```
 
+DashClaw can also set `expired` server-side (never client-suppliable): a
+`pending_approval` row whose requesting client provably stopped waiting flips
+to `expired` and is no longer approvable (see "Approval lifecycle" below).
+
 Agent-reported cost and token values are clamped server-side. If `tokens_in` or `tokens_out` are provided without an explicit `cost_estimate`, DashClaw estimates cost from the configured pricing table.
 
 ### 3. Durable Outcomes (`POST /api/actions/:actionId/outcome`)
@@ -276,6 +280,32 @@ Legacy v1 paths are still routed through server-side rewrites in `next.config.js
 - `/api/actions/:actionId/approve` -> `/api/approvals/:actionId`
 
 Both legacy and canonical paths are live. New integrations should target canonical routes.
+
+## Approval Lifecycle (expiry)
+
+A pending approval is only approvable while approving it can still release
+something. Clients declare their poll window at request time with the optional
+`approval_wait_seconds` field (integer, 5–86400) on `POST /api/guard` and
+`POST /api/actions`; the hooks, MCP server, and both SDKs send their own
+defaults (Python pretool hook: `DASHCLAW_APPROVAL_TIMEOUT`, default 30;
+MCP/SDKs: 300). The server stamps
+`approval_expires_at = now + approval_wait_seconds + 15 min retry grace` on the
+pending row — the grace mirrors the operator-approval grant window, so
+"operator approves after the hook timed out, agent retries the identical call"
+keeps working. Clients that declare nothing get the conservative default
+(300 s + grace); rows created before the expiry stamp existed expire 24 h after
+creation.
+
+Expiry is lazy (no cron): overdue rows flip to `expired` when the approval
+queue is listed (`GET /api/actions?status=pending_approval`), when the action
+is read (`GET /api/actions/:actionId`), or when someone tries to approve them.
+Acting on an expired record returns **`410 Gone`** with
+`code: "APPROVAL_EXPIRED"` — a truthful "this can no longer release anything"
+instead of a fake success. `/approvals` renders expired approvals in a
+distinct, non-approvable section. For `x402_purchase` actions the paired
+purchase row is reconciled in the same lifecycle (`execution_status`:
+`pending → expired` on expiry, `pending → denied` on deny), so dead approvals
+stop reserving x402 budget.
 
 ## Optional Approval Channels
 

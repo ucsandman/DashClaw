@@ -139,6 +139,12 @@ function evaluateApprovalState(action) {
   if (action.status === 'failed' || action.status === 'cancelled') {
     return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Operator denied the action.', action.status) };
   }
+  // Approvals lifecycle (roadmap v2.3): the server expired the approval — it
+  // can no longer release anything. Terminal; err.status distinguishes it
+  // from an operator denial.
+  if (action.status === 'expired') {
+    return { resolved: true, error: new ApprovalDeniedError(action.error_message || 'Approval expired before a decision was made.', action.status) };
+  }
   return { resolved: false };
 }
 
@@ -312,6 +318,11 @@ class DashClaw {
    */
   async guard(context) {
     return this._post('/api/guard', {
+      // Approvals lifecycle: declare the wait window this client will poll if
+      // the decision is require_approval, so the pending row gets a truthful
+      // approval_expires_at stamp. Matches the waitForApproval default
+      // (300s); pass approval_wait_seconds in context to override.
+      approval_wait_seconds: 300,
       ...context,
       agent_id: context.agent_id || this.agentId,
       // Include agent_name for audit attribution if not already provided by caller
@@ -336,6 +347,9 @@ class DashClaw {
    */
   async createAction(action) {
     const payload = {
+      // Approvals lifecycle: same wait-window declaration as guard(), for
+      // actions created directly as pending_approval (caller value wins).
+      approval_wait_seconds: 300,
       ...action,
       agent_id: this.agentId,
     };

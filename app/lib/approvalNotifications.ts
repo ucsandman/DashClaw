@@ -22,7 +22,9 @@ const TELEGRAM_API_BASE = 'https://api.telegram.org';
 const FETCH_TIMEOUT_MS = 1500;
 
 export type ApprovalChannel = 'discord' | 'telegram';
-export type ResolvedVia = ApprovalChannel | 'dashboard';
+// 'expiry' = the approvals lifecycle flipped the row to expired (roadmap
+// v2.3); it is not a channel, so every open message gets the resolved edit.
+export type ResolvedVia = ApprovalChannel | 'dashboard' | 'expiry';
 
 /** Persist a sent approval message so it can be cleared later. Never throws. */
 export async function recordSentApprovalNotification(
@@ -37,6 +39,9 @@ export async function recordSentApprovalNotification(
 }
 
 function resolvedText(decision: string, resolvedBy: string): string {
+  if (decision === 'expire') {
+    return '⌛ Expired — the requesting agent stopped waiting for this decision. No action needed here.';
+  }
   const verb = decision === 'allow' ? 'approved' : 'denied';
   const icon = decision === 'allow' ? '✅' : '❌';
   const who = (resolvedBy || 'an operator').slice(0, 80);

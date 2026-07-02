@@ -13,6 +13,8 @@ const mockScanSensitiveData = vi.fn((v) => ({ clean: true, redacted: v, findings
 const mockRecordApproval = vi.fn();
 const mockGetActionStatus = vi.fn();
 const mockGetActionSummary = vi.fn();
+const mockExpireOverdueApproval = vi.fn();
+const mockReconcileStalePurchases = vi.fn(() => Promise.resolve([]));
 const mockFireWebhooksForApproval = vi.fn(() => Promise.resolve());
 
 vi.mock('next/server', async (importOriginal) => {
@@ -47,10 +49,20 @@ vi.mock('../../app/lib/security.js', () => ({
     return value;
   },
 }));
-vi.mock('../../app/lib/repositories/actions.repository.js', () => ({
-  recordApproval: (...a) => mockRecordApproval(...a),
-  getActionStatus: (...a) => mockGetActionStatus(...a),
-  getActionSummary: (...a) => mockGetActionSummary(...a),
+vi.mock('../../app/lib/repositories/actions.repository.js', async (importOriginal) => {
+  // Partial mock: keep the real pure helpers (isApprovalOverdue and friends)
+  // so the route's expiry checks run genuine logic against mocked rows.
+  const actual = await importOriginal();
+  return {
+    ...actual,
+    recordApproval: (...a) => mockRecordApproval(...a),
+    getActionStatus: (...a) => mockGetActionStatus(...a),
+    getActionSummary: (...a) => mockGetActionSummary(...a),
+    expireOverdueApproval: (...a) => mockExpireOverdueApproval(...a),
+  };
+});
+vi.mock('../../app/lib/repositories/x402.repository.js', () => ({
+  reconcileStalePurchases: (...a) => mockReconcileStalePurchases(...a),
 }));
 vi.mock('../../app/lib/webhooks.js', () => ({
   fireWebhooksForApproval: (...a) => mockFireWebhooksForApproval(...a),
@@ -238,5 +250,116 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(data.error).toMatch(/already resolved/i);
     // No event, no webhook, no audit log when we lose the race.
     expect(mockFireWebhooksForApproval).not.toHaveBeenCalled();
+  });
+
+  // --- Approvals lifecycle hygiene (roadmap v2.3) ---
+
+  it('returns 410 with a truthful message when the action is already expired', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({ status: 'expired', agent_id: 'agent_1' });
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(410);
+    expect(data.code).toBe('APPROVAL_EXPIRED');
+    expect(data.error).toMatch(/can no longer release anything/i);
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+  });
+
+  it('lazily expires an overdue pending approval and returns 410', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1',
+      approval_expires_at: new Date(Date.now() - 60_000).toISOString(),
+    });
+    const expiredRow = { action_id: 'act_123', status: 'expired', agent_id: 'agent_1', action_type: 'deploy' };
+    mockExpireOverdueApproval.mockResolvedValueOnce(expiredRow);
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(410);
+    expect(data.code).toBe('APPROVAL_EXPIRED');
+    expect(data.action.status).toBe('expired');
+    expect(mockExpireOverdueApproval).toHaveBeenCalledWith(expect.anything(), 'org_test', 'act_123');
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+    // The flip is announced so /approvals refreshes in real time.
+    expect(mockPublishOrgEvent).toHaveBeenCalledWith('action.updated', expect.objectContaining({ action: expiredRow }));
+  });
+
+  it('treats a legacy pending row (no expiry stamp) older than 24h as overdue', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1',
+      approval_expires_at: null,
+      created_at: new Date(Date.now() - 25 * 3_600_000).toISOString(),
+    });
+    mockExpireOverdueApproval.mockResolvedValueOnce({ action_id: 'act_123', status: 'expired' });
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+
+    expect(res.status).toBe(410);
+  });
+
+  it('does NOT expire a pending approval that is still inside its window', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'running', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockExpireOverdueApproval).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the real status when the expiry flip loses a race', async () => {
+    mockGetActionStatus
+      .mockResolvedValueOnce({
+        status: 'pending_approval', agent_id: 'agent_1',
+        approval_expires_at: new Date(Date.now() - 60_000).toISOString(),
+      })
+      // Re-read after the null flip: another approver won.
+      .mockResolvedValueOnce({ status: 'running', agent_id: 'agent_1' });
+    mockExpireOverdueApproval.mockResolvedValueOnce(null);
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/not pending/i);
+  });
+
+  it('reconciles the paired x402 purchase to denied when an x402 approval is denied', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', action_type: 'x402_purchase',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'deny', reasoning: 'Too expensive' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReconcileStalePurchases).toHaveBeenCalledWith(
+      expect.anything(), 'org_test', ['act_123'], 'denied', expect.stringContaining('Too expensive'),
+    );
+  });
+
+  it('does not touch x402 purchases on a non-x402 deny', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', action_type: 'deploy',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'deny' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReconcileStalePurchases).not.toHaveBeenCalled();
   });
 });

@@ -200,6 +200,9 @@ export async function POST(request: Request) {
         reasoning,
         input_summary,
         risk_score: clientRisk,
+        // Approvals lifecycle (drizzle/0039): stamps approval_expires_at when
+        // the guard decides require_approval.
+        approval_wait_seconds: typeof v.approval_wait_seconds === 'number' ? v.approval_wait_seconds : null,
       },
       actionStatus,
       costEstimate: v.spend_amount,

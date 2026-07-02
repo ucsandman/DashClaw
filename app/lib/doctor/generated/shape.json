@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:5d935e164610bb2ea93ab37fe0bcc21623c5ff37",
+  "timestamp": "sha1:32108448a6b14bbc07042aecb5434909e243fba9",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4169,6 +4169,7 @@
         "scripts/migrate-policy-agent-scope.mjs",
         "scripts/migrate-prompts.mjs",
         "scripts/migrate-token-budgets.mjs",
+        "scripts/policy-smoke.mjs",
         "scripts/poll-github-traffic.mjs",
         "scripts/promote-founder-to-admin.mjs",
         "scripts/rebuild-learning-recommendations.mjs",

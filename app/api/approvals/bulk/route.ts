@@ -7,7 +7,7 @@ import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
-import { listPendingApprovalIdsByActionTypes, recordBulkApprovals } from '../../../lib/repositories/actions.repository';
+import { listPendingApprovalIdsByActionTypes, recordBulkApprovals, sweepExpiredApprovals } from '../../../lib/repositories/actions.repository';
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
@@ -65,6 +65,13 @@ export async function POST(request: Request) {
     if (!actionTypes.length) {
       return NextResponse.json({ error: 'Policy has no action_types to match' }, { status: 400 });
     }
+
+    // Lazy expiry sweep (roadmap v2.3): bulk resolution must not resolve
+    // approvals whose clients already stopped waiting. The lister also
+    // excludes overdue rows; the sweep keeps the queue itself truthful.
+    await sweepExpiredApprovals(sql as never, orgId).catch((err: unknown) => {
+      console.warn('[APPROVALS_BULK] approval expiry sweep failed:', (err as Error)?.message);
+    });
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const ids = await listPendingApprovalIdsByActionTypes(

@@ -227,6 +227,35 @@ export async function setPurchaseOutcome(sql: SqlTag, orgId: string, actionId: s
   return (rows[0] ?? null) as X402PurchaseRow | null;
 }
 
+/**
+ * Approvals lifecycle hygiene (roadmap v2.3): when a pending x402 approval is
+ * denied or expires, the paired purchase row must leave `pending` too —
+ * otherwise it reserves budget forever (the spend predicates count pending).
+ * Guarded on execution_status='pending' so an already-reported outcome is
+ * never clobbered. Batched: the expiry sweep passes many ids at once.
+ */
+export async function reconcileStalePurchases(
+  sql: SqlTag,
+  orgId: string,
+  actionIds: string[],
+  executionStatus: 'expired' | 'denied',
+  reason: string,
+): Promise<string[]> {
+  if (!actionIds.length) return [];
+  const rows = await sql.query(
+    `UPDATE x402_purchases
+     SET execution_status = $1,
+         failure_reason = $2,
+         completed_at = NOW()
+     WHERE org_id = $3
+       AND action_id = ANY($4)
+       AND execution_status = 'pending'
+     RETURNING action_id`,
+    [executionStatus, reason, orgId, actionIds],
+  );
+  return (rows as Array<{ action_id: string }>).map((r) => r.action_id);
+}
+
 // --- Aggregation (FinOps Fleet lens) ---------------------------------------
 
 const X402_PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
@@ -240,22 +269,24 @@ export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { peri
   // UI states this when a filter is active. Mirrors actions.repository's
   // conditional-fragment pattern.
   const agentFilter = agentId ? sql` AND agent_id = ${agentId}` : sql``;
-  // Exclude FAILED purchases from spend: a failed x402 call means no money moved.
-  // succeeded/partial/approved/pending are retained. Operator decision 2026-06-05.
+  // Exclude no-money-moved purchases from spend: failed (execution failed,
+  // operator decision 2026-06-05) plus denied/expired (approval never released
+  // the payment — roadmap v2.3 lifecycle hygiene). succeeded/partial/approved/
+  // pending are retained (pending = reserved spend awaiting approval).
   const [totals] = await sql`
     SELECT COALESCE(SUM(spend_amount), 0)::real AS total_spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}`;
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}`;
   const byDay = await sql`
     SELECT DATE(created_at::timestamptz) AS date, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}
     GROUP BY DATE(created_at::timestamptz)
     ORDER BY date DESC`;
   const byProvider = await sql`
     SELECT provider_id, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status <> 'failed'${agentFilter}
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}
     GROUP BY provider_id
     ORDER BY spend_usd DESC`;
   return {
@@ -273,9 +304,10 @@ export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { peri
 
 /**
  * Rolling-window spend sum for the guard's cumulative x402 budget gate.
- * Same spend predicate as getX402SpendAggregation (`execution_status <>
- * 'failed'`: a failed x402 call means no money moved — operator decision
- * 2026-06-05) so the product has ONE definition of "spend". Pending rows
+ * Same spend predicate as getX402SpendAggregation (`execution_status NOT IN
+ * ('failed','denied','expired')`: failed means no money moved — operator
+ * decision 2026-06-05 — and denied/expired approvals never released a payment,
+ * roadmap v2.3) so the product has ONE definition of "spend". Pending rows
  * count (reserved spend awaiting approval); blocked purchases never get a
  * row. NOT cached: spend changes with every purchase, and a stale read
  * would let over-budget purchases through the gate.
@@ -293,6 +325,6 @@ export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, age
   const [row] = await sql`
     SELECT COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
     FROM x402_purchases
-    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status <> 'failed'${agentFilter}`;
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}`;
   return Number(row?.window_spend_usd ?? 0);
 }

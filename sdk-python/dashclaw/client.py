@@ -310,6 +310,9 @@ class DashClaw:
         omitted, the server falls back to time-window correlation by agent_id.
         """
         payload = {
+            # Approvals lifecycle: same wait-window declaration as guard(),
+            # for actions created directly as pending_approval (kwargs win).
+            "approval_wait_seconds": 300,
             "action_type": action_type,
             "declared_goal": declared_goal,
             "agent_id": self.agent_id,
@@ -469,6 +472,15 @@ class DashClaw:
                 decision=action.get("status")
             )
 
+        # Approvals lifecycle (roadmap v2.3): the server expired the approval —
+        # it can no longer release anything. Terminal; `decision` distinguishes
+        # it from an operator denial.
+        if action.get("status") == "expired":
+            raise ApprovalDeniedError(
+                action.get("error_message") or "Approval expired before a decision was made.",
+                decision="expired"
+            )
+
         if self._left_pending_without_approval(was_pending, action):
             raise DashClawError(
                 f"Action {action_id} left pending_approval state without explicit approval metadata (Status: {action.get('status')})"
@@ -496,6 +508,12 @@ class DashClaw:
             raise ApprovalDeniedError(
                 sse_data.get("error_message") or "Operator denied the action.",
                 decision=sse_data.get("status")
+            )
+
+        if sse_data.get("status") == "expired":
+            raise ApprovalDeniedError(
+                sse_data.get("error_message") or "Approval expired before a decision was made.",
+                decision="expired"
             )
 
         return False, None
@@ -1230,6 +1248,11 @@ class DashClaw:
         under ``non_fabrication``.
         """
         payload = {
+            # Approvals lifecycle: declare the wait window this client will
+            # poll if the decision is require_approval, so the pending row
+            # gets a truthful approval_expires_at stamp. Matches the
+            # wait_for_approval default (300s); context value wins.
+            "approval_wait_seconds": 300,
             **context,
             "agent_id": context.get("agent_id", self.agent_id),
         }

@@ -149,6 +149,11 @@ export const actionRecords = pgTable('action_records', {
   verified: boolean('verified').default(false),
   approvedBy: text('approved_by'),
   approvedAt: timestamp('approved_at'),
+  // Approvals lifecycle hygiene (drizzle/0039): when a pending_approval row
+  // stops being approvable. Stamped at creation from the client-declared
+  // approval_wait_seconds + retry grace; NULL on legacy rows (lazy sweep
+  // treats those as expired 24h after creation).
+  approvalExpiresAt: timestamp('approval_expires_at', { withTimezone: true }),
   // Durable execution finality — terminal outcome reported by the agent or
   // inferred by the cron sweep. See docs/architecture/durable-execution-finality.md.
   outcomeStatus: text('outcome_status').default('pending').notNull(),
@@ -184,6 +189,10 @@ export const actionRecords = pgTable('action_records', {
   orgGuardDecisionIdx: index('idx_action_records_org_guard_decision')
     .on(table.orgId, table.guardDecisionId)
     .where(sql`${table.guardDecisionId} IS NOT NULL`),
+  // Partial index backing the approvals lazy expiry sweep (drizzle/0039).
+  pendingExpiryIdx: index('idx_action_records_pending_expiry')
+    .on(table.orgId, table.approvalExpiresAt)
+    .where(sql`${table.status} = 'pending_approval'`),
 }));
 
 export const openLoops = pgTable('open_loops', {

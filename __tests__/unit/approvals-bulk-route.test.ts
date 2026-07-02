@@ -1,17 +1,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy } = vi.hoisted(() => ({
+const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSweep } = vi.hoisted(() => ({
   mockListIds: vi.fn(async () => ['act_1', 'act_2']),
   mockBulkRecord: vi.fn(async () => ['act_1', 'act_2']),
   mockClear: vi.fn(async () => {}),
   mockRole: vi.fn(() => 'admin'),
   mockGetPolicy: vi.fn(async () => ({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) })),
+  mockSweep: vi.fn(async () => []),
 }));
 vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRole, getUserId: () => 'user1' }));
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
 vi.mock('../../app/lib/repositories/actions.repository', () => ({
   listPendingApprovalIdsByActionTypes: mockListIds,
   recordBulkApprovals: mockBulkRecord,
+  sweepExpiredApprovals: mockSweep,
 }));
 vi.mock('../../app/lib/repositories/guardrails.repository', () => ({ getPolicyById: mockGetPolicy }));
 vi.mock('../../app/lib/approvalNotifications', () => ({ clearApprovalNotifications: mockClear }));
@@ -72,5 +74,16 @@ describe('POST /api/approvals/bulk', () => {
     const body = await res.json();
     expect(body.resolved).toBe(1);
     expect(body.failed).toBe(1);
+  });
+  it('sweeps expired approvals before listing candidates (roadmap v2.3)', async () => {
+    await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));
+    expect(mockSweep).toHaveBeenCalledWith(expect.anything(), 'org1');
+    // Order matters: dead rows must be flipped before the candidate list is read.
+    expect(mockSweep.mock.invocationCallOrder[0] ?? Infinity).toBeLessThan(mockListIds.mock.invocationCallOrder[0] ?? 0);
+  });
+  it('a sweep failure does not abort bulk resolution', async () => {
+    mockSweep.mockRejectedValueOnce(new Error('sweep down'));
+    const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));
+    expect(res.status).toBe(200);
   });
 });

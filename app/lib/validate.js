@@ -56,6 +56,10 @@ const ACTION_RECORD_SCHEMA = {
   tokens_in:            { type: 'integer', min: 0 },
   tokens_out:           { type: 'integer', min: 0 },
   model:                { type: 'string', maxLength: 128 },
+  // Approvals lifecycle (drizzle/0039): how long the client will poll for an
+  // approval decision, declared at request time. The server stamps
+  // approval_expires_at = now + this + retry grace on pending_approval rows.
+  approval_wait_seconds: { type: 'integer', min: 5, max: 86400 },
   // Idempotency — agent-supplied key. If a row already exists for
   // (org_id, idempotency_key), the create call returns that row instead
   // of inserting a duplicate. See docs/architecture/durable-execution-finality.md.
@@ -311,6 +315,10 @@ const GUARD_INPUT_SCHEMA = {
   // duplicate guard call inside the replay window returns the prior decision
   // instead of writing (and flood/signal-counting) a second one.
   idempotency_key: { type: 'string', maxLength: 256 },
+  // Approvals lifecycle (drizzle/0039): the client's approval poll window,
+  // declared at request time so a require_approval row recorded via
+  // ?record=true gets a truthful approval_expires_at stamp.
+  approval_wait_seconds: { type: 'integer', min: 5, max: 86400 },
 };
 
 const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'x402_spend_limit'];
@@ -657,6 +665,13 @@ function collectX402Scores(src, errors, data) {
     const c = Number(src.confidence_score);
     if (!Number.isFinite(c)) errors.push('confidence_score must be a finite number');
     else data.confidence_score = c;
+  }
+  // Approvals lifecycle (drizzle/0039): declared approval poll window so a
+  // pending x402 purchase gets a truthful approval_expires_at stamp.
+  if (src.approval_wait_seconds != null) {
+    const w = Number(src.approval_wait_seconds);
+    if (!Number.isInteger(w) || w < 5 || w > 86400) errors.push('approval_wait_seconds must be an integer between 5 and 86400');
+    else data.approval_wait_seconds = w;
   }
 }
 

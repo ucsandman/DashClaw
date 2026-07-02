@@ -739,6 +739,11 @@ def _wait_for_approval(action_id, tool_use_id):
             write_action_id(tool_use_id, action_id)
             append_turn_action(_SESSION_ID, action_id)
             sys.exit(0)
+        if status == "expired":
+            # Approvals lifecycle (roadmap v2.3): the server decided this
+            # approval can no longer release anything. Terminal — stop polling.
+            log("[DashClaw] Approval expired server-side.")
+            sys.exit(2)
         if status in ("failed", "cancelled"):
             log("[DashClaw] Action denied by operator.")
             sys.exit(2)
@@ -1113,6 +1118,11 @@ def _build_guard_context(tool_name, tool_info, enrichment):
             "required_permission": tool_info["required_permission"],
         },
         "intel": enrichment.get("intel", {}),
+        # Approvals lifecycle (roadmap v2.3): declare how long this hook will
+        # poll for an approval, so a require_approval row gets a truthful
+        # approval_expires_at stamp (server adds a retry grace on top).
+        # Clamped to the server's accepted range (5..86400).
+        "approval_wait_seconds": max(5, min(int(APPROVAL_TIMEOUT), 86400)),
     }
     # Forward the resolved target path (file tools, bash redirects) so a
     # protected_path guard policy can match it. Omitted when there is no path.

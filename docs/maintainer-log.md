@@ -16,6 +16,58 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap v2.3: approvals that outlive their askers now say so (v4.30.0)
+
+The third audit finding was the quiet one. An agent asks for approval, its
+hook waits thirty seconds, gives up, and hard-blocks the tool call — correct,
+fail-closed behavior. But the *request* stayed on `/approvals` indefinitely,
+indistinguishable from a live one. Approving it flipped the row to "running,"
+released nothing, and reported nothing. The queue was accumulating doorbells
+wired to houses nobody lives in.
+
+The root problem was informational: the server never knew how long any client
+intended to wait. The Python hook polls 30 seconds, the MCP server and SDKs
+poll 300 — all client-side constants the server couldn't see. So the fix
+starts with honesty at request time: every client now declares
+`approval_wait_seconds` on the guard/record call, and the server stamps the
+pending row with an expiry. Deliberately *not* the bare wait window, though —
+there's a supported flow where the operator approves after the hook died and
+the agent retries under a 15-minute grant. Expiring at the hook window alone
+would have broken the one recovery path that already worked, so expiry is
+window + that same 15-minute grace, one constant deliberately mirroring
+another.
+
+Expiry itself is lazy, borrowed from the pairing flow: no cron (free-tier
+constraint), just flips wherever the truth is about to be displayed — the
+queue list, the action read, the approve attempt. Rows from before this
+release have no stamp and expire 24 hours after creation, which quietly
+clears the audit's backlog. Acting on an expired record now returns 410
+`APPROVAL_EXPIRED` with the honest sentence: approving this can no longer
+release anything; have the agent re-ask. `/approvals` shows expired requests
+in a muted section that offers no buttons.
+
+x402 rode along, and turned out to matter more than the ticket implied:
+a denied or expired purchase approval left its purchase row
+`execution_status='pending'` forever — and the spend predicates count
+pending rows as reserved budget. Dead approvals were eating real budget
+headroom. Deny and expiry now reconcile the purchase row, and the spend
+definition excludes `denied`/`expired` alongside `failed`.
+
+The embarrassing find of the session: the MCP server's
+`dashclaw_wait_for_approval` has been misreporting *successful* approvals
+since it shipped — it checked for `status === 'completed'`, but an approval
+flips the row to `running`. Every genuinely-approved wait returned
+`approved: false` and let the agent draw its own conclusions. Two unit-test
+suites and a live smoke sat next to that line without catching it; it took
+rereading the polling loop for the expiry work to see it. Fixed, with the
+lifecycle change that exposed it.
+
+Proof: policy smoke grew M1–M4 (67 checks, all green live) including a
+seeded past-the-window scenario — the backdate has to be direct SQL, since
+time is the one thing you can't fake over HTTP — plus 15 lifecycle unit
+tests, and `/approvals` verified rendered headless. Both SDKs changed, so
+this release republishes them (the publish click stays with Wes).
+
 ## 2026-07-02 — Roadmap v2.2: every agent on the machine answered to the same name (v4.29.0)
 
 The June audit's second finding was almost comic: Wes gets an approval

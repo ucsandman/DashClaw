@@ -146,7 +146,10 @@ describe('ApprovalsPage — session resolution', () => {
     };
     global.fetch = vi.fn(async (url) => {
       const u = String(url);
-      if (u.startsWith('/api/actions')) return { ok: true, json: async () => ({ actions: [PENDING] }) };
+      // The page fetches both lists; only the pending one carries this row —
+      // matching startsWith('/api/actions') alone would render it twice.
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [PENDING] }) };
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: [] }) };
       if (u === '/api/session/effective') {
         return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
       }
@@ -186,5 +189,33 @@ describe('ApprovalsPage — session resolution', () => {
     } finally {
       agentFilterState.agentId = null;
     }
+  });
+
+  it('renders expired approvals in a distinct non-approvable section (roadmap v2.3)', async () => {
+    const EXPIRED = {
+      action_id: 'act_exp', agent_id: 'agent_bb', agent_name: 'researcher',
+      declared_goal: 'Buy dataset access', action_type: 'x402_purchase', risk_score: 60,
+      status: 'expired', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+    };
+    global.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [] }) };
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: [EXPIRED] }) };
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Buy dataset access');
+    // Section is explanatory and non-approvable: badge + copy, no buttons.
+    // Both the section header and the row badge say "Expired".
+    expect(screen.getAllByText('Expired').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText(/approving them\s+would release nothing/i)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: /allow/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /deny/i })).toBeNull();
   });
 });

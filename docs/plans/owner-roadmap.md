@@ -130,7 +130,7 @@ reach/revenue-first.
 |---|------|--------|
 | v2.1 | Guard-deadline noise: instrument, diagnose, fix | DONE 2026-07-02 (v4.28.0; degraded column + _timings, LLM skip/budget fix — root cause was apply-base-60 recruiting a 1.2–3s LLM on every edit; cockpit strip + evidence exclusion; smoke = 57) |
 | v2.2 | Agent identity & attribution v2 | DONE 2026-07-02 (per-harness identity via installer-written `--agent-id` argv — argv > env > harness default; Codex/Hermes wiring fixed; `DASHCLAW_SUBAGENT_IDENTITY` default flipped to `distinct` with /agents parent grouping; targeted policies + `agentExistsInOrg` gained the base fallback; agent-scoped x402 budgets bind the identity family + 0038 index; spec docs/plans/2026-07-02-agent-identity-attribution.md; smoke = 62) |
-| v2.3 | Approvals lifecycle hygiene | — |
+| v2.3 | Approvals lifecycle hygiene | DONE 2026-07-02 (v4.30.0; clients declare `approval_wait_seconds`, server stamps `approval_expires_at` = wait + 15-min retry grace; lazy expiry on queue/read/approve, legacy rows expire at 24h; `expired` is first-class and non-approvable — acting on it returns 410 APPROVAL_EXPIRED; x402 purchases reconcile pending→expired/denied and stop reserving budget; /approvals renders an Expired section; also fixed MCP wait_for_approval misreporting real approvals (`status==='completed'` bug); spec docs/plans/2026-07-02-approvals-lifecycle-hygiene.md; smoke = 67) |
 | v2.4 | Advocate v2a: assumption-invalidation notifications | — |
 | v2.5 | Advocate v2b: "was I manipulated" session retro | — |
 | v2.6 | Calibration flywheel automation | — |

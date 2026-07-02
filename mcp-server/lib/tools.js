@@ -34,6 +34,7 @@ export const TOOL_DEFINITIONS = [
                 write_paths: { type: 'array', items: { type: 'string' }, description: 'File paths the action will write or modify (protected-path policy matching)' },
                 content: { type: 'string', description: 'Outbound content excerpt (file content, message body) so secret-scan and content policies can evaluate it' },
                 tool_name: { type: 'string', description: 'Name of the tool that will perform the action (e.g., Write, Bash, send_email)' },
+                approval_wait_seconds: { type: 'integer', description: 'How long you will poll dashclaw_wait_for_approval if the decision is require_approval (default 300; the approval expires after this window + a retry grace)' },
             },
             required: ['action_type', 'declared_goal', 'risk_score'],
         },
@@ -61,6 +62,7 @@ export const TOOL_DEFINITIONS = [
                 model: { type: 'string', description: 'Model used' },
                 cost_estimate: { type: 'number', description: 'Estimated cost in USD' },
                 session_id: { type: 'string', description: 'Session to attribute this action to. Defaults to the session started via dashclaw_session_start in this connection.' },
+                approval_wait_seconds: { type: 'integer', description: 'For status pending_approval: how long you will poll for the decision (default 300; the approval expires after this window + a retry grace)' },
             },
             required: ['action_type', 'declared_goal', 'status'],
         },
@@ -604,6 +606,10 @@ export function createToolHandlers(client) {
                 ...(Array.isArray(input.write_paths) && input.write_paths.length > 0 ? { write_paths: input.write_paths.slice(0, 100) } : {}),
                 ...(typeof input.content === 'string' && input.content ? { content: input.content.slice(0, 20000) } : {}),
                 ...(typeof input.tool_name === 'string' && input.tool_name ? { tool: { name: input.tool_name } } : {}),
+                // Approvals lifecycle (roadmap v2.3): declare the wait window this
+                // MCP client will poll (dashclaw_wait_for_approval default: 300s) so
+                // a require_approval row gets a truthful approval_expires_at stamp.
+                approval_wait_seconds: Number.isInteger(input.approval_wait_seconds) ? input.approval_wait_seconds : 300,
                 // Blind retries of the same guard question dedupe server-side (the
                 // prior decision is replayed instead of double-counting in
                 // flood/signal windows). Derived, never LLM-chosen.
@@ -649,6 +655,9 @@ export function createToolHandlers(client) {
                 tokens_out: input.tokens_out,
                 model: input.model,
                 cost_estimate: input.cost_estimate,
+                // Approvals lifecycle (roadmap v2.3): same wait-window declaration as
+                // dashclaw_guard, for records created directly as pending_approval.
+                approval_wait_seconds: Number.isInteger(input.approval_wait_seconds) ? input.approval_wait_seconds : 300,
                 ...(sessionId ? { session_id: sessionId } : {}),
                 // A retried record call returns the original ledger row instead of
                 // inserting a duplicate. Derived, never LLM-chosen.
@@ -703,19 +712,27 @@ export function createToolHandlers(client) {
                 const result = await client.get(`/api/actions/${input.action_id}`, {}, { timeout: 10000 });
                 const status = result?.action?.status;
                 if (status && status !== 'pending_approval') {
-                    const approved = status === 'completed';
+                    // An approval flips the row to 'running' (approved_by set); the
+                    // agent may also have completed it by the time we poll. The old
+                    // `status === 'completed'` check misreported real approvals as
+                    // approved:false (fixed alongside roadmap v2.3).
+                    const approved = !!result?.action?.approved_by || status === 'running' || status === 'completed';
                     // Distinguish explicit operator denial (failed/cancelled) from
                     // a genuine approval. The JS and Python SDKs throw on denial;
                     // MCP can't throw through the tool channel, so surface a
                     // clear `denied:true` + reason instead of returning
                     // approved:false with no further signal.
                     const denied = !approved && (status === 'failed' || status === 'cancelled');
+                    // Approvals lifecycle (roadmap v2.3): the server expired the
+                    // approval — it can no longer release anything. Terminal.
+                    const expired = !approved && status === 'expired';
                     return JSON.stringify({
                         approved,
                         denied,
+                        ...(expired ? { expired: true } : {}),
                         denial_reason: denied
                             ? (result?.action?.error_message || `Operator marked action as ${status}`)
-                            : null,
+                            : (expired ? (result?.action?.error_message || 'Approval expired before a decision was made') : null),
                         action: result.action,
                         waited_seconds: Math.round((Date.now() - start) / 1000),
                     });

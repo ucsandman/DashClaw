@@ -208,9 +208,19 @@ await claw.updateOutcome(action_id, { status: 'completed' });
   SSE is unavailable.
 - Resolves when `action.approved_by` is set (operator approved).
 - Throws `ApprovalDeniedError` when `action.status` becomes `failed` or
-  `cancelled` (operator denied).
+  `cancelled` (operator denied), or `expired` (the server expired the
+  approval — check `err.status` to tell the cases apart).
 - Throws a timeout error after `options.timeout` milliseconds (default
   `300_000` = 5 minutes).
+
+**Approval expiry.** `guard()` and `createAction()` declare a
+`approval_wait_seconds: 300` window by default (pass your own value in the
+context/action to override). If the decision is `require_approval`, the
+pending row expires server-side once that window plus a 15-minute retry grace
+passes — approving a dead request would release nothing, so the server
+refuses with `410 APPROVAL_EXPIRED` instead. If an operator approves before
+expiry but after your wait timed out, retrying the identical call within
+15 minutes of the approval is auto-allowed (operator-approval grant).
 
 ### Why guard and the server can disagree
 
@@ -560,7 +570,7 @@ Messages sent through the context are automatically correlated with the action i
 DashClaw uses standard HTTP status codes and custom error classes:
 
 - `GuardBlockedError` -- Thrown by **any** SDK call when the server returns HTTP 403 with `{ decision: { decision: 'block' } }`. Note that a successful `guard()` call returning `{ decision: 'block' }` in a **200** body does **not** throw — it just returns the decision object. Always check `decision.decision === 'block'` after `guard()` and throw `new GuardBlockedError(decision)` yourself if you want to abort early, as shown in the governance loop above.
-- `ApprovalDeniedError` -- Thrown by `waitForApproval()` when an operator denies the action (server sets `status` to `failed` or `cancelled`).
+- `ApprovalDeniedError` -- Thrown by `waitForApproval()` when an operator denies the action (server sets `status` to `failed` or `cancelled`) or when the approval expires server-side (`status` becomes `expired`; check `err.status`).
 
 ---
 

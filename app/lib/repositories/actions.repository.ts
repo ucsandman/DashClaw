@@ -1,6 +1,7 @@
 import { OUTCOME_FIELDS } from '../validate.js';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
+import { reconcileStalePurchases } from './x402.repository';
 
 type Row = Record<string, unknown>;
 
@@ -16,6 +17,112 @@ type SqlClient = {
   queryCalls?: unknown[];
 };
 
+// ── Approvals lifecycle hygiene (roadmap v2.3, drizzle/0039) ────────────────
+// A pending_approval row is only approvable while the requesting client can
+// still act on the outcome. Clients declare their wait window at request time
+// (approval_wait_seconds); the stamp adds a retry grace that mirrors
+// OPERATOR_APPROVAL_WINDOW_MINUTES in guard.ts, so "operator approves after
+// the hook timed out, agent retries the identical call" keeps working.
+export const APPROVAL_RETRY_GRACE_SECONDS = 15 * 60;
+// Conservative default for clients that don't declare a window — matches the
+// widest shipped client default (MCP/SDK waitForApproval: 300s).
+export const DEFAULT_APPROVAL_WAIT_SECONDS = 300;
+const APPROVAL_WAIT_MIN_SECONDS = 5;
+const APPROVAL_WAIT_MAX_SECONDS = 86_400;
+// Legacy rows (created before drizzle/0039) have no expiry stamp; the sweep
+// treats them as expired 24h after creation, clearing the historical backlog.
+const LEGACY_APPROVAL_TTL_HOURS = 24;
+
+export const APPROVAL_EXPIRED_ERROR =
+  'Approval expired: the requesting client stopped waiting before a decision was made';
+
+/** ISO expiry stamp for a new pending_approval row. */
+export function computeApprovalExpiry(waitSeconds?: unknown, nowMs: number = Date.now()): string {
+  const parsed = Number(waitSeconds);
+  const wait = Number.isFinite(parsed)
+    ? Math.min(Math.max(Math.round(parsed), APPROVAL_WAIT_MIN_SECONDS), APPROVAL_WAIT_MAX_SECONDS)
+    : DEFAULT_APPROVAL_WAIT_SECONDS;
+  return new Date(nowMs + (wait + APPROVAL_RETRY_GRACE_SECONDS) * 1000).toISOString();
+}
+
+/** JS-side overdue check (rows read before flipping — keeps hot reads free). */
+export function isApprovalOverdue(
+  row: { approval_expires_at?: unknown; created_at?: unknown },
+  nowMs: number = Date.now(),
+): boolean {
+  const exp = row.approval_expires_at ? new Date(String(row.approval_expires_at)).getTime() : NaN;
+  if (Number.isFinite(exp)) return exp < nowMs;
+  const created = row.created_at ? new Date(String(row.created_at)).getTime() : NaN;
+  return Number.isFinite(created) ? created < nowMs - LEGACY_APPROVAL_TTL_HOURS * 3_600_000 : false;
+}
+
+// x402 lifecycle ride-along: an expired x402 approval must release its
+// reserved budget (the spend predicates count pending purchase rows).
+// Best-effort — an expiry must never fail because the purchase flip did.
+async function reconcileExpiredX402(sql: SqlClient, orgId: string, expiredRows: Row[]): Promise<void> {
+  const x402Ids = expiredRows
+    .filter((r) => r.action_type === 'x402_purchase')
+    .map((r) => String(r.action_id));
+  if (!x402Ids.length) return;
+  await reconcileStalePurchases(sql, orgId, x402Ids, 'expired', APPROVAL_EXPIRED_ERROR)
+    .catch((err: unknown) => console.error('[approvals] x402 expiry reconcile failed:', (err as Error)?.message));
+}
+
+/**
+ * Flip ONE overdue pending_approval row to expired. The WHERE clause re-checks
+ * both the status and the overdue condition, so a concurrent approve/deny (or
+ * a not-actually-overdue caller) safely returns null. Paired x402 purchase
+ * rows are reconciled to 'expired' in the same call.
+ */
+export async function expireOverdueApproval(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
+  const rows = await sql`
+    UPDATE action_records
+    SET status = 'expired',
+        error_message = ${APPROVAL_EXPIRED_ERROR},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
+      AND status = 'pending_approval'
+      AND (approval_expires_at < NOW()
+           OR (approval_expires_at IS NULL AND created_at < NOW() - make_interval(hours => ${LEGACY_APPROVAL_TTL_HOURS})))
+    RETURNING *
+  `;
+  const expired = rows[0] || null;
+  if (expired) await reconcileExpiredX402(sql, orgId, [expired]);
+  return expired;
+}
+
+/**
+ * Bounded lazy sweep: flip every overdue pending_approval row for the org.
+ * Runs opportunistically where operators look at the queue (the
+ * status=pending_approval list, the bulk-approval route) — no cron on the
+ * free tier. The partial index idx_action_records_pending_expiry keeps this
+ * a candidates-only scan. Paired x402 purchase rows are reconciled to
+ * 'expired' in the same call.
+ */
+export async function sweepExpiredApprovals(sql: SqlClient, orgId: string, limit = 200): Promise<Row[]> {
+  const cap = Math.min(Math.max(1, limit), 500);
+  const rows = await sql`
+    UPDATE action_records
+    SET status = 'expired',
+        error_message = ${APPROVAL_EXPIRED_ERROR},
+        updated_at = CURRENT_TIMESTAMP
+    WHERE org_id = ${orgId}
+      AND action_id IN (
+        SELECT action_id FROM action_records
+        WHERE org_id = ${orgId}
+          AND status = 'pending_approval'
+          AND (approval_expires_at < NOW()
+               OR (approval_expires_at IS NULL AND created_at < NOW() - make_interval(hours => ${LEGACY_APPROVAL_TTL_HOURS})))
+        LIMIT ${cap}
+      )
+      AND status = 'pending_approval'
+    RETURNING action_id, agent_id, action_type
+  `;
+  if (rows.length > 0) await reconcileExpiredX402(sql, orgId, rows);
+  return rows;
+}
+
 export async function hasAction(sql: SqlClient, orgId: string, actionId: string): Promise<boolean> {
   const rows = await sql`
     SELECT 1 FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId} LIMIT 1
@@ -25,7 +132,8 @@ export async function hasAction(sql: SqlClient, orgId: string, actionId: string)
 
 export async function getActionStatus(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
-    SELECT status, agent_id, model FROM action_records
+    SELECT status, agent_id, model, action_type, approval_expires_at, created_at
+    FROM action_records
     WHERE action_id = ${actionId} AND org_id = ${orgId}
     LIMIT 1
   `;
@@ -531,6 +639,9 @@ interface ActionData {
   idempotency_key?: string | null;
   session_id?: string | null;
   guard_decision_id?: string | null;
+  // Approvals lifecycle (drizzle/0039): how long the client will poll for an
+  // approval decision. Only read when the row is created as pending_approval.
+  approval_wait_seconds?: number | null;
   [field: string]: unknown;
 }
 
@@ -592,6 +703,11 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
     actionStatus,
   } = payload;
   const values = createActionInsertValues(payload);
+  // Approvals lifecycle (drizzle/0039): only pending rows expire; every other
+  // status leaves the stamp NULL.
+  const approvalExpiresAt = actionStatus === 'pending_approval'
+    ? computeApprovalExpiry(payload.data?.approval_wait_seconds)
+    : null;
 
   const rows = await sql`
     INSERT INTO action_records (
@@ -603,7 +719,8 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       output_summary, side_effects, artifacts_created, error_message,
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
-      signature, verified, idempotency_key, session_id, guard_decision_id
+      signature, verified, idempotency_key, session_id, guard_decision_id,
+      approval_expires_at
     ) VALUES (
       ${orgId},
       ${action_id},
@@ -640,7 +757,8 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.verified},
       ${values.idempotency_key},
       ${values.session_id},
-      ${values.guard_decision_id}
+      ${values.guard_decision_id},
+      ${approvalExpiresAt}
     )
     RETURNING *
   `;
@@ -1785,11 +1903,16 @@ export async function listPendingApprovalIdsByActionTypes(
   limit = 500,
 ): Promise<string[]> {
   if (!actionTypes.length) return [];
+  // Overdue rows are excluded: bulk resolution must never "approve" an
+  // approval whose client already stopped waiting (roadmap v2.3). The bulk
+  // route also sweeps first; this predicate covers the race in between.
   const rows = await sql.query(
     `SELECT action_id FROM action_records
      WHERE org_id = $1 AND status = 'pending_approval'
        AND action_type = ANY($2)
        AND created_at::timestamptz >= $3::timestamptz
+       AND (approval_expires_at >= NOW()
+            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))
      ORDER BY created_at ASC
      LIMIT $4`,
     [orgId, actionTypes, sinceIso, Math.min(Math.max(1, limit), 500)],
@@ -1802,10 +1925,14 @@ export async function getPendingApprovalSummary(
   sql: SqlClient,
   orgId: string,
 ): Promise<{ pending: number; oldest_at: string | null }> {
+  // Same not-overdue predicate as the bulk lister: the digest must not nag
+  // operators about approvals that can no longer release anything.
   const rows = await sql.query(
     `SELECT COUNT(*)::int AS pending, MIN(created_at::timestamptz) AS oldest_at
      FROM action_records
-     WHERE org_id = $1 AND status = 'pending_approval'`,
+     WHERE org_id = $1 AND status = 'pending_approval'
+       AND (approval_expires_at >= NOW()
+            OR (approval_expires_at IS NULL AND created_at >= NOW() - interval '24 hours'))`,
     [orgId],
   );
   const row = (rows as Array<{ pending: number; oldest_at: string | null }>)[0] ?? { pending: 0, oldest_at: null };
