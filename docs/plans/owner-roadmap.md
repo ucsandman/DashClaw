@@ -1,0 +1,100 @@
+# Owner roadmap — build order under MAINTAINER.md
+
+Living document: the maintainer updates status lines as items ship; order
+changes only with a written reason in the commit. Each item ships the full
+protocol: spec → build → gates → live proof → main.
+
+**Status ledger** (update in place):
+
+| # | Item | Status |
+|---|------|--------|
+| 0 | Foundation: claims audit, policy smoke in CI, risk-calibration suite, self-host key auth, SSRF fix, vulns, policies API DX | DONE 2026-07-01 (`0ac3e557..ae8e13b4`) |
+| 1 | Policy-tuning proposal loop | NOT STARTED |
+| 2 | Cumulative x402 budget gate | NOT STARTED |
+| 3 | Calibration corpus v2: mining | NOT STARTED |
+| 4 | Agent's-advocate surface | NOT STARTED |
+| 5 | Effective-risk escalation observability | NOT STARTED |
+| 6 | June-deferral triage | NOT STARTED |
+
+## 1. Policy-tuning proposal loop (the "living codebase" centerpiece)
+
+Close the loop from outcomes back to policy configuration — with a human
+ratifying every change (constitution §3).
+
+- Per-policy interruption stats: for each guard policy, count interruptions
+  (warn / require_approval / block), approval outcomes of those
+  interruptions (approved / denied / timed out), and the override rate, over
+  a rolling window. Data already exists in guard decisions + the approvals
+  ledger; this aggregates it.
+- Proposal engine: rule-based first, no LLM — e.g. "risk_threshold X
+  interrupted 40 times in 30 days, 39 approved → propose raising threshold
+  70→80" / "rate_limit never fired in 60 days → propose no change" /
+  "block_action_type Y denied 12/12 → propose keeping (evidence it works)".
+  Each proposal carries its evidence.
+- Surface: the /policies review feed (the interruption-contract page already
+  frames policies as a contract under review). Accept = one click that
+  PATCHes the policy (existing route, cache-invalidated); dismiss records why.
+- Acceptance: stats endpoint + UI verified live; a seeded scenario produces
+  the expected proposal in the policy smoke harness; NOTHING auto-applies.
+
+## 2. Cumulative x402 budget gate
+
+Today `x402_spend_limit` caps only the single purchase. Real cost harm is
+cumulative. Add per-window budget rules — design decisions in-build: rolling
+window vs calendar month, org-level and/or per-agent scope, interaction with
+the per-purchase cap (both must be able to coexist in one policy).
+
+- Guard-time enforcement in the `x402_spend_limit` evaluator (sum of the
+  window's `x402_purchases` + the incoming amount vs `rules.budget_usd`).
+- Fail-closed question to settle in the spec: what happens when the sum
+  query fails (constitution favors block/require_approval, and the deadline
+  degradation path exists).
+- Acceptance: golden vectors for the evaluator, policy smoke checks (under /
+  at / over budget across multiple purchases), docs + /explain playground
+  stay truthful (update the caption if semantics grow).
+
+## 3. Calibration corpus v2: mining
+
+- Mine the ~24.5k recorded behavior samples and the approvals ledger for
+  candidate vectors: benign commands that scored ≥40, dangerous ones that
+  scored <40, approvals repeatedly granted for identical shapes.
+- `scripts/add-calibration-vector.mjs`: turn an action_id or a raw command
+  into a fixture entry with provenance, running both scorers to suggest
+  bounds.
+- Also close the open case: why did the `git show` incident reach 100 when
+  the server term was 30? (Overlaps item 5.)
+
+## 4. Agent's-advocate surface
+
+Reframe and extend the protective direction: the assumption ledger as the
+agent's alibi (evidence of reasonable action on known information),
+prompt-injection + non-fabrication as protection FROM weaponization, spend
+gates as protection from bankrupting mistakes.
+
+- Concrete first step: a section on /explain + docs positioning, and an
+  `agent_defense` rollup in the action detail / replay view (what protected
+  this agent, what it declared, what it assumed).
+- Bigger candidates (spec first): assumption-invalidation notifications to
+  the agent mid-task; a "was I manipulated" retro view over a session.
+
+## 5. Effective-risk escalation observability
+
+The persisted risk score composes server terms, org risk-templates, the
+client score, and predictive adjustment — but incident forensics (the
+"risk 100" case) couldn't decompose it from the outside. Verify what the
+`context` jsonb breakdown already records (score-provenance work exists),
+close the gaps, and surface the full composition in /decisions and /replay
+so every interruption is explainable in one glance. Feeds items 1 and 3.
+
+## 6. June-deferral triage
+
+Evaluate each parked item and either kill it with a reason or build it:
+/workflows Runs tab, docs evaluations page, LiveStream cadence port,
+/api/guard `days` param, picker URL persistence.
+
+## Standing chores (no status; every session touches them as needed)
+
+- Registry truth: `npm view` the four packages vs manifests when releasing.
+- Dependabot: keep at zero open alerts; per-lockfile fixes.
+- Corpus: add vectors per MAINTAINER.md protocol as incidents occur.
+- Keep `/explain`, README, and docs truthful when any of the above ships.
