@@ -1,20 +1,18 @@
 {
   "node": {
-    "current_version": "4.30.0",
+    "current_version": "4.31.0",
     "next_bump": "none",
-    "reason": "4.30.0 ships approvals lifecycle hygiene (owner roadmap v2.3) WITH Node SDK source changes: guard() and createAction() now declare approval_wait_seconds (default 300) so pending approvals get a truthful approval_expires_at stamp, and waitForApproval() treats the new server-side 'expired' status as terminal (ApprovalDeniedError with status='expired'). Republish owed — run npm run release:sdks.",
+    "reason": "4.31.0 ships assumption-invalidation notifications (owner roadmap v2.4) with NO Node SDK source change — the assumption_alerts guard-response field flows through the existing guard() passthrough. Version advances per the unified model but the SDK is NOT republished; npm stays at 4.30.0.",
     "domains": [
-      "platform",
-      "node-sdk"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "4.30.0",
+    "current_version": "4.31.0",
     "next_bump": "none",
-    "reason": "4.30.0 ships approvals lifecycle hygiene (roadmap v2.3) WITH Python SDK source changes: guard()/create_action() declare approval_wait_seconds (default 300) and wait_for_approval() raises ApprovalDeniedError(decision='expired') when the server expires the approval. Republish owed — run npm run release:sdks.",
+    "reason": "4.31.0 ships assumption-invalidation notifications (roadmap v2.4) with NO Python SDK source change — guard() passes assumption_alerts through unchanged and validate_assumption() already existed. Version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.30.0.",
     "domains": [
-      "platform",
-      "python-sdk"
+      "platform"
     ]
   }
 }
