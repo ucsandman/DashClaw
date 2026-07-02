@@ -45,6 +45,27 @@ npm run lint         # eslint
 npm run db:migrate   # apply pending schema to local DB (auto-loads .env.local; idempotent)
 ```
 
+## Definition of done includes a human-visible surface
+
+The classic agent failure mode in this repo: build the schema + route + repository +
+tests for a feature and never give a **human** a way to see it — the feature ships and
+silently disappears. Before calling any feature done, answer three questions in writing
+(spec, plan, or ship summary):
+
+1. **Where does a human SEE it?** Name the page and the click path from an existing
+   surface (nav, sidebar, an existing detail view). A deep URL nobody links to is not
+   a surface.
+2. **Is it discoverable?** The path must start somewhere humans already are. If the
+   feature only enriches an API response, the consuming page must render the new data.
+3. **Was it verified rendered?** Drive the actual page (frontend-verify skill /
+   headless browser) and confirm the new element appears — API tests and unit tests
+   prove the data exists, not that anyone can see it.
+
+API/SDK-only features are allowed, but that is an **explicit stated decision** in the
+spec ("no UI surface because X"), never a default you fall into. The `dashclaw-ship`
+skill enforces this as a UI-discoverability gate at ship time; this rule exists so the
+surface is *designed in* at build time, not bolted on at the gate.
+
 ## Verify before you commit
 
 CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ the output first:

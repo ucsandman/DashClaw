@@ -109,6 +109,28 @@ The counts that recur (and where they hide) live in `references/surfaces.md`; th
 - the pre-built guard-policy / "N safety switches" count (the safety-model section),
 - the governance-skill section count ("six new sections …").
 
+#### UI discoverability gate — no feature ships invisible (an explicit step, every run)
+
+The known agent failure mode: the schema, route, repository, and tests all ship, but no
+human-facing surface renders the feature — it lands and *disappears*. Docs mentioning it
+do not count; a deep URL nobody links to does not count. For **each capability being
+shipped this run**, answer three questions and treat a missing answer as a blocker to
+resolve (add the surface/link), not a note:
+
+1. **Render surface** — which page shows it? If the feature enriches an API response,
+   name the component that renders the new data. "The API returns it" is not a surface.
+2. **Click path** — how does a human get there from somewhere they already are (nav,
+   sidebar, an existing detail view, a dashboard card)? If the answer starts with
+   "paste this URL", add the link.
+3. **Rendered proof** — drive the page headless (frontend-verify) and confirm the new
+   element actually appears with real data. Unit/API tests prove data exists, not that
+   anyone can see it.
+
+An API/SDK-only capability is legitimate **only as an explicit recorded decision**
+("no UI surface because X" in the spec or ship summary) — never as a silent default.
+The root `CLAUDE.md` carries the build-time twin of this rule ("Definition of done
+includes a human-visible surface"); this gate is the last net when that was missed.
+
 #### Sweep the marketing site — an explicit step, every run (it's the one that gets skipped)
 
 The marketing site is in-app (no separate repo) and it is **part of every ship**, not an
