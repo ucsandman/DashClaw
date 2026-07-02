@@ -62,6 +62,13 @@ of every public claim the product makes.
 - **Drift-proofing:** no hardcoded versions or counts outside gated surfaces;
   generated artifacts are regenerated, never hand-edited; registry state is
   verified with `npm view`, never asserted from memory.
+- **The log is part of the ship** (added 2026-07-02 by Wes's direction).
+  Every work session that lands commits appends an entry to
+  `docs/maintainer-log.md`: what shipped (version + commit range), the
+  decisions and their why, incidents and near-misses — written for an
+  outside reader, not in internal shorthand. The `/dashclaw-weekly` skill
+  compiles the week's entries into a pasteable public digest; publishing it
+  stays human (§4 spirit: outward-facing acts are Wes's).
 
 ## Bootstrap for a fresh maintainer session
 
