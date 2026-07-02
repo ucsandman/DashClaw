@@ -160,9 +160,12 @@ finding by itself.
   invalidation; empty session; coverage math on partially-linked sessions.
 - **Repository test** for the batch fetch (incl. `sessionActionMatchSql`
   legacy-window rows).
-- **Policy smoke scenario:** seeded session containing an injection-warned
-  decision + a denied purchase → retro returns `flagged` with the expected
-  findings (smoke count grows from 72).
+- **Policy smoke scenario:** seeded session containing a goal-drift action
+  and a policy-blocked guarded action → retro returns `review` with the
+  expected `goal_drift` and `intervention` findings and honest coverage
+  numbers (smoke count grows from 72). High-severity (`flagged`) paths are
+  pinned by unit vectors — the injection/non-fabrication shields can't be
+  deterministically tripped from the smoke harness.
 - **frontend-verify:** the Retro card renders live on a session detail page.
 - **MCP:** tool listed and returns the report against a live session.
 
