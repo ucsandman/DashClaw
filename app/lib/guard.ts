@@ -74,7 +74,10 @@ const MODERATE_RISK_SYSTEMS = ['filesystem', 'shell'];
 // Word-bounded: the old unanchored substrings flipped scores on wording alone
 // ('monkey' matched /key/ +15, 'pushback' matched /push/ +10, 'formatting'
 // matched /format/ +20) — a top source of the "risk looks random" perception.
-const DESTRUCTIVE_GOAL_PATTERNS = /rm\s+-rf|drop\s+table|delete\s+from|\btruncate\b|\bformat\b|\bwipe\b/i;
+// 'format' additionally rejects flag forms: punctuation satisfies \b, so
+// `--format=""` scored +20 on read-only commands (calibration vector
+// git-show-format-flag). Prose ("format the disk") still matches.
+const DESTRUCTIVE_GOAL_PATTERNS = /rm\s+-rf|drop\s+table|delete\s+from|\btruncate\b|(?<!-)\bformat\b|\bwipe\b/i;
 const DEPLOYMENT_GOAL_PATTERNS = /\bpush(?:es|ed|ing)?\b|\bdeploy|\brelease|\bship(?:s|ped|ping)?\b|\bmigrat/i;
 const SECRET_GOAL_PATTERNS = /\bsecrets?\b|\bcredentials?\b|\bpasswords?\b|\btokens?\b|\bkeys?\b|\.env\b/i;
 

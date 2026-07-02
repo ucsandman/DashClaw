@@ -4,9 +4,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 
-// Discover ALL test_*.py under sdk-python/tests (not just the ws5 parity set).
-// All currently pass offline; keeping the net wide so new SDK tests gate by default.
-const testArgs = ['-m', 'unittest', 'discover', '-s', 'sdk-python/tests', '-p', 'test_*.py'];
+// Discover ALL test_*.py under each suite dir (not just the ws5 parity set).
+// All currently pass offline; keeping the net wide so new tests gate by default.
+// hooks/tests added 2026-07-01: 373 stdlib-only tests incl. the risk-calibration
+// golden vectors (client layer) — previously never ran in CI.
+const SUITES = ['sdk-python/tests', 'hooks/tests'];
+const testArgsFor = (suite) => ['-m', 'unittest', 'discover', '-s', suite, '-p', 'test_*.py'];
 
 function isWindows() {
   return process.platform === 'win32';
@@ -35,24 +38,25 @@ function getCandidates() {
 }
 
 function tryRun(cmd, args) {
-  const pythonPathEntries = [path.join(process.cwd(), 'sdk-python')];
+  const pythonPathEntries = [path.join(process.cwd(), 'sdk-python'), path.join(process.cwd(), 'hooks')];
   if (process.env.PYTHONPATH) {
     pythonPathEntries.push(process.env.PYTHONPATH);
   }
 
-  const result = spawnSync(cmd, [...args, ...testArgs], {
-    stdio: 'inherit',
-    shell: false,
-    env: {
-      ...process.env,
-      PYTHONPATH: pythonPathEntries.join(path.delimiter),
-    },
-  });
+  for (const suite of SUITES) {
+    const result = spawnSync(cmd, [...args, ...testArgsFor(suite)], {
+      stdio: 'inherit',
+      shell: false,
+      env: {
+        ...process.env,
+        PYTHONPATH: pythonPathEntries.join(path.delimiter),
+      },
+    });
 
-  if (typeof result.status === 'number') {
-    return result.status;
+    if (typeof result.status !== 'number') return null;
+    if (result.status !== 0) return result.status;
   }
-  return null;
+  return 0;
 }
 
 function main() {

@@ -49,6 +49,7 @@
     "contracts:check:warn": "node scripts/check-contracts.mjs --mode=warn",
     "sdk:integration": "node scripts/check-sdk-cross-integration.mjs",
     "sdk:integration:python": "node scripts/run-python-unittest.mjs",
+    "hooks:test:python": "node scripts/run-python-unittest.mjs",
     "sdk:live": "node scripts/_run-with-env.mjs scripts/test-sdk-live.mjs",
     "sdk:live:python": "node scripts/_run-with-env.mjs scripts/run-sdk-live-python.mjs",
     "startup:smoke": "node scripts/startup-smoke.mjs",
