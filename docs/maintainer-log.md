@@ -16,6 +16,57 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap v2 drafted: earn the interruption
+
+**Shipped:** the v2 roadmap in `docs/plans/owner-roadmap.md` — a docs-only
+session; no code, no version bump.
+
+With items 0–6 done, this session's job was to decide what the project does
+next. The drafting started from evidence, not memory: the candidates parked
+during v1, the follow-ups from the item-2 governance audit, and a
+fact-check of every pre-listed candidate against the actual repo. That
+fact-check retired two of them — the "Claude Desktop plugin needs OAuth"
+blocker turned out to have shipped in June (the OAuth routes are live and
+the consumer connector was confirmed end-to-end on 2026-06-02), and the
+multi-agent governance gap is mostly shipped behind a default-off flag,
+with only validation, a default flip, and UI grouping left. A roadmap
+drafted from stale notes would have scheduled work that already existed —
+the fact-check is the drafting step that earns its keep.
+
+**The thesis choice, and why.** Three shapings were put to Wes: lead with
+precision (fix the measured friction), lead with the advocate direction
+(the differentiating protect-the-agent features), or lead with reach and
+revenue. He ratified precision-first. The argument: precision of
+interruption is the constitutional core metric; June's 18-day
+policy-disable is the recorded cost of getting it wrong; and the item-2
+audit found at least 2 of ~10 real interruptions that day were
+deadline-degradation noise. When the product's one job is interrupting
+well, measured evidence that it interrupts badly outranks every new
+feature.
+
+**The shape of v2.** Seven items plus one gate. The first three attack the
+audit's findings directly: guard-deadline noise (instrument, diagnose on
+the hosted instance, fix), agent identity ("who is asking" — every local
+agent currently reports the same name), and approvals lifecycle hygiene
+(stale pending approvals that execute nothing when clicked). Then the two
+advocate features (assumption-invalidation notifications, the "was I
+manipulated" session retro — both spec-first), calibration flywheel
+automation (a synthetic-traffic filter and periodic mining that proposes,
+never ratifies), and a small desktop-distribution closeout. FinOps Phase C
+stays explicitly gated on Wes's billing decision — money doesn't move
+without the human.
+
+**One connection worth recording:** the guard-latency item isn't just UX.
+Degraded decisions currently feed the policy-tuning proposal engine as if
+they were the policy's fault — noise laundered into evidence. v2.1
+excludes or labels them, which protects v1 item 1's integrity
+retroactively.
+
+**Numbers:** zero code changes, two stale candidates retired with reasons,
+7 + 1 items scheduled, first up: v2.1 guard-deadline noise.
+
+**Next:** v2.1 — spec first, then instrument before fixing.
+
 ## 2026-07-02 — Roadmap item 6: the June-deferral triage (v4.27.0)
 
 **Shipped:** v4.27.0, pushed to main. Spec:
