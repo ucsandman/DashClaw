@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { SessionRetroData } from './session-retro';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -417,5 +418,87 @@ export async function getSessionActions(
       cost_estimate: Number(r.cost_estimate) || 0,
     })),
     total: Number(countRows[0]?.total) || 0,
+  };
+}
+
+// Cap the analyzed window so a runaway session can't balloon the response;
+// coverage.actions_analyzed vs actions_total makes any truncation visible.
+const RETRO_ACTION_LIMIT = 1000;
+
+/**
+ * Batch-fetch everything the session retro composes (roadmap v2.5): the
+ * session, its actions (chronological — drift detection depends on order),
+ * their FK-linked guard decisions, assumptions, and x402 purchases. One
+ * fetch, pure shaping downstream (app/lib/session-retro.ts).
+ */
+export async function getSessionRetroData(
+  sql: SqlClient,
+  sessionId: string,
+  orgId: string,
+): Promise<SessionRetroData | null> {
+  await ensureTables(sql);
+
+  const session = await getSession(sql, sessionId, orgId);
+  if (!session) return null;
+
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM agent_sessions s
+    JOIN action_records ar
+      ON ar.org_id = s.org_id
+     AND ${sessionActionMatchSql(sql)}
+    WHERE s.id = ${sessionId} AND s.org_id = ${orgId}
+  `;
+
+  const actions = await sql`
+    SELECT
+      ar.action_id, ar.agent_id, ar.action_type, ar.declared_goal,
+      ar.reasoning, ar.authorization_scope, ar."trigger",
+      ar.status, ar.outcome_status, ar.risk_score,
+      ar.guard_decision_id, ar.created_at
+    FROM agent_sessions s
+    JOIN action_records ar
+      ON ar.org_id = s.org_id
+     AND ${sessionActionMatchSql(sql)}
+    WHERE s.id = ${sessionId} AND s.org_id = ${orgId}
+    ORDER BY ar.created_at ASC
+    LIMIT ${RETRO_ACTION_LIMIT}
+  `;
+
+  const actionIds = actions.map((a) => a.action_id).filter(Boolean);
+  const decisionIds = actions.map((a) => a.guard_decision_id).filter(Boolean);
+
+  const decisions = decisionIds.length
+    ? await sql`
+        SELECT id, decision, reason, matched_policies, risk_score, context, evidence, action_type
+        FROM guard_decisions
+        WHERE org_id = ${orgId} AND id = ANY(${decisionIds})
+      `
+    : [];
+
+  const assumptions = actionIds.length
+    ? await sql`
+        SELECT assumption_id, action_id, assumption, basis, validated,
+               invalidated, invalidated_reason, invalidated_at, created_at
+        FROM assumptions
+        WHERE org_id = ${orgId} AND action_id = ANY(${actionIds})
+      `
+    : [];
+
+  const purchases = actionIds.length
+    ? await sql`
+        SELECT action_id, spend_amount, currency, execution_status, provider_id, created_at
+        FROM x402_purchases
+        WHERE org_id = ${orgId} AND action_id = ANY(${actionIds})
+      `
+    : [];
+
+  return {
+    session,
+    actions,
+    actionsTotal: Number(countRows[0]?.total) || 0,
+    decisions,
+    assumptions,
+    purchases,
   };
 }

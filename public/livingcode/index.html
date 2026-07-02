@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:74570d7149d538ba9cf9b1ee4539d785cc557d25 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:f3ce06f9ae32db0d70fb50e79101e2b78e49444e · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">276</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">277</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">185</div><div class="k">Optional env vars</div></div>
@@ -192,7 +192,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>44</b> env_vars added, <b>1</b> env_vars removed, <b>16</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>44</b> env_vars added, <b>1</b> env_vars removed, <b>17</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
@@ -201,6 +201,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/policies/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/sessions/[sessionId]/retro <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId] <span class="sig">New route: DELETE, GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId]/artifacts <span class="sig">New route: GET</span></li>
@@ -483,10 +484,11 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/security/scan"><td><code>/api/security/scan</code></td><td>POST</td><td class="sig">app/api/security/scan/route.ts</td></tr>
     <tr data-path="/api/security/status"><td><code>/api/security/status</code></td><td>GET</td><td class="sig">app/api/security/status/route.ts</td></tr></tbody></table></details>
 <details><summary>/session/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/session/effective"><td><code>/api/session/effective</code></td><td>GET</td><td class="sig">app/api/session/effective/route.ts</td></tr></tbody></table></details>
-<details><summary>/sessions/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/sessions"><td><code>/api/sessions</code></td><td>GET, POST</td><td class="sig">app/api/sessions/route.ts</td></tr>
+<details><summary>/sessions/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/sessions"><td><code>/api/sessions</code></td><td>GET, POST</td><td class="sig">app/api/sessions/route.ts</td></tr>
     <tr data-path="/api/sessions/[sessionId]"><td><code>/api/sessions/[sessionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/sessions/[sessionId]/route.ts</td></tr>
     <tr data-path="/api/sessions/[sessionId]/actions"><td><code>/api/sessions/[sessionId]/actions</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/actions/route.ts</td></tr>
-    <tr data-path="/api/sessions/[sessionId]/events"><td><code>/api/sessions/[sessionId]/events</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/events/route.ts</td></tr></tbody></table></details>
+    <tr data-path="/api/sessions/[sessionId]/events"><td><code>/api/sessions/[sessionId]/events</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/events/route.ts</td></tr>
+    <tr data-path="/api/sessions/[sessionId]/retro"><td><code>/api/sessions/[sessionId]/retro</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/retro/route.ts</td></tr></tbody></table></details>
 <details><summary>/settings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/settings"><td><code>/api/settings</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/settings/route.ts</td></tr>
     <tr data-path="/api/settings/llm-status"><td><code>/api/settings/llm-status</code></td><td>GET</td><td class="sig">app/api/settings/llm-status/route.ts</td></tr>
     <tr data-path="/api/settings/test"><td><code>/api/settings/test</code></td><td>POST</td><td class="sig">app/api/settings/test/route.ts</td></tr></tbody></table></details>
