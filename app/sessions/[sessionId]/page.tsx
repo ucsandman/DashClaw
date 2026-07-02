@@ -8,6 +8,7 @@ import {
   Flag, XCircle, AlertTriangle, RotateCw,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
+import SessionRetroCard from '../../components/SessionRetroCard';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
 
@@ -59,6 +60,7 @@ export default function SessionDetailPage() {
   const [session, setSession] = useState<any>(null);
   const [events, setEvents] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
+  const [retro, setRetro] = useState<any>(null);
   const [actionsTotal, setActionsTotal] = useState(0);
   const [actionsLoadingMore, setActionsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -67,10 +69,11 @@ export default function SessionDetailPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionRes, eventsRes, actionsRes] = await Promise.all([
+      const [sessionRes, eventsRes, actionsRes, retroRes] = await Promise.all([
         fetch(`/api/sessions/${sessionId}`),
         fetch(`/api/sessions/${sessionId}/events`),
         fetch(`/api/sessions/${sessionId}/actions?limit=${ACTIONS_PAGE_SIZE}`),
+        fetch(`/api/sessions/${sessionId}/retro`),
       ]);
 
       if (sessionRes.ok) {
@@ -85,6 +88,10 @@ export default function SessionDetailPage() {
         const aData = await actionsRes.json();
         setActions(aData.actions || []);
         setActionsTotal(Number(aData.total) || 0);
+      }
+      if (retroRes.ok) {
+        const rData = await retroRes.json();
+        setRetro(rData.retro || null);
       }
     } catch (error) {
       console.error('Failed to fetch session detail:', error);
@@ -302,6 +309,8 @@ export default function SessionDetailPage() {
           </Card>
         );
       })()}
+
+      <SessionRetroCard retro={retro} />
 
       {/* Actions ledger — the action_records attributed to this session via the
           same predicate as the "# Actions" card, so list and count always agree. */}
