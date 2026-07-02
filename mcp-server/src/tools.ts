@@ -193,8 +193,9 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     description:
       'Fetch the per-session defensibility retro ("was I manipulated?"): injected-content flags, ' +
       'actions outside the declared goal, spend anomalies, and shield hits, composed into a ' +
-      'clean/review/flagged posture with evidenced findings. Read-only. Call after ' +
-      'dashclaw_session_end (or anytime) to review your own session; defaults to the active session.',
+      'clean/review/flagged posture with evidenced findings. Read-only. Defaults to the active ' +
+      'session — call it before dashclaw_session_end, or pass session_id explicitly afterwards ' +
+      '(ending a session clears the active default).',
     inputSchema: {
       type: 'object',
       properties: {
