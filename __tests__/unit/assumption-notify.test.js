@@ -103,6 +103,14 @@ describe('getAssumptionAlerts', () => {
     expect(await getAssumptionAlerts(mockSql, 'org_1', 'coder-1')).toBeNull();
   });
 
+  it('escapes LIKE metacharacters in the family-prefix pattern', async () => {
+    mockSql.mockResolvedValueOnce([]);
+    await getAssumptionAlerts(mockSql, 'org_1', 'we%ird_agent');
+    // Tagged-template call: (strings, ...values). The LIKE pattern is the last value.
+    const values = mockSql.mock.calls[0].slice(1);
+    expect(values).toContain('we\\%ird\\_agent:%');
+  });
+
   it('returns null without querying when agentId is missing', async () => {
     expect(await getAssumptionAlerts(mockSql, 'org_1', null)).toBeNull();
     expect(mockSql).not.toHaveBeenCalled();

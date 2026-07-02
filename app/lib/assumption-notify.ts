@@ -91,13 +91,16 @@ export async function getAssumptionAlerts(
     if (base && base !== agentId) ids.push(base);
     // Family match both directions: a parent hears about its subagents'
     // assumptions (LIKE 'parent:%') and a subagent hears about its base's.
+    // agent_id is client-controlled: escape LIKE metacharacters so '%'/'_'
+    // in an id can't widen the match to other agents' alerts.
+    const likePrefix = agentId.replace(/([\\%_])/g, '\\$1') + ':%';
     const rows = await sql`
       SELECT id, body, created_at
       FROM agent_messages
       WHERE org_id = ${orgId}
         AND message_type = ${ASSUMPTION_INVALIDATED_TYPE}
         AND status = 'sent'
-        AND (to_agent_id = ANY(${ids}) OR to_agent_id LIKE ${agentId + ':%'})
+        AND (to_agent_id = ANY(${ids}) OR to_agent_id LIKE ${likePrefix})
       ORDER BY created_at DESC
       LIMIT 3
     `;
