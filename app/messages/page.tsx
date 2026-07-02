@@ -25,7 +25,7 @@ const CHIPS = [
   { key: 'broadcasts', label: 'Broadcasts' },
 ] as const;
 
-const MESSAGE_TYPES = ['info', 'action', 'question', 'lesson', 'status'];
+const MESSAGE_TYPES = ['info', 'action', 'question', 'lesson', 'status', 'assumption_invalidated'];
 
 const EMPTY_COPY: Record<string, { title: string; description: string }> = {
   'all': { title: 'No conversations yet', description: "Agents send messages via the SDK's sendMessage() method; threads group ongoing work." },

@@ -207,6 +207,11 @@ export default function AssumptionsPage() {
                         drift {a.drift_score}
                       </Badge>
                     )}
+                    {status === 'invalidated' && typeof a.notification_status === 'string' && (
+                      <Badge variant={a.notification_status === 'acknowledged' ? 'success' : 'warning'} size="xs">
+                        {a.notification_status === 'acknowledged' ? 'agent acknowledged' : 'agent notified · unread'}
+                      </Badge>
+                    )}
                   </div>
                 </div>
               </Card>

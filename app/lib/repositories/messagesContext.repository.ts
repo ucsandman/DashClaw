@@ -149,6 +149,29 @@ export async function createMessage(sql: SqlClient, payload: CreateMessagePayloa
   return rows[0] || null;
 }
 
+// Advocate v2a: delivery state of assumption-invalidation notifications,
+// keyed by the assumption id stored in doc_ref. Message read = acknowledged.
+export async function getAssumptionNotificationStates(
+  sql: SqlClient,
+  orgId: string,
+  assumptionIds: string[],
+): Promise<Map<string, 'unread' | 'acknowledged'>> {
+  const map = new Map<string, 'unread' | 'acknowledged'>();
+  if (!assumptionIds.length) return map;
+  const rows = await sql`
+    SELECT doc_ref, status
+    FROM agent_messages
+    WHERE org_id = ${orgId}
+      AND message_type = 'assumption_invalidated'
+      AND doc_ref = ANY(${assumptionIds})
+  `;
+  for (const r of rows) {
+    const state = r.status === 'read' || r.status === 'archived' ? 'acknowledged' : 'unread';
+    map.set(String(r.doc_ref), state);
+  }
+  return map;
+}
+
 export async function touchMessageThread(sql: SqlClient, orgId: string, threadId: string, now: string): Promise<void> {
   await sql`UPDATE message_threads SET updated_at = ${now} WHERE id = ${threadId} AND org_id = ${orgId}`;
 }

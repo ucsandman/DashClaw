@@ -8,6 +8,7 @@ import { getOrgId } from '../../lib/org';
 import { redactAny } from '../../lib/security';
 import { listAssumptions, createAssumption, getAssumptionsDriftCounts } from '../../lib/repositories/assumptions.repository';
 import { hasAction } from '../../lib/repositories/actions.repository';
+import { getAssumptionNotificationStates } from '../../lib/repositories/messagesContext.repository';
 import crypto from 'crypto';
 
 
@@ -36,6 +37,23 @@ export async function GET(request: Request) {
 
     const assumptions = result.assumptions;
     const total = result.total;
+
+    // Advocate v2a: delivery state for invalidated rows — was the owning agent
+    // notified, and has it acknowledged (message read)? Best-effort annotation.
+    const invalidatedIds = assumptions
+      .filter((a) => a.invalidated === 1 && a.assumption_id)
+      .map((a) => String(a.assumption_id));
+    if (invalidatedIds.length) {
+      try {
+        const states = await getAssumptionNotificationStates(sql, orgId, invalidatedIds);
+        for (const asm of assumptions) {
+          const st = states.get(String(asm.assumption_id));
+          if (st) asm.notification_status = st;
+        }
+      } catch (err) {
+        console.warn('Assumption notification-state lookup failed (list unannotated):', (err as Error).message);
+      }
+    }
 
     // Drift scoring: per-assumption risk score based on age and validation
     // state. The summary comes from a whole-table aggregate under the same

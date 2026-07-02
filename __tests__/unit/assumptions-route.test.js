@@ -42,6 +42,10 @@ vi.mock('../../app/lib/repositories/assumptions.repository.js', () => ({
 vi.mock('../../app/lib/repositories/actions.repository.js', () => ({
   hasAction: (...a) => mockHasAction(...a),
 }));
+const mockGetNotificationStates = vi.fn(async () => new Map());
+vi.mock('../../app/lib/repositories/messagesContext.repository.js', () => ({
+  getAssumptionNotificationStates: (...a) => mockGetNotificationStates(...a),
+}));
 
 const { GET, POST } = await import('../../app/api/assumptions/route.js');
 
@@ -188,6 +192,24 @@ describe('GET /api/assumptions', () => {
     expect(data.drift_summary).toEqual({
       total: 450, at_risk: 120, validated: 200, invalidated: 30, unvalidated: 220,
     });
+  });
+
+  it('annotates invalidated rows with notification_status', async () => {
+    mockListAssumptions.mockResolvedValueOnce({
+      assumptions: [
+        { id: 1, assumption_id: 'asm_1', invalidated: 1, validated: 0, created_at: '2026-07-01' },
+        { id: 2, assumption_id: 'asm_2', invalidated: 0, validated: 0, created_at: '2026-07-01' },
+      ],
+      total: 2,
+    });
+    mockGetNotificationStates.mockResolvedValueOnce(new Map([['asm_1', 'acknowledged']]));
+
+    const res = await GET(getReq());
+    const data = await res.json();
+
+    expect(data.assumptions[0].notification_status).toBe('acknowledged');
+    expect(data.assumptions[1].notification_status).toBeUndefined();
+    expect(mockGetNotificationStates).toHaveBeenCalledWith(expect.anything(), 'org_test', ['asm_1']);
   });
 
   it('returns 500 on error with safe defaults', async () => {
