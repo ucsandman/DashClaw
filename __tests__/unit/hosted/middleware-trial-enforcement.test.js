@@ -34,7 +34,10 @@ describe('middleware hosted-trial enforcement', () => {
     // and its .catch() chain would throw. Providing a default rejected-safe
     // resolution keeps the middleware path clean.
     sqlMock.mockResolvedValue([]);
-    process.env.DATABASE_URL = 'postgres://fake';
+    // Neon URL keeps resolveApiKey on the inline (mocked-neon) path; a non-Neon
+    // URL in self_host mode delegates to the internal resolve-key route instead
+    // (covered by middleware-auth.test.js).
+    process.env.DATABASE_URL = 'postgres://ep-trial.neon.tech/db';
     // Set a sentinel master key that won't match any test key, so the
     // middleware skips the 503 "not configured" guard and falls through
     // to the slow-path SQL lookup for each unique test key.

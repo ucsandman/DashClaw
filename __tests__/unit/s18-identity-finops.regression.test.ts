@@ -56,7 +56,10 @@ describe('§18.1 org context is server-derived from the API key, not the client'
   beforeEach(() => {
     sqlMock.mockReset();
     sqlMock.mockResolvedValue([]);
-    vi.stubEnv('DATABASE_URL', 'postgres://fake');
+    // Neon URL keeps resolveApiKey on the inline (mocked-neon) path; a non-Neon
+    // URL in self_host mode delegates to the internal resolve-key route instead
+    // (covered by middleware-auth.test.js).
+    vi.stubEnv('DATABASE_URL', 'postgres://ep-s18.neon.tech/db');
     vi.stubEnv('DASHCLAW_API_KEY', 'oc_live_master_s18');
     vi.stubEnv('DASHCLAW_API_KEY_ORG', 'org_default');
   });

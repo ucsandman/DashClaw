@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:27a0e5184070436e1e1568f19cecafdfe0e1a1fa`
+**Shape snapshot:** `sha1:e7d36953805b2f0f39cfc9a725e06e5900a8156a`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **273** active API routes across **66** categories (321 total including archived)
-- **4** required + **183** optional environment variables
+- **274** active API routes across **67** categories (322 total including archived)
+- **4** required + **184** optional environment variables
 - **100** database tables
 
 ## API Surface
@@ -272,6 +272,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET` `/api/integrity/jwks`
 - `POST` `/api/integrity/verify`
+
+### `internal`
+
+- `POST` `/api/internal/resolve-key`
 
 ### `invite`
 
@@ -527,8 +531,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 78 file(s)
-- **`DATABASE_URL`** - referenced in 98 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 80 file(s)
+- **`DATABASE_URL`** - referenced in 99 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
 
@@ -688,6 +692,7 @@ These have fallbacks or only activate specific features.
 - `SQL_CAPTURE_FILE` *(undocumented)*
 - `STARTUP_SMOKE_BASE_URL` *(undocumented)*
 - `STARTUP_SMOKE_INTERVAL_MS` *(undocumented)*
+- `STARTUP_SMOKE_SKIP_POLICY` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
 - `STRIPE_LIVE_SECRET_KEY` *(undocumented)*
 - `STRIPE_PRICE_BUSINESS` *(undocumented)*

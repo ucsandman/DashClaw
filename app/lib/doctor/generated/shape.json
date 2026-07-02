@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:27a0e5184070436e1e1568f19cecafdfe0e1a1fa",
+  "timestamp": "sha1:e7d36953805b2f0f39cfc9a725e06e5900a8156a",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1775,6 +1775,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/integrity/verify/route.ts"
+    },
+    {
+      "path": "/api/internal/resolve-key",
+      "methods": [
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/internal/resolve-key/route.ts"
     },
     {
       "path": "/api/invite/[token]",
@@ -3571,6 +3580,7 @@
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
+        "app/api/internal/resolve-key/route.ts",
         "app/api/keys/reveal/route.ts",
         "app/api/setup/migrate/route.ts",
         "app/api/setup/ping/route.ts",
@@ -3632,6 +3642,7 @@
         "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-demo-capabilities.mjs",
         "scripts/smoke-hosted.mjs",
+        "scripts/startup-smoke.mjs",
         "scripts/telegram-setup-wizard.mjs",
         "scripts/telegram-verify-loop.mjs",
         "scripts/test-actions.mjs",
@@ -4097,6 +4108,7 @@
         "__tests__/unit/routing-tasks.route.test.js",
         "__tests__/unit/security-status.route.test.js",
         "__tests__/unit/webhooks.route.test.js",
+        "app/api/internal/resolve-key/route.ts",
         "app/api/security/status/route.ts",
         "app/api/setup/migrate/route.ts",
         "app/lib/auth.ts",
@@ -4955,6 +4967,14 @@
     },
     {
       "name": "STARTUP_SMOKE_INTERVAL_MS",
+      "required": false,
+      "files": [
+        "scripts/startup-smoke.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "STARTUP_SMOKE_SKIP_POLICY",
       "required": false,
       "files": [
         "scripts/startup-smoke.mjs"

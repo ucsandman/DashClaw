@@ -51,28 +51,78 @@ describe('middleware API-key auth', () => {
     expect(res.status).toBe(503);
   });
 
+  // These slow-path cases exercise the inline Neon HTTP-driver resolution, so
+  // pin a Neon DATABASE_URL (the self-host/non-Neon path is covered separately
+  // in the "self-host TCP Postgres" block below, which delegates to a route).
   it('slow path: an unknown api key is rejected with 401', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://ep-auth.neon.tech/db');
     sqlMock.mockResolvedValue([]); // resolveApiKey -> no row
     const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
     expect(res.status).toBe(401);
   });
 
   it('readonly key: a write method is forbidden with 403', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://ep-auth.neon.tech/db');
     sqlMock.mockResolvedValue([{ org_id: 'org_ro', role: 'readonly', revoked_at: null, hosted_mode: false }]);
     const res = await middleware(req('/api/actions', { apiKey: uniqueKey(), method: 'POST' }));
     expect(res.status).toBe(403);
   });
 
   it('readonly key: a GET is allowed', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://ep-auth.neon.tech/db');
     sqlMock.mockResolvedValue([{ org_id: 'org_ro', role: 'readonly', revoked_at: null, hosted_mode: false }]);
     const res = await middleware(req('/api/actions', { apiKey: uniqueKey(), method: 'GET' }));
     expect(res.status).toBe(200);
   });
 
   it('revoked key is rejected with 401', async () => {
+    vi.stubEnv('DATABASE_URL', 'postgres://ep-auth.neon.tech/db');
     sqlMock.mockResolvedValue([{ org_id: 'org_x', role: 'admin', revoked_at: '2026-01-01T00:00:00Z', hosted_mode: false }]);
     const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
     expect(res.status).toBe(401);
+  });
+
+  // Self-host on TCP-only Postgres: the edge middleware can't reach the DB with
+  // the Neon HTTP driver, so DB-minted keys are resolved by delegating to the
+  // internal /api/internal/resolve-key Node route (fetch). These assert the
+  // delegation contract: the operator key is attached, and the route's answer
+  // drives allow / 401.
+  describe('self-host TCP Postgres (internal resolve-key delegation)', () => {
+    let fetchMock;
+    beforeEach(() => {
+      vi.stubEnv('DATABASE_URL', 'postgres://localhost:5432/dashclaw'); // non-Neon
+      vi.stubEnv('DASHCLAW_MODE', 'self_host');
+      fetchMock = vi.fn();
+      vi.stubGlobal('fetch', fetchMock);
+    });
+
+    const routeReply = (resolved, ok = true, status = 200) => ({
+      ok,
+      status,
+      json: async () => ({ resolved }),
+    });
+
+    it('resolves a DB-minted key via the internal route and allows the request', async () => {
+      fetchMock.mockResolvedValue(routeReply({ orgId: 'org_self', role: 'admin', hostedMode: false }));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(200);
+      // The internal hop targets the resolve-key route and carries the operator key.
+      const [url, init] = fetchMock.mock.calls[0];
+      expect(String(url)).toContain('/api/internal/resolve-key');
+      expect(init.headers['x-internal-auth']).toBe('oc_live_master_cov_key');
+    });
+
+    it('rejects an unknown key (route returns resolved: null) with 401', async () => {
+      fetchMock.mockResolvedValue(routeReply(null));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(401);
+    });
+
+    it('fails closed with 401 when the internal route errors (non-2xx)', async () => {
+      fetchMock.mockResolvedValue(routeReply(null, false, 500));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(401);
+    });
   });
 
   it('cross-origin request with no api key is rejected with 401', async () => {

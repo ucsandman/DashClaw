@@ -41,6 +41,11 @@ const PUBLIC_ROUTES = [
   '/api/setup/proof',
   '/api/setup/ping',
   '/api/setup/migrate',
+  // Self-host DB-key resolution bridge (see app/api/internal/resolve-key). The
+  // middleware itself calls this on the internal hop; the route self-guards with
+  // the operator key + a self-host/non-Neon gate, so it is safe as a public path
+  // (it 401s without the operator key and 404s on hosted/Neon).
+  '/api/internal/resolve-key',
   '/api/auth',
   '/api/cron',
   '/api/telegram/webhook',  // auth: x-telegram-bot-api-secret-token + chat-id allowlist (in route)
@@ -373,12 +378,44 @@ function pruneApiKeyCache(now) {
   }
 }
 
-async function resolveApiKey(keyHash) {
+// Self-host on TCP-only Postgres: the edge-runtime middleware can't open a TCP
+// socket, so it delegates key resolution to an internal Node route (which uses
+// the runtime-aware TCP driver). Returns the resolved principal or null;
+// THROWS on a transient failure so the caller can fail closed without caching.
+async function resolveApiKeyViaInternalRoute(keyHash, request) {
+  const operatorKey = process.env.DASHCLAW_API_KEY || '';
+  const origin = request?.nextUrl?.origin || new URL(request.url).origin;
+  const res = await fetch(`${origin}/api/internal/resolve-key`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-internal-auth': operatorKey },
+    body: JSON.stringify({ keyHash }),
+  });
+  if (!res.ok) throw new Error(`internal resolve-key ${res.status}`);
+  const data = await res.json().catch(() => ({}));
+  return data?.resolved ?? null;
+}
+
+async function resolveApiKey(keyHash, request) {
   const now = Date.now();
   pruneApiKeyCache(now);
   const cached = apiKeyCache.get(keyHash);
   if (cached && now - cached.timestamp < API_KEY_CACHE_TTL) {
     return cached.result;
+  }
+
+  // Self-host (non-Neon) resolves through the internal Node route; hosted/Neon
+  // keeps the inline HTTP-driver path below, byte-identical. Same gate as the
+  // route itself enforces (non-Neon URL AND self_host mode).
+  if (isTrustedSelfHostBootstrap()) {
+    try {
+      const result = await resolveApiKeyViaInternalRoute(keyHash, request);
+      apiKeyCache.set(keyHash, { timestamp: now, result });
+      return result;
+    } catch (err) {
+      console.error('[AUTH] Self-host API key resolution failed:', err.message);
+      // Fail closed, but do NOT cache — a later request retries.
+      return null;
+    }
   }
 
   try {
@@ -1514,7 +1551,7 @@ async function handleOperatorKey(request, requestHeaders) {
 // Slow path: hash the key and look up in api_keys table
 async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   const keyHash = await hashApiKey(apiKey);
-  const resolved = await resolveApiKey(keyHash);
+  const resolved = await resolveApiKey(keyHash, request);
 
   if (!resolved) {
     console.warn(`[SECURITY] Unauthorized API access attempt: ${pathname} from ${getClientIp(request)}`);
