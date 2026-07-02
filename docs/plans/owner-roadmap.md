@@ -10,7 +10,7 @@ protocol: spec → build → gates → live proof → main.
 |---|------|--------|
 | 0 | Foundation: claims audit, policy smoke in CI, risk-calibration suite, self-host key auth, SSRF fix, vulns, policies API DX | DONE 2026-07-01 (`0ac3e557..ae8e13b4`) |
 | 1 | Policy-tuning proposal loop | DONE 2026-07-01 (`2cd1071a..478c7231`, v4.22.0; CI green incl. smoke T1) |
-| 2 | Cumulative x402 budget gate | NOT STARTED |
+| 2 | Cumulative x402 budget gate | DONE 2026-07-02 (`583bf595..dfeac026`, v4.23.0; smoke B6 live 44/44; security review PASS, MEDIUM TOCTOU fixed in-ship) |
 | 3 | Calibration corpus v2: mining | NOT STARTED |
 | 4 | Agent's-advocate surface | NOT STARTED |
 | 5 | Effective-risk escalation observability | NOT STARTED |

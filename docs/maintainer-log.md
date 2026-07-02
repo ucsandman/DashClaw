@@ -16,6 +16,91 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap item 2: the cumulative x402 budget gate (v4.23.0)
+
+**Shipped:** `583bf595..dfeac026`, pushed to main, CI green including the
+new live checks.
+
+Until today, DashClaw's spend policy could stop an agent from making one
+expensive purchase — and was blind to an agent making five hundred cheap
+ones. A $1-per-purchase cap waves through 500 × $0.90. This session added
+the missing dimension: `x402_spend_limit` policies can now carry a budget
+over a rolling window (`budget_usd`, `budget_approval_threshold`,
+`budget_window_days`, org-wide or per-agent), enforced at guard time by
+summing the window's recorded purchases plus the incoming one. The gate
+interrupts *before the money moves*, and both tiers — per-purchase and
+budget — coexist in one policy with the more severe verdict winning.
+
+**Decisions worth recording:**
+
+- **Rolling window, not calendar month.** A calendar budget resets to full
+  at midnight on the 1st — exactly when nobody is watching the fleet. A
+  rolling window degrades smoothly and matches every other window in the
+  product.
+- **One definition of "spend."** The budget sums the same predicate the
+  FinOps dashboards use (failed purchases don't count — no money moved).
+  Two definitions of money in one product is how audits die.
+- **Fail closed, but visibly.** The roadmap's open question — what happens
+  when the budget query itself fails — is settled: the standard degradation
+  contract (per-policy override → env → require_approval). The `allow`
+  escape hatch exists for self-hosters, but using it now stamps a warning
+  on the persisted decision, so a skipped money-check is never invisible.
+  And an unattributed purchase under a per-agent budget routes to approval:
+  "omit your agent id" must not be a budget bypass.
+
+**The review earned its keep:** the adversarial security pass (mandatory
+for spend-touching diffs) confirmed the tenant boundary and parameterized
+SQL, then landed a real one — my spec claimed an agent "cannot queue N
+pending purchases that each fit the budget," and that claim was false under
+concurrency. N *parallel* purchases all read the same pre-insert window sum
+and every one passes. The database driver offers no transactions to
+serialize this, so the fix re-verifies the hard budget *after* the purchase
+row commits (the sum then includes the caller's own row and any concurrent
+winners) and compensates on breach — purchase marked failed, action flipped
+to blocked, 403 returned before the agent executes payment. A burst can
+over-block; it can no longer overspend. The reviewer re-checked the delta:
+confirmed fixed, no new findings. The overclaim in the spec is corrected,
+not papered over.
+
+**The governance question, because it's the whole product:** mid-session,
+Wes asked the uncomfortable question — he'd just approved ~10 requests and
+suspected the maintainer had sailed through without actually being stopped.
+Investigated from the decision ledger, not from memory: every interruption
+held. Each approval he clicked released a tool call frozen inside the
+PreToolUse hook (30s poll, hard-block on timeout or denial), and the
+timing gaps in the ledger show the freezes. The best one: the
+protected-path policy interrupted the maintainer *editing the guard engine
+itself* — the system correctly distrusting the person holding the
+screwdriver. But the investigation surfaced real friction to fix: at least
+two of those interruptions were noise from guard evaluations exceeding
+their 3500ms deadline (fail-closed degradation on mundane file edits —
+hosted-instance latency, worth a dedicated look), several "pending"
+approvals he cleared were stale records whose tool calls had already been
+hard-blocked an hour earlier (approving them executed nothing — confusing
+UX), and every agent on the machine reports the same identity ("codex"),
+so he couldn't even tell *who* was asking. Precision of interruption cuts
+both ways; these go on the list.
+
+**Also from the trenches:** a re-run of the live smoke failed 20 of 44
+checks and briefly looked like a catastrophic regression. Root cause: an
+orphaned dev server from earlier in the session (stopping the task killed
+the npm wrapper, not the node child) had hot-reloaded half my edits into a
+split-brain module state and was still squatting on port 3000 — the "new"
+server never bound. One clean server later: 44/44. The lesson is old and
+keeps being true: verify what process you're actually testing against.
+
+**Numbers:** zero new API routes, unit suite 4,658 → 4,690, policy smoke
+harness 40 → 44 live checks (real purchases accumulating $4 → $8 → $12 →
+interrupted → blocked), one security review (PASS; 1 medium + 1 low, both
+fixed and re-verified before push), one migration (an index), v4.23.0
+platform-only.
+
+**Next:** roadmap item 3 — calibration corpus mining. Item 1's
+guard-decision join makes those queries cleaner. Candidate side-items from
+today: the guard-deadline latency noise and per-machine agent identity.
+
+---
+
 ## 2026-07-01 → 02 — Roadmap item 1: the policy-tuning proposal loop (v4.22.0)
 
 **Shipped:** `2cd1071a..478c7231`, pushed to main, CI green.
