@@ -226,4 +226,62 @@ describe('guard degradation contract', () => {
       expect(result.reason ?? '').not.toContain('exceeded deadline');
     });
   });
+
+  // v2.1 (docs/plans/2026-07-02-guard-deadline-noise.md): degradation is a
+  // first-class persisted marker (column + context._degraded), never inferred
+  // by string-matching reason; per-phase timings persist on every decision.
+  describe('degradation stamping + timings (v2.1)', () => {
+    function guardInsert(sql) {
+      const call = sql.taggedCalls.find((c) => c.text.includes('INSERT INTO guard_decisions'));
+      expect(call).toBeTruthy();
+      // Values order mirrors persistGuardDecision's INSERT column list.
+      return { context: JSON.parse(call.values[12]), degraded: call.values[17], result: call };
+    }
+
+    it('deadline degradation persists degraded=true, context._degraded, and _timings', async () => {
+      process.env.DASHCLAW_GUARD_DEADLINE_MS = '50';
+      mockDeliverGuardWebhook.mockImplementation(() => new Promise(() => {}));
+      const sql = makeSql([makePolicy('webhook_check', { url: 'https://example.com' })]);
+
+      const result = await evaluateGuard('org_st1', { action_type: 'deploy', agent_id: 'agt_1' }, sql);
+      expect(result.decision).toBe('require_approval');
+      expect(result.degraded).toBe(true);
+
+      const row = guardInsert(sql);
+      expect(row.degraded).toBe(true);
+      expect(row.context._degraded).toMatchObject({ kind: 'deadline', deadline_ms: 50, action: 'require_approval' });
+      // The webhook phase was in flight when the deadline fired.
+      expect(row.context._degraded.phase_in_flight).toBe('webhooks');
+      expect(row.context._timings).toBeTruthy();
+      expect(typeof row.context._timings.total).toBe('number');
+    });
+
+    it('fail-open (allow) degradation leaves a persisted trace too', async () => {
+      process.env.DASHCLAW_GUARD_DEADLINE_MS = '50';
+      process.env.DASHCLAW_GUARD_FALLBACK = 'allow';
+      mockDeliverGuardWebhook.mockImplementation(() => new Promise(() => {}));
+      const sql = makeSql([makePolicy('webhook_check', { url: 'https://example.com' })]);
+
+      const result = await evaluateGuard('org_st2', { action_type: 'deploy' }, sql);
+      expect(result.decision).toBe('allow');
+      expect(result.degraded).toBe(true);
+
+      const row = guardInsert(sql);
+      expect(row.degraded).toBe(true);
+      expect(row.context._degraded).toMatchObject({ kind: 'deadline', action: 'allow' });
+    });
+
+    it('normal evaluations persist degraded=false with _timings and no _degraded', async () => {
+      const sql = makeSql([makePolicy('risk_threshold', { threshold: 80 })]);
+      const result = await evaluateGuard('org_st3', { risk_score: 10, action_type: 'deploy', agent_id: 'agt_1' }, sql);
+      expect(result.decision).toBe('allow');
+      expect(result.degraded).toBeUndefined();
+
+      const row = guardInsert(sql);
+      expect(row.degraded).toBe(false);
+      expect(row.context._degraded).toBeUndefined();
+      expect(row.context._timings).toBeTruthy();
+      expect(typeof row.context._timings.total).toBe('number');
+    });
+  });
 });

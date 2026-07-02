@@ -191,5 +191,84 @@ describe('predictive-risk', () => {
       expect(result.total_adjustment).toBe(25);
       expect(mockExecuteCompletion).toHaveBeenCalledTimes(1);
     });
+
+    // v2.1 deadline fix (docs/plans/2026-07-02-guard-deadline-noise.md): the
+    // measured 1.2–3s LLM call was the dominant cause of guard-deadline
+    // degradations — it must never run without signal or without budget.
+    describe('LLM amplifier skip/budget (v2.1)', () => {
+      it('skips the LLM entirely when the agent has no history (nothing to reason over)', async () => {
+        const sql = createSqlMock({
+          queryResponses: [
+            [{ total: '0', failures: '0', avg_risk: null, recent_count: '0' }],
+          ],
+        });
+
+        // no_history statistical +5 on top of 60 crosses the threshold — the
+        // exact live specimen: mundane apply, brand-new agent.
+        const result = await getPredictiveRisk(sql, 'org_1', 'agent-new', 'apply', 60, { enabled: true, threshold: 60 });
+        expect(result.llm).toBeNull();
+        expect(result.llm_skipped).toBe('no_history');
+        expect(result.total_adjustment).toBe(5);
+        expect(mockExecuteCompletion).not.toHaveBeenCalled();
+      });
+
+      it('skips the LLM when the remaining guard budget is below MIN_LLM_BUDGET_MS', async () => {
+        const sql = createSqlMock({
+          queryResponses: [
+            [{ total: '10', failures: '6', avg_risk: '70', recent_count: '2' }],
+          ],
+        });
+
+        const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'deploy', 60, { enabled: true, threshold: 60, llmBudgetMs: 200 });
+        expect(result.llm).toBeNull();
+        expect(result.llm_skipped).toBe('budget');
+        expect(result.total_adjustment).toBe(15); // statistical survives
+        expect(mockExecuteCompletion).not.toHaveBeenCalled();
+      });
+
+      it('a slow LLM yields llm_skipped=timeout instead of blowing the budget', async () => {
+        mockExecuteCompletion.mockImplementation(() => new Promise(() => {})); // hangs
+        const sql = createSqlMock({
+          queryResponses: [
+            [{ total: '10', failures: '6', avg_risk: '70', recent_count: '2' }],
+          ],
+          taggedResponses: [
+            [{ action_type: 'deploy', status: 'failed', risk_score: 70, created_at: '2026-07-01T01:00:00Z' }],
+            [{ key: 'OPENAI_API_KEY', value: 'sk-test', encrypted: false }],
+          ],
+        });
+
+        const started = Date.now();
+        const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'deploy', 60, { enabled: true, threshold: 60, llmBudgetMs: 1500 });
+        expect(Date.now() - started).toBeLessThan(3000);
+        expect(result.llm).toBeNull();
+        expect(result.llm_skipped).toBe('timeout');
+        expect(result.total_adjustment).toBe(15);
+      });
+
+      it('a fast LLM inside the budget still lands its adjustment', async () => {
+        mockExecuteCompletion.mockResolvedValue({
+          content: JSON.stringify({ adjustment: 10, reasoning: 'Repeated failures' }),
+          provider: 'openai',
+          model: 'gpt-4.1-mini',
+          usage: { input_tokens: 300, output_tokens: 50 },
+          cost_usd: 0.001,
+        });
+        const sql = createSqlMock({
+          queryResponses: [
+            [{ total: '10', failures: '6', avg_risk: '70', recent_count: '2' }],
+          ],
+          taggedResponses: [
+            [{ action_type: 'deploy', status: 'failed', risk_score: 70, created_at: '2026-07-01T01:00:00Z' }],
+            [{ key: 'OPENAI_API_KEY', value: 'sk-test', encrypted: false }],
+          ],
+        });
+
+        const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'deploy', 60, { enabled: true, threshold: 60, llmBudgetMs: 5000 });
+        expect(result.llm?.adjustment).toBe(10);
+        expect(result.llm_skipped).toBeUndefined();
+        expect(result.total_adjustment).toBe(25);
+      });
+    });
   });
 });

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:aa0761255f63070a14180b185af8876d9af2b177",
+  "timestamp": "sha1:5d935e164610bb2ea93ab37fe0bcc21623c5ff37",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4148,6 +4148,7 @@
         "scripts/cleanup-org-default.mjs",
         "scripts/create-org.mjs",
         "scripts/diagnose-cost-attribution.mjs",
+        "scripts/diagnose-guard-deadline.mjs",
         "scripts/emergency-reset.mjs",
         "scripts/init-self-host-env.mjs",
         "scripts/migrate-action-model-column.mjs",

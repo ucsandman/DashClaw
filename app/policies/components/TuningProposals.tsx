@@ -270,12 +270,30 @@ export default function TuningProposals({ onPolicyChange }: TuningProposalsProps
   // not present (PolicyCockpit already handles the "no mode applied" state).
   if (data.policies.length === 0) return null;
 
+  const degradation = data.degradation;
+
   return (
     <div>
       <span className={SECTION_LABEL}>Tuning proposals</span>
       <p className="mt-1 text-sm text-tertiary">
         Evidence-backed suggestions from how you&apos;ve actually been approving &mdash; nothing changes until you accept.
       </p>
+
+      {/* Deadline-degradation ledger (roadmap v2.1) — rendered only when the
+          window actually contains degraded decisions; a healthy instance shows
+          nothing here. These rows are excluded from the proposal evidence. */}
+      {degradation && degradation.degraded > 0 && (
+        <p className="mt-2 rounded-md border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
+          <span className="font-medium text-status-warning">
+            {degradation.degraded} of {degradation.total} decisions
+          </span>{' '}
+          in the last {degradation.window_days} days were deadline degradations ({(degradation.rate * 100).toFixed(1)}%)
+          &mdash; the evaluation ran over budget, not a policy match. Excluded from the evidence below.
+          {degradation.last_degraded_at && (
+            <span className="text-tertiary"> Latest: {new Date(degradation.last_degraded_at).toLocaleString()}.</span>
+          )}
+        </p>
+      )}
 
       {data.proposals.length > 0 ? (
         <ul className="mt-2 divide-y divide-border">

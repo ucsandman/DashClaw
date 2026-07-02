@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.28.0] — 2026-07-02
+
+Guard-deadline noise: instrument, diagnose, fix (owner roadmap v2.1 — the first item of roadmap v2, "earn the interruption"). At least 2 of ~10 interruptions in the item-2 live audit were fail-closed deadline degradations on mundane file edits. Diagnosis on live data found the cause: the server heuristic scores `apply` at base 60 — exactly the predictive-risk LLM threshold — so every mundane edit recruited a 1.2–3s LLM call inside the guard's 3500ms deadline. Spec: `docs/plans/2026-07-02-guard-deadline-noise.md`.
+
+### Added
+- **First-class degradation marker:** `guard_decisions.degraded` boolean column (drizzle/0037) plus structured `context._degraded` (`kind`, `deadline_ms`, `action`, `phase_in_flight`). The fail-open (`allow`) path now leaves a persisted trace too — previously it left none, and detection required string-matching `reason`.
+- **Per-phase evaluation timings** persisted as `context._timings` on every guard decision (policies / risk / predictive / local_policies / webhooks / grants / signals / total), so degraded evaluations diagnose against a steady-state baseline.
+- **Degradation visibility on `/policies`:** `GET /api/policies/proposals` returns an org-wide `degradation` summary (count, rate, last occurrence, by-day) rendered as a notice strip next to the tuning proposals. Policy smoke checks K1–K2 (57 total).
+- **`scripts/diagnose-guard-deadline.mjs`:** per-day degradation rates, per-phase timing percentiles (normal vs degraded), and a cold-start heuristic over live data.
+
+### Fixed
+- **The deadline noise itself:** the predictive-risk LLM amplifier now (a) skips when the (agent, action_type) history is empty — it provably returned adjustment 0 "cannot assess" after seconds of latency — and (b) is bounded by the remaining deadline budget (`llmBudgetMs`, min 1200ms, 600ms safety margin): a slow provider yields `llm_skipped: 'timeout'` with the statistical adjustment intact instead of a degraded `require_approval`. Measured: no-history evaluations dropped from up to 3.1s to ~150–320ms total; the previously-degrading path completes within budget with zero degradations. Score semantics unchanged; `llm_skipped` provenance rides in `_risk_breakdown.predictive`.
+- **Proposal evidence hygiene:** `getDecisionMixByPolicy` / `getApprovalOutcomesByPolicy` exclude degraded decisions (column-first, reason-ILIKE fallback for pre-0037 rows) — a degraded interruption is latency's fault, not the policy's, and must not teach the tuning engine that a policy over-interrupts.
+
 ## [4.27.0] — 2026-07-02
 
 June-deferral triage (owner roadmap item 6): the five items parked during June's 20-phase sweep each got a verdict — three built, two killed with recorded reasons. The deferral ledger is now empty.

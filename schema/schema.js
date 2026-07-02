@@ -604,6 +604,10 @@ export const guardDecisions = pgTable('guard_decisions', {
   riskScore: integer('risk_score'),
   actionType: text('action_type'),
   createdAt: timestamp('created_at').defaultNow(),
+  // True when the decision was finalized off a degradation path (deadline race
+  // today). Detail lives in context._degraded; this column exists so the
+  // aggregation queries never string-match reason. See drizzle/0037.
+  degraded: boolean('degraded').default(false).notNull(),
 });
 
 // Instance-global Ed25519 signing key (issuer of proof receipts + signed

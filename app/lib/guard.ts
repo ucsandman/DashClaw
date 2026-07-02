@@ -507,16 +507,23 @@ async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ en
   return entry;
 }
 
+// Post-LLM phases (local_policies, grants, persist) need headroom inside the
+// evaluation deadline; the LLM amplifier only gets what's left minus this.
+const LLM_SAFETY_MARGIN_MS = 600;
+
 // Predictive risk scoring — statistical analysis of historical behavior.
 // Best-effort: never block guard on failure. Skipped entirely (no settings
 // re-read, no historical-stats query) when PREDICTIVE_RISK_ENABLED is off.
 // serverEvidenceScore is max(server_total, template) — the client-reported
 // term is deliberately excluded from the LLM trigger (see getPredictiveRisk).
+// remainingBudgetMs bounds the LLM amplifier: the measured 1.2–3s call was
+// the dominant cause of deadline degradations (v2.1 diagnosis).
 async function computePredictiveRisk(
   sql: GuardSql,
   orgId: string,
   context: GuardEvalContext,
   serverEvidenceScore: number,
+  remainingBudgetMs: number,
 ): Promise<{ total_adjustment?: number } | null> {
   try {
     const { enabled, threshold } = await getPredictiveSettings(sql, orgId);
@@ -526,7 +533,7 @@ async function computePredictiveRisk(
       const { getPredictiveRisk } = await import('./predictive-risk');
       return await getPredictiveRisk(
         sql, orgId, context.agent_id, context.action_type, serverEvidenceScore,
-        { enabled, threshold },
+        { enabled, threshold, llmBudgetMs: Math.max(0, remainingBudgetMs - LLM_SAFETY_MARGIN_MS) },
       );
     }
     return null;
@@ -738,6 +745,7 @@ interface GuardDecisionInsert {
   riskScore: number;
   actionType: string | null;
   createdAt: string;
+  degraded: boolean;
 }
 
 // SECURITY (R2): the guard_decisions row IS the audit evidence — losing it means
@@ -745,7 +753,7 @@ interface GuardDecisionInsert {
 async function persistGuardDecision(sql: GuardSql, row: GuardDecisionInsert): Promise<void> {
   try {
     await sql`
-      INSERT INTO guard_decisions (id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, decision, reason, matched_policies, context, evidence, risk_score, action_type, created_at)
+      INSERT INTO guard_decisions (id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, decision, reason, matched_policies, context, evidence, risk_score, action_type, created_at, degraded)
       VALUES (
         ${row.decisionId},
         ${row.orgId},
@@ -763,7 +771,8 @@ async function persistGuardDecision(sql: GuardSql, row: GuardDecisionInsert): Pr
         ${row.evidence},
         ${row.riskScore},
         ${row.actionType},
-        ${row.createdAt}
+        ${row.createdAt},
+        ${row.degraded}
       )
     `;
   } catch (err) {
@@ -855,6 +864,8 @@ export interface RiskBreakdown {
     velocity?: number;
     statistical_adjustment?: number;
     llm?: { adjustment: number; model: string; reasoning: string } | null;
+    /** Why the LLM amplifier didn't run when its trigger fired (v2.1). */
+    llm_skipped?: string;
   } | null;
   /** The persisted guard_decisions.risk_score (effective + predictive, clamped). */
   final: number;
@@ -941,6 +952,8 @@ interface GuardFinalizeInput {
   recovery: unknown;
   predictiveRisk: { total_adjustment?: number } | null;
   riskBreakdown: RiskBreakdown;
+  timings: Record<string, number> | null;
+  degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
 }
 
 function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
@@ -968,11 +981,14 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
       ...(acc.shields.prompt_injection !== null
         ? { _shields: { prompt_injection: acc.shields.prompt_injection } }
         : {}),
+      ...(input.timings ? { _timings: input.timings } : {}),
+      ...(input.degraded ? { _degraded: input.degraded } : {}),
     },
     evidence: input.evidenceJson,
     riskScore: input.adjustedRiskScore,
     actionType: context.action_type || null,
     createdAt: input.evaluatedAt,
+    degraded: input.degraded !== null,
   };
 }
 
@@ -998,6 +1014,7 @@ function publishGuardDecisionEvent(input: GuardFinalizeInput): void {
       agent_risk_score: input.agentRiskScore,
       action_type: context.action_type || null,
       created_at: input.evaluatedAt,
+      degraded: input.degraded !== null,
     },
   });
 }
@@ -1022,6 +1039,7 @@ function buildGuardResult(input: GuardFinalizeInput) {
     learning: input.learningContext || undefined,
     ...(input.recovery ? { recovery: input.recovery } : {}),
     ...(input.predictiveRisk ? { predictive_risk: input.predictiveRisk } : {}),
+    ...(input.degraded ? { degraded: true } : {}),
     // Backward compatibility
     reasons: acc.reasons,
     warnings: acc.warnings,
@@ -1052,6 +1070,23 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
 
   const liveAcc = newAccumulator();
 
+  // Per-phase wall-clock ledger (ms), persisted as context._timings on every
+  // decision so degraded evaluations can be diagnosed against a steady-state
+  // baseline. Mutated by the (possibly abandoned) evaluation — snapshot on
+  // deadline, like the accumulator.
+  const liveTimings: Record<string, number> = {};
+  let phaseInFlight: string | null = null;
+  const timed = async <T>(phase: string, fn: () => T | Promise<T>): Promise<T> => {
+    phaseInFlight = phase;
+    const start = Date.now();
+    try {
+      return await fn();
+    } finally {
+      liveTimings[phase] = (liveTimings[phase] ?? 0) + (Date.now() - start);
+      phaseInFlight = null;
+    }
+  };
+
   // Defaults available even when the deadline fires before the async risk
   // assessment completes: the cheap synchronous server heuristic.
   const syncTerms = serverRiskTerms(context);
@@ -1063,6 +1098,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
         total_adjustment?: number;
         statistical?: { adjustment?: number; basis?: string; failure_rate?: number; total_actions?: number; velocity?: number } | null;
         llm?: { adjustment: number; model: string; reasoning: string } | null;
+        llm_skipped?: string;
       }
     | null = null;
   let riskBreakdown: RiskBreakdown = {
@@ -1081,16 +1117,20 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   // an overrunning webhook/LLM/DB phase must yield a degraded decision instead
   // of bricking the hook into its timeout. The webhook caller has no
   // AbortSignal support, so the race abandons (not cancels) the slow phase.
+  const deadlineMs = guardDeadlineMs();
+  const evalStart = Date.now();
   const runEvaluation = async (): Promise<'completed'> => {
-    const policies = await loadApplicablePolicies(sql, orgId, context.agent_id || null);
+    const policies = await timed('policies', () => loadApplicablePolicies(sql, orgId, context.agent_id || null));
 
-    const riskAssessment = await computeRiskAssessment(sql, orgId, context);
+    const riskAssessment = await timed('risk', () => computeRiskAssessment(sql, orgId, context));
     agentRiskScore = riskAssessment.agentRiskScore;
     const serverEvidenceScore = Math.max(
       riskAssessment.breakdownBase.server_total,
       riskAssessment.breakdownBase.template?.score ?? 0,
     );
-    predictiveRisk = await computePredictiveRisk(sql, orgId, context, serverEvidenceScore) as typeof predictiveRisk;
+    predictiveRisk = await timed('predictive', () =>
+      computePredictiveRisk(sql, orgId, context, serverEvidenceScore, deadlineMs - (Date.now() - evalStart)),
+    ) as typeof predictiveRisk;
     const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
     adjustedRiskScore = Math.round(Math.max(0, Math.min(riskAssessment.effectiveRiskScore + predictiveAdjustment, 100)));
 
@@ -1107,15 +1147,16 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
             velocity: predictiveRisk.statistical?.velocity,
             statistical_adjustment: predictiveRisk.statistical?.adjustment,
             llm: predictiveRisk.llm ?? null,
+            ...(predictiveRisk.llm_skipped ? { llm_skipped: predictiveRisk.llm_skipped } : {}),
           }
         : null,
       final: adjustedRiskScore,
     };
 
     const deps: GuardPhaseDeps = { context, sql, orgId };
-    await runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc);
+    await timed('local_policies', () => runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc));
     scanPromptInjection(context, liveAcc);
-    await runWebhookPolicies(policies, deps, liveAcc);
+    await timed('webhooks', () => runWebhookPolicies(policies, deps, liveAcc));
     // Grants run after the LAST phase where org policies can raise warn /
     // require_approval (webhook_check, above). The later phases can only append
     // warnings (runSignalChecks) or raise to block (replay/act overrides), which
@@ -1123,12 +1164,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // approval pass runs after policy grants: it only fires when the decision
     // is still require_approval.
     applyAllowGrants(policies, context, liveAcc);
-    await applyOperatorApprovalGrant(deps, liveAcc);
-    await runSignalChecks(deps, options, liveAcc);
+    await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
+    await timed('signals', () => runSignalChecks(deps, options, liveAcc));
     return 'completed';
   };
 
-  const deadlineMs = guardDeadlineMs();
   let deadlineExceeded = false;
   if (!orgHalted) {
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
@@ -1152,6 +1192,13 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     }
   }
 
+  // Snapshot the timing ledger before the abandoned evaluation can keep
+  // mutating it; the in-flight phase is the one the deadline caught.
+  const phaseAtDeadline = deadlineExceeded ? phaseInFlight : null;
+  const timings: Record<string, number> | null = orgHalted
+    ? null
+    : { ...liveTimings, total: Date.now() - evalStart };
+
   // On deadline, snapshot the accumulator: the abandoned evaluation may still
   // be mutating the live one while we finalize and persist.
   const acc: GuardAccumulator = deadlineExceeded
@@ -1171,9 +1218,14 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     applyBlockOverride(acc, `Org halted by ${orgHalt?.actor || 'admin'}: ${orgHalt?.reason || 'no reason given'}`);
   }
 
+  let degradedDetail: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null = null;
   if (deadlineExceeded) {
     const degraded = resolveDegradedAction();
     const note = `Guard evaluation exceeded deadline (${deadlineMs}ms) — degraded decision (${degraded})`;
+    // Structured marker persisted with the decision (column + context._degraded)
+    // so aggregation never falls back to string-matching the reason — and the
+    // fail-open path leaves a trace too, which the reason string never did.
+    degradedDetail = { kind: 'deadline', deadline_ms: deadlineMs, action: degraded, phase_in_flight: phaseAtDeadline };
     if (degraded === 'allow') {
       // Explicit fail-open escape hatch: surface the degradation as a warning.
       acc.warnings.push(note);
@@ -1182,7 +1234,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       raiseDecision(acc, degraded);
       acc.reasons.unshift(note);
     }
-    console.warn('[Guard] evaluation deadline exceeded:', { org_id: orgId, agent_id: context.agent_id || null, deadline_ms: deadlineMs, degraded });
+    console.warn('[Guard] evaluation deadline exceeded:', { org_id: orgId, agent_id: context.agent_id || null, deadline_ms: deadlineMs, degraded, phase_in_flight: phaseAtDeadline });
   }
 
   const evaluatedAt = new Date().toISOString();
@@ -1209,7 +1261,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext, recovery, predictiveRisk,
-    riskBreakdown,
+    riskBreakdown, timings, degraded: degradedDetail,
   };
 
   await persistGuardDecision(sql, buildGuardDecisionRow(input));

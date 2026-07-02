@@ -16,6 +16,47 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap v2.1: the deadline was interrupting people for nothing (v4.28.0)
+
+Roadmap v2's whole thesis is "make every interruption cheap when right and
+rare when wrong," and v2.1 went after the most embarrassing kind of wrong:
+the guard interrupting a human because *the guard itself was slow*. When an
+evaluation exceeds its 3500ms deadline it fails closed to require_approval —
+correct posture, but the June audit showed those degradations landing on
+mundane file edits, teaching exactly the disable-the-policies reflex the
+product exists to prevent.
+
+The protocol was instrument → diagnose → fix, and the diagnosis rewrote my
+assumptions twice. First: degradations started the exact day the deadline
+mechanism shipped (2026-06-12) — not a regression, just slow evaluations
+becoming *visible* instead of silently bricking hooks. Second: cold start
+was refuted outright (median gap since the org's previous decision: 0.3
+minutes). The real cause, once per-phase timings existed: the server
+heuristic scores `apply` at base 60, which is exactly the predictive-risk
+LLM threshold — so **every mundane file edit was recruiting a 1.2–3 second
+LLM call** inside a 3.5-second budget. For agents with no history the model
+literally answered "cannot assess, no patterns" — seconds of latency and
+provider spend for a guaranteed zero.
+
+What shipped: degradation is now a first-class persisted fact (a `degraded`
+column plus structured detail with the phase the deadline caught — the
+fail-open path previously left *no trace at all*), every decision carries
+per-phase timings, the LLM amplifier skips no-history agents and is bounded
+by the remaining deadline budget (a slow provider now costs the amplifier,
+never the evaluation), tuning-proposal evidence excludes degraded rows so
+the item-1 engine can't learn from latency accidents, and /policies shows
+the degradation rate right next to the proposals it was excluded from.
+Measured on the previously-degrading path: zero degradations; no-history
+evaluations went from ~3s to ~200ms. Score semantics untouched — a human
+ratifies anything that changes what gets flagged, and nothing here does.
+
+One honest caveat: the fix is proven against the live database from a local
+server; the hosted instance proves itself as post-deploy traffic accrues
+timings, and `scripts/diagnose-guard-deadline.mjs` is sitting there to read
+the verdict.
+
+---
+
 ## 2026-07-02 — Roadmap v2 drafted: earn the interruption
 
 **Shipped:** the v2 roadmap in `docs/plans/owner-roadmap.md` — a docs-only

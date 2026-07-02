@@ -25,6 +25,18 @@ export interface TuningDismissal {
 }
 
 /**
+ * Deadline-degraded decisions are latency's fault, not the policy's: a
+ * degraded require_approval must never teach the proposal engine that a
+ * policy over-interrupts (roadmap v2.1, spec
+ * docs/plans/2026-07-02-guard-deadline-noise.md). The column is authoritative
+ * going forward; the reason ILIKE covers rows persisted before drizzle/0037.
+ */
+// COALESCE matters: NOT (false OR NULL) is NULL in SQL, which would silently
+// drop every non-degraded row whose reason is NULL from the evidence queries.
+const IS_DEGRADED = `(gd.degraded OR COALESCE(gd.reason, '') ILIKE '%exceeded deadline%')`;
+const NOT_DEGRADED = `NOT ${IS_DEGRADED}`;
+
+/**
  * Per-(policy, decision) fire counts over the last `days` days, clipped per
  * policy at updated_at. Same defensive unnest as getDecisionCountsByPolicy
  * (guardrails.repository.ts): only array-shaped JSON text is cast.
@@ -48,6 +60,7 @@ export async function getDecisionMixByPolicy(
          AND gd.created_at::timestamptz > NOW() - make_interval(days => $2::int)
          AND gd.matched_policies IS NOT NULL
          AND gd.matched_policies LIKE '[%'
+         AND ${NOT_DEGRADED}
      ) sub
      JOIN guard_policies gp ON gp.id = sub.policy_id AND gp.org_id = $1
      WHERE sub.fired_at > GREATEST(
@@ -100,6 +113,7 @@ export async function getApprovalOutcomesByPolicy(
          AND gd.created_at::timestamptz > NOW() - make_interval(days => $2::int)
          AND gd.matched_policies IS NOT NULL
          AND gd.matched_policies LIKE '[%'
+         AND ${NOT_DEGRADED}
      ) sub
      JOIN action_records ar
        ON ar.guard_decision_id = sub.decision_id AND ar.org_id = $1
@@ -112,6 +126,66 @@ export async function getApprovalOutcomesByPolicy(
     [orgId, days],
   );
   return rows as unknown as ApprovalOutcomeRow[];
+}
+
+export interface DegradationDaySlice {
+  day: string;
+  total: number;
+  degraded: number;
+}
+
+export interface DegradationStats {
+  window_days: number;
+  total: number;
+  degraded: number;
+  /** degraded / total over the window; 0 when the window is empty. */
+  rate: number;
+  last_degraded_at: string | null;
+  by_day: DegradationDaySlice[];
+}
+
+/**
+ * Org-wide deadline-degradation rate over the last `days` days — the surface
+ * counterpart of the NOT_DEGRADED evidence exclusion above. Same legacy
+ * reason-ILIKE fallback for pre-0037 rows.
+ */
+export async function getDegradationStats(
+  sql: SqlTag,
+  orgId: string,
+  days = 7,
+): Promise<DegradationStats> {
+  const rows = await sql.query(
+    `SELECT gd.created_at::timestamptz::date::text AS day,
+            COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE ${IS_DEGRADED})::int AS degraded,
+            MAX(gd.created_at::timestamptz) FILTER (WHERE ${IS_DEGRADED}) AS last_degraded
+     FROM guard_decisions gd
+     WHERE gd.org_id = $1
+       AND gd.created_at::timestamptz > NOW() - make_interval(days => $2::int)
+     GROUP BY 1
+     ORDER BY 1 DESC`,
+    [orgId, days],
+  ) as unknown as Array<{ day: string; total: number; degraded: number; last_degraded: string | Date | null }>;
+
+  let total = 0;
+  let degraded = 0;
+  let lastDegradedAt: string | null = null;
+  for (const row of rows) {
+    total += Number(row.total);
+    degraded += Number(row.degraded);
+    if (row.last_degraded) {
+      const iso = new Date(row.last_degraded).toISOString();
+      if (!lastDegradedAt || iso > lastDegradedAt) lastDegradedAt = iso;
+    }
+  }
+  return {
+    window_days: days,
+    total,
+    degraded,
+    rate: total > 0 ? degraded / total : 0,
+    last_degraded_at: lastDegradedAt,
+    by_day: rows.map((r) => ({ day: r.day, total: Number(r.total), degraded: Number(r.degraded) })),
+  };
 }
 
 /** Read the dismissal blob ({} on missing/corrupt setting). */

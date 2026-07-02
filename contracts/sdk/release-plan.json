@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.27.0",
+    "current_version": "4.28.0",
     "next_bump": "none",
-    "reason": "4.27.0 is a platform-only release (June-deferral triage: /api/guard days param + /activity true weekly denied count, docs evaluations walkthrough, agent-picker ?agent= URL persistence, workflows-to-ledger link; two deferrals killed with recorded reasons). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.28.0 is a platform-only release (guard-deadline noise, owner roadmap v2.1: guard_decisions.degraded column + context._degraded/_timings instrumentation, predictive-risk LLM no-history skip + deadline-budget bound, tuning-evidence degradation exclusion, /policies degradation strip, diagnose-guard-deadline script). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.27.0",
+    "current_version": "4.28.0",
     "next_bump": "none",
-    "reason": "4.27.0 is a platform-only release (June-deferral triage). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
+    "reason": "4.28.0 is a platform-only release (guard-deadline noise, roadmap v2.1). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]

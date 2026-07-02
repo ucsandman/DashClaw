@@ -50,13 +50,26 @@ export interface LlmRiskAssessment {
 export interface PredictiveRiskResult {
   statistical: StatisticalAdjustment | null;
   llm: LlmRiskAssessment | null;
+  /** Why the LLM amplifier didn't run when the trigger fired (v2.1 deadline fix). */
+  llm_skipped?: 'no_history' | 'budget' | 'timeout';
   total_adjustment: number;
 }
 
 export interface PredictiveRiskSettings {
   threshold?: number;
   enabled?: boolean;
+  /**
+   * Remaining guard-deadline budget (ms) available to the LLM amplifier.
+   * The measured LLM call costs 1.2–3s of the guard's 3500ms deadline
+   * (docs/plans/2026-07-02-guard-deadline-noise.md): below MIN_LLM_BUDGET_MS
+   * the call is skipped; above it the call is raced against the budget so a
+   * slow provider yields llm=null instead of a degraded decision.
+   */
+  llmBudgetMs?: number;
 }
+
+/** Under this remaining budget the LLM cannot finish in time — don't start it. */
+export const MIN_LLM_BUDGET_MS = 1200;
 
 /**
  * Compute a statistical risk adjustment from historical action data.
@@ -241,15 +254,40 @@ export async function getPredictiveRisk(
   const threshold = orgSettings.threshold ?? DEFAULT_THRESHOLD;
 
   let llm: LlmRiskAssessment | null = null;
+  let llmSkipped: PredictiveRiskResult['llm_skipped'];
   const scoreWithStatistical = triggerRiskScore + statistical.adjustment;
 
   if (orgSettings.enabled === true && scoreWithStatistical >= threshold) {
-    llm = await assessRiskWithLLM(sql, orgId, agentId, actionType);
+    if (stats.total === 0) {
+      // Nothing to reason over: the model sees only (agent, action_type)
+      // history, and with zero rows it provably returns adjustment 0 with a
+      // "cannot assess" note — seconds of latency and provider spend for no
+      // signal (measured live, v2.1 diagnosis).
+      llmSkipped = 'no_history';
+    } else if (orgSettings.llmBudgetMs != null && orgSettings.llmBudgetMs < MIN_LLM_BUDGET_MS) {
+      llmSkipped = 'budget';
+    } else if (orgSettings.llmBudgetMs != null) {
+      // Bound the call by the remaining guard budget: a slow provider costs
+      // the amplifier, never the whole evaluation. The abandoned call's
+      // result is discarded (same fail-open contract as an LLM error).
+      const raced = await Promise.race([
+        assessRiskWithLLM(sql, orgId, agentId, actionType),
+        new Promise<'timeout'>((resolve) => {
+          const timer = setTimeout(() => resolve('timeout'), orgSettings.llmBudgetMs);
+          if (typeof timer.unref === 'function') timer.unref();
+        }),
+      ]);
+      if (raced === 'timeout') llmSkipped = 'timeout';
+      else llm = raced;
+    } else {
+      llm = await assessRiskWithLLM(sql, orgId, agentId, actionType);
+    }
   }
 
   return {
     statistical,
     llm,
+    ...(llmSkipped ? { llm_skipped: llmSkipped } : {}),
     total_adjustment: statistical.adjustment + (llm?.adjustment ?? 0),
   };
 }

@@ -14,6 +14,7 @@ import {
 import {
   getDecisionMixByPolicy,
   getApprovalOutcomesByPolicy,
+  getDegradationStats,
   getTuningDismissals,
   recordTuningDismissal,
   removeTuningDismissal,
@@ -55,12 +56,15 @@ export async function GET(request: Request) {
       TUNING_DEFAULTS.minResolved,
     );
 
-    const [policies, mixRows, outcomeRows, fired60, dismissed] = await Promise.all([
+    const [policies, mixRows, outcomeRows, fired60, dismissed, degradation] = await Promise.all([
       getActivePolicies(sql, orgId),
       getDecisionMixByPolicy(sql, orgId, days),
       getApprovalOutcomesByPolicy(sql, orgId, days),
       getDecisionCountsByPolicy(sql, orgId, TUNING_DEFAULTS.deadPolicyDays),
       getTuningDismissals(sql, orgId),
+      // Same window as the evidence queries: the rate shown next to the
+      // proposals describes exactly the rows those proposals excluded.
+      getDegradationStats(sql, orgId, days),
     ]);
 
     const stats = buildTuningStats(policies, mixRows, outcomeRows, fired60, days);
@@ -84,6 +88,7 @@ export async function GET(request: Request) {
       })),
       proposals: visible,
       dismissed_count: proposals.length - visible.length,
+      degradation,
     });
   } catch (err) {
     return apiErrorResponse(err, 'POLICY_PROPOSALS GET');

@@ -22,6 +22,7 @@ const {
   mockGetDecisionCountsByPolicy,
   mockGetDecisionMixByPolicy,
   mockGetApprovalOutcomesByPolicy,
+  mockGetDegradationStats,
   mockGetTuningDismissals,
   mockRecordTuningDismissal,
   mockRemoveTuningDismissal,
@@ -32,6 +33,7 @@ const {
   mockGetDecisionCountsByPolicy: vi.fn(),
   mockGetDecisionMixByPolicy: vi.fn(),
   mockGetApprovalOutcomesByPolicy: vi.fn(),
+  mockGetDegradationStats: vi.fn(),
   mockGetTuningDismissals: vi.fn(),
   mockRecordTuningDismissal: vi.fn(),
   mockRemoveTuningDismissal: vi.fn(),
@@ -46,6 +48,7 @@ vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
 vi.mock('@/lib/repositories/policy-tuning.repository.js', () => ({
   getDecisionMixByPolicy: mockGetDecisionMixByPolicy,
   getApprovalOutcomesByPolicy: mockGetApprovalOutcomesByPolicy,
+  getDegradationStats: mockGetDegradationStats,
   getTuningDismissals: mockGetTuningDismissals,
   recordTuningDismissal: mockRecordTuningDismissal,
   removeTuningDismissal: mockRemoveTuningDismissal,
@@ -92,6 +95,14 @@ function seedHappyPath() {
     },
   ]);
   mockGetDecisionCountsByPolicy.mockResolvedValue({});
+  mockGetDegradationStats.mockResolvedValue({
+    window_days: 30,
+    total: 0,
+    degraded: 0,
+    rate: 0,
+    last_degraded_at: null,
+    by_day: [],
+  });
   mockGetTuningDismissals.mockResolvedValue({});
 }
 
@@ -102,10 +113,19 @@ beforeEach(() => {
   mockGetDecisionMixByPolicy.mockResolvedValue([]);
   mockGetApprovalOutcomesByPolicy.mockResolvedValue([]);
   mockGetDecisionCountsByPolicy.mockResolvedValue({});
+  mockGetDegradationStats.mockResolvedValue({
+    window_days: 30,
+    total: 0,
+    degraded: 0,
+    rate: 0,
+    last_degraded_at: null,
+    by_day: [],
+  });
   mockGetTuningDismissals.mockResolvedValue({});
   mockRecordTuningDismissal.mockResolvedValue(undefined);
   mockRemoveTuningDismissal.mockResolvedValue(false);
 });
+
 
 describe('GET /api/policies/proposals', () => {
   it('returns stats + a raise_risk_threshold proposal for a well-evidenced policy', async () => {

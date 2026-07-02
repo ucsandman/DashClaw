@@ -128,7 +128,7 @@ reach/revenue-first.
 
 | # | Item | Status |
 |---|------|--------|
-| v2.1 | Guard-deadline noise: instrument, diagnose, fix | — |
+| v2.1 | Guard-deadline noise: instrument, diagnose, fix | DONE 2026-07-02 (v4.28.0; degraded column + _timings, LLM skip/budget fix — root cause was apply-base-60 recruiting a 1.2–3s LLM on every edit; cockpit strip + evidence exclusion; smoke = 57) |
 | v2.2 | Agent identity & attribution v2 | — |
 | v2.3 | Approvals lifecycle hygiene | — |
 | v2.4 | Advocate v2a: assumption-invalidation notifications | — |

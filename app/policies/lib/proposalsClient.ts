@@ -26,11 +26,22 @@ export interface ProposalPolicyStat {
   last_fired_at: string | null;
 }
 
+/** Org-wide deadline-degradation summary — the `degradation` block of the GET response. */
+export interface DegradationSummary {
+  window_days: number;
+  total: number;
+  degraded: number;
+  rate: number;
+  last_degraded_at: string | null;
+  by_day: Array<{ day: string; total: number; degraded: number }>;
+}
+
 export interface ProposalsPayload {
   window_days: number;
   policies: ProposalPolicyStat[];
   proposals: TuningProposal[];
   dismissed_count: number;
+  degradation?: DegradationSummary;
 }
 
 async function errorFrom(res: Response, fallback: string): Promise<Error> {

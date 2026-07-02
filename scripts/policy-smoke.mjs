@@ -584,6 +584,25 @@ async function main() {
       `unwindowed=${unwindowed.json?.total} windowed=${windowed.json?.total} denied7d=${deniedWeek.json?.total}`);
   }
 
+  // K: guard-deadline degradation visibility (owner roadmap v2.1)
+  // Spec: docs/plans/2026-07-02-guard-deadline-noise.md
+  // Pins the surface contract: the proposals GET carries an org-wide
+  // `degradation` summary (rate shown next to the proposals it was excluded
+  // from), shaped for the /policies cockpit strip.
+  {
+    const proposals = await api('GET', '/api/policies/proposals?days=7');
+    const deg = proposals.json?.degradation;
+    check('K1', 'proposals GET exposes the degradation summary block',
+      proposals.status === 200 && deg != null && deg.window_days === 7
+        && Number.isFinite(Number(deg.total)) && Number.isFinite(Number(deg.degraded))
+        && typeof deg.rate === 'number' && Array.isArray(deg.by_day),
+      `status=${proposals.status} degradation=${JSON.stringify(deg)?.slice(0, 120)}`);
+    check('K2', 'degradation counts are internally consistent (degraded ≤ total; rate matches)',
+      deg != null && Number(deg.degraded) <= Number(deg.total)
+        && (Number(deg.total) === 0 ? deg.rate === 0 : Math.abs(deg.rate - Number(deg.degraded) / Number(deg.total)) < 1e-9),
+      `total=${deg?.total} degraded=${deg?.degraded} rate=${deg?.rate}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
