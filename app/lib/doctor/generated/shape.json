@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:426a691e77daa05e4ef01bc5789a3849108bc887",
+  "timestamp": "sha1:d6c310becca88843d24559f0cf98850cb8a1ca77",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4783,6 +4783,7 @@
       "name": "PYTHON",
       "required": false,
       "files": [
+        "scripts/add-calibration-vector.mjs",
         "scripts/livingcode-refresh.mjs",
         "scripts/run-python-unittest.mjs",
         "scripts/run-sdk-live-python.mjs"

@@ -9,7 +9,7 @@ Uses only the Python standard library + the sibling command_parser module.
 import re
 from typing import Optional
 
-from dashclaw_agent_intel.command_parser import parse_command
+from dashclaw_agent_intel.command_parser import parse_command, split_chain_texts
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 
 # ---------------------------------------------------------------------------
@@ -29,6 +29,7 @@ READONLY_COMMANDS = frozenset({
     "test", "[", "true", "false", "seq", "yes", "tee",
     "xargs", "tr", "column", "fold", "expand", "unexpand",
     "sed",  # sed without -i is readonly (stdout only); sed_validation handles -i
+    "cd",  # pure navigation; chain segments after it are classified on their own
 })
 
 GIT_READONLY_SUBCOMMANDS = frozenset({
@@ -82,6 +83,7 @@ PACKAGE_COMMANDS = frozenset({
 INTERPRETER_COMMANDS = frozenset({
     "node", "nodejs", "python", "python2", "python3",
     "ruby", "perl", "php", "deno", "bun", "tsx", "ts-node",
+    "npx",  # runs a package binary; auto-install flags warn (interpreter validation)
 })
 
 # Per-interpreter inline-eval flags. Flag meanings collide across
@@ -463,6 +465,21 @@ def _run_interpreter_validation(
     flags = parsed.get("flags", [])
     targets = parsed.get("targets", [])
 
+    # npx runs a package binary: routine for project devDependencies, but the
+    # auto-install flags fetch and execute straight from the registry.
+    if base == "npx":
+        if any(f in ("-y", "--yes", "-p", "--package") for f in flags):
+            return {
+                "check": "interpreter_validation",
+                "result": "warn",
+                "reason": "npx with auto-install flags executes a registry package",
+            }
+        return {
+            "check": "interpreter_validation",
+            "result": "allow",
+            "reason": "npx running a package binary",
+        }
+
     eval_flags = _INLINE_EVAL_FLAGS.get(base, frozenset())
     inline = any(f in eval_flags for f in flags)
     # deno's eval is a subcommand, not a flag.
@@ -585,6 +602,31 @@ def classify_bash(
     Returns:
         A dict with keys: intent, risk_score, reversible, validations, parsed.
     """
+    # Chained commands (`a && b`, `a; b`): classify every segment and report
+    # the most severe. Classifying only the first segment made every chained
+    # command inherit ITS intent — `cd /p && rm -rf /` was "unknown" (the
+    # danger invisible to this layer) and `cd /p && grep ...` hit the hook's
+    # blunt unknown-fallback (70) on every routine chain.
+    segment_texts = split_chain_texts(command)
+    if len(segment_texts) > 1:
+        results = [
+            classify_bash(text, mode=mode, workspace=workspace)
+            for text in segment_texts
+        ]
+        worst = max(results, key=lambda r: r["risk_score"])
+        # parsed mirrors the segment that determined the classification (so
+        # downstream consumers like is_bounded_rm and path boosts grade the
+        # segment that matters), with the full chain list preserved.
+        combined_parsed = dict(worst["parsed"])
+        combined_parsed["chains"] = parse_command(command)["chains"]
+        return {
+            "intent": worst["intent"],
+            "risk_score": worst["risk_score"],
+            "reversible": all(r["reversible"] for r in results),
+            "validations": [v for r in results for v in r["validations"]],
+            "parsed": combined_parsed,
+        }
+
     parsed = parse_command(command)
     intent = _classify_intent(parsed, command)
 

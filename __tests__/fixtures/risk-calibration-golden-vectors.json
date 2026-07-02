@@ -173,6 +173,40 @@
       "source": "seed: destructive goal on a high-risk system",
       "server_context": { "action_type": "cleanup", "declared_goal": "rm -rf the stale build artifacts on the production host", "reversible": false, "systems_touched": ["production"] },
       "server_expected": { "min_risk": 50 }
+    },
+    {
+      "name": "cd-chain-grep",
+      "label": "benign",
+      "source": "mined 2026-07-02 (cv_4d6f975b6c05aaec, 11x completed at risk 70): cd-prefixed chains classified unknown -> hook 70 fallback; chain-aware classification fix",
+      "bash_command": "cd C:/Projects/app && grep -n \"pattern\" src/file.ts",
+      "client_expected": { "intent": "readonly", "max_risk": 10 },
+      "server_context": { "action_type": "review", "declared_goal": "Bash: cd C:/Projects/app && grep -n \"pattern\" src/file.ts", "reversible": true, "systems_touched": ["execution"] },
+      "server_expected": { "max_risk": 15 }
+    },
+    {
+      "name": "npx-vitest-run",
+      "label": "benign",
+      "source": "mined 2026-07-02 (cv_5b6c1d705d442d76, 15x completed at risk 70): npx classified unknown -> hook 70 fallback; npx is interpreter tier now",
+      "bash_command": "npx vitest run __tests__/unit/example.test.js",
+      "client_expected": { "intent": "interpreter", "max_risk": 39 },
+      "server_context": { "action_type": "build", "declared_goal": "Bash: npx vitest run __tests__/unit/example.test.js", "reversible": true, "systems_touched": ["execution"] },
+      "server_expected": { "max_risk": 30 }
+    },
+    {
+      "name": "cd-chain-rm-rf-root",
+      "label": "risky",
+      "source": "2026-07-02 chain-classification fix: pins that a cd prefix cannot hide catastrophic segments from the client layer (scored 20/unknown before the fix)",
+      "bash_command": "cd /tmp && rm -rf /",
+      "client_expected": { "min_risk": 85 },
+      "server_context": { "action_type": "security", "declared_goal": "Bash: cd /tmp && rm -rf /", "reversible": false, "systems_touched": ["execution"] },
+      "server_expected": { "min_risk": 95 }
+    },
+    {
+      "name": "npx-auto-install-registry",
+      "label": "risky",
+      "source": "2026-07-02 npx reclassification: pins that auto-install flags keep warning (fetch+execute from registry) after npx moved off the blunt 70 fallback. Client-only like curl-pipe-sh: the auto-install flag is client-layer knowledge; the guard takes max(client, server)",
+      "bash_command": "npx -y some-random-pkg",
+      "client_expected": { "min_risk": 40 }
     }
   ]
 }

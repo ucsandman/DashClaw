@@ -1,6 +1,6 @@
 {
   "name": "dashclaw-platform",
-  "version": "4.23.0",
+  "version": "4.24.0",
   "description": "Decision infrastructure for AI agents — governance runtime with policy enforcement, decision recording, and human-in-the-loop approval.",
   "private": true,
   "license": "MIT",
@@ -72,6 +72,8 @@
     "backfill:learning-episodes": "node scripts/_run-with-env.mjs scripts/backfill-learning-episodes.mjs",
     "rebuild:learning-recommendations": "node scripts/_run-with-env.mjs scripts/rebuild-learning-recommendations.mjs",
     "backfill:embeddings": "node --import tsx scripts/backfill-embeddings.mjs",
+    "calibration:mine": "node --import tsx scripts/mine-calibration-candidates.mjs",
+    "calibration:add": "node --import tsx scripts/add-calibration-vector.mjs",
     "release:sdks": "node scripts/release-sdks.mjs",
     "release:mcp": "node scripts/release-mcp-server.mjs",
     "traffic:poll": "node scripts/_run-with-env.mjs scripts/poll-github-traffic.mjs",

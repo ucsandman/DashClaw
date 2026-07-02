@@ -11,7 +11,7 @@ protocol: spec → build → gates → live proof → main.
 | 0 | Foundation: claims audit, policy smoke in CI, risk-calibration suite, self-host key auth, SSRF fix, vulns, policies API DX | DONE 2026-07-01 (`0ac3e557..ae8e13b4`) |
 | 1 | Policy-tuning proposal loop | DONE 2026-07-01 (`2cd1071a..478c7231`, v4.22.0; CI green incl. smoke T1) |
 | 2 | Cumulative x402 budget gate | DONE 2026-07-02 (`583bf595..dfeac026`, v4.23.0; smoke B6 live 44/44; security review PASS, MEDIUM TOCTOU fixed in-ship) |
-| 3 | Calibration corpus v2: mining | NOT STARTED |
+| 3 | Calibration corpus v2: mining | DONE 2026-07-02 (v4.24.0; miner + forge shipped, corpus 22→26, cd-chain/npx classifier fixes, git-show 30→100 case closed) |
 | 4 | Agent's-advocate surface | NOT STARTED |
 | 5 | Effective-risk escalation observability | NOT STARTED |
 | 6 | June-deferral triage | NOT STARTED |
@@ -85,6 +85,17 @@ client score, and predictive adjustment — but incident forensics (the
 `context` jsonb breakdown already records (score-provenance work exists),
 close the gaps, and surface the full composition in /decisions and /replay
 so every interruption is explainable in one glance. Feeds items 1 and 3.
+
+Concrete gap list from item 3's ledger forensics (2026-07-02): the
+`_risk_breakdown` decomposes historical scores fully — the remaining gaps
+are calibration, not observability plumbing. (a) The predictive "velocity"
+prior adds +5 whenever `recent_count > 5` even at `failure_rate: 0` over
+thousands of actions — a flat tax on active agents with clean histories.
+(b) The LLM adjustment (±20) is only consulted when the already-composed
+score crosses the threshold, so a false-high client score drags in an
+amplifier — the June "risk 100" specimens were client-70 fallback + 5
+velocity + 15 LLM. Decide both under this item; the breakdown data to
+evaluate them is already persisted.
 
 ## 6. June-deferral triage
 

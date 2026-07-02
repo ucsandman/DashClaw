@@ -419,5 +419,62 @@ class TestGitEdgeCases(unittest.TestCase):
         self.assertEqual(r["intent"], "write")
 
 
+class TestChainClassification(unittest.TestCase):
+    """Chains classify by their most severe segment (2026-07-02 mining fix:
+    first-segment-only classification made `cd X && <cmd>` universally
+    'unknown' — benign chains hit the hook's blunt 70 fallback and dangerous
+    chains hid from this layer entirely)."""
+
+    def test_cd_alone_is_readonly(self):
+        r = classify_bash("cd /some/dir")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_cd_chain_inherits_readonly_segment(self):
+        r = classify_bash('cd C:/Projects/app && grep -n "pattern" src/f.ts')
+        self.assertEqual(r["intent"], "readonly")
+        self.assertLessEqual(r["risk_score"], 10)
+
+    def test_cd_chain_cannot_hide_destruction(self):
+        r = classify_bash("cd /tmp && rm -rf /")
+        self.assertEqual(r["intent"], "destructive")
+        self.assertFalse(r["reversible"])
+        self.assertGreaterEqual(r["risk_score"], 70)
+
+    def test_semicolon_chain_classifies_all_segments(self):
+        r = classify_bash("cd /p; git status")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_chain_reversible_is_all_segments(self):
+        r = classify_bash("git status && rm -rf build")
+        self.assertFalse(r["reversible"])
+
+    def test_chain_parsed_mirrors_decisive_segment(self):
+        # is_bounded_rm and path boosts must grade the segment that scored.
+        r = classify_bash("cd /tmp && rm single.txt")
+        self.assertEqual(r["parsed"]["base_command"], "rm")
+        self.assertEqual(r["intent"], "destructive")
+        self.assertLessEqual(r["risk_score"], 55)  # bounded-rm grading survives
+
+    def test_unchained_behavior_unchanged(self):
+        r = classify_bash("git pull && npm test")
+        self.assertEqual(r["intent"], "write")
+
+
+class TestNpxClassification(unittest.TestCase):
+    """npx is a package-binary runner (interpreter tier), not 'unknown' —
+    unknown pinned every npx call to the hook's 70 fallback."""
+
+    def test_npx_is_interpreter_tier(self):
+        r = classify_bash("npx vitest run x.test.js")
+        self.assertEqual(r["intent"], "interpreter")
+        self.assertLess(r["risk_score"], 40)
+
+    def test_npx_auto_install_flag_warns(self):
+        r = classify_bash("npx -y some-random-pkg")
+        warns = [v for v in r["validations"] if v["result"] == "warn"]
+        self.assertTrue(any("auto-install" in v["reason"] for v in warns))
+        self.assertGreaterEqual(r["risk_score"], 40)
+
+
 if __name__ == "__main__":
     unittest.main()

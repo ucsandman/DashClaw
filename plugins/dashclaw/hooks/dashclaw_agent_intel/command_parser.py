@@ -247,6 +247,15 @@ def _parse_segment(tokens: list[str]) -> dict:
     return result
 
 
+def split_chain_texts(command_str: str) -> list[str]:
+    """Split a command on unquoted chain operators (&&, ;) into the raw text
+    of each segment. Public so the classifier can grade every segment of a
+    chain, not just the first (a `cd /p && rm -rf /` must classify as rm)."""
+    chain_segments = _split_on_unquoted(command_str, ["&&", ";"])
+    chain_texts = [seg for seg, _delim in chain_segments]
+    return [t.strip() for t in chain_texts if t.strip()]
+
+
 def parse_command(command_str: str) -> dict:
     """Parse a shell command string into structured metadata.
 
@@ -274,9 +283,7 @@ def parse_command(command_str: str) -> dict:
         }
 
     # --- 1. Split on chains (&&, ;) first. ---
-    chain_segments = _split_on_unquoted(command_str, ["&&", ";"])
-    chain_texts = [seg for seg, _delim in chain_segments]
-    chain_texts = [t.strip() for t in chain_texts if t.strip()]
+    chain_texts = split_chain_texts(command_str)
 
     if len(chain_texts) > 1:
         chains: list[dict] = []
