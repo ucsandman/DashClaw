@@ -160,6 +160,11 @@ export const actionRecords = pgTable('action_records', {
   // Originating agent session (sess_ prefix), stamped by writers that know it.
   // Lets /sessions aggregate per-session action telemetry. See drizzle/0020.
   sessionId: text('session_id'),
+  // Originating guard decision (act_gd_ prefix), stamped by writers that know
+  // it (?record=true always; POST /api/actions optionally). Joins approval
+  // outcomes back to guard_decisions.matched_policies for the policy-tuning
+  // proposal loop. See drizzle/0035.
+  guardDecisionId: text('guard_decision_id'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({
@@ -175,6 +180,10 @@ export const actionRecords = pgTable('action_records', {
   orgAgentIdIdx: index('idx_action_records_org_agent_id').on(table.orgId, table.agentId),
   orgTsIdx: index('idx_action_records_org_ts').on(table.orgId, table.timestampStart),
   recommendationIdIdx: index('idx_action_records_recommendation_id').on(table.orgId, table.recommendationId),
+  // Partial index backing the policy-tuning approval-outcome join (drizzle/0035).
+  orgGuardDecisionIdx: index('idx_action_records_org_guard_decision')
+    .on(table.orgId, table.guardDecisionId)
+    .where(sql`${table.guardDecisionId} IS NOT NULL`),
 }));
 
 export const openLoops = pgTable('open_loops', {

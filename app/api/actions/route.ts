@@ -30,7 +30,10 @@ import {
   listActions,
 } from '../../lib/repositories/actions.repository';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
+import { guardDecisionExists } from '../../lib/repositories/guard.repository';
 import crypto from 'crypto';
+
+const GUARD_DECISION_ID_RE = /^act_gd_[a-f0-9]{16}$/;
 
 
 export async function GET(request: Request) {
@@ -102,6 +105,22 @@ export async function POST(request: Request) {
           action: existing,
           idempotent_replay: true,
         });
+      }
+    }
+
+    // SECURITY: a client-supplied guard_decision_id must be exactly the
+    // server's decision-id format AND resolve to a same-org guard decision —
+    // otherwise policy-tuning evidence could be pointed at foreign or
+    // nonexistent decisions (2026-07-01 security review, LOW). The
+    // ?record=true guard path stamps this server-side and never trusts the
+    // client value.
+    if (data.guard_decision_id != null) {
+      const gdid = String(data.guard_decision_id);
+      if (!GUARD_DECISION_ID_RE.test(gdid) || !(await guardDecisionExists(sql, orgId, gdid))) {
+        return NextResponse.json(
+          { error: 'guard_decision_id does not match a guard decision in this org' },
+          { status: 400 },
+        );
       }
     }
 

@@ -505,6 +505,7 @@ interface ActionData {
   model?: string | null;
   idempotency_key?: string | null;
   session_id?: string | null;
+  guard_decision_id?: string | null;
   [field: string]: unknown;
 }
 
@@ -555,6 +556,7 @@ function createActionInsertValues(payload: CreateActionPayload) {
     verified,
     idempotency_key: orNull(data.idempotency_key),
     session_id: orNull(data.session_id),
+    guard_decision_id: orNull(data.guard_decision_id),
   };
 }
 
@@ -576,7 +578,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       output_summary, side_effects, artifacts_created, error_message,
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
-      signature, verified, idempotency_key, session_id
+      signature, verified, idempotency_key, session_id, guard_decision_id
     ) VALUES (
       ${orgId},
       ${action_id},
@@ -612,7 +614,8 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.signature},
       ${values.verified},
       ${values.idempotency_key},
-      ${values.session_id}
+      ${values.session_id},
+      ${values.guard_decision_id}
     )
     RETURNING *
   `;

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:93cde117c09ecbaf66c104e50e0625df6bff509e",
+  "timestamp": "sha1:7247a6c6bfb40d3cb70c0c2815edbb1ba13ffaec",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2300,6 +2300,16 @@
       "file_path": "app/api/policies/proof/route.ts"
     },
     {
+      "path": "/api/policies/proposals",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/policies/proposals/route.ts"
+    },
+    {
       "path": "/api/policies/review",
       "methods": [
         "GET"
@@ -4102,6 +4112,7 @@
         "__tests__/unit/policies-contract.route.test.ts",
         "__tests__/unit/policies-import.route.test.js",
         "__tests__/unit/policies-proof.route.test.js",
+        "__tests__/unit/policies-proposals.route.test.ts",
         "__tests__/unit/policies-review.route.test.ts",
         "__tests__/unit/policies-test-recipes.route.test.js",
         "__tests__/unit/policies-test.route.test.js",

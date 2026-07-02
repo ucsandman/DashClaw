@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-06-12
+last-verified: 2026-07-01
 doc-type: architecture
 ---
 
@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-06-12), generated API inventory reports **322 routes**: **54 stable**, **24 beta**, **244 experimental**.
+As of this verification (2026-07-01), generated API inventory reports **323 routes**: **55 stable**, **24 beta**, **244 experimental**.
 
 ## Product boundary
 
@@ -99,6 +99,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/contract` | Interruption contract view | `GET` renders the org's active policies into the plain-English `ContractView` (interrupts / silent / hard stops / grants / custom, with 7-day fire counts and a friction estimate). Backs the `/policies` cockpit. |
 | `/api/policies/review` | Review feed | `GET` returns warn decisions since the review cursor, grouped by action shape, plus recent interrupts. Backs the `/policies` "To review" queue. |
 | `/api/policies/review/verdict` | Review verdicts | `POST { verdict, shape? }` (admin): `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. |
+| `/api/policies/proposals` | Policy-tuning proposals | `GET` returns per-policy interruption stats (rolling window) + rule-based tuning proposals with evidence; `POST { action: dismiss\|undismiss, proposal_id, reason? }` (admin) records dismissals. Accepting = the human PATCHes `/api/policies`; nothing auto-applies. Backs the `/policies` "Tuning proposals" section. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |

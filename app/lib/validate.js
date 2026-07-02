@@ -64,6 +64,12 @@ const ACTION_RECORD_SCHEMA = {
   // persisted on the action_record so /sessions can aggregate per-session
   // telemetry. See drizzle/0020_session_action_link.sql.
   session_id:           { type: 'string', maxLength: 128 },
+  // Originating guard decision (act_gd_ prefix). Optional; when present it is
+  // persisted so approval outcomes can be joined back to the policies that
+  // required them (policy-tuning proposal loop). ?record=true stamps it
+  // server-side; this field covers the separate two-call record flow.
+  // See drizzle/0035_action_records_guard_decision_id.sql.
+  guard_decision_id:    { type: 'string', maxLength: 64 },
   // Non-fabrication integrity (optional). The outbound content to verify and the
   // source-of-truth it must trace to. Forwarded into the guard context for a
   // non_fabrication policy; never persisted as action_records columns.

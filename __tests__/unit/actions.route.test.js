@@ -22,6 +22,7 @@ const {
   mockGenerateActionEmbedding,
   mockEstimateCost,
   mockResolveAgentIdentity,
+  mockGuardDecisionExists,
   mockAfter,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
@@ -44,6 +45,7 @@ const {
   mockGenerateActionEmbedding: vi.fn(),
   mockEstimateCost: vi.fn(),
   mockResolveAgentIdentity: vi.fn(),
+  mockGuardDecisionExists: vi.fn(),
   mockAfter: vi.fn(),
 }));
 
@@ -100,6 +102,7 @@ vi.mock('@/lib/embeddings.js', () => ({
   generateActionEmbedding: mockGenerateActionEmbedding,
 }));
 vi.mock('@/lib/billing.js', () => ({ estimateCost: mockEstimateCost }));
+vi.mock('@/lib/repositories/guard.repository.js', () => ({ guardDecisionExists: mockGuardDecisionExists }));
 
 import { GET, POST, DELETE } from '@/api/actions/route.js';
 
@@ -198,6 +201,59 @@ describe('/api/actions POST', () => {
     mockValidateActionRecord.mockReturnValue({ valid: true, data: { ...validBody }, errors: [] });
     mockCreateActionRecord.mockResolvedValue({ ...validBody, action_id: 'act_new' });
     mockScanSensitiveData.mockImplementation((val) => ({ clean: true, redacted: val, findings: [] }));
+    mockGuardDecisionExists.mockResolvedValue(true);
+  });
+
+  describe('guard_decision_id stamp validation (2026-07-01 security review)', () => {
+    it('rejects a malformed guard_decision_id with 400 without hitting the DB', async () => {
+      mockValidateActionRecord.mockReturnValue({
+        valid: true,
+        data: { ...validBody, guard_decision_id: 'act_gd_NOT-HEX' },
+        errors: [],
+      });
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, guard_decision_id: 'act_gd_NOT-HEX' },
+      }));
+      expect(res.status).toBe(400);
+      expect(mockGuardDecisionExists).not.toHaveBeenCalled();
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    });
+
+    it('rejects a well-formed id that does not resolve in this org with 400', async () => {
+      mockValidateActionRecord.mockReturnValue({
+        valid: true,
+        data: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
+        errors: [],
+      });
+      mockGuardDecisionExists.mockResolvedValue(false);
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
+      }));
+      expect(res.status).toBe(400);
+      expect(mockGuardDecisionExists).toHaveBeenCalledWith(mockSql, 'org_1', 'act_gd_0123456789abcdef');
+      expect(mockCreateActionRecord).not.toHaveBeenCalled();
+    });
+
+    it('accepts a well-formed id that resolves in this org and persists it', async () => {
+      mockValidateActionRecord.mockReturnValue({
+        valid: true,
+        data: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
+        errors: [],
+      });
+      const res = await POST(makeRequest('http://localhost/api/actions', {
+        headers: { 'x-org-id': 'org_1' },
+        body: { ...validBody, guard_decision_id: 'act_gd_0123456789abcdef' },
+      }));
+      expect(res.status).toBe(201);
+      expect(mockCreateActionRecord).toHaveBeenCalledWith(
+        mockSql,
+        expect.objectContaining({
+          data: expect.objectContaining({ guard_decision_id: 'act_gd_0123456789abcdef' }),
+        }),
+      );
+    });
   });
 
   it('returns 201 for a valid action with allow decision', async () => {

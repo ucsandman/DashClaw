@@ -40,8 +40,11 @@ policy required an approval lives only in `guard_decisions.matched_policies`.
 - Stamp site: `recordRunningAction` (app/api/guard/route.ts) — the one place
   both ids coexist. Every `?record=true` companion record gets the decision id.
 - `POST /api/actions` additionally accepts an optional `guard_decision_id`
-  string (validated `act_gd_` prefix, ≤64 chars) so SDK flows that record
-  separately can supply it. Optional, additive, no SDK changes required in v1.
+  string so SDK flows that record separately can supply it. Hardened per the
+  2026-07-01 security review: the value must match the exact server format
+  (`act_gd_` + 16 hex) AND resolve to a same-org `guard_decisions` row, else
+  400 — tuning evidence can never point at foreign or nonexistent decisions.
+  Optional, additive, no SDK changes required in v1.
 - Evidence accrues going forward from ship. No backfill, no heuristic
   time-window correlation — a governance product does not guess its evidence.
 
@@ -171,7 +174,8 @@ proposal fingerprint), the exact pattern of `policy_review_dismissed` and
 - Dismissed fingerprints are filtered out of the GET (still counted in
   `dismissed_count`). The fingerprint hashes the patch params, so if the
   evidence later implies a *different* proposal (e.g. 70→90), it resurfaces.
-- Blob pruned to the newest 200 entries on write.
+- Blob pruned on write: newest 200 entries, then by serialized size (≤9000
+  chars) so the write never trips upsertSetting's 10k value cap.
 - Accepts need no separate ledger: the PATCH itself is the record
   (POLICY_UPDATED event + `logActivity` audit line + `updated_at` reset,
   which retires the proposal's evidence window). Add `logActivity` to the

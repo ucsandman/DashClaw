@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.21.2",
+    "current_version": "4.22.0",
     "next_bump": "none",
-    "reason": "4.21.2 is a platform-only UI-polish patch (capabilities async-params fix, VideoHero placeholder poster, mission-control/codebase launcher, smoke coverage to 88 routes). NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.22.0 is a platform-only feature release (policy-tuning proposal loop: guard_decision_id join column, /api/policies/proposals stats+proposals endpoint, /policies Tuning proposals section, policy-smoke T1 block). NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.21.2",
+    "current_version": "4.22.0",
     "next_bump": "none",
-    "reason": "4.21.2 is a platform-only UI-polish patch. No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
+    "reason": "4.22.0 is a platform-only feature release (policy-tuning proposal loop). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
     "domains": [
       "platform"
     ]

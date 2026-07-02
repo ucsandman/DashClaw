@@ -122,6 +122,23 @@ export async function listGuardDecisions(
  * a lookup error means a replay miss, and the caller re-evaluates — the
  * pre-idempotency behavior.
  */
+/**
+ * True when the decision id exists in this org. Validates client-supplied
+ * guard_decision_id stamps on POST /api/actions so tuning evidence cannot be
+ * pointed at foreign or nonexistent decisions (2026-07-01 security review).
+ */
+export async function guardDecisionExists(
+  sql: SqlQueryClient,
+  orgId: string,
+  decisionId: string,
+): Promise<boolean> {
+  const rows = await sql.query(
+    `SELECT 1 FROM guard_decisions WHERE org_id = $1 AND id = $2 LIMIT 1`,
+    [orgId, decisionId],
+  );
+  return rows.length > 0;
+}
+
 export async function getGuardDecisionByIdempotencyKey(
   sql: SqlQueryClient,
   orgId: string,

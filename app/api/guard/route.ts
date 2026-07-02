@@ -24,7 +24,7 @@ import { resolveActStatus } from '../../lib/act-binding';
 
 type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
-type GuardResult = { decision: string; risk_score?: number };
+type GuardResult = { decision: string; risk_score?: number; decision_id?: string };
 
 /**
  * ?record=true support: create the running action record in-request (the same
@@ -67,6 +67,11 @@ async function recordRunningAction(
     if (record[k] != null) record[k] = redactAny(record[k], dlpFindings);
   }
   if (record.systems_touched != null) record.systems_touched = redactAny(record.systems_touched, dlpFindings);
+
+  // Server-side stamp: links this record to the guard decision that produced
+  // it so approval outcomes join back to matched_policies (policy-tuning
+  // proposal loop, drizzle/0035). Overrides any client-supplied value.
+  record.guard_decision_id = typeof result.decision_id === 'string' ? result.decision_id : null;
 
   const action_id = `act_${crypto.randomUUID()}`;
   const createdAction = await createActionRecord(sql, {
@@ -328,7 +333,7 @@ export async function POST(request: Request) {
           try {
             // recordRunningAction short-circuits on the existing action row;
             // when the prior record attempt failed it heals by creating one.
-            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined });
+            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) });
             replay.recorded = rec.recorded;
             if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
             else if (rec.reason) replay.recorded_error = rec.reason;

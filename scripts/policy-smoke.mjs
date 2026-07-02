@@ -350,6 +350,100 @@ async function main() {
       `before=${before.json?.decision} delete=${del.status} after=${after.json?.decision}`);
   }
 
+  // T1: policy-tuning proposal loop (owner roadmap item 1)
+  // Spec: docs/superpowers/specs/2026-07-01-policy-tuning-proposal-loop.md
+  {
+    const agent = agentFor('t1');
+    const pid = await createPolicy('tuning-loop', 'risk_threshold',
+      { threshold: 60, action: 'require_approval' }, [agent]);
+
+    // Drive 3 require_approval interruptions and approve each. declared_goal
+    // must be unique per iteration — an identical goal would trigger the
+    // builtin operator-approval grant after the first approval (see A6
+    // above) and downgrade subsequent guard calls to allow, starving the
+    // tuning evidence of require_approval fires.
+    for (let i = 1; i <= 3; i++) {
+      const guarded = await api('POST', '/api/guard?record=true', {
+        action_type: 'smoke.tuning', declared_goal: `tuning smoke action ${RUN} #${i}`,
+        agent_id: agent, risk_score: 75,
+      });
+      const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+      check('T1', `guard call #${i} → require_approval matched by the tuning policy`,
+        guarded.json?.decision === 'require_approval' &&
+        (guarded.json?.matched_policies || []).includes(pid) && Boolean(actionId),
+        `decision=${guarded.json?.decision} matched=${JSON.stringify(guarded.json?.matched_policies)} action_id=${actionId}`);
+
+      if (actionId) {
+        const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow' });
+        check('T1', `guard call #${i} → approval accepted`, approved.status < 400, `status=${approved.status}`);
+      } else {
+        check('T1', `guard call #${i} → approval accepted`, false, 'no action_id to approve');
+      }
+    }
+
+    // Stats + proposal derivation with small seeded thresholds.
+    const proposalsUrl = `/api/policies/proposals?days=30&min_fired=3&min_resolved=3`;
+    const first = await api('GET', proposalsUrl);
+    const statsRow = (first.json?.policies || []).find((p) => p.policy_id === pid);
+    check('T1', 'stats row shows fired.require_approval=3 and approved=3',
+      statsRow?.fired?.require_approval === 3 && statsRow?.approvals?.approved === 3,
+      `stats=${JSON.stringify(statsRow)}`);
+
+    const proposal = (first.json?.proposals || []).find(
+      (p) => p.policy_id === pid && p.rule === 'raise_risk_threshold');
+    check('T1', 'raise_risk_threshold proposal with patch.rules.threshold=70',
+      proposal?.patch?.rules?.threshold === 70,
+      `proposal=${JSON.stringify(proposal)}`);
+
+    // Nothing auto-applies: the live policy's rules are untouched.
+    const policiesAfterProposal = await api('GET', '/api/policies');
+    const liveAfterProposal = (policiesAfterProposal.json?.policies || []).find((p) => p.id === pid);
+    const rulesAfterProposal = typeof liveAfterProposal?.rules === 'string'
+      ? JSON.parse(liveAfterProposal.rules) : liveAfterProposal?.rules;
+    check('T1', 'nothing auto-applies: policy threshold still 60 after GET proposals',
+      rulesAfterProposal?.threshold === 60,
+      `rules=${JSON.stringify(rulesAfterProposal)}`);
+
+    if (proposal) {
+      // Dismiss.
+      const dismiss = await api('POST', '/api/policies/proposals', {
+        action: 'dismiss', proposal_id: proposal.id, reason: `smoke dismiss ${RUN}`,
+      });
+      check('T1', 'dismiss proposal → 200', dismiss.status < 400, `status=${dismiss.status}`);
+
+      const afterDismiss = await api('GET', proposalsUrl);
+      const stillThere = (afterDismiss.json?.proposals || []).some((p) => p.id === proposal.id);
+      check('T1', 'dismissed proposal no longer returned; dismissed_count ≥ 1',
+        !stillThere && (afterDismiss.json?.dismissed_count || 0) >= 1,
+        `stillThere=${stillThere} dismissed_count=${afterDismiss.json?.dismissed_count}`);
+
+      // Undismiss.
+      const undismiss = await api('POST', '/api/policies/proposals', {
+        action: 'undismiss', proposal_id: proposal.id,
+      });
+      check('T1', 'undismiss proposal → 200', undismiss.status < 400, `status=${undismiss.status}`);
+
+      const afterUndismiss = await api('GET', proposalsUrl);
+      const backAgain = (afterUndismiss.json?.proposals || []).some((p) => p.id === proposal.id);
+      check('T1', 'undismissed proposal reappears', backAgain,
+        `proposals=${JSON.stringify((afterUndismiss.json?.proposals || []).map((p) => p.id))}`);
+
+      // Accept: PATCH the policy with the proposal's patch.
+      const accept = await api('PATCH', '/api/policies', { id: pid, rules: proposal.patch.rules });
+      check('T1', 'accept proposal via PATCH /api/policies → 200', accept.status < 400, `status=${accept.status}`);
+
+      const afterAccept = await api('GET', proposalsUrl);
+      const raiseStillProposed = (afterAccept.json?.proposals || []).some(
+        (p) => p.policy_id === pid && p.rule === 'raise_risk_threshold');
+      const statsAfterAccept = (afterAccept.json?.policies || []).find((p) => p.policy_id === pid);
+      check('T1', 'accept resets the evidence window: no raise proposal and fired.require_approval=0',
+        !raiseStillProposed && statsAfterAccept?.fired?.require_approval === 0,
+        `raiseStillProposed=${raiseStillProposed} stats=${JSON.stringify(statsAfterAccept)}`);
+    } else {
+      check('T1', 'dismiss/accept round-trip', false, 'no raise_risk_threshold proposal to exercise');
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

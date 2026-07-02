@@ -80,6 +80,11 @@ export const VALID_SETTING_KEYS = [
   //                          of per-shape dismissals ("fine" verdict).
   'policy_review_cursor',
   'policy_review_dismissed',
+  // Policy-tuning proposal loop — JSON object keyed by proposal fingerprint
+  // ("ptp_<16hex>") holding { reason, by, at } dismissal records. Written by
+  // POST /api/policies/proposals; pruned on write (newest 200 entries, then
+  // by serialized size to respect the 10k value cap).
+  'policy_tuning_dismissed',
   // W3 interruption budget / digest (close-the-loop spec 2026-06-11)
   'DASHCLAW_INTERRUPT_BUDGET',
   'DASHCLAW_INTERRUPT_WINDOW_MIN',
