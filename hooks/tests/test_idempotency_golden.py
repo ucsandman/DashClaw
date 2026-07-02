@@ -118,7 +118,11 @@ class TestTransientOnlyRetries(unittest.TestCase):
     def test_auth_failed_sentinel_preserved(self):
         # api_request(distinguish_auth=True) must still map the immediately
         # raised 401 to the AUTH_FAILED sentinel, not None.
-        with mock.patch.object(dashclaw_pretool, "request_with_retry", side_effect=_http_error(401)):
+        # BASE_URL is captured at module import from DASHCLAW_URL; on a clean
+        # environment (CI) it is "" and urllib rejects the relative URL before
+        # the mocked retry layer is reached — pin it so the test is hermetic.
+        with mock.patch.object(dashclaw_pretool, "BASE_URL", "http://localhost:3000"), \
+                mock.patch.object(dashclaw_pretool, "request_with_retry", side_effect=_http_error(401)):
             result = dashclaw_pretool.api_request(
                 "POST", "/api/guard", body={}, timeout=1, retries=0, distinguish_auth=True
             )
