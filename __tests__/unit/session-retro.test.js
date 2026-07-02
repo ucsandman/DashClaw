@@ -125,6 +125,17 @@ describe('buildSessionRetro', () => {
       actionsTotal: 3,
     })); // median 70 → 75 < 140, no spike
     expect(flat.findings.some((f) => f.kind === 'risk_spike')).toBe(false);
+    // NULL risk scores are excluded from the baseline, not counted as 0:
+    // median of [60, 75] = 67.5 → 75 < 135, no spike. (If nulls counted as 0,
+    // the median would collapse to 30 and 75 would falsely spike.)
+    const withNulls = buildSessionRetro(data({
+      actions: [
+        action({ risk_score: null }), action({ risk_score: null }),
+        action({ risk_score: 60 }), action({ risk_score: 75 }),
+      ],
+      actionsTotal: 4,
+    }));
+    expect(withNulls.findings.some((f) => f.kind === 'risk_spike')).toBe(false);
   });
 
   it('spend: denied/expired purchases flag; outlier needs ≥3 purchases and ≥5× median', () => {

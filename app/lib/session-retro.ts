@@ -83,6 +83,9 @@ function median(values: number[]): number | null {
 }
 
 function riskOf(action: Row): number | null {
+  // Number(null) === 0 — an unscored action must be excluded from the risk
+  // baseline, not counted as a real 0 that drags the spike median down.
+  if (action.risk_score == null) return null;
   const n = Number(action.risk_score);
   return Number.isFinite(n) ? n : null;
 }
