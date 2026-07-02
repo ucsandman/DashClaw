@@ -6,6 +6,7 @@ import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
 import { redactAny } from '../../../lib/security';
 import { getAssumption, updateAssumption } from '../../../lib/repositories/assumptions.repository';
+import { notifyAssumptionInvalidated } from '../../../lib/assumption-notify';
 
 
 export async function GET(request: Request, { params }: { params: Promise<{ assumptionId: string }> }) {
@@ -101,6 +102,23 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ as
           { status: 409 },
         );
       }
+      // Advocate v2a: tell the owning agent its assumption was invalidated.
+      // The notification is best-effort — the invalidation is already committed.
+      let notification: { message_id: string } | null = null;
+      let notificationError: string | null = null;
+      try {
+        notification = await notifyAssumptionInvalidated(sql, orgId, {
+          agent_id: (existing.agent_id as string) ?? null,
+          assumption_id: String(existing.assumption_id ?? assumptionId),
+          assumption: String(existing.assumption ?? ''),
+          invalidated_reason: safeReason as string,
+          invalidated_at: now,
+          action_id: (existing.action_id as string) ?? null,
+        });
+      } catch (err) {
+        console.error('Assumption invalidation notify failed:', err);
+        notificationError = 'notification_failed';
+      }
       return NextResponse.json({
         assumption: result,
         security: {
@@ -109,6 +127,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ as
           critical_count: dlpFindings.filter(f => f.severity === 'critical').length,
           categories: [...new Set(dlpFindings.map(f => f.category))],
         },
+        ...(notification ? { notification } : {}),
+        ...(notificationError ? { notification_error: notificationError } : {}),
       });
     }
   } catch (error) {
