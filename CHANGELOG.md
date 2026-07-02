@@ -13,6 +13,33 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.23.0] — 2026-07-02
+
+Cumulative x402 budget gate (owner roadmap item 2): the spend policy now interrupts runaway *cumulative* cost, not just the single purchase.
+
+### Added
+- **`x402_spend_limit` cumulative budget tier.** New optional rules alongside the per-purchase caps, mirroring their semantics: `budget_approval_threshold` (window sum + incoming ≥ → require_approval) and `budget_usd` (> → block), over a rolling `budget_window_days` window (1–365, default 30), scoped org-wide or per-agent via `budget_scope`. Both tiers coexist in one policy and the guard returns the more severe result. The sum uses the FinOps spend predicate (`execution_status <> 'failed'`) so the product has one definition of "spend"; the guard evaluates before the purchase row is written, so the incoming purchase never double-counts. Policies without budget fields gain zero DB queries.
+- **Fail-closed by design:** a failed window-sum query degrades via the standard contract (per-policy `on_failure` → `DASHCLAW_GUARD_FALLBACK` → `require_approval`; `allow` is the explicit escape hatch and records a skip-warning on the persisted decision), and an unattributed purchase under an agent-scoped budget routes to approval instead of slipping through — omitting `agent_id` is not a budget bypass.
+- **Concurrency close-out (from this ship's adversarial security review — PASS, 1 MEDIUM fixed in the same release):** N parallel purchases could each pass the budget check against the same pre-insert window sum (no transactions on Neon HTTP). The purchases route now re-verifies the hard budget after the row commits and compensates on breach before the agent executes payment — purchase → `failed`, action → `blocked` (audit trail preserved), response → 403.
+- **Authoring parity:** budget fields in the /policies rule builder (compile/decompile/summary), typed rules, and validated via `POST/PATCH /api/policies` (`budget_usd` 0 = hard spend freeze is valid). Migration `0036` adds an `(org_id, created_at)` index for the guard-hot-path sum.
+- **Live proof:** policy smoke harness section B6 accumulates real purchases ($4/$4/$4/$10) into require_approval at the threshold and block over the budget, in CI on every push; 15 new evaluator golden vectors cover boundaries, severity precedence, scope, and every degradation path.
+
+### Fixed
+- The platform-intelligence skill described `x402_spend_limit` as enforcing a "daily ceiling" — an overpromise while the evaluator was per-purchase only. The description now matches reality (per-purchase caps + rolling-window budget + provider lists), and the /explain playground caption states that the cumulative budget is real but not part of the simulation.
+
+## [4.22.0] — 2026-07-01
+
+Policy-tuning proposal loop (owner roadmap item 1): the outcomes ledger now feeds policy configuration — with a human ratifying every change. *(Entry backfilled 2026-07-02; the ship itself landed 2026-07-01 as `2cd1071a..478c7231`.)*
+
+### Added
+- **Per-policy interruption stats + proposal engine.** For each guard policy: interruptions (warn / require_approval / block), approval outcomes of those interruptions, and override rate over a rolling window that clips at the policy's own `updated_at` — accepting a proposal resets its evidence, so tuning can't ratchet on stale data. Rule-based proposals (no LLM): `raise_risk_threshold` (≥10 fired, ≥5 resolved, ≥90% overridden → propose +10, capped at 95), `keep_policy` (≥80% denials — evidence it works), `dead_policy` (60 days, zero fires). Loosen-only; never against block-action policies.
+- **/policies review feed.** Each proposal carries its evidence; accept = one click that PATCHes the policy through the existing validated route; dismiss records a redacted reason. Nothing auto-applies (constitution §3).
+- **`action_records.guard_decision_id` join** (migration `0035`): approvals now link back to the guard decision and its matched policies — stamped server-side, validated (`act_gd_` format + same-org) when client-supplied.
+- Policy smoke harness grew 25 → 40 live checks, including the T1 end-to-end tuning-loop scenario.
+
+### Fixed
+- Latent approvals bug surfaced by the new smoke check on its first CI run (hotfix `478c7231`).
+
 ## [4.21.1] — 2026-06-15
 
 Security: patch the transitive esbuild and vite advisories.

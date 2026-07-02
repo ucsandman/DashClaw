@@ -70,10 +70,14 @@ exactly so the mental model transfers:
 Reuse the guard's documented degradation contract
 (`resolveDegradedAction`): per-policy `rules.on_failure` →
 `DASHCLAW_GUARD_FALLBACK` env → fail-closed default `require_approval`,
-with `allow` as the explicit self-hoster escape hatch (degradation becomes a
-warning instead). Identical precedence to `webhook_check.on_timeout` and
-`semantic_check.fallback`. The reason string names the failure:
+with `allow` as the explicit self-hoster escape hatch. Identical precedence
+to `webhook_check.on_timeout` and `semantic_check.fallback`. The reason
+string names the failure:
 `x402 budget check failed — degraded decision (require_approval)`.
+The `allow` path passes through but records
+`x402 budget check failed — skipped (on_failure: allow)` as a warning on the
+persisted decision (security review 2026-07-02, LOW: the skip must be
+visible in the decisions ledger, not just the server log).
 
 The query failure is caught inside the evaluator; it never throws through
 `evaluateGuard` (which would 500 the purchase request with no recorded
@@ -88,7 +92,22 @@ moved). One definition of "spend" across the product. Consequences, stated
 deliberately:
 
 - **Pending purchases count** (reserved spend awaiting approval). An agent
-  cannot queue N pending purchases that each individually fit the budget.
+  cannot *sequentially* queue N purchases that each individually fit the
+  budget — each one raises the sum the next one is checked against.
+- **Concurrent bursts are caught post-insert** (security review 2026-07-02,
+  MEDIUM). The guard reads the window sum before the purchase row exists, so
+  N truly concurrent purchases would each pass against the same pre-insert
+  sum (Neon HTTP has no transactions or session advisory locks to serialize
+  the read+insert). The purchases route therefore re-verifies the hard
+  budget AFTER the row commits — the sum then includes the caller's own row
+  and any concurrent winners — and compensates on breach before the agent
+  executes payment: purchase → `failed` (excluded from future sums), action
+  → `blocked` (audit trail preserved), response → 403. Residual exposure is
+  bounded to near-simultaneous commits inside the re-read window (ms), not
+  the full guard→insert span. Only `budget_usd` is re-verified; the approval
+  tier already produced its interruption. The re-check is best-effort (a
+  transient failure logs and passes — the pre-insert gate already ran
+  fail-closed; failing every allowed purchase would be a new outage mode).
 - **Blocked purchases never count** — the purchase row is only created for
   non-blocked decisions (`createBlockedActionRecord` writes no x402 row).
 - **Denied approvals**: nothing today flips a denied purchase's
@@ -215,7 +234,12 @@ budget-only policy renders oddly.
   budget evaluated before row insert (no self-count); blocked rows never
   accrue.
 - The sum failure path never fails open silently — `allow` requires an
-  explicit per-policy or env opt-in and still surfaces a warning.
+  explicit per-policy or env opt-in and records a warning on the persisted
+  decision.
+- Reviewed 2026-07-02 (adversarial, guard/spend scope): PASS — 0 critical,
+  0 high; the 1 MEDIUM (concurrency TOCTOU) and 1 LOW (allow-path audit
+  trail) were fixed in the same ship (post-insert re-verification +
+  ledger warning above).
 
 ## Out of scope (v1)
 

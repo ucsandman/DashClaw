@@ -270,3 +270,21 @@ export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { peri
     by_provider: byProvider,
   };
 }
+
+/**
+ * Rolling-window spend sum for the guard's cumulative x402 budget gate.
+ * Same spend predicate as getX402SpendAggregation (`execution_status <>
+ * 'failed'`: a failed x402 call means no money moved — operator decision
+ * 2026-06-05) so the product has ONE definition of "spend". Pending rows
+ * count (reserved spend awaiting approval); blocked purchases never get a
+ * row. NOT cached: spend changes with every purchase, and a stale read
+ * would let over-budget purchases through the gate.
+ */
+export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, agentId = null }: { sinceIso: string; agentId?: string | null }): Promise<number> {
+  const agentFilter = agentId ? sql` AND agent_id = ${agentId}` : sql``;
+  const [row] = await sql`
+    SELECT COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
+    FROM x402_purchases
+    WHERE org_id = ${orgId} AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status <> 'failed'${agentFilter}`;
+  return Number(row?.window_spend_usd ?? 0);
+}

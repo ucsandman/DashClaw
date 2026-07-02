@@ -5,13 +5,13 @@ import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { getOrgId } from '../../../lib/org';
-import { evaluateGuard } from '../../../lib/guard';
+import { evaluateGuard, verifyX402BudgetAfterInsert } from '../../../lib/guard';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateX402Purchase } from '../../../lib/validate.js';
 import { resolveAgentIdentity } from '../../../lib/identity-resolution';
 import { redactAny } from '../../../lib/security';
-import { createActionRecord, createBlockedActionRecord, deleteActionsByIds } from '../../../lib/repositories/actions.repository';
-import { createPurchase, listPurchases, getProvider, getEndpoint, resolveProviderByName } from '../../../lib/repositories/x402.repository';
+import { createActionRecord, createBlockedActionRecord, deleteActionsByIds, markActionBlocked } from '../../../lib/repositories/actions.repository';
+import { createPurchase, listPurchases, getProvider, getEndpoint, resolveProviderByName, setPurchaseOutcome } from '../../../lib/repositories/x402.repository';
 
 /**
  * Mask a wallet/payment reference for storage and responses. We keep only the
@@ -240,6 +240,33 @@ export async function POST(request: Request) {
     }
     // Purchase detail committed: action + purchase are now consistent.
     createdActionId = null;
+
+    // (R11) Budget TOCTOU close-out (security review 2026-07-02): the guard's
+    // budget check ran BEFORE this purchase row existed, so N concurrent
+    // purchases can each pass against the same pre-insert window sum. Re-verify
+    // the hard budget now that the row is committed — the sum includes our own
+    // row and any concurrent winners. On breach, compensate BEFORE the agent
+    // executes payment: the purchase flips to failed (excluded from future
+    // sums), the action flips to blocked (audit trail preserved), and the
+    // request returns 403.
+    const breach = await verifyX402BudgetAfterInsert(orgId, guardContext, sql);
+    if (breach) {
+      await setPurchaseOutcome(sql, orgId, action_id, {
+        execution_status: 'failed',
+        failure_reason: breach.reason,
+        result_summary: 'Blocked by post-insert cumulative-budget re-verification',
+      }).catch((err: unknown) => {
+        console.error('[X402] budget re-verify: purchase flip failed for', action_id, ':', (err as Error)?.message);
+      });
+      const blockedAction = await markActionBlocked(sql, orgId, action_id, breach.reason).catch((err: unknown) => {
+        console.error('[X402] budget re-verify: action flip failed for', action_id, ':', (err as Error)?.message);
+        return null;
+      });
+      return NextResponse.json({
+        action: blockedAction ?? { ...action, status: 'blocked' },
+        decision: { ...guardDecision, decision: 'block', reasons: [...(guardDecision.reasons || []), breach.reason] },
+      }, { status: 403 });
+    }
 
     return NextResponse.json({ action, purchase, decision: guardDecision }, { status: isPending ? 202 : 201 });
   } catch (err) {

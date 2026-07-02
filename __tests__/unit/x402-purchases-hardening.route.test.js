@@ -14,15 +14,17 @@ const m = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
-vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard }));
+vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard, verifyX402BudgetAfterInsert: vi.fn(async () => null) }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: m.createActionRecord,
   createBlockedActionRecord: m.createBlockedActionRecord,
   deleteActionsByIds: m.deleteActionsByIds,
+  markActionBlocked: vi.fn(),
 }));
 vi.mock('@/lib/repositories/x402.repository.js', () => ({
   createPurchase: m.createPurchase, listPurchases: m.listPurchases,
   getProvider: m.getProvider, getEndpoint: m.getEndpoint,
+  setPurchaseOutcome: vi.fn(),
 }));
 vi.mock('@/lib/identity-resolution.js', () => ({ resolveAgentIdentity: m.resolveAgentIdentity }));
 

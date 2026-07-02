@@ -32,6 +32,10 @@ const DEFAULT_FORM_STATE = {
   approvalThreshold: '',
   allowedProviders: [],
   blockedProviders: [],
+  budgetUsd: '',
+  budgetApprovalThreshold: '',
+  budgetWindowDays: '',
+  budgetScope: 'org',
   agentIds: [],
   // allow_grant
   actionType: '',
@@ -59,7 +63,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'branch_freshness', label: 'Branch Freshness', desc: 'Block actions when the branch is stale/diverged or too many commits behind' },
   { value: 'non_fabrication', label: 'Non-Fabrication', desc: 'Block or route to approval outbound content that states a fact not traceable to its source-of-truth' },
   { value: 'protected_path', label: 'Protected Path', desc: 'Warn or require approval when an action touches sensitive paths (auth, secrets, billing, middleware, …)' },
-  { value: 'x402_spend_limit', label: 'x402 Spend Limit', desc: 'Govern x402 purchases: cap spend, set an approval threshold, and allow/block providers' },
+  { value: 'x402_spend_limit', label: 'x402 Spend Limit', desc: 'Govern x402 purchases: cap per-purchase spend, enforce a rolling-window budget, and allow/block providers' },
 ];
 
 function cleanString(value) {
@@ -144,6 +148,9 @@ function x402SummaryParts(form) {
   const parts = [];
   if (hasValue(form.maxSpendUsd)) parts.push(`block purchases over $${Number(form.maxSpendUsd)}`);
   if (hasValue(form.approvalThreshold)) parts.push(`require approval at $${Number(form.approvalThreshold)}`);
+  const windowLabel = `${hasValue(form.budgetWindowDays) ? Number(form.budgetWindowDays) : 30}d ${form.budgetScope === 'agent' ? 'per-agent' : 'org'} spend`;
+  if (hasValue(form.budgetUsd)) parts.push(`block when ${windowLabel} exceeds $${Number(form.budgetUsd)}`);
+  if (hasValue(form.budgetApprovalThreshold)) parts.push(`require approval when ${windowLabel} reaches $${Number(form.budgetApprovalThreshold)}`);
   const allowed = cleanList(form.allowedProviders);
   const blocked = cleanList(form.blockedProviders);
   if (allowed.length) parts.push(`only allow ${pluralProviders(allowed.length)}`);
@@ -293,6 +300,11 @@ const POLICY_TYPE_HANDLERS = {
       const rules = {};
       if (hasValue(form.maxSpendUsd)) rules.max_spend_usd = Number(form.maxSpendUsd);
       if (hasValue(form.approvalThreshold)) rules.approval_threshold = Number(form.approvalThreshold);
+      if (hasValue(form.budgetUsd)) rules.budget_usd = Number(form.budgetUsd);
+      if (hasValue(form.budgetApprovalThreshold)) rules.budget_approval_threshold = Number(form.budgetApprovalThreshold);
+      if (hasValue(form.budgetWindowDays)) rules.budget_window_days = parseInt(String(form.budgetWindowDays), 10) || 30;
+      // 'org' is the engine default — only persist the non-default scope.
+      if (form.budgetScope === 'agent') rules.budget_scope = 'agent';
       const allowed = providerList(form.allowedProviders);
       const blocked = providerList(form.blockedProviders);
       if (allowed) rules.allowed_providers = allowed;
@@ -375,6 +387,10 @@ export function decompilePolicyForm(policy) {
     approvalThreshold: coalesce(rules.approval_threshold, DEFAULT_FORM_STATE.approvalThreshold),
     allowedProviders: arrOr(rules.allowed_providers, DEFAULT_FORM_STATE.allowedProviders),
     blockedProviders: arrOr(rules.blocked_providers, DEFAULT_FORM_STATE.blockedProviders),
+    budgetUsd: coalesce(rules.budget_usd, DEFAULT_FORM_STATE.budgetUsd),
+    budgetApprovalThreshold: coalesce(rules.budget_approval_threshold, DEFAULT_FORM_STATE.budgetApprovalThreshold),
+    budgetWindowDays: coalesce(rules.budget_window_days, DEFAULT_FORM_STATE.budgetWindowDays),
+    budgetScope: rules.budget_scope === 'agent' ? 'agent' : DEFAULT_FORM_STATE.budgetScope,
     tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };

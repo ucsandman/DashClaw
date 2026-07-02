@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:7247a6c6bfb40d3cb70c0c2815edbb1ba13ffaec",
+  "timestamp": "sha1:426a691e77daa05e4ef01bc5789a3849108bc887",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3800,6 +3800,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-degradation.test.js",
+        "__tests__/unit/x402-guard-policy.test.js",
         "app/lib/guard.ts"
       ],
       "in_env_example": false

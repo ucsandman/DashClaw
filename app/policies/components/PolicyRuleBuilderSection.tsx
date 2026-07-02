@@ -607,9 +607,9 @@ export default function PolicyRuleBuilderSection({
         <div className="space-y-4">
           <p className="text-xs text-tertiary">
             Governs x402 capability purchases: blocks spend over the hard cap, routes purchases at or
-            above the approval threshold to human review, and enforces provider allow/block lists.
-            Leave a field blank to skip that control. Providers may be listed by display name or by
-            provider id.
+            above the approval threshold to human review, enforces a cumulative budget over a rolling
+            window, and enforces provider allow/block lists. Leave a field blank to skip that control.
+            Providers may be listed by display name or by provider id.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -637,6 +637,62 @@ export default function PolicyRuleBuilderSection({
                 placeholder="e.g. 1"
                 className={inputClass}
               />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-secondary mb-1">Window budget (USD) — hard block</label>
+              <input
+                aria-label="Window budget USD"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={form.budgetUsd}
+                onChange={(event) => onChange('budgetUsd', event.target.value)}
+                placeholder="e.g. 50"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-secondary mb-1">Budget approval threshold (USD)</label>
+              <input
+                aria-label="Budget approval threshold USD"
+                type="number"
+                min="0"
+                step="0.0001"
+                value={form.budgetApprovalThreshold}
+                onChange={(event) => onChange('budgetApprovalThreshold', event.target.value)}
+                placeholder="e.g. 25"
+                className={inputClass}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-secondary mb-1">Budget window (days)</label>
+              <input
+                aria-label="Budget window days"
+                type="number"
+                min="1"
+                max="365"
+                step="1"
+                value={form.budgetWindowDays}
+                onChange={(event) => onChange('budgetWindowDays', event.target.value)}
+                placeholder="30"
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-secondary mb-1">Budget scope</label>
+              <select
+                aria-label="Budget scope"
+                value={form.budgetScope}
+                onChange={(event) => onChange('budgetScope', event.target.value)}
+                className={selectClass}
+              >
+                <option value="org">Org-wide</option>
+                <option value="agent">Per agent</option>
+              </select>
             </div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

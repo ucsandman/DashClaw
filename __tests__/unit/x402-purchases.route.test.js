@@ -3,26 +3,31 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const m = vi.hoisted(() => ({
   sql: vi.fn(async () => []),
   evaluateGuard: vi.fn(),
+  verifyX402BudgetAfterInsert: vi.fn(async () => null),
   createActionRecord: vi.fn(),
   createBlockedActionRecord: vi.fn(),
+  markActionBlocked: vi.fn(),
   createPurchase: vi.fn(),
   listPurchases: vi.fn(),
   getProvider: vi.fn(),
   getEndpoint: vi.fn(),
   resolveProviderByName: vi.fn(),
+  setPurchaseOutcome: vi.fn(),
 }));
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
-vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard }));
+vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard, verifyX402BudgetAfterInsert: m.verifyX402BudgetAfterInsert }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: m.createActionRecord,
   createBlockedActionRecord: m.createBlockedActionRecord,
   deleteActionsByIds: vi.fn(),
+  markActionBlocked: m.markActionBlocked,
 }));
 vi.mock('@/lib/repositories/x402.repository.js', () => ({
   createPurchase: m.createPurchase, listPurchases: m.listPurchases,
   getProvider: m.getProvider, getEndpoint: m.getEndpoint,
   resolveProviderByName: m.resolveProviderByName,
+  setPurchaseOutcome: m.setPurchaseOutcome,
 }));
 
 const { POST, GET } = await import('@/api/x402/purchases/route.js');
@@ -37,6 +42,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   // Default: a name-only purchase resolves/auto-registers a provider_id.
   m.resolveProviderByName.mockResolvedValue({ provider_id: 'prov_exa', name: 'exa' });
+  // Default: the post-insert budget re-verification finds no breach.
+  m.verifyX402BudgetAfterInsert.mockResolvedValue(null);
 });
 
 describe('POST /api/x402/purchases', () => {
@@ -79,6 +86,26 @@ describe('POST /api/x402/purchases', () => {
     expect(res.status).toBe(201);
     expect((await res.json()).action.status).toBe('running');
     expect(m.createPurchase).toHaveBeenCalledWith(m.sql, 'org_1', expect.stringMatching(/^act_/), expect.objectContaining({ execution_status: 'approved' }));
+  });
+
+  // TOCTOU close-out (security review 2026-07-02): a post-insert budget breach
+  // compensates — purchase → failed, action → blocked, response → 403 — before
+  // the agent ever executes payment.
+  it('403 when the post-insert budget re-verification finds a breach', async () => {
+    m.evaluateGuard.mockResolvedValue({ decision: 'allow', reasons: [] });
+    m.createActionRecord.mockResolvedValue({ action_id: 'act_a', status: 'running' });
+    m.createPurchase.mockResolvedValue({ action_id: 'act_a' });
+    m.verifyX402BudgetAfterInsert.mockResolvedValue({ policyId: 'gp_b', reason: 'Cumulative x402 spend $26.00 over 30d (org) exceeds budget $20 — post-insert re-verification' });
+    m.markActionBlocked.mockResolvedValue({ action_id: 'act_a', status: 'blocked' });
+    m.setPurchaseOutcome.mockResolvedValue({ action_id: 'act_a', execution_status: 'failed' });
+    const res = await POST(req(valid));
+    expect(res.status).toBe(403);
+    const body = await res.json();
+    expect(body.action.status).toBe('blocked');
+    expect(body.decision.decision).toBe('block');
+    expect(body.decision.reasons.join(' ')).toMatch(/post-insert re-verification/);
+    expect(m.setPurchaseOutcome).toHaveBeenCalledWith(m.sql, 'org_1', expect.stringMatching(/^act_/), expect.objectContaining({ execution_status: 'failed' }));
+    expect(m.markActionBlocked).toHaveBeenCalledWith(m.sql, 'org_1', expect.stringMatching(/^act_/), expect.stringContaining('post-insert re-verification'));
   });
 
   it('resolves a provider_id from the name when none is supplied, and persists it on the purchase + guard context', async () => {

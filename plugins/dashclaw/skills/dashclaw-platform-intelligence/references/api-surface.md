@@ -133,7 +133,7 @@ x402 micropayments are treated as **governed capability spend**: DashClaw govern
 | `/api/x402/providers/[id]/endpoints` | GET, POST | List / register priced endpoints for a provider |
 | `/api/x402/purchases` | GET, POST | Record a purchase intent and its recorded spend |
 
-Purchases are evaluated against the `x402_spend_limit` guard policy type (per-purchase / daily ceiling) before they are recorded. See [Guard Policy Types](#guard-policy-types).
+Purchases are evaluated against the `x402_spend_limit` guard policy type (per-purchase caps, a cumulative rolling-window budget, and provider allow/block lists) before they are recorded. See [Guard Policy Types](#guard-policy-types).
 
 ## FinOps / Spend
 
@@ -563,7 +563,7 @@ Guard policies use a `policy_type` field. All types are evaluated server-side wi
 | `permission_escalation` | Block when an agent requests a higher permission level than allowed |
 | `green_contract` | Require green (passing) test status before certain actions proceed |
 | `branch_freshness` | Block actions when the working branch is stale (N+ commits behind) |
-| `x402_spend_limit` | Cap x402 micropayment spend (per-purchase / daily USDC ceiling) |
+| `x402_spend_limit` | Cap x402 micropayment spend (per-purchase caps + cumulative rolling-window budget + provider lists) |
 
 The three new types (`permission_escalation`, `green_contract`, `branch_freshness`) integrate with session lifecycle data. The guard evaluator reads `green_level`, `branch_freshness`, and `commits_behind` from the active session when evaluating these policies.
 

@@ -504,6 +504,25 @@ const POLICY_TYPE_VALIDATORS = {
     if (rules.blocked_providers !== undefined && !Array.isArray(rules.blocked_providers)) {
       addError('x402_spend_limit policy rules.blocked_providers must be an array when present');
     }
+    // Cumulative budget tier (owner roadmap item 2). All optional; 0 is a
+    // valid hard freeze for budget_usd, so non-negative — not positive.
+    if (rules.budget_usd !== undefined && !isFiniteNonNegative(rules.budget_usd)) {
+      addError('x402_spend_limit policy rules.budget_usd must be a finite, non-negative number when present');
+    }
+    if (rules.budget_approval_threshold !== undefined && !isFiniteNonNegative(rules.budget_approval_threshold)) {
+      addError('x402_spend_limit policy rules.budget_approval_threshold must be a finite, non-negative number when present');
+    }
+    if (rules.budget_window_days !== undefined && (!Number.isInteger(rules.budget_window_days) || rules.budget_window_days < 1 || rules.budget_window_days > 365)) {
+      addError('x402_spend_limit policy rules.budget_window_days must be an integer between 1 and 365 when present');
+    }
+    if (rules.budget_scope !== undefined && !['org', 'agent'].includes(rules.budget_scope)) {
+      addError('x402_spend_limit policy rules.budget_scope must be "org" or "agent" when present');
+    }
+    // Must match DEGRADED_ACTIONS in guard.ts (resolveDegradedAction) — 'warn'
+    // is a valid guard action but not a valid degradation target.
+    if (rules.on_failure !== undefined && !['allow', 'block', 'require_approval'].includes(rules.on_failure)) {
+      addError('x402_spend_limit policy rules.on_failure must be one of allow, block, require_approval when present');
+    }
   },
 };
 

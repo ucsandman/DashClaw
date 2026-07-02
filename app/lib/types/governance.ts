@@ -61,7 +61,17 @@ export type GuardPolicy =
   | { policy_type: 'branch_freshness'; rules: { action_types: string[]; freshness?: string[]; max_commits_behind?: number; action?: DecisionType } }
   | {
       policy_type: 'x402_spend_limit';
-      rules: { max_spend_usd?: number; approval_threshold?: number; allowed_providers?: string[]; blocked_providers?: string[] };
+      rules: {
+        max_spend_usd?: number;
+        approval_threshold?: number;
+        allowed_providers?: string[];
+        blocked_providers?: string[];
+        budget_usd?: number;
+        budget_approval_threshold?: number;
+        budget_window_days?: number;
+        budget_scope?: 'org' | 'agent';
+        on_failure?: 'allow' | 'block' | 'require_approval';
+      };
     };
 
 /** Raw guard_policies row (rules + agent_ids are JSON text). */

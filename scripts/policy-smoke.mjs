@@ -213,6 +213,45 @@ async function main() {
       `decision=${generic.json?.decision} matched=${JSON.stringify(generic.json?.matched_policies)}`);
   }
 
+  // B6: cumulative x402 budget — spend accrues across purchases until the
+  // window budget interrupts (owner roadmap item 2). Agent-scoped with a
+  // per-run agent so prior runs' purchases in the shared smoke org are
+  // invisible to the sum and the sequence is deterministic from $0.
+  {
+    const agent = agentFor('b6');
+    await createPolicy('spend-budget', 'x402_spend_limit',
+      { budget_approval_threshold: 10, budget_usd: 20, budget_scope: 'agent' }, [agent]);
+    const purchase = (goal, cost) => api('POST', '/api/x402/purchases', {
+      agent_id: agent, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
+      purchase_reason: 'policy smoke check', context_gap: 'verifying the cumulative budget live', expected_value: 'proof the budget gate works',
+    });
+    const decisionOf = (r) => {
+      for (const g of [r.json?.guard, r.json?.decision, r.json?.guard_decision]) {
+        if (typeof g === 'string') return g;
+        if (g && typeof g.decision === 'string') return g.decision;
+      }
+      const st = r.json?.action?.status;
+      return st === 'pending_approval' ? 'require_approval' : st === 'blocked' ? 'block' : undefined;
+    };
+    const p1 = await purchase(`budget purchase 1 ${RUN}`, 4);   // window sum 4
+    const p2 = await purchase(`budget purchase 2 ${RUN}`, 4);   // window sum 8
+    const p3 = await purchase(`budget purchase 3 ${RUN}`, 4);   // 8 + 4 = 12 ≥ 10 → approval
+    const p4 = await purchase(`budget purchase 4 ${RUN}`, 10);  // 12 + 10 = 22 > 20 → block
+    check('B6', 'purchases under the window budget are not gated ($4, then $8 cumulative)',
+      p1.status < 400 && decisionOf(p1) !== 'require_approval' && decisionOf(p1) !== 'block' &&
+      p2.status < 400 && decisionOf(p2) !== 'require_approval' && decisionOf(p2) !== 'block',
+      `p1=${p1.status}/${decisionOf(p1)} p2=${p2.status}/${decisionOf(p2)} body=${JSON.stringify(p2.json)?.slice(0, 200)}`);
+    check('B6', 'cumulative spend $12 ≥ $10 budget approval threshold → require_approval (each purchase alone is only $4)',
+      decisionOf(p3) === 'require_approval',
+      `status=${p3.status} decision=${decisionOf(p3)} body=${JSON.stringify(p3.json)?.slice(0, 200)}`);
+    check('B6', 'cumulative spend $22 > $20 window budget → block',
+      decisionOf(p4) === 'block' || p4.status === 403,
+      `status=${p4.status} decision=${decisionOf(p4)} body=${JSON.stringify(p4.json)?.slice(0, 200)}`);
+    check('B6', 'budget block carries the cumulative-spend evidence in its reason',
+      JSON.stringify(p4.json || {}).includes('Cumulative x402 spend'),
+      `body=${JSON.stringify(p4.json)?.slice(0, 300)}`);
+  }
+
   // C1 + C2: /api/actions runs guard internally
   {
     const agent = agentFor('b1'); // reuse the block policy's agent + type

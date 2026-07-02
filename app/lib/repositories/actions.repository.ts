@@ -91,6 +91,24 @@ Reason: ' || ${safeReasoning} ELSE '' END
   return result[0] || null;
 }
 
+/**
+ * Flip a just-created action to blocked when a post-insert re-check catches a
+ * breach the pre-insert gate could not see (x402 budget TOCTOU close-out,
+ * security review 2026-07-02). Preserves the audit trail — the row stays,
+ * with the block reason recorded, instead of being compensation-deleted.
+ */
+export async function markActionBlocked(sql: SqlClient, orgId: string, actionId: string, reason: string): Promise<Row | null> {
+  const result = await sql`
+    UPDATE action_records
+    SET status = 'blocked',
+        error_message = ${reason}
+    WHERE action_id = ${actionId}
+      AND org_id = ${orgId}
+    RETURNING *
+  `;
+  return result[0] || null;
+}
+
 interface RecordBulkApprovalsData {
   newStatus: string;
   errorMessage: string | null;

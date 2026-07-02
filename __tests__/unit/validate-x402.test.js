@@ -68,3 +68,42 @@ describe('x402_spend_limit is an authorable policy type (B5)', () => {
     expect(r.valid).toBe(false);
   });
 });
+
+// Cumulative budget tier fields (owner roadmap item 2).
+describe('x402_spend_limit budget rules validation', () => {
+  const policyWith = (rules) => validatePolicy({ name: 'budget', policy_type: 'x402_spend_limit', rules: JSON.stringify(rules) });
+
+  it('accepts a full budget rule set alongside the per-purchase caps', () => {
+    const r = policyWith({
+      max_spend_usd: 10, approval_threshold: 5,
+      budget_usd: 50, budget_approval_threshold: 25, budget_window_days: 30, budget_scope: 'agent', on_failure: 'block',
+    });
+    expect(r.valid).toBe(true);
+  });
+
+  it('accepts budget_usd 0 (hard spend freeze)', () => {
+    expect(policyWith({ budget_usd: 0 }).valid).toBe(true);
+  });
+
+  it('rejects negative / non-finite budget amounts', () => {
+    expect(policyWith({ budget_usd: -1 }).valid).toBe(false);
+    expect(policyWith({ budget_approval_threshold: 'lots' }).valid).toBe(false);
+  });
+
+  it('rejects budget_window_days outside 1-365 or non-integer', () => {
+    expect(policyWith({ budget_usd: 5, budget_window_days: 0 }).valid).toBe(false);
+    expect(policyWith({ budget_usd: 5, budget_window_days: 366 }).valid).toBe(false);
+    expect(policyWith({ budget_usd: 5, budget_window_days: 7.5 }).valid).toBe(false);
+    expect(policyWith({ budget_usd: 5, budget_window_days: 7 }).valid).toBe(true);
+  });
+
+  it('rejects an unknown budget_scope', () => {
+    expect(policyWith({ budget_usd: 5, budget_scope: 'fleet' }).valid).toBe(false);
+    expect(policyWith({ budget_usd: 5, budget_scope: 'org' }).valid).toBe(true);
+  });
+
+  it('rejects on_failure values outside the degradation contract (warn is not a degradation target)', () => {
+    expect(policyWith({ budget_usd: 5, on_failure: 'warn' }).valid).toBe(false);
+    expect(policyWith({ budget_usd: 5, on_failure: 'require_approval' }).valid).toBe(true);
+  });
+});
