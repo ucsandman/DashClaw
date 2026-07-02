@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.33.0] — 2026-07-02
+
+Calibration flywheel automation (owner roadmap v2.6). The golden-vector corpus grew only when a session-holder remembered the protocol; now a weekly run PROPOSES vectors from live evidence and a human ratifies each one — nothing auto-applies (constitution §3: the corpus is enforcement). No new product surface; the human surface is the GitHub Actions run summary + artifact, an explicit decision in the spec. Spec: `docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md`.
+
+### Added
+- **Synthetic-traffic filter in the calibration miner** (`isSyntheticEvent`, default-on) — policy-smoke, up-smoke, sdk-live, demo/dev-suite traffic is *designed* to trip policies (inflated client scores, deliberate blocks), so mining it calibrates the scorer against a fiction. Explicit agent-id families + the `smoke.*` action-type prefix; excluded counts reported, never silent (`--include-synthetic` to disable). Live proof: 725 synthetic events excluded from a 30-day window.
+- **Proposal mode (`--propose` / `--summary` / `--top`)** — turns mined candidates into ready-to-ratify proposals, each carrying provenance and (when the shape is reconstructible) the exact `npm run calibration:add` forge command; unreconstructible shapes are flagged `needs_manual_context`. Capped at the top 15 strongest per rule after the first live run produced 5.8k raw candidates — the cut is reported in the summary, and the artifact keeps the complete candidate lists. No scorers run at propose time; the forge runs both at ratification.
+- **Weekly scheduled workflow `.github/workflows/calibration-mine.yml`** — Monday 06:00 UTC + manual dispatch: mines the live ledger (same `DATABASE_URL` secret as CI), renders the proposals into the run summary, uploads the JSON artifact. Fork-safe skip when the secret is unset.
+
+### Fixed
+- Miner events now carry `agent_id` and the linked `action_id`, so candidate representatives prefer evidence a forge command can be built from.
+
 ## [4.32.0] — 2026-07-02
 
 "Was I manipulated?" session retro (owner roadmap v2.5, Advocate v2b). Every protective signal DashClaw records — injection-shield hits, non-fabrication verdicts, goal declarations, guard blocks, spend outcomes, invalidated assumptions — lived on individual actions; answering "was this agent manipulated in that session?" meant reconstructing it by hand across dozens of detail pages. Now one report composes it per session, on demand, with no new tables and no LLM. Spec: `docs/superpowers/specs/2026-07-02-session-retro-design.md`.

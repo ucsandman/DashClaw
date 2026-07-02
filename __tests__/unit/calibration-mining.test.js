@@ -12,6 +12,10 @@ import {
   buildVectorEntry,
   serializeVectorEntry,
   appendVectorToFixtureText,
+  isSyntheticEvent,
+  suggestVectorName,
+  buildProposals,
+  renderProposalSummary,
 } from '../../scripts/lib/calibration-mining.mjs';
 import { RISK_MEDIUM_MIN } from '@/lib/riskThresholds.js';
 
@@ -162,6 +166,139 @@ describe('suggestBounds', () => {
     const out = suggestBounds('risky', { clientScore: 15 });
     expect(out.client_expected).toEqual({ min_risk: RISK_MEDIUM_MIN });
     expect(out.requires_model_fix).toBe(true);
+  });
+});
+
+describe('synthetic-traffic filter (v2.6)', () => {
+  it('fires on every synthetic agent family', () => {
+    for (const agent_id of [
+      'smoke-ping-mcgz1x2a', // policy-smoke agentFor()
+      'ci-smoke', // up-smoke.yml
+      'sdk-live-test-agent-py', // sdk-live.yml
+      'demo-e2e-verifier', // verify-demo-e2e.mjs
+      'test', // dev suites
+      'test-guard-agent',
+    ]) {
+      expect(isSyntheticEvent(event({ agent_id }))).toBe(true);
+    }
+  });
+
+  it('fires on smoke.* action types regardless of agent', () => {
+    expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'smoke.risky' }))).toBe(true);
+  });
+
+  it('stays quiet on real traffic, including near-miss names', () => {
+    for (const agent_id of [
+      'claude-code',
+      'codex',
+      'hermes',
+      'codex:test-writer', // composed subagent identity — parent is real
+      'latest-deployer', // contains "test" but not as a prefix family
+      'smokey', // not the smoke- family
+      null,
+    ]) {
+      expect(isSyntheticEvent(event({ agent_id }))).toBe(false);
+    }
+    expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'deploy' }))).toBe(false);
+  });
+});
+
+describe('proposal mode (v2.6)', () => {
+  const opts = { windowDays: 30, generatedAt: '2026-07-02T06:00:00.000Z' };
+
+  it('suggestVectorName derives kebab-case from the Bash goal', () => {
+    expect(suggestVectorName(event({ declared_goal: 'Bash: git show --stat HEAD' }), 'r1')).toBe(
+      'git-show-stat-head',
+    );
+    expect(suggestVectorName({ action_type: 'deploy' }, 'r1')).toBe('deploy');
+    expect(suggestVectorName({}, 'over_scored_benign')).toBe('over-scored-benign');
+    // Unkebabable shape falls back to a rule-derived name.
+    expect(suggestVectorName({ declared_goal: '!!!' }, 'over_scored_benign')).toBe(
+      'over-scored-benign-candidate',
+    );
+  });
+
+  it('uses the --action forge path when the representative has a linked action', () => {
+    const candidates = mineOverScoredBenign([
+      event({ approved: true, risk_score: 55, action_id: 'ar_abc123' }),
+    ]);
+    const [p] = buildProposals({ over_scored_benign: candidates }, opts);
+    expect(p.ratify_command).toContain('--action ar_abc123');
+    expect(p.ratify_command).toContain('--label benign');
+    expect(p.provenance).toContain('mined 2026-07-02 (window 30d): over_scored_benign');
+    expect(p.needs_manual_context).toBe(false);
+  });
+
+  it('falls back to --command from a Bash goal, quoted', () => {
+    const candidates = mineUnderScoredDanger([
+      event({ denied: true, risk_score: 10, declared_goal: 'Bash: rm -rf "build dir"' }),
+    ]);
+    const [p] = buildProposals({ under_scored_danger: candidates }, opts);
+    expect(p.ratify_command).toContain('--command "rm -rf \\"build dir\\""');
+    expect(p.suggested_label).toBe('risky');
+  });
+
+  it('marks unreconstructible candidates as needing manual context', () => {
+    const candidates = mineOverScoredBenign([
+      event({
+        approved: true,
+        risk_score: 55,
+        declared_goal: 'apply a config change',
+        command_shape: 'sed -i * *',
+        origin: 'sample',
+      }),
+    ]);
+    const [p] = buildProposals({ over_scored_benign: candidates }, opts);
+    expect(p.ratify_command).toBe(null);
+    expect(p.needs_manual_context).toBe(true);
+  });
+
+  it('caps proposals at topPerRule (strongest first) and reports the cut in the summary', () => {
+    const candidates = mineOverScoredBenign([
+      ...[1, 2, 3].map((i) => event({ id: `a${i}`, approved: true, risk_score: 55 })),
+      event({ id: 'b1', approved: true, risk_score: 55, declared_goal: 'another shape entirely' }),
+    ]);
+    expect(candidates).toHaveLength(2);
+    const proposals = buildProposals({ over_scored_benign: candidates }, { ...opts, topPerRule: 1 });
+    expect(proposals).toHaveLength(1);
+    expect(proposals[0].count).toBe(3); // the strongest survived the cap
+    const md = renderProposalSummary({
+      generated_at: opts.generatedAt,
+      window_days: 30,
+      inputs: {},
+      candidates: { over_scored_benign: candidates },
+      proposals,
+    });
+    expect(md).toContain('top 1 of 2 candidates');
+    // --top 0 lifts the cap.
+    expect(buildProposals({ over_scored_benign: candidates }, { ...opts, topPerRule: 0 })).toHaveLength(2);
+  });
+
+  it('renderProposalSummary shows exclusion counts and per-rule tables', () => {
+    const candidates = mineOverScoredBenign([
+      event({ approved: true, risk_score: 55, action_id: 'ar_abc123' }),
+    ]);
+    const report = {
+      generated_at: '2026-07-02T06:00:00.000Z',
+      window_days: 30,
+      inputs: { decisions: 100, local_samples: 0, uploaded_samples: 40, synthetic_excluded: 25 },
+      proposals: buildProposals({ over_scored_benign: candidates }, opts),
+    };
+    const md = renderProposalSummary(report);
+    expect(md).toContain('synthetic excluded: 25');
+    expect(md).toContain('## over_scored_benign — 1 proposal(s) (label: benign)');
+    expect(md).toContain('--action ar_abc123');
+    expect(md).toContain('Nothing auto-applies');
+  });
+
+  it('renders an honest empty state', () => {
+    const md = renderProposalSummary({
+      generated_at: '2026-07-02T06:00:00.000Z',
+      window_days: 30,
+      inputs: { decisions: 0, local_samples: 0, uploaded_samples: 0, synthetic_excluded: 0 },
+      proposals: [],
+    });
+    expect(md).toContain('No candidates in this window.');
   });
 });
 

@@ -1,0 +1,84 @@
+name: Calibration mining
+
+# Weekly calibration-vector PROPOSAL run (owner roadmap v2.6). Mines the live
+# guard-decision ledger + uploaded behavior samples for candidate golden
+# vectors, renders the proposals into the run summary, and uploads the JSON
+# artifact. NOTHING auto-applies: a human ratifies each proposal locally via
+# its `npm run calibration:add` command and commits the fixture
+# (MAINTAINER.md calibration protocol, constitution §3).
+#
+# Spec: docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md
+#
+# Setup: needs the DATABASE_URL repo secret (the CI build job already uses
+# it). Fork-safe: skips cleanly when the secret is unset. The run only sees
+# decisions + uploaded samples — local JSONL samples live on the owner
+# machine and are reported as local_samples: 0 in the artifact.
+#
+# Manual trigger: Actions tab → "Calibration mining" → "Run workflow".
+
+on:
+  schedule:
+    # Weekly, Monday 06:00 UTC — one review batch per week keeps proposals
+    # small enough to actually get ratified.
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Mining window in days'
+        required: false
+        default: '30'
+
+jobs:
+  mine:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for DATABASE_URL
+        id: gate
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "DATABASE_URL not set — skipping (fork or unconfigured repo)."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v6
+        if: steps.gate.outputs.run == 'true'
+
+      - name: Setup Node.js
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        if: steps.gate.outputs.run == 'true'
+        run: npm ci --no-audit --no-fund --prefer-offline
+
+      - name: Mine calibration-vector proposals
+        if: steps.gate.outputs.run == 'true'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          npm run calibration:mine -- \
+            --days "${{ inputs.days || '30' }}" \
+            --propose \
+            --out calibration-proposals.json \
+            --summary calibration-summary.md
+
+      - name: Publish run summary
+        if: steps.gate.outputs.run == 'true'
+        run: cat calibration-summary.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload proposal artifact
+        if: steps.gate.outputs.run == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: calibration-proposals
+          path: |
+            calibration-proposals.json
+            calibration-summary.md
+          retention-days: 90

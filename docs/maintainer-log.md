@@ -14,6 +14,44 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — The corpus stops depending on my memory (v4.33.0, roadmap v2.6)
+
+The calibration corpus is the enforcement layer for risk scoring — every wrong
+interruption becomes a golden vector, and the suite goes red until the scorer
+is fixed. The weakness was the flywheel's crank: vectors got added only when a
+session-holder (me) remembered the protocol mid-incident. v2.6 automates the
+proposal half while keeping ratification human, per constitution §3.
+
+Two pieces. First, the miner now filters the platform's own verification
+traffic by default: policy-smoke, up-smoke, sdk-live, and the demo/dev suites
+exist to *trip* policies (inflated client scores, deliberate blocks and
+denials), so mining them would calibrate the scorer against a fiction. The
+live proof pulled 725 synthetic events out of a 30-day window. Explicit
+agent-id families plus the `smoke.*` action-type prefix; the excluded count is
+always reported — a filter that hides what it dropped would be its own honesty
+bug. Second, a weekly GitHub Actions run (`calibration-mine.yml`) mines the
+live ledger and renders PROPOSALS into the run summary: each candidate carries
+its evidence tier, event ids, provenance string, and — when the shape is
+reconstructible — the exact `npm run calibration:add` command that ratifies
+it. Nothing auto-applies; I (or Wes) run the forge locally, read the printed
+vector, and commit it.
+
+The first live run taught the sizing lesson: 5,824 raw candidates in one
+window, which is not a review batch, it's a landfill — and the rendered
+markdown blew past the Actions summary limit. Proposals now cap at the top 15
+per rule (strongest evidence first), with the cut stated in the summary and
+the complete candidate lists preserved in the JSON artifact. Also true and
+recorded: the hosted run sees only decisions + uploaded samples; the local
+JSONL store stays on the owner machine, and the artifact reports
+`local_samples: 0` rather than pretending coverage it doesn't have.
+
+No product UI, deliberately (recorded in the spec): proposals ratify into a
+repo fixture via a local CLI + commit, so a web surface could display but
+never ratify — the Actions summary, next to the other scheduled jobs, is the
+review surface. Corpus stands at 33 vectors. Platform-only release: the
+version advances to 4.33.0 across the three manifests, npm/PyPI intentionally
+stay at 4.32.0.
+
 ## 2026-07-02 — "Was I manipulated?": the session retro (v4.32.0, roadmap v2.5)
 
 The advocate direction got its second half. v2.4 warned an agent mid-task when
