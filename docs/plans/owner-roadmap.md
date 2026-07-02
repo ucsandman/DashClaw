@@ -12,7 +12,7 @@ protocol: spec → build → gates → live proof → main.
 | 1 | Policy-tuning proposal loop | DONE 2026-07-01 (`2cd1071a..478c7231`, v4.22.0; CI green incl. smoke T1) |
 | 2 | Cumulative x402 budget gate | DONE 2026-07-02 (`583bf595..dfeac026`, v4.23.0; smoke B6 live 44/44; security review PASS, MEDIUM TOCTOU fixed in-ship) |
 | 3 | Calibration corpus v2: mining | DONE 2026-07-02 (v4.24.0; miner + forge shipped, corpus 22→26, cd-chain/npx classifier fixes, git-show 30→100 case closed) |
-| 4 | Agent's-advocate surface | NOT STARTED |
+| 4 | Agent's-advocate surface | DONE 2026-07-02 (v4.25.0; agent_defense rollup on GET /api/actions/:id via guard_decision_id FK, _shields persistence, UI card + replay badges + /explain advocate section; smoke 49/49 incl. H1–H4; security review PASS; bonus: PowerShell cmdlet classification fixes two wrong hook blocks, corpus 26→31) |
 | 5 | Effective-risk escalation observability | NOT STARTED |
 | 6 | June-deferral triage | NOT STARTED |
 

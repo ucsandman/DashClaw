@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.25.0] — 2026-07-02
+
+The agent's advocate (owner roadmap item 4): the governance ledger, reframed and surfaced as protection FOR the agent — the assumption ledger as its alibi, the shields as its defense against weaponization, the spend gates as its guard against bankrupting mistakes.
+
+### Added
+- **`agent_defense` rollup on `GET /api/actions/:id`** (additive response keys; no new route). For every governed action: what the agent declared (`declared_goal`/`reasoning`/`authorization_scope`/`trigger`), what it assumed (total/validated/invalidated/open counts), the exact guard decision that governed it — joined by the `guard_decision_id` foreign key, replacing the legacy action_type+60s-timestamp correlation in the new UI — and each shield's outcome (prompt-injection scan, non-fabrication verdict/violations/receipt, x402 spend gate for purchase actions). The linked decision row also rides along as `guard_decision` with its JSON columns parsed.
+- **Structural shield persistence.** The guard now records the prompt-injection scan's outcome (`clean | warned | blocked | disabled`) in the persisted decision context (`_shields`, next to `_risk_breakdown`) — warn-level catches and "scan ran, found nothing" were previously not recorded anywhere. Honesty rule throughout: rows from before this release render as `not_recorded`; the advocate surface never fabricates a clean bill.
+- **Surfaces:** an "Agent Defense" card on the action detail views, a counts-only badge row on the shareable `/replay` story card (never assumption text), a "The agent's advocate" section on `/explain`, and advocate positioning in `/docs`. New H-series claims in the claims-audit ledger, pinned live by policy smoke checks H1–H4 (harness 44 → 49).
+- **PowerShell command classification in the governance hooks.** The pretool hook now routes the PowerShell tool through the semantic classifier, which understands Verb-Noun cmdlets (`Get-*` readonly, `Remove-*` destructive, `Invoke-Expression` code execution, `Invoke-WebRequest` network), and bounded single-file `Remove-Item` grades like bounded `rm` (`-Force` is not recursion). Born from two wrong interruptions of the maintainer itself this session — both are now labeled calibration vectors (corpus 26 → 31).
+
+## [4.24.0] — 2026-07-02
+
+Calibration corpus v2 — mining (owner roadmap item 3). *(Entry backfilled during the 4.25.0 release: the 4.24.0 ship landed without its changelog block — the maintainer-log entry existed, this file was missed.)*
+
+### Added
+- **`npm run calibration:mine`** — read-only miner over guard decisions, recorded behavior samples, and the approvals ledger for calibration candidates: benign evidence that scored into the interrupt band, dangerous evidence that scored below it, and shapes a human has repeatedly approved. Every candidate carries its evidence rows and the persisted `_risk_breakdown`.
+- **`npm run calibration:add`** — the vector forge: takes an `action_id` or raw command, runs both scorers live (client `classify_bash`, server `computeRiskScore`), and emits a fixture-ready golden vector with provenance and suggested bounds.
+- Chain-aware `classify_bash` (per-segment classification of `&&`/`;`/`|` chains) and `npx` reclassification; corpus grew 22 → 26 vectors and closed the June "git show risk 100" forensics case (client-70 fallback + velocity + LLM amplifier).
+
 ## [4.23.0] — 2026-07-02
 
 Cumulative x402 budget gate (owner roadmap item 2): the spend policy now interrupts runaway *cumulative* cost, not just the single purchase.

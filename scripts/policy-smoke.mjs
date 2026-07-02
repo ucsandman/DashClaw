@@ -483,6 +483,49 @@ async function main() {
     }
   }
 
+  // H: agent's-advocate rollup (owner roadmap item 4)
+  // Spec: docs/superpowers/specs/2026-07-02-agents-advocate-surface.md
+  {
+    const agent = agentFor('h');
+    const guarded = await api('POST', '/api/guard?record=true', {
+      action_type: 'smoke.advocate', declared_goal: `advocate smoke action ${RUN}`,
+      agent_id: agent,
+    });
+    const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+    check('H1', 'guarded+recorded action created for the defense rollup',
+      Boolean(actionId), `decision=${guarded.json?.decision} action_id=${actionId}`);
+
+    if (actionId) {
+      const detail = await api('GET', `/api/actions/${actionId}`);
+      const defense = detail.json?.agent_defense;
+      check('H1', 'GET /api/actions/:id carries the agent_defense rollup',
+        Boolean(defense?.declared) && Boolean(defense?.shields),
+        `keys=${JSON.stringify(Object.keys(defense || {}))}`);
+
+      check('H2', 'defense decision is FK-linked to the exact guard decision',
+        defense?.decision?.linked === true &&
+        Boolean(defense?.decision?.id) &&
+        defense?.decision?.id === detail.json?.action?.guard_decision_id,
+        `defense.decision.id=${defense?.decision?.id} action.guard_decision_id=${detail.json?.action?.guard_decision_id}`);
+
+      check('H3', 'prompt-injection shield outcome persisted as clean',
+        defense?.shields?.prompt_injection?.status === 'clean',
+        `status=${defense?.shields?.prompt_injection?.status}`);
+
+      const asm = await api('POST', '/api/assumptions', {
+        action_id: actionId, assumption: `advocate alibi ${RUN}`, basis: 'policy smoke run',
+      });
+      const after = await api('GET', `/api/actions/${actionId}`);
+      check('H4', 'recorded assumption appears in the alibi counts',
+        asm.status < 400 && (after.json?.agent_defense?.assumed?.total || 0) >= 1,
+        `asm=${asm.status} assumed=${JSON.stringify(after.json?.agent_defense?.assumed)}`);
+    } else {
+      check('H2', 'defense decision FK link', false, 'no action_id from guard?record=true');
+      check('H3', 'prompt-injection shield persisted', false, 'no action_id from guard?record=true');
+      check('H4', 'alibi counts', false, 'no action_id from guard?record=true');
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

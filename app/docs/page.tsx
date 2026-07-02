@@ -877,7 +877,19 @@ if created.get("action", {}).get("status") == "pending_approval":
               </div>
               <h2 className="text-2xl font-bold tracking-tight">Loops & Assumptions</h2>
             </div>
-            
+
+            <p className="text-sm text-secondary leading-relaxed mb-6">
+              The assumption ledger is the agent&apos;s advocate, not paperwork. Governance runs both ways: it protects
+              the world from agents, and it protects the agent — from unfair blame (assumptions recorded before acting
+              are evidence of reasonable behavior on known information), from weaponization (prompt-injection scan
+              outcomes and non-fabrication receipts are persisted with each guard decision), and from bankrupting
+              mistakes (x402 spend gates interrupt before money moves). Every governed action&apos;s detail record
+              (<code className="text-xs">GET /api/actions/:id</code>) carries an <code className="text-xs">agent_defense</code> rollup
+              — what the agent declared, what it assumed, the exact guard decision that governed it
+              (joined by <code className="text-xs">guard_decision_id</code>), and each shield&apos;s outcome. Where a shield
+              didn&apos;t run, the rollup says <code className="text-xs">not_recorded</code> — it never fabricates a clean bill.
+            </p>
+
             <MethodEntry
               id="registerOpenLoop"
               signature="claw.registerOpenLoop(actionId, type, desc) / claw.register_open_loop(...)"
@@ -910,7 +922,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="recordAssumption"
               signature="claw.recordAssumption(asm) / claw.record_assumption(asm)"
-              description="Record what the agent believed to be true when making a decision."
+              description="Record what the agent believed to be true when making a decision. Assumptions are the agent's alibi: when an outcome goes wrong, the ledger shows the agent acted reasonably on what it knew — and which belief was later invalidated, by whom, and why. They roll up into the action's agent_defense summary."
               example={
                 <DocsCodeTabs 
                   nodeSnippet={`await claw.recordAssumption({ action_id, assumption: 'User is authenticated' });`}

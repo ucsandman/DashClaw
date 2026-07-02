@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:d6c310becca88843d24559f0cf98850cb8a1ca77",
+  "timestamp": "sha1:aa0761255f63070a14180b185af8876d9af2b177",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4181,6 +4181,7 @@
       "name": "DISABLE_PROMPT_INJECTION_SCAN",
       "required": false,
       "files": [
+        "__tests__/unit/guard-shields.test.js",
         "app/lib/guard.ts",
         "app/lib/validateEnv.ts"
       ],

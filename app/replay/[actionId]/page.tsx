@@ -11,6 +11,8 @@ import { formatCost, formatTokens } from '../../lib/formatCost';
 import { Badge } from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
 import CommunicationTrail from '../../components/CommunicationTrail';
+import { AgentDefenseBadges } from '../../components/AgentDefenseCard';
+import type { AgentDefense } from '../../lib/agent-defense';
 
 interface DashClawLogoProps {
   size?: number;
@@ -59,6 +61,7 @@ export default function PublicReplayPage() {
 
   const [action, setAction] = useState<ActionData | null>(null);
   const [guardDecision, setGuardDecision] = useState<GuardDecision | null>(null);
+  const [defense, setDefense] = useState<AgentDefense | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -90,7 +93,12 @@ export default function PublicReplayPage() {
         tokens_out: data.action.tokens_out,
       });
 
-      if (data.action.agent_id) {
+      setDefense(data.agent_defense || null);
+      // Exact FK-linked guard decision — supersedes the legacy time-window
+      // correlation below (kept only for rows without guard_decision_id).
+      if (data.guard_decision) setGuardDecision(data.guard_decision);
+
+      if (data.action.agent_id && !data.guard_decision) {
         try {
           const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`);
           if (guardRes.ok) {
@@ -283,6 +291,11 @@ export default function PublicReplayPage() {
                     <p className="mt-3 text-sm text-secondary italic border-l-2 border-white/5 pl-3 leading-relaxed group-hover/decision:text-secondary transition-colors">
                       &ldquo;{guardDecision?.reason ?? guardDecision?.reasons?.[0]}&rdquo;
                     </p>
+                  )}
+                  {defense && (
+                    <div className="mt-3">
+                      <AgentDefenseBadges defense={defense} />
+                    </div>
                   )}
                 </div>
               </Link>

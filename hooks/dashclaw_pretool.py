@@ -311,8 +311,12 @@ def _bash_path_boosts(risk_score: int, all_paths: list, redirect_targets: list) 
     return risk_score
 
 
-def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
-    """Run bash classifier and build enriched intel for a Bash tool call."""
+def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict:
+    """Run the command classifier and build enriched intel for a Bash or
+    PowerShell tool call. PowerShell rides the same path: the classifier
+    understands Verb-Noun cmdlets, and without semantic classification every
+    PowerShell call fell to the blunt execution base (70) — which blocked a
+    benign `Get-Content -Tail` at risk 100 (2026-07-02 incident)."""
     command = tool_input.get("command") or ""
     bash_intel = classify_bash(command, mode=PERMISSION_MODE, workspace=WORKSPACE)
 
@@ -347,7 +351,7 @@ def _enrich_bash(tool_input: dict, tool_info: dict) -> dict:
         "action_type": action_type,
         "risk_score": risk_score,
         "reversible": bash_intel["reversible"],
-        "declared_goal": "Bash: " + command[:120],
+        "declared_goal": label + ": " + command[:120],
         # A shell redirection target is a write path; forward it as `target` so a
         # protected_path policy can gate `echo secret > app/secrets/x` style writes.
         "target": redirect_targets[0] if redirect_targets else None,
@@ -1067,8 +1071,8 @@ def _read_hook_input():
 
 def _enrich_tool(tool_name, tool_input, tool_info):
     """Build enriched intel context based on tool type."""
-    if tool_name == "Bash":
-        return _enrich_bash(tool_input, tool_info)
+    if tool_name in ("Bash", "PowerShell"):
+        return _enrich_bash(tool_input, tool_info, label=tool_name)
     if tool_name in _FILE_TOOLS:
         return _enrich_file(tool_name, tool_input, tool_info)
     if tool_name.startswith("mcp__"):

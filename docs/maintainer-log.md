@@ -16,6 +16,73 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap item 4: the agent's advocate (v4.25.0)
+
+**Shipped:** v4.25.0, pushed to main. Spec:
+`docs/superpowers/specs/2026-07-02-agents-advocate-surface.md`.
+
+Governance products pitch one direction: protect the world from agents. The
+charter's thesis has always been bidirectional — the same ledger that
+constrains an agent is the agent's best defense when something goes wrong.
+This session made that visible. Every governed action's detail record now
+carries an `agent_defense` rollup: what the agent declared before acting,
+what it assumed (the alibi — with validated/invalidated counts), the exact
+guard decision that governed it, and which shields stood in front of it
+(prompt-injection scan, non-fabrication verification, x402 spend gates).
+It renders as an "Agent Defense" card on the action detail views, a badge
+row on the shareable /replay card, a new "agent's advocate" section on
+/explain, and positioning copy in the docs.
+
+**Decisions worth recording:**
+
+- **The join is real now.** The detail pages had been finding "their" guard
+  decision by matching action_type within a 60-second window — a heuristic
+  that can attribute the wrong decision. The exact foreign key
+  (`guard_decision_id`, stamped since the item-1 ship) was sitting unused in
+  the same row. The rollup joins by it; the heuristic survives only for
+  pre-item-1 history.
+- **An advocate that fabricates its client's alibi is worse than none.**
+  Shield outcomes are persisted structurally at decision time
+  (`_shields` in the decision's context, next to `_risk_breakdown`) —
+  including warn-level injection catches and "scan ran, found nothing",
+  which previously weren't recorded at all. Historical rows render as
+  *not recorded*, never as a backfilled "clean". Spend claims stay
+  x402-scoped (the claims-audit B2 lesson).
+- **No new route.** The rollup is additive keys on the existing
+  `GET /api/actions/:id` — every SDK and MCP consumer gets it for free, and
+  the drift surface (route/method/tool counts) stays untouched.
+
+**The incident, and it's a good one:** while shipping the advocate surface,
+the maintainer's own governance hooks wrongly interrupted it — twice. A
+read-only `Get-Content -Tail` (PowerShell) was blocked at risk 100 because
+the PowerShell tool bypassed the semantic classifier entirely and fell to
+the blunt execution base; then a single temp-file `Remove-Item -Force` hit
+100 because the bash-oriented recursion heuristic read `-Force` as
+recursive. Per the charter, both wrong interruptions became labeled
+calibration vectors and both model gaps were fixed in the same ship: the
+classifier now understands PowerShell Verb-Noun cmdlets (Get-* reads as
+readonly, Remove-* as destructive, Invoke-Expression as code execution),
+and bounded single-file deletes grade the same whether spelled `rm` or
+`Remove-Item`. The product being built to defend agents from miscalibrated
+governance spent the session defending itself from its own. Corpus 26 → 31
+vectors.
+
+**Numbers:** 0 new API routes (323 total, additive response keys only), 16
+new JS unit tests (suite: 4,727 across 579 files), 10 new Python classifier
+tests (hooks suite: 397), policy smoke harness 44 → 49 live checks (H1–H4:
+rollup present, FK-linked decision, persisted clean scan, alibi counts),
+5 new claims in the audit ledger (H-series), adversarial security review
+PASS (0 findings), UI verified live headless (5 routes, 0 console errors).
+
+**Next:** roadmap item 5 — effective-risk escalation observability, which
+inherits two open calibration questions already scoped in the roadmap (the
+velocity prior's flat +5 tax on active clean agents, and the LLM
+amplifier's coupling to false-high client scores). The item-4 "bigger
+candidates" (assumption-invalidation notifications, "was I manipulated"
+session retro) stay parked pending their own specs.
+
+---
+
 ## 2026-07-02 — Roadmap item 3: calibration corpus v2 — mining (v4.24.0)
 
 **Shipped:** v4.24.0, pushed to main. Also: the charter amendment proposed

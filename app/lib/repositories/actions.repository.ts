@@ -1,4 +1,6 @@
 import { OUTCOME_FIELDS } from '../validate.js';
+import { buildAgentDefense, type AgentDefense } from '../agent-defense';
+import { getGuardDecisionById } from './guardrails.repository';
 
 type Row = Record<string, unknown>;
 
@@ -746,6 +748,16 @@ interface ActionWithRelations {
     first_message_at: unknown;
     last_message_at: unknown;
   };
+  guard_decision: Row | null;
+  agent_defense: AgentDefense;
+}
+
+// guard_decisions stores JSON as text; parse the payload columns for the
+// response so UI/SDK consumers don't re-implement defensive parsing.
+function parseJsonColumn(value: unknown): unknown {
+  if (value == null || typeof value === 'object') return value ?? null;
+  if (typeof value !== 'string') return null;
+  try { return JSON.parse(value); } catch { return null; }
 }
 
 export async function getActionWithRelations(
@@ -772,10 +784,27 @@ export async function getActionWithRelations(
   const action = actions[0];
   if (!action) return null;
 
+  // Agent's-advocate rollup: join the guard decision by the exact FK stamped
+  // at write time (never the legacy action_type+timestamp heuristic). Only
+  // queried when the link exists; absence renders as linked:false.
+  let guardDecision: Row | null = null;
+  if (typeof action.guard_decision_id === 'string' && action.guard_decision_id) {
+    guardDecision = await getGuardDecisionById(sql, orgId, action.guard_decision_id);
+  }
+
   return {
     action,
     open_loops: loops,
     assumptions,
+    guard_decision: guardDecision
+      ? {
+          ...guardDecision,
+          matched_policies: parseJsonColumn(guardDecision.matched_policies),
+          context: parseJsonColumn(guardDecision.context),
+          evidence: parseJsonColumn(guardDecision.evidence),
+        }
+      : null,
+    agent_defense: buildAgentDefense(action, guardDecision, assumptions),
     message_summary: {
       total: msgTotal,
       participants: msgRaw.participants ? [...new Set((msgRaw.participants as string).split(',').filter(Boolean))] : [],

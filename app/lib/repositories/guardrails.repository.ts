@@ -275,6 +275,26 @@ export async function getPolicyById(
   return (rows as Array<{ id: string; name: string; policy_type: string; rules: string | null }>)[0] ?? null;
 }
 
+/**
+ * Single guard-decision fetch by id, org-scoped. Feeds the agent_defense
+ * rollup on the action detail response via `action_records.guard_decision_id`
+ * — the exact FK link, not the legacy action_type+timestamp heuristic.
+ */
+export async function getGuardDecisionById(
+  sql: SqlClient,
+  orgId: string,
+  id: string,
+): Promise<Record<string, unknown> | null> {
+  const rows = await sql.query(
+    `SELECT id, decision, reason, matched_policies, context, evidence,
+            risk_score, action_type, agent_id, verification_status,
+            replay_status, act_status, created_at
+     FROM guard_decisions WHERE org_id = $1 AND id = $2 LIMIT 1`,
+    [orgId, id],
+  );
+  return rows[0] ?? null;
+}
+
 /** id → name for a bounded set of guard policies (flood labels). */
 export async function getPolicyNamesByIds(
   sql: SqlClient,

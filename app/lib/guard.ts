@@ -276,6 +276,14 @@ function redactAny(value: unknown, findings: unknown[]): unknown {
   return value;
 }
 
+// Structural shield outcomes persisted with the decision (context._shields).
+// null = the check never ran on this evaluation (halt, deadline) — persisted
+// as absent, never as a fabricated "clean".
+export type PromptInjectionShieldStatus = 'clean' | 'warned' | 'blocked' | 'disabled';
+interface GuardShields {
+  prompt_injection: PromptInjectionShieldStatus | null;
+}
+
 // Mutable accumulator threaded through the guard phases below.
 interface GuardAccumulator {
   reasons: string[];
@@ -284,10 +292,11 @@ interface GuardAccumulator {
   nonFabEvidence: unknown[];
   nonFabStripPaths: Set<string>;
   highestDecision: string;
+  shields: GuardShields;
 }
 
 function newAccumulator(): GuardAccumulator {
-  return { reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), highestDecision: 'allow' };
+  return { reasons: [], warnings: [], matchedPolicies: [], nonFabEvidence: [], nonFabStripPaths: new Set(), highestDecision: 'allow', shields: { prompt_injection: null } };
 }
 
 function raiseDecision(acc: GuardAccumulator, action: string): void {
@@ -633,7 +642,11 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
 
 // Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true).
 function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): void {
-  if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') return;
+  if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') {
+    acc.shields.prompt_injection = 'disabled';
+    return;
+  }
+  acc.shields.prompt_injection = 'clean';
   const textFields = [context.declared_goal, context.action_type].filter(Boolean) as string[];
   for (const text of textFields) {
     const scan = scanForPromptInjection(text);
@@ -643,8 +656,10 @@ function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): 
       acc.reasons.push(reason);
       acc.matchedPolicies.push('builtin:prompt_injection_scan');
       raiseDecision(acc, 'block');
+      acc.shields.prompt_injection = 'blocked';
     } else if (scan.recommendation === 'warn') {
       acc.warnings.push(reason);
+      if (acc.shields.prompt_injection !== 'blocked') acc.shields.prompt_injection = 'warned';
     }
   }
 }
@@ -929,9 +944,17 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
     decision: acc.highestDecision,
     reason: acc.reasons.join('; ') || null,
     matchedPolicies: acc.matchedPolicies,
-    // The breakdown rides inside the persisted context JSON (additive,
-    // underscore-prefixed) — no schema migration, queryable via jsonb.
-    context: { ...(input.safeContextForLog as Record<string, unknown>), _risk_breakdown: input.riskBreakdown },
+    // The breakdown + shield outcomes ride inside the persisted context JSON
+    // (additive, underscore-prefixed) — no schema migration, queryable via
+    // jsonb. _shields is only written when a shield actually ran: absence
+    // means "not recorded", never "clean".
+    context: {
+      ...(input.safeContextForLog as Record<string, unknown>),
+      _risk_breakdown: input.riskBreakdown,
+      ...(acc.shields.prompt_injection !== null
+        ? { _shields: { prompt_injection: acc.shields.prompt_injection } }
+        : {}),
+    },
     evidence: input.evidenceJson,
     riskScore: input.adjustedRiskScore,
     actionType: context.action_type || null,
@@ -1114,6 +1137,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
         nonFabEvidence: [...liveAcc.nonFabEvidence],
         nonFabStripPaths: new Set(liveAcc.nonFabStripPaths),
         highestDecision: liveAcc.highestDecision,
+        shields: { ...liveAcc.shields },
       }
     : liveAcc;
 

@@ -114,6 +114,62 @@ _INLINE_ESCAPE_HATCH_RE = re.compile(
     re.IGNORECASE,
 )
 
+# PowerShell cmdlets follow Verb-Noun; the approved verb carries the intent.
+# The pretool hook routes the PowerShell tool through this classifier the same
+# way it routes Bash — before that, every cmdlet fell through to "unknown" and
+# the hook's blunt execution base (70) blocked benign reads (2026-07-02
+# incident: `Get-Content docs/... -Tail 40` scored 100 and was policy-blocked).
+_PS_CMDLET_RE = re.compile(r"^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$")
+
+# Cmdlets whose noun, not verb, decides the intent — checked before the verb map.
+_PS_SPECIAL_CMDLETS = {
+    "invoke-webrequest": "network",
+    "invoke-restmethod": "network",
+    "test-connection": "network",
+    "test-netconnection": "network",
+}
+
+_PS_VERB_INTENTS = {
+    # observation / filtering / shaping — no side effects
+    "get": "readonly", "select": "readonly", "measure": "readonly",
+    "test": "readonly", "compare": "readonly", "format": "readonly",
+    "sort": "readonly", "group": "readonly", "resolve": "readonly",
+    "convertto": "readonly", "convertfrom": "readonly",
+    "split": "readonly", "join": "readonly", "where": "readonly",
+    "show": "readonly", "find": "readonly", "search": "readonly",
+    # mutation
+    "set": "write", "new": "write", "add": "write", "copy": "write",
+    "move": "write", "rename": "write", "write": "write", "out": "write",
+    "export": "write", "import": "write", "update": "write",
+    "register": "write", "unregister": "write", "publish": "write",
+    # destructive / lifecycle
+    "remove": "destructive", "clear": "destructive",
+    "uninstall": "destructive", "reset": "destructive", "revoke": "destructive",
+    "stop": "process_management", "start": "process_management",
+    "restart": "process_management", "suspend": "process_management",
+    "resume": "process_management", "wait": "process_management",
+    "install": "package_management",
+    # arbitrary code execution / session escalation
+    "invoke": "interpreter",
+    "enter": "system_admin", "enable": "system_admin", "disable": "system_admin",
+}
+
+
+def _classify_powershell(base_name: str) -> Optional[str]:
+    """Intent for a PowerShell Verb-Noun cmdlet, or None if not cmdlet-shaped
+    (or the verb is unrecognized — those keep the conservative unknown path).
+    Bash hyphenated commands (apt-get, systemd-*) never reach here: their
+    category frozensets are checked first, and unmapped verbs return None."""
+    lowered = base_name.lower()
+    special = _PS_SPECIAL_CMDLETS.get(lowered)
+    if special:
+        return special
+    if not _PS_CMDLET_RE.match(base_name):
+        return None
+    verb = lowered.split("-", 1)[0]
+    return _PS_VERB_INTENTS.get(verb)
+
+
 SYSTEM_ADMIN_COMMANDS = frozenset({
     "systemctl", "service", "journalctl",
     "useradd", "userdel", "usermod", "groupadd", "groupdel",
@@ -164,14 +220,20 @@ _GLOB_CHARS = "*?["
 
 
 def is_bounded_rm(parsed: dict) -> bool:
-    """True for a non-recursive rm with a few explicit, non-glob targets."""
+    """True for a non-recursive rm / Remove-Item with a few explicit,
+    non-glob targets. Remove-Item gets its own recursion test: PowerShell
+    recursion is the `-Recurse` switch, and the bash single-dash heuristic
+    ("-r anywhere in the flag") would misread `-Force` as recursive."""
     base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
-    if base != "rm":
-        return False
     flags = parsed.get("flags", [])
-    recursive = "--recursive" in flags or any(
-        f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
-    )
+    if base == "rm":
+        recursive = "--recursive" in flags or any(
+            f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
+        )
+    elif base.lower() == "remove-item":
+        recursive = any(f.lower().startswith("-rec") for f in flags)
+    else:
+        return False
     if recursive:
         return False
     targets = parsed.get("targets", [])
@@ -254,6 +316,10 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
         return "write"
     if base_name in READONLY_COMMANDS:
         return "readonly"
+
+    ps_intent = _classify_powershell(base_name)
+    if ps_intent is not None:
+        return ps_intent
 
     if wrapper == "sudo":
         return "system_admin"

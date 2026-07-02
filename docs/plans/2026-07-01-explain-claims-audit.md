@@ -43,6 +43,13 @@
 - G2. "Fail closed" best-practice card: non_fabrication blocks on any error/malformed source-of-truth.
 - G3. The simulator/playground are labeled illustrative — they need not match guard math, but they MUST NOT imply policy TYPES that don't exist (see B2).
 
+### H. Agent's-advocate section (added 2026-07-02, roadmap item 4)
+- H1. Every governed action's detail record (`GET /api/actions/:id`) carries an `agent_defense` rollup: declared fields, assumption counts, the FK-linked guard decision, and shield outcomes.
+- H2. The linked decision in `agent_defense` is joined by `action_records.guard_decision_id` — the exact decision that governed the action, not a timestamp correlation.
+- H3. The prompt-injection scan's outcome (`clean | warned | blocked | disabled`) is persisted with the decision (`context._shields`); rows from before this ship render as `not_recorded` — the surface never fabricates a "clean".
+- H4. Assumptions recorded against the action appear in the rollup's counts (the alibi).
+- H5. Spend-gate claims stay x402-scoped (inherits the B2 boundary; the advocate copy names x402 explicitly).
+
 ## Code map (from recon, 2026-07-01)
 
 **Engine:** 15 policy types dispatched via `POLICY_EVALUATORS` (`app/lib/guard.ts:1480-1558`), 1:1 with the `/policies` UI picker (`app/policies/lib/policyFormModel.js:48-62`). Kill switch, deadline degradation, replay protection, prompt-injection scan are additional non-policy gates.

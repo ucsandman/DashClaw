@@ -76,6 +76,7 @@ p, li { color: var(--text-2); }
     <a class="brandmark" href="#top"><span class="dot" aria-hidden="true"></span>DashClaw</a>
     <a href="#problem">The problem</a>
     <a href="#loop">The loop</a>
+    <a href="#advocate">The agent's advocate</a>
     <a href="#simulator">Guard simulator</a>
     <a href="#policies">Policy playground</a>
     <a href="#integrate">Integrate</a>
@@ -112,6 +113,28 @@ p, li { color: var(--text-2); }
   <p class="lede">A fully governed action makes four calls. Click each step — or use the arrow keys — to see what actually goes over the wire.</p>
   <div id="loop-steps" role="tablist" aria-label="Governance loop steps" style="display:grid; grid-template-columns:repeat(4, 1fr); gap:8px; margin:20px 0;"></div>
   <div id="loop-detail" class="card" style="padding:20px;" role="tabpanel" aria-live="polite"></div>
+</div></section>
+<section id="advocate"><div class="wrap">
+  <div class="meta-label">Protection runs both ways</div>
+  <h2>The agent's advocate</h2>
+  <p class="lede">Governance is usually framed as protecting the world from agents. The same ledger protects the agent — from unfair blame, from being weaponized, and from bankrupting itself. Every governed action carries an <code class="mono" style="font-size:13px;">agent_defense</code> rollup on its detail record: what the agent declared, what it assumed, and which shields stood in front of it.</p>
+  <div style="display:grid; gap:8px; margin-top:16px;">
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">The alibi</div>
+      <h3 style="margin:6px 0 8px;">Assumptions are evidence, not overhead</h3>
+      <p style="margin:0; color:var(--text-2);">Before acting, an agent records what it believed and why (<span class="mono" style="font-size:12.5px;">assumption + basis</span>), tied to the action. When an outcome goes wrong, the ledger shows whether the agent acted reasonably on what it knew — and which assumption was later invalidated, by whom, and why. Blame lands on the broken belief, not reflexively on the agent.</p>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">Protection from weaponization</div>
+      <h3 style="margin:6px 0 8px;">Shields, with receipts</h3>
+      <p style="margin:0; color:var(--text-2);">Declared goals are scanned for prompt-injection patterns on every guard call, and the scan's outcome is persisted with the decision — a manipulated agent has evidence, not just a denial. Content policies can verify claims against a source of truth (<span class="mono" style="font-size:12.5px;">non_fabrication</span>) and issue signed receipts, failing closed when the source can't be checked. Where a shield didn't run, the record says <em>not recorded</em> — the advocate never fabricates its client's alibi.</p>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">Protection from bankrupting mistakes</div>
+      <h3 style="margin:6px 0 8px;">Spend gates on x402 purchases</h3>
+      <p style="margin:0; color:var(--text-2);">For agents that spend real money over x402, per-purchase caps and cumulative window budgets interrupt a runaway purchase <em>before</em> the money moves — a block or an approval pause, recorded like any other decision. An agent under a spend gate cannot quietly drain a wallet; it gets stopped, and the stop is its proof of restraint.</p>
+    </div>
+  </div>
 </div></section>
 <section id="simulator"><div class="wrap">
   <div class="meta-label">Illustrative simulation</div>

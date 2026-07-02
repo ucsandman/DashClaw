@@ -15,6 +15,7 @@ import { Card, CardHeader, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import AssumptionGraph from '../../components/AssumptionGraph';
 import RiskBreakdownPanel from '../../components/RiskBreakdownPanel';
+import AgentDefenseCard from '../../components/AgentDefenseCard';
 import { parseJsonArray } from '../../lib/parseJson';
 
 interface CopyButtonProps {
@@ -52,6 +53,7 @@ export default function DecisionReplayPage() {
   const [assumptions, setAssumptions] = useState<any[]>([]);
   const [trace, setTrace] = useState<any>(null);
   const [guardDecision, setGuardDecision] = useState<any>(null);
+  const [defense, setDefense] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [pendingOps, setPendingOps] = useState<Record<string, string>>({});
@@ -69,6 +71,10 @@ export default function DecisionReplayPage() {
       setAction(data.action);
       setLoops(data.open_loops || []);
       setAssumptions(data.assumptions || []);
+      setDefense(data.agent_defense || null);
+      // Exact FK-linked guard decision (action_records.guard_decision_id) —
+      // when present it supersedes the legacy time-window correlation below.
+      if (data.guard_decision) setGuardDecision(data.guard_decision);
 
       // Fetch trace data for failed/completed actions
       if (data.action.status === 'failed' || data.action.status === 'completed') {
@@ -81,8 +87,9 @@ export default function DecisionReplayPage() {
         } catch { /* trace is optional */ }
       }
 
-      // Fetch correlated guard decision (policy governance)
-      if (data.action.agent_id) {
+      // Fetch correlated guard decision (policy governance) — legacy
+      // heuristic, only for rows written before guard_decision_id stamping.
+      if (data.action.agent_id && !data.guard_decision) {
         try {
           const guardRes = await fetch(`/api/guard?agent_id=${encodeURIComponent(data.action.agent_id)}&limit=10`);
           if (guardRes.ok) {
@@ -860,6 +867,9 @@ export default function DecisionReplayPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Agent's-advocate rollup — what protected this agent */}
+          <AgentDefenseCard defense={defense} />
 
           {/* Causal Chain Summary */}
           {trace && (

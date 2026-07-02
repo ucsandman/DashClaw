@@ -5,6 +5,62 @@ from dashclaw_agent_intel.bash_classifier import classify_bash
 
 
 # ---------------------------------------------------------------------------
+# PowerShell cmdlet classification (Verb-Noun → intent)
+# ---------------------------------------------------------------------------
+
+class TestPowerShellClassification(unittest.TestCase):
+    """The PowerShell tool routes through classify_bash; cmdlet verbs carry
+    the intent. Regression anchor: 2026-07-02 incident where Get-Content
+    -Tail fell to 'unknown' and the hook's 70 base blocked a doc read."""
+
+    def test_get_content_tail_is_readonly(self):
+        r = classify_bash('Get-Content "docs/plans/audit.md" -Tail 40')
+        self.assertEqual(r["intent"], "readonly")
+        self.assertLessEqual(r["risk_score"], 10)
+
+    def test_get_childitem_pipeline_is_readonly(self):
+        r = classify_bash("Get-ChildItem docs | Select-Object Name, Length")
+        self.assertEqual(r["intent"], "readonly")
+
+    def test_remove_item_is_destructive(self):
+        r = classify_bash("Remove-Item -Recurse -Force build")
+        self.assertEqual(r["intent"], "destructive")
+        self.assertGreaterEqual(r["risk_score"], 70)
+
+    def test_remove_item_single_file_is_bounded(self):
+        # -Force alone is not recursion; a single explicit target grades like
+        # a bounded rm (2026-07-02 incident: one temp-file delete scored 100).
+        r = classify_bash("Remove-Item scratch/auth-state.json -Force -Confirm:$false")
+        self.assertEqual(r["intent"], "destructive")
+        self.assertLess(r["risk_score"], 70)
+
+    def test_set_content_is_write(self):
+        r = classify_bash('Set-Content out.txt "data"')
+        self.assertEqual(r["intent"], "write")
+
+    def test_invoke_webrequest_is_network(self):
+        r = classify_bash("Invoke-WebRequest https://example.com")
+        self.assertEqual(r["intent"], "network")
+
+    def test_invoke_expression_is_interpreter(self):
+        r = classify_bash("Invoke-Expression $payload")
+        self.assertEqual(r["intent"], "interpreter")
+
+    def test_stop_process_is_process_management(self):
+        r = classify_bash("Stop-Process -Id 1234")
+        self.assertEqual(r["intent"], "process_management")
+
+    def test_unmapped_verb_stays_unknown(self):
+        r = classify_bash("Frobnicate-Widget -All")
+        self.assertEqual(r["intent"], "unknown")
+
+    def test_bash_hyphenated_commands_unaffected(self):
+        # apt-get matches Verb-Noun shape but is caught by the package table first.
+        r = classify_bash("apt-get update")
+        self.assertEqual(r["intent"], "package_management")
+
+
+# ---------------------------------------------------------------------------
 # Intent classification
 # ---------------------------------------------------------------------------
 
