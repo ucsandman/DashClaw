@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.31.1] — 2026-07-02
+
+Internal QA tooling plus a calibration hardening fix. No new product surface and no route/SDK/MCP change — a patch release (the Node + Python SDKs are intentionally not republished; npm/PyPI stay at 4.30.0).
+
+### Added
+- **Guard hot-path load & stress harness (`npm run guard:load` → `scripts/guard-load.mjs`).** `/api/guard` sits in the hot path of every governed action and this repo has a history of guard latency regressions; functional + policy smoke prove correctness, this proves the endpoint holds its latency and degrades gracefully under concurrency. autocannon-based (new dev-dependency), operator-key auth like `policy-smoke.mjs`, local-DB-only. Three scenarios — `fast` (universal path + its `guard_decisions` audit write), `record` (`?record=true`, adds the `action_records` insert + Neon-pool pressure), and a `ramp` stress sweep that reports the knee — gating exit code on p99 + errors/5xx. Scope + the deferred LLM slow-path follow-up: `docs/plans/2026-07-02-guard-load-harness-scope.md`.
+- **`/repro` skill (`.claude/skills/repro/`).** Turns a bug symptom into a structured, reproducible bug report (summary / environment / repro steps / actual vs expected / evidence) and optionally scaffolds a failing regression test that pins it — a sharper fix prompt than a raw symptom, and a test that stops the bug returning.
+
 ### Fixed
 - **Two wrong self-blocks calibrated away:** `rmdir` of an empty directory and `Remove-Item -Recurse:$false` both scored 100 (extreme-risk block). The classifier now grades `rmdir` as a bounded delete (coreutils rmdir cannot remove content; Windows `rmdir /s` still escalates) and reads `-Recurse:$false` as the explicit non-recursion it is. Golden corpus 31 → 33 vectors, fix + vectors in one commit per the calibration playbook.
 

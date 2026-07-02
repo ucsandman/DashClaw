@@ -1,6 +1,6 @@
 {
   "name": "dashclaw-platform",
-  "version": "4.31.0",
+  "version": "4.31.1",
   "description": "Decision infrastructure for AI agents — governance runtime with policy enforcement, decision recording, and human-in-the-loop approval.",
   "private": true,
   "license": "MIT",
@@ -53,6 +53,7 @@
     "sdk:live": "node scripts/_run-with-env.mjs scripts/test-sdk-live.mjs",
     "sdk:live:python": "node scripts/_run-with-env.mjs scripts/run-sdk-live-python.mjs",
     "startup:smoke": "node scripts/startup-smoke.mjs",
+    "guard:load": "node scripts/guard-load.mjs",
     "reliability:evidence": "node scripts/collect-platform-convergence-evidence.mjs",
     "reliability:ws1:check": "node scripts/check-convergence-ws1-latency.mjs",
     "scripts:check-syntax": "node scripts/check-scripts-syntax.mjs",
@@ -130,6 +131,7 @@
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.9",
     "acorn": "^8.17.0",
+    "autocannon": "^8.0.0",
     "autoprefixer": "^10.5.0",
     "drizzle-kit": "^0.31.10",
     "eslint": "^8.57.1",

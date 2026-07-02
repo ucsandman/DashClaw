@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.31.0",
+    "current_version": "4.31.1",
     "next_bump": "none",
-    "reason": "4.31.0 ships assumption-invalidation notifications (owner roadmap v2.4) with NO Node SDK source change — the assumption_alerts guard-response field flows through the existing guard() passthrough. Version advances per the unified model but the SDK is NOT republished; npm stays at 4.30.0.",
+    "reason": "4.31.1 ships internal tooling (guard load harness, /repro skill) plus a calibration hardening fix — NO Node SDK source change. Version advances per the unified model but the SDK is NOT republished; npm stays at 4.30.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.31.0",
+    "current_version": "4.31.1",
     "next_bump": "none",
-    "reason": "4.31.0 ships assumption-invalidation notifications (roadmap v2.4) with NO Python SDK source change — guard() passes assumption_alerts through unchanged and validate_assumption() already existed. Version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.30.0.",
+    "reason": "4.31.1 ships internal tooling (guard load harness, /repro skill) plus a calibration hardening fix — NO Python SDK source change. Version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.30.0.",
     "domains": [
       "platform"
     ]
