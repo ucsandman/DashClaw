@@ -747,6 +747,61 @@ async function main() {
     if (typeof seedSql?.end === 'function') await seedSql.end().catch(() => {});
   }
 
+  // ── Advocate v2a: assumption-invalidation notifications (N1–N5) ─────────
+  {
+    console.log('\nAdvocate v2a: assumption-invalidation notifications...');
+    const agent = `smoke-asm-${RUN}`;
+    const act = await api('POST', '/api/actions', {
+      agent_id: agent, action_type: `smoke.assumption.${RUN}`,
+      declared_goal: `assumption invalidation scenario ${RUN}`,
+    });
+    const actionId = act.json?.action?.action_id || act.json?.action_id;
+    const asm = await api('POST', '/api/assumptions', {
+      action_id: actionId, assumption: `the flag is enabled (${RUN})`, basis: 'smoke seed',
+    });
+    const asmRow = asm.json?.assumption || asm.json || {};
+    const asmId = asmRow.assumption_id || asm.json?.assumption_id;
+
+    const inv = await api('PATCH', `/api/assumptions/${asmId}`, {
+      validated: false, invalidated_reason: `operator says the flag is OFF (${RUN})`,
+    });
+    check('N1', 'operator invalidation 200s and reports notification.message_id',
+      inv.status === 200 && !!inv.json?.notification?.message_id,
+      `status=${inv.status} body=${JSON.stringify(inv.json)?.slice(0, 200)}`);
+
+    const inbox = await api('GET', `/api/messages?agent_id=${agent}&type=assumption_invalidated&unread=true`);
+    const msgs = inbox.json?.messages || [];
+    check('N2', 'invalidation lands as one unread inbox message with doc_ref',
+      msgs.length === 1 && msgs[0]?.doc_ref === asmId,
+      `count=${msgs.length} doc_ref=${msgs[0]?.doc_ref} expected=${asmId}`);
+
+    const g1 = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: `smoke.assumption.next.${RUN}`,
+      declared_goal: `act after invalidation ${RUN}`,
+    });
+    const alerts = g1.json?.assumption_alerts || [];
+    check('N3', 'guard response carries assumption_alerts until acked',
+      alerts.length >= 1 && alerts[0]?.assumption_id === asmId,
+      `alerts=${JSON.stringify(alerts)?.slice(0, 200)}`);
+
+    await api('PATCH', '/api/messages', {
+      message_ids: [alerts[0]?.message_id].filter(Boolean), action: 'read', agent_id: agent,
+    });
+    const g2 = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: `smoke.assumption.after.${RUN}`,
+      declared_goal: `act after ack ${RUN}`,
+    });
+    check('N4', 'after ack, guard response carries no assumption_alerts',
+      !(g2.json?.assumption_alerts?.length),
+      `alerts=${JSON.stringify(g2.json?.assumption_alerts)?.slice(0, 200)}`);
+
+    const list = await api('GET', `/api/assumptions?agent_id=${agent}`);
+    const row = (list.json?.assumptions || []).find((r) => r.assumption_id === asmId);
+    check('N5', '/api/assumptions exposes notification_status=acknowledged',
+      row?.notification_status === 'acknowledged',
+      `row=${JSON.stringify(row)?.slice(0, 200)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
