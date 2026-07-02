@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:ecba0c8eaf63c0d0c24080149cc0a15649a19e51",
+  "timestamp": "sha1:74570d7149d538ba9cf9b1ee4539d785cc557d25",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3644,6 +3644,7 @@
         "scripts/collect-platform-convergence-evidence.mjs",
         "scripts/demo-agent.mjs",
         "scripts/fuzz-api.mjs",
+        "scripts/guard-load.mjs",
         "scripts/migrate-multi-tenant.mjs",
         "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/policy-smoke.mjs",
