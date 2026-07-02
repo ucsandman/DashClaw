@@ -103,6 +103,27 @@ Evaluate each parked item and either kill it with a reason or build it:
 /workflows Runs tab, docs evaluations page, LiveStream cadence port,
 /api/guard `days` param, picker URL persistence.
 
+## Roadmap v2 — to be built (Wes-led, next session)
+
+Items 0–6 are done. The next roadmap is Wes's call; these are the candidates
+that accumulated during v1, with their origin, so the drafting session starts
+from evidence instead of memory:
+
+- **x402 audit follow-ups** (item-2 security review, non-blocking): deadline
+  degradation noise on budget queries, agent-id attribution on purchases,
+  stale-approval cleanup.
+- **Agent's-advocate bigger candidates** (item-4 spec, "spec first"):
+  assumption-invalidation notifications to the agent mid-task; a "was I
+  manipulated" retro view over a session.
+- **Multi-agent governance gap** (memory: leaf calls governed but
+  mis-attributed) — needs a spec before any build.
+- **FinOps Phase C / CostClaw paid add-on** — money-gated: RFC §8, ask Wes
+  first (constitution §4 adjacent).
+- **Claude Desktop plugin** (4th plugin target) — consumer connector needs
+  OAuth on /api/mcp.
+- **Calibration corpus growth** — standing chore, but a v2 item could target
+  the miner's synthetic-traffic filter (item-3 note) and periodic mining runs.
+
 ## Standing chores (no status; every session touches them as needed)
 
 - Registry truth: `npm view` the four packages vs manifests when releasing.
