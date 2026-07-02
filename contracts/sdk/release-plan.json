@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.23.0",
+    "current_version": "4.24.0",
     "next_bump": "none",
-    "reason": "4.23.0 is a platform-only feature release (cumulative x402 budget gate: budget_* rules on x402_spend_limit, guard-time window-sum enforcement, post-insert TOCTOU re-verification, policy-smoke B6 block). NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.24.0 is a platform-only feature release (calibration corpus v2 mining: calibration:mine/:add scripts, chain-aware classify_bash + npx reclassification in the hooks, corpus 22->26 golden vectors). NO SDK source changed, so no republish is owed; npm stays at the last SDK release (dashclaw@4.21.0). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.23.0",
+    "current_version": "4.24.0",
     "next_bump": "none",
-    "reason": "4.23.0 is a platform-only feature release (cumulative x402 budget gate). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
+    "reason": "4.24.0 is a platform-only feature release (calibration corpus v2 mining). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release (dashclaw 4.21.0).",
     "domains": [
       "platform"
     ]
