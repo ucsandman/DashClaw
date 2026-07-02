@@ -17,7 +17,7 @@ mcp_servers=[{
 }]
 ```
 
-This gives the agent 32 governance tools and 6 resources automatically. The 8 core-governance tools are listed below; for the full inventory across optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, and behavior learning, see [`mcp-server/README.md`](../../mcp-server/README.md).
+This gives the agent 33 governance tools and 6 resources automatically. The 9 core-governance tools are listed below; for the full inventory across optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, and behavior learning, see [`mcp-server/README.md`](../../mcp-server/README.md).
 
 | Tool | Purpose |
 |---|---|
@@ -29,6 +29,7 @@ This gives the agent 32 governance tools and 6 resources automatically. The 8 co
 | `dashclaw_wait_for_approval` | Wait for human approval |
 | `dashclaw_session_start` | Register session |
 | `dashclaw_session_end` | Close session |
+| `dashclaw_session_retro` | Read the session's own defensibility retro |
 
 ## MCP + Skill (Recommended)
 
@@ -92,4 +93,4 @@ While the agent runs, open your DashClaw instance:
 | Lines of code | ~80 | ~410 |
 | Tool handling | Automatic (MCP protocol) | Manual (HTTP + result routing) |
 | Setup | One config line | Tool definitions + HTTP client |
-| Governance tools | 32 tools + 6 resources | 3 tools |
+| Governance tools | 33 tools + 6 resources | 3 tools |

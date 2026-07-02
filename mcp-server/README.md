@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 32 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 33 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
 
@@ -84,11 +84,11 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (32)
+## Tools (33)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
-**Core governance (8)** — the guard / record / invoke loop plus discovery and session lifecycle.
+**Core governance (9)** — the guard / record / invoke loop plus discovery and session lifecycle.
 
 | Tool | Description |
 |---|---|
@@ -100,6 +100,7 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_wait_for_approval` | Block until a human resolves an approval |
 | `dashclaw_session_start` | Register agent session |
 | `dashclaw_session_end` | Close agent session |
+| `dashclaw_session_retro` | Read the session's own defensibility retro (clean/review/flagged posture) |
 
 > **Session linkage:** after `dashclaw_session_start`, the server auto-stamps that session's id onto every `dashclaw_record` in the same connection (stdio). Pass `session_id` on `dashclaw_record` to override, or to attribute explicitly on the HTTP transport (`POST /api/mcp`), where each request is stateless.
 

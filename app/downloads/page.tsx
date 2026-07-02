@@ -267,7 +267,7 @@ hermes dashclaw doctor`}
             icon={Network}
             eyebrow="Model Context Protocol"
             title="MCP server"
-            description="32 governance tools plus 6 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
+            description="33 governance tools plus 6 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">

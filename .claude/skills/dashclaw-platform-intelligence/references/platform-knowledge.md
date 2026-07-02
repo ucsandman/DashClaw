@@ -230,8 +230,8 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**32 tools across 12 groups:**
-- *Core governance (8):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`.
+**33 tools across 12 groups:**
+- *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
 - *Optimal files (2):* `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`.
 - *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
 - *Credential hygiene (3):* `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`.

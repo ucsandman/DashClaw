@@ -123,7 +123,7 @@ function SectionNav({ items }: SectionNavProps) {
 const navItems = [
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (32)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (33)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -428,12 +428,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 32 governance tools across 12 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders) plus 6 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 33 governance tools across 12 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders) plus 6 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (32)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (33)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -453,6 +453,7 @@ except Exception as e:
                       { tool: 'dashclaw_wait_for_approval', desc: 'Wait for human decision', inputs: 'action_id, timeout_seconds' },
                       { tool: 'dashclaw_session_start', desc: 'Register agent session', inputs: 'agent_id, workspace' },
                       { tool: 'dashclaw_session_end', desc: 'Close session', inputs: 'session_id, status, summary' },
+                      { tool: 'dashclaw_session_retro', desc: 'Read the session\'s own defensibility retro (posture + evidenced findings)', inputs: 'session_id' },
                       { group: 'Optimal files', tool: 'dashclaw_optimal_files_preview', desc: 'Preview optimizer output for a session', inputs: 'session_id' },
                       { tool: 'dashclaw_optimal_files_manifest', desc: 'Generate optimal-files manifest', inputs: 'session_id, selections' },
                       { group: 'Session continuity', tool: 'dashclaw_handoff_create', desc: 'Write handoff bundle for next session', inputs: 'bundle, agent_id, project_id' },
@@ -888,6 +889,9 @@ if created.get("action", {}).get("status") == "pending_approval":
               — what the agent declared, what it assumed, the exact guard decision that governed it
               (joined by <code className="text-xs">guard_decision_id</code>), and each shield&apos;s outcome. Where a shield
               didn&apos;t run, the rollup says <code className="text-xs">not_recorded</code> — it never fabricates a clean bill.
+              <code className="text-xs">GET /api/sessions/:id/retro</code> (and the <code className="text-xs">dashclaw_session_retro</code> MCP
+              tool) composes these same per-action rollups across a whole session into one clean/review/flagged
+              defensibility posture.
             </p>
 
             <MethodEntry

@@ -111,6 +111,11 @@ Step 3: End session
                        summary="Analyzed 5 market segments, produced comparison report")
 ```
 
+Optional: call `dashclaw_session_retro` before Step 3 (or with `session_id` afterward — ending
+a session clears the active default) to read the session's own defensibility report: a
+clean/review/flagged posture composed from injection flags, goal drift, spend anomalies, and
+invalidated assumptions across every action in the session.
+
 ## Multi-Step Task Pattern
 
 Governing a sequence of dependent actions:
