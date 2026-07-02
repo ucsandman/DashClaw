@@ -40,13 +40,32 @@ export default function RiskBreakdownPanel({ breakdown }: { breakdown: any }) {
     const basis = p.basis === 'no_history'
       ? 'no history yet — fixed prior; improves as more actions are recorded'
       : p.total_actions != null
-        ? `${p.total_actions} actions, failure rate ${p.failure_rate ?? 0}`
+        ? `${p.total_actions} actions, failure rate ${p.failure_rate ?? 0}${p.velocity != null ? `, ${p.velocity}/hr` : ''}`
         : undefined;
-    rows.push({
-      label: 'predictive adjustment',
-      detail: basis,
-      delta: p.adjustment >= 0 ? `+${p.adjustment}` : String(p.adjustment),
-    });
+    const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
+    // Newer decisions decompose statistical vs LLM; older rows only carry the
+    // summed adjustment and render as the single legacy row.
+    const hasSplit = p.statistical_adjustment != null || p.llm != null;
+    if (hasSplit) {
+      rows.push({
+        label: 'history prior',
+        detail: basis,
+        delta: signed(p.statistical_adjustment ?? 0),
+      });
+      if (p.llm) {
+        rows.push({
+          label: 'LLM assessment',
+          detail: [p.llm.model, p.llm.reasoning].filter(Boolean).join(' — '),
+          delta: signed(p.llm.adjustment),
+        });
+      }
+    } else {
+      rows.push({
+        label: 'predictive adjustment',
+        detail: basis,
+        delta: signed(p.adjustment),
+      });
+    }
   }
 
   return (

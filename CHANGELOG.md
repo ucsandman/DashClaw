@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.26.0] — 2026-07-02
+
+Effective-risk escalation observability (owner roadmap item 5): every risk escalation is now explainable in one glance, and the two calibration holes exposed by the June "risk 100" forensics are closed.
+
+### Changed
+- **Velocity is an amplifier, not a signal.** The predictive layer's +5 velocity term (>5 actions/hour) now applies only when a failure-rate prior already fired (`failure_rate > 0.25`) — "failing, and failing fast." Clean high-velocity agents no longer pay a flat risk tax; runaway-loop protection remains the `rate_limit` policy's job. The cold-start `no_history` prior is unchanged.
+- **The LLM risk amplifier (±20) is triggered by server-side evidence only** (`max(server heuristic, org template)` + statistical prior vs the threshold). An agent-reported score still max-folds into the final risk — an agent declaring danger is believed — but a false-high client score (e.g. a classifier fallback) can no longer recruit the LLM adjustment on top of itself.
+
+### Added
+- **`risk_breakdown.predictive` decomposition** (additive keys): `statistical_adjustment`, `velocity`, and `llm { adjustment, model, reasoning }` are recorded separately, so forensics never infer the LLM term by subtraction. The Risk-derivation panel renders the history prior and the LLM assessment as separate rows, and the public `/replay` story card gains a one-line composition strip (`server 20 · template 15 · agent 42 · history +5 → 47`). New policy smoke checks I1–I3 (harness 49 → 53).
+
+### Fixed
+- **The breakdown panel was blank on the modern FK-linked path**: `getGuardDecisionById`/`getActionWithRelations` never lifted `context._risk_breakdown` to the `risk_breakdown` field the UI reads; only legacy time-window-correlated decisions showed a derivation. `GET /api/actions/:id` now exposes `guard_decision.risk_breakdown`.
+- **`GET /api/guard` (decision list) 500ed on local Postgres** (`42883 operator does not exist: text -> unknown`): the list query applied a jsonb operator to the TEXT `context` column. Both paths now lift the breakdown in JS — which also sidesteps `::jsonb` casts rejecting contexts carrying literal backslash-u0000 escapes — and the list payload still never leaks the raw context blob.
+
 ## [4.25.0] — 2026-07-02
 
 The agent's advocate (owner roadmap item 4): the governance ledger, reframed and surfaced as protection FOR the agent — the assumption ledger as its alibi, the shields as its defense against weaponization, the spend gates as its guard against bankrupting mistakes.

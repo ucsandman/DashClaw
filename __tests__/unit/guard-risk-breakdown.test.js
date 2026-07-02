@@ -74,6 +74,82 @@ describe('guard risk breakdown', () => {
     expect(result.risk_score).toBe(65);
   });
 
+  it('fixture 4: predictive decomposition flows into the breakdown (statistical vs LLM)', async () => {
+    // Predictive enabled; failing-fast history → +15 failure prior +5 velocity
+    // amplifier; server evidence (10) + 20 stays under the LLM threshold (60).
+    const sql = Object.assign(
+      async (strings) => {
+        const text = Array.isArray(strings) ? strings.join(' ') : '';
+        if (text.includes('FROM settings')) return [{ key: 'PREDICTIVE_RISK_ENABLED', value: 'true' }];
+        if (text.includes('FROM risk_templates')) return [];
+        return [];
+      },
+      {
+        query: async (text) => {
+          if (String(text).includes('FROM action_records')) {
+            return [{ total: '10', failures: '8', avg_risk: '60', recent_count: '8' }];
+          }
+          return [];
+        },
+      },
+    );
+    const result = await evaluateGuard('org_b5', {
+      action_type: 'research',
+      agent_id: 'a5',
+      declared_goal: 'summarize the docs',
+    }, sql);
+    const b = result.risk_breakdown;
+    expect(b.predictive).toMatchObject({
+      adjustment: 20,
+      statistical_adjustment: 20,
+      velocity: 8,
+      failure_rate: 0.8,
+      total_actions: 10,
+      basis: 'history',
+      llm: null,
+    });
+    sumBreakdown(b);
+    expect(result.risk_score).toBe(30); // research base 10 + predictive 20
+  });
+
+  it('fixture 5: a client-inflated score cannot recruit the LLM amplifier (item 5 decision b)', async () => {
+    // June specimen shape: client 88, server evidence 10, clean high-velocity
+    // history. Old trigger (effective 88 >= 60) consulted the LLM; the trigger
+    // is now server evidence only, so the LLM history query must never run.
+    const taggedTexts = [];
+    const sql = Object.assign(
+      async (strings) => {
+        const text = Array.isArray(strings) ? strings.join(' ') : '';
+        taggedTexts.push(text);
+        if (text.includes('FROM settings')) return [{ key: 'PREDICTIVE_RISK_ENABLED', value: 'true' }];
+        if (text.includes('FROM risk_templates')) return [];
+        return [];
+      },
+      {
+        query: async (text) => {
+          if (String(text).includes('FROM action_records')) {
+            return [{ total: '5000', failures: '0', avg_risk: '20', recent_count: '50' }];
+          }
+          return [];
+        },
+      },
+    );
+    const result = await evaluateGuard('org_b6', {
+      action_type: 'research',
+      agent_id: 'a6',
+      declared_goal: 'summarize the docs',
+      risk_score: 88,
+    }, sql);
+    const b = result.risk_breakdown;
+    expect(b.client_reported).toBe(88);
+    expect(b.predictive).toMatchObject({ adjustment: 0, statistical_adjustment: 0, llm: null });
+    expect(b.final).toBe(88); // no velocity tax, no LLM amplifier
+    // The LLM path starts with a recent-actions history read — it must not run.
+    // (Sentinel is assessRiskWithLLM's unique select list.)
+    expect(taggedTexts.some((t) => t.includes('SELECT action_type, status, risk_score, created_at'))).toBe(false);
+    sumBreakdown(b);
+  });
+
   it('breakdown is persisted inside the guard_decisions context payload', async () => {
     const inserts = [];
     const sql = Object.assign(

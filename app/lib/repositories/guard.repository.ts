@@ -64,9 +64,12 @@ export async function listGuardDecisions(
     }
 
     const where = conditions.join(' AND ');
+    // context is selected raw and _risk_breakdown lifted in JS below:
+    // guard_decisions.context is a TEXT column, so `context->'...'` fails
+    // (42883 text -> unknown), and a ::jsonb cast rejects contexts carrying
+    // literal backslash-u0000 escapes (22P05).
     const query = `
-      SELECT id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, action_type, risk_score, decision, ${reasonCol}, matched_policies, created_at,
-             context->'_risk_breakdown' AS risk_breakdown
+      SELECT id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, action_type, risk_score, decision, ${reasonCol}, matched_policies, created_at, context
       FROM guard_decisions
       WHERE ${where}
       ORDER BY created_at DESC
@@ -77,7 +80,7 @@ export async function listGuardDecisions(
     const countQuery = `SELECT COUNT(*) as total FROM guard_decisions WHERE ${where}`;
     const countParams = params.slice(0, conditions.length);
 
-    const [decisions, countResult, statsRows] = await Promise.all([
+    const [rawDecisions, countResult, statsRows] = await Promise.all([
       sql.query(query, params),
       sql.query(countQuery, countParams),
       sql.query(
@@ -92,6 +95,20 @@ export async function listGuardDecisions(
         [orgId]
       ),
     ]);
+
+    // Lift context._risk_breakdown to the top-level column the consumers
+    // expect, and drop the raw context blob from the list payload (it was
+    // never part of the list response shape).
+    const decisions = (rawDecisions as Row[]).map((row) => {
+      const { context, ...rest } = row;
+      let breakdown: unknown = null;
+      if (typeof context === 'string') {
+        try { breakdown = (JSON.parse(context) as Record<string, unknown>)?._risk_breakdown ?? null; } catch { /* malformed context: no breakdown */ }
+      } else if (context && typeof context === 'object') {
+        breakdown = (context as Record<string, unknown>)._risk_breakdown ?? null;
+      }
+      return { ...rest, risk_breakdown: breakdown };
+    });
 
     return {
       decisions,

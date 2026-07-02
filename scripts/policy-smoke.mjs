@@ -526,6 +526,46 @@ async function main() {
     }
   }
 
+  // I: effective-risk escalation observability (owner roadmap item 5)
+  // Spec: docs/superpowers/specs/2026-07-02-effective-risk-escalation-observability.md
+  // Pins "every interruption is explainable in one glance": the FK-linked
+  // action detail must expose the full risk composition, not just the score.
+  {
+    const agent = agentFor('i');
+    const guarded = await api('POST', '/api/guard?record=true', {
+      action_type: 'smoke.breakdown', declared_goal: `risk composition smoke ${RUN}`,
+      agent_id: agent, risk_score: 33,
+    });
+    const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+    check('I1', 'guarded+recorded action created for the breakdown check',
+      Boolean(actionId), `decision=${guarded.json?.decision} action_id=${actionId}`);
+
+    if (actionId) {
+      const detail = await api('GET', `/api/actions/${actionId}`);
+      const b = detail.json?.guard_decision?.risk_breakdown;
+      check('I1', 'GET /api/actions/:id exposes the risk composition on the FK path',
+        b != null && b.base != null && b.server_total != null && b.effective != null && b.final != null,
+        `keys=${JSON.stringify(Object.keys(b || {}))}`);
+
+      const expectedEffective = Math.max(b?.server_total ?? 0, b?.template?.score ?? 0, b?.client_reported ?? 0);
+      check('I2', 'breakdown terms reproduce the persisted composition',
+        b?.client_reported === 33 && b?.effective === expectedEffective,
+        `client_reported=${b?.client_reported} effective=${b?.effective} expected=${expectedEffective}`);
+    } else {
+      check('I1', 'risk composition on the FK path', false, 'no action_id from guard?record=true');
+      check('I2', 'breakdown terms reproduce composition', false, 'no action_id from guard?record=true');
+    }
+
+    // Regression pin: the legacy list path 500ed on TEXT context columns
+    // (context->'_risk_breakdown', 42883) — unit tests mock sql and can't
+    // catch operator/column-type mismatches; only a live query proves this.
+    const list = await api('GET', `/api/guard?agent_id=${encodeURIComponent(agent)}&limit=5`);
+    const listed = (list.json?.decisions || []).find((d) => d.action_type === 'smoke.breakdown');
+    check('I3', 'legacy guard list returns 200 and lifts risk_breakdown per row',
+      list.status === 200 && listed?.risk_breakdown?.final != null && listed?.context === undefined,
+      `status=${list.status} breakdown_final=${listed?.risk_breakdown?.final} context_leaked=${listed?.context !== undefined}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

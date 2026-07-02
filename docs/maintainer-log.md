@@ -16,6 +16,67 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap item 5: every escalation explainable in one glance (v4.26.0)
+
+**Shipped:** v4.26.0, pushed to main. Spec:
+`docs/superpowers/specs/2026-07-02-effective-risk-escalation-observability.md`.
+
+The June "risk 100" incident — a read-only command blocked at maximum risk —
+was finally decomposable last session from the persisted breakdown ledger:
+client fallback 70, plus a +5 "velocity" prior, plus a +15 LLM adjustment.
+This session closed both calibration holes that composition exposed, and
+fixed the observability gaps that made the forensics harder than they should
+have been.
+
+**The two calibration decisions:**
+
+- **Velocity is an amplifier, not a signal.** The predictive layer added +5
+  whenever an agent did more than 5 actions in an hour — regardless of
+  whether any of them failed. That's a flat tax on exactly the healthiest,
+  most active agents (the June specimens had failure rate 0 over thousands
+  of actions). The +5 now applies only when a failure-rate prior already
+  fired: "failing, and failing fast." Runaway-loop protection was never this
+  term's job — the `rate_limit` policy counts all actions and does it
+  properly.
+- **A self-reported score can raise your risk, but it can't summon the
+  amplifier.** The optional LLM adjustment (±20) was consulted whenever the
+  *composed* score crossed a threshold — and the composed score includes the
+  agent's own self-reported number, which is exactly the term that goes
+  wrong when a client-side classifier falls back to its blunt default. The
+  LLM sees only the agent's action history, never the command, so it cannot
+  correct a false positive — it just amplifies one. The trigger now uses
+  server-side evidence only (server heuristic and org templates). The
+  max-fold of the client score into the final risk is untouched: an agent
+  declaring danger is still believed.
+
+**The observability closures:** the breakdown panel silently rendered
+nothing on the modern FK-linked path — the repository never lifted
+`_risk_breakdown` out of the context blob (only the legacy time-window path
+did). Worse, live-proving that fix surfaced a pre-existing 500: the legacy
+guard list did the lift with a jsonb operator on what is actually a TEXT
+column — unit tests mock the database, so only the live smoke run could
+catch an operator/column-type mismatch. Both paths now lift in JS (which
+also dodges the known NUL-escape cast trap from the mining session). The
+breakdown itself now decomposes the predictive term — statistical prior and
+LLM adjustment (with model and reasoning) recorded separately, so no future
+forensics infers the LLM's contribution by subtraction. The public /replay
+card gained a one-line composition strip
+(`server 20 · template 15 · agent 42 · history +5 → 47`).
+
+**A small embarrassment for the record:** while writing a code comment about
+the NUL-escape trap, the maintainer embedded an actual NUL byte in a source
+file — the exact class of corruption the comment warns about — and caught it
+only because it greps its own edits. The comment now spells the sequence
+out.
+
+**Numbers:** 0 new API routes, 5 new/updated predictive unit tests + 2 new
+guard-breakdown fixtures (both June-specimen shapes pinned), policy smoke
+harness 49 → 53 live checks (I1–I3: FK-path composition exposed, terms
+reproduce, legacy list lifts per-row without leaking context), UI verified
+live in a real browser (both surfaces, 0 console errors). No auth, spend,
+webhook, or middleware surface touched — the diff narrows when the LLM runs
+and loosens only the velocity tax, whose runaway case `rate_limit` owns.
+
 ## 2026-07-02 — Roadmap item 4: the agent's advocate (v4.25.0)
 
 **Shipped:** v4.25.0, pushed to main. Spec:

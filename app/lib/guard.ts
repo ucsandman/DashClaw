@@ -510,11 +510,13 @@ async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ en
 // Predictive risk scoring — statistical analysis of historical behavior.
 // Best-effort: never block guard on failure. Skipped entirely (no settings
 // re-read, no historical-stats query) when PREDICTIVE_RISK_ENABLED is off.
+// serverEvidenceScore is max(server_total, template) — the client-reported
+// term is deliberately excluded from the LLM trigger (see getPredictiveRisk).
 async function computePredictiveRisk(
   sql: GuardSql,
   orgId: string,
   context: GuardEvalContext,
-  effectiveRiskScore: number,
+  serverEvidenceScore: number,
 ): Promise<{ total_adjustment?: number } | null> {
   try {
     const { enabled, threshold } = await getPredictiveSettings(sql, orgId);
@@ -523,7 +525,7 @@ async function computePredictiveRisk(
     if (context.agent_id && context.action_type) {
       const { getPredictiveRisk } = await import('./predictive-risk');
       return await getPredictiveRisk(
-        sql, orgId, context.agent_id, context.action_type, effectiveRiskScore,
+        sql, orgId, context.agent_id, context.action_type, serverEvidenceScore,
         { enabled, threshold },
       );
     }
@@ -840,8 +842,20 @@ export interface RiskBreakdown {
   client_reported: number | null;
   /** max(server_total, template.score, client_reported) — pre-predictive. */
   effective: number;
-  /** Predictive history adjustment (null when disabled/unavailable). */
-  predictive: { adjustment: number; basis?: string; failure_rate?: number; total_actions?: number } | null;
+  /**
+   * Predictive history adjustment (null when disabled/unavailable).
+   * `adjustment` is the applied total; `statistical_adjustment` + `llm` split
+   * it so forensics never have to infer the LLM term by subtraction.
+   */
+  predictive: {
+    adjustment: number;
+    basis?: string;
+    failure_rate?: number;
+    total_actions?: number;
+    velocity?: number;
+    statistical_adjustment?: number;
+    llm?: { adjustment: number; model: string; reasoning: string } | null;
+  } | null;
   /** The persisted guard_decisions.risk_score (effective + predictive, clamped). */
   final: number;
 }
@@ -1045,7 +1059,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   let agentRiskScore: number | null = syncAgentRisk;
   let adjustedRiskScore = syncTerms.total;
   let predictiveRisk:
-    | { total_adjustment?: number; statistical?: { adjustment?: number; basis?: string; failure_rate?: number; total_actions?: number } | null }
+    | {
+        total_adjustment?: number;
+        statistical?: { adjustment?: number; basis?: string; failure_rate?: number; total_actions?: number; velocity?: number } | null;
+        llm?: { adjustment: number; model: string; reasoning: string } | null;
+      }
     | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
@@ -1068,7 +1086,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
 
     const riskAssessment = await computeRiskAssessment(sql, orgId, context);
     agentRiskScore = riskAssessment.agentRiskScore;
-    predictiveRisk = await computePredictiveRisk(sql, orgId, context, riskAssessment.effectiveRiskScore) as typeof predictiveRisk;
+    const serverEvidenceScore = Math.max(
+      riskAssessment.breakdownBase.server_total,
+      riskAssessment.breakdownBase.template?.score ?? 0,
+    );
+    predictiveRisk = await computePredictiveRisk(sql, orgId, context, serverEvidenceScore) as typeof predictiveRisk;
     const predictiveAdjustment = predictiveRisk?.total_adjustment ?? 0;
     adjustedRiskScore = Math.round(Math.max(0, Math.min(riskAssessment.effectiveRiskScore + predictiveAdjustment, 100)));
 
@@ -1082,6 +1104,9 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
             basis: predictiveRisk.statistical?.basis,
             failure_rate: predictiveRisk.statistical?.failure_rate,
             total_actions: predictiveRisk.statistical?.total_actions,
+            velocity: predictiveRisk.statistical?.velocity,
+            statistical_adjustment: predictiveRisk.statistical?.adjustment,
+            llm: predictiveRisk.llm ?? null,
           }
         : null,
       final: adjustedRiskScore,

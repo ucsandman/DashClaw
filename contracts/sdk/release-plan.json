@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.25.0",
+    "current_version": "4.26.0",
     "next_bump": "none",
-    "reason": "4.25.0 is a platform-only feature release (agent's-advocate surface: agent_defense rollup on GET /api/actions/:id via the guard_decision_id FK, _shields persistence in guard decisions, UI card + replay badges + /explain section, PowerShell cmdlet classification in the hooks, corpus 26->31). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.26.0 is a platform-only release (effective-risk escalation observability: velocity term now amplifier-only, LLM adjustment triggered by server evidence only, risk_breakdown predictive decomposition + FK-path lift fix + guard-list 42883 fix, /replay composition strip). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.25.0",
+    "current_version": "4.26.0",
     "next_bump": "none",
-    "reason": "4.25.0 is a platform-only feature release (agent's-advocate surface). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
+    "reason": "4.26.0 is a platform-only release (effective-risk escalation observability). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]

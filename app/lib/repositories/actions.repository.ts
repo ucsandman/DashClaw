@@ -797,12 +797,19 @@ export async function getActionWithRelations(
     open_loops: loops,
     assumptions,
     guard_decision: guardDecision
-      ? {
-          ...guardDecision,
-          matched_policies: parseJsonColumn(guardDecision.matched_policies),
-          context: parseJsonColumn(guardDecision.context),
-          evidence: parseJsonColumn(guardDecision.evidence),
-        }
+      ? (() => {
+          const context = parseJsonColumn(guardDecision.context) as Record<string, unknown> | null;
+          return {
+            ...guardDecision,
+            matched_policies: parseJsonColumn(guardDecision.matched_policies),
+            context,
+            evidence: parseJsonColumn(guardDecision.evidence),
+            // Lifted in JS, not SQL: guard_decisions.context is a TEXT column,
+            // so `context->'_risk_breakdown'` fails (text -> unknown), and a
+            // ::jsonb cast 500s on contexts with literal backslash-u0000 escapes.
+            risk_breakdown: context?._risk_breakdown ?? null,
+          };
+        })()
       : null,
     agent_defense: buildAgentDefense(action, guardDecision, assumptions),
     message_summary: {

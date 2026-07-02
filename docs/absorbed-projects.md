@@ -47,7 +47,7 @@ These matter for Phase 2 and are stated up front so nothing downstream inherits 
 
 ### Risk
 
-- Behavioral layer: `app/lib/predictive-risk.js`. `getPredictiveRisk(sql, orgId, agentId, actionType, currentRiskScore, orgSettings)` returns `{ statistical, llm, total_adjustment }` (`app/lib/predictive-risk.js:167-189`); deterministic core `computeStatisticalAdjustment(stats)` (`app/lib/predictive-risk.js:32-70`); optional LLM layer `assessRiskWithLLM(...)` clamped to [-20,+20] (`app/lib/predictive-risk.js:103-162`).
+- Behavioral layer: `app/lib/predictive-risk.js`. `getPredictiveRisk(sql, orgId, agentId, actionType, triggerRiskScore, orgSettings)` returns `{ statistical, llm, total_adjustment }` (`app/lib/predictive-risk.js:167-189`); deterministic core `computeStatisticalAdjustment(stats)` (`app/lib/predictive-risk.js:32-70`); optional LLM layer `assessRiskWithLLM(...)` clamped to [-20,+20] (`app/lib/predictive-risk.js:103-162`).
 - Composition pattern (the wrap seam): guard takes `max(authoritative, agent)` then adds the clamped predictive adjustment (`app/lib/guard.js:220-249`). The whole scale is integer 0-100, base plus signed adjustment, clamped.
 
 ### Evidence sources

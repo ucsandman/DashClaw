@@ -33,10 +33,19 @@ describe('predictive-risk', () => {
       expect(adj.adjustment).toBe(10);
     });
 
-    it('returns +5 for velocity spike (>5 actions in last hour)', () => {
-      const stats = { total: 20, failures: 1, avg_risk: 30, recent_count: 8 };
+    it('charges NO velocity tax to a clean high-velocity agent (item 5 decision a)', () => {
+      // June "risk 100" specimens: thousands of actions, failure_rate 0, high
+      // velocity — the old flat +5 taxed exactly the healthiest agents.
+      const stats = { total: 5000, failures: 0, avg_risk: 20, recent_count: 50 };
       const adj = computeStatisticalAdjustment(stats);
-      expect(adj.adjustment).toBe(5);
+      expect(adj.adjustment).toBe(0);
+      expect(adj.velocity).toBe(50);
+    });
+
+    it('adds +5 velocity only as an amplifier of demonstrated failure', () => {
+      const stats = { total: 10, failures: 3, avg_risk: 50, recent_count: 8 };
+      const adj = computeStatisticalAdjustment(stats);
+      expect(adj.adjustment).toBe(15); // failure prior +10, velocity amplifier +5
     });
 
     it('returns +5 for zero history (unknown territory) flagged basis=no_history', () => {
@@ -137,6 +146,50 @@ describe('predictive-risk', () => {
       const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'test', 30, { enabled: true, threshold: 60 });
       expect(result.statistical).toBeDefined();
       expect(result.llm).toBeNull();
+      expect(mockExecuteCompletion).not.toHaveBeenCalled();
+    });
+
+    it('does not consult the LLM on server evidence below threshold — June specimen shape (item 5 decision b)', async () => {
+      // The caller passes server evidence only (max(server, template)); a
+      // client-70 fallback can no longer recruit the ±20 amplifier. Clean
+      // high-velocity history also contributes 0 under decision (a).
+      const sql = createSqlMock({
+        queryResponses: [
+          [{ total: '5000', failures: '0', avg_risk: '20', recent_count: '50' }],
+        ],
+      });
+
+      const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'review', 15, { enabled: true, threshold: 60 });
+      expect(result.statistical.adjustment).toBe(0);
+      expect(result.llm).toBeNull();
+      expect(result.total_adjustment).toBe(0);
+      expect(mockExecuteCompletion).not.toHaveBeenCalled();
+    });
+
+    it('consults the LLM when server evidence crosses the threshold', async () => {
+      mockExecuteCompletion.mockResolvedValue({
+        content: JSON.stringify({ adjustment: 10, reasoning: 'Repeated failures on this action type' }),
+        provider: 'openai',
+        model: 'gpt-4.1-mini',
+        usage: { input_tokens: 300, output_tokens: 50 },
+        cost_usd: 0.001,
+      });
+
+      const sql = createSqlMock({
+        queryResponses: [
+          [{ total: '10', failures: '6', avg_risk: '70', recent_count: '2' }],
+        ],
+        taggedResponses: [
+          [{ action_type: 'deploy', status: 'failed', risk_score: 70, created_at: '2026-07-01T01:00:00Z' }],
+          [{ key: 'OPENAI_API_KEY', value: 'sk-test', encrypted: false }],
+        ],
+      });
+
+      const result = await getPredictiveRisk(sql, 'org_1', 'agent-1', 'deploy', 60, { enabled: true, threshold: 60 });
+      expect(result.statistical.adjustment).toBe(15);
+      expect(result.llm).toEqual({ adjustment: 10, reasoning: 'Repeated failures on this action type', model: 'gpt-4.1-mini' });
+      expect(result.total_adjustment).toBe(25);
+      expect(mockExecuteCompletion).toHaveBeenCalledTimes(1);
     });
   });
 });

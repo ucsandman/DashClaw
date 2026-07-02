@@ -51,6 +51,37 @@ interface GuardDecision {
   created_at?: string;
   reason?: string;
   reasons?: string[];
+  risk_breakdown?: {
+    server_total?: number;
+    template?: { name?: string; score: number } | null;
+    client_reported?: number | null;
+    predictive?: {
+      adjustment: number;
+      statistical_adjustment?: number;
+      llm?: { adjustment: number } | null;
+    } | null;
+    final?: number;
+  } | null;
+}
+
+// Compact one-line risk composition for the story card: every escalation
+// explainable in one glance without leaving the replay.
+function riskCompositionLine(b: NonNullable<GuardDecision['risk_breakdown']>): string | null {
+  if (b.final == null) return null;
+  const signed = (n: number) => (n >= 0 ? `+${n}` : String(n));
+  const parts: string[] = [`server ${b.server_total ?? 0}`];
+  if (b.template) parts.push(`template ${b.template.score}`);
+  if (b.client_reported != null) parts.push(`agent ${b.client_reported}`);
+  const p = b.predictive;
+  if (p) {
+    if (p.statistical_adjustment != null || p.llm != null) {
+      if (p.statistical_adjustment) parts.push(`history ${signed(p.statistical_adjustment)}`);
+      if (p.llm?.adjustment) parts.push(`LLM ${signed(p.llm.adjustment)}`);
+    } else if (p.adjustment) {
+      parts.push(`predictive ${signed(p.adjustment)}`);
+    }
+  }
+  return `${parts.join(' · ')} → ${b.final}`;
 }
 
 export default function PublicReplayPage() {
@@ -287,6 +318,11 @@ export default function PublicReplayPage() {
                       Risk: {action.risk_score || 0}
                     </div>
                   </div>
+                  {guardDecision?.risk_breakdown && riskCompositionLine(guardDecision.risk_breakdown) && (
+                    <div className="mt-2 font-mono text-[10px] text-tertiary tabular-nums">
+                      {riskCompositionLine(guardDecision.risk_breakdown)}
+                    </div>
+                  )}
                   {(guardDecision?.reason ?? guardDecision?.reasons?.[0]) && (
                     <p className="mt-3 text-sm text-secondary italic border-l-2 border-white/5 pl-3 leading-relaxed group-hover/decision:text-secondary transition-colors">
                       &ldquo;{guardDecision?.reason ?? guardDecision?.reasons?.[0]}&rdquo;

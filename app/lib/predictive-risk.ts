@@ -87,7 +87,12 @@ export function computeStatisticalAdjustment(stats: HistoricalStats): Statistica
     adjustment += 10;
   }
 
-  if (recent_count > 5) {
+  // Velocity amplifies demonstrated failure ("failing, and failing fast") —
+  // it is never a standalone signal. A clean high-velocity agent pays no tax;
+  // runaway-loop protection is the rate_limit policy's job, not a score prior.
+  // (Owner roadmap item 5 decision (a) — the flat +5 helped produce the June
+  // false "risk 100" blocks.)
+  if (recent_count > 5 && failureRate > 0.25) {
     adjustment += 5;
   }
 
@@ -210,13 +215,20 @@ Return ONLY the JSON object, no markdown fences.`,
 
 /**
  * Get the full predictive risk assessment for a guard call.
+ *
+ * `triggerRiskScore` must be SERVER-SIDE evidence only (server heuristic /
+ * org template max) — never the client-inflated effective score. The
+ * client-reported term may raise the final score (max-fold, by design) but
+ * must not recruit the LLM amplifier: the LLM sees only (agent, action_type)
+ * history, so it cannot correct a false-high client score — it just adds
+ * ±20 of noise on top of a false positive (owner roadmap item 5 decision (b)).
  */
 export async function getPredictiveRisk(
   sql: SqlTag,
   orgId: string,
   agentId: string,
   actionType: string,
-  currentRiskScore: number,
+  triggerRiskScore: number,
   orgSettings: PredictiveRiskSettings = {}
 ): Promise<PredictiveRiskResult> {
   if (!agentId || !actionType) {
@@ -229,7 +241,7 @@ export async function getPredictiveRisk(
   const threshold = orgSettings.threshold ?? DEFAULT_THRESHOLD;
 
   let llm: LlmRiskAssessment | null = null;
-  const scoreWithStatistical = currentRiskScore + statistical.adjustment;
+  const scoreWithStatistical = triggerRiskScore + statistical.adjustment;
 
   if (orgSettings.enabled === true && scoreWithStatistical >= threshold) {
     llm = await assessRiskWithLLM(sql, orgId, agentId, actionType);
