@@ -114,7 +114,7 @@ export default function GlobalActivityFeed() {
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState('');
   // True windowed action totals from the API (COUNT(*), not buffer lengths).
-  const [apiTotals, setApiTotals] = useState<{ today: number | null; week: number | null }>({ today: null, week: null });
+  const [apiTotals, setApiTotals] = useState<{ today: number | null; week: number | null; deniedWeek: number | null }>({ today: null, week: null, deniedWeek: null });
 
   // ── Live-feed cadence + buffer ──────────────────────────────────────────
   const [cadence, setCadence] = useState<Cadence>('live');
@@ -152,15 +152,19 @@ export default function GlobalActivityFeed() {
       // the 24h stats endpoint — never from the capped row buffer.
       const fetches = [
         safeJson(`/api/actions?limit=200&days=7${agentQs}`),
-        safeJson(`/api/guard?limit=200${agentQs}`),
+        safeJson(`/api/guard?limit=200&days=7${agentQs}`),
         safeJson(`/api/actions/stats${agentId ? `?agent_id=${encodeURIComponent(agentId)}` : ''}`),
+        // True weekly denied count: the windowed COUNT(*) `total` from
+        // ?decision=block&days=7 (agent-scoped), not the capped row buffer.
+        safeJson(`/api/guard?limit=1&decision=block&days=7${agentQs}`),
       ];
       if (!agentId) fetches.push(safeJson('/api/activity?limit=10'));
 
-      const [actionsData, guardData, statsData = {}, auditData = {}] = await Promise.all(fetches);
+      const [actionsData, guardData, statsData = {}, deniedData = {}, auditData = {}] = await Promise.all(fetches);
       setApiTotals({
         week: Number.isFinite(Number(actionsData?.total)) ? Number(actionsData.total) : null,
         today: Number.isFinite(Number(statsData?.total)) ? Number(statsData.total) : null,
+        deniedWeek: Number.isFinite(Number(deniedData?.total)) ? Number(deniedData.total) : null,
       });
 
       const actions = actionsData.actions || [];
@@ -409,11 +413,14 @@ export default function GlobalActivityFeed() {
     }
     // The true windowed COUNT(*) from the API wins over the capped buffer;
     // max() keeps the number moving as live SSE arrivals land between loads.
+    // Denied gets the same treatment for the week scope (?decision=block&days=7);
+    // today keeps the buffer count — the week-scoped 200-row buffer covers it.
     const apiTotal = scope === 'today' ? apiTotals.today : apiTotals.week;
+    const apiDenied = scope === 'today' ? null : apiTotals.deniedWeek;
     return {
       total: Math.max(apiTotal ?? 0, bufferTotal),
       requiredApproval,
-      denied,
+      denied: Math.max(apiDenied ?? 0, denied),
       distinctAgents: actors.size,
     };
   }, [scopedEvents, scope, apiTotals]);

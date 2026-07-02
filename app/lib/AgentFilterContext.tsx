@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { usePathname } from 'next/navigation';
 
 export interface AgentFilterOption {
   agent_id: string;
@@ -21,6 +22,29 @@ export function AgentFilterProvider({ children }: { children: ReactNode }) {
   const [agents, setAgents] = useState<AgentFilterOption[]>([]);
   const [agentId, setAgentId] = useState<string | null>(null); // null = "All Agents"
   const [loading, setLoading] = useState(true);
+  const pathname = usePathname();
+
+  // Deep-link adoption: read ?agent= once on mount (in an effect, not the
+  // useState initializer, so server and hydration renders agree). The param
+  // name is `agent`, not `agent_id` — pages own their local agent_id params
+  // (e.g. /decisions shared links) and the global picker must not collide.
+  useEffect(() => {
+    const fromUrl = new URLSearchParams(window.location.search).get('agent');
+    if (fromUrl) setAgentId(fromUrl);
+  }, []);
+
+  // Keep ?agent= in the URL: on selection change AND after client-side
+  // navigation (Link navigations drop query params). history.replaceState
+  // instead of useSearchParams/router avoids the Next 16 Suspense-boundary
+  // requirement and adds no history entries.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const current = url.searchParams.get('agent');
+    if (agentId ? current === agentId : current === null) return;
+    if (agentId) url.searchParams.set('agent', agentId);
+    else url.searchParams.delete('agent');
+    window.history.replaceState(window.history.state, '', url);
+  }, [agentId, pathname]);
 
   const fetchAgents = useCallback(async () => {
     try {

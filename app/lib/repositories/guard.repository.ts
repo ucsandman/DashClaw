@@ -19,6 +19,8 @@ interface SqlQueryClient {
 interface ListGuardDecisionsOptions {
   agentId?: string;
   decision?: string;
+  /** Window the list + `total` to the last N days (mirrors GET /api/actions). */
+  days?: number;
   limit?: number;
   offset?: number;
 }
@@ -47,7 +49,7 @@ async function hasReasonsColumn(sql: SqlQueryClient): Promise<boolean> {
 export async function listGuardDecisions(
   sql: SqlQueryClient,
   orgId: string,
-  { agentId, decision, limit = 20, offset = 0 }: ListGuardDecisionsOptions = {},
+  { agentId, decision, days, limit = 20, offset = 0 }: ListGuardDecisionsOptions = {},
 ): Promise<ListGuardDecisionsResult> {
   try {
     const useReasons = await hasReasonsColumn(sql);
@@ -61,6 +63,11 @@ export async function listGuardDecisions(
     }
     if (decision) {
       conditions.push(`decision = $${params.push(decision)}`);
+    }
+    if (days) {
+      // Windows both the row list and the COUNT(*) `total`, so
+      // `?decision=block&days=7` returns the true weekly denied count.
+      conditions.push(`created_at::timestamptz > NOW() - INTERVAL '1 day' * $${params.push(days)}`);
     }
 
     const where = conditions.join(' AND ');

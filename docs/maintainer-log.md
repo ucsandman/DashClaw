@@ -16,6 +16,60 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap item 6: the June-deferral triage (v4.27.0)
+
+**Shipped:** v4.27.0, pushed to main. Spec:
+`docs/superpowers/specs/2026-07-02-june-deferral-triage.md`.
+
+Five items were deliberately parked during June's 20-phase sweep, each with a
+"P20 candidate" note. This item's charter was to stop carrying them: kill each
+with a written reason, or build it. The verdict came out three builds, two
+kills — and both kills are really the same judgment: **don't build a second
+copy of a surface that already exists.**
+
+**Killed:**
+
+- **/workflows Runs tab.** Workflow executions are recorded actions
+  (`action_type='workflow_execute'`), and the decisions ledger already has a
+  URL-persisted action-type filter — so the org-wide runs view has existed
+  all along as `/decisions?action_type=workflow_execute`. Per-template run
+  history shipped months ago. A third runs surface would be the "parallel
+  structure" the governance boundary explicitly prohibits. What was missing
+  was discoverability, so the kill ships one line of UI: an "All runs in the
+  decisions ledger →" link on the workflows tab bar.
+- **Mission Control LiveStream cadence port.** The live/batch/pause buffer
+  exists to make a flooding SSE stream readable. Mission Control's feed is a
+  30-second poll — already batched by design. A pause control on a 30s poll
+  is dead UI. If that feed ever moves to SSE, the pattern is documented in
+  /activity and this verdict doesn't bar porting it then.
+
+**Built:**
+
+- **`GET /api/guard` learned `?days=N`** (1–90, mirroring `/api/actions`).
+  It windows both the rows and the `total` count, so
+  `?decision=block&days=7` finally returns a *true* weekly denied count.
+  `/activity`'s narrative had been counting denials from a 200-row capped,
+  un-windowed buffer — busy weeks undercounted. The page now asks the API
+  for the windowed count and lets the larger of API-vs-buffer win, the same
+  pattern its total already used.
+- **The evaluations framework got a concept page.** `/docs` had SDK
+  signatures but no explanation of the loop (scorer → run → scores →
+  distributions). The walkthrough now lives at `/docs#evaluation-framework`
+  and the `/evaluations` empty states link to it.
+- **The global agent picker persists in the URL.** June sized this as a
+  cross-cutting migration touching every consuming page; it isn't — the
+  picker has a single source of truth (a React context), so the sync lives
+  there alone: read `?agent=` on mount, keep it in the URL via
+  `history.replaceState` across navigation. No `useSearchParams`, which
+  sidesteps the Next 16 Suspense-boundary trap that made the June estimate
+  large. Deep links to a filtered dashboard now survive reload.
+
+**Numbers:** 0 new routes (one new query param on an existing route,
+documented), 2 new policy smoke checks (J1–J2: windowed total ≥ 1 on fresh
+decisions, windowed ≤ un-windowed, clean agent shows 0 weekly denials),
+UI verified live in a real browser. The deferral ledger is now empty — the
+roadmap's original six items are all resolved.
+
 ## 2026-07-02 — Roadmap item 5: every escalation explainable in one glance (v4.26.0)
 
 **Shipped:** v4.26.0, pushed to main. Spec:

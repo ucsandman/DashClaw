@@ -61,7 +61,7 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 
 **Granted operator approvals are honored on re-evaluation.** When a decision would be `require_approval`, the guard first checks the action ledger for a recent human approval of the identical action — same `agent_id`, same exact `declared_goal`, approved within the last 15 minutes. A match downgrades the decision to `allow`, adds `builtin:operator_approval` to `matched_policies`, and names the covering approval in `warnings`. This closes the loop where an operator approves after the client's approval wait timed out and the retried call would otherwise re-queue for approval. A `block` decision is never downgraded — blocks are absolute.
 
-`GET /api/guard` lists recent guard decisions and supports filters such as `agent_id`, `decision`, `limit`, and `offset`.
+`GET /api/guard` lists recent guard decisions and supports filters such as `agent_id`, `decision`, `days`, `limit`, and `offset`. `days` (1–90) windows both the rows and the `total` count to the last N days, so `?decision=block&days=7` returns the true weekly denied count via `total`; without `days` the list spans all history.
 
 ### 2. Actions (`POST /api/actions`)
 

@@ -14,7 +14,7 @@ protocol: spec → build → gates → live proof → main.
 | 3 | Calibration corpus v2: mining | DONE 2026-07-02 (v4.24.0; miner + forge shipped, corpus 22→26, cd-chain/npx classifier fixes, git-show 30→100 case closed) |
 | 4 | Agent's-advocate surface | DONE 2026-07-02 (v4.25.0; agent_defense rollup on GET /api/actions/:id via guard_decision_id FK, _shields persistence, UI card + replay badges + /explain advocate section; smoke 49/49 incl. H1–H4; security review PASS; bonus: PowerShell cmdlet classification fixes two wrong hook blocks, corpus 26→31) |
 | 5 | Effective-risk escalation observability | DONE 2026-07-02 (v4.26.0; velocity +5 now amplifier-only (needs failure_rate>0.25), LLM ±20 trigger = server evidence only (client score can't recruit it), breakdown decomposes statistical vs LLM, FK-path lift bug fixed + legacy list 42883 500 fixed, /replay composition strip; smoke 53/53 incl. I1–I3) |
-| 6 | June-deferral triage | NOT STARTED |
+| 6 | June-deferral triage | DONE 2026-07-02 (v4.27.0; verdicts in spec 2026-07-02-june-deferral-triage.md — BUILT: /api/guard days param (+/activity true weekly denied), docs evaluations walkthrough + empty-state links, agent-picker ?agent= URL persistence (context-level, no useSearchParams); KILLED: /workflows Runs tab (ledger IS the org-wide runs view — discoverability link added), LiveStream cadence port (30s poll has no flood to pause); smoke +J1/J2) |
 
 ## 1. Policy-tuning proposal loop (the "living codebase" centerpiece)
 

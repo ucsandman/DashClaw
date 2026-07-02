@@ -388,10 +388,20 @@ export async function POST(request: Request) {
   }
 }
 
+// ?days=N windows the list + `total` (clamped 1–90); absent = all history.
+function parseDaysParam(raw: string | null): number | undefined {
+  if (!raw) return undefined;
+  const n = parseInt(raw, 10);
+  if (!Number.isFinite(n) || n < 1) return undefined;
+  return Math.min(n, 90);
+}
+
 /**
  * GET /api/guard — List recent guard decisions.
  *
- * Query: ?agent_id=X&decision=block&limit=20&offset=0
+ * Query: ?agent_id=X&decision=block&days=7&limit=20&offset=0
+ * `days` windows both the rows and `total`, so `?decision=block&days=7`
+ * returns the true weekly denied count via `total`.
  */
 export async function GET(request: Request) {
   try {
@@ -403,10 +413,11 @@ export async function GET(request: Request) {
       const { searchParams } = (request as Request & { nextUrl: URL }).nextUrl;
       const agentId = searchParams.get('agent_id') || undefined;
       const decision = searchParams.get('decision') || undefined;
+      const days = parseDaysParam(searchParams.get('days'));
       const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 1000);
       const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-      const result = await listGuardDecisions(sql, orgId, { agentId, decision, limit, offset });
+      const result = await listGuardDecisions(sql, orgId, { agentId, decision, days, limit, offset });
       return NextResponse.json({ ...result, limit, offset });
     }
 
@@ -414,10 +425,11 @@ export async function GET(request: Request) {
     const { searchParams } = (request as Request & { nextUrl: URL }).nextUrl;
     const agentId = searchParams.get('agent_id') || undefined;
     const decision = searchParams.get('decision') || undefined;
+    const days = parseDaysParam(searchParams.get('days'));
     const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 1000);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
 
-    const result = await listGuardDecisions(sql, orgId, { agentId, decision, limit, offset });
+    const result = await listGuardDecisions(sql, orgId, { agentId, decision, days, limit, offset });
     return NextResponse.json({ ...result, limit, offset });
   } catch (err) {
     return apiErrorResponse(err, 'GUARD GET');

@@ -1227,7 +1227,24 @@ rendered = res["rendered"]`}
               </div>
               <h2 className="text-2xl font-bold tracking-tight">Evaluation Framework</h2>
             </div>
-            
+
+            <p className="text-sm text-secondary leading-relaxed mb-4">
+              Evaluations grade the <em>quality</em> of what agents produce, where policies gate what agents are
+              <em> allowed</em> to do. The loop has four parts. A <strong>scorer</strong> is a reusable grading rule —
+              <code className="font-mono text-xs"> llm_judge</code> (a model judges the output against a rubric),
+              <code className="font-mono text-xs"> regex</code> (pattern match), or
+              <code className="font-mono text-xs"> range</code> (numeric bounds). A <strong>run</strong> applies scorers
+              to a batch of recent recorded actions. Each graded action lands as a <strong>score</strong> (0–1, with a
+              label and the scorer&apos;s reasoning). The <strong>distributions</strong> — per-scorer histograms and
+              trends — render on the evaluations page, where runs are started and scorer configs can be previewed
+              against a sample before anything persists.
+            </p>
+            <p className="text-sm text-secondary leading-relaxed mb-6">
+              Start on the <a href="/evaluations" className="text-brand hover:underline">evaluations page</a>: define a
+              scorer, test the config against a sample output, then run it over recent actions. Runs never mutate the
+              actions they grade; scores are additive evidence on the ledger.
+            </p>
+
             <MethodEntry
               id="createScorer"
               signature="claw.createScorer(name, type, config) / claw.create_scorer(...)"

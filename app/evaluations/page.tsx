@@ -578,6 +578,7 @@ export default function EvaluationsPage() {
                     </button>
                     <p className="mt-3 text-[11px] text-tertiary">
                       Agents can also push scores directly via <code className="font-mono">POST /api/evaluations</code> or the Python SDK&apos;s <code className="font-mono">create_score()</code>.
+                      {' '}<a href="/docs#evaluation-framework" className="text-brand hover:underline">Full walkthrough →</a>
                     </p>
                   </div>
                 )
@@ -721,7 +722,12 @@ export default function EvaluationsPage() {
               <CardHeader title="Scorers" icon={Filter} count={scorers.length} />
               <CardContent>
                 {scorers.length === 0 ? (
-                  <EmptyState icon={Filter} title="No scorers defined" description="Create a scorer to start evaluating agent decisions." />
+                  <EmptyState
+                    icon={Filter}
+                    title="No scorers defined"
+                    description="Create a scorer to start evaluating agent decisions."
+                    action={<a href="/docs#evaluation-framework" className="text-xs text-brand hover:underline">How evaluations work →</a>}
+                  />
                 ) : (
                   <div className="space-y-2">
                     {scorers.map(scorer => (
@@ -828,7 +834,12 @@ export default function EvaluationsPage() {
               <CardHeader title="Evaluation runs" icon={Play} count={runs.length} />
               <CardContent>
                 {runs.length === 0 ? (
-                  <EmptyState icon={Play} title="No evaluation runs" description={scorers.length === 0 ? 'Create a scorer first, then run an evaluation.' : 'Start a run to batch-evaluate agent actions.'} />
+                  <EmptyState
+                    icon={Play}
+                    title="No evaluation runs"
+                    description={scorers.length === 0 ? 'Create a scorer first, then run an evaluation.' : 'Start a run to batch-evaluate agent actions.'}
+                    action={<a href="/docs#evaluation-framework" className="text-xs text-brand hover:underline">How evaluations work →</a>}
+                  />
                 ) : (
                   <div className="space-y-2">
                     {runs.map(run => {

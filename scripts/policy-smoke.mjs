@@ -566,6 +566,24 @@ async function main() {
       `status=${list.status} breakdown_final=${listed?.risk_breakdown?.final} context_leaked=${listed?.context !== undefined}`);
   }
 
+  // J: /api/guard days param (owner roadmap item 6 — June-deferral triage)
+  // Spec: docs/superpowers/specs/2026-07-02-june-deferral-triage.md
+  // Pins the windowed-count contract: ?days=N windows rows AND `total`, so
+  // ?decision=block&days=7 is a true weekly denied count.
+  {
+    const agent = agentFor('i'); // reuse the I-block agent — it has fresh decisions
+    const windowed = await api('GET', `/api/guard?agent_id=${encodeURIComponent(agent)}&days=1&limit=1`);
+    check('J1', 'guard list accepts days and returns a windowed total',
+      windowed.status === 200 && Number(windowed.json?.total) >= 1,
+      `status=${windowed.status} total=${windowed.json?.total}`);
+
+    const unwindowed = await api('GET', `/api/guard?agent_id=${encodeURIComponent(agent)}&limit=1`);
+    const deniedWeek = await api('GET', `/api/guard?agent_id=${encodeURIComponent(agent)}&decision=block&days=7&limit=1`);
+    check('J2', 'windowed total never exceeds the un-windowed total; clean agent has 0 weekly denials',
+      Number(unwindowed.json?.total) >= Number(windowed.json?.total) && Number(deniedWeek.json?.total) === 0,
+      `unwindowed=${unwindowed.json?.total} windowed=${windowed.json?.total} denied7d=${deniedWeek.json?.total}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

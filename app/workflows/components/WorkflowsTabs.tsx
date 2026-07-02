@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Cpu } from 'lucide-react';
+import { FileText, Cpu, ArrowRight } from 'lucide-react';
 
 // Sub-route tabs for the consolidated workflows surface. Real routes (not
 // ?tab=) so deep links, the demo matcher (/workflows/:path*), and redirects
@@ -34,6 +34,16 @@ export default function WorkflowsTabs({ active }: { active: 'templates' | 'strat
           </Link>
         );
       })}
+      {/* Org-wide run history is the decisions ledger filtered to workflow
+          executions — a deliberate non-tab (owner roadmap item 6: no third
+          parallel runs surface; the ledger is the runs view). */}
+      <Link
+        href="/decisions?action_type=workflow_execute"
+        className="ml-auto flex items-center gap-1 px-2 py-2.5 text-xs text-tertiary transition-colors hover:text-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-brand/60"
+      >
+        All runs in the decisions ledger
+        <ArrowRight size={12} aria-hidden="true" />
+      </Link>
     </nav>
   );
 }

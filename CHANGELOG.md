@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.27.0] — 2026-07-02
+
+June-deferral triage (owner roadmap item 6): the five items parked during June's 20-phase sweep each got a verdict — three built, two killed with recorded reasons. The deferral ledger is now empty.
+
+### Added
+- **`GET /api/guard ?days=N`** (1–90, mirrors `/api/actions`): windows both the rows and the `total` count, so `?decision=block&days=7` returns the true weekly denied count. `/activity`'s weekly narrative now uses the windowed API count instead of a 200-row capped buffer (busy weeks undercounted). New policy smoke checks J1–J2.
+- **Evaluations concept walkthrough** at `/docs#evaluation-framework` (scorers → runs → scores → distributions), linked from the `/evaluations` empty states.
+- **Agent-picker URL persistence:** the global agent filter reads `?agent=` on load and keeps it in the URL across navigation (`history.replaceState`, no Suspense-boundary cost). Filtered dashboard views are now deep-linkable and survive reload.
+- **Workflows → ledger link:** "All runs in the decisions ledger →" on the workflows tab bar, deep-linking `/decisions?action_type=workflow_execute`.
+
+### Decided (killed, with reasons in the spec)
+- **No /workflows Runs tab** — the decisions ledger filtered to `workflow_execute` *is* the org-wide runs view; per-template history already ships on the template detail page.
+- **No Mission Control cadence port** — the live/batch/pause buffer solves SSE flood-reading; Mission Control's feed is a 30-second poll, already batched by design.
+
 ## [4.26.0] — 2026-07-02
 
 Effective-risk escalation observability (owner roadmap item 5): every risk escalation is now explainable in one glance, and the two calibration holes exposed by the June "risk 100" forensics are closed.
