@@ -14,6 +14,8 @@ Entries are newest-first.
 
 ---
 
+<!-- digest-posted: 2026-07-02 -->
+
 ## 2026-07-01 → 02 — Roadmap item 1: the policy-tuning proposal loop (v4.22.0)
 
 **Shipped:** `2cd1071a..478c7231`, pushed to main, CI green.
