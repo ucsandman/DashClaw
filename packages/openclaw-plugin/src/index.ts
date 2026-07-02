@@ -1484,7 +1484,7 @@ async function handleGenericAfterToolCall(
 // Plugin entry
 // ---------------------------------------------------------------------------
 
-export default definePluginEntry({
+const pluginEntry: ReturnType<typeof definePluginEntry> = definePluginEntry({
   id: 'dashclaw-governance',
   name: 'DashClaw Governance',
   description:
@@ -1501,3 +1501,5 @@ export default definePluginEntry({
     registerOutcomeRecorder(api, config);
   },
 });
+
+export default pluginEntry;

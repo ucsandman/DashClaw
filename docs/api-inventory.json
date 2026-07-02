@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 321,
+    "total_routes": 322,
     "stable_routes": 54,
     "beta_routes": 24,
-    "experimental_routes": 243
+    "experimental_routes": 244
   },
   "routes": [
     {
@@ -1713,6 +1713,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/integrity/verify/route.ts"
+    },
+    {
+      "path": "/api/internal/resolve-key",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/internal/resolve-key/route.ts"
     },
     {
       "path": "/api/invite/{token}",

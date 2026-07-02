@@ -1036,7 +1036,7 @@ async function handleGenericAfterToolCall(key, error, config) {
 // ---------------------------------------------------------------------------
 // Plugin entry
 // ---------------------------------------------------------------------------
-export default definePluginEntry({
+const pluginEntry = definePluginEntry({
     id: 'dashclaw-governance',
     name: 'DashClaw Governance',
     description: 'Policy enforcement, human-in-the-loop approval, and decision recording for every OpenClaw tool call. Powered by DashClaw.',
@@ -1048,3 +1048,4 @@ export default definePluginEntry({
         registerOutcomeRecorder(api, config);
     },
 });
+export default pluginEntry;

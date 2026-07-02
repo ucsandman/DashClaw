@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-07-01
+last-verified: 2026-07-02
 doc-type: architecture
 ---
 
@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `321`
+- Total routes: `322`
 - Stable routes: `54`
 - Beta routes: `24`
-- Experimental routes: `243`
+- Experimental routes: `244`
 
 ## Routes
 
@@ -198,6 +198,7 @@ doc-type: architecture
 | `/api/integrations/health/refresh` | `POST` | `experimental` | `(default)` | `app/api/integrations/health/refresh/route.ts` |
 | `/api/integrity/jwks` | `GET` | `experimental` | `(default)` | `app/api/integrity/jwks/route.ts` |
 | `/api/integrity/verify` | `POST` | `experimental` | `(default)` | `app/api/integrity/verify/route.ts` |
+| `/api/internal/resolve-key` | `POST` | `experimental` | `(default)` | `app/api/internal/resolve-key/route.ts` |
 | `/api/invite/{token}` | `GET, POST` | `stable` | `/api/invite` | `app/api/invite/[token]/route.ts` |
 | `/api/keys` | `DELETE, GET, POST` | `stable` | `/api/keys` | `app/api/keys/route.ts` |
 | `/api/keys/reveal` | `GET` | `stable` | `/api/keys` | `app/api/keys/reveal/route.ts` |
