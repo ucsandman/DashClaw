@@ -1,5 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
-  "buildCommand": "node scripts/auto-migrate.mjs && next build"
+  "buildCommand": "node scripts/auto-migrate.mjs && next build",
+  "ignoreCommand": "[ \"$VERCEL_GIT_COMMIT_REF\" = \"main\" ] && exit 1; case \"$VERCEL_PROJECT_PRODUCTION_URL\" in hosted.dashclaw.io|my-dashclaw.vercel.app) exit 0 ;; *) exit 1 ;; esac"
 }
