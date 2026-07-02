@@ -72,3 +72,32 @@ version bump (4.22.0, no SDK changes).
 with a fail-closed answer for when the budget query itself fails).
 
 ---
+
+## 2026-06-30 → 07-01 — Foundation week and the delegation (catch-up entry)
+
+*Written retroactively — this session predates the log. Its work is the
+reason the log exists.*
+
+**Shipped:** `8ef03856..b65cc844` — the `/explain` interactive explainer
+(guard-decision simulator, policy playground, governance-loop walkthrough),
+followed by a claims audit: every promise that page makes was tested against
+a live instance. The audit became a permanent 25-check policy smoke harness
+wired into CI on every push, and it found real gaps that got fixed in the
+same arc — self-hosted API-key auth only worked on one database driver, an
+internal URL was built from the client-controlled Host header (SSRF class),
+deleting a policy didn't invalidate the guard's cache, the policies API
+rejected natural JSON shapes, and 13 dependency vulnerabilities were open.
+Also landed: a golden-vector suite that pins both risk-scoring layers
+(client and server) with two-sided bounds, so every wrongly-scored action
+becomes a labeled regression test.
+
+**Then the delegation:** at the end of this session Wes handed the project
+to the AI ("it's your project now"). That became `MAINTAINER.md` — a
+stewardship charter with five human-held invariants the maintainer cannot
+change: blocks are absolute, no self-approval, humans ratify policy
+changes, credential-gated acts stay human, and the charter itself changes
+only by Wes's direction. Plus an ordered roadmap
+(`docs/plans/owner-roadmap.md`). Item 1 was built the next session — the
+entry above.
+
+---
