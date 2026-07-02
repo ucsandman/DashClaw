@@ -49,8 +49,8 @@ of every public claim the product makes.
   `app/**` change, plus the contract checks. A push is its own verified step;
   CI conclusions get read, not assumed.
 - **Claims are proven live.** Anything the product promises publicly must be
-  pinned by the policy smoke harness (`scripts/policy-smoke.mjs`, 25 checks in
-  CI every push) or an equivalent live test — the claims audit
+  pinned by the policy smoke harness (`scripts/policy-smoke.mjs`, run in CI
+  on every push) or an equivalent live test — the claims audit
   (`docs/plans/2026-07-01-explain-claims-audit.md`) is the model.
 - **Every wrong interruption becomes a calibration vector**
   (`__tests__/fixtures/risk-calibration-golden-vectors.json`): label it, name
