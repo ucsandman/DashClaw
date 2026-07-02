@@ -21,6 +21,7 @@ import { isSelfHostModeEnabled } from '../../lib/selfHost';
 import { verifyJwt, extractBearerToken } from '../../lib/jwks-verifier';
 import { checkAndRecord as checkAndRecordJti } from '../../lib/repositories/jti-replay.repository';
 import { resolveActStatus } from '../../lib/act-binding';
+import { getAssumptionAlerts } from '../../lib/assumption-notify';
 
 type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
@@ -329,6 +330,14 @@ export async function POST(request: Request) {
           idempotent_replay: true,
         };
         if (secretScan) replay.secret_scan = secretScan;
+        {
+          // Advocate v2a advisory — rides until acknowledged; never changes the decision.
+          const alertAgent = typeof data.agent_id === 'string' && data.agent_id ? data.agent_id : null;
+          if (alertAgent) {
+            const alerts = await getAssumptionAlerts(sql, orgId, alertAgent);
+            if (alerts && alerts.length) replay.assumption_alerts = alerts;
+          }
+        }
         if (recordParam) {
           try {
             // recordRunningAction short-circuits on the existing action row;
@@ -361,6 +370,15 @@ export async function POST(request: Request) {
     });
 
     if (secretScan) (result as Record<string, unknown>).secret_scan = secretScan;
+
+    {
+      // Advocate v2a advisory — rides until acknowledged; never changes the decision.
+      const alertAgent = typeof data.agent_id === 'string' && data.agent_id ? data.agent_id : null;
+      if (alertAgent) {
+        const alerts = await getAssumptionAlerts(sql, orgId, alertAgent);
+        if (alerts && alerts.length) (result as Record<string, unknown>).assumption_alerts = alerts;
+      }
+    }
 
     // Optional ?record=true — also create the running action record and return
     // its action_id (one HTTP call for governed hooks instead of two). Without
