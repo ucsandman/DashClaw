@@ -168,7 +168,7 @@ export default function AssumptionsPage() {
             const cfg = STATUS_CONFIG[status]!;
             const StatusIcon = cfg.icon;
             return (
-              <Card key={a.id} data-entity-type="assumption" data-entity-id={a.id} data-entity-status={status} hover={false}>
+              <Card key={a.id} data-entity-type="assumption" data-entity-id={a.assumption_id || a.id} data-entity-status={status} hover={false}>
                 <div className="flex items-start gap-4 p-4">
                   <SelectCheckbox
                     checked={selection.isSelected(a.id)}
