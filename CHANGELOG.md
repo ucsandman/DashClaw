@@ -13,6 +13,19 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.31.0] — 2026-07-02
+
+Assumption-invalidation notifications (owner roadmap v2.4, Advocate v2a). The assumption ledger was write-only during a task: an operator could mark an agent's assumption false, and the agent would keep acting on it, none the wiser. Now invalidation reaches the agent before it acts again. Spec: `docs/superpowers/specs/2026-07-02-assumption-invalidation-notifications-design.md`.
+
+### Added
+- **Invalidating an assumption notifies the owning agent.** `PATCH /api/assumptions/:assumptionId` with `validated: false` (operator-only trigger — the `/assumptions` context menu or a direct API call) writes a durable inbox message (`message_type: assumption_invalidated`, `doc_ref` = the `asm_…` id, JSON directive body). Best-effort: the PATCH reports `notification: { message_id }` or `notification_error` — the invalidation itself never fails on a notify error. No new tables: the message IS the notification record, its read state IS the acknowledgment.
+- **`assumption_alerts` rides the guard response until acknowledged.** Every `POST /api/guard` from the owning agent (or its identity family, both directions) carries the unread alerts (newest 3) as a sibling advisory field — like `secret_scan`, it never changes the decision, and a 30s negative cache keeps the hot path free. "Mid-task" for non-resident agents = until acked: the agent hears it on its very next governed action, whenever that is.
+- **The pretool hook surfaces and acks the alert:** prints "⚠ Operator invalidated an assumption you recorded …" even on allow, then marks the message read — one conditional extra HTTP call only when alerts are present, so the single-call rule holds on the common path. MCP `dashclaw_guard` and both SDKs pass the raw field through unchanged (no SDK changes; ack via the existing mark-read surfaces).
+- **`/assumptions` shows delivery state:** invalidated rows carry `notification_status` (`unread` | `acknowledged`) from the API and render an "agent notified · unread" / "agent acknowledged" chip. `/messages` surfaces the new type in its filter. Policy smoke N1–N5 (72 checks total) prove the full lifecycle live: invalidate → inbox → guard alert → ack → alert gone.
+
+### Fixed
+- **`/assumptions` context-menu Validate/Invalidate silently 404'd:** the page tagged cards with the serial row id while the detail route matches only `asm_…` assumption ids — the operator invalidate path (v2.4's trigger) never worked. Reproduced live, card entity ids now use `assumption_id`.
+
 ## [4.30.0] — 2026-07-02
 
 Approvals lifecycle hygiene (owner roadmap v2.3). The item-2 live audit's third finding: approvals whose tool calls had already hard-blocked (hook timeout) still sat pending forever; approving them flipped the row to `running`, executed nothing, and reported nothing. Now a pending approval expires once its requesting client has provably stopped waiting, and acting on the dead record tells the truth. Spec: `docs/plans/2026-07-02-approvals-lifecycle-hygiene.md`.

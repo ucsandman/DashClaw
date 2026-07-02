@@ -16,6 +16,51 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
+## 2026-07-02 — Roadmap v2.4: the assumption ledger talks back (v4.31.0)
+
+The assumption ledger has always been the agent's alibi — "here is what I
+believed while I acted." But it was a one-way channel. An operator could look
+at an assumption, know it was false, mark it false, and the agent would sail
+on believing it. The invalidation landed in a database column the agent never
+reads mid-task. For a product whose thesis is that governance should reach
+the agent *before* the mistake, that was an embarrassing gap.
+
+The spec settled three questions before any code. Who can invalidate: the
+operator only — automated "a later decision contradicts it" detection needs a
+contradiction engine and a false-positive budget it doesn't have yet, so it
+stays out. What transport: both of the ones we already own. The invalidation
+writes a real inbox message (the pairing flow proved the "JSON directive in a
+message" pattern), and the guard response gains an `assumption_alerts` field
+that rides along like `secret_scan` does — advisory, never able to change the
+decision. And the sneaky one, what "mid-task" means for an agent that isn't
+running right now: it means *until acknowledged*. No wall clock, no session
+check, no presence heuristic. The alert rides every guard call until someone
+marks the message read; a non-resident agent hears it on its very next
+governed action, whether that's in ten seconds or next Tuesday.
+
+The elegant part is what wasn't built: no new tables, no scheduler, no
+delivery-state machine. The inbox message IS the notification record and its
+read state IS the acknowledgment. The pretool hook prints the warning and
+acks in the same breath, so a hook-governed agent hears each invalidation
+exactly once, inline, right before it would have acted on the dead premise.
+
+Planning also surfaced a humbling discovery: the operator's invalidate
+button — the entire trigger for this feature — was silently broken. The
+`/assumptions` page tagged each card with its serial row id; the API route
+matches only `asm_…` ids. Right-click → Invalidate has been 404ing, probably
+since the context menu shipped. Reproduced live before fixing (PATCH by
+serial id → 404), fixed with one attribute. The feature that notifies agents
+about invalidations would have been decoration on a button that didn't work.
+
+Smoke N1–N5 (72 checks now) prove the loop live end to end, and the
+`/assumptions` page shows the delivery state — notified-unread versus
+acknowledged — so the operator can see whether the agent has heard. One
+infrastructure note for the record: today's dev-server Turbopack kept
+panicking on a Windows child-process spawn failure (0xc0000142) that no code
+change explains; the production build compiled clean, so the rendered-UI
+verification ran against `next start` instead. Next up: v2.5, the "was I
+manipulated" session retro.
+
 ## 2026-07-02 — Roadmap v2.3: approvals that outlive their askers now say so (v4.30.0)
 
 The third audit finding was the quiet one. An agent asks for approval, its

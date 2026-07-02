@@ -61,6 +61,8 @@ Prompt-injection scanning runs against `declared_goal` before guard evaluation a
 
 **Granted operator approvals are honored on re-evaluation.** When a decision would be `require_approval`, the guard first checks the action ledger for a recent human approval of the identical action — same `agent_id`, same exact `declared_goal`, approved within the last 15 minutes. A match downgrades the decision to `allow`, adds `builtin:operator_approval` to `matched_policies`, and names the covering approval in `warnings`. This closes the loop where an operator approves after the client's approval wait timed out and the retried call would otherwise re-queue for approval. A `block` decision is never downgraded — blocks are absolute.
 
+**Assumption-invalidation alerts ride the guard response.** When an operator invalidated an assumption this agent (or its identity family) recorded and the alert has not been acknowledged, the response carries an `assumption_alerts` array (newest 3): `{ message_id, assumption_id, assumption, invalidated_reason, action_id, invalidated_at }`. Advisory only — it never changes the decision. Acknowledge by marking the underlying inbox message read (`PATCH /api/messages { "message_ids": [...], "action": "read" }`); the Claude Code pretool hook surfaces the warning and acknowledges automatically. Until acknowledged, the alert rides every guard call — that is what "mid-task" means for agents that are not resident.
+
 `GET /api/guard` lists recent guard decisions and supports filters such as `agent_id`, `decision`, `days`, `limit`, and `offset`. `days` (1–90) windows both the rows and the `total` count to the last N days, so `?decision=block&days=7` returns the true weekly denied count via `total`; without `days` the list spans all history.
 
 ### 2. Actions (`POST /api/actions`)
@@ -182,7 +184,9 @@ The parent action must exist. DashClaw returns `404` if `action_id` is unknown.
 }
 ```
 
-`GET /api/assumptions` supports filters such as `action_id`, `agent_id`, `validated`, `stale`, `limit`, and `offset`. `drift=true` adds a drift summary.
+`GET /api/assumptions` supports filters such as `action_id`, `agent_id`, `validated`, `stale`, `limit`, and `offset`. `drift=true` adds a drift summary. Invalidated rows carry `notification_status` (`unread` | `acknowledged`) — the delivery state of the invalidation notice sent to the owning agent.
+
+**Invalidating notifies the owning agent.** `PATCH /api/assumptions/:assumptionId` with `{ "validated": false, "invalidated_reason": "..." }` (operator action — the context menu on `/assumptions`, or a direct API call) also sends the assumption's owning agent a durable inbox message (`message_type: "assumption_invalidated"`, `doc_ref` = the `asm_…` id, body = a JSON directive with the assumption, reason, and parent `action_id`). The PATCH response reports `notification: { message_id }` on success or `notification_error: "notification_failed"` if the message could not be created — the invalidation itself still succeeds. From then on the agent's guard calls carry `assumption_alerts` until the message is marked read.
 
 ---
 
