@@ -467,7 +467,13 @@ async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgent
     try {
       const scoped = JSON.parse(p.agent_ids);
       if (!Array.isArray(scoped) || scoped.length === 0) return true;
-      return Boolean(currentAgentId && scoped.includes(currentAgentId));
+      if (!currentAgentId) return false;
+      // Composed sub-agent ids (<parent>:<type>) inherit the parent's
+      // targeted policies — without this, flipping the sub-agent identity
+      // default to `distinct` would silently detach every agent-targeted
+      // policy from delegated work. Exact composed entries also match.
+      const base = baseAgentId(currentAgentId);
+      return scoped.includes(currentAgentId) || Boolean(base && scoped.includes(base));
     } catch (parseErr) {
       // Fail closed on malformed scope data: skip the policy rather than silently
       // widening a targeted rule to govern every agent in the org.
@@ -1613,11 +1619,16 @@ async function x402BudgetDecision(rules: PolicyRules, context: GuardEvalContext,
     return { action: 'require_approval', reason: 'Agent-scoped x402 budget cannot attribute this purchase (no agent_id)' };
   }
 
+  // Agent-scoped budgets bind the identity FAMILY: a composed sub-agent id
+  // (<parent>:<type>) is normalized to its base so the parent's budget
+  // captures delegated spend, and sumWindowSpend counts the whole family.
+  const budgetAgentId = agentId ? (baseAgentId(agentId) ?? agentId) : null;
+
   let windowSpend: number;
   try {
     const { sumWindowSpend } = await import('./repositories/x402.repository');
     const sinceIso = new Date(Date.now() - windowDays * 86400000).toISOString();
-    windowSpend = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? agentId : null });
+    windowSpend = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? budgetAgentId : null });
   } catch (err) {
     // Degradation contract: per-policy on_failure → DASHCLAW_GUARD_FALLBACK →
     // fail-closed default (require_approval). 'allow' is the explicit escape hatch.
@@ -1633,7 +1644,7 @@ async function x402BudgetDecision(rules: PolicyRules, context: GuardEvalContext,
   }
 
   const total = windowSpend + spend;
-  const scopeLabel = scope === 'agent' ? `agent ${agentId}` : 'org';
+  const scopeLabel = scope === 'agent' ? `agent ${budgetAgentId}` : 'org';
   if (total > budgetMax) {
     return { action: 'block', reason: `Cumulative x402 spend $${total.toFixed(2)} over ${windowDays}d (incl. this $${spend.toFixed(2)} purchase, ${scopeLabel}) exceeds budget $${budgetMax}` };
   }
@@ -1682,11 +1693,13 @@ export async function verifyX402BudgetAfterInsert(orgId: string, context: GuardE
       if (budgetMax === Infinity) continue;
       const { windowDays, scope } = x402BudgetWindow(rules);
       if (scope === 'agent' && !agentId) continue; // the pre-insert gate already interrupted this shape
+      // Same identity-family normalization as the pre-insert gate.
+      const budgetAgentId = agentId ? (baseAgentId(agentId) ?? agentId) : null;
       const { sumWindowSpend } = await import('./repositories/x402.repository');
       const sinceIso = new Date(Date.now() - windowDays * 86400000).toISOString();
-      const committed = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? agentId : null });
+      const committed = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? budgetAgentId : null });
       if (committed > budgetMax) {
-        const scopeLabel = scope === 'agent' ? `agent ${agentId}` : 'org';
+        const scopeLabel = scope === 'agent' ? `agent ${budgetAgentId}` : 'org';
         return {
           policyId: policy.id,
           reason: `Cumulative x402 spend $${committed.toFixed(2)} over ${windowDays}d (${scopeLabel}) exceeds budget $${budgetMax} — post-insert re-verification`,

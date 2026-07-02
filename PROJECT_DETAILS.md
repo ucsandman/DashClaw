@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-07-01
+last-verified: 2026-07-02
 doc-type: architecture
 ---
 
@@ -207,7 +207,7 @@ DashClaw is intentionally multi-surface. Claude Code hooks are one strong integr
 | Claude custom connector (OAuth) | The Claude consumer app (web chat / Desktop / Cowork) — paste a URL, no API key in the UI | `POST /api/mcp` + `/api/oauth/*` (DCR + PKCE), `docs/CLAUDE-DESKTOP-PLUGIN.md` |
 | Node SDK | JavaScript/TypeScript agents and apps | `sdk/dashclaw.js`, npm package `dashclaw` (version in `sdk/package.json`) |
 | Python SDK | Python agents and backend workflows | `sdk-python/dashclaw/client.py` |
-| Claude Code hooks | Coding-agent tool governance (incl. sub-agent spawns and delegated work — see `hooks/README.md` "Sub-agent governance & tracking") without per-call SDK code | `hooks/`, `npm run hooks:install`, `plugins/dashclaw/.claude-plugin/` |
+| Claude Code hooks | Coding-agent tool governance (incl. sub-agent spawns and delegated work; per-harness identity via installer-written `--agent-id`, sub-agents as distinct fleet identities by default — see `hooks/README.md` "Sub-agent governance & tracking") without per-call SDK code | `hooks/`, `npm run hooks:install`, `plugins/dashclaw/.claude-plugin/` |
 | Codex plugin | Codex coding-agent governance via field-compatible hook schema | `cli/lib/codex/`, `dashclaw install codex`, `plugins/dashclaw/.codex-plugin/` |
 | Hermes Agent plugin | Per-turn governance context injection, secret redaction, subagent ROI, live session ingest | `.hermes/hooks/`, `plugins/dashclaw/.hermes-plugin/`, `scripts/install-hermes-plugin.{sh,ps1}` |
 | OpenClaw plugin | OpenClaw lifecycle-native governance | `packages/openclaw-plugin/` |

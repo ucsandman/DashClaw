@@ -252,6 +252,64 @@ async function main() {
       `body=${JSON.stringify(p4.json)?.slice(0, 300)}`);
   }
 
+  // L1–L3: agent identity family (roadmap v2.2). Composed sub-agent ids
+  // (<parent>:<type>, DASHCLAW_SUBAGENT_IDENTITY=distinct — the default since
+  // v2.2) inherit the parent's targeted policies, and agent-scoped x402
+  // budgets bind the whole identity family, so a sub-agent can neither dodge
+  // its parent's rules nor escape the family budget.
+  {
+    const parent = agentFor('fam');
+    const child = `${parent}:explore`;
+    const pid = await createPolicy('family-block', 'block_action_type',
+      { action_types: [`smoke.family.${RUN}`] }, [parent]);
+    const viaChild = await api('POST', '/api/guard', {
+      action_type: `smoke.family.${RUN}`, declared_goal: `family-targeted action via sub-agent ${RUN}`, agent_id: child,
+    });
+    check('L1', 'policy targeted at the parent applies to its composed sub-agent id',
+      viaChild.json?.decision === 'block' && (viaChild.json?.matched_policies || []).includes(pid),
+      `decision=${viaChild.json?.decision} matched=${JSON.stringify(viaChild.json?.matched_policies)}`);
+    const unrelated = await api('POST', '/api/guard', {
+      action_type: `smoke.family.${RUN}`, declared_goal: `same action via an unrelated sub-agent ${RUN}`,
+      agent_id: `${agentFor('fam-other')}:explore`,
+    });
+    check('L2', 'the targeted policy does not leak to unrelated composed ids',
+      !(unrelated.json?.matched_policies || []).includes(pid),
+      `matched=${JSON.stringify(unrelated.json?.matched_policies)}`);
+
+    // L3: family budget — the parent's agent-scoped budget counts sub-agent
+    // spend. Parent spends $4 (allowed), then the CHILD's $4 purchase breaches
+    // the $7 family budget even though the child alone has spent nothing.
+    // Purchases stay under $5 so the shared smoke org's org-wide per-purchase
+    // gates (same reason B6 uses $4) never shadow the family-budget signal.
+    const famAgent = agentFor('fam-budget');
+    const famChild = `${famAgent}:worker`;
+    await createPolicy('family-budget', 'x402_spend_limit',
+      { budget_usd: 7, budget_scope: 'agent' }, [famAgent]);
+    const famPurchase = (agentId, goal, cost) => api('POST', '/api/x402/purchases', {
+      agent_id: agentId, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
+      purchase_reason: 'policy smoke check', context_gap: 'verifying the family budget live', expected_value: 'proof sub-agents cannot escape the family budget',
+    });
+    const famDecision = (r) => {
+      for (const g of [r.json?.guard, r.json?.decision, r.json?.guard_decision]) {
+        if (typeof g === 'string') return g;
+        if (g && typeof g.decision === 'string') return g.decision;
+      }
+      const st = r.json?.action?.status;
+      return st === 'pending_approval' ? 'require_approval' : st === 'blocked' ? 'block' : undefined;
+    };
+    const f1 = await famPurchase(famAgent, `family budget purchase by parent ${RUN}`, 4);  // family sum 4
+    const f2 = await famPurchase(famChild, `family budget purchase by sub-agent ${RUN}`, 4); // 4 + 4 = 8 > 7 → block
+    check('L3', 'parent purchase under the family budget is not gated',
+      f1.status < 400 && famDecision(f1) !== 'block' && famDecision(f1) !== 'require_approval',
+      `status=${f1.status} decision=${famDecision(f1)} body=${JSON.stringify(f1.json)?.slice(0, 200)}`);
+    check('L3', "sub-agent purchase breaching the family budget is blocked (composed id counted into the parent's window)",
+      famDecision(f2) === 'block' || f2.status === 403,
+      `status=${f2.status} decision=${famDecision(f2)} body=${JSON.stringify(f2.json)?.slice(0, 200)}`);
+    check('L3', 'the family-budget block names the family base agent in its reason',
+      JSON.stringify(f2.json || {}).includes(`agent ${famAgent}`),
+      `body=${JSON.stringify(f2.json)?.slice(0, 300)}`);
+  }
+
   // C1 + C2: /api/actions runs guard internally
   {
     const agent = agentFor('b1'); // reuse the block policy's agent + type

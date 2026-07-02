@@ -281,7 +281,15 @@ export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { peri
  * would let over-budget purchases through the gate.
  */
 export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, agentId = null }: { sinceIso: string; agentId?: string | null }): Promise<number> {
-  const agentFilter = agentId ? sql` AND agent_id = ${agentId}` : sql``;
+  // Identity-family match (roadmap v2.2): an agent-scoped budget binds the
+  // base identity AND its composed sub-agents (`<base>:<type>`, RFC
+  // 2026-06-01) — a sub-agent cannot escape the family budget by virtue of
+  // its composed id. `:` is reserved in agent ids, so the prefix match is
+  // unambiguous; LIKE wildcards in the base id are escaped.
+  const likePrefix = agentId ? agentId.replace(/([\\%_])/g, '\\$1') + ':%' : null;
+  const agentFilter = agentId
+    ? sql` AND (agent_id = ${agentId} OR agent_id LIKE ${likePrefix})`
+    : sql``;
   const [row] = await sql`
     SELECT COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
     FROM x402_purchases

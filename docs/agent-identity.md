@@ -4,11 +4,26 @@ DashClaw supports cryptographically verifiable agent identity via standard JWT
 bearer tokens. Any OIDC-compatible issuer works — Keycloak, Auth0, a custom
 JWKS server, or AgentLair.
 
+## Phase 1 — who is asking (harness attribution)
+
+Before any cryptography, every action carries a self-asserted `agent_id`.
+Since v2.2 that identity is **per-harness**: each installer writes an
+explicit `--agent-id <id>` flag onto its hook command line (Claude Code:
+`claude-code` or the id chosen at install; Codex: `codex`; Hermes shims:
+`DASHCLAW_HERMES_AGENT_ID` or `hermes`), and the hooks resolve identity as
+**argv flag > `DASHCLAW_AGENT_ID` env > harness default** — so two harnesses
+on one machine report two identities even when a machine-wide
+`DASHCLAW_AGENT_ID` is exported. Claude Code sub-agents additionally get
+composed identities (`<parent>:<type>`, default
+`DASHCLAW_SUBAGENT_IDENTITY=distinct`); the server resolves their pairing,
+targeted policies, and agent-scoped x402 budgets through the base parent
+(`docs/rfcs/2026-06-01-subagent-fleet-identities.md`).
+
 ## Getting an identity (enroll first)
 
 Identity is **additive** — DashClaw works without it (Phase 1 attributes actions
-by the `agent_id` body field). Add verifiable identity when you want cryptographic
-proof of *who* acted. There are two enrollment paths:
+by the `agent_id` body field, derived as above). Add verifiable identity when
+you want cryptographic proof of *who* acted. There are two enrollment paths:
 
 **A. Public-key pairing (no identity provider required).** The simplest path for
 self-hosters who don't run an OIDC issuer:

@@ -36,7 +36,10 @@ def _dashclaw_env() -> dict:
     return {
         "base_url": (os.environ.get("DASHCLAW_BASE_URL") or "").rstrip("/"),
         "api_key": os.environ.get("DASHCLAW_API_KEY") or "",
-        "agent_id": os.environ.get("DASHCLAW_AGENT_ID") or "hermes",
+        # Harness-specific id first (roadmap v2.2) — mirrors dashclaw_common.py.
+        "agent_id": os.environ.get("DASHCLAW_HERMES_AGENT_ID")
+        or os.environ.get("DASHCLAW_AGENT_ID")
+        or "hermes",
         "workspace": os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd(),
     }
 
@@ -134,7 +137,8 @@ def _cli_setup(args):
     print("  2. Export the env vars (shell or ~/.hermes/config.yaml under `plugins.dashclaw.env`):")
     print("       DASHCLAW_BASE_URL=https://<your-instance>.vercel.app")
     print("       DASHCLAW_API_KEY=oc_live_...")
-    print("       DASHCLAW_AGENT_ID=hermes        # optional, defaults to hermes")
+    print("       DASHCLAW_HERMES_AGENT_ID=hermes # optional, defaults to hermes;")
+    print("                                       # beats a machine-wide DASHCLAW_AGENT_ID")
     print("  3. Verify with: hermes dashclaw doctor")
     return 0
 

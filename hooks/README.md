@@ -45,8 +45,8 @@ DashClaw governs and records delegated (sub-agent) work end to end on Claude Cod
 
 - **The spawn.** Invoking the `Agent` tool (or legacy `Task`) is a governed `PreToolUse` decision: it hits `/api/guard` and is recorded as an `orchestration` action, so you can see, gate, or require approval for *which* sub-agents get spawned.
 - **The sub-agent's own tool calls.** Claude Code fires `PreToolUse` inside sub-agents (the hook stdin carries `agent_id` and `agent_type`), so a sub-agent's Bash/Edit/Write/MultiEdit calls are evaluated against the same policies as the parent.
-- **Attribution.** By default (`DASHCLAW_SUBAGENT_IDENTITY=provenance`) sub-agent actions keep the parent's governed `agent_id` — sub-agents inherit the parent's pairing and permissions, matching Claude Code's own model — and record the sub-agent as provenance: `agent_name` = `<parent>/<agent_type>`, `swarm_id` = the session id (so the spawn and the delegated work group together in the decisions ledger and the Swarm view), and `intel.subagent = { agent_id, agent_type }`.
-- **Distinct fleet identities (opt-in).** Set `DASHCLAW_SUBAGENT_IDENTITY=distinct` to give each sub-agent *type* its own composed `agent_id` (`<parent>:<type>`, e.g. `claude-code:explore`) so it appears as a distinct agent in `/agents`. Governance stays correct: pairing/identity lookups fall back to the base parent, so a sub-agent inherits the parent's permissions unless you pair the sub-agent id explicitly. Design + rollout: `docs/rfcs/2026-06-01-subagent-fleet-identities.md`.
+- **Attribution — distinct fleet identities (default since v2.2).** By default (`DASHCLAW_SUBAGENT_IDENTITY=distinct`) each sub-agent *type* gets its own composed `agent_id` (`<parent>:<type>`, e.g. `claude-code:explore`) and appears as a distinct agent in `/agents`, grouped under its parent. Governance stays correct: pairing/identity lookups, agent-targeted policies, and agent-scoped x402 budgets all fall back to (or roll up to) the base parent, so a sub-agent inherits the parent's permissions and rules — and cannot escape the parent's budget — unless you pair the sub-agent id explicitly. Provenance rides along either way: `agent_name` = `<parent>/<agent_type>`, `swarm_id` = the session id (so the spawn and the delegated work group together in the decisions ledger and the Swarm view), and `intel.subagent = { agent_id, agent_type }`.
+- **Legacy rollback.** Set `DASHCLAW_SUBAGENT_IDENTITY=provenance` to restore the pre-v2.2 behavior: sub-agent actions keep the parent's governed `agent_id` and sub-agent identity rides only the provenance fields. Design + rollout: `docs/rfcs/2026-06-01-subagent-fleet-identities.md`.
 
 Plugin-defined sub-agents can't carry their own hooks (a Claude Code security restriction), but the session-level matcher above still covers them.
 
@@ -156,7 +156,7 @@ cp hooks/settings.json .claude/settings.json
 ```bash
 export DASHCLAW_BASE_URL=https://your-dashclaw-instance.vercel.app
 export DASHCLAW_API_KEY=your_api_key_here
-export DASHCLAW_AGENT_ID=claude-code              # optional, defaults to "claude-code"
+export DASHCLAW_AGENT_ID=claude-code              # optional, defaults to "claude-code"; a --agent-id flag on the hook command (installer-written) beats this
 export DASHCLAW_CODE_SESSIONS_ENABLED=0           # optional: OPT OUT of Code Sessions capture (ON by default, metadata-only)
 export DASHCLAW_CODE_SESSIONS_CONTENT=full        # optional: explicitly ship full transcript text (default strips prompt/file text)
 export DASHCLAW_BEHAVIOR_SAMPLES_ENABLED=1        # optional: enable Behavior Learning samples (local-only)
@@ -203,8 +203,8 @@ Read-only and strictly fail-silent: missing config, an unreachable instance, or 
 |---|---|---|---|
 | `DASHCLAW_BASE_URL` | Yes | -- | URL of your DashClaw instance |
 | `DASHCLAW_API_KEY` | Yes | -- | Operator API key from `/settings` |
-| `DASHCLAW_AGENT_ID` | No | `claude-code` | Identity for this agent in DashClaw |
-| `DASHCLAW_SUBAGENT_IDENTITY` | No | `provenance` | `provenance` records sub-agent identity as provenance (agent_id stays the parent). `distinct` gives each sub-agent type its own composed agent_id (`<parent>:<type>`) so it's a distinct fleet agent; the server falls back to the parent's pairing for permissions. |
+| `DASHCLAW_AGENT_ID` | No | `claude-code` | Identity for this agent in DashClaw. A `--agent-id <id>` flag on the hook command line (written by the harness installers since v2.2) takes precedence, so each harness on a machine reports its own identity even when this var is exported machine-wide. |
+| `DASHCLAW_SUBAGENT_IDENTITY` | No | `distinct` | `distinct` (default since v2.2) gives each sub-agent type its own composed agent_id (`<parent>:<type>`) — a distinct fleet agent; the server falls back to the parent's pairing/targeted policies and rolls agent-scoped x402 budgets up to the family base. `provenance` restores the legacy behavior (agent_id stays the parent; sub-agent identity rides the provenance fields only). |
 | `DASHCLAW_HOOK_MODE` | No | `enforce` | `enforce` blocks on policy violations. `observe` logs everything but never blocks. |
 | `DASHCLAW_PERMISSION_MODE` | No | `danger` | Permission mode passed to the guard for policy evaluation |
 | `DASHCLAW_GOVERNED_CATEGORIES` | No | `execution,orchestration,file_io,interactive,mcp` | Comma-separated list of tool categories that are governed |

@@ -6,7 +6,10 @@
 #
 # All hooks read JSON from stdin and emit JSON to stdout. They require the
 # same env vars the Claude Code / Codex installations use:
-#   DASHCLAW_BASE_URL, DASHCLAW_API_KEY, DASHCLAW_AGENT_ID (default "hermes"),
+#   DASHCLAW_BASE_URL, DASHCLAW_API_KEY,
+#   DASHCLAW_HERMES_AGENT_ID (default "hermes"; the harness-specific id —
+#     it beats a machine-wide DASHCLAW_AGENT_ID so Hermes actions are never
+#     mis-attributed to another harness),
 #   DASHCLAW_WORKSPACE, DASHCLAW_PERMISSION_MODE, DASHCLAW_GUARD_TIMEOUT,
 #   DASHCLAW_APPROVAL_TIMEOUT, DASHCLAW_GUARD_UNAVAILABLE_POLICY.
 #

@@ -42,13 +42,18 @@ def main() -> int:
         # `DASHCLAW_GUARD_UNAVAILABLE_POLICY` semantics — emit nothing.
         return 0
 
-    # Pass DASHCLAW_AGENT_ID=hermes by default so server-side analytics
-    # can attribute requests correctly.
+    # Declare the harness identity (roadmap v2.2): --agent-id beats the
+    # machine-ambient DASHCLAW_AGENT_ID env var inside the target script, so
+    # Hermes calls stay attributed to Hermes even when another harness
+    # exported an id in the shared environment. The env override (not
+    # setdefault) covers older target scripts without argv support.
+    # Operators customize with DASHCLAW_HERMES_AGENT_ID.
+    agent_id = os.environ.get("DASHCLAW_HERMES_AGENT_ID") or "hermes"
     env = dict(os.environ)
-    env.setdefault("DASHCLAW_AGENT_ID", "hermes")
+    env["DASHCLAW_AGENT_ID"] = agent_id
 
     proc = subprocess.run(
-        ["python", str(PRETOOL_SCRIPT)],
+        ["python", str(PRETOOL_SCRIPT), "--agent-id", agent_id],
         input=json.dumps(payload).encode("utf-8"),
         capture_output=True,
         env=env,

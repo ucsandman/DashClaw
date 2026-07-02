@@ -83,7 +83,8 @@ describe('install-hooks global capture (--global)', () => {
   // Backslashes in the repo root must be forward-slashed in the rendered
   // command so it runs identically under PowerShell and POSIX shells.
   const REPO = 'C:\\Projects\\DashClaw';
-  const CMD = 'python "C:/Projects/DashClaw/hooks/dashclaw_stop.py"';
+  // --agent-id claude-code: per-harness identity via argv (roadmap v2.2).
+  const CMD = 'python "C:/Projects/DashClaw/hooks/dashclaw_stop.py" --agent-id claude-code';
 
   it('builds a forward-slashed absolute Stop command for this repo', () => {
     expect(globalStopCommand(REPO)).toBe(CMD);
@@ -163,9 +164,9 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
   });
 
   it('renders pure helpers with the literal "python" by default (deterministic)', () => {
-    expect(globalStopCommand('C:\\Projects\\DashClaw')).toBe('python "C:/Projects/DashClaw/hooks/dashclaw_stop.py"');
+    expect(globalStopCommand('C:\\Projects\\DashClaw')).toBe('python "C:/Projects/DashClaw/hooks/dashclaw_stop.py" --agent-id claude-code');
     expect(hookBlocks().PreToolUse[0].hooks[0].command)
-      .toBe('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py"');
+      .toBe('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py" --agent-id claude-code');
   });
 
   it('matches the Skill tool so the auto skill-scan fires on skill load', () => {
@@ -174,16 +175,16 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
 
   it('bakes the chosen interpreter into every hook command when one is passed', () => {
     expect(globalStopCommand('C:\\Projects\\DashClaw', 'python3'))
-      .toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py"');
+      .toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py" --agent-id claude-code');
     const blocks = hookBlocks('python3');
-    expect(blocks.PreToolUse[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py"');
-    expect(blocks.PostToolUse[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_posttool.py"');
-    expect(blocks.Stop[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_stop.py"');
+    expect(blocks.PreToolUse[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py" --agent-id claude-code');
+    expect(blocks.PostToolUse[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_posttool.py" --agent-id claude-code');
+    expect(blocks.Stop[0].hooks[0].command).toBe('python3 "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_stop.py" --agent-id claude-code');
   });
 
   it('threads the interpreter through the global Stop merge', () => {
     const merged = mergeGlobalStopHook({}, 'C:\\Projects\\DashClaw', { python: 'python3' });
-    expect(merged.hooks.Stop[0].hooks[0].command).toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py"');
+    expect(merged.hooks.Stop[0].hooks[0].command).toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py" --agent-id claude-code');
   });
 });
 

@@ -129,7 +129,7 @@ reach/revenue-first.
 | # | Item | Status |
 |---|------|--------|
 | v2.1 | Guard-deadline noise: instrument, diagnose, fix | DONE 2026-07-02 (v4.28.0; degraded column + _timings, LLM skip/budget fix — root cause was apply-base-60 recruiting a 1.2–3s LLM on every edit; cockpit strip + evidence exclusion; smoke = 57) |
-| v2.2 | Agent identity & attribution v2 | — |
+| v2.2 | Agent identity & attribution v2 | DONE 2026-07-02 (per-harness identity via installer-written `--agent-id` argv — argv > env > harness default; Codex/Hermes wiring fixed; `DASHCLAW_SUBAGENT_IDENTITY` default flipped to `distinct` with /agents parent grouping; targeted policies + `agentExistsInOrg` gained the base fallback; agent-scoped x402 budgets bind the identity family + 0038 index; spec docs/plans/2026-07-02-agent-identity-attribution.md; smoke = 62) |
 | v2.3 | Approvals lifecycle hygiene | — |
 | v2.4 | Advocate v2a: assumption-invalidation notifications | — |
 | v2.5 | Advocate v2b: "was I manipulated" session retro | — |

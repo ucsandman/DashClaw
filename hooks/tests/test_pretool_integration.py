@@ -109,10 +109,11 @@ def _find_free_port() -> int:
 # Test helper
 # ---------------------------------------------------------------------------
 
-def _run_hook(stdin_data: dict, env_overrides: dict | None = None, timeout: float = 10) -> tuple[int, str, str]:
+def _run_hook(stdin_data: dict, env_overrides: dict | None = None, timeout: float = 10, argv: list[str] | None = None) -> tuple[int, str, str]:
     """Run the pretool hook as a subprocess.
 
-    Returns (exit_code, stdout, stderr).
+    `argv` appends extra command-line arguments (e.g. the per-harness
+    `--agent-id` flag installers write). Returns (exit_code, stdout, stderr).
     """
     env = os.environ.copy()
     # Remove any real DashClaw config so the hook uses our overrides.
@@ -126,7 +127,7 @@ def _run_hook(stdin_data: dict, env_overrides: dict | None = None, timeout: floa
         env.update(env_overrides)
 
     proc = subprocess.run(
-        [sys.executable, _PRETOOL_SCRIPT],
+        [sys.executable, _PRETOOL_SCRIPT, *(argv or [])],
         input=json.dumps(stdin_data).encode("utf-8"),
         capture_output=True,
         timeout=timeout,
@@ -650,10 +651,11 @@ class TestPretoolIntegration(unittest.TestCase):
         self.assertEqual(len(guard_reqs), 1, "Task spawn should be governed")
         self.assertEqual(guard_reqs[0]["body"]["tool"]["category"], "orchestration")
 
-    def test_subagent_call_records_provenance(self):
-        """A tool call from inside a sub-agent (agent_id/agent_type on stdin) keeps
-        the governed agent_id = the parent, but records the sub-agent as provenance:
-        agent_name, swarm_id, and intel.subagent."""
+    def test_subagent_provenance_mode_keeps_parent_agent_id(self):
+        """In provenance mode (legacy, pre-v2.2 default) a tool call from inside a
+        sub-agent (agent_id/agent_type on stdin) keeps the governed agent_id = the
+        parent, but records the sub-agent as provenance: agent_name, swarm_id, and
+        intel.subagent."""
         code, _, _ = _run_hook(
             {
                 "tool_name": "Bash",
@@ -663,7 +665,7 @@ class TestPretoolIntegration(unittest.TestCase):
                 "agent_id": "subagent-abc",
                 "agent_type": "Explore",
             },
-            self._env(),
+            self._env(DASHCLAW_SUBAGENT_IDENTITY="provenance"),
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
@@ -673,10 +675,11 @@ class TestPretoolIntegration(unittest.TestCase):
         self.assertEqual(body["intel"]["subagent"], {"agent_id": "subagent-abc", "agent_type": "Explore"})
 
 
-    def test_subagent_distinct_mode_emits_composed_agent_id(self):
-        """In distinct mode, a sub-agent's call is attributed to a composed agent_id
-        (<parent>:<agent_type>) so it is a first-class fleet identity; the server
-        falls back to the parent's pairing for permissions."""
+    def test_subagent_default_emits_composed_agent_id(self):
+        """Default mode is `distinct` (flipped in roadmap v2.2, RFC rollout step 3):
+        a sub-agent's call is attributed to a composed agent_id (<parent>:<agent_type>)
+        so it is a first-class fleet identity; the server falls back to the parent's
+        pairing for permissions. Provenance fields still ride along."""
         code, _, _ = _run_hook(
             {
                 "tool_name": "Bash",
@@ -686,12 +689,57 @@ class TestPretoolIntegration(unittest.TestCase):
                 "agent_id": "subagent-xyz",
                 "agent_type": "Explore",
             },
-            self._env(DASHCLAW_SUBAGENT_IDENTITY="distinct"),
+            self._env(),
         )
         self.assertEqual(code, 0)
         body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
         self.assertEqual(body["agent_id"], "test-agent:explore")
+        self.assertEqual(body["agent_name"], "test-agent/Explore")
+        self.assertEqual(body["swarm_id"], "sess-d")
         self.assertEqual(body["intel"]["subagent"]["agent_type"], "Explore")
+
+    def test_argv_agent_id_beats_env(self):
+        """Per-harness identity (roadmap v2.2): the `--agent-id` flag written by
+        the harness installer beats a machine-ambient DASHCLAW_AGENT_ID export,
+        so two harnesses sharing one environment report two identities."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "tu-argv-1", "session_id": "s"},
+            self._env(),  # env carries DASHCLAW_AGENT_ID=test-agent (the ambient export)
+            argv=["--agent-id", "codex"],
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["agent_id"], "codex")
+
+    def test_argv_agent_id_equals_form(self):
+        """--agent-id=<id> (single-token form) resolves identically."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Bash", "tool_input": {"command": "ls"}, "tool_use_id": "tu-argv-2", "session_id": "s"},
+            self._env(),
+            argv=["--agent-id=hermes"],
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["agent_id"], "hermes")
+
+    def test_argv_agent_id_composes_with_subagent_identity(self):
+        """The argv identity is the parent segment for composed sub-agent ids."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+                "tool_use_id": "tu-argv-3",
+                "session_id": "s",
+                "agent_id": "subagent-argv",
+                "agent_type": "Explore",
+            },
+            self._env(),
+            argv=["--agent-id", "codex"],
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["agent_id"], "codex:explore")
+        self.assertEqual(body["agent_name"], "codex/Explore")
 
 
 class TestPretoolSingleCall(unittest.TestCase):

@@ -32,7 +32,12 @@ from pathlib import Path
 
 BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or "").rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
-AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "hermes"
+# Harness-specific id first (roadmap v2.2) — mirrors dashclaw_common.py.
+AGENT_ID = (
+    os.environ.get("DASHCLAW_HERMES_AGENT_ID")
+    or os.environ.get("DASHCLAW_AGENT_ID")
+    or "hermes"
+)
 WORKSPACE = os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
 INGEST_TIMEOUT = float(os.environ.get("DASHCLAW_INGEST_TIMEOUT") or "10")
 

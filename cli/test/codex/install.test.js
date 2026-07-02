@@ -107,6 +107,16 @@ describe('buildConfigTomlBlock', () => {
     assert.match(built, /matcher = "Bash\|Edit\|Write\|MultiEdit"/);
   });
 
+  it('every hook command declares the codex identity via --agent-id (roadmap v2.2)', () => {
+    // The hooks' argv identity beats a machine-ambient DASHCLAW_AGENT_ID, so
+    // Codex tool calls are never mis-attributed to another harness.
+    const hookCommands = built.split('\n').filter((l) => l.startsWith('command = ') && l.includes('dashclaw_'));
+    assert.equal(hookCommands.length, 3);
+    for (const line of hookCommands) {
+      assert.match(line, / --agent-id codex"$/);
+    }
+  });
+
   it('escapes Windows backslashes in command paths', () => {
     // Backslashes in the actual paths should become double-backslashes inside
     // TOML basic strings so the toml parser sees the original char.

@@ -107,7 +107,10 @@ describe('installClaude', () => {
     const settings = JSON.parse(fs.readFileSync(result.settingsPath, 'utf8'));
     const pre = settings.hooks.PreToolUse.find(isManagedHookEntry);
     assert.ok(pre, 'managed PreToolUse entry present');
-    assert.match(pre.hooks[0].command, /^python3 .*dashclaw_pretool\.py"$/);
+    // --agent-id: per-harness identity declaration on the command line
+    // (roadmap v2.2) — argv beats a machine-ambient DASHCLAW_AGENT_ID. The
+    // install threads the id chosen at install time (BASE_OPTS: my-agent).
+    assert.match(pre.hooks[0].command, /^python3 .*dashclaw_pretool\.py" --agent-id "my-agent"$/);
     assert.ok(settings.hooks.Stop.some(isManagedHookEntry));
   });
 
@@ -210,9 +213,14 @@ describe('installClaude', () => {
 describe('buildHookEntries / buildHookEnv', () => {
   it('hook commands point at the hooks dir with the given python', () => {
     const entries = buildHookEntries('/tmp/hooks', 'python3');
-    assert.match(entries.PreToolUse[0].hooks[0].command, /^python3 ".*dashclaw_pretool\.py"$/);
+    assert.match(entries.PreToolUse[0].hooks[0].command, /^python3 ".*dashclaw_pretool\.py" --agent-id "claude-code"$/);
     assert.equal(entries.PreToolUse[0].hooks[0].timeout, 3600000);
     assert.equal(entries.Stop[0].matcher, undefined);
+  });
+
+  it('hook commands carry a custom agent id when one is chosen at install', () => {
+    const entries = buildHookEntries('/tmp/hooks', 'python3', 'my-claude');
+    assert.match(entries.Stop[0].hooks[0].command, / --agent-id "my-claude"$/);
   });
 
   it('hook env defaults to observe mode', () => {

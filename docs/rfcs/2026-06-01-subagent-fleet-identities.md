@@ -1,6 +1,6 @@
 # RFC: Distinct sub-agent fleet identities
 
-- **Status:** Step 1 (server fallback + hook flag, default `provenance`) **implemented** behind the flag — awaiting live-instance validation before flipping the default to `distinct`
+- **Status:** **COMPLETE** (roadmap v2.2, 2026-07-02). Step 1 (server fallback + hook flag) shipped 2026-06; step 3 shipped with v2.2: default flipped to `distinct`, `/agents` groups composed ids under their parent, `agentExistsInOrg` + agent-targeted policy matching gained the base fallback, and agent-scoped x402 budgets roll composed ids up to the family base. Live pins: policy-smoke I1–I3. Rollback: `DASHCLAW_SUBAGENT_IDENTITY=provenance`. See `docs/plans/2026-07-02-agent-identity-attribution.md`.
 - **Date:** 2026-06-01
 - **Depends on:** `feat(governance): govern + record Claude Code sub-agents` (commit `a7bbcbc9`)
 

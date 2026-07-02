@@ -152,6 +152,12 @@ TOOL_CATALOG: dict[str, dict] = {
         "orchestration", "danger",
         _risk(75, spawn=True, network=True, modify=True, escalate=True),
     ),
+    # `Task` is the pre-2.1.63 name for the sub-agent spawn tool (renamed to
+    # `Agent`); older Claude Code still emits it. Same governance profile.
+    "Task": _tool(
+        "orchestration", "danger",
+        _risk(75, spawn=True, network=True, modify=True, escalate=True),
+    ),
     "Skill": _tool(
         "orchestration", "danger",
         _risk(60, spawn=True, modify=True, escalate=True),

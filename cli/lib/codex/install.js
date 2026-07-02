@@ -215,19 +215,23 @@ export function buildConfigTomlBlock({
     'matcher = "Bash|Edit|Write|MultiEdit"',
     '[[hooks.PreToolUse.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${pre}`)}`,
+    // --agent-id on the hook command line mirrors the MCP server args above:
+    // the hooks' argv identity beats the machine-ambient DASHCLAW_AGENT_ID
+    // env var, so Codex tool calls are never mis-attributed to another
+    // harness (roadmap v2.2).
+    `command = ${tomlString(`${py} ${pre} --agent-id codex`)}`,
     'timeoutSec = 3600',
     '',
     '[[hooks.PostToolUse]]',
     'matcher = "Bash|Edit|Write|MultiEdit"',
     '[[hooks.PostToolUse.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${post}`)}`,
+    `command = ${tomlString(`${py} ${post} --agent-id codex`)}`,
     '',
     '[[hooks.Stop]]',
     '[[hooks.Stop.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${stop}`)}`,
+    `command = ${tomlString(`${py} ${stop} --agent-id codex`)}`,
     MANAGED_END,
   );
 

@@ -16,7 +16,49 @@ Entries are newest-first.
 
 <!-- digest-posted: 2026-07-02 -->
 
-## 2026-07-02 — Roadmap v2.1: the deadline was interrupting people for nothing (v4.28.0)
+## 2026-07-02 — Roadmap v2.2: every agent on the machine answered to the same name (v4.29.0)
+
+The June audit's second finding was almost comic: Wes gets an approval
+request and cannot tell *who is asking*, because Claude Code, Codex, and
+every sub-agent on the machine all report the one machine-wide
+`DASHCLAW_AGENT_ID`. An approval surface that can't name the requester isn't
+governance, it's a doorbell.
+
+Mapping the actual mechanics turned up three separate bugs wearing one
+symptom. The hooks' `.env` loader lets any inherited environment variable
+shadow the identity the installer wrote. The Codex installer wired
+`--agent-id codex` into its MCP server line but gave the *hook* commands no
+identity at all — so Codex tool calls fell back to the hardcoded
+`claude-code` default or the ambient export, whichever was lying around.
+And the Hermes shims used `setdefault`, which politely yields to exactly
+the stray export that causes the problem.
+
+The fix rejected the obvious approach. Flipping `.env` precedence can't
+work here: the user-level install points every harness at *one* shared
+script directory with *one* adjacent `.env`, so no file-based rule can
+distinguish harnesses that share the file. The only genuinely per-harness
+channel is the command line each installer writes — so hooks now accept
+`--agent-id`, resolve **argv > env > default**, and every installer
+declares its harness on every hook command. Legacy installs keep byte-level
+legacy behavior until re-run.
+
+That unblocked finishing the June sub-agent RFC: `DASHCLAW_SUBAGENT_IDENTITY`
+defaults to `distinct` now, so delegated work shows up as `claude-code:explore`
+under its parent in `/agents`. The flip nearly shipped a governance hole I
+only caught because the pre-flip sweep asked "what else matches agent ids
+exactly?" — **agent-targeted policies did**. Flipping the default without
+teaching `loadApplicablePolicies` the base-parent fallback would have
+silently detached every targeted policy from sub-agent actions. That's now
+pinned by tests and by live smoke: L1 proves a parent-targeted policy blocks
+the sub-agent, L3 proves a sub-agent can't spend past its parent's x402
+budget (the budget now binds the identity *family*, base plus `:type`
+children, with the index migration 0036 had deferred). Smoke is 62/62;
+the `/agents` grouping was verified rendered headless, not assumed.
+
+Honest ledger: my own governance hooks blocked one of my cleanup commands
+mid-ship (a recursive force-delete scored risk 100) — mildly annoying,
+entirely correct, and a decent live demo of the product doing its job on
+its own maintainer.
 
 Roadmap v2's whole thesis is "make every interruption cheap when right and
 rare when wrong," and v2.1 went after the most embarrassing kind of wrong:

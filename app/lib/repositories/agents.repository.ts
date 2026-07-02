@@ -40,6 +40,20 @@ export async function agentExistsInOrg(
   agentId: unknown
 ): Promise<boolean> {
   if (!agentId || typeof agentId !== 'string') return false;
+  const exists = await agentIdHasTraceInOrg(sql, orgId, agentId);
+  if (exists) return true;
+  // Composed sub-agent ids (<parent>:<type>, RFC 2026-06-01) belong to the
+  // org whenever their parent does — a fresh sub-agent may be referenced
+  // before its first recorded action lands. Exact match above still wins.
+  const base = baseAgentId(agentId);
+  return base ? agentIdHasTraceInOrg(sql, orgId, base) : false;
+}
+
+async function agentIdHasTraceInOrg(
+  sql: SqlClient,
+  orgId: string,
+  agentId: string
+): Promise<boolean> {
   try {
     const rows = await sql`
       SELECT 1 FROM agent_presence WHERE org_id = ${orgId} AND agent_id = ${agentId} LIMIT 1

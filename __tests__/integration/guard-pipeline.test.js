@@ -179,6 +179,38 @@ describe('guard pipeline integration', () => {
     expect(pairingCall.values).toContain('claude-code');
   });
 
+  it('agent-targeted policies apply to composed sub-agent ids of the targeted parent (roadmap v2.2)', async () => {
+    // Without base-id fallback in policy targeting, flipping the sub-agent
+    // identity default to `distinct` would silently detach every
+    // agent-targeted policy from delegated work.
+    const sql = createMockSql({
+      policies: [makePolicy('gp_targeted', 'permission_escalation', { enforce: true }, { agent_ids: JSON.stringify(['claude-code']) })],
+      agentPairing: { permission_level: 'workspace_write' },
+    });
+    const context = {
+      agent_id: 'claude-code:explore',
+      action_type: 'deploy',
+      intel: { tool: { required_permission: 'danger' } },
+    };
+    const result = await evaluateGuard('org_1', context, sql);
+    expect(result.decision).toBe('block');
+    expect(result.matched_policies).toContain('gp_targeted');
+  });
+
+  it('agent-targeted policies still skip unrelated composed ids', async () => {
+    const sql = createMockSql({
+      policies: [makePolicy('gp_other', 'permission_escalation', { enforce: true }, { agent_ids: JSON.stringify(['some-other-agent']) })],
+      agentPairing: { permission_level: 'workspace_write' },
+    });
+    const context = {
+      agent_id: 'claude-code:explore',
+      action_type: 'deploy',
+      intel: { tool: { required_permission: 'danger' } },
+    };
+    const result = await evaluateGuard('org_1', context, sql);
+    expect(result.matched_policies).not.toContain('gp_other');
+  });
+
   // 2. permission_escalation: allows when agent has sufficient permission
   it('permission escalation: allows when agent has sufficient permission', async () => {
     const sql = createMockSql({

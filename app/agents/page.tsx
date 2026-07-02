@@ -16,6 +16,7 @@ import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
 import { BulkActionBar } from '../components/selection/BulkActionBar';
+import { groupFleetByParent, subAgentSegment } from '../lib/agent-identity-resolve';
 
 const statusDotMap: Record<string, string> = {
   active: 'bg-status-success',
@@ -70,6 +71,11 @@ export default function AgentsFleetPage() {
 
   const selection = useSelection<any>(filteredAgents, (a) => a.agent_id);
   useSelectAllHotkey(selection.toggleAll);
+
+  // Composed sub-agent ids (<parent>:<type>, e.g. claude-code:explore) render
+  // indented under their parent — presentational only; every row stays a
+  // full fleet identity (RFC 2026-06-01 rollout step 3).
+  const groupedAgents = groupFleetByParent(filteredAgents, (a) => a.agent_id);
 
   const stats = {
     total: agents.length,
@@ -212,26 +218,32 @@ export default function AgentsFleetPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {filteredAgents.map((agent) => {
+                  {groupedAgents.map(({ item: agent, depth }) => {
                     const dotColor = statusDotMap[agent.status] || statusDotMap.unknown;
+                    const subSegment = depth === 1 ? subAgentSegment(agent.agent_id) : null;
                     return (
-                      <tr key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} data-entity-status={agent.status} className="transition-colors hover:bg-white/[0.02]">
+                      <tr key={agent.agent_id} data-entity-type="agent" data-entity-id={agent.agent_id} data-entity-status={agent.status} data-entity-depth={depth} className="transition-colors hover:bg-white/[0.02]">
                         <td className="px-3"><SelectCheckbox checked={selection.isSelected(agent.agent_id)} onToggle={(e) => { e.stopPropagation(); selection.selectClick(agent.agent_id, e.shiftKey); }} label="Select row" /></td>
                         <td className="px-6 py-4">
-                          <Link href={`/agents/${encodeURIComponent(agent.agent_id)}`} className="group/name flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded border border-border bg-white/[0.03] text-secondary">
-                              <Brain size={16} />
+                          <Link href={`/agents/${encodeURIComponent(agent.agent_id)}`} className={`group/name flex items-center gap-3 ${depth === 1 ? 'pl-7' : ''}`}>
+                            {depth === 1 && (
+                              <span aria-hidden className="select-none text-sm leading-none text-tertiary">└</span>
+                            )}
+                            <div className={`flex items-center justify-center rounded border border-border bg-white/[0.03] text-secondary ${depth === 1 ? 'h-6 w-6' : 'h-8 w-8'}`}>
+                              <Brain size={depth === 1 ? 12 : 16} />
                             </div>
                             <div className="min-w-0">
                               <div className="truncate text-sm font-medium text-white transition-colors group-hover/name:text-brand">
-                                {agent.name || agent.agent_id}
+                                {subSegment ?? (agent.name || agent.agent_id)}
                               </div>
                               <div className="mt-0.5 text-[11px] text-tertiary">
-                                {agent.action_count != null
-                                  ? `${agent.action_count} decisions`
-                                  : agent.agent_id !== (agent.name || agent.agent_id)
-                                    ? agent.agent_id
-                                    : 'No activity yet'}
+                                {subSegment
+                                  ? `${agent.agent_id}${agent.action_count != null ? ` · ${agent.action_count} decisions` : ''}`
+                                  : agent.action_count != null
+                                    ? `${agent.action_count} decisions`
+                                    : agent.agent_id !== (agent.name || agent.agent_id)
+                                      ? agent.agent_id
+                                      : 'No activity yet'}
                               </div>
                             </div>
                           </Link>

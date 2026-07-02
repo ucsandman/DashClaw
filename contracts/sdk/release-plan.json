@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.28.0",
+    "current_version": "4.29.0",
     "next_bump": "none",
-    "reason": "4.28.0 is a platform-only release (guard-deadline noise, owner roadmap v2.1: guard_decisions.degraded column + context._degraded/_timings instrumentation, predictive-risk LLM no-history skip + deadline-budget bound, tuning-evidence degradation exclusion, /policies degradation strip, diagnose-guard-deadline script). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
+    "reason": "4.29.0 is a platform-only release (agent identity & attribution v2, owner roadmap v2.2: per-harness identity via installer-written --agent-id argv on every hook command, DASHCLAW_SUBAGENT_IDENTITY default flipped to distinct with /agents parent grouping, baseAgentId fallback for agent-targeted policies + agentExistsInOrg, agent-scoped x402 budgets bind the identity family + drizzle/0038 index). NO Node SDK source changed — the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release (dashclaw@4.21.2). Non-contiguous platform/SDK versions are expected.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.28.0",
+    "current_version": "4.29.0",
     "next_bump": "none",
-    "reason": "4.28.0 is a platform-only release (guard-deadline noise, roadmap v2.1). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
+    "reason": "4.29.0 is a platform-only release (agent identity & attribution v2, roadmap v2.2). No Python SDK source changed, so no republish is owed; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]

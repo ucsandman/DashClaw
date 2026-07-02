@@ -120,7 +120,7 @@ class McpHealthMonitor:
         need to handle persistence failures.
         """
         try:
-            with open(self._state_file, "w") as f:
+            with open(self._state_file, "w", encoding="utf-8") as f:
                 json.dump(self._servers, f)
         except OSError:
             pass
@@ -135,7 +135,7 @@ class McpHealthMonitor:
         resolved = path or _DEFAULT_STATE_FILE
         monitor = cls(state_file=resolved)
         try:
-            with open(resolved) as f:
+            with open(resolved, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, dict):
                 for name, entry in data.items():

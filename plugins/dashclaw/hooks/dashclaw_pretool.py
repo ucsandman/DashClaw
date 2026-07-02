@@ -90,9 +90,25 @@ from dashclaw_agent_intel import behavior_recorder
 # Configuration
 # ---------------------------------------------------------------------------
 
+def _argv_agent_id():
+    # Per-harness identity declaration (roadmap v2.2). The harness integration
+    # that wires this hook appends `--agent-id <id>` to the command line, so
+    # identity is per-harness even when every harness on the machine shares
+    # one script directory / .env / DASHCLAW_AGENT_ID export. argv beats env
+    # by design: the flag is written by the installer that knows which
+    # harness it is wiring; the env var is machine-ambient.
+    argv = sys.argv[1:]
+    for i, arg in enumerate(argv):
+        if arg == "--agent-id" and i + 1 < len(argv):
+            return argv[i + 1].strip()
+        if arg.startswith("--agent-id="):
+            return arg.split("=", 1)[1].strip()
+    return ""
+
+
 BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
-AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
+AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
 HOOK_MODE = os.environ.get("DASHCLAW_HOOK_MODE") or "enforce"
 WORKSPACE = os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
 PERMISSION_MODE = os.environ.get("DASHCLAW_PERMISSION_MODE") or "danger"
@@ -109,12 +125,14 @@ GUARD_RETRIES = env_retries("DASHCLAW_GUARD_RETRIES", 0)
 GUARD_CONNECT_TIMEOUT = float(os.environ.get("DASHCLAW_GUARD_CONNECT_TIMEOUT") or "2")
 APPROVAL_TIMEOUT = float(os.environ.get("DASHCLAW_APPROVAL_TIMEOUT") or "30")
 GUARD_UNAVAILABLE_POLICY = (os.environ.get("DASHCLAW_GUARD_UNAVAILABLE_POLICY") or "block").lower()
-# provenance (default): record sub-agent identity as provenance; the governed
-# agent_id stays the parent. distinct: emit a composed agent_id
-# (<parent>:<agent_type>) so sub-agents are distinct fleet identities (the server
-# falls back to the parent's pairing/permissions). See
-# docs/rfcs/2026-06-01-subagent-fleet-identities.md.
-SUBAGENT_IDENTITY = (os.environ.get("DASHCLAW_SUBAGENT_IDENTITY") or "provenance").lower()
+# distinct (default since roadmap v2.2): emit a composed agent_id
+# (<parent>:<agent_type>) so sub-agents are distinct fleet identities (the
+# server falls back to the parent's pairing/permissions, so composed ids
+# inherit and never over-block). provenance: legacy pre-v2.2 behavior — the
+# governed agent_id stays the parent and sub-agent identity rides only the
+# provenance fields; set DASHCLAW_SUBAGENT_IDENTITY=provenance to roll back.
+# See docs/rfcs/2026-06-01-subagent-fleet-identities.md.
+SUBAGENT_IDENTITY = (os.environ.get("DASHCLAW_SUBAGENT_IDENTITY") or "distinct").lower()
 
 # todo-001: one-shot demo-mode probe to surface a misrouted DASHCLAW_BASE_URL
 # (e.g. a stale env var pointing at a local sandbox) before the operator burns

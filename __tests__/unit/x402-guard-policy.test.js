@@ -141,6 +141,21 @@ describe('evaluatePolicy: x402_spend_limit cumulative budget', () => {
     expect(sumWindowSpend).toHaveBeenCalledWith(sql, orgId, expect.objectContaining({ agentId: 'agent-1' }));
   });
 
+  it('agent scope normalizes a composed sub-agent id to its identity family base (roadmap v2.2)', async () => {
+    // A sub-agent (claude-code:explore) cannot escape its parent's budget
+    // via its composed id: the window sum is keyed on the family base.
+    vi.mocked(sumWindowSpend).mockResolvedValue(0);
+    await run({ budget_usd: 20, budget_scope: 'agent' }, ctx({ agent_id: 'claude-code:explore' }));
+    expect(sumWindowSpend).toHaveBeenCalledWith(sql, orgId, expect.objectContaining({ agentId: 'claude-code' }));
+  });
+
+  it('agent scope over-budget reason names the family base, not the composed id', async () => {
+    vi.mocked(sumWindowSpend).mockResolvedValue(18);
+    const out = await run({ budget_usd: 20, budget_scope: 'agent' }, ctx({ agent_id: 'claude-code:explore', cost_estimate: 5 }));
+    expect(out?.action).toBe('block');
+    expect(out?.reason).toMatch(/agent claude-code\)/);
+  });
+
   it('agent scope without an agent_id fails closed (require_approval, no query)', async () => {
     const out = await run({ budget_usd: 20, budget_scope: 'agent' }, ctx({ agent_id: undefined }));
     expect(out?.action).toBe('require_approval');
@@ -223,6 +238,13 @@ describe('verifyX402BudgetAfterInsert', () => {
     vi.mocked(sumWindowSpend).mockResolvedValue(0);
     await verifyX402BudgetAfterInsert('org_v4', ctx, fakeSql([budgetPolicy({ budget_usd: 20, budget_scope: 'agent' })]));
     expect(sumWindowSpend).toHaveBeenCalledWith(expect.anything(), 'org_v4', expect.objectContaining({ agentId: 'agent-1' }));
+  });
+
+  it('normalizes a composed sub-agent id to the family base in the re-verified sum (roadmap v2.2)', async () => {
+    vi.mocked(sumWindowSpend).mockResolvedValue(0);
+    const composedCtx = { ...ctx, agent_id: 'claude-code:explore' };
+    await verifyX402BudgetAfterInsert('org_v6', composedCtx, fakeSql([budgetPolicy({ budget_usd: 20, budget_scope: 'agent' })]));
+    expect(sumWindowSpend).toHaveBeenCalledWith(expect.anything(), 'org_v6', expect.objectContaining({ agentId: 'claude-code' }));
   });
 
   it('is best-effort: a policy-load failure returns null instead of failing the purchase', async () => {

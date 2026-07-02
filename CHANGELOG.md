@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.29.0] — 2026-07-02
+
+Agent identity & attribution v2, "who is asking" (owner roadmap v2.2). The item-2 live audit's second finding: every agent on the machine reported the same machine-wide `DASHCLAW_AGENT_ID`, so Wes couldn't tell who was asking for approval. Root cause verified in source: the hooks' `.env` loader gives the inherited environment precedence, `dashclaw install codex` never wired hook identity at all, and the Hermes shims used `setdefault`. Spec: `docs/plans/2026-07-02-agent-identity-attribution.md`.
+
+### Added
+- **Per-harness identity via `--agent-id` argv:** the identity-reading hooks (`dashclaw_pretool.py`, `dashclaw_stop.py`, `dashclaw_session_digest.py`) resolve identity as **argv flag > `DASHCLAW_AGENT_ID` env > harness default**, and every installer now writes the flag onto its hook commands — `dashclaw install claude` (the id chosen at install), `scripts/install-hooks.mjs` (per-project and `--global`, `claude-code`), and `dashclaw install codex` (`codex`, fixing Codex hook actions previously mis-attributed to the `claude-code` default). Two harnesses sharing one machine env now report two identities. Un-migrated installs keep exact legacy behavior; re-running any installer migrates.
+- **`DASHCLAW_HERMES_AGENT_ID`:** the Hermes shims now pass `--agent-id` explicitly (override, not `setdefault`) valued from this harness-specific var (default `hermes`), and the Hermes-native hooks prefer it over the generic var — a stray machine-wide export can no longer mis-attribute Hermes traffic.
+- **`/agents` groups sub-agents under their parent:** composed ids render indented beneath their base agent with the sub-agent segment as the display name (presentational; every row stays a full fleet identity).
+- **Identity-family x402 budgets:** agent-scoped cumulative budgets normalize the acting id to its family base (`baseAgentId`) and `sumWindowSpend` counts the base plus its `<base>:<type>` children — a sub-agent cannot escape the parent's budget via its composed id. New `(org_id, agent_id, created_at)` index (drizzle/0038, the follow-through 0036's comment deferred). Policy smoke L1–L3 (62 checks total).
+
+### Changed
+- **`DASHCLAW_SUBAGENT_IDENTITY` default flipped `provenance` → `distinct`** (RFC 2026-06-01 rollout step 3 — the RFC is complete): Claude Code sub-agents are now distinct fleet identities (`claude-code:explore`) by default, inheriting the parent's pairing, targeted policies, and budgets through the server-side base fallback. Rollback is one env var: `DASHCLAW_SUBAGENT_IDENTITY=provenance`.
+
+### Fixed
+- **Agent-targeted policies now apply to composed sub-agent ids** (`loadApplicablePolicies` matches the base parent, exact entries still win) — without this, the default flip would have silently detached every agent-targeted policy from delegated work.
+- **`agentExistsInOrg` accepts composed ids whose parent belongs to the org**, so a fresh sub-agent can be referenced (messages/feedback) before its first recorded action lands.
+
 ## [4.28.0] — 2026-07-02
 
 Guard-deadline noise: instrument, diagnose, fix (owner roadmap v2.1 — the first item of roadmap v2, "earn the interruption"). At least 2 of ~10 interruptions in the item-2 live audit were fail-closed deadline degradations on mundane file edits. Diagnosis on live data found the cause: the server heuristic scores `apply` at base 60 — exactly the predictive-risk LLM threshold — so every mundane edit recruited a 1.2–3s LLM call inside the guard's 3500ms deadline. Spec: `docs/plans/2026-07-02-guard-deadline-noise.md`.

@@ -12,7 +12,8 @@ produces NO output and exit 0. Total budget ~4.2s (three requests, 1.4s each).
 
 Config (env or .env.local discovered by walking up from this file):
   DASHCLAW_BASE_URL (or DASHCLAW_URL), DASHCLAW_API_KEY,
-  DASHCLAW_AGENT_ID (default: claude-code),
+  DASHCLAW_AGENT_ID (default: claude-code; a `--agent-id <id>` argv flag
+  written by the harness installer takes precedence),
   DASHCLAW_DIGEST_DISABLED=1 to turn off.
 """
 import json
@@ -66,9 +67,23 @@ def _load_dotenv():
 
 _load_dotenv()
 
+
+def _argv_agent_id():
+    # Per-harness identity declaration (roadmap v2.2): the harness integration
+    # appends `--agent-id <id>` to the hook command line; argv beats the
+    # machine-ambient DASHCLAW_AGENT_ID env var. Mirrors dashclaw_pretool.py.
+    argv = sys.argv[1:]
+    for i, arg in enumerate(argv):
+        if arg == "--agent-id" and i + 1 < len(argv):
+            return argv[i + 1].strip()
+        if arg.startswith("--agent-id="):
+            return arg.split("=", 1)[1].strip()
+    return ""
+
+
 BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or os.environ.get("DASHCLAW_URL") or "").rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
-AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
+AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-code"
 TIMEOUT_S = 1.4  # per request; three requests stay inside the ~4.2s budget
 MAX_DECISIONS = 5
 MAX_LESSONS = 3

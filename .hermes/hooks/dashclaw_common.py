@@ -19,7 +19,14 @@ from pathlib import Path
 
 BASE_URL = (os.environ.get("DASHCLAW_BASE_URL") or "").rstrip("/")
 API_KEY = os.environ.get("DASHCLAW_API_KEY") or ""
-AGENT_ID = os.environ.get("DASHCLAW_AGENT_ID") or "hermes"
+# DASHCLAW_HERMES_AGENT_ID is the harness-specific declaration (roadmap
+# v2.2); the generic var stays as a fallback for operators who configured
+# it deliberately for Hermes.
+AGENT_ID = (
+    os.environ.get("DASHCLAW_HERMES_AGENT_ID")
+    or os.environ.get("DASHCLAW_AGENT_ID")
+    or "hermes"
+)
 WORKSPACE = os.environ.get("DASHCLAW_WORKSPACE") or os.getcwd()
 
 CACHE_DIR = Path.home() / ".dashclaw" / "hermes"

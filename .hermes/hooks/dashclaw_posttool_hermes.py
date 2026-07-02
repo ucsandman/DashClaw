@@ -30,11 +30,15 @@ def main() -> int:
     if not POSTTOOL_SCRIPT.exists():
         return 0
 
+    # Explicit harness identity (roadmap v2.2) — override, not setdefault,
+    # so a machine-ambient DASHCLAW_AGENT_ID never mis-attributes Hermes
+    # calls. See dashclaw_pretool_hermes.py.
+    agent_id = os.environ.get("DASHCLAW_HERMES_AGENT_ID") or "hermes"
     env = dict(os.environ)
-    env.setdefault("DASHCLAW_AGENT_ID", "hermes")
+    env["DASHCLAW_AGENT_ID"] = agent_id
 
     subprocess.run(
-        ["python", str(POSTTOOL_SCRIPT)],
+        ["python", str(POSTTOOL_SCRIPT), "--agent-id", agent_id],
         input=json.dumps(payload).encode("utf-8"),
         capture_output=True,
         env=env,

@@ -9,7 +9,8 @@ Uses only the Python standard library + the sibling command_parser module.
 import re
 from typing import Optional
 
-from dashclaw_agent_intel.command_parser import parse_command
+from dashclaw_agent_intel.command_parser import parse_command, split_chain_texts
+from dashclaw_agent_intel.file_scanner import is_placeholder_path
 
 # ---------------------------------------------------------------------------
 # Intent lookup tables
@@ -28,6 +29,7 @@ READONLY_COMMANDS = frozenset({
     "test", "[", "true", "false", "seq", "yes", "tee",
     "xargs", "tr", "column", "fold", "expand", "unexpand",
     "sed",  # sed without -i is readonly (stdout only); sed_validation handles -i
+    "cd",  # pure navigation; chain segments after it are classified on their own
 })
 
 GIT_READONLY_SUBCOMMANDS = frozenset({
@@ -74,6 +76,100 @@ PACKAGE_COMMANDS = frozenset({
     "composer", "dotnet", "nuget",
 })
 
+# Language interpreters / script runners. Without this category they fall
+# through to "unknown", and the pretool hook replaces the classifier score
+# with the Bash tool's blunt base risk (70 = RISK_HIGH_MIN) — so `node -e`
+# was blocked by fallback, not by analysis.
+INTERPRETER_COMMANDS = frozenset({
+    "node", "nodejs", "python", "python2", "python3",
+    "ruby", "perl", "php", "deno", "bun", "tsx", "ts-node",
+    "npx",  # runs a package binary; auto-install flags warn (interpreter validation)
+})
+
+# Per-interpreter inline-eval flags. Flag meanings collide across
+# interpreters (python -E ignores env vars; perl -E is eval with features),
+# so each base command gets its own set rather than one shared list.
+_INLINE_EVAL_FLAGS = {
+    "node": frozenset({"-e", "--eval", "-p", "--print"}),
+    "nodejs": frozenset({"-e", "--eval", "-p", "--print"}),
+    "bun": frozenset({"-e", "--eval", "-p", "--print"}),
+    "tsx": frozenset({"-e", "--eval", "-p", "--print"}),
+    "ts-node": frozenset({"-e", "--eval", "-p", "--print"}),
+    "deno": frozenset({"--eval"}),
+    "python": frozenset({"-c"}),
+    "python2": frozenset({"-c"}),
+    "python3": frozenset({"-c"}),
+    "ruby": frozenset({"-e"}),
+    "perl": frozenset({"-e", "-E"}),
+    "php": frozenset({"-r"}),
+}
+
+# Escape hatches inside an inline-eval payload: spawning processes, deleting
+# files, or shelling out from within the one-liner. These warrant an extra
+# warn on top of the inline-eval warn — still below the block band; the
+# server-side guard sees the full command and can escalate further.
+_INLINE_ESCAPE_HATCH_RE = re.compile(
+    r"child_process|subprocess|os\.system|execSync|spawnSync"
+    r"|fs\.(?:rm|unlink|rmdir)|rmtree|rm\s+-rf|shutil",
+    re.IGNORECASE,
+)
+
+# PowerShell cmdlets follow Verb-Noun; the approved verb carries the intent.
+# The pretool hook routes the PowerShell tool through this classifier the same
+# way it routes Bash — before that, every cmdlet fell through to "unknown" and
+# the hook's blunt execution base (70) blocked benign reads (2026-07-02
+# incident: `Get-Content docs/... -Tail 40` scored 100 and was policy-blocked).
+_PS_CMDLET_RE = re.compile(r"^[A-Za-z]+-[A-Za-z][A-Za-z0-9]*$")
+
+# Cmdlets whose noun, not verb, decides the intent — checked before the verb map.
+_PS_SPECIAL_CMDLETS = {
+    "invoke-webrequest": "network",
+    "invoke-restmethod": "network",
+    "test-connection": "network",
+    "test-netconnection": "network",
+}
+
+_PS_VERB_INTENTS = {
+    # observation / filtering / shaping — no side effects
+    "get": "readonly", "select": "readonly", "measure": "readonly",
+    "test": "readonly", "compare": "readonly", "format": "readonly",
+    "sort": "readonly", "group": "readonly", "resolve": "readonly",
+    "convertto": "readonly", "convertfrom": "readonly",
+    "split": "readonly", "join": "readonly", "where": "readonly",
+    "show": "readonly", "find": "readonly", "search": "readonly",
+    # mutation
+    "set": "write", "new": "write", "add": "write", "copy": "write",
+    "move": "write", "rename": "write", "write": "write", "out": "write",
+    "export": "write", "import": "write", "update": "write",
+    "register": "write", "unregister": "write", "publish": "write",
+    # destructive / lifecycle
+    "remove": "destructive", "clear": "destructive",
+    "uninstall": "destructive", "reset": "destructive", "revoke": "destructive",
+    "stop": "process_management", "start": "process_management",
+    "restart": "process_management", "suspend": "process_management",
+    "resume": "process_management", "wait": "process_management",
+    "install": "package_management",
+    # arbitrary code execution / session escalation
+    "invoke": "interpreter",
+    "enter": "system_admin", "enable": "system_admin", "disable": "system_admin",
+}
+
+
+def _classify_powershell(base_name: str) -> Optional[str]:
+    """Intent for a PowerShell Verb-Noun cmdlet, or None if not cmdlet-shaped
+    (or the verb is unrecognized — those keep the conservative unknown path).
+    Bash hyphenated commands (apt-get, systemd-*) never reach here: their
+    category frozensets are checked first, and unmapped verbs return None."""
+    lowered = base_name.lower()
+    special = _PS_SPECIAL_CMDLETS.get(lowered)
+    if special:
+        return special
+    if not _PS_CMDLET_RE.match(base_name):
+        return None
+    verb = lowered.split("-", 1)[0]
+    return _PS_VERB_INTENTS.get(verb)
+
+
 SYSTEM_ADMIN_COMMANDS = frozenset({
     "systemctl", "service", "journalctl",
     "useradd", "userdel", "usermod", "groupadd", "groupdel",
@@ -110,8 +206,40 @@ _RISK_BASE = {
     "process_management": 50,
     "package_management": 30,
     "system_admin": 75,
+    "interpreter": 35,  # running a script file is routine; inline eval warns on top
     "unknown": 20,
 }
+
+# A bounded rm (non-recursive, explicit non-glob targets) is irreversible but
+# routine — deleting one named file is everyday agent work, not `rm -rf`.
+# The full destructive base (90) pushed every single-file delete into block
+# territory while the policy engine, given honest context, allowed it.
+_BOUNDED_RM_BASE = 55
+_BOUNDED_RM_MAX_TARGETS = 3
+_GLOB_CHARS = "*?["
+
+
+def is_bounded_rm(parsed: dict) -> bool:
+    """True for a non-recursive rm / Remove-Item with a few explicit,
+    non-glob targets. Remove-Item gets its own recursion test: PowerShell
+    recursion is the `-Recurse` switch, and the bash single-dash heuristic
+    ("-r anywhere in the flag") would misread `-Force` as recursive."""
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
+    flags = parsed.get("flags", [])
+    if base == "rm":
+        recursive = "--recursive" in flags or any(
+            f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
+        )
+    elif base.lower() == "remove-item":
+        recursive = any(f.lower().startswith("-rec") for f in flags)
+    else:
+        return False
+    if recursive:
+        return False
+    targets = parsed.get("targets", [])
+    if not targets or len(targets) > _BOUNDED_RM_MAX_TARGETS:
+        return False
+    return not any(ch in t for t in targets for ch in _GLOB_CHARS)
 
 
 # ---------------------------------------------------------------------------
@@ -169,6 +297,12 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
             return "system_admin"
         return "package_management"
 
+    # Interpreters: sudo + interpreter = system_admin (root code execution).
+    if base_name in INTERPRETER_COMMANDS:
+        if wrapper == "sudo":
+            return "system_admin"
+        return "interpreter"
+
     # Walk through categories in priority order.
     if base_name in DESTRUCTIVE_COMMANDS:
         return "destructive"
@@ -182,6 +316,10 @@ def _classify_intent(parsed: dict, raw_command: str) -> str:
         return "write"
     if base_name in READONLY_COMMANDS:
         return "readonly"
+
+    ps_intent = _classify_powershell(base_name)
+    if ps_intent is not None:
+        return ps_intent
 
     if wrapper == "sudo":
         return "system_admin"
@@ -212,8 +350,9 @@ def _run_read_only_validation(
             "reason": f"file redirection in readonly mode",
         }
 
-    # Block non-readonly intents.
-    if intent in ("write", "destructive", "process_management", "system_admin", "package_management"):
+    # Block non-readonly intents. Interpreters can write files and spawn
+    # processes, so they are not readonly-safe.
+    if intent in ("write", "destructive", "process_management", "system_admin", "package_management", "interpreter"):
         return {
             "check": "read_only_validation",
             "result": "block",
@@ -276,25 +415,34 @@ def _run_destructive_command_validation(
                 "reason": "dd with output file is destructive",
             }
 
-    # rm -rf / or rm -rf /* — catastrophic.
+    # rm — graded: root targets block, recursive/glob/multi-target warns,
+    # a bounded single-file delete is routine and passes.
     if base == "rm":
-        has_rf = any("r" in f and "f" in f for f in flags) or ("-r" in flags and "-f" in flags)
-        if has_rf:
+        recursive = "--recursive" in flags or any(
+            f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
+        )
+        if recursive:
             # Check for root targets.
             for t in targets:
                 if t in ("/", "/*", "/.", "/.."):
                     return {
                         "check": "destructive_command",
                         "result": "block",
-                        "reason": "rm -rf with root target",
+                        "reason": "recursive rm with root target",
                     }
-            # Non-root rm -rf — warn.
+            # Non-root recursive rm — warn.
             return {
                 "check": "destructive_command",
                 "result": "warn",
                 "reason": "rm -rf on non-root path",
             }
-        # Plain rm — warn.
+        if is_bounded_rm(parsed):
+            return {
+                "check": "destructive_command",
+                "result": "allow",
+                "reason": "bounded non-recursive rm (explicit targets)",
+            }
+        # Non-recursive but unbounded (globs / many targets / no targets) — warn.
         return {
             "check": "destructive_command",
             "result": "warn",
@@ -366,6 +514,57 @@ def _run_sed_validation(
     }
 
 
+def _run_interpreter_validation(
+    parsed: dict, intent: str, raw_command: str,
+) -> Optional[dict]:
+    """Submodule: grade interpreter invocations.
+
+    Inline eval (`node -e`, `python -c`, `deno eval`, ...) is arbitrary code
+    execution and warns; running a named script file is routine and allows.
+    An inline payload that spawns processes or deletes files warns harder
+    (extra +10 via the escape-hatch check in _compute_risk).
+    """
+    if intent != "interpreter":
+        return None
+
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1]
+    flags = parsed.get("flags", [])
+    targets = parsed.get("targets", [])
+
+    # npx runs a package binary: routine for project devDependencies, but the
+    # auto-install flags fetch and execute straight from the registry.
+    if base == "npx":
+        if any(f in ("-y", "--yes", "-p", "--package") for f in flags):
+            return {
+                "check": "interpreter_validation",
+                "result": "warn",
+                "reason": "npx with auto-install flags executes a registry package",
+            }
+        return {
+            "check": "interpreter_validation",
+            "result": "allow",
+            "reason": "npx running a package binary",
+        }
+
+    eval_flags = _INLINE_EVAL_FLAGS.get(base, frozenset())
+    inline = any(f in eval_flags for f in flags)
+    # deno's eval is a subcommand, not a flag.
+    if base == "deno" and targets and targets[0] == "eval":
+        inline = True
+
+    if inline:
+        return {
+            "check": "interpreter_validation",
+            "result": "warn",
+            "reason": f"inline code execution via {base}",
+        }
+    return {
+        "check": "interpreter_validation",
+        "result": "allow",
+        "reason": f"{base} running a script file",
+    }
+
+
 def _run_path_validation(
     parsed: dict, workspace: Optional[str],
 ) -> Optional[dict]:
@@ -415,13 +614,19 @@ def _compute_risk(
     """Compute risk score 0-100 from intent, validations, and targets."""
     score = _RISK_BASE.get(intent, 20)
 
-    # Sensitive target boost.
+    # A bounded non-recursive rm is destructive in kind (irreversible) but a
+    # routine single-file delete in degree — grade it below the catastrophic
+    # destructive base so it lands in the warn band, not the block band.
+    if intent == "destructive" and is_bounded_rm(parsed):
+        score = min(score, _BOUNDED_RM_BASE)
+
+    # Sensitive target boost (placeholder/template files exempt).
     targets = parsed.get("targets", [])
     redirections = parsed.get("redirections", [])
     all_paths = list(targets) + [r.get("target", "") for r in redirections]
 
     for path in all_paths:
-        if SENSITIVE_PATTERNS.search(path):
+        if SENSITIVE_PATTERNS.search(path) and not is_placeholder_path(path):
             score += 15
             break  # Only boost once.
 
@@ -431,6 +636,15 @@ def _compute_risk(
             score = max(85, score)
         elif v["result"] == "warn":
             score += 10
+
+    # Inline-eval payloads that spawn processes / delete files / shell out
+    # get one extra boost — surfaced in the warn band, not auto-blocked.
+    inline_eval = any(
+        v["check"] == "interpreter_validation" and v["result"] == "warn"
+        for v in validations
+    )
+    if inline_eval and _INLINE_ESCAPE_HATCH_RE.search(raw_command):
+        score += 10
 
     return min(score, 100)
 
@@ -454,6 +668,31 @@ def classify_bash(
     Returns:
         A dict with keys: intent, risk_score, reversible, validations, parsed.
     """
+    # Chained commands (`a && b`, `a; b`): classify every segment and report
+    # the most severe. Classifying only the first segment made every chained
+    # command inherit ITS intent — `cd /p && rm -rf /` was "unknown" (the
+    # danger invisible to this layer) and `cd /p && grep ...` hit the hook's
+    # blunt unknown-fallback (70) on every routine chain.
+    segment_texts = split_chain_texts(command)
+    if len(segment_texts) > 1:
+        results = [
+            classify_bash(text, mode=mode, workspace=workspace)
+            for text in segment_texts
+        ]
+        worst = max(results, key=lambda r: r["risk_score"])
+        # parsed mirrors the segment that determined the classification (so
+        # downstream consumers like is_bounded_rm and path boosts grade the
+        # segment that matters), with the full chain list preserved.
+        combined_parsed = dict(worst["parsed"])
+        combined_parsed["chains"] = parse_command(command)["chains"]
+        return {
+            "intent": worst["intent"],
+            "risk_score": worst["risk_score"],
+            "reversible": all(r["reversible"] for r in results),
+            "validations": [v for r in results for v in r["validations"]],
+            "parsed": combined_parsed,
+        }
+
     parsed = parse_command(command)
     intent = _classify_intent(parsed, command)
 
@@ -479,6 +718,10 @@ def classify_bash(
     v5 = _run_path_validation(parsed, workspace)
     if v5 is not None:
         validations.append(v5)
+
+    v_interp = _run_interpreter_validation(parsed, intent, command)
+    if v_interp is not None:
+        validations.append(v_interp)
 
     v6 = _run_command_semantics(parsed, intent)
     validations.append(v6)

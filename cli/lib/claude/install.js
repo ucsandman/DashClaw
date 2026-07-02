@@ -192,12 +192,15 @@ export function isManagedHookEntry(entry) {
 }
 
 /** Build the managed hook entries pointing at <hooksDir> via <python>. */
-export function buildHookEntries(hooksDir, python) {
+export function buildHookEntries(hooksDir, python, agentId = DEFAULT_AGENT_ID) {
   const entries = {};
   for (const [event, spec] of Object.entries(HOOK_EVENTS)) {
     const hook = {
       type: 'command',
-      command: `${python} "${join(hooksDir, spec.script)}"`,
+      // --agent-id is the per-harness identity declaration (roadmap v2.2):
+      // argv beats the machine-ambient DASHCLAW_AGENT_ID env var, so this
+      // install keeps its identity even when another harness exports one.
+      command: `${python} "${join(hooksDir, spec.script)}" --agent-id "${agentId}"`,
       ...(spec.timeout ? { timeout: spec.timeout } : {}),
     };
     entries[event] = [{ ...(spec.matcher ? { matcher: spec.matcher } : {}), hooks: [hook] }];
@@ -209,7 +212,7 @@ export function buildHookEntries(hooksDir, python) {
  * Merge the managed hook entries into a Claude Code settings.json file:
  * previous dashclaw-managed entries are replaced, everything else preserved.
  */
-export function mergeClaudeSettings(settingsPath, hooksDir, python) {
+export function mergeClaudeSettings(settingsPath, hooksDir, python, agentId = DEFAULT_AGENT_ID) {
   let settings = {};
   if (existsSync(settingsPath)) {
     try {
@@ -221,7 +224,7 @@ export function mergeClaudeSettings(settingsPath, hooksDir, python) {
     if (!existsSync(bak)) copyFileSync(settingsPath, bak);
   }
   settings.hooks = settings.hooks || {};
-  const managed = buildHookEntries(hooksDir, python);
+  const managed = buildHookEntries(hooksDir, python, agentId);
   for (const [event, entries] of Object.entries(managed)) {
     const existing = Array.isArray(settings.hooks[event]) ? settings.hooks[event] : [];
     settings.hooks[event] = [...existing.filter((e) => !isManagedHookEntry(e)), ...entries];
@@ -321,8 +324,8 @@ export async function installClaude({
     throw new Error('No python3 or python found on PATH. Install Python 3.10+ and re-run.');
   }
   const settingsPath = join(homeDir, '.claude', 'settings.json');
-  logger.log(`  Wiring hooks into ${settingsPath} (python: ${python})`);
-  mergeClaudeSettings(settingsPath, hooksDir, python);
+  logger.log(`  Wiring hooks into ${settingsPath} (python: ${python}, agent: ${agentId})`);
+  mergeClaudeSettings(settingsPath, hooksDir, python, agentId);
 
   // 5. Credentials -------------------------------------------------------------
   const hookEnvPath = join(hooksDir, '.env');

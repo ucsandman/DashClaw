@@ -129,6 +129,8 @@ export function detectPythonCommand() {
 // `python` defaults to the literal "python" so the pure render stays deterministic
 // for tests; the install paths below inject detectPythonCommand() for the real machine.
 export function hookBlocks(python = 'python') {
+  // --agent-id: per-harness identity via argv (roadmap v2.2) — these are
+  // Claude Code hook wirings, so they declare claude-code explicitly.
   return {
     PreToolUse: [
       {
@@ -138,7 +140,7 @@ export function hookBlocks(python = 'python') {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py"`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py" --agent-id claude-code`,
             timeout: 3600000,
           },
         ],
@@ -150,7 +152,7 @@ export function hookBlocks(python = 'python') {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_posttool.py"`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_posttool.py" --agent-id claude-code`,
           },
         ],
       },
@@ -160,7 +162,7 @@ export function hookBlocks(python = 'python') {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_stop.py"`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_stop.py" --agent-id claude-code`,
           },
         ],
       },
@@ -174,7 +176,7 @@ export function hookBlocks(python = 'python') {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py"`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py" --agent-id claude-code`,
             timeout: 10,
           },
         ],
@@ -245,7 +247,10 @@ const toPosixPath = (p) => p.replace(/\\/g, '/');
 // DASHCLAW_CODE_SESSIONS_ENABLED — which is why no secret is written into the
 // global settings file, and why `git pull` upgrades the hook automatically.
 export function globalStopCommand(repoRoot, python = 'python') {
-  return `${python} "${toPosixPath(join(repoRoot, 'hooks', 'dashclaw_stop.py'))}"`;
+  // --agent-id: the user-level install is by definition the Claude Code
+  // harness; the argv declaration beats any machine-ambient
+  // DASHCLAW_AGENT_ID export (roadmap v2.2 per-harness identity).
+  return `${python} "${toPosixPath(join(repoRoot, 'hooks', 'dashclaw_stop.py'))}" --agent-id claude-code`;
 }
 
 // Capture-only: a single Stop entry, no PreToolUse/PostToolUse. Other projects
@@ -274,7 +279,8 @@ export function mergeGlobalStopHook(settings, repoRoot, { remove = false, python
 // .claude/settings.json would silently never load. No secret is written; the
 // hooks read creds from the env or this repo's .env.local at runtime.
 export function globalGovernanceBlocks(repoRoot, python = 'python') {
-  const cmd = (name) => `${python} "${toPosixPath(join(repoRoot, 'hooks', name))}"`;
+  // --agent-id: see globalStopCommand — per-harness identity via argv.
+  const cmd = (name) => `${python} "${toPosixPath(join(repoRoot, 'hooks', name))}" --agent-id claude-code`;
   const matcher = 'Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*';
   return {
     PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3600000 }] }],
