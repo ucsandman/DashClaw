@@ -1214,6 +1214,31 @@ def _warn_secret_scan(guard_resp, decision):
         pass
 
 
+def _warn_assumption_alerts(guard_resp):
+    """Advocate v2a: an operator invalidated an assumption this agent recorded.
+    Advisory only — printed even on allow, never changes the decision. After
+    surfacing, acknowledge (mark the inbox message read) so the alert stops
+    riding future guard responses. The ack is the ONLY extra HTTP call and it
+    fires solely when alerts are present, so the common path stays single-call."""
+    try:
+        alerts = guard_resp.get("assumption_alerts") or []
+        if not alerts:
+            return
+        message_ids = []
+        for a in alerts[:3]:
+            text = (a.get("assumption") or "an assumption")[:120]
+            reason = (a.get("invalidated_reason") or "no reason given")[:200]
+            log('[DashClaw] ⚠ Operator invalidated an assumption you recorded: "%s" — reason: %s. Re-verify before relying on it.' % (text, reason))
+            if a.get("message_id"):
+                message_ids.append(a["message_id"])
+        if message_ids:
+            api_request("PATCH", "/api/messages",
+                        body={"message_ids": message_ids, "action": "read", "agent_id": AGENT_ID},
+                        retries=0)
+    except Exception:
+        pass  # fail-silent: the alert simply rides again next call
+
+
 def _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision):
     """Behavior Learning: passively record a redacted sample of this governed
     tool call (opt-in via DASHCLAW_BEHAVIOR_SAMPLES_ENABLED; fully fail-silent).
@@ -1301,6 +1326,7 @@ def main():
     # Step 6: Handle decision
     decision = guard_resp.get("decision", "allow")
     _warn_secret_scan(guard_resp, decision)
+    _warn_assumption_alerts(guard_resp)
     _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision)
     _dispatch_decision(decision, guard_resp, context, tool_use_id)
 
