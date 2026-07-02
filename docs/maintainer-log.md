@@ -14,6 +14,50 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — QA tooling: a load harness for the hot path, a bug-report skill, and a routing audit (v4.31.1)
+
+Two pieces of outside advice turned into a small, honest investment in how the
+project is tested and how it delegates. One was a 28-year QA engineer's version
+of "learn formal QA — and bug reports make epic prompts." The other was a claim
+that using the cheapest model as a sub-agent explorer quietly poisons everything
+built on its findings.
+
+The gap the QA engineer named that DashClaw actually had: no load or stress
+coverage. Functional tests and the policy smoke harness prove the governance
+loop is *correct*; nothing proved it stays *fast* under concurrency. That
+matters here more than most places, because `/api/guard` sits in the hot path of
+every governed action and this project has a documented history of guard latency
+regressions — an LLM amplifier that added seconds per call, a deadline that
+degrades the decision when it overruns, a budget race between concurrent calls.
+So: `npm run guard:load`, an autocannon-based harness that hammers the guard
+endpoint at rising concurrency and gates on tail latency and errors. It ships
+three scenarios — the universal fast path, the heavier record-and-write path
+that pressures the database connection pool, and a stress ramp that reports
+where it breaks — and one honest omission, written down rather than faked: it
+does not yet exercise the LLM slow path, because firing that reliably needs a
+policy-and-history setup that isn't pinned yet. A fake slow-path test would have
+been worse than none.
+
+The second piece of advice became a skill. `/repro` turns a bug symptom into a
+structured report — environment, exact repro steps, actual versus expected,
+evidence — then offers to scaffold a failing regression test. A raw symptom is a
+weak prompt; a structured bug report is a sharp one, and the test it produces is
+what stops the bug coming back.
+
+The routing claim got audited rather than believed. The worry was that a cheap
+model doing exploration produces bad context that cascades. The audit found the
+project's one cheap sub-agent — the gate-runner — does no exploration at all: it
+runs a fixed list of checks and returns a pass/fail verdict, seeding nothing
+downstream. The two roles that actually discover things already run on stronger
+models. Nothing to change; one thing to watch — if the gate-runner ever grows
+from *reporting* failures to *diagnosing* them, it graduates to the pricier
+tier, because diagnosis is reasoning.
+
+Shipped as `24f96516` — a patch release, no new product surface, so the Node and
+Python SDKs stayed at their last published version.
+
+---
+
 <!-- digest-posted: 2026-07-02 -->
 
 ## 2026-07-02 — Roadmap v2.4: the assumption ledger talks back (v4.31.0)
