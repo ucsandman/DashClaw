@@ -100,6 +100,27 @@ describe('deny-marker cross-pin', () => {
     // recordApproval writes 'DENY' when decision.toUpperCase() === 'DENY'
     expect('deny'.toUpperCase()).toBe('DENY');
   });
+
+  it('binds empty string, never undefined, when an approval carries no reasoning', async () => {
+    // The self-host postgres.js driver rejects undefined params outright
+    // (UNDEFINED_VALUE → 500), while Neon's HTTP driver tolerates them.
+    // Caught live by policy-smoke T1 in CI (2026-07-01); this pins the fix.
+    const capturedValues: unknown[] = [];
+    const taggedSql = ((_strings: TemplateStringsArray, ...values: unknown[]) => {
+      capturedValues.push(...values);
+      return Promise.resolve([{}]);
+    }) as unknown as Parameters<typeof recordApproval>[0];
+
+    await recordApproval(taggedSql, 'org_1', 'act_1', {
+      newStatus: 'running',
+      errorMessage: null,
+      decision: 'allow',
+      userId: 'user_1',
+      // no safeReasoning — the minimal { decision: 'allow' } approval shape
+    });
+
+    expect(capturedValues).not.toContain(undefined);
+  });
 });
 
 describe('getTuningDismissals', () => {

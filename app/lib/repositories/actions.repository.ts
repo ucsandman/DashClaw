@@ -65,7 +65,12 @@ export async function recordApproval(
   actionId: string,
   data: RecordApprovalData,
 ): Promise<Row | null> {
-  const { newStatus, errorMessage, decision, userId, safeReasoning } = data;
+  const { newStatus, errorMessage, decision, userId } = data;
+  // safeReasoning is optional; an approval without reasoning must bind '' —
+  // the self-host postgres.js driver rejects undefined params outright
+  // (UNDEFINED_VALUE), while Neon's HTTP driver silently tolerates them.
+  // Caught live by policy-smoke T1 in CI (2026-07-01).
+  const safeReasoning = data.safeReasoning || '';
 
   const result = await sql`
     UPDATE action_records
@@ -76,7 +81,7 @@ export async function recordApproval(
         reasoning = COALESCE(reasoning, '') || '
 
 [HITL Decision: ' || ${decision.toUpperCase()} || ' by ' || ${userId} || ']' ||
-                    CASE WHEN ${safeReasoning || ''} != '' THEN '
+                    CASE WHEN ${safeReasoning} != '' THEN '
 Reason: ' || ${safeReasoning} ELSE '' END
     WHERE action_id = ${actionId}
       AND org_id = ${orgId}
