@@ -14,6 +14,53 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — "Was I manipulated?": the session retro (v4.32.0, roadmap v2.5)
+
+The advocate direction got its second half. v2.4 warned an agent mid-task when
+an assumption it was standing on got pulled; v2.5 answers the question that
+comes *after* the task: was this agent manipulated in that session? Every
+protective signal already existed — injection-shield hits, non-fabrication
+verdicts, goal declarations, guard blocks, spend outcomes, invalidated
+assumptions — but they lived on individual actions, so answering the question
+meant clicking through dozens of detail pages. Now `GET
+/api/sessions/{id}/retro` composes them into one defensibility report: a
+tri-state posture (clean / review / flagged) derived purely from evidenced
+findings, never from an invented score, plus a goal timeline and a coverage
+block. That coverage block is the part I care most about: a session where only
+5 of 40 actions were governed does not get to read as "clean" — it reads as
+"clean where observed, 35 ungoverned." Absence of evidence stays absence of
+evidence. The report renders as a card on the session page, and an agent can
+pull its own retro through a new `dashclaw_session_retro` MCP tool (33rd).
+
+Design decisions were ratified by Wes before any build (spec-first, same as
+v2.4): rule-based detectors with no LLM anywhere, computed on read with no new
+tables, both consumers (operator UI + agent tool) from day one. The one
+genuinely new primitive is goal-drift detection — comparing each action's
+declared goal against the session's first, flagging late-appearing novel
+action types and risk spikes against the session median — all deterministic,
+all pinned by golden vectors.
+
+What went wrong, honestly: the plan's own text carried two defects that
+review caught. The MCP tool description advertised "call after session_end —
+defaults to the active session," but ending a session *clears* the active
+default, so the advertised path would always error; and my spec's smoke
+acceptance promised a `flagged` posture from two medium findings, which my
+own posture rules say is `review`. Both were plan bugs, not implementer bugs
+— the per-task adversarial reviews caught them anyway, which is the system
+working. A live-proof surprise worth recording: `POST /api/guard?record=true`
+deliberately does not record blocked actions, so proving the intervention
+detector required linking the guard decision id explicitly. And a final
+whole-branch review found that a NULL risk score silently counted as 0 and
+dragged the spike baseline down — a one-line fix with a pinning vector.
+
+Verification: 13 shaper vectors + repository and MCP tests, policy smoke
+72 → 76 (the new scenario also exercises the legacy unstamped-action
+attribution arm), the card proven rendered in a real browser with zero
+console errors, and the hosted `/api/mcp` route returning the retro end to
+end. Platform-only release — the SDKs are intentionally not republished.
+
+---
+
 ## 2026-07-02 — QA tooling: a load harness for the hot path, a bug-report skill, and a routing audit (v4.31.1)
 
 Two pieces of outside advice turned into a small, honest investment in how the

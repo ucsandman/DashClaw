@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.32.0] — 2026-07-02
+
+"Was I manipulated?" session retro (owner roadmap v2.5, Advocate v2b). Every protective signal DashClaw records — injection-shield hits, non-fabrication verdicts, goal declarations, guard blocks, spend outcomes, invalidated assumptions — lived on individual actions; answering "was this agent manipulated in that session?" meant reconstructing it by hand across dozens of detail pages. Now one report composes it per session, on demand, with no new tables and no LLM. Spec: `docs/superpowers/specs/2026-07-02-session-retro-design.md`.
+
+### Added
+- **`GET /api/sessions/{sessionId}/retro`** — the per-session defensibility report: deterministic detectors (prompt-injection warned/blocked, non-fabrication blocks, goal drift vs the session's first declared goal, late novel action types, risk spikes vs the session median, denied/expired and outlier purchases, guard interventions, later-invalidated assumptions), each finding carrying its evidence and action/decision ids. Posture is derived, never invented: `flagged` = any high finding, `review` = any finding, `clean` = none — plus an honesty block (`actions_with_guard_decision` vs `actions_total`) so a mostly-ungoverned session can never read as exonerated. Composed on read from existing rows via the same session↔action predicate the aggregates use (stamped `session_id` or the legacy agent+time-window arm).
+- **Retro card on `/sessions/{id}`** — posture chip, honest coverage line, goal timeline, findings grouped by kind with links to each action. Click path: `/sessions` → session → retro.
+- **MCP tool `dashclaw_session_retro`** (33rd tool) — an agent can pull its own defensibility report; defaults to the active session (pass `session_id` explicitly after `dashclaw_session_end`, which clears the active default). Available on the hosted `/api/mcp` route automatically (shared definitions + handlers).
+- **Policy smoke O1–O4** (72 → 76 checks) — seeded session proves posture, goal-drift and intervention findings, and coverage honesty live, including the legacy unstamped-action attribution arm.
+
+### Fixed
+- **NULL risk scores no longer skew the risk-spike baseline** — an unscored action previously counted as risk 0 and dragged the session median down; it is now excluded from the baseline.
+- **MCP tool count pins and docs** updated 32 → 33 across the README, docs page, mcp-server README, and skill references (routes 323 → 324).
+
 ## [4.31.1] — 2026-07-02
 
 Internal QA tooling plus a calibration hardening fix. No new product surface and no route/SDK/MCP change — a patch release (the Node + Python SDKs are intentionally not republished; npm/PyPI stay at 4.30.0).
