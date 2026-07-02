@@ -156,6 +156,19 @@ export const TOOL_DEFINITIONS = [
             required: ['session_id', 'status'],
         },
     },
+    {
+        name: 'dashclaw_session_retro',
+        description: 'Fetch the per-session defensibility retro ("was I manipulated?"): injected-content flags, ' +
+            'actions outside the declared goal, spend anomalies, and shield hits, composed into a ' +
+            'clean/review/flagged posture with evidenced findings. Read-only. Call after ' +
+            'dashclaw_session_end (or anytime) to review your own session; defaults to the active session.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                session_id: { type: 'string', description: 'Session ID (sess_*). Defaults to the session started by dashclaw_session_start.' },
+            },
+        },
+    },
     // --- Code Sessions: Optimal Files (Phase 6) ------------------------------
     {
         name: 'dashclaw_optimal_files_preview',
@@ -765,6 +778,17 @@ export function createToolHandlers(client) {
             // unrelated session doesn't silently unset the active one.
             if (activeSessionId === input.session_id)
                 activeSessionId = null;
+            return JSON.stringify(result);
+        },
+        async dashclaw_session_retro(input) {
+            // Read BEFORE dashclaw_session_end clears it, or pass session_id explicitly.
+            const sessionId = input.session_id ?? activeSessionId;
+            if (!sessionId) {
+                return JSON.stringify({
+                    error: 'No session_id given and no active session. Pass session_id (sess_*) or call dashclaw_session_start first.',
+                });
+            }
+            const result = await client.get(`/api/sessions/${sessionId}/retro`, {}, { timeout: 15000 });
             return JSON.stringify(result);
         },
         async dashclaw_handoff_create(args) {

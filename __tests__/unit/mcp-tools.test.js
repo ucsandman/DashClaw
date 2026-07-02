@@ -18,8 +18,8 @@ const { createToolHandlers, TOOL_DEFINITIONS } = await import('../../mcp-server/
 import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Tool Definitions', () => {
-  it('exports exactly 32 tool definitions', () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(32);
+  it('exports exactly 33 tool definitions', () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(33);
   });
 
   it('includes the assumption recording tool', () => {
@@ -347,6 +347,34 @@ describe('Tool Handlers', () => {
         summary: 'Research done',
       }, { timeout: 10000 });
       expect(result).toContain('completed');
+    });
+  });
+
+  describe('dashclaw_session_retro', () => {
+    it('calls GET /api/sessions/:id/retro using the explicit session_id', async () => {
+      mockGet.mockResolvedValue({ retro: { posture: 'clean', coverage: {}, findings: [] } });
+
+      const result = await handlers.dashclaw_session_retro({ session_id: 'sess_1' });
+
+      expect(mockGet).toHaveBeenCalledWith('/api/sessions/sess_1/retro', {}, { timeout: 15000 });
+      expect(result).toContain('clean');
+    });
+
+    it('falls back to the active session when session_id is omitted', async () => {
+      mockPost.mockResolvedValueOnce({ session: { id: 'sess_42' } }); // session_start
+      await handlers.dashclaw_session_start({ agent_id: 'a' });
+      mockGet.mockResolvedValue({ retro: { posture: 'review', coverage: {}, findings: [] } });
+
+      await handlers.dashclaw_session_retro({});
+
+      expect(mockGet).toHaveBeenCalledWith('/api/sessions/sess_42/retro', {}, { timeout: 15000 });
+    });
+
+    it('returns an error when there is no session_id and no active session', async () => {
+      const result = await handlers.dashclaw_session_retro({});
+
+      expect(JSON.parse(result).error).toMatch(/No session_id given/);
+      expect(mockGet).not.toHaveBeenCalled();
     });
   });
 
