@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import {
   createStartServerSpawnConfig,
   shutdownChildProcess,
@@ -85,6 +86,31 @@ async function main() {
     });
 
     console.log(`[startup-smoke] configured: ${result.message || 'setup status is ready'}`);
+
+    // With the server already up, prove policy ENFORCEMENT, not just boot:
+    // scripts/policy-smoke.mjs runs 25 live governance-loop checks with real
+    // policies (see docs/plans/2026-07-01-explain-claims-audit.md). Needs an
+    // operator key; skipped when absent or explicitly opted out.
+    if (process.env.STARTUP_SMOKE_SKIP_POLICY === '1') {
+      console.log('[startup-smoke] policy smoke skipped (STARTUP_SMOKE_SKIP_POLICY=1)');
+    } else if (!process.env.DASHCLAW_API_KEY && !existsSync('.env.local')) {
+      console.log('[startup-smoke] policy smoke skipped (no DASHCLAW_API_KEY in env and no .env.local)');
+    } else {
+      console.log('[startup-smoke] running policy smoke...');
+      const policyExit = await new Promise((resolvePolicy) => {
+        const policyChild = spawn(
+          process.execPath,
+          ['scripts/policy-smoke.mjs', options.baseUrl],
+          { stdio: 'inherit', env: process.env },
+        );
+        policyChild.on('close', (code) => resolvePolicy(code));
+        policyChild.on('error', () => resolvePolicy(1));
+      });
+      if (policyExit !== 0) {
+        throw new Error(`policy smoke failed with exit code ${policyExit}`);
+      }
+      console.log('[startup-smoke] policy smoke passed');
+    }
   } catch (error) {
     console.error(`[startup-smoke] ${error.message}`);
     if (stdoutBuffer.toString()) {

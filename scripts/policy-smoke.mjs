@@ -22,25 +22,30 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-// --- env: load .env.local ourselves; never trust inherited DASHCLAW_* ---
+// --- env ---
+// When .env.local exists (local dev), its DASHCLAW_API_KEY wins over anything
+// inherited from the shell — machine-level DASHCLAW_* vars can point at prod.
+// When it doesn't (CI), fall back to the inherited env (the CI job sets it).
+const inheritedKey = process.env.DASHCLAW_API_KEY;
 for (const k of Object.keys(process.env)) {
   if (k.startsWith('DASHCLAW_')) delete process.env[k];
 }
+let envFileKey;
 try {
   const envFile = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8');
   for (const line of envFile.split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
     if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
+  envFileKey = process.env.DASHCLAW_API_KEY;
 } catch {
-  console.error('FATAL: could not read .env.local (need DASHCLAW_API_KEY)');
-  process.exit(1);
+  console.log('note: no .env.local — using DASHCLAW_API_KEY from the environment (CI mode)');
 }
 
 const BASE = process.argv[2] || 'http://localhost:3000';
-const KEY = process.env.DASHCLAW_API_KEY;
+const KEY = envFileKey || inheritedKey;
 if (!KEY) {
-  console.error('FATAL: DASHCLAW_API_KEY missing from .env.local');
+  console.error('FATAL: DASHCLAW_API_KEY not found in .env.local or the environment');
   process.exit(1);
 }
 
