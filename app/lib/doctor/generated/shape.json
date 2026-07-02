@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:e7d36953805b2f0f39cfc9a725e06e5900a8156a",
+  "timestamp": "sha1:93cde117c09ecbaf66c104e50e0625df6bff509e",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3856,6 +3856,14 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_INTERNAL_BASE_URL",
+      "required": false,
+      "files": [
+        "middleware.js"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_JTI_MAX_TTL_SECONDS",
       "required": false,
       "files": [
@@ -4525,6 +4533,7 @@
         "app/lib/next-config-headers.cjs",
         "app/lib/notifications.ts",
         "app/lib/webhooks.ts",
+        "middleware.js",
         "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/seed-demo-capabilities.mjs",
         "scripts/test-presence.mjs"
@@ -4729,6 +4738,7 @@
       "name": "PORT",
       "required": false,
       "files": [
+        "middleware.js",
         "scripts/run-demo.mjs"
       ],
       "in_env_example": false

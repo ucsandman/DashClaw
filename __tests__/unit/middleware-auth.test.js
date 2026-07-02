@@ -123,6 +123,33 @@ describe('middleware API-key auth', () => {
       const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
       expect(res.status).toBe(401);
     });
+
+    // SSRF guard: the internal hop carries the operator key, so a spoofed Host
+    // header must never choose its destination. With an untrusted host and no
+    // PORT/DASHCLAW_INTERNAL_BASE_URL/allowlist match, the request fails closed
+    // and NO fetch leaves the middleware.
+    it('never sends the operator key to a spoofed Host (fails closed, no fetch)', async () => {
+      vi.stubEnv('PORT', '');
+      vi.stubEnv('ALLOWED_ORIGIN', '');
+      vi.stubEnv('NEXTAUTH_URL', '');
+      fetchMock.mockResolvedValue(routeReply({ orgId: 'org_self', role: 'admin', hostedMode: false }));
+      // Simulate a Host-header spoof: the request URL claims an attacker origin.
+      const spoofed = req('/api/actions', { apiKey: uniqueKey() });
+      spoofed.url = 'https://evil.example.com/api/actions';
+      spoofed.nextUrl = new URL(spoofed.url);
+      const res = await middleware(spoofed);
+      expect(res.status).toBe(401);
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('uses DASHCLAW_INTERNAL_BASE_URL over the request origin when set', async () => {
+      vi.stubEnv('DASHCLAW_INTERNAL_BASE_URL', 'http://127.0.0.1:4242');
+      fetchMock.mockResolvedValue(routeReply({ orgId: 'org_self', role: 'admin', hostedMode: false }));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(200);
+      const [url] = fetchMock.mock.calls[0];
+      expect(String(url)).toBe('http://127.0.0.1:4242/api/internal/resolve-key');
+    });
   });
 
   it('cross-origin request with no api key is rejected with 401', async () => {

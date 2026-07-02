@@ -382,10 +382,32 @@ function pruneApiKeyCache(now) {
 // socket, so it delegates key resolution to an internal Node route (which uses
 // the runtime-aware TCP driver). Returns the resolved principal or null;
 // THROWS on a transient failure so the caller can fail closed without caching.
+//
+// SECURITY: this fetch carries the operator key, so its base URL must NEVER be
+// built from the raw incoming Host header — a spoofed Host would exfiltrate the
+// key to an attacker-controlled origin. Trust order: explicit env override →
+// loopback request host → loopback on the server's own PORT → request host that
+// matches ALLOWED_ORIGIN/NEXTAUTH_URL. Anything else throws (fail closed).
+function internalResolveBaseUrl(request) {
+  const explicit = process.env.DASHCLAW_INTERNAL_BASE_URL;
+  if (explicit) return explicit.replace(/\/$/, '');
+  const reqUrl = request?.nextUrl || new URL(request.url);
+  const hostname = String(reqUrl.hostname || '').toLowerCase();
+  if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '::1' || hostname === '[::1]') {
+    return reqUrl.origin;
+  }
+  if (process.env.PORT) return `http://127.0.0.1:${process.env.PORT}`;
+  const allowedHosts = [process.env.ALLOWED_ORIGIN, process.env.NEXTAUTH_URL]
+    .filter(Boolean)
+    .map((u) => { try { return new URL(u).host.toLowerCase(); } catch { return null; } })
+    .filter(Boolean);
+  if (allowedHosts.includes(String(reqUrl.host || '').toLowerCase())) return reqUrl.origin;
+  throw new Error('internal resolve-key: untrusted Host header and no DASHCLAW_INTERNAL_BASE_URL/PORT configured');
+}
+
 async function resolveApiKeyViaInternalRoute(keyHash, request) {
   const operatorKey = process.env.DASHCLAW_API_KEY || '';
-  const origin = request?.nextUrl?.origin || new URL(request.url).origin;
-  const res = await fetch(`${origin}/api/internal/resolve-key`, {
+  const res = await fetch(`${internalResolveBaseUrl(request)}/api/internal/resolve-key`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-internal-auth': operatorKey },
     body: JSON.stringify({ keyHash }),

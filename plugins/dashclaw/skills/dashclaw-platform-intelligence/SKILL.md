@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:e7d36953805b2f0f39cfc9a725e06e5900a8156a`
+**Shape snapshot:** `sha1:93cde117c09ecbaf66c104e50e0625df6bff509e`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **274** active API routes across **67** categories (322 total including archived)
-- **4** required + **184** optional environment variables
+- **4** required + **185** optional environment variables
 - **100** database tables
 
 ## API Surface
@@ -589,6 +589,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_HTTP_RETRIES` *(undocumented)*
 - `DASHCLAW_HTTP_RETRY_BASE_MS` *(undocumented)*
 - `DASHCLAW_HTTP_TIMEOUT_MS` *(undocumented)*
+- `DASHCLAW_INTERNAL_BASE_URL` *(undocumented)*
 - `DASHCLAW_JTI_MAX_TTL_SECONDS` *(undocumented)*
 - `DASHCLAW_JTI_REPLAY_PROTECTION` *(undocumented)*
 - `DASHCLAW_JWT_AUDIENCE` *(undocumented)*
