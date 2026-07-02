@@ -802,6 +802,65 @@ async function main() {
       `row=${JSON.stringify(row)?.slice(0, 200)}`);
   }
 
+  // ── Advocate v2b: session retro (O1–O4) ─────────────────────────────────
+  {
+    console.log('\nAdvocate v2b: session retro...');
+    const agent = agentFor('retro');
+    const sess = await api('POST', '/api/sessions', { agent_id: agent, workspace: 'smoke' });
+    const sessId = sess.json?.session?.id;
+
+    // Baseline action posted WITHOUT session_id — same agent inside the
+    // session window, so it must be attributed via the legacy fallback arm
+    // of sessionActionMatchSql (spec: repository proof incl. legacy-window rows).
+    await api('POST', '/api/actions', {
+      agent_id: agent, action_type: `smoke.retro.base.${RUN}`,
+      declared_goal: `retro baseline goal ${RUN}`, risk_score: 20,
+    });
+    await api('POST', '/api/actions', {
+      agent_id: agent, action_type: `smoke.retro.drift.${RUN}`,
+      declared_goal: `entirely different goal ${RUN}`, session_id: sessId, risk_score: 50,
+    });
+
+    // A blocked, guarded, session-stamped action → intervention finding.
+    // guard?record=true never records a blocked action ("the hook never
+    // records a blocked action — the guard_decisions audit row already
+    // captures the block", app/api/guard/route.ts recordRunningAction), so
+    // link it the way action_records.guard_decision_id is actually meant to
+    // be populated for a block: guard first for the decision_id, then POST
+    // /api/actions with that guard_decision_id (server validates it resolves
+    // to a real same-org guard decision — drizzle/0035 FK linkage).
+    const blockType = `smoke.retro.blocked.${RUN}`;
+    await createPolicy(`smoke retro block ${RUN}`, 'block_action_type',
+      { action_types: [blockType] }, [agent]);
+    const blocked = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: blockType,
+      declared_goal: `retro baseline goal ${RUN}`,
+    });
+    await api('POST', '/api/actions', {
+      agent_id: agent, action_type: blockType,
+      declared_goal: `retro baseline goal ${RUN}`, session_id: sessId,
+      guard_decision_id: blocked.json?.decision_id,
+    });
+
+    const retroRes = await api('GET', `/api/sessions/${sessId}/retro`);
+    const retro = retroRes.json?.retro || {};
+    const kinds = (retro.findings || []).map((f) => f.kind);
+    check('O1', 'session retro 200s with review posture',
+      retroRes.status === 200 && retro.posture === 'review',
+      `status=${retroRes.status} posture=${retro.posture} kinds=${kinds.join(',')}`);
+    check('O2', 'retro carries a goal_drift finding with its action id',
+      (retro.findings || []).some((f) => f.kind === 'goal_drift' && !!f.action_id),
+      `findings=${JSON.stringify(retro.findings)?.slice(0, 300)}`);
+    check('O3', 'retro carries an intervention finding from the blocked guard',
+      kinds.includes('intervention'),
+      `kinds=${kinds.join(',')}`);
+    check('O4', 'coverage is honest: some actions ungoverned',
+      (retro.coverage?.actions_total ?? 0) >= 3 &&
+      (retro.coverage?.actions_with_guard_decision ?? 0) >= 1 &&
+      retro.coverage.actions_with_guard_decision < retro.coverage.actions_total,
+      `coverage=${JSON.stringify(retro.coverage)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
