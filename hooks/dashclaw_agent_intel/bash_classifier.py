@@ -230,8 +230,18 @@ def is_bounded_rm(parsed: dict) -> bool:
         recursive = "--recursive" in flags or any(
             f.startswith("-") and not f.startswith("--") and "r" in f.lower() for f in flags
         )
+    elif base == "rmdir":
+        # coreutils rmdir only ever removes EMPTY directories (-p just prunes
+        # empty parents) — strictly safer than a bounded rm. The one recursive
+        # spelling is Windows cmd's `rmdir /s`; treat that as unbounded.
+        recursive = any(f.lower() == "/s" for f in flags)
     elif base.lower() == "remove-item":
-        recursive = any(f.lower().startswith("-rec") for f in flags)
+        # `-Recurse:$false` is an EXPLICIT non-recursive switch — the prefix
+        # test alone misread it as recursion (2026-07-02 wrong self-block).
+        recursive = any(
+            f.lower().startswith("-rec") and not f.lower().endswith(":$false")
+            for f in flags
+        )
     else:
         return False
     if recursive:

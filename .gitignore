@@ -93,6 +93,11 @@ findings.json
 /conductor/
 /plans/
 .supergoal/
+.supergoal-archive-*/
+# Completed One-System staging package (shipped as v4.20.0); local history only
+/one-system/
+# frontend-verify skill output (headless page-state dumps)
+.frontend-verify/
 
 # Self-improvement loop artifacts (weekly memory-self-review -> apply-self-review).
 # Transient, machine-local; the tracked specs/RFCs elsewhere in docs/superpowers/ are unaffected.

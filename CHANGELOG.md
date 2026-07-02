@@ -13,6 +13,9 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+- **Two wrong self-blocks calibrated away:** `rmdir` of an empty directory and `Remove-Item -Recurse:$false` both scored 100 (extreme-risk block). The classifier now grades `rmdir` as a bounded delete (coreutils rmdir cannot remove content; Windows `rmdir /s` still escalates) and reads `-Recurse:$false` as the explicit non-recursion it is. Golden corpus 31 → 33 vectors, fix + vectors in one commit per the calibration playbook.
+
 ## [4.31.0] — 2026-07-02
 
 Assumption-invalidation notifications (owner roadmap v2.4, Advocate v2a). The assumption ledger was write-only during a task: an operator could mark an agent's assumption false, and the agent would keep acting on it, none the wiser. Now invalidation reaches the agent before it acts again. Spec: `docs/superpowers/specs/2026-07-02-assumption-invalidation-notifications-design.md`.
