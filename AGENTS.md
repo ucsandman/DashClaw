@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25589 symbols, 51339 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (25610 symbols, 51418 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,7 +73,7 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-02 (commit cd1fc81d). Confidence: 100%.
+Last indexed: 2026-07-02 (commit 64d17206). Confidence: 100%.
 ### Architecture
 This repository is a governed codebase documentation and agent platform: it ingests a target repository (source files + optional contracts/config), traverses and parses code into ASTs, analyzes structure and dependencies, applies policy/rules and governance modes, and then generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and supporting SDKs/UI entrypoints.
 ### Key Modules
@@ -104,9 +104,9 @@ This repository is a governed codebase documentation and agent platform: it inge
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
-| `app/lib/doctor/generated/shape.json` | 100.0th percentile | 65 | Wes Sander |
-| `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 65 | Wes Sander |
-| `package-lock.json` | 99.9th percentile | 63 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 100.0th percentile | 66 | Wes Sander |
+| `app/lib/doctor/generated/shape.json` | 99.9th percentile | 66 | Wes Sander |
+| `package-lock.json` | 99.9th percentile | 64 | Wes Sander |
 | `mcp-server/lib/routes-inventory.generated.json` | 99.8th percentile | 31 | Wes Sander |
 
 ### Repowise MCP Workflow
