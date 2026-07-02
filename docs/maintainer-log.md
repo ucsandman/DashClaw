@@ -57,7 +57,9 @@ Verification: 13 shaper vectors + repository and MCP tests, policy smoke
 72 → 76 (the new scenario also exercises the legacy unstamped-action
 attribution arm), the card proven rendered in a real browser with zero
 console errors, and the hosted `/api/mcp` route returning the retro end to
-end. Platform-only release — the SDKs are intentionally not republished.
+end. Platform-only change, so no SDK publish was owed by this ship — but Wes
+ran the unified publish the same day, bringing npm and PyPI to 4.32.0 and
+clearing the publish that had been outstanding since the v4.30.x SDK changes.
 
 ---
 

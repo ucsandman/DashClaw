@@ -2,7 +2,7 @@
   "node": {
     "current_version": "4.32.0",
     "next_bump": "none",
-    "reason": "4.32.0 ships the session retro (route + UI + MCP tool) — NO Node SDK source change (README count line only). Version advances per the unified model but the SDK is NOT republished; npm stays at 4.30.0 (a publish of the accumulated 4.30.x SDK changes remains owed separately).",
+    "reason": "4.32.0 ships the session retro (route + UI + MCP tool) — NO Node SDK source change (README count line only). Owner ran the unified publish post-ship (2026-07-02): npm is at 4.32.0, carrying the accumulated 4.30.x SDK changes.",
     "domains": [
       "platform"
     ]
@@ -10,7 +10,7 @@
   "python": {
     "current_version": "4.32.0",
     "next_bump": "none",
-    "reason": "4.32.0 ships the session retro (route + UI + MCP tool) — NO Python SDK source change (README count line only). Version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.30.0 (a publish of the accumulated 4.30.x SDK changes remains owed separately).",
+    "reason": "4.32.0 ships the session retro (route + UI + MCP tool) — NO Python SDK source change (README count line only). Owner ran the unified publish post-ship (2026-07-02): PyPI is at 4.32.0, carrying the accumulated 4.30.x SDK changes.",
     "domains": [
       "platform"
     ]
