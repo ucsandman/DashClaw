@@ -68,10 +68,11 @@ async function createPolicy(name, policy_type, rules, agentIds) {
   const { status, json } = await api('POST', '/api/policies', {
     name: `policy-smoke:${name}:${RUN}`,
     policy_type,
-    // Wire format quirk (validate.js): rules + agent_ids must be JSON STRINGS, active an integer.
-    rules: JSON.stringify(rules),
-    active: 1,
-    agent_ids: JSON.stringify(agentIds),
+    // Natural JSON shapes — the validator normalizes these since 2026-07-01
+    // (wire-format tolerance); sending them here live-proves that on every run.
+    rules,
+    active: true,
+    agent_ids: agentIds,
   });
   if (status !== 200 && status !== 201) {
     throw new Error(`policy create ${name} failed: ${status} ${JSON.stringify(json)}`);

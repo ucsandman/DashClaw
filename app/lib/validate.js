@@ -515,7 +515,16 @@ function validateActionTypesRequired(rules, addError, policyType) {
 }
 
 export function validatePolicy(body) {
-  const result = validate(body, POLICY_SCHEMA);
+  const safeBody = (body && typeof body === 'object') ? body : {};
+  // Wire-format tolerance: accept the natural JSON shapes — rules as an object,
+  // active as a boolean, agent_ids as an array — and normalize to the stored
+  // forms (JSON strings / 0-1 integer) so raw-HTTP integrators aren't forced to
+  // pre-stringify. The legacy string/integer forms keep working unchanged.
+  const normalized = { ...safeBody };
+  if (isPlainObject(safeBody.rules)) normalized.rules = JSON.stringify(safeBody.rules);
+  if (typeof safeBody.active === 'boolean') normalized.active = safeBody.active ? 1 : 0;
+  if (Array.isArray(safeBody.agent_ids)) normalized.agent_ids = JSON.stringify(safeBody.agent_ids);
+  const result = validate(normalized, POLICY_SCHEMA);
   if (!result.valid) return result;
 
   // Validate rules JSON structure
