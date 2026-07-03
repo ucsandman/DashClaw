@@ -36,7 +36,7 @@ function formatRules(policy: any): string {
     case 'risk_threshold': return `Risk >= ${rules.threshold} → ${rules.action || 'block'}`;
     case 'require_approval': return `${(rules.action_types || []).join(', ')} → require approval`;
     case 'block_action_type': return `${(rules.action_types || []).join(', ')} → block`;
-    case 'rate_limit': return `Max ${rules.max_actions} / ${rules.window_minutes}min → ${rules.action || 'warn'}`;
+    case 'rate_limit': return `Max ${rules.max_actions} / ${rules.window_minutes ?? 60}min → ${rules.action || 'warn'}`; // 60 = the guard's default window (guard.ts)
     case 'webhook_check': { try { return `Webhook → ${new URL(rules.url).hostname}`; } catch { return 'Webhook'; } }
     case 'semantic_check': return `Semantic: "${(rules.instruction || '').slice(0, 50)}..."`;
     case 'non_fabrication': return `Non-fabrication → ${rules.on_violation || 'block'}`;
@@ -62,9 +62,36 @@ function parseAgentIds(policy: any): string[] {
   try { const p = JSON.parse(policy.agent_ids); return Array.isArray(p) ? p : []; } catch { return []; }
 }
 
+/**
+ * Live consumption suffix for budget-bearing x402 policies (roadmap v2.6c),
+ * from GET /api/x402/budget. Tone mirrors the gate's tiers: error at/over the
+ * hard budget, warning at/over the approval threshold (or 80% of the hard
+ * budget when no approval tier).
+ */
+function budgetConsumption(entry: any): { text: string; tone: string } | null {
+  const budget = entry.budget_usd;
+  const approval = entry.budget_approval_threshold;
+  const cap = budget ?? approval;
+  if (cap == null) return null;
+  const label = (spend: number) => `$${Number(spend).toFixed(2)} of $${Number(cap).toFixed(2)} used`;
+  const toneFor = (spend: number) =>
+    budget != null && spend >= budget ? 'text-error'
+    : (approval != null ? spend >= approval : spend >= 0.8 * budget) ? 'text-warning'
+    : 'text-tertiary';
+  if (entry.budget_scope === 'agent') {
+    const top = (entry.families || [])[0]; // API orders families by spend DESC
+    if (!top) return { text: 'no attributed spend this window', tone: 'text-tertiary' };
+    return { text: `top ${top.agent_id}: ${label(top.window_spend_usd)}`, tone: toneFor(top.window_spend_usd) };
+  }
+  const spend = entry.window_spend_usd ?? 0;
+  return { text: label(spend), tone: toneFor(spend) };
+}
+
 export default function CustomTab() {
   const [policies, setPolicies] = useState<any[]>([]);
   const [agents, setAgents] = useState<any[]>([]);
+  // Live budget consumption keyed by policy_id (only budget-bearing x402 policies appear).
+  const [budgetByPolicy, setBudgetByPolicy] = useState<Record<string, any>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState('');
@@ -120,9 +147,10 @@ export default function CustomTab() {
 
   const fetchPolicies = useCallback(async () => {
     try {
-      const [policiesRes, agentsRes] = await Promise.all([
+      const [policiesRes, agentsRes, budgetRes] = await Promise.all([
         fetch('/api/policies'),
         fetch('/api/agents'),
+        fetch('/api/x402/budget'),
       ]);
       if (policiesRes.ok) {
         const data = await policiesRes.json();
@@ -131,6 +159,12 @@ export default function CustomTab() {
       if (agentsRes.ok) {
         const data = await agentsRes.json();
         setAgents(data.agents || []);
+      }
+      if (budgetRes.ok) {
+        const data = await budgetRes.json();
+        const byPolicy: Record<string, any> = {};
+        for (const entry of data.budgets || []) byPolicy[entry.policy_id] = entry;
+        setBudgetByPolicy(byPolicy);
       }
     } catch (err) {
       console.error('Failed to fetch policies:', err);
@@ -831,6 +865,13 @@ export default function CustomTab() {
                     </div>
                     <div className="mt-0.5 truncate text-xs text-tertiary">
                       {formatRules(p)} <span aria-hidden="true" className="text-zinc-700">&middot;</span> {agentCount === 0 ? 'All agents' : `${agentCount} agents`} <span aria-hidden="true" className="text-zinc-700">&middot;</span> {p.id}
+                      {(() => {
+                        const c = budgetByPolicy[p.id] ? budgetConsumption(budgetByPolicy[p.id]) : null;
+                        return c ? (<>
+                          {' '}<span aria-hidden="true" className="text-zinc-700">&middot;</span>{' '}
+                          <span className={`tabular-nums ${c.tone}`}>{c.text}</span>
+                        </>) : null;
+                      })()}
                     </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-1">

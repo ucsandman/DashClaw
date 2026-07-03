@@ -328,3 +328,28 @@ export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, age
     WHERE org_id = ${orgId} AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}`;
   return Number(row?.window_spend_usd ?? 0);
 }
+
+/**
+ * Window spend grouped by identity FAMILY (roadmap v2.6c read path). Same
+ * spend predicate as sumWindowSpend — the budget meter and the guard gate must
+ * share ONE definition of "spend". Composed sub-agent ids (`<base>:<type>`,
+ * RFC 2026-06-01; `:` is reserved in agent ids) roll up to their base via
+ * split_part, mirroring the guard's baseAgentId normalization. Unattributed
+ * rows (agent_id IS NULL) belong to no family and are excluded — agent-scoped
+ * budgets already fail-closed on them at guard time. NOT cached, same
+ * reasoning as sumWindowSpend.
+ */
+export async function sumWindowSpendByFamily(sql: SqlTag, orgId: string, { sinceIso }: { sinceIso: string }): Promise<Array<{ agent_id: string; window_spend_usd: number }>> {
+  const rows = await sql`
+    SELECT split_part(agent_id, ':', 1) AS agent_id, COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
+    FROM x402_purchases
+    WHERE org_id = ${orgId} AND agent_id IS NOT NULL AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')
+    GROUP BY split_part(agent_id, ':', 1)
+    ORDER BY window_spend_usd DESC`;
+  // ::real aggregates arrive as STRINGS from the Neon/postgres drivers (see
+  // getX402SpendAggregation) — coerce before anyone sums or compares.
+  return (rows as Array<{ agent_id: string; window_spend_usd: unknown }>).map((r) => ({
+    agent_id: r.agent_id,
+    window_spend_usd: Number(r.window_spend_usd ?? 0),
+  }));
+}

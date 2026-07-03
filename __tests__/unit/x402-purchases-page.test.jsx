@@ -104,10 +104,15 @@ describe('/spend/x402 purchases page', () => {
   });
 
   it('shows error + Retry on failed load (not the empty state), and retries', async () => {
-    let calls = 0;
-    global.fetch = vi.fn(async () => {
-      calls += 1;
-      if (calls === 1) return { ok: false, status: 500, json: async () => ({}) };
+    // URL-aware: the page mounts X402BudgetMeters, whose /api/x402/budget
+    // fetch must not consume the purchases failure from a call-count queue.
+    let purchaseCalls = 0;
+    global.fetch = vi.fn(async (input) => {
+      if (String(input).includes('/api/x402/budget')) {
+        return { ok: true, status: 200, json: async () => ({ budgets: [] }) };
+      }
+      purchaseCalls += 1;
+      if (purchaseCalls === 1) return { ok: false, status: 500, json: async () => ({}) };
       return { ok: true, status: 200, json: async () => ({ purchases: PURCHASES }) };
     });
 

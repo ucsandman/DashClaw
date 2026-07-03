@@ -3,7 +3,7 @@ import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
-  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases,
+  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
@@ -129,6 +129,20 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const filtered = demoX402Purchases(url('http://x/api/x402/purchases?agent_id=clawdbot'));
     expect(filtered.purchases.length).toBeGreaterThan(0);
     expect(filtered.purchases.every((p: any) => p.agent_id === 'clawdbot')).toBe(true);
+  });
+  it('x402 budget (/api/x402/budget) — meter shape, hot org meter, family rollup', () => {
+    const all = demoX402Budget(url('http://x/api/x402/budget')) as any;
+    expect(all.budgets.length).toBe(2);
+    const org = all.budgets.find((b: any) => b.budget_scope === 'org');
+    // demo org meter sits in the warning band: over approval, under the hard budget
+    expect(org.window_spend_usd).toBeGreaterThanOrEqual(org.budget_approval_threshold);
+    expect(org.window_spend_usd).toBeLessThan(org.budget_usd);
+    const agent = all.budgets.find((b: any) => b.budget_scope === 'agent');
+    expect(agent.families.length).toBeGreaterThan(1);
+    // ?agent_id narrows to the identity family and rolls composed ids to the base
+    const narrowed = demoX402Budget(url('http://x/api/x402/budget?agent_id=clawdbot%3Aexplore')) as any;
+    const fam = narrowed.budgets.find((b: any) => b.budget_scope === 'agent').families;
+    expect(fam).toEqual([{ agent_id: 'clawdbot', window_spend_usd: expect.any(Number) }]);
   });
   it('behavior recorder (/api/behavior/recorder)', () => {
     expect(demoBehaviorRecorder()).toMatchObject({ enabled: true, effective: true });

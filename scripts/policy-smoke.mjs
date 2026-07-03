@@ -219,7 +219,7 @@ async function main() {
   // invisible to the sum and the sequence is deterministic from $0.
   {
     const agent = agentFor('b6');
-    await createPolicy('spend-budget', 'x402_spend_limit',
+    const budgetPid = await createPolicy('spend-budget', 'x402_spend_limit',
       { budget_approval_threshold: 10, budget_usd: 20, budget_scope: 'agent' }, [agent]);
     const purchase = (goal, cost) => api('POST', '/api/x402/purchases', {
       agent_id: agent, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
@@ -250,6 +250,18 @@ async function main() {
     check('B6', 'budget block carries the cumulative-spend evidence in its reason',
       JSON.stringify(p4.json || {}).includes('Cumulative x402 spend'),
       `body=${JSON.stringify(p4.json)?.slice(0, 300)}`);
+
+    // B7: budget consumption READ path (roadmap v2.6c) — the meter renders the
+    // same window sum the gate just evaluated: $12 = two allowed $4 purchases
+    // + the $4 pending approval (reserved spend counts); the blocked $10 never
+    // produced a purchase row.
+    const meter = await api('GET', `/api/x402/budget?agent_id=${encodeURIComponent(agent)}`);
+    const entry = (meter.json?.budgets || []).find((b) => b.policy_id === budgetPid);
+    const fam = (entry?.families || []).find((f) => f.agent_id === agent);
+    check('B7', 'GET /api/x402/budget shows the gate\'s window sum for the agent family ($12 of $20)',
+      meter.status === 200 && entry?.budget_scope === 'agent' && entry?.budget_usd === 20 &&
+      Math.abs(Number(fam?.window_spend_usd) - 12) < 0.001,
+      `status=${meter.status} entry=${JSON.stringify(entry)?.slice(0, 300)}`);
   }
 
   // L1–L3: agent identity family (roadmap v2.2). Composed sub-agent ids

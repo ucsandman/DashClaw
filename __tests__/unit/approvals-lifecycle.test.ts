@@ -25,7 +25,7 @@ import {
   APPROVAL_RETRY_GRACE_SECONDS,
   DEFAULT_APPROVAL_WAIT_SECONDS,
 } from '../../app/lib/repositories/actions.repository';
-import { sumWindowSpend, getX402SpendAggregation } from '../../app/lib/repositories/x402.repository';
+import { sumWindowSpend, sumWindowSpendByFamily, getX402SpendAggregation } from '../../app/lib/repositories/x402.repository';
 
 type Row = Record<string, unknown>;
 
@@ -166,6 +166,15 @@ describe('x402 spend predicates exclude dead approvals', () => {
     const spend = await sumWindowSpend(sql, 'org1', { sinceIso: new Date().toISOString() });
     expect(spend).toBe(4);
     expect(sql.calls[0]!.text).toContain("execution_status NOT IN ('failed', 'denied', 'expired')");
+  });
+
+  it('sumWindowSpendByFamily shares the predicate, rolls up to the family base, and coerces ::real strings', async () => {
+    const sql = makeSql([[{ agent_id: 'claude-code', window_spend_usd: '1.5' }]]);
+    const rows = await sumWindowSpendByFamily(sql, 'org1', { sinceIso: new Date().toISOString() });
+    expect(rows).toEqual([{ agent_id: 'claude-code', window_spend_usd: 1.5 }]);
+    expect(sql.calls[0]!.text).toContain("execution_status NOT IN ('failed', 'denied', 'expired')");
+    expect(sql.calls[0]!.text).toContain("split_part(agent_id, ':', 1)");
+    expect(sql.calls[0]!.text).toContain('agent_id IS NOT NULL');
   });
 
   it('getX402SpendAggregation uses the same exclusion on every aggregate', async () => {

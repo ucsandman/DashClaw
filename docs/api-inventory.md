@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `325`
+- Total routes: `326`
 - Stable routes: `55`
 - Beta routes: `24`
-- Experimental routes: `246`
+- Experimental routes: `247`
 
 ## Routes
 
@@ -343,6 +343,7 @@ doc-type: architecture
 | `/api/workflows/templates/{templateId}/runs/{runActionId}` | `GET` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts` |
 | `/api/workflows/templates/{templateId}/runs/{runActionId}/cancel` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts` |
 | `/api/workflows/templates/{templateId}/runs/{runActionId}/resume` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts` |
+| `/api/x402/budget` | `GET` | `experimental` | `(default)` | `app/api/x402/budget/route.ts` |
 | `/api/x402/providers` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/providers/route.ts` |
 | `/api/x402/providers/{id}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/x402/providers/[id]/route.ts` |
 | `/api/x402/providers/{id}/endpoints` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/providers/[id]/endpoints/route.ts` |

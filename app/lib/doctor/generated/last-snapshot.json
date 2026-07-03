@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:1499ffc8bd988cc4a9f51e32d26fe40f728f8408",
+  "timestamp": "sha1:bca6e656cd2f38423d18f7009b24367c8a0e3d39",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3244,6 +3244,15 @@
       ],
       "archived": false,
       "file_path": "app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts"
+    },
+    {
+      "path": "/api/x402/budget",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/x402/budget/route.ts"
     },
     {
       "path": "/api/x402/providers",

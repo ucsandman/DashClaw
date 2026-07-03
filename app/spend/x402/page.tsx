@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PageLayout from '../../components/PageLayout';
 import EntityLink from '../../components/context-menu/EntityLink';
+import X402BudgetMeters from '../components/X402BudgetMeters';
 import { useAgentFilter } from '../../lib/AgentFilterContext';
 import type { X402PurchaseListRow } from '../../lib/types/x402';
 
@@ -38,6 +39,7 @@ export default function X402PurchasesPage() {
 
   return (
     <PageLayout title="x402 Purchases" subtitle="Governed capability purchases" breadcrumbs={['Spend', 'Purchases']} maturity="beta">
+      <X402BudgetMeters agentId={agentId} />
       {loading ? (
         <div className="text-sm text-tertiary">Loading…</div>
       ) : error ? (

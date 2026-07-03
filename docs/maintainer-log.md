@@ -14,7 +14,38 @@ Entries are newest-first.
 
 ---
 
-## 2026-07-02 — Post-ship: the CI reds were real bugs, and one was years-class (v4.34.1)
+## 2026-07-03 — The gate finally shows its math (v4.35.0, roadmap v2.6c)
+
+Second HUMAN-EXPERIENCE.md debt paid. The cumulative x402 budget gate has
+computed a rolling window sum on every governed purchase since it shipped —
+and never once showed it to a human. An operator learned their fleet was at
+$43 of $50 the same way they learned everything else: when a purchase
+interrupted. Today the state renders. `GET /api/x402/budget` reads through
+the exact same repository predicate the gate evaluates (`sumWindowSpend` —
+one definition of "spend", by construction), `/spend/x402` grew "Window
+budgets" meter cards (approval-threshold tick, warning/error tones mirroring
+the gate's tiers, per-family bars for agent-scoped budgets), and the policy
+rows on `/policies/rules` carry a live "$X of $Y used" suffix.
+
+Two things the live proof caught that unit tests wouldn't have. First, the
+real local org had $708 of 30-day window spend, so my "seed three $7
+purchases" plan got instantly blocked by its own test policy — the meter and
+the gate agreeing on the first try, and a reminder that org-scoped budgets
+meter *everything* in the window. Second and more important: the first cut
+of the read API listed **every** family's spend under an `agent_ids`-targeted
+budget — families the policy never gates, rendered as "$22.00 of $7.00" red
+bars. Misleading state, shipped honestly by the query. The route now filters
+families to the policy's targeting, pinned by tests. Smoke B7 (83 checks)
+pins meter == gate accrual end-to-end, including the subtlety that a pending
+approval reserves budget but a blocked purchase never lands.
+
+Ride-alongs: rate_limit rows rendered "Max 150 / undefinedmin" (missing
+window now defaults to 60 like the guard); `X402PolicyRules` gained the
+budget-tier fields it had silently lacked. The retro-audit's "/decisions
+risk-composition hint" punch-list item was NOT folded in — it needs a
+guard_decisions join on the hot list path, which is its own change; deferred
+to the next /decisions touch, on the record. Marketing/docs coverage for the
+x402 budget subsystem lands with v2.6d (the dedicated backfill, next item).
 
 The v4.34.0 push surfaced that CI on main had been red for days — and Wes's
 rule held: found bugs get fixed now, not filed. Three fixes in the follow-up

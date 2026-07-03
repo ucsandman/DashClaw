@@ -132,4 +132,34 @@ export interface X402PolicyRules {
   approval_threshold?: number;
   allowed_providers?: string[];
   blocked_providers?: string[];
+  /** Cumulative budget tier (guard.ts x402BudgetDecision): window spend +
+   * incoming amount vs these, over budget_window_days (1–365, default 30). */
+  budget_usd?: number;
+  budget_approval_threshold?: number;
+  budget_window_days?: number;
+  budget_scope?: 'org' | 'agent';
+}
+
+// ── Budget consumption read path (GET /api/x402/budget, roadmap v2.6c) ──
+
+export interface X402BudgetFamily {
+  /** Identity-family BASE id — composed `<base>:<type>` ids roll up to it. */
+  agent_id: string;
+  window_spend_usd: number;
+}
+
+/** One meter: an active budget-bearing x402_spend_limit policy plus the live
+ * window consumption the guard would gate the next purchase against.
+ * `window_spend_usd` is present for org scope, `families` for agent scope. */
+export interface X402BudgetEntry {
+  policy_id: string;
+  policy_name: Nullable<string>;
+  agent_ids: string[];
+  budget_usd: Nullable<number>;
+  budget_approval_threshold: Nullable<number>;
+  budget_window_days: number;
+  budget_scope: 'org' | 'agent';
+  window_start: string;
+  window_spend_usd?: number;
+  families?: X402BudgetFamily[];
 }

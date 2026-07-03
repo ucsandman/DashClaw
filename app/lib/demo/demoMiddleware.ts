@@ -1498,6 +1498,38 @@ export function demoX402Purchases(url: URL) {
   return { purchases };
 }
 
+// Shape of GET /api/x402/budget: one entry per active x402_spend_limit policy
+// with a budget tier. The org meter sits deliberately in the warning band
+// (over the approval threshold, under the hard budget) so the demo shows a
+// hot meter; the agent-scoped entry demos per-family bars.
+const DEMO_X402_BUDGET_FAMILIES: AnyRecord[] = [
+  { agent_id: 'clawdbot', window_spend_usd: 7.2 },
+  { agent_id: 'deploy-runner', window_spend_usd: 2.4 },
+];
+
+export function demoX402Budget(url: URL) {
+  const rawAgent = url.searchParams.get('agent_id');
+  const family = rawAgent ? rawAgent.split(':')[0] : null;
+  const families = family
+    ? [{ agent_id: family, window_spend_usd: Number(DEMO_X402_BUDGET_FAMILIES.find((f) => f.agent_id === family)?.window_spend_usd ?? 0) }]
+    : DEMO_X402_BUDGET_FAMILIES;
+  const windowStart = new Date(Date.now() - 30 * 86400000).toISOString();
+  return {
+    budgets: [
+      {
+        policy_id: 'pol_demo_x402_budget_org', policy_name: 'Paid capability spend (org)', agent_ids: [],
+        budget_usd: 25, budget_approval_threshold: 20, budget_window_days: 30, budget_scope: 'org',
+        window_start: windowStart, window_spend_usd: 21.4,
+      },
+      {
+        policy_id: 'pol_demo_x402_budget_agent', policy_name: 'Per-agent x402 budget', agent_ids: [],
+        budget_usd: 10, budget_approval_threshold: 8, budget_window_days: 30, budget_scope: 'agent',
+        window_start: windowStart, families,
+      },
+    ],
+  };
+}
+
 export function demoBehaviorRecorder() {
   return { enabled: true, until: '2026-06-30T00:00:00.000Z', effective: true };
 }

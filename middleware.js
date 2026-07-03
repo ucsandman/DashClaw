@@ -16,7 +16,7 @@ import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
-  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases,
+  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
   demoListWorkOrders, demoGetWorkOrder, demoListWorkOrderTypes
 } from './app/lib/demo/demoMiddleware';
@@ -1233,6 +1233,7 @@ const DEMO_API_ROUTES = [
   ['/api/posture/findings', demoPayloadRoute(demoPostureFindings)],
   ['/api/finops/spend', ({ request, url }) => demoJson(request, demoSpend(url))],
   ['/api/x402/purchases', ({ request, url }) => demoJson(request, demoX402Purchases(url))],
+  ['/api/x402/budget', ({ request, url }) => demoJson(request, demoX402Budget(url))],
   ['/api/behavior/recorder', demoPayloadRoute(demoBehaviorRecorder)],
   ['/api/behavior/samples', demoFixtureUrlRoute(demoBehaviorSamples)],
   ['/api/behavior/suggestions', demoFixtureRoute(demoBehaviorSuggestions)],

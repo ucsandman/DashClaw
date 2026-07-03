@@ -13,6 +13,21 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.35.0] — 2026-07-03
+
+x402 budget consumption visibility (roadmap v2.6c; spec `docs/superpowers/specs/2026-07-03-x402-budget-visibility.md`). The cumulative budget gate computed window spend on every governed purchase but never rendered it — an operator couldn't see "this agent is at $43 of $50" until a purchase blocked. HUMAN-EXPERIENCE.md debt from the era retro-audit, now paid.
+
+### Added
+- **`GET /api/x402/budget`** — live budget consumption per active budget-bearing `x402_spend_limit` policy: window/scope normalized exactly like the guard's gate, sums from the SAME repository predicate (`sumWindowSpend`), so the meter and the gate share one definition of "spend". Agent-scoped budgets return per-identity-family rollups via the new `sumWindowSpendByFamily` (composed `<base>:<type>` ids roll up to their base), and `agent_ids`-targeted policies meter ONLY the families they actually gate. `?agent_id=` narrows to that identity family. Route count 325 → 326.
+- **/spend/x402 → Window budgets** — meter cards above the purchases table: spend vs hard budget with an approval-threshold tick, warning tone at/over the approval threshold (or 80% of the hard budget when no approval tier), error at/over the budget; agent-scoped cards render one bar per family and honor the page's agent filter. Verified rendered headless against a real $708-of-$800 warning-band scenario.
+- **/policies/rules consumption suffix** — budget-bearing x402 policy rows show live "`$X of $Y used`" (top family for agent scope) next to the rule sentence.
+- **Policy smoke B7** (82 → 83 checks) — pins that the budget read API reports exactly the window sum the gate just evaluated ($12 = two allowed purchases + one pending approval; the blocked purchase never lands).
+- Demo instance serves a hot meter scenario for `/api/x402/budget`.
+
+### Fixed
+- **/policies/rules rate_limit rows rendered "`Max 150 / undefinedmin`"** when the policy omitted `window_minutes` — now defaults to 60 like the guard's evaluator.
+- `X402PolicyRules` type was missing the cumulative budget tier fields (`budget_usd`, `budget_approval_threshold`, `budget_window_days`, `budget_scope`) that shipped with the gate.
+
 ## [4.34.1] — 2026-07-02
 
 ### Fixed
