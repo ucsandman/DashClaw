@@ -861,6 +861,67 @@ async function main() {
       `coverage=${JSON.stringify(retro.coverage)}`);
   }
 
+  // ── Calibration proposals human surface (P1–P5, roadmap v2.6b) ──────────
+  // Pins the ratification record end-to-end: judgment is a button (POST),
+  // the maintainer queue is ?status=ratified, mark_forged closes the loop,
+  // undo cleans up. Uses a run-unique cv_ id that never mines from real
+  // traffic, so it exercises the orphan-snapshot path deliberately.
+  {
+    console.log('\nCalibration proposals surface...');
+    const pid = 'cv_' + Date.now().toString(16).padStart(16, '0').slice(0, 16);
+    const name = `smoke-calibration-${RUN}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const snapshot = {
+      rule: 'repeated_approvals',
+      suggested_label: 'benign',
+      suggested_name: name,
+      evidence_tier: 'human_approved',
+      count: 3,
+      risk_min: 40,
+      risk_max: 60,
+      provenance: `policy-smoke ${RUN}: synthetic ratification-record check`,
+      ratify_command: null,
+      needs_manual_context: true,
+      representative: { action_type: `smoke.calibration.${RUN}` },
+    };
+
+    const ratify = await api('POST', '/api/calibration/proposals', {
+      action: 'ratify', proposal_id: pid, proposal: snapshot,
+    });
+    check('P1', 'ratify records the human judgment',
+      ratify.status === 200 && ratify.json?.ok === true,
+      `status=${ratify.status} ${JSON.stringify(ratify.json)?.slice(0, 200)}`);
+
+    const queue = await api('GET', '/api/calibration/proposals?status=ratified');
+    const row = (queue.json?.proposals || []).find((p) => p.candidate_id === pid);
+    // decided_by is null for operator-key callers (no user identity on that
+    // auth path) — pin the decision record itself, not the actor.
+    check('P2', 'ratified proposal surfaces in the maintainer queue with its decision record',
+      !!row && row.from_snapshot === true && row.decision?.decision === 'ratified'
+        && !!row.decision?.decided_at,
+      `row=${JSON.stringify(row)?.slice(0, 200)}`);
+
+    const forged = await api('POST', '/api/calibration/proposals', {
+      action: 'mark_forged', proposal_id: pid, vector_name: name,
+    });
+    const queueAfter = await api('GET', '/api/calibration/proposals?status=ratified');
+    const stillQueued = (queueAfter.json?.proposals || []).some((p) => p.candidate_id === pid);
+    check('P3', 'mark_forged closes the loop and leaves the ratified queue',
+      forged.status === 200 && forged.json?.forged === true && !stillQueued,
+      `status=${forged.status} stillQueued=${stillQueued}`);
+
+    const undo = await api('POST', '/api/calibration/proposals', {
+      action: 'undo', proposal_id: pid,
+    });
+    check('P4', 'undo removes the judgment (smoke cleanup)',
+      undo.status === 200 && undo.json?.removed === true,
+      `status=${undo.status}`);
+
+    const gone = await api('GET', '/api/calibration/proposals?status=ratified');
+    check('P5', 'undone proposal is gone from every queue',
+      !(gone.json?.proposals || []).some((p) => p.candidate_id === pid),
+      `queue=${(gone.json?.proposals || []).length} rows`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
