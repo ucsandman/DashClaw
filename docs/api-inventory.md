@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `324`
+- Total routes: `325`
 - Stable routes: `55`
 - Beta routes: `24`
-- Experimental routes: `245`
+- Experimental routes: `246`
 
 ## Routes
 
@@ -111,6 +111,7 @@ doc-type: architecture
 | `/api/behavior/suggestions` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/suggestions/route.ts` |
 | `/api/billing/checkout` | `POST` | `experimental` | `(default)` | `app/api/billing/checkout/route.ts` |
 | `/api/billing/portal` | `GET` | `experimental` | `(default)` | `app/api/billing/portal/route.ts` |
+| `/api/calibration/proposals` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/proposals/route.ts` |
 | `/api/capabilities` | `GET, POST` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
 | `/api/capabilities/health` | `GET` | `experimental` | `(default)` | `app/api/capabilities/health/route.ts` |
 | `/api/capabilities/{capabilityId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/route.ts` |

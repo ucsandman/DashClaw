@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:092b56e4483380e58bf7c8da9f94670ff1843f5a",
+  "timestamp": "sha1:1499ffc8bd988cc4a9f51e32d26fe40f728f8408",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -912,6 +912,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/billing/portal/route.ts"
+    },
+    {
+      "path": "/api/calibration/proposals",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/calibration/proposals/route.ts"
     },
     {
       "path": "/api/capabilities",
@@ -4094,6 +4104,7 @@
         "__tests__/unit/agents.route.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/bootstrap-first-user-admin.test.js",
+        "__tests__/unit/calibration-proposals.route.test.ts",
         "__tests__/unit/compliance-evidence.route.test.js",
         "__tests__/unit/compliance-exports.route.test.js",
         "__tests__/unit/compliance-gaps.route.test.js",
