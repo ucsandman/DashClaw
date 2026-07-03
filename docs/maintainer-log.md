@@ -14,6 +14,61 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — Roadmap v3: the instrument tells the truth
+
+No code shipped this session — a roadmap did, and under this charter the
+roadmap is a governing artifact, so it gets a log entry.
+
+With v2.7 closed, every line of v1 and v2 is DONE and the only open item
+(FinOps Phase C) is constitutionally Wes's. Wes's direction was one
+sentence: "continue with the roadmap; if it's complete, create v3 — this
+is your project, own it." So v3 was drafted the way v2 was: from
+evidence, with the alternatives on the record.
+
+**The evidence sweep** ran four ways at once — the live instance's
+posture endpoint, incident mining across this log, a deferred-item sweep
+of every spec's out-of-scope section, and a strategic gap pass whose
+claims I re-verified against source before trusting (one didn't survive:
+a subagent reported the reputation system had no human surface;
+`app/reputation/page.tsx` exists — the false gap died in shaping, which
+is exactly why claims get re-verified).
+
+**What the evidence said.** The loudest signal came from the product
+grading itself: the live posture surface reads 30/100 `at_risk` — 164
+open findings of which 100 are per-action criticals, 74 more bulk-quieted
+as accepted risk, a coverage stat that goes *negative*
+(`coveredUnits = 142 units − 164 findings = −22`, a real math bug at
+`app/api/posture/route.ts:40`), and the policy-smoke harness's own
+synthetic traffic minting findings against the score. The bulk-quiet is
+the part that stings: an operator silencing findings wholesale is the
+June policy-disable pattern happening again, one surface up. Add the
+era's two recorded bug classes (subsystems dying silently behind
+best-effort catches; audits trusting code over the deployed hosts) and
+the fact that "blocks are absolute" is currently enforced socially, not
+mechanically (act-binding defaults off, replay protection best-effort),
+and the thesis wrote itself.
+
+**v3's thesis: every number, finding, and guarantee DashClaw shows a
+human must be true without the human auditing it.** v2 made each
+interruption earn its cost; v3 makes the product's testimony earn trust.
+Seven items: posture signal integrity (v3.1), posture findings feeding
+tightening proposals through the existing ratify loop (v3.2), a
+fresh-install CI net + best-effort-catch sweep to kill the silent-death
+class (v3.3), a live-host canary so "probe production as the user"
+becomes a system instead of a lesson (v3.4), the approval-flood guard
+revived from the never-built W3 spec (v3.5), enforcement-over-assertion
+(v3.6), and the era's deferred-debt triage (v3.7).
+
+**Declined, on the record:** reach-first (outward acts are Wes's per §4,
+and the discoverability blocker only fell in v4.36.2 — let the funnel
+produce evidence first) and team/RBAC-first (zero external orgs; a
+per-human approval identity matters once more than one human governs).
+The TypeScript migration stays unscheduled — XL, mechanical, blocking
+nothing on this list.
+
+**Next:** v3.1 — posture signal integrity. Instrument on the live
+instance first, v2.1-style.
+
 ## 2026-07-03 — The front door jams on its first real visitor (v4.36.3)
 
 Minutes after v4.36.2 made the trial discoverable, Wes walked through the

@@ -303,6 +303,228 @@ v2.6 automates the flywheel that keeps them trustworthy. v2.7 is small and
 partly blocked on outward-facing acts. Order changes only with a written
 reason in the commit (v1 rule, kept).
 
+## Roadmap v3 — the instrument tells the truth (drafted 2026-07-03)
+
+v2 made each interruption earn its cost. v3 makes the product's
+**testimony** earn trust: every number, finding, and guarantee DashClaw
+shows a human must be true without the human auditing it.
+
+Drafting evidence (2026-07-03 sweep: live posture query, maintainer-log
+incident mining, deferred-item sweep, strategic gap pass with claims
+re-verified against source):
+
+- The live instance's own posture surface scores **30/100 `at_risk`** —
+  164 open findings, 100 of them per-action criticals ("ungoverned
+  action reached allow", one finding per action id), 74 more bulk-quieted
+  as `accepted_risk`, a negative "covered units" stat (`coveredUnits =
+  unitCount - openFindings` goes below zero at
+  `app/api/posture/route.ts:40`), and the policy-smoke harness's own
+  synthetic traffic (`smoke.*` action types) generating findings against
+  the score. The calibration miner got a synthetic-traffic filter in
+  v2.6; posture never did. The operator response visible in the data —
+  bulk risk-acceptance — is the June policy-disable pattern happening
+  again, one surface up.
+- The era's worst bugs were subsystems that died **silently**: the
+  fresh-schema presence heartbeat and Codex Code Sessions ingest were
+  both dead behind best-effort catches around writes (maintainer log
+  2026-07-03, twice: "a best-effort catch around a write is where bugs
+  go to hide"), and fresh-vs-legacy schema drift is a named recurring
+  bug class (TEXT vs timestamptz, missing constraints).
+- Three consecutive 2026-07-03 entries record audits that failed by
+  reading code instead of probing the deployed hosts (unreachable
+  instant-trial, the three-Vercel-project discovery, the cookie-carrying
+  demo-mode bug). "Probe production as the user" is currently a lesson,
+  not a system.
+- The central public claim — "blocks are absolute" — holds only for
+  agents that volunteer: `DASHCLAW_ACT_BINDING` defaults `off`, JTI
+  replay protection defaults `best_effort`, and consumer-Desktop
+  governance is purely cooperative (PLUGIN_PARITY.md).
+
+Shaping delegated by Wes 2026-07-03 ("this is your project — own it").
+Alternatives weighed and declined this round: **reach-first** (outward
+acts are Wes's per constitution §4; the discoverability blocker fell in
+v4.36.2 — let the trial funnel produce evidence before the product
+chases it) and **team/RBAC-first** (zero external orgs today; per-human
+approval identity matters once more than one human governs an org). The
+repo-wide TypeScript migration stays unscheduled: XL, mechanical, and
+currently blocking nothing on this list.
+
+**Status ledger v3** (update in place):
+
+| # | Item | Status |
+|---|------|--------|
+| v3.1 | Posture signal integrity | NOT STARTED |
+| v3.2 | Findings become proposals (tightening direction) | NOT STARTED |
+| v3.3 | Fresh-install truth: kill the silent-death bug class | NOT STARTED |
+| v3.4 | Live-host canary: probe production as the user | NOT STARTED |
+| v3.5 | Attention budgets: approval-flood guard | NOT STARTED |
+| v3.6 | Enforcement over assertion | NOT STARTED |
+| v3.7 | Deferred-debt triage | NOT STARTED |
+
+## v3.1 Posture signal integrity
+
+The loudest live evidence. The posture score must mean what it says.
+
+- Synthetic-traffic filter (reuse the miner's v2.6 family/type predicate)
+  so smoke/self-test traffic never mints findings or moves the score.
+- Collapse per-action incident findings into per-pattern findings
+  (action_type × agent family × severity) with `observedCount` and
+  example ids — 100 criticals should read as a handful of patterns.
+- Fix the coverage math: `coveredUnits` can never go negative; findings
+  are not units. Pin with a unit test.
+- Make bulk `accepted_risk` auditable: who quieted what, when, shown on
+  the posture surface — quieting 74 findings should be a visible
+  decision, not a disappearance.
+- Acceptance: a policy-smoke run against a live instance does not change
+  the posture score (pinned by smoke); the live findings queue drops to
+  reviewable size by pattern-collapse alone; negative coverage is
+  impossible; /posture (or wherever posture renders) shows the
+  accepted-risk ledger. Diagnose on the live instance first, v2.1-style
+  — instrument, then fix.
+
+## v3.2 Findings become proposals (the tightening direction)
+
+The tuning-proposal engine (v1 item 1) only proposes *loosening* —
+raising thresholds that over-interrupt. Its spec explicitly deferred
+tightening proposals from warn/deny evidence. Meanwhile posture's
+critical findings ("ungoverned high-risk action reached allow") are
+exactly tightening evidence, rendered today as 100 `review_incident`
+chores pointing at /decisions.
+
+- Feed pattern-collapsed posture findings (v3.1) into the proposal
+  engine: "action_type X reached allow ungoverned N times at risk ≥70 →
+  propose a policy governing it", with the evidence attached.
+- Same human surface as v2.6b: proposal cards with Ratify/Dismiss
+  buttons on /policies; constitution §3 intact — nothing auto-applies.
+- A ratified tightening proposal creates/patches the policy via the
+  existing routes; a dismissed one records why and stops re-proposing
+  (content-stable ids, the cv_ pattern).
+- Acceptance: a seeded ungoverned-action pattern produces the expected
+  tightening proposal in the policy smoke harness; ratify-to-policy
+  round-trip proven live; the posture findings queue and the proposal
+  queue reference each other instead of duplicating.
+
+## v3.3 Fresh-install truth: kill the silent-death bug class
+
+Two subsystems died silently this era behind best-effort catches; both
+were only caught by later audits. "Works locally" proves nothing — the
+local DB is legacy-shaped.
+
+- CI job that boots a genuinely FRESH install (empty Postgres, drizzle
+  migrations only) and runs the smoke suite against it on every push —
+  the fresh-vs-legacy drift class (TEXT vs timestamptz, missing
+  constraints, dead heartbeats) gets caught by machine.
+- Best-effort-catch sweep: every catch around a write either surfaces
+  (structured log + a counter a human can see) or dies. Extend the
+  existing no-silent-catch guard test to server-side writes so the
+  pattern can't return.
+- Acceptance: the presence-heartbeat bug, replayed, fails CI on a fresh
+  schema; a silently-swallowed write in a route fails the guard test;
+  both pinned. Zero new human surfaces needed (explicit decision:
+  this item's consumers are CI and the maintainer).
+
+## v3.4 Live-host canary: probe production as the user
+
+Three audits in one day failed by trusting code over the deployed hosts.
+Make "probe production as the user" a system, not a lesson.
+
+- Scheduled canary (GitHub Actions cron, or Vercel cron if free-tier
+  allows — free tier only) that probes the real hosts as a real client:
+  marketing → trial mint path reachable, demo mode entry, docs pages
+  render, OAuth connector discovery, hosted /api/mcp handshake. Browser-
+  grade where cookies matter (the v4.36.3 class), curl-grade elsewhere.
+- Failures surface where the operator already looks: /setup (instance
+  health is its job) and a posture `auditability` finding — not a CI
+  page. HUMAN-EXPERIENCE.md applies: the canary's verdict is a rendered
+  surface, not a log.
+- Spec decides: probe inventory, cadence, and how the canary
+  authenticates without minting junk trials (a canary that pollutes the
+  trial ledger fails v3.1's own bar — synthetic traffic must be marked).
+- Acceptance: killing a live surface (staging simulation acceptable) is
+  detected within one canary interval and rendered; the canary's own
+  traffic is excluded from posture/mining per v3.1.
+
+## v3.5 Attention budgets: approval-flood guard
+
+The W3 push-value spec (2026-06-11) fully designed flood detection +
+collapsed notifications and was never built; the sweep found no trace in
+the log or ledger. v2 made single interruptions precise; a hundred
+precise interruptions in an hour is still an attention failure — the
+posture bulk-quiet is the proof the flood pattern is real.
+
+- Revive the spec, re-decide its three open owner questions
+  (interrupt-budget defaults, digest cadence, pause-rule bulk-deny) —
+  they are product decisions the maintainer can now take with v2's
+  evidence, recorded in the spec revision.
+- Build the collapse: flood detection window, one collapsed
+  notification/banner per flood on /approvals, bulk actions honoring
+  approval-expiry semantics (v2.3) and constitution §1 (blocks never
+  bulk-released).
+- Acceptance: a seeded 50-approval burst renders as one flood banner
+  with truthful counts, individually actionable; smoke pins flood
+  detection; notification transports (Telegram/Discord) send the
+  collapsed form, not 50 pings.
+
+## v3.6 Enforcement over assertion
+
+"Blocks are absolute" must be true mechanically, not socially — or the
+docs must say exactly where the boundary is.
+
+- Graduate the hardening defaults per evidence: JTI replay protection
+  `best_effort` → `required` where the fleet supports it; decide
+  `DASHCLAW_ACT_BINDING`'s default with a migration path for existing
+  installs (spec decides; flag-flip precedent is v2.2's identity flip).
+- Spec-or-kill the enforcing proxy for non-cooperating harnesses (the
+  Desktop governance ceiling): either a concrete design for a guard-
+  enforcing gateway in front of tool execution, or a written kill with
+  the honest boundary documented. No third option where the gap stays
+  unwritten.
+- Truth pass on the claim itself: every place the product says "blocks"
+  states what is enforced vs cooperative per surface (the
+  PLUGIN_PARITY.md table is the model).
+- Acceptance: defaults flipped (or explicitly kept with reasons) and
+  pinned by the existing act-binding/replay tests; the proxy decision
+  exists as a spec or a recorded kill; README/docs/marketing say
+  nothing stronger than what the code enforces.
+
+## v3.7 Deferred-debt triage
+
+v1's item 6 pattern, applied to this era's parked queue. Build or kill,
+each with a written verdict:
+
+- /decisions list risk-composition hint (guard_decisions join on the hot
+  list path — deferred from v2.6c).
+- Degradation `by_day` render or drop; per-policy split (retro-audit).
+- Expired approvals show their expiry timestamp (retro-audit).
+- Guard-load SLO calibration + CI wiring; the LLM slow-path scenario
+  (load-harness scope doc).
+- Hardening-sweep bucket: `verification_status` enum, currency
+  allow-list, per-org JWKS issuer binding, x402 idempotency key,
+  `apiErrorResponse` detail-leak flag.
+- Codex SessionStart digest parity (lifecycle still unverified —
+  verify or kill).
+- Assumption contradiction detection (advocate v2a's deferred L —
+  spec-or-kill given a false-positive budget).
+- Calibration surface follow-ups: duplicate-vs-corpus detection,
+  in-UI name editing.
+- Dependabot EOVERRIDE untangle (the standing chore gets its quiet
+  session).
+- Acceptance: every line above has a verdict in the triage spec; built
+  items ship with their own proof; kills state the reason.
+
+## v3 order rationale
+
+v3.1 first — it is the loudest live evidence, it is small enough to ship
+fast, and v3.2 consumes its output. v3.2 turns the cleaned signal into
+the product's existing judgment loop. v3.3 and v3.4 kill the era's two
+recorded bug classes (silent death, code-vs-live) as systems rather than
+lessons. v3.5 extends v2's precision from single interruptions to
+attention volume. v3.6 is the deepest cut — it makes the core claim
+mechanical — and benefits from everything before it (clean posture to
+measure fleet readiness for stricter defaults). v3.7 drains the parked
+queue last, v1-style. Order changes only with a written reason in the
+commit (v1 rule, kept).
+
 ## Standing chores (no status; every session touches them as needed)
 
 - Registry truth: `npm view` the four packages vs manifests when releasing.
