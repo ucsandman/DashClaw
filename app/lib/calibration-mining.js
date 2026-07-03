@@ -58,6 +58,14 @@ export function normalizeGoal(goal) {
 //   test, test-*         scripts/test-full-api.mjs, scripts/test-actions.mjs, dev suites
 const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-)/;
 
+// SQL-side mirror of SYNTHETIC_AGENT_RE for consumers that must exclude
+// synthetic rows BEFORE aggregation or LIMIT (posture repository, v3.1).
+// A unit test pins regex↔patterns agreement so the two can't drift.
+export const SYNTHETIC_AGENT_LIKE_PATTERNS = [
+  'smoke-%', 'ci-smoke', 'sdk-live-test-agent%', 'demo-e2e-verifier', 'test', 'test-%',
+];
+export const SYNTHETIC_ACTION_TYPE_LIKE = 'smoke.%';
+
 export function isSyntheticEvent(event) {
   const agent = event.agent_id;
   if (typeof agent === 'string' && SYNTHETIC_AGENT_RE.test(agent)) return true;

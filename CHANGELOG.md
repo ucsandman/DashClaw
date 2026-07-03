@@ -13,6 +13,52 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.37.0] — 2026-07-03
+
+Roadmap v3.1 — posture signal integrity, the first item of Roadmap v3 ("the
+instrument tells the truth"). The live posture surface read 30/100 with 164
+findings, most of them noise; every number on it is now true. No SDK source
+change (no republish).
+
+### Fixed
+
+- **Posture: synthetic verification traffic no longer grades the org.**
+  `getObservedActionUnits` and `getRecentDecisions` exclude the policy-smoke
+  / self-test agent families and `smoke.*` action types in SQL, before
+  aggregation and the incident LIMIT (patterns shared with the calibration
+  miner via `SYNTHETIC_AGENT_LIKE_PATTERNS`; regex↔LIKE agreement pinned by
+  unit test). On the maintainer's live instance this alone removed 100
+  synthetic critical findings.
+- **Posture coverage math can no longer go negative.** `summary.coveredUnits`
+  is counted from coverage grades in the engine (units at grade 1) instead of
+  the route's `unitCount - openFindings` (which read −22 live).
+  `summary.pointsRecoverable` now sums open findings only.
+- **Risk calibration: `rm -rf .next` no longer hard-blocks at 100.**
+  Recursive deletes of well-known regenerable build artifacts (`.next`,
+  `dist`, `node_modules`, `__pycache__`, …) cap at 35 client-side and map to
+  the `cleanup` action type (server lands in the warn band, never block).
+  Globs, absolute paths, and unknown names keep the full destructive grade.
+  Incident-sourced golden vector `rm-rf-next-build-cache` (corpus: 34).
+
+### Changed
+
+- **Incident findings collapse by pattern.** "Ungoverned high-risk action
+  reached allow" now mints ONE finding per (action type × risk level) with a
+  truthful `observedCount` and up to 5 example decision ids — a hundred
+  same-shape leaks is one judgment, not a hundred chores. Finding keys are
+  content-stable across scan windows.
+- **Quieting a finding is now visible and attributed.** Non-open findings
+  carry `statusMeta` (actor, note, updatedAt); `/posture`'s Risk-accepted
+  ledger renders who accepted what, when, and why; `GET /api/posture` summary
+  gains `acceptedRisk {count, lastActor, lastAt}`. Attribution (actor/note)
+  is redacted for key-authenticated callers — human sessions only (security
+  review finding, fixed in-ship). Timestamps remain for all callers.
+
+### Added
+
+- Policy smoke checks R1–R3 (harness traffic absent from posture, coverage
+  bounds sane, accepted-risk summary shape) — smoke = 86.
+
 ## [4.36.3] — 2026-07-03
 
 The first real user through the new trial front door (the maintainer) hit "Demo mode: write APIs are disabled" on the mint click. Two stacked middleware bugs. No SDK change.

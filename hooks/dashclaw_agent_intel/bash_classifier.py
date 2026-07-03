@@ -218,6 +218,42 @@ _BOUNDED_RM_BASE = 55
 _BOUNDED_RM_MAX_TARGETS = 3
 _GLOB_CHARS = "*?["
 
+# Recursive deletes of well-known regenerable build artifacts are routine
+# maintenance — the tool that made them remakes them. The 2026-07-03 hard
+# block of `rm -rf .next` at 100 interrupted a Turbopack-panic remediation
+# for zero protective value (calibration vector rm-rf-next-build-cache).
+# Names are deliberately conservative: dot-dirs and unambiguous outputs only
+# (no `build`/`out`/`target` — too often real content).
+_REGENERABLE_RM_BASE = 35
+_REGENERABLE_ARTIFACT_DIRS = frozenset({
+    ".next", ".turbo", ".cache", ".parcel-cache", "dist", "coverage",
+    "node_modules", "__pycache__", ".pytest_cache", ".nuxt", ".svelte-kit",
+})
+
+
+def _is_regenerable_dir_name(target: str) -> bool:
+    t = target.replace("\\", "/").rstrip("/")
+    if t.startswith("./"):
+        t = t[2:]
+    return t in _REGENERABLE_ARTIFACT_DIRS
+
+
+def is_regenerable_artifact_rm(parsed: dict) -> bool:
+    """True for an rm / rmdir / Remove-Item (recursive or not) whose EVERY
+    target is a bare, relative, well-known regenerable build-artifact
+    directory name. Any glob, absolute path, parent traversal, or unknown
+    name disqualifies the whole command."""
+    base = (parsed.get("base_command") or "").rsplit("/", 1)[-1].lower()
+    if base not in ("rm", "rmdir", "remove-item"):
+        return False
+    targets = parsed.get("targets", [])
+    if not targets:
+        return False
+    return all(
+        not any(ch in t for ch in _GLOB_CHARS) and _is_regenerable_dir_name(t)
+        for t in targets
+    )
+
 
 def is_bounded_rm(parsed: dict) -> bool:
     """True for a non-recursive rm / Remove-Item with a few explicit,
@@ -655,6 +691,17 @@ def _compute_risk(
     )
     if inline_eval and _INLINE_ESCAPE_HATCH_RE.search(raw_command):
         score += 10
+
+    # Regenerable-artifact deletes cap BELOW the interruption bands, applied
+    # after the boosts (the destructive_command warn would otherwise push a
+    # routine `rm -rf .next` back over the line). A block-result validation
+    # always wins — the cap never masks a hard signal.
+    if (
+        intent == "destructive"
+        and is_regenerable_artifact_rm(parsed)
+        and not any(v["result"] == "block" for v in validations)
+    ):
+        score = min(score, _REGENERABLE_RM_BASE)
 
     return min(score, 100)
 

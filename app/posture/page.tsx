@@ -28,6 +28,7 @@ interface Finding {
   severity: Severity;
   title: string;
   evidence: { observedCount: number; exampleActionIds: string[] };
+  statusMeta?: { actor: string | null; note: string | null; updatedAt: string | null };
   scoreDelta: number;
   fix: PostureFix;
   status: FindingStatus;
@@ -372,10 +373,23 @@ function RiskAcceptedLedger({ items }: { items: Finding[] }) {
       <div className="border-t border-border">
         {items.map((f) => {
           const badge = STATUS_BADGE[f.status];
+          // v3.1: quieting a finding is an attributed decision, not a disappearance.
+          const meta = f.statusMeta;
+          const when = meta?.updatedAt ? new Date(meta.updatedAt).toLocaleDateString() : null;
+          const attribution = [meta?.actor, when].filter(Boolean).join(' · ');
           return (
-            <div key={f.key} className="flex items-center gap-3 border-t border-border px-4 py-2.5 text-xs first:border-t-0">
-              <CheckCircle2 size={13} className="shrink-0 text-tertiary" aria-hidden="true" />
-              <span className="min-w-0 flex-1 truncate text-secondary">{f.title}</span>
+            <div key={f.key} className="flex items-start gap-3 border-t border-border px-4 py-2.5 text-xs first:border-t-0">
+              <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-tertiary" aria-hidden="true" />
+              <div className="min-w-0 flex-1">
+                <span className="block truncate text-secondary">{f.title}</span>
+                {(attribution || meta?.note) && (
+                  <span className="mt-0.5 block truncate text-tertiary">
+                    {attribution}
+                    {attribution && meta?.note ? ' — ' : ''}
+                    {meta?.note ?? ''}
+                  </span>
+                )}
+              </div>
               {badge && <span className={`shrink-0 rounded border px-1.5 py-0.5 text-[10px] ${badge.cls}`}>{badge.label}</span>}
             </div>
           );

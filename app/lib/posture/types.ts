@@ -50,4 +50,6 @@ export interface PostureFinding {
   scoreDelta: number;
   fix: PostureFix;
   status: 'open' | 'drafted' | 'resolved' | 'snoozed' | 'accepted_risk';
+  /** v3.1: attribution for non-open findings — who quieted it, when, why. */
+  statusMeta?: { actor: string | null; note: string | null; updatedAt: string | null };
 }

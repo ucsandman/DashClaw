@@ -17,11 +17,15 @@ const m = vi.hoisted(() => ({
   sql: vi.fn(async () => []),
   computePosturePayload: vi.fn(),
   listSnapshots: vi.fn(async (): Promise<Array<{ score: number; createdAt: string | null }>> => []),
+  userId: 'usr_test', // human session by default; '' = key-authenticated caller
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test' }));
-vi.mock('@/lib/posture/signals.js', () => ({ computePosturePayload: m.computePosturePayload }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test', getUserId: () => m.userId }));
+vi.mock('@/lib/posture/signals.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  computePosturePayload: m.computePosturePayload,
+}));
 vi.mock('@/lib/repositories/posture.repository.js', () => ({ listPostureSnapshots: m.listSnapshots }));
 
 const { GET } = await import('@/api/posture/route.js');
@@ -70,10 +74,12 @@ function getReq(): Request {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  m.userId = 'usr_test';
   m.computePosturePayload.mockResolvedValue({
     score: makeScore(),
     findings: [makeFinding('cap:deploy', 5), makeFinding('action_type:migrate', 2)],
     unitCount: 8,
+    coveredUnits: 6,
   });
 });
 
@@ -149,11 +155,65 @@ describe('GET /api/posture', () => {
     expect(summary.openFindings).toBe(2);
   });
 
-  it('summary.pointsRecoverable sums scoreDelta across all findings', async () => {
+  it('summary.pointsRecoverable sums scoreDelta across OPEN findings only', async () => {
     const res = await GET(getReq());
     const body = await res.json() as Record<string, unknown>;
     const summary = body.summary as Record<string, unknown>;
-    expect(summary.pointsRecoverable).toBe(7); // 5 + 2
+    expect(summary.pointsRecoverable).toBe(7); // 5 + 2, both open
+  });
+
+  it('summary.coveredUnits comes from the engine grades, never unit-minus-findings math (v3.1)', async () => {
+    const res = await GET(getReq());
+    const body = await res.json() as Record<string, unknown>;
+    const summary = body.summary as Record<string, unknown>;
+    expect(summary.coveredUnits).toBe(6);
+  });
+
+  it('accepted_risk findings drop out of pointsRecoverable and surface in summary.acceptedRisk (v3.1)', async () => {
+    const accepted: PostureFinding = {
+      ...makeFinding('action_type:monitor', 4),
+      status: 'accepted_risk',
+      statusMeta: { actor: 'op@example.com', note: 'read-only', updatedAt: '2026-07-01T00:00:00Z' },
+    };
+    m.computePosturePayload.mockResolvedValue({
+      score: makeScore(),
+      findings: [makeFinding('cap:deploy', 5), accepted],
+      unitCount: 8,
+      coveredUnits: 6,
+    });
+    const res = await GET(getReq());
+    const body = await res.json() as Record<string, unknown>;
+    const summary = body.summary as {
+      pointsRecoverable: number;
+      acceptedRisk: { count: number; lastActor: string | null; lastAt: string | null };
+    };
+    expect(summary.pointsRecoverable).toBe(5); // accepted delta excluded
+    expect(summary.acceptedRisk.count).toBe(1);
+    expect(summary.acceptedRisk.lastActor).toBe('op@example.com');
+    expect(summary.acceptedRisk.lastAt).toBe('2026-07-01T00:00:00Z');
+  });
+
+  it('redacts operator attribution for key-authenticated callers (no session user)', async () => {
+    m.userId = ''; // API-key path: middleware sets no x-user-id
+    const accepted: PostureFinding = {
+      ...makeFinding('action_type:monitor', 4),
+      status: 'accepted_risk',
+      statusMeta: { actor: 'op@example.com', note: 'read-only', updatedAt: '2026-07-01T00:00:00Z' },
+    };
+    m.computePosturePayload.mockResolvedValue({
+      score: makeScore(), findings: [accepted], unitCount: 8, coveredUnits: 6,
+    });
+    const res = await GET(getReq());
+    const body = await res.json() as {
+      findings: PostureFinding[];
+      summary: { acceptedRisk: { count: number; lastActor: string | null; lastAt: string | null } };
+    };
+    expect(body.findings[0]!.statusMeta).toEqual({
+      actor: null, note: null, updatedAt: '2026-07-01T00:00:00Z',
+    });
+    expect(body.summary.acceptedRisk).toEqual({
+      count: 1, lastActor: null, lastAt: '2026-07-01T00:00:00Z',
+    });
   });
 
   it('passes sql and orgId through to computePosturePayload', async () => {

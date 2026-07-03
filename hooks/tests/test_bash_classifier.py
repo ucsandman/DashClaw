@@ -296,8 +296,22 @@ class TestRiskScore(unittest.TestCase):
         self.assertGreaterEqual(r["risk_score"], 35)
 
     def test_recursive_rm_keeps_full_destructive_risk(self):
-        r = classify_bash("rm -rf node_modules")
+        # Source/content dirs keep the catastrophic grade...
+        r = classify_bash("rm -rf src")
         self.assertGreaterEqual(r["risk_score"], 90)
+
+    def test_regenerable_artifact_rm_capped_below_bands(self):
+        # ...but regenerable build artifacts are routine maintenance
+        # (2026-07-03 `rm -rf .next` hard-block; vector rm-rf-next-build-cache).
+        for cmd in ("rm -rf .next", "rm -rf node_modules", "rm -rf node_modules dist"):
+            r = classify_bash(cmd)
+            self.assertEqual(r["intent"], "destructive")
+            self.assertLessEqual(r["risk_score"], 39, cmd)
+
+    def test_regenerable_cap_refuses_globs_abs_paths_and_unknown_names(self):
+        for cmd in ("rm -rf .next/*", "rm -rf /home/user/.next/../etc", "rm -rf mydata"):
+            r = classify_bash(cmd)
+            self.assertGreaterEqual(r["risk_score"], 70, cmd)
 
     def test_env_prefix_classifies_real_command(self):
         # KEY=value prefixes (e.g. fake dry-run creds) must not collapse the

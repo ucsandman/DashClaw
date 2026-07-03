@@ -3,9 +3,9 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
-import { getOrgId } from '../../../lib/org';
+import { getOrgId, getUserId } from '../../../lib/org';
 import { apiErrorResponse } from '../../../lib/apiErrors';
-import { computePosturePayload } from '../../../lib/posture/signals';
+import { computePosturePayload, redactFindingAttribution } from '../../../lib/posture/signals';
 import { FINDING_STATUSES } from '../../../lib/repositories/posture.repository';
 import type { PostureFinding } from '../../../lib/posture/types';
 
@@ -63,7 +63,11 @@ export async function GET(request: Request) {
       );
     }
 
-    const { findings } = await computePosturePayload(sql, orgId);
+    const payload = await computePosturePayload(sql, orgId);
+    // Attribution (actor/note) is for human sessions only — see /api/posture.
+    const findings = getUserId(request)
+      ? payload.findings
+      : redactFindingAttribution(payload.findings);
 
     // Status filter: exact match when given, otherwise the actionable queue.
     let queue = status

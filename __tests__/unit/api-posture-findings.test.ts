@@ -15,8 +15,11 @@ const m = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test' }));
-vi.mock('@/lib/posture/signals.js', () => ({ computePosturePayload: m.computePosturePayload }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test', getUserId: () => 'usr_test' }));
+vi.mock('@/lib/posture/signals.js', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  computePosturePayload: m.computePosturePayload,
+}));
 
 const { GET } = await import('@/api/posture/findings/route.js');
 

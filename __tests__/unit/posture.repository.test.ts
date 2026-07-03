@@ -195,9 +195,23 @@ describe('getRecentDecisions', () => {
     // non-existent columns. Assert the SELECT names the real `id` column.
     const mock = sql as unknown as { calls: { strings: TemplateStringsArray }[] };
     const queryText = mock.calls[0]!.strings.join('?');
-    expect(queryText).toMatch(/SELECT\s+id,\s*risk_score,\s*action_type,\s*created_at/);
+    expect(queryText).toMatch(/SELECT\s+id,\s*risk_score,\s*action_type,\s*agent_id,\s*created_at/);
     expect(queryText).not.toContain('action_id');
     expect(queryText).not.toContain('outcome_status');
+  });
+
+  it('excludes synthetic traffic in SQL, before the LIMIT (v3.1)', async () => {
+    const sql = makeSqlMock([[]]);
+    await getRecentDecisions(sql, 'org_1', '2026-06-01T00:00:00Z');
+    const mock = sql as unknown as { calls: { strings: TemplateStringsArray; values: unknown[] }[] };
+    const queryText = mock.calls[0]!.strings.join('?');
+    expect(queryText).toContain('NOT LIKE');
+    expect(queryText).toContain('NOT LIKE ALL');
+    // The shared pattern list and the smoke.* prefix ride in as values.
+    expect(mock.calls[0]!.values).toContainEqual('smoke.%');
+    expect(mock.calls[0]!.values).toContainEqual(
+      expect.arrayContaining(['smoke-%', 'ci-smoke']),
+    );
   });
 
   it('passes orgId and sinceTs as interpolated values', async () => {

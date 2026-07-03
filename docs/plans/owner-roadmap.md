@@ -353,7 +353,7 @@ currently blocking nothing on this list.
 
 | # | Item | Status |
 |---|------|--------|
-| v3.1 | Posture signal integrity | NOT STARTED |
+| v3.1 | Posture signal integrity | DONE 2026-07-03 (v4.37.0; SQL-level synthetic exclusion in both posture queries sharing the miner's families (regex↔LIKE agreement pinned), incident findings collapse per (action_type × riskLevel) with truthful observedCount + 5 example ids + content-stable keys, coveredUnits counted from grades (was −22 live; now 0..totalUnits by construction), pointsRecoverable = open only, accepted-risk quiets attributed (statusMeta actor/note/updatedAt + summary.acceptedRisk) with attribution redacted for key-auth callers (security review MEDIUM fixed in-ship — human sessions only via x-user-id discriminator); live proof: findings 164→84 with zero synthetic leakage, the 74 bulk-quiets render attributed in the /posture ledger (rendered proof headless incl. opened ledger row "usr_… · 6/6/2026"); ride-along: `rm -rf .next` hard-block (this session, risk 100) became golden vector rm-rf-next-build-cache + scorer fix (regenerable build-artifact deletes cap 35 client / map to cleanup server-side; globs/abs/unknown keep 90+; corpus 34); smoke R1–R3 = 86) |
 | v3.2 | Findings become proposals (tightening direction) | NOT STARTED |
 | v3.3 | Fresh-install truth: kill the silent-death bug class | NOT STARTED |
 | v3.4 | Live-host canary: probe production as the user | NOT STARTED |

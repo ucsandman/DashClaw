@@ -14,6 +14,10 @@
 import { randomUUID } from 'node:crypto';
 import type { SqlTag } from '../types/db';
 import { bucketRiskScore } from '../posture/model';
+import {
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+  SYNTHETIC_ACTION_TYPE_LIKE,
+} from '../calibration-mining.js';
 import type { GovernableUnit, RiskLevel, Dimension, DimensionScore } from '../posture/types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -56,6 +60,7 @@ interface DecisionRow {
   id: unknown;            // guard_decisions.id (the decision id, e.g. act_gd_*)
   risk_score: unknown;
   action_type: unknown;
+  agent_id: unknown;      // for the JS-side isSyntheticEvent defense filter (v3.1)
   created_at: unknown;
   [k: string]: unknown;
 }
@@ -157,6 +162,11 @@ export async function getObservedActionUnits(
     WHERE org_id = ${orgId}
       AND action_type IS NOT NULL
       AND action_type <> ''
+      -- v3.1 synthetic-traffic exclusion: the platform's own verification
+      -- traffic must not mint governable units (same families as the
+      -- calibration miner; patterns shared from calibration-mining.js).
+      AND action_type NOT LIKE ${SYNTHETIC_ACTION_TYPE_LIKE}
+      AND (agent_id IS NULL OR agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
     GROUP BY action_type
     ORDER BY observed_count DESC
   `;
@@ -190,12 +200,17 @@ export async function getRecentDecisions(
   // (act_gd_*) identifies the decision. Selecting non-existent columns 500s
   // the whole /api/posture route, so this stays pinned to real columns.
   const rows = await sql`
-    SELECT id, risk_score, action_type, created_at
+    SELECT id, risk_score, action_type, agent_id, created_at
     FROM guard_decisions
     WHERE org_id = ${orgId}
       AND decision = 'allow'
       AND risk_score >= 50
       AND created_at::timestamptz > ${sinceTs}::timestamptz
+      -- v3.1 synthetic-traffic exclusion, BEFORE the LIMIT: smoke traffic is
+      -- designed to trip policies and was consuming the whole incident window
+      -- on instances that run the harness (patterns from calibration-mining.js).
+      AND (action_type IS NULL OR action_type NOT LIKE ${SYNTHETIC_ACTION_TYPE_LIKE})
+      AND (agent_id IS NULL OR agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
     ORDER BY created_at DESC
     LIMIT 100
   `;

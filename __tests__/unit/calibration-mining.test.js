@@ -13,6 +13,8 @@ import {
   serializeVectorEntry,
   appendVectorToFixtureText,
   isSyntheticEvent,
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+  SYNTHETIC_ACTION_TYPE_LIKE,
   suggestVectorName,
   buildProposals,
   renderProposalSummary,
@@ -200,6 +202,34 @@ describe('synthetic-traffic filter (v2.6)', () => {
       expect(isSyntheticEvent(event({ agent_id }))).toBe(false);
     }
     expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'deploy' }))).toBe(false);
+  });
+});
+
+describe('SQL LIKE mirror of the synthetic filter (v3.1)', () => {
+  // Minimal SQL LIKE semantics: % = any run of chars, anchored both ends.
+  const likeMatch = (pattern, s) =>
+    new RegExp(`^${pattern.split('%').map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('.*')}$`).test(s);
+
+  it('SYNTHETIC_AGENT_LIKE_PATTERNS agrees with SYNTHETIC_AGENT_RE on every family and near-miss', () => {
+    const corpus = [
+      // positives (one per family)
+      'smoke-ping-mcgz1x2a', 'ci-smoke', 'sdk-live-test-agent-py', 'demo-e2e-verifier', 'test', 'test-guard-agent',
+      // negatives / near-misses
+      'claude-code', 'codex', 'hermes', 'codex:test-writer', 'latest-deployer', 'smokey',
+      'ci-smoke-extra', 'demo-e2e-verifier-2', 'testing', 'attest',
+    ];
+    for (const agent_id of corpus) {
+      const viaSql = SYNTHETIC_AGENT_LIKE_PATTERNS.some((p) => likeMatch(p, agent_id));
+      const viaRe = isSyntheticEvent(event({ agent_id }));
+      expect(viaSql, `pattern/regex drift on "${agent_id}"`).toBe(viaRe);
+    }
+  });
+
+  it('SYNTHETIC_ACTION_TYPE_LIKE agrees with the smoke.* prefix rule', () => {
+    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smoke.risky')).toBe(true);
+    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smoke.retro.drift.mr4bbqfo')).toBe(true);
+    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'deploy')).toBe(false);
+    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smokeless')).toBe(false);
   });
 });
 

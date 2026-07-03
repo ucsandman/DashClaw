@@ -1402,7 +1402,13 @@ export function demoPosture() {
     status: 'needs_attention',
     cappedBy: null,
     dimensions,
-    summary: { totalUnits: 6, openFindings: 2, pointsRecoverable: 14 },
+    summary: {
+      totalUnits: 6,
+      coveredUnits: 4,
+      openFindings: 2,
+      pointsRecoverable: 14,
+      acceptedRisk: { count: 1, lastActor: 'demo-operator', lastAt: '2026-06-06T00:00:00.000Z' },
+    },
     snapshots,
     snapshotTs: '2026-06-07T00:00:00.000Z',
   };
@@ -1413,7 +1419,20 @@ export function demoPostureFindings() {
     { key: 'spend_no_cap', dimension: 'spend', severity: 'high', title: 'No spend cap on 2 agents', evidence: { observedCount: 2, exampleActionIds: ['act_demo_1', 'act_demo_2'] }, scoreDelta: -8, fix: { type: 'policy', policyType: 'spend_cap', deepLink: '/policies' }, status: 'open' },
     { key: 'data_protection_paths', dimension: 'data_protection', severity: 'medium', title: 'Protected paths not gated', evidence: { observedCount: 3, exampleActionIds: ['act_demo_3'] }, scoreDelta: -6, fix: { type: 'policy', policyType: 'protected_path_approval', deepLink: '/policies' }, status: 'open' },
   ];
-  return { findings, riskAccepted: [], counts: { open: 2, drafted: 0, resolved: 0, snoozed: 0, accepted_risk: 0 } };
+  const riskAccepted = [
+    {
+      key: 'noisy_monitor_type',
+      dimension: 'auditability',
+      severity: 'low',
+      title: 'Action type "monitor" is not fully governed',
+      evidence: { observedCount: 41, exampleActionIds: [] },
+      scoreDelta: 1,
+      fix: { type: 'policy', policyType: 'risk_threshold', deepLink: '/policies' },
+      status: 'accepted_risk',
+      statusMeta: { actor: 'demo-operator', note: 'Read-only monitoring; accepted.', updatedAt: '2026-06-06T00:00:00.000Z' },
+    },
+  ];
+  return { findings, riskAccepted, counts: { open: 2, drafted: 0, resolved: 0, snoozed: 0, accepted_risk: 1 } };
 }
 
 // Period-aware spend rollup mirroring GET /api/finops/spend: the 7d/30d/90d

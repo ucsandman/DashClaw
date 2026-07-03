@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildUnits, applyFindingStates } from '../../app/lib/posture/signals';
+import { buildUnits, applyFindingStates, buildAdjustments } from '../../app/lib/posture/signals';
 import type { GovernableUnit, PostureFinding } from '../../app/lib/posture/types';
 
 const cap = (over: Partial<GovernableUnit> = {}): GovernableUnit => ({
@@ -54,7 +54,7 @@ const finding = (over: Partial<PostureFinding> = {}): PostureFinding => ({
 
 describe('applyFindingStates', () => {
   it('carries a stored snooze forward so the finding is no longer open', () => {
-    const states = new Map([[finding().key, 'snoozed']]);
+    const states = new Map([[finding().key, { status: 'snoozed' }]]);
     const merged = applyFindingStates([finding()], states);
     expect(merged[0]!.status).toBe('snoozed');
   });
@@ -69,13 +69,51 @@ describe('applyFindingStates', () => {
   it('only restamps the matching key', () => {
     const a = finding({ key: 'a', status: 'open' });
     const b = finding({ key: 'b', status: 'open' });
-    const merged = applyFindingStates([a, b], new Map([['a', 'resolved']]));
+    const merged = applyFindingStates([a, b], new Map([['a', { status: 'resolved' }]]));
     expect(merged.find((f) => f.key === 'a')!.status).toBe('resolved');
     expect(merged.find((f) => f.key === 'b')!.status).toBe('open');
   });
 
   it('ignores an unknown/garbage stored status (fails closed to the derived status)', () => {
-    const merged = applyFindingStates([finding()], new Map([[finding().key, 'bogus_status']]));
+    const merged = applyFindingStates([finding()], new Map([[finding().key, { status: 'bogus_status' }]]));
     expect(merged[0]!.status).toBe('open');
+  });
+
+  it('attaches the stored decision metadata to quieted findings (v3.1 attribution)', () => {
+    const states = new Map([[finding().key, {
+      status: 'accepted_risk',
+      actor: 'op@example.com',
+      note: 'read-only surface',
+      updatedAt: '2026-07-01T00:00:00Z',
+    }]]);
+    const merged = applyFindingStates([finding()], states);
+    expect(merged[0]!.status).toBe('accepted_risk');
+    expect(merged[0]!.statusMeta).toEqual({
+      actor: 'op@example.com',
+      note: 'read-only surface',
+      updatedAt: '2026-07-01T00:00:00Z',
+    });
+  });
+});
+
+describe('buildAdjustments', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    id: 'act_gd_1', risk_score: 80, action_type: 'deploy', agent_id: 'claude-code',
+    created_at: '2026-07-01T00:00:00Z', ...over,
+  });
+
+  it('turns a risky allow row into an incident', () => {
+    const adj = buildAdjustments([row()]);
+    expect(adj.incidents).toHaveLength(1);
+    expect(adj.incidents[0]).toMatchObject({ unitKey: 'action_type:deploy', actionId: 'act_gd_1' });
+  });
+
+  it('drops synthetic rows even if a caller bypasses the SQL exclusion (v3.1 defense-in-depth)', () => {
+    const adj = buildAdjustments([
+      row({ id: 'act_gd_smoke1', agent_id: 'smoke-risky-abc123' }),
+      row({ id: 'act_gd_smoke2', agent_id: 'claude-code', action_type: 'smoke.risky' }),
+      row({ id: 'act_gd_real' }),
+    ]);
+    expect(adj.incidents.map((i) => i.actionId)).toEqual(['act_gd_real']);
   });
 });

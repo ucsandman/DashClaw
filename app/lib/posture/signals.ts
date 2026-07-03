@@ -17,6 +17,7 @@ import {
 } from '../repositories/posture.repository';
 import { getActivePolicies } from '../repositories/guardrails.repository';
 import { evaluatePolicy } from '../guard';
+import { isSyntheticEvent } from '../calibration-mining.js';
 import {
   gradeCoverage,
   computeScore,
@@ -242,14 +243,21 @@ async function buildReplayMap(
  * - coachOpenGapUnitKeys: [] (deferred — Policy Coach suggestion state is not
  *   yet read here; Task 8 will wire this).
  */
-function buildAdjustments(
-  decisionRows: { id: unknown; risk_score: unknown; action_type: unknown; created_at: unknown }[],
+export function buildAdjustments(
+  decisionRows: { id: unknown; risk_score: unknown; action_type: unknown; agent_id?: unknown; created_at: unknown }[],
 ): Adjustments {
   const incidents: Incident[] = decisionRows
     .filter((r) => {
       const score = Number(r.risk_score) || 0;
       return score >= 50; // already filtered in SQL; guard here for safety
     })
+    // v3.1: synthetic verification traffic never becomes an incident. The SQL
+    // already excludes it; this JS re-check keeps the shared predicate
+    // (calibration-mining.js) authoritative even if a caller feeds raw rows.
+    .filter((r) => !isSyntheticEvent({
+      agent_id: r.agent_id == null ? null : String(r.agent_id),
+      action_type: r.action_type == null ? null : String(r.action_type),
+    }))
     .map((r): Incident => ({
       unitKey: r.action_type ? `action_type:${String(r.action_type)}` : 'action_type:unknown',
       // guard_decisions.id (act_gd_*) is the decision identifier — the surfaced
@@ -281,19 +289,53 @@ const VALID_FINDING_STATUSES = new Set<PostureFinding['status']>([
  * stay `open`. This is pure (the I/O happens in computePosturePayload) so the
  * merge invariant is unit-testable.
  *
+ * v3.1: non-open findings also carry the stored decision's metadata
+ * (actor/note/updatedAt) so quieting a finding is a visible, attributed act
+ * on the surface — not a disappearance.
+ *
  * Note: finding STATE never changes the SCORE — the score is coverage-derived.
  * Snoozing or accepting a finding hides it from the queue but cannot raise the
  * number (the honesty property holds at the engine boundary).
  */
+export interface StoredFindingState {
+  status: string;
+  actor?: string | null;
+  note?: string | null;
+  updatedAt?: string | null;
+}
+
+/**
+ * Strip operator attribution (actor identity, free-text note) from findings.
+ * Applied at the API boundary for key-authenticated callers: quiet-decision
+ * attribution is need-to-know for humans reviewing the surface, not for every
+ * agent holding an org key (2026-07-03 security review, MEDIUM). The
+ * timestamp stays — "when" is audit-shape, "who/why" is identity.
+ */
+export function redactFindingAttribution(findings: PostureFinding[]): PostureFinding[] {
+  return findings.map((f) =>
+    f.statusMeta
+      ? { ...f, statusMeta: { actor: null, note: null, updatedAt: f.statusMeta.updatedAt } }
+      : f,
+  );
+}
+
 export function applyFindingStates(
   findings: PostureFinding[],
-  states: Map<string, string>,
+  states: Map<string, StoredFindingState>,
 ): PostureFinding[] {
   if (states.size === 0) return findings;
   return findings.map((f) => {
     const stored = states.get(f.key);
-    if (!stored || !VALID_FINDING_STATUSES.has(stored as PostureFinding['status'])) return f;
-    return { ...f, status: stored as PostureFinding['status'] };
+    if (!stored || !VALID_FINDING_STATUSES.has(stored.status as PostureFinding['status'])) return f;
+    return {
+      ...f,
+      status: stored.status as PostureFinding['status'],
+      statusMeta: {
+        actor: stored.actor ?? null,
+        note: stored.note ?? null,
+        updatedAt: stored.updatedAt ?? null,
+      },
+    };
   });
 }
 
@@ -305,6 +347,8 @@ export interface PosturePayload {
   score: PostureScore;
   findings: PostureFinding[];
   unitCount: number;
+  /** Units whose coverage grade is 1 (fully governed). Always 0..unitCount. */
+  coveredUnits: number;
 }
 
 /**
@@ -336,7 +380,10 @@ export async function computePosturePayload(
   ]);
 
   const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
-  const stateByKey = new Map(findingStates.map((s) => [s.findingKey, s.status]));
+  const stateByKey = new Map<string, StoredFindingState>(findingStates.map((s) => [
+    s.findingKey,
+    { status: s.status, actor: s.actor, note: s.note, updatedAt: s.updatedAt },
+  ]));
 
   // 2. Build unit list.
   const units = buildUnits(capUnits, actionUnits, x402Slugs);
@@ -366,5 +413,9 @@ export async function computePosturePayload(
   const derived = deriveFindings(units, coverageByKey, adjustments);
   const findings = applyFindingStates(derived, stateByKey);
 
-  return { score, findings, unitCount: units.length };
+  // v3.1: coverage counted from the grades themselves — findings are not
+  // units, and this number can never leave 0..unitCount.
+  const coveredUnits = units.filter((u) => (coverageByKey[u.key] ?? 0) >= 1).length;
+
+  return { score, findings, unitCount: units.length, coveredUnits };
 }

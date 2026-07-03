@@ -81,7 +81,7 @@ _load_dotenv()
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_tool, McpHealthMonitor
-from dashclaw_agent_intel.bash_classifier import is_bounded_rm
+from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
 from dashclaw_agent_intel import behavior_recorder
@@ -338,12 +338,17 @@ def _enrich_bash(tool_input: dict, tool_info: dict, label: str = "Bash") -> dict
     command = tool_input.get("command") or ""
     bash_intel = classify_bash(command, mode=PERMISSION_MODE, workspace=WORKSPACE)
 
-    # Map bash intent to action_type. A bounded single-file rm maps to
-    # "cleanup", not "security": the server takes max(server base, client
-    # score), and the security base (80) + irreversible modifier alone would
-    # push every routine delete into the block band regardless of the
-    # classifier's graded score.
-    if bash_intel["intent"] == "destructive" and is_bounded_rm(bash_intel.get("parsed") or {}):
+    # Map bash intent to action_type. A bounded single-file rm — or a
+    # recursive delete of a regenerable build artifact (.next, dist,
+    # node_modules...) — maps to "cleanup", not "security": the server takes
+    # max(server base, client score), and the security base (80) +
+    # irreversible modifier alone would push every routine delete into the
+    # block band regardless of the classifier's graded score (2026-07-03
+    # `rm -rf .next` hard-block, vector rm-rf-next-build-cache).
+    if bash_intel["intent"] == "destructive" and (
+        is_bounded_rm(bash_intel.get("parsed") or {})
+        or is_regenerable_artifact_rm(bash_intel.get("parsed") or {})
+    ):
         action_type = "cleanup"
     else:
         action_type = _INTENT_TO_ACTION.get(bash_intel["intent"], "other")

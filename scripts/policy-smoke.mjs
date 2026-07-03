@@ -959,6 +959,28 @@ async function main() {
       `row=${JSON.stringify(row)?.slice(0, 200)}`);
   }
 
+  // R: posture signal integrity (roadmap v3.1). By this point the run has
+  // minted plenty of synthetic traffic — smoke-* agents, smoke.* action types,
+  // risky decisions. None of it may reach the posture surface: the instrument
+  // must not grade the org down for verifying itself.
+  {
+    console.log('\nPosture signal integrity...');
+    const res = await api('GET', '/api/posture');
+    const posture = res.json || {};
+    const findings = Array.isArray(posture.findings) ? posture.findings : [];
+    const findingsBlob = JSON.stringify(findings);
+    check('R1', 'posture findings reference no synthetic traffic (smoke agents / smoke.* action types)',
+      res.status === 200 && !findingsBlob.includes('smoke.') && !findingsBlob.includes('"smoke-'),
+      `status=${res.status} findings=${findings.length} blob_hit=${['smoke.', '"smoke-'].filter((n) => findingsBlob.includes(n)).join('|')}`);
+    const s = posture.summary || {};
+    check('R2', 'coverage math is sane: 0 <= coveredUnits <= totalUnits (was -22 live pre-v3.1)',
+      Number.isInteger(s.coveredUnits) && s.coveredUnits >= 0 && s.coveredUnits <= s.totalUnits,
+      `coveredUnits=${s.coveredUnits} totalUnits=${s.totalUnits}`);
+    check('R3', 'accepted-risk quiets are surfaced as an attributed summary, not a disappearance',
+      s.acceptedRisk != null && Number.isInteger(s.acceptedRisk.count),
+      `acceptedRisk=${JSON.stringify(s.acceptedRisk)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
