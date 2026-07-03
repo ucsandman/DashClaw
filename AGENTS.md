@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25703 symbols, 51576 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (25728 symbols, 51613 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-02 (commit fc5b5c26). Confidence: 100%.
+Last indexed: 2026-07-03 (commit d0d51dc4). Confidence: 100%.
 ### Architecture
-This repository is a governed codebase documentation and agent platform: it ingests a target repository (source files, configs, and contracts), builds an internal knowledge graph via parsing and dependency analysis, applies policy/rules to constrain agent actions, and generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and supporting CLI/web tooling. **Repository files + knowledge config + contracts/rules** → **indexing/analysis** → **policy-constrained generation** → **wiki/wiki-like artifacts** → **served via MCP + consumable via SDK/CLI**.
+repo is a codebase documentation and governed-agent platform: it ingests a source repository (files and contracts), traverses and parses code into structured representations, analyzes relationships/policies, and generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and supporting CLI/web tooling.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,7 +103,7 @@ This repository is a governed codebase documentation and agent platform: it inge
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 65 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 66 | Wes Sander |
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 66 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 66 | Wes Sander |
