@@ -10,7 +10,10 @@
 // (__tests__/unit/calibration-mining.test.js).
 
 import crypto from 'node:crypto';
-import { RISK_MEDIUM_MIN } from './riskThresholds.js';
+// Extensionless on purpose: riskThresholds is .ts — Turbopack won't map a
+// .js specifier to .ts from a .js importer, while tsx (scripts), vitest, and
+// Turbopack all resolve the extensionless form.
+import { RISK_MEDIUM_MIN } from './riskThresholds';
 
 const MAX_EVIDENCE = 10;
 
