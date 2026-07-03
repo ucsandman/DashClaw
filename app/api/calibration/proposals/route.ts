@@ -105,6 +105,9 @@ export async function GET(request: Request) {
         const row = decisionById.get(p.candidate_id);
         return {
           ...p,
+          // Same scrub the POST path applies before persisting: a ledger
+          // declared_goal/command can embed a secret, and this echoes to the UI.
+          representative: p.representative ? redactAny(p.representative, []) : null,
           status: statusOf(row),
           decision: row ? decisionSummary(row) : null,
         };
