@@ -62,6 +62,16 @@ of every public claim the product makes.
 - **Drift-proofing:** no hardcoded versions or counts outside gated surfaces;
   generated artifacts are regenerated, never hand-edited; registry state is
   verified with `npm view`, never asserted from memory.
+- **The human experience is part of the ship** (added 2026-07-02 by Wes's
+  direction; contract in [`HUMAN-EXPERIENCE.md`](HUMAN-EXPERIENCE.md)).
+  Everything shipped must be understandable and **operable by a human from
+  the DashClaw instance or the marketing site** — buttons and surfaces,
+  never copy-paste commands or GitHub visits as the human path. Human
+  judgment loops (review/approve/ratify/tune) are clicks in the product.
+  The marketing site is updated with new features and capabilities in the
+  same ship, held to the `.impeccable.md` visual bar. The maintainer's
+  known bias — building code-shaped interfaces for humans — is treated as
+  a defect class, caught by the zero-terminal test before push.
 - **The log is part of the ship** (added 2026-07-02 by Wes's direction).
   Every work session that lands commits appends an entry to
   `docs/maintainer-log.md`: what shipped (version + commit range), the

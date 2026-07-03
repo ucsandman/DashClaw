@@ -45,26 +45,34 @@ npm run lint         # eslint
 npm run db:migrate   # apply pending schema to local DB (auto-loads .env.local; idempotent)
 ```
 
-## Definition of done includes a human-visible surface
+## Definition of done includes a human-visible, human-OPERABLE surface
 
-The classic agent failure mode in this repo: build the schema + route + repository +
-tests for a feature and never give a **human** a way to see it — the feature ships and
-silently disappears. Before calling any feature done, answer three questions in writing
-(spec, plan, or ship summary):
+The full contract is **`HUMAN-EXPERIENCE.md`** at the repo root (adopted 2026-07-02
+by Wes's direction) — read it before designing any feature. The classic agent failure
+mode in this repo: build the schema + route + repository + tests for a feature and
+never give a **human** a way to see or use it — the feature ships and silently
+disappears, or ships with a terminal command where a button belongs. Before calling
+any feature done, answer four questions in writing (spec, plan, or ship summary):
 
 1. **Where does a human SEE it?** Name the page and the click path from an existing
    surface (nav, sidebar, an existing detail view). A deep URL nobody links to is not
    a surface.
 2. **Is it discoverable?** The path must start somewhere humans already are. If the
    feature only enriches an API response, the consuming page must render the new data.
-3. **Was it verified rendered?** Drive the actual page (frontend-verify skill /
-   headless browser) and confirm the new element appears — API tests and unit tests
-   prove the data exists, not that anyone can see it.
+3. **Is every human step a CLICK?** Wherever the human's role is judgment (review,
+   approve, ratify, tune, dismiss), it's a button/toggle/form in the product — never
+   "copy this command," "open GitHub," or "run this script." Zero-terminal test:
+   walk the human's entire role for the feature; terminal commands + GitHub visits
+   required must be zero.
+4. **Was it verified rendered?** Drive the actual page (frontend-verify skill /
+   headless browser) and confirm the new element appears and its controls work — API
+   tests and unit tests prove the data exists, not that anyone can see or use it.
 
 API/SDK-only features are allowed, but that is an **explicit stated decision** in the
 spec ("no UI surface because X"), never a default you fall into. The `dashclaw-ship`
 skill enforces this as a UI-discoverability gate at ship time; this rule exists so the
-surface is *designed in* at build time, not bolted on at the gate.
+surface is *designed in* at build time, not bolted on at the gate. The marketing site
+is updated with new features **in the same ship** (`HUMAN-EXPERIENCE.md` clause 4).
 
 ## Verify before you commit
 

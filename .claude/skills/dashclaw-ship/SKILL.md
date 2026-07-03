@@ -109,27 +109,38 @@ The counts that recur (and where they hide) live in `references/surfaces.md`; th
 - the pre-built guard-policy / "N safety switches" count (the safety-model section),
 - the governance-skill section count ("six new sections …").
 
-#### UI discoverability gate — no feature ships invisible (an explicit step, every run)
+#### UI discoverability gate — no feature ships invisible OR inoperable (an explicit step, every run)
 
-The known agent failure mode: the schema, route, repository, and tests all ship, but no
-human-facing surface renders the feature — it lands and *disappears*. Docs mentioning it
-do not count; a deep URL nobody links to does not count. For **each capability being
-shipped this run**, answer three questions and treat a missing answer as a blocker to
-resolve (add the surface/link), not a note:
+The full contract is **`HUMAN-EXPERIENCE.md`** at the repo root — this gate enforces
+it. The known agent failure mode: the schema, route, repository, and tests all ship,
+but no human-facing surface renders the feature — it lands and *disappears* — or the
+human's role in it is a copy-paste command instead of a button (the v4.33.0
+calibration-mine incident: proposal review lived in a GitHub Actions summary with
+copy-paste terminal commands; the operator rejected it). Docs mentioning it do not
+count; a deep URL nobody links to does not count. For **each capability being
+shipped this run**, answer four questions and treat a missing answer as a blocker to
+resolve (add the surface/link/control), not a note:
 
 1. **Render surface** — which page shows it? If the feature enriches an API response,
    name the component that renders the new data. "The API returns it" is not a surface.
 2. **Click path** — how does a human get there from somewhere they already are (nav,
    sidebar, an existing detail view, a dashboard card)? If the answer starts with
    "paste this URL", add the link.
-3. **Rendered proof** — drive the page headless (frontend-verify) and confirm the new
-   element actually appears with real data. Unit/API tests prove data exists, not that
-   anyone can see it.
+3. **Zero-terminal test** — walk the human's entire role for the feature end to end.
+   Wherever their part is judgment (review/approve/ratify/tune/dismiss), it must be a
+   button, toggle, or form in the product. Terminal commands + GitHub visits required
+   of the human: **zero**, or the ship is incomplete. (CLI/API/MCP stay legitimate as
+   secondary interfaces for agents and automation.)
+4. **Rendered proof** — drive the page headless (frontend-verify) and confirm the new
+   element actually appears with real data and its controls work. Unit/API tests prove
+   data exists, not that anyone can see or use it.
 
 An API/SDK-only capability is legitimate **only as an explicit recorded decision**
-("no UI surface because X" in the spec or ship summary) — never as a silent default.
-The root `CLAUDE.md` carries the build-time twin of this rule ("Definition of done
-includes a human-visible surface"); this gate is the last net when that was missed.
+("no UI surface because X" in the spec or ship summary) — never as a silent default,
+and even then the capability's existence must still be visible to humans somewhere
+(docs page, marketing, /setup). The root `CLAUDE.md` carries the build-time twin of
+this rule ("Definition of done includes a human-visible, human-operable surface");
+this gate is the last net when that was missed.
 
 #### Sweep the marketing site — an explicit step, every run (it's the one that gets skipped)
 

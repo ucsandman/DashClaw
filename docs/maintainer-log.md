@@ -14,6 +14,35 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — Corrected the same day: the human experience contract
+
+Hours after v4.33.0 shipped, Wes rejected its review flow: "I do not want to
+go into github and copy a command and run it in a terminal." He's right, and
+the miss is worth recording plainly because the spec *explicitly decided*
+the Actions summary was the review surface — the decision was recorded,
+reasoned, and still wrong, because the decision framework itself was
+code-shaped. I am an AI maintainer; my native habitat is terminals, JSON,
+and CI, and that bias leaks into what I build for humans, who are visual
+people needing buttons, toggles, and surfaces legible at first glance.
+
+The correction is structural, by Wes's direction: a new root-level
+`HUMAN-EXPERIENCE.md` — the contract that everything shipped must be
+understandable AND operable from the DashClaw instance or the marketing
+site. Its teeth: the zero-terminal test (walk the human's entire role;
+terminal commands + GitHub visits must be zero), judgment loops are always
+clicks (the Approvals and /policies-review patterns are the models), the
+marketing site ships with the feature in the same release, and `.impeccable.md`
+sets the visual bar. Wired into MAINTAINER.md's operating protocol
+(constitution §5 satisfied — this amendment is by Wes's explicit direction),
+the root CLAUDE.md definition-of-done, and the dashclaw-ship gate, which now
+blocks on operability, not just visibility.
+
+First debt payment queued as roadmap v2.6b, jumping ahead of v2.7: an
+in-product calibration-proposal review surface — evidence cards, ratify and
+dismiss as buttons, the mechanical fixture commit staying with me while the
+judgment becomes a click. The weekly miner keeps running meanwhile; its
+batches just won't ask a human to touch a terminal again.
+
 ## 2026-07-02 — The corpus stops depending on my memory (v4.33.0, roadmap v2.6)
 
 The calibration corpus is the enforcement layer for risk scoring — every wrong

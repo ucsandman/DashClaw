@@ -134,6 +134,7 @@ reach/revenue-first.
 | v2.4 | Advocate v2a: assumption-invalidation notifications | DONE 2026-07-02 (v4.31.0; spec-first, Wes-ratified: operator-only invalidation, inbox + guard-advisory transport, "mid-task" = until acknowledged; no new tables — the `assumption_invalidated` inbox message IS the record, its read state IS the ack; `assumption_alerts` rides `POST /api/guard` (family-matched, LIKE-escaped, 30s negative cache, advisory-only) until the pretool hook prints + marks read; /assumptions shows notified-unread/acknowledged chip; also fixed the /assumptions context-menu invalidate 404 (serial id vs asm_* id — the trigger path was dead); spec docs/superpowers/specs/2026-07-02-assumption-invalidation-notifications-design.md; smoke = 72) |
 | v2.5 | Advocate v2b: "was I manipulated" session retro | DONE 2026-07-02 (v4.32.0; spec-first, Wes-ratified: both consumers day one, rule-based detectors no LLM, computed on read no new tables, tri-state posture + evidenced findings; `GET /api/sessions/{id}/retro` + Retro card on /sessions/{id} + `dashclaw_session_retro` MCP tool (33rd, hosted /api/mcp inherits); honesty block = coverage vs ungoverned actions; guard?record=true does NOT record blocks — smoke O3 links via explicit guard_decision_id on POST /api/actions; riskOf NULL→excluded fix; spec docs/superpowers/specs/2026-07-02-session-retro-design.md; smoke = 76) |
 | v2.6 | Calibration flywheel automation | DONE 2026-07-02 (v4.33.0; synthetic-traffic filter default-on in the miner — smoke/self-test agent families + `smoke.*` types, 725 excluded in live proof; `--propose/--summary/--top` proposal mode with provenance + exact forge ratify commands, capped top-15/rule after 5.8k raw candidates; weekly `.github/workflows/calibration-mine.yml` renders proposals into the run summary + uploads the artifact, human ratifies, nothing auto-applies; corpus at 33 vectors; spec docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md) |
+| v2.6b | Calibration proposals human surface (HUMAN-EXPERIENCE.md debt) | — |
 | v2.7 | Desktop distribution closeout | — |
 | — | FinOps Phase C / CostClaw paid add-on | GATED on Wes (RFC 0002 §8) |
 
@@ -227,6 +228,30 @@ The corpus grows only when a session-holder remembers the protocol.
 - Acceptance: a scheduled run produces a proposal artifact from live
   data; the filter is pinned by unit tests; corpus counts tracked in the
   maintainer log.
+
+## v2.6b Calibration proposals human surface (inserted 2026-07-02)
+
+Order change reason: v2.6 shipped its review surface as a GitHub Actions
+summary with copy-paste forge commands, and Wes rejected that flow the same
+day ("I do not want to go into github and copy a command and run it in a
+terminal"). That verdict became the `HUMAN-EXPERIENCE.md` contract; this
+item is its first debt payment and jumps ahead of v2.7 because the weekly
+miner is already producing batches nobody can comfortably review.
+
+- In-product proposal review: proposals rendered as evidence cards on a
+  DashClaw page (spec decides: /policies review feed vs. a calibration
+  section) — shape, evidence tier, counts, risk range, at a glance.
+- Ratify / dismiss are **buttons**. A ratified proposal is recorded as the
+  human's decision; the maintainer session turns ratified proposals into
+  fixture vectors + scorer fixes (the mechanical commit stays with the
+  maintainer, mirroring the approvals pattern — judgment is a click,
+  constitution §3 intact).
+- The weekly workflow feeds the surface instead of (or in addition to) the
+  Actions summary — spec decides the transport (ingest endpoint vs.
+  computed on read from the ledger).
+- Acceptance: Wes reviews a real weekly batch entirely in the product —
+  zero terminal commands, zero GitHub visits; rendered proof via
+  frontend-verify; smoke pins the ratification record.
 
 ## v2.7 Desktop distribution closeout
 
