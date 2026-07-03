@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25838 symbols, 51848 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (25839 symbols, 51849 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,10 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-03 (commit ec534cfe). Confidence: 100%.
+Last indexed: 2026-07-03 (commit 9c356000). Confidence: 100%.
 ### Architecture
-This repository is a governed codebase documentation and agent platform: it ingests a target repository (source files, configs, and optional contracts), traverses and parses content into structured representations (ASTs/metadata), analyzes relationships and policies, and then generates LLM-synthesised wiki/artifact outputs served via an MCP server and a web UI, with supporting SDKs and example governed agents. ---
-**Purpose:** ensure generated documentation and agent actions comply with configured constraints and contract requirements. **Purpose:** provide a consistent way to fetch repository content, store intermediate representations, and retrieve generated artifacts. **Purpose:** detect and correct issues in ingestion/normalization so downstream parsing and wiki generation remain stable.
+This repository is a governed codebase documentation and agent platform end-to-end: it ingests a target repository (source files, contracts, and policy/rules inputs), transforms it through indexing/parsing, policy-aware analysis, and optional work-order execution, and outputs generated documentation artifacts (LLM-synthesised wiki pages) plus an MCP server and web-facing tooling entry points for downstream agents to consume.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -104,7 +103,7 @@ This repository is a governed codebase documentation and agent platform: it inge
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 72 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 73 | Wes Sander |
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 66 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 66 | Wes Sander |
