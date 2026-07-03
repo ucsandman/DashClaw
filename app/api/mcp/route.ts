@@ -58,11 +58,26 @@ function instanceOrigin(request: Request) {
 /**
  * Resolve config from request headers.
  * The x-api-key header (or Bearer Authorization) is already validated by middleware.
+ *
+ * Agent identity: OAuth Bearer callers are the Claude consumer-app custom
+ * connector (the only client of the built-in OAuth AS), so they get the
+ * documented `claude-desktop` server-level identity — identity is a governance
+ * primitive, and without a server-level default the write-identity fallback in
+ * createToolHandlers lets the LLM pick its own agent_id per call. x-api-key
+ * callers (Managed Agents, remote MCP hosts) keep their existing behavior.
  */
 function resolveConfig(request: Request) {
   const apiKey = request.headers.get('x-api-key') || '';
   const authHeader = request.headers.get('authorization') || '';
-  return { url: instanceOrigin(request), apiKey, authHeader };
+  // Mirror DashClawClient._authHeaders: a Bearer Authorization is the credential
+  // actually forwarded (it wins over x-api-key), so it decides the identity too.
+  const isOAuthBearer = authHeader.slice(0, 7).toLowerCase() === 'bearer ';
+  return {
+    url: instanceOrigin(request),
+    apiKey,
+    authHeader,
+    ...(isOAuthBearer ? { agentId: 'claude-desktop' } : {}),
+  };
 }
 
 /**

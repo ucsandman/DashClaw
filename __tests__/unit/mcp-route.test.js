@@ -219,4 +219,44 @@ describe('POST /api/mcp', () => {
     );
     vi.unstubAllEnvs();
   });
+
+  it('pins the claude-desktop server-level identity for OAuth Bearer (connector) callers', async () => {
+    // Identity is a governance primitive: without a server-level agentId the
+    // write-identity fallback lets the LLM pick its own agent_id per call.
+    const request = makeRequest('https://my-dashclaw.vercel.app/api/mcp', {
+      headers: { host: 'my-dashclaw.vercel.app', authorization: 'Bearer oat_x' },
+      body: { jsonrpc: '2.0', id: 1, method: 'ping', params: {} },
+    });
+    await POST(request);
+    expect(DashClawClient).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: 'claude-desktop' }),
+    );
+  });
+
+  it('does NOT inject an agent identity for x-api-key callers (Managed Agents keep their behavior)', async () => {
+    const request = makeRequest('https://my-dashclaw.vercel.app/api/mcp', {
+      headers: { host: 'my-dashclaw.vercel.app', 'x-api-key': 'oc_live_test' },
+      body: { jsonrpc: '2.0', id: 1, method: 'ping', params: {} },
+    });
+    await POST(request);
+    const call = DashClawClient.mock.calls.at(-1)[0];
+    expect(call.agentId).toBeUndefined();
+  });
+
+  it('pins the identity on dual-header requests: the Bearer credential is what the client forwards', async () => {
+    // DashClawClient._authHeaders prefers Authorization over x-api-key, so the
+    // identity decision must follow the credential that is actually used.
+    const request = makeRequest('https://my-dashclaw.vercel.app/api/mcp', {
+      headers: {
+        host: 'my-dashclaw.vercel.app',
+        'x-api-key': 'oc_live_test',
+        authorization: 'Bearer oat_x',
+      },
+      body: { jsonrpc: '2.0', id: 1, method: 'ping', params: {} },
+    });
+    await POST(request);
+    expect(DashClawClient).toHaveBeenCalledWith(
+      expect.objectContaining({ agentId: 'claude-desktop' }),
+    );
+  });
 });

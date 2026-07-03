@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.35.1",
+    "current_version": "4.36.0",
     "next_bump": "none",
-    "reason": "4.35.1 ships roadmap v2.6d marketing & docs backfill (the era's capabilities onto /, /self-host, /docs, /explain, /connect; landingData dead arrays removed) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.0 ships roadmap v2.7 desktop distribution closeout (connector docs truth pass, .mcpb retirement, Codex code-session reporter, claude-desktop OAuth identity pin on /api/mcp, plugin manifest lockstep, /privacy page + listing runbook) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.35.1",
+    "current_version": "4.36.0",
     "next_bump": "none",
-    "reason": "4.35.1 ships roadmap v2.6d marketing & docs backfill (the era's capabilities onto /, /self-host, /docs, /explain, /connect; landingData dead arrays removed) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.0 ships roadmap v2.7 desktop distribution closeout (connector docs truth pass, .mcpb retirement, Codex code-session reporter, claude-desktop OAuth identity pin on /api/mcp, plugin manifest lockstep, /privacy page + listing runbook) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

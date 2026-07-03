@@ -36,6 +36,12 @@ const PKG = join(ROOT, 'dist', 'desktop-plugin');
 const STAGE = join(PKG, 'dashclaw');
 const OUT = join(ROOT, 'dist', 'dashclaw-plugin.zip');
 
+// Version follows the canonical Claude Code plugin manifest — never hardcode it
+// here (the desktop build drifted a release behind before this).
+const CANONICAL_PLUGIN = JSON.parse(
+  readFileSync(join(ROOT, 'plugins', 'dashclaw', '.claude-plugin', 'plugin.json'), 'utf8'),
+);
+
 rmSync(PKG, { recursive: true, force: true });
 mkdirSync(join(STAGE, '.claude-plugin'), { recursive: true });
 
@@ -45,7 +51,7 @@ writeFileSync(
   JSON.stringify(
     {
       name: 'dashclaw',
-      version: '2.14.0',
+      version: CANONICAL_PLUGIN.version,
       description:
         'DashClaw governance + platform intelligence: governed-agent protocol skills plus the live governance MCP tools (guard, record, invoke, approvals, sessions) over a remote connection to your DashClaw instance.',
       author: { name: 'DashClaw', email: 'team@dashclaw.io', url: 'https://dashclaw.io' },

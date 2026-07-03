@@ -69,7 +69,7 @@ ln -s "$DASHCLAW_REPO/plugins/dashclaw/skills" "$HOME/.hermes/skills/dashclaw"
 ```bash
 export DASHCLAW_BASE_URL="https://your-instance.vercel.app"
 export DASHCLAW_API_KEY="oc_live_..."        # workspace API key
-export DASHCLAW_AGENT_ID="hermes"         # optional; default "hermes"
+export DASHCLAW_HERMES_AGENT_ID="hermes"  # optional; default "hermes" (beats the machine-ambient DASHCLAW_AGENT_ID)
 ```
 
 You can also put these under `plugins.dashclaw.env:` in `~/.hermes/config.yaml` if you'd rather not export them globally.

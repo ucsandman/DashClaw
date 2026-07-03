@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.36.0] — 2026-07-03
+
+Desktop distribution closeout (roadmap v2.7). Three parallel audits — connector-docs truth pass, four-surface plugin parity, public-listing readiness — then one fix sweep. No SDK source change.
+
+### Added
+- **`/privacy`** — public privacy policy page (footer-linked from every public page). Covers the two deployment models (self-hosted: your database, zero telemetry; hosted trial: what is collected and why), subprocessors, retention/deletion, and contact. This was the immediate-rejection blocker for the Anthropic Connectors Directory submission.
+- **`/self-host`** — the "Connect your agent framework" grid gains a **Claude Desktop** tile (OAuth connector, no install) linking to the connector config in `/docs`.
+- **`docs/DISTRIBUTION-LISTINGS.md`** — maintainer runbook for the three listing channels (Claude Code plugin directory, official MCP Registry, Anthropic Connectors Directory), each reduced to a single human action.
+- **Hosted `/api/mcp` agent identity** — OAuth Bearer callers (the Claude consumer-app custom connector) now get the server-level `claude-desktop` identity, closing the write-identity fallback that let the model pick its own `agent_id` per call. The Bearer credential decides the identity even when an `x-api-key` header rides along (it is the credential the client actually forwards); `x-api-key`-only callers are unchanged. Pinned by three route tests.
+- **Version-sync guard, second group** — the three plugin ecosystem manifests (Claude Code / Codex / Hermes) must now agree with each other (`npm run version:sync:check`); they had drifted 2.15.0 / 2.14.2 / 2.14.1. All three now carry 2.15.0, and `scripts/build-desktop-plugin.mjs` reads its version from the Claude Code manifest instead of hardcoding one.
+
+### Fixed
+- **Codex Code Sessions ingest was silently dead** — `dashclaw install codex` never shipped `dashclaw_code_session_reporter.py`, so the import inside `dashclaw_stop.py` failed inside a try/except and ingest no-oped. The installer now copies it (pinned by the installer test).
+- **Docs no longer recommend the broken Desktop install** — the `.mcpb` bundle (crash-loops on Desktop's bundled Node) is retired: its build scripts and test are deleted, `mcp-server/README.md`'s ".mcpb" section is replaced with the OAuth-connector pointer, and every stdio config block (root README coverage table, mcp-server README header, `/docs` code-block title) stops attributing stdio to Claude Desktop chat.
+- **`plugins/dashclaw/PLUGIN_PARITY.md`** rewritten: Claude Desktop is documented as the fourth surface (cooperative governance, structural no-hooks ceiling), the Codex deltas are disclosed (no SessionStart digest — lifecycle unverified), and the Hermes README's identity env var is corrected to `DASHCLAW_HERMES_AGENT_ID`.
+
 ## [4.35.1] — 2026-07-03
 
 Marketing & docs backfill (roadmap v2.6d). The era retro-audit's systematic clause-4 failure — ten capabilities shipped v4.22.0–v4.35.0 absent from every page that claims completeness — paid down in one sweep. No new API surface; no SDK change.

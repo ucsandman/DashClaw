@@ -57,6 +57,9 @@ const HOOK_FILES = [
   'dashclaw_pretool.py',
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
+  // dashclaw_stop.py imports this for Code Sessions ingest; without it the
+  // import fails inside a try/except and ingest silently no-ops (v2.7 fix).
+  'dashclaw_code_session_reporter.py',
 ];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 

@@ -99,7 +99,8 @@ DashClaw meets agents where they already are. Every path lands on the same gover
 | Codex | Plugin | `dashclaw install codex --project <path>` |
 | Hermes Agent | Plugin (8 lifecycle hooks) | `bash scripts/install-hermes-plugin.sh` |
 | OpenClaw | OpenClaw plugin | `npm install @dashclaw/openclaw-plugin` |
-| Claude Desktop, any MCP host | MCP server (stdio) | `npx @dashclaw/mcp-server` |
+| Claude Desktop (chat, web, Cowork) | Custom connector (OAuth, no install) | Settings → Connectors → paste `https://<instance>/api/mcp` |
+| Any stdio MCP host | MCP server (stdio) | `npx @dashclaw/mcp-server` |
 | Claude Managed Agents | MCP server (Streamable HTTP) | Point at `/api/mcp` |
 | LangChain | Python SDK callback handler | `pip install dashclaw` |
 | CrewAI | Python SDK task callback / agent wrapper | `pip install dashclaw` |
@@ -144,7 +145,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 As of v2.0.0 the local stdio server also carries **governed execution**: provider tools for GitHub, Vercel, Neon, Stripe and ten more (each registering only when its credential env var is present), and stateful **launch plans** (`create_launch_plan` / `get_launch_status` / `preflight_launch` / `verify_launch`) that track the launch tail with reality-checked, never self-reported completion — every step through the same guard/policy/approval path. See [`mcp-server/README.md`](./mcp-server/README.md) and [`mcp-server/docs/launch-plans.md`](./mcp-server/docs/launch-plans.md).
 
-**Stdio (Claude Code, Claude Desktop, any stdio MCP client):**
+**Stdio (Claude Code, any stdio MCP client — not Claude Desktop chat, whose bundled Node crashes local MCP servers; Desktop uses the OAuth connector below):**
 
 ```json
 {
@@ -161,7 +162,7 @@ As of v2.0.0 the local stdio server also carries **governed execution**: provide
 }
 ```
 
-**Streamable HTTP (Claude Managed Agents, any remote MCP client):** every DashClaw instance serves MCP at `/api/mcp` — no npm package, no client install.
+**Streamable HTTP (Claude Managed Agents, any remote MCP client):** every DashClaw instance serves MCP at `/api/mcp` — no npm package, no client install. For Claude Desktop / claude.ai, add it as a **custom connector** (Settings → Connectors → paste `https://<instance>/api/mcp`): OAuth auto-discovers — no key in the UI — and tool calls attribute to the `claude-desktop` agent identity. Full walkthrough: [`docs/CLAUDE-DESKTOP-PLUGIN.md`](./docs/CLAUDE-DESKTOP-PLUGIN.md).
 
 ```python
 agent = client.beta.agents.create(

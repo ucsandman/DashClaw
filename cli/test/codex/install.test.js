@@ -349,7 +349,12 @@ describe('installCodex (end-to-end)', () => {
     });
 
     // Hooks installed
-    for (const file of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py']) {
+    for (const file of [
+      'dashclaw_pretool.py',
+      'dashclaw_posttool.py',
+      'dashclaw_stop.py',
+      'dashclaw_code_session_reporter.py',
+    ]) {
       assert.equal(
         fs.existsSync(path.join(codexHomeDir, 'hooks', 'dashclaw', file)),
         true,

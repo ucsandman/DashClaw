@@ -468,6 +468,10 @@ dashclaw doctor`}</pre>
               <h3 className="text-sm font-semibold text-text-primary">Hermes Agent</h3>
               <p className="text-xs text-text-secondary mt-1">8 lifecycle hooks + live ingest</p>
             </Link>
+            <Link href="/docs#mcp-config" className="p-4 rounded-xl bg-surface-secondary border border-border hover:border-border-active transition-colors">
+              <h3 className="text-sm font-semibold text-text-primary">Claude Desktop</h3>
+              <p className="text-xs text-text-secondary mt-1">OAuth connector, no install</p>
+            </Link>
             <Link href="/guides/openai-agents-sdk" className="p-4 rounded-xl bg-surface-secondary border border-border hover:border-border-active transition-colors">
               <h3 className="text-sm font-semibold text-text-primary">OpenAI Agents SDK</h3>
               <p className="text-xs text-text-secondary mt-1">Node.js SDK integration</p>

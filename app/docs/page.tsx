@@ -537,7 +537,7 @@ except Exception as e:
               <h3 className="text-lg font-semibold text-text-primary mb-4">Configuration</h3>
               <p className="text-xs text-text-tertiary mb-3">Config resolution: CLI args &gt; env vars &gt; defaults. Three config values: <code className="font-mono text-text-secondary">url</code> (<code className="font-mono text-text-secondary">DASHCLAW_URL</code>, default <code className="font-mono text-text-secondary">localhost:3000</code>), <code className="font-mono text-text-secondary">apiKey</code> (<code className="font-mono text-text-secondary">DASHCLAW_API_KEY</code>), <code className="font-mono text-text-secondary">agentId</code> (<code className="font-mono text-text-secondary">DASHCLAW_AGENT_ID</code>).</p>
               <div className="space-y-4">
-                <CodeBlock title="stdio — Claude Code / Desktop (claude_desktop_config.json)">{`{
+                <CodeBlock title="stdio — Claude Code / Cowork (.mcp.json; Desktop chat uses the OAuth connector below)">{`{
   "mcpServers": {
     "dashclaw": {
       "command": "npx",

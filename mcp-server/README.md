@@ -6,13 +6,13 @@ Every provider action runs through one guarded path: local policy × the DashCla
 
 ## Quick Start
 
-### Claude Desktop / Claude Code (stdio)
+### Claude Code / Cowork (stdio)
 
 ```bash
-npx -y @dashclaw/mcp-server --url https://your-dashclaw.vercel.app --key oc_live_xxx --agent-id claude-desktop
+npx -y @dashclaw/mcp-server --url https://your-dashclaw.vercel.app --key oc_live_xxx --agent-id claude-code
 ```
 
-Or add to `claude_desktop_config.json`:
+Or add to your MCP config (`.mcp.json` for Claude Code, or `claude mcp add`):
 
 ```json
 {
@@ -23,12 +23,17 @@ Or add to `claude_desktop_config.json`:
       "env": {
         "DASHCLAW_URL": "https://your-dashclaw.vercel.app",
         "DASHCLAW_API_KEY": "oc_live_xxx",
-        "DASHCLAW_AGENT_ID": "claude-desktop"
+        "DASHCLAW_AGENT_ID": "claude-code"
       }
     }
   }
 }
 ```
+
+> **Claude Desktop main chat: do not use stdio.** Desktop runs local MCP servers
+> on its bundled Node, which crashes this server. Use the
+> [OAuth custom connector](#claude-custom-connector-remote-oauth) instead — no
+> local process, works in chat and Cowork.
 
 **About `DASHCLAW_AGENT_ID`:** this is the name that shows up on `/fleet`, `/decisions`, and every other governance surface. If you omit it, the server auto-derives an `agent_id` from the MCP protocol's `clientInfo.name` (e.g. `claude-ai` for Claude Desktop, `cursor-vscode` for Cursor) so calls don't silently commingle with other agents — but a human-friendly name like `claude-desktop` is what you actually want for dashboard readability. Explicit configuration always wins over auto-derivation.
 
@@ -50,19 +55,13 @@ agent = client.beta.agents.create(
 )
 ```
 
-### Claude Desktop (one-click .mcpb)
+### Claude Desktop
 
-Build the bundle from the DashClaw repo root (the build script ships in the repo, not the npm package), then install it without touching `claude_desktop_config.json`:
-
-```bash
-node scripts/build-mcpb.mjs    # → dist/dashclaw.mcpb
-```
-
-Then double-click `dist/dashclaw.mcpb` (or Settings → Extensions → Install Extension…).
-The installer prompts for your instance URL, API key, and an agent ID
-(default `claude-desktop`). The 33 governance tools then appear in Claude.
-
-> **Cowork caveat:** Cowork tool availability runs through its VM, and the host `.mcpb` install path is unverified for Cowork. The OAuth remote connector (below) is the verified cross-surface path.
+Use the OAuth custom connector (next section) — it is the verified path for
+Desktop chat, web, and Cowork, and needs no install. The old one-click `.mcpb`
+bundle is **retired**: it ran the stdio server on Desktop's bundled Node, which
+crash-loops. If you still have a `dashclaw` extension installed from it,
+uninstall it (Settings → Extensions) before adding the connector.
 
 ### Claude custom connector (remote, OAuth)
 

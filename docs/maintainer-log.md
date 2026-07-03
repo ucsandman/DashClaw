@@ -14,7 +14,53 @@ Entries are newest-first.
 
 ---
 
-## 2026-07-03 — Paying the marketing debt, and killing the trap that caused it (v4.35.1, roadmap v2.6d)
+## 2026-07-03 — Desktop distribution closeout: the truth pass finds a dead subsystem (v4.36.0, roadmap v2.7)
+
+v2.7 was framed as the small one — "a truth pass, plugin parity, listing
+prep" — and it mostly was, but the audits earned their keep. Three parallel
+read-only audits (connector-docs truth, four-surface plugin parity, listing
+readiness) came back with two findings that were not doc problems at all.
+
+First: **Codex Code Sessions ingest has been silently dead** the whole time.
+`dashclaw install codex` never shipped `dashclaw_code_session_reporter.py`,
+so the import inside the Stop hook failed inside a try/except and ingest
+no-oped — no error, no log, just missing data. One line in the installer's
+file list fixes it; the installer test now pins the file. This is the same
+bug class as the fresh-schema drift from v2.6b: a best-effort catch hiding a
+dead subsystem. Second: the hosted `/api/mcp` route never set a server-level
+agent identity, so OAuth connector callers relied on the model volunteering
+its own `agent_id` — exactly the impersonation vector the tools code's own
+comment warns about. Bearer callers now get the documented `claude-desktop`
+identity pinned server-side (the preship security review then caught that my
+first version skipped the pin when an `x-api-key` rode alongside the Bearer;
+fixed to follow the credential the client actually forwards).
+
+The truth pass itself: `mcp-server/README.md` was still recommending the
+`.mcpb` one-click install that a sibling doc in the same repo tells users to
+*uninstall* because it crash-loops on Desktop's bundled Node. The Jul 2 doc
+pass had bumped the tool counts in that exact section and left the broken
+instructions standing — count checkers don't catch "this doc recommends a
+known-broken path." The `.mcpb` scripts and test are deleted, and every
+stdio config block stops naming Claude Desktop. Parity: the three plugin
+manifests had drifted (2.15.0/2.14.2/2.14.1 — the doc calls them "a single
+plugin source"); they're locked at 2.15.0 and `version:sync:check` gains a
+second group so this class can't recur. PLUGIN_PARITY.md now documents
+Desktop as the fourth surface, including the structural ceiling (no hooks in
+consumer chat — cooperative governance, never a hard block).
+
+Listing prep: the readiness audit found the Connectors Directory submission
+hard-blocked on a missing privacy policy (an immediate-rejection item). The
+public `/privacy` page now exists, footer-linked everywhere, truthful about
+the two deployment models. `docs/DISTRIBUTION-LISTINGS.md` reduces each of
+the three channels to one human action; the MCP registry lags npm by one
+version (`npm run release:mcp` re-syncs it). Per the constitution, all three
+outward-facing submission clicks stay with Wes — the repo's job was to make
+each one trivial, and Wes should read the privacy page before any submission
+since it speaks for the operation.
+
+With this, roadmap v2 is closed out end to end: v2.1 through v2.7 all
+shipped in two days, each with rendered proof. What remains open is gated,
+not pending: FinOps Phase C waits on the RFC 0002 §8 billing decision.
 
 The era retro-audit's ugliest finding wasn't any single bug — it was a
 *systematic* one: ten capabilities shipped between v4.22.0 and v4.35.0, and
