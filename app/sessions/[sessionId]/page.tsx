@@ -8,7 +8,7 @@ import {
   Flag, XCircle, AlertTriangle, RotateCw,
 } from 'lucide-react';
 import PageLayout from '../../components/PageLayout';
-import SessionRetroCard from '../../components/SessionRetroCard';
+import SessionRetroCard, { SessionRetroChip } from '../../components/SessionRetroCard';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Skeleton } from '../../components/ui/Skeleton';
 
@@ -237,6 +237,8 @@ export default function SessionDetailPage() {
         <span className={`inline-flex items-center px-3 py-1 rounded-md text-sm font-medium capitalize ${statusBadge[session.status] || 'bg-zinc-500/20 text-secondary'}`}>
           {session.status}
         </span>
+        {/* Retro posture above the fold; anchors to the full card below. */}
+        <SessionRetroChip retro={retro} />
         {session.workspace && (
           <span className="text-xs text-secondary">
             <span className="text-disabled">Workspace:</span> {session.workspace}

@@ -4,6 +4,8 @@ interface CardProps {
   children?: React.ReactNode;
   className?: string;
   hover?: boolean;
+  // Forwarded to the root element; lets in-page anchors target a card.
+  id?: string;
   ref?: React.Ref<HTMLElement>;
   // Forwarded to the root element so list rows can tag themselves for the
   // site-wide right-click context menu (resolved by `[data-entity-type]`).

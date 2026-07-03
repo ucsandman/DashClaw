@@ -91,12 +91,24 @@ Vercel, Grafana — not decoration.
 ## Known debt under this contract
 
 Retroactive audit, oldest first. Each item gets a roadmap entry and dies.
+The full era audit (v4.22.0–v4.33.0, run 2026-07-02 at Wes's direction)
+lives in `docs/plans/2026-07-02-human-experience-retro-audit.md` — five
+surgical gaps were fixed in that audit's own commit; these remain:
 
 - **Calibration proposals (v4.33.0):** review + ratification currently
   lives in a GitHub Actions summary with copy-paste forge commands. Needs
   an in-product surface: proposals rendered as cards with evidence, ratify
   /dismiss as buttons (roadmap v2.6b). The mechanical fixture commit stays
   with the maintainer; the *judgment* becomes a click.
+- **x402 budget consumption (v4.23.0):** the window budget is enforced and
+  now described on /policies, but "spent $X of $Y this window" renders
+  nowhere — the state guard computes is invisible until a purchase blocks
+  (roadmap v2.6c).
+- **Marketing & docs backfill (whole era):** the /self-host completeness
+  grid and rendered landing page carry none of the era's 10 capabilities;
+  /docs is missing tuning proposals, budget tiers, degradation
+  observability, risk_breakdown, and the new identity system (roadmap
+  v2.6d).
 - (Add future findings here; an empty list is the goal, not the norm.)
 
 ## Relationship to other rule carriers

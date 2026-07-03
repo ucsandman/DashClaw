@@ -135,6 +135,8 @@ reach/revenue-first.
 | v2.5 | Advocate v2b: "was I manipulated" session retro | DONE 2026-07-02 (v4.32.0; spec-first, Wes-ratified: both consumers day one, rule-based detectors no LLM, computed on read no new tables, tri-state posture + evidenced findings; `GET /api/sessions/{id}/retro` + Retro card on /sessions/{id} + `dashclaw_session_retro` MCP tool (33rd, hosted /api/mcp inherits); honesty block = coverage vs ungoverned actions; guard?record=true does NOT record blocks — smoke O3 links via explicit guard_decision_id on POST /api/actions; riskOf NULL→excluded fix; spec docs/superpowers/specs/2026-07-02-session-retro-design.md; smoke = 76) |
 | v2.6 | Calibration flywheel automation | DONE 2026-07-02 (v4.33.0; synthetic-traffic filter default-on in the miner — smoke/self-test agent families + `smoke.*` types, 725 excluded in live proof; `--propose/--summary/--top` proposal mode with provenance + exact forge ratify commands, capped top-15/rule after 5.8k raw candidates; weekly `.github/workflows/calibration-mine.yml` renders proposals into the run summary + uploads the artifact, human ratifies, nothing auto-applies; corpus at 33 vectors; spec docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md) |
 | v2.6b | Calibration proposals human surface (HUMAN-EXPERIENCE.md debt) | — |
+| v2.6c | x402 budget consumption visibility (HUMAN-EXPERIENCE.md debt) | — |
+| v2.6d | Marketing & docs backfill: the era's 10 capabilities (HUMAN-EXPERIENCE.md debt) | — |
 | v2.7 | Desktop distribution closeout | — |
 | — | FinOps Phase C / CostClaw paid add-on | GATED on Wes (RFC 0002 §8) |
 
@@ -252,6 +254,31 @@ miner is already producing batches nobody can comfortably review.
 - Acceptance: Wes reviews a real weekly batch entirely in the product —
   zero terminal commands, zero GitHub visits; rendered proof via
   frontend-verify; smoke pins the ratification record.
+
+## v2.6c x402 budget consumption visibility (inserted 2026-07-02)
+
+From the era retro-audit (docs/plans/2026-07-02-human-experience-retro-audit.md):
+the cumulative budget gate enforces window budgets but never renders the
+state it computes — an operator can't see "this agent is at $43 of $50"
+until a purchase blocks. `sumWindowSpend` (x402.repository.ts) is
+guard-only; it needs a read path and a meter on /spend/x402 (and the
+policy's card), honoring the budget scope (org vs per-agent family).
+Acceptance: a seeded near-budget scenario renders the meter live; the
+minor punch-list items adjacent to this UI (decisions-list composition
+hint) ride along if cheap.
+
+## v2.6d Marketing & docs backfill (inserted 2026-07-02)
+
+The era audit's systematic clause-4 failure: /self-host's completeness
+grid and the rendered landing page carry none of the 10 capabilities
+shipped v4.22.0–v4.33.0; /docs is missing tuning proposals, x402 budget
+tiers, degradation observability, risk_breakdown, and the per-harness
+identity system; /explain lacks the session-retro successor to its
+advocate section; landingData.js's five dead unrendered arrays get wired
+or removed so the trap dies. One coherent build session under
+.impeccable.md (visually stunning, first-glance legible, no
+crypto/web3 drift), verified rendered per the contract. Going forward
+this item never recurs: clause 4 puts marketing in every ship.
 
 ## v2.7 Desktop distribution closeout
 

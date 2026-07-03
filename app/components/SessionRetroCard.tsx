@@ -31,6 +31,25 @@ const kindLabel: Record<string, string> = {
   assumption: 'Invalidated assumptions',
 };
 
+// Compact posture chip for the session-page header, so the retro verdict is
+// visible without scrolling (HUMAN-EXPERIENCE.md clause 1); anchors to the
+// full card below.
+export function SessionRetroChip({ retro }: { retro: SessionRetro | null }) {
+  if (!retro) return null;
+  const posture = postureStyle[retro.posture];
+  const { Icon } = posture;
+  return (
+    <a
+      href="#session-retro"
+      title="Session retro — was I manipulated?"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${posture.chip}`}
+    >
+      <Icon size={14} />
+      Retro: {posture.label}
+    </a>
+  );
+}
+
 export default function SessionRetroCard({ retro }: { retro: SessionRetro | null }) {
   if (!retro) return null;
   const posture = postureStyle[retro.posture];
@@ -42,7 +61,7 @@ export default function SessionRetroCard({ retro }: { retro: SessionRetro | null
   for (const f of retro.findings) (grouped[f.kind] ??= []).push(f);
 
   return (
-    <Card hover={false} className="mt-6">
+    <Card hover={false} className="mt-6" id="session-retro">
       <CardHeader
         title="Session retro — was I manipulated?"
         action={

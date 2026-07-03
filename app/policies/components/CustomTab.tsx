@@ -44,6 +44,15 @@ function formatRules(policy: any): string {
     case 'permission_escalation': return rules.enforce ? `Permission escalation → ${rules.action || 'block'}` : 'Permission escalation (disabled)';
     case 'green_contract': return `${(rules.action_types || []).join(', ')} need ${rules.required_level || 'workspace'} green → ${rules.action || 'block'}`;
     case 'branch_freshness': return `${(rules.action_types || []).join(', ')} when ${(rules.freshness || ['stale', 'diverged']).join('/')} → ${rules.action || 'block'}`;
+    case 'x402_spend_limit': {
+      const parts: string[] = [];
+      if (rules.max_spend_usd != null) parts.push(`purchase > $${rules.max_spend_usd} → block`);
+      if (rules.approval_threshold != null) parts.push(`purchase >= $${rules.approval_threshold} → approval`);
+      const win = `${rules.budget_window_days ?? 30}d ${rules.budget_scope === 'agent' ? 'per-agent' : 'org'} spend`;
+      if (rules.budget_usd != null) parts.push(`${win} > $${rules.budget_usd} → block`);
+      if (rules.budget_approval_threshold != null) parts.push(`${win} >= $${rules.budget_approval_threshold} → approval`);
+      return parts.length ? parts.join(' · ') : 'x402 spend governance';
+    }
     default: return type;
   }
 }

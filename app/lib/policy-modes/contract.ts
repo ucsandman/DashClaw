@@ -9,7 +9,7 @@ export interface ContractSentence {
   policy_id: string;
   text: string;
   fired_7d: number;
-  editable?: { param: 'approval_threshold' | 'max_spend_usd'; value: number };
+  editable?: { param: 'approval_threshold' | 'max_spend_usd' | 'budget_approval_threshold' | 'budget_usd'; value: number };
   /** Full parsed rules, present only on editable sentences (PATCH needs complete rules). */
   rules?: Record<string, unknown>;
 }
@@ -86,6 +86,17 @@ export function buildContract(
         const max = Number(rules.max_spend_usd ?? 0);
         view.interrupts.push({ ...s(`paid spend reaches ${usd(approve)}`, { param: 'approval_threshold', value: approve }), rules });
         view.blocks.push({ ...s(`paid spend exceeds ${usd(max)}`, { param: 'max_spend_usd', value: max }), rules });
+        // Cumulative window budget: a budget-gated policy must read as one on
+        // the contract page, not as a per-purchase cap only.
+        const win = `${Number(rules.budget_window_days ?? 30)}-day ${rules.budget_scope === 'agent' ? 'per-agent' : 'org'}`;
+        if (rules.budget_approval_threshold != null) {
+          const t = Number(rules.budget_approval_threshold);
+          view.interrupts.push({ ...s(`${win} paid spend reaches ${usd(t)}`, { param: 'budget_approval_threshold', value: t }), rules });
+        }
+        if (rules.budget_usd != null) {
+          const b = Number(rules.budget_usd);
+          view.blocks.push({ ...s(`${win} paid spend exceeds ${usd(b)}`, { param: 'budget_usd', value: b }), rules });
+        }
         break;
       }
       case 'require_approval':

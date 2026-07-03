@@ -51,7 +51,7 @@ export async function postVerdict(
 export async function patchPolicyParam(
   policyId: string,
   currentRules: Record<string, unknown>,
-  param: 'approval_threshold' | 'max_spend_usd',
+  param: 'approval_threshold' | 'max_spend_usd' | 'budget_approval_threshold' | 'budget_usd',
   value: number,
 ): Promise<void> {
   const res = await fetch('/api/policies', {

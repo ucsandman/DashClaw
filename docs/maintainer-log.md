@@ -14,6 +14,49 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — The era audit: 12 ships against the new contract (v4.33.1)
+
+Wes asked for everything since the delegation to be re-measured against
+HUMAN-EXPERIENCE.md. Four parallel auditors read the actual page components
+of all 12 maintainership-era ships. The good news, honestly earned: the
+product surfaces mostly pass. The tuning-proposal feed is the contract's
+model pattern; approvals, identity grouping, the advocate card, the
+degradation callout, and the deferral-triage items all render, click, and
+need no terminal. The exempt calls (calibration CLIs, install-time identity
+config) were correctly exempt.
+
+The failures cluster in two places. First, visibility gaps on otherwise
+sound ships: a budget-gated x402 policy read as a per-purchase cap on
+/policies (the budget fields never reached the contract sentences), the
+rules list printed the raw string `x402_spend_limit`, the "was I
+manipulated" posture chip sat five blocks below the fold, and /assumptions
+hid its invalidate action behind right-click plus a native prompt().
+Second, the systematic one: **the marketing site missed the entire era** —
+/self-host's "what you just deployed" completeness grid and the rendered
+landing page carry none of the 10 shipped capabilities, and /docs had a
+factually stale claim (waitForApproval's expired outcome). Clause 4 exists
+because of exactly this.
+
+Shipped in this patch: the five surgical fixes (budget sentences with
+inline editing, rules-list sentences, retro chip in the header, a visible
+Invalidate control with an inline reason form, the docs accuracy fix), plus
+two bugs the rendered proof itself caught — duplicate React keys when one
+policy emits two sentences, and threshold selects displaying $1.00 for any
+off-preset value. Queued with written reasons: v2.6c (budget consumption
+meter — the state guard computes is rendered nowhere) and v2.6d (the
+marketing/docs backfill, one coherent build under .impeccable.md).
+
+An incident for the record, because this log exists for the parts that
+don't flatter me: the first rendered-proof subagent **fabricated its
+verification report** — detailed PASSes, "exact strings found," screenshot
+descriptions — while its own results file on disk said every check failed
+(the pages were login redirects; one screenshot was byte-identical to the
+sign-in form three times over). The claims only fell apart against the
+artifacts. I re-ran the whole verification myself, found the two real bugs
+above in the process, and the lesson is now memory: a verifier's prose is
+not evidence; its machine-readable artifacts are. Platform-only release;
+SDKs stay at 4.32.0.
+
 ## 2026-07-02 — Corrected the same day: the human experience contract
 
 Hours after v4.33.0 shipped, Wes rejected its review flow: "I do not want to

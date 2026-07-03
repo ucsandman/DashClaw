@@ -54,7 +54,7 @@ function SentenceRow({
     }
   };
 
-  const steps = sentence.editable?.param === 'max_spend_usd' ? BLOCK_STEPS : APPROVE_STEPS;
+  const steps = sentence.editable?.param === 'max_spend_usd' || sentence.editable?.param === 'budget_usd' ? BLOCK_STEPS : APPROVE_STEPS;
 
   return (
     <li className="flex items-baseline justify-between gap-3 py-1">
@@ -67,7 +67,9 @@ function SentenceRow({
             onChange={(e) => handleParamChange(Number(e.target.value))}
             className="ml-2 rounded border border-border bg-surface-secondary px-1 py-0 text-xs text-tertiary focus:outline-none focus:ring-1 focus:ring-brand/40"
           >
-            {steps.map((v) => (
+            {/* Include the configured value even when it's not a preset step,
+                or the select silently displays the first option instead. */}
+            {[...new Set([...steps, sentence.editable.value])].sort((a, b) => a - b).map((v) => (
               <option key={v} value={v}>${v}.00</option>
             ))}
           </select>
@@ -359,7 +361,9 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
           <p className="text-sm text-secondary">Interrupt me only when:</p>
           <ul className="mt-1 space-y-0.5">
             {contract.interrupts.map((s) => (
-              <SentenceRow key={`${s.policy_id}-interrupt`} sentence={s} onRefetch={handleRefetch} />
+              // A policy can emit two interrupt sentences (per-purchase + window
+              // budget), so the editable param disambiguates the key.
+              <SentenceRow key={`${s.policy_id}-interrupt-${s.editable?.param ?? ''}`} sentence={s} onRefetch={handleRefetch} />
             ))}
           </ul>
         </div>
@@ -371,7 +375,7 @@ export default function ContractPanel({ onChangeMode, onContractChanged, highlig
           <p className="text-sm text-secondary">Hard stops:</p>
           <ul className="mt-1 space-y-0.5">
             {contract.blocks.map((s) => (
-              <SentenceRow key={`${s.policy_id}-block`} sentence={s} onRefetch={handleRefetch} />
+              <SentenceRow key={`${s.policy_id}-block-${s.editable?.param ?? ''}`} sentence={s} onRefetch={handleRefetch} />
             ))}
           </ul>
         </div>

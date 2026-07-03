@@ -13,6 +13,18 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.33.1] — 2026-07-02
+
+The human-experience retro-audit (docs/plans/2026-07-02-human-experience-retro-audit.md): four parallel auditors swept every maintainership-era ship (v4.22.0–v4.33.0) against the new HUMAN-EXPERIENCE.md contract. Most product surfaces pass; this patch fixes every gap small enough to do properly inline, and roadmap v2.6b–v2.6d carry the rest (calibration review UI, budget consumption meter, marketing/docs backfill).
+
+### Fixed
+- **/policies now tells the whole x402 truth** — a budget-gated policy previously read as a per-purchase cap only: the contract sentences never mentioned `budget_usd`/`budget_window_days`/`budget_scope` (now rendered as "30-day per-agent paid spend exceeds $100", inline-editable like the per-purchase terms), and the /policies/rules list showed the raw string `x402_spend_limit` instead of a sentence.
+- **Threshold selects display off-preset values** — a configured threshold not in the preset step list (e.g. $80) silently displayed as the first option ($1.00); the configured value is now always an option. Also fixed duplicate React keys when one policy emits two interrupt/block sentences.
+- **/assumptions invalidation is a visible control** — was right-click-only with a native `window.prompt()`; every active assumption card now carries an "Invalidate…" button opening an inline reason field + Confirm/Cancel (the tuning-proposals pattern), with the notify-the-agent consequence stated. The context-menu path still works.
+- **Session-retro posture is above the fold** — the "was I manipulated" verdict sat five blocks deep on /sessions/{id}; a compact `Retro: Clean/Review/Flagged` chip now renders in the header next to the status badge, anchored to the full card.
+- **Docs accuracy: `waitForApproval` third outcome** — the docs claimed deny-or-timeout; expired approvals are a distinct outcome (`ApprovalDeniedError` with `err.status === 'expired'`, per `sdk/dashclaw.js`) and are now documented.
+- All three changed pages verified rendered headless against real local data (budget sentences, armed invalidate row + cancel, chip position y≈273 at 1280×800), zero console errors.
+
 ## [4.33.0] — 2026-07-02
 
 Calibration flywheel automation (owner roadmap v2.6). The golden-vector corpus grew only when a session-holder remembered the protocol; now a weekly run PROPOSES vectors from live evidence and a human ratifies each one — nothing auto-applies (constitution §3: the corpus is enforcement). No new product surface; the human surface is the GitHub Actions run summary + artifact, an explicit decision in the spec. Spec: `docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md`.

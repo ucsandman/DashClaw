@@ -31,6 +31,12 @@ export default function AssumptionsPage() {
   const [driftSummary, setDriftSummary] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
+  // Inline invalidate flow (operator judgment = a visible control, not
+  // right-click-only): which card is armed, its reason draft, and errors.
+  const [invalidatingId, setInvalidatingId] = useState<string | null>(null);
+  const [invalidateReason, setInvalidateReason] = useState('');
+  const [invalidateError, setInvalidateError] = useState<string | null>(null);
+  const [invalidateBusy, setInvalidateBusy] = useState(false);
   const demo = isDemoMode();
 
   // Fetch the full (agent-scoped) set once; the route filters on integer
@@ -70,6 +76,32 @@ export default function AssumptionsPage() {
 
   const selection = useSelection<any>(visibleAssumptions, (a) => a.id);
   useSelectAllHotkey(selection.toggleAll);
+
+  const handleInvalidate = async (assumptionId: string) => {
+    setInvalidateBusy(true);
+    setInvalidateError(null);
+    try {
+      const res = await fetch(`/api/assumptions/${assumptionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          validated: false,
+          ...(invalidateReason.trim() ? { invalidated_reason: invalidateReason.trim() } : {}),
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || `Invalidate failed (${res.status})`);
+      }
+      setInvalidatingId(null);
+      setInvalidateReason('');
+      await fetchAssumptions();
+    } catch (err) {
+      setInvalidateError((err as Error).message);
+    } finally {
+      setInvalidateBusy(false);
+    }
+  };
 
   const handleCopyIds = () => {
     if (selection.count === 0) return;
@@ -167,8 +199,10 @@ export default function AssumptionsPage() {
             const status = deriveAssumptionStatus(a);
             const cfg = STATUS_CONFIG[status]!;
             const StatusIcon = cfg.icon;
+            const entityId = a.assumption_id || a.id;
+            const armed = invalidatingId === entityId;
             return (
-              <Card key={a.id} data-entity-type="assumption" data-entity-id={a.assumption_id || a.id} data-entity-status={status} hover={false}>
+              <Card key={a.id} data-entity-type="assumption" data-entity-id={entityId} data-entity-status={status} hover={false}>
                 <div className="flex items-start gap-4 p-4">
                   <SelectCheckbox
                     checked={selection.isSelected(a.id)}
@@ -212,8 +246,53 @@ export default function AssumptionsPage() {
                         {a.notification_status === 'acknowledged' ? 'agent acknowledged' : 'agent notified · unread'}
                       </Badge>
                     )}
+                    {status !== 'invalidated' && !armed && (
+                      <button
+                        onClick={() => { setInvalidatingId(entityId); setInvalidateReason(''); setInvalidateError(null); }}
+                        className="mt-1 text-xs text-tertiary transition-colors hover:text-error"
+                      >
+                        Invalidate…
+                      </button>
+                    )}
                   </div>
                 </div>
+                {/* Armed confirm row: reason + confirm/cancel. The agent is
+                    notified via its inbox and hears about it before acting on
+                    this belief again (v2.4 transport). */}
+                {armed && (
+                  <div className="border-t border-border bg-surface-primary/40 px-4 py-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <input
+                        type="text"
+                        value={invalidateReason}
+                        onChange={(e) => setInvalidateReason(e.target.value)}
+                        placeholder="Why is this belief no longer true? (optional)"
+                        autoFocus
+                        className="min-w-0 flex-1 rounded-md border border-border bg-surface-secondary px-2.5 py-1.5 text-xs text-white placeholder:text-disabled focus:border-border-active focus:outline-none"
+                      />
+                      <button
+                        onClick={() => handleInvalidate(entityId)}
+                        disabled={invalidateBusy}
+                        className="rounded-md bg-error-subtle px-3 py-1.5 text-xs font-medium text-error transition-colors hover:bg-error/20 disabled:opacity-50"
+                      >
+                        {invalidateBusy ? 'Invalidating…' : 'Confirm invalidate'}
+                      </button>
+                      <button
+                        onClick={() => { setInvalidatingId(null); setInvalidateError(null); }}
+                        disabled={invalidateBusy}
+                        className="rounded-md px-3 py-1.5 text-xs text-tertiary transition-colors hover:text-secondary disabled:opacity-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[11px] text-tertiary">
+                      The agent is notified in its inbox and sees this before acting on the assumption again.
+                    </p>
+                    {invalidateError && (
+                      <p role="alert" className="mt-1.5 text-xs text-error">{invalidateError}</p>
+                    )}
+                  </div>
+                )}
               </Card>
             );
           })}
