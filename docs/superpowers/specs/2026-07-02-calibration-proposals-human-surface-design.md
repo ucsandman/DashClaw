@@ -1,6 +1,10 @@
 # Calibration proposals human surface (roadmap v2.6b)
 
-**Date:** 2026-07-02 · **Status:** approved for build · **Roadmap:** v2.6b
+**Date:** 2026-07-02 · **Status:** SHIPPED v4.34.0 (2026-07-02) · **Roadmap:** v2.6b
+
+Ship deviation from §4: `undo` is allowed on forged rows at the API level
+(admin-only, audit-logged) so the smoke harness can clean up after itself;
+the UI still offers no Undo on a forged strip.
 
 v2.6 shipped the calibration flywheel's proposal half as a GitHub Actions
 step summary with copy-paste forge commands. Wes rejected that flow the

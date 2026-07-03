@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.33.1",
+    "current_version": "4.34.0",
     "next_bump": "none",
-    "reason": "4.33.1 ships the human-experience retro-audit fixes (budget contract sentences, assumptions invalidate control, retro chip, docs accuracy) — no Node SDK source change; the version advances per the unified model but the SDK is NOT republished. npm stays at 4.32.0.",
+    "reason": "4.34.0 ships the calibration proposals human surface (roadmap v2.6b): /policies review section, GET/POST /api/calibration/proposals, calibration_proposal_decisions table — no Node SDK source change; the version advances per the unified model but the SDK is NOT republished. npm stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.33.1",
+    "current_version": "4.34.0",
     "next_bump": "none",
-    "reason": "4.33.1 ships the human-experience retro-audit fixes — no Python SDK source change; the version advances per the unified model but the SDK is NOT republished. PyPI stays at 4.32.0.",
+    "reason": "4.34.0 ships the calibration proposals human surface (roadmap v2.6b) — no Python SDK source change; the version advances per the unified model but the SDK is NOT republished. PyPI stays at 4.32.0.",
     "domains": [
       "platform"
     ]

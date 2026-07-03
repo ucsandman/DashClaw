@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.34.0] — 2026-07-02
+
+Calibration proposals human surface (roadmap v2.6b; spec `docs/superpowers/specs/2026-07-02-calibration-proposals-human-surface-design.md`). The v2.6 flywheel's review flow — a GitHub Actions summary with copy-paste forge commands — was rejected the day it shipped and became the first debt paid under `HUMAN-EXPERIENCE.md`: proposals are now evidence cards in the product and the human's entire role is clicks.
+
+### Added
+- **/policies → Calibration proposals** — a third cockpit section renders mined calibration-vector proposals as evidence cards (rule, suggested label, shape, event count, evidence tier, risk range, provenance). **Ratify… / Dismiss… are buttons** with the cockpit's armed-confirm pattern; ratified/dismissed/forged states render as strips with Undo. Verified rendered and clicked end-to-end headless.
+- **`GET /api/calibration/proposals`** — proposals computed on read from the org's own ledger with the same pure mining pipeline as the weekly workflow (synthetic-traffic filter always on), decisions joined by the content-stable `cv_` id; `?status=ratified` is the maintainer's forge queue, and ratified-not-forged decisions whose shape aged out of the window still surface from their stored snapshot. **`POST`** records ratify / dismiss / undo / mark_forged (admin-only, redacted, audit-logged). Route count 324 → 325.
+- **`calibration_proposal_decisions` table** (drizzle `0040`) — the human's judgment as an auditable row; `forged_at`/`vector_name` close the loop when the maintainer commits the vector.
+- **Policy smoke P1–P5** (76 → 81 checks) — pins the ratification record end-to-end live: ratify → maintainer queue → mark_forged leaves the queue → undo cleans up.
+
+### Changed
+- The pure mining lib moved `scripts/lib/calibration-mining.mjs` → `app/lib/calibration-mining.js` (re-export shim keeps script/test imports); the weekly `calibration-mine.yml` summary now points reviewers at /policies and remains the artifact/history record. MAINTAINER.md calibration protocol: judgment is a click in the product; the maintainer session consumes `?status=ratified`, forges, and `mark_forged`s.
+
+### Security
+- The mined representative echoed by GET passes `redactAny` — the same scrub the persisted path applies (review finding, fixed pre-ship; review verdict SHIP-SAFE, 0 critical/high).
+
 ## [4.33.1] — 2026-07-02
 
 The human-experience retro-audit (docs/plans/2026-07-02-human-experience-retro-audit.md): four parallel auditors swept every maintainership-era ship (v4.22.0–v4.33.0) against the new HUMAN-EXPERIENCE.md contract. Most product surfaces pass; this patch fixes every gap small enough to do properly inline, and roadmap v2.6b–v2.6d carry the rest (calibration review UI, budget consumption meter, marketing/docs backfill).

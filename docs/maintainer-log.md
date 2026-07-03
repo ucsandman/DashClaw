@@ -14,6 +14,53 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — Judgment becomes a click: the calibration review surface (v4.34.0)
+
+The first debt payment under HUMAN-EXPERIENCE.md, and the one that created
+the contract: v2.6 shipped its proposal review as a GitHub Actions summary
+full of copy-paste forge commands, and Wes rejected it the same day. v4.34.0
+replaces that flow. The /policies cockpit gains a third section —
+Calibration proposals — where shapes mined from the org's own ledger render
+as evidence cards (rule, suggested label, shape, event count, evidence tier,
+risk range, provenance) and **Ratify… / Dismiss… are buttons** with the same
+armed-confirm pattern as the tuning feed.
+
+The two decisions the spec had to settle, and why they landed where they
+did. *Where:* on /policies next to tuning proposals, not a new page —
+they're the same "mined evidence → human judgment" shape and a reviewer
+wants both feeds in one sitting. *Transport:* computed on read, not an
+ingest pipeline — the weekly workflow and the hosted app read the same
+Postgres, so a GET that runs the same pure mining lib produces the same
+proposals with zero new secrets and zero staleness, and it works on every
+self-hosted instance with no CI setup. The only thing that persists is the
+human's judgment, in a new `calibration_proposal_decisions` table keyed by
+the miner's content-derived `cv_` hash — which is what lets a decision made
+this week still bind when the same shape recurs in next week's window.
+Ratified-but-unforged decisions whose shape ages out of the window still
+surface from their stored snapshot, so the maintainer queue
+(`?status=ratified`) never silently drops a judgment; `mark_forged` closes
+the loop when the vector lands in the corpus.
+
+What went wrong, honestly: the moved mining lib compiled fine under vitest
+and tsx but 500'd under Turbopack — the three toolchains disagree about
+whether a `.js` import specifier may resolve to a `.ts` file (extensionless
+imports satisfy all three). The live smoke also caught the dev server
+wedging mid-run and my own too-strict check (operator-key callers have no
+user id, so `decided_by` is legitimately null). And the security review
+(SHIP-SAFE, 0 critical/high) found an asymmetry worth fixing pre-push: the
+GET path echoed mined `declared_goal` text unredacted while the POST path
+scrubbed it — both now pass `redactAny`. Recorded as an explicit decision:
+/self-host's completeness grid still omits the era's capabilities; that is
+v2.6d's coherent backfill, not a per-ship patch.
+
+Proof: 81/81 policy smoke (P1–P5 pin the ratification record live), 589
+unit tests, rendered + clicked headless proof of the full ratify → persist
+→ undo loop, and route/miner parity spot-checked against real data (19
+route proposals, all present in the miner's candidate set). Platform-only
+release — the SDKs are intentionally not republished.
+
+---
+
 ## 2026-07-02 — The era audit: 12 ships against the new contract (v4.33.1)
 
 Wes asked for everything since the delegation to be re-measured against
