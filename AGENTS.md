@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25875 symbols, 51882 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (25872 symbols, 51877 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,13 +73,13 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-03 (commit 6c03ba28). Confidence: 100%.
+Last indexed: 2026-07-03 (commit 97826fdb). Confidence: 100%.
 ### Architecture
-Repowise is a codebase documentation and governance engine that ingests a target repository (source files, contracts, and policy/rules inputs), traverses and parses code into structured representations, analyzes relationships/dependencies, and generates LLM-synthesised wiki artifacts served through an MCP server and a web-facing UI.
+This repository is a codebase documentation and governed-agent platform: it ingests a target repository (source files, configs, and contracts), traverses and parses code into structured representations, analyzes relationships/dependencies and policy rules, then generates LLM-synthesised documentation artifacts (wiki pages) and exposes them through an MCP server and supporting CLI/web-facing tooling.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **front-end application layer** of repowise’s… | - |
+| `app` | The **app** module is the **public-facing application-layer front door** for… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-testing entry stage of repowise’s quality… | - |
 | `app/components` | The app/components module is the UI component layer of repowise’s web… | - |
 | `app/lib` | The app/lib module is the core service-layer “brain” of repowise’s policy… | - |
@@ -103,7 +103,7 @@ Repowise is a codebase documentation and governance engine that ingests a target
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 70 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 71 | Wes Sander |
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 66 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 66 | Wes Sander |
