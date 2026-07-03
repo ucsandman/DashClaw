@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.34.0",
+    "current_version": "4.34.1",
     "next_bump": "none",
-    "reason": "4.34.0 ships the calibration proposals human surface (roadmap v2.6b): /policies review section, GET/POST /api/calibration/proposals, calibration_proposal_decisions table — no Node SDK source change; the version advances per the unified model but the SDK is NOT republished. npm stays at 4.32.0.",
+    "reason": "4.34.1 fixes the fresh-install presence heartbeat (drizzle/0041: agent_presence updated_at + unique (org_id, agent_id)) and the CI reds (timestamptz casts, stale SDK contract fixture) — no Node SDK source change; the version advances per the unified model but the SDK is NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.34.0",
+    "current_version": "4.34.1",
     "next_bump": "none",
-    "reason": "4.34.0 ships the calibration proposals human surface (roadmap v2.6b) — no Python SDK source change; the version advances per the unified model but the SDK is NOT republished. PyPI stays at 4.32.0.",
+    "reason": "4.34.1 fixes the fresh-install presence heartbeat (drizzle/0041: agent_presence updated_at + unique (org_id, agent_id)) and the CI reds (timestamptz casts, stale SDK contract fixture) — no Python SDK source change; the version advances per the unified model but the SDK is NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

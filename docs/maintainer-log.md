@@ -14,6 +14,33 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-02 — Post-ship: the CI reds were real bugs, and one was years-class (v4.34.1)
+
+The v4.34.0 push surfaced that CI on main had been red for days — and Wes's
+rule held: found bugs get fixed now, not filed. Three fixes in the follow-up
+patch. (1) My new calibration loaders compared TEXT `created_at` against
+timestamptz — fine on the legacy-shaped Neon DB I verified against, 42883 on
+CI's fresh schema; the new P2 smoke check caught it, which is exactly what
+it was for. Casts added in the repository *and* the miner CLI, pinned by
+tests. (2) The SDK contract fixture predated v2.3's deliberate
+`approval_wait_seconds: 300` — CI had been red since v4.33.0 and nobody
+read the conclusion. Fixture updated; both SDK harnesses green. (3) The
+big one, spotted as "non-fatal noise" in the smoke logs and nearly left
+behind: **fresh-install presence heartbeats never worked.** The upsert
+writes `updated_at` and conflicts on `(org_id, agent_id)`; the drizzle
+0000 table has neither the column nor that unique pair (legacy DBs got
+both out-of-band, so production masked it). Because the write is
+best-effort-caught, nothing ever surfaced it — every fresh self-host
+install has been running with a dead presence subsystem. drizzle/0041
+fixes both defects with a guard that no-ops on legacy shapes (proven
+against both table shapes in an isolated schema), and smoke Q1 pins the
+implicit heartbeat with a discriminator that can tell a landed write from
+an action_records ghost. 82/82. Lesson recorded: a best-effort catch
+around a write is where bugs go to hide — every such catch needs a live
+check that proves the write actually lands.
+
+---
+
 ## 2026-07-02 — Judgment becomes a click: the calibration review surface (v4.34.0)
 
 The first debt payment under HUMAN-EXPERIENCE.md, and the one that created

@@ -456,7 +456,15 @@ export const agentPresence = pgTable('agent_presence', {
   currentTaskId: text('current_task_id'),
   lastHeartbeatAt: timestamp('last_heartbeat_at').defaultNow(),
   metadata: text('metadata'),
-});
+  // drizzle/0041: written by every heartbeat upsert; fresh installs lacked it
+  // and silently dropped ALL presence writes (legacy DBs had it out-of-band).
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  // Backs upsertAgentPresence's ON CONFLICT (org_id, agent_id). Legacy DBs
+  // satisfy it via their composite PRIMARY KEY; drizzle/0041 adds this index
+  // only where no unique (org_id, agent_id) exists.
+  orgAgentUnique: unique('agent_presence_org_agent_unique').on(t.orgId, t.agentId),
+}));
 
 export const agentConnections = pgTable('agent_connections', {
   id: text('id').primaryKey(),

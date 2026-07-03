@@ -922,6 +922,31 @@ async function main() {
       `queue=${(gone.json?.proposals || []).length} rows`);
   }
 
+  // ── Presence heartbeat (Q1, drizzle/0041 regression pin) ────────────────
+  // On fresh schemas the presence upsert silently failed for every agent
+  // (missing updated_at column + no unique (org_id, agent_id) behind the
+  // ON CONFLICT) — the write is best-effort, so nothing surfaced it. The
+  // discriminator: an agent known only from action_records reads
+  // reported_status='unknown'; a landed heartbeat reads 'online' with a
+  // last_heartbeat_at stamp.
+  {
+    console.log('\nPresence heartbeat...');
+    const agent = agentFor('presence');
+    await api('POST', '/api/actions', {
+      agent_id: agent, action_type: `smoke.presence.${RUN}`,
+      declared_goal: `presence heartbeat ${RUN}`, risk_score: 5,
+    });
+    let row = null;
+    for (let attempt = 0; attempt < 3 && !row?.last_heartbeat_at; attempt++) {
+      if (attempt) await new Promise((r) => setTimeout(r, 500));
+      const res = await api('GET', '/api/agents');
+      row = (res.json?.agents || []).find((a) => a.agent_id === agent) || null;
+    }
+    check('Q1', 'action submit lands an implicit presence heartbeat (agent_presence upsert works)',
+      !!row && row.reported_status === 'online' && !!row.last_heartbeat_at,
+      `row=${JSON.stringify(row)?.slice(0, 200)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

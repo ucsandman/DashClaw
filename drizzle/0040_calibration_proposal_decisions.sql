@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS "calibration_proposal_decisions" (
   "vector_name" text,
   CONSTRAINT "calibration_proposal_decisions_org_proposal_unique" UNIQUE ("org_id", "proposal_id")
 );
-
+--> statement-breakpoint
 -- Backs the /policies section's decision join and the maintainer's
 -- ?status=ratified queue scan.
 CREATE INDEX IF NOT EXISTS "idx_calibration_decisions_org_decision"

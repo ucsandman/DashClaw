@@ -13,6 +13,12 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.34.1] — 2026-07-02
+
+### Fixed
+- **Fresh-install presence heartbeats were silently dead** (drizzle `0041`): `upsertAgentPresence` writes `updated_at` and upserts `ON CONFLICT (org_id, agent_id)`, but the drizzle `0000` table had neither the column nor a unique constraint on that pair — legacy databases got both out-of-band (composite PK), so production worked while every fresh install dropped ALL heartbeats behind a best-effort catch (`[presence] heartbeat skipped` in the CI logs). `0041` adds the column and a guarded unique index (no-op on legacy DBs — proven against both shapes); policy smoke Q1 (81 → 82 checks) pins the implicit heartbeat end-to-end via the `reported_status: 'online'` discriminator.
+- **CI red since v4.33.0, twice over**: the calibration event loaders (and the miner CLI) compared TEXT `created_at` against timestamptz — 42883 on fresh schemas, fixed with `::timestamptz` casts pinned by unit tests; and `docs/sdk-critical-contract-harness.json` predated v2.3's deliberate `approval_wait_seconds: 300` declaration on `guard`/`createAction` in both SDKs — fixture updated, both harnesses green.
+
 ## [4.34.0] — 2026-07-02
 
 Calibration proposals human surface (roadmap v2.6b; spec `docs/superpowers/specs/2026-07-02-calibration-proposals-human-surface-design.md`). The v2.6 flywheel's review flow — a GitHub Actions summary with copy-paste forge commands — was rejected the day it shipped and became the first debt paid under `HUMAN-EXPERIENCE.md`: proposals are now evidence cards in the product and the human's entire role is clicks.
