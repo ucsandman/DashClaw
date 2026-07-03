@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:f3ce06f9ae32db0d70fb50e79101e2b78e49444e",
+  "timestamp": "sha1:092b56e4483380e58bf7c8da9f94670ff1843f5a",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5398,6 +5398,11 @@
       "name": "calendar_events",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "calibration_proposal_decisions",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "code_optimal_file_manifests",

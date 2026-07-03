@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:f3ce06f9ae32db0d70fb50e79101e2b78e49444e · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:092b56e4483380e58bf7c8da9f94670ff1843f5a · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">277</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">185</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">100</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">101</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (100)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (101)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -77,6 +77,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>behavior_dismissals</code></td><td class="sig">governance</td></tr>
     <tr><td><code>behavior_samples</code></td><td class="sig">governance</td></tr>
     <tr><td><code>calendar_events</code></td><td class="sig">—</td></tr>
+    <tr><td><code>calibration_proposal_decisions</code></td><td class="sig">governance</td></tr>
     <tr><td><code>code_optimal_file_manifests</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_projects</code></td><td class="sig">—</td></tr>
     <tr><td><code>code_session_alerts</code></td><td class="sig">—</td></tr>
@@ -192,7 +193,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>44</b> env_vars added, <b>1</b> env_vars removed, <b>17</b> routes added, <b>3</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>44</b> env_vars added, <b>1</b> env_vars removed, <b>17</b> routes added, <b>4</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
@@ -254,6 +255,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
+    <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li></ul></section>

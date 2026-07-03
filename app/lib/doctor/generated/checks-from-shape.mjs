@@ -22,6 +22,7 @@ const TABLES = [
   "behavior_dismissals",
   "behavior_samples",
   "calendar_events",
+  "calibration_proposal_decisions",
   "code_optimal_file_manifests",
   "code_projects",
   "code_session_alerts",

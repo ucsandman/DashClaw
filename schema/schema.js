@@ -1646,3 +1646,31 @@ export const workOrderReceipts = pgTable('work_order_receipts', {
 }, (table) => ({
   uniqueWorkOrder: uniqueIndex('work_order_receipts_work_order_unique').on(table.workOrderId),
 }));
+
+// @domain governance
+// Calibration proposals human surface (roadmap v2.6b): the human's
+// ratify/dismiss judgment on a mined calibration proposal. Proposals are
+// computed on read from the ledger (app/lib/calibration-mining.js); only the
+// decision persists, keyed by the miner's content-stable cv_ id so it still
+// binds when the same shape recurs in a later window. forged_at/vector_name
+// close the loop after the maintainer commits the fixture vector.
+export const calibrationProposalDecisions = pgTable('calibration_proposal_decisions', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  proposalId: text('proposal_id').notNull(),
+  rule: text('rule').notNull(),
+  decision: text('decision').notNull(), // 'ratified' | 'dismissed'
+  suggestedLabel: text('suggested_label'),
+  suggestedName: text('suggested_name'),
+  provenance: text('provenance'),
+  ratifyCommand: text('ratify_command'),
+  representative: jsonb('representative'),
+  reason: text('reason'),
+  decidedBy: text('decided_by'),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+  forgedAt: timestamp('forged_at', { withTimezone: true }),
+  vectorName: text('vector_name'),
+}, (t) => ({
+  orgProposalUnique: unique('calibration_proposal_decisions_org_proposal_unique').on(t.orgId, t.proposalId),
+  orgDecisionIdx: index('idx_calibration_decisions_org_decision').on(t.orgId, t.decision),
+}));
