@@ -722,6 +722,18 @@ npm run livingcode:refresh`}</CodeBlock>
                 />
               }
             />
+            <div id="risk-calibration" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Risk calibration proposals</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                The score behind <code className="text-xs">guard</code> is pinned by a golden-vector corpus. DashClaw
+                mines your own decision ledger for shapes where the scorer looks miscalibrated (over-scored benign
+                actions, under-scored dangers, repeatedly approved shapes) and renders them as evidence cards on{' '}
+                <code className="text-xs">/policies → Calibration proposals</code> — ratify and dismiss are buttons.
+                The same proposals are available at <code className="text-xs">GET /api/calibration/proposals</code>;
+                a ratified proposal is a recorded judgment (<code className="text-xs">?status=ratified</code> is the
+                maintainer&apos;s forge queue). Nothing changes scoring until the vector is forged and committed.
+              </p>
+            </div>
           </section>
 
           {/* ── Action Recording ── */}

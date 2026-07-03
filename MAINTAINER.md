@@ -55,7 +55,13 @@ of every public claim the product makes.
 - **Every wrong interruption becomes a calibration vector**
   (`__tests__/fixtures/risk-calibration-golden-vectors.json`): label it, name
   the incident in `source`, bound it, fix the model in the same commit. The
-  same applies in reverse to under-scored dangers.
+  same applies in reverse to under-scored dangers. Since v2.6b the human half
+  is buttons: mined proposals render on **/policies → Calibration proposals**
+  where the owner ratifies or dismisses. The maintainer session consumes the
+  ratified queue (`GET /api/calibration/proposals?status=ratified`), runs each
+  recorded forge command (`npm run calibration:add`), commits the vector (+
+  scorer fix when `requires_model_fix`), then closes the loop with
+  `POST {action: 'mark_forged', vector_name}` so the surface shows it landed.
 - **Adversarial review for risk-bearing diffs.** Anything touching auth,
   middleware, spend, webhooks, or secrets gets a security review before push;
   findings are fixed, not filed.

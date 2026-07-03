@@ -3,9 +3,11 @@ name: Calibration mining
 # Weekly calibration-vector PROPOSAL run (owner roadmap v2.6). Mines the live
 # guard-decision ledger + uploaded behavior samples for candidate golden
 # vectors, renders the proposals into the run summary, and uploads the JSON
-# artifact. NOTHING auto-applies: a human ratifies each proposal locally via
-# its `npm run calibration:add` command and commits the fixture
-# (MAINTAINER.md calibration protocol, constitution §3).
+# artifact. NOTHING auto-applies: the human reviews and ratifies proposals in
+# the product (/policies → Calibration proposals, since v2.6b — the app
+# computes the same proposals on read); the maintainer session forges ratified
+# ones and commits the fixture (MAINTAINER.md calibration protocol,
+# constitution §3). This run remains the weekly artifact/history record.
 #
 # Spec: docs/superpowers/specs/2026-07-02-calibration-flywheel-automation.md
 #
@@ -71,7 +73,12 @@ jobs:
 
       - name: Publish run summary
         if: steps.gate.outputs.run == 'true'
-        run: cat calibration-summary.md >> "$GITHUB_STEP_SUMMARY"
+        run: |
+          {
+            echo "> **Review these in the product:** your DashClaw instance → **/policies → Calibration proposals** (same proposals, computed live; ratify/dismiss are buttons there)."
+            echo ""
+            cat calibration-summary.md
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload proposal artifact
         if: steps.gate.outputs.run == 'true'

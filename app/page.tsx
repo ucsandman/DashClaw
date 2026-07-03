@@ -613,7 +613,7 @@ if (decision === "allow") {
                 icon: Shield,
                 title: 'Policy Engine',
                 description: 'Semantic guardrails that decide allow, block, or require approval before the action reaches the real world.',
-                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines'],
+                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines', 'Self-calibrating risk scoring — miscalibrated shapes mined from your own ledger become one-click ratify/dismiss proposals on /policies'],
               },
               {
                 icon: MessageSquare,
