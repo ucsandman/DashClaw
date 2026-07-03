@@ -6,6 +6,7 @@
       "pathname": "/api/guard",
       "query": [],
       "body": {
+        "approval_wait_seconds": 300,
         "action_type": "deploy",
         "risk_score": 55,
         "agent_id": "agent-1"
@@ -19,6 +20,7 @@
       "pathname": "/api/actions",
       "query": [],
       "body": {
+        "approval_wait_seconds": 300,
         "action_type": "deploy",
         "declared_goal": "Ship release",
         "agent_id": "agent-1",

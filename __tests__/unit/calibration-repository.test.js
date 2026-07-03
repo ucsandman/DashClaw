@@ -57,6 +57,9 @@ describe('loadDecisionEventsForOrg', () => {
     const text = sql.query.mock.calls[0][0];
     expect(text).toContain('gd.org_id = $1');
     expect(text).toContain('guard_decisions');
+    // created_at is TEXT on fresh drizzle schemas — the cast is what keeps
+    // this query alive on CI/self-host Postgres (42883 without it).
+    expect(text).toContain('gd.created_at::timestamptz >');
     expect(sql.query.mock.calls[0][1]).toEqual(['org1', 30, 20000]);
   });
 
@@ -93,6 +96,7 @@ describe('loadUploadedSampleEventsForOrg', () => {
     const text = sql.query.mock.calls[0][0];
     expect(text).toContain('org_id = $1');
     expect(text).toContain('behavior_samples');
+    expect(text).toContain('ts::timestamptz >');
     expect(sql.query.mock.calls[0][1]).toEqual(['org1', 30, 20000]);
   });
 });
