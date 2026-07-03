@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.36.0",
+    "current_version": "4.36.1",
     "next_bump": "none",
-    "reason": "4.36.0 ships roadmap v2.7 desktop distribution closeout (connector docs truth pass, .mcpb retirement, Codex code-session reporter, claude-desktop OAuth identity pin on /api/mcp, plugin manifest lockstep, /privacy page + listing runbook) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.1 fixes the dead landing-page Explore-the-Demo button (client-side /demo redirect loses its hash; same-page anchor like the hero fix) and lets /api/hosted pass through demo-mode middleware so the instant trial CAN be enabled on the marketing host (inert until DASHCLAW_HOSTED is set; routes self-guard 404) — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.36.0",
+    "current_version": "4.36.1",
     "next_bump": "none",
-    "reason": "4.36.0 ships roadmap v2.7 desktop distribution closeout (connector docs truth pass, .mcpb retirement, Codex code-session reporter, claude-desktop OAuth identity pin on /api/mcp, plugin manifest lockstep, /privacy page + listing runbook) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.1 fixes the dead landing-page Explore-the-Demo button (client-side /demo redirect loses its hash; same-page anchor like the hero fix) and lets /api/hosted pass through demo-mode middleware so the instant trial CAN be enabled on the marketing host (inert until DASHCLAW_HOSTED is set; routes self-guard 404) — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

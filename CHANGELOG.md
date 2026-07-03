@@ -13,6 +13,14 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.36.1] — 2026-07-03
+
+Two live-site fixes found by the maintainer clicking the actual site. No SDK change.
+
+### Fixed
+- **Landing "Explore the Demo" button was dead** — the bottom CTA linked `/demo`, whose middleware redirect to `/#live-demo` drops its hash during client-side navigation from `/`. Same-page anchor now, mirroring the identical hero-button fix.
+- **The instant hosted trial was structurally unreachable on the live site** — demo-mode middleware 403'd `/api/hosted/capacity` (not in the passthrough list), so the trial CTA never rendered even though the feature shipped in June. `/api/hosted` now passes through demo mode; this is inert until the operator sets `DASHCLAW_HOSTED=true` (every hosted route self-guards with a 404 when the flag is off). `docs/DISTRIBUTION-LISTINGS.md` corrected: the reviewer test account currently requires a manual workspace mint (or flipping the trial on first).
+
 ## [4.36.0] — 2026-07-03
 
 Desktop distribution closeout (roadmap v2.7). Three parallel audits — connector-docs truth pass, four-surface plugin parity, public-listing readiness — then one fix sweep. No SDK source change.

@@ -43,9 +43,14 @@ Status legend: what the repo guarantees is ready vs. the single step you take.
   `docs/CLAUDE-DESKTOP-PLUGIN.md`.
 - **Prerequisites you must hold (not repo work):**
   1. A Claude.ai **Team or Enterprise** org (submission is gated on it).
-  2. A **reviewer test account** on the hosted instance with sample data —
-     mint a trial workspace, run one governed action so /decisions isn't
-     empty, and note the credentials for the form.
+  2. A **reviewer test account** on the hosted instance with sample data.
+     Note: the instant hosted trial is **not publicly enabled** — the code
+     ships but `DASHCLAW_HOSTED` is unset in production, so self-serve
+     signup does not exist on the live site. Either mint the reviewer
+     workspace manually (the standing human-mint flow), or flip the trial
+     on first (`DASHCLAW_HOSTED=true` on the Vercel deployment; setup doc:
+     `docs/instant-trial-vercel-setup.md`). Then run one governed action in
+     that workspace so /decisions isn't empty, and note the credentials.
 - **Your step:** in Claude.ai admin settings, open the connector submission
   portal and fill the form: connector URL `https://<instance>/api/mcp`,
   privacy policy `https://<instance>/privacy`, the reviewer account, and

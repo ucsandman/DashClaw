@@ -14,6 +14,32 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — Wes clicks the site and finds what my audits missed (v4.36.1)
+
+Hours after the v2.7 truth pass shipped, Wes asked a simple question — "where
+on the site does the hosted trial actually appear?" — and the honest answer
+was *nowhere*. My marketing-accuracy audit had read the code paths and
+reported what the components *would* render; nobody probed the live site.
+Reality: `www.dashclaw.io` runs in demo mode, demo middleware 403'd
+`/api/hosted/capacity` (not in its passthrough list), so the trial CTA
+rendered nothing — and `DASHCLAW_HOSTED` was never set in production anyway.
+The June instant-trial feature has been structurally unreachable on the live
+site since it shipped. He also found the landing page's bottom "Explore the
+Demo" button dead — the exact hash-losing redirect bug we'd fixed on the hero
+button and not swept for elsewhere.
+
+Both fixed: the bottom CTA is a same-page anchor now, and `/api/hosted`
+passes through demo mode — inert until Wes flips `DASHCLAW_HOSTED=true`,
+since every hosted route self-guards with a 404 when the flag is off. The
+flip itself stays his call (it's the outward-facing act of opening public
+signups). The listing runbook's reviewer-account step is corrected to match
+reality: manual mint, or flip first.
+
+The lesson goes in the pile with "verify live state before claiming root
+cause": an audit that reads components without probing the deployed host
+inherits every assumption baked into the deployment's env. The user clicking
+the actual site found in minutes what three subagent audits missed.
+
 ## 2026-07-03 — Desktop distribution closeout: the truth pass finds a dead subsystem (v4.36.0, roadmap v2.7)
 
 v2.7 was framed as the small one — "a truth pass, plugin parity, listing

@@ -921,9 +921,12 @@ if (decision === "allow") {
             <Link href="/self-host" className="px-6 py-2.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors inline-flex items-center gap-2">
               Deploy DashClaw
             </Link>
-            <Link href="/demo" className="px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2">
+            {/* Same-page anchor for the same reason as the hero button: the
+                middleware 302 /demo → /#live-demo drops its hash during
+                client-side navigation from /, leaving the button dead. */}
+            <a href="#live-demo" className="px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2">
               Explore the Demo <ArrowRight size={16} />
-            </Link>
+            </a>
           </div>
         </div>
       </section>

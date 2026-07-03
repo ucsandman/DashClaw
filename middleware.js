@@ -692,7 +692,11 @@ function isDemoSimulationRequest(pathname, method) {
 // Allow NextAuth internals and raw markdown passthrough (these do not write data).
 // /api/prompts/{server-setup,agent-connect}/raw serve static markdown for the
 // "Copy ... Prompt" buttons on /self-host and should work identically in demo.
-const DEMO_PASSTHROUGH_PREFIXES = ['/api/auth', '/api/docs/raw'];
+// /api/hosted passes through so the instant-trial flow can run on the demo-mode
+// marketing host: every hosted route self-guards with isHostedMode() (404 when
+// DASHCLAW_HOSTED is unset), so this is inert until the operator flips that env.
+// Without it, demo mode 403s /api/hosted/capacity and the trial CTA never renders.
+const DEMO_PASSTHROUGH_PREFIXES = ['/api/auth', '/api/docs/raw', '/api/hosted'];
 const DEMO_PASSTHROUGH_EXACT = ['/api/prompts/server-setup/raw', '/api/prompts/agent-connect/raw'];
 
 function isDemoPassthroughPath(pathname) {
