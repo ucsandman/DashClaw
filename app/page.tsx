@@ -87,7 +87,7 @@ export default function LandingPage() {
             <span className="text-text-disabled" aria-hidden="true">·</span>
             <span>No per seat pricing</span>
             <span className="text-text-disabled" aria-hidden="true">·</span>
-            <span>No usage caps</span>
+            <span>No usage caps when self-hosted</span>
             <span className="text-text-disabled" aria-hidden="true">·</span>
             <span>Your data stays on your infrastructure</span>
           </div>

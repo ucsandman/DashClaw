@@ -1,20 +1,31 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { signIn } from 'next-auth/react';
 import { ArrowRight } from 'lucide-react';
 
 type Capacity = { full: boolean; active: number; max: number };
 
 /**
- * Hosted-trial hero CTA. Renders only on a hosted instance (dashclaw.io).
- * On a self-hosted instance `/api/hosted/capacity` returns 404, so this
- * component renders nothing and the existing hero is left untouched.
+ * Hosted-trial hero CTA. Two render modes:
+ *
+ * 1. Marketing site (NEXT_PUBLIC_HOSTED_TRIAL_URL set, e.g. dashclaw.io):
+ *    a plain cross-origin link to the hosted-trial instance's /connect —
+ *    no capacity fetch (same-origin /api/hosted 404s here), always visible.
+ * 2. The hosted instance itself (env unset, DASHCLAW_HOSTED=true): probes
+ *    same-origin /api/hosted/capacity and links to /connect, where the
+ *    anonymous Turnstile mint discloses the trial caps before provisioning.
+ *    (Not signIn('google') — the hosted deployment has no Google provider;
+ *    the Turnstile mint is the working signup path.)
+ *
+ * On a self-hosted instance both are absent (capacity 404s) and this renders
+ * nothing, leaving the existing hero untouched.
  */
 export default function HostedTrialCTA() {
+  const trialUrl = process.env.NEXT_PUBLIC_HOSTED_TRIAL_URL || '';
   const [capacity, setCapacity] = useState<Capacity | null>(null);
 
   useEffect(() => {
+    if (trialUrl) return; // marketing mode: no probe needed
     let active = true;
     fetch('/api/hosted/capacity')
       .then((res) => (res.ok ? res.json() : null))
@@ -27,7 +38,18 @@ export default function HostedTrialCTA() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [trialUrl]);
+
+  const className =
+    'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20';
+
+  if (trialUrl) {
+    return (
+      <a href={trialUrl} className={className}>
+        Start a hosted trial — free for 30 days <ArrowRight size={18} aria-hidden="true" />
+      </a>
+    );
+  }
 
   // Self-host (404), fetch error, or not yet loaded: render nothing.
   if (!capacity) return null;
@@ -44,12 +66,8 @@ export default function HostedTrialCTA() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={() => signIn('google', { callbackUrl: '/connect?hosted=1' })}
-      className="px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20"
-    >
-      Govern your Claude — free <ArrowRight size={18} aria-hidden="true" />
-    </button>
+    <a href="/connect" className={className}>
+      Start a hosted trial — free for 30 days <ArrowRight size={18} aria-hidden="true" />
+    </a>
   );
 }

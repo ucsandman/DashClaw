@@ -1,32 +1,38 @@
 import React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor, fireEvent } from '@testing-library/react';
+import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import HostedTrialCTA from '@/components/HostedTrialCTA';
-
-vi.mock('next-auth/react', () => ({ signIn: vi.fn() }));
-
-import { signIn } from 'next-auth/react';
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllEnvs();
 });
 
 describe('HostedTrialCTA', () => {
-  it('under cap: clicking the CTA calls signIn with google and /connect?hosted=1', async () => {
+  it('marketing mode (NEXT_PUBLIC_HOSTED_TRIAL_URL set): renders a cross-origin link, no capacity probe', () => {
+    vi.stubEnv('NEXT_PUBLIC_HOSTED_TRIAL_URL', 'https://hosted.dashclaw.io/connect');
+    global.fetch = vi.fn();
+
+    render(<HostedTrialCTA />);
+
+    const link = screen.getByRole('link', { name: /Start a hosted trial/i });
+    expect(link.getAttribute('href')).toBe('https://hosted.dashclaw.io/connect');
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('hosted instance, under cap: links to the same-origin /connect mint (NOT Google sign-in — no provider is configured on the hosted deployment)', async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({ full: false, active: 0, max: 500 }) }),
     );
 
     render(<HostedTrialCTA />);
 
-    const btn = await screen.findByRole('button', { name: /Govern your Claude/i });
-    expect(btn).toBeTruthy();
-    fireEvent.click(btn);
-    expect(signIn).toHaveBeenCalledWith('google', { callbackUrl: '/connect?hosted=1' });
+    const link = await screen.findByRole('link', { name: /Start a hosted trial/i });
+    expect(link.getAttribute('href')).toBe('/connect');
   });
 
-  it('full: shows "Trials are full" and not the sign-in CTA', async () => {
+  it('full: shows "Trials are full" and not the trial link', async () => {
     global.fetch = vi.fn(() =>
       Promise.resolve({ ok: true, json: () => Promise.resolve({ full: true, active: 500, max: 500 }) }),
     );
@@ -34,7 +40,7 @@ describe('HostedTrialCTA', () => {
     render(<HostedTrialCTA />);
 
     expect(await screen.findByText(/Trials are full/i)).toBeTruthy();
-    expect(screen.queryByText(/Govern your Claude/i)).toBeNull();
+    expect(screen.queryByText(/Start a hosted trial/i)).toBeNull();
   });
 
   it('self-host (404): renders nothing', async () => {

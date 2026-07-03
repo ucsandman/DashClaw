@@ -128,8 +128,13 @@ export default function PrivacyPage() {
           <Section id="retention" title="Retention and deletion">
             <p>
               Hosted-trial workspaces and everything in them are deleted on request — email us
-              from the address you signed in with. Self-hosted data lives in your database;
+              from the address you signed up with. Self-hosted data lives in your database;
               deleting it is a query you run, not a request you make.
+            </p>
+            <p>
+              The hosted trial is a trial: it carries no SLA and no independent backup
+              guarantee beyond the database provider&apos;s own recovery. For production
+              workloads, self-host.
             </p>
           </Section>
 

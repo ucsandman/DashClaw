@@ -35,25 +35,30 @@ Status legend: what the repo guarantees is ready vs. the single step you take.
 
 ## 3. Anthropic Connectors Directory (Claude custom connector)
 
-- **Ready:** the OAuth connector itself (remote Streamable HTTP + OAuth 2.1
-  DCR/PKCE at `/api/mcp`) is shipped and verified end-to-end; the public
-  privacy policy — an immediate-rejection item when missing — is live at
-  `https://<instance>/privacy` (linked from every public page footer).
-  Example prompts for the submission form can be lifted from
-  `docs/CLAUDE-DESKTOP-PLUGIN.md`.
+- **The instance to list is `hosted.dashclaw.io`** — the deployment topology
+  is three Vercel projects from this one repo: `dashclaw` (the demo-mode
+  marketing site at www.dashclaw.io), `my-dashclaw` (the maintainer's
+  personal instance), and `dashclaw-hosted` (hosted.dashclaw.io — the
+  multi-tenant trial instance with `DASHCLAW_HOSTED=true`). The trial has
+  been live there since June; the marketing site links to it via
+  `NEXT_PUBLIC_HOSTED_TRIAL_URL`.
+- **Ready:** the OAuth connector (remote Streamable HTTP + OAuth 2.1
+  DCR/PKCE at `https://hosted.dashclaw.io/api/mcp`, discovery verified);
+  the public privacy policy — an immediate-rejection item when missing — at
+  `https://hosted.dashclaw.io/privacy` (footer-linked). Example prompts can
+  be lifted from `docs/CLAUDE-DESKTOP-PLUGIN.md`.
 - **Prerequisites you must hold (not repo work):**
   1. A Claude.ai **Team or Enterprise** org (submission is gated on it).
-  2. A **reviewer test account** on the hosted instance with sample data.
-     Note: the instant hosted trial is **not publicly enabled** — the code
-     ships but `DASHCLAW_HOSTED` is unset in production, so self-serve
-     signup does not exist on the live site. Either mint the reviewer
-     workspace manually (the standing human-mint flow), or flip the trial
-     on first (`DASHCLAW_HOSTED=true` on the Vercel deployment; setup doc:
-     `docs/instant-trial-vercel-setup.md`). Then run one governed action in
-     that workspace so /decisions isn't empty, and note the credentials.
+  2. A **reviewer test account**: self-serve — open
+     `https://hosted.dashclaw.io/connect`, mint an anonymous trial
+     workspace (Turnstile-gated; 30 days / 10,000 actions), run one
+     governed action so /decisions isn't empty, and note the workspace
+     credentials for the form. (The hosted deployment has no Google
+     provider configured — the anonymous mint is the signup path.)
 - **Your step:** in Claude.ai admin settings, open the connector submission
-  portal and fill the form: connector URL `https://<instance>/api/mcp`,
-  privacy policy `https://<instance>/privacy`, the reviewer account, and
+  portal and fill the form: connector URL
+  `https://hosted.dashclaw.io/api/mcp`, privacy policy
+  `https://hosted.dashclaw.io/privacy`, the reviewer account, and
   3 example prompts (e.g. "list my active governance policies",
   "guard and record this deploy action", "show my recent decisions").
 

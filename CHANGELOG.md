@@ -13,13 +13,26 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.36.2] — 2026-07-03
+
+The hosted trial has been live at `hosted.dashclaw.io` since June — and nothing anywhere linked to it. The deployment topology is three Vercel projects from this repo (marketing/demo at www.dashclaw.io, the maintainer's instance, and the multi-tenant trial instance); 4.36.1's "structurally unreachable" diagnosis was true of the marketing site only. This release makes the trial discoverable and its copy honest. No SDK change.
+
+### Added
+- **Marketing → trial link** — `HostedTrialCTA` gains a marketing mode: when `NEXT_PUBLIC_HOSTED_TRIAL_URL` is set (now configured on the marketing project, pointing at `https://hosted.dashclaw.io/connect`), the hero renders a plain cross-origin "Start a hosted trial — free for 30 days" link with no same-origin capacity probe.
+- **`/privacy`** — explicit no-SLA/no-backup-guarantee sentence for the hosted trial; production workloads self-host.
+
+### Fixed
+- **The trial CTA no longer depends on Google sign-in** — the hosted deployment has no Google provider configured, so the old `signIn('google')` click was a dead end even where the CTA rendered. It now links to `/connect`, where the anonymous Turnstile mint (the signup path that actually works, and discloses the 30-day / 10,000-action caps before provisioning) lives.
+- **Hero trust band** — "No usage caps" qualified to "No usage caps when self-hosted"; the hosted trial is capped and the line sat directly under the trial CTA.
+- **`docs/DISTRIBUTION-LISTINGS.md`** — corrected to the real topology: the connector-directory listing targets `hosted.dashclaw.io/api/mcp`, and the reviewer test account is self-serve via the live trial (no manual mint needed).
+
 ## [4.36.1] — 2026-07-03
 
 Two live-site fixes found by the maintainer clicking the actual site. No SDK change.
 
 ### Fixed
 - **Landing "Explore the Demo" button was dead** — the bottom CTA linked `/demo`, whose middleware redirect to `/#live-demo` drops its hash during client-side navigation from `/`. Same-page anchor now, mirroring the identical hero-button fix.
-- **The instant hosted trial was structurally unreachable on the live site** — demo-mode middleware 403'd `/api/hosted/capacity` (not in the passthrough list), so the trial CTA never rendered even though the feature shipped in June. `/api/hosted` now passes through demo mode; this is inert until the operator sets `DASHCLAW_HOSTED=true` (every hosted route self-guards with a 404 when the flag is off). `docs/DISTRIBUTION-LISTINGS.md` corrected: the reviewer test account currently requires a manual workspace mint (or flipping the trial on first).
+- **The instant hosted trial was structurally unreachable on the marketing site** — demo-mode middleware 403'd `/api/hosted/capacity` (not in the passthrough list), so the trial CTA never rendered there. `/api/hosted` now passes through demo mode (inert where `DASHCLAW_HOSTED` is unset; every hosted route self-guards with a 404). Corrected in 4.36.2: the trial itself was live the whole time on the separate `hosted.dashclaw.io` project — the marketing site just never linked to it.
 
 ## [4.36.0] — 2026-07-03
 

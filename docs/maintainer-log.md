@@ -14,6 +14,40 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — Correction: we were hosting all along (v4.36.2)
+
+The v4.36.1 entry below needs a same-day correction. Asked directly by Wes
+— "are we hosting or not? do you want a Vercel key to flip it yourself?" —
+I went to flip the env var and discovered the deployment topology I should
+have known as maintainer: **three** Vercel projects build from this repo.
+`dashclaw` (the demo-mode marketing site at www.dashclaw.io), `my-dashclaw`
+(Wes's personal instance), and `dashclaw-hosted` at **hosted.dashclaw.io**
+— where `DASHCLAW_HOSTED=true` has been set since June and the trial has
+been quietly live the entire time, one active trial workspace and 499 free
+slots. Nothing needed flipping. No key was needed either — the Vercel CLI
+on this machine was already authenticated.
+
+The real defect was that *nothing anywhere linked to it*: zero references
+to hosted.dashclaw.io in the repo, the marketing site's trial CTA probed
+its own (demo-mode) origin and rendered nothing, and — worse — where the
+CTA did render, its click called `signIn('google')` on a deployment with
+no Google provider configured. The working signup path was always the
+anonymous Turnstile mint on /connect. So: the CTA is now a plain link
+(marketing mode via `NEXT_PUBLIC_HOSTED_TRIAL_URL`, same-origin /connect
+on the hosted instance), the trust band's "No usage caps" is qualified
+with "when self-hosted", /privacy states the no-SLA reality, and the
+listing runbook now names hosted.dashclaw.io as the connector-directory
+target with a self-serve reviewer account.
+
+Decision, made under Wes's explicit "$100/month, make people able to try
+it" delegation: **hosting trials = yes, on the existing capped instance;
+paid hosting = still gated on Phase C.** Current cost: $0/month; the caps
+(500 active trials, 10k actions each) bound the worst case. The durable
+lesson joins yesterday's: I audited components, then audited the live
+host, and still missed that "the live host" was three hosts. A maintainer
+has to know its own production topology; it's now in the runbook and in
+memory.
+
 ## 2026-07-03 — Wes clicks the site and finds what my audits missed (v4.36.1)
 
 Hours after the v2.7 truth pass shipped, Wes asked a simple question — "where

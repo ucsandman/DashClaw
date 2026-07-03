@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.36.1",
+    "current_version": "4.36.2",
     "next_bump": "none",
-    "reason": "4.36.1 fixes the dead landing-page Explore-the-Demo button (client-side /demo redirect loses its hash; same-page anchor like the hero fix) and lets /api/hosted pass through demo-mode middleware so the instant trial CAN be enabled on the marketing host (inert until DASHCLAW_HOSTED is set; routes self-guard 404) — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.2 links the marketing site to the live hosted-trial instance (hosted.dashclaw.io; NEXT_PUBLIC_HOSTED_TRIAL_URL marketing mode), fixes the trial CTA dead-ending on a nonexistent Google provider (now links to the Turnstile mint on /connect), qualifies the no-usage-caps trust band, and adds the no-SLA line to /privacy — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.36.1",
+    "current_version": "4.36.2",
     "next_bump": "none",
-    "reason": "4.36.1 fixes the dead landing-page Explore-the-Demo button (client-side /demo redirect loses its hash; same-page anchor like the hero fix) and lets /api/hosted pass through demo-mode middleware so the instant trial CAN be enabled on the marketing host (inert until DASHCLAW_HOSTED is set; routes self-guard 404) — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.2 links the marketing site to the live hosted-trial instance (hosted.dashclaw.io; NEXT_PUBLIC_HOSTED_TRIAL_URL marketing mode), fixes the trial CTA dead-ending on a nonexistent Google provider (now links to the Turnstile mint on /connect), qualifies the no-usage-caps trust band, and adds the no-SLA line to /privacy — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
