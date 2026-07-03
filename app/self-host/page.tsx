@@ -194,9 +194,20 @@ dashclaw doctor`}</pre>
                 features: [
                   'Decision audit trail with full action traces',
                   'Behavior guard -- no-code policy enforcement',
-                  'Human-in-the-loop approval gates',
+                  'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Approval flood guard with bulk resolution',
+                  'Policy tuning + risk-calibration proposals -- one-click review on /policies',
+                  'Guard degradation observability (deadline fallbacks surfaced, never silent)',
                   'Prompt injection scanning',
+                ],
+              },
+              {
+                category: 'Spend Governance',
+                features: [
+                  'x402 provider registry with guarded purchases',
+                  'Per-purchase caps + cumulative window budgets (org or per-agent)',
+                  'Live budget meters -- "$X of $Y used" per window',
+                  'FinOps rollup: agent LLM cost + x402 purchases in one fleet view',
                 ],
               },
               {
@@ -232,6 +243,8 @@ dashclaw doctor`}</pre>
                   'Real-time SSE event stream',
                   'Token usage and cost tracking',
                   'Risk signal monitoring (18 signal types)',
+                  'Risk composition ledger -- every guard score itemized (risk_breakdown)',
+                  'Session retros -- evidence-based end-of-session defensibility review',
                   'Daily fleet digest through Slack/Discord/email adapters',
                   'Behavioral drift detection with z-score alerts',
                 ],
@@ -276,8 +289,10 @@ dashclaw doctor`}</pre>
                 category: 'Security',
                 features: [
                   'Verified agent identity (JWKS / JWT verification)',
+                  'Per-harness composed identities (parent:sub) with fleet grouping',
+                  'agent_defense rollup -- the agent\'s advocate on every action detail',
                   'Automatic secret redaction',
-                  'Assumption tracking and drift reports',
+                  'Assumption tracking with one-click invalidation and drift reports',
                   'Content scanning for sensitive data',
                 ],
               },

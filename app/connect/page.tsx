@@ -347,7 +347,7 @@ pip install dashclaw`}</CodeBlock>
             <StepHeader n={3}>Pick an approval surface</StepHeader>
             <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
               When guard returns{' '}
-              <code className="font-mono text-text-primary">require_approval</code>, the action pauses until a human resolves it. Pick where humans should see and resolve those approvals. Dashboard is on by default. The other four are optional and additive.
+              <code className="font-mono text-text-primary">require_approval</code>, the action pauses until a human resolves it — or the approval expires. An expired approval is a distinct third outcome (<code className="font-mono text-text-primary">err.status === &apos;expired&apos;</code> from <code className="font-mono text-text-primary">waitForApproval</code>) and can never release held work. Pick where humans should see and resolve those approvals. Dashboard is on by default. The other four are optional and additive.
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">

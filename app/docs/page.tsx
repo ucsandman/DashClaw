@@ -137,6 +137,8 @@ const navItems = [
   { href: '#constructor', label: 'Constructor' },
   { href: '#behavior-guard', label: 'Behavior Guard' },
   { href: '#guard', label: 'guard', indent: true },
+  { href: '#risk-breakdown', label: 'Risk composition', indent: true },
+  { href: '#risk-calibration', label: 'Calibration proposals', indent: true },
   { href: '#action-recording', label: 'Action Recording' },
   { href: '#createAction', label: 'createAction', indent: true },
   { href: '#waitForApproval', label: 'waitForApproval', indent: true },
@@ -169,6 +171,8 @@ const navItems = [
   { href: '#policies', label: 'Policies' },
   { href: '#simulatePolicy', label: 'simulatePolicy', indent: true },
   { href: '#policies-generate', label: 'AI Policy Generator', indent: true },
+  { href: '#policy-tuning', label: 'Tuning proposals', indent: true },
+  { href: '#policy-degradation', label: 'Degradation observability', indent: true },
   { href: '#messaging', label: 'Agent Messaging' },
   { href: '#sendMessage', label: 'sendMessage', indent: true },
   { href: '#getInbox', label: 'getInbox', indent: true },
@@ -180,6 +184,7 @@ const navItems = [
   { href: '#security-scanning', label: 'Security Scanning' },
   { href: '#scanPromptInjection', label: 'scanPromptInjection', indent: true },
   { href: '#agent-identity', label: 'Agent Identity' },
+  { href: '#composed-identities', label: 'Composed identities', indent: true },
   { href: '#createPairing', label: 'createPairing', indent: true },
   { href: '#listPairings', label: 'listPairings', indent: true },
   { href: '#getPairing', label: 'getPairing', indent: true },
@@ -202,6 +207,8 @@ const navItems = [
   { href: '#agent-reputation', label: 'Agent Reputation' },
   { href: '#agent-registry', label: 'Agent Registry' },
   { href: '#x402-spend-governance', label: 'x402 Spend Governance' },
+  { href: '#x402-budget-tiers', label: 'Spend limit tiers', indent: true },
+  { href: '#x402Budget', label: 'GET /api/x402/budget', indent: true },
   { href: '#finops-spend', label: 'FinOps Spend' },
   { href: '#governance-posture', label: 'Governance Posture' },
   { href: '#posture-score', label: 'GET /api/posture', indent: true },
@@ -714,7 +721,7 @@ npm run livingcode:refresh`}</CodeBlock>
                 { name: 'content', type: 'string', required: false, desc: 'Outbound text to non-fabrication check (used by a non_fabrication policy)' },
                 { name: 'sourceOfTruth', type: 'object', required: false, desc: 'Facts the content may state: { allowedFacts, requiredFacts, forbiddenPatterns?, extract? }' },
               ]}
-              returns="Promise<{ decision: string, reasons: string[], risk_score: number, agent_risk_score: number | null, non_fabrication?: object[] }>"
+              returns="Promise<{ decision: string, reasons: string[], risk_score: number, risk_breakdown: object, agent_risk_score: number | null, non_fabrication?: object[] }>"
               example={
                 <DocsCodeTabs
                   nodeSnippet="const result = await claw.guard({ action_type: 'deploy', risk_score: 85 });"
@@ -722,6 +729,24 @@ npm run livingcode:refresh`}</CodeBlock>
                 />
               }
             />
+            <div id="risk-breakdown" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Risk composition (risk_breakdown)</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Every guard response carries a <code className="text-xs">risk_breakdown</code> sibling next to{' '}
+                <code className="text-xs">risk_score</code> — an itemized ledger of how the score was composed, so
+                no decision ever rests on an unexplained number:{' '}
+                <code className="text-xs">base</code> (the action type&apos;s base score) →{' '}
+                <code className="text-xs">modifiers</code> (server risk factors, each named with its points) →{' '}
+                <code className="text-xs">server_total</code> →{' '}
+                <code className="text-xs">template</code> (a matching risk template, if any) →{' '}
+                <code className="text-xs">client_reported</code> (the risk_score you passed) →{' '}
+                <code className="text-xs">effective</code> (the max of those — the server never lets a client
+                under-report below its own floor) → <code className="text-xs">predictive</code> (history-based
+                adjustment from the agent&apos;s failure rate and velocity) → <code className="text-xs">final</code>.
+                The breakdown is persisted with the decision and rendered as the <em>Risk composition</em> panel on
+                the action, decision, and replay detail pages.
+              </p>
+            </div>
             <div id="risk-calibration" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">Risk calibration proposals</h3>
               <p className="text-sm text-text-secondary leading-relaxed">
@@ -1424,6 +1449,43 @@ await fetch(\`\${baseUrl}/api/policies/generate\`, {
                 }
               />
             </div>
+
+            {/* Policy tuning proposals */}
+            <div id="policy-tuning" className="scroll-mt-20 mt-10 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Policy tuning proposals</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                DashClaw mines your own decision outcomes for policies whose thresholds look wrong in practice — a
+                gate every human rubber-stamps, a cap that never fires — and renders each as an evidence-backed
+                proposal on <code className="text-xs">/policies</code>, where <em>Apply</em> and <em>Dismiss</em> are
+                buttons (apply is a two-step confirm with an inline reason). The same feed is available at{' '}
+                <code className="text-xs">GET /api/policies/proposals</code>, which returns{' '}
+                <code className="text-xs">{'{ policies, proposals, degradation }'}</code>. Nothing changes a policy
+                until a human clicks Apply.
+              </p>
+            </div>
+
+            {/* Degradation observability */}
+            <div id="policy-degradation" className="scroll-mt-20 mt-10 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Degradation observability</h3>
+              <p className="text-sm text-text-secondary leading-relaxed mb-2">
+                Guard evaluation runs under a deadline (<code className="text-xs">DASHCLAW_GUARD_DEADLINE_MS</code>,
+                default 3500&nbsp;ms). When the deadline fires or an evaluation phase fails (a policy webhook, the
+                x402 budget sum), the guard does not silently allow: it falls back — per-policy{' '}
+                <code className="text-xs">on_failure</code> override first, then the instance-wide{' '}
+                <code className="text-xs">DASHCLAW_GUARD_FALLBACK</code>, then fail-closed{' '}
+                <code className="text-xs">require_approval</code> — and marks the decision <em>degraded</em>.
+              </p>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Degradations are observable, not just recorded:{' '}
+                <code className="text-xs">GET /api/policies/proposals?days=30</code> returns a{' '}
+                <code className="text-xs">degradation</code> rollup —{' '}
+                <code className="text-xs">{'{ window_days, total, degraded, rate, last_degraded_at, by_day }'}</code>{' '}
+                — and <code className="text-xs">/policies</code> renders it as a strip
+                (&quot;N of M decisions were deadline degradations&quot;) whenever the count is non-zero. A rising
+                rate means your policies are being decided by fallback, not evaluation — tune the deadline or the
+                failing phase.
+              </p>
+            </div>
           </section>
 
           {/* ── Agent Messaging ── */}
@@ -1627,6 +1689,21 @@ const { decision, verification_status } = await claw.guard({
               <li><strong>Phase 2 — <code className="text-brand">verification_status</code></strong>: who signed the token. Configure trust with <code className="text-brand">DASHCLAW_ALLOWED_ISSUER</code> and <code className="text-brand">DASHCLAW_JWT_AUDIENCE</code>.</li>
               <li><strong>Phase 2b — <code className="text-brand">replay_status</code></strong>: whether the token was reused. <code className="text-brand">DASHCLAW_JTI_REPLAY_PROTECTION</code> (<code>off</code> / <code>best_effort</code> / <code>required</code>, default <code>best_effort</code>) blocks a replayed <code className="text-brand">jti</code>.</li>
               <li><strong>Phase 2c — <code className="text-brand">act_status</code></strong>: whether the token is bound to <em>this</em> call. <code className="text-brand">DASHCLAW_ACT_BINDING</code> (default <code>off</code>) compares the request against the token&apos;s <code className="text-brand">urn:dashclaw:act-binding</code> claim.</li>
+            </ul>
+
+            <h3 id="composed-identities" className="scroll-mt-20 text-lg font-semibold tracking-tight mt-10 mb-2">Composed identities (per-harness families)</h3>
+            <p className="text-sm text-text-secondary mb-4 leading-relaxed">
+              One operator runs the same logical agent across several harnesses, and each harness spawns sub-agents.
+              DashClaw encodes this as composed ids: <code className="text-brand">&lt;parent&gt;:&lt;sub&gt;</code>{' '}
+              — e.g. <code className="text-brand">claude-code:explore</code> is the explore sub-agent of the{' '}
+              <code className="text-brand">claude-code</code> parent. The base id before the first{' '}
+              <code className="text-brand">:</code> is the <em>family</em>. No registration step is needed — the
+              convention alone activates the behavior:
+            </p>
+            <ul className="text-sm text-text-secondary mb-6 leading-relaxed list-disc pl-5 space-y-1">
+              <li><strong>Governance inheritance</strong> — pairing and permission lookups for a composed id fall back to the parent&apos;s row when no exact row exists; an exact row always wins. Sub-agents are governed from day one without per-sub setup.</li>
+              <li><strong>Fleet grouping</strong> — <code className="text-brand">/agents</code> nests composed ids under their parent, so a harness&apos;s sub-agent swarm reads as one family, not fleet noise.</li>
+              <li><strong>Per-family budgets</strong> — agent-scoped x402 window budgets meter by family, so <code className="text-brand">claude-code</code> and its sub-agents draw down one shared budget.</li>
             </ul>
 
             <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Legacy (v1): public-key pairing</h3>
@@ -2416,6 +2493,38 @@ await claw.addAgentCapability(registered_agent.entry_id, 'cap_123');`}
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">x402 Spend Governance</h3>
               <p className="text-xs text-text-tertiary mb-4">Register x402 providers, govern individual purchases through the guard loop, and record spend for audit. The agent executes the actual x402 call itself — DashClaw registers providers, governs purchase intent, and keeps a tamper-evident ledger. DashClaw never holds a wallet.</p>
+
+              <div id="x402-budget-tiers" className="scroll-mt-20 p-4 rounded-xl bg-surface-secondary border border-border">
+                <h4 className="text-sm font-semibold text-text-primary mb-1.5">Spend limit tiers (x402_spend_limit policy)</h4>
+                <p className="text-sm text-text-secondary leading-relaxed mb-2">
+                  One policy type gates spend at two tiers, evaluated on every governed purchase:
+                </p>
+                <ul className="text-sm text-text-secondary leading-relaxed list-disc pl-5 space-y-1 mb-2">
+                  <li>
+                    <strong>Per-purchase</strong> — <code className="text-xs">max_spend_usd</code> hard-blocks any
+                    single purchase above the cap; <code className="text-xs">approval_threshold</code> pauses one
+                    for human approval.
+                  </li>
+                  <li>
+                    <strong>Cumulative window budget</strong> — <code className="text-xs">budget_usd</code> caps
+                    total spend over a rolling window (<code className="text-xs">budget_window_days</code>, 1–365,
+                    default 30); <code className="text-xs">budget_approval_threshold</code> routes to approval as
+                    the window fills. <code className="text-xs">budget_scope</code> is{' '}
+                    <code className="text-xs">&apos;org&apos;</code> (one shared pool, default) or{' '}
+                    <code className="text-xs">&apos;agent&apos;</code> — each agent family (the base id before{' '}
+                    <code className="text-xs">:</code>, so <code className="text-xs">claude-code</code> and{' '}
+                    <code className="text-xs">claude-code:explore</code> share a meter) is metered separately. A
+                    policy targeted at specific <code className="text-xs">agent_ids</code> meters only those
+                    families.
+                  </li>
+                </ul>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  A runaway purchase is interrupted <em>before</em> the money moves, and the interruption is recorded
+                  like any other decision. Budget consumption renders live on{' '}
+                  <code className="text-xs">/spend/x402</code> (Window budgets cards) and on each policy&apos;s card
+                  at <code className="text-xs">/policies/rules</code> (&quot;$X of $Y used&quot;).
+                </p>
+              </div>
               <MethodEntry
                 id="listProviders"
                 signature="GET /api/x402/providers"
@@ -2545,6 +2654,26 @@ if (action.status === 'pending_approval') {
   transaction_hash: '0xabc…',
   request_id: 'req_123',
 });`}
+                  </CodeBlock>
+                }
+              />
+              <MethodEntry
+                id="x402Budget"
+                signature="GET /api/x402/budget"
+                description="Read window-budget consumption — the same sums the guard's cumulative budget gate enforces, so the meter you see is the meter that blocks. Returns one entry per active x402_spend_limit policy that defines budget_usd or budget_approval_threshold. Org-scoped budgets return window_spend_usd; agent-scoped budgets return families (one spend figure per agent family). ?agent_id= narrows agent-scoped entries to that agent's family. Rendered as the Window budgets cards on /spend/x402 and the consumption line on each policy card at /policies/rules."
+                params={[
+                  { name: 'agent_id', type: 'string', required: false, desc: 'Narrow agent-scoped budgets to this agent\'s family (sub-agent ids resolve to their base id)' },
+                ]}
+                returns="{ budgets: [{ policy_id, policy_name, agent_ids, budget_usd, budget_approval_threshold, budget_window_days, budget_scope, window_start, window_spend_usd?, families?: [{ agent_id, window_spend_usd }] }] }"
+                example={
+                  <CodeBlock title="Read budget consumption">
+{`const res = await fetch(\`\${baseUrl}/api/x402/budget\`, {
+  headers: { 'x-api-key': apiKey }
+});
+const { budgets } = await res.json();
+// budgets[0] -> { policy_name: 'Research spend',
+//   budget_usd: 50, budget_window_days: 30, budget_scope: 'org',
+//   window_start: '2026-06-03T…', window_spend_usd: 43.12 }`}
                   </CodeBlock>
                 }
               />

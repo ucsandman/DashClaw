@@ -153,12 +153,11 @@ optional extra. It drifts in a way the count checker can't see: a shipped featur
    `app/guides/*` — and judge each zero-hit: a page that enumerates capabilities and
    omits a shipped major subsystem is a gap; a page where the feature is genuinely
    out of scope (e.g. a framework guide) is fine.
-2. **The dead-array trap (burned us once):** `app/landingData.js` exports
-   `platformFeatures` / `coreFeatures` / `operationalFeatures` / `platformCoverage` /
-   `shippedHighlights` which `app/page.tsx` imports but **never renders**. Adding a
-   card there ships *nothing*. The landing page's rendered feature lists are the
-   **inline arrays inside `app/page.tsx` itself** (the operations-section cards and
-   `corePrimitives`/`frameworkQuickstarts`/`signals` from landingData). After any
+2. **The dead-array trap (burned us once; arrays removed in v2.6d):** `app/landingData.js`
+   now exports ONLY the three arrays `app/page.tsx` actually renders
+   (`corePrimitives`/`frameworkQuickstarts`/`signals`). All other landing feature
+   lists are **inline arrays inside `app/page.tsx` itself** (the operations-section
+   cards) — put new capability copy there, never in a new landingData export. After any
    landing edit, verify with a grep that the feature name now appears in `app/page.tsx`.
 3. **`/self-host` is NOT optional:** its "What you just deployed" grid says "the full
    governance API surface — every feature works out of the box," so a missing category

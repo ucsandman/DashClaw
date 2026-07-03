@@ -77,6 +77,7 @@ p, li { color: var(--text-2); }
     <a href="#problem">The problem</a>
     <a href="#loop">The loop</a>
     <a href="#advocate">The agent's advocate</a>
+    <a href="#retro">The session retro</a>
     <a href="#simulator">Guard simulator</a>
     <a href="#policies">Policy playground</a>
     <a href="#integrate">Integrate</a>
@@ -133,6 +134,28 @@ p, li { color: var(--text-2); }
       <div class="meta-label">Protection from bankrupting mistakes</div>
       <h3 style="margin:6px 0 8px;">Spend gates on x402 purchases</h3>
       <p style="margin:0; color:var(--text-2);">For agents that spend real money over x402, per-purchase caps and cumulative window budgets interrupt a runaway purchase <em>before</em> the money moves — a block or an approval pause, recorded like any other decision. An agent under a spend gate cannot quietly drain a wallet; it gets stopped, and the stop is its proof of restraint.</p>
+    </div>
+  </div>
+</div></section>
+<section id="retro"><div class="wrap">
+  <div class="meta-label">The advocate's closing argument</div>
+  <h2>The session retro</h2>
+  <p class="lede">When a session ends, its whole record gets a defensibility review. <code class="mono" style="font-size:13px;">GET /api/sessions/:id/retro</code> composes it from the ledger on read — nothing is stored, nothing is invented — and returns a posture: <span class="chip chip--allow">clean</span> <span class="chip chip--warn">review</span> <span class="chip chip--block">flagged</span>.</p>
+  <div style="display:grid; gap:8px; margin-top:16px;">
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">Verdict from evidence, not vibes</div>
+      <h3 style="margin:6px 0 8px;">Posture is derived, never scored</h3>
+      <p style="margin:0; color:var(--text-2);">The posture comes purely from the severities of evidenced findings: any high-severity finding — a blocked action, a failed shield verdict, an invalidated assumption that carried weight — means <em>flagged</em>; any finding at all means <em>review</em>; none means <em>clean</em>. Each finding cites the specific decision, action, or shield verdict behind it, so the verdict can be checked, not just believed.</p>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">The advocate, closing</div>
+      <h3 style="margin:6px 0 8px;">A receipt of restraint</h3>
+      <p style="margin:0; color:var(--text-2);">The retro is the advocate section above, concluded: the assumptions the agent recorded, the shields that stood in front of it, and the approvals it waited for become its exhibit list. A clean retro is proof the agent operated inside its contract; a flagged one points at the exact evidence — not at the agent's reputation.</p>
+    </div>
+    <div class="card" style="padding:20px;">
+      <div class="meta-label">Where humans see it</div>
+      <h3 style="margin:6px 0 8px;">On the session, at a glance</h3>
+      <p style="margin:0; color:var(--text-2);">Every session detail page renders the full retro card, with the posture chip pinned in the header next to the session status. Agents can read their own review too, over MCP (<span class="mono" style="font-size:12.5px;">dashclaw_session_retro</span>) — retrospection is part of the governance loop, not an ops afterthought.</p>
     </div>
   </div>
 </div></section>

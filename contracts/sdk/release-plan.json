@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.35.0",
+    "current_version": "4.35.1",
     "next_bump": "none",
-    "reason": "4.35.0 ships roadmap v2.6c x402 budget consumption visibility (GET /api/x402/budget + /spend/x402 meters + /policies/rules consumption) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.35.1 ships roadmap v2.6d marketing & docs backfill (the era's capabilities onto /, /self-host, /docs, /explain, /connect; landingData dead arrays removed) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.35.0",
+    "current_version": "4.35.1",
     "next_bump": "none",
-    "reason": "4.35.0 ships roadmap v2.6c x402 budget consumption visibility (GET /api/x402/budget + /spend/x402 meters + /policies/rules consumption) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.35.1 ships roadmap v2.6d marketing & docs backfill (the era's capabilities onto /, /self-host, /docs, /explain, /connect; landingData dead arrays removed) — no Node/Python SDK source change; the version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

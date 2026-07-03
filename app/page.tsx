@@ -13,13 +13,8 @@ import HostedTrialCTA from './components/HostedTrialCTA';
 import { isHostedMode } from './lib/hosted/flag';
 
 import {
-  coreFeatures,
-  platformFeatures,
   corePrimitives,
-  operationalFeatures,
   signals,
-  platformCoverage,
-  shippedHighlights,
   frameworkQuickstarts,
 } from './landingData';
 
@@ -607,19 +602,19 @@ if (decision === "allow") {
                 icon: Radar,
                 title: 'Mission Control',
                 description: 'Live operational visibility for the agent fleet. See what is running, what was decided, and what is waiting on a human.',
-                items: ['Live fleet posture and active interventions', 'Decision replay with the full causal chain', 'Real-time SSE event stream'],
+                items: ['Live fleet posture and active interventions', 'Decision replay with the full causal chain and an itemized risk composition ledger', 'Per-harness agent identities (parent:sub) grouped under their parent on /agents', 'Evidence-based session retros — a defensibility verdict on every agent session', "The agent's advocate: an agent_defense rollup (declared goal, assumptions, shields) on every action detail", 'Real-time SSE event stream'],
               },
               {
                 icon: Shield,
                 title: 'Policy Engine',
                 description: 'Semantic guardrails that decide allow, block, or require approval before the action reaches the real world.',
-                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines', 'Self-calibrating risk scoring — miscalibrated shapes mined from your own ledger become one-click ratify/dismiss proposals on /policies'],
+                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines — invalidate a broken belief in one click', 'Self-calibrating risk scoring — miscalibrated shapes mined from your own ledger become one-click ratify/dismiss proposals on /policies', 'Policy tuning proposals mined from real decision outcomes — Apply and Dismiss are buttons', 'x402 spend gates: per-purchase caps plus cumulative window budgets with live "$X of $Y used" meters', 'Degraded evaluations surfaced, never silent — deadline fallbacks are counted and shown on /policies'],
               },
               {
                 icon: MessageSquare,
                 title: 'Approval Surfaces',
                 description: 'Approvers resolve pending actions wherever they already work, against the same governance endpoint. Claude Code lifecycle hooks add an inline prompt path for terminal workflows, and an interruption budget collapses approval floods into one bulk-resolvable event.',
-                items: ['Dashboard inbox at /approvals', 'CLI with dashclaw approve and approvals', 'Mobile PWA at /approve', 'Discord DM with inline Approve and Deny buttons', 'Telegram inline Approve and Reject buttons', 'Flood guard with pause-rule and bulk allow/deny'],
+                items: ['Dashboard inbox at /approvals', 'CLI with dashclaw approve and approvals', 'Mobile PWA at /approve', 'Discord DM with inline Approve and Deny buttons', 'Telegram inline Approve and Reject buttons', 'Flood guard with pause-rule and bulk allow/deny', 'Approvals expire — a lapsed approval can never release held work'],
               },
               {
                 icon: FileCheck,
@@ -696,7 +691,7 @@ if (decision === "allow") {
                 <p className="mt-3 text-text-secondary">Automatic detection of autonomy breaches and logic drift.</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-left">
-                {signals.map((signal, i) => (
+                {signals.map((signal) => (
                   <div key={signal.name} className="flex items-start gap-4 p-4 rounded-xl bg-surface-secondary border border-border">
                     <div className="w-7 h-7 rounded-lg bg-status-error-subtle flex items-center justify-center flex-shrink-0 mt-0.5">
                       <ShieldAlert size={14} className="text-error" />

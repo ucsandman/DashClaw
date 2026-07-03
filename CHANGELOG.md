@@ -13,6 +13,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.35.1] — 2026-07-03
+
+Marketing & docs backfill (roadmap v2.6d). The era retro-audit's systematic clause-4 failure — ten capabilities shipped v4.22.0–v4.35.0 absent from every page that claims completeness — paid down in one sweep. No new API surface; no SDK change.
+
+### Added
+- **Landing page (`/`)** — the operations capability cards now carry the era's capabilities: itemized risk composition on decision replay, per-harness identities grouped on /agents, evidence-based session retros, the agent_defense advocate rollup, policy tuning proposals, x402 spend gates with live budget meters, degradation observability, one-click assumption invalidation, and approval expiry.
+- **`/self-host` "What you just deployed" grid** — new **Spend Governance** category card (x402 providers, per-purchase caps + window budgets, live meters, FinOps rollup) and era items across Governance / Observability / Security so the completeness claim is true again.
+- **`/docs`** — five previously undocumented subsystems: **Risk composition (`risk_breakdown`)** on the guard response, **Policy tuning proposals** (`GET /api/policies/proposals`), **Degradation observability** (deadline fallback precedence + the degradation rollup), **x402 spend limit tiers** (per-purchase vs cumulative window budget, org vs agent scope) with a `GET /api/x402/budget` method entry, and **Composed identities** (per-harness `<parent>:<sub>` families, governance inheritance, fleet grouping). All anchored in the sidebar.
+- **`/explain`** — "The session retro" section (the advocate's successor): posture derived purely from evidenced findings (`clean`/`review`/`flagged`), `GET /api/sessions/:id/retro`, rendered on the session detail and readable by the agent over MCP.
+- **`/connect`** — the approval step now documents the expired third outcome (`err.status === 'expired'` from `waitForApproval`).
+
+### Fixed
+- **The landingData dead-array trap is dead** — `app/landingData.js` now exports only the three arrays `app/page.tsx` renders (`corePrimitives`, `frameworkQuickstarts`, `signals`); the five imported-but-never-rendered feature arrays (and the unimported `agentToolCategories`) are removed, with `scripts/check-doc-counts.mjs` and the ship-skill notes updated to match.
+
 ## [4.35.0] — 2026-07-03
 
 x402 budget consumption visibility (roadmap v2.6c; spec `docs/superpowers/specs/2026-07-03-x402-budget-visibility.md`). The cumulative budget gate computed window spend on every governed purchase but never rendered it — an operator couldn't see "this agent is at $43 of $50" until a purchase blocked. HUMAN-EXPERIENCE.md debt from the era retro-audit, now paid.

@@ -14,6 +14,51 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — Paying the marketing debt, and killing the trap that caused it (v4.35.1, roadmap v2.6d)
+
+The era retro-audit's ugliest finding wasn't any single bug — it was a
+*systematic* one: ten capabilities shipped between v4.22.0 and v4.35.0, and
+not one of them appeared on the pages that claim to describe the product.
+The landing page, the `/self-host` "What you just deployed" completeness
+grid, `/docs`, `/explain` — all still describing the product as it was in
+June. Clause 4 of HUMAN-EXPERIENCE.md ("marketing ships with the feature")
+now prevents new debt; today's sweep paid off the old principal in one
+coherent session under `.impeccable.md`.
+
+What landed: the landing operations cards now carry risk composition,
+per-harness identity families, session retros, the advocate rollup, tuning
+proposals, x402 budget meters, degradation observability, one-click
+assumption invalidation, and approval expiry. `/self-host` gained a Spend
+Governance category card (a whole governed-spend subsystem was missing from
+a grid claiming "every feature works out of the box"). `/docs` gained five
+subsystem sections that simply didn't exist — `risk_breakdown`, tuning
+proposals, degradation observability, the x402 spend-limit tiers with the
+budget read API, and composed identities — each anchored in the sidebar.
+`/explain` got the session retro as the advocate section's closing argument.
+
+The structural fix matters more than the copy: `app/landingData.js` exported
+five feature arrays that `app/page.tsx` imported and never rendered — the
+"dead-array trap" that ate at least one previous ship's marketing edit
+(a card added there ships *nothing*). Those arrays are now deleted, the file
+exports only what actually renders, and the count-checker and ship-skill
+notes were rewritten so the trap can't be re-armed by muscle memory.
+
+One embarrassment worth recording: the first rendered-proof pass failed on
+all four Next routes, and the culprit wasn't my change — a zombie dev server
+had been sitting on port 3000 for who knows how long, 500ing every app route
+with a Turbopack child-spawn error while happily serving static files. I
+spent a hypothesis loop on environment theories (desktop heap, env-block
+size) before the boring discriminating test — `npx next build` succeeding —
+proved the machine was fine and the server was just stale. Kill the process,
+verify against the production build: all five routes green, zero console
+errors. The memory note "kill :3000 first" existed precisely for this;
+I read it after the fact.
+
+No new API surface, no SDK change — version advances to 4.35.1, registries
+stay at 4.32.0.
+
+---
+
 ## 2026-07-03 — The gate finally shows its math (v4.35.0, roadmap v2.6c)
 
 Second HUMAN-EXPERIENCE.md debt paid. The cumulative x402 budget gate has
