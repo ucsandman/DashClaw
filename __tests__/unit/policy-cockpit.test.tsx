@@ -16,6 +16,7 @@ vi.mock('@/policies/components/ContractPanel', () => ({
 }));
 vi.mock('@/policies/components/ReviewFeed', () => ({ default: () => <div data-testid="review-feed" /> }));
 vi.mock('@/policies/components/TuningProposals', () => ({ default: () => <div data-testid="tuning-proposals" /> }));
+vi.mock('@/policies/components/CalibrationProposals', () => ({ default: () => <div data-testid="calibration-proposals" /> }));
 vi.mock('@/policies/components/ModeDrawer', () => ({
   default: ({ open }: { open: boolean }) => <div data-testid="mode-drawer" data-open={String(open)} />,
 }));
@@ -49,6 +50,7 @@ describe('PolicyCockpit', () => {
     await waitFor(() => screen.getByTestId('contract-panel'));
     screen.getByTestId('review-feed');
     screen.getByTestId('tuning-proposals');
+    screen.getByTestId('calibration-proposals');
   });
 
   it('renders a calm empty state when ungoverned (not a settings dump)', async () => {
