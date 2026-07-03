@@ -650,6 +650,12 @@ function handleDemoEntry(request) {
 // Cookie-driven demo is only honored on marketing hosts and never overrides an
 // explicit DASHCLAW_MODE=demo (that path forces demo for everyone, below).
 function isCookieDemoRequest(request, mode) {
+  // A hosted-trial instance is a REAL runtime, never a marketing sandbox —
+  // even though it lives under *.dashclaw.io. Without this guard, a visitor
+  // who clicked Mission Control (which mints dashclaw_demo on whatever host
+  // they're on) gets every write on hosted.dashclaw.io demo-blocked,
+  // including the trial mint itself.
+  if (process.env.DASHCLAW_HOSTED === 'true') return false;
   const demoCookie = isDemoCookieSet(request);
   const host = request.headers.get('host') || '';
   const normalizedHost = host.split(':')[0].toLowerCase();
@@ -1290,8 +1296,11 @@ function handleDemoPolicySimulations(request, pathname, method) {
 }
 
 // Early demo-mode gates that run before the route table, in cascade order:
-// marketing passthrough → read-like policy simulations → the write block
-// (only guard/actions/assumptions simulations are exempt) → static passthrough.
+// marketing passthrough → static passthrough → read-like policy simulations
+// → the write block (only guard/actions/assumptions simulations are exempt).
+// Passthrough MUST precede the write block: NextAuth sign-in and the hosted
+// mint are POSTs, and a passthrough that only exempts reads is a no-op for
+// exactly the endpoints it exists to protect.
 async function runDemoPreDispatch(request, pathname, method, isRead) {
   // Marketing funnel telemetry is reachable in demo mode too — the
   // marketing site IS the demo deployment. Pass through to the real
@@ -1300,15 +1309,15 @@ async function runDemoPreDispatch(request, pathname, method, isRead) {
     return forwardWithHeaders(request);
   }
 
+  if (isDemoPassthroughPath(pathname)) {
+    return forwardWithHeaders(request);
+  }
+
   const policySimulation = handleDemoPolicySimulations(request, pathname, method);
   if (policySimulation) return policySimulation;
 
   if (!isRead && !isDemoSimulationRequest(pathname, method)) {
     return demoJson(request, { error: 'Demo mode: write APIs are disabled.' }, 403);
-  }
-
-  if (isDemoPassthroughPath(pathname)) {
-    return forwardWithHeaders(request);
   }
 
   return null;

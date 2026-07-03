@@ -125,4 +125,37 @@ describe('middleware demo auth bypass', () => {
     expect(setCookie).toMatch(/dashclaw_demo=/);
     expect(setCookie).toMatch(/Max-Age=0|Expires=Thu, 01 Jan 1970/i);
   });
+
+  it('hosted-trial instance (DASHCLAW_HOSTED=true) NEVER honors the demo cookie, even on *.dashclaw.io', async () => {
+    // Regression: hosted.dashclaw.io ends with .dashclaw.io, so a visitor who
+    // clicked Mission Control (cookie minted on that host) had every write —
+    // including the trial mint — demo-blocked. A trial instance is a real
+    // runtime, never a marketing sandbox.
+    vi.stubEnv('DASHCLAW_HOSTED', 'true');
+    getToken.mockResolvedValue(null); // anonymous, cookie present
+    const res = await middleware(req('/api/health', { host: 'hosted.dashclaw.io' }));
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    expect(body?.mode).not.toBe('demo');
+  });
+
+  it('env demo mode: /api/hosted writes pass through (the passthrough must beat the write block)', async () => {
+    // Regression: the passthrough list ran BELOW the demo write block, so it
+    // only ever exempted reads — a no-op for the POSTs it exists to protect
+    // (NextAuth sign-in, the hosted mint).
+    vi.stubEnv('DASHCLAW_MODE', 'demo');
+    getToken.mockResolvedValue(null);
+    const res = await middleware(req('/api/hosted/workspaces', { method: 'POST', demoCookie: false }));
+    let body = null;
+    try {
+      body = await res.json();
+    } catch {
+      body = null;
+    }
+    expect(body?.error).not.toBe('Demo mode: write APIs are disabled.');
+  });
 });

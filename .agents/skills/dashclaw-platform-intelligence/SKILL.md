@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:bca6e656cd2f38423d18f7009b24367c8a0e3d39`
+**Shape snapshot:** `sha1:08c6f2b80778c18cf13aa767aee2fa14ba810de8`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **278** active API routes across **68** categories (326 total including archived)
-- **4** required + **185** optional environment variables
+- **4** required + **186** optional environment variables
 - **101** database tables
 
 ## API Surface
@@ -657,6 +657,7 @@ These have fallbacks or only activate specific features.
 - `NEXT_PUBLIC_DASHCLAW_MODE` *(undocumented)*
 - `NEXT_PUBLIC_DASHCLAW_VERSION` *(undocumented)*
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` *(undocumented)*
+- `NEXT_PUBLIC_HOSTED_TRIAL_URL` *(undocumented)*
 - `NEXT_PUBLIC_PLUGIN_MANIFEST_VERSION` *(undocumented)*
 - `NEXT_PUBLIC_SDK_NODE_VERSION` *(undocumented)*
 - `NEXT_PUBLIC_SDK_PYTHON_VERSION` *(undocumented)*

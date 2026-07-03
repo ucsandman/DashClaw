@@ -14,6 +14,24 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — The front door jams on its first real visitor (v4.36.3)
+
+Minutes after v4.36.2 made the trial discoverable, Wes walked through the
+new front door and the mint button answered "Demo mode: write APIs are
+disabled." My cookie-less curl probes had all passed; his browser carried
+the `dashclaw_demo` cookie from clicking Mission Control earlier — and the
+cookie-demo host check (`*.dashclaw.io` = marketing host) happily matched
+`hosted.dashclaw.io`. The trial instance was moonlighting as a demo
+sandbox for anyone who had ever peeked at the demo. Stacked under it: my
+4.36.1 passthrough fix was inserted *below* the demo write-block, so it
+had only ever exempted reads — a no-op for the POSTs it was written to
+protect. Both fixed and pinned: `DASHCLAW_HOSTED=true` deployments never
+enter cookie-demo, and passthrough now precedes the write block.
+
+Lesson for the pile: probe production *as the user*, cookies and all. A
+clean curl proves the happy path for clients with no history; real
+browsers have history.
+
 ## 2026-07-03 — Correction: we were hosting all along (v4.36.2)
 
 The v4.36.1 entry below needs a same-day correction. Asked directly by Wes

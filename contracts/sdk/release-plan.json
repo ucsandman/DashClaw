@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.36.2",
+    "current_version": "4.36.3",
     "next_bump": "none",
-    "reason": "4.36.2 links the marketing site to the live hosted-trial instance (hosted.dashclaw.io; NEXT_PUBLIC_HOSTED_TRIAL_URL marketing mode), fixes the trial CTA dead-ending on a nonexistent Google provider (now links to the Turnstile mint on /connect), qualifies the no-usage-caps trust band, and adds the no-SLA line to /privacy — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.3 fixes the hosted trial mint being demo-blocked: the trial instance (DASHCLAW_HOSTED=true) no longer honors the dashclaw_demo cookie (hosted.dashclaw.io matched the *.dashclaw.io marketing-host check), and the demo passthrough list now runs before the write block so /api/hosted POSTs reach the real route — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.36.2",
+    "current_version": "4.36.3",
     "next_bump": "none",
-    "reason": "4.36.2 links the marketing site to the live hosted-trial instance (hosted.dashclaw.io; NEXT_PUBLIC_HOSTED_TRIAL_URL marketing mode), fixes the trial CTA dead-ending on a nonexistent Google provider (now links to the Turnstile mint on /connect), qualifies the no-usage-caps trust band, and adds the no-SLA line to /privacy — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.36.3 fixes the hosted trial mint being demo-blocked: the trial instance (DASHCLAW_HOSTED=true) no longer honors the dashclaw_demo cookie (hosted.dashclaw.io matched the *.dashclaw.io marketing-host check), and the demo passthrough list now runs before the write block so /api/hosted POSTs reach the real route — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:bca6e656cd2f38423d18f7009b24367c8a0e3d39",
+  "timestamp": "sha1:08c6f2b80778c18cf13aa767aee2fa14ba810de8",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3860,7 +3860,8 @@
         "__tests__/unit/hosted/workspace-admin.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",
         "app/lib/hosted/flag.ts",
-        "app/lib/hosted/publicConfig.ts"
+        "app/lib/hosted/publicConfig.ts",
+        "middleware.js"
       ],
       "in_env_example": false
     },
@@ -4630,6 +4631,14 @@
       "required": false,
       "files": [
         "app/layout.tsx"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "NEXT_PUBLIC_HOSTED_TRIAL_URL",
+      "required": false,
+      "files": [
+        "app/components/HostedTrialCTA.tsx"
       ],
       "in_env_example": false
     },

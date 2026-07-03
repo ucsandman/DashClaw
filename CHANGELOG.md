@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.36.3] — 2026-07-03
+
+The first real user through the new trial front door (the maintainer) hit "Demo mode: write APIs are disabled" on the mint click. Two stacked middleware bugs. No SDK change.
+
+### Fixed
+- **The hosted-trial instance honored the demo cookie** — `hosted.dashclaw.io` matched the `*.dashclaw.io` marketing-host check, so anyone who had clicked Mission Control (which mints `dashclaw_demo` on whatever host you're on) had every write demo-blocked, including the trial mint. A deployment with `DASHCLAW_HOSTED=true` now never enters cookie-demo: a trial instance is a real runtime, not a marketing sandbox.
+- **The demo passthrough list ran below the write block** (latent since 4.36.1), so it only exempted reads — a no-op for the POSTs it exists to protect. Passthrough now precedes the write block; `/api/hosted` and `/api/auth` POSTs reach their real handlers in demo mode.
+
+Both pinned by regression tests in `__tests__/unit/demo-auth-bypass.test.js`.
+
 ## [4.36.2] — 2026-07-03
 
 The hosted trial has been live at `hosted.dashclaw.io` since June — and nothing anywhere linked to it. The deployment topology is three Vercel projects from this repo (marketing/demo at www.dashclaw.io, the maintainer's instance, and the multi-tenant trial instance); 4.36.1's "structurally unreachable" diagnosis was true of the marketing site only. This release makes the trial discoverable and its copy honest. No SDK change.
