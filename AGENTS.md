@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25844 symbols, 51815 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (25875 symbols, 51882 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-03 (commit 4e5d321d). Confidence: 100%.
+Last indexed: 2026-07-03 (commit 6c03ba28). Confidence: 100%.
 ### Architecture
-repo is a codebase documentation and governed-agent platform that ingests a target repository (source files + contracts/config), traverses and parses code into structured representations, analyzes dependencies and policies, and then generates LLM-synthesised wiki artifacts served through an MCP server and a web UI, while also providing example governed agents and SDKs for automation.
+Repowise is a codebase documentation and governance engine that ingests a target repository (source files, contracts, and policy/rules inputs), traverses and parses code into structured representations, analyzes relationships/dependencies, and generates LLM-synthesised wiki artifacts served through an MCP server and a web-facing UI.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,11 +103,11 @@ repo is a codebase documentation and governed-agent platform that ingests a targ
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 69 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 70 | Wes Sander |
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
-| `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 65 | Wes Sander |
-| `app/lib/doctor/generated/shape.json` | 99.9th percentile | 65 | Wes Sander |
-| `public/livingcode/index.html` | 99.8th percentile | 68 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 66 | Wes Sander |
+| `app/lib/doctor/generated/shape.json` | 99.9th percentile | 66 | Wes Sander |
+| `public/livingcode/index.html` | 99.8th percentile | 69 | Wes Sander |
 
 ### Repowise MCP Workflow
 
