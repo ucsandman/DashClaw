@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.36.3",
+    "current_version": "4.37.0",
     "next_bump": "none",
-    "reason": "4.36.3 fixes the hosted trial mint being demo-blocked: the trial instance (DASHCLAW_HOSTED=true) no longer honors the dashclaw_demo cookie (hosted.dashclaw.io matched the *.dashclaw.io marketing-host check), and the demo passthrough list now runs before the write block so /api/hosted POSTs reach the real route — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.37.0 is roadmap v3.1 (posture signal integrity): synthetic-traffic exclusion in the posture queries, incident pattern collapse, coverage-math fix (coveredUnits from grades, was -22 live), attributed accepted-risk ledger with key-auth redaction, and the rm-rf-build-cache risk-calibration fix — platform + hooks only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.36.3",
+    "current_version": "4.37.0",
     "next_bump": "none",
-    "reason": "4.36.3 fixes the hosted trial mint being demo-blocked: the trial instance (DASHCLAW_HOSTED=true) no longer honors the dashclaw_demo cookie (hosted.dashclaw.io matched the *.dashclaw.io marketing-host check), and the demo passthrough list now runs before the write block so /api/hosted POSTs reach the real route — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.37.0 is roadmap v3.1 (posture signal integrity): synthetic-traffic exclusion in the posture queries, incident pattern collapse, coverage-math fix (coveredUnits from grades, was -22 live), attributed accepted-risk ledger with key-auth redaction, and the rm-rf-build-cache risk-calibration fix — platform + hooks only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
