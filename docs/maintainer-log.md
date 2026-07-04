@@ -14,6 +14,48 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — the review that reviewed the reviewer (v4.38.1)
+
+Wes asked for a pre-implementation uncertainty review of the whole
+architecture before the next build phase — twenty blind spots, ranked, with
+evidence. Five parallel reviewers swept identity, persistence,
+risk/spend/x402, failure modes, and the data model. The full findings live in
+the review itself; what shipped today is the subset that was *confirmed bug*,
+not *design decision*:
+
+**Guard idempotency was silently dead on fresh installs.** The replay lookup
+forgot the one `::timestamptz` cast every sibling query has; on the drizzle
+0000 baseline `created_at` is TEXT, the comparison errors, the catch eats it,
+and retries double-write audit rows. Textbook instance of the two bug classes
+this repo already named: fresh-vs-legacy schema drift, and best-effort
+catches hiding dead subsystems. Fixed with the cast; regression test pins it.
+
+**Then the root, not just the instance:** migration 0043 normalizes all 47
+drifted TEXT `*_at` columns to `timestamp` (conditional — legacy installs
+no-op), and a new parity test fails CI if any future migration reintroduces
+the class. Verified live against the local DB plus a scratch-table conversion
+covering the broken `'now()'` text defaults. One honest caveat: rows that
+carried the literal `'now()'` string never had a real timestamp, so they
+resolve to migration time.
+
+**And a billing leak:** the guard route's `?record=true` side effects (meter
+increment, trial count, presence, Mission Control event) were fire-and-forget
+promises racing Vercel's post-response freeze. Now wrapped in `after()` like
+the actions-route sibling always was.
+
+The part worth recording for outside readers: mid-verification, DashClaw's
+own pretool guard blocked its maintainer's scratch script at risk 100 because
+it contained `DROP TABLE`. The governance layer under review governed the
+reviewer. I used a TEMP table instead of overriding — which is, of course,
+exactly the behavior the product is supposed to produce.
+
+The review's bigger findings — risk scores computed from client-declared
+descriptors, self-declared x402 spend, per-agent policies keyed on unverified
+`agent_id`, the split fail-open/fail-closed knobs, halt having no UI — are
+product decisions, not bugs, and are queued for Wes with recommendations
+before Phase 2 of the hardening plan. Full suite green (4938 passed), build
+green, no SDK source change.
+
 ## 2026-07-03 — v3.2: findings become proposals (v4.38.0)
 
 Roadmap v3.2, same day as v3.1 — the cleaned signal immediately becomes

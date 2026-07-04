@@ -30,6 +30,12 @@ const {
   mockGetOrgHalt: vi.fn(),
 }));
 
+// next/server's after() throws "outside a request scope" in unit tests —
+// invoke the deferred side effects immediately (same idiom as actions.route.test.js).
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, after: (cb) => { void cb(); } };
+});
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput }));
 vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard, getOrgHaltState: mockGetOrgHalt }));

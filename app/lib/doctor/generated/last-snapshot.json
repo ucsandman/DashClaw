@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:77244462c8db6b35d1aff09ccd7e62b17c267109",
+  "timestamp": "sha1:a5b082ce8ebdbaf5f37dac5e1dcdfbbf7e8dbd12",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4003,6 +4003,7 @@
         "__tests__/unit/guard-agent-attribution.test.js",
         "__tests__/unit/guard-jwks-verification.test.js",
         "__tests__/unit/guard-route-idempotency.test.js",
+        "__tests__/unit/guard-route-record-after.test.js",
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health.route.test.js",
         "app/api/health/route.ts",
@@ -4141,6 +4142,7 @@
         "__tests__/unit/guard-hotpath.test.js",
         "__tests__/unit/guard-jwks-verification.test.js",
         "__tests__/unit/guard-route-idempotency.test.js",
+        "__tests__/unit/guard-route-record-after.test.js",
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health-tables.test.js",
         "__tests__/unit/health.route.test.js",

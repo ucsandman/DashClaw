@@ -13,6 +13,42 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.38.1] — 2026-07-03
+
+Roadmap v3.3 opener — fresh-install truth. Three confirmed findings from the
+pre-implementation architecture review, fixed the same day. No SDK source
+change (no republish).
+
+### Fixed
+
+- **Guard idempotency replay was silently dead on fresh drizzle-chain
+  installs.** The replay lookup compared `created_at > NOW() - INTERVAL`
+  without a cast; on the 0000 baseline `guard_decisions.created_at` is
+  physically TEXT, so the comparison raised 42883, the best-effort catch
+  returned null, and every retried `idempotency_key` re-evaluated and wrote a
+  second audit row (double-counting approval-flood / signal / digest
+  windows). The lookup now casts `created_at::timestamptz`, which behaves
+  identically on both column shapes. Regression-pinned by
+  `__tests__/unit/guard-idempotency-cast.test.js`.
+- **Fresh-vs-legacy schema drift, normalized at the root**
+  (`drizzle/0043_normalize_text_timestamps.sql`). The 0000 baseline created
+  47 `*_at` columns as TEXT while `schema/schema.js` and `setup/migrate`
+  declare timestamp — the physical type depended on which installer ran, and
+  the class kept producing silently dead subsystems. 0043 conditionally
+  converts each drifted column to `timestamp` (no-op where already
+  converted), drops the broken text `DEFAULT 'now()'` literals, and installs
+  real `now()` function defaults. Columns that are text in both (e.g.
+  `organizations.trial_ends_at`) are intentionally untouched. The class is
+  now pinned shut by `__tests__/unit/drizzle-timestamp-parity.test.js`: any
+  future text `*_at` column that schema.js types as timestamp fails CI until
+  a normalization entry covers it.
+- **`?record=true` side effects survive Vercel function freeze.** The guard
+  route's meter increment, hosted-trial count, presence heartbeat, and
+  Mission Control event were fire-and-forget promises racing the response;
+  a post-response freeze dropped them (a quota/billing undercount that never
+  self-heals). They now run via `after()`, matching the `POST /api/actions`
+  sibling. Pinned by `__tests__/unit/guard-route-record-after.test.js`.
+
 ## [4.38.0] — 2026-07-03
 
 Roadmap v3.2 — findings become proposals (the tightening direction). The

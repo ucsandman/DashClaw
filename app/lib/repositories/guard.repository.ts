@@ -170,12 +170,16 @@ export async function getGuardDecisionByIdempotencyKey(
 ): Promise<Row | null> {
   if (!idempotencyKey) return null;
   try {
+    // created_at is TEXT on fresh drizzle-chain installs (drizzle/0000) and
+    // timestamp on setup/migrate installs — the cast is the one form that
+    // works on both. Bare `created_at >` raises 42883 on TEXT, the catch
+    // below returns null, and idempotency silently never fires.
     const rows = await sql.query(
       `SELECT * FROM guard_decisions
        WHERE org_id = $1
-         AND created_at > NOW() - INTERVAL '10 minutes'
+         AND created_at::timestamptz > NOW() - INTERVAL '10 minutes'
          AND context::jsonb->>'idempotency_key' = $2
-       ORDER BY created_at DESC
+       ORDER BY created_at::timestamptz DESC
        LIMIT 1`,
       [orgId, idempotencyKey]
     );

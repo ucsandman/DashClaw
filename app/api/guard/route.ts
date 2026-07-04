@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 import crypto from 'node:crypto';
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { getOrgId } from '../../lib/org';
 import { validateGuardInput } from '../../lib/validate';
 import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
@@ -87,22 +87,27 @@ async function recordRunningAction(
     riskScore: result.risk_score ?? null,
   });
 
-  // Same fire-and-forget side effects as POST /api/actions (event for Mission
-  // Control, meters, implicit presence heartbeat) — never block the response.
-  void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
-  Promise.all([
-    incrementMeter(orgId, 'actions_per_month', sql),
-    incrementTrialActionCount(sql, orgId).catch(() => {}),
-    upsertAgentPresence(sql, orgId, {
-      agent_id: data.agent_id,
-      agent_name: data.agent_name || null,
-      status: 'online',
-      current_task_id: action_id,
-      metadata: null,
-      timestamp: new Date().toISOString(),
-    }).catch(() => {}),
-  ]).catch((err: unknown) => {
-    console.warn('[Guard] record=true background updates failed:', (err as Error).message);
+  // Same post-response side effects as POST /api/actions (event for Mission
+  // Control, meters, implicit presence heartbeat). after() — not a bare
+  // fire-and-forget promise — because on Vercel the function can freeze the
+  // moment the response returns, dropping the meter increment (a quota/billing
+  // undercount that never self-heals).
+  after(() => {
+    void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
+    return Promise.all([
+      incrementMeter(orgId, 'actions_per_month', sql),
+      incrementTrialActionCount(sql, orgId).catch(() => {}),
+      upsertAgentPresence(sql, orgId, {
+        agent_id: data.agent_id as string,
+        agent_name: data.agent_name || null,
+        status: 'online',
+        current_task_id: action_id,
+        metadata: null,
+        timestamp: new Date().toISOString(),
+      }).catch(() => {}),
+    ]).catch((err: unknown) => {
+      console.warn('[Guard] record=true background updates failed:', (err as Error).message);
+    });
   });
 
   return { recorded: true, action_id };

@@ -121,6 +121,12 @@ describe('guard hot path — policy cache', () => {
 // ── ?record=true route contract ──
 
 const { routeSqlHolder } = vi.hoisted(() => ({ routeSqlHolder: { sql: null } }));
+// next/server's after() throws "outside a request scope" in unit tests —
+// invoke the deferred side effects immediately (same idiom as actions.route.test.js).
+vi.mock('next/server', async (importOriginal) => {
+  const actual = await importOriginal();
+  return { ...actual, after: (cb) => { void cb(); } };
+});
 vi.mock('@/lib/db.js', () => ({ getSql: () => routeSqlHolder.sql }));
 vi.mock('@/lib/repositories/jti-replay.repository.js', () => ({
   checkAndRecord: vi.fn(async () => 'unique'),
