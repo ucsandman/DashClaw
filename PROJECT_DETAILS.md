@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-03), generated API inventory reports **326 routes**: **55 stable**, **24 beta**, **247 experimental**.
+As of this verification (2026-07-03), generated API inventory reports **327 routes**: **56 stable**, **24 beta**, **247 experimental**.
 
 ## Product boundary
 
@@ -100,6 +100,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/review` | Review feed | `GET` returns warn decisions since the review cursor, grouped by action shape, plus recent interrupts. Backs the `/policies` "To review" queue. |
 | `/api/policies/review/verdict` | Review verdicts | `POST { verdict, shape? }` (admin): `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. |
 | `/api/policies/proposals` | Policy-tuning proposals | `GET` returns per-policy interruption stats (rolling window) + rule-based tuning proposals with evidence; `POST { action: dismiss\|undismiss, proposal_id, reason? }` (admin) records dismissals. Accepting = the human PATCHes `/api/policies`; nothing auto-applies. Backs the `/policies` "Tuning proposals" section. |
+| `/api/policies/tightening` | Tightening proposals (findings → proposals, roadmap v3.2) | `GET` computes proposals on read from ungoverned-allow guard decisions, grouped (action_type × riskLevel) to mirror posture's `review_incident` findings one-to-one; `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify creates the ACTIVE `require_approval` policy server-side and resolves the mirrored posture finding, dismiss records why (content-stable `tp_` ids stop re-proposing), undo removes the judgment but keeps a created policy. Decisions persist in `tightening_proposal_decisions` (drizzle 0042). Backs the `/policies` "Tightening proposals" section. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |

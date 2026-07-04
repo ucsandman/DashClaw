@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.37.0",
+    "current_version": "4.38.0",
     "next_bump": "none",
-    "reason": "4.37.0 is roadmap v3.1 (posture signal integrity): synthetic-traffic exclusion in the posture queries, incident pattern collapse, coverage-math fix (coveredUnits from grades, was -22 live), attributed accepted-risk ledger with key-auth redaction, and the rm-rf-build-cache risk-calibration fix — platform + hooks only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.38.0 is roadmap v3.2 (findings become proposals — tightening direction): GET/POST /api/policies/tightening computes tightening proposals on read from ungoverned-allow guard decisions (mirroring posture's review_incident findings one-to-one), ratify creates the ACTIVE require_approval policy server-side + resolves the mirrored finding, decisions persist in tightening_proposal_decisions (drizzle 0042), /policies gains the Tightening proposals section and /posture the cross-link — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.37.0",
+    "current_version": "4.38.0",
     "next_bump": "none",
-    "reason": "4.37.0 is roadmap v3.1 (posture signal integrity): synthetic-traffic exclusion in the posture queries, incident pattern collapse, coverage-math fix (coveredUnits from grades, was -22 live), attributed accepted-risk ledger with key-auth redaction, and the rm-rf-build-cache risk-calibration fix — platform + hooks only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.38.0 is roadmap v3.2 (findings become proposals — tightening direction): GET/POST /api/policies/tightening computes tightening proposals on read from ungoverned-allow guard decisions (mirroring posture's review_incident findings one-to-one), ratify creates the ACTIVE require_approval policy server-side + resolves the mirrored finding, decisions persist in tightening_proposal_decisions (drizzle 0042), /policies gains the Tightening proposals section and /posture the cross-link — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

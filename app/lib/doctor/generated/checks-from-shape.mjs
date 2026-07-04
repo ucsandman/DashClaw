@@ -91,6 +91,7 @@ const TABLES = [
   "shared_docs",
   "skill_scan_results",
   "snippets",
+  "tightening_proposal_decisions",
   "token_budgets",
   "token_snapshots",
   "topics",

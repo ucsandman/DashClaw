@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from 'react';
+import Link from 'next/link';
 import {
   ShieldCheck, ShieldAlert, ShieldX, RefreshCw, AlertTriangle,
   ChevronRight, X, FileText, Clock, CheckCircle2, ShieldOff,
@@ -21,7 +22,7 @@ type FindingStatus = 'open' | 'drafted' | 'resolved' | 'snoozed' | 'accepted_ris
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 
 interface DimensionScore { dimension: Dimension; score: number; weight: number }
-interface PostureFix { type: string; policyType?: string; rules?: unknown; deepLink?: string; actionIds?: string[] }
+interface PostureFix { type: string; policyType?: string; rules?: unknown; deepLink?: string; actionIds?: string[]; proposalId?: string }
 interface Finding {
   key: string;
   dimension: Dimension;
@@ -210,7 +211,7 @@ function evidenceLine(f: Finding): string {
   if (f.fix.type === 'create_policy_draft') {
     return `${n} ${noun} · no firing ${f.fix.policyType ?? 'policy'} · draft ready`;
   }
-  if (f.fix.type === 'review_incident') return `${n} ungoverned high-risk ${n === 1 ? 'action' : 'actions'} reached allow`;
+  if (f.fix.type === 'review_incident') return `${n} ungoverned ${n === 1 ? 'action' : 'actions'} reached allow`;
   return `${n} ${noun}`;
 }
 
@@ -312,6 +313,31 @@ function ResolvePanel({ finding, busy, onClose, onResolve }: {
             <X size={16} />
           </button>
         </div>
+
+        {finding.fix.type === 'review_incident' && (
+          <div className="mt-4 rounded-lg border border-border bg-surface-secondary p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-tertiary">
+              Tightening proposal
+            </div>
+            <p className="mt-2 text-xs text-secondary">
+              {finding.fix.proposalId ? (
+                <>This pattern is mirrored as a tightening proposal — ratifying it there creates the require_approval policy in one click and resolves this finding.</>
+              ) : (
+                <>These decisions carry no action type, so no action-type policy can govern them — review the evidence directly.</>
+              )}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
+              {finding.fix.proposalId && (
+                <Link href="/policies#tightening" className="text-brand hover:underline">
+                  Review tightening proposal &rsaquo;
+                </Link>
+              )}
+              <Link href={finding.fix.deepLink ?? '/decisions'} className="text-brand hover:underline">
+                Evidence in the decisions ledger &rsaquo;
+              </Link>
+            </div>
+          </div>
+        )}
 
         {canDraft && (
           <div className="mt-4 rounded-lg border border-border bg-surface-secondary p-3">

@@ -14,6 +14,20 @@ export function bucketRiskScore(score: number): RiskLevel {
   return 'low';
 }
 
+// Deterministic FNV-1a 32-bit hash → 8-hex. Stable finding keys across scans
+// (NO Date.now / Math.random — keys must be reproducible, like Policy Coach
+// ids). Lives here (not findings.ts) so the tightening engine (v3.2) can
+// derive the mirrored finding key without a findings↔tightening import cycle.
+export function stableKey(parts: string[]): string {
+  const s = parts.join(':');
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 0x01000193) >>> 0;
+  }
+  return h.toString(16).padStart(8, '0');
+}
+
 export function frequencyFactor(count: number): number {
   return 1 + Math.log10(1 + Math.max(0, count));
 }

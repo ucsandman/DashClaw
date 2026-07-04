@@ -39,7 +39,9 @@ export type PostureFix =
   | { type: 'bind_identity'; agentId: string }
   | { type: 'enable_setting'; setting: 'redaction' | 'approval_channel'; deepLink: string }
   | { type: 'adopt_coach_suggestion'; suggestionId: string; deepLink: string }
-  | { type: 'review_incident'; actionIds: string[]; deepLink: string };
+  | { type: 'review_incident'; actionIds: string[]; deepLink: string;
+      /** v3.2: the mirrored tightening proposal on /policies (tp_ id). */
+      proposalId?: string };
 
 export interface PostureFinding {
   key: string;

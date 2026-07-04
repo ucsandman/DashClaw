@@ -13,7 +13,51 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [4.37.0] — 2026-07-03
+## [4.38.0] — 2026-07-03
+
+Roadmap v3.2 — findings become proposals (the tightening direction). The
+tuning-proposal engine (v4.22.0) only ever loosens; posture's critical
+"ungoverned high-risk action reached allow" findings were exactly tightening
+evidence, rendered as review chores. They are now one-click policy proposals.
+No SDK source change (no republish).
+
+### Added
+
+- **Tightening-proposal engine** (`app/lib/posture/tightening.ts`) — pure,
+  rule-based, no LLM. One rule (`govern_ungoverned_allow`): ≥3 ungoverned
+  allows at risk ≥50 for the same (action_type × riskLevel) propose a
+  `require_approval` policy in the review-verdict "Tighten" shape. Grouping
+  is identical to v3.1's pattern-collapsed `review_incident` posture
+  findings, so proposal and finding mirror one-to-one (shared `finding_key`,
+  content-stable `tp_` ids). An active governing policy suppresses the
+  pattern — a ratified proposal retires through the policy it created, not
+  bookkeeping.
+- **`GET/POST /api/policies/tightening`** (route 327) — proposals computed on
+  read; admin POST `ratify` creates the ACTIVE policy server-side in the same
+  request (no partial state), resolves the mirrored posture finding, and
+  audit-logs; `dismiss` records a redacted reason and stops re-proposing;
+  `undo` removes the judgment but keeps a created policy. Decisions persist
+  in `tightening_proposal_decisions` (drizzle 0042). Smoke-only
+  `?include_synthetic=1` / `?min_observed=` let the harness prove the
+  pipeline without polluting the real queue.
+- **/policies "Tightening proposals" section** — evidence cards (observed
+  count, risk range, window, decisions-ledger link) with armed-confirm
+  Ratify… / Dismiss… / Undo, between Tuning and Calibration proposals.
+- **/posture cross-link** — `review_incident` findings carry
+  `fix.proposalId`; the resolve panel links "Review tightening proposal" to
+  `/policies#tightening` and the evidence to `/decisions` (the previously
+  dead `deepLink` is now rendered).
+- **Policy smoke S1–S5** — live round-trip: seeded ungoverned pattern reaches
+  allow, mines into the expected proposal, default GET stays synthetic-free,
+  ratify flips the same call to `require_approval`, pattern retires, undo
+  keeps the policy (91/91 checks on a production server).
+
+### Fixed
+
+- /posture incident evidence line hardcoded "high-risk" regardless of the
+  group's actual risk level; it now states the count without the wrong level
+  (the title carries the level).
+
 
 Roadmap v3.1 — posture signal integrity, the first item of Roadmap v3 ("the
 instrument tells the truth"). The live posture surface read 30/100 with 164

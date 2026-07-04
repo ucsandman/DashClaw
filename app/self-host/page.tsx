@@ -196,7 +196,7 @@ dashclaw doctor`}</pre>
                   'Behavior guard -- no-code policy enforcement',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Approval flood guard with bulk resolution',
-                  'Policy tuning + risk-calibration proposals -- one-click review on /policies',
+                  'Policy tuning + tightening + risk-calibration proposals -- one-click review on /policies',
                   'Guard degradation observability (deadline fallbacks surfaced, never silent)',
                   'Prompt injection scanning',
                 ],

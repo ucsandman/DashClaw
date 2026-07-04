@@ -139,6 +139,7 @@ const navItems = [
   { href: '#guard', label: 'guard', indent: true },
   { href: '#risk-breakdown', label: 'Risk composition', indent: true },
   { href: '#risk-calibration', label: 'Calibration proposals', indent: true },
+  { href: '#tightening-proposals', label: 'Tightening proposals', indent: true },
   { href: '#action-recording', label: 'Action Recording' },
   { href: '#createAction', label: 'createAction', indent: true },
   { href: '#waitForApproval', label: 'waitForApproval', indent: true },
@@ -757,6 +758,20 @@ npm run livingcode:refresh`}</CodeBlock>
                 The same proposals are available at <code className="text-xs">GET /api/calibration/proposals</code>;
                 a ratified proposal is a recorded judgment (<code className="text-xs">?status=ratified</code> is the
                 maintainer&apos;s forge queue). Nothing changes scoring until the vector is forged and committed.
+              </p>
+            </div>
+            <div id="tightening-proposals" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Tightening proposals</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                Policy-tuning proposals only ever <em>loosen</em> (raise thresholds that over-interrupt).
+                Tightening proposals own the other direction: when the same high-risk action type repeatedly
+                reaches <code className="text-xs">allow</code> with no policy in its way, the pattern — mirrored
+                one-to-one from the posture finding — is rendered as an evidence card on{' '}
+                <code className="text-xs">/policies → Tightening proposals</code>. Ratify creates an active{' '}
+                <code className="text-xs">require_approval</code> policy for that action type in the same click
+                and resolves the posture finding; dismiss records why and stops the re-proposal. The same queue
+                is available at <code className="text-xs">GET /api/policies/tightening</code>. Nothing
+                auto-applies — every policy exists because a human ratified it.
               </p>
             </div>
           </section>

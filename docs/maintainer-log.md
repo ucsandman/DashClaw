@@ -14,6 +14,59 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — v3.2: findings become proposals (v4.38.0)
+
+Roadmap v3.2, same day as v3.1 — the cleaned signal immediately becomes
+actionable. The tuning engine (v1 item 1) deliberately only loosens; its
+spec parked the tightening direction. Meanwhile v3.1's pattern-collapsed
+posture findings were saying, precisely: "this action type reached allow at
+critical risk N times and nothing was in its way." That sentence *is* a
+policy proposal. Now the product says so.
+
+**Shipped:** a pure rule engine (`govern_ungoverned_allow`) over the same
+ungoverned-allow evidence posture mines, grouped identically (action_type ×
+riskLevel), so every proposal mirrors a `review_incident` finding one-to-one
+— shared finding key, content-stable `tp_` ids, cross-links both ways. The
+/policies cockpit gains a third proposal family between Tuning and
+Calibration: evidence cards with armed-confirm Ratify/Dismiss/Undo. Ratify
+creates the ACTIVE `require_approval` policy server-side in the same request
+(the review-verdict "Tighten" shape — already validated, enforced, and
+rendered everywhere), resolves the mirrored finding, and the pattern retires
+via governed-suppression: the policy it created hides it, not bookkeeping.
+Dismissals persist by content-stable id (drizzle 0042) so a rejected pattern
+stays rejected across windows. Constitution §3 intact — the engine only ever
+*proposes*; every policy exists because a human clicked.
+
+**Live proof:** smoke S1–S5 on a production build — three seeded allows at
+risk 74 mined into the expected proposal, the default GET stayed
+synthetic-free (v3.1's bar holds against v3.2's own seeds), ratify flipped
+the identical guard call from `allow` to `require_approval`, the pattern
+retired, undo kept the policy. 91/91. Rendered proof on live data was the
+satisfying part: the instance's real posture queue re-rendered as five cards
+— "Govern *apply* — 447 ungoverned allows · risk 75–82 · last 7 days" with a
+Ratify button — which is exactly the sentence this roadmap item existed to
+produce.
+
+**Decisions worth recording:** server-side ratify is a deliberate deviation
+from tuning's client-fired PATCH — no partial state where the policy exists
+but the judgment was never recorded. `require_approval` over `block` because
+the evidence says "nobody was asked", not "this must never happen". Undo
+keeps a ratify-created policy: it is a first-class policy the moment it
+exists, and deleting policies belongs to the policy surface. No
+snapshot-resurrection (calibration needs it for maintainer debt; here ratify
+closes its own loop in-request).
+
+**What went wrong:** nothing structural. One cockpit unit test broke because
+the new section's fetch wasn't stubbed (fixed with the same leaf-stub
+pattern as its siblings); the first rendered-proof run hung on `networkidle`
+because DashClaw pages hold SSE connections open — `domcontentloaded` +
+explicit waits is the pattern to remember.
+
+No SDK source change — version advances to 4.38.0, SDKs not republished,
+registry stays at 4.32.0.
+
+---
+
 ## 2026-07-03 — v3.1: the score stops lying (v4.37.0)
 
 Same session as the v3 draft — the roadmap's first item shipped hours after

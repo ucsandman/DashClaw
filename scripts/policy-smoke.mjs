@@ -981,6 +981,103 @@ async function main() {
       `acceptedRisk=${JSON.stringify(s.acceptedRisk)}`);
   }
 
+  // S: findings become proposals — tightening direction (roadmap v3.2).
+  // Seed an ungoverned high-risk pattern, prove it mines into the expected
+  // proposal (via the smoke-only ?include_synthetic=1 path), prove the default
+  // GET never sees it (v3.1's bar holds), then the full ratify round-trip:
+  // policy created → same call now interrupted → pattern retires → undo.
+  {
+    console.log('\nTightening proposals (findings → proposals)...');
+    const agent = agentFor('tighten');
+    const type = `smoke.tighten.${RUN}`;
+
+    // Pick a client risk in [50, 74] strictly below every ACTIVE org-wide
+    // risk_threshold policy's threshold, so the seeded calls genuinely reach
+    // allow (a firing policy would make them governed — no pattern).
+    const pol = await api('GET', '/api/policies');
+    const orgWideThresholds = (pol.json?.policies || [])
+      .filter((p) => {
+        if (!p.active || p.policy_type !== 'risk_threshold') return false;
+        if (!p.agent_ids || p.agent_ids === 'null' || p.agent_ids === '[]') return true;
+        try { const scoped = JSON.parse(p.agent_ids); return !Array.isArray(scoped) || scoped.length === 0; } catch { return true; }
+      })
+      .map((p) => { try { const r = typeof p.rules === 'string' ? JSON.parse(p.rules) : p.rules; return Number(r?.threshold); } catch { return NaN; } })
+      .filter(Number.isFinite);
+    const ceiling = Math.min(74, ...orgWideThresholds.map((t) => t - 1));
+
+    if (ceiling < 50) {
+      // Org gates everything >= 50: nothing CAN reach allow ungoverned here —
+      // which is itself the governed state this feature exists to produce.
+      check('S1', `tightening seed skipped truthfully — org already gates risk >= ${ceiling + 1}`, true, `ceiling=${ceiling}`);
+    } else {
+      const risk = ceiling;
+      const seedDecisions = [];
+      let effectiveRisk = risk;
+      for (let i = 0; i < 3; i++) {
+        const g = await api('POST', '/api/guard', {
+          action_type: type, declared_goal: `read a routine smoke value nobody governs ${i} ${RUN}`,
+          agent_id: agent, risk_score: risk,
+        });
+        seedDecisions.push(g.json?.decision);
+        effectiveRisk = Math.max(effectiveRisk, Number(g.json?.risk_score) || 0);
+      }
+      check('S1', 'seeded high-risk pattern reaches allow ungoverned (3× same action_type)',
+        seedDecisions.every((d) => d === 'allow'),
+        `decisions=${seedDecisions.join(',')} client_risk=${risk} effective=${effectiveRisk}`);
+
+      const expectedLevel = effectiveRisk >= 75 ? 'critical' : 'high';
+
+      // S2: the pattern mines into the expected proposal (smoke-only synthetic path)
+      const tp = await api('GET', '/api/policies/tightening?include_synthetic=1&min_observed=3&days=1');
+      const found = (tp.json?.proposals || []).find((p) => p.action_type === type);
+      check('S2', 'seeded pattern produces the expected tightening proposal with evidence + patch',
+        tp.status === 200 && !!found
+          && found.risk_level === expectedLevel
+          && found.evidence?.observed_count >= 3
+          && found.patch?.policy_type === 'require_approval'
+          && Array.isArray(found.patch?.rules?.action_types) && found.patch.rules.action_types.includes(type)
+          && /^tp_[a-f0-9]{16}$/.test(found.id),
+        `status=${tp.status} found=${!!found} level=${found?.risk_level} count=${found?.evidence?.observed_count}`);
+
+      // S3: the DEFAULT GET never mines synthetic traffic (v3.1's own bar)
+      const tpDefault = await api('GET', '/api/policies/tightening?days=1');
+      const defaultBlob = JSON.stringify(tpDefault.json?.proposals || []);
+      check('S3', 'default tightening GET excludes synthetic traffic entirely',
+        tpDefault.status === 200 && !defaultBlob.includes(type) && !defaultBlob.includes(`"${agent}"`),
+        `status=${tpDefault.status} leaked=${defaultBlob.includes(type)}`);
+
+      if (found) {
+        // S4: ratify creates the ACTIVE require_approval policy server-side and
+        // the very same call is now interrupted — the round-trip proven live.
+        const rat = await api('POST', '/api/policies/tightening', {
+          action: 'ratify', proposal_id: found.id,
+          proposal: { rule: found.rule, action_type: found.action_type, risk_level: found.risk_level },
+        });
+        const ratPolicyId = rat.json?.policy?.id || null;
+        if (ratPolicyId) createdPolicyIds.push(ratPolicyId);
+        const g2 = await api('POST', '/api/guard', {
+          action_type: type, declared_goal: `same call after ratify ${RUN}`,
+          agent_id: agent, risk_score: risk,
+        });
+        check('S4', 'ratify creates the require_approval policy and the same call is now interrupted',
+          rat.status === 200 && !!ratPolicyId && g2.json?.decision === 'require_approval',
+          `status=${rat.status} policy=${ratPolicyId} decision=${g2.json?.decision}`);
+
+        // S5: the governed pattern retires from the queue (suppressed by its
+        // own policy, not by bookkeeping) and undo removes only the judgment.
+        const tp2 = await api('GET', '/api/policies/tightening?include_synthetic=1&min_observed=3&days=1');
+        const stillMined = (tp2.json?.proposals || []).some((p) => p.action_type === type);
+        const undo = await api('POST', '/api/policies/tightening', { action: 'undo', proposal_id: found.id });
+        check('S5', 'ratified pattern retires (its policy governs it); undo removes the judgment, keeps the policy',
+          !stillMined && undo.status === 200 && undo.json?.policy_kept === ratPolicyId,
+          `stillMined=${stillMined} undo=${undo.status} kept=${undo.json?.policy_kept}`);
+      } else {
+        check('S4', 'ratify round-trip', false, 'no proposal from S2 to ratify');
+        check('S5', 'retire + undo', false, 'no proposal from S2');
+      }
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

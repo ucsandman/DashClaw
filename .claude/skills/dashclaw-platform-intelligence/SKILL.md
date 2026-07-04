@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:08c6f2b80778c18cf13aa767aee2fa14ba810de8`
+**Shape snapshot:** `sha1:77244462c8db6b35d1aff09ccd7e62b17c267109`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **278** active API routes across **68** categories (326 total including archived)
+- **279** active API routes across **68** categories (327 total including archived)
 - **4** required + **186** optional environment variables
-- **101** database tables
+- **102** database tables
 
 ## API Surface
 
@@ -377,6 +377,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/policies/summary`
 - `GET` `/api/policies/templates`
 - `POST` `/api/policies/test`
+- `GET, POST` `/api/policies/tightening`
 
 ### `posture`
 
@@ -539,7 +540,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
-- **`DATABASE_URL`** - referenced in 104 file(s)
+- **`DATABASE_URL`** - referenced in 105 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
 
@@ -736,7 +737,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 101 tables defined in `schema/schema.js` (Drizzle ORM):
+All 102 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -823,6 +824,7 @@ All 101 tables defined in `schema/schema.js` (Drizzle ORM):
 - `shared_docs`
 - `skill_scan_results`
 - `snippets`
+- `tightening_proposal_decisions`
 - `token_budgets`
 - `token_snapshots`
 - `topics`

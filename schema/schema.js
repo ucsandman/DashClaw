@@ -1682,3 +1682,29 @@ export const calibrationProposalDecisions = pgTable('calibration_proposal_decisi
   orgProposalUnique: unique('calibration_proposal_decisions_org_proposal_unique').on(t.orgId, t.proposalId),
   orgDecisionIdx: index('idx_calibration_decisions_org_decision').on(t.orgId, t.decision),
 }));
+
+// @domain governance
+// Tightening proposals (roadmap v3.2): the human's ratify/dismiss judgment on
+// a posture-derived proposal to govern an ungoverned high-risk action pattern.
+// Proposals are computed on read from guard_decisions (app/lib/posture/
+// tightening.ts); only the decision persists, keyed by the engine's
+// content-stable tp_ id so a dismissed pattern stops re-proposing. policy_id
+// records the guard policy a ratify created — ratify closes its own loop.
+export const tighteningProposalDecisions = pgTable('tightening_proposal_decisions', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  proposalId: text('proposal_id').notNull(),
+  rule: text('rule').notNull(),
+  decision: text('decision').notNull(), // 'ratified' | 'dismissed'
+  actionType: text('action_type'),
+  riskLevel: text('risk_level'),
+  findingKey: text('finding_key'),
+  snapshot: jsonb('snapshot'),
+  policyId: text('policy_id'),
+  reason: text('reason'),
+  decidedBy: text('decided_by'),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgProposalUnique: unique('tightening_proposal_decisions_org_proposal_unique').on(t.orgId, t.proposalId),
+  orgDecisionIdx: index('idx_tightening_decisions_org_decision').on(t.orgId, t.decision),
+}));

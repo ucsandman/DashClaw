@@ -13,8 +13,8 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `326`
-- Stable routes: `55`
+- Total routes: `327`
+- Stable routes: `56`
 - Beta routes: `24`
 - Experimental routes: `247`
 
@@ -258,6 +258,7 @@ doc-type: architecture
 | `/api/policies/summary` | `GET` | `stable` | `/api/policies` | `app/api/policies/summary/route.ts` |
 | `/api/policies/templates` | `GET` | `stable` | `/api/policies` | `app/api/policies/templates/route.ts` |
 | `/api/policies/test` | `POST` | `stable` | `/api/policies` | `app/api/policies/test/route.ts` |
+| `/api/policies/tightening` | `GET, POST` | `stable` | `/api/policies` | `app/api/policies/tightening/route.ts` |
 | `/api/posture` | `GET` | `experimental` | `(default)` | `app/api/posture/route.ts` |
 | `/api/posture/findings` | `GET` | `experimental` | `(default)` | `app/api/posture/findings/route.ts` |
 | `/api/posture/findings/{key}/resolve` | `POST` | `experimental` | `(default)` | `app/api/posture/findings/[key]/resolve/route.ts` |

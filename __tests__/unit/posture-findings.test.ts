@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { deriveFindings } from '../../app/lib/posture/findings';
 import type { GovernableUnit, Adjustments, Dimension } from '../../app/lib/posture/types';
 import { validatePolicy } from '../../app/lib/validate.js';
+import { tighteningProposalId } from '../../app/lib/posture/tightening';
 
 const unit = (over: Partial<GovernableUnit> = {}): GovernableUnit => ({
   key: 'cap:deploy', surfaceType: 'capability', riskLevel: 'high', reversible: false,
@@ -102,6 +103,38 @@ describe('deriveFindings', () => {
       .find((y) => y.fix.type === 'review_incident')!;
     const deployNow = f.find((y) => y.evidence.exampleActionIds.includes('a1'))!;
     expect(later.key).toBe(deployNow.key);
+  });
+
+  // v3.2 (findings become proposals): every review_incident fix mirrors a
+  // tightening proposal via the shared tighteningProposalId helper, EXCEPT
+  // the 'unknown' action_type placeholder — no action_types rule can govern
+  // an untyped decision, so no proposal exists to point at.
+  it('review_incident fix carries fix.proposalId for a typed action_type group', () => {
+    const units = [unit({ key: 'x', riskLevel: 'critical' })];
+    const adj: Adjustments = {
+      incidents: [
+        { unitKey: 'action_type:deploy', actionId: 'act_1', riskLevel: 'high', ts: 't' },
+        { unitKey: 'action_type:deploy', actionId: 'act_2', riskLevel: 'high', ts: 't' },
+      ],
+      approvalFollowThrough: 1, coachOpenGapUnitKeys: [],
+    };
+    const f = deriveFindings(units, { x: 1 }, adj);
+    const incident = f.find((y) => y.fix.type === 'review_incident')!;
+    expect(incident.fix).toMatchObject({ proposalId: tighteningProposalId('deploy', 'high') });
+  });
+
+  it('review_incident fix has NO proposalId for the untyped action_type:unknown group', () => {
+    const units = [unit({ key: 'x', riskLevel: 'critical' })];
+    const adj: Adjustments = {
+      incidents: [
+        { unitKey: 'action_type:unknown', actionId: 'act_1', riskLevel: 'high', ts: 't' },
+        { unitKey: 'action_type:unknown', actionId: 'act_2', riskLevel: 'high', ts: 't' },
+      ],
+      approvalFollowThrough: 1, coachOpenGapUnitKeys: [],
+    };
+    const f = deriveFindings(units, { x: 1 }, adj);
+    const incident = f.find((y) => y.fix.type === 'review_incident')!;
+    expect(incident.fix).not.toHaveProperty('proposalId');
   });
 
   // Guards the cross-task contract: every create_policy_draft fix MUST be a

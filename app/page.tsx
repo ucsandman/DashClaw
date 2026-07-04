@@ -608,7 +608,7 @@ if (decision === "allow") {
                 icon: Shield,
                 title: 'Policy Engine',
                 description: 'Semantic guardrails that decide allow, block, or require approval before the action reaches the real world.',
-                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines — invalidate a broken belief in one click', 'Self-calibrating risk scoring — miscalibrated shapes mined from your own ledger become one-click ratify/dismiss proposals on /policies', 'Policy tuning proposals mined from real decision outcomes — Apply and Dismiss are buttons', 'x402 spend gates: per-purchase caps plus cumulative window budgets with live "$X of $Y used" meters', 'Degraded evaluations surfaced, never silent — deadline fallbacks are counted and shown on /policies'],
+                items: ['Guard primitive with policy testing', 'Risk signals for autonomy spikes and failure loops', 'Assumption drift detection with z-score baselines — invalidate a broken belief in one click', 'Self-calibrating risk scoring — miscalibrated shapes mined from your own ledger become one-click ratify/dismiss proposals on /policies', 'Policy tuning proposals mined from real decision outcomes — Apply and Dismiss are buttons', 'Tightening proposals close the other direction: ungoverned high-risk patterns become one-click require_approval policies', 'x402 spend gates: per-purchase caps plus cumulative window budgets with live "$X of $Y used" meters', 'Degraded evaluations surfaced, never silent — deadline fallbacks are counted and shown on /policies'],
               },
               {
                 icon: MessageSquare,

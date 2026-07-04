@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:08c6f2b80778c18cf13aa767aee2fa14ba810de8 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:77244462c8db6b35d1aff09ccd7e62b17c267109 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">279</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">280</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">186</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">101</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">102</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (101)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (102)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -146,6 +146,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>shared_docs</code></td><td class="sig">—</td></tr>
     <tr><td><code>skill_scan_results</code></td><td class="sig">governance</td></tr>
     <tr><td><code>snippets</code></td><td class="sig">—</td></tr>
+    <tr><td><code>tightening_proposal_decisions</code></td><td class="sig">governance</td></tr>
     <tr><td><code>token_budgets</code></td><td class="sig">—</td></tr>
     <tr><td><code>token_snapshots</code></td><td class="sig">—</td></tr>
     <tr><td><code>topics</code></td><td class="sig">—</td></tr>
@@ -193,7 +194,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>45</b> env_vars added, <b>1</b> env_vars removed, <b>19</b> routes added, <b>4</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>45</b> env_vars added, <b>1</b> env_vars removed, <b>20</b> routes added, <b>5</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
@@ -203,6 +204,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/policies/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review/verdict <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/policies/tightening <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/sessions/[sessionId]/retro <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId] <span class="sig">New route: DELETE, GET</span></li>
@@ -259,6 +261,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: tightening_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li></ul></section>
@@ -437,7 +440,7 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/pairings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/pairings"><td><code>/api/pairings</code></td><td>GET, POST</td><td class="sig">app/api/pairings/route.ts</td></tr>
     <tr data-path="/api/pairings/[pairingId]"><td><code>/api/pairings/[pairingId]</code></td><td>GET, PATCH</td><td class="sig">app/api/pairings/[pairingId]/route.ts</td></tr>
     <tr data-path="/api/pairings/[pairingId]/approve"><td><code>/api/pairings/[pairingId]/approve</code></td><td>POST</td><td class="sig">app/api/pairings/[pairingId]/approve/route.ts</td></tr></tbody></table></details>
-<details><summary>/policies/* (15)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.ts</td></tr>
+<details><summary>/policies/* (16)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/policies"><td><code>/api/policies</code></td><td>DELETE, GET, PATCH, POST</td><td class="sig">app/api/policies/route.ts</td></tr>
     <tr data-path="/api/policies/contract"><td><code>/api/policies/contract</code></td><td>GET</td><td class="sig">app/api/policies/contract/route.ts</td></tr>
     <tr data-path="/api/policies/generate"><td><code>/api/policies/generate</code></td><td>POST</td><td class="sig">app/api/policies/generate/route.ts</td></tr>
     <tr data-path="/api/policies/import"><td><code>/api/policies/import</code></td><td>POST</td><td class="sig">app/api/policies/import/route.ts</td></tr>
@@ -451,7 +454,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/policies/simulate"><td><code>/api/policies/simulate</code></td><td>POST</td><td class="sig">app/api/policies/simulate/route.ts</td></tr>
     <tr data-path="/api/policies/summary"><td><code>/api/policies/summary</code></td><td>GET</td><td class="sig">app/api/policies/summary/route.ts</td></tr>
     <tr data-path="/api/policies/templates"><td><code>/api/policies/templates</code></td><td>GET</td><td class="sig">app/api/policies/templates/route.ts</td></tr>
-    <tr data-path="/api/policies/test"><td><code>/api/policies/test</code></td><td>POST</td><td class="sig">app/api/policies/test/route.ts</td></tr></tbody></table></details>
+    <tr data-path="/api/policies/test"><td><code>/api/policies/test</code></td><td>POST</td><td class="sig">app/api/policies/test/route.ts</td></tr>
+    <tr data-path="/api/policies/tightening"><td><code>/api/policies/tightening</code></td><td>GET, POST</td><td class="sig">app/api/policies/tightening/route.ts</td></tr></tbody></table></details>
 <details><summary>/posture/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/posture"><td><code>/api/posture</code></td><td>GET</td><td class="sig">app/api/posture/route.ts</td></tr>
     <tr data-path="/api/posture/findings"><td><code>/api/posture/findings</code></td><td>GET</td><td class="sig">app/api/posture/findings/route.ts</td></tr>
     <tr data-path="/api/posture/findings/[key]/resolve"><td><code>/api/posture/findings/[key]/resolve</code></td><td>POST</td><td class="sig">app/api/posture/findings/[key]/resolve/route.ts</td></tr>
