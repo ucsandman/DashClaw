@@ -73,16 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-03 (commit 12ef42c1). Confidence: 100%.
+Last indexed: 2026-07-04 (commit 4ea665a0). Confidence: 100%.
 ### Architecture
-Repowise is a codebase documentation engine that ingests a target repository (source files + optional contracts/policy rules), traverses and parses it into ASTs, analyzes structure and dependencies, and generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and a web-facing UI layer.
+This repository is a governed agent and documentation platform that ingests source repositories and configuration inputs, builds an internal knowledge/dependency model, and generates LLM-synthesised outputs (wiki pages, work orders, and policy-aware agent responses) that are exposed via an MCP server and supporting CLI/web tooling.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **public-facing application-layer front door** for… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-testing entry stage of repowise’s quality… | - |
 | `app/components` | The app/components module is the UI component layer of repowise’s web… | - |
-| `app/lib` | The app/lib module is the core service-layer “brain” of repowise’s policy… | - |
+| `app/lib` | The app/lib module is the service-layer “posture” domain and orchestration… | - |
 | `application` | The **Application (top-level)** module is the entry-stage web application layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -103,7 +103,7 @@ Repowise is a codebase documentation engine that ingests a target repository (so
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 74 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 73 | Wes Sander |
 | `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.9th percentile | 67 | Wes Sander |
 | `app/lib/doctor/generated/shape.json` | 99.9th percentile | 67 | Wes Sander |
