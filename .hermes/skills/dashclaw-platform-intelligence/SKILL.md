@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:aecb4a7d56b7ce3da93d9c33179c715e25f54537`
+**Shape snapshot:** `sha1:2212e3fd46f2587e3c22eae1a1ae1a8fe59fe8d8`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **279** active API routes across **68** categories (327 total including archived)
-- **4** required + **188** optional environment variables
-- **105** database tables
+- **280** active API routes across **69** categories (328 total including archived)
+- **4** required + **191** optional environment variables
+- **106** database tables
 
 ## API Surface
 
@@ -314,6 +314,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/learning/recommendations/metrics`
 - `GET, POST` `/api/learning/suggestions`
 
+### `live-canary`
+
+- `GET, POST` `/api/live-canary`
+
 ### `marketing`
 
 - `POST` `/api/marketing/event`
@@ -539,7 +543,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 82 file(s)
 - **`DATABASE_URL`** - referenced in 108 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 5 file(s)
@@ -628,6 +632,7 @@ These have fallbacks or only activate specific features.
 - `GITHUB_REPO_NAME` *(undocumented)*
 - `GITHUB_REPO_OWNER` *(undocumented)*
 - `GITHUB_SECRET` *(undocumented)*
+- `GITHUB_STEP_SUMMARY` *(undocumented)*
 - `GITHUB_TOKEN` *(undocumented)*
 - `GOOGLE_AI_API_KEY` *(undocumented)*
 - `GOOGLE_CLIENT_ID` *(undocumented)*
@@ -645,6 +650,8 @@ These have fallbacks or only activate specific features.
 - `HOSTED_TRIAL_ACTION_CAP` *(undocumented)*
 - `HOSTED_TRIAL_DAYS` *(undocumented)*
 - `INTEGRATION_DATABASE_URL` *(undocumented)*
+- `LIVE_CANARY_HOSTED_ORIGIN` *(undocumented)*
+- `LIVE_CANARY_MARKETING_ORIGIN` *(undocumented)*
 - `MODEL` *(undocumented)*
 - `MOONSHOT_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_KEY` *(undocumented)*
@@ -739,7 +746,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 105 tables defined in `schema/schema.js` (Drizzle ORM):
+All 106 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -799,6 +806,7 @@ All 105 tables defined in `schema/schema.js` (Drizzle ORM):
 - `learning_recommendation_events`
 - `learning_recommendations`
 - `learning_velocity`
+- `live_canary_runs`
 - `message_threads`
 - `milestones`
 - `notification_preferences`

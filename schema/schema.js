@@ -1525,6 +1525,25 @@ export const postureSnapshots = pgTable('posture_snapshots', {
 }));
 
 // @domain governance
+// v3.4 live-host canary: verdicts reported by the scheduled external probe
+// (scripts/live-canary.mjs via the live-canary GitHub Actions cron). Structurally
+// isolated from action_records/guard_decisions so synthetic probe traffic can
+// never reach posture or calibration mining. `checks` holds the probe results:
+// [{id, title, status, detail?, durationMs?, target?}].
+export const liveCanaryRuns = pgTable('live_canary_runs', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  source: text('source').notNull().default('github-actions'),
+  status: text('status').notNull(),
+  checks: jsonb('checks').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgCreatedIdx: index('idx_live_canary_runs_org_created').on(t.orgId, t.createdAt),
+}));
+
+// @domain governance
 // Behavior Learning: opt-in ANONYMIZED behavior samples uploaded by the local
 // recorder (BEHAVIOR_UPLOAD_ENABLED, default off). Paths arrive as salted
 // hashes (never raw), protected-path classification arrives pre-computed in

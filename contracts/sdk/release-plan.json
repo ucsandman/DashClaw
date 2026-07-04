@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.45.0",
+    "current_version": "4.46.0",
     "next_bump": "none",
-    "reason": "4.45.0 completes roadmap v3.3 (fresh-install truth) and the ADR Phase 2 queue: cross-org isolation smoke suite (scripts/cross-org-smoke.mjs, 31 checks, two seeded orgs probing 9 governance families over live HTTP), startup-smoke CI now gates on it plus the doctor write-canary against fresh Postgres, and the no-silent-catch guard extends to app/api/** + repositories with the line-level best-effort: pragma. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.46.0 ships roadmap v3.4 (live-host canary): scripts/live-canary.mjs probes the production hosts hourly from GitHub Actions as a real unauthenticated client (9 probes incl. Turnstile fail-closed and the MCP 401 challenge), files verdicts to the new POST /api/live-canary (route 328) into live_canary_runs (drizzle 0046), rendered on /setup#live-canary and as a posture auditability finding; in-ship security fix scopes the public /setup card to DASHCLAW_CANARY_ORG_ID. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.45.0",
+    "current_version": "4.46.0",
     "next_bump": "none",
-    "reason": "4.45.0 completes roadmap v3.3 (fresh-install truth) and the ADR Phase 2 queue: cross-org isolation smoke suite (scripts/cross-org-smoke.mjs, 31 checks, two seeded orgs probing 9 governance families over live HTTP), startup-smoke CI now gates on it plus the doctor write-canary against fresh Postgres, and the no-silent-catch guard extends to app/api/** + repositories with the line-level best-effort: pragma. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.46.0 ships roadmap v3.4 (live-host canary): scripts/live-canary.mjs probes the production hosts hourly from GitHub Actions as a real unauthenticated client (9 probes incl. Turnstile fail-closed and the MCP 401 challenge), files verdicts to the new POST /api/live-canary (route 328) into live_canary_runs (drizzle 0046), rendered on /setup#live-canary and as a posture auditability finding; in-ship security fix scopes the public /setup card to DASHCLAW_CANARY_ORG_ID. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

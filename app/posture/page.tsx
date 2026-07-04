@@ -212,6 +212,7 @@ function evidenceLine(f: Finding): string {
     return `${n} ${noun} · no firing ${f.fix.policyType ?? 'policy'} · draft ready`;
   }
   if (f.fix.type === 'review_incident') return `${n} ungoverned ${n === 1 ? 'action' : 'actions'} reached allow`;
+  if (f.fix.type === 'view_live_canary') return `${n} public ${n === 1 ? 'surface' : 'surfaces'} failing on the live hosts`;
   return `${n} ${noun}`;
 }
 
@@ -334,6 +335,24 @@ function ResolvePanel({ finding, busy, onClose, onResolve }: {
               )}
               <Link href={finding.fix.deepLink ?? '/decisions'} className="text-brand hover:underline">
                 Evidence in the decisions ledger &rsaquo;
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {finding.fix.type === 'view_live_canary' && (
+          <div className="mt-4 rounded-lg border border-border bg-surface-secondary p-3">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-tertiary">
+              Live host canary
+            </div>
+            <p className="mt-2 text-xs text-secondary">
+              The scheduled canary probes the production hosts as a real client. Its latest
+              run found public surfaces not answering their expected contract — the
+              per-probe verdicts are on the setup page.
+            </p>
+            <div className="mt-2 text-xs">
+              <Link href={finding.fix.deepLink ?? '/setup#live-canary'} className="text-brand hover:underline">
+                Open the live canary report &rsaquo;
               </Link>
             </div>
           </div>

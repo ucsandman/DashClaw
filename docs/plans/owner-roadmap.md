@@ -356,7 +356,7 @@ currently blocking nothing on this list.
 | v3.1 | Posture signal integrity | DONE 2026-07-03 (v4.37.0; SQL-level synthetic exclusion in both posture queries sharing the miner's families (regex↔LIKE agreement pinned), incident findings collapse per (action_type × riskLevel) with truthful observedCount + 5 example ids + content-stable keys, coveredUnits counted from grades (was −22 live; now 0..totalUnits by construction), pointsRecoverable = open only, accepted-risk quiets attributed (statusMeta actor/note/updatedAt + summary.acceptedRisk) with attribution redacted for key-auth callers (security review MEDIUM fixed in-ship — human sessions only via x-user-id discriminator); live proof: findings 164→84 with zero synthetic leakage, the 74 bulk-quiets render attributed in the /posture ledger (rendered proof headless incl. opened ledger row "usr_… · 6/6/2026"); ride-along: `rm -rf .next` hard-block (this session, risk 100) became golden vector rm-rf-next-build-cache + scorer fix (regenerable build-artifact deletes cap 35 client / map to cleanup server-side; globs/abs/unknown keep 90+; corpus 34); smoke R1–R3 = 86) |
 | v3.2 | Findings become proposals (tightening direction) | DONE 2026-07-03 (spec docs/superpowers/specs/2026-07-03-findings-become-proposals-design.md; pure engine app/lib/posture/tightening.ts groups (action_type × riskLevel) identically to v3.1's incident findings — proposal ↔ finding mirror via shared finding_key/tp_ ids; GET/POST /api/policies/tightening computed on read, decisions persist in tightening_proposal_decisions (0042); ratify creates the ACTIVE require_approval policy server-side (review-verdict "Tighten" shape), resolves the mirrored posture finding, and the pattern retires through governed-suppression (the policy, not bookkeeping); dismiss records why + stops re-proposing; /policies gains the Tightening proposals section (armed-confirm Ratify/Dismiss/Undo) and /posture review_incident findings gain the cross-link; smoke S1–S5 proves the live round-trip incl. the same call flipping allow→require_approval post-ratify (91/91); rendered proof headless on live data — 447-allow "apply" pattern rendered as one card, zero console errors) |
 | v3.3 | Fresh-install truth: kill the silent-death bug class | DONE 2026-07-04 (v4.44.0 write-path canary + v4.45.0 fresh-install CI gates: startup-smoke job now gates on the doctor write-canary and the new 31-check cross-org isolation suite against fresh Postgres; no-silent-catch guard extended to app/api/** + repositories with the line-level `best-effort:` pragma; the replayed heartbeat bug fails CI on a fresh schema) |
-| v3.4 | Live-host canary: probe production as the user | NOT STARTED |
+| v3.4 | Live-host canary: probe production as the user | DONE 2026-07-04 (v4.46.0; plan docs/superpowers/plans/2026-07-04-live-host-canary.md; scripts/live-canary.mjs probes both hosts hourly from GH Actions cron (17 * * * *) as an unauthenticated real client — 9 probes, every contract verified against production first, incl. the two challenge-probes: trial mint passes on the Turnstile 400 missing_token (zero junk trials — a 200 is the FAILURE), MCP handshake passes on the 401 + resource_metadata challenge; verdicts filed to POST /api/live-canary (route 328) into live_canary_runs (0046) only — structural exclusion from posture/mining, never the ledgers; rendered on /setup#live-canary (pass/fail/stale/not-reporting states, 3h staleness shared with posture via LIVE_CANARY_STALE_MS; public card scoped to DASHCLAW_CANARY_ORG_ID/org_default per in-ship security review — free-text check fields from other tenants never reach the public page) and as ONE collapsed posture auditability finding (view_live_canary fix, content-stable key, snooze/accept_risk work unchanged); acceptance proven live: 9/9 pass against production, dead-host simulation detected in one run (exit 1), seeded failure rendered on /setup + raised the finding (screenshot), pass run cleared both) |
 | v3.5 | Attention budgets: approval-flood guard | NOT STARTED |
 | v3.6 | Enforcement over assertion | NOT STARTED |
 | v3.7 | Deferred-debt triage | NOT STARTED |
@@ -465,6 +465,25 @@ Make "probe production as the user" a system, not a lesson.
 - Acceptance: killing a live surface (staging simulation acceptable) is
   detected within one canary interval and rendered; the canary's own
   traffic is excluded from posture/mining per v3.1.
+- **SHIPPED v4.46.0 (2026-07-04).** Spec decisions: 9-probe inventory
+  (every contract verified against production before it became an
+  assertion), hourly GH Actions cron, probes deliberately
+  unauthenticated — the two auth challenges ARE the pass conditions
+  (Turnstile 400 = mint reachable + fail-closed with zero junk trials;
+  MCP 401 + resource_metadata = handshake alive). Verdicts land in
+  live_canary_runs only, so exclusion from posture/mining is structural
+  rather than filter-dependent. Surfaces: /setup#live-canary card
+  (pass/fail/stale/not-reporting) + one collapsed posture auditability
+  finding (view_live_canary). Acceptance: **met** — dead-host simulation
+  detected in a single run; seeded failure rendered on /setup and raised
+  the finding; a passing run cleared both. Browser-grade escalation
+  (Playwright) explicitly deferred: every current probe, including the
+  v4.36.3 demo-cookie class, proved assertable with plain fetch.
+  Security-review revision (in-ship, HIGH → fixed): the public /setup
+  card renders only the trusted canary org's runs
+  (`DASHCLAW_CANARY_ORG_ID`, default org_default) — never
+  instance-wide latest, which would have let a hosted trial tenant
+  plant free text on the shared public page.
 
 ## v3.5 Attention budgets: approval-flood guard
 

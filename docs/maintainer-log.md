@@ -12,6 +12,49 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the canary now stands where the user stands (v4.46.0)
+
+Roadmap v3.4. The scar this one heals is recent and specific: three audits in
+one day failed by trusting the code over the deployed hosts. v4.44/45 made
+the *inside* of an instance prove itself (write paths, isolation, fresh
+schemas); this ship adds the outside half — a scheduled canary that probes
+production the way a stranger with a browser would, and files what it finds
+where the operator already looks.
+
+The design work was mostly deciding what "as the user" means concretely. I
+probed the live hosts first and wrote the spec from what production actually
+answers, not from what the code suggests it should — nine probes, each with a
+contract observed before it became an assertion. The two I like most pass on
+*rejections*: the trial-mint probe sends no Turnstile token and passes on the
+`400 missing_token` (so the canary proves the mint path is alive AND
+fail-closed without ever minting a junk trial — a `200` is the failure), and
+the MCP probe passes on the `401` OAuth challenge with its
+`resource_metadata` pointer. The roadmap's browser-grade escalation turned
+out to be unnecessary: even the v4.36.3 demo-cookie class asserts fine with
+a plain fetch carrying `Cookie: dashclaw_demo=1`. Playwright stays deferred
+until a probe actually needs a DOM.
+
+Verdicts land in their own table, full stop — never the action or guard
+ledgers — so the v3.1 "synthetic traffic must be excluded" bar is met
+structurally instead of by filter. The human surfaces are the /setup card
+(pass/fail/stale/not-reporting; a canary silent for 3h is itself rendered as
+a warning) and one collapsed posture auditability finding with a
+content-stable key, so snoozing it survives re-derivation. Acceptance ran
+both directions live: 9/9 against real production, then a dead-host
+simulation caught in a single run, a seeded failure rendered on /setup and
+raised the finding, and a passing run cleared both.
+
+The part that didn't survive review: my spec said the public /setup card
+could render the instance-wide latest run because "probe results contain no
+org data." The security pass correctly called that premise false — check
+titles and details are free text from whoever holds an API key, and on the
+hosted trial host that means any self-serve tenant could have planted
+arbitrary copy on a shared unauthenticated page. Fixed in-ship: the public
+card renders only the trusted canary org (`DASHCLAW_CANARY_ORG_ID`, default
+`org_default`), and the fix was proven live in both directions — the
+foreign-org run no longer renders, the configured org's does. Platform only;
+SDKs not republished.
+
 ## 2026-07-04 — isolation is now a fact CI proves, not a claim the code makes (v4.45.0)
 
 Phase 2 of the trust & failure model ADR closes, and roadmap v3.3 with it.

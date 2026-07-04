@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**327 active routes** (verified 2026-07-03 against `docs/api-inventory.json`): 56 stable, 24 beta, 247 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**328 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 248 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 

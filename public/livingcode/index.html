@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:aecb4a7d56b7ce3da93d9c33179c715e25f54537 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:2212e3fd46f2587e3c22eae1a1ae1a8fe59fe8d8 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">280</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">281</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">188</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">105</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">191</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">106</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (105)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (106)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -119,6 +119,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>learning_recommendation_events</code></td><td class="sig">—</td></tr>
     <tr><td><code>learning_recommendations</code></td><td class="sig">—</td></tr>
     <tr><td><code>learning_velocity</code></td><td class="sig">—</td></tr>
+    <tr><td><code>live_canary_runs</code></td><td class="sig">governance</td></tr>
     <tr><td><code>message_threads</code></td><td class="sig">—</td></tr>
     <tr><td><code>milestones</code></td><td class="sig">—</td></tr>
     <tr><td><code>notification_preferences</code></td><td class="sig">—</td></tr>
@@ -197,12 +198,13 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>47</b> env_vars added, <b>1</b> env_vars removed, <b>20</b> routes added, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>50</b> env_vars added, <b>1</b> env_vars removed, <b>21</b> routes added, <b>9</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/internal/resolve-key <span class="sig">New route: POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/live-canary <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/review <span class="sig">New route: GET</span></li>
@@ -236,6 +238,9 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_LOG_STARTUP <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_MEMORY_MAX_ENTRIES <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_TIMEOUT_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: GITHUB_STEP_SUMMARY <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: LIVE_CANARY_HOSTED_ORIGIN <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: LIVE_CANARY_MARKETING_ORIGIN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: MODEL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_USER <span class="sig">New env var (optional, undocumented)</span></li>
@@ -266,6 +271,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: live_canary_runs <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: tightening_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
@@ -426,6 +432,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/learning/recommendations/events"><td><code>/api/learning/recommendations/events</code></td><td>POST</td><td class="sig">app/api/learning/recommendations/events/route.ts</td></tr>
     <tr data-path="/api/learning/recommendations/metrics"><td><code>/api/learning/recommendations/metrics</code></td><td>GET</td><td class="sig">app/api/learning/recommendations/metrics/route.ts</td></tr>
     <tr data-path="/api/learning/suggestions"><td><code>/api/learning/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/learning/suggestions/route.ts</td></tr></tbody></table></details>
+<details><summary>/live-canary/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/live-canary"><td><code>/api/live-canary</code></td><td>GET, POST</td><td class="sig">app/api/live-canary/route.ts</td></tr></tbody></table></details>
 <details><summary>/marketing/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/marketing/event"><td><code>/api/marketing/event</code></td><td>POST</td><td class="sig">app/api/marketing/event/route.ts</td></tr></tbody></table></details>
 <details><summary>/mcp/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/mcp"><td><code>/api/mcp</code></td><td>POST</td><td class="sig">app/api/mcp/route.ts</td></tr></tbody></table></details>
 <details><summary>/messages/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/messages"><td><code>/api/messages</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/route.ts</td></tr>

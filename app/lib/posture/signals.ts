@@ -16,6 +16,7 @@ import {
   listFindingStates,
 } from '../repositories/posture.repository';
 import { getActivePolicies } from '../repositories/guardrails.repository';
+import { getLatestLiveCanaryRunForOrg } from '../repositories/live-canary.repository';
 import { evaluatePolicy } from '../guard';
 import { isSyntheticEvent } from '../calibration-mining.js';
 import {
@@ -23,7 +24,7 @@ import {
   computeScore,
   bucketRiskScore,
 } from './model';
-import { deriveFindings } from './findings';
+import { deriveFindings, deriveLiveCanaryFinding } from './findings';
 import type {
   GovernableUnit,
   Decision,
@@ -370,13 +371,14 @@ export async function computePosturePayload(
   const sinceTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Parallel data fetch.
-  const [capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates] = await Promise.all([
+  const [capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun] = await Promise.all([
     getCapabilityUnits(sql, orgId),
     getObservedActionUnits(sql, orgId),
     getActivePolicies(sql, orgId),
     getRecentDecisions(sql, orgId, sinceTs),
     getX402SpendSurfaces(sql, orgId),
     listFindingStates(sql, orgId),
+    getLatestLiveCanaryRunForOrg(sql, orgId),
   ]);
 
   const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
@@ -411,6 +413,16 @@ export async function computePosturePayload(
   // 6. Run the pure engine, then merge stored finding state onto the queue.
   const score = computeScore(units, coverageByKey, adjustments);
   const derived = deriveFindings(units, coverageByKey, adjustments);
+  // v3.4: the live-host canary's verdict joins the queue as one collapsed
+  // auditability finding (fresh failures only — see deriveLiveCanaryFinding).
+  // Appended before the state merge so snooze/accept_risk apply unchanged.
+  const canaryFinding = deriveLiveCanaryFinding(canaryRun, Date.now());
+  if (canaryFinding) {
+    // Keep the queue's scoreDelta-descending order (deriveFindings sorts).
+    const idx = derived.findIndex((f) => f.scoreDelta < canaryFinding.scoreDelta);
+    if (idx === -1) derived.push(canaryFinding);
+    else derived.splice(idx, 0, canaryFinding);
+  }
   const findings = applyFindingStates(derived, stateByKey);
 
   // v3.1: coverage counted from the grades themselves — findings are not

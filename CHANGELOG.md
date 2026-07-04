@@ -13,6 +13,59 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.46.0] — 2026-07-04
+
+Ships roadmap v3.4 (live-host canary): "probe production as the user" becomes
+a system, not a lesson. Three audits in one day had failed by trusting code
+over the deployed hosts; now a scheduled canary asserts every public
+surface's contract from the outside, hourly, and its verdict lands where the
+operator already looks. No SDK source change (no republish).
+
+### Added
+
+- **Live-host canary (`scripts/live-canary.mjs` + `.github/workflows/live-canary.yml`).**
+  An hourly GitHub Actions cron probes the production hosts as a real
+  unauthenticated client — 9 probes, every contract verified against live
+  production before it became an assertion: marketing homepage (with the
+  trial CTA present), docs render, demo entry redirect, the demo-cookie
+  class (the v4.36.3 bug, asserted curl-grade), trial `/connect`, OAuth
+  authorization-server + protected-resource discovery, and two probes whose
+  pass condition is an auth *challenge*: the trial mint passes on the
+  Turnstile `400 missing_token` rejection (fail-closed proven, zero junk
+  trials — a `200` is the failure), and the MCP handshake passes on the
+  `401` + `WWW-Authenticate resource_metadata` challenge. 15s timeout, one
+  retry on network/5xx flake; probes need no secrets, so killing a live
+  surface fails the job within one interval even before reporting is wired.
+- **`POST/GET /api/live-canary` + `live_canary_runs` (drizzle `0046`).**
+  The canary files its verdict to the instance (API-key auth, validated and
+  length-capped payload, repository-only SQL, 14-day retention pruned on
+  write). Verdicts live in their own table and never touch the action or
+  guard ledgers — the canary's synthetic traffic is *structurally* excluded
+  from posture scoring and calibration mining rather than filter-excluded.
+- **/setup "Live host canary" card (`/setup#live-canary`).** Pass / fail /
+  stale / not-reporting states with per-probe verdicts; a canary that has
+  not reported for 3h renders as its own warning ("a silent canary is
+  itself a finding"). Staleness shares one constant
+  (`LIVE_CANARY_STALE_MS`) with the posture derivation so the two surfaces
+  cannot disagree about what fresh means.
+- **Posture `auditability` finding (`view_live_canary`).** A fresh failed
+  run derives exactly one collapsed finding (content-stable key, so
+  snooze/accept-risk survive re-derivation) with a one-click path to the
+  /setup card; a passing run clears it. The score formula is intentionally
+  untouched — a dead marketing page is an operator alarm, not evidence
+  about fleet governance.
+
+### Security
+
+- **Cross-tenant public-page injection (HIGH) — found and fixed in-ship.**
+  The public `/setup` card originally rendered the instance-wide latest
+  run; check titles/details are free text from any API-key holder, so on
+  the multi-tenant hosted instance a self-serve trial tenant could have
+  planted arbitrary text on the shared unauthenticated page. The card now
+  renders only the trusted canary org's runs (`DASHCLAW_CANARY_ORG_ID`,
+  default `org_default`); tenants' own runs stay visible to them via the
+  org-scoped `GET` and their posture finding.
+
 ## [4.45.0] — 2026-07-04
 
 Completes roadmap v3.3 (fresh-install truth) and the trust & failure model

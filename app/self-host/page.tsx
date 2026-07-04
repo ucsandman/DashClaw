@@ -118,6 +118,9 @@ export default function SelfHostPage() {
           <p className="mt-2 text-text-secondary">
             Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, shape drift, and write-path health — live canary writes that prove heartbeats, action records, and guard audit rows actually land (synthetic, isolated, self-cleaning). It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
           </p>
+          <p className="mt-2 text-text-secondary">
+            The live host canary covers the outside-in half: an hourly GitHub Actions cron probes your deployed hosts as a real unauthenticated client (pages render, trial mint stays fail-closed, OAuth discovery and the MCP handshake answer their contracts) and files its verdict to your instance — failures render on <code className="font-mono text-text-primary">/setup#live-canary</code> and raise a posture finding.
+          </p>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="rounded-2xl border border-border bg-surface-secondary p-5">

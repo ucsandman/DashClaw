@@ -1,0 +1,36 @@
+name: Live host canary
+
+# v3.4 (docs/superpowers/plans/2026-07-04-live-host-canary.md): probe the
+# production hosts as a real client every hour. The probes are unauthenticated
+# and need no secrets; killing a live surface fails this job within one
+# interval. The verdict is ALSO filed to the operator instance when reporting
+# secrets are set — that is what renders on /setup#live-canary and raises the
+# posture auditability finding (the human surfaces; this job log is not one).
+#
+# Setup (reporting, optional but recommended):
+#   Settings → Secrets and variables → Actions:
+#     - DASHCLAW_BASE_URL  (e.g. https://my-dashclaw.vercel.app)
+#     - DASHCLAW_API_KEY   (an operator API key on that instance)
+#
+# Manual trigger: Actions tab → "Live host canary" → "Run workflow".
+
+on:
+  schedule:
+    # Hourly, off the top of the hour (GH queues spike at :00).
+    - cron: '17 * * * *'
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Probe production hosts
+        env:
+          DASHCLAW_BASE_URL: ${{ secrets.DASHCLAW_BASE_URL }}
+          DASHCLAW_API_KEY: ${{ secrets.DASHCLAW_API_KEY }}
+        run: node scripts/live-canary.mjs

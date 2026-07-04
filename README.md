@@ -218,7 +218,7 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**327 routes**: 56 stable, 24 beta, 247 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**328 routes**: 56 stable, 24 beta, 248 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Work Orders — task-grade contracts + receipts
 
@@ -399,6 +399,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 | Agent profiles | Per-agent governance dashboard at `/agents/[agentId]`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
 | Analytics | Cost trends, action volume, agent and type breakdowns, policy enforcement stats, and token efficiency at `/analytics`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
 | Doctor | `npm run doctor` (local) or `dashclaw doctor` (remote + machine checks). Report-only by default (the write-path canary proves inserts land using synthetic, self-cleaning rows in an isolated canary org); `--fix` applies safe auto-fixes (migrations, default policy, CORS, timestamp hygiene, stale mcp-server lib, and more). | [SDK README](./sdk/README.md) |
+| Live host canary | `scripts/live-canary.mjs` probes your production hosts hourly as a real unauthenticated client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, MCP handshake) from a GitHub Actions cron and files its verdict to `POST /api/live-canary`. Failures render on `/setup#live-canary` and raise a posture auditability finding. | [.github/workflows/live-canary.yml](./.github/workflows/live-canary.yml) |
 
 ---
 

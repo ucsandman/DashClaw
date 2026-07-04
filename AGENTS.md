@@ -73,16 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-04 (commit 25760d7d). Confidence: 100%.
+Last indexed: 2026-07-04 (commit 370b9d96). Confidence: 100%.
 ### Architecture
-This repository is an agent-governance and documentation platform that ingests source code and policy/rules inputs, transforms them through indexing, governance/policy enforcement, and (optionally) media/tooling pipelines, and outputs runnable governed agents plus an MCP-exposed tool surface and SDKs for downstream integrations.
+This repository is a governed code-assistant platform that ingests source repositories and agent/work-order inputs, transforms them through indexing, policy/rules enforcement, and tool execution, and outputs generated documentation artifacts (LLM-synthesised wiki pages) plus an MCP-exposed tool surface and supporting SDKs/UI components.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
 | `app` | The **app** module is the **front-end application layer** of repowise’s overall… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
 | `app/components` | The app/components module is the UI-layer composition library in repowise’s… | - |
-| `app/lib` | The app/lib subsystem is the Core Service Layer’s orchestration tier in… | - |
+| `app/lib` | The **app/lib module** is a core service-layer package in repowise’s governance… | - |
 | `application` | The **Application (top-level)** module is the entry-stage web application layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -103,9 +103,9 @@ This repository is an agent-governance and documentation platform that ingests s
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `package-lock.json` | 100.0th percentile | 76 | Wes Sander |
-| `docs/maintainer-log.md` | 100.0th percentile | 35 | Wes Sander |
-| `app/lib/guard.ts` | 99.9th percentile | 22 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 79 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 38 | Wes Sander |
+| `app/lib/guard.ts` | 99.9th percentile | 25 | Wes Sander |
 | `public/livingcode/index.html` | 99.9th percentile | 70 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.8th percentile | 67 | Wes Sander |
 

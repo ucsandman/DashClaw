@@ -64,6 +64,7 @@ const TABLES = [
   "learning_recommendation_events",
   "learning_recommendations",
   "learning_velocity",
+  "live_canary_runs",
   "message_threads",
   "milestones",
   "notification_preferences",

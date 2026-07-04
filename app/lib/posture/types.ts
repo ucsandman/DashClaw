@@ -41,7 +41,9 @@ export type PostureFix =
   | { type: 'adopt_coach_suggestion'; suggestionId: string; deepLink: string }
   | { type: 'review_incident'; actionIds: string[]; deepLink: string;
       /** v3.2: the mirrored tightening proposal on /policies (tp_ id). */
-      proposalId?: string };
+      proposalId?: string }
+  /** v3.4: the live-host canary reported a failing public surface. */
+  | { type: 'view_live_canary'; deepLink: string };
 
 export interface PostureFinding {
   key: string;

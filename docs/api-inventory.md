@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `327`
+- Total routes: `328`
 - Stable routes: `56`
 - Beta routes: `24`
-- Experimental routes: `247`
+- Experimental routes: `248`
 
 ## Routes
 
@@ -221,6 +221,7 @@ doc-type: architecture
 | `/api/learning/recommendations/metrics` | `GET` | `experimental` | `/api/learning` | `app/api/learning/recommendations/metrics/route.ts` |
 | `/api/learning/recommendations/{recommendationId}` | `PATCH` | `experimental` | `/api/learning` | `app/api/learning/recommendations/[recommendationId]/route.ts` |
 | `/api/learning/suggestions` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/suggestions/route.ts` |
+| `/api/live-canary` | `GET, POST` | `experimental` | `(default)` | `app/api/live-canary/route.ts` |
 | `/api/marketing/event` | `POST` | `experimental` | `(default)` | `app/api/marketing/event/route.ts` |
 | `/api/mcp` | `POST` | `experimental` | `(default)` | `app/api/mcp/route.ts` |
 | `/api/messages` | `GET, PATCH, POST` | `stable` | `/api/messages` | `app/api/messages/route.ts` |

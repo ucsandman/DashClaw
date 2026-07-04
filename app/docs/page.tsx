@@ -128,6 +128,7 @@ const navItems = [
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
   { href: '#dashclaw-doctor', label: 'dashclaw doctor', indent: true },
+  { href: '#live-host-canary', label: 'Live host canary', indent: true },
   { href: '#claude-code-plugin', label: 'Claude Code Plugin', indent: true },
   { href: '#codex-plugin', label: 'Codex Plugin', indent: true },
   { href: '#hermes-plugin', label: 'Hermes Agent Plugin', indent: true },
@@ -598,6 +599,23 @@ dashclaw logout                          # remove saved config
 
 # Self-host operator (filesystem-level fixes need --fix)
 npm run doctor -- --fix`}</CodeBlock>
+            </div>
+
+            <div id="live-host-canary" className="scroll-mt-20 mb-10">
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Live host canary</h3>
+              <p className="text-xs text-text-tertiary mb-3">
+                The doctor proves your instance works from the inside; the live host canary proves your deployment works from the outside. <code className="font-mono text-text-secondary">scripts/live-canary.mjs</code> probes your production hosts hourly as a real unauthenticated client — marketing page, docs, demo entry, trial-mint fail-closed (it passes on the Turnstile rejection, so it never mints junk trials), OAuth discovery, and the MCP handshake&apos;s 401 challenge — and files the verdict to <code className="font-mono text-text-secondary">POST /api/live-canary</code>. Verdicts render on <code className="font-mono text-text-secondary">/setup#live-canary</code>; a fresh failure also raises a posture auditability finding. Canary traffic is stored in its own table and never touches the action or guard ledgers.
+              </p>
+              <CodeBlock title="Enable (GitHub Actions)">{`# One-off run against your hosts:
+LIVE_CANARY_MARKETING_ORIGIN=https://your-site \\
+LIVE_CANARY_HOSTED_ORIGIN=https://your-instance \\
+node scripts/live-canary.mjs
+
+# Scheduled: .github/workflows/live-canary.yml runs hourly.
+# To report verdicts to your instance, add two repo secrets
+# (Settings -> Secrets and variables -> Actions):
+#   DASHCLAW_BASE_URL   e.g. https://my-dashclaw.vercel.app
+#   DASHCLAW_API_KEY    an operator API key on that instance`}</CodeBlock>
             </div>
 
             <div id="claude-code-plugin" className="scroll-mt-20 mb-10">

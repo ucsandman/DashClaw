@@ -1,5 +1,12 @@
 import { projectReadinessReport, getReadinessReport } from '../lib/readiness.mjs';
 import { runDoctor } from '../lib/doctor/engine.mjs';
+import { getSql } from '../lib/db';
+import {
+  getLatestLiveCanaryRunForOrg,
+  canaryDisplayOrgId,
+  type LiveCanaryRun,
+} from '../lib/repositories/live-canary.repository';
+import { LIVE_CANARY_STALE_MS } from '../lib/posture/findings';
 
 function statusTone(status: string): string {
   switch (status) {
@@ -118,13 +125,31 @@ function runCanaryMemoized(): Promise<{ result: any; error: boolean }> {
   return promise;
 }
 
+// v3.4: latest live-host canary verdict (reported by the hourly live-canary
+// GitHub Actions cron via POST /api/live-canary). Read-only, and scoped to
+// the operator's canary org (DASHCLAW_CANARY_ORG_ID, default org_default) —
+// this page is public and check text is free-form, so it must never render
+// another tenant's writes (2026-07-04 security review). A read error (no
+// DATABASE_URL, table not yet migrated) is RENDERED as an explicit
+// unavailable state, never swallowed.
+async function readLiveCanary(): Promise<{ run: LiveCanaryRun | null; error: boolean }> {
+  try {
+    const sql = getSql();
+    return { run: await getLatestLiveCanaryRunForOrg(sql, canaryDisplayOrgId()), error: false };
+  } catch (err) {
+    console.error('[Setup] live-host canary read failed:', err);
+    return { run: null, error: true };
+  }
+}
+
 export default async function SetupPage() {
   // The canary runs alongside the readiness report: real writes under the
   // isolated canary org, so a dead write path fails HERE before an agent
   // ever hits it. An engine error is rendered, never swallowed.
-  const [report, canary] = await Promise.all([
+  const [report, canary, liveCanary] = await Promise.all([
     getReadinessReport(process.env),
     runCanaryMemoized(),
+    readLiveCanary(),
   ]);
   const view = projectReadinessReport(report, { isAuthenticated: true });
   const overall = view.verification;
@@ -151,6 +176,35 @@ export default async function SetupPage() {
         : canaryChecks.some((c: any) => c.status === 'warn')
           ? 'warn'
           : 'pass';
+
+  // v3.4 live-host canary card state. Staleness shares LIVE_CANARY_STALE_MS
+  // with the posture finding so the two surfaces can never disagree about
+  // what "fresh" means. A canary that stopped reporting is itself a warn.
+  const liveRun = liveCanary.run;
+  const liveRunStale = liveRun
+    ? Date.now() - Date.parse(liveRun.finished_at) > LIVE_CANARY_STALE_MS
+    : false;
+  const liveStatus = liveCanary.error
+    ? 'warn'
+    : !liveRun
+      ? 'skipped'
+      : liveRun.status === 'fail'
+        ? 'fail'
+        : liveRunStale
+          ? 'warn'
+          : 'pass';
+  const liveChecks = (liveRun?.checks ?? []).map((c) => ({
+    id: c.id,
+    label: c.title,
+    detail: c.status === 'fail'
+      ? (c.detail || 'Probe failed.') + (c.target ? ` (${c.target})` : '')
+      : (c.target || c.detail || 'Answered as expected.'),
+    status: c.status,
+    nextAction: null,
+  }));
+  const liveReportedAt = liveRun
+    ? new Date(liveRun.finished_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
 
   return (
     <main className="min-h-screen bg-primary px-6 py-10 text-primary">
@@ -220,6 +274,50 @@ export default async function SetupPage() {
                   </p>
                 ) : (
                   <CheckList checks={canaryChecks} />
+                )}
+              </div>
+            </article>
+            <article id="live-canary" className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Live host canary</h2>
+                  <p className="mt-1 text-sm text-secondary">
+                    A scheduled canary probes the production hosts as a real client — marketing,
+                    docs, demo entry, trial mint, OAuth discovery, and the hosted MCP handshake —
+                    and files its verdict here.
+                  </p>
+                </div>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${checkTone(liveStatus)}`}>
+                  {liveStatus}
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-tertiary">
+                Checked: unauthenticated requests against the public hosts, asserting each surface&rsquo;s
+                expected contract. The canary&rsquo;s traffic never touches the action or guard ledgers.
+              </p>
+              <div className="mt-4">
+                {liveCanary.error ? (
+                  <p className="rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
+                    Canary reports could not be read (database unreachable or not yet migrated).
+                    The full error is logged server-side.
+                  </p>
+                ) : !liveRun ? (
+                  <p className="text-sm text-secondary">
+                    No canary reports yet. The <code>live-canary</code> GitHub Actions workflow probes
+                    the hosts hourly and reports to <code>/api/live-canary</code> once its secrets are set.
+                  </p>
+                ) : (
+                  <>
+                    {liveRunStale ? (
+                      <p className="mb-3 rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
+                        The canary has not reported since {liveReportedAt}. Treat the verdicts below as
+                        historical until the next run lands — a silent canary is itself a finding.
+                      </p>
+                    ) : (
+                      <p className="mb-3 text-xs text-tertiary">Last reported {liveReportedAt}.</p>
+                    )}
+                    <CheckList checks={liveChecks} />
+                  </>
                 )}
               </div>
             </article>

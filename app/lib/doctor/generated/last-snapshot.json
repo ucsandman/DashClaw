@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:aecb4a7d56b7ce3da93d9c33179c715e25f54537",
+  "timestamp": "sha1:2212e3fd46f2587e3c22eae1a1ae1a8fe59fe8d8",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2009,6 +2009,16 @@
       "file_path": "app/api/learning/suggestions/route.ts"
     },
     {
+      "path": "/api/live-canary",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/live-canary/route.ts"
+    },
+    {
       "path": "/api/marketing/event",
       "methods": [
         "POST"
@@ -3685,6 +3695,7 @@
         "scripts/demo-agent.mjs",
         "scripts/fuzz-api.mjs",
         "scripts/guard-load.mjs",
+        "scripts/live-canary.mjs",
         "scripts/migrate-multi-tenant.mjs",
         "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/policy-smoke.mjs",
@@ -3766,6 +3777,7 @@
         "scripts/branch-finish.mjs",
         "scripts/demo-agent.mjs",
         "scripts/fuzz-api.mjs",
+        "scripts/live-canary.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
         "scripts/seed-branch-finish-loop.mjs",
@@ -4353,6 +4365,14 @@
       "in_env_example": false
     },
     {
+      "name": "GITHUB_STEP_SUMMARY",
+      "required": false,
+      "files": [
+        "scripts/live-canary.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "GITHUB_TOKEN",
       "required": false,
       "files": [
@@ -4507,6 +4527,22 @@
       "required": false,
       "files": [
         "__tests__/integration/hosted/end-to-end.test.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "LIVE_CANARY_HOSTED_ORIGIN",
+      "required": false,
+      "files": [
+        "scripts/live-canary.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "LIVE_CANARY_MARKETING_ORIGIN",
+      "required": false,
+      "files": [
+        "scripts/live-canary.mjs"
       ],
       "in_env_example": false
     },
@@ -5668,6 +5704,11 @@
       "name": "learning_velocity",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "live_canary_runs",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "message_threads",
