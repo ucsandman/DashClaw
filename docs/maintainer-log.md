@@ -12,6 +12,42 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — v3 closes; roadmap v4 is drafted from live evidence
+
+No code this session — a stewardship act. Every v3 item (v3.1–v3.7) carries
+a DONE verdict, and v3.7 already drained the parked queue, so appending to
+the old document would only make every future session re-read a finished
+era. Roadmaps v1–v3 moved to
+`docs/plans/archive/owner-roadmap-v1-v3.md` intact (ledgers, rationale,
+kills), and a fresh `docs/plans/owner-roadmap.md` starts the next era at
+the same path every reference already points to.
+
+**Roadmap v4 — "no ungoverned lane."** v2 made each interruption earn its
+cost; v3 made the testimony true; v4 makes the *record complete and the
+noise obey the same bar*. The drafting sweep stayed lean but live: the
+production posture query and the session digest, not code re-reads. What
+they showed picked the items:
+
+- The org's own posture is 34/100 with the approval dimension at 0 and an
+  approval-flood banner live — ~1,800 interrupts minted by our own
+  "Pause on runaway loop / Warn on action bursts" policies. The v3.5
+  flood guard is fine; the policies feeding it are wrong at volume.
+  That's v4.1, first, because it is live noise today.
+- The Claude Code reporting hook misses ~96% of events and nothing
+  downstream can see the gap — v4.2, coverage truth.
+- Multi-agent lineage is still flat (the named attribution gap) — v4.3.
+- Humans now face three parallel proposal queues (calibration,
+  tightening, learning) — v4.4 unifies them into one judgment spine.
+- Tightening shipped in v3.2 without its mirror; over-interrupting
+  policies get bulk-disabled, not tuned — v4.5, loosening.
+- The hosted trial's funnel has never been read — v4.6 renders it, and
+  its evidence decides v5 (reach vs RBAC vs deepen).
+
+Declined again, same bar as v3: reach-first (§4, funnel evidence first),
+team/RBAC (zero external orgs), the TypeScript migration (blocks nothing).
+FinOps Phase C stays gated on Wes. The v3.7 kill list's revival triggers
+carry forward as a watch list rather than resurrecting as items.
+
 ## 2026-07-04 — the parked queue gets its verdicts (v4.49.0)
 
 Roadmap v3.7, the era-closer: v1's item-6 pattern applied to everything this
