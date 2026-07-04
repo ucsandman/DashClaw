@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (25977 symbols, 52119 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (26004 symbols, 52165 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,16 +73,16 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-04 (commit 0a1a4ec5). Confidence: 100%.
+Last indexed: 2026-07-04 (commit 25760d7d). Confidence: 100%.
 ### Architecture
-repo is a codebase documentation and governed-agent platform: it ingests a source repository (files, configs, and contracts), builds an internal knowledge graph (parsing, indexing, dependency/policy analysis), and generates LLM-synthesised documentation artifacts that are served through an MCP server and a web-facing UI, while also providing example governed agents and SDKs for interacting with the system.
+This repository is an agent-governance and documentation platform that ingests source code and policy/rules inputs, transforms them through indexing, governance/policy enforcement, and (optionally) media/tooling pipelines, and outputs runnable governed agents plus an MCP-exposed tool surface and SDKs for downstream integrations.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **public-facing application-layer front door** for… | - |
-| `__tests__/unit` | The __tests__/unit module is the unit-testing entry stage of repowise’s quality… | - |
-| `app/components` | The app/components module is the UI component layer of repowise’s web… | - |
-| `app/lib` | The **app/lib posture module** is the service-layer stage of repowise’s… | - |
+| `app` | The **app** module is the **front-end application layer** of repowise’s overall… | - |
+| `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
+| `app/components` | The app/components module is the UI-layer composition library in repowise’s… | - |
+| `app/lib` | The app/lib subsystem is the Core Service Layer’s orchestration tier in… | - |
 | `application` | The **Application (top-level)** module is the entry-stage web application layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
@@ -103,11 +103,11 @@ repo is a codebase documentation and governed-agent platform: it ingests a sourc
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `app/lib/guard.ts` | 100.0th percentile | 22 | Wes Sander |
-| `package-lock.json` | 100.0th percentile | 73 | Wes Sander |
-| `docs/maintainer-log.md` | 99.9th percentile | 31 | Wes Sander |
-| `public/livingcode/index.html` | 99.9th percentile | 68 | Wes Sander |
-| `app/lib/doctor/generated/shape.json` | 99.8th percentile | 65 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 76 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 35 | Wes Sander |
+| `app/lib/guard.ts` | 99.9th percentile | 22 | Wes Sander |
+| `public/livingcode/index.html` | 99.9th percentile | 70 | Wes Sander |
+| `app/lib/doctor/generated/last-snapshot.json` | 99.8th percentile | 67 | Wes Sander |
 
 ### Repowise MCP Workflow
 
