@@ -33,8 +33,8 @@ export async function GET() {
           policy_count: policies.length,
           policies,
         });
-      } catch {
-        // Skip packs with missing YAML files
+      } catch (err) {
+        console.warn(`[POLICIES/TEMPLATES] skipping pack with unreadable YAML: ${packId}`, err instanceof Error ? err.message : String(err));
       }
     }
 

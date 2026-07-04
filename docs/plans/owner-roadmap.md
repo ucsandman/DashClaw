@@ -355,7 +355,7 @@ currently blocking nothing on this list.
 |---|------|--------|
 | v3.1 | Posture signal integrity | DONE 2026-07-03 (v4.37.0; SQL-level synthetic exclusion in both posture queries sharing the miner's families (regex↔LIKE agreement pinned), incident findings collapse per (action_type × riskLevel) with truthful observedCount + 5 example ids + content-stable keys, coveredUnits counted from grades (was −22 live; now 0..totalUnits by construction), pointsRecoverable = open only, accepted-risk quiets attributed (statusMeta actor/note/updatedAt + summary.acceptedRisk) with attribution redacted for key-auth callers (security review MEDIUM fixed in-ship — human sessions only via x-user-id discriminator); live proof: findings 164→84 with zero synthetic leakage, the 74 bulk-quiets render attributed in the /posture ledger (rendered proof headless incl. opened ledger row "usr_… · 6/6/2026"); ride-along: `rm -rf .next` hard-block (this session, risk 100) became golden vector rm-rf-next-build-cache + scorer fix (regenerable build-artifact deletes cap 35 client / map to cleanup server-side; globs/abs/unknown keep 90+; corpus 34); smoke R1–R3 = 86) |
 | v3.2 | Findings become proposals (tightening direction) | DONE 2026-07-03 (spec docs/superpowers/specs/2026-07-03-findings-become-proposals-design.md; pure engine app/lib/posture/tightening.ts groups (action_type × riskLevel) identically to v3.1's incident findings — proposal ↔ finding mirror via shared finding_key/tp_ ids; GET/POST /api/policies/tightening computed on read, decisions persist in tightening_proposal_decisions (0042); ratify creates the ACTIVE require_approval policy server-side (review-verdict "Tighten" shape), resolves the mirrored posture finding, and the pattern retires through governed-suppression (the policy, not bookkeeping); dismiss records why + stops re-proposing; /policies gains the Tightening proposals section (armed-confirm Ratify/Dismiss/Undo) and /posture review_incident findings gain the cross-link; smoke S1–S5 proves the live round-trip incl. the same call flipping allow→require_approval post-ratify (91/91); rendered proof headless on live data — 447-allow "apply" pattern rendered as one card, zero console errors) |
-| v3.3 | Fresh-install truth: kill the silent-death bug class | IN PROGRESS (core write-path canary shipped v4.44.0: doctor `write-canary` category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup "Write-path health" + /doctor; remaining: fresh-install CI job, no-silent-catch guard extension to server-side writes) |
+| v3.3 | Fresh-install truth: kill the silent-death bug class | DONE 2026-07-04 (v4.44.0 write-path canary + v4.45.0 fresh-install CI gates: startup-smoke job now gates on the doctor write-canary and the new 31-check cross-org isolation suite against fresh Postgres; no-silent-catch guard extended to app/api/** + repositories with the line-level `best-effort:` pragma; the replayed heartbeat bug fails CI on a fresh schema) |
 | v3.4 | Live-host canary: probe production as the user | NOT STARTED |
 | v3.5 | Attention budgets: approval-flood guard | NOT STARTED |
 | v3.6 | Enforcement over assertion | NOT STARTED |
@@ -421,18 +421,29 @@ local DB is legacy-shaped.
   "Write-path health" (public truth surface, canary memoized 60s) and
   /doctor (admin fix button). The replayed presence-heartbeat bug is
   pinned as a failing canary in `doctor-write-canary.test.js`.
-- CI job that boots a genuinely FRESH install (empty Postgres, drizzle
-  migrations only) and runs the smoke suite against it on every push —
-  the fresh-vs-legacy drift class (TEXT vs timestamptz, missing
-  constraints, dead heartbeats) gets caught by machine.
-- Best-effort-catch sweep: every catch around a write either surfaces
-  (structured log + a counter a human can see) or dies. Extend the
-  existing no-silent-catch guard test to server-side writes so the
-  pattern can't return.
-- Acceptance: the presence-heartbeat bug, replayed, fails CI on a fresh
-  schema; a silently-swallowed write in a route fails the guard test;
-  both pinned. Zero new human surfaces needed (explicit decision:
-  this item's consumers are CI and the maintainer).
+- **SHIPPED v4.45.0 — fresh-install CI gates.** The `startup-smoke` CI
+  job (empty `postgres:16` service container + `auto-migrate` = drizzle
+  migrations only) now gates on the doctor write-path canary over live
+  HTTP: after the 91-check policy smoke it runs the cross-org isolation
+  suite (`scripts/cross-org-smoke.mjs`, 31 checks, two seeded orgs) and
+  fails the job unless all `write-canary` checks pass — the replayed
+  presence-heartbeat bug now fails CI on a fresh schema, before any
+  agent traffic exists.
+- **SHIPPED v4.45.0 — server-side silent-catch guard.** The
+  no-silent-catch guard test now scans `app/api/**` (excluding
+  `_archive`) and `app/lib/repositories/**` — the only layer allowed to
+  touch SQL — for empty AND comment-only catch bodies. The escape hatch
+  is line-level, not file-level: a comment-only catch passes only with
+  an explicit `/* best-effort: <reason> */` pragma, so whole files stay
+  protected and `grep -rn "best-effort:" app/` is the exemption ledger.
+  The sweep upgraded genuinely write-adjacent swallows (trial metering,
+  agent-presence upsert, approval webhooks, template packs, event
+  publishes, last_used_at touch) to `console.warn` with context.
+- Acceptance: **met.** The presence-heartbeat bug, replayed, fails CI on
+  a fresh schema (write-canary gate); a silently-swallowed write in a
+  route fails the guard test; both pinned. Zero new human surfaces
+  needed (explicit decision: this item's consumers are CI and the
+  maintainer).
 
 ## v3.4 Live-host canary: probe production as the user
 

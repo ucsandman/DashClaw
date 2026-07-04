@@ -138,7 +138,7 @@ export async function GET(request: Request) {
         try {
           const readBy = typeof m.read_by === 'string' ? JSON.parse(m.read_by) : m.read_by;
           isRead = Array.isArray(readBy) && readBy.includes(readerId);
-        } catch { /* ignore */ }
+        } catch { /* best-effort: malformed read_by JSON — treated as unread */ }
       }
       return { ...m, attachments: attachmentsByMsg[m.id] || [], is_read: isRead };
     });

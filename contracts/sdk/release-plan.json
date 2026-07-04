@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.44.0",
+    "current_version": "4.45.0",
     "next_bump": "none",
-    "reason": "4.44.0 ships the doctor write-path canary (roadmap v3.3 core): a write-canary doctor category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org (insert, verify, delete) — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup 'Write-path health' and /doctor. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.45.0 completes roadmap v3.3 (fresh-install truth) and the ADR Phase 2 queue: cross-org isolation smoke suite (scripts/cross-org-smoke.mjs, 31 checks, two seeded orgs probing 9 governance families over live HTTP), startup-smoke CI now gates on it plus the doctor write-canary against fresh Postgres, and the no-silent-catch guard extends to app/api/** + repositories with the line-level best-effort: pragma. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.44.0",
+    "current_version": "4.45.0",
     "next_bump": "none",
-    "reason": "4.44.0 ships the doctor write-path canary (roadmap v3.3 core): a write-canary doctor category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org (insert, verify, delete) — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup 'Write-path health' and /doctor. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.45.0 completes roadmap v3.3 (fresh-install truth) and the ADR Phase 2 queue: cross-org isolation smoke suite (scripts/cross-org-smoke.mjs, 31 checks, two seeded orgs probing 9 governance families over live HTTP), startup-smoke CI now gates on it plus the doctor write-canary against fresh Postgres, and the no-silent-catch guard extends to app/api/** + repositories with the line-level best-effort: pragma. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

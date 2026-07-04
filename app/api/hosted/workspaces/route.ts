@@ -60,7 +60,7 @@ export async function POST(request: Request) {
   const ip = clientIp(request);
 
   let body: any = {};
-  try { body = await request.json(); } catch { /* empty body allowed */ }
+  try { body = await request.json(); } catch { /* best-effort: empty request body is allowed */ }
 
   // Verify turnstile BEFORE consuming a rate-limit slot so bot requests with bad
   // tokens don't burn quota for legitimate users sharing a NAT egress IP.

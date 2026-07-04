@@ -262,9 +262,7 @@ export async function getModelPricing(sql: SqlTag, orgId: string): Promise<unkno
       const parsed = JSON.parse(rows[0]!.value as string);
       if (Array.isArray(parsed) && parsed.length > 0) return parsed;
     }
-  } catch {
-    // Gracefully fall back to default pricing on any error
-  }
+  } catch { /* best-effort: fall back to default pricing on any error */ }
   return null;
 }
 

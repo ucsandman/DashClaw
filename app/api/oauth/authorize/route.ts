@@ -74,7 +74,7 @@ export async function GET(request: Request) {
   // the redirect that the POST returns, so a bare 'self' silently blocks the
   // post-consent redirect to claude.ai and the Authorize button does nothing.
   let callbackOrigin = '';
-  try { callbackOrigin = new URL(v.q!.redirectUri!).origin; } catch { /* validated above */ }
+  try { callbackOrigin = new URL(v.q!.redirectUri!).origin; } catch { /* best-effort: redirectUri already validated above */ }
   const formAction = callbackOrigin ? `'self' ${callbackOrigin}` : "'self'";
 
   // Minimal consent page. POSTs back to this same URL (query preserved).

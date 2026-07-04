@@ -96,7 +96,7 @@ async function recordRunningAction(
     void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
     return Promise.all([
       incrementMeter(orgId, 'actions_per_month', sql),
-      incrementTrialActionCount(sql, orgId).catch(() => {}),
+      incrementTrialActionCount(sql, orgId).catch((err: unknown) => console.warn('[GUARD] trial action count increment failed:', err instanceof Error ? err.message : String(err))),
       upsertAgentPresence(sql, orgId, {
         agent_id: data.agent_id as string,
         agent_name: data.agent_name || null,
@@ -104,7 +104,7 @@ async function recordRunningAction(
         current_task_id: action_id,
         metadata: null,
         timestamp: new Date().toISOString(),
-      }).catch(() => {}),
+      }).catch((err: unknown) => console.warn('[GUARD] agent presence upsert failed:', err instanceof Error ? err.message : String(err))),
     ]).catch((err: unknown) => {
       console.warn('[Guard] record=true background updates failed:', (err as Error).message);
     });

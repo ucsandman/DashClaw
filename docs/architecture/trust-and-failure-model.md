@@ -87,4 +87,11 @@ single-use + fingerprint-bound and `rate_limit` counts `guard_decisions`
 (not `action_records`) *(both v4.43.0)*; doctor write-path canary
 *(v4.44.0 — live writes via the real repository writers under an isolated
 canary org; a dead write path is a FAIL on /setup and /doctor)*; cross-org
-isolation behavioral test suite *(remaining)*.
+isolation behavioral test suite *(shipped v4.45.0 —
+`scripts/cross-org-smoke.mjs` seeds two run-unique orgs with DB-minted keys
+and proves over live HTTP that neither can read, mutate, enumerate, approve,
+or consume the other's governance resources across actions, assumptions,
+loops, messages, handoffs, agents, guard decisions, policies, and approvals;
+runs in CI on every push via the startup-smoke job's fresh Postgres)*.
+
+Phase 2 queue: **complete.**

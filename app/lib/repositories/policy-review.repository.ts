@@ -83,7 +83,7 @@ export function groupWarnDecisions(
         try {
           const ctx = JSON.parse(row.context) as { declared_goal?: unknown };
           if (typeof ctx.declared_goal === 'string') goal = ctx.declared_goal;
-        } catch { /* sample goal is best-effort */ }
+        } catch { /* best-effort: sample goal is display-only */ }
       }
       groups.set(shape.key, {
         shape,

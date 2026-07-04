@@ -144,7 +144,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       fireWebhooksForApproval(orgId, approvalEvent, {
         ...fullAction,
         status: decision === 'allow' ? 'running' : 'failed',
-      }, sql).catch(() => {});
+      }, sql).catch((err: unknown) => console.warn('[APPROVALS] approval webhook dispatch failed:', err instanceof Error ? err.message : String(err)));
     }
 
     return NextResponse.json({

@@ -194,7 +194,7 @@ export async function POST(request: Request) {
         if (Number.isFinite(prevTs) && Number.isFinite(nextTs) && nextTs < prevTs) {
           return NextResponse.json({ skipped: true, reason: 'stale' });
         }
-      } catch { /* corrupt stored snapshot — let the new one replace it */ }
+      } catch { /* best-effort: corrupt stored snapshot — let the new one replace it */ }
     }
     await upsertSetting(sql, orgId, {
       key: SNAPSHOT_KEY,

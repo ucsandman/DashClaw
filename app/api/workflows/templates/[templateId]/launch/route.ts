@@ -41,8 +41,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ tem
             config: strategy.config,
           };
         }
-      } catch {
-        // Strategy resolution is best-effort in Phase 1 — don't block launch.
+      } catch (err) {
+        // Strategy resolution must not block launch — but a dead lookup should be visible.
+        console.warn('[WORKFLOWS/LAUNCH] strategy resolution failed:', err instanceof Error ? err.message : String(err));
       }
     }
 

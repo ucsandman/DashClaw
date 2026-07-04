@@ -24,9 +24,9 @@ export async function GET(request: Request) {
 
     const parsed = (result.decisions || []).map((d: Record<string, unknown>) => {
       let matchedPolicies = [];
-      try { matchedPolicies = JSON.parse((d.matched_policies as string) || '[]'); } catch { /* skip */ }
+      try { matchedPolicies = JSON.parse((d.matched_policies as string) || '[]'); } catch { /* best-effort: malformed stored JSON — empty list applies */ }
       let context: Record<string, unknown> = {};
-      try { context = JSON.parse((d.context as string) || '{}'); } catch { /* skip */ }
+      try { context = JSON.parse((d.context as string) || '{}'); } catch { /* best-effort: malformed stored JSON — empty context applies */ }
       return {
         ...d,
         matched_policies: matchedPolicies,

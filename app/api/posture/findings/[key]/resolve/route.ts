@@ -102,7 +102,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ key
           orgId, change_type: 'created', policy_id: id, source: 'posture',
         });
       }
-    } catch { /* non-fatal */ }
+    } catch (err) { console.warn('[POSTURE/RESOLVE] policy_updated event publish failed:', err instanceof Error ? err.message : String(err)); }
 
     return NextResponse.json({
       resolved: true,

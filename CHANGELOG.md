@@ -13,6 +13,49 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.45.0] — 2026-07-04
+
+Completes roadmap v3.3 (fresh-install truth) and the trust & failure model
+ADR's Phase 2 queue. The theme: isolation and write-path health stop being
+claims the code makes and become facts CI proves on every push, against a
+genuinely fresh install. No SDK source change (no republish).
+
+### Added
+
+- **Cross-org isolation smoke suite (`scripts/cross-org-smoke.mjs`).** Seeds
+  two run-unique orgs with their own DB-minted API keys, creates governance
+  resources in org A over real HTTP, then proves org B's key cannot read,
+  mutate, enumerate, approve, or consume any of them — 31 checks across
+  actions, assumptions, open loops, messages (including cross-org sender
+  impersonation), handoffs, agents/presence, guard decisions, policies, and
+  approvals, with same-org controls proving the 404s are isolation rather
+  than breakage. Cleanup sweeps every table carrying `org_id` (discovered
+  from `information_schema`), so the suite stays complete as new governance
+  tables appear and leaves zero rows behind.
+- **Fresh-install CI gates.** The `startup-smoke` CI job (empty
+  `postgres:16` + drizzle migrations only) now chains policy smoke → the
+  cross-org isolation suite → a doctor **write-path canary gate** over live
+  HTTP: the job fails unless every `write-canary` check passes, so the
+  replayed fresh-install presence-heartbeat bug — the canonical
+  silent-death case — fails CI on a fresh schema before any agent traffic
+  exists. Skippable knobs (`STARTUP_SMOKE_SKIP_CROSS_ORG`,
+  `STARTUP_SMOKE_SKIP_CANARY`) mirror the existing policy-smoke opt-out.
+
+### Changed
+
+- **The no-silent-catch guard now covers server-side write surfaces.** The
+  guard test that banned empty catches in interactive UI code now also scans
+  `app/api/**` (excluding `_archive`) and `app/lib/repositories/**` — the
+  only layer allowed to touch SQL — and comment-only catch bodies count as
+  silent. The escape hatch is line-level, not file-level: a comment-only
+  catch passes only with an explicit `/* best-effort: <reason> */` pragma,
+  so whole files stay protected and `grep -rn "best-effort:" app/` is the
+  exemption ledger. The accompanying sweep upgraded genuinely write-adjacent
+  swallows to `console.warn` with context: trial-action metering and
+  agent-presence upsert on the guard hot path, approval webhook dispatch,
+  policy-template pack loading, `policy_updated` event publishes, and the
+  self-host key `last_used_at` touch.
+
 ## [4.44.0] — 2026-07-04
 
 Roadmap v3.3's core, out of the trust & failure model ADR's Phase 2 queue:

@@ -164,7 +164,7 @@ export async function POST(request: Request) {
         if (EVENTS && EVENTS.POLICY_UPDATED) {
           publishOrgEvent(EVENTS.POLICY_UPDATED, { orgId, change_type: 'created', policy_id: id, source: 'behavior-coach' });
         }
-      } catch { /* non-fatal */ }
+      } catch (err) { console.warn('[BEHAVIOR/SUGGESTIONS] policy_updated event publish failed:', err instanceof Error ? err.message : String(err)); }
 
       return NextResponse.json({
         adopted: true,

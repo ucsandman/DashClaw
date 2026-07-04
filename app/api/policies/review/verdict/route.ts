@@ -78,9 +78,7 @@ export async function POST(request: Request) {
       try {
         const raw = dismissedRows[0]?.value as string | null | undefined;
         dismissed = JSON.parse(raw || '{}') as Record<string, string>;
-      } catch {
-        // Corrupt — start fresh
-      }
+      } catch { /* best-effort: corrupt dismissed-state JSON — start fresh */ }
       dismissed[key] = now;
       await upsertSetting(sql, orgId, {
         key: 'policy_review_dismissed',

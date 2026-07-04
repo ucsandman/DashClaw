@@ -32,9 +32,7 @@ async function buildSuccessResponse(start: number, request: Request) {
       { env: process.env, host: url.host }
     );
     proofToken = token;
-  } catch {
-    // Proof minting is best-effort (needs NEXTAUTH_SECRET)
-  }
+  } catch { /* best-effort: proof minting needs NEXTAUTH_SECRET — optional */ }
 
   return NextResponse.json({
     ok: true,
@@ -76,9 +74,7 @@ export async function POST(request: Request) {
     if (rows.length > 0) {
       return buildSuccessResponse(start, request);
     }
-  } catch {
-    // DB unavailable — fall through to rejection
-  }
+  } catch { /* best-effort: DB unavailable — falls through to rejection below */ }
 
   return NextResponse.json(
     { ok: false, message: 'API key did not match.' },

@@ -24,17 +24,13 @@ async function reconcileActionRecordsRuntimeSchema(sql: any) {
       await sql.unsafe(
         `ALTER TABLE "action_records" ADD COLUMN IF NOT EXISTS "${column.name}" ${column.sql}`,
       );
-    } catch {
-      // Older installs may already have equivalent columns with slight type differences.
-    }
+    } catch { /* best-effort: older installs may already have equivalent columns with slight type differences */ }
   }
 
   for (const index of ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS) {
     try {
       await sql.unsafe(index.sql);
-    } catch {
-      // Skip index drift here; validator will catch if expectations and setup diverge.
-    }
+    } catch { /* best-effort: index drift is caught by the setup validator */ }
   }
 }
 
@@ -98,7 +94,7 @@ export async function POST(request: Request) {
     for (const stmt of statements) {
       try {
         if (stmt.includes('vector(') && !stmt.startsWith('CREATE EXTENSION')) {
-          try { await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector'); } catch { /* pgvector not available */ }
+          try { await sql.unsafe('CREATE EXTENSION IF NOT EXISTS vector'); } catch { /* best-effort: pgvector not available — vector statements skipped */ }
         }
         await sql.unsafe(stmt);
         created++;
@@ -123,7 +119,7 @@ export async function POST(request: Request) {
         const colMatch = line.match(/^"(\w+)"\s+(.+)/);
         if (!colMatch) continue;
         let rest = colMatch[2]!.replace(/\s*PRIMARY KEY.*/i, '').replace(/,\s*$/, '');
-        try { await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${colMatch[1]}" ${rest}`); } catch { /* skip */ }
+        try { await sql.unsafe(`ALTER TABLE "${table}" ADD COLUMN IF NOT EXISTS "${colMatch[1]}" ${rest}`); } catch { /* best-effort: column already exists with an equivalent shape */ }
       }
     }
 
@@ -138,7 +134,7 @@ export async function POST(request: Request) {
         ON CONFLICT (id) DO NOTHING
       `;
       orgSeeded = true;
-    } catch { /* will be reported in response */ }
+    } catch { /* best-effort: failure reported via org_seeded in the response */ }
 
     // Optionally seed API key from env
     let keySeeded = false;
@@ -171,7 +167,7 @@ export async function POST(request: Request) {
           ON CONFLICT (id) DO NOTHING
         `;
         keySeeded = true;
-      } catch { /* will be reported in response */ }
+      } catch { /* best-effort: failure reported via key_seeded in the response */ }
     }
 
     await sql.end({ timeout: 5 });
@@ -183,7 +179,7 @@ export async function POST(request: Request) {
       key_seeded: keySeeded,
     });
   } catch (err) {
-    try { await sql.end({ timeout: 2 }); } catch { /* ignore */ }
+    try { await sql.end({ timeout: 2 }); } catch { /* best-effort: connection teardown on the error path */ }
     console.error('[SETUP/MIGRATE] error:', err);
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }

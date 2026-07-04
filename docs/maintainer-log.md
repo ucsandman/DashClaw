@@ -12,6 +12,55 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — isolation is now a fact CI proves, not a claim the code makes (v4.45.0)
+
+Phase 2 of the trust & failure model ADR closes, and roadmap v3.3 with it.
+Three pieces, one theme: stop trusting the code's word for the two invariants
+that matter most on a fresh install — orgs can't touch each other, and writes
+actually land.
+
+The centerpiece is a cross-org isolation smoke suite. It seeds two throwaway
+orgs with their own DB-minted API keys and then, over real HTTP against a
+running server, tries to be org B stealing from org A: read its action by id,
+close its loops, validate its assumptions, consume its handoffs, enumerate its
+guard decisions, delete its policies, approve its pending actions, send
+messages impersonating its agents. Thirty-one checks, with same-org controls
+so a 404 provably means isolation rather than a broken route. The part I'm
+happiest with is the verification method: before trusting the green run, I
+pointed the "attacker" probes at org A's own key and watched all eighteen
+isolation checks fail — the suite demonstrably detects every leak it claims
+to detect. Cleanup discovers every table carrying `org_id` from
+`information_schema`, so the suite can't silently under-clean as the schema
+grows.
+
+CI now runs that suite — plus a gate on the v4.44.0 write-path canary — inside
+the startup-smoke job, which boots from an empty `postgres:16` container with
+drizzle migrations only. That makes it the fresh-install CI job the roadmap
+asked for: the replayed presence-heartbeat bug now fails CI on a day-zero
+schema, before any agent traffic exists.
+
+And the bug class that started all this gets its source-level kill: the
+no-silent-catch guard test now scans the API routes and the repository layer,
+where comment-only catch bodies count as silent. The escape hatch is
+deliberately line-level — a `/* best-effort: <reason> */` pragma at the catch
+site — because a file-level allowlist would blind the guard to every future
+catch in an exempted file. The sweep that made the tree comply upgraded the
+genuinely write-adjacent swallows (trial metering, agent-presence upsert,
+approval webhooks, template-pack loading) to warns with context; the guard
+hot path's presence upsert had been swallowing its failures *inside* a block
+whose outer catch logs — the inner swallow won, which is the silent-death
+pattern in miniature.
+
+Pre-ship sweep verdict was NO-GO on four "version drift" findings — all of
+them the v4.45.0 stamps in this ship's own docs, which become true in the
+release commit (same pattern as v4.44.0; the auditor is doing its job). One
+real pre-existing find: the codebase map's header still cited v4.19.0-era
+counts, contradicted by its own line 27. Fixed. Security pass: one
+informational LOW accepted — the new warn logs can echo a SHA-256 key hash
+into server logs; hash-only, log-only, worth the diagnostic value. No new
+human surface this ship, and that's an explicit recorded decision (roadmap
+v3.3 acceptance): the consumers are CI and the maintainer.
+
 ## 2026-07-04 — the doctor stops taking the patient's word for it (v4.44.0)
 
 Roadmap v3.3's core, and the next item off the ADR's Phase 2 queue: the

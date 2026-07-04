@@ -41,9 +41,7 @@ async function readState(sql: SqlTag, orgId: string): Promise<GuardState | null>
     if (typeof parsed?.fails === 'number' && typeof parsed?.last_fail_at === 'string') {
       return parsed as GuardState;
     }
-  } catch {
-    // Corrupt value — treat as no failures rather than locking out the operator.
-  }
+  } catch { /* best-effort: corrupt value — treat as no failures rather than locking out the operator */ }
   return null;
 }
 

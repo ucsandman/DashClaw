@@ -110,7 +110,7 @@ export async function listGuardDecisions(
       const { context, ...rest } = row;
       let breakdown: unknown = null;
       if (typeof context === 'string') {
-        try { breakdown = (JSON.parse(context) as Record<string, unknown>)?._risk_breakdown ?? null; } catch { /* malformed context: no breakdown */ }
+        try { breakdown = (JSON.parse(context) as Record<string, unknown>)?._risk_breakdown ?? null; } catch { /* best-effort: malformed context JSON — no breakdown */ }
       } else if (context && typeof context === 'object') {
         breakdown = (context as Record<string, unknown>)._risk_breakdown ?? null;
       }

@@ -61,7 +61,7 @@ export async function POST(request: Request) {
     try {
       const rules = JSON.parse(policy.rules || '{}');
       if (Array.isArray(rules.action_types)) actionTypes = rules.action_types.map(String);
-    } catch { /* fall through to the 400 below */ }
+    } catch { /* best-effort: malformed policy rules — falls through to the 400 below */ }
     if (!actionTypes.length) {
       return NextResponse.json({ error: 'Policy has no action_types to match' }, { status: 400 });
     }

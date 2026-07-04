@@ -152,7 +152,7 @@ data: ${JSON.stringify(data)}
       isClosed = true;
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       void unsubscribe();
-      writer.close().catch(() => {});
+      writer.close().catch(() => { /* best-effort: peer already closed the stream */ });
     };
 
     heartbeatTimer = setInterval(async () => {

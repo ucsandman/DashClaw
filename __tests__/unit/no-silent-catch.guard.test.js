@@ -65,3 +65,65 @@ describe('silent-catch regression guard (interactive code)', () => {
     ).toEqual([]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Server-side write surfaces (roadmap v3.3): a silently-swallowed error around
+// a DB write is the silent-death bug class the doctor write-canary hunts at
+// runtime — this guard kills it at the source. In app/api/** routes and
+// app/lib/repositories/** (the ONLY layer allowed to touch SQL, per
+// route-sql:check), every catch must either surface the failure
+// (console.warn/error with context, structured error response) or rethrow.
+// Comment-only catch bodies count: `catch { /* skip */ }` swallows exactly as
+// silently as `catch {}` — a vague comment is not telemetry.
+//
+// The escape hatch is LINE-level, not file-level: a comment-only catch passes
+// only when its comment carries the `best-effort:` pragma with a real reason,
+// e.g. `catch { /* best-effort: corrupt stored JSON — fall back to default */ }`.
+// A file-level allowlist would blind the guard to every FUTURE catch in that
+// file; the pragma keeps whole files protected and makes intent auditable at
+// the site (`grep -rn "best-effort:" app/` is the exemption ledger).
+//
+// app/api/_archive/** is excluded (legacy platform surface, not extended).
+
+// Catch whose body is only whitespace and/or comments — swallows silently
+// unless the comment declares the best-effort pragma.
+const SILENT_CATCH = /catch\s*(\([^)]*\))?\s*\{(?:\s|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*\}/g;
+
+function walkServer(dir) {
+  const out = [];
+  for (const name of readdirSync(dir)) {
+    if (name === 'node_modules' || name === '.next' || name === '_archive') continue;
+    const full = path.join(dir, name);
+    const st = statSync(full);
+    if (st.isDirectory()) out.push(...walkServer(full));
+    else if (/\.(js|ts)$/.test(name) && !/\.(test|spec)\.(js|ts)$/.test(name)) out.push(full);
+  }
+  return out;
+}
+
+describe('silent-catch regression guard (server-side write surfaces)', () => {
+  const serverFiles = [
+    ...walkServer(path.join(APP_DIR, 'api')),
+    ...walkServer(path.join(APP_DIR, 'lib', 'repositories')),
+  ];
+
+  it('finds server source files to scan', () => {
+    expect(serverFiles.length).toBeGreaterThan(100);
+  });
+
+  it('has no silent catch (empty or comment-only without the best-effort pragma) in app/api/** and app/lib/repositories/**', () => {
+    const violations = [];
+    for (const file of serverFiles) {
+      const rel = path.relative(APP_DIR, file).replace(/\\/g, '/');
+      const src = readFileSync(file, 'utf8');
+      for (const match of src.match(SILENT_CATCH) || []) {
+        if (!match.includes('best-effort:')) violations.push(`${rel}: ${match.replace(/\s+/g, ' ')}`);
+      }
+      if (EMPTY_ARROW_CATCH.test(src)) violations.push(`${rel}: empty .catch(() => {})`);
+    }
+    expect(
+      violations,
+      `Silent catch in server-side write surface — surface the failure (console.warn/error with context, or rethrow), or mark a genuinely-benign fallback with the pragma: catch { /* best-effort: <reason> */ }\n${violations.join('\n')}`,
+    ).toEqual([]);
+  });
+});

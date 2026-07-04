@@ -1,12 +1,26 @@
 #!/usr/bin/env node
 
 import { spawn } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   createStartServerSpawnConfig,
   shutdownChildProcess,
   waitForConfiguredSetup,
 } from './lib/startup-smoke.mjs';
+
+// Operator key for the in-process doctor gate: env wins (CI); .env.local is the
+// local-dev fallback (same precedence the child smoke scripts use themselves).
+function resolveOperatorKey() {
+  if (process.env.DASHCLAW_API_KEY) return process.env.DASHCLAW_API_KEY;
+  try {
+    const envFile = readFileSync('.env.local', 'utf8');
+    const m = envFile.match(/^DASHCLAW_API_KEY=(.*)$/m);
+    if (m) return m[1].replace(/^["']|["']$/g, '');
+  } catch {
+    // no .env.local — caller treats a missing key as "skip"
+  }
+  return null;
+}
 
 function parseArgs(argv) {
   const options = {
@@ -110,6 +124,60 @@ async function main() {
         throw new Error(`policy smoke failed with exit code ${policyExit}`);
       }
       console.log('[startup-smoke] policy smoke passed');
+    }
+
+    // Cross-org isolation: scripts/cross-org-smoke.mjs seeds two run-unique
+    // orgs with DB-minted keys and proves neither can touch the other's
+    // governance resources. Needs DATABASE_URL (direct seeding); skipped when
+    // absent or explicitly opted out.
+    if (process.env.STARTUP_SMOKE_SKIP_CROSS_ORG === '1') {
+      console.log('[startup-smoke] cross-org smoke skipped (STARTUP_SMOKE_SKIP_CROSS_ORG=1)');
+    } else if (!process.env.DATABASE_URL && !existsSync('.env.local')) {
+      console.log('[startup-smoke] cross-org smoke skipped (no DATABASE_URL in env and no .env.local)');
+    } else {
+      console.log('[startup-smoke] running cross-org isolation smoke...');
+      const crossOrgExit = await new Promise((resolveCrossOrg) => {
+        const crossOrgChild = spawn(
+          process.execPath,
+          ['scripts/cross-org-smoke.mjs', options.baseUrl],
+          { stdio: 'inherit', env: process.env },
+        );
+        crossOrgChild.on('close', (code) => resolveCrossOrg(code));
+        crossOrgChild.on('error', () => resolveCrossOrg(1));
+      });
+      if (crossOrgExit !== 0) {
+        throw new Error(`cross-org isolation smoke failed with exit code ${crossOrgExit}`);
+      }
+      console.log('[startup-smoke] cross-org isolation smoke passed');
+    }
+
+    // Write-path canary: the doctor performs REAL writes through the real
+    // repository writers (heartbeat, action ledger, guard audit) against the
+    // isolated canary org. On a fresh schema a dead write path — the
+    // silent-death bug class — is a FAIL here, which 503s and fails the job.
+    const operatorKey = resolveOperatorKey();
+    if (process.env.STARTUP_SMOKE_SKIP_CANARY === '1') {
+      console.log('[startup-smoke] write-canary gate skipped (STARTUP_SMOKE_SKIP_CANARY=1)');
+    } else if (!operatorKey) {
+      console.log('[startup-smoke] write-canary gate skipped (no DASHCLAW_API_KEY in env and no .env.local)');
+    } else {
+      console.log('[startup-smoke] running doctor write-path canary...');
+      const res = await fetch(`${options.baseUrl.replace(/\/$/, '')}/api/doctor?category=write-canary`, {
+        headers: { 'x-api-key': operatorKey },
+      });
+      const doctor = await res.json().catch(() => null);
+      const checks = doctor?.checks || [];
+      const failed = checks.filter((c) => c.status === 'fail');
+      if (!res.ok || failed.length > 0) {
+        throw new Error(
+          `write-path canary failed (http ${res.status}): ` +
+          (failed.map((c) => `${c.id}: ${c.message || c.title || c.status}`).join('; ') || JSON.stringify(doctor)),
+        );
+      }
+      if (checks.length === 0) {
+        throw new Error('write-path canary returned zero checks — category missing from the doctor engine?');
+      }
+      console.log(`[startup-smoke] write-path canary passed (${checks.length} checks)`);
     }
   } catch (error) {
     console.error(`[startup-smoke] ${error.message}`);

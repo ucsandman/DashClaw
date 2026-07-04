@@ -35,9 +35,7 @@ export async function GET(request: Request) {
     try {
       const rawDismissed = dismissedRows[0]?.value as string | null | undefined;
       dismissed = JSON.parse(rawDismissed || '{}') as Record<string, string>;
-    } catch {
-      // Corrupt setting — treat as none dismissed
-    }
+    } catch { /* best-effort: corrupt dismissed-state JSON — treat as none dismissed */ }
 
     const [warnRows, interrupts] = await Promise.all([
       getWarnDecisionsSince(sql, orgId, cursor),

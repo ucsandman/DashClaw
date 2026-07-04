@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:f46144912ae94cb362ef1d9593ce5355c6874173",
+  "timestamp": "sha1:aecb4a7d56b7ce3da93d9c33179c715e25f54537",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4194,6 +4194,7 @@
         "scripts/cleanup-actions.mjs",
         "scripts/cleanup-org-default.mjs",
         "scripts/create-org.mjs",
+        "scripts/cross-org-smoke.mjs",
         "scripts/diagnose-cost-attribution.mjs",
         "scripts/diagnose-guard-deadline.mjs",
         "scripts/emergency-reset.mjs",
@@ -4222,7 +4223,8 @@
         "scripts/rebuild-learning-recommendations.mjs",
         "scripts/register-identity.mjs",
         "scripts/repair-stale-running-actions.mjs",
-        "scripts/setup.mjs"
+        "scripts/setup.mjs",
+        "scripts/startup-smoke.mjs"
       ],
       "in_env_example": true
     },
@@ -5048,6 +5050,22 @@
     },
     {
       "name": "STARTUP_SMOKE_INTERVAL_MS",
+      "required": false,
+      "files": [
+        "scripts/startup-smoke.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "STARTUP_SMOKE_SKIP_CANARY",
+      "required": false,
+      "files": [
+        "scripts/startup-smoke.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "STARTUP_SMOKE_SKIP_CROSS_ORG",
       "required": false,
       "files": [
         "scripts/startup-smoke.mjs"

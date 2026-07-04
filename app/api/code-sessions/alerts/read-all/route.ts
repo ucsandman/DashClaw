@@ -10,7 +10,7 @@ export async function POST(request: Request) {
   const sql = getSql();
   const orgId = getOrgId(request);
   let body: any = {};
-  try { body = await request.json(); } catch { /* allow empty body */ }
+  try { body = await request.json(); } catch { /* best-effort: empty request body is allowed */ }
   const ids = Array.isArray(body?.ids) ? body.ids.map((n: any) => parseInt(n, 10)).filter((n: number) => Number.isFinite(n)) : null;
   const updated = await markAlertsRead(sql, orgId, ids);
   return NextResponse.json({ marked: updated });

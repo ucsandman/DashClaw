@@ -229,7 +229,7 @@ export async function POST(request: Request) {
       if (enforcementSettings.length > 0) {
         enforceSignatures = enforcementSettings[0]?.value === 'true';
       }
-    } catch { /* table may not exist yet — use env var fallback */ }
+    } catch { /* best-effort: settings table may not exist yet — env var fallback applies */ }
 
     if (enforceSignatures && !signature) {
       return NextResponse.json(

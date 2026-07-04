@@ -58,7 +58,7 @@ export async function POST(request: Request): Promise<Response> {
       return NextResponse.json({ resolved: null });
     }
     // Fire-and-forget last_used_at (mirrors the Neon path in middleware).
-    Promise.resolve(touchKeyLastUsed(sql, keyHash)).catch(() => {});
+    Promise.resolve(touchKeyLastUsed(sql, keyHash)).catch((err: unknown) => console.warn('[RESOLVE-KEY] last_used_at touch failed:', err instanceof Error ? err.message : String(err)));
     return NextResponse.json({
       resolved: {
         orgId: row.org_id,
