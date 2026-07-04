@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.48.0",
+    "current_version": "4.49.0",
     "next_bump": "none",
-    "reason": "4.48.0 closes roadmap v3.6 (enforcement over assertion): DASHCLAW_JTI_REPLAY_PROTECTION defaults required and DASHCLAW_ACT_BINDING defaults best_effort (both flipped while the verified-JWT fleet was measurably empty; one-env-var rollbacks), the enforcement-boundary ADR records the kill of the universal enforcing proxy with the canonical per-surface mechanical-vs-cooperative table, and a truth pass scopes every 'blocks' claim to what the code enforces. No Node/Python SDK source change beyond README truth-pass wording — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.49.0 closes roadmap v3.7 (deferred-debt triage): 9 builds shipped (x402 currency allow-list + idempotency_key, apiErrorResponse production redaction, JWKS fail-closed without DASHCLAW_ALLOWED_ISSUER, approvals expiry timestamps, degradation by_day strip, guard-load SLO calibrated to 1500ms, Codex SessionStart digest parity, CRITICAL_TABLES_DDL drift gate, Dependabot EOVERRIDE untangle) and 6 kills recorded with revival triggers. No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.48.0",
+    "current_version": "4.49.0",
     "next_bump": "none",
-    "reason": "4.48.0 closes roadmap v3.6 (enforcement over assertion): DASHCLAW_JTI_REPLAY_PROTECTION defaults required and DASHCLAW_ACT_BINDING defaults best_effort (both flipped while the verified-JWT fleet was measurably empty; one-env-var rollbacks), the enforcement-boundary ADR records the kill of the universal enforcing proxy with the canonical per-surface mechanical-vs-cooperative table, and a truth pass scopes every 'blocks' claim to what the code enforces. No Node/Python SDK source change beyond README truth-pass wording — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.49.0 closes roadmap v3.7 (deferred-debt triage): 9 builds shipped (x402 currency allow-list + idempotency_key, apiErrorResponse production redaction, JWKS fail-closed without DASHCLAW_ALLOWED_ISSUER, approvals expiry timestamps, degradation by_day strip, guard-load SLO calibrated to 1500ms, Codex SessionStart digest parity, CRITICAL_TABLES_DDL drift gate, Dependabot EOVERRIDE untangle) and 6 kills recorded with revival triggers. No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
