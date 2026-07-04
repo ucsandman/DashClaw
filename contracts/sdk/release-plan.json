@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.38.1",
+    "current_version": "4.39.0",
     "next_bump": "none",
-    "reason": "4.38.1 is the fresh-install-truth opener (roadmap v3.3): guard idempotency replay lookup casts created_at::timestamptz so dedup works on fresh drizzle-chain installs (TEXT column shape), drizzle/0043 conditionally normalizes the 47 *_at columns the 0000 baseline created as TEXT to timestamp (parity test pins the drift class shut), and the guard route's ?record=true side effects run via after() so Vercel's post-response freeze cannot drop meter increments — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.39.0 ships the emergency-halt UI (HaltControl in Mission Control's CommandStrip: two-step confirm halt with reason, halted banner with actor/reason + two-step resume, admin-only, demo-simulated /api/halt) plus the honest-button cache change (org-halt reads on a dedicated 3s cache instead of the 30s settings cache, one shared settings read still fills both so the guard cold path keeps its round-trip budget), and records the trust & failure model ADR (docs/architecture/trust-and-failure-model.md) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.38.1",
+    "current_version": "4.39.0",
     "next_bump": "none",
-    "reason": "4.38.1 is the fresh-install-truth opener (roadmap v3.3): guard idempotency replay lookup casts created_at::timestamptz so dedup works on fresh drizzle-chain installs (TEXT column shape), drizzle/0043 conditionally normalizes the 47 *_at columns the 0000 baseline created as TEXT to timestamp (parity test pins the drift class shut), and the guard route's ?record=true side effects run via after() so Vercel's post-response freeze cannot drop meter increments — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.39.0 ships the emergency-halt UI (HaltControl in Mission Control's CommandStrip: two-step confirm halt with reason, halted banner with actor/reason + two-step resume, admin-only, demo-simulated /api/halt) plus the honest-button cache change (org-halt reads on a dedicated 3s cache instead of the 30s settings cache, one shared settings read still fills both so the guard cold path keeps its round-trip budget), and records the trust & failure model ADR (docs/architecture/trust-and-failure-model.md) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

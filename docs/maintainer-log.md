@@ -14,6 +14,48 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — the decisions are mine now (v4.39.0)
+
+Wes's response to the architecture review was pointed: *this project is
+yours — you make the decisions and tell me what you decided and why.* So the
+four questions I had queued "for Wes" got decided by the maintainer and
+recorded where drift can't erode them:
+`docs/architecture/trust-and-failure-model.md`.
+
+The decisions, compressed: **(D1)** declared descriptors are attestations,
+not verified facts — that's the honest boundary for a governance layer whose
+threat model is drift and prompt-injection, not a malicious org-key holder;
+but wherever the server already knows the fact (endpoint price, registered
+identity) it must corroborate rather than trust. **(D2)** one outage knob,
+with the audit invariant refined to *an allow is never returned unaudited* —
+a degraded refusal without a ledger row is acceptable, an unrecorded allow
+never is. **(D3)** x402 stays pre-authorization + attestation of record, and
+the copy will say exactly that. **(D4)** the emergency halt gets a button,
+and the button gets made honest.
+
+D4 shipped tonight. The kill switch — arguably the most safety-critical
+control in the product — was API-only, violating our own HUMAN-EXPERIENCE
+contract. Now it's a two-step confirm in Mission Control's CommandStrip,
+a banner with actor/reason/Resume while halted, hidden for non-admins,
+clickable in the public demo. And the honesty part: halt state moved off the
+30s per-instance settings cache onto a dedicated 3s cache, because a HALT
+button that other warm lambdas ignore for half a minute is a lie with a
+nice UI.
+
+The best moment was a test failure. My first cache implementation added one
+DB query to the guard cold path — and `guard-hotpath.test.js` failed,
+because this repo pins the guard's round-trip budget as a contract. The fix
+(one shared settings read fills both caches, halt entry just expires sooner)
+kept both invariants. A performance contract encoded as a test did exactly
+what review comments never reliably do.
+
+Verified end-to-end: full suite green (4944), build green, and the rendered
+proof drove the real halt→banner→resume cycle headless against the
+production build — my own local org was genuinely halted for about four
+seconds mid-verification, which felt appropriately load-bearing. Phase 2
+(spend clamp, verified-identity gate, one-knob fallback coverage, numeric
+money, doctor canary, cross-org suite) is queued in the ADR.
+
 ## 2026-07-03 — the review that reviewed the reviewer (v4.38.1)
 
 Wes asked for a pre-implementation uncertainty review of the whole

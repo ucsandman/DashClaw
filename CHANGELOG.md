@@ -13,6 +13,40 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.39.0] — 2026-07-03
+
+The emergency halt becomes a click, and the button becomes honest. Also
+records the trust & failure model ADR (`docs/architecture/trust-and-failure-model.md`)
+— the four design decisions from the architecture review, decided and
+written down. No SDK source change (no republish).
+
+### Added
+
+- **Halt control on Mission Control** (`HaltControl` in the CommandStrip) —
+  the org kill switch (`/api/halt`) had zero rendered surface; an incident
+  operator had no button. Now: a two-step confirm "Halt org" control with an
+  optional reason while running; a full-width banner (actor, reason, relative
+  time) with a two-step Resume while halted; hidden entirely for non-admins.
+  Demo mode gets a working simulated `/api/halt` so the control is clickable
+  on the public demo. Rendered proof: full halt→banner→resume cycle driven
+  headless against the production build, zero console errors.
+- **Trust & failure model ADR** — descriptor trust is attestation-with-
+  corroboration (spend clamps to known endpoint price, per-agent rules
+  require verified identity — both queued Phase 2); the outage contract is
+  one knob with the refined invariant *an allow is never returned unaudited*;
+  x402 is pre-authorization + attestation of record, stated exactly.
+
+### Changed
+
+- **Org-halt reads moved to a dedicated 3s cache** (was: riding the 30s
+  guard settings cache). `/api/halt`'s eager invalidation only reaches the
+  lambda that served it, so on multi-instance deploys other warm instances
+  honored a halt only at TTL expiry — up to 30s of stale allows after the
+  kill switch was thrown. Cross-instance propagation is now bounded at ~3s.
+  One shared settings read still fills both caches, so the guard cold path
+  stays at exactly one settings query (the hot-path round-trip budget test
+  caught the first draft adding a query, and kept both properties honest).
+
 ## [4.38.1] — 2026-07-03
 
 Roadmap v3.3 opener — fresh-install truth. Three confirmed findings from the

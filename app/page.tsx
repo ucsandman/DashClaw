@@ -602,7 +602,7 @@ if (decision === "allow") {
                 icon: Radar,
                 title: 'Mission Control',
                 description: 'Live operational visibility for the agent fleet. See what is running, what was decided, and what is waiting on a human.',
-                items: ['Live fleet posture and active interventions', 'Decision replay with the full causal chain and an itemized risk composition ledger', 'Per-harness agent identities (parent:sub) grouped under their parent on /agents', 'Evidence-based session retros — a defensibility verdict on every agent session', "The agent's advocate: an agent_defense rollup (declared goal, assumptions, shields) on every action detail", 'Real-time SSE event stream'],
+                items: ['Live fleet posture and active interventions', 'Emergency halt — one confirmed click blocks every guard evaluation for the org, and one resumes it', 'Decision replay with the full causal chain and an itemized risk composition ledger', 'Per-harness agent identities (parent:sub) grouped under their parent on /agents', 'Evidence-based session retros — a defensibility verdict on every agent session', "The agent's advocate: an agent_defense rollup (declared goal, assumptions, shields) on every action detail", 'Real-time SSE event stream'],
               },
               {
                 icon: Shield,

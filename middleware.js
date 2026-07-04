@@ -1016,6 +1016,32 @@ async function handleDemoGuardRoute({ request, fixtures, url, method }) {
   return demoJson(request, demoGuard(fixtures, url));
 }
 
+// Demo org kill switch: module-scope state so the Mission Control HALT
+// control is fully clickable in the demo (halting "blocks" nothing real;
+// state resets on cold start). GET mirrors /api/halt's { halt } shape.
+let demoHaltState = { halted: false, actor: null, reason: null, at: null };
+async function handleDemoHaltRoute({ request, method }) {
+  if (method === 'POST') {
+    try {
+      const bodyText = await request.text();
+      const body = bodyText ? JSON.parse(bodyText) : {};
+      if (typeof body.halted !== 'boolean') {
+        return demoJson(request, { error: 'halted must be a boolean' }, 400);
+      }
+      demoHaltState = {
+        halted: body.halted,
+        actor: 'demo-operator',
+        reason: typeof body.reason === 'string' ? body.reason.slice(0, 1000) : null,
+        at: new Date().toISOString(),
+      };
+      return demoJson(request, { ok: true, halt: demoHaltState });
+    } catch (e) {
+      return demoJson(request, { error: `Invalid request body: ${e.message}` }, 400);
+    }
+  }
+  return demoJson(request, { halt: demoHaltState });
+}
+
 function handleDemoWebhookDeliveries({ request, fixtures, segments }) {
   const webhookId = segments[2];
   return demoJson(request, demoWebhookDeliveries(fixtures, webhookId));
@@ -1196,6 +1222,7 @@ const DEMO_API_ROUTES = [
   ['/api/scoring/score', ({ request }) => demoJson(request, { scores: [] })],
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
+  ['/api/halt', handleDemoHaltRoute],
   ['/api/messages', demoFixtureUrlRoute(demoMessages)],
   ['/api/messages/threads', demoFixtureUrlRoute(demoMessageThreads)],
   ['/api/messages/docs', demoFixtureUrlRoute(demoMessageDocs)],

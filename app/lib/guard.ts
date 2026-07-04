@@ -381,8 +381,17 @@ interface OrgHaltState {
   at?: string;
 }
 
-const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; halt: OrgHaltState | null; expires: number }>();
+const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; expires: number }>();
 const riskTemplateCache = new Map<string, { rows: Array<Record<string, unknown>>; expires: number }>();
+
+// The org kill switch gets its OWN short cache, not the 30s settings TTL:
+// /api/halt invalidates eagerly only on the instance that served the request,
+// so on multi-instance deploys the other warm lambdas honor a halt only when
+// their cache expires. 3s bounds that cross-instance lag at human-reaction
+// scale while keeping the hot path at ≤1 halt query per org per 3s per
+// instance. Pinned by __tests__/unit/guard-halt-cache.test.js.
+const HALT_CACHE_TTL_MS = 3_000;
+const orgHaltCache = new Map<string, { halt: OrgHaltState | null; expires: number }>();
 
 /** Called by policy mutation paths so a changed policy takes effect immediately. */
 export function invalidateGuardPolicyCache(orgId?: string): void {
@@ -401,20 +410,29 @@ export function invalidateGuardRiskTemplateCache(orgId?: string): void {
  * immediately instead of after the ~30s settings-cache TTL.
  */
 export function invalidateGuardSettingsCache(orgId?: string): void {
-  if (orgId) predictiveSettingsCache.delete(orgId);
-  else predictiveSettingsCache.clear();
+  if (orgId) {
+    predictiveSettingsCache.delete(orgId);
+    orgHaltCache.delete(orgId);
+  } else {
+    predictiveSettingsCache.clear();
+    orgHaltCache.clear();
+  }
 }
 
 /**
- * Read just the org kill-switch (halt) state. Shares the predictive-settings
- * cache + eager invalidation, so /api/halt still takes effect immediately.
- * Exposed for the guard route's pre-replay halt check: the idempotency replay
+ * Read just the org kill-switch (halt) state, from its own dedicated 3s
+ * cache (NOT the 30s predictive-settings cache — a halt must reach every
+ * warm instance within human-reaction time, and eager invalidation only
+ * covers the instance that served /api/halt). Used by evaluateGuard and by
+ * the guard route's pre-replay halt check: the idempotency replay
  * short-circuit must NOT absorb an emergency halt the way it deliberately
  * absorbs ordinary retries (halt is an override with its own immediate-block
  * guarantee, not a policy change).
  */
 export async function getOrgHaltState(sql: GuardSql, orgId: string): Promise<OrgHaltState | null> {
-  return (await getPredictiveSettings(sql, orgId)).halt;
+  const hit = orgHaltCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.halt;
+  return (await loadGeneralSettings(sql, orgId)).halt;
 }
 
 /** Test-only: clear all guard hot-path caches. */
@@ -422,6 +440,7 @@ export function __resetGuardCaches(): void {
   policyCache.clear();
   predictiveSettingsCache.clear();
   riskTemplateCache.clear();
+  orgHaltCache.clear();
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as
@@ -484,9 +503,9 @@ async function loadApplicablePolicies(sql: GuardSql, orgId: string, currentAgent
 }
 
 // Predictive-risk org settings, served from the short-TTL cache so the
-// settings table is read at most once per org per TTL window.
-// The org kill switch rides this same cache entry (hot-path discipline: one
-// settings read per org per TTL window, shared by predictive risk and halt).
+// settings table is read at most once per org per TTL window. (The org kill
+// switch deliberately does NOT ride this entry — it has its own 3s cache in
+// getOrgHaltState so a halt reaches every warm instance fast.)
 function parseHaltSetting(value: unknown): OrgHaltState | null {
   if (typeof value !== 'string' || !value) return null;
   try {
@@ -497,20 +516,31 @@ function parseHaltSetting(value: unknown): OrgHaltState | null {
   }
 }
 
-async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null }> {
-  const hit = predictiveSettingsCache.get(orgId);
-  if (hit && hit.expires > Date.now()) return hit;
+// ONE settings read fills BOTH caches — predictive (30s) and halt (3s). The
+// halt entry expiring first is what bounds cross-instance halt lag at ~3s;
+// each halt refresh re-fills the predictive entry too (fresher than its TTL
+// requires, never staler). Cold evaluations still cost exactly one settings
+// query — the guard-hotpath round-trip budget counts on it.
+async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null }> {
   const { getSettings } = await import('./repositories/settings.repository');
   const riskSettings = await getSettings(sql, orgId, { category: 'general' });
   const settingsList = riskSettings as Array<Record<string, unknown>>;
-  const entry = {
+  const now = Date.now();
+  const predictive = {
     enabled: settingsList.find((s) => s.key === 'PREDICTIVE_RISK_ENABLED')?.value === 'true',
     threshold: parseInt(String(settingsList.find((s) => s.key === 'PREDICTIVE_RISK_THRESHOLD')?.value ?? ''), 10) || 60,
-    halt: parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value),
-    expires: Date.now() + GUARD_CACHE_TTL_MS,
+    expires: now + GUARD_CACHE_TTL_MS,
   };
-  predictiveSettingsCache.set(orgId, entry);
-  return entry;
+  const halt = parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value);
+  predictiveSettingsCache.set(orgId, predictive);
+  orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
+  return { enabled: predictive.enabled, threshold: predictive.threshold, halt };
+}
+
+async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number }> {
+  const hit = predictiveSettingsCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit;
+  return loadGeneralSettings(sql, orgId);
 }
 
 // Post-LLM phases (local_policies, grants, persist) need headroom inside the
@@ -1065,13 +1095,12 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const replayBlockReason = computeReplayBlockReason(context, orgId);
   const actBlockReason = computeActBindingBlockReason(context, orgId);
 
-  // Org kill switch — checked FIRST. The read rides the same 30s-TTL cached
-  // settings entry the predictive layer uses (no extra hot-path query); the
-  // /api/halt endpoint calls invalidateGuardSettingsCache so a flipped switch
-  // takes effect immediately, not after the TTL. A halted org evaluates no
-  // policies: the decision is an immediate block, still persisted through the
-  // audit gate below like any other decision.
-  const orgHalt = (await getPredictiveSettings(sql, orgId)).halt;
+  // Org kill switch — checked FIRST, via its dedicated 3s cache (NOT the 30s
+  // settings cache: /api/halt's eager invalidation only reaches the instance
+  // that served it, so the short TTL is what bounds cross-instance lag). A
+  // halted org evaluates no policies: the decision is an immediate block,
+  // still persisted through the audit gate below like any other decision.
+  const orgHalt = await getOrgHaltState(sql, orgId);
   const orgHalted = !!orgHalt?.halted;
 
   const liveAcc = newAccumulator();

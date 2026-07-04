@@ -9,9 +9,11 @@ interface CommandStripProps {
   healthStatus: string;
   interventionCount: number;
   lastActivity: any;
+  /** Trailing slot (e.g. the org halt control); a basis-full child wraps to its own row. */
+  children?: React.ReactNode;
 }
 
-export function CommandStrip({ posture, fleetCount, healthStatus, interventionCount, lastActivity }: CommandStripProps) {
+export function CommandStrip({ posture, fleetCount, healthStatus, interventionCount, lastActivity, children }: CommandStripProps) {
   const healthDot =
     healthStatus === 'healthy' ? 'bg-status-success' : healthStatus === 'degraded' ? 'bg-status-warning' : 'bg-[var(--color-text-disabled)]';
   const healthLabel = healthStatus === 'healthy' ? 'Healthy' : healthStatus === 'degraded' ? 'Degraded' : 'Unknown';
@@ -60,6 +62,8 @@ export function CommandStrip({ posture, fleetCount, healthStatus, interventionCo
           <Clock size={13} className="text-tertiary" aria-hidden="true" />
           <span className="text-sm tabular-nums text-secondary">{formatRelativeTime(lastActivity)}</span>
         </div>
+
+        {children}
       </div>
     </div>
   );

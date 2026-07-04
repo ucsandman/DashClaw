@@ -13,6 +13,7 @@ import { useMissionData } from './lib/useMissionData';
 import { buildInterventionList, isSignalDismissed } from './lib/missionHelpers';
 import { signalDismissKey as getSignalHashShared } from '../lib/signal-hash';
 import { CommandStrip } from './components/CommandStrip';
+import HaltControl from './components/HaltControl';
 import { PostureScorecard } from './components/PostureScorecard';
 import { LiveLedger } from './components/LiveLedger';
 
@@ -197,7 +198,9 @@ export default function MissionControlPage() {
         healthStatus={health?.status || 'unknown'}
         interventionCount={interventions.length}
         lastActivity={lastActivity}
-      />
+      >
+        <HaltControl />
+      </CommandStrip>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
         <PostureScorecard
