@@ -13,7 +13,7 @@ npx dashclaw-demo
 **What happens?**
 1. A local DashClaw demo runtime starts automatically.
 2. An example agent attempts a high-risk deployment action.
-3. DashClaw **intercepts** and **blocks** it.
+3. DashClaw **intercepts** and **blocks** it — the demo agent runs the SDK loop, so it consults guard before acting and stops on the `block` decision. (On hook surfaces like Claude Code the halt is mechanical; the per-surface table is [`docs/architecture/enforcement-boundary.md`](docs/architecture/enforcement-boundary.md).)
 4. Your browser will open directly to the Decision Replay.
 
 ---
@@ -109,7 +109,9 @@ Open `http://localhost:3000/connect`. This page provides the **Golden Path** for
 Once connected, your agent appears in the [Agent Registry](http://localhost:3000/agents/registry) — the fleet-wide identity ledger. From there, grant it scoped permissions from the capability templates at [`/capabilities`](http://localhost:3000/capabilities) to declare what it is allowed to do.
 
 ### The Governance Loop (with optional human review):
-1. **Guard** &rarr; `claw.guard()` checks intent against policy. Abort on `block`.
+1. **Guard** &rarr; `claw.guard()` checks intent against policy. Your code
+   aborts on `block` — on the SDK path the decision is advisory and this
+   `if` is the enforcement, so don't skip it.
 2. **Record** &rarr; `claw.createAction()` logs the start of the action. The
    server may gate it here with `action.status === 'pending_approval'`.
 3. **Wait (optional)** &rarr; If the action is `pending_approval`, call

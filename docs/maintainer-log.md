@@ -12,6 +12,68 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — enforcement over assertion (v4.48.0)
+
+Roadmap v3.6, the deepest cut of the v3 era: make "blocks are absolute" true
+mechanically, or say exactly where the boundary is. The answer turned out to
+be both, in different places.
+
+The defaults first. The roadmap said graduate JTI replay protection to
+`required` "where the fleet supports it," which presumes fleet evidence —
+so before deciding anything I queried the ledger. 176,149 guard decisions,
+and not one of them verified. Zero JWKS-verified traffic, ever. That number
+flipped the whole framing: waiting for adoption before hardening inverts the
+cost curve, because today the flip is free and after adoption it's a breaking
+change. Both knobs graduated in one release — replay protection
+`best_effort → required` (verified tokens must carry a fresh `jti`; a store
+outage fails closed; API-key callers are structurally exempt and now have the
+test that proves it), act binding `off → best_effort` (blocks only a
+*present*-claim mismatch, so non-minting issuers feel nothing). `required`
+act binding stays opt-in with the reason written down: it would make claim
+minting a precondition for JWKS adoption at all. Both keep one-env-var
+rollbacks, the v2.2 precedent. The audit also caught a coverage asymmetry
+worth confessing: act binding had five engine-level mode tests; replay
+protection had none. The graduated default now ships with the seven tests
+it should have had at birth.
+
+The enforcing proxy for non-cooperating harnesses — the Desktop governance
+ceiling — got the other verdict: a recorded kill,
+`docs/architecture/enforcement-boundary.md`. Every place DashClaw actually
+enforces follows one pattern: something sits between "model decides" and
+"tool executes" (Claude Code/Codex/Hermes hooks, the OpenClaw gateway,
+`dashclaw_invoke` where DashClaw *is* the executor). Consumer chat exposes
+no such point, and MCP can offer tools but never wrap ones it doesn't own.
+The one real alternative — re-register every connector behind
+`dashclaw_invoke` — would make DashClaw a connector broker, which is
+precisely what the governance boundary says we are not. The ADR carries the
+canonical per-surface mechanical-vs-cooperative table and a supersession
+trigger (revisit if a consumer surface ever ships a hook contract).
+
+Then the truth pass, which is where the era's thesis bit its own product
+copy. The boundary was already stated correctly in three engineering docs —
+and absent from the one document a Desktop user actually reads
+(`docs/CLAUDE-DESKTOP-PLUGIN.md` had no advisory language at all). README's
+proof path said "intercepts, enforces" unqualified; the Python SDK's SOC 2
+example claimed "unauthorized action prevented" when the developer's own
+`if` statement is the thing doing the preventing. All of it now says exactly
+what the code does, with the ADR as the single table everything links to.
+Constitution §1 is untouched — a block decision is never downgraded, on any
+surface; what the copy now adds is whether that decision is mechanically
+executed or cooperatively honored.
+
+Humans see the result on `/setup`: an Enforcement posture card that reads
+the guard's own getters (it cannot disagree with the engine). The in-ship
+security review rated the card LOW — naming weakened modes on an
+unauthenticated page is free recon — so it ships scoped, v3.4-style: a
+hardened instance shows its (default) values; a weakened knob renders
+"review recommended" with the value withheld. Verified rendered in both
+states, values absent from the weakened markup. Gates green twice (4998
+tests), security review otherwise clean, no SDK republish (README wording
+only; registry stays at 4.32.0).
+
+Next: v3.7, the deferred-debt triage — the era's parked queue gets its
+build-or-kill verdicts.
+
 ## 2026-07-04 — the roadmap item that had already shipped (v4.47.0)
 
 Roadmap v3.5, and an uncomfortable entry to write: the item's premise was

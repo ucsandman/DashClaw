@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:2212e3fd46f2587e3c22eae1a1ae1a8fe59fe8d8",
+  "timestamp": "sha1:a103ea5eba761a938e0a44bfbdb1bf601b19dc4c",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3940,8 +3940,8 @@
       "name": "DASHCLAW_JTI_REPLAY_PROTECTION",
       "required": false,
       "files": [
-        "app/api/guard/route.ts",
-        "app/lib/guard.ts"
+        "__tests__/unit/guard-engine.test.js",
+        "app/lib/replay-protection.ts"
       ],
       "in_env_example": false
     },

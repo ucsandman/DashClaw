@@ -7,6 +7,42 @@ import {
   type LiveCanaryRun,
 } from '../lib/repositories/live-canary.repository';
 import { LIVE_CANARY_STALE_MS } from '../lib/posture/findings';
+import { getJtiReplayMode } from '../lib/replay-protection';
+import { getActBindingMode } from '../lib/act-binding';
+import { resolveDegradedAction } from '../lib/guard';
+
+// v3.6 enforcement-posture card: what this instance's hardening knobs resolve
+// to right now, read through the same getters the guard uses so the card can
+// never disagree with the engine. This page is unauthenticated, so a knob set
+// BELOW its hardened default renders as "review recommended" with the value
+// withheld (security review, in-ship): a hardened instance discloses nothing
+// but the defaults, and a weakened one doesn't hand recon to visitors — the
+// same norm as withholding raw DB errors above.
+const ENFORCEMENT_MEANINGS: Record<string, Record<string, string>> = {
+  DASHCLAW_JTI_REPLAY_PROTECTION: {
+    required: 'Verified JWTs must carry a fresh jti; a replay-store outage fails closed. API-key callers are never touched by this knob.',
+  },
+  DASHCLAW_ACT_BINDING: {
+    required: 'Verified tokens must carry a matching (action, target, goal) binding claim.',
+    best_effort: 'A token bound to a different (action, target, goal) blocks; issuers that don’t mint the claim are unaffected.',
+  },
+  DASHCLAW_GUARD_FALLBACK: {
+    require_approval: 'An evaluation that degrades (deadline, dependency failure) holds for a human instead of guessing.',
+    block: 'Degraded evaluations block outright.',
+  },
+};
+
+// Strictness order per knob; a value below the hardened default is "weakened".
+const ENFORCEMENT_RANK: Record<string, string[]> = {
+  DASHCLAW_JTI_REPLAY_PROTECTION: ['off', 'best_effort', 'required'],
+  DASHCLAW_ACT_BINDING: ['off', 'best_effort', 'required'],
+  DASHCLAW_GUARD_FALLBACK: ['allow', 'require_approval', 'block'],
+};
+const ENFORCEMENT_DEFAULTS: Record<string, string> = {
+  DASHCLAW_JTI_REPLAY_PROTECTION: 'required',
+  DASHCLAW_ACT_BINDING: 'best_effort',
+  DASHCLAW_GUARD_FALLBACK: 'require_approval',
+};
 
 function statusTone(status: string): string {
   switch (status) {
@@ -206,6 +242,24 @@ export default async function SetupPage() {
     ? new Date(liveRun.finished_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
     : null;
 
+  // v3.6: enforcement posture. Values come from the guard's own getters, so
+  // this card is the instance's live truth, not a copy of the docs.
+  const enforcementRows = [
+    { label: 'JWT replay protection', env: 'DASHCLAW_JTI_REPLAY_PROTECTION', value: getJtiReplayMode() as string },
+    { label: 'Action binding', env: 'DASHCLAW_ACT_BINDING', value: getActBindingMode() as string },
+    { label: 'Degraded-evaluation fallback', env: 'DASHCLAW_GUARD_FALLBACK', value: resolveDegradedAction() as string },
+  ].map((row) => {
+    const rank = ENFORCEMENT_RANK[row.env] ?? [];
+    const weakened = rank.indexOf(row.value) < rank.indexOf(ENFORCEMENT_DEFAULTS[row.env] ?? '');
+    return {
+      ...row,
+      weakened,
+      meaning: weakened
+        ? 'Set below the hardened default. The value is withheld on this public page — verify it on the authenticated Doctor panel (/doctor) or in your deployment env.'
+        : ENFORCEMENT_MEANINGS[row.env]?.[row.value] ?? '',
+    };
+  });
+
   return (
     <main className="min-h-screen bg-primary px-6 py-10 text-primary">
       <div className="mx-auto max-w-6xl space-y-8">
@@ -320,6 +374,42 @@ export default async function SetupPage() {
                   </>
                 )}
               </div>
+            </article>
+            <article id="enforcement-posture" className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Enforcement posture</h2>
+                  <p className="mt-1 text-sm text-secondary">
+                    A block decision is never downgraded, on any surface. Hooks and server-executed
+                    capabilities halt the action itself; SDK, MCP, and chat callers honor the decision.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-3">
+                {enforcementRows.map((row) => (
+                  <div key={row.env} className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-sm font-medium text-primary">{row.label}</div>
+                      {row.weakened ? (
+                        <span className="text-xs font-semibold uppercase tracking-wide text-warning">review recommended</span>
+                      ) : (
+                        <code className="text-xs text-secondary">{row.value}</code>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm text-secondary">{row.meaning}</p>
+                    <p className="mt-1 text-xs text-tertiary">
+                      <code>{row.env}</code> — change it in your deployment env and redeploy.
+                    </p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-xs text-tertiary">
+                The per-surface enforced-vs-cooperative table lives in{' '}
+                <a href="/docs#agent-identity" className="text-secondary underline underline-offset-2 hover:text-primary">
+                  the docs
+                </a>{' '}
+                and <code>docs/architecture/enforcement-boundary.md</code>.
+              </p>
             </article>
             {view.sections.map((section: any) => (
               <article key={section.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">

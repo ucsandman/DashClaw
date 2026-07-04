@@ -3,7 +3,7 @@
 // Behavior-preserving by design: every var is OPTIONAL and `validateEnv()` is
 // NON-throwing and OPT-IN. The app already starts with optional vars unset and
 // their existing fallbacks (e.g. DASHCLAW_JTI_REPLAY_PROTECTION defaults to
-// 'best_effort' in guard.js); turning missing required vars into a hard startup
+// 'required' in replay-protection.ts); turning missing required vars into a hard startup
 // throw would CHANGE behavior and is intentionally deferred (a startup-gate
 // decision for the operator). This module establishes the typed contract +
 // inferred type and a health-check function callers may opt into.

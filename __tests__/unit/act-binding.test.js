@@ -162,9 +162,11 @@ describe('getActBindingMode / getSupportedTyps', () => {
     delete process.env.DASHCLAW_ACT_BINDING_TYP;
   });
 
-  it('defaults to off and rejects unknown modes', () => {
-    expect(getActBindingMode()).toBe('off');
+  it('defaults to best_effort (v3.6 flip) and rejects unknown modes', () => {
+    expect(getActBindingMode()).toBe('best_effort');
     process.env.DASHCLAW_ACT_BINDING = 'garbage';
+    expect(getActBindingMode()).toBe('best_effort');
+    process.env.DASHCLAW_ACT_BINDING = 'off';
     expect(getActBindingMode()).toBe('off');
     process.env.DASHCLAW_ACT_BINDING = 'REQUIRED';
     expect(getActBindingMode()).toBe('required');

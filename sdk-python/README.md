@@ -362,7 +362,8 @@ DashClaw's guard + action recording pipeline maps directly to compliance control
 
 **SOC 2 CC6.1: Logical Access Controls**
 ```python
-# Before any high-risk operation, enforce policy
+# Before any high-risk operation, consult policy. On the SDK path the
+# decision is advisory — this `if` IS the enforcement, so never skip it.
 guard_result = claw.guard({
     "action_type": "database_write",
     "risk_score": 85,
@@ -372,7 +373,7 @@ guard_result = claw.guard({
 })
 
 if guard_result["decision"] == "block":
-    # SOC 2 control satisfied: unauthorized action prevented
+    # SOC 2 control: the block decision + this abort, both recorded in the ledger
     print("Policy blocked:", guard_result.get("reasons"))
     return
 

@@ -14,6 +14,7 @@ import { EVENTS, publishOrgEvent } from './events';
 import { getLearningContext } from './learning-context';
 import { evaluateRecoveryRecipes } from './recovery';
 import { getActBindingMode } from './act-binding';
+import { getJtiReplayMode } from './replay-protection';
 import { matchesProtectedPath } from './behavior/path-match';
 import { grantMatches, targetPrefixMatches } from './policy-shapes';
 import { verify } from './integrity/verify';
@@ -327,7 +328,7 @@ function applyBlockOverride(acc: GuardAccumulator, reason: string | null): void 
 
 // Flat (no else-if chain — those desugar to nested elses) replay reason lookup.
 function replayReasonFor(replayStatus: string): string | null {
-  const required = (process.env.DASHCLAW_JTI_REPLAY_PROTECTION || 'best_effort').toLowerCase() === 'required';
+  const required = getJtiReplayMode() === 'required';
   if (replayStatus === 'replayed') return `Replay detected: jti has been seen in a prior verified guard call within its exp window.`;
   if (replayStatus === 'exp_too_far') return `Token exp exceeds the configured max TTL (DASHCLAW_JTI_MAX_TTL_SECONDS).`;
   if (replayStatus === 'unavailable' && required) return `Replay store unreachable and DASHCLAW_JTI_REPLAY_PROTECTION=required.`;

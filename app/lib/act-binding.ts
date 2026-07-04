@@ -62,13 +62,18 @@ interface ActContext {
 }
 
 /**
- * Enforcement mode. Default `off`: act-binding needs issuer cooperation that
- * doesn't exist yet, so defaulting to anything stricter would tag every
- * legitimate verified token `not_present`.
+ * Enforcement mode. Default `best_effort` (v3.6, 2026-07-04): the only status
+ * it blocks is `mismatch`, which requires a PRESENT binding claim — issuers
+ * that don't mint the claim see zero behavior change, while an actually
+ * repurposed token starts blocking. `required` stays opt-in: it blocks
+ * `not_present`, which would make minting the claim a precondition for JWKS
+ * adoption at all; flip it once your issuer mints bindings (watch for
+ * act_status='match' in guard_decisions — computed in every mode for exactly
+ * this readiness signal).
  */
 export function getActBindingMode(): ActBindingMode {
-  const raw = (process.env.DASHCLAW_ACT_BINDING || 'off').toLowerCase();
-  return (MODES as readonly string[]).includes(raw) ? (raw as ActBindingMode) : 'off';
+  const raw = (process.env.DASHCLAW_ACT_BINDING || 'best_effort').toLowerCase();
+  return (MODES as readonly string[]).includes(raw) ? (raw as ActBindingMode) : 'best_effort';
 }
 
 /**

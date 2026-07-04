@@ -13,6 +13,66 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.48.0] — 2026-07-04
+
+Closes roadmap v3.6 (enforcement over assertion): "blocks are absolute" is now
+stated exactly — mechanical where the code can enforce it, cooperative where it
+can't — and the hardening defaults graduated while the flip was measurably
+free. Spec: `docs/superpowers/specs/2026-07-04-enforcement-over-assertion.md`.
+
+### Changed
+- **`DASHCLAW_JTI_REPLAY_PROTECTION` now defaults to `required`** (was
+  `best_effort`): a verified JWT must carry a fresh `jti`, and a replay-store
+  outage fails closed. Flipped on evidence: the live ledger held 176,149 guard
+  decisions with **zero** verified-JWT traffic, so no existing caller changes
+  behavior — future issuers onboard against the full contract from day one.
+  Verified-JWT traffic only; API-key callers resolve `not_applicable` and are
+  never touched (now pinned by `evaluateGuard`-level tests). Rollback is one
+  env var: `DASHCLAW_JTI_REPLAY_PROTECTION=best_effort`. The duplicated
+  default literal is gone — both call sites read one getter
+  (`app/lib/replay-protection.ts`).
+- **`DASHCLAW_ACT_BINDING` now defaults to `best_effort`** (was `off`): a
+  verified token bound to a different `(action, target, goal)` tuple now
+  blocks. Blocking requires a *present* binding claim, so issuers that don't
+  mint one see zero behavior change. `required` stays opt-in (it would make
+  minting the claim a precondition for JWKS adoption). Rollback:
+  `DASHCLAW_ACT_BINDING=off`.
+
+### Added
+- **Enforcement-boundary ADR** (`docs/architecture/enforcement-boundary.md`):
+  the canonical per-surface table of where a block is mechanically executed
+  (Claude Code / Codex / Hermes hooks, the OpenClaw gateway plugin, and
+  `dashclaw_invoke` server-executed capabilities) versus cooperatively honored
+  (SDK, direct API, bare MCP, Claude Desktop / consumer chat) — plus the
+  recorded **kill** of the universal enforcing proxy for non-cooperating
+  harnesses: consumer chat exposes no pre-execution interception point, and
+  re-registering every connector behind `dashclaw_invoke` would make DashClaw
+  a connector broker, not a governance runtime. Supersession trigger recorded.
+- **`/setup` Enforcement posture card**: the instance's live hardening modes
+  (replay protection, action binding, degraded-evaluation fallback), read
+  through the guard's own getters so the card can never disagree with the
+  engine. Because `/setup` is unauthenticated, a knob set *below* its hardened
+  default renders as "review recommended" with the value withheld (in-ship
+  security-review fix) — a hardened instance discloses only defaults; a
+  weakened one hands no recon to visitors.
+- `evaluateGuard`-level replay-protection mode tests (7), mirroring the
+  act-binding block: `best_effort` vs `required` across `replayed`,
+  `not_present`, `unavailable`, `unique`, and the `not_applicable` API-key
+  exemption.
+
+### Fixed
+- **Truth pass on every "blocks" claim**: README (proof path, Intercept/
+  Enforce rows, injection-scanning claim), QUICK-START (demo framing, "abort
+  on block" now says the caller's abort is the enforcement), SDK READMEs (the
+  Python "unauthorized action prevented" comment is gone), `app/docs` SDK
+  snippets, `/self-host` and landing feature cards, `runtime-api.md`
+  ("blocks are absolute" now scoped to the decision layer with the per-surface
+  link), `PROJECT_DETAILS.md`, the governance skill (explicit note that the
+  skill is the cooperative half and hooks are the mechanical backstop), and
+  `docs/CLAUDE-DESKTOP-PLUGIN.md`, which previously carried **no**
+  advisory-vs-enforced language at all. Product copy now says nothing
+  stronger than what the code enforces.
+
 ## [4.47.0] — 2026-07-04
 
 Closes roadmap v3.5 (attention budgets: approval-flood guard) — as an audit,

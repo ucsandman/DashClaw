@@ -350,7 +350,7 @@ claw = DashClaw(
                 </div>
                 <div className="pl-10">
                   <DocsCodeTabs 
-                    nodeSnippet={`// 1. Ask permission — abort on hard block
+                    nodeSnippet={`// 1. Ask permission — your abort IS the enforcement on the SDK path
 const decision = await claw.guard({
   action_type: 'deploy',
   risk_score: 85,
@@ -388,7 +388,7 @@ try {
 } catch (err) {
   await claw.updateOutcome(action_id, { status: 'failed', error_message: err.message });
 }`}
-                    pythonSnippet={`# 1. Ask permission — abort on hard block
+                    pythonSnippet={`# 1. Ask permission — your abort IS the enforcement on the SDK path
 decision = claw.guard({
     "action_type": "deploy",
     "risk_score": 85,
@@ -1722,8 +1722,8 @@ const { decision, verification_status } = await claw.guard({
             </p>
             <ul className="text-sm text-text-secondary mb-4 leading-relaxed list-disc pl-5 space-y-1">
               <li><strong>Phase 2 — <code className="text-brand">verification_status</code></strong>: who signed the token. Configure trust with <code className="text-brand">DASHCLAW_ALLOWED_ISSUER</code> and <code className="text-brand">DASHCLAW_JWT_AUDIENCE</code>.</li>
-              <li><strong>Phase 2b — <code className="text-brand">replay_status</code></strong>: whether the token was reused. <code className="text-brand">DASHCLAW_JTI_REPLAY_PROTECTION</code> (<code>off</code> / <code>best_effort</code> / <code>required</code>, default <code>best_effort</code>) blocks a replayed <code className="text-brand">jti</code>.</li>
-              <li><strong>Phase 2c — <code className="text-brand">act_status</code></strong>: whether the token is bound to <em>this</em> call. <code className="text-brand">DASHCLAW_ACT_BINDING</code> (default <code>off</code>) compares the request against the token&apos;s <code className="text-brand">urn:dashclaw:act-binding</code> claim.</li>
+              <li><strong>Phase 2b — <code className="text-brand">replay_status</code></strong>: whether the token was reused. <code className="text-brand">DASHCLAW_JTI_REPLAY_PROTECTION</code> (<code>off</code> / <code>best_effort</code> / <code>required</code>, default <code>required</code>) blocks a replayed <code className="text-brand">jti</code> — verified-JWT traffic only; API-key callers are never touched by it.</li>
+              <li><strong>Phase 2c — <code className="text-brand">act_status</code></strong>: whether the token is bound to <em>this</em> call. <code className="text-brand">DASHCLAW_ACT_BINDING</code> (default <code>best_effort</code> — blocks only a positive <code>mismatch</code>) compares the request against the token&apos;s <code className="text-brand">urn:dashclaw:act-binding</code> claim.</li>
             </ul>
 
             <h3 id="composed-identities" className="scroll-mt-20 text-lg font-semibold tracking-tight mt-10 mb-2">Composed identities (per-harness families)</h3>

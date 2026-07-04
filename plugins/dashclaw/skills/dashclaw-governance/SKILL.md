@@ -59,6 +59,14 @@ warning context in your action record (`dashclaw_record`).
 through another path or tool. Report the block reason to the user. The policy exists for
 a reason.
 
+> **Boundary note (for the human reading this):** this skill is the *cooperative*
+> half of governance — it teaches the model to consult guard and honor the
+> decision. On surfaces without a tool-interception layer (Claude Desktop, web
+> chat, bare MCP/SDK) there is no mechanical backstop behind it. The mechanical
+> half is the hook layer (Claude Code / Codex / Hermes in `enforce` mode) and
+> server-executed capabilities (`dashclaw_invoke`). Per-surface table:
+> `docs/architecture/enforcement-boundary.md`.
+
 **`require_approval`** — A human must approve this action in DashClaw Mission Control.
 1. Record the pending action: `dashclaw_record` with `status: 'pending_approval'`
 2. Inform the user: "This action requires human approval in Mission Control."

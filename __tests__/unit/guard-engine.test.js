@@ -17,6 +17,7 @@ vi.mock('@/lib/predictive-risk.js', () => ({ getPredictiveRisk: vi.fn(async () =
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
 import { evaluateGuard, evaluatePolicy, __resetGuardCaches } from '@/lib/guard.js';
+import { getJtiReplayMode } from '@/lib/replay-protection.js';
 import { createSqlMock } from '../helpers.js';
 
 function makeSql(policies) {
@@ -414,6 +415,68 @@ describe('evaluateGuard — action binding', () => {
     process.env.DASHCLAW_ACT_BINDING = 'required';
     const sql = makeSql([]);
     const result = await evaluateGuard('org_1', { action_type: 'read', act_status: 'match' }, sql);
+    expect(result.decision).toBe('allow');
+  });
+});
+
+// --- Phase 2b: replay-protection block wiring (issue #120; mode tests added
+// with the v3.6 default flip so the graduated default is pinned at the same
+// level as act binding) ---
+
+describe('evaluateGuard — replay protection', () => {
+  afterEach(() => { delete process.env.DASHCLAW_JTI_REPLAY_PROTECTION; });
+
+  it('defaults to required (v3.6 flip) and falls back to required on unknown modes', () => {
+    expect(getJtiReplayMode()).toBe('required');
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'garbage';
+    expect(getJtiReplayMode()).toBe('required');
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'BEST_EFFORT';
+    expect(getJtiReplayMode()).toBe('best_effort');
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'off';
+    expect(getJtiReplayMode()).toBe('off');
+  });
+
+  it('blocks a confirmed replay under best_effort', async () => {
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'best_effort';
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'replayed' }, sql);
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some(r => r.includes('Replay detected'))).toBe(true);
+  });
+
+  it('does NOT block not_present under best_effort', async () => {
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'best_effort';
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'not_present' }, sql);
+    expect(result.decision).toBe('allow');
+  });
+
+  it('blocks not_present under required (the default)', async () => {
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'not_present' }, sql);
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some(r => r.includes('no jti claim'))).toBe(true);
+  });
+
+  it('blocks a store outage (unavailable) under required', async () => {
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'required';
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'unavailable' }, sql);
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some(r => r.includes('Replay store unreachable'))).toBe(true);
+  });
+
+  it('allows a unique jti under required', async () => {
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'required';
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'unique' }, sql);
+    expect(result.decision).toBe('allow');
+  });
+
+  it('never blocks not_applicable (API-key callers) even under required', async () => {
+    process.env.DASHCLAW_JTI_REPLAY_PROTECTION = 'required';
+    const sql = makeSql([]);
+    const result = await evaluateGuard('org_1', { action_type: 'read', replay_status: 'not_applicable' }, sql);
     expect(result.decision).toBe('allow');
   });
 });

@@ -32,7 +32,7 @@ As of this verification (2026-07-04), generated API inventory reports **328 rout
 ### DashClaw owns
 
 - **Attribution**: which agent attempted which action, with `agent_id`, optional `agent_name`, and org scoping.
-- **Policy decisions**: allow, block, or require approval before an action proceeds.
+- **Policy decisions**: allow, block, or require approval, evaluated before the action proceeds — mechanically enforced on hook/capability surfaces, honored by cooperative callers (`docs/architecture/enforcement-boundary.md`).
 - **Human-in-the-loop approval**: approval queues and chat/native approval bridges.
 - **Action ledger**: durable `action_records` rows with status, risk, reasoning, assumptions, costs, tokens, and trace data.
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
@@ -82,7 +82,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 
 | Route | Purpose | Notes |
 |:---|:---|:---|
-| `/api/guard` | Policy evaluation before execution | Returns allow, block, or require approval. |
+| `/api/guard` | Policy evaluation before execution | Returns allow, block, or require approval — an advisory decision point the calling surface enforces (see `docs/architecture/enforcement-boundary.md`). |
 | `/api/actions` | Create, list, and delete action records | `POST` accepts `idempotency_key`; duplicate `(org_id, idempotency_key)` creates return the existing row with `idempotent_replay: true`. |
 | `/api/actions/:actionId` | Read or PATCH legacy lifecycle outcome fields | Legacy completion/update path. Durable finality uses the separate `/outcome` route. |
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
@@ -179,15 +179,17 @@ infrastructure failure. Full setup guide: `docs/agent-identity.md`.
 | **2b — replay** | Has this token been *reused*? | `replay_status` | `app/lib/repositories/jti-replay.repository.js` records `(issuer, jti)` in `jwt_replay_log` (race-free `ON CONFLICT DO NOTHING`). First use `unique`, second `replayed`. Values: `not_applicable | disabled | unique | replayed | not_present | unavailable | exp_too_far`. |
 | **2c — binding** | Is this token bound to *this* call? | `act_status` | `app/lib/act-binding.ts` recomputes a SHA-256 over the canonical `(action, target, goal)` tuple and compares it to the token's `urn:dashclaw:act-binding` claim. Values: `not_applicable | match | mismatch | not_present | unsupported_typ | ctx_incomplete`. |
 
-Enforcement is mode-gated and fails open by default so the runtime records before
-it blocks:
+Enforcement is mode-gated. Since v3.6 (2026-07-04) the verified-JWT defaults
+fail closed — flipped while the verified fleet was measurably empty, so no
+existing traffic changed behavior; API-key callers resolve `not_applicable`
+and are never touched by these knobs:
 
 | Env var | Modes | Default | Blocks on |
 |:---|:---|:---|:---|
 | `DASHCLAW_ALLOWED_ISSUER` / `DASHCLAW_JWT_AUDIENCE` | (set / unset) | unset = any | restrict trusted issuers / validate `aud` |
-| `DASHCLAW_JTI_REPLAY_PROTECTION` | `off` / `best_effort` / `required` | `best_effort` | `replayed`/`exp_too_far` always; `unavailable`/`not_present` only under `required` |
+| `DASHCLAW_JTI_REPLAY_PROTECTION` | `off` / `best_effort` / `required` | `required` | `replayed`/`exp_too_far` always; `unavailable`/`not_present` only under `required` |
 | `DASHCLAW_JTI_MAX_TTL_SECONDS` | integer | `86400` | rejects tokens whose `exp` exceeds the cap (`exp_too_far`) |
-| `DASHCLAW_ACT_BINDING` | `off` / `best_effort` / `required` | `off` | `mismatch` under `best_effort`+`required`; `not_present`/`unsupported_typ`/`ctx_incomplete` only under `required` |
+| `DASHCLAW_ACT_BINDING` | `off` / `best_effort` / `required` | `best_effort` | `mismatch` under `best_effort`+`required`; `not_present`/`unsupported_typ`/`ctx_incomplete` only under `required` |
 | `DASHCLAW_ACT_BINDING_TYP` | csv | `action-binding/v1` | accepted binding `typ` allowlist |
 
 Schema: `drizzle/0008` (verification), `0010`/`0011` (replay), `0012` (action

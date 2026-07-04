@@ -71,7 +71,9 @@ differs" table in `.hermes-plugin/README.md`.
 **Claude Desktop** cannot run local hooks at all — consumer chat has no
 tool-interception layer, so governance there is **cooperative** (the model,
 guided by the governance skill, calls `dashclaw_guard` before acting), never a
-hard kernel block. Desktop connects via the OAuth custom connector (paste
+hard kernel block. The canonical per-surface enforced-vs-cooperative table —
+and the recorded decision that a universal enforcing proxy for such surfaces
+is killed — is `docs/architecture/enforcement-boundary.md`. Desktop connects via the OAuth custom connector (paste
 `https://<instance>/api/mcp` under Settings → Connectors; the hosted route pins
 the `claude-desktop` server-level identity for OAuth callers). The two skills
 can additionally be loaded via the plugin marketplace ZIP built by

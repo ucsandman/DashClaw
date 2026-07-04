@@ -10,6 +10,15 @@ Get the **33 governance tools** (`dashclaw_guard`, `dashclaw_record`, …) into 
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 
+> **What governance means on this surface:** consumer chat has no
+> tool-interception layer, so the connector governs **cooperatively** — the
+> model, guided by the governance skill, calls `dashclaw_guard` before acting
+> and honors the decision; there is no mechanical backstop that halts a
+> non-compliant call. Mechanical enforcement exists on hook surfaces (Claude
+> Code / Codex / Hermes) and for capabilities DashClaw executes itself
+> (`dashclaw_invoke`). Per-surface table:
+> [`docs/architecture/enforcement-boundary.md`](./architecture/enforcement-boundary.md).
+
 ---
 
 ## 1. Prerequisites

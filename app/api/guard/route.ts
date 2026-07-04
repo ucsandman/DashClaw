@@ -21,6 +21,7 @@ import { isSelfHostModeEnabled } from '../../lib/selfHost';
 import { verifyJwt, extractBearerToken } from '../../lib/jwks-verifier';
 import { checkAndRecord as checkAndRecordJti } from '../../lib/repositories/jti-replay.repository';
 import { resolveActStatus } from '../../lib/act-binding';
+import { getJtiReplayMode } from '../../lib/replay-protection';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
 
 type GuardSql = ReturnType<typeof getSql>;
@@ -210,7 +211,7 @@ export async function POST(request: Request) {
       // Only verified tokens hit the store — there's no signature trust to
       // replay without that. The exp_too_far signal flows through verification
       // status directly (the verifier sets it before any network call).
-      const replayProtection = (process.env.DASHCLAW_JTI_REPLAY_PROTECTION || 'best_effort').toLowerCase();
+      const replayProtection = getJtiReplayMode();
       if (verificationResult.verification_status === 'exp_too_far') {
         data.replay_status = 'exp_too_far';
       } else if (verificationResult.verification_status === 'verified' && replayProtection === 'off') {

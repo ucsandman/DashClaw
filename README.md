@@ -40,7 +40,7 @@
 
 ## 60-second proof path
 
-1. Read the loop: DashClaw intercepts risky agent intent, enforces policy, records the decision, routes approval when required, and verifies the final outcome.
+1. Read the loop: DashClaw intercepts risky agent intent, enforces policy, records the decision, routes approval when required, and verifies the final outcome. Where the *block* is mechanical vs honored by the agent depends on the surface — hooks and server-executed capabilities halt the action itself; SDK/MCP/chat callers honor the decision. The per-surface table is [`docs/architecture/enforcement-boundary.md`](./docs/architecture/enforcement-boundary.md).
 2. Run the local demo: `npx dashclaw-demo`. Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
 3. Self-host the runtime from the deploy guide, then run `npm run doctor` locally or `dashclaw doctor` against the hosted URL. Expected proof: the doctor command exits 0 or names the blocking setup item.
 4. Connect one agent with `DASHCLAW_BASE_URL` and `DASHCLAW_API_KEY`. Expected proof: one action appears in `/decisions`, any held action appears in `/approvals`, and `/api/setup/live-proof` can capture setup evidence for onboarding or CI.
@@ -49,9 +49,9 @@
 
 | | |
 |---|---|
-| **Intercept** | Risky agent actions are evaluated before they execute. Block, warn, or hold for approval, by policy. |
+| **Intercept** | Risky agent actions are evaluated before they execute. Block, warn, or hold for approval, by policy — halted mechanically on hook/gateway surfaces (Claude Code, Codex, Hermes, OpenClaw) and for capabilities DashClaw executes; honored cooperatively by SDK/MCP/chat callers ([enforcement boundary](./docs/architecture/enforcement-boundary.md)). |
 | **Verify identity** | Agents authenticate with JWKS-verified OIDC bearer tokens (EdDSA / RSA / ECDSA). Replay protection rejects reused tokens; optional action binding scopes a token to one intended call. Cryptographic attribution, not self-assertion. |
-| **Enforce** | Declarative policies (risk thresholds, deploy gates, capability access rules, semantic checks) run on every action. |
+| **Enforce** | Declarative policies (risk thresholds, deploy gates, capability access rules, semantic checks) evaluate every reported action; a `block` decision is never downgraded. |
 | **Approve** | Pending approvals route to a dashboard queue, the CLI inbox, a mobile PWA, Telegram, or Discord, with one-tap allow or deny. |
 | **Record** | Every action becomes a replayable decision record: declared goal, reasoning, risk score, matched policies, assumptions, evidence. |
 | **Finalize** | Terminal outcomes are one-shot and durable. Lost confirmations are swept and surfaced, so retries do not double-execute. |
@@ -367,7 +367,7 @@ DashClaw is not observability. It is control before execution. The model:
 3. **Every decision is recorded.** The decisions ledger is replayable: declared goal, reasoning, matched policies, assumptions, signals, and the final outcome.
 4. **Outcomes are durable.** The five-state finality machine guarantees no silent double-execute on retry, and the sweep catches lost confirmations.
 5. **Evidence is exportable.** Compliance evidence bundles (signed manifests, JSON exports) are produced from real action records, not synthetic fixtures.
-6. **Prompt injection scanning is on by default.** Declared goals are scanned for injection patterns. Hits are blocked at guard time.
+6. **Prompt injection scanning is on by default.** Declared goals are scanned for injection patterns. Hits force a `block` decision at guard time — halted mechanically on enforcing surfaces, honored by cooperative callers ([enforcement boundary](./docs/architecture/enforcement-boundary.md)).
 7. **Agent identity is cryptographically verified.** Agents may present a JWKS-verified JWT instead of self-asserting `agent_id`. DashClaw checks the signature against the issuer's published keys (EdDSA / RSA / ECDSA), rejects replayed tokens, and can bind a token to its intended action — the verified `sub` overrides any body-supplied `agent_id`. Fail-soft: a downed issuer never blocks a decision. See [`docs/agent-identity.md`](./docs/agent-identity.md).
 
 The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md). The runtime API contract is in [`docs/architecture/runtime-api.md`](./docs/architecture/runtime-api.md).

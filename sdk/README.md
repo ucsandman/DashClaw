@@ -161,7 +161,9 @@ real bug in an early version of the OpenClaw plugin — don't reproduce it.
 ### Correct sequence
 
 ```javascript
-// 1. Guard — advisory; may return 'allow', 'block', 'warn', or 'require_approval'
+// 1. Guard — advisory on the SDK path: your code honoring the decision IS the
+//    enforcement (hook surfaces halt mechanically — see docs/architecture/enforcement-boundary.md).
+//    May return 'allow', 'block', 'warn', or 'require_approval'.
 const decision = await claw.guard({
   action_type: 'post_message',
   declared_goal: 'Notify #ops of deploy start',

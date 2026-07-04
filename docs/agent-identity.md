@@ -130,15 +130,19 @@ Set `DASHCLAW_JTI_REPLAY_PROTECTION` to one of:
 | `best_effort` | **block**  | allow         | allow         |
 | `required`    | **block**  | **block**     | **block**     |
 
-`best_effort` is the default and matches Phase 2's fail-soft posture. `required`
-is for adversarial deployments where any uncertainty must fail closed.
+`required` is the default (v3.6, 2026-07-04 — graduated from `best_effort`
+when the verified-JWT fleet was measurably empty, so no existing traffic was
+affected): any uncertainty on verified traffic fails closed. The mode only
+applies to JWKS-verified tokens — API-key callers resolve
+`replay_status='not_applicable'` and are never blocked by this knob. Rollback
+is one env var: `DASHCLAW_JTI_REPLAY_PROTECTION=best_effort` (the pre-v3.6
+fail-soft posture).
 
 > **Security note** — In `best_effort` mode, an issuer that doesn't emit `jti`
 > (or strips it under attack) bypasses replay protection entirely. `required`
-> mode closes that gap by denying any verified token that lacks a `jti`. If
-> your threat model includes a hostile or misconfigured IdP, run `required`
-> and make sure your IdP always emits `jti` so legitimate traffic isn't
-> impacted.
+> mode closes that gap by denying any verified token that lacks a `jti`. Make
+> sure your IdP always emits `jti` (and a bounded `exp`) so legitimate
+> verified traffic isn't impacted.
 
 ### Storage and sweep
 
@@ -155,7 +159,7 @@ The table never accumulates rows beyond one TTL window of inactivity.
 ### Configuration
 
 ```bash
-DASHCLAW_JTI_REPLAY_PROTECTION=best_effort   # off | best_effort | required
+DASHCLAW_JTI_REPLAY_PROTECTION=required      # off | best_effort | required
 DASHCLAW_JTI_MAX_TTL_SECONDS=86400           # cap on accepted exp (24h default)
 ```
 
@@ -222,16 +226,20 @@ issuer has started minting bindings and it's safe to enable enforcement.
 | `best_effort` | **block**  | record        | record            | record           |
 | `required`    | **block**  | **block**     | **block**         | **block**        |
 
-Default is `off` (not `best_effort` like replay): act-binding needs issuer
-cooperation that doesn't exist yet, so anything stricter would tag every
-legitimate verified token `not_present` for zero security gain until issuers
-mint the claim. `best_effort` only ever blocks a *positive* mismatch, so it's
-safe to enable before every token carries a binding.
+Default is `best_effort` (v3.6, 2026-07-04 — graduated from `off`): it only
+ever blocks a *positive* `mismatch`, which requires a present binding claim,
+so issuers that don't mint the claim see zero behavior change while an
+actually repurposed token starts blocking. `required` stays opt-in (not the
+default, unlike replay protection): it blocks `not_present`, which would make
+minting the claim a precondition for adopting JWKS at all. Flip to `required`
+once `act_status='match'` shows up in your `guard_decisions` — that signal is
+recorded in every mode for exactly this purpose. Rollback is one env var:
+`DASHCLAW_ACT_BINDING=off`.
 
 ### Configuration
 
 ```bash
-DASHCLAW_ACT_BINDING=off                       # off | best_effort | required
+DASHCLAW_ACT_BINDING=best_effort               # off | best_effort | required
 DASHCLAW_ACT_BINDING_TYP=action-binding/v1     # accepted typ list (comma-separated)
 ```
 
