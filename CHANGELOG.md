@@ -13,6 +13,40 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.40.0] — 2026-07-03
+
+Phase 2 of the trust & failure model ADR, first batch: x402 money truth.
+Spend enforcement stops trusting a number the org's own registry can
+contradict, and money columns become exact decimals. No SDK source change
+(no republish).
+
+### Added
+
+- **Spend clamp (ADR D1)** — `POST /api/x402/purchases` now enforces
+  `max(declared spend, resolved endpoint default_price)`. A known-priced
+  endpoint cannot be under-declared past `x402_spend_limit` caps, budget
+  windows, or approval thresholds. The enforced amount flows to the guard
+  gates, the action cost estimate, and the stored purchase row (window sums
+  count reality); the declared figure is audited in the guard context as
+  `declared_spend_amount`; the response reports
+  `spend_enforcement: { declared, enforced, clamped }`.
+- **x402 tables modeled in `schema/schema.js`** — `x402_providers`,
+  `x402_endpoints`, `x402_purchases` had been raw-SQL-only since drizzle/0021;
+  the money subsystem was invisible to schema tooling (arch-review finding).
+
+### Changed
+
+- **Money columns are exact decimals** (`drizzle/0044_x402_money_numeric.sql`)
+  — `x402_purchases.spend_amount` and `x402_endpoints.default_price` convert
+  REAL (float32) → `numeric`; spend aggregation casts follow
+  (`::real` → `::numeric`). Scores stay REAL (not money). A new drift-class
+  test (`__tests__/unit/drizzle-money-types.test.js`) fails CI if a future
+  REAL money column ships without a conversion.
+- `computeEffectiveRisk` documentation now says what the blend guarantees —
+  a server-computed risk *floor* over declared descriptors, not fact-checking
+  (ADR D1 naming rule). Product copy needed no sweep: "payment validation" was
+  never claimed anywhere user-facing.
+
 ## [4.39.0] — 2026-07-03
 
 The emergency halt becomes a click, and the button becomes honest. Also

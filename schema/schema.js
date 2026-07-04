@@ -1708,3 +1708,80 @@ export const tighteningProposalDecisions = pgTable('tightening_proposal_decision
   orgProposalUnique: unique('tightening_proposal_decisions_org_proposal_unique').on(t.orgId, t.proposalId),
   orgDecisionIdx: index('idx_tightening_decisions_org_decision').on(t.orgId, t.decision),
 }));
+
+// @domain governance
+// x402 spend governance (drizzle/0021, money types normalized to numeric in
+// drizzle/0044). These tables were raw-SQL-only from 0021 until 2026-07-03 —
+// the money subsystem was invisible to schema tooling (arch-review finding).
+// Modeled here so the source of truth is single; all access remains via
+// app/lib/repositories/x402.repository.ts. Money columns are numeric, never
+// float (trust & failure model ADR, D3); value/confidence scores are not
+// money and stay real.
+export const x402Providers = pgTable('x402_providers', {
+  providerId: text('provider_id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  description: text('description'),
+  category: text('category').notNull().default('research'),
+  baseUrl: text('base_url'),
+  status: text('status').notNull().default('active'),
+  defaultCurrency: text('default_currency').notNull().default('USDC'),
+  pricingModel: text('pricing_model'),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  orgSlugUnique: uniqueIndex('x402_providers_org_slug_unique').on(t.orgId, t.slug),
+}));
+
+// @domain governance
+export const x402Endpoints = pgTable('x402_endpoints', {
+  endpointId: text('endpoint_id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  providerId: text('provider_id').notNull(),
+  name: text('name').notNull(),
+  slug: text('slug').notNull(),
+  description: text('description'),
+  endpointUrl: text('endpoint_url'),
+  category: text('category').notNull().default('research'),
+  sensitivityLevel: text('sensitivity_level').notNull().default('low'),
+  defaultPrice: numeric('default_price'),
+  priceUnit: text('price_unit').default('per_call'),
+  enabled: integer('enabled').notNull().default(1),
+  metadata: jsonb('metadata').default({}),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+}, (t) => ({
+  providerIdx: index('idx_x402_endpoints_provider').on(t.orgId, t.providerId),
+  providerSlugUnique: uniqueIndex('x402_endpoints_provider_slug_unique').on(t.orgId, t.providerId, t.slug),
+}));
+
+// @domain governance
+export const x402Purchases = pgTable('x402_purchases', {
+  actionId: text('action_id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  providerId: text('provider_id'),
+  endpointId: text('endpoint_id'),
+  agentId: text('agent_id'),
+  spendAmount: numeric('spend_amount').notNull().default('0'),
+  currency: text('currency').notNull().default('USDC'),
+  paymentMethod: text('payment_method'),
+  walletReference: text('wallet_reference'),
+  paymentReference: text('payment_reference'),
+  purchaseReason: text('purchase_reason'),
+  contextGap: text('context_gap'),
+  alternativesConsidered: text('alternatives_considered'),
+  expectedValue: text('expected_value'),
+  executionStatus: text('execution_status').notNull().default('pending'),
+  resultSummary: text('result_summary'),
+  resultReference: text('result_reference'),
+  valueScore: real('value_score'),
+  confidenceScore: real('confidence_score'),
+  operatorFeedback: text('operator_feedback'),
+  failureReason: text('failure_reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  completedAt: timestamp('completed_at', { withTimezone: true }),
+}, (t) => ({
+  providerIdx: index('idx_x402_purchases_provider').on(t.orgId, t.providerId, t.createdAt),
+}));

@@ -274,27 +274,29 @@ export async function getX402SpendAggregation(sql: SqlTag, orgId: string, { peri
   // the payment — roadmap v2.3 lifecycle hygiene). succeeded/partial/approved/
   // pending are retained (pending = reserved spend awaiting approval).
   const [totals] = await sql`
-    SELECT COALESCE(SUM(spend_amount), 0)::real AS total_spend_usd, COUNT(*)::integer AS purchase_count
+    SELECT COALESCE(SUM(spend_amount), 0)::numeric AS total_spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
     WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}`;
   const byDay = await sql`
-    SELECT DATE(created_at::timestamptz) AS date, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
+    SELECT DATE(created_at::timestamptz) AS date, COALESCE(SUM(spend_amount), 0)::numeric AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
     WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}
     GROUP BY DATE(created_at::timestamptz)
     ORDER BY date DESC`;
   const byProvider = await sql`
-    SELECT provider_id, COALESCE(SUM(spend_amount), 0)::real AS spend_usd, COUNT(*)::integer AS purchase_count
+    SELECT provider_id, COALESCE(SUM(spend_amount), 0)::numeric AS spend_usd, COUNT(*)::integer AS purchase_count
     FROM x402_purchases
     WHERE org_id = ${orgId} AND created_at::timestamptz >= ${since}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}
     GROUP BY provider_id
     ORDER BY spend_usd DESC`;
   return {
     period,
-    // `::real` aggregates come back as STRINGS from the Neon/postgres drivers
-    // (no type parser registered in db.js); coerce with Number() so the value
-    // is a real number — `as number` would lie and `number + string` in
-    // getFleetSpend would concatenate. Mirrors actions.repository getCostAggregation.
+    // `::numeric` aggregates come back as STRINGS from the Neon/postgres
+    // drivers (no type parser registered in db.js); coerce with Number() so
+    // the value is a real number — `as number` would lie and `number + string`
+    // in getFleetSpend would concatenate. numeric (drizzle/0044) keeps the
+    // stored amounts and the SUM exact; the float conversion happens only
+    // here at the JS boundary. Mirrors actions.repository getCostAggregation.
     total_spend_usd: Number(totals?.total_spend_usd ?? 0),
     purchase_count: Number(totals?.purchase_count ?? 0),
     by_day: byDay,
@@ -323,7 +325,7 @@ export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, age
     ? sql` AND (agent_id = ${agentId} OR agent_id LIKE ${likePrefix})`
     : sql``;
   const [row] = await sql`
-    SELECT COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
+    SELECT COALESCE(SUM(spend_amount), 0)::numeric AS window_spend_usd
     FROM x402_purchases
     WHERE org_id = ${orgId} AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')${agentFilter}`;
   return Number(row?.window_spend_usd ?? 0);
@@ -341,12 +343,12 @@ export async function sumWindowSpend(sql: SqlTag, orgId: string, { sinceIso, age
  */
 export async function sumWindowSpendByFamily(sql: SqlTag, orgId: string, { sinceIso }: { sinceIso: string }): Promise<Array<{ agent_id: string; window_spend_usd: number }>> {
   const rows = await sql`
-    SELECT split_part(agent_id, ':', 1) AS agent_id, COALESCE(SUM(spend_amount), 0)::real AS window_spend_usd
+    SELECT split_part(agent_id, ':', 1) AS agent_id, COALESCE(SUM(spend_amount), 0)::numeric AS window_spend_usd
     FROM x402_purchases
     WHERE org_id = ${orgId} AND agent_id IS NOT NULL AND created_at::timestamptz >= ${sinceIso}::timestamptz AND execution_status NOT IN ('failed', 'denied', 'expired')
     GROUP BY split_part(agent_id, ':', 1)
     ORDER BY window_spend_usd DESC`;
-  // ::real aggregates arrive as STRINGS from the Neon/postgres drivers (see
+  // ::numeric aggregates arrive as STRINGS from the Neon/postgres drivers (see
   // getX402SpendAggregation) — coerce before anyone sums or compares.
   return (rows as Array<{ agent_id: string; window_spend_usd: unknown }>).map((r) => ({
     agent_id: r.agent_id,

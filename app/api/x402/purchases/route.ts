@@ -94,6 +94,7 @@ export async function POST(request: Request) {
 
     // (R5) Provider / endpoint integrity. Validate ONLY when an id is supplied.
     let providerRow = null;
+    let endpointRow = null;
     if (v.provider_id) {
       providerRow = await getProvider(sql, orgId, v.provider_id);
       if (!providerRow) {
@@ -104,7 +105,7 @@ export async function POST(request: Request) {
       }
     }
     if (v.endpoint_id) {
-      const endpointRow = await getEndpoint(sql, orgId, v.endpoint_id);
+      endpointRow = await getEndpoint(sql, orgId, v.endpoint_id);
       if (!endpointRow) {
         return NextResponse.json({ error: 'Unknown endpoint_id for this organization' }, { status: 404 });
       }
@@ -144,6 +145,19 @@ export async function POST(request: Request) {
     const action_id = `act_${crypto.randomUUID()}`;
     const timestamp_start = new Date().toISOString();
 
+    // (D1 clamp — docs/architecture/trust-and-failure-model.md) Enforced
+    // spend = max(declared, resolved endpoint price). Declared spend is an
+    // attestation; when the org's own registry prices the endpoint, a lower
+    // declaration must not walk under the spend gates. The declared figure
+    // rides the audited guard context, and window sums store the enforced
+    // amount so budgets count what the purchase can actually cost.
+    const declaredSpend = Number(v.spend_amount ?? 0);
+    const endpointPrice = endpointRow?.default_price != null ? Number(endpointRow.default_price) : null;
+    const enforcedSpend = endpointPrice != null && Number.isFinite(endpointPrice) && endpointPrice > declaredSpend
+      ? endpointPrice
+      : declaredSpend;
+    const spendClamped = enforcedSpend !== declaredSpend;
+
     // (R6) Pass BOTH the provider display name and the provider_id into the guard
     // context so x402_spend_limit allow/block lists match name- or id-keyed lists.
     const guardContext = {
@@ -153,7 +167,8 @@ export async function POST(request: Request) {
       provider: providerRow?.name || v.provider,
       provider_id: resolvedProviderId,
       declared_goal: v.declared_goal,
-      cost_estimate: v.spend_amount,
+      cost_estimate: enforcedSpend,
+      declared_spend_amount: declaredSpend,
       risk_score: v.risk_score ?? 0,
     };
 
@@ -205,7 +220,7 @@ export async function POST(request: Request) {
         approval_wait_seconds: typeof v.approval_wait_seconds === 'number' ? v.approval_wait_seconds : null,
       },
       actionStatus,
-      costEstimate: v.spend_amount,
+      costEstimate: enforcedSpend,
       signature: null,
       verified: identity.verified,
       timestamp_start,
@@ -222,7 +237,7 @@ export async function POST(request: Request) {
         provider_id: resolvedProviderId,
         endpoint_id: v.endpoint_id,
         agent_id: agentId,
-        spend_amount: v.spend_amount,
+        spend_amount: enforcedSpend,
         currency: v.currency,
         payment_method: v.payment_method,
         wallet_reference: maskReference(v.wallet_reference),     // (R9)
@@ -271,7 +286,13 @@ export async function POST(request: Request) {
       }, { status: 403 });
     }
 
-    return NextResponse.json({ action, purchase, decision: guardDecision }, { status: isPending ? 202 : 201 });
+    return NextResponse.json({
+      action,
+      purchase,
+      decision: guardDecision,
+      // (D1) The agent learns what was enforced, not just what it declared.
+      spend_enforcement: { declared: declaredSpend, enforced: enforcedSpend, clamped: spendClamped },
+    }, { status: isPending ? 202 : 201 });
   } catch (err) {
     // Best-effort compensation if we threw after creating the action.
     if (createdActionId && sql && orgId) {

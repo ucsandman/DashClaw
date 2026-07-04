@@ -862,8 +862,12 @@ function resolveAuditStatuses(context: GuardEvalContext): AuditStatuses {
   };
 }
 
-// Compute authoritative server-side risk; use the higher of computed vs
-// agent-reported (agents may have internal knowledge).
+// Server-computed risk FLOOR: use the higher of server-computed vs
+// agent-reported (agents may have internal knowledge). NOT fact-checking —
+// the server score derives from client-declared descriptors (action_type,
+// systems_touched, reversible...), so max() guarantees the declared risk
+// number can only raise the score, never that the declarations are true.
+// The trust boundary is documented in docs/architecture/trust-and-failure-model.md (D1).
 function computeEffectiveRisk(context: GuardEvalContext): { agentRiskScore: number | null; effectiveRiskScore: number } {
   const authoritativeRiskScore = computeRiskScore(context);
   const agentRiskScore = context.risk_score != null ? Number(context.risk_score) : null;

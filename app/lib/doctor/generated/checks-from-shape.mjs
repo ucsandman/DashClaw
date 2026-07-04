@@ -108,6 +108,9 @@ const TABLES = [
   "work_order_types",
   "work_orders",
   "workflows",
+  "x402_endpoints",
+  "x402_providers",
+  "x402_purchases",
 ];
 const REQUIRED_ENV_VARS = [
   "DASHCLAW_API_KEY",

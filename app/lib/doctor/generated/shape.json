@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:a5b082ce8ebdbaf5f37dac5e1dcdfbbf7e8dbd12",
+  "timestamp": "sha1:f46144912ae94cb362ef1d9593ce5355c6874173",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5870,6 +5870,21 @@
       "name": "workflows",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "x402_endpoints",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
+    },
+    {
+      "name": "x402_providers",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
+    },
+    {
+      "name": "x402_purchases",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     }
   ],
   "setting_keys": [],

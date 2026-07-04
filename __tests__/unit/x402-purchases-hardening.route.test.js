@@ -114,4 +114,31 @@ describe('x402 purchase hardening', () => {
       verified: true,
     }));
   });
+
+  it('clamps enforced spend to the resolved endpoint price — a known-priced endpoint cannot be under-declared (D1)', async () => {
+    m.getProvider.mockResolvedValue({ provider_id: 'prov_x', org_id: 'org_1', name: 'Exa', status: 'active' });
+    m.getEndpoint.mockResolvedValue({ endpoint_id: 'pep_y', org_id: 'org_1', provider_id: 'prov_x', enabled: 1, default_price: 5 });
+    const res = await POST(req({ ...valid, provider_id: 'prov_x', endpoint_id: 'pep_y', cost_estimate: 0.01 }));
+
+    // Guard gates evaluate against the CLAMPED amount; the declared figure
+    // rides the audited context for transparency.
+    expect(m.evaluateGuard).toHaveBeenCalledWith('org_1', expect.objectContaining({
+      cost_estimate: 5,
+      declared_spend_amount: 0.01,
+    }), m.sql);
+    // Window sums and the action estimate also use the enforced amount.
+    expect(m.createPurchase.mock.calls[0][3].spend_amount).toBe(5);
+    expect(m.createActionRecord).toHaveBeenCalledWith(m.sql, expect.objectContaining({ costEstimate: 5 }));
+    // The response tells the agent what was enforced.
+    const body = await res.json();
+    expect(body.spend_enforcement).toEqual({ declared: 0.01, enforced: 5, clamped: true });
+  });
+
+  it('declared spend at or above the endpoint price is used as-is (D1)', async () => {
+    m.getProvider.mockResolvedValue({ provider_id: 'prov_x', org_id: 'org_1', name: 'Exa', status: 'active' });
+    m.getEndpoint.mockResolvedValue({ endpoint_id: 'pep_y', org_id: 'org_1', provider_id: 'prov_x', enabled: 1, default_price: 5 });
+    await POST(req({ ...valid, provider_id: 'prov_x', endpoint_id: 'pep_y', cost_estimate: 7.5 }));
+    expect(m.evaluateGuard).toHaveBeenCalledWith('org_1', expect.objectContaining({ cost_estimate: 7.5 }), m.sql);
+    expect(m.createPurchase.mock.calls[0][3].spend_amount).toBe(7.5);
+  });
 });

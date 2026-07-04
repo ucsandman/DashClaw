@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:a5b082ce8ebdbaf5f37dac5e1dcdfbbf7e8dbd12 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:f46144912ae94cb362ef1d9593ce5355c6874173 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">280</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">186</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">102</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">105</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (102)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (105)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -162,7 +162,10 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>work_order_receipts</code></td><td class="sig">—</td></tr>
     <tr><td><code>work_order_types</code></td><td class="sig">—</td></tr>
     <tr><td><code>work_orders</code></td><td class="sig">—</td></tr>
-    <tr><td><code>workflows</code></td><td class="sig">—</td></tr></tbody></table></details>
+    <tr><td><code>workflows</code></td><td class="sig">—</td></tr>
+    <tr><td><code>x402_endpoints</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>x402_providers</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>x402_purchases</code></td><td class="sig">governance</td></tr></tbody></table></details>
 <details><summary>Signals (13)</summary><ul class="diff">    <li><code>approval_flood</code></li>
     <li><code>autonomy_spike</code></li>
     <li><code>branch_stale</code></li>
@@ -194,7 +197,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>45</b> env_vars added, <b>1</b> env_vars removed, <b>20</b> routes added, <b>5</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>45</b> env_vars added, <b>1</b> env_vars removed, <b>20</b> routes added, <b>8</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
@@ -264,7 +267,10 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>tables</b>: tightening_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_types <span class="sig">New table in schema</span></li>
-    <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li></ul></section>
+    <li><code>added</code> <b>tables</b>: work_orders <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: x402_endpoints <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: x402_providers <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: x402_purchases <span class="sig">New table in schema</span></li></ul></section>
 
 <section class="routes"><h2>Active routes</h2><input id="route-filter" type="search" placeholder="Filter routes…" oninput="var q=this.value.toLowerCase();document.querySelectorAll('section.routes tr[data-path]').forEach(function(r){r.style.display=r.dataset.path.toLowerCase().includes(q)?'':'none';});document.querySelectorAll('section.routes details').forEach(function(d){var visible=d.querySelectorAll("tr[data-path]:not([style*='none'])").length;d.style.display=visible||!q?'':'none';if(q)d.open=true;});"><details><summary>/actions/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/actions"><td><code>/api/actions</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/actions/route.ts</td></tr>
     <tr data-path="/api/actions/[actionId]"><td><code>/api/actions/[actionId]</code></td><td>GET, PATCH</td><td class="sig">app/api/actions/[actionId]/route.ts</td></tr>

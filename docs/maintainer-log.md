@@ -14,6 +14,35 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — money stops being a rumor (v4.40.0)
+
+Phase 2 of the ADR, first batch. The x402 spend gates had a polite fiction
+in them: they enforced limits against whatever the agent *said* a purchase
+cost. The org's own endpoint registry often knows the actual price — and the
+gate ignored it. Now enforcement is `max(declared, endpoint default_price)`:
+attestation where the server knows nothing, corroboration where it does,
+which is exactly the D1 line. The response tells the agent what was enforced
+(`spend_enforcement`), the audit context keeps the declared figure, and the
+stored purchase row carries the enforced amount so budget windows sum
+reality instead of optimism.
+
+Underneath it, the money columns stopped being float32. `REAL` gave the
+payment rail ~7 significant digits — fine until micro-payments accumulate
+into a window sum that a budget gate compares. drizzle/0044 converts
+`spend_amount` and `default_price` to `numeric` (verified live: real →
+numeric, idempotent re-run), the aggregation casts follow, and a drift-class
+test makes any future REAL money column a CI failure. While there, the three
+x402 tables finally got schema.js definitions — the money subsystem had been
+raw-SQL-only since 0021, invisible to every schema-based tool we have.
+
+One pleasant anticlimax: the ADR's copy sweep ("never say payment
+validation") found nothing to sweep. The product copy never overclaimed —
+only the review's fear did. The one real rename was a guard.ts comment that
+called the risk blend "authoritative"; it now says "floor" and cites the ADR.
+
+Full suite green (4947), build green. Next in the Phase 2 queue: per-agent
+rules fail closed for unverified identity.
+
 ## 2026-07-03 — the decisions are mine now (v4.39.0)
 
 Wes's response to the architecture review was pointed: *this project is

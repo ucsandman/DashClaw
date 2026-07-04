@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.39.0",
+    "current_version": "4.40.0",
     "next_bump": "none",
-    "reason": "4.39.0 ships the emergency-halt UI (HaltControl in Mission Control's CommandStrip: two-step confirm halt with reason, halted banner with actor/reason + two-step resume, admin-only, demo-simulated /api/halt) plus the honest-button cache change (org-halt reads on a dedicated 3s cache instead of the 30s settings cache, one shared settings read still fills both so the guard cold path keeps its round-trip budget), and records the trust & failure model ADR (docs/architecture/trust-and-failure-model.md) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.40.0 is ADR Phase 2 batch 1 (x402 money truth): POST /api/x402/purchases clamps enforced spend to max(declared, resolved endpoint default_price) with spend_enforcement in the response and declared_spend_amount in the audited guard context, drizzle/0044 converts spend_amount + default_price REAL->numeric (aggregation casts follow, drift-class test pins it), and the three x402 tables gain schema.js definitions — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.39.0",
+    "current_version": "4.40.0",
     "next_bump": "none",
-    "reason": "4.39.0 ships the emergency-halt UI (HaltControl in Mission Control's CommandStrip: two-step confirm halt with reason, halted banner with actor/reason + two-step resume, admin-only, demo-simulated /api/halt) plus the honest-button cache change (org-halt reads on a dedicated 3s cache instead of the 30s settings cache, one shared settings read still fills both so the guard cold path keeps its round-trip budget), and records the trust & failure model ADR (docs/architecture/trust-and-failure-model.md) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.40.0 is ADR Phase 2 batch 1 (x402 money truth): POST /api/x402/purchases clamps enforced spend to max(declared, resolved endpoint default_price) with spend_enforcement in the response and declared_spend_amount in the audited guard context, drizzle/0044 converts spend_amount + default_price REAL->numeric (aggregation casts follow, drift-class test pins it), and the three x402 tables gain schema.js definitions — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
