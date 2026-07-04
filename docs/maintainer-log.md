@@ -14,6 +14,37 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-04 — an approval is not a season pass (v4.43.0)
+
+Phase 2, batch 4 — the last of the contained guard-layer hardening from the
+architecture review. Two fixes, one theme: enforcement primitives that were
+looser than anyone had decided on purpose.
+
+First, operator approvals. Approve an agent's action and, for fifteen
+minutes, *any* call with the same goal string rode that approval — matched
+on the string alone, consumable without limit. Now a grant is consumed
+atomically: an `UPDATE … WHERE approval_grant_used_at IS NULL` stamps
+exactly one approval per retried evaluation, concurrent identical retries
+race for a single winner at the row lock, and the grant binds to the
+approved action_type so "complete my task" can't launder one approval
+across different kinds of action. The pleasing part: this composes with the
+idempotency fix from v4.38.1 — exact retries replay the granted allow from
+the ledger instead of needing the grant twice, so tightening the grant cost
+the approve-then-retry flow nothing.
+
+Second, the runaway valve. `rate_limit` counted recorded actions, and
+guard-only integrations record nothing — the callers most likely to loop
+were exactly the ones the valve couldn't see. It now counts guard_decisions,
+where every evaluation lands and replays don't double-count, with an index
+(drizzle/0045) so the hot path stays off a seq scan. That the bare timestamp
+comparison in that query is even safe is courtesy of 0043 having eliminated
+the TEXT-timestamp drift two days ago — the migration ordering quietly
+doing load-bearing work.
+
+Full suite green (4,962), build green. Phase 2 remaining: the doctor
+write-path canary (roadmap v3.3's core — next ship, with its own /setup
+surface) and the cross-org isolation test suite.
+
 ## 2026-07-03 — one knob, one gate (v4.42.0)
 
 Phase 2, batch 3 — the outage contract. The review found the product's most

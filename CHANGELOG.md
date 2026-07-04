@@ -13,6 +13,34 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.43.0] — 2026-07-04
+
+Phase 2 of the trust & failure model ADR, fourth batch: guard-layer
+hardening — approvals stop being season passes, and the runaway valve counts
+what actually happens. No SDK source change (no republish).
+
+### Changed
+
+- **Operator-approval grants are single-use and fingerprint-bound.** A HITL
+  approval previously blanket-covered unlimited identical-goal calls for 15
+  minutes, matched on the goal string alone. The grant is now consumed
+  atomically (`UPDATE … SET approval_grant_used_at … WHERE … IS NULL`,
+  drizzle/0045) — one approval downgrades exactly one retried evaluation,
+  with Postgres row-locking picking a single winner under concurrent
+  identical calls — and additionally binds to the approved `action_type`, so
+  a generic goal string cannot carry one approval across action kinds. The
+  approve-then-retry UX is unchanged: exact idempotent retries replay the
+  resulting allow via the idempotency short-circuit (revived in v4.38.1 —
+  the two fixes compose). Pre-0045 schemas fail closed (grant lookup errors
+  leave require_approval standing) until `db:migrate` runs.
+- **`rate_limit` counts guard evaluations, not recorded actions.** The
+  runaway valve counted `action_records`, so a guard-only integration (no
+  `?record=true`, no action POSTs) could loop forever without tripping it.
+  It now counts `guard_decisions` — every evaluation; idempotent replays
+  add no rows, so retries never double-count — on a new
+  `(org_id, agent_id, created_at)` index (drizzle/0045). Reason wording
+  follows: "Agent made N guard evaluations in Xmin".
+
 ## [4.42.0] — 2026-07-03
 
 Phase 2 of the trust & failure model ADR, third batch: the one-knob outage

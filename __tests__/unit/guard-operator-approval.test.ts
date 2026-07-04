@@ -154,6 +154,41 @@ describe('operator-approval post-pass', () => {
     expect(res.decision).toBe('require_approval');
   });
 
+  // ADR Phase 2: a grant is consumed, not a 15-minute season pass. The
+  // consuming statement is an atomic UPDATE (stamp approval_grant_used_at
+  // WHERE ... IS NULL), so one approval covers exactly one retry even under
+  // concurrent identical calls — Postgres row-locking picks the single winner.
+  // Exact idempotent retries still replay the resulting allow via the
+  // idempotency short-circuit, so the flow's UX is unchanged.
+  it('consumes the grant atomically — single-use, stamped via UPDATE ... approval_grant_used_at IS NULL', async () => {
+    const sql = routedSqlMock([
+      { match: 'FROM guard_policies', rows: policyRows([
+        { policy_type: 'require_approval', rules: { action_types: ['apply'] } },
+      ]) },
+      { match: 'FROM action_records', rows: [APPROVAL_ROW] },
+    ]);
+    const res = await evaluateGuard(freshOrg(), CTX, sql);
+    expect(res.decision).toBe('allow');
+    const consume = sql.taggedCalls.find((c) => c.text.includes('approval_grant_used_at'));
+    expect(consume).toBeDefined();
+    expect(consume!.text).toContain('UPDATE action_records');
+    expect(consume!.text).toContain('SET approval_grant_used_at');
+    expect(consume!.text).toContain('approval_grant_used_at IS NULL');
+  });
+
+  it('binds the grant to the approved action_type, not just the goal string', async () => {
+    const sql = routedSqlMock([
+      { match: 'FROM guard_policies', rows: policyRows([
+        { policy_type: 'require_approval', rules: { action_types: ['apply'] } },
+      ]) },
+      { match: 'FROM action_records', rows: [APPROVAL_ROW] },
+    ]);
+    await evaluateGuard(freshOrg(), CTX, sql);
+    const consume = sql.taggedCalls.find((c) => c.text.includes('approved_by IS NOT NULL'));
+    expect(consume).toBeDefined();
+    expect(consume!.text).toContain('action_type');
+  });
+
   it('skips the lookup when agent_id is missing', async () => {
     const sql = routedSqlMock([
       { match: 'FROM guard_policies', rows: policyRows([

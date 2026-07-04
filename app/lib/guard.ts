@@ -642,8 +642,9 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
 const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
 
 /**
- * Operator-approval post-pass: a recent HITL approval for the same agent and
- * the exact same declared_goal downgrades require_approval to allow.
+ * Operator-approval post-pass: a recent HITL approval for the same agent,
+ * the exact same declared_goal, AND the same action_type downgrades
+ * require_approval to allow — ONCE.
  *
  * Why: the hook's approval wait times out (~30s) long before most operators
  * click approve. The retried tool call is a NEW evaluation with a new
@@ -652,25 +653,43 @@ const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
  * admin-gated approvals routes, and only on ALLOW (deny leaves it NULL), so
  * its presence IS the grant.
  *
+ * Single-use (ADR Phase 2): the grant is CONSUMED atomically — the UPDATE
+ * stamps approval_grant_used_at (drizzle/0045) under `IS NULL`, so one
+ * approval covers exactly one retry even under concurrent identical calls
+ * (Postgres row locking picks a single winner). Exact idempotent retries
+ * still replay the resulting allow via the idempotency short-circuit, so the
+ * approve-then-retry UX is unchanged. Binding on action_type stops a generic
+ * goal string from carrying one approval across different action kinds.
+ *
  * Like allow_grant, this can NEVER override block — blocks are absolute.
- * Best-effort: a lookup failure leaves the decision at require_approval
- * (fails closed).
+ * Best-effort: a lookup failure (including a pre-0045 schema missing the
+ * column) leaves the decision at require_approval (fails closed).
  */
 async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<void> {
   if (acc.highestDecision !== 'require_approval') return;
   const { context, sql, orgId } = deps;
   if (!context.agent_id || !context.declared_goal) return;
   try {
+    const actionType = context.action_type ?? null;
     const rows = await sql`
-      SELECT action_id, approved_by
-      FROM action_records
-      WHERE org_id = ${orgId}
-        AND agent_id = ${context.agent_id}
-        AND declared_goal = ${context.declared_goal}
-        AND approved_by IS NOT NULL
-        AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
-      ORDER BY approved_at DESC
-      LIMIT 1
+      UPDATE action_records
+      SET approval_grant_used_at = NOW()
+      WHERE action_id = (
+        SELECT action_id
+        FROM action_records
+        WHERE org_id = ${orgId}
+          AND agent_id = ${context.agent_id}
+          AND declared_goal = ${context.declared_goal}
+          AND (${actionType}::text IS NULL OR action_type = ${actionType})
+          AND approved_by IS NOT NULL
+          AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
+          AND approval_grant_used_at IS NULL
+        ORDER BY approved_at DESC
+        LIMIT 1
+      )
+        AND org_id = ${orgId}
+        AND approval_grant_used_at IS NULL
+      RETURNING action_id, approved_by
     `;
     const grant = rows[0];
     if (!grant) return;
@@ -1810,16 +1829,23 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     const agentId = context.agent_id;
     if (!agentId) return null;
 
+    // Counts guard_decisions — every evaluation — not action_records: a
+    // guard-only integration (no ?record=true) writes zero action rows, so
+    // the runaway valve never tripped for exactly the callers most likely to
+    // loop (ADR Phase 2 / arch-review). Idempotent replays don't write new
+    // rows, so retries never double-count. Bare created_at comparison is
+    // safe post-drizzle/0043 (no TEXT timestamps remain) and stays on the
+    // (org_id, agent_id, created_at) index from drizzle/0045.
     const rows = await sql.query(
-      `SELECT COUNT(*) as cnt FROM action_records
+      `SELECT COUNT(*) as cnt FROM guard_decisions
          WHERE org_id = $1 AND agent_id = $2
-         AND timestamp_start::timestamptz > NOW() - INTERVAL '1 minute' * $3`,
+         AND created_at > NOW() - INTERVAL '1 minute' * $3`,
       [orgId, agentId, windowMinutes],
     );
 
     const count = parseInt((rows[0]?.cnt as string) || '0', 10);
     if (count >= maxActions) {
-      return { action: rules.action || 'warn', reason: `Agent performed ${count} actions in ${windowMinutes}min (limit: ${maxActions})` };
+      return { action: rules.action || 'warn', reason: `Agent made ${count} guard evaluations in ${windowMinutes}min (limit: ${maxActions})` };
     }
     return null;
   },

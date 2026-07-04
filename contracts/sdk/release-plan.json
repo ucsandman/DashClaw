@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.42.0",
+    "current_version": "4.43.0",
     "next_bump": "none",
-    "reason": "4.42.0 is ADR Phase 2 batch 3 (D2 one-knob outage contract): fast evaluation failures (policy load / risk read / any pre-deadline phase throw) now degrade via resolveDegradedAction() with _degraded.kind:error and persist through the mandatory audit gate instead of rejecting as 5xx — DASHCLAW_GUARD_FALLBACK covers slow AND fast failures; persistence failures still throw (an unaudited decision is never returned) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.43.0 is ADR Phase 2 batch 4 (guard-layer hardening): operator-approval grants become single-use + fingerprint-bound (atomic UPDATE consuming approval_grant_used_at from drizzle/0045, bound to action_type — one approval covers exactly one retried evaluation; idempotent replays keep the UX), and the rate_limit runaway valve counts guard_decisions (every evaluation, new org/agent/created_at index) instead of action_records so guard-only integrations trip it — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.42.0",
+    "current_version": "4.43.0",
     "next_bump": "none",
-    "reason": "4.42.0 is ADR Phase 2 batch 3 (D2 one-knob outage contract): fast evaluation failures (policy load / risk read / any pre-deadline phase throw) now degrade via resolveDegradedAction() with _degraded.kind:error and persist through the mandatory audit gate instead of rejecting as 5xx — DASHCLAW_GUARD_FALLBACK covers slow AND fast failures; persistence failures still throw (an unaudited decision is never returned) — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.43.0 is ADR Phase 2 batch 4 (guard-layer hardening): operator-approval grants become single-use + fingerprint-bound (atomic UPDATE consuming approval_grant_used_at from drizzle/0045, bound to action_type — one approval covers exactly one retried evaluation; idempotent replays keep the UX), and the rate_limit runaway valve counts guard_decisions (every evaluation, new org/agent/created_at index) instead of action_records so guard-only integrations trip it — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

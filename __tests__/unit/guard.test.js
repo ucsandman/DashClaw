@@ -93,7 +93,7 @@ describe('evaluatePolicy dispatch', () => {
   it('rate_limit: blocks/warns when count >= max (via sql.query)', async () => {
     const sql = createSqlMock({ queryResponses: [[{ cnt: '60' }]] });
     expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql }))
-      .toEqual({ action: 'warn', reason: 'Agent performed 60 actions in 60min (limit: 50)' });
+      .toEqual({ action: 'warn', reason: 'Agent made 60 guard evaluations in 60min (limit: 50)' });
     const sql2 = createSqlMock({ queryResponses: [[{ cnt: '5' }]] });
     expect(await evalPolicy('rate_limit', { max_actions: 50 }, { agent_id: 'agt_1' }, { sql: sql2 })).toBeNull();
     // No agent → null, no query

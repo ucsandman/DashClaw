@@ -149,6 +149,9 @@ export const actionRecords = pgTable('action_records', {
   verified: boolean('verified').default(false),
   approvedBy: text('approved_by'),
   approvedAt: timestamp('approved_at'),
+  // Single-use operator-approval grants (drizzle/0045): stamped by the
+  // guard's atomic consume; NULL means the approval is still grantable.
+  approvalGrantUsedAt: timestamp('approval_grant_used_at'),
   // Approvals lifecycle hygiene (drizzle/0039): when a pending_approval row
   // stops being approvable. Stamped at creation from the client-declared
   // approval_wait_seconds + retry grace; NULL on legacy rows (lazy sweep

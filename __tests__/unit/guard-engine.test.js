@@ -212,6 +212,23 @@ describe('evaluateGuard', () => {
     expect(result.decision).toBe('allow');
   });
 
+  it('rate_limit counts guard_decisions (every evaluation), not just recorded actions', async () => {
+    // A guard-only integration (no ?record=true, no POST /api/actions) writes
+    // zero action_records — counting those meant the runaway valve never
+    // tripped for exactly the callers most likely to loop. guard_decisions
+    // rows exist for every evaluation, and idempotent replays don't add rows,
+    // so retries never double-count. (ADR Phase 2 / arch-review finding.)
+    const sql = createSqlMock({
+      taggedResponses: [[makePolicy('rate_limit', { max_actions: 5, window_minutes: 60 })]],
+      queryResponses: [[{ cnt: '6' }]],
+    });
+    await evaluateGuard('org_1', { agent_id: 'a1', action_type: 'deploy' }, sql);
+    const countQuery = sql.queryCalls.find((c) => /COUNT\(\*\)/i.test(c.text));
+    expect(countQuery).toBeDefined();
+    expect(countQuery.text).toContain('FROM guard_decisions');
+    expect(countQuery.text).not.toContain('FROM action_records');
+  });
+
   // --- semantic_check ---
 
   it('blocks on semantic check violation', async () => {

@@ -22,7 +22,10 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   { name: 'signature', sql: 'text' },
   { name: 'verified', sql: 'integer DEFAULT 0' },
   { name: 'approved_by', sql: 'text' },
-  { name: 'approved_at', sql: 'timestamp' }
+  { name: 'approved_at', sql: 'timestamp' },
+  // Single-use operator-approval grants (drizzle/0045): stamped by the
+  // guard's atomic consume; NULL means the approval is still grantable.
+  { name: 'approval_grant_used_at', sql: 'timestamp' }
 ];
 
 export const ACTION_RECORDS_RUNTIME_COLUMNS = ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS.map((column) => column.name);
