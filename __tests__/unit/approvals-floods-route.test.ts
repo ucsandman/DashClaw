@@ -1,15 +1,21 @@
 // __tests__/unit/approvals-floods-route.test.ts
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockEval, mockNames } = vi.hoisted(() => ({
+const { mockEval, mockNames, mockBudget, mockCounts } = vi.hoisted(() => ({
   mockEval: vi.fn(),
   mockNames: vi.fn(async (): Promise<Record<string, string>> => ({ gp_a: '[Tightened] other' })),
+  mockBudget: vi.fn(async () => ({ perPolicy: 10, windowMin: 15, fleetWide: 30 })),
+  mockCounts: vi.fn(async (): Promise<Record<string, number>> => ({})),
 }));
 vi.mock('../../app/lib/approval-flood', () => ({
   evaluateApprovalFlood: mockEval,
+  getInterruptBudget: mockBudget,
   FLEET_KEY: '_fleet',
 }));
-vi.mock('../../app/lib/repositories/guardrails.repository', () => ({ getPolicyNamesByIds: mockNames }));
+vi.mock('../../app/lib/repositories/guardrails.repository', () => ({
+  getPolicyNamesByIds: mockNames,
+  getRecentApprovalCountsByPolicy: mockCounts,
+}));
 vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1' }));
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
 
@@ -72,5 +78,31 @@ describe('GET /api/approvals/floods', () => {
     const body = await res.json();
     expect(body.floods).toEqual([]);
     expect(body.fleet).toBeNull();
+  });
+
+  describe('?include_synthetic=1 (ephemeral would-trip view)', () => {
+    it('reports would-trip entries from synthetic-inclusive counts WITHOUT running the stateful evaluation', async () => {
+      mockCounts.mockResolvedValue({ gp_smoke: 12, gp_quiet: 2 });
+      const res = await GET(new Request('http://x/api/approvals/floods?include_synthetic=1'));
+      const body = await res.json();
+      expect(res.status).toBe(200);
+      expect(body.synthetic_included).toBe(true);
+      expect(body.floods).toEqual([
+        { policy_id: 'gp_smoke', name: 'gp_smoke', count: 12, tripped_at: null },
+      ]);
+      // 14 total < 30 fleet budget → no fleet entry
+      expect(body.fleet).toBeNull();
+      expect(mockCounts).toHaveBeenCalledWith(expect.anything(), 'org1', 15, { includeSynthetic: true });
+      // Ephemeral by construction: the persisting evaluation never runs.
+      expect(mockEval).not.toHaveBeenCalled();
+    });
+
+    it('surfaces a would-trip fleet total over the fleet budget', async () => {
+      mockCounts.mockResolvedValue({ gp_a: 20, gp_b: 15 });
+      const res = await GET(new Request('http://x/api/approvals/floods?include_synthetic=1'));
+      const body = await res.json();
+      expect(body.floods.map((f: { policy_id: string }) => f.policy_id).sort()).toEqual(['gp_a', 'gp_b']);
+      expect(body.fleet).toEqual({ tripped_at: null, count: 35 });
+    });
   });
 });

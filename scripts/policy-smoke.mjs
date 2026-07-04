@@ -1078,6 +1078,63 @@ async function main() {
     }
   }
 
+  // U: approval-flood guard closeout (owner roadmap v3.5)
+  // Spec revision: docs/superpowers/specs/2026-07-04-approval-flood-guard-revision.md
+  // Detection ships since v4.15.0; these checks pin the v3.5 additions: the
+  // synthetic exclusion (smoke traffic can never trip a real flood) with a
+  // positive control via the ephemeral ?include_synthetic=1 view, and the
+  // bulk-resolution mechanics with truthful counts.
+  {
+    const agent = agentFor('u');
+    const floodType = `smoke.flood.${RUN}`;
+    const pid = await createPolicy('flood-guard', 'require_approval',
+      { action_types: [floodType] }, [agent]);
+
+    // Read the org's effective budget so the burst provably exceeds it.
+    const budgetView = await api('GET', '/api/approvals/floods');
+    const perPolicy = budgetView.json?.budget?.perPolicy ?? 10;
+    const burst = perPolicy + 2;
+
+    let interrupted = 0;
+    for (let i = 1; i <= burst; i++) {
+      const guarded = await api('POST', '/api/guard?record=true', {
+        action_type: floodType, declared_goal: `flood smoke action ${RUN} #${i}`,
+        agent_id: agent,
+      });
+      if (guarded.json?.decision === 'require_approval'
+        && (guarded.json?.matched_policies || []).includes(pid)) interrupted++;
+    }
+    check('U1', `burst of ${burst} guard calls all interrupted by the flood policy (budget ${perPolicy})`,
+      interrupted === burst, `interrupted=${interrupted}/${burst}`);
+
+    // Positive control: the ephemeral diagnostic view (synthetic included,
+    // nothing persisted) sees the burst as a would-trip — proving the
+    // detector isn't just silent.
+    const diagnostic = await api('GET', '/api/approvals/floods?include_synthetic=1');
+    const wouldTrip = (diagnostic.json?.floods || []).find((f) => f.policy_id === pid);
+    check('U2', 'diagnostic view (include_synthetic=1) would-trip the smoke policy with a truthful count',
+      diagnostic.json?.synthetic_included === true && Number(wouldTrip?.count) >= burst,
+      `floods=${JSON.stringify(diagnostic.json?.floods)}`);
+
+    // The real flood view excludes the synthetic burst (v3.1 shared
+    // predicate): smoke traffic never trips a flood, suppresses a real
+    // per-action ping, or mints the red approval_flood signal.
+    const realView = await api('GET', '/api/approvals/floods');
+    const leaked = (realView.json?.floods || []).some((f) => f.policy_id === pid);
+    check('U3', 'real flood view excludes the synthetic burst (no smoke-minted flood)',
+      realView.status === 200 && !leaked, `floods=${JSON.stringify(realView.json?.floods)}`);
+
+    // Bulk resolution (admin, capped, audited) reports truthful counts and
+    // resolves the whole pending burst in one call.
+    const bulk = await api('POST', '/api/approvals/bulk', {
+      decision: 'deny', filter: { policy_id: pid },
+    });
+    check('U4', `bulk deny resolves the pending burst with truthful counts ({matched,resolved,failed})`,
+      bulk.status === 200 && bulk.json?.matched === burst
+      && bulk.json?.resolved === burst && bulk.json?.failed === 0,
+      `status=${bulk.status} body=${JSON.stringify(bulk.json)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

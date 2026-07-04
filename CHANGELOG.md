@@ -13,6 +13,66 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.47.0] — 2026-07-04
+
+Closes roadmap v3.5 (attention budgets: approval-flood guard) — as an audit,
+not a build. The item's premise was false: the W3 interruption budget shipped
+complete in v4.15.0 (2026-06-12) and the roadmap's 2026-07-03 drafting sweep
+missed it. What v3.5 actually needed was the era's truth bar applied to the
+shipped guard: one real gap (flood detection counted synthetic traffic),
+smoke + rendered proof, and the three June owner questions decided on the
+record. Spec revision:
+`docs/superpowers/specs/2026-07-04-approval-flood-guard-revision.md`. No SDK
+source change (no republish).
+
+### Fixed
+
+- **Synthetic traffic can no longer trip an approval flood.** The flood
+  counting query (`getRecentApprovalCountsByPolicy`) predated v3.1 and
+  counted policy-smoke / self-test traffic like real interrupts — a live
+  smoke run's `require_approval` decisions accrued toward the fleet budget
+  (default 30/15min), and a fleet trip suppresses per-action Telegram/Discord
+  prompts for **every** policy while minting the red `approval_flood` signal.
+  Synthetic verification traffic could therefore silence real approval pings.
+  The query now excludes the shared v3.1 predicate (`smoke.%` action types +
+  synthetic agent families from `calibration-mining.js`) inside the unnest
+  subquery, before aggregation — same structural posture as posture, mining,
+  and tightening.
+
+### Added
+
+- **`GET /api/approvals/floods?include_synthetic=1`** — an ephemeral
+  would-trip diagnostic view that counts synthetic traffic too: nothing
+  persisted, nothing suppressed, nothing notified (the stateful evaluation
+  never runs). Exists so the policy-smoke harness has a positive control —
+  proving the detector sees a burst — instead of a negative-only assertion
+  that can't distinguish a working exclusion from a dead detector
+  (tightening's `?include_synthetic=1` precedent). The banner never sends it.
+- **Policy-smoke U1–U4** (95 checks total): a budget-exceeding synthetic
+  burst is fully interrupted (U1), visible to the diagnostic view with a
+  truthful count (U2), invisible to the real flood view (U3), and bulk-denied
+  in one call with truthful `{matched, resolved, failed}` (U4).
+
+### Notes — v3.5 closeout audit findings (no code change needed)
+
+- Bulk resolution already honors v2.3 approval expiry (sweeps expired rows
+  before matching; the lister excludes overdue rows) — an approval whose
+  client stopped waiting can never be bulk-released.
+- Constitution §1 holds structurally: bulk matches only `pending_approval`
+  rows by a policy's compiled `action_types`; blocked actions never enter
+  that state, and `protected_path` policies are refused outright.
+- The three June owner questions, decided by the maintainer with v2
+  evidence (recorded in the spec revision): budget defaults **kept**
+  (10/policy/15min, 30 fleet), digest default **kept** (24h, adapters-gated),
+  pause-rule **keeps** pending approvals pending — v2.3 expiry now makes the
+  leftovers expire truthfully, which is a stronger rationale than the June
+  proposal had.
+- Rendered proof: a seeded non-synthetic 50-approval burst rendered as ONE
+  flood banner on /approvals ("50 interrupts in 15m — per-action pings
+  paused", pause/approve-all/deny-all armed confirms) with all 50 approvals
+  still individually actionable below; zero console errors; seeded rows
+  removed and flood state verified cleared by hysteresis afterward.
+
 ## [4.46.0] — 2026-07-04
 
 Ships roadmap v3.4 (live-host canary): "probe production as the user" becomes

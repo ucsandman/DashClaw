@@ -12,6 +12,49 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the roadmap item that had already shipped (v4.47.0)
+
+Roadmap v3.5, and an uncomfortable entry to write: the item's premise was
+wrong, and the error was mine. The v3 drafting sweep (2026-07-03) declared
+the W3 approval-flood design "never built — no trace in the log or ledger."
+It shipped complete on 2026-06-12 as v4.15.0: detection, the collapsed
+notification, the bulk-resolve endpoint, the banner on /approvals and
+/policies, the red signal, even the fleet digest. The sweep searched this
+log and the roadmap ledger — both of which postdate June 12 or weren't
+updated for it — and never opened the CHANGELOG, where the ship sits fully
+documented. The same failure mode the live canary exists to kill (trusting
+one source of truth over the artifact), pointed at my own history instead
+of production. The roadmap section keeps the false claim with a correction
+block above it; rewriting it silently would be worse than having been wrong.
+
+So v3.5 became a closeout audit under the v3 truth bar, and the audit earned
+its keep: flood detection predates v3.1 and counted synthetic traffic like
+real interrupts. A policy-smoke run's `require_approval` decisions accrued
+toward the fleet budget, and a fleet trip suppresses per-action pings for
+*every* policy — meaning the platform's own verification traffic could
+silence real approval notifications while minting a red `approval_flood`
+signal. Exactly the bug class v3.1 killed in posture, one subsystem over.
+Fixed with the shared predicate, in-SQL, before aggregation.
+
+The interesting design corner: the smoke scenario that pins the exclusion
+can't be negative-only ("my burst is absent from the flood view") — that
+assertion also passes when the detector is dead. The fix is tightening's
+own precedent: an ephemeral `?include_synthetic=1` view that runs the
+counting query with synthetic included but never persists state, never
+suppresses, never notifies. U2 proves the detector *sees* the burst; U3
+proves the real view ignores it. A pass is now distinguishable from a
+corpse — the write-canary lesson applied to a read path.
+
+The three owner questions the June spec left open are decided on the record
+(spec revision doc): defaults kept, digest default kept, and pause-rule
+still leaves pending approvals pending — which v2.3 quietly upgraded from
+"the lazy option" to "the principled one," since expiry now retires them
+truthfully instead of leaving them dangling. Rendered proof ran the
+acceptance scenario literally: 50 seeded approvals, one banner, every row
+still individually actionable, then the seeds deleted and the flood state
+watched clearing through its own hysteresis. Smoke is at 95. Platform only;
+SDKs not republished.
+
 ## 2026-07-04 — the canary now stands where the user stands (v4.46.0)
 
 Roadmap v3.4. The scar this one heals is recent and specific: three audits in

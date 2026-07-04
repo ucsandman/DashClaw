@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.46.0",
+    "current_version": "4.47.0",
     "next_bump": "none",
-    "reason": "4.46.0 ships roadmap v3.4 (live-host canary): scripts/live-canary.mjs probes the production hosts hourly from GitHub Actions as a real unauthenticated client (9 probes incl. Turnstile fail-closed and the MCP 401 challenge), files verdicts to the new POST /api/live-canary (route 328) into live_canary_runs (drizzle 0046), rendered on /setup#live-canary and as a posture auditability finding; in-ship security fix scopes the public /setup card to DASHCLAW_CANARY_ORG_ID. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.47.0 closes roadmap v3.5 (approval-flood guard) as a closeout audit: the W3 flood guard had already shipped in v4.15.0 and the drafting sweep missed it. This ship fixes the one real gap — flood counting now excludes synthetic traffic (shared v3.1 predicate), so smoke runs can never trip the fleet budget, suppress real per-action pings, or mint the approval_flood signal — and adds the ephemeral ?include_synthetic=1 diagnostic view plus smoke U1-U4 (95 checks). No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.46.0",
+    "current_version": "4.47.0",
     "next_bump": "none",
-    "reason": "4.46.0 ships roadmap v3.4 (live-host canary): scripts/live-canary.mjs probes the production hosts hourly from GitHub Actions as a real unauthenticated client (9 probes incl. Turnstile fail-closed and the MCP 401 challenge), files verdicts to the new POST /api/live-canary (route 328) into live_canary_runs (drizzle 0046), rendered on /setup#live-canary and as a posture auditability finding; in-ship security fix scopes the public /setup card to DASHCLAW_CANARY_ORG_ID. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.47.0 closes roadmap v3.5 (approval-flood guard) as a closeout audit: the W3 flood guard had already shipped in v4.15.0 and the drafting sweep missed it. This ship fixes the one real gap — flood counting now excludes synthetic traffic (shared v3.1 predicate), so smoke runs can never trip the fleet budget, suppress real per-action pings, or mint the approval_flood signal — and adds the ephemeral ?include_synthetic=1 diagnostic view plus smoke U1-U4 (95 checks). No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

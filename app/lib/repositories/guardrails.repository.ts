@@ -3,6 +3,10 @@
  */
 
 import { invalidateGuardPolicyCache } from '../guard';
+import {
+  SYNTHETIC_ACTION_TYPE_LIKE,
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+} from '../calibration-mining.js';
 import type { SqlTag } from '../types/db';
 
 type SqlClient = {
@@ -234,11 +238,20 @@ export async function getDecisionOutcomeCounts(
 /**
  * require_approval decision counts per matched policy inside a short window
  * (minutes). Drives the W3 interruption budget / approval flood guard.
+ *
+ * Synthetic traffic (policy-smoke, self-tests; shared v3.1 predicate from
+ * calibration-mining.js) is excluded by default so the platform's own
+ * verification runs can never trip a flood, suppress real per-action pings,
+ * or mint the red approval_flood signal. `includeSynthetic` exists ONLY for
+ * the floods endpoint's ?include_synthetic=1 diagnostic view (ephemeral,
+ * never persisted) so the smoke harness can positively prove detection with
+ * its own marked traffic — the tightening.repository.ts precedent.
  */
 export async function getRecentApprovalCountsByPolicy(
   sql: SqlClient,
   orgId: string,
   windowMinutes = 15,
+  opts: { includeSynthetic?: boolean } = {},
 ): Promise<Record<string, number>> {
   const rows = await sql.query(
     `SELECT sub.policy_id AS policy_id, COUNT(*)::int AS cnt
@@ -250,9 +263,19 @@ export async function getRecentApprovalCountsByPolicy(
          AND created_at::timestamptz > NOW() - make_interval(mins => $2::int)
          AND matched_policies IS NOT NULL
          AND matched_policies LIKE '[%'
+         AND ($3::boolean OR (
+           (action_type IS NULL OR action_type NOT LIKE $4)
+           AND (agent_id IS NULL OR agent_id NOT LIKE ALL($5::text[]))
+         ))
      ) sub
      GROUP BY sub.policy_id`,
-    [orgId, windowMinutes],
+    [
+      orgId,
+      windowMinutes,
+      opts.includeSynthetic === true,
+      SYNTHETIC_ACTION_TYPE_LIKE,
+      SYNTHETIC_AGENT_LIKE_PATTERNS,
+    ],
   );
   const out: Record<string, number> = {};
   for (const r of rows as Array<{ policy_id: string; cnt: number }>) {
