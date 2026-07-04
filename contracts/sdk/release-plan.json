@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.38.0",
+    "current_version": "4.38.1",
     "next_bump": "none",
-    "reason": "4.38.0 is roadmap v3.2 (findings become proposals — tightening direction): GET/POST /api/policies/tightening computes tightening proposals on read from ungoverned-allow guard decisions (mirroring posture's review_incident findings one-to-one), ratify creates the ACTIVE require_approval policy server-side + resolves the mirrored finding, decisions persist in tightening_proposal_decisions (drizzle 0042), /policies gains the Tightening proposals section and /posture the cross-link — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.38.1 is the fresh-install-truth opener (roadmap v3.3): guard idempotency replay lookup casts created_at::timestamptz so dedup works on fresh drizzle-chain installs (TEXT column shape), drizzle/0043 conditionally normalizes the 47 *_at columns the 0000 baseline created as TEXT to timestamp (parity test pins the drift class shut), and the guard route's ?record=true side effects run via after() so Vercel's post-response freeze cannot drop meter increments — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.38.0",
+    "current_version": "4.38.1",
     "next_bump": "none",
-    "reason": "4.38.0 is roadmap v3.2 (findings become proposals — tightening direction): GET/POST /api/policies/tightening computes tightening proposals on read from ungoverned-allow guard decisions (mirroring posture's review_incident findings one-to-one), ratify creates the ACTIVE require_approval policy server-side + resolves the mirrored finding, decisions persist in tightening_proposal_decisions (drizzle 0042), /policies gains the Tightening proposals section and /posture the cross-link — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.38.1 is the fresh-install-truth opener (roadmap v3.3): guard idempotency replay lookup casts created_at::timestamptz so dedup works on fresh drizzle-chain installs (TEXT column shape), drizzle/0043 conditionally normalizes the 47 *_at columns the 0000 baseline created as TEXT to timestamp (parity test pins the drift class shut), and the guard route's ?record=true side effects run via after() so Vercel's post-response freeze cannot drop meter increments — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
