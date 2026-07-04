@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (26141 symbols, 52378 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (26154 symbols, 52395 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,19 +73,17 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-04 (commit c1c62679). Confidence: 100%.
+Last indexed: 2026-07-04 (commit a26856b1). Confidence: 100%.
 ### Architecture
-This repository is a governed “agent + documentation” platform end-to-end: it ingests source code and configuration (repository files, policy/rules, and contracts), transforms them through an indexing/analysis pipeline into structured knowledge artifacts (typed contracts, policy modes, and generated documentation), and exposes the results via an MCP server and SDKs for use by example governed agents and tooling. **Inputs**
-**Transformations**
-**Outputs**
+This repository is a codebase documentation and governed-agent platform: it ingests a source repository (files, contracts, and policy/rules), builds an internal representation via parsing and dependency analysis, and generates LLM-synthesised documentation artifacts (wiki pages and structured outputs) that are served through an MCP server and a web-facing UI/agents workflow.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **React/Next.js presentation and client-side… | - |
+| `app` | The **app** module is the **presentation + application-edge layer** of… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
-| `app/components` | The **app/components** module is the **presentation-layer UI component… | - |
+| `app/components` | The app/components module is the UI-layer component library for repowise’s web… | - |
 | `app/lib` | The app/lib module is the core service-layer subsystem in repowise’s larger… | - |
-| `application` | The **Application (top-level)** module is the entry-stage **web presentation… | - |
+| `application` | The **Application (top-level)** module is the entry-stage… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
 | `.claude` | The **.claude module** is a **repository intelligence and command-safety… | - |
@@ -105,11 +103,11 @@ This repository is a governed “agent + documentation” platform end-to-end: i
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 40 | Wes Sander |
-| `package-lock.json` | 100.0th percentile | 81 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 41 | Wes Sander |
+| `package-lock.json` | 100.0th percentile | 82 | Wes Sander |
 | `app/lib/guard.ts` | 99.9th percentile | 25 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 80 | Wes Sander |
-| `app/lib/doctor/generated/last-snapshot.json` | 99.8th percentile | 66 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 81 | Wes Sander |
+| `scripts/policy-smoke.mjs` | 99.8th percentile | 19 | Wes Sander |
 
 ### Repowise MCP Workflow
 
