@@ -1209,6 +1209,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   };
 
   let deadlineExceeded = false;
+  let evaluationError: Error | null = null;
   if (!orgHalted) {
     let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
     const deadlinePromise = new Promise<'deadline'>((resolve) => {
@@ -1217,7 +1218,20 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
 
     try {
       const evalPromise = runEvaluation();
-      const winner = await Promise.race([evalPromise, deadlinePromise]);
+      let winner: 'completed' | 'deadline' | 'error';
+      try {
+        winner = await Promise.race([evalPromise, deadlinePromise]);
+      } catch (err) {
+        // Fast evaluation failure (policy load, risk read, any phase throwing
+        // before the deadline). ONE degradation knob covers slow AND fast
+        // failures (D2, docs/architecture/trust-and-failure-model.md): the
+        // same resolveDegradedAction() contract applies below, and the
+        // degraded decision still goes through the mandatory audit gate. If
+        // persistence itself is down, persistGuardDecision throws and the
+        // route returns 5xx — an unaudited decision is never returned.
+        evaluationError = err as Error;
+        winner = 'error';
+      }
       deadlineExceeded = winner === 'deadline';
       if (deadlineExceeded) {
         // The abandoned evaluation keeps running in the background; swallow its
@@ -1274,6 +1288,20 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       acc.reasons.unshift(note);
     }
     console.warn('[Guard] evaluation deadline exceeded:', { org_id: orgId, agent_id: context.agent_id || null, deadline_ms: deadlineMs, degraded, phase_in_flight: phaseAtDeadline });
+  } else if (evaluationError) {
+    // Fast-failure branch of the same contract (D2): identical knob, identical
+    // audit path, distinguishable in the ledger via kind:'error'.
+    const degraded = resolveDegradedAction();
+    const errMessage = (evaluationError.message || 'unknown error').slice(0, 200);
+    const note = `Guard evaluation failed (${errMessage}) — degraded decision (${degraded})`;
+    degradedDetail = { kind: 'error', deadline_ms: deadlineMs, action: degraded, phase_in_flight: phaseInFlight };
+    if (degraded === 'allow') {
+      acc.warnings.push(note);
+    } else {
+      raiseDecision(acc, degraded);
+      acc.reasons.unshift(note);
+    }
+    console.warn('[Guard] evaluation failed — degraded decision:', { org_id: orgId, agent_id: context.agent_id || null, error: errMessage, degraded, phase_in_flight: phaseInFlight });
   }
 
   const evaluatedAt = new Date().toISOString();
@@ -1286,15 +1314,16 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   applyBlockOverride(acc, replayBlockReason);
   applyBlockOverride(acc, actBlockReason);
 
-  // Learning context — best-effort enrichment. Skipped on a degraded decision:
-  // the remaining budget is reserved for the mandatory audit persist.
-  const learningContext = deadlineExceeded
+  // Learning context — best-effort enrichment. Skipped on a degraded decision
+  // (deadline or fast failure): the remaining budget is reserved for the
+  // mandatory audit persist, and on a fast DB failure the read would fail too.
+  const learningContext = (deadlineExceeded || evaluationError)
     ? null
     : await getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type });
   let recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
-  if (deadlineExceeded && recovery) {
-    // Recovery was computed from partial (pre-deadline) state — mark it so.
-    recovery = { ...(recovery as Record<string, unknown>), partial: true, partial_reason: 'evaluation degraded by deadline; recovery computed from accumulated partial state' };
+  if ((deadlineExceeded || evaluationError) && recovery) {
+    // Recovery was computed from partial (pre-degradation) state — mark it so.
+    recovery = { ...(recovery as Record<string, unknown>), partial: true, partial_reason: 'evaluation degraded (deadline or failure); recovery computed from accumulated partial state' };
   }
 
   const input: GuardFinalizeInput = {

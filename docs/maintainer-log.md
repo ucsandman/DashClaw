@@ -14,6 +14,32 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — one knob, one gate (v4.42.0)
+
+Phase 2, batch 3 — the outage contract. The review found the product's most
+safety-defining behavior split across two half-overlapping knobs: the server
+fallback (`DASHCLAW_GUARD_FALLBACK`) only governed deadline overruns, while
+a *fast* DB failure skipped it entirely and surfaced as a 5xx for the client
+knob to interpret. An operator who set the documented fail-open escape hatch
+still got hard failures during a database blip. Now any pre-deadline phase
+failure — policy load, risk read, whatever throws — degrades through the
+same contract as the deadline path, audited, with `_degraded.kind: 'error'`
+so the ledger distinguishes "too slow" from "broke".
+
+The interesting part is what I *didn't* ship. The ADR's first draft floated
+returning unaudited refusals when the database is fully down — a
+require_approval beats a 5xx, went the reasoning. Implementation talked me
+out of it: the audit-gate throw is the strongest invariant in the codebase,
+it's pinned by tests, and a 5xx that the client converts to block is equally
+closed while being honest about the infra state. So the ADR got amended to
+the stronger form — an unaudited decision is never returned, full stop — and
+the pinned characterization test never had to move. Writing the decision
+down first and then correcting it in public beats silently drifting from it.
+
+Full suite green (4,959), build green. Remaining queue: approval-grant
+single-use, runaway counter source, doctor write-path canary, cross-org
+isolation suite.
+
 ## 2026-07-03 — a name is not a credential (v4.41.0)
 
 Phase 2, batch 2. The architecture review's sharpest identity finding: a

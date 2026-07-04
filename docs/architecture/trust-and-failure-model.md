@@ -31,21 +31,29 @@ Everything else stays attestation-plus-audit, and any surface that treats
 `agent_id` as provenance (reputation, receipts, compliance evidence) must
 carry `verification_status` alongside it.
 
-## D2 — Outage contract: one knob, one refined invariant
+## D2 — Outage contract: one knob, one hard audit gate
 
 `DASHCLAW_GUARD_FALLBACK` governs **all** server-side degradation — the slow
-path (evaluation deadline) and the fast path (DB/exception failure). The audit
-invariant refines from "never return an unaudited decision" to:
+path (evaluation deadline, `_degraded.kind: 'deadline'`) and the fast path
+(any evaluation phase throwing before the deadline: policy load, risk read,
+DB error — `_degraded.kind: 'error'`). Both paths produce the same
+`resolveDegradedAction()` decision (per-policy override →
+`DASHCLAW_GUARD_FALLBACK` → `require_approval`), persisted through the same
+mandatory audit gate with a structured degradation marker.
 
-> **An `allow` is never returned unaudited.**
+The audit gate stays absolute, and is *stronger* than an earlier draft of
+this ADR contemplated:
 
-A degraded `require_approval`/`block` on a dead database may be returned
-without a ledger row — refusing an action needs no audit guarantee, and it
-beats a 5xx. `FALLBACK=allow` therefore applies only where the audit write
-still succeeds (the deadline path); a total persistence failure caps the
-response at `require_approval` regardless of the knob. The client-side
-`DASHCLAW_GUARD_UNAVAILABLE_POLICY` remains the contract for *unreachable*
-servers (default: block). *(Fast-path fallback implementation: Phase 2.)*
+> **An unaudited decision is never returned — allow or otherwise.** When the
+> ledger cannot record (persistence itself is down), the server refuses with
+> an error (5xx), and the client-side `DASHCLAW_GUARD_UNAVAILABLE_POLICY`
+> governs (default: block).
+
+So the full contract is: degraded-but-recordable failures get a governed,
+audited decision under one knob; unrecordable failures get an honest error
+and the client policy. *(Shipped: v4.42.0. Pinned by
+`guard-degradation.test.js` "fast evaluation failure joins the degradation
+contract".)*
 
 ## D3 — x402: pre-authorization + attestation of record, stated exactly
 

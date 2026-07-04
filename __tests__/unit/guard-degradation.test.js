@@ -284,4 +284,44 @@ describe('guard degradation contract', () => {
       expect(typeof row.context._timings.total).toBe('number');
     });
   });
+
+  // D2 (trust & failure model ADR): ONE knob covers slow AND fast failures.
+  // Before this, DASHCLAW_GUARD_FALLBACK applied only on the deadline path; a
+  // fast DB failure (policy load, risk read) rejected straight out of
+  // evaluateGuard as a 5xx, so an operator who set FALLBACK=allow still got
+  // hard failures under a DB outage. Fast failures now produce the same
+  // degraded decision, still through the mandatory audit gate — and when
+  // persistence itself is down, the audit gate still throws: an unaudited
+  // decision is never returned.
+  describe('fast evaluation failure joins the degradation contract (D2)', () => {
+    function failingPolicySql() {
+      const boom = Promise.reject(new Error('connection refused'));
+      boom.catch(() => {}); // pre-handle so the queued rejection is not "unhandled"
+      return createSqlMock({ taggedResponses: [boom] });
+    }
+    const findGuardInsert = (sql) => sql.taggedCalls.find((c) => /INSERT INTO guard_decisions/i.test(c.text));
+
+    it('a fast policy-load failure yields the degraded decision through the audit gate — not a thrown 500', async () => {
+      const sql = failingPolicySql();
+      const result = await evaluateGuard('org_d2', { action_type: 'deploy', declared_goal: 'ship' }, sql);
+      expect(result.decision).toBe('require_approval');
+      expect(result.degraded).toBe(true);
+      expect(findGuardInsert(sql)).toBeTruthy();
+    });
+
+    it('DASHCLAW_GUARD_FALLBACK=allow covers fast failures too (one knob), with a warning trace', async () => {
+      process.env.DASHCLAW_GUARD_FALLBACK = 'allow';
+      const sql = failingPolicySql();
+      const result = await evaluateGuard('org_d2b', { action_type: 'deploy' }, sql);
+      expect(result.decision).toBe('allow');
+      expect(result.degraded).toBe(true);
+      expect(result.warnings.some((w) => /degraded/i.test(w))).toBe(true);
+    });
+
+    it('when persistence is down too, evaluateGuard still throws — an unaudited decision is never returned', async () => {
+      const sql = () => Promise.reject(new Error('db down'));
+      sql.query = async () => { throw new Error('db down'); };
+      await expect(evaluateGuard('org_d2c', { action_type: 'deploy' }, sql)).rejects.toThrow();
+    });
+  });
 });

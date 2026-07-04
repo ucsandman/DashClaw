@@ -13,6 +13,26 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.42.0] — 2026-07-03
+
+Phase 2 of the trust & failure model ADR, third batch: the one-knob outage
+contract (D2). No SDK source change (no republish).
+
+### Changed
+
+- **Fast evaluation failures join the degradation contract** — any guard
+  evaluation phase that throws before the deadline (policy load, risk read,
+  DB error) now yields the same degraded decision as a deadline overrun
+  (per-policy override → `DASHCLAW_GUARD_FALLBACK` → `require_approval`),
+  persisted through the mandatory audit gate with a structured
+  `_degraded.kind: 'error'` marker. Previously these rejected out of
+  `evaluateGuard` as a 5xx, so `FALLBACK=allow` never applied during a DB
+  blip — the knob only covered the slow path.
+- **The audit gate stays absolute (and the ADR now says so verbatim):** an
+  unaudited decision is never returned, allow or otherwise. When persistence
+  itself is down the server errors and the client-side
+  `DASHCLAW_GUARD_UNAVAILABLE_POLICY` governs (default: block).
+
 ## [4.41.0] — 2026-07-03
 
 Phase 2 of the trust & failure model ADR, second batch: the verified-identity
