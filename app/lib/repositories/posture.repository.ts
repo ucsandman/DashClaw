@@ -16,7 +16,7 @@ import type { SqlTag } from '../types/db';
 import { bucketRiskScore } from '../posture/model';
 import {
   SYNTHETIC_AGENT_LIKE_PATTERNS,
-  SYNTHETIC_ACTION_TYPE_LIKE,
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
 } from '../calibration-mining.js';
 import type { GovernableUnit, RiskLevel, Dimension, DimensionScore } from '../posture/types';
 
@@ -165,7 +165,7 @@ export async function getObservedActionUnits(
       -- v3.1 synthetic-traffic exclusion: the platform's own verification
       -- traffic must not mint governable units (same families as the
       -- calibration miner; patterns shared from calibration-mining.js).
-      AND action_type NOT LIKE ${SYNTHETIC_ACTION_TYPE_LIKE}
+      AND action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[])
       AND (agent_id IS NULL OR agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
     GROUP BY action_type
     ORDER BY observed_count DESC
@@ -209,7 +209,7 @@ export async function getRecentDecisions(
       -- v3.1 synthetic-traffic exclusion, BEFORE the LIMIT: smoke traffic is
       -- designed to trip policies and was consuming the whole incident window
       -- on instances that run the harness (patterns from calibration-mining.js).
-      AND (action_type IS NULL OR action_type NOT LIKE ${SYNTHETIC_ACTION_TYPE_LIKE})
+      AND (action_type IS NULL OR action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
       AND (agent_id IS NULL OR agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
     ORDER BY created_at DESC
     LIMIT 100

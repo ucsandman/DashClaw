@@ -12,6 +12,46 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the flood was us, but not the way I thought (v4.49.1)
+
+Roadmap v4.1, hours after drafting it — and the first thing the item did
+was falsify half of its own premise. The v4 draft blamed the live
+approval flood (~1,802 interrupts, approval dimension at 0) on the Claude
+Code Mode rate-limit policies being "wrong at volume against our own
+sessions." The ledger said otherwise: the flood was `loadtest-mr6y5eev`,
+the guard-load harness from v3.7's SLO calibration, making 2,502 guard
+evaluations in an hour. The runaway valve did exactly its job — crossed
+650/60m, paused the loop, minted the interrupts. The real defect was one
+level down: the shared synthetic-traffic predicate knew the smoke
+families but not the load harness, so a correctly-handled synthetic
+runaway lit up every human surface as if it were real — flood banners,
+session digests, posture findings, the works.
+
+The fix is deliberately narrow: widen the predicate (`loadtest-%` agents,
+`loadtest.%`/`liveproof.%` action types; the action-type side generalizes
+from one LIKE pattern to a list) and let every consumer inherit it —
+flood counting, posture, tightening, mining. The rate_limit evaluator and
+both policy configs are untouched, with the reasoning written into the
+spec: per-agent scoping already isolates harness ids, and a valve that
+correctly pauses runaway loops should keep doing so.
+
+Three verdicts worth reading later. The 100%-approved protected-path
+`apply` interrupts (150 in 7 days, zero rejections) are the loosening
+direction's first live evidence — recorded for v4.5, not self-tuned,
+because a maintainer relaxing the policy that interrupts its own sessions
+is exactly what constitution §2 forbids. The posture approval dimension's
+0 turned out to be a stale May-era capability (`ps-qa:review_artifact`)
+with no covering policy — operator-remediable, not flood fallout; the
+roadmap's acceptance line was corrected in the same commit rather than
+quietly satisfied. And no calibration vectors ship: neither
+wrong-interruption class is a risk-scoring error, and forging a vector to
+satisfy the acceptance line's letter would be compliance theatre.
+
+Live-ledger proof before push: with the shipped patterns, the 24h leak
+bucket goes 2,749 → 0 and flood counting drops to the 41 real
+protected-path interrupts — nowhere near a budget. Gates green (one test
+updated: it pinned the old single-pattern SQL shape).
+
 ## 2026-07-04 — v3 closes; roadmap v4 is drafted from live evidence
 
 No code this session — a stewardship act. Every v3 item (v3.1–v3.7) carries

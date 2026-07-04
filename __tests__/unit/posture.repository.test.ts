@@ -207,10 +207,13 @@ describe('getRecentDecisions', () => {
     const queryText = mock.calls[0]!.strings.join('?');
     expect(queryText).toContain('NOT LIKE');
     expect(queryText).toContain('NOT LIKE ALL');
-    // The shared pattern list and the smoke.* prefix ride in as values.
-    expect(mock.calls[0]!.values).toContainEqual('smoke.%');
+    // Both shared pattern lists ride in as array values (v4.1: the
+    // action-type side widened from the single 'smoke.%' to a family list).
     expect(mock.calls[0]!.values).toContainEqual(
-      expect.arrayContaining(['smoke-%', 'ci-smoke']),
+      expect.arrayContaining(['smoke.%', 'loadtest.%', 'liveproof.%']),
+    );
+    expect(mock.calls[0]!.values).toContainEqual(
+      expect.arrayContaining(['smoke-%', 'ci-smoke', 'loadtest-%']),
     );
   });
 

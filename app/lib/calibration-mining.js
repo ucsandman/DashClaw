@@ -56,21 +56,29 @@ export function normalizeGoal(goal) {
 //   sdk-live-test-agent* .github/workflows/sdk-live.yml
 //   demo-e2e-verifier    scripts/verify-demo-e2e.mjs
 //   test, test-*         scripts/test-full-api.mjs, scripts/test-actions.mjs, dev suites
-const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-)/;
+//   loadtest-*           scripts/guard-load.mjs (AGENT = `loadtest-{run}`)
+const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-|loadtest-)/;
 
 // SQL-side mirror of SYNTHETIC_AGENT_RE for consumers that must exclude
 // synthetic rows BEFORE aggregation or LIMIT (posture repository, v3.1).
 // A unit test pins regex↔patterns agreement so the two can't drift.
 export const SYNTHETIC_AGENT_LIKE_PATTERNS = [
-  'smoke-%', 'ci-smoke', 'sdk-live-test-agent%', 'demo-e2e-verifier', 'test', 'test-%',
+  'smoke-%', 'ci-smoke', 'sdk-live-test-agent%', 'demo-e2e-verifier', 'test', 'test-%', 'loadtest-%',
 ];
-export const SYNTHETIC_ACTION_TYPE_LIKE = 'smoke.%';
+// Synthetic action-type families (v4.1 widened from the single `smoke.%`):
+//   smoke.*     scripts/policy-smoke.mjs (run-unique types)
+//   loadtest.*  scripts/guard-load.mjs
+//   liveproof.* ad-hoc ship-verification traffic recorded during live proofs
+export const SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS = ['smoke.%', 'loadtest.%', 'liveproof.%'];
+// JS-side prefixes derived from the LIKE patterns so the two can't drift
+// (every pattern is `prefix%` by construction; a unit test pins this).
+const SYNTHETIC_ACTION_TYPE_PREFIXES = SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS.map((p) => p.slice(0, -1));
 
 export function isSyntheticEvent(event) {
   const agent = event.agent_id;
   if (typeof agent === 'string' && SYNTHETIC_AGENT_RE.test(agent)) return true;
-  // policy-smoke also uses run-unique action types under the `smoke.` prefix.
-  if (typeof event.action_type === 'string' && event.action_type.startsWith('smoke.')) return true;
+  if (typeof event.action_type === 'string'
+    && SYNTHETIC_ACTION_TYPE_PREFIXES.some((prefix) => event.action_type.startsWith(prefix))) return true;
   return false;
 }
 

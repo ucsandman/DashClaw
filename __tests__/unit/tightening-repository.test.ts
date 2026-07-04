@@ -7,7 +7,7 @@ import {
   upsertTighteningDecision,
   deleteTighteningDecision,
 } from '../../app/lib/repositories/tightening.repository';
-import { SYNTHETIC_ACTION_TYPE_LIKE, SYNTHETIC_AGENT_LIKE_PATTERNS } from '../../app/lib/calibration-mining.js';
+import { SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS, SYNTHETIC_AGENT_LIKE_PATTERNS } from '../../app/lib/calibration-mining.js';
 
 function mockSql(rows: unknown[]) {
   const fn = vi.fn(async () => rows) as unknown as { query: ReturnType<typeof vi.fn> };
@@ -31,7 +31,7 @@ describe('getUngovernedAllowDecisions', () => {
       'org1',
       7,
       false, // includeSynthetic defaults to false
-      SYNTHETIC_ACTION_TYPE_LIKE,
+      SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
       SYNTHETIC_AGENT_LIKE_PATTERNS,
       2000, // DEFAULT_ROW_LIMIT
     ]);
@@ -44,7 +44,7 @@ describe('getUngovernedAllowDecisions', () => {
       'org1',
       30,
       true,
-      SYNTHETIC_ACTION_TYPE_LIKE,
+      SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
       SYNTHETIC_AGENT_LIKE_PATTERNS,
       50,
     ]);

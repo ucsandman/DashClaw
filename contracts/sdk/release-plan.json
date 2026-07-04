@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.49.0",
+    "current_version": "4.49.1",
     "next_bump": "none",
-    "reason": "4.49.0 closes roadmap v3.7 (deferred-debt triage): 9 builds shipped (x402 currency allow-list + idempotency_key, apiErrorResponse production redaction, JWKS fail-closed without DASHCLAW_ALLOWED_ISSUER, approvals expiry timestamps, degradation by_day strip, guard-load SLO calibrated to 1500ms, Codex SessionStart digest parity, CRITICAL_TABLES_DDL drift gate, Dependabot EOVERRIDE untangle) and 6 kills recorded with revival triggers. No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.49.1 ships roadmap v4.1 (own-fleet interruption noise): the shared synthetic-traffic predicate widens to the guard-load harness (loadtest-* agents) and the loadtest.*/liveproof.* action-type families, so flood counting, posture, tightening proposals, and calibration mining stop reporting harness traffic as real interrupts (the 2026-07-04 '1,802 interrupts' flood banner was the load harness). No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.49.0",
+    "current_version": "4.49.1",
     "next_bump": "none",
-    "reason": "4.49.0 closes roadmap v3.7 (deferred-debt triage): 9 builds shipped (x402 currency allow-list + idempotency_key, apiErrorResponse production redaction, JWKS fail-closed without DASHCLAW_ALLOWED_ISSUER, approvals expiry timestamps, degradation by_day strip, guard-load SLO calibrated to 1500ms, Codex SessionStart digest parity, CRITICAL_TABLES_DDL drift gate, Dependabot EOVERRIDE untangle) and 6 kills recorded with revival triggers. No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.49.1 ships roadmap v4.1 (own-fleet interruption noise): the shared synthetic-traffic predicate widens to the guard-load harness (loadtest-* agents) and the loadtest.*/liveproof.* action-type families, so flood counting, posture, tightening proposals, and calibration mining stop reporting harness traffic as real interrupts (the 2026-07-04 '1,802 interrupts' flood banner was the load harness). No Node/Python SDK source change — version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

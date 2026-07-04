@@ -14,7 +14,7 @@ import {
   appendVectorToFixtureText,
   isSyntheticEvent,
   SYNTHETIC_AGENT_LIKE_PATTERNS,
-  SYNTHETIC_ACTION_TYPE_LIKE,
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
   suggestVectorName,
   buildProposals,
   renderProposalSummary,
@@ -180,13 +180,16 @@ describe('synthetic-traffic filter (v2.6)', () => {
       'demo-e2e-verifier', // verify-demo-e2e.mjs
       'test', // dev suites
       'test-guard-agent',
+      'loadtest-mr6y5eev', // guard-load.mjs (v4.1)
     ]) {
       expect(isSyntheticEvent(event({ agent_id }))).toBe(true);
     }
   });
 
-  it('fires on smoke.* action types regardless of agent', () => {
+  it('fires on smoke.*/loadtest.*/liveproof.* action types regardless of agent', () => {
     expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'smoke.risky' }))).toBe(true);
+    expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'loadtest.read' }))).toBe(true);
+    expect(isSyntheticEvent(event({ agent_id: 'claude-code', action_type: 'liveproof.drift' }))).toBe(true);
   });
 
   it('stays quiet on real traffic, including near-miss names', () => {
@@ -214,9 +217,10 @@ describe('SQL LIKE mirror of the synthetic filter (v3.1)', () => {
     const corpus = [
       // positives (one per family)
       'smoke-ping-mcgz1x2a', 'ci-smoke', 'sdk-live-test-agent-py', 'demo-e2e-verifier', 'test', 'test-guard-agent',
+      'loadtest-mr6y5eev',
       // negatives / near-misses
       'claude-code', 'codex', 'hermes', 'codex:test-writer', 'latest-deployer', 'smokey',
-      'ci-smoke-extra', 'demo-e2e-verifier-2', 'testing', 'attest',
+      'ci-smoke-extra', 'demo-e2e-verifier-2', 'testing', 'attest', 'loadtester', 'payload-test',
     ];
     for (const agent_id of corpus) {
       const viaSql = SYNTHETIC_AGENT_LIKE_PATTERNS.some((p) => likeMatch(p, agent_id));
@@ -225,11 +229,26 @@ describe('SQL LIKE mirror of the synthetic filter (v3.1)', () => {
     }
   });
 
-  it('SYNTHETIC_ACTION_TYPE_LIKE agrees with the smoke.* prefix rule', () => {
-    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smoke.risky')).toBe(true);
-    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smoke.retro.drift.mr4bbqfo')).toBe(true);
-    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'deploy')).toBe(false);
-    expect(likeMatch(SYNTHETIC_ACTION_TYPE_LIKE, 'smokeless')).toBe(false);
+  it('SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS agrees with the JS prefix rule (v4.1 families)', () => {
+    const viaSql = (t) => SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS.some((p) => likeMatch(p, t));
+    for (const [actionType, expected] of [
+      ['smoke.risky', true],
+      ['smoke.retro.drift.mr4bbqfo', true],
+      ['loadtest.read', true],
+      ['liveproof.base', true],
+      ['liveproof.drift', true],
+      ['deploy', false],
+      ['smokeless', false],
+      ['loadtest', false], // bare name without the dot is not the family
+      ['liveproofing', false],
+    ]) {
+      expect(viaSql(actionType), `LIKE verdict on "${actionType}"`).toBe(expected);
+      // and the JS-side isSyntheticEvent agrees with the SQL verdict
+      expect(
+        isSyntheticEvent(event({ agent_id: 'claude-code', action_type: actionType })),
+        `regex/LIKE drift on "${actionType}"`,
+      ).toBe(expected);
+    }
   });
 });
 

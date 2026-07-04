@@ -62,7 +62,7 @@ nothing on this list).
 
 | # | Item | Status |
 |---|------|--------|
-| v4.1 | Own-fleet interruption noise: calibrate the Claude Code Mode policies | — |
+| v4.1 | Own-fleet interruption noise: calibrate the Claude Code Mode policies | DONE 2026-07-04 (v4.49.1; spec docs/superpowers/specs/2026-07-04-own-fleet-interruption-noise.md — **the item's premise was half-wrong and the diagnosis says so**: the ~1,802-interrupt flood was the guard-load harness (`loadtest-mr6y5eev`, 2,502 evals/hour from the v3.7 SLO calibration run), correctly paused by the runaway valve but not classified synthetic. Fix = widen the shared predicate (`loadtest-%` agents + `loadtest.%`/`liveproof.%` action types, single-pattern → pattern-list across flood counting/posture/tightening/mining); rate_limit evaluator + both policy configs deliberately unchanged (valve worked; per-agent scoping isolates harness ids). Live-ledger proof: leak bucket 2,749→0, flood counts drop to the real 41 protected-path interrupts (no budget trip). Recorded verdicts: 100%-approved protected-path `apply` interrupts = v4.5 loosening evidence (§2 — not self-tuned); approval dimension 0 = stale `ps-qa:review_artifact` capability, operator-remediable, not flood fallout; no scorer vectors owed (neither class is a scoring error). Smoke/tests: agreement suite pins new families both forms) |
 | v4.2 | Coverage truth: the record knows what it missed | — |
 | v4.3 | Fleet attribution: parent → subagent → workflow lineage | — |
 | v4.4 | One judgment spine: unify the three proposal queues | — |
@@ -90,9 +90,12 @@ the approval dimension is pinned at 0.
   open findings today).
 - Acceptance: a normal heavy maintainer session completes without
   tripping the fleet budget; the flood banner clears live and returns
-  only on genuine anomaly (the smoke positive control stays); the
-  approval dimension recovers; vectors added for each wrong-interruption
-  class.
+  only on genuine anomaly (the smoke positive control stays); vectors —
+  or a written no-vector verdict — for each wrong-interruption class.
+  (Corrected during diagnosis: the approval dimension's 0 is a stale
+  ungoverned capability, `ps-qa:review_artifact`, not flood fallout —
+  operator-remediable via the posture queue, out of this item's code
+  scope. See the spec's diagnosis section.)
 
 ## v4.2 Coverage truth
 

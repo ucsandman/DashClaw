@@ -4,7 +4,7 @@
 
 import { invalidateGuardPolicyCache } from '../guard';
 import {
-  SYNTHETIC_ACTION_TYPE_LIKE,
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
   SYNTHETIC_AGENT_LIKE_PATTERNS,
 } from '../calibration-mining.js';
 import type { SqlTag } from '../types/db';
@@ -264,7 +264,7 @@ export async function getRecentApprovalCountsByPolicy(
          AND matched_policies IS NOT NULL
          AND matched_policies LIKE '[%'
          AND ($3::boolean OR (
-           (action_type IS NULL OR action_type NOT LIKE $4)
+           (action_type IS NULL OR action_type NOT LIKE ALL($4::text[]))
            AND (agent_id IS NULL OR agent_id NOT LIKE ALL($5::text[]))
          ))
      ) sub
@@ -273,7 +273,7 @@ export async function getRecentApprovalCountsByPolicy(
       orgId,
       windowMinutes,
       opts.includeSynthetic === true,
-      SYNTHETIC_ACTION_TYPE_LIKE,
+      SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
       SYNTHETIC_AGENT_LIKE_PATTERNS,
     ],
   );

@@ -13,6 +13,34 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.49.1] — 2026-07-04
+
+Roadmap v4.1 — own-fleet interruption noise. The 2026-07-04 approval-flood
+banner ("~1,802 interrupts in window") was the guard-load harness: the
+runaway-loop valve correctly paused a 2,500-evaluations/hour synthetic
+agent, but the harness's traffic wasn't classified synthetic, so it lit
+every human surface. Spec:
+`docs/superpowers/specs/2026-07-04-own-fleet-interruption-noise.md`.
+
+### Fixed
+
+- The shared synthetic-traffic predicate (`app/lib/calibration-mining.js`)
+  now covers the guard-load harness (`loadtest-*` agents) and the
+  `loadtest.*` / `liveproof.*` action-type families, alongside the
+  existing `smoke.*` families. Consumers fixed by the shared change:
+  approval-flood counting (no more flood banners from load runs), posture
+  governable units + incident window (the "loadtest.read is not fully
+  governed" findings stop being minted), tightening proposals, and
+  calibration mining. The action-type side generalizes from a single LIKE
+  pattern to a pattern list (`SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS`); the
+  regex↔LIKE agreement test pins the new families in both forms.
+- Diagnosis verdicts recorded in the spec: the `rate_limit` evaluator and
+  both Claude Code Mode policy configs are unchanged (the valve worked;
+  per-agent scoping already isolates harness ids); the 100%-approved
+  protected-path `apply` interrupts are recorded as loosening evidence
+  for v4.5; the posture approval dimension's 0 is a stale ungoverned
+  capability (`ps-qa:review_artifact`), not flood fallout.
+
 ## [4.49.0] — 2026-07-04
 
 Closes roadmap v3.7 (deferred-debt triage): every parked item from this era got

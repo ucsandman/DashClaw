@@ -12,7 +12,7 @@
 
 import type { SqlTag } from '../types/db';
 import {
-  SYNTHETIC_ACTION_TYPE_LIKE,
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
   SYNTHETIC_AGENT_LIKE_PATTERNS,
 } from '../calibration-mining.js';
 import type { UngovernedDecisionRow } from '../posture/tightening';
@@ -73,7 +73,7 @@ export async function getUngovernedAllowDecisions(
        -- (posture.repository.ts convention).
        AND created_at::timestamptz > NOW() - make_interval(days => $2::int)
        AND ($3::boolean OR (
-         (action_type IS NULL OR action_type NOT LIKE $4)
+         (action_type IS NULL OR action_type NOT LIKE ALL($4::text[]))
          AND (agent_id IS NULL OR agent_id NOT LIKE ALL($5::text[]))
        ))
      ORDER BY created_at::timestamptz DESC
@@ -82,7 +82,7 @@ export async function getUngovernedAllowDecisions(
       orgId,
       days,
       opts.includeSynthetic === true,
-      SYNTHETIC_ACTION_TYPE_LIKE,
+      SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
       SYNTHETIC_AGENT_LIKE_PATTERNS,
       limit,
     ],
