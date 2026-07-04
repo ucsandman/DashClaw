@@ -22,6 +22,7 @@ import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../../../lib/usag
 import { checkCircuitBreaker } from '../../../../lib/capability-health';
 import { updateCapability } from '../../../../lib/repositories/capabilities.repository';
 import { evaluateAccess } from '../../../../lib/repositories/capability-access.repository';
+import { resolveAgentIdentity } from '../../../../lib/identity-resolution';
 
 
 export async function POST(request: Request, { params }: { params: Promise<{ capabilityId: string }> }) {
@@ -86,6 +87,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     const action_id = `act_${crypto.randomUUID()}`;
     const timestamp_start = new Date().toISOString();
 
+    // Shared identity contract (same as /api/guard, /api/actions,
+    // /api/x402/purchases): a JWKS-verified JWT's sub overrides the body
+    // agent_id; otherwise identity is explicitly self-asserted (unverified).
+    // The verification result gates per-agent access rules below (D1,
+    // docs/architecture/trust-and-failure-model.md).
+    const identity = await resolveAgentIdentity(request, { agentId: body.agent_id || null, agentName: body.agent_name || null });
+
     // 2. Guard evaluation
     const riskScore = (RISK_SCORE_MAP as Record<string, number>)[(capability as Record<string, any>).risk_level] || 50;
     const guardDecision = await evaluateGuard(
@@ -93,7 +101,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       {
         action_type: 'capability_invoke',
         risk_score: riskScore,
-        agent_id: body.agent_id || null,
+        agent_id: identity.agent_id || null,
+        verification_status: identity.verification_status,
         systems_touched: [`capability:${capability.slug}`],
         reversible: true,
         declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
@@ -109,7 +118,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     ) as string;
 
     const actionData = {
-      agent_id: body.agent_id || 'anonymous',
+      agent_id: identity.agent_id || 'anonymous',
       action_type: 'capability_invoke',
       declared_goal: body.declared_goal || `Invoke capability: ${capability.name}`,
       systems_touched: [`capability:${capability.slug}`],
@@ -127,7 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         data: actionData,
         guardDecision,
         signature: null,
-        verified: false,
+        verified: identity.verified,
         timestamp_start,
       });
 
@@ -154,7 +163,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         actionStatus: 'pending_approval',
         costEstimate: 0,
         signature: null,
-        verified: false,
+        verified: identity.verified,
         timestamp_start,
       });
 
@@ -207,15 +216,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       );
     }
 
-    // Access control check
-    const agentId = body.agent_id || 'anonymous';
-    const accessResult = await evaluateAccess(sql, orgId, capabilityId, agentId);
+    // Access control check — identity-gated (D1): per-agent allowances only
+    // apply to verified identities; unverified callers get the org default.
+    const agentId = identity.agent_id || 'anonymous';
+    const accessResult = await evaluateAccess(sql, orgId, capabilityId, agentId, { verified: identity.verified });
     if (accessResult.access === 'deny') {
       return NextResponse.json({
         success: false,
         error: 'access_denied',
         code: 'CAPABILITY_ACCESS_DENIED',
-        reason: accessResult.rule?.reason || 'Agent does not have access to this capability.',
+        reason: accessResult.identity_downgrade?.reason || accessResult.rule?.reason || 'Agent does not have access to this capability.',
+        ...(accessResult.identity_downgrade ? { identity_downgrade: accessResult.identity_downgrade } : {}),
         capability_id: capabilityId,
         agent_id: agentId,
       }, { status: 403 });
@@ -228,7 +239,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         actionStatus: 'pending_approval',
         costEstimate: 0,
         signature: null,
-        verified: false,
+        verified: identity.verified,
         timestamp_start,
       });
 
@@ -255,7 +266,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       actionStatus: 'running',
       costEstimate: (capability as Record<string, any>).pricing?.estimated_cost_usd || 0,
       signature: null,
-      verified: false,
+      verified: identity.verified,
       timestamp_start,
     });
 

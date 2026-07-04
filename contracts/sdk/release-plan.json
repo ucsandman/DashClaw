@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.40.0",
+    "current_version": "4.41.0",
     "next_bump": "none",
-    "reason": "4.40.0 is ADR Phase 2 batch 1 (x402 money truth): POST /api/x402/purchases clamps enforced spend to max(declared, resolved endpoint default_price) with spend_enforcement in the response and declared_spend_amount in the audited guard context, drizzle/0044 converts spend_amount + default_price REAL->numeric (aggregation casts follow, drift-class test pins it), and the three x402 tables gain schema.js definitions — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.41.0 is ADR Phase 2 batch 2 (verified-identity gate, D1): evaluateAccess never grants an unverified agent_id assertion a more permissive outcome than the org default (per-agent allow-lists require JWKS-verified identity; identity_downgrade in the result), the capability invoke route joins the shared resolveAgentIdentity contract (JWT sub override, verification_status in guard context, real verified flags on action records), access/check gains a ?verified preview param, Access tab explains the semantic — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.40.0",
+    "current_version": "4.41.0",
     "next_bump": "none",
-    "reason": "4.40.0 is ADR Phase 2 batch 1 (x402 money truth): POST /api/x402/purchases clamps enforced spend to max(declared, resolved endpoint default_price) with spend_enforcement in the response and declared_spend_amount in the audited guard context, drizzle/0044 converts spend_amount + default_price REAL->numeric (aggregation casts follow, drift-class test pins it), and the three x402 tables gain schema.js definitions — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.41.0 is ADR Phase 2 batch 2 (verified-identity gate, D1): evaluateAccess never grants an unverified agent_id assertion a more permissive outcome than the org default (per-agent allow-lists require JWKS-verified identity; identity_downgrade in the result), the capability invoke route joins the shared resolveAgentIdentity contract (JWT sub override, verification_status in guard context, real verified flags on action records), access/check gains a ?verified preview param, Access tab explains the semantic — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

@@ -13,6 +13,35 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.41.0] — 2026-07-03
+
+Phase 2 of the trust & failure model ADR, second batch: the verified-identity
+gate. Per-agent capability allowances stop trusting a self-asserted
+`agent_id`. No SDK source change (no republish).
+
+### Added
+
+- **Verified-identity gate on capability access rules (ADR D1)** — an
+  unverified `agent_id` assertion can never obtain a MORE permissive outcome
+  than the org-wide default: per-agent allow-lists apply only to
+  JWKS-verified identities, while restrictive agent-specific rules still
+  bind asserted ids (they exist to contain honest-but-drifting agents, the
+  actual threat model). Downgrades are explicit — `evaluateAccess` returns
+  `identity_downgrade { asserted_access, reason }`, the invoke 403 surfaces
+  it, and the capability Access tab explains the semantic.
+- **`GET /api/capabilities/[id]/access/check?verified=true`** — preview what
+  a verified identity would get (read-only simulation; enforcement always
+  resolves from the actual JWT).
+
+### Changed
+
+- **Capability invoke joins the shared identity contract** — the route now
+  resolves identity via `resolveAgentIdentity` (a JWKS-verified JWT `sub`
+  overrides the body `agent_id`, matching /api/guard, /api/actions and
+  /api/x402/purchases), threads `verification_status` into the guard
+  context, and stamps the real verification state on its action records
+  (previously hardcoded `verified: false`).
+
 ## [4.40.0] — 2026-07-03
 
 Phase 2 of the trust & failure model ADR, first batch: x402 money truth.

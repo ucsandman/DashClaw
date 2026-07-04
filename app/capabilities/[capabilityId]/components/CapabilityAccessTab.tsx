@@ -150,7 +150,9 @@ export default function CapabilityAccessTab({ capabilityId }: CapabilityAccessTa
 
       <div className="flex items-center justify-between">
         <span className="text-xs text-tertiary">
-          {rules.length === 0 ? 'No access rules — all agents can invoke this capability.' : `${rules.length} rule${rules.length !== 1 ? 's' : ''} configured`}
+          {rules.length === 0
+            ? 'No access rules — all agents can invoke this capability.'
+            : `${rules.length} rule${rules.length !== 1 ? 's' : ''} configured. Agent-specific allowances apply only to JWT-verified identities; unverified callers get the org-wide default.`}
         </span>
         <button
           onClick={() => setShowForm(!showForm)}

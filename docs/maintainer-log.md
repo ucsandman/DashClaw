@@ -14,6 +14,38 @@ Entries are newest-first.
 
 ---
 
+## 2026-07-03 — a name is not a credential (v4.41.0)
+
+Phase 2, batch 2. The architecture review's sharpest identity finding: a
+per-agent DENY or allow-list on a capability was enforced against whatever
+`agent_id` the caller typed into the request body. An org-key holder could
+assume any allow-listed agent's privileges by asserting its name. Signature
+and JWT verification existed — but the access check never asked.
+
+The fix needed a design decision more than code. The naive reading of
+"per-agent rules fail closed for unverified identity" — apply every agent's
+restrictions to every unverified caller — would break the default
+trust-on-assertion deployment that every fresh install runs. The rule that
+survives contact with reality: **an unverified assertion can never obtain a
+more permissive outcome than the org default.** Allow-lists require proof;
+deny-lists bind whoever asserts the name (they exist to contain
+honest-but-drifting agents, which is the actual threat model, not to stop a
+liar the attestation boundary already can't stop). That asymmetry is the
+whole design, and it ships with its reasoning attached — downgrades return
+an `identity_downgrade` object saying exactly what was asserted and why it
+didn't apply.
+
+Along the way the capability invoke route joined the shared identity
+contract the other governed routes already use — JWT `sub` overrides the
+body id, and its action records stop hardcoding `verified: false` in favor
+of the truth. The access-check endpoint gained `?verified=true` so an
+operator can preview both worlds before writing a rule, and the Access tab
+says the quiet part in plain text.
+
+Full suite green (601 files), build green, contract checks green. Remaining
+Phase 2 queue: one-knob fast-path fallback (D2), approval-grant single-use,
+runaway counter source, doctor write-path canary, cross-org isolation suite.
+
 ## 2026-07-03 — money stops being a rumor (v4.40.0)
 
 Phase 2 of the ADR, first batch. The x402 spend gates had a polite fiction

@@ -18,7 +18,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ capa
       return NextResponse.json({ error: 'agent_id query param is required' }, { status: 400 });
     }
 
-    const result = await evaluateAccess(sql, orgId, capabilityId, agentId);
+    // Preview flag only (this is an org-authenticated read surface):
+    // ?verified=true previews what a JWT-verified identity would get.
+    // Enforcement routes resolve `verified` from the actual JWT, never from
+    // a query param. Default false = what an unverified caller gets.
+    const verified = searchParams.get('verified') === 'true';
+    const result = await evaluateAccess(sql, orgId, capabilityId, agentId, { verified });
     return NextResponse.json(result);
   } catch (error) {
     return apiErrorResponse(error, 'CAPABILITY_ACCESS_CHECK');

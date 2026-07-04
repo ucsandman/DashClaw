@@ -38,29 +38,65 @@ export function shapeAccessRule(row: AccessRuleRow | null | undefined): Record<s
 
 const VALID_ACCESS_LEVELS = new Set(['allow', 'deny', 'require_approval']);
 
+// Lower = more permissive. Unknown access values rank as deny (fail closed).
+const ACCESS_SEVERITY: Record<string, number> = { allow: 0, require_approval: 1, deny: 2 };
+const severityOf = (access: string): number => ACCESS_SEVERITY[access] ?? 2;
+
+export interface AccessEvaluation {
+  access: unknown;
+  rule: Record<string, unknown> | null;
+  identity_downgrade?: { asserted_access: string; reason: string };
+}
+
 export async function evaluateAccess(
   sql: SqlTag,
   orgId: string,
   capabilityId: string,
   agentId: string | null,
-): Promise<{ access: unknown; rule: Record<string, unknown> | null }> {
-  // Single query: agent-specific rules first, then org-wide defaults
-  const rows = await sql`
+  { verified = false }: { verified?: boolean } = {},
+): Promise<AccessEvaluation> {
+  // Both candidate rules in one query: the agent-specific rule (if any) and
+  // the org-wide default (agent_id IS NULL). The partial unique indexes
+  // guarantee at most one of each.
+  const rows = (await sql`
     SELECT rule_id, org_id, capability_id, agent_id, access, reason, created_by, created_at
     FROM capability_access_rules
     WHERE org_id = ${orgId}
       AND capability_id = ${capabilityId}
       AND (agent_id = ${agentId} OR agent_id IS NULL)
     ORDER BY agent_id IS NULL ASC
-    LIMIT 1
-  `;
+    LIMIT 2
+  `) as AccessRuleRow[];
 
-  if (rows.length === 0) {
-    return { access: 'allow', rule: null };
+  const agentRule = rows.find((r) => r.agent_id != null);
+  const orgRule = rows.find((r) => r.agent_id == null);
+  const baselineAccess = String(orgRule?.access ?? 'allow');
+
+  if (!agentRule) {
+    return orgRule
+      ? { access: orgRule.access, rule: shapeAccessRule(orgRule) }
+      : { access: 'allow', rule: null };
   }
 
-  const row = rows[0] as AccessRuleRow | undefined;
-  return { access: row?.access, rule: shapeAccessRule(row) };
+  const agentAccess = String(agentRule.access);
+  // D1 identity gate (docs/architecture/trust-and-failure-model.md): agent_id
+  // is self-asserted unless a JWKS JWT verified it. An UNVERIFIED assertion
+  // must never obtain a MORE permissive outcome than the org default —
+  // per-agent allowances require verified identity. Restrictive agent rules
+  // still apply to the asserted id (they bind honest-but-drifting agents,
+  // the actual threat model).
+  if (!verified && severityOf(agentAccess) < severityOf(baselineAccess)) {
+    return {
+      access: baselineAccess,
+      rule: orgRule ? shapeAccessRule(orgRule) : null,
+      identity_downgrade: {
+        asserted_access: agentAccess,
+        reason: `Agent-specific '${agentAccess}' requires verified identity (JWT); unverified callers get the org default '${baselineAccess}'.`,
+      },
+    };
+  }
+
+  return { access: agentAccess, rule: shapeAccessRule(agentRule) };
 }
 
 export async function listAccessRules(
