@@ -614,8 +614,10 @@ node scripts/live-canary.mjs
 # Scheduled: .github/workflows/live-canary.yml runs hourly.
 # To report verdicts to your instance, add two repo secrets
 # (Settings -> Secrets and variables -> Actions):
-#   DASHCLAW_BASE_URL   e.g. https://my-dashclaw.vercel.app
-#   DASHCLAW_API_KEY    an operator API key on that instance`}</CodeBlock>
+#   LIVE_CANARY_REPORT_URL   e.g. https://my-dashclaw.vercel.app
+#   LIVE_CANARY_REPORT_KEY   an operator API key on that instance
+# If that key's org is not org_default, also set DASHCLAW_CANARY_ORG_ID
+# on the instance so /setup renders the canary's runs.`}</CodeBlock>
             </div>
 
             <div id="claude-code-plugin" className="scroll-mt-20 mb-10">

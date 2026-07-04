@@ -9,8 +9,13 @@ name: Live host canary
 #
 # Setup (reporting, optional but recommended):
 #   Settings → Secrets and variables → Actions:
-#     - DASHCLAW_BASE_URL  (e.g. https://my-dashclaw.vercel.app)
-#     - DASHCLAW_API_KEY   (an operator API key on that instance)
+#     - LIVE_CANARY_REPORT_URL  (e.g. https://my-dashclaw.vercel.app)
+#     - LIVE_CANARY_REPORT_KEY  (an operator API key on that instance)
+#   Dedicated names on purpose: DASHCLAW_BASE_URL is shared with the
+#   hosted-cleanup cron and must keep pointing at the hosted instance —
+#   the canary REPORTS to the operator's instance, which differs.
+#   If the reporting key's org is not org_default, set
+#   DASHCLAW_CANARY_ORG_ID on the instance so /setup renders its runs.
 #
 # Manual trigger: Actions tab → "Live host canary" → "Run workflow".
 
@@ -31,6 +36,6 @@ jobs:
           node-version: 20
       - name: Probe production hosts
         env:
-          DASHCLAW_BASE_URL: ${{ secrets.DASHCLAW_BASE_URL }}
-          DASHCLAW_API_KEY: ${{ secrets.DASHCLAW_API_KEY }}
+          DASHCLAW_BASE_URL: ${{ secrets.LIVE_CANARY_REPORT_URL }}
+          DASHCLAW_API_KEY: ${{ secrets.LIVE_CANARY_REPORT_KEY }}
         run: node scripts/live-canary.mjs
