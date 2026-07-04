@@ -111,7 +111,10 @@ describe('verifyJwt — JWKS verification (Phase 2)', () => {
     vi.clearAllMocks();
     // Reset module-level JWKS cache + circuit breakers between tests
     _resetStateForTesting();
-    delete process.env.DASHCLAW_ALLOWED_ISSUER;
+    // v3.7 fail-closed flip: verification requires a configured issuer, so the
+    // test baseline configures one. The dedicated unconfigured-issuer test
+    // deletes it to pin the fail-closed path.
+    process.env.DASHCLAW_ALLOWED_ISSUER = ISSUER;
     delete process.env.DASHCLAW_JWT_AUDIENCE;
     keyPair = await generateKeyPair();
     pubJwk = await exportJwk(keyPair.publicKey);
@@ -177,6 +180,18 @@ describe('verifyJwt — JWKS verification (Phase 2)', () => {
     mockJwksResponse(pubJwk);
     const result = await verifyJwt(tamperedToken);
     expect(result.verification_status).toBe('failed');
+  });
+
+  it('returns unverified (never verified) when DASHCLAW_ALLOWED_ISSUER is not configured — v3.7 fail-closed', async () => {
+    delete process.env.DASHCLAW_ALLOWED_ISSUER;
+    mockJwksResponse(pubJwk);
+
+    const token = await sign(keyPair.privateKey, validPayload());
+    const result = await verifyJwt(token);
+
+    expect(result.verification_status).toBe('unverified');
+    // Fail-closed means no trust anchor → the JWKS is never even fetched.
+    expect(mockFetch).not.toHaveBeenCalled();
   });
 
   it('returns unknown_issuer when DASHCLAW_ALLOWED_ISSUER is set and issuer does not match', async () => {

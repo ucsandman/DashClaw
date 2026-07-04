@@ -10,8 +10,8 @@ import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateX402Purchase } from '../../../lib/validate.js';
 import { resolveAgentIdentity } from '../../../lib/identity-resolution';
 import { redactAny } from '../../../lib/security';
-import { createActionRecord, createBlockedActionRecord, deleteActionsByIds, markActionBlocked } from '../../../lib/repositories/actions.repository';
-import { createPurchase, listPurchases, getProvider, getEndpoint, resolveProviderByName, setPurchaseOutcome } from '../../../lib/repositories/x402.repository';
+import { createActionRecord, createBlockedActionRecord, deleteActionsByIds, getActionSummary, markActionBlocked } from '../../../lib/repositories/actions.repository';
+import { createPurchase, listPurchases, getProvider, getEndpoint, getPurchaseByIdempotencyKey, resolveProviderByName, setPurchaseOutcome } from '../../../lib/repositories/x402.repository';
 
 /**
  * Mask a wallet/payment reference for storage and responses. We keep only the
@@ -44,6 +44,7 @@ interface ValidatedPurchase {
   payment_reference?: string;
   risk_score?: number;
   confidence_score?: number;
+  idempotency_key?: string;
   [k: string]: unknown;
 }
 
@@ -86,6 +87,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
     const v = data as ValidatedPurchase;
+
+    // Idempotency short-circuit (v3.7 5d). /api/actions and /api/guard already
+    // short-circuit duplicate (org_id, idempotency_key) submissions; x402
+    // purchases — the money route — was the one sibling without it, so a
+    // client retry minted two action ids and two purchase rows, both counted
+    // toward spend. Safe because the unique partial index on x402_purchases
+    // (org_id, idempotency_key) (drizzle/0047) prevents a race-condition
+    // double-insert even if two requests hit this code path simultaneously.
+    if (v.idempotency_key) {
+      const existingPurchase = await getPurchaseByIdempotencyKey(sql, orgId, v.idempotency_key);
+      if (existingPurchase) {
+        const existingAction = await getActionSummary(sql, orgId, existingPurchase.action_id);
+        return NextResponse.json({
+          action: existingAction,
+          purchase: existingPurchase,
+          idempotent_replay: true,
+        });
+      }
+    }
 
     // (R3) Shared identity contract: a JWKS-verified JWT overrides the body
     // agent_id; otherwise identity is explicitly self-asserted (unverified).
@@ -248,6 +268,7 @@ export async function POST(request: Request) {
         expected_value: expectedValue as string | null,
         confidence_score: v.confidence_score,
         execution_status: isPending ? 'pending' : 'approved',
+        idempotency_key: v.idempotency_key || null,
       });
     } catch (purchaseErr) {
       await deleteActionsByIds(sql, orgId, [action_id]).catch((err: unknown) => {

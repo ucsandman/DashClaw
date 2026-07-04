@@ -608,7 +608,26 @@ const X402_TEXT_LIMITS = {
   declared_goal: 2000, purchase_reason: 2000, context_gap: 2000, expected_value: 2000,
   alternatives_considered: 4000, payment_method: 64, currency: 16,
   wallet_reference: 512, payment_reference: 512,
+  // End-to-end idempotency (v3.7 5d): mirrors action_records.idempotency_key's
+  // maxLength (ACTION_RECORD_SCHEMA above) — x402 purchases, the money route,
+  // was the one sibling of /api/actions and /api/guard without duplicate-
+  // submission protection.
+  idempotency_key: 256,
 };
+
+// Closed currency allow-list (v3.7 5b). The spend aggregation sums
+// spend_amount with NO currency partition — every row counts 1:1 against USD
+// budget ceilings, so a fabricated currency corrupts budget-limit bookkeeping.
+// DASHCLAW_X402_CURRENCIES is a comma-separated env override; default is just
+// USDC (the only currency DashClaw's x402 flows currently settle in).
+const X402_DEFAULT_CURRENCIES = ['USDC'];
+
+function getAllowedX402Currencies() {
+  const raw = process.env.DASHCLAW_X402_CURRENCIES;
+  if (!raw) return X402_DEFAULT_CURRENCIES;
+  const list = raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
+  return list.length ? list : X402_DEFAULT_CURRENCIES;
+}
 
 function collectX402Required(src, errors) {
   const missing = X402_REQUIRED.filter((k) => src[k] == null || src[k] === '');
@@ -645,12 +664,20 @@ function collectX402Spend(src, errors, data) {
 }
 
 function collectX402Currency(src, errors, data) {
-  // Currency: a short alphanumeric code; defaulted downstream when absent.
+  // Currency: closed allow-list (env-configurable via DASHCLAW_X402_CURRENCIES,
+  // default USDC); defaulted downstream when absent. Format-only validation
+  // used to let any junk currency through unpartitioned budget sums.
   if (src.currency == null || src.currency === '') return;
-  if (typeof src.currency !== 'string' || !/^[A-Za-z0-9]{2,16}$/.test(src.currency)) {
-    errors.push('currency must be a short alphanumeric code (2-16 chars)');
+  if (typeof src.currency !== 'string') {
+    errors.push('currency must be a string');
+    return;
+  }
+  const normalized = src.currency.toUpperCase();
+  const allowed = getAllowedX402Currencies();
+  if (!allowed.includes(normalized)) {
+    errors.push(`currency must be one of: ${allowed.join(', ')}`);
   } else {
-    data.currency = src.currency.toUpperCase();
+    data.currency = normalized;
   }
 }
 

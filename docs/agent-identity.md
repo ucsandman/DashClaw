@@ -83,11 +83,11 @@ issuer's job — DashClaw only *verifies* it (covered in the rest of this docume
 
 | Value            | Meaning                                                   |
 |------------------|-----------------------------------------------------------|
-| `verified`       | Signature valid; `sub` used as `agent_id`                 |
-| `unverified`     | No JWT, or issuer temporarily unavailable (fail-soft)     |
+| `verified`       | Signature valid; `sub` used as `agent_id`. Requires `DASHCLAW_ALLOWED_ISSUER` — unreachable without it (v3.7 fail-closed) |
+| `unverified`     | No JWT, no configured issuer (fail-closed since v4.49.0), or issuer temporarily unavailable (fail-soft) |
 | `expired`        | Signature valid, but `exp` is in the past                 |
 | `failed`         | Bad signature, malformed token, or `aud` mismatch         |
-| `unknown_issuer` | `iss` not in `DASHCLAW_ALLOWED_ISSUER` (when configured)  |
+| `unknown_issuer` | `iss` does not match `DASHCLAW_ALLOWED_ISSUER`            |
 | `exp_too_far`    | `exp` exceeds `DASHCLAW_JTI_MAX_TTL_SECONDS` (default 24h)|
 
 ## Phase 2b: replay protection
@@ -261,8 +261,9 @@ The JWKS fetcher includes:
 Set these environment variables. No YAML config file is needed.
 
 ```bash
-# Optional: restrict which JWT issuers are trusted.
-# Tokens from other issuers → verification_status = 'unknown_issuer'.
+# REQUIRED to enable verification (v3.7 fail-closed): with no issuer configured,
+# bearer tokens never reach 'verified' — there is no trust anchor. Tokens from
+# other issuers → verification_status = 'unknown_issuer'.
 DASHCLAW_ALLOWED_ISSUER=https://idp.example.com
 
 # Optional: require this value in the JWT 'aud' claim.

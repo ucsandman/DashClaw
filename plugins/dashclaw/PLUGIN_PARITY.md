@@ -48,13 +48,18 @@ authored `hooks.json` is not generated.
 
 The **Codex** manifest does not bundle hooks — Codex hooks are filesystem
 artifacts in `~/.codex/config.toml`. Use `dashclaw install codex`, which wires
-PreToolUse / PostToolUse / Stop with an explicit `--agent-id codex` and ships
-the same hook scripts, including `dashclaw_code_session_reporter.py` for Code
-Sessions ingest. **Known deltas vs Claude Code** (explicit decisions, not
-oversights): no SessionStart digest hook is wired (Codex's hook lifecycle for
-SessionStart is unverified — wire it only after confirming the event fires),
-and there is no JSONL transcript parser (Codex session ingest rides the
-`notify` integration instead).
+PreToolUse / PostToolUse / Stop / SessionStart with an explicit `--agent-id
+codex` and ships the same hook scripts, including
+`dashclaw_code_session_reporter.py` for Code Sessions ingest and
+`dashclaw_session_digest.py` for the SessionStart digest. The SessionStart
+digest hook was wired in v3.7 item 6 once the lifecycle was verified: the
+installed codex-cli 0.139.0 binary's hook-event enum contains `SessionStart`
+(PascalCase in `config.toml`, same convention as the other three), and a live,
+trusted `session_start` hook registered by an unrelated tool was observed
+firing in this machine's `~/.codex/config.toml` (2026-07-04). **Known delta vs
+Claude Code** (explicit decision, not an oversight): there is no JSONL
+transcript parser (Codex session ingest rides the `notify` integration
+instead).
 
 The **Hermes Agent** surface ships under `.hermes-plugin/` with a
 `plugin.yaml`, installer README, config snippet, and eight shell-hook adapters:

@@ -13,6 +13,8 @@ const m = vi.hoisted(() => ({
   getEndpoint: vi.fn(),
   resolveProviderByName: vi.fn(),
   setPurchaseOutcome: vi.fn(),
+  getActionSummary: vi.fn(),
+  getPurchaseByIdempotencyKey: vi.fn(),
 }));
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
@@ -22,12 +24,14 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createBlockedActionRecord: m.createBlockedActionRecord,
   deleteActionsByIds: vi.fn(),
   markActionBlocked: m.markActionBlocked,
+  getActionSummary: m.getActionSummary,
 }));
 vi.mock('@/lib/repositories/x402.repository.js', () => ({
   createPurchase: m.createPurchase, listPurchases: m.listPurchases,
   getProvider: m.getProvider, getEndpoint: m.getEndpoint,
   resolveProviderByName: m.resolveProviderByName,
   setPurchaseOutcome: m.setPurchaseOutcome,
+  getPurchaseByIdempotencyKey: m.getPurchaseByIdempotencyKey,
 }));
 
 const { POST, GET } = await import('@/api/x402/purchases/route.js');
@@ -44,6 +48,8 @@ beforeEach(() => {
   m.resolveProviderByName.mockResolvedValue({ provider_id: 'prov_exa', name: 'exa' });
   // Default: the post-insert budget re-verification finds no breach.
   m.verifyX402BudgetAfterInsert.mockResolvedValue(null);
+  // Default: no prior purchase for any idempotency_key (v3.7 5d).
+  m.getPurchaseByIdempotencyKey.mockResolvedValue(null);
 });
 
 describe('POST /api/x402/purchases', () => {
@@ -128,6 +134,41 @@ describe('POST /api/x402/purchases', () => {
     await POST(req({ ...valid, provider_id: 'prov_given' }));
     expect(m.resolveProviderByName).not.toHaveBeenCalled();
     expect(m.createPurchase).toHaveBeenCalledWith(m.sql, 'org_1', expect.stringMatching(/^act_/), expect.objectContaining({ provider_id: 'prov_given' }));
+  });
+
+  it('a duplicate idempotency_key returns the cached purchase and does NOT create a second one (v3.7 5d)', async () => {
+    m.getPurchaseByIdempotencyKey.mockResolvedValue({ action_id: 'act_prior', execution_status: 'approved', spend_amount: 0.05 });
+    m.getActionSummary.mockResolvedValue({ action_id: 'act_prior', status: 'running' });
+    const res = await POST(req({ ...valid, idempotency_key: 'dup-key' }));
+    const body = await res.json();
+    expect(body.idempotent_replay).toBe(true);
+    expect(body.purchase.action_id).toBe('act_prior');
+    expect(body.action.action_id).toBe('act_prior');
+    expect(m.getPurchaseByIdempotencyKey).toHaveBeenCalledWith(m.sql, 'org_1', 'dup-key');
+    expect(m.createPurchase).not.toHaveBeenCalled();
+    expect(m.createActionRecord).not.toHaveBeenCalled();
+    expect(m.evaluateGuard).not.toHaveBeenCalled();
+  });
+
+  it('different idempotency_keys each create their own purchase (v3.7 5d)', async () => {
+    m.evaluateGuard.mockResolvedValue({ decision: 'allow' });
+    m.createActionRecord.mockResolvedValue({ action_id: 'act_a', status: 'running' });
+    m.createPurchase.mockResolvedValue({ action_id: 'act_a' });
+    await POST(req({ ...valid, idempotency_key: 'key-1' }));
+    await POST(req({ ...valid, idempotency_key: 'key-2' }));
+    expect(m.createPurchase).toHaveBeenCalledTimes(2);
+    expect(m.createPurchase.mock.calls[0][3]).toEqual(expect.objectContaining({ idempotency_key: 'key-1' }));
+    expect(m.createPurchase.mock.calls[1][3]).toEqual(expect.objectContaining({ idempotency_key: 'key-2' }));
+  });
+
+  it('a missing idempotency_key behaves as today (no lookup, purchase created)', async () => {
+    m.evaluateGuard.mockResolvedValue({ decision: 'allow' });
+    m.createActionRecord.mockResolvedValue({ action_id: 'act_a', status: 'running' });
+    m.createPurchase.mockResolvedValue({ action_id: 'act_a' });
+    const res = await POST(req(valid));
+    expect(res.status).toBe(201);
+    expect(m.getPurchaseByIdempotencyKey).not.toHaveBeenCalled();
+    expect(m.createPurchase).toHaveBeenCalledWith(m.sql, 'org_1', expect.stringMatching(/^act_/), expect.objectContaining({ idempotency_key: null }));
   });
 
   it('GET lists purchases (org-scoped)', async () => {

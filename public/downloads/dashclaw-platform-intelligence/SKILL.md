@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:a103ea5eba761a938e0a44bfbdb1bf601b19dc4c`
+**Shape snapshot:** `sha1:ec77f57021f7680e9d72bc8fe06f31e183a3bd23`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **280** active API routes across **69** categories (328 total including archived)
-- **4** required + **191** optional environment variables
+- **4** required + **193** optional environment variables
 - **106** database tables
 
 ## API Surface
@@ -594,6 +594,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_DB_DRIVER` *(undocumented)*
 - `DASHCLAW_DB_POOL_MAX` *(undocumented)*
 - `DASHCLAW_DISABLE_RATE_LIMIT` *(undocumented)*
+- `DASHCLAW_EXPOSE_ERROR_DETAIL` *(undocumented)*
 - `DASHCLAW_GUARD_DEADLINE_MS` *(undocumented)*
 - `DASHCLAW_GUARD_FALLBACK` *(undocumented)*
 - `DASHCLAW_GUARD_UNAVAILABLE_POLICY` *(undocumented)*
@@ -620,6 +621,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_SUPPRESS_LEGACY_WARNING` *(undocumented)*
 - `DASHCLAW_TIMEOUT_MS` *(undocumented)*
 - `DASHCLAW_URL` *(undocumented)*
+- `DASHCLAW_X402_CURRENCIES` *(undocumented)*
 - `DISABLE_PROMPT_INJECTION_SCAN` *(undocumented)*
 - `DISCORD_APPROVER_ORG_ID` *(undocumented)*
 - `DISCORD_APPROVER_USER_ID` *(undocumented)*

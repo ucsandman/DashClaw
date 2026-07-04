@@ -100,18 +100,24 @@ describe('buildConfigTomlBlock', () => {
     assert.match(built, /"--agent-id", "codex"/);
   });
 
-  it('declares all three hook events with the right matcher', () => {
+  it('declares all four hook events with the right matcher', () => {
     assert.match(built, /\[\[hooks\.PreToolUse\]\]/);
     assert.match(built, /\[\[hooks\.PostToolUse\]\]/);
     assert.match(built, /\[\[hooks\.Stop\]\]/);
+    assert.match(built, /\[\[hooks\.SessionStart\]\]/);
     assert.match(built, /matcher = "Bash\|Edit\|Write\|MultiEdit"/);
+  });
+
+  it('wires the SessionStart digest hook (v3.7 item 6)', () => {
+    assert.match(built, /\[\[hooks\.SessionStart\]\]\n\[\[hooks\.SessionStart\.hooks\]\]/);
+    assert.match(built, /command = ".*dashclaw_session_digest\.py --agent-id codex"/);
   });
 
   it('every hook command declares the codex identity via --agent-id (roadmap v2.2)', () => {
     // The hooks' argv identity beats a machine-ambient DASHCLAW_AGENT_ID, so
     // Codex tool calls are never mis-attributed to another harness.
     const hookCommands = built.split('\n').filter((l) => l.startsWith('command = ') && l.includes('dashclaw_'));
-    assert.equal(hookCommands.length, 3);
+    assert.equal(hookCommands.length, 4);
     for (const line of hookCommands) {
       assert.match(line, / --agent-id codex"$/);
     }
@@ -354,6 +360,7 @@ describe('installCodex (end-to-end)', () => {
       'dashclaw_posttool.py',
       'dashclaw_stop.py',
       'dashclaw_code_session_reporter.py',
+      'dashclaw_session_digest.py',
     ]) {
       assert.equal(
         fs.existsSync(path.join(codexHomeDir, 'hooks', 'dashclaw', file)),
@@ -369,6 +376,8 @@ describe('installCodex (end-to-end)', () => {
     // Config merged
     const config = fs.readFileSync(path.join(codexHomeDir, 'config.toml'), 'utf8');
     assert.match(config, /mcp_servers\.dashclaw/);
+    assert.match(config, /\[\[hooks\.SessionStart\]\]/);
+    assert.match(config, /dashclaw_session_digest\.py/);
 
     // AGENTS.md created
     const agents = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');

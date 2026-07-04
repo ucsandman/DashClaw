@@ -260,6 +260,20 @@ export default async function SetupPage() {
     };
   });
 
+  // v3.7: issuer trust is binary (configured/not), fail-closed either way
+  // since the flip, so it bypasses the rank logic. The issuer URL itself is
+  // never disclosed on this public page.
+  const issuerConfigured = Boolean(process.env.DASHCLAW_ALLOWED_ISSUER);
+  enforcementRows.push({
+    label: 'Verified agent identity (JWKS)',
+    env: 'DASHCLAW_ALLOWED_ISSUER',
+    value: issuerConfigured ? 'configured' : 'not configured',
+    weakened: false,
+    meaning: issuerConfigured
+      ? 'An issuer allow-list is configured; only its signed JWTs can reach verified status. The issuer URL is withheld on this public page.'
+      : 'No issuer configured — bearer tokens never reach verified status (fail-closed). Set this to your IdP to enable verified identity.',
+  });
+
   return (
     <main className="min-h-screen bg-primary px-6 py-10 text-primary">
       <div className="mx-auto max-w-6xl space-y-8">

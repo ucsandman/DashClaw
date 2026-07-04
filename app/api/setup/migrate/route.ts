@@ -6,6 +6,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import postgres from 'postgres';
 import { isAlreadyInitialized, isAuthorizedSetupWriter } from '../../../lib/setup/auth-gate';
+import { redactErrorDetail } from '../../../lib/apiErrors';
 import {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,
@@ -181,15 +182,29 @@ export async function POST(request: Request) {
   } catch (err) {
     try { await sql.end({ timeout: 2 }); } catch { /* best-effort: connection teardown on the error path */ }
     console.error('[SETUP/MIGRATE] error:', err);
-    return NextResponse.json({ error: (err as Error).message }, { status: 500 });
+    // Public route (pre-init bootstrap) — same production redaction gate as
+    // apiErrorResponse; a raw err.message here would leak internals to any
+    // unauthenticated caller before org_default exists.
+    return NextResponse.json({ error: redactErrorDetail(err) }, { status: 500 });
   }
 }
 
 /**
  * Inline DDL for the critical governance tables.
  * Used as fallback if the drizzle DDL file isn't in the serverless bundle.
+ *
+ * Every table block here MUST match its `schema/schema.js` pgTable column
+ * set exactly (column names + SQL types + defaults) — `settings` is the one
+ * exception, since it has no pgTable object in schema.js and is instead
+ * sourced straight from `drizzle/0000_clammy_falcon.sql` (the only place it's
+ * declared). __tests__/unit/critical-tables-ddl-drift.test.js asserts this
+ * for every schema.js-backed table so this constant can't silently rot again
+ * (see v3.7 item 5a ride-along — a stale guard_decisions snapshot here once
+ * missing verification_status/replay_status/jti/act_status/act_hash/evidence/
+ * degraded/agent_name would hard-fail the required audit INSERT with 42703
+ * on any deploy that ever took this fallback branch).
  */
-const CRITICAL_TABLES_DDL = `
+export const CRITICAL_TABLES_DDL = `
 CREATE TABLE IF NOT EXISTS "organizations" (
   "id" text PRIMARY KEY NOT NULL,
   "name" text NOT NULL,
@@ -214,8 +229,9 @@ CREATE TABLE IF NOT EXISTS "guard_policies" (
   "name" text NOT NULL,
   "policy_type" text NOT NULL,
   "rules" text NOT NULL,
-  "active" integer DEFAULT 1,
+  "active" integer NOT NULL DEFAULT 1,
   "agent_ids" text,
+  "created_by" text,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now()
 )
@@ -224,13 +240,21 @@ CREATE TABLE IF NOT EXISTS "guard_decisions" (
   "id" text PRIMARY KEY NOT NULL,
   "org_id" text NOT NULL,
   "agent_id" text,
-  "action_type" text,
-  "risk_score" integer,
+  "agent_name" text,
+  "verification_status" text DEFAULT 'unverified',
+  "replay_status" text DEFAULT 'not_applicable',
+  "jti" text,
+  "act_status" text DEFAULT 'not_applicable',
+  "act_hash" text,
   "decision" text NOT NULL,
   "reason" text,
   "matched_policies" text,
   "context" text,
-  "created_at" timestamp DEFAULT now()
+  "evidence" text,
+  "risk_score" integer,
+  "action_type" text,
+  "created_at" timestamp DEFAULT now(),
+  "degraded" boolean NOT NULL DEFAULT false
 )
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "action_records" (
@@ -239,49 +263,87 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "org_id" text NOT NULL,
   "agent_id" text NOT NULL,
   "agent_name" text,
+  "swarm_id" text,
+  "parent_action_id" text,
   "action_type" text NOT NULL,
   "declared_goal" text,
   "reasoning" text,
+  "authorization_scope" text,
+  "trigger" text,
+  "systems_touched" text,
+  "input_summary" text,
   "status" text,
+  "reversible" integer DEFAULT 1,
   "risk_score" integer DEFAULT 0,
   "confidence" integer DEFAULT 50,
-  "systems_touched" text,
+  "recommendation_id" text,
+  "recommendation_applied" integer DEFAULT 0,
+  "recommendation_override_reason" text,
+  "output_summary" text,
+  "side_effects" text,
+  "artifacts_created" text,
+  "error_message" text,
+  "timestamp_start" text,
+  "timestamp_end" text,
+  "duration_ms" integer,
+  "cost_estimate" real DEFAULT 0,
+  "tokens_in" integer DEFAULT 0,
+  "tokens_out" integer DEFAULT 0,
+  "model" text,
+  "signature" text,
+  "verified" boolean DEFAULT false,
+  "approved_by" text,
+  "approved_at" timestamp,
+  "approval_grant_used_at" timestamp,
+  "approval_expires_at" timestamp with time zone,
+  "outcome_status" text NOT NULL DEFAULT 'pending',
+  "outcome_at" timestamp with time zone,
+  "outcome_summary" text,
+  "outcome_error" text,
+  "outcome_progress" jsonb,
+  "idempotency_key" text,
+  "session_id" text,
+  "guard_decision_id" text,
   "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now()
+  "updated_at" timestamp DEFAULT now(),
+  CONSTRAINT "action_records_action_id_unique" UNIQUE("action_id")
 )
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "api_keys" (
   "id" text PRIMARY KEY NOT NULL,
   "org_id" text NOT NULL,
   "key_hash" text NOT NULL,
-  "key_prefix" text,
-  "label" text,
-  "role" text DEFAULT 'admin',
+  "key_prefix" text NOT NULL,
+  "label" text DEFAULT 'default',
+  "role" text DEFAULT 'member',
   "scope" text,
   "last_used_at" timestamp,
+  "revoked_at" timestamp,
   "created_at" timestamp DEFAULT now()
 )
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "settings" (
   "id" serial PRIMARY KEY NOT NULL,
-  "org_id" text NOT NULL,
+  "org_id" text DEFAULT 'org_default' NOT NULL,
+  "agent_id" text,
   "key" text NOT NULL,
   "value" text,
-  "created_at" timestamp DEFAULT now(),
+  "category" text DEFAULT 'general',
+  "encrypted" boolean DEFAULT false,
   "updated_at" timestamp DEFAULT now()
 )
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "users" (
   "id" text PRIMARY KEY NOT NULL,
   "org_id" text NOT NULL,
+  "email" text NOT NULL,
   "name" text,
-  "email" text,
-  "role" text DEFAULT 'member',
+  "image" text,
   "provider" text,
   "provider_account_id" text,
-  "image" text,
+  "role" text DEFAULT 'member',
   "created_at" timestamp DEFAULT now(),
-  "updated_at" timestamp DEFAULT now()
+  "last_login_at" timestamp DEFAULT now()
 )
 --> statement-breakpoint
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS hosted_mode BOOLEAN NOT NULL DEFAULT FALSE
@@ -293,4 +355,6 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_actions_used INTEGER NO
 ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS scope TEXT
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS organizations_hosted_mode_idx ON organizations(hosted_mode) WHERE hosted_mode = TRUE
+--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS settings_org_agent_key_unique ON settings (org_id, COALESCE(agent_id, ''), key)
 `.trim();

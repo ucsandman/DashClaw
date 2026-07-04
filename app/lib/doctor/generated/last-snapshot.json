@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:a103ea5eba761a938e0a44bfbdb1bf601b19dc4c",
+  "timestamp": "sha1:ec77f57021f7680e9d72bc8fe06f31e183a3bd23",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3622,7 +3622,8 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-jwks-verification.test.js",
-        "app/lib/jwks-verifier.ts"
+        "app/lib/jwks-verifier.ts",
+        "app/setup/page.tsx"
       ],
       "in_env_example": false
     },
@@ -3836,6 +3837,14 @@
       "required": false,
       "files": [
         "middleware.js"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_EXPOSE_ERROR_DETAIL",
+      "required": false,
+      "files": [
+        "app/lib/apiErrors.ts"
       ],
       "in_env_example": false
     },
@@ -4122,6 +4131,15 @@
         "scripts/test-presence.mjs",
         "scripts/test-sdk-live.mjs",
         "scripts/verify-demo-e2e.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_X402_CURRENCIES",
+      "required": false,
+      "files": [
+        "__tests__/unit/validate-x402.test.js",
+        "app/lib/validate.js"
       ],
       "in_env_example": false
     },
@@ -4742,6 +4760,7 @@
         "app/api/secrets/[id]/value/route.ts",
         "app/api/secrets/env/route.ts",
         "app/api/settings/route.ts",
+        "app/lib/apiErrors.ts",
         "app/lib/auth.ts",
         "app/lib/db.ts",
         "app/lib/events.ts",

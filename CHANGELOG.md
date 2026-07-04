@@ -13,6 +13,78 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.49.0] — 2026-07-04
+
+Closes roadmap v3.7 (deferred-debt triage): every parked item from this era got
+a written build-or-kill verdict — 9 builds shipped below, 6 kills recorded with
+reasons and revival triggers. Spec:
+`docs/superpowers/specs/2026-07-04-deferred-debt-triage.md`.
+
+### Changed
+- **JWKS verification is fail-closed when no issuer is configured**: with
+  `DASHCLAW_ALLOWED_ISSUER` unset, bearer tokens now resolve `unverified` and
+  the JWKS is never fetched (previously any issuer with a reachable JWKS was
+  accepted — letting any API-key holder forge "verified" identity for
+  arbitrary agent ids). Flipped while the verified fleet was empty, same
+  evidence as the v3.6 default flips; enabling verification is the same single
+  env var it always was. The `/setup` enforcement-posture card gains a
+  verified-identity row (issuer URL never disclosed).
+- **API error responses redact exception detail in production**: the shared
+  `apiErrorResponse` handler (219 call sites) returned raw `err.message` to
+  any API-key/JWT holder — schema internals leaking to governed agents. In
+  production, `detail`/`code` are withheld unless
+  `DASHCLAW_EXPOSE_ERROR_DETAIL=true`; development unchanged; the curated 503
+  branches (schema-not-initialized, DB unreachable) stay descriptive. The
+  public `/api/setup/migrate` error path got the same gate.
+- **x402 purchases accept a closed currency set**: `DASHCLAW_X402_CURRENCIES`
+  (comma list, default `USDC`); unknown currencies → 400. Spend aggregation
+  sums amounts 1:1 against USD budget ceilings, so a fabricated currency
+  corrupted budget-limit bookkeeping — this is budget integrity, not hygiene.
+
+### Added
+- **x402 purchase idempotency**: optional `idempotency_key` on
+  `POST /api/x402/purchases` (migration 0047, unique per org). A retried
+  request returns the original purchase with `idempotent_replay: true` instead
+  of minting a second action + purchase row that double-counts spend —
+  bringing the money route up to the protection `/api/guard` and
+  `/api/actions` already had.
+- **Codex SessionStart digest parity**: `dashclaw install codex` now ships the
+  session-digest hook and wires `[[hooks.SessionStart]]` — the parity doc's
+  "wire only after confirming the event fires" condition was met by probing
+  codex-cli 0.139.0 (event enum + a live registered SessionStart hook).
+  Installer test pins both.
+- **`CRITICAL_TABLES_DDL` drift gate**: the setup-migrate fallback DDL was a
+  stale pre-Phase-2 snapshot (guard_decisions missing 8 columns — any deploy
+  taking that branch would hard-fail the required audit INSERT). Every table
+  block regenerated from `schema/schema.js`, and a new unit test fails the
+  suite if the fallback ever diverges again.
+- **Expired approvals show when they expired** (`/approvals`): the Expired
+  section rendered an unlabeled *request* time; rows now carry labeled
+  Requested/Expired timestamps, and pending cards show their expiry.
+- **Degradation by-day strip** (`/policies`): the tuning cockpit's
+  `by_day` data was fetched but never rendered; it now draws as a quiet
+  bar-per-day strip beside the existing sentence.
+- Guard-load SLO gate calibrated from a real warmed run (see the scope doc for
+  the derivation); the harness stays on-demand by design.
+
+### Fixed
+- Dependabot's npm_and_yarn updater no longer fails EOVERRIDE: the duplicate
+  `postcss` devDependency was removed; `overrides.postcss` remains the single
+  source of the GHSA-qx2v-qp2m-jg93 pin (own commit, pre-release).
+
+### Killed (recorded verdicts, see the spec)
+- /decisions list risk-composition hint (hot shared list path; full breakdown
+  one click away). Degradation per-policy split (timing artifact, not a policy
+  property). Guard-load CI wiring + LLM slow-path scenario (flaky-by-nature in
+  shared CI; unseeded slow-path is "theatre" per the harness's own authors;
+  revival trigger = degradation-rate recurrence). `verification_status` DB
+  enum (single writer through a TS union). Full per-org JWKS issuer binding
+  (hosted multi-tenant future; revisit on real demand). Assumption
+  contradiction detection (no false-positive budget exists; LLM-free
+  techniques conflate similarity with contradiction). Calibration
+  duplicate-vs-corpus detection + in-UI rename (deferral rationale intact,
+  zero recurrence since v4.34.0).
+
 ## [4.48.0] — 2026-07-04
 
 Closes roadmap v3.6 (enforcement over assertion): "blocks are absolute" is now

@@ -1,5 +1,24 @@
 import { NextResponse } from 'next/server';
 
+const WITHHELD_DETAIL =
+  'Error detail withheld. Set DASHCLAW_EXPOSE_ERROR_DETAIL=true to include it in responses.';
+
+/**
+ * Redact a raw error message in production unless explicitly opted in via
+ * DASHCLAW_EXPOSE_ERROR_DETAIL=true. This handler (and any route that echoes
+ * err.message directly, e.g. /api/setup/migrate) is reachable by any
+ * API-key/JWT holder — governed agents included — so err.message must not
+ * leak internals (SQL fragments, file paths, dependency errors) by default.
+ * Development/test keep full detail unconditionally.
+ */
+export function redactErrorDetail(err: any): string {
+  const detail = err?.message || String(err);
+  if (process.env.NODE_ENV === 'production' && process.env.DASHCLAW_EXPOSE_ERROR_DETAIL !== 'true') {
+    return WITHHELD_DETAIL;
+  }
+  return detail;
+}
+
 /**
  * Shared API error handler that detects common deployment issues
  * and returns actionable messages instead of generic 500s.
@@ -37,12 +56,12 @@ export function apiErrorResponse(err: any, label: string): NextResponse {
     }, { status: 503 });
   }
 
-  // Surface the real error so we can actually diagnose issues.
-  // Never leak stack traces, but the message itself is useful.
-  const detail = err.message || String(err);
+  // Surface the real error so we can actually diagnose issues, subject to the
+  // production redaction gate above. Never leak stack traces.
+  const detail = redactErrorDetail(err);
   return NextResponse.json({
     error: 'Internal server error',
     detail,
-    code: err.code || undefined,
+    code: detail === WITHHELD_DETAIL ? undefined : (err.code || undefined),
   }, { status: 500 });
 }

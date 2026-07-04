@@ -7,7 +7,11 @@
  * Supported algorithms: EdDSA (Ed25519), RS256/384/512, ES256/384/512.
  *
  * Configuration (env vars — no YAML required):
- *   DASHCLAW_ALLOWED_ISSUER  — if set, tokens from other issuers → unknown_issuer
+ *   DASHCLAW_ALLOWED_ISSUER  — REQUIRED for verification (v3.7, 2026-07-04):
+ *                              unset → every bearer token resolves `unverified`
+ *                              (fail-closed; previously any issuer with a
+ *                              reachable JWKS was accepted). Set it to enable
+ *                              verified identity; other issuers → unknown_issuer
  *   DASHCLAW_JWT_AUDIENCE    — if set, the `aud` claim must include this value
  *
  * Resilience: 1-hour per-process JWKS cache, 3-failure/30s circuit breaker,
@@ -203,9 +207,18 @@ export async function verifyJwt(token: string): Promise<JwtVerificationResult> {
     const agentName = (payload.agent_name as string | undefined) || null;
     const alg = header.alg as string;
 
-    // Validate allowed issuer (if configured)
+    // Issuer trust is opt-in and fail-closed (v3.7, 2026-07-04): with no
+    // configured issuer there is no trust anchor, so no token can reach
+    // `verified` — otherwise any party standing up a reachable JWKS could
+    // mint "verified" identity for arbitrary agent_ids. Flipped while the
+    // verified fleet was empty (same evidence as the v3.6 default flips), so
+    // no existing traffic changed behavior. Enabling verification is the same
+    // single env var it always was: DASHCLAW_ALLOWED_ISSUER.
     const allowedIssuer = getAllowedIssuer();
-    if (allowedIssuer && issuer !== allowedIssuer) {
+    if (!allowedIssuer) {
+      return { verification_status: 'unverified', agent_id: null, agent_name: null, issuer, jti, exp };
+    }
+    if (issuer !== allowedIssuer) {
       return { verification_status: 'unknown_issuer', agent_id: null, agent_name: null, issuer, jti, exp };
     }
 

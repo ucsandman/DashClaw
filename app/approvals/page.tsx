@@ -276,6 +276,15 @@ export default function ApprovalsPage() {
                                 {new Date(action.timestamp_start).toLocaleString()}
                               </span>
                             </div>
+                            {action.approval_expires_at && (
+                              <div className="flex items-center gap-2 text-tertiary">
+                                <Hourglass size={14} />
+                                <span>Expires</span>
+                                <span className="ml-auto tabular-nums text-secondary">
+                                  {new Date(action.approval_expires_at).toLocaleString()}
+                                </span>
+                              </div>
+                            )}
                           </div>
                           <div className="space-y-2 rounded-lg border border-border bg-surface-tertiary p-3">
                             <div className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
@@ -352,8 +361,13 @@ export default function ApprovalsPage() {
                     className="text-xs text-tertiary"
                   />
                   <span className="text-xs tabular-nums text-tertiary">
-                    {new Date(action.timestamp_start).toLocaleString()}
+                    Requested {new Date(action.timestamp_start).toLocaleString()}
                   </span>
+                  {action.approval_expires_at && (
+                    <span className="text-xs tabular-nums text-tertiary">
+                      Expired {new Date(action.approval_expires_at).toLocaleString()}
+                    </span>
+                  )}
                 </div>
               ))}
             </div>

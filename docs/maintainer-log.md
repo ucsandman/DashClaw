@@ -12,6 +12,68 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the parked queue gets its verdicts (v4.49.0)
+
+Roadmap v3.7, the era-closer: v1's item-6 pattern applied to everything this
+era parked. Nine deferred lines, each ending in a written build-or-kill
+verdict — because a deferral without a verdict is how debt compounds
+silently. Five parallel evidence sweeps over the deferral sources, plus one
+empirical probe, and the queue drained into 9 builds and 6 recorded kills
+(spec: `docs/superpowers/specs/2026-07-04-deferred-debt-triage.md`).
+
+The kills are the easy half to summarize: the /decisions risk-composition
+hint dies on hot-path math (13 callers share that list query; the full
+breakdown is one click away), the load-harness CI wiring and LLM slow-path
+die on their own authors' reasoning (a flaky gate is worse than none;
+an unseeded slow-path test is "theatre" — their word, and it held up),
+assumption contradiction detection dies because the false-positive budget it
+was gated on still doesn't exist and every LLM-free technique conflates
+*related* with *opposed*, and the calibration follow-ups die because their
+deferral rationale hasn't aged a day. Each kill records its revival trigger.
+
+The builds divide into wire-throughs and real hardening. Wire-throughs:
+expired approvals were rendering an unlabeled *request* time under a heading
+that says "Expired" (the list SELECT never included `approval_expires_at`;
+now labeled Requested/Expired), and the /policies degradation strip renders
+the `by_day` data that had been fetched and dropped on the floor since v2.1.
+Hardening: x402 purchases — the money route — was the only sibling without
+an idempotency key, so a client retry double-counted spend; the currency
+field accepted any 16-char token and summed it 1:1 into USD budget ceilings
+(now a closed allow-list); `apiErrorResponse` returned raw driver messages
+to governed agents on 219 call sites (now production-redacted behind
+`DASHCLAW_EXPOSE_ERROR_DETAIL`); and JWKS verification with no configured
+issuer accepted *any* issuer with a reachable JWKS — meaning any API-key
+holder could forge "verified" identity. That last one is now fail-closed,
+by the same evidence that justified the v3.6 flips: the verified fleet is
+empty, so the flip is free.
+
+Two finds worth the log. First, the evidence sweep surfaced a live bug the
+roadmap never listed: the setup-migrate route's `CRITICAL_TABLES_DDL`
+fallback was a stale pre-Phase-2 snapshot — `guard_decisions` missing eight
+columns, so any deploy that ever took the fallback branch would hard-fail
+the required audit INSERT. The fallback is regenerated from `schema/schema.js`
+and a drift-gate test now fails the suite if it ever rots again — the v3.3
+playbook, applied to the safety net itself. Second, the Codex SessionStart
+question ("lifecycle unverified — verify or kill") got settled by actually
+probing the installed CLI: the event enum is in the binary and a live
+registered SessionStart hook exists on this very machine, so the digest
+parity shipped as a build, with the installer test pinning the file the same
+way the v2.7 dead-ingest lesson taught.
+
+The SLO gate got its calibration too: warmed production build, fast p99
+444ms, record p99 735ms, no knee to 50 connections → gate 1500ms (worst
+warmed p99 ×2), replacing the placeholder that shipped with the harness. And
+the Dependabot EOVERRIDE untangle went in as its own quiet commit before any
+of this, per the roadmap's own "never mid-ship" — the duplicate postcss
+devDependency was the collision; the CVE-pinning override stays.
+
+One honest note: the flood of small hardening flips in one release
+(error-detail redaction, currency allow-list, issuer fail-closed) is the
+kind of change that can surprise an integrator. Every one has a one-env-var
+rollback documented in `.env.example` and the CHANGELOG, and every one
+changed behavior only on paths with zero measured production traffic in the
+affected configuration.
+
 ## 2026-07-04 — enforcement over assertion (v4.48.0)
 
 Roadmap v3.6, the deepest cut of the v3 era: make "blocks are absolute" true

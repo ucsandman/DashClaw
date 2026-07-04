@@ -21,6 +21,9 @@ const EnvSchema = z
     DASHCLAW_JTI_MAX_TTL_SECONDS: z.string(),
     DASHCLAW_GUARD_FALLBACK: z.enum(['allow', 'block', 'require_approval']),
     DASHCLAW_GUARD_DEADLINE_MS: z.string(),
+    // v3.7 hardening knobs (defaults live in the consuming modules).
+    DASHCLAW_X402_CURRENCIES: z.string(),
+    DASHCLAW_EXPOSE_ERROR_DETAIL: z.string(),
     DISABLE_PROMPT_INJECTION_SCAN: z.string(),
     GUARD_LLM_KEY: z.string(),
     OPENAI_API_KEY: z.string(),

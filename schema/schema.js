@@ -1802,6 +1802,11 @@ export const x402Purchases = pgTable('x402_purchases', {
   confidenceScore: real('confidence_score'),
   operatorFeedback: text('operator_feedback'),
   failureReason: text('failure_reason'),
+  // End-to-end idempotency (v3.7 5d): mirrors action_records.idempotencyKey.
+  // /api/actions and /api/guard already short-circuit duplicate
+  // (org_id, idempotency_key) submissions; x402 purchases — the money route —
+  // was the one sibling without it. See drizzle/0047 for the unique index.
+  idempotencyKey: text('idempotency_key'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow(),
   completedAt: timestamp('completed_at', { withTimezone: true }),
 }, (t) => ({

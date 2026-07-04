@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { validateX402Purchase, validatePolicy, POLICY_TYPES } from '@/lib/validate.js';
 
 const base = {
@@ -42,6 +42,66 @@ describe('validateX402Purchase (R4)', () => {
 
   it('rejects a client risk_score outside 0-100', () => {
     expect(validateX402Purchase({ ...base, cost_estimate: 1, risk_score: 9999 }).valid).toBe(false);
+  });
+});
+
+describe('x402 currency allow-list (v3.7 5b)', () => {
+  beforeEach(() => { delete process.env.DASHCLAW_X402_CURRENCIES; });
+  afterEach(() => { delete process.env.DASHCLAW_X402_CURRENCIES; });
+
+  it('default allow-list accepts USDC in any case', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, currency: 'usdc' });
+    expect(r.valid).toBe(true);
+    expect(r.data.currency).toBe('USDC');
+  });
+
+  it('default allow-list rejects an unknown currency', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, currency: 'ZZ' });
+    expect(r.valid).toBe(false);
+    expect(r.errors.join(' ')).toMatch(/currency must be one of/i);
+  });
+
+  it('default allow-list rejects junk/injection strings', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, currency: "'; DROP TABLE x402_purchases; --" });
+    expect(r.valid).toBe(false);
+  });
+
+  it('DASHCLAW_X402_CURRENCIES extends the allowed set', () => {
+    process.env.DASHCLAW_X402_CURRENCIES = 'USDC,EUR';
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, currency: 'eur' });
+    expect(r.valid).toBe(true);
+    expect(r.data.currency).toBe('EUR');
+  });
+
+  it('DASHCLAW_X402_CURRENCIES with spaces around entries is handled', () => {
+    process.env.DASHCLAW_X402_CURRENCIES = ' USDC , EUR , gbp ';
+    expect(validateX402Purchase({ ...base, cost_estimate: 1, currency: 'gbp' }).valid).toBe(true);
+    expect(validateX402Purchase({ ...base, cost_estimate: 1, currency: 'jpy' }).valid).toBe(false);
+  });
+
+  it('DASHCLAW_X402_CURRENCIES replaces (not appends to) the default set', () => {
+    process.env.DASHCLAW_X402_CURRENCIES = 'EUR';
+    expect(validateX402Purchase({ ...base, cost_estimate: 1, currency: 'usdc' }).valid).toBe(false);
+    expect(validateX402Purchase({ ...base, cost_estimate: 1, currency: 'eur' }).valid).toBe(true);
+  });
+});
+
+describe('x402 purchase idempotency_key (v3.7 5d)', () => {
+  it('accepts an idempotency_key within the length cap', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, idempotency_key: 'key-123' });
+    expect(r.valid).toBe(true);
+    expect(r.data.idempotency_key).toBe('key-123');
+  });
+
+  it('rejects an idempotency_key exceeding the 256-char cap', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1, idempotency_key: 'x'.repeat(257) });
+    expect(r.valid).toBe(false);
+  });
+
+  it('is optional — a purchase without one validates as before', () => {
+    const r = validateX402Purchase({ ...base, cost_estimate: 1 });
+    expect(r.valid).toBe(true);
+    expect(r.data.idempotency_key).toBeUndefined();
   });
 });
 

@@ -11,6 +11,7 @@ const m = vi.hoisted(() => ({
   getProvider: vi.fn(),
   getEndpoint: vi.fn(),
   resolveAgentIdentity: vi.fn(),
+  getPurchaseByIdempotencyKey: vi.fn(async () => null),
 }));
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
 vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
@@ -20,11 +21,13 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createBlockedActionRecord: m.createBlockedActionRecord,
   deleteActionsByIds: m.deleteActionsByIds,
   markActionBlocked: vi.fn(),
+  getActionSummary: vi.fn(),
 }));
 vi.mock('@/lib/repositories/x402.repository.js', () => ({
   createPurchase: m.createPurchase, listPurchases: m.listPurchases,
   getProvider: m.getProvider, getEndpoint: m.getEndpoint,
   setPurchaseOutcome: vi.fn(),
+  getPurchaseByIdempotencyKey: m.getPurchaseByIdempotencyKey,
 }));
 vi.mock('@/lib/identity-resolution.js', () => ({ resolveAgentIdentity: m.resolveAgentIdentity }));
 

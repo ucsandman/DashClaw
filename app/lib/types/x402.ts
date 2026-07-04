@@ -16,7 +16,13 @@ export type X402PurchaseId = Brand<string, 'X402PurchaseId'>;
 
 export type X402ProviderStatus = 'active' | 'blocked' | 'inactive';
 
-/** Explicit currency; default 'USDC'. The `& {}` keeps literal hints + openness. */
+/**
+ * Explicit currency; default 'USDC'. Kept as an open string rather than a
+ * closed union because the accepted set is a runtime, env-configurable
+ * allow-list (DASHCLAW_X402_CURRENCIES, default USDC) enforced in
+ * collectX402Currency (app/lib/validate.js) — a TS union can't express that.
+ * The `& {}` keeps literal hints + openness.
+ */
 export type CurrencyCode = 'USDC' | (string & {});
 
 /** REAL USD amount; must be validated finite and >= 0 at the boundary. */
@@ -116,6 +122,9 @@ export interface X402PurchaseInput {
   wallet_reference?: string;
   payment_reference?: string;
   purchase_reason?: string;
+  /** End-to-end idempotency (v3.7 5d): a duplicate (org_id, idempotency_key)
+   * short-circuits to the cached purchase instead of minting a second one. */
+  idempotency_key?: string;
   [field: string]: unknown;
 }
 

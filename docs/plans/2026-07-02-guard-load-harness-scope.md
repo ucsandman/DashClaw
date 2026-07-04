@@ -2,9 +2,19 @@
 
 **Status:** BUILT (v1) — `scripts/guard-load.mjs`, `npm run guard:load`. Driver
 decision (§6) resolved to **autocannon**. v1 ships the `fast`, `record`, and
-`ramp` scenarios; the LLM slow-path scenario is the deferred follow-up (see §1
-note). SLO gate (`--p99`) defaults to 2000ms and must be **calibrated against a
-real warmed local run** before it's trusted or wired anywhere.
+`ramp` scenarios.
+**SLO calibrated (v3.7, 2026-07-04):** warmed local production build
+(`next start`, remote Neon, rate limiter lifted — the default limiter trips at
+~1000 req/60s and its fast 429s poison the percentiles, so lift it for any
+future calibration): fast p99=444ms, record p99=735ms @10 conns; ramp to 50
+conns held p99≤501ms, no knee. Gate default = worst warmed baseline p99
+(735ms) ×2 headroom → **1500ms**.
+**v3.7 triage verdicts** (spec
+`docs/superpowers/specs/2026-07-04-deferred-debt-triage.md`): CI wiring —
+**killed** (the §5 flakiness reasoning stands; the harness stays on-demand);
+LLM slow-path scenario — **killed** (unseeded = "theatre" per the §1 note;
+seeded = provider calls in a load loop). Revival trigger for both: the
+`/policies` degradation surface showing a recurrence.
 **Date:** 2026-07-02
 **Why now:** `/api/guard` sits in the hot path of every governed action, and this
 repo has a documented history of guard latency regressions (apply-base-60

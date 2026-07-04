@@ -22,6 +22,7 @@ import {
   createActionRecord,
   expireOverdueApproval,
   sweepExpiredApprovals,
+  listActions,
   APPROVAL_RETRY_GRACE_SECONDS,
   DEFAULT_APPROVAL_WAIT_SECONDS,
 } from '../../app/lib/repositories/actions.repository';
@@ -183,5 +184,22 @@ describe('x402 spend predicates exclude dead approvals', () => {
     for (const call of sql.calls) {
       expect(call.text).toContain("execution_status NOT IN ('failed', 'denied', 'expired')");
     }
+  });
+});
+
+// v3.7 item 3: the /approvals Expired section renders a labeled expiry
+// timestamp, which requires the list SELECT to actually carry the column.
+describe('listActions carries approval_expires_at', () => {
+  it('includes approval_expires_at in the SELECT and passes it through on each row', async () => {
+    const sql = makeSql([
+      [], // consumed by the WHERE-fragment builder call, not a real result row
+      [{ action_id: 'act_1', approval_expires_at: '2026-07-04T00:00:00.000Z' }],
+      [{ total: '1' }],
+      [{ total: '1', completed: '0', failed: '0', running: '0', blocked: '0', high_risk: '0', avg_risk: '0', total_cost: '0' }],
+    ]);
+    const result = await listActions(sql, 'org1', {});
+    // calls[0] is the WHERE-fragment builder call; calls[1] is the list SELECT.
+    expect(sql.calls[1]!.text).toContain('approval_expires_at');
+    expect(result.actions[0]?.approval_expires_at).toBe('2026-07-04T00:00:00.000Z');
   });
 });

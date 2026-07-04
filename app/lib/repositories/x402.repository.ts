@@ -65,6 +65,7 @@ interface PurchaseInput {
   expected_value?: string | null;
   execution_status?: string;
   confidence_score?: number | null;
+  idempotency_key?: string | null;
   [k: string]: unknown;
 }
 
@@ -181,13 +182,13 @@ export async function createPurchase(sql: SqlTag, orgId: string, actionId: strin
     INSERT INTO x402_purchases
       (action_id, org_id, provider_id, endpoint_id, agent_id, spend_amount, currency, payment_method,
        wallet_reference, payment_reference, purchase_reason, context_gap, alternatives_considered, expected_value,
-       execution_status, confidence_score)
+       execution_status, confidence_score, idempotency_key)
     VALUES
       (${actionId}, ${orgId}, ${data.provider_id || null}, ${data.endpoint_id || null}, ${data.agent_id || null},
        ${data.spend_amount ?? 0}, ${data.currency || 'USDC'}, ${data.payment_method || null},
        ${data.wallet_reference || null}, ${data.payment_reference || null}, ${data.purchase_reason || null},
        ${data.context_gap || null}, ${data.alternatives_considered || null}, ${data.expected_value || null},
-       ${data.execution_status || 'pending'}, ${data.confidence_score ?? null})
+       ${data.execution_status || 'pending'}, ${data.confidence_score ?? null}, ${data.idempotency_key || null})
     ON CONFLICT (action_id) DO UPDATE SET
        provider_id = EXCLUDED.provider_id, endpoint_id = EXCLUDED.endpoint_id, spend_amount = EXCLUDED.spend_amount
     RETURNING *`;
@@ -196,6 +197,30 @@ export async function createPurchase(sql: SqlTag, orgId: string, actionId: strin
 
 export async function getPurchase(sql: SqlTag, orgId: string, actionId: string): Promise<X402PurchaseRow | null> {
   const rows = await sql`SELECT * FROM x402_purchases WHERE org_id = ${orgId} AND action_id = ${actionId} LIMIT 1`;
+  return (rows[0] ?? null) as X402PurchaseRow | null;
+}
+
+/**
+ * Look up an existing purchase by idempotency key for this org (v3.7 5d).
+ * Mirrors getGuardDecisionByIdempotencyKey (guard.repository.ts) /
+ * getActionByIdempotencyKey (actions.repository.ts): a client retry on the
+ * same (org_id, idempotency_key) short-circuits to the prior row instead of
+ * minting a second purchase. The unique partial index on this column (see
+ * drizzle/0047) prevents a race-condition double-insert even if two requests
+ * hit this code path simultaneously — the second INSERT fails and a retry
+ * resolves through this read.
+ */
+export async function getPurchaseByIdempotencyKey(
+  sql: SqlTag,
+  orgId: string,
+  idempotencyKey: string | null | undefined,
+): Promise<X402PurchaseRow | null> {
+  if (!idempotencyKey) return null;
+  const rows = await sql`
+    SELECT * FROM x402_purchases
+    WHERE org_id = ${orgId} AND idempotency_key = ${idempotencyKey}
+    LIMIT 1
+  `;
   return (rows[0] ?? null) as X402PurchaseRow | null;
 }
 

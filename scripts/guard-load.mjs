@@ -68,7 +68,11 @@ const BASE = arg('url', process.argv[2] && !process.argv[2].startsWith('--') ? p
 const SCENARIO = arg('scenario', 'all');
 const CONNECTIONS = Number(arg('connections', '10'));
 const DURATION = Number(arg('duration', '10'));
-const P99_GATE_MS = Number(arg('p99', '2000')); // SLO gate — CALIBRATE against a real warmed run before trusting.
+// SLO gate. Calibrated 2026-07-04 (v3.7) against a warmed local production
+// build (next start, remote Neon DB, rate limiter lifted): fast p99=444ms,
+// record p99=735ms @10 conns; ramp to 50 conns held p99<=501ms with no knee.
+// Gate = worst warmed baseline p99 (735ms) x2 headroom, rounded -> 1500ms.
+const P99_GATE_MS = Number(arg('p99', '1500'));
 const OUT = arg('out', null);
 const RAMP_LEVELS = [5, 10, 25, 50];
 

@@ -36,6 +36,37 @@ function evidenceLine(proposal: TuningProposal): string | null {
   return parts.join(' · ');
 }
 
+/** Fraction of a day's decisions that were degraded, guarded against a zero-decision day. */
+function degradedRatio(day: { degraded: number; total: number }): number {
+  if (!day.total) return 0;
+  return Math.min(1, day.degraded / day.total);
+}
+
+/** Compact bar-per-day strip: one thin bar per day, fill height proportional to degraded/total. */
+function DegradationByDayStrip({ by_day }: { by_day: Array<{ day: string; total: number; degraded: number }> }) {
+  if (by_day.length === 0) return null;
+  return (
+    <div
+      className="mt-2 flex h-6 items-stretch gap-px"
+      role="img"
+      aria-label={`Degraded decisions per day over the last ${by_day.length} days`}
+    >
+      {by_day.map((d) => (
+        <div
+          key={d.day}
+          title={`${d.day}: ${d.degraded}/${d.total} degraded`}
+          className="relative h-full flex-1 rounded-[1px] bg-white/5"
+        >
+          <div
+            className="absolute inset-x-0 bottom-0 rounded-[1px] bg-status-warning"
+            style={{ height: `${degradedRatio(d) * 100}%` }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 /** Confirm-button label for the second click — spells out the change for raise_risk_threshold. */
 function applyLabel(proposal: TuningProposal): string {
   if (proposal.rule === 'raise_risk_threshold' && proposal.patch) {
@@ -283,16 +314,19 @@ export default function TuningProposals({ onPolicyChange }: TuningProposalsProps
           window actually contains degraded decisions; a healthy instance shows
           nothing here. These rows are excluded from the proposal evidence. */}
       {degradation && degradation.degraded > 0 && (
-        <p className="mt-2 rounded-md border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
-          <span className="font-medium text-status-warning">
-            {degradation.degraded} of {degradation.total} decisions
-          </span>{' '}
-          in the last {degradation.window_days} days were deadline degradations ({(degradation.rate * 100).toFixed(1)}%)
-          &mdash; the evaluation ran over budget, not a policy match. Excluded from the evidence below.
-          {degradation.last_degraded_at && (
-            <span className="text-tertiary"> Latest: {new Date(degradation.last_degraded_at).toLocaleString()}.</span>
-          )}
-        </p>
+        <div className="mt-2 rounded-md border border-border bg-surface-secondary px-3 py-2">
+          <p className="text-xs text-secondary">
+            <span className="font-medium text-status-warning">
+              {degradation.degraded} of {degradation.total} decisions
+            </span>{' '}
+            in the last {degradation.window_days} days were deadline degradations ({(degradation.rate * 100).toFixed(1)}%)
+            &mdash; the evaluation ran over budget, not a policy match. Excluded from the evidence below.
+            {degradation.last_degraded_at && (
+              <span className="text-tertiary"> Latest: {new Date(degradation.last_degraded_at).toLocaleString()}.</span>
+            )}
+          </p>
+          <DegradationByDayStrip by_day={degradation.by_day} />
+        </div>
       )}
 
       {data.proposals.length > 0 ? (
