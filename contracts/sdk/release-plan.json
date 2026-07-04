@@ -1,16 +1,16 @@
 {
   "node": {
-    "current_version": "4.43.0",
+    "current_version": "4.44.0",
     "next_bump": "none",
-    "reason": "4.43.0 is ADR Phase 2 batch 4 (guard-layer hardening): operator-approval grants become single-use + fingerprint-bound (atomic UPDATE consuming approval_grant_used_at from drizzle/0045, bound to action_type — one approval covers exactly one retried evaluation; idempotent replays keep the UX), and the rate_limit runaway valve counts guard_decisions (every evaluation, new org/agent/created_at index) instead of action_records so guard-only integrations trip it — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.44.0 ships the doctor write-path canary (roadmap v3.3 core): a write-canary doctor category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org (insert, verify, delete) — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup 'Write-path health' and /doctor. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.43.0",
+    "current_version": "4.44.0",
     "next_bump": "none",
-    "reason": "4.43.0 is ADR Phase 2 batch 4 (guard-layer hardening): operator-approval grants become single-use + fingerprint-bound (atomic UPDATE consuming approval_grant_used_at from drizzle/0045, bound to action_type — one approval covers exactly one retried evaluation; idempotent replays keep the UX), and the rate_limit runaway valve counts guard_decisions (every evaluation, new org/agent/created_at index) instead of action_records so guard-only integrations trip it — platform only, no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.44.0 ships the doctor write-path canary (roadmap v3.3 core): a write-canary doctor category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org (insert, verify, delete) — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup 'Write-path health' and /doctor. Platform only — no Node/Python SDK source change; SDKs NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]

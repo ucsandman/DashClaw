@@ -1,4 +1,5 @@
 import { projectReadinessReport, getReadinessReport } from '../lib/readiness.mjs';
+import { runDoctor } from '../lib/doctor/engine.mjs';
 
 function statusTone(status: string): string {
   switch (status) {
@@ -95,10 +96,61 @@ function RecommendationList({ recommendations = [] }: { recommendations?: any[] 
 
 export const dynamic = 'force-dynamic';
 
+// /setup is public (pre-onboarding), and the canary performs real DB writes.
+// The memo holds the IN-FLIGHT promise, not the resolved value, so a burst of
+// concurrent anonymous GETs shares one canary run instead of each launching
+// their own (write-amplification DoS). One run per minute per instance; the
+// authenticated doctor API/CLI always run fresh.
+const CANARY_TTL_MS = 60_000;
+let canaryMemo: { at: number; promise: Promise<{ result: any; error: boolean }> } | null = null;
+
+function runCanaryMemoized(): Promise<{ result: any; error: boolean }> {
+  if (canaryMemo && Date.now() - canaryMemo.at < CANARY_TTL_MS) return canaryMemo.promise;
+  const promise = runDoctor({ categories: ['write-canary'] }).then(
+    (result: any) => ({ result, error: false }),
+    (err: unknown) => {
+      // Full error is server-side only; this page is unauthenticated.
+      console.error('[Setup] write-path canary failed to run:', err);
+      return { result: null, error: true };
+    },
+  );
+  canaryMemo = { at: Date.now(), promise };
+  return promise;
+}
+
 export default async function SetupPage() {
-  const report = await getReadinessReport(process.env);
+  // The canary runs alongside the readiness report: real writes under the
+  // isolated canary org, so a dead write path fails HERE before an agent
+  // ever hits it. An engine error is rendered, never swallowed.
+  const [report, canary] = await Promise.all([
+    getReadinessReport(process.env),
+    runCanaryMemoized(),
+  ]);
   const view = projectReadinessReport(report, { isAuthenticated: true });
   const overall = view.verification;
+
+  const canaryChecks = (canary.result?.checks || []).map((c: any) => ({
+    id: c.id,
+    label: c.title,
+    // Raw DB error text stays off this unauthenticated page (schema
+    // disclosure); the authenticated Doctor panel/CLI carry the full error.
+    detail: c.status === 'fail'
+      ? 'Write failed. The exact database error is on the Doctor panel and in server logs.'
+      : c.message,
+    status: c.status,
+    nextAction: c.status === 'fail'
+      ? 'Open the Doctor panel (/doctor) and apply the auto-fix, or run pending migrations.'
+      : null,
+  }));
+  const canaryStatus = canary.error
+    ? 'fail'
+    : canaryChecks.length === 0
+      ? 'skipped'
+      : canaryChecks.some((c: any) => c.status === 'fail')
+        ? 'fail'
+        : canaryChecks.some((c: any) => c.status === 'warn')
+          ? 'warn'
+          : 'pass';
 
   return (
     <main className="min-h-screen bg-primary px-6 py-10 text-primary">
@@ -139,6 +191,38 @@ export default async function SetupPage() {
 
         <section className="grid min-w-0 gap-6 lg:grid-cols-[2fr_1fr]">
           <div className="min-w-0 space-y-6">
+            <article className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Write-path health</h2>
+                  <p className="mt-1 text-sm text-secondary">
+                    Live canary writes just exercised the heartbeat, action-ledger, and guard-audit
+                    write paths against this database. A dead write path fails here before an agent hits it.
+                  </p>
+                </div>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${checkTone(canaryStatus)}`}>
+                  {canaryStatus}
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-tertiary">
+                Checked: real INSERTs under the isolated canary org, verified and deleted. Nothing synthetic
+                reaches your ledger, posture, or rate-limit windows.
+              </p>
+              <div className="mt-4">
+                {canary.error ? (
+                  <p className="rounded-xl border border-status-error/40 bg-error-subtle p-3 text-sm text-error">
+                    Canary could not run. The full error is logged server-side and on the
+                    authenticated Doctor panel (/doctor).
+                  </p>
+                ) : canaryChecks.length === 0 ? (
+                  <p className="text-sm text-secondary">
+                    Skipped — no database configured yet. The canary runs once DATABASE_URL is set.
+                  </p>
+                ) : (
+                  <CheckList checks={canaryChecks} />
+                )}
+              </div>
+            </article>
             {view.sections.map((section: any) => (
               <article key={section.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">

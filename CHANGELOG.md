@@ -13,6 +13,44 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.44.0] — 2026-07-04
+
+Roadmap v3.3's core, out of the trust & failure model ADR's Phase 2 queue:
+the doctor learns to prove writes land instead of inferring health from
+reads. Kills the silent-death bug class at day zero of a fresh install. No
+SDK source change (no republish).
+
+### Added
+
+- **Doctor write-path canary (`write-canary` category).** Two subsystems
+  died silently this era behind best-effort catches (the fresh-install
+  presence heartbeat being the canonical case), and a staleness probe
+  cannot tell "no traffic yet" from "write path broken" on a fresh install.
+  The new category actively exercises the write paths by running the REAL
+  repository writers — `upsertAgentPresence`, `createActionRecord`,
+  `persistGuardDecision` (now exported for exactly this) — against an
+  isolated canary org (`org_doctor_canary`, FK-satisfying, invisible to
+  every org-scoped surface), verifies the row landed, and deletes it. A
+  write path that errors is a **fail** with the `migrate` auto-fix
+  attached, never a benign warn. Flows to `GET /api/doctor`,
+  `npm run doctor` / `dashclaw doctor`, and the `/doctor` panel; the
+  replayed presence-heartbeat bug is pinned as a failing canary in
+  `doctor-write-canary.test.js`.
+- **/setup "Write-path health" section.** The canary verdicts render on the
+  operator's existing truth surface with pass/fail pills and a click path
+  to the `/doctor` auto-fix on failure. Because `/setup` is public
+  (pre-onboarding), the canary run is memoized as an in-flight promise with
+  a 60s TTL (concurrent anonymous GETs share one run — no write
+  amplification) and fail copy is sanitized (raw database error text stays
+  on the authenticated doctor surfaces and in server logs).
+
+### Security
+
+- Public `/setup` canary hardening (from the pre-ship review): in-flight
+  promise memoization closes the concurrent-miss write-amplification
+  window, and schema-revealing Postgres error text is withheld from the
+  unauthenticated page.
+
 ## [4.43.0] — 2026-07-04
 
 Phase 2 of the trust & failure model ADR, fourth batch: guard-layer

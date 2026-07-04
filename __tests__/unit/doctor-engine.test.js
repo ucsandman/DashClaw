@@ -13,6 +13,7 @@ const {
   mockOpenclawPluginChecks,
   mockHostedChecks,
   mockDataHygieneChecks,
+  mockWriteCanaryChecks,
 } = vi.hoisted(() => ({
   mockDatabaseChecks: vi.fn(async () => []),
   mockConfigChecks: vi.fn(async () => []),
@@ -25,6 +26,7 @@ const {
   mockOpenclawPluginChecks: vi.fn(async () => []),
   mockHostedChecks: vi.fn(async () => []),
   mockDataHygieneChecks: vi.fn(async () => []),
+  mockWriteCanaryChecks: vi.fn(async () => []),
 }));
 
 vi.mock('@/lib/doctor/checks/database.mjs', () => ({ runChecks: mockDatabaseChecks }));
@@ -37,6 +39,7 @@ vi.mock('@/lib/doctor/checks/drift.mjs', () => ({ runChecks: mockDriftChecks }))
 vi.mock('@/lib/doctor/checks/openclawPlugin.mjs', () => ({ runChecks: mockOpenclawPluginChecks }));
 vi.mock('@/lib/doctor/checks/hosted.mjs', () => ({ runChecks: mockHostedChecks }));
 vi.mock('@/lib/doctor/checks/data-hygiene.mjs', () => ({ runChecks: mockDataHygieneChecks }));
+vi.mock('@/lib/doctor/checks/write-canary.mjs', () => ({ runChecks: mockWriteCanaryChecks }));
 vi.mock('@/lib/doctor/generated/checks-from-shape.mjs', () => ({ runShapeChecks: mockShapeChecks }));
 
 import { runDoctor, computeSummary } from '@/lib/doctor/engine.mjs';
@@ -54,6 +57,7 @@ beforeEach(() => {
   mockOpenclawPluginChecks.mockResolvedValue([]);
   mockHostedChecks.mockResolvedValue([]);
   mockDataHygieneChecks.mockResolvedValue([]);
+  mockWriteCanaryChecks.mockResolvedValue([]);
 });
 
 describe('runDoctor', () => {
@@ -123,6 +127,19 @@ describe('runDoctor', () => {
     const filtered = await runDoctor({ categories: ['data-hygiene'] });
     expect(filtered.checks).toHaveLength(1);
     expect(filtered.checks[0].id).toBe('dh_timestamp_format');
+  });
+
+  it('runs the write-canary category and a dead write path makes the instance unhealthy', async () => {
+    mockWriteCanaryChecks.mockResolvedValue([
+      { id: 'canary_agent_presence', category: 'write-canary', status: 'fail', title: 'Heartbeats', message: 'dead', fix: { type: 'auto', description: 'Run migrations', action: 'migrate' } },
+    ]);
+
+    const all = await runDoctor();
+    expect(all.status).toBe('unhealthy');
+
+    const filtered = await runDoctor({ categories: ['write-canary'] });
+    expect(filtered.checks).toHaveLength(1);
+    expect(filtered.checks[0].id).toBe('canary_agent_presence');
   });
 
   it('strips fix metadata when includeFixes is false', async () => {

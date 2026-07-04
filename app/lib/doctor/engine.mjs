@@ -9,6 +9,7 @@ import { runChecks as driftChecks } from './checks/drift.mjs';
 import { runChecks as openclawPluginChecks } from './checks/openclawPlugin.mjs';
 import { runChecks as hostedChecks } from './checks/hosted.mjs';
 import { runChecks as dataHygieneChecks } from './checks/data-hygiene.mjs';
+import { runChecks as writeCanaryChecks } from './checks/write-canary.mjs';
 import { runShapeChecks } from './generated/checks-from-shape.mjs';
 
 const CHECK_RUNNERS = {
@@ -23,9 +24,10 @@ const CHECK_RUNNERS = {
   'openclaw-plugin': openclawPluginChecks,
   hosted: hostedChecks,
   'data-hygiene': dataHygieneChecks,
+  'write-canary': writeCanaryChecks,
 };
 
-const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'shape', 'drift', 'openclaw-plugin', 'hosted', 'data-hygiene'];
+const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'write-canary', 'shape', 'drift', 'openclaw-plugin', 'hosted', 'data-hygiene'];
 
 /**
  * @param {Object} [options]

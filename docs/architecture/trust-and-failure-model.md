@@ -78,10 +78,13 @@ path stays at ≤1 halt query per org per 3s per instance. **Invariant: the
 halt read is never served from the long settings cache.** *(Shipped:
 v4.39.0.)*
 
-## Phase 2 queue (decided, not yet implemented)
+## Phase 2 queue (decided 2026-07-03; delivery stamped as it ships)
 
-In order: D1 spend clamp + `REAL`→`numeric` migration + D3 copy sweep; D1
-verified-identity gate for per-agent rules; D2 fast-path fallback coverage;
-approval grants single-use + fingerprint-bound; `rate_limit` counts
-`guard_decisions` (not `action_records`); doctor write-path canary; cross-org
-isolation behavioral test suite.
+In order: D1 spend clamp + `REAL`→`numeric` migration + D3 copy sweep
+*(shipped v4.40.0)*; D1 verified-identity gate for per-agent rules
+*(v4.41.0)*; D2 fast-path fallback coverage *(v4.42.0)*; approval grants
+single-use + fingerprint-bound and `rate_limit` counts `guard_decisions`
+(not `action_records`) *(both v4.43.0)*; doctor write-path canary
+*(v4.44.0 — live writes via the real repository writers under an isolated
+canary org; a dead write path is a FAIL on /setup and /doctor)*; cross-org
+isolation behavioral test suite *(remaining)*.

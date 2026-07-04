@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-07-03
+last-verified: 2026-07-04
 doc-type: architecture
 ---
 
@@ -55,7 +55,7 @@ As of this verification (2026-07-03), generated API inventory reports **327 rout
 | Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, a live recent-action log, and inline Approve/Deny for pending approvals (operator decisions resolved via `/api/approvals/[actionId]`, cleared across all channels). 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
 | Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
-| Setup | `/setup` | Readiness verification, instance health, setup proof, and migration helper entry points. |
+| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, and write-path health — live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land. |
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |

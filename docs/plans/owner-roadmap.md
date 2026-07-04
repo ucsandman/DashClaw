@@ -355,7 +355,7 @@ currently blocking nothing on this list.
 |---|------|--------|
 | v3.1 | Posture signal integrity | DONE 2026-07-03 (v4.37.0; SQL-level synthetic exclusion in both posture queries sharing the miner's families (regex↔LIKE agreement pinned), incident findings collapse per (action_type × riskLevel) with truthful observedCount + 5 example ids + content-stable keys, coveredUnits counted from grades (was −22 live; now 0..totalUnits by construction), pointsRecoverable = open only, accepted-risk quiets attributed (statusMeta actor/note/updatedAt + summary.acceptedRisk) with attribution redacted for key-auth callers (security review MEDIUM fixed in-ship — human sessions only via x-user-id discriminator); live proof: findings 164→84 with zero synthetic leakage, the 74 bulk-quiets render attributed in the /posture ledger (rendered proof headless incl. opened ledger row "usr_… · 6/6/2026"); ride-along: `rm -rf .next` hard-block (this session, risk 100) became golden vector rm-rf-next-build-cache + scorer fix (regenerable build-artifact deletes cap 35 client / map to cleanup server-side; globs/abs/unknown keep 90+; corpus 34); smoke R1–R3 = 86) |
 | v3.2 | Findings become proposals (tightening direction) | DONE 2026-07-03 (spec docs/superpowers/specs/2026-07-03-findings-become-proposals-design.md; pure engine app/lib/posture/tightening.ts groups (action_type × riskLevel) identically to v3.1's incident findings — proposal ↔ finding mirror via shared finding_key/tp_ ids; GET/POST /api/policies/tightening computed on read, decisions persist in tightening_proposal_decisions (0042); ratify creates the ACTIVE require_approval policy server-side (review-verdict "Tighten" shape), resolves the mirrored posture finding, and the pattern retires through governed-suppression (the policy, not bookkeeping); dismiss records why + stops re-proposing; /policies gains the Tightening proposals section (armed-confirm Ratify/Dismiss/Undo) and /posture review_incident findings gain the cross-link; smoke S1–S5 proves the live round-trip incl. the same call flipping allow→require_approval post-ratify (91/91); rendered proof headless on live data — 447-allow "apply" pattern rendered as one card, zero console errors) |
-| v3.3 | Fresh-install truth: kill the silent-death bug class | NOT STARTED |
+| v3.3 | Fresh-install truth: kill the silent-death bug class | IN PROGRESS (core write-path canary shipped v4.44.0: doctor `write-canary` category live-exercises the heartbeat/action-ledger/guard-audit write paths via the real repository writers under an isolated canary org — a dead write path is a FAIL with the migrate auto-fix, rendered on /setup "Write-path health" + /doctor; remaining: fresh-install CI job, no-silent-catch guard extension to server-side writes) |
 | v3.4 | Live-host canary: probe production as the user | NOT STARTED |
 | v3.5 | Attention budgets: approval-flood guard | NOT STARTED |
 | v3.6 | Enforcement over assertion | NOT STARTED |
@@ -410,6 +410,17 @@ Two subsystems died silently this era behind best-effort catches; both
 were only caught by later audits. "Works locally" proves nothing — the
 local DB is legacy-shaped.
 
+- **SHIPPED v4.44.0 — doctor write-path canary (the item's core).** A
+  `write-canary` doctor category actively exercises the write paths that
+  can die silently (agent_presence heartbeat upsert, action_records
+  insert, guard_decisions audit insert) by running the REAL repository
+  writers against an isolated canary org, verifying the row landed, and
+  deleting it. A dead write path is a **fail** (with the `migrate`
+  auto-fix), never a benign warn — catchable on day zero of a fresh
+  install, before any agent traffic exists. Surfaces: /setup
+  "Write-path health" (public truth surface, canary memoized 60s) and
+  /doctor (admin fix button). The replayed presence-heartbeat bug is
+  pinned as a failing canary in `doctor-write-canary.test.js`.
 - CI job that boots a genuinely FRESH install (empty Postgres, drizzle
   migrations only) and runs the smoke suite against it on every push —
   the fresh-vs-legacy drift class (TEXT vs timestamptz, missing

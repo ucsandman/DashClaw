@@ -12,6 +12,41 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the doctor stops taking the patient's word for it (v4.44.0)
+
+Roadmap v3.3's core, and the next item off the ADR's Phase 2 queue: the
+write-path canary. The motivating scar is well documented — the fresh-install
+presence heartbeat that never worked, hidden for an era behind a best-effort
+catch. Every doctor check to date was a read: does the table exist, are there
+rows, how stale are they. None of that can tell "no traffic yet" from "write
+path broken" on a day-zero install, which is exactly when the silent-death
+class strikes.
+
+So the doctor now writes. A `write-canary` category runs the REAL repository
+writers — the same `upsertAgentPresence`, `createActionRecord`, and
+`persistGuardDecision` the production routes call, column lists and conflict
+targets included — against an isolated canary org, verifies each row landed,
+and deletes it. A write path that errors is a **fail** with the migrate
+auto-fix attached, never a benign warn. The replayed heartbeat bug is pinned
+as a failing canary in the test suite. The verdicts render where the operator
+already looks: a "Write-path health" section on /setup, with the /doctor fix
+button one click away.
+
+The pre-ship review earned its keep twice. The security pass caught that my
+60-second memo on the public /setup page cached the *resolved* value — a
+concurrent burst of anonymous GETs would each launch their own canary run
+(write amplification from an unauthenticated GET). The memo now holds the
+in-flight promise, so a burst shares one run. It also caught raw Postgres
+error text rendering to anonymous visitors; the public page now shows a
+generic verdict and the exact error stays on the authenticated surfaces. One
+accepted tradeoff, documented in the code: the empty canary org row persists
+(deleting it would race concurrent runs into FK failures) and is visible to
+global org iterators, where iterating an empty org is a no-op.
+
+Full suite green (4,970), build green. v3.3's remainder — the fresh-install
+CI job and the no-silent-catch guard extension to server-side writes — and
+the cross-org isolation suite stay queued.
+
 ---
 
 ## 2026-07-04 — an approval is not a season pass (v4.43.0)

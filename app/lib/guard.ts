@@ -805,7 +805,9 @@ interface GuardDecisionInsert {
 
 // SECURITY (R2): the guard_decisions row IS the audit evidence — losing it means
 // the platform cannot prove what it decided. Await it and fail loudly.
-async function persistGuardDecision(sql: GuardSql, row: GuardDecisionInsert): Promise<void> {
+// Exported for the doctor write-path canary, which must exercise this exact
+// INSERT (column list included) to prove the audit path on fresh schemas.
+export async function persistGuardDecision(sql: GuardSql, row: GuardDecisionInsert): Promise<void> {
   try {
     await sql`
       INSERT INTO guard_decisions (id, org_id, agent_id, agent_name, verification_status, replay_status, jti, act_status, act_hash, decision, reason, matched_policies, context, evidence, risk_score, action_type, created_at, degraded)
