@@ -13,6 +13,33 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.57.1] — 2026-07-05
+
+Landing page redesigned from a 14-section feature inventory into a
+9-beat narrative, and `/explain` brought under the same marketing
+header. Platform-only — SDKs stay at 4.32.0.
+
+### Changed
+- **Landing page (`app/page.tsx`) rebuilt around proof-first structure:**
+  hero decision record (one governed action rendered end to end:
+  intercept → require_approval → approve → outcome → signature) beside
+  the claim, then live demo → governance-vs-tracing → the four-call loop
+  annotated → stack quickstarts as tabs (new `StackQuickstarts`, reusing
+  `frameworkQuickstarts`) → the enforcement boundary stated plainly →
+  use cases → control-room index → CTA. New `HeroDecisionRecord`
+  component; hosted-trial CTA logic, marketing tracking ids
+  (`vs-alternatives`/`sdk`/`features`/`live-demo`), and the drift-gated
+  MCP tool/resource count string all preserved.
+- **`app/landingData.js`** now exports only the two rendered arrays
+  (`frameworkQuickstarts`, `signals`); the unrendered `corePrimitives`
+  array was removed (dead-array trap).
+- **`/explain`** carries a static replica of the main page's navbar
+  above its section nav, which is demoted to a quiet "On this page" row;
+  anchor offsets adjusted so section links land below both sticky bars.
+- **Reduced motion:** the global `prefers-reduced-motion` block in
+  `app/globals.css` now also zeroes `animation-delay`, so staged reveals
+  collapse to an instant render.
+
 ## [4.57.0] — 2026-07-05
 
 Roadmap v5.3 — activation instrument sharpened. The hosted-trial funnel

@@ -12,6 +12,42 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the landing page becomes the product (v4.57.1)
+
+Wes asked for a from-scratch landing redesign with the brief "the current
+version does not land," and deliberately withheld any direction beyond
+that. The diagnosis, derived from the repo itself: the page was the README
+exploded into ~14 sections of icon-card grids at equal volume, with the one
+differentiator ("before, not after") buried in a 60-word hero paragraph and
+the strongest asset — the live `/api/guard` demo — six screens down.
+
+The redesign's thesis: **the page is the product**. The hero's right half
+is now a decision record rendered the way the product renders one — a real
+schema shape (`agent_id`, `risk_score: 92`, `matched_policy:
+production_deploy_gate`) staged through intercept → REQUIRE_APPROVAL →
+approved-by-a-human-via-Discord → executed → signed — honestly labeled
+"example," with the real call one scroll below. The rest reads as a
+narrative instead of an inventory: live demo → governance-vs-tracing →
+the four-call loop annotated → stack quickstarts as tabs → **the
+enforcement boundary stated plainly** (mechanical halt vs honored-and-
+recorded; almost no landing page admits its boundary, and for this
+audience the honesty is the differentiator) → use cases → a control-room
+index → CTA. `/explain` was brought under the same marketing header in the
+same arc (a static replica of PublicNavbar, with the section anchors
+demoted to an "On this page" row).
+
+Decisions worth recording: kept the stack (the page is wired into hosted
+mode, demo middleware, tracking, and four CI contract gates — a framework
+swap would orphan it for zero visual gain); removed the now-unrendered
+`corePrimitives` from `landingData.js` per the dead-array rule and updated
+the ship skill's own references to match; preserved every load-bearing
+anchor id and the drift-gated "33 tools and 6 resources" string. One
+Tailwind trap re-confirmed: alpha modifiers on token colors compile to
+nothing here, so the old page's `bg-brand/10` accents were silently not
+rendering — the redesign uses real tokens only. Gates: lint, typecheck,
+full vitest (622), build, doc-counts strict, rendered proof at two widths
+plus anchor-offset clicks on /explain. Platform-only; SDKs stay at 4.32.0.
+
 ## 2026-07-05 — the instrument learns to tell "gone" from "came back" (v4.57.0)
 
 Roadmap v5.3. When v4.6 built the activation funnel, its spec recorded two
