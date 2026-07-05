@@ -4,7 +4,7 @@ DashClaw is a governance runtime for AI agents. This guide will get you from zer
 
 ## ⚡ The 1-Minute Governance Test (Fastest Path)
 
-The absolute fastest way to see DashClaw in action with **zero configuration**:
+The absolute fastest way to see DashClaw in action with **zero configuration** (the one prerequisite: Docker running — it pulls and runs the demo image):
 
 ```bash
 npx dashclaw-demo

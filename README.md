@@ -48,7 +48,7 @@
 
 1. Read the loop: DashClaw intercepts risky agent intent, enforces policy, records the decision, routes approval when required, and verifies the final outcome. Where the *block* is mechanical vs honored by the agent depends on the surface — hooks and server-executed capabilities halt the action itself; SDK/MCP/chat callers honor the decision. The per-surface table is [`docs/architecture/enforcement-boundary.md`](./docs/architecture/enforcement-boundary.md).
 2. Try it hosted, no install: open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), mint a trial workspace, and send your first governed action straight from the browser. Expected proof: the action lands in your decisions ledger, replayable.
-3. Or run the local demo: `npx dashclaw-demo`. Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
+3. Or run the local demo: `npx dashclaw-demo` (needs Docker running). Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
 4. Self-host the runtime from the deploy guide, then run `npm run doctor` locally or `dashclaw doctor` against the hosted URL. Expected proof: the doctor command exits 0 or names the blocking setup item.
 5. Connect one agent with `DASHCLAW_BASE_URL` and `DASHCLAW_API_KEY`. Expected proof: one action appears in `/decisions`, any held action appears in `/approvals`, and `/api/setup/live-proof` can capture setup evidence for onboarding or CI.
 
@@ -69,9 +69,9 @@
 
 ## The control plane, running
 
-Real screenshots from a live instance governing a working agent fleet. Dark instrument panel, orange only where attention is required.
+Real screenshots from the maintainer's own live instance — the fleet that builds DashClaw, governed by DashClaw. Dark instrument panel, orange only where attention is required.
 
-**The decisions ledger.** Every governed action lands here with its risk score, matched policies, signature state, and terminal outcome. 77,000+ decisions on this instance; each one replayable.
+**The decisions ledger.** Every governed action lands here with its risk score, matched policies, signature state, and terminal outcome. 77,000+ decisions on this dogfood instance; each one replayable.
 
 <img src="docs/media/shot-decisions.png" alt="Decisions Ledger: a global stream of governed agent actions with risk scores, governance chips, completed outcomes, success rate, and tracked spend" width="100%" />
 
@@ -255,7 +255,7 @@ Or grab the zips from [dashclaw.io/downloads](https://dashclaw.io/downloads). Th
 npx dashclaw-demo
 ```
 
-Spins up a local demo runtime, fires a simulated high-risk deployment, lets DashClaw block it, and opens Decision Replay in your browser. No setup, no accounts.
+Pulls the demo image and runs it locally (requires Docker), fires a simulated high-risk deployment, lets DashClaw block it, and opens Decision Replay in your browser. No accounts, no config. No Docker? The [hosted trial](https://hosted.dashclaw.io/connect) needs neither.
 
 ### Real agent in 8 minutes (SDK path)
 
@@ -374,8 +374,8 @@ DashClaw is not observability. It is control before execution. The model:
 3. **Every decision is recorded.** The decisions ledger is replayable: declared goal, reasoning, matched policies, assumptions, signals, and the final outcome.
 4. **Outcomes are durable.** The five-state finality machine guarantees no silent double-execute on retry, and the sweep catches lost confirmations.
 5. **Evidence is exportable.** Compliance evidence bundles (signed manifests, JSON exports) are produced from real action records, not synthetic fixtures.
-6. **Prompt injection scanning is on by default.** Declared goals are scanned for injection patterns. Hits force a `block` decision at guard time — halted mechanically on enforcing surfaces, honored by cooperative callers ([enforcement boundary](./docs/architecture/enforcement-boundary.md)).
-7. **Agent identity is cryptographically verified.** Agents may present a JWKS-verified JWT instead of self-asserting `agent_id`. DashClaw checks the signature against the issuer's published keys (EdDSA / RSA / ECDSA), rejects replayed tokens, and can bind a token to its intended action — the verified `sub` overrides any body-supplied `agent_id`. Fail-soft: a downed issuer never blocks a decision. See [`docs/agent-identity.md`](./docs/agent-identity.md).
+6. **Prompt injection scanning is on by default.** Declared goals are scanned for injection patterns. High-confidence system-override patterns ("ignore previous instructions" and family) force a `block` decision at guard time — halted mechanically on enforcing surfaces, honored by cooperative callers ([enforcement boundary](./docs/architecture/enforcement-boundary.md)); lower-severity patterns (delimiter injection, exfiltration probes) raise a `warn`.
+7. **Agent identity is cryptographically verified.** Agents may present a JWKS-verified JWT instead of self-asserting `agent_id`. DashClaw checks the signature against the issuer's published keys (EdDSA / RSA / ECDSA), rejects replayed tokens, and can bind a token to its intended action — the verified `sub` overrides any body-supplied `agent_id`. Fail-soft on the issuer side: a downed issuer never blocks a decision (the token degrades to unverified). Replay protection defaults to `required`, so a verified token *does* fail closed when the replay store is unreachable; API-key callers are unaffected. See [`docs/agent-identity.md`](./docs/agent-identity.md).
 
 The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md). The runtime API contract is in [`docs/architecture/runtime-api.md`](./docs/architecture/runtime-api.md).
 
@@ -391,7 +391,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 | Telegram | Inline Approve/Reject buttons in an admin chat. | Optional. See [`docs/telegram-setup.md`](./docs/telegram-setup.md). |
 | Discord | Inline Approve/Deny on DM embeds. | Optional. See `.env.example` (Discord section). |
 
-`waitForApproval()` unblocks within roughly one second regardless of which surface resolves the action. All surfaces hit the same `/api/approvals/[actionId]` endpoint.
+`waitForApproval()` unblocks near-instantly over SSE when the approval resolves, falling back to ~5-second polling where SSE is unavailable — regardless of which surface resolves the action. All surfaces hit the same `/api/approvals/[actionId]` endpoint.
 
 ---
 
@@ -430,6 +430,14 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 - [Security guide](./docs/SECURITY.md): operator-facing security model, controls, and coordinated disclosure.
 
 ---
+
+## Project status
+
+Honest expectations, stated plainly:
+
+- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is explicitly tiered for exactly this reason — 57 stable routes pinned in the [OpenAPI contract](./docs/openapi/critical-stable.openapi.json), 24 beta, 251 experimental. Build against stable; experimental routes can change without notice.
+- **Proven by dogfood, not by scale.** The core loop is exercised continuously by the maintainer's own agent fleet (the screenshots above) and by a CI policy-smoke harness that live-proves the public claims on every push. External production deployments are early. Treat this as young infrastructure that takes correctness seriously, not a battle-tested incumbent.
+- **AI-maintained, human-governed.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](./MAINTAINER.md); risk-bearing invariants (blocks are absolute, no self-approval, humans ratify policy changes, credentials stay human) cannot be changed by the maintainer. The [maintainer log](./docs/maintainer-log.md) records every decision in public.
 
 ## License
 
