@@ -1433,6 +1433,28 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- AA ----
+  // v4.6 funnel truth. Hosted-off instances must 404 the funnel (the gate);
+  // hosted-on instances must serve the aggregate shape with no org ids.
+  // The funnel MATH is pinned by vitest, not smoke: flipping DASHCLAW_HOSTED
+  // means restarting the server mid-run (v4.4 precedent for non-live-smokeable).
+  console.log('\nAA. v4.6 funnel truth...');
+  {
+    const cap = await api('GET', '/api/hosted/capacity');
+    const fun = await api('GET', '/api/hosted/funnel');
+    if (cap.status === 404) {
+      check('AA1', 'hosted off: GET /api/hosted/funnel is gated (404)',
+        fun.status === 404, `capacity=${cap.status} funnel=${fun.status}`);
+    } else {
+      check('AA1', 'hosted on: funnel serves aggregate shape with no org ids',
+        fun.status === 200
+          && fun.json?.hosted === true
+          && typeof fun.json?.funnel?.minted === 'number'
+          && !JSON.stringify(fun.json).includes('org_'),
+        `funnel=${fun.status} minted=${fun.json?.funnel?.minted}`);
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
