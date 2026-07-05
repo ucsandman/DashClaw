@@ -1795,6 +1795,22 @@ export const looseningProposalDecisions = pgTable('loosening_proposal_decisions'
   orgDecisionIdx: index('idx_loosening_decisions_org_decision').on(t.orgId, t.decision),
 }));
 
+// v4.6 funnel truth: frozen funnel milestones for hosted trial workspaces,
+// written by deleteHostedWorkspace BEFORE the FK child sweep (which would
+// otherwise destroy the evidence and undercount mints — survivorship bias).
+// No FK to organizations, deliberately: the catalog-driven sweep deletes
+// every row that references the org; this row must survive it.
+export const hostedTrialSnapshots = pgTable('hosted_trial_snapshots', {
+  orgId: text('org_id').primaryKey(),
+  mintedAt: timestamp('minted_at', { withTimezone: true }).notNull(),
+  deletedAt: timestamp('deleted_at', { withTimezone: true }).notNull().defaultNow(),
+  keyUsed: boolean('key_used').notNull().default(false),
+  firstActionAt: timestamp('first_action_at', { withTimezone: true }),
+  lastActionAt: timestamp('last_action_at', { withTimezone: true }),
+  actionCount: integer('action_count').notNull().default(0),
+  retainedWeek1: boolean('retained_week1').notNull().default(false),
+});
+
 // @domain governance
 // x402 spend governance (drizzle/0021, money types normalized to numeric in
 // drizzle/0044). These tables were raw-SQL-only from 0021 until 2026-07-03 —

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:d7e2ddf96c7b9a7b88858e8a53ba1876cb5f3eb3",
+  "timestamp": "sha1:993de038169110f9e339417904a3e76975083783",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -5715,6 +5715,11 @@
     },
     {
       "name": "health_snapshots",
+      "file_path": "schema/schema.js",
+      "domain": null
+    },
+    {
+      "name": "hosted_trial_snapshots",
       "file_path": "schema/schema.js",
       "domain": null
     },

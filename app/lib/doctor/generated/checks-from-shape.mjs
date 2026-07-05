@@ -57,6 +57,7 @@ const TABLES = [
   "guard_policies",
   "guardrails_test_runs",
   "health_snapshots",
+  "hosted_trial_snapshots",
   "ideas",
   "interactions",
   "jwt_replay_log",

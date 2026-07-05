@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:d7e2ddf96c7b9a7b88858e8a53ba1876cb5f3eb3 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:993de038169110f9e339417904a3e76975083783 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">284</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">108</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">109</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (108)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (109)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -112,6 +112,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>guard_policies</code></td><td class="sig">governance</td></tr>
     <tr><td><code>guardrails_test_runs</code></td><td class="sig">—</td></tr>
     <tr><td><code>health_snapshots</code></td><td class="sig">—</td></tr>
+    <tr><td><code>hosted_trial_snapshots</code></td><td class="sig">—</td></tr>
     <tr><td><code>ideas</code></td><td class="sig">—</td></tr>
     <tr><td><code>interactions</code></td><td class="sig">—</td></tr>
     <tr><td><code>jwt_replay_log</code></td><td class="sig">—</td></tr>
@@ -200,7 +201,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>24</b> routes added, <b>11</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>24</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
@@ -279,6 +280,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: coverage_reports <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: hosted_trial_snapshots <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: live_canary_runs <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: loosening_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: tightening_proposal_decisions <span class="sig">New table in schema</span></li>
