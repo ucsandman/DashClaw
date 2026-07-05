@@ -1,70 +1,78 @@
-# Distribution listings — submission runbook
+# Distribution listings — runbook + submissions ledger
 
-The repo-side prep for every public listing channel is done (roadmap v2.7).
-This runbook is the remaining **human** work: each channel is one action for
-the maintainer. Nothing here is automated on purpose — outward-facing
-publication stays a human click (MAINTAINER.md §4 spirit).
+The repo-side prep for every public listing channel is done (roadmap v2.7);
+roadmap v6.2 (2026-07-05) executed the submissions the project's own
+credentials can make. Framing update per the charter's outward-acts clause
+(MAINTAINER.md, amended 2026-07-05): outward acts are the **maintainer's**
+wherever project credentials suffice (GitHub, PR-able registries, web
+surfaces), with honest AI authorship and claims-proven-live; the venues that
+require Wes's accounts are listed as **accelerants — never gates**.
 
-Status legend: what the repo guarantees is ready vs. the single step you take.
+## Live listings (each verified live 2026-07-05)
 
-## 1. Claude Code plugin marketplace — already live, optional directory submission
+| Venue | State | Proof |
+|---|---|---|
+| npm | `@dashclaw/mcp-server` 2.0.1 (+ `dashclaw`, `@dashclaw/cli`, PyPI `dashclaw`) | `npm view @dashclaw/mcp-server version` |
+| Official MCP Registry | `io.github.ucsandman/dashclaw` **active, latest 2.0.1** (published 2026-06-11 via `npm run release:mcp`) | https://registry.modelcontextprotocol.io/v0/servers?search=dashclaw |
+| PulseMCP | Listed (auto-ingested from the official registry) | https://www.pulsemcp.com/servers/dashclaw |
+| Claude Code plugin marketplace | The repo **is** a marketplace: `/plugin marketplace add ucsandman/DashClaw` → install `dashclaw` | `.claude-plugin/marketplace.json` |
+| ClawHub | Platform-intelligence skill published | https://clawhub.ai/@dashclaw |
 
-- **Ready:** `.claude-plugin/marketplace.json` (repo root) + `plugins/dashclaw/.claude-plugin/plugin.json`
-  are valid; anyone can install today with
-  `/plugin marketplace add ucsandman/DashClaw` → install `dashclaw`.
-- **Your step (optional, for Anthropic's curated community directory):**
-  open https://clau.de/plugin-directory-submission and paste the repo URL
-  `https://github.com/ucsandman/DashClaw`. That's the whole submission.
+## Submitted by the maintainer (roadmap v6.2, 2026-07-05)
 
-## 2. Official MCP Registry (registry.modelcontextprotocol.io)
+| Venue | Act | Link / state |
+|---|---|---|
+| punkpeye/awesome-mcp-servers (~70k★) | PR adding DashClaw to the Security section, agent-PR fast-track opt-in (🤖🤖🤖), AI authorship stated in the body | https://github.com/punkpeye/awesome-mcp-servers/pull/9313 (open) |
+| Glama (glama.ai) | `mcp-server/glama.json` added (schema-verified; `maintainers: ["ucsandman"]`) — Glama auto-crawls public repos; the on-site "claim" step needs a GitHub OAuth browser session (accelerant, below) | ships with v6.2 |
 
-- **Ready:** `mcp-server/server.json` + `mcp-server/package.json` agree
-  (`io.github.ucsandman/dashclaw`); npm has the current version published.
-  The registry lags npm whenever a release skips the registry-publish tail.
-- **Your step:** from the repo root run
+## Declined venues, and why (recorded per v6.2 acceptance)
 
-  ```bash
-  npm run release:mcp
-  ```
+| Venue | Reason |
+|---|---|
+| Smithery | Publishing requires an interactive web/GitHub-OAuth account session; built for HTTP-reachable/bundled servers, not a bare stdio npm package. |
+| Docker MCP Registry | Requires a Dockerfile/built image; our server is stdio-over-npx — authoring a container path just to list is new work the transport doesn't need. |
+| mcp.so | No submission mechanism found (auto-crawled directory; `mcp.so/server/dashclaw` = "Project not found", no PR/issue path). Nothing to act on. |
+| modelcontextprotocol/servers | Community list frozen; README directs to the official registry, where we are already listed. |
+| claude-plugins-official | Anthropic-curated at their discretion; no application path exists. |
+| Cline MCP Marketplace | The required attestation ("I have tested that Cline can successfully set up this server") cannot be honestly checked without a Cline environment. Revisit if/when a real Cline install test is run. |
+| ccplugins/awesome-claude-code-plugins | Mechanism vendors a plugin *copy* into their repo — a staleness/parity hazard for a fast-moving plugin; no external-marketplace link format exists there; low reach (~870★). |
+| hesreallyhim/awesome-claude-code (~48k★) | CONTRIBUTING explicitly requires a **human** submitter via their issue form. The honesty rule forbids faking one — moved to accelerants. |
 
-  It is idempotent — it re-syncs `server.json`, skips the npm publish if the
-  version is already on npm, and pushes the registry entry via `mcp-publisher`
-  (first run may prompt a one-time GitHub device-flow login).
-- **Verify:** https://registry.modelcontextprotocol.io/v0/servers?search=io.github.ucsandman/dashclaw
-  shows the same version as `npm view @dashclaw/mcp-server version`.
+## Accelerants (Wes's accounts; never gates)
 
-## 3. Anthropic Connectors Directory (Claude custom connector)
+1. **Anthropic community plugin directory** — Console form at
+   https://platform.claude.com/plugins/submit (individual-author path; the
+   Team/Enterprise path is `claude.ai` admin settings → directory
+   submissions). Paste repo URL `https://github.com/ucsandman/DashClaw`;
+   run `claude plugin validate` first.
+2. **hesreallyhim/awesome-claude-code** — file their issue form as yourself
+   (they require a human submitter); highest-reach plugin list (~48k★).
+3. **Glama listing claim** — sign in with GitHub at glama.ai and claim the
+   DashClaw server (the `glama.json` in `mcp-server/` names you-side
+   maintainer `ucsandman`).
+4. **Anthropic Connectors Directory** (Claude custom connector) — unchanged
+   from the v2.7 runbook: needs a Claude.ai **Team/Enterprise** org. The
+   instance to list is `hosted.dashclaw.io`; OAuth connector + privacy
+   policy are live (`https://hosted.dashclaw.io/api/mcp`,
+   `https://hosted.dashclaw.io/privacy`); reviewer test account is
+   self-serve via `https://hosted.dashclaw.io/connect` (Turnstile mint,
+   30 days / 10,000 actions). Form wants the connector URL, privacy URL,
+   the reviewer account, and 3 example prompts (e.g. "list my active
+   governance policies", "guard and record this deploy action", "show my
+   recent decisions").
 
-- **The instance to list is `hosted.dashclaw.io`** — the deployment topology
-  is three Vercel projects from this one repo: `dashclaw` (the demo-mode
-  marketing site at www.dashclaw.io), `my-dashclaw` (the maintainer's
-  personal instance), and `dashclaw-hosted` (hosted.dashclaw.io — the
-  multi-tenant trial instance with `DASHCLAW_HOSTED=true`). The trial has
-  been live there since June; the marketing site links to it via
-  `NEXT_PUBLIC_HOSTED_TRIAL_URL`.
-- **Ready:** the OAuth connector (remote Streamable HTTP + OAuth 2.1
-  DCR/PKCE at `https://hosted.dashclaw.io/api/mcp`, discovery verified);
-  the public privacy policy — an immediate-rejection item when missing — at
-  `https://hosted.dashclaw.io/privacy` (footer-linked). Example prompts can
-  be lifted from `docs/CLAUDE-DESKTOP-PLUGIN.md`.
-- **Prerequisites you must hold (not repo work):**
-  1. A Claude.ai **Team or Enterprise** org (submission is gated on it).
-  2. A **reviewer test account**: self-serve — open
-     `https://hosted.dashclaw.io/connect`, mint an anonymous trial
-     workspace (Turnstile-gated; 30 days / 10,000 actions), run one
-     governed action so /decisions isn't empty, and note the workspace
-     credentials for the form. (The hosted deployment has no Google
-     provider configured — the anonymous mint is the signup path.)
-- **Your step:** in Claude.ai admin settings, open the connector submission
-  portal and fill the form: connector URL
-  `https://hosted.dashclaw.io/api/mcp`, privacy policy
-  `https://hosted.dashclaw.io/privacy`, the reviewer account, and
-  3 example prompts (e.g. "list my active governance policies",
-  "guard and record this deploy action", "show my recent decisions").
+## Keeping the official registry current
+
+`npm run release:mcp` (idempotent) re-syncs `mcp-server/server.json`, skips
+the npm publish when the version is already up, and pushes the registry
+entry via `mcp-publisher` (one-time GitHub device-flow login on first run).
+Run it whenever the MCP server version bumps.
+**Verify:** the registry search URL above shows the same version as
+`npm view @dashclaw/mcp-server version`.
 
 ## When any of this drifts
 
 `npm view` the packages against the manifests (standing chore), and re-check
-this file's claims whenever the connector, OAuth flow, or plugin manifests
-change — it is a description of live behavior, subject to the same
-documentation contract as everything else.
+this file's claims whenever the connector, OAuth flow, plugin manifests, or
+any listing above changes — it is a description of live behavior, subject to
+the same documentation contract as everything else.

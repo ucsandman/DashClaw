@@ -39,6 +39,11 @@ Drafting evidence (2026-07-05, this session):
   MCP registry or directory; the Claude Code plugin exists only inside
   this repo. In the places agent builders actually search, DashClaw does
   not appear. (Venue mechanics verified at build time, not assumed here.)
+  *Correction at v6.2 build time (2026-07-05): this was wrong — the
+  official MCP registry has listed `io.github.ucsandman/dashclaw` since
+  2026-06-11 (current at 2.0.1) and PulseMCP auto-ingested it. The
+  drafting recon asserted absence without querying the registry API. The
+  maintainer log entry for v6.2 records the miss.*
 - **The funnel (truthful, post-cleanup)**: 4 mints / 0 key used / 0 first
   action — all predating the v5 fixes. And an attribution blind spot: a
   mint carries no source, so even a successful reach act could not be told
@@ -65,7 +70,7 @@ Alternatives weighed and declined this round:
 | # | Item | Status |
 |---|------|--------|
 | v6.1 | The repo speaks: releases resumed, front door truthful | SHIPPED 2026-07-05 — releases resumed ([v4.59.0 catch-up release](https://github.com/ucsandman/DashClaw/releases/tag/v4.59.0) live; per-ship release rule in the ship protocol); README stranger-walk done (hosted trial first-actionable, AI-maintainership visible; recorded in the maintainer log); metadata truth pass: verified accurate, no churn |
-| v6.2 | Registry presence: MCP registry + plugin/directory listings | — |
+| v6.2 | Registry presence: MCP registry + plugin/directory listings | SHIPPED 2026-07-05 — official registry verified live+current at 2.0.1 (predated v6: published 2026-06-11, the drafting recon missed it); PulseMCP auto-listed; [awesome-mcp-servers PR #9313](https://github.com/punkpeye/awesome-mcp-servers/pull/9313) submitted; `glama.json` added; full ledger incl. 8 declined venues + 4 Wes accelerants in `docs/DISTRIBUTION-LISTINGS.md` |
 | v6.3 | Organic search surface: marketing SEO truth pass | — |
 | v6.4 | Reach attribution: mint source capture, per-channel funnel | — |
 | v6.5 | The measurement read: the verdict's contract, applied | — |

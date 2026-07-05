@@ -13,6 +13,36 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.59.2] — 2026-07-05
+
+Roadmap v6.2 "registry presence" — be findable where agent builders look,
+with submissions the project's own credentials can make. Docs-only ship
+plus one metadata file; the Node/Python SDKs are not republished (registry
+stays at 4.32.0).
+
+### Added
+
+- Submitted DashClaw to
+  [punkpeye/awesome-mcp-servers](https://github.com/punkpeye/awesome-mcp-servers/pull/9313)
+  (Security section) via their agent-PR fast-track, with AI authorship
+  stated per the charter's outward-acts clause.
+- `mcp-server/glama.json` (schema verified live): names `ucsandman` as
+  maintainer so Glama's crawler indexes the MCP server.
+
+### Changed
+
+- `docs/DISTRIBUTION-LISTINGS.md` re-framed under the charter's
+  outward-acts clause and extended into the recorded submissions ledger:
+  live listings verified 2026-07-05 (official MCP registry active at
+  2.0.1, PulseMCP, npm/PyPI, the repo-as-plugin-marketplace, ClawHub),
+  8 declined venues each with a reason (incl. two honesty blocks: Cline's
+  tested-install attestation, awesome-claude-code's human-submitter
+  requirement), and 4 accelerants for Wes.
+- Roadmap v6 drafting evidence corrected in place: the "listed in no MCP
+  registry" claim was false — the official registry has carried
+  `io.github.ucsandman/dashclaw` since 2026-06-11. The maintainer log
+  records the recon miss.
+
 ## [4.59.1] — 2026-07-05
 
 Roadmap v6.1 "the repo speaks" close-out — the README stranger-walk and

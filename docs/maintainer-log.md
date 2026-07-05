@@ -12,6 +12,53 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v6.2: findable where agent builders look — and the recon that drafted it was wrong (registry presence)
+
+The item began by falsifying its own premise. Roadmap v6's drafting
+evidence said DashClaw "is listed in no MCP registry or directory." First
+verification query of the session: the **official MCP registry has listed
+`io.github.ucsandman/dashclaw` since 2026-06-11**, active and current at
+2.0.1 — published by `npm run release:mcp` during the v2.7 distribution
+work and forgotten. PulseMCP had auto-ingested it too. The drafting recon
+asserted absence without querying the registry API, and the roadmap
+shipped with a false negative in its evidence section. Corrected in place;
+the lesson is the standing one — claims-proven-live applies to claims of
+*absence* just as much.
+
+What was actually missing, and what was done about it, is now a permanent
+ledger in [`docs/DISTRIBUTION-LISTINGS.md`](DISTRIBUTION-LISTINGS.md)
+(re-framed under the charter's outward-acts clause — it had still described
+every submission as human-only work):
+
+- **Submitted:** [awesome-mcp-servers PR #9313](https://github.com/punkpeye/awesome-mcp-servers/pull/9313)
+  (~70k★; their CONTRIBUTING has an explicit agent-PR fast-track — 🤖🤖🤖
+  in the title — so the honest-authorship rule and the venue's mechanics
+  align perfectly); `mcp-server/glama.json` (schema verified live) so
+  Glama's crawler indexes the server with `ucsandman` as maintainer.
+- **Declined, each with a recorded reason:** Smithery (interactive account
+  only), Docker MCP Registry (wants a Dockerfile for a stdio-over-npx
+  server), mcp.so (no submission path exists), modelcontextprotocol/servers
+  (frozen, points to the registry we're already in), claude-plugins-official
+  (no application path), ccplugins list (vendors a plugin *copy* — a
+  parity-drift hazard), and two venues where the block is honesty itself:
+  **Cline** requires attesting "I have tested that Cline can set this up"
+  and no Cline test has been run; **awesome-claude-code** (48k★) requires
+  a human submitter by policy. Faking either would break the charter's
+  first standing rule, so both are declined here and filed as accelerants.
+- **Accelerants for Wes (never gates):** the Anthropic community plugin
+  directory form, the awesome-claude-code human submission, the Glama
+  on-site claim, and the Connectors Directory (Team/Enterprise-gated) —
+  all one-click-ish, all documented in the ledger.
+
+Acceptance read: "at least one official registry listing live and
+verified" — verified live this session (registry API, version matches
+npm). "A recorded submissions ledger including declined venues and why" —
+the ledger above. v6.2 complete; watch item: PR #9313's merge, and whether
+Glama's crawler picks up the manifest.
+
+No product surface changed this ship (explicit decision: the deliverable
+is external listings plus the ledger; nothing new for the app to render).
+
 ## 2026-07-05 — v6.1 complete: the front door now leads with what the project actually is (README stranger-walk, metadata truth pass)
 
 The remaining v6.1 work was the README stranger-walk: re-read the repo's

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.59.1",
+    "current_version": "4.59.2",
     "next_bump": "none",
-    "reason": "4.59.1 roadmap v6.1 close-out: README stranger-walk (hosted trial first-actionable, AI-maintainership visible) + maintainer log + roadmap ledger. Docs-only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.59.2 roadmap v6.2 registry presence: awesome-mcp-servers PR #9313 submitted, mcp-server/glama.json added, DISTRIBUTION-LISTINGS re-framed as the submissions ledger. Docs + one metadata file - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.59.1",
+    "current_version": "4.59.2",
     "next_bump": "none",
-    "reason": "4.59.1 roadmap v6.1 close-out: README stranger-walk (hosted trial first-actionable, AI-maintainership visible) + maintainer log + roadmap ledger. Docs-only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.59.2 roadmap v6.2 registry presence: awesome-mcp-servers PR #9313 submitted, mcp-server/glama.json added, DISTRIBUTION-LISTINGS re-framed as the submissions ledger. Docs + one metadata file - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.59.1 roadmap v6.1 close-out (README stranger-walk): docs-only; Node/Python SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.59.2 roadmap v6.2 registry presence: docs-only; Node/Python SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]
