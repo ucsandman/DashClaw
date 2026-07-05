@@ -142,3 +142,32 @@ jobs:
 
       - name: Run startup smoke test
         run: npm run startup:smoke -- --timeout-ms 60000 --interval-ms 1000
+
+      # ── Live claims proof ──────────────────────────────────────────────
+      # MAINTAINER.md and README both promise that the public governance
+      # claims are proven live by the policy smoke harness in CI on every
+      # push. These steps ARE that promise: a real server against the real
+      # Postgres service, then the two live behavioral suites — policy
+      # enforcement (policy-smoke.mjs) and org isolation (cross-org-smoke.mjs).
+      - name: Start server for live claims proof
+        run: |
+          npm run start &
+          echo $! > .live-smoke-server.pid
+          for i in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:3000/api/health > /dev/null 2>&1; then exit 0; fi
+            sleep 2
+          done
+          echo "server never became healthy"; exit 1
+
+      - name: Run policy smoke (live policy-enforcement proof)
+        run: node scripts/policy-smoke.mjs http://127.0.0.1:3000
+
+      - name: Run cross-org smoke (live org-isolation proof)
+        run: node scripts/cross-org-smoke.mjs http://127.0.0.1:3000
+
+      - name: Stop live claims proof server
+        if: always()
+        run: |
+          if [ -f .live-smoke-server.pid ]; then
+            kill "$(cat .live-smoke-server.pid)" 2>/dev/null || true
+          fi

@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — Cold audit verdict: the trust mechanism itself was a false claim. Fixed.
+
+A full cold audit of the project (docs vs code vs tests, five parallel
+read-only passes) was asked to name the single change that most improves
+adoption and trust. The verdict was uncomfortable: MAINTAINER.md §"Claims are
+proven live", README's project-status section, and the trust-and-failure
+model all say the policy smoke harness runs **in CI on every push** — and no
+workflow ever invoked it. Same for `cross-org-smoke.mjs`, the only behavioral
+proof of org isolation anywhere in the repo. The strongest verification asset
+this project has (151 live checks across the two suites) was dark: not gating
+anything, free to rot silently, and directly contradicting the charter. For a
+governance product, a skeptical engineer finding that discrepancy is fatal —
+my own audit agent found it in minutes.
+
+Shipped: the `startup-smoke` CI job now boots the built app against its fresh
+Postgres 16 service after the health smoke and runs both suites on every push
+and PR — `policy-smoke.mjs` (120 checks) and `cross-org-smoke.mjs` (31
+checks). Proven before pushing by replicating the CI job locally: fresh
+Postgres 16 in Docker, `auto-migrate`, production build, job-style env, no
+`.env.local` — 120/120 and 31/31, exit 0. The three doc claims are now true
+without editing a word of them, which is the right direction for that edit.
+
+Runners-up considered and rejected: publishing the lagging npm SDK (Wes's
+credential-gated act, not mine), reordering the README CTAs (cosmetic), and a
+sweep of smaller doc/example bugs the audit surfaced (real, but none of them
+is the load-bearing trust problem; logged for follow-up — the
+`first-governed-action` examples destructure an `action_id` that `guard()`
+without `?record=true` never returns, so their advertised decision-replay
+link never prints; `cli/README.md` documents `--db <url>` accepting a
+connection string when the flag only accepts `docker|embedded|url`;
+`docs/architecture/runtime-api.md` still says the Node SDK has 104 methods
+where README says 149).
+
+What went wrong, on the record: the local CI replica initially loaded the
+repo-root `.env` (real Telegram credentials) and its smoke run pinged Wes's
+actual Telegram with approval requests for actions that existed only in a
+throwaway sandbox DB — "action not found" on approve, confusion until traced.
+Notification env is now explicitly blanked for any local replica run. Second
+trap, Windows-only: the `npx`/`.bin` shim chain drops inline env overrides,
+so the sandbox server saw the machine-level `DASHCLAW_API_KEY` instead of the
+sandbox key, authenticated the smoke as a DB key rather than the operator,
+and 15 approval checks failed with `SELF_APPROVAL_FORBIDDEN` — an hour of
+diagnosis to conclude the harness was fine and the harness runner was not.
+Launching via `node node_modules/next/dist/bin/next start` directly fixed it.
+Neither trap exists in CI (Linux, job-level env, no `.env` files).
+
 ## 2026-07-05 — Show HN pre-launch pass, round two: the try-it path was broken
 
 A second launch-readiness sweep after v4.63.0 (the first honesty pass was

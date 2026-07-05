@@ -13,6 +13,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+- **The "claims are proven live in CI" promise is now true.** MAINTAINER.md,
+  README, and the trust-and-failure model all stated that the policy smoke
+  harness runs in CI on every push — it never did. Neither did the cross-org
+  isolation suite, the only behavioral proof of org isolation in the repo.
+  Both now run on every push and PR in the `startup-smoke` CI job: after the
+  health smoke, CI boots the built app against the job's fresh Postgres 16
+  service and runs `scripts/policy-smoke.mjs` (120 live checks: guard decision
+  vocabulary, effective-risk max, block/require_approval thresholds, approval
+  lifecycle incl. separation-of-duties with the operator exemption, outcome
+  finality 409s, idempotent replay, flood budgets, tuning loop) and
+  `scripts/cross-org-smoke.mjs` (31 live checks: two run-unique orgs with
+  DB-minted keys, neither able to read, mutate, enumerate, approve, or consume
+  the other's governance resources). A regression in any publicly claimed
+  governance behavior now fails the push that introduces it.
+
 ## [4.63.0] — 2026-07-05
 
 **Evidence-first guard**: SDK, MCP, and REST callers can attach the actual act —
