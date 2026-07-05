@@ -169,6 +169,11 @@ export const actionRecords = pgTable('action_records', {
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
   approvalGrantUsedAt: timestamp('approval_grant_used_at'),
+  // Act-content grant binding (drizzle/0056): server-computed digest of the
+  // act payload the row was created with (evidence-first guard). The
+  // operator-approval grant only matches a retry presenting the same act;
+  // NULL (no act supplied) keeps the tuple match.
+  actContentHash: text('act_content_hash'),
   // Approvals lifecycle hygiene (drizzle/0039): when a pending_approval row
   // stops being approvable. Stamped at creation from the client-declared
   // approval_wait_seconds + retry grace; NULL on legacy rows (lazy sweep

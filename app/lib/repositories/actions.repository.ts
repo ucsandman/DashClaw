@@ -1,4 +1,5 @@
 import { OUTCOME_FIELDS } from '../validate.js';
+import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
 import { reconcileStalePurchases } from './x402.repository';
@@ -456,7 +457,7 @@ async function listActionsViaTaggedSql(
   const [actions, countResult, stats] = await Promise.all([
     sql`
       SELECT
-        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at
+        action_id, agent_id, agent_name, swarm_id, action_type, declared_goal, reasoning, authorization_scope, systems_touched, status, reversible, risk_score, confidence, model, output_summary, error_message, side_effects, artifacts_created, duration_ms, cost_estimate, timestamp_start, timestamp_end, created_at, verified, approved_by, approved_at, outcome_status, outcome_at, outcome_summary, outcome_error, approval_expires_at, act_content_hash
       FROM action_records
       ${where}
       ORDER BY timestamp_start DESC
@@ -713,6 +714,11 @@ function createActionInsertValues(payload: CreateActionPayload) {
     guard_decision_id: orNull(data.guard_decision_id),
     harness_session_id: boundedIdText(data.harness_session_id),
     subagent_uuid: boundedIdText(data.subagent_uuid),
+    // Act-content grant binding (drizzle/0056): server-computed from the act
+    // payload the client sent (never a client-supplied hash), so the
+    // operator-approval grant can bind a retry to the exact approved act.
+    // NULL when no act was supplied — the grant keeps the tuple match.
+    act_content_hash: computeActContentHash(data.act),
     created_by: orNull(payload.createdBy),
   };
 }
@@ -750,7 +756,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
-      created_by, harness_session_id, subagent_uuid,
+      act_content_hash, created_by, harness_session_id, subagent_uuid,
       close_source, approval_expires_at
     ) VALUES (
       ${orgId},
@@ -789,6 +795,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.idempotency_key},
       ${values.session_id},
       ${values.guard_decision_id},
+      ${values.act_content_hash},
       ${values.created_by},
       ${values.harness_session_id},
       ${values.subagent_uuid},

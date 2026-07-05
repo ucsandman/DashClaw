@@ -66,7 +66,7 @@ A `require_approval` decision parks the action in a queue that resolves from any
 Three behaviors keep approvals sane at fleet scale:
 
 - **Expiry.** A pending approval is only approvable while approving it can still release something. Clients declare their wait window; the server stamps an expiry (wait + 15-minute retry grace). Acting on an expired approval returns `410 Gone` — a truthful "this can no longer release anything," not a fake success.
-- **Grant honoring.** If an operator approves *after* the client gave up waiting, the retried identical call (same agent, same exact declared goal, within 15 minutes) is downgraded from `require_approval` to `allow`, with the covering approval named on the decision. Blocks are never downgraded this way.
+- **Grant honoring.** If an operator approves *after* the client gave up waiting, the retried identical call (same agent, same exact declared goal, within 15 minutes) is downgraded from `require_approval` to `allow`, with the covering approval named on the decision. When the pending action carried an act payload, the grant is **act-bound** — the server hashes the act and honors only a retry presenting the same one, so approving act X never authorizes a different act Y. Blocks are never downgraded this way.
 - **Flood control.** When one policy (or the fleet) exceeds its interruption budget, per-action pings collapse into a single flood banner with pause and bulk-resolve controls. Pending approvals are never auto-resolved.
 
 ## Durable outcomes: no silent double-execution

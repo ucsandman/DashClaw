@@ -155,6 +155,35 @@ describe("dashclaw_guard context enrichment", () => {
   });
 });
 
+// Act-content grant binding (drizzle/0056): dashclaw_record forwards the act
+// so the server stamps act_content_hash on the row — a pending_approval
+// record binds the operator's approval to that exact act.
+describe("dashclaw_record act forwarding", () => {
+  const RECORD_INPUT = { action_type: "deploy", declared_goal: "ship it", status: "pending_approval" };
+
+  beforeEach(() => {
+    fetchMock.mockResolvedValue(mockOk({ action: { action_id: "act_1" } }));
+  });
+
+  it("forwards act for grant binding on pending_approval records", async () => {
+    await makeHandlers().dashclaw_record({
+      ...RECORD_INPUT,
+      act: { kind: "shell", command: "vercel deploy --prod" },
+    });
+    expect(lastRequestBody().act).toEqual({ kind: "shell", command: "vercel deploy --prod" });
+  });
+
+  it("omits act when not supplied (no null in the payload)", async () => {
+    await makeHandlers().dashclaw_record(RECORD_INPUT);
+    expect("act" in lastRequestBody()).toBe(false);
+  });
+
+  it("ignores a non-object act instead of forwarding garbage", async () => {
+    await makeHandlers().dashclaw_record({ ...RECORD_INPUT, act: "vercel deploy" });
+    expect("act" in lastRequestBody()).toBe(false);
+  });
+});
+
 describe("idempotency keys (Organ 3 Phase 3)", () => {
   it("guard sends a derived idempotency key; identical calls derive identical keys", async () => {
     const handlers = makeHandlers();

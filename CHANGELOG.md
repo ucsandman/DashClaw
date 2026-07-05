@@ -13,6 +13,49 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.64.0] — 2026-07-05
+
+**Act-content grant binding.** The operator-approval grant now covers the
+*act*, not just the sentence: closes the security review's last open
+follow-up (approve X, do Y). Spec:
+`docs/superpowers/specs/2026-07-05-act-content-grant-binding.md`.
+
+### Security
+- **Operator approvals bind to the approved act's content** (drizzle/0056).
+  Rows created with an evidence-first `act` payload get a server-computed
+  canonical digest stamped as `action_records.act_content_hash` (a
+  client-supplied hash is never trusted), and the guard's single-use grant
+  consume additionally requires the retry's act to recompute to the same
+  hash — approving act X can no longer authorize a different act Y sharing
+  the same agent + declared_goal + action_type. Rows without an act keep
+  the previous tuple match (binding tightens, never loosens; residuals
+  recorded in `docs/SECURITY.md`). Live-proven by the new policy-smoke AE
+  family; grant SQL, stamping, position pins, and validation all pinned by
+  unit tests.
+
+### Added
+- **`/approvals` shows an "Act-bound" badge** on act-stamped pending cards,
+  with plain-language hover copy — the operator sees when an approval is
+  pinned to the exact recorded act.
+- **MCP `dashclaw_record` accepts `act`** (@dashclaw/mcp-server 2.2.0) and
+  forwards it, so MCP-created pending approvals participate in the binding
+  (previously the MCP surface had no way to carry the act into the row).
+  No Node/Python SDK changes needed — both already send the scrubbed act
+  on the guard call and the record create, so binding is automatic for
+  `runGoverned` / `run_governed`.
+
+### Fixed
+- **`POST /api/actions` silently dropped the `act` payload** — the record
+  schema's whitelist stripped it before it reached the repository.
+  `validateActionRecord` now accepts `act` with the same deep validation
+  (16KB cap, per-kind shape) as the guard input.
+- **The two pending-row creator paths persisted different action_types**
+  when the evidence fold swapped the evaluation type: `guard?record=true`
+  stored the derived type, `POST /api/actions` the declared one — so
+  SDK-created grants could never match an act-carrying retry. `/api/actions`
+  now persists the type the evaluation actually ran under, consistent with
+  `guard_decisions`.
+
 ## [4.63.2] — 2026-07-05
 
 **First-run reliability.** Live-verifying the two README quick-start commands

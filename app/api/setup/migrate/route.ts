@@ -300,6 +300,7 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "approved_at" timestamp,
   "created_by" text,
   "approval_grant_used_at" timestamp,
+  "act_content_hash" text,
   "approval_expires_at" timestamp with time zone,
   "outcome_status" text NOT NULL DEFAULT 'pending',
   "outcome_at" timestamp with time zone,

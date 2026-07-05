@@ -1,22 +1,23 @@
 {
   "node": {
-    "current_version": "4.63.2",
+    "current_version": "4.64.0",
     "next_bump": "none",
-    "reason": "4.63.2 first-run reliability release: no Node SDK source change, but publishing dashclaw@4.63.2 to npm is REQUIRED anyway - `npx dashclaw up` resolves which app tarball to install from the npm `dashclaw` version, so the local-install fixes (setup hangs, missing drizzle chain) only reach fresh users once 4.63.2 is the npm latest.",
+    "reason": "4.64.0 act-content grant binding: no Node SDK source change - the SDK already sends the scrubbed act on guard() and createAction(), so the server-side binding is automatic. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.63.2",
+    "current_version": "4.64.0",
     "next_bump": "none",
-    "reason": "4.63.2 first-run reliability release: no Python SDK source change; republish rides along with the Node publish per the unified-version model (release:sdks is idempotent).",
+    "reason": "4.64.0 act-content grant binding: no Python SDK source change - run_governed already sends the scrubbed act on both calls. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.63.2 fixes four first-run killers in `npx dashclaw up` on local databases (idle-connection hang, missing drizzle chain in local setup, invalid token_budgets DDL, dotenv import crash, stdout pipe deadlock) plus @dashclaw/cli 0.6.2 port-conflict handling. npm publish required so `up` fetches the fixed tarball.",
+  "reason": "v4.64.0 binds the operator-approval grant to a server-computed hash of the approved act (action_records.act_content_hash, drizzle/0056) - approving act X no longer authorizes a different act Y sharing the goal tuple. Platform + MCP server only: @dashclaw/mcp-server 2.2.0 (dashclaw_record gains `act`) is the one package that needs publishing.",
   "domains": [
-    "platform"
+    "platform",
+    "mcp-server"
   ]
 }

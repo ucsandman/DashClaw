@@ -295,7 +295,11 @@ override). A pending approval expires server-side once that window plus a
 and approving the dead request returns `410 APPROVAL_EXPIRED` instead of a
 fake success. If an operator approves before expiry but after your wait timed
 out, retrying the identical call within 15 minutes of the approval is
-auto-allowed (operator-approval grant).
+auto-allowed (operator-approval grant). When the action was created with an
+``act`` payload (as ``run_governed`` does), the grant is additionally
+**act-bound**: the server hashes the act at record time and the retry only
+rides the approval if it presents the same act — approving one command never
+authorizes a different one that shares the same goal string.
 
 ## Behavior Guard
 

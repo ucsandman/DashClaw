@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.64.0: the approval covers the act, not the sentence
+
+The last open follow-up from this week's governance security review: the
+operator-approval grant bound a retry to agent + exact goal string +
+action type for 15 minutes — none of which are the action's *parameters*.
+Approve `deploy staging` and a retry wrapping the same three strings around
+a completely different command rode the approval. v4.64.0 closes it with
+**act-content grant binding**: rows created with an evidence-first `act`
+payload get a server-computed hash stamped on them (`act_content_hash`,
+drizzle/0056), and the grant's atomic consume now requires the retry's own
+act to recompute to the same hash. Approving act X can no longer authorize
+act Y. Rows without an act keep the old tuple match — the binding tightens
+grants, never loosens them — and the approvals queue marks stamped rows
+"Act-bound" so the operator knows exactly what their click covers.
+
+The build-time recon improved on the review's own sketch. The review said
+"both SDKs stamp `act_hash`"; recon found both SDKs already send the same
+scrubbed act on the guard call *and* the pending-record create, so the
+server computes the digest itself on both sides — an SDK-stamped hash would
+have been just another client-declared field. No SDK source changed; the
+binding is automatic for existing `runGoverned`/`run_governed` users. The
+MCP surface was the real gap: `dashclaw_guard` accepted an act but
+`dashclaw_record` had no way to carry it into the pending row —
+@dashclaw/mcp-server 2.2.0 adds it.
+
+Two adjacent bugs surfaced and got fixed in the same pass, both caught by
+the live smoke rather than the unit tests. `validateActionRecord`'s
+whitelist schema silently dropped `act` before it reached the repository —
+the stamp tests passed against the repository directly while the live
+stamp was NULL (the lesson from v4.63.2 again: proof is only proof in the
+environment it ran in; the new smoke family AE now pins the whole loop over
+real HTTP). And `POST /api/actions` evaluated guard on a *copy* of the
+body while the `guard?record=true` path mutates in place, so the two
+creator paths persisted different action_types whenever the evidence fold
+swapped the evaluation type — SDK-created grants would never have matched
+on retry. `/api/actions` now persists the type the evaluation actually ran
+under, consistent with `guard_decisions`.
+
+An Opus security review of the diff passed it (0 critical/high) and named
+the honest residual, now recorded in SECURITY.md: an approval of a row
+created *without* an act remains a tuple-wide grant — the absent badge is
+the operator's signal, and a strict mode that refuses act-less grants is a
+possible future tightening. Local smoke: 121/123 with the two failures
+proven environmental (this org's own Deploy Gate policy; quota state), and
+the AE family 3/3.
+
 ## 2026-07-05 — v4.63.2: verify-before-recommend catches five first-run killers
 
 Wes wanted to recommend the two quick-start commands (`npm i -g @dashclaw/cli`

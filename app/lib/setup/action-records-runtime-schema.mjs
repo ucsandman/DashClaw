@@ -29,6 +29,10 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
   { name: 'approval_grant_used_at', sql: 'timestamp' },
+  // Act-content grant binding (drizzle/0056): server-computed digest of the
+  // act payload the row was created with; the operator-approval grant only
+  // matches a retry presenting the same act. NULL keeps the tuple match.
+  { name: 'act_content_hash', sql: 'text' },
   // Closure provenance (drizzle/0048, v4.2 coverage truth): 'outcome' |
   // 'stop_autoclose' | 'direct'; NULL means pre-v4.2 row.
   { name: 'close_source', sql: 'text' },

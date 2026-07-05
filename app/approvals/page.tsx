@@ -233,6 +233,11 @@ export default function ApprovalsPage() {
                           <div className="min-w-0">
                             <div className="mb-2 flex flex-wrap items-center gap-2">
                               <Badge variant="warning">Awaiting Approval</Badge>
+                              {action.act_content_hash && (
+                                <span title="This approval is bound to the exact recorded act — an agent retry presenting a different command or request re-queues for approval instead of reusing the grant.">
+                                  <Badge variant="info" size="xs">Act-bound</Badge>
+                                </span>
+                              )}
                               <EntityLink
                                 type="decision"
                                 id={action.action_id}

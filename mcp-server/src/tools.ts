@@ -90,6 +90,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         cost_estimate: { type: 'number', description: 'Estimated cost in USD' },
         session_id: { type: 'string', description: 'Session to attribute this action to. Defaults to the session started via dashclaw_session_start in this connection.' },
         approval_wait_seconds: { type: 'integer', description: 'For status pending_approval: how long you will poll for the decision (default 300; the approval expires after this window + a retry grace)' },
+        act: { type: 'object', description: 'The actual act this record covers — pass the SAME act object you sent to dashclaw_guard. For status pending_approval the server stamps a content hash from it, binding the operator\'s approval to this exact act: the approval then only covers a dashclaw_guard retry presenting the same act. Shape matches dashclaw_guard\'s act ({ kind: "shell"|"http"|"sql"|"file", ... }). Optional — omit when no concrete act exists.' },
       },
       required: ['action_type', 'declared_goal', 'status'],
     },
@@ -745,6 +746,12 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         tokens_out: input.tokens_out,
         model: input.model,
         cost_estimate: input.cost_estimate,
+        // Act-content grant binding (drizzle/0056): forward the act so the
+        // server stamps act_content_hash on the row — a pending_approval
+        // record then binds the operator's approval to this exact act, and
+        // the grant only covers a dashclaw_guard retry presenting the same
+        // act. Same forwarding rule as dashclaw_guard.
+        ...(input.act && typeof input.act === 'object' ? { act: input.act } : {}),
         // Approvals lifecycle (roadmap v2.3): same wait-window declaration as
         // dashclaw_guard, for records created directly as pending_approval.
         approval_wait_seconds: Number.isInteger(input.approval_wait_seconds) ? input.approval_wait_seconds : 300,

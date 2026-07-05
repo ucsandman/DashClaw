@@ -263,10 +263,19 @@ export async function POST(request: Request) {
     }
 
     // BEHAVIOR GUARD EVALUATION
-    const guardDecision = await evaluateGuard(orgId, {
+    const guardContext: Record<string, unknown> = {
       ...data,
       agent_id: data.agent_id
-    }, sql);
+    };
+    const guardDecision = await evaluateGuard(orgId, guardContext, sql);
+    // The evidence-first fold may swap the evaluation onto the evidence-
+    // derived action_type. Persist THAT type — it keeps the ledger consistent
+    // with guard_decisions AND with the guard?record=true path (which mutates
+    // its context in place), so the operator-approval grant finds this row on
+    // retry: the retry re-runs the same fold and looks up the swapped type.
+    if (typeof guardContext.action_type === 'string' && guardContext.action_type !== data.action_type) {
+      data.action_type = guardContext.action_type;
+    }
 
     // SECURITY (R1): persist the SAME authoritative risk the guard decided on, so
     // action_records is consistent with guard_decisions (plan §3.3). The client's

@@ -31,7 +31,7 @@ When a policy answers `require_approval`, the action parks in a queue and the ag
 What keeps the queue honest:
 
 - **Expiry.** Approvals are only approvable while approving can still release something. Overdue rows flip to `expired` and render in a distinct non-approvable section; acting on one returns `410 Gone`.
-- **Late-approval grace.** If you approve after the agent's wait timed out, its identical retry within 15 minutes is honored (`allow`, with the covering approval named on the decision) instead of re-queuing.
+- **Late-approval grace.** If you approve after the agent's wait timed out, its identical retry within 15 minutes is honored (`allow`, with the covering approval named on the decision) instead of re-queuing. When the pending action carried an act payload (marked **Act-bound** on its card), the grant is pinned to that exact act — a retry presenting a different command or request re-queues instead of riding your approval.
 - **Flood control.** When one policy (or the fleet) exceeds its interruption budget, per-action pings collapse into one flood banner with pause-rule and bulk-resolve controls. Nothing is ever auto-approved.
 
 ## The ledger: decisions, replay, signals

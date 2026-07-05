@@ -11,6 +11,7 @@ import { EVENTS, publishOrgEvent } from '../events';
 import { getLearningContext } from '../learning-context';
 import { evaluateRecoveryRecipes } from '../recovery';
 import { getActBindingMode } from '../act-binding';
+import { computeActContentHash } from '../act-content-hash';
 import { getJtiReplayMode } from '../replay-protection';
 import { grantMatches } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
@@ -290,6 +291,14 @@ const OPERATOR_APPROVAL_WINDOW_MINUTES = 15;
  * approve-then-retry UX is unchanged. Binding on action_type stops a generic
  * goal string from carrying one approval across different action kinds.
  *
+ * Act-content binding (drizzle/0056): when the approved row was created with
+ * an act payload (evidence-first guard), its server-computed act_content_hash
+ * is part of the match — the grant only covers a retry presenting the SAME
+ * act, recomputed here from the retry's own payload. Rows without a stamp
+ * keep the tuple match (legacy SDKs, non-act creators): the binding only
+ * ever tightens a grant, it never loosens one. Approving act X can no longer
+ * authorize a different act Y that shares the tuple.
+ *
  * Like allow_grant, this can NEVER override block — blocks are absolute.
  * Best-effort: a lookup failure (including a pre-0045 schema missing the
  * column) leaves the decision at require_approval (fails closed).
@@ -300,6 +309,9 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
   if (!context.agent_id || !context.declared_goal) return;
   try {
     const actionType = context.action_type ?? null;
+    // Recomputed server-side from the retry's act — a NULL here (no act on
+    // the retry) can only match rows that were never act-stamped.
+    const retryActHash = computeActContentHash(context.act);
     const rows = await sql`
       UPDATE action_records
       SET approval_grant_used_at = NOW()
@@ -310,6 +322,7 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
           AND agent_id = ${context.agent_id}
           AND declared_goal = ${context.declared_goal}
           AND (${actionType}::text IS NULL OR action_type = ${actionType})
+          AND (act_content_hash IS NULL OR act_content_hash = ${retryActHash})
           AND approved_by IS NOT NULL
           AND approved_by <> ''
           AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
@@ -319,12 +332,12 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
       )
         AND org_id = ${orgId}
         AND approval_grant_used_at IS NULL
-      RETURNING action_id, approved_by
+      RETURNING action_id, approved_by, act_content_hash
     `;
     const grant = rows[0];
     if (!grant) return;
     acc.warnings.push(
-      `Covered by operator approval ${grant.action_id} (approved by ${grant.approved_by}) — require_approval downgraded to allow`
+      `Covered by operator approval ${grant.action_id} (approved by ${grant.approved_by}${grant.act_content_hash ? ', act-bound' : ''}) — require_approval downgraded to allow`
     );
     acc.matchedPolicies.push('builtin:operator_approval');
     acc.highestDecision = 'allow';

@@ -79,6 +79,11 @@ const ACTION_RECORD_SCHEMA = {
   // non_fabrication policy; never persisted as action_records columns.
   content:              { type: 'string', maxLength: 50000 },
   source_of_truth:      { type: 'object' },
+  // Evidence-first act (optional; same wire contract as the guard input —
+  // validateActionRecord runs the same deep pass). Feeds the internal guard
+  // evaluation AND the act_content_hash grant-binding stamp (drizzle/0056);
+  // the act object itself is never persisted as an action_records column.
+  act:                  { type: 'object' },
 };
 
 const OUTCOME_FIELDS = [
@@ -218,7 +223,16 @@ function validate(body, schema) {
 }
 
 export function validateActionRecord(body) {
-  return validate(body, ACTION_RECORD_SCHEMA);
+  const result = validate(body, ACTION_RECORD_SCHEMA);
+  // Deep-validate the optional evidence `act` payload — identical contract to
+  // validateGuardInput, so an act accepted at guard time is accepted at record
+  // time (act-content grant binding depends on both sides seeing the same act).
+  if (isPlainObject(result.data.act)) {
+    const before = result.errors.length;
+    validateActField(result.data.act, (msg) => result.errors.push(msg));
+    if (result.errors.length > before) result.valid = false;
+  }
+  return result;
 }
 
 export function validateActionOutcome(body) {

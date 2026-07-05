@@ -390,6 +390,51 @@ async function main() {
     check('E1', 'assumption on unknown action → 404', asMissing.status === 404, `status=${asMissing.status}`);
   }
 
+  // AE: act-content grant binding (drizzle/0056) — an approval for act X is
+  // consumed only by a retry presenting the SAME act; a different act with an
+  // identical goal tuple re-queues for approval instead of riding the grant.
+  // Both acts are benign echoes so the evidence fold never swaps the
+  // action_type — this family isolates the HASH binding, nothing else.
+  {
+    const agent = agentFor('b3'); // reuse risk_threshold(require_approval) agent
+    const goal = `act-bound risky action ${RUN}`;
+    const actX = { kind: 'shell', command: `echo deploy-artifact-${RUN}` };
+    const actY = { kind: 'shell', command: `echo tampered-payload-${RUN}` };
+
+    const pending = await api('POST', '/api/actions', {
+      agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actX,
+    });
+    const pendingStatus = pending.json?.action?.status || pending.json?.status;
+    const actionId = pending.json?.action_id || pending.json?.action?.action_id;
+    check('AE', 'act-carrying action pends with act_content_hash stamped',
+      pendingStatus === 'pending_approval' && !!pending.json?.action?.act_content_hash,
+      `status=${pendingStatus} hash=${pending.json?.action?.act_content_hash || 'MISSING'}`);
+
+    if (actionId) {
+      const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow', reasoning: 'policy smoke (act binding)' });
+      // Different act, same tuple → the grant must NOT cover it (and must not
+      // be consumed by the refused attempt — the same-act retry below proves
+      // the grant survived).
+      const wrongAct = await api('POST', '/api/guard', {
+        agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actY,
+      });
+      check('AE', 'approval for act X does NOT cover a retry with act Y (same goal tuple)',
+        approved.status < 400 && wrongAct.json?.decision === 'require_approval',
+        `approve=${approved.status} decision=${wrongAct.json?.decision}`);
+      // Same act → grant consumed, decision act-bound
+      const rightAct = await api('POST', '/api/guard', {
+        agent_id: agent, action_type: 'smoke.risky', declared_goal: goal, risk_score: 75, act: actX,
+      });
+      check('AE', 'same-act retry consumes the grant (act-bound operator approval)',
+        rightAct.json?.decision === 'allow' &&
+        (rightAct.json?.matched_policies || []).includes('builtin:operator_approval') &&
+        (rightAct.json?.warnings || []).join(' ').includes('act-bound'),
+        `decision=${rightAct.json?.decision} warnings=${JSON.stringify(rightAct.json?.warnings)?.slice(0, 160)}`);
+    } else {
+      check('AE', 'act binding flow', false, 'no action_id returned for act-stamped pending action');
+    }
+  }
+
   // A5: blocks are absolute — approval on identical goal never downgrades block
   {
     const agent = agentFor('a5');

@@ -191,6 +191,39 @@ describe('ApprovalsPage — session resolution', () => {
     }
   });
 
+  // Act-content grant binding (drizzle/0056): an act-stamped pending row shows
+  // the approver that the approval is pinned to the exact recorded act.
+  it('shows the Act-bound badge only on act-stamped pending rows', async () => {
+    const STAMPED = {
+      action_id: 'act_bound_1', agent_id: 'agent_aa', agent_name: 'planner',
+      declared_goal: 'Deploy to prod', action_type: 'deploy', risk_score: 80,
+      status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+      act_content_hash: 'sha256:abc123',
+    };
+    const UNSTAMPED = {
+      action_id: 'act_plain_1', agent_id: 'agent_bb', agent_name: 'researcher',
+      declared_goal: 'Send the digest', action_type: 'message', risk_score: 60,
+      status: 'pending_approval', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+    };
+    global.fetch = vi.fn(async (url) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [STAMPED, UNSTAMPED] }) };
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: [] }) };
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Deploy to prod');
+    expect(screen.getByText('Send the digest')).toBeTruthy();
+    // Exactly one badge — the stamped row's; the plain row renders none.
+    expect(screen.getAllByText('Act-bound').length).toBe(1);
+  });
+
   it('renders expired approvals in a distinct non-approvable section (roadmap v2.3)', async () => {
     const EXPIRED = {
       action_id: 'act_exp', agent_id: 'agent_bb', agent_name: 'researcher',
