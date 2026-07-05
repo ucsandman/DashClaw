@@ -42,7 +42,7 @@ acts (constitution §4).
 
 | Step | Evidence |
 |------|----------|
-| Minted | `organizations` row with `hosted_mode = TRUE`; `minted_at = created_at` |
+| Minted | `organizations` row with `hosted_mode = TRUE AND trial_action_cap > 0`; `minted_at = created_at`. Cap-0 rows are capacity-full inert placeholders (`markTrialFull`) — a workspace that can never act is not a mint, and counting it would corrupt conversion for a non-product reason. Snapshots skip them too. |
 | Key used | `EXISTS api_keys` for the org with `last_used_at IS NOT NULL` |
 | First governed action | earliest non-synthetic row across `guard_decisions` and `action_records` (`MIN(created_at)`, `LEAST` of the two) |
 | Retained week 1 | org minted ≥ 7 days ago (**eligible**) AND any non-synthetic activity row with `created_at ≥ minted_at + 7 days` |
