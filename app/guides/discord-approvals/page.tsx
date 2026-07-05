@@ -6,19 +6,18 @@ import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Discord approvals for DashClaw',
   description:
     'Wire a Discord bot to your DashClaw instance. Inline Approve and Deny buttons in your DMs, full audit evidence, no extra infrastructure.',
-  openGraph: {
-    title: 'Discord approvals for DashClaw',
-    description:
-      'Wire a Discord bot to your DashClaw instance. Inline Approve and Deny buttons in your DMs, full audit evidence, no extra infrastructure.',
-  },
-};
+  path: '/guides/discord-approvals',
+});
 
 export default async function DiscordApprovalsGuidePage() {
   const headerStore = await headers();
@@ -218,6 +217,15 @@ policies:
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'Discord approvals for DashClaw',
+          description: 'Wire a Discord bot to your DashClaw instance. Inline Approve and Deny buttons in your DMs, full audit evidence, no extra infrastructure.',
+          url: 'https://www.dashclaw.io/guides/discord-approvals',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

@@ -1,18 +1,20 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import { ChevronRight, Terminal, ArrowRight, Shield, Server, Cloud, Download, Sparkles } from 'lucide-react';
-import type { Metadata } from 'next';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import CopyMarkdownButton from '../components/CopyMarkdownButton';
 import CopyableCodeBlock from '../components/CopyableCodeBlock';
 import MarketingPageView from '../components/MarketingPageView';
 import SetupTabs from './SetupTabs';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Get Started with DashClaw',
   description: 'Deploy your own DashClaw dashboard for free with Vercel + Neon, or run locally with Docker.',
-};
+  path: '/self-host',
+});
 
 export default function SelfHostPage() {
   return (

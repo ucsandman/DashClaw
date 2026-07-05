@@ -1,14 +1,16 @@
 import Link from 'next/link';
 import { ChevronRight, Lock } from 'lucide-react';
-import type { Metadata } from 'next';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Privacy Policy — DashClaw',
   description:
     'What DashClaw stores, where it lives, and who can see it — for self-hosted instances and the hosted trial.',
-};
+  path: '/privacy',
+});
 
 const LAST_UPDATED = '2026-07-03';
 

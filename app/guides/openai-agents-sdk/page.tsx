@@ -6,13 +6,17 @@ import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'OpenAI Agents SDK Integration Guide - DashClaw',
   description: 'Add governance to OpenAI Agents SDK with DashClaw in under 20 minutes.',
-};
+  path: '/guides/openai-agents-sdk',
+});
 
 export default async function OpenAIAgentsSdkGuidePage() {
   const headerStore = await headers();
@@ -134,6 +138,15 @@ DASHCLAW_API_KEY=oc_live_...`,
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'OpenAI Agents SDK Integration Guide - DashClaw',
+          description: 'Add governance to OpenAI Agents SDK with DashClaw in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/openai-agents-sdk',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

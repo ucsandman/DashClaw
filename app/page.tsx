@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import {
   ArrowRight,
   Terminal,
@@ -23,8 +24,17 @@ import HostedTrialCTA from './components/HostedTrialCTA';
 import HeroDecisionRecord from './components/HeroDecisionRecord';
 import StackQuickstarts from './components/StackQuickstarts';
 import { isHostedMode } from './lib/hosted/flag';
+import { marketingPageMetadata } from './lib/marketingSeo';
+import JsonLd from './components/JsonLd';
 
 import { signals } from './landingData';
+
+export const metadata: Metadata = marketingPageMetadata({
+  title: 'DashClaw, the governance runtime for AI agents',
+  description:
+    'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
+  path: '/',
+});
 
 /* ─── page ─── */
 
@@ -119,6 +129,29 @@ export default function LandingPage() {
   const trialConfigured = hosted || Boolean(process.env.NEXT_PUBLIC_HOSTED_TRIAL_URL);
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary text-base">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@graph': [
+            {
+              '@type': 'SoftwareApplication',
+              name: 'DashClaw',
+              description:
+                'Open source governance runtime for AI agents: policy evaluates every risky action before it runs, held actions route to a human, every decision lands in a signed, replayable ledger.',
+              url: 'https://www.dashclaw.io',
+              applicationCategory: 'DeveloperApplication',
+              operatingSystem: 'Any',
+              offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            },
+            {
+              '@type': 'Organization',
+              name: 'DashClaw',
+              url: 'https://www.dashclaw.io',
+              sameAs: ['https://github.com/ucsandman/DashClaw'],
+            },
+          ],
+        }}
+      />
       <PublicNavbar />
       <SetupBanner />
 

@@ -7,13 +7,17 @@ import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import MarkdownBody from '../../messages/_components/MarkdownBody';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Claude Code Integration Guide - DashClaw',
   description: 'Govern Claude Code tool calls with DashClaw in under 20 minutes.',
-};
+  path: '/guides/claude-code',
+});
 
 export default async function ClaudeCodeGuidePage() {
   const headerStore = await headers();
@@ -205,6 +209,15 @@ DASHCLAW_GUARD_TIMEOUT=5`,
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'Claude Code Integration Guide - DashClaw',
+          description: 'Govern Claude Code tool calls with DashClaw in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/claude-code',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

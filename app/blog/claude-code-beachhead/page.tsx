@@ -15,23 +15,38 @@
  * the commitment section.
  */
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import VideoHero from '../../components/VideoHero';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 // Placeholder until recording lands. Mirrors app/page.jsx:59 so a single
 // backfill commit flips both hero + blog embeds at once.
 const VIDEO_URL = 'https://www.loom.com/embed/PLACEHOLDER_VIDEO_ID';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Govern Claude Code before it surprises you — DashClaw',
   description:
     'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
-};
+  path: '/blog/claude-code-beachhead',
+  ogType: 'article',
+});
 
 export default function BlogPostPage() {
   return (
     <div className="space-y-6 text-text-primary">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: 'Govern Claude Code before it surprises you — DashClaw',
+          description: 'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
+          url: 'https://www.dashclaw.io/blog/claude-code-beachhead',
+          datePublished: '2026-04-22',
+          publisher: { '@type': 'Organization', name: 'DashClaw', url: 'https://www.dashclaw.io' },
+        }}
+      />
       <header className="mb-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">
           Launch post · Claude Code Beachhead

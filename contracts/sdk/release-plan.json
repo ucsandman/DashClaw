@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.60.0",
+    "current_version": "4.60.1",
     "next_bump": "none",
-    "reason": "4.60.0 roadmap v6.4 reach attribution: mint-time referrer/UTM source capture (org grain, snapshot-frozen), per-channel funnel annotation (bySource), /setup render. Platform feature - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.60.0",
+    "current_version": "4.60.1",
     "next_bump": "none",
-    "reason": "4.60.0 roadmap v6.4 reach attribution: mint-time referrer/UTM source capture (org grain, snapshot-frozen), per-channel funnel annotation (bySource), /setup render. Platform feature - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.60.0 roadmap v6.4 reach attribution: platform-only; Node/Python SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.60.1 roadmap v6.3 SEO truth pass: platform/marketing only; Node/Python SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

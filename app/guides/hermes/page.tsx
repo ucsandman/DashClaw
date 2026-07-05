@@ -7,13 +7,17 @@ import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import MarkdownBody from '../../messages/_components/MarkdownBody';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Hermes Agent Integration Guide - DashClaw',
   description: 'Govern Hermes Agent with DashClaw — per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
-};
+  path: '/guides/hermes',
+});
 
 export default async function HermesGuidePage() {
   const headerStore = await headers();
@@ -124,7 +128,7 @@ powershell -File scripts/install-hermes-plugin.ps1
 
 # Sanity check
 hermes dashclaw doctor`,
-      note: 'The doctor command runs a 4-section check: env vars, all 8 hooks on disk, plugin skills present, API reachability, and a finalize: true probe of /api/code-sessions/ingest-live.',
+      note: 'The doctor command runs a 4-section check: env vars, all 8 hooks on disk, plugin skills present, API reachability plus a finalize: true probe of /api/code-sessions/ingest-live.',
     },
     {
       number: 3,
@@ -255,6 +259,15 @@ left next to the config on first install for full restore.`;
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'Hermes Agent Integration Guide - DashClaw',
+          description: 'Govern Hermes Agent with DashClaw — per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/hermes',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

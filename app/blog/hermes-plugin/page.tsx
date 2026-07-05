@@ -9,18 +9,33 @@
  * Design: CSS tokens only per .impeccable.md.
  */
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw now ships a Hermes plugin — per-turn governance, live ingest, subagent ROI',
   description:
     "Eight Hermes lifecycle hooks, per-turn context injection, secret redaction in tool output, and live session ingest. One install script.",
-};
+  path: '/blog/hermes-plugin',
+  ogType: 'article',
+});
 
 export default function BlogPostPage() {
   return (
     <div className="space-y-6 text-text-primary">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: 'DashClaw now ships a Hermes plugin — per-turn governance, live ingest, subagent ROI',
+          description: "Eight Hermes lifecycle hooks, per-turn context injection, secret redaction in tool output, and live session ingest. One install script.",
+          url: 'https://www.dashclaw.io/blog/hermes-plugin',
+          datePublished: '2026-05-14',
+          publisher: { '@type': 'Organization', name: 'DashClaw', url: 'https://www.dashclaw.io' },
+        }}
+      />
       <header className="mb-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">
           Update · Hermes plugin

@@ -1,4 +1,3 @@
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import {
   Building2, UsersRound, Zap, ArrowRight, ExternalLink,
@@ -7,11 +6,14 @@ import {
 import DashClawLogo from '../components/DashClawLogo';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Practical Systems — The Team Behind DashClaw',
   description: 'Practical Systems builds AI-powered sales and operations infrastructure for growing companies. DashClaw is what we built to run our own agent fleet. Now you can use it too.',
-};
+  path: '/practical-systems',
+});
 
 export default function PracticalSystemsPage() {
   return (

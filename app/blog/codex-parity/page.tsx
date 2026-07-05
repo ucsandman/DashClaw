@@ -11,18 +11,33 @@
  * Design: CSS tokens only per .impeccable.md.
  */
 
-import type { Metadata } from 'next';
 import Link from 'next/link';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
-export const metadata: Metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw now governs Codex — same surface, same audit ledger',
   description:
     "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
-};
+  path: '/blog/codex-parity',
+  ogType: 'article',
+});
 
 export default function BlogPostPage() {
   return (
     <div className="space-y-6 text-text-primary">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'BlogPosting',
+          headline: 'DashClaw now governs Codex — same surface, same audit ledger',
+          description: "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
+          url: 'https://www.dashclaw.io/blog/codex-parity',
+          datePublished: '2026-05-14',
+          publisher: { '@type': 'Organization', name: 'DashClaw', url: 'https://www.dashclaw.io' },
+        }}
+      />
       <header className="mb-8">
         <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">
           Update · Codex parity

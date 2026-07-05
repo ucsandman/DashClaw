@@ -7,13 +7,17 @@ import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import MarkdownBody from '../../messages/_components/MarkdownBody';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Codex Integration Guide - DashClaw',
   description: 'Govern OpenAI Codex CLI tool calls with DashClaw in under 20 minutes.',
-};
+  path: '/guides/codex',
+});
 
 export default async function CodexGuidePage() {
   const headerStore = await headers();
@@ -232,6 +236,15 @@ config on first install for full restore.`;
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'Codex Integration Guide - DashClaw',
+          description: 'Govern OpenAI Codex CLI tool calls with DashClaw in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/codex',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

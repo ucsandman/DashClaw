@@ -16,7 +16,7 @@ function normalizeHost(host: string | null | undefined): string {
   ).toLowerCase();
 }
 
-function isMarketingHost(host: string | null | undefined): boolean {
+export function isMarketingHost(host: string | null | undefined): boolean {
   const normalizedHost = normalizeHost(host);
   return normalizedHost === 'dashclaw.io' || normalizedHost === 'www.dashclaw.io';
 }

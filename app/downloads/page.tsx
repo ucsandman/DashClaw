@@ -5,12 +5,15 @@ import {
 import type { LucideIcon } from 'lucide-react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Downloads — DashClaw',
   description:
     'Skills, plugins, hooks, and the MCP server — every DashClaw governance artifact in one place, with install commands for Claude Code, Codex, and Hermes Agent.',
-};
+  path: '/downloads',
+});
 
 interface SectionHeaderProps {
   icon: LucideIcon;

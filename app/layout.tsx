@@ -11,6 +11,7 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://www.dashclaw.io'),
   title: 'DashClaw, the governance runtime for AI agents',
   description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
   icons: {
@@ -24,7 +25,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'DashClaw, the governance runtime for AI agents',
     description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
-    url: 'https://dashclaw.io',
+    url: 'https://www.dashclaw.io',
     siteName: 'DashClaw',
     type: 'website',
     images: [

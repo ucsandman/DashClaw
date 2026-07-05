@@ -6,14 +6,18 @@ import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'OpenClaw Integration Guide - DashClaw',
   description:
     'Add governance to OpenClaw agents with DashClaw in under 20 minutes.',
-};
+  path: '/guides/openclaw',
+});
 
 export default async function OpenClawGuidePage() {
   const headerStore = await headers();
@@ -133,6 +137,15 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'OpenClaw Integration Guide - DashClaw',
+          description: 'Add governance to OpenClaw agents with DashClaw in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/openclaw',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

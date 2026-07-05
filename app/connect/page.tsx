@@ -24,6 +24,8 @@ import FirstGovernedActionCard from './FirstGovernedActionCard';
 import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { getSql } from '../lib/db';
 import { getHostedWorkspace } from '../lib/repositories/hosted-workspace.repository';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
 /*
  * Framework agnostic /connect runbook.
@@ -41,16 +43,12 @@ import { getHostedWorkspace } from '../lib/repositories/hosted-workspace.reposit
  *   Framework guides                (5 cards: Claude Code, OpenAI Agents SDK, LangGraph, CrewAI, OpenClaw)
  */
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'Connect an agent to DashClaw',
   description:
     'Point any agent at your running DashClaw instance. Pick an integration surface, configure approvals, verify with one command.',
-  openGraph: {
-    title: 'Connect an agent to DashClaw',
-    description:
-      'Point any agent at your running DashClaw instance. Pick an integration surface, configure approvals, verify with one command.',
-  },
-};
+  path: '/connect',
+});
 
 interface StepHeaderProps {
   n: React.ReactNode;

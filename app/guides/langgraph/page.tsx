@@ -6,13 +6,17 @@ import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
 import { getGuideBaseUrl } from '../../lib/guideContent';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../../lib/marketingSeo';
+import JsonLd from '../../components/JsonLd';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'LangGraph Integration Guide - DashClaw',
   description: 'Add governance to LangGraph agents with DashClaw in under 20 minutes.',
-};
+  path: '/guides/langgraph',
+});
 
 export default async function LangGraphGuidePage() {
   const headerStore = await headers();
@@ -154,6 +158,15 @@ python main.py`,
 
   return (
     <div className="min-h-screen text-white">
+      <JsonLd
+        data={{
+          '@context': 'https://schema.org',
+          '@type': 'TechArticle',
+          headline: 'LangGraph Integration Guide - DashClaw',
+          description: 'Add governance to LangGraph agents with DashClaw in under 20 minutes.',
+          url: 'https://www.dashclaw.io/guides/langgraph',
+        }}
+      />
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">

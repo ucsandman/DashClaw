@@ -14,12 +14,15 @@ import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import DocsSidebarClient from './DocsSidebarClient';
 import DocsCodeTabs from './DocsCodeTabs';
+import type { Metadata } from 'next';
+import { marketingPageMetadata } from '../lib/marketingSeo';
 
-export const metadata = {
+export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw SDK Documentation',
   description:
     'Canonical, up-to-date reference for the DashClaw SDK. Install, configure, and govern your AI agents across action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more.',
-};
+  path: '/docs',
+});
 
 /* ─── helpers ─── */
 

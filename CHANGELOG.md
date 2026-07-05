@@ -13,6 +13,41 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.60.1] — 2026-07-05
+
+Roadmap v6.3 "organic search surface" — the marketing SEO truth pass. The
+live site had no crawl plumbing at all (`/robots.txt` and `/sitemap.xml`
+404'd, zero canonical URLs, zero structured data), so strangers who search
+had nothing to land on. Spec:
+`docs/superpowers/specs/2026-07-05-seo-truth-pass-v63.md`.
+
+### Added
+
+- **Host-aware `/robots.txt` and `/sitemap.xml`** (route handlers): the
+  marketing host (`dashclaw.io` / `www.dashclaw.io`) gets crawl rules +
+  an 18-URL sitemap; **every other host serving this codebase — the
+  hosted trial, self-host instances, previews — answers `Disallow: /`**
+  so private governance dashboards never get indexed. No fabricated
+  `lastmod` dates.
+- **Canonical + page-specific OpenGraph/Twitter tags on all 17 marketing
+  pages** (landing, 8 guides, 3 blog posts, /docs, /self-host, /privacy,
+  /connect, /downloads, /practical-systems) via a single
+  `marketingPageMetadata()` helper (`app/lib/marketingSeo.ts`), plus
+  `metadataBase` and the canonical-host fix (`www.dashclaw.io`, where the
+  apex actually redirects) in the root layout.
+- **JSON-LD structured data**: SoftwareApplication + Organization on the
+  landing page, BlogPosting with real git-derived publish dates on the 3
+  blog posts (no fabricated authorship), TechArticle on the 8 guides.
+- Unit coverage: `__tests__/unit/marketing-seo.test.ts` pins the per-host
+  robots/sitemap behavior and the canonical/OG builder.
+
+### Fixed
+
+- Hermes guide: the doctor note now reads "API reachability plus a
+  finalize: true probe" — the doctor genuinely has 4 sections; the old
+  sentence enumerated 5 items. (The claims audit found everything else
+  accurate; the full table is in the spec.)
+
 ## [4.60.0] — 2026-07-05
 
 Roadmap v6.4 "reach attribution" — pulled forward per the roadmap's own

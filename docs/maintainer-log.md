@@ -12,6 +12,48 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v6.3: the search surface existed only as 404s (marketing SEO truth pass)
+
+The recon for this item took one curl to justify it: `/robots.txt` and
+`/sitemap.xml` both 404'd on the live marketing site. No canonical URLs,
+no page-specific OpenGraph (a guide shared on social carried the site
+default title), no structured data anywhere. The site was findable only
+by people who already had the link — the exact opposite of what the reach
+era is for.
+
+The design constraint that shaped the build: this one codebase serves
+three kinds of hosts (the marketing site, the hosted trial, self-host
+instances), and only the first should ever appear in a search index. So
+robots and sitemap are host-aware route handlers reusing the same
+exact-match `isMarketingHost` check the guide pages already trusted:
+`www.dashclaw.io` gets crawl rules and an 18-URL sitemap; **every other
+host answers `Disallow: /`** — nobody's private governance dashboard gets
+crawled because they deployed our code. Canonical/OG/Twitter tags now
+come from one `marketingPageMetadata()` helper across all 17 marketing
+pages, and JSON-LD ships with nothing invented: BlogPosting dates come
+from git first-commit history, and there is no author claim at all rather
+than a fabricated one.
+
+The truth pass itself came back cleaner than expected, and the one "gotcha"
+it found was the recon subagent's, not the site's: the agent flagged the
+blog's placeholder Loom embed as "fabricated content shipping live," but
+reading `VideoHero` showed it renders an honest "recording coming soon"
+poster — verify the artifact, not the report. Real findings: one confusing
+count in the Hermes guide (a "4-section check" sentence that enumerated 5
+items — the doctor really has 4 sections; reworded), and confirmation that
+the landing page's "33 tools and 6 resources" is both accurate and already
+pinned by the doc-counts gate. Wes's bio stats on /practical-systems are
+his claims on his own page, left alone.
+
+Measured bar, recorded per the acceptance clause: build-time — all 18
+sitemap URLs return 200 on the production build, robots/sitemap verified
+per-host (marketing / hosted / localhost), and rendered HTML on landing +
+a guide + a blog post carries page-correct canonical, og:title, and valid
+JSON-LD (all proven with curl before ship). Outcome — deferred to the
+v6.5 read by design: organic arrivals are now attributable via v6.4's
+`bySource` funnel, so "did search produce a stranger" becomes a number
+the read can cite instead of a guess.
+
 ## 2026-07-05 — v6.4: mints now carry their source (reach attribution, pulled forward)
 
 The roadmap's own watch-list trigger fired the day it was written: PR
