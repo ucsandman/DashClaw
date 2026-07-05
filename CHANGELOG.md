@@ -13,7 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [4.58.0] — 2026-07-05
+## [4.59.0] — 2026-07-05
+
+Roadmap v5.5 "reach-readiness verdict" — the era's exit instrument, and
+the close of roadmap v5. Docs-only ship; the Node/Python SDKs are not
+republished (registry stays at 4.32.0).
+
+### Added
+
+- `docs/superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`: the
+  reach-readiness verdict — **READY**. Cites the live funnel (4 minted /
+  0 key used / 0 first action / 0 retained, all mints predating the v5
+  fixes), states the three-part bar (mechanism, instrument, window — all
+  met 2026-07-05) and the measurement contract for the first reach act,
+  including the explicit counter-verdict trigger (≥10 mints with zero
+  first actions moves the diagnosis from friction to value-prop).
+- The v5.2 human live proof landed this session: a human Turnstile mint
+  reached a governed action via the guided browser flow in 29 minutes on
+  hosted.dashclaw.io; the maintainer run was then removed under the
+  funnel-truth protocol (cap-0 delete, residue verified zero).
+- `@dashclaw/cli@0.6.0` publish confirmed live on npm (closes v5.4's open
+  loop).
 
 Roadmap v5.4 "the outsider run": the CLI trial path (`dashclaw install
 claude --trial`, QUICK-START's 3-Minute Hosted Trial) was walked cold for

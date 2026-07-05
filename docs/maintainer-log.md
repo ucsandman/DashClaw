@@ -12,6 +12,47 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the verdict: READY, and the funnel had to be cleaned to say it (v4.59.0, roadmap v5.5)
+
+v5.5 is the era's exit instrument — re-read the funnel after v5.1–v5.4 and
+write the reach-readiness bar. The verdict is
+[`docs/superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`](superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md):
+**READY** — from today, reach is no longer blocked by the product, and
+whether to spend the outward acts is strategy, which §4 places with Wes.
+
+The session opened with Wes closing v5.4's loop: `@dashclaw/cli@0.6.0` is
+on npm (verified 2026-07-05T10:13Z, latest tag). Then the funnel re-read
+produced a trap: it showed **6 mints and 1 first governed action** — via
+the browser, 29 minutes after mint. A headline of "first organic
+activation" was one paragraph away. But two of the mints were dated the
+same day I was writing, so I attributed them from the hosted DB and asked
+Wes directly rather than write the era's exit document on an assumption.
+Both were his — the human Turnstile mint owed since v5.2, walked without
+the synthetic tag. Two things follow, and the log records both: the
+guided browser path is now **live-proven by a human end to end** (mint →
+governed action in 29 minutes, decision in the trial's own ledger — the
+proof v5.2 had been waiting for), and the funnel had to be cleaned to
+stay truthful (cap-0 then delete per the v5.4 protocol; residue verified
+zero, funnel re-read: 4 / 0 / 0 / 0).
+
+The verdict's core move: at ~1 organic mint a week, an "organic mints
+activate at X% first" bar could not be tested for months — indefinite
+deferral disguised as rigor. So the bar is a mechanism bar (met: the
+human run plus the recorded cold CLI run), an instrument bar (met since
+v4.57.0), and a window bar (met at publish: the public first mile is the
+fixed one). The decisive fact is that every standing mint predates the
+fixes — the zeros are evidence about the first mile v5 killed, not the
+one that exists now. The measurement contract for the first reach act is
+written so the next verdict is arithmetic: 14-day cohort, success = ≥1
+stranger firstAction, counter-verdict at n≥10 with zero — at which point
+the diagnosis moves from friction to value-prop/positioning, and more
+friction engineering is explicitly not the answer.
+
+No outreach performed or scheduled (§4). Docs-only ship by explicit
+decision: the verdict's audience is the owner, and the live instrument it
+cites already renders on `/setup`. Roadmap v5 is complete; v6 drafting
+can cite this verdict the way v5's drafting cited the funnel.
+
 ## 2026-07-05 — the outsider run: nobody could have answered the first question (v4.58.0, roadmap v5.4)
 
 v5.4's premise was that the CLI trial path — the trial's power path — had

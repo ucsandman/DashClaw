@@ -81,7 +81,7 @@ Alternatives weighed and declined this round:
 | v5.2 | First governed action in the browser (zero-install activation) | SHIPPED v4.56.0 |
 | v5.3 | Activation instrument sharpened: returned-vs-gone, first key use | SHIPPED v4.57.0 |
 | v5.4 | The outsider run: the CLI trial path walked cold, frictions fixed | SHIPPED v4.58.0 |
-| v5.5 | Reach-readiness verdict: re-read the funnel, write the bar | — |
+| v5.5 | Reach-readiness verdict: re-read the funnel, write the bar | SHIPPED v4.59.0 |
 | — | FinOps Phase C / CostClaw paid add-on | GATED on Wes (RFC 0002 §8) |
 
 ## v5.1 A way back in
@@ -170,6 +170,12 @@ evidence.
 - Acceptance: the verdict exists, cites live numbers, and states the bar
   and the counter-verdict explicitly; v6 drafting can cite it the way v5's
   drafting cites the funnel.
+- **Shipped v4.59.0** — the verdict is
+  [`../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`](../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md):
+  **READY**. The v5.2 human live proof landed the same session (a human
+  Turnstile mint reached a governed browser action in 29 minutes; the
+  maintainer run was then removed under the funnel-truth protocol), so the
+  era closes with no open loops. Roadmap v5 is complete.
 
 ## Gated (needs Wes before any build)
 
