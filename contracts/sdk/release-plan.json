@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.55.0",
+    "current_version": "4.56.0",
     "next_bump": "none",
-    "reason": "4.55.0 ships roadmap v5.1 (a way back in): a Turnstile-minted hosted trial now gets a signed httpOnly session cookie (dashclaw-trial-session, HS256 via NEXTAUTH_SECRET, exp pinned to trial_ends_at) so closing the tab no longer orphans the workspace; the middleware accepts it (hosted-only, fail-closed) to render the trial's own mission-control/decisions, and a /connect workspace card + honest trial-ended state give a click-only way back in. Also hardens four role-only operator routes (workspaces/[id], orgs POST, hosted/cleanup, keys/reveal) against the newly-armed trial-admin principal. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.56.0 ships roadmap v5.2 (first governed action in the browser): a guided zero-install activation card on /connect for hosted-trial sessions - one same-origin POST /api/guard?record=true riding the v5.1 trial session cookie, decision rendered in place, deep link to the row in /decisions. No new routes, no schema change, no new auth surface (security-reviewed: SHIP, 0 findings). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.55.0",
+    "current_version": "4.56.0",
     "next_bump": "none",
-    "reason": "4.55.0 ships roadmap v5.1 (a way back in): a Turnstile-minted hosted trial now gets a signed httpOnly session cookie (dashclaw-trial-session, HS256 via NEXTAUTH_SECRET, exp pinned to trial_ends_at) so closing the tab no longer orphans the workspace; the middleware accepts it (hosted-only, fail-closed) to render the trial's own mission-control/decisions, and a /connect workspace card + honest trial-ended state give a click-only way back in. Also hardens four role-only operator routes (workspaces/[id], orgs POST, hosted/cleanup, keys/reveal) against the newly-armed trial-admin principal. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.56.0 ships roadmap v5.2 (first governed action in the browser): a guided zero-install activation card on /connect for hosted-trial sessions - one same-origin POST /api/guard?record=true riding the v5.1 trial session cookie, decision rendered in place, deep link to the row in /decisions. No new routes, no schema change, no new auth surface (security-reviewed: SHIP, 0 findings). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.55.0 a way back in (roadmap v5.1): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.56.0 first governed action in the browser (roadmap v5.2): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

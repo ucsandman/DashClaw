@@ -171,6 +171,15 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
                 Open your dashboard
                 <ArrowRight size={14} aria-hidden="true" />
               </a>
+              {/* v5.2: plain <a>, not <Link> — the guided card is rendered
+                  server-side from the session cookie set by this mint, so the
+                  navigation must be a full page load to pick it up. */}
+              <a
+                href="/connect#first-action"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
+              >
+                Send your first governed action — no install
+              </a>
               <p className="max-w-md text-xs leading-relaxed text-text-tertiary">
                 Your browser now holds a session for this workspace — come back
                 to your dashboard anytime until the trial ends. The key above is

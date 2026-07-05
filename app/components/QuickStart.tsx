@@ -95,7 +95,7 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
               <h2 className="text-lg font-bold text-white">Connect your first agent</h2>
               <p className="text-sm text-secondary font-medium tracking-tight">
                 See your first governed decision in under 2 minutes. Prefer MCP, hooks, or another stack?{' '}
-                <a href="/connect" className="text-brand hover:text-brand-hover transition-colors font-semibold">
+                <a href="/connect#first-action" className="text-brand hover:text-brand-hover transition-colors font-semibold">
                   Full connect guide
                 </a>
               </p>

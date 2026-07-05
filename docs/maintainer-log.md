@@ -12,6 +12,57 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the product demonstrates itself (v4.56.0, roadmap v5.2)
+
+v5.2, the activation step itself. v5.1 gave a minted trial a session and a
+visible product; what was still missing was the moment the product *does
+something* in front of the stranger. The funnel's `firstAction` step has
+read zero since June because reaching it required installing a CLI or
+wiring MCP config on faith. Now `/connect` grows a guided card in the trial
+branch: the real request payload on screen (editable goal and action type,
+`agent_id: browser-first-action`), one click, one same-origin
+`POST /api/guard?record=true` riding the trial session cookie, and the
+decision renders in place — then deep-links to the row in `/decisions`,
+where the Decision Replay page shows the guard evaluation and the recorded
+action on the user's own data. Zero installs, zero terminal steps.
+
+The satisfying part: there is no new backend. The v5.1 session already
+authenticates same-origin fetches with the trial's write envelope, the
+guard's `?record=true` path already does guard + record in one call, and
+the funnel already counts any non-synthetic action. v5.2 is composition —
+the sweep confirmed no new routes, no schema change, and the security
+review's whole job was verifying the "no new auth surface" claim (SHIP,
+zero findings). The one trap worth recording: the funnel's synthetic-traffic
+exclusion matches agent-id *prefixes*, so an innocent rename of the card's
+default agent id (say, to `test-drive`) would silently vanish every browser
+activation from the funnel. A test now pins the defaults against the shared
+exclusion predicate so that can't happen quietly.
+
+Two honest wrinkles. First, a browser-guided action advances `firstAction`
+without advancing `firstKeyUse` — "acted in the browser, never used the
+key" is now a reachable state the instrument can't yet distinguish; that
+sharpening is exactly v5.3. The recognizable agent id preserves the
+distinction with no schema change. Second, the rendered proof initially
+looked like a product bug: the card wouldn't render for a valid trial
+cookie. It was cookie *precedence* — the viewer resolver checks NextAuth,
+then local-admin, then trial, and a stale local-admin cookie in the test
+browser was winning. Correct behavior, contaminated test rig; the proof
+reran in a clean browser context and passed everywhere (HTTP contract 6/6,
+click-through with zero console errors, blocked-anonymous 401).
+
+Proof: full vitest suite green with 13 new cases (funnel-visible defaults,
+component decision states, render gate, inbound links), lint/typecheck/
+build/doc-counts green, smoke gains section AC (hosted-off inertness), and
+the click path is on screenshots — card → ALLOWED (risk 20) → Decision
+Replay timeline. Platform-only; the SDKs stay at 4.32.0. The live proof on
+hosted.dashclaw.io happens post-deploy with a synthetic-tagged run
+(`liveproof.browser`) so maintainer testing stays out of the funnel it
+exists to move.
+
+**Next:** v5.3 — sharpen the activation instrument: trial-visit stamps
+(returned-vs-gone), `first_used_at` on keys, and the browser-vs-agent
+activation annotation this item just made possible.
+
 ## 2026-07-05 — the trial was a credential into a void (v4.55.0, roadmap v5.1)
 
 v5.1, the first build of the v5 era. The funnel v4.6 built read 4 mints and

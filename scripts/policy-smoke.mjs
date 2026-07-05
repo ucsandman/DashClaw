@@ -1495,6 +1495,35 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- AC ----
+  // v5.2 first governed action in the browser. The guided card renders only
+  // for a live trial session on a hosted instance, so on a hosted-off run
+  // /connect must contain no first-action panel marker (mechanically inert).
+  // The hosted-ON contract (card renders in the trial branch, one
+  // POST /api/guard?record=true, ledger deep link, funnel-visible defaults)
+  // is pinned by vitest (first-governed-action.test.jsx): flipping
+  // DASHCLAW_HOSTED means restarting the server mid-run (v4.4/v4.6/v5.1
+  // precedent for non-live-smokeable).
+  console.log('\nAC. v5.2 first governed action in the browser...');
+  {
+    const cap = await api('GET', '/api/hosted/capacity');
+    if (cap.status === 404) {
+      const page = await fetch(`${BASE}/connect`);
+      const html = await page.text();
+      check('AC1', 'hosted off: /connect renders no first-action panel',
+        page.status === 200 && !html.includes('id="first-action"'),
+        `status=${page.status} marker=${html.includes('id="first-action"')}`);
+    } else {
+      // Hosted instance: an anonymous request (no trial cookie) must not see
+      // the guided card either — it only renders inside the trial branch.
+      const page = await fetch(`${BASE}/connect`);
+      const html = await page.text();
+      check('AC1', 'hosted on: anonymous /connect renders no first-action panel',
+        page.status === 200 && !html.includes('id="first-action"'),
+        `status=${page.status} marker=${html.includes('id="first-action"')}`);
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

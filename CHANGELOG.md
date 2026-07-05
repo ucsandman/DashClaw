@@ -13,6 +13,48 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.56.0] — 2026-07-05
+
+Roadmap v5.2 — **First governed action in the browser.** v5.1 gave a
+minted trial a session and a visible product; this ships the activation
+step itself: a guided "send your first governed action" on `/connect`
+that needs no install. The browser exercises guard + record against the
+trial's own org and the decision lands in the ledger, live. Spec:
+`docs/superpowers/specs/2026-07-05-first-governed-action-browser-design.md`.
+Platform-only — no SDK source change, so npm/PyPI stay at 4.32.0.
+
+### Added
+- **Guided first governed action on `/connect`** (trial branch only): a
+  card showing the real request payload (editable `declared_goal` +
+  `action_type`, fixed `agent_id: browser-first-action`) that sends one
+  same-origin `POST /api/guard?record=true` riding the v5.1 trial-session
+  cookie — no proxy, no new route, no new auth surface. The decision
+  renders in place (allow / warn / block / require_approval, server risk
+  score, reason, matched-policy count) with a deep link to
+  `/decisions/<action_id>`; a `block` renders the truthful "blocked
+  actions never reach the action ledger" copy, and a trial-envelope 403
+  renders the honest cap/expiry message. Defaults are pinned by test
+  against the shared synthetic-traffic exclusion so browser activations
+  can never silently vanish from the hosted funnel — a browser-guided
+  action is a real governed action and counts as `firstAction`
+  (maintainer verification runs tag `liveproof.*` and stay excluded).
+- **Inbound paths**: the `/decisions` empty state, Mission Control's
+  QuickStart, and the post-mint success state now point at
+  `/connect#first-action` (a full-load `<a>` post-mint, so the
+  server-rendered card picks up the just-set session cookie); the
+  landing hosted-trial CTA gains the zero-install claim; QUICK-START's
+  trial section documents the browser path. Smoke section AC pins the
+  hosted-off inertness of the panel.
+
+### Verified
+- Local rendered proof (production build, `DASHCLAW_HOSTED=true`): HTTP
+  contract 6/6 (card renders only for the trial session; the guided call
+  returned `allow`, `recorded: true` + `action_id`; the ledger deep link
+  renders; anonymous same-origin write refused 401) and a browser
+  click-through (card → send → ALLOWED badge → Decision Replay page,
+  zero console errors). Security review: SHIP, 0 findings — the "no new
+  auth surface" claim confirmed against the diff.
+
 ## [4.55.0] — 2026-07-05
 
 Roadmap v5.1 — **A way back in.** The hosted trial's first funnel reading

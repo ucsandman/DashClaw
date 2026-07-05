@@ -20,6 +20,7 @@ import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import HostedProvisionSection from './HostedProvisionSection';
 import TrialWorkspaceCard from './TrialWorkspaceCard';
+import FirstGovernedActionCard from './FirstGovernedActionCard';
 import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { getSql } from '../lib/db';
 import { getHostedWorkspace } from '../lib/repositories/hosted-workspace.repository';
@@ -745,12 +746,19 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
           {trialExpired && !trialWorkspace ? <TrialExpiredNotice /> : null}
           {/* v5.1: returning trial user — their workspace, one click away. */}
           {trialWorkspace ? (
-            <TrialWorkspaceCard
-              orgId={String(trialWorkspace.orgId)}
-              trialEndsAt={trialWorkspace.trialEndsAt ? String(trialWorkspace.trialEndsAt) : null}
-              trialActionCap={trialWorkspace.trialActionCap == null ? null : Number(trialWorkspace.trialActionCap)}
-              trialActionsUsed={trialWorkspace.trialActionsUsed == null ? null : Number(trialWorkspace.trialActionsUsed)}
-            />
+            <>
+              <TrialWorkspaceCard
+                orgId={String(trialWorkspace.orgId)}
+                trialEndsAt={trialWorkspace.trialEndsAt ? String(trialWorkspace.trialEndsAt) : null}
+                trialActionCap={trialWorkspace.trialActionCap == null ? null : Number(trialWorkspace.trialActionCap)}
+                trialActionsUsed={trialWorkspace.trialActionsUsed == null ? null : Number(trialWorkspace.trialActionsUsed)}
+              />
+              {/* v5.2: the activation step itself — one governed action from
+                  the browser, riding the trial session. Only ever rendered in
+                  this branch, so anonymous visitors, operators, and self-host
+                  instances never see it. */}
+              <FirstGovernedActionCard />
+            </>
           ) : null}
           {/* Hosted instances only: anonymous trial mint (Turnstile-gated).
               Renders nothing when DASHCLAW_HOSTED is unset (self-host).
