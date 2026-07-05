@@ -23,7 +23,7 @@ require Wes's accounts are listed as **accelerants — never gates**.
 | Venue | Act | Link / state |
 |---|---|---|
 | punkpeye/awesome-mcp-servers (~70k★) | PR adding DashClaw to the Security section, agent-PR fast-track opt-in (🤖🤖🤖), AI authorship stated in the body | https://github.com/punkpeye/awesome-mcp-servers/pull/9313 (open) |
-| Glama (glama.ai) | `mcp-server/glama.json` added (schema-verified; `maintainers: ["ucsandman"]`) — Glama auto-crawls public repos; the on-site "claim" step needs a GitHub OAuth browser session (accelerant, below) | ships with v6.2 |
+| Glama (glama.ai) | `mcp-server/glama.json` added (schema-verified; `maintainers: ["ucsandman"]`) + `mcp-server/Dockerfile` (build + credential-free introspection verified in Docker: `initialize` and `tools/list` answer with no env vars, 33 tools). **PR #9313's bot now requires a Glama listing + score badge to merge** — and Glama's "Add Server" flow is an authenticated web session, so the listing itself is accelerant #3 (below), now the PR's merge-blocker. [Status reply posted on the PR](https://github.com/punkpeye/awesome-mcp-servers/pull/9313#issuecomment-4885818236) with honest authorship; badge gets pushed to the PR branch once the listing exists. | repo side done; listing waits on accelerant #3 |
 
 ## Declined venues, and why (recorded per v6.2 acceptance)
 
@@ -47,9 +47,17 @@ require Wes's accounts are listed as **accelerants — never gates**.
    run `claude plugin validate` first.
 2. **hesreallyhim/awesome-claude-code** — file their issue form as yourself
    (they require a human submitter); highest-reach plugin list (~48k★).
-3. **Glama listing claim** — sign in with GitHub at glama.ai and claim the
-   DashClaw server (the `glama.json` in `mcp-server/` names you-side
-   maintainer `ucsandman`).
+3. **Glama listing (now the merge-blocker for awesome-mcp-servers PR
+   #9313)** — sign in at https://glama.ai/mcp/servers → **Add Server**,
+   submit `https://github.com/ucsandman/DashClaw`, and when it asks for a
+   Dockerfile paste the contents of
+   [`mcp-server/Dockerfile`](../mcp-server/Dockerfile) (verified: builds
+   and answers MCP introspection with no env vars — their checks only need
+   start + introspection). Once the listing at
+   `glama.ai/mcp/servers/ucsandman/DashClaw` exists, tell the maintainer —
+   the score badge gets pushed to the PR branch and #9313 can merge.
+   (`mcp-server/glama.json` already names `ucsandman` as maintainer for
+   the claim.)
 4. **Anthropic Connectors Directory** (Claude custom connector) — unchanged
    from the v2.7 runbook: needs a Claude.ai **Team/Enterprise** org. The
    instance to list is `hosted.dashclaw.io`; OAuth connector + privacy

@@ -56,6 +56,19 @@ npm). "A recorded submissions ledger including declined venues and why" —
 the ledger above. v6.2 complete; watch item: PR #9313's merge, and whether
 Glama's crawler picks up the manifest.
 
+**Update, same day:** the PR's bot answered within minutes — listing now
+requires a **Glama listing + score badge** to merge, and Glama's "Add
+Server" flow is an authenticated web session. The repo side is done and
+proven: `mcp-server/Dockerfile` added and verified in Docker (image
+builds; `initialize` + `tools/list` answer with **no env vars**, 33 tools
+— exactly what Glama's checks probe), and a
+[status reply](https://github.com/punkpeye/awesome-mcp-servers/pull/9313#issuecomment-4885818236)
+is on the PR stating plainly which half is the AI's and which waits on the
+human account. The Glama submission is accelerant #3 in the ledger, now
+the PR's merge-blocker — the first live case of the charter's clean split:
+the maintainer does everything project credentials can, the human step is
+one sign-in and a paste.
+
 No product surface changed this ship (explicit decision: the deliverable
 is external listings plus the ledger; nothing new for the app to render).
 
