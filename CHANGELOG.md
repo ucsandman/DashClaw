@@ -13,7 +13,46 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [4.53.0] — 2026-07-05
+## [4.54.0] — 2026-07-05
+
+Roadmap v4.6 — **Funnel truth: read the trial evidence.** The hosted trial
+has run since June with the funnel unread; this is the instrument that
+decides v5's direction (reach vs RBAC vs deepen). No outreach — the funnel
+reads, it does not steer. Spec:
+`docs/superpowers/specs/2026-07-05-funnel-truth-design.md`.
+
+### Added
+- **`GET /api/hosted/funnel`** (route 332): the hosted-trial activation
+  funnel — mint → first key used → first governed action → retained
+  week 1 — computed from existing ledgers (`organizations`, `api_keys`,
+  `guard_decisions` ∪ `action_records`) with the shared synthetic-traffic
+  exclusion. Aggregate-only: no org ids, slugs, or key prefixes ever leave
+  the repository. Hosted-gated (404 when `DASHCLAW_HOSTED` is off), public
+  like `/api/hosted/capacity` — an explicit, security-reviewed disclosure
+  decision recorded in the spec — with a per-instance 60s memo so anonymous
+  hot loops hit memory, not the DB. A mint = `hosted_mode` +
+  `trial_action_cap > 0`; capacity-full `markTrialFull` placeholders never
+  count. Retention has a denominator: workspaces younger than 7 days render
+  as `week1Pending`, never as churned.
+- **Trial activation funnel card on `/setup`** (hosted mode only): the four
+  steps with conversion rates, week-1 eligibility, median hours to first
+  governed action, per-mint-week cohort table (8 weeks), and the
+  `truthfulSince` evidence window. Absent on non-hosted instances — the
+  instrument doesn't apply, and a permanently-zero funnel would be noise.
+- **`hosted_trial_snapshots`** (drizzle/0052): deletion-time freeze of each
+  trial's funnel milestones, written **inside `deleteHostedWorkspace`
+  before the FK child sweep** and deliberately carrying no FK to
+  `organizations` so the catalog-driven sweep can't destroy it. The write
+  is fail-closed: a failed snapshot aborts the delete (the cleanup sweep
+  retries) rather than silently recreating the survivorship bias — without
+  this, expired 30-day trials vanish from the funnel and mint counts decay.
+  Pre-ship purged history is unrecoverable; `truthfulSince` marks the
+  honest window.
+- **Smoke AA1**: the funnel gate — 404 on hosted-off instances, aggregate
+  shape with zero org identifiers on hosted-on (114 checks total). Funnel
+  math is pinned by vitest (14 new tests) plus a live-DB round-trip:
+  deleted trial still counts, frozen retention kept, synthetic excluded.
+
 
 Roadmap v4.5 — **Loosening direction: proposals that relax.** v3.2 built
 tightening; precision requires the mirror or over-interrupting policies get

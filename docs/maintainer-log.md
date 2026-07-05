@@ -12,6 +12,61 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the funnel was being shredded on schedule (v4.54.0)
+
+Roadmap v4.6, funnel truth — the last v4 item, and the smallest, which is
+exactly why it was last: it produces the evidence that decides v5's
+direction (reach vs RBAC vs deepen), and v3 explicitly declined reach-first
+"until the trial funnel produces evidence." The hosted trial has minted
+workspaces since June with the funnel unread; nothing anywhere rendered
+whether a single trial ever converted past mint.
+
+The finding that reshaped the design: the record was being destroyed on
+schedule. The daily cleanup hard-deletes every expired 30-day trial and —
+by catalog-driven FK sweep — every row that references it. A funnel
+computed from live tables would silently undercount mints as history
+purges: survivorship bias, the exact lie the item exists to prevent, and
+it would have looked perfectly healthy while doing it. The fix is a
+deletion-time snapshot (`hosted_trial_snapshots`, deliberately carrying
+NO foreign key so the sweep can't eat it) frozen inside
+`deleteHostedWorkspace` before the child sweep, and it is fail-closed: a
+failed snapshot aborts the delete and the sweep retries, because a
+best-effort write would just recreate the bias invisibly. June's expired
+trials are unrecoverable — the surface says so (`truthfulSince`) instead
+of pretending the window is complete.
+
+The steps themselves came from reading the mint path, not from the
+roadmap's sketch: mint creates the API key atomically, so "first key" is
+not a step — first key *use* is (`last_used_at`). A mint requires
+`trial_action_cap > 0` — capacity-full placeholder orgs can never act and
+counting them would corrupt conversion for a non-product reason.
+Retention gets a denominator: a workspace younger than 7 days is
+`week1Pending`, never churned — a truthful zero is not the same thing as
+a premature one. First governed action spans `guard_decisions` ∪
+`action_records` under the shared synthetic exclusion, with the
+`::timestamptz` cast the fresh-schema drift class demands.
+
+One judgment call worth recording: `GET /api/hosted/funnel` is public on
+hosted instances (aggregate-only — no org ids, slugs, or key prefixes can
+leave the repository function). The security review (verdict SHIP,
+nothing above Low) correctly pushed back that conversion rates and cohort
+trends disclose more than the capacity flag ever did. It stays public
+with the reasoning written down: `/setup` renders the same aggregates and
+is public by the product's own deployment-truth norm, so gating the route
+alone would be theater; the only real alternative is an operator-only
+card, which needs the hosted owner-session story that doesn't exist yet
+(watch-list: team/RBAC). The review's other finding shipped in-run: a 60s
+per-instance memo so anonymous hot loops hit memory, not the DB.
+
+Live proof: a real round-trip against the DB — mint a backdated trial
+with real and synthetic activity, watch the funnel count it (synthetic
+excluded), delete it through the real path, watch it *still* count with
+retention frozen. Smoke AA1 (114 checks); rendered proof in both modes —
+card present with truthful zeros under `DASHCLAW_HOSTED=true`, absent and
+404-gated without. Routes 331 → 332. **Roadmap v4 is complete.** Next:
+read this funnel on the live hosted instance and draft v5 from what it
+says.
+
 ## 2026-07-05 — the mirror, and the evidence stream that was lying to the tuner (v4.53.0)
 
 Roadmap v4.5, the loosening direction. v3.2 taught the instrument to propose

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.53.0",
+    "current_version": "4.54.0",
     "next_bump": "none",
-    "reason": "4.53.0 ships roadmap v4.5 (loosening direction): the tightening mirror - /api/policies/loosening derives relaxation proposals on read from interrupt-approval outcomes (relax_policy_scope carve-outs + deactivate_policy, content-stable lp_ ids, decisions in loosening_proposal_decisions drizzle/0051), fifth JudgmentSpine queue on /policies, and the tuning repository's synthetic-exclusion gap is fixed (harness traffic no longer counts as tuning evidence). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.54.0 ships roadmap v4.6 (funnel truth): the hosted-trial activation funnel - mint -> first key used -> first governed action -> retained week 1 - computed from existing ledgers with the shared synthetic exclusion, GET /api/hosted/funnel (route 332, aggregate-only, hosted-gated, 60s memo) + a /setup card in hosted mode, and hosted_trial_snapshots (drizzle/0052) frozen fail-closed inside deleteHostedWorkspace so expired trials keep counting (survivorship-bias fix). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.53.0",
+    "current_version": "4.54.0",
     "next_bump": "none",
-    "reason": "4.53.0 ships roadmap v4.5 (loosening direction): the tightening mirror - /api/policies/loosening derives relaxation proposals on read from interrupt-approval outcomes (relax_policy_scope carve-outs + deactivate_policy, content-stable lp_ ids, decisions in loosening_proposal_decisions drizzle/0051), fifth JudgmentSpine queue on /policies, and the tuning repository's synthetic-exclusion gap is fixed (harness traffic no longer counts as tuning evidence). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.54.0 ships roadmap v4.6 (funnel truth): the hosted-trial activation funnel - mint -> first key used -> first governed action -> retained week 1 - computed from existing ledgers with the shared synthetic exclusion, GET /api/hosted/funnel (route 332, aggregate-only, hosted-gated, 60s memo) + a /setup card in hosted mode, and hosted_trial_snapshots (drizzle/0052) frozen fail-closed inside deleteHostedWorkspace so expired trials keep counting (survivorship-bias fix). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.53.0 loosening direction (roadmap v4.5): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.54.0 funnel truth (roadmap v4.6): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]
