@@ -168,6 +168,10 @@ Carried from v5, updated for the era:
   an accelerant, never a gate (charter, 2026-07-05).
 - A reach channel produces mints before v6.4 ships → pull v6.4 forward
   (unattributed arrivals waste the read).
+- awesome-mcp-servers PR #9313 merge (both bot requirements met
+  2026-07-05; Glama listing live) → note it in the ledger when it lands;
+  a listing going live is a channel moving, which strengthens the v6.4
+  pull-forward.
 
 ## v6 order rationale
 

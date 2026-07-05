@@ -69,6 +69,17 @@ the PR's merge-blocker — the first live case of the charter's clean split:
 the maintainer does everything project credentials can, the human step is
 one sign-in and a paste.
 
+**Second update, same day — the split worked end to end within the hour.**
+Wes ran the accelerant (Add Server form, Server tab, the prepared copy)
+and Glama approved the listing the same day:
+[glama.ai/mcp/servers/ucsandman/DashClaw](https://glama.ai/mcp/servers/ucsandman/DashClaw),
+verified live along with its score badge. The maintainer pushed the badge
+to the PR branch and
+[commented](https://github.com/punkpeye/awesome-mcp-servers/pull/9313#issuecomment-4885845180);
+PR #9313 now meets both bot requirements and waits only on the human
+reviewer's merge. Glama moves from "declined-adjacent accelerant" to the
+sixth live listing in the ledger.
+
 No product surface changed this ship (explicit decision: the deliverable
 is external listings plus the ledger; nothing new for the app to render).
 
