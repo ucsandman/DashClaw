@@ -154,6 +154,18 @@ describe('hosted-workspace repository', () => {
   it('deleteHostedWorkspace deletes catalog-discovered child rows before the org (FK 23503 regression)', async () => {
     sql.mockResolvedValueOnce([{ hosted_mode: true }]); // existence check
     sql.mockResolvedValueOnce([]); // api_keys revoke
+    // v4.6: snapshotTrialFunnelFacts calls queryLiveTrialFacts
+    sql.mockResolvedValueOnce([
+      {
+        org_id: 'org_x',
+        minted_at_ms: Date.now() - 86400000, // 1 day ago
+        key_used: true,
+        first_action_at_ms: Date.now() - 86400000,
+        last_action_at_ms: Date.now(),
+        action_count: 5,
+      },
+    ]); // queryLiveTrialFacts SELECT
+    sql.mockResolvedValueOnce([]); // INSERT into hosted_trial_snapshots
     sql.mockResolvedValueOnce([
       { table_name: 'api_keys', column_name: 'org_id' },
       { table_name: 'action_records', column_name: 'org_id' },
@@ -177,6 +189,18 @@ describe('hosted-workspace repository', () => {
   it('deleteHostedWorkspace retries child deletes blocked by FK ordering', async () => {
     sql.mockResolvedValueOnce([{ hosted_mode: true }]);
     sql.mockResolvedValueOnce([]); // revoke
+    // v4.6: snapshotTrialFunnelFacts calls queryLiveTrialFacts
+    sql.mockResolvedValueOnce([
+      {
+        org_id: 'org_x',
+        minted_at_ms: Date.now() - 86400000,
+        key_used: true,
+        first_action_at_ms: Date.now() - 86400000,
+        last_action_at_ms: Date.now(),
+        action_count: 3,
+      },
+    ]); // queryLiveTrialFacts SELECT
+    sql.mockResolvedValueOnce([]); // INSERT into hosted_trial_snapshots
     sql.mockResolvedValueOnce([
       { table_name: 'action_records', column_name: 'org_id' },
       { table_name: 'action_embeddings', column_name: 'org_id' },
