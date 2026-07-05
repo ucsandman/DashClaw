@@ -13,6 +13,46 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.58.0] — 2026-07-05
+
+Roadmap v5.4 "the outsider run": the CLI trial path (`dashclaw install
+claude --trial`, QUICK-START's 3-Minute Hosted Trial) was walked cold for
+the first time — fresh environment, published CLI, no ambient env,
+following only what the screen says — against the live hosted instance.
+Every stumble was fixed in the same release. Recorded run:
+`docs/superpowers/specs/2026-07-05-outsider-run-v54.md`. Platform-only for
+the Node/Python SDKs (registry stays at 4.32.0); `@dashclaw/cli`
+republishes at 0.6.0.
+
+### Fixed
+- **`@dashclaw/cli` 0.6.0 — the trial's first question was unanswerable
+  cold.** `dashclaw install claude --trial` prompted "Hosted DashClaw
+  URL:" but no outsider-facing doc ever named the instance. The CLI now
+  defaults to `https://hosted.dashclaw.io` (announced; override with
+  `--endpoint <url>` or `DASHCLAW_HOSTED_URL`), pinned by test.
+- **`@dashclaw/cli` 0.6.0 — stdin EOF during a prompt exited 0 silently
+  with nothing installed.** `ask()`/`askSecret()` left pending promises
+  when piped stdin ended; node drained the loop and exited clean. Both
+  now reject loudly ("stdin closed before the prompt was answered");
+  child-process regression tests in `cli/test/prompt-eof.test.js`.
+- **Published-CLI staleness.** npm's `@dashclaw/cli@0.5.0` (2026-06-13)
+  had drifted from the repo at the same version number — outsiders got
+  hooks without the `--agent-id` identity declaration (v2.2), the
+  `Workflow` matcher (v4.3), or the Codex session-digest wiring. 0.6.0
+  carries all of it.
+- **Copy truth:** QUICK-START said "paste the endpoint + key" — the trial
+  flow prompts only for the key; QUICK-START/README/cli README/help text
+  now name `hosted.dashclaw.io` as the default trial instance.
+
+### Verified (recorded cold run, 2026-07-05)
+- Machine time under 10s end to end: install 5s, installer 0.9s after key
+  paste, governed action through the installed hook 0.9s — the "3-Minute
+  Hosted Trial" claim stands once the URL friction is gone.
+- On the live instance: starter pack pre-seeded (4 policies), decision
+  recorded (`agent claude-code`, risk 15), `dashclaw cost` truthful zero,
+  stop-hook recap line, and the v5.3 instrument stamped
+  `api_keys.first_used_at`/`last_used_at` on a genuine cold path.
+
 ## [4.57.1] — 2026-07-05
 
 Landing page redesigned from a 14-section feature inventory into a

@@ -20,15 +20,15 @@ npx dashclaw-demo
 
 ## 🚀 The 3-Minute Hosted Trial (no deploy)
 
-Have access to a hosted DashClaw trial instance? You don't need to clone or deploy anything:
+The public trial instance is **[hosted.dashclaw.io](https://hosted.dashclaw.io)** — the installer uses it by default. You don't need to clone or deploy anything:
 
 ```bash
 npm i -g @dashclaw/cli
 dashclaw install claude --trial
 ```
 
-1. The installer opens the instance's `/connect` page in your browser — complete the signup check and copy the endpoint + API key it issues. The mint also signs your browser in to the trial's dashboard: Mission Control and the decisions ledger are one click away, and you can come back to them anytime until the trial ends (the API key is shown once; your dashboard is not). Want proof before wiring anything? The same page lets you **send your first governed action straight from the browser** — no install — and watch the decision land in your ledger.
-2. Paste the endpoint + key into the installer prompt. It preflights the instance, wires the Claude Code hooks (observe mode — decisions logged, nothing blocked), and prints next steps. Lost the key? Mint a new one from the dashboard's API keys page.
+1. The installer opens the trial's `/connect` page in your browser (your own hosted instance instead? re-run with `--endpoint <url>`) — complete the signup check and copy the API key it issues. The mint also signs your browser in to the trial's dashboard: Mission Control and the decisions ledger are one click away, and you can come back to them anytime until the trial ends (the API key is shown once; your dashboard is not). Want proof before wiring anything? The same page lets you **send your first governed action straight from the browser** — no install — and watch the decision land in your ledger.
+2. Paste the API key into the installer prompt. It preflights the instance, wires the Claude Code hooks (observe mode — decisions logged, nothing blocked), and prints next steps. Lost the key? Mint a new one from the dashboard's API keys page.
 3. Trial workspaces start with the `claude-code-starter` policy pack **pre-seeded**, so your next Claude Code session is governed from the first tool call. After a governed turn you'll see the recap line, and `dashclaw cost` shows the session's spend.
 
 Self-hosting instead? Continue below.

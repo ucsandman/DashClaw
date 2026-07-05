@@ -52,6 +52,11 @@ const HOOKS_BUNDLE_PATH = '/downloads/dashclaw-claude-code-hooks.zip';
 
 export const DEFAULT_AGENT_ID = 'claude-code';
 
+// The public hosted trial instance. `--trial` falls back to it when no
+// --endpoint / DASHCLAW_HOSTED_URL is given — a cold outsider following
+// QUICK-START has no way to answer a "which URL?" prompt (v5.4 outsider run).
+export const DEFAULT_HOSTED_TRIAL_URL = 'https://hosted.dashclaw.io';
+
 // ---------------------------------------------------------------------------
 // Python resolution
 // ---------------------------------------------------------------------------
@@ -287,8 +292,13 @@ export async function installClaude({
   apiKey = apiKey || env.DASHCLAW_API_KEY || '';
 
   if (trial && !apiKey) {
-    const hostedBase = (endpoint || env.DASHCLAW_HOSTED_URL || '').replace(/\/+$/, '')
-      || (await mustPrompt(prompt, 'Hosted DashClaw URL (where you signed up / will sign up): '));
+    let hostedBase = (endpoint || env.DASHCLAW_HOSTED_URL || '').replace(/\/+$/, '');
+    if (!hostedBase) {
+      hostedBase = DEFAULT_HOSTED_TRIAL_URL;
+      logger.log('');
+      logger.log(`  Using the public hosted trial: ${DEFAULT_HOSTED_TRIAL_URL}`);
+      logger.log('  (Trying your own instance instead? Re-run with --endpoint <url>.)');
+    }
     const signupUrl = `${hostedBase.replace(/\/+$/, '')}/connect`;
     logger.log('');
     logger.log(`  Opening the trial signup page: ${signupUrl}`);

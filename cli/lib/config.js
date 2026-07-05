@@ -37,17 +37,29 @@ export function clearConfigFile() {
 
 export function ask(question) {
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  return new Promise((res) => {
+  return new Promise((res, rej) => {
+    let answered = false;
     rl.question(question, (answer) => {
+      answered = true;
       rl.close();
       res(answer.trim());
+    });
+    // stdin ending (piped input exhausted, Ctrl+D) used to leave the promise
+    // pending forever — node then drained the event loop and exited 0 as if
+    // the install had succeeded (v5.4 outsider run). Fail loudly instead.
+    rl.on('close', () => {
+      if (!answered) rej(new Error('stdin closed before the prompt was answered.'));
     });
   });
 }
 
 export function askSecret(question) {
-  return new Promise((res) => {
+  return new Promise((res, rej) => {
     const stdin = process.stdin;
+    if (stdin.readableEnded || stdin.destroyed) {
+      rej(new Error('stdin closed before the prompt was answered.'));
+      return;
+    }
     process.stdout.write(question);
     const wasRaw = stdin.isRaw;
     if (stdin.setRawMode) stdin.setRawMode(true);
@@ -55,6 +67,13 @@ export function askSecret(question) {
     stdin.setEncoding('utf8');
 
     let input = '';
+    // Same silent-exit-0 hazard as ask(): if stdin ends before a newline,
+    // reject instead of leaving the promise pending while node exits clean.
+    const onEnd = () => {
+      stdin.removeListener('data', onData);
+      rej(new Error('stdin closed before the prompt was answered.'));
+    };
+    stdin.once('end', onEnd);
     const onData = (char) => {
       const str = String(char);
       for (const c of str) {
@@ -62,6 +81,7 @@ export function askSecret(question) {
           if (stdin.setRawMode) stdin.setRawMode(wasRaw);
           stdin.pause();
           stdin.removeListener('data', onData);
+          stdin.removeListener('end', onEnd);
           process.stdout.write('\n');
           res(input.trim());
           return;

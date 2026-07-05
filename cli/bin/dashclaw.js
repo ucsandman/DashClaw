@@ -110,7 +110,8 @@ ${bold('Usage:')}
     --allow-redactions                   Write files that contain redacted secret patterns
     --overwrite                          Clobber existing .NEW side-by-side files
   dashclaw install claude [--trial]      Provision DashClaw governance into Claude Code
-    --endpoint <url>                     Your DashClaw instance URL (or DASHCLAW_BASE_URL)
+    --endpoint <url>                     Your DashClaw instance URL (or DASHCLAW_BASE_URL;
+                                         --trial defaults to https://hosted.dashclaw.io)
     --key <key>                          API key (or DASHCLAW_API_KEY; --trial prompts via browser signup)
     --agent-id <id>                      Agent id for governed actions (default: claude-code)
   dashclaw install codex                 Provision DashClaw governance into Codex CLI

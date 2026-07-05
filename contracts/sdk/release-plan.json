@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.57.1",
+    "current_version": "4.58.0",
     "next_bump": "none",
-    "reason": "4.57.1 landing page redesign: app/page.tsx rebuilt as a proof-first narrative (hero decision record, live demo, four-call loop, stack quickstart tabs, enforcement boundary, control-room index); /explain gains the main page's marketing header; landingData trimmed to the two rendered arrays. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.58.0 outsider run (roadmap v5.4): CLI trial path walked cold on the live hosted instance; frictions fixed in @dashclaw/cli (default hosted trial URL, EOF prompt rejection, republished 0.6.0) and docs. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.57.1",
+    "current_version": "4.58.0",
     "next_bump": "none",
-    "reason": "4.57.1 landing page redesign: app/page.tsx rebuilt as a proof-first narrative (hero decision record, live demo, four-call loop, stack quickstart tabs, enforcement boundary, control-room index); /explain gains the main page's marketing header; landingData trimmed to the two rendered arrays. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.58.0 outsider run (roadmap v5.4): CLI trial path walked cold on the live hosted instance; frictions fixed in @dashclaw/cli (default hosted trial URL, EOF prompt rejection, republished 0.6.0) and docs. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.57.1 landing page redesign + /explain header: marketing-only, SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.58.0 outsider run (v5.4): CLI + docs friction fixes; @dashclaw/cli 0.6.0 republishes separately; Node/Python SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the outsider run: nobody could have answered the first question (v4.58.0, roadmap v5.4)
+
+v5.4's premise was that the CLI trial path — the trial's power path — had
+never been walked by a genuine outsider on a cold machine. So I walked it
+cold: fresh home directory, isolated npm prefix, every ambient `DASHCLAW_*`
+env var stripped, the **published** `@dashclaw/cli@0.5.0` from npm (what a
+stranger actually gets, not the repo checkout), against the live
+`hosted.dashclaw.io`. The recorded run is
+[`docs/superpowers/specs/2026-07-05-outsider-run-v54.md`](superpowers/specs/2026-07-05-outsider-run-v54.md).
+
+The headline finding took thirty seconds to hit: the installer's first
+question — *"Hosted DashClaw URL (where you signed up / will sign up):"* —
+is unanswerable. Neither QUICK-START nor README ever names
+`hosted.dashclaw.io`; only internal runbooks do. The funnel's zero
+suddenly has a very concrete face: the "3-Minute Hosted Trial" was
+unreachable from a cold start at its first prompt. Fix: the CLI now
+defaults `--trial` to the public instance (announced, `--endpoint`
+override), and the docs name it.
+
+Two more defects fell out. Piping answers into the installer (or Ctrl+D
+mid-prompt) made it **exit 0 silently having installed nothing** — the
+prompt promises stayed pending, node drained the event loop, and the
+"success" exit code lied; both prompts now reject loudly, pinned by
+child-process regression tests. And the published CLI had drifted from
+the repo *at the same version number* for three weeks — outsiders were
+getting hooks without the `--agent-id` identity declaration, the
+`Workflow` matcher, or the Codex session-digest wiring; 0.6.0 republishes
+with all of it.
+
+What held up under the cold walk: preflight before any write, the hooks
+bundle served by the live instance, Store-alias-safe python resolution,
+0600 credentials, the pre-seeded starter pack (4 policies — the
+QUICK-START claim is true), the truthful `dashclaw cost` zero, the recap
+line — and the v5.3 instrument, which stamped `first_used_at` on a
+genuine cold path its first time out. Machine time end to end was under
+ten seconds; with the URL friction gone, the 3-minute claim stands on
+the recording. The test workspace was provisioned through the same
+repository function the mint route calls and deleted with its cap
+zeroed, so the funnel carries no residue from the run.
+
+Flagged, not fixed: the CLI pins `dashclaw@^2.2.1` (locks 2.13.1) for its
+approve/posture commands — constructor-only usage, nothing failed, and
+widening a dependency range is a separate regression-bearing change.
+
+Next per the ledger: v5.5, the reach-readiness verdict.
+
 ## 2026-07-05 — the landing page becomes the product (v4.57.1)
 
 Wes asked for a from-scratch landing redesign with the brief "the current

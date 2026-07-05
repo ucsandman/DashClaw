@@ -17,6 +17,7 @@ import {
   buildHookEnv,
   mergeClaudeSettings,
   isManagedHookEntry,
+  DEFAULT_HOSTED_TRIAL_URL,
 } from '../../lib/claude/install.js';
 
 const silentLogger = { log() {}, error() {} };
@@ -180,6 +181,27 @@ describe('installClaude', () => {
     const config = JSON.parse(fs.readFileSync(path.join(home, '.dashclaw', 'config.json'), 'utf8'));
     assert.equal(config.apiKey, 'oc_live_pasted_trial_key');
     assert.equal(config.baseUrl, 'https://hosted.example');
+  });
+
+  it('--trial with no endpoint anywhere defaults to the public hosted trial URL (v5.4: a cold outsider cannot answer a URL prompt)', async () => {
+    const home = makeTempHome();
+    const opened = [];
+    const prompts = [];
+    const result = await installClaude({
+      ...BASE_OPTS,
+      endpoint: undefined,
+      apiKey: undefined,
+      trial: true,
+      homeDir: home,
+      env: {},
+      openUrl: (url) => opened.push(url),
+      prompt: async (q) => { prompts.push(q); throw new Error('URL prompt must not appear on the trial path'); },
+      promptSecret: async () => 'oc_live_pasted_trial_key',
+    });
+
+    assert.deepEqual(opened, [`${DEFAULT_HOSTED_TRIAL_URL}/connect`]);
+    assert.equal(result.endpoint, DEFAULT_HOSTED_TRIAL_URL);
+    assert.ok(!prompts.some((q) => /URL/.test(q)), 'no URL prompt on the cold trial path');
   });
 
   it('re-install replaces managed settings entries instead of duplicating them', async () => {

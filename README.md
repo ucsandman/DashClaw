@@ -120,7 +120,7 @@ One plugin source, three ecosystems. Distributed via [`plugins/dashclaw/`](./plu
 # instance, wires ~/.claude/settings.json, and defaults to observe mode
 npm i -g @dashclaw/cli
 dashclaw install claude            # prompts for endpoint + API key
-dashclaw install claude --trial    # browser signup on a hosted instance, paste the key
+dashclaw install claude --trial    # browser signup on hosted.dashclaw.io (default), paste the key
 
 # Codex — installer wires manifest, hooks, and AGENTS.md governance protocol
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
