@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:993de038169110f9e339417904a3e76975083783 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:840449ba520e06563cc02195400fde88c3f84921 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">284</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">285</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
@@ -201,13 +201,14 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>24</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>25</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/coverage <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/hosted/funnel <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/internal/resolve-key <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/live-canary <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/policies/contract <span class="sig">New route: GET</span></li>
@@ -413,8 +414,9 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/handoffs/[id]/consume"><td><code>/api/handoffs/[id]/consume</code></td><td>POST</td><td class="sig">app/api/handoffs/[id]/consume/route.ts</td></tr>
     <tr data-path="/api/handoffs/latest"><td><code>/api/handoffs/latest</code></td><td>GET</td><td class="sig">app/api/handoffs/latest/route.ts</td></tr></tbody></table></details>
 <details><summary>/health/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/health"><td><code>/api/health</code></td><td>GET</td><td class="sig">app/api/health/route.ts</td></tr></tbody></table></details>
-<details><summary>/hosted/* (4)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/hosted/capacity"><td><code>/api/hosted/capacity</code></td><td>GET</td><td class="sig">app/api/hosted/capacity/route.ts</td></tr>
+<details><summary>/hosted/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/hosted/capacity"><td><code>/api/hosted/capacity</code></td><td>GET</td><td class="sig">app/api/hosted/capacity/route.ts</td></tr>
     <tr data-path="/api/hosted/cleanup"><td><code>/api/hosted/cleanup</code></td><td>POST</td><td class="sig">app/api/hosted/cleanup/route.ts</td></tr>
+    <tr data-path="/api/hosted/funnel"><td><code>/api/hosted/funnel</code></td><td>GET</td><td class="sig">app/api/hosted/funnel/route.ts</td></tr>
     <tr data-path="/api/hosted/workspaces"><td><code>/api/hosted/workspaces</code></td><td>GET, POST</td><td class="sig">app/api/hosted/workspaces/route.ts</td></tr>
     <tr data-path="/api/hosted/workspaces/[workspaceId]"><td><code>/api/hosted/workspaces/[workspaceId]</code></td><td>DELETE, GET</td><td class="sig">app/api/hosted/workspaces/[workspaceId]/route.ts</td></tr></tbody></table></details>
 <details><summary>/identities/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/identities"><td><code>/api/identities</code></td><td>GET, POST</td><td class="sig">app/api/identities/route.ts</td></tr>

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:993de038169110f9e339417904a3e76975083783",
+  "timestamp": "sha1:840449ba520e06563cc02195400fde88c3f84921",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1725,6 +1725,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/hosted/cleanup/route.ts"
+    },
+    {
+      "path": "/api/hosted/funnel",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/hosted/funnel/route.ts"
     },
     {
       "path": "/api/hosted/workspaces",

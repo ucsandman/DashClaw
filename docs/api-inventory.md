@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `331`
+- Total routes: `332`
 - Stable routes: `57`
 - Beta routes: `24`
-- Experimental routes: `250`
+- Experimental routes: `251`
 
 ## Routes
 
@@ -193,6 +193,7 @@ doc-type: architecture
 | `/api/health` | `GET` | `stable` | `/api/health` | `app/api/health/route.ts` |
 | `/api/hosted/capacity` | `GET` | `experimental` | `(default)` | `app/api/hosted/capacity/route.ts` |
 | `/api/hosted/cleanup` | `POST` | `experimental` | `(default)` | `app/api/hosted/cleanup/route.ts` |
+| `/api/hosted/funnel` | `GET` | `experimental` | `(default)` | `app/api/hosted/funnel/route.ts` |
 | `/api/hosted/workspaces` | `GET, POST` | `experimental` | `(default)` | `app/api/hosted/workspaces/route.ts` |
 | `/api/hosted/workspaces/{workspaceId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/hosted/workspaces/[workspaceId]/route.ts` |
 | `/api/identities` | `GET, POST` | `experimental` | `/api/identities` | `app/api/identities/route.ts` |

@@ -72,7 +72,7 @@ const PUBLIC_ROUTES = [
   '/replay',
 ];
 
-// Hosted-trial public surface. These three requests must be reachable without
+// Hosted-trial public surface. These requests must be reachable without
 // an API key (anonymous visitors / GH Actions), and each route self-protects:
 //   POST /api/hosted/workspaces — 404 unless DASHCLAW_HOSTED; Cloudflare
 //        Turnstile verified (fails closed in production); per-IP daily cap.
@@ -80,6 +80,8 @@ const PUBLIC_ROUTES = [
 //        counts only (drives the "trials are full" state).
 //   POST /api/hosted/cleanup    — 403 unless x-cleanup-secret or
 //        Bearer CRON_SECRET matches (timing-safe; GH Actions daily job).
+//   GET  /api/hosted/funnel     — 404 unless DASHCLAW_HOSTED; aggregate
+//        trial-activation funnel, no org identifiers (v4.6 funnel truth).
 // Exact-path + method matches only: /api/hosted/workspaces/:id (admin
 // inspect/delete) intentionally stays behind authenticateProtectedApi, and
 // x-org-role spoofing is impossible here because public forwards use the
@@ -88,6 +90,7 @@ function isHostedPublicRequest(pathname, method) {
   if (pathname === '/api/hosted/capacity') return method === 'GET';
   if (pathname === '/api/hosted/workspaces') return method === 'POST';
   if (pathname === '/api/hosted/cleanup') return method === 'POST';
+  if (pathname === '/api/hosted/funnel') return method === 'GET';
   return false;
 }
 

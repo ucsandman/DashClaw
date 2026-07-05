@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 331,
+    "total_routes": 332,
     "stable_routes": 57,
     "beta_routes": 24,
-    "experimental_routes": 250
+    "experimental_routes": 251
   },
   "routes": [
     {
@@ -1667,6 +1667,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/hosted/cleanup/route.ts"
+    },
+    {
+      "path": "/api/hosted/funnel",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/hosted/funnel/route.ts"
     },
     {
       "path": "/api/hosted/workspaces",
