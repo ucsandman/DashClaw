@@ -1,22 +1,25 @@
 {
   "node": {
-    "current_version": "4.62.2",
+    "current_version": "4.63.0",
     "next_bump": "none",
-    "reason": "4.62.2 structural refactors: webhooks+orgs persistence extracted to repositories, guard.ts split into cohesive modules behind an unchanged facade. Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.63.0 evidence-first guard: guard() accepts an act payload (shell/http/sql/file) the server classifies deterministically; new runGoverned/guardedFetch/scrubAct helpers. SDK source changed - republish pending (npm run release:sdks moves the registry from 4.32.0 to 4.63.0; tag v4.63.0 exists).",
     "domains": [
+      "governance",
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.62.2",
+    "current_version": "4.63.0",
     "next_bump": "none",
-    "reason": "4.62.2 structural refactors: webhooks+orgs persistence extracted to repositories, guard.ts split into cohesive modules behind an unchanged facade. Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.63.0 evidence-first guard: guard() accepts an act payload (shell/http/sql/file) the server classifies deterministically; run_governed/scrub_act parity helpers (guarded_fetch is Node-only). SDK source changed - republish pending (npm run release:sdks moves the registry from 4.32.0 to 4.63.0).",
     "domains": [
+      "governance",
       "platform"
     ]
   },
-  "reason": "v4.62.2 structural refactors: platform only; Node/Python SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.63.0 evidence-first guard: SDK source changed in both SDKs; republish pending via npm run release:sdks.",
   "domains": [
+    "governance",
     "platform"
   ]
 }
