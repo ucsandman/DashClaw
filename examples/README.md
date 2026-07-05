@@ -21,12 +21,18 @@ dashclaw approve act_<id shown in Terminal 1>
 | Example | SDK | Language | Governance Scenario |
 |---|---|---|---|
 | `openai-governed-agent` | OpenAI | Node.js | Customer refund email governance |
+| `anthropic-governed-agent` | Anthropic | Node.js | Deployment agent held for human approval |
 | `claude-code-review-agent` | Anthropic | Node.js | Security fix approval gate |
+| `codex-review-agent` | Codex CLI | AGENTS.md | Same security-fix gate, governed via the Codex harness |
 | `openai-deploy-pipeline` | OpenAI | Node.js | Production deploy approval with CLI |
+| `openai-agents-governed` | OpenAI Agents SDK | Node.js | PII cleanup agent held for human approval |
+| `governed-chat-harness` | Anthropic Messages API | Node.js | Chat runtime routing every tool call through guard |
 | `python-research-agent` | None (simulated) | Python | File write governance |
 | `langgraph-governed` | LangGraph | Python | StateGraph governance node pattern |
 | `crewai-governed` | CrewAI | Python | @tool decorator governance pattern |
+| `autogen-governed` | AutoGen | Python | Governed tool calls via the 4-step loop |
 | `managed-agent-governed` | Anthropic (Managed Agent) | Python | Cloud-hosted agent with custom governance tools |
+| `managed-agent-mcp` | Anthropic (Managed Agent) | Python | Same, via the MCP server — zero custom tools |
 | `work-order-worker` | Node SDK | Node.js | Work-order worker: claim → execute → complete with a receipt |
 | `kimi_dashclaw_test.py` | Moonshot (OpenAI-compat) | Python | Governing a non-Anthropic model |
 

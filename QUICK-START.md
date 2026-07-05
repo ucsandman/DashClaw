@@ -83,6 +83,8 @@ Open `http://localhost:3000/setup`. This page verifies your database connection 
 ## Step 3: Run the Starter Agent (The Aha! Moment)
 Run the canonical starter to record a real governed action.
 
+> This step needs the repo on disk. `npx dashclaw up` installs the app under `~/.dashclaw` without the examples, so grab them first: `git clone https://github.com/ucsandman/DashClaw.git && cd DashClaw` (already done if you followed the contributors path). No clone handy? The [`/connect`](http://localhost:3000/connect) page sends a first governed action from the browser instead.
+
 1. **Enter the example directory**:
    ```bash
    cd examples/openai-governed-agent

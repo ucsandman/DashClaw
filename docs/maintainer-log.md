@@ -12,6 +12,54 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — Show HN pre-launch pass, round two: the try-it path was broken
+
+A second launch-readiness sweep after v4.63.0 (the first honesty pass was
+0ded490a, before that release). Three parallel audits again: count/version
+drift, a claims-vs-code pass over the surfaces the first round skipped
+(PRODUCT.md, DEMO.md, the landing page, examples, SDK READMEs), and a fresh
+walk of the try-it path. Two real problems surfaced, both now fixed:
+
+- **`npx dashclaw up` 404'd for every user, today.** The CLI resolves the
+  platform version from npm (`dashclaw@4.32.0` is still `latest` — the
+  credential-gated publish lags the repo by 31 versions) and downloads the
+  matching git tag — and `v4.32.0` was never cut; tags jumped from v4.20.1
+  to v4.59.0. The flagship one-command install in README and QUICK-START
+  has been failing since the tag gap opened. Fixed twice over: pushed the
+  missing tags (`v4.32.0`, plus `v4.62.1`/`v4.62.2`/`v4.63.0` so the
+  pending publish doesn't recreate the same failure), and taught
+  `resolveAppVersion` to verify the tag exists (HEAD) and fall back to the
+  latest GitHub release with a warning when it doesn't (cli 0.6.1, tested).
+  Lesson recorded: npm's version number was trusted to name a git ref with
+  no existence check — the release process can skip tags, so the consumer
+  must not assume them.
+- **DEMO.md narrated an approval pause the code never performs.** The
+  "Daily Market Briefing" walkthrough promised per-step guard decisions
+  (risk 10 allow → 55 warn → 80 pause for approval). Traced the actual
+  path: the execute route guards ONCE for the whole run at flat risk 50,
+  and the step executor never consults guard — the run sails through all
+  five steps. Rewrote the walkthrough to say exactly that (workflow-grained
+  guard; block/require_approval gate the whole run up front) and moved the
+  approval demonstration to where it genuinely fires: direct invoke of the
+  seeded high-risk publish capability (75 ≥ threshold 75 → 202, approve,
+  re-invoke passes under the 15-minute operator-approval window). Per-step
+  guard inside workflow runs is now an honest, documented gap rather than
+  a false claim; it's a real candidate for post-launch work.
+
+Smaller fixes in the same pass: examples/README.md table now lists all
+fourteen example directories (five existed on disk undocumented);
+QUICK-START Step 3 states it needs a repo clone (the `npx dashclaw up`
+path doesn't materialize `examples/`); a stale `v4.62.2` freshness stamp
+in the codebase map corrected to v4.63.0. The drift audit was otherwise
+clean — all 44 gated citations match source.
+
+Also prepared (not committed anywhere public): the Show HN post draft and
+a prepared-replies pack for the hard questions, handed to Wes directly —
+posting is his act. The one remaining accelerant on his side:
+`npm run release:sdks` to bring npm's `dashclaw` from 4.32.0 to 4.63.0
+(the tag now exists, so the moment it publishes, `dashclaw up` serves the
+current platform instead of February-vintage 4.32.0).
+
 ## 2026-07-05 — v4.63.0: evidence-first guard — the self-declared-intent hole, narrowed
 
 Wes asked the launch-prep question that mattered most: "how do we fix the SDK

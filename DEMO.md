@@ -42,24 +42,48 @@ curl -X POST http://localhost:3000/api/workflows/templates/<TEMPLATE_ID>/execute
 
 ### Step 3: Watch Mission Control
 
-Open `/mission-control` and watch the operations feed in real-time:
+Open `/mission-control` and watch the operations feed in real-time as the five steps run:
 
 1. **Knowledge Search** — Searches your strategy docs (internal, no governance)
-2. **HN News Fetch** — Auto-allowed (risk 10, green)
+2. **HN News Fetch** — Calls the real Hacker News API
 3. **LLM Analysis** — Runs via model strategy, produces the briefing
-4. **Team Notification** — Guard warns (risk 55, yellow) but proceeds
-5. **Publish Briefing** — Requires approval (risk 80, orange) — pauses here
+4. **Team Notification** — Posts to the demo notification endpoint
+5. **Publish Briefing** — Posts to the demo publish endpoint (`jsonplaceholder.typicode.com/posts`)
 
-### Step 4: Approve or deny
+Governance here is **workflow-grained, not step-grained**: the execute route runs one
+guard evaluation for the whole run (`action_type: workflow_execute`, risk 50) before
+any step starts. A `block` decision stops the run with 403; `require_approval` holds
+the entire run as a pending approval (202) before anything executes. Under the seeded
+policies (allow ≥ 30, warn ≥ 55, require approval ≥ 75) the risk-50 run is allowed,
+so all five steps execute and each step's output is recorded as an action with its
+artifacts. Per-step guard evaluation inside a workflow run is not implemented yet —
+the honest map of what is enforced where is
+[`docs/architecture/enforcement-boundary.md`](docs/architecture/enforcement-boundary.md).
 
-Navigate to **Approvals** (or click the pending item in Mission Control). You'll see the publish action waiting for your decision:
+### Step 4: See the approval gate fire (direct capability invoke)
 
-- **Approve** — The briefing is published to the demo endpoint (`jsonplaceholder.typicode.com/posts`) and the workflow completes
-- **Deny** — The publish step fails but the workflow still completes (`continue_on_failure: true`)
+Per-capability governance *is* step-grained on the direct invoke path. The seeded
+**Publish Briefing** capability is `risk_level: high` (risk 75), which meets the
+seeded "Require Approval for Publishing" policy (threshold 75):
+
+```bash
+# capability id printed by the seed script, or copy it from /capabilities
+curl -X POST http://localhost:3000/api/capabilities/<CAPABILITY_ID>/invoke \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: YOUR_KEY" \
+  -d '{"agent_id": "demo-agent", "input": {"title": "Demo briefing", "body": "hello"}}'
+```
+
+The call returns `202 pending_approval` and the action appears in **Approvals**:
+
+- **Approve**, then run the same invoke again — a HITL approval covers an identical
+  re-invoke (same agent, goal, and action type) for 15 minutes, so the retry passes
+  and the capability executes.
+- **Deny** — the action resolves as denied; nothing executes.
 
 ### Step 5: Review the trail
 
-Open **Decisions** to see the full audit trail: every guard evaluation, every action record, every artifact captured from each workflow step.
+Open **Decisions** to see the full audit trail: the workflow-level guard evaluation, the held-then-approved capability invoke, every action record, and every artifact captured from each workflow step.
 
 ## What This Exercises
 
@@ -70,8 +94,8 @@ Open **Decisions** to see the full audit trail: every guard evaluation, every ac
 | Capability Invoke | Steps 2, 4, 5 call real external APIs |
 | Workflow Engine | All 3 step types (knowledge_search, capability_invoke, prompt) |
 | Workflow Variables | `${steps.search_strategy.output}` in Step 3 |
-| Guard Evaluation | Risk 10 → allow, 55 → warn, 80 → require_approval |
-| HITL Approvals | Step 5 pauses for human decision |
+| Guard Evaluation | One workflow-level evaluation (risk 50 → allow); block/require_approval gate the whole run |
+| HITL Approvals | Direct invoke of the high-risk publish capability holds at 202 for human decision |
 | Model Strategies | Step 3 uses configured analysis strategy |
 | Artifacts | Each step output auto-captured |
 | Policies | 3 threshold policies at different levels |

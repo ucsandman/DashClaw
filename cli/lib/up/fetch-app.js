@@ -16,17 +16,37 @@ const REPO = 'ucsandman/DashClaw';
  * Fetch the latest published platform version from the npm registry.
  * The `dashclaw` npm package version mirrors the platform version (unified versioning).
  *
+ * npm's version number is only trusted after verifying its git tag exists —
+ * a publish that shipped without cutting its tag would otherwise 404 every
+ * install. When the tag is missing, fall back to the latest GitHub release.
+ *
  * @param {typeof fetch} fetchImpl - injectable for tests
+ * @param {{ error: (...args: any[]) => void }} logger
  * @returns {Promise<string>} semver string e.g. '4.21.0'
  */
-export async function resolveAppVersion(fetchImpl = fetch) {
+export async function resolveAppVersion(fetchImpl = fetch, logger = console) {
   const res = await fetchImpl('https://registry.npmjs.org/dashclaw/latest');
   if (!res.ok) {
     throw new Error(`npm registry lookup failed (${res.status}) — check your network and retry.`);
   }
   const { version } = await res.json();
   if (!version) throw new Error('npm registry returned no version for dashclaw.');
-  return version;
+
+  const head = await fetchImpl(tarballUrl(version), { method: 'HEAD' });
+  if (head.ok) return version;
+
+  const rel = await fetchImpl(`https://api.github.com/repos/${REPO}/releases/latest`, {
+    headers: { accept: 'application/vnd.github+json' },
+  });
+  const tagName = rel.ok ? (await rel.json()).tag_name : null;
+  const fallback = typeof tagName === 'string' ? tagName.replace(/^v/, '') : null;
+  if (!fallback) {
+    throw new Error(
+      `Tag v${version} (npm latest) is missing on GitHub and no release fallback was found — report this at https://github.com/${REPO}/issues.`,
+    );
+  }
+  logger.error(`[warn] npm reports ${version} but tag v${version} is missing; using latest GitHub release ${fallback} instead.`);
+  return fallback;
 }
 
 /**

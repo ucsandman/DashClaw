@@ -18,21 +18,59 @@ function tempDir() {
 }
 
 describe('resolveAppVersion', () => {
-  test('reads the latest platform version from the npm registry', async () => {
-    let capturedUrl;
-    const fetchImpl = async (url) => {
-      capturedUrl = url;
-      return new Response(JSON.stringify({ version: '4.21.0' }), { status: 200 });
+  const quiet = { error() {} };
+
+  test('reads the latest platform version from the npm registry when its tag exists', async () => {
+    const urls = [];
+    const fetchImpl = async (url, opts = {}) => {
+      urls.push(url);
+      if (url === 'https://registry.npmjs.org/dashclaw/latest') {
+        return new Response(JSON.stringify({ version: '4.21.0' }), { status: 200 });
+      }
+      // HEAD tag-existence check
+      assert.strictEqual(opts.method, 'HEAD');
+      return new Response(null, { status: 200 });
     };
-    const version = await resolveAppVersion(fetchImpl);
+    const version = await resolveAppVersion(fetchImpl, quiet);
     assert.strictEqual(version, '4.21.0');
-    assert.strictEqual(capturedUrl, 'https://registry.npmjs.org/dashclaw/latest');
+    assert.strictEqual(urls[0], 'https://registry.npmjs.org/dashclaw/latest');
+    assert.ok(urls[1].endsWith('/refs/tags/v4.21.0'));
+  });
+
+  test('falls back to the latest GitHub release when the npm version has no tag', async () => {
+    const warnings = [];
+    const fetchImpl = async (url) => {
+      if (url === 'https://registry.npmjs.org/dashclaw/latest') {
+        return new Response(JSON.stringify({ version: '4.32.0' }), { status: 200 });
+      }
+      if (url.includes('/refs/tags/')) return new Response(null, { status: 404 });
+      if (url.endsWith('/releases/latest')) {
+        return new Response(JSON.stringify({ tag_name: 'v4.63.0' }), { status: 200 });
+      }
+      throw new Error(`unexpected url: ${url}`);
+    };
+    const version = await resolveAppVersion(fetchImpl, { error: (m) => warnings.push(m) });
+    assert.strictEqual(version, '4.63.0');
+    assert.match(warnings.join(' '), /tag v4\.32\.0 is missing/);
+  });
+
+  test('throws a clear error when both the tag and the release fallback are missing', async () => {
+    const fetchImpl = async (url) => {
+      if (url === 'https://registry.npmjs.org/dashclaw/latest') {
+        return new Response(JSON.stringify({ version: '4.32.0' }), { status: 200 });
+      }
+      return new Response(null, { status: 404 });
+    };
+    await assert.rejects(
+      () => resolveAppVersion(fetchImpl, quiet),
+      /missing on GitHub and no release fallback/,
+    );
   });
 
   test('throws a clear error on registry failure', async () => {
     const fetchImpl = async () => new Response('Service Unavailable', { status: 503 });
     await assert.rejects(
-      () => resolveAppVersion(fetchImpl),
+      () => resolveAppVersion(fetchImpl, quiet),
       /registry/i,
     );
   });
