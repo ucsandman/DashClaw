@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.62.0",
+    "current_version": "4.62.1",
     "next_bump": "none",
-    "reason": "4.62.0 approval separation of duties (drizzle/0055): created_by principal stamp on action records, SELF_APPROVAL_FORBIDDEN on approver===creator (operator root exempt, trust model documented). Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.62.1 structural health pass: verified dead-code removal, repaired vendor-drift check, resolve-key route test coverage. Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.62.0",
+    "current_version": "4.62.1",
     "next_bump": "none",
-    "reason": "4.62.0 approval separation of duties (drizzle/0055): created_by principal stamp on action records, SELF_APPROVAL_FORBIDDEN on approver===creator (operator root exempt, trust model documented). Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.62.1 structural health pass: verified dead-code removal, repaired vendor-drift check, resolve-key route test coverage. Platform only - no Node/Python SDK source change (only a dead skipped test file removed from sdk-python/tests); version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.62.0 approval separation of duties: platform only; Node/Python SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.62.1 structural health pass: platform only; Node/Python SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]
