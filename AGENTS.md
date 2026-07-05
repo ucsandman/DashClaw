@@ -73,22 +73,17 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-04 (commit 9fe0d159). Confidence: 100%.
+Last indexed: 2026-07-05 (commit be69b0e5). Confidence: 100%.
 ### Architecture
-repo is an end-to-end “governed code intelligence” platform that ingests a source repository (files + optional contracts/policies), builds an internal representation via indexing/parsing and dependency analysis, applies governance rules and policy modes to shape agent behavior, and outputs generated documentation artifacts (LLM-synthesised wiki pages) plus an MCP-exposed tool surface and supporting web/UI/media experiences. **Inputs**
-**Transformations**
-**Outputs**
----
----
----
+This repository is a codebase documentation and governed-agent platform: it ingests a target repository as input, traverses and parses source files into structured representations, analyzes relationships/dependencies, and generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and a web-facing UI, while also providing example “governed agents” and policy tooling to run those workflows safely.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **frontend application layer** of repowise’s indexing… | - |
+| `app` | The **app** module is the **React/Next.js presentation and client orchestration… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
-| `app/components` | The **app/components** module is the **UI composition layer** in repowise’s web… | - |
-| `app/lib` | The app/lib subsystem is repowise’s core service layer for the… | - |
-| `application` | The **Application (top-level)** module is the **entry-stage web application… | - |
+| `app/components` | The **app/components** module is the **UI-layer component library** for… | - |
+| `app/lib` | The **app/lib module is the Core Service Layer for repowise’s delivery… | - |
+| `application` | The **Application (top-level)** module is the entry-stage UI composition layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
 | `.claude` | The **.claude module** is a **repository intelligence and command-safety… | - |
@@ -108,10 +103,10 @@ repo is an end-to-end “governed code intelligence” platform that ingests a s
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 43 | Wes Sander |
-| `package-lock.json` | 100.0th percentile | 84 | Wes Sander |
-| `app/lib/guard.ts` | 99.9th percentile | 26 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 82 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 45 | Wes Sander |
+| `app/lib/guard.ts` | 100.0th percentile | 26 | Wes Sander |
+| `CHANGELOG.md` | 99.9th percentile | 83 | Wes Sander |
+| `package-lock.json` | 99.9th percentile | 84 | Wes Sander |
 | `app/lib/doctor/generated/last-snapshot.json` | 99.8th percentile | 68 | Wes Sander |
 
 ### Repowise MCP Workflow
