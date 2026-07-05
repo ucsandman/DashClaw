@@ -1,5 +1,9 @@
 import crypto from 'node:crypto';
 import { importPolicyPack } from '../guardrails/import-pack';
+import {
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
+} from '../calibration-mining.js';
 import type { SqlTag } from '../types/db';
 
 function generateId(prefix: string): string {
@@ -149,6 +153,14 @@ export async function deleteHostedWorkspace(
   // Revoke first so the workspace is dead immediately even if a later step fails.
   await sql`UPDATE api_keys SET revoked_at = NOW() WHERE org_id = ${orgId} AND revoked_at IS NULL`;
 
+  // v4.6 funnel truth: freeze this trial's funnel milestones BEFORE the FK
+  // child sweep destroys the evidence. REQUIRED, not best-effort — a failed
+  // snapshot throws and aborts the delete (the cleanup sweep retries next
+  // run); a best-effort write would silently recreate the survivorship bias
+  // this table exists to prevent. Keys are already revoked, so the workspace
+  // stays dead either way.
+  await snapshotTrialFunnelFacts(sql, orgId);
+
   // Most org FKs predate cascade rules (32 of 47 are NO ACTION), and every org
   // has at least its api_keys row, so a bare DELETE FROM organizations always
   // failed with 23503 once the trial saw any activity. Discover the referencing
@@ -201,6 +213,233 @@ export async function findExpiredWorkspaces(
     LIMIT ${limit}
   `;
   return rows.map((r) => r.id);
+}
+
+// ── v4.6 funnel truth ───────────────────────────────────────────────────────
+// Spec: docs/superpowers/specs/2026-07-05-funnel-truth-design.md
+
+const WEEK_MS = 7 * 86_400_000;
+
+export type TrialFunnelFacts = {
+  orgId: string;
+  mintedAtMs: number;
+  keyUsed: boolean;
+  firstActionAtMs: number | null;
+  lastActionAtMs: number | null;
+  actionCount: number;
+  /** Frozen at deletion time on archived rows; null on live rows (computed on read). */
+  frozenRetainedWeek1: boolean | null;
+  archived: boolean;
+};
+
+function toMs(value: unknown): number | null {
+  if (value === null || value === undefined) return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Funnel facts for live trial orgs (all when orgId is null, one otherwise).
+ * A mint = hosted_mode AND trial_action_cap > 0 — cap-0 rows are
+ * markTrialFull capacity placeholders that can never act, not mints.
+ * Timestamps come back as epoch ms (float8): pg text timestamps are not
+ * safely Date.parse-able, and guard_decisions.created_at is TEXT on fresh
+ * schemas — hence the ::timestamptz casts.
+ */
+export async function queryLiveTrialFacts(
+  sql: SqlTag,
+  orgId: string | null,
+): Promise<TrialFunnelFacts[]> {
+  const rows = await sql`
+    SELECT
+      o.id AS org_id,
+      (EXTRACT(EPOCH FROM COALESCE(o.created_at, NOW())::timestamptz) * 1000)::float8 AS minted_at_ms,
+      EXISTS(
+        SELECT 1 FROM api_keys k
+        WHERE k.org_id = o.id AND k.last_used_at IS NOT NULL
+      ) AS key_used,
+      (EXTRACT(EPOCH FROM activity.first_action_at) * 1000)::float8 AS first_action_at_ms,
+      (EXTRACT(EPOCH FROM activity.last_action_at) * 1000)::float8 AS last_action_at_ms,
+      COALESCE(activity.action_count, 0)::int AS action_count
+    FROM organizations o
+    LEFT JOIN LATERAL (
+      SELECT MIN(ts) AS first_action_at, MAX(ts) AS last_action_at, COUNT(*)::int AS action_count
+      FROM (
+        SELECT gd.created_at::timestamptz AS ts
+        FROM guard_decisions gd
+        WHERE gd.org_id = o.id
+          AND (gd.action_type IS NULL OR gd.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
+          AND (gd.agent_id IS NULL OR gd.agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
+        UNION ALL
+        SELECT ar.created_at::timestamptz AS ts
+        FROM action_records ar
+        WHERE ar.org_id = o.id
+          AND (ar.action_type IS NULL OR ar.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
+          AND (ar.agent_id IS NULL OR ar.agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
+      ) evts
+    ) activity ON TRUE
+    WHERE o.hosted_mode = TRUE
+      AND o.trial_action_cap > 0
+      AND (${orgId}::text IS NULL OR o.id = ${orgId})
+  `;
+  return rows.map((r) => ({
+    orgId: String(r.org_id),
+    mintedAtMs: toMs(r.minted_at_ms) ?? 0,
+    keyUsed: r.key_used === true,
+    firstActionAtMs: toMs(r.first_action_at_ms),
+    lastActionAtMs: toMs(r.last_action_at_ms),
+    actionCount: Number(r.action_count) || 0,
+    frozenRetainedWeek1: null,
+    archived: false,
+  }));
+}
+
+/**
+ * Freeze a trial's funnel milestones before deletion destroys the evidence.
+ * Returns snapshotted:false for cap-0 capacity placeholders (not mints).
+ * Idempotent (ON CONFLICT DO NOTHING) so cleanup retries are safe.
+ */
+export async function snapshotTrialFunnelFacts(
+  sql: SqlTag,
+  orgId: string,
+): Promise<{ snapshotted: boolean }> {
+  const facts = await queryLiveTrialFacts(sql, orgId);
+  const f = facts[0];
+  if (!f) return { snapshotted: false };
+  const retainedWeek1 =
+    f.lastActionAtMs !== null && f.lastActionAtMs - f.mintedAtMs >= WEEK_MS;
+  await sql`
+    INSERT INTO hosted_trial_snapshots
+      (org_id, minted_at, key_used, first_action_at, last_action_at, action_count, retained_week1)
+    VALUES (
+      ${orgId},
+      to_timestamp(${f.mintedAtMs} / 1000.0),
+      ${f.keyUsed},
+      ${f.firstActionAtMs === null ? null : new Date(f.firstActionAtMs).toISOString()},
+      ${f.lastActionAtMs === null ? null : new Date(f.lastActionAtMs).toISOString()},
+      ${f.actionCount},
+      ${retainedWeek1}
+    )
+    ON CONFLICT (org_id) DO NOTHING
+  `;
+  return { snapshotted: true };
+}
+
+export type TrialFunnelCounts = {
+  minted: number;
+  keyUsed: number;
+  firstAction: number;
+  retainedWeek1: number;
+  week1Eligible: number;
+};
+
+export type TrialFunnel = {
+  computedAt: string;
+  funnel: TrialFunnelCounts & { week1Pending: number };
+  medianHoursToFirstAction: number | null;
+  cohorts: Array<TrialFunnelCounts & { weekStart: string }>;
+  source: { live: number; archived: number; truthfulSince: string | null };
+};
+
+function weekStartUtc(ms: number): string {
+  const d = new Date(ms);
+  const day = (d.getUTCDay() + 6) % 7; // Monday = 0
+  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - day))
+    .toISOString()
+    .slice(0, 10);
+}
+
+/**
+ * Pure funnel math over merged live + archived facts. Truthful zeros: an
+ * org younger than 7 days is week1Pending, never counted as not-retained.
+ * Archived rows use the retained_week1 boolean frozen at deletion time.
+ */
+export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): TrialFunnel {
+  const nowMs = now.getTime();
+  const isEligible = (f: TrialFunnelFacts) => nowMs - f.mintedAtMs >= WEEK_MS;
+  const isRetained = (f: TrialFunnelFacts) =>
+    f.archived
+      ? f.frozenRetainedWeek1 === true
+      : isEligible(f) && f.lastActionAtMs !== null && f.lastActionAtMs - f.mintedAtMs >= WEEK_MS;
+  const count = (list: TrialFunnelFacts[]): TrialFunnelCounts => ({
+    minted: list.length,
+    keyUsed: list.filter((f) => f.keyUsed).length,
+    firstAction: list.filter((f) => f.firstActionAtMs !== null).length,
+    retainedWeek1: list.filter(isRetained).length,
+    week1Eligible: list.filter(isEligible).length,
+  });
+
+  const overall = count(facts);
+  const deltas = facts
+    .filter((f) => f.firstActionAtMs !== null)
+    .map((f) => ((f.firstActionAtMs as number) - f.mintedAtMs) / 3_600_000)
+    .sort((a, b) => a - b);
+  const median =
+    deltas.length === 0
+      ? null
+      : deltas.length % 2 === 1
+        ? deltas[(deltas.length - 1) / 2]!
+        : (deltas[deltas.length / 2 - 1]! + deltas[deltas.length / 2]!) / 2;
+
+  const byWeek = new Map<string, TrialFunnelFacts[]>();
+  for (const f of facts) {
+    const ws = weekStartUtc(f.mintedAtMs);
+    const list = byWeek.get(ws) ?? [];
+    list.push(f);
+    byWeek.set(ws, list);
+  }
+  const cohorts = [...byWeek.entries()]
+    .sort((a, b) => (a[0] < b[0] ? 1 : -1))
+    .slice(0, 8)
+    .map(([weekStart, list]) => ({ weekStart, ...count(list) }));
+
+  return {
+    computedAt: now.toISOString(),
+    funnel: { ...overall, week1Pending: overall.minted - overall.week1Eligible },
+    medianHoursToFirstAction: median === null ? null : Math.round(median * 10) / 10,
+    cohorts,
+    source: {
+      live: facts.filter((f) => !f.archived).length,
+      archived: facts.filter((f) => f.archived).length,
+      truthfulSince: facts.length
+        ? new Date(Math.min(...facts.map((f) => f.mintedAtMs))).toISOString()
+        : null,
+    },
+  };
+}
+
+async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
+  const rows = await sql`
+    SELECT
+      org_id,
+      (EXTRACT(EPOCH FROM minted_at) * 1000)::float8 AS minted_at_ms,
+      key_used,
+      (EXTRACT(EPOCH FROM first_action_at) * 1000)::float8 AS first_action_at_ms,
+      (EXTRACT(EPOCH FROM last_action_at) * 1000)::float8 AS last_action_at_ms,
+      action_count,
+      retained_week1
+    FROM hosted_trial_snapshots
+  `;
+  return rows.map((r) => ({
+    orgId: String(r.org_id),
+    mintedAtMs: toMs(r.minted_at_ms) ?? 0,
+    keyUsed: r.key_used === true,
+    firstActionAtMs: toMs(r.first_action_at_ms),
+    lastActionAtMs: toMs(r.last_action_at_ms),
+    actionCount: Number(r.action_count) || 0,
+    frozenRetainedWeek1: r.retained_week1 === true,
+    archived: true,
+  }));
+}
+
+/** Live trial orgs + deletion-time snapshots, aggregated. Aggregate-only: no org ids leave this function. */
+export async function getTrialFunnel(
+  sql: SqlTag,
+  { now = new Date() }: { now?: Date } = {},
+): Promise<TrialFunnel> {
+  const live = await queryLiveTrialFacts(sql, null);
+  const archived = await querySnapshotFacts(sql);
+  return computeFunnelAggregates([...live, ...archived], now);
 }
 
 export async function incrementTrialActionCount(sql: SqlTag, orgId: string): Promise<void> {
