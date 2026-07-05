@@ -36,6 +36,12 @@ import crypto from 'crypto';
 
 const GUARD_DECISION_ID_RE = /^act_gd_[a-f0-9]{16}$/;
 
+// Fleet attribution (v4.3): accept a client-supplied id string ≤ 200 chars,
+// else null. The repository re-applies the same bound as the authoritative gate.
+function boundedIdField(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
+}
+
 
 export async function GET(request: Request) {
   try {
@@ -112,6 +118,13 @@ export async function POST(request: Request) {
     if (!valid) {
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
+
+    // Fleet attribution (v4.3): the pretool hook stamps the harness session uuid
+    // (fan-out grouping key) on every record, and the subagent instance uuid on
+    // a leaf call. Threaded through the validator's field bag so both the normal
+    // and blocked create paths persist them; sanitize to ≤ 200 chars (else null).
+    data.harness_session_id = boundedIdField(body.harness_session_id);
+    data.subagent_uuid = boundedIdField(body.subagent_uuid);
 
     // Idempotency short-circuit. If the caller supplied an idempotency_key and
     // we already have a row for (org_id, idempotency_key), return that row

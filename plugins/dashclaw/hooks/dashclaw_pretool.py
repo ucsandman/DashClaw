@@ -1168,7 +1168,7 @@ def _subagent_values(data):
 
 
 def _is_swarm_call(subagent_id, subagent_type, tool_name):
-    return bool(subagent_id or subagent_type or tool_name in ("Agent", "Task"))
+    return bool(subagent_id or subagent_type or tool_name in ("Agent", "Task", "Workflow"))
 
 
 def _has_subagent_provenance(subagent_id, subagent_type):
@@ -1184,14 +1184,27 @@ def _apply_distinct_subagent_id(context, subagent_type):
         context["agent_id"] = "%s:%s" % (AGENT_ID, _subagent_id_segment(subagent_type))
 
 
+def _attach_harness_session(context):
+    """v4.3 fleet attribution (verdict 1): stamp harness_session_id on EVERY
+    record payload, not just swarm/subagent calls. Unlike swarm_id (spawn +
+    subagent leaf calls only), this rides every governed action in the
+    session so a fan-out's leaves and non-subagent actions can be joined as
+    one unit at read time. Server-side this is a separate column from
+    session_id (which stays in the sess_* DashClaw-session namespace) — see
+    docs/superpowers/specs/2026-07-04-fleet-attribution.md. Capped to the
+    server's accepted length (200 chars)."""
+    if _SESSION_ID:
+        context["harness_session_id"] = _SESSION_ID[:200]
+
+
 def _attach_subagent_provenance(context, data, tool_name):
     """Sub-agent provenance. Claude Code puts agent_id / agent_type on hook stdin
     ONLY when the call fires inside a sub-agent. We keep the governed agent_id =
     the configured parent (sub-agents inherit the parent's pairing and policies,
     matching Claude Code's own model) and record the sub-agent as provenance
     DashClaw persists: a display name, a per-session swarm group, and intel. Spawn
-    calls (Agent/Task) are also tagged into the session swarm so the delegation
-    and the delegated work group together in the ledger."""
+    calls (Agent/Task/Workflow) are also tagged into the session swarm so the
+    delegation and the delegated work group together in the ledger."""
     subagent_id, subagent_type = _subagent_values(data)
     if _is_swarm_call(subagent_id, subagent_type, tool_name) and _SESSION_ID:
         context["swarm_id"] = _SESSION_ID
@@ -1204,6 +1217,10 @@ def _attach_subagent_provenance(context, data, tool_name):
     context["agent_name"] = _agent_name_for(subagent_type)
     context["trigger"] = "subagent:%s" % (subagent_type or "unknown")
     context["intel"]["subagent"] = {"agent_id": subagent_id, "agent_type": subagent_type}
+    # v4.3 verdict 2a: persist the subagent instance uuid so the read path can
+    # join this leaf row against its spawn row's outcome_metadata.spawned_agent_uuid.
+    if subagent_id:
+        context["subagent_uuid"] = str(subagent_id)[:200]
 
 
 def _warn_secret_scan(guard_resp, decision):
@@ -1306,6 +1323,7 @@ def main():
 
     # Step 4: Build guard context
     context = _build_guard_context(tool_name, tool_info, enrichment)
+    _attach_harness_session(context)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)
 

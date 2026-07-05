@@ -305,6 +305,8 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "session_id" text,
   "guard_decision_id" text,
   "close_source" text,
+  "harness_session_id" text,
+  "subagent_uuid" text,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now(),
   CONSTRAINT "action_records_action_id_unique" UNIQUE("action_id")

@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `329`
+- Total routes: `330`
 - Stable routes: `56`
 - Beta routes: `24`
-- Experimental routes: `249`
+- Experimental routes: `250`
 
 ## Routes
 
@@ -85,6 +85,7 @@ doc-type: architecture
 | `/api/admin/trigger-outcome-sweep` | `POST` | `experimental` | `(default)` | `app/api/admin/trigger-outcome-sweep/route.ts` |
 | `/api/agents` | `GET` | `experimental` | `/api/agents` | `app/api/agents/route.ts` |
 | `/api/agents/connections` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/connections/route.ts` |
+| `/api/agents/fanouts` | `GET` | `experimental` | `/api/agents` | `app/api/agents/fanouts/route.ts` |
 | `/api/agents/heartbeat` | `POST` | `experimental` | `/api/agents` | `app/api/agents/heartbeat/route.ts` |
 | `/api/agents/invoke` | `POST` | `experimental` | `/api/agents` | `app/api/agents/invoke/route.ts` |
 | `/api/agents/registry` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/registry/route.ts` |

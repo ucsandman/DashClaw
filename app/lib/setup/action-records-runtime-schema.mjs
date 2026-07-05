@@ -28,7 +28,11 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   { name: 'approval_grant_used_at', sql: 'timestamp' },
   // Closure provenance (drizzle/0048, v4.2 coverage truth): 'outcome' |
   // 'stop_autoclose' | 'direct'; NULL means pre-v4.2 row.
-  { name: 'close_source', sql: 'text' }
+  { name: 'close_source', sql: 'text' },
+  // Fleet attribution (drizzle/0049, v4.3): harness session uuid (fan-out
+  // grouping key) + subagent instance uuid (leaf lineage evidence).
+  { name: 'harness_session_id', sql: 'text' },
+  { name: 'subagent_uuid', sql: 'text' }
 ];
 
 export const ACTION_RECORDS_RUNTIME_COLUMNS = ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS.map((column) => column.name);

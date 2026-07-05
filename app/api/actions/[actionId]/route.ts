@@ -28,6 +28,18 @@ function isRecommendationApplied(value: unknown): boolean {
   return value === true || value === 1 || value === '1';
 }
 
+// Fleet attribution (v4.3): the ONE outcome_metadata key the server persists —
+// the spawned subagent instance uuid the posttool extracts from an Agent/Task
+// tool_response. String 1–200 chars, else null (the repository re-applies the
+// same bound as the authoritative gate). Every other outcome_metadata key
+// stays dropped, exactly as before.
+function extractSpawnedAgentUuid(body: Record<string, unknown>): string | null {
+  const meta = body.outcome_metadata;
+  if (!meta || typeof meta !== 'object' || Array.isArray(meta)) return null;
+  const value = (meta as Record<string, unknown>).spawned_agent_uuid;
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
+}
+
 
 export async function GET(request: Request, { params }: { params: Promise<{ actionId: string }> }) {
   try {
@@ -136,6 +148,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     const hasCloseFields = Object.keys(closeData).length > 0;
     const hasOtherFields = Object.keys(otherData).length > 0;
 
+    // Fleet attribution (v4.3): persist ONLY outcome_metadata.spawned_agent_uuid
+    // (merged into outcome_progress). Rides the UNGATED write in both branches —
+    // a sync spawn's patch may land after Stop auto-closed the spawn row, and
+    // the lineage stamp must still land (it is not a close field).
+    const spawnedAgentUuid = extractSpawnedAgentUuid(body);
+    const hasUngatedWrite = hasOtherFields || spawnedAgentUuid != null;
+    const ungatedOptions = spawnedAgentUuid != null ? { spawnedAgentUuid } : undefined;
+
     if (closeIfRunning) {
       let closeResult = null;
       if (hasCloseFields) {
@@ -143,8 +163,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
         closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running', closeSource: 'stop_autoclose' });
       }
       let tokenResult = null;
-      if (hasOtherFields) {
-        tokenResult = await updateActionOutcome(sql, orgId, actionId, otherData);
+      if (hasUngatedWrite) {
+        tokenResult = await updateActionOutcome(sql, orgId, actionId, otherData, ungatedOptions);
       }
       updatedAction = tokenResult || closeResult;
       if (!updatedAction) {
@@ -165,8 +185,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
         closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running', closeSource: 'outcome' });
       }
       let tokenResult = null;
-      if (hasOtherFields) {
-        tokenResult = await updateActionOutcome(sql, orgId, actionId, otherData);
+      if (hasUngatedWrite) {
+        tokenResult = await updateActionOutcome(sql, orgId, actionId, otherData, ungatedOptions);
       }
       updatedAction = tokenResult || closeResult;
       if (!updatedAction) {

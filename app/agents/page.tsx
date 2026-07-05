@@ -5,10 +5,10 @@ import Link from 'next/link';
 import {
   Users, ShieldCheck, ShieldAlert,
   Search, Filter, RotateCw, ChevronRight, Brain,
-  CheckCircle2, XCircle, Info, Lock, Copy,
+  CheckCircle2, XCircle, Info, Lock, Copy, GitBranch, ArrowUpRight,
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
-import { Card, CardContent } from '../components/ui/Card';
+import { Card, CardContent, CardHeader } from '../components/ui/Card';
 import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { Skeleton } from '../components/ui/Skeleton';
@@ -30,6 +30,21 @@ const statusDotMap: Record<string, string> = {
   offline: 'bg-zinc-600',
   unknown: 'bg-zinc-500',
 };
+
+// Duration between a fan-out's first and last recorded action, dense-formatted
+// (e.g. "42m", "1h 12m") rather than absolute timestamps.
+function formatFanoutSpan(firstAt: unknown, lastAt: unknown): string {
+  if (!firstAt || !lastAt) return '—';
+  const start = new Date(firstAt as string).getTime();
+  const end = new Date(lastAt as string).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return '—';
+  const mins = Math.round(Math.max(0, end - start) / 60000);
+  if (mins < 1) return '<1m';
+  if (mins < 60) return `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
 
 export default function AgentsFleetPage() {
   const [agents, setAgents] = useState<any[]>([]);
@@ -55,6 +70,32 @@ export default function AgentsFleetPage() {
   useEffect(() => {
     fetchAgents();
   }, [fetchAgents]);
+
+  // Fan-outs panel (v4.3): recent multi-agent harness sessions, fetched
+  // separately from the fleet list so a failure here never blocks the table
+  // above — fail-soft, same silent-log pattern as fetchAgents.
+  const [fanouts, setFanouts] = useState<any[]>([]);
+  const [fanoutsLoading, setFanoutsLoading] = useState(true);
+  const [fanoutsError, setFanoutsError] = useState(false);
+
+  const fetchFanouts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agents/fanouts?window_hours=24');
+      if (!res.ok) throw new Error(`Fan-out fetch failed: ${res.status}`);
+      const data = await res.json();
+      setFanouts(data.fanouts || []);
+      setFanoutsError(false);
+    } catch (error) {
+      console.error('Failed to fetch fanouts:', error);
+      setFanoutsError(true);
+    } finally {
+      setFanoutsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchFanouts();
+  }, [fetchFanouts]);
 
   const filteredAgents = agents.filter(agent => {
     // /api/agents returns agent_name (not name) — searching agent.name never matched.
@@ -114,7 +155,7 @@ export default function AgentsFleetPage() {
             onClear={selection.clear}
           />
           <button
-            onClick={() => { setLoading(true); fetchAgents(); }}
+            onClick={() => { setLoading(true); fetchAgents(); setFanoutsLoading(true); fetchFanouts(); }}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-sm font-medium text-secondary transition-colors hover:border-border-hover hover:text-white"
           >
             <RotateCw size={14} className={loading ? 'animate-spin' : ''} />
@@ -331,6 +372,83 @@ export default function AgentsFleetPage() {
                       </tr>
                     );
                   })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Fan-outs panel (v4.3 fleet attribution): recent multi-agent harness
+          sessions, one row per fan-out, deep-linking to the scoped swarm
+          graph. Fail-soft — a fetch error never blocks the fleet table above. */}
+      <Card hover={false} className="mt-6">
+        <CardHeader icon={GitBranch} title="Fan-outs" count={!fanoutsLoading && !fanoutsError ? fanouts.length : undefined} />
+        <CardContent className="p-0">
+          {fanoutsLoading ? (
+            <div className="space-y-3 p-6">
+              {Array.from({ length: 2 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
+          ) : fanoutsError ? (
+            <div className="px-6 py-8 text-center text-xs text-tertiary">
+              Fan-out sessions unavailable right now.
+            </div>
+          ) : fanouts.length === 0 ? (
+            <div className="px-6 py-8 text-center text-xs text-tertiary">
+              No multi-agent sessions in the last 24h.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-left">
+                <thead>
+                  <tr className="border-b border-border text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
+                    <th className="px-6 py-3">Session</th>
+                    <th className="px-6 py-3">Parent</th>
+                    <th className="px-6 py-3">Agents</th>
+                    <th className="px-6 py-3">Activity</th>
+                    <th className="px-6 py-3">Span</th>
+                    <th className="px-6 py-3 text-right">Graph</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {fanouts.map((f) => (
+                    <tr key={f.harness_session_id} className="transition-colors hover:bg-white/[0.02]">
+                      <td className="px-6 py-3">
+                        <div className="flex items-center gap-2">
+                          <GitBranch size={14} className="shrink-0 text-tertiary" />
+                          <code className="truncate font-mono text-[11px] text-secondary">
+                            {String(f.harness_session_id).slice(0, 12)}…
+                          </code>
+                        </div>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="truncate text-sm text-white">{f.parent_agent_id || '—'}</span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="text-xs tabular-nums text-secondary">
+                          {f.agent_count} agent{f.agent_count === 1 ? '' : 's'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="text-xs tabular-nums text-secondary">
+                          {f.spawn_count} spawn{f.spawn_count === 1 ? '' : 's'} · {f.action_count} action{f.action_count === 1 ? '' : 's'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-3">
+                        <span className="text-xs tabular-nums text-tertiary">{formatFanoutSpan(f.first_at, f.last_at)}</span>
+                      </td>
+                      <td className="px-6 py-3 text-right">
+                        <Link
+                          href={`/swarm?swarm_id=${encodeURIComponent(f.harness_session_id)}`}
+                          className="inline-flex items-center gap-1 text-xs font-medium text-brand transition-colors hover:text-brand-hover"
+                        >
+                          View graph <ArrowUpRight size={14} />
+                        </Link>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>

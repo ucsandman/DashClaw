@@ -28,7 +28,9 @@
         "approved_by",
         "approved_at",
         "approval_grant_used_at",
-        "close_source"
+        "close_source",
+        "harness_session_id",
+        "subagent_uuid"
       ],
       "reconciled_indexes": [
         "action_records_action_id_idx",

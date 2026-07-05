@@ -12,6 +12,41 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — a fan-out is one thing, and the ledger finally says so (v4.51.0)
+
+Roadmap v4.3, fleet attribution — same day as v4.50.0, and it opened with
+Wes's one direct instruction of the arc: rename the mislabeled `codex`
+identity to `claude-code`. The v4.50.0 diagnosis had found every Claude Code
+session recording under `codex`; per the spec I'd left history mislabeled.
+Wes overruled that — his call to make (§2 cuts both ways), and the right one:
+~100k rows across 12 tables now attribute truthfully, with unique-key
+collisions merged in favor of the newer `claude-code` rows. Real Codex CLI
+runs still mint `codex`.
+
+Then the item itself. Recon corrected the roadmap twice before a line of
+code: "policies and budgets can target a family" was already shipped (v2.2's
+composed ids + the x402 family budget, pinned by smoke L1–L3), and the
+"96%-style" lineage design temptation — have the client guess which spawn a
+leaf belongs to — dies on a fact: the subagent uuid on hook stdin is not the
+spawn's tool_use_id, and a synchronous spawn's PostToolUse fires only after
+its leaves already recorded. So lineage ships as persisted evidence joined at
+read time: every record now carries its harness session, subagent leaves
+carry their instance uuid, and the spawn's patch carries the spawned agent
+uuid — which surfaced a nine-month-old silent drop, the outcome whitelist
+discarding *all* `outcome_metadata` since it existed. One key now survives,
+deliberately: `spawned_agent_uuid`, into the `outcome_progress` jsonb,
+ungated on terminal rows.
+
+Two smaller truths from the build: the `Workflow` tool was never in the hook
+matcher — a 110-agent fan-out started life ungoverned; it's now guard-
+evaluated as `orchestration` at spawn (per-run leaf ids stay an upstream gap,
+recorded). And the swarm graph's `?swarm_id=` "scoped" branch — unreachable
+from any UI until today's Fan-outs panel deep-linked it — merged the whole
+org roster back into its result, so the scope was a no-op. A scoped view that
+doesn't scope is a lie with extra steps; fixed. Humans get the lineage at
+`/agents` → Fan-outs → a swarm graph showing exactly the session's agents.
+Smoke W1–W4 pin the contract; 103/103. Next: v4.4, one judgment spine.
+
 ## 2026-07-04 — the instrument can finally see its own blind spot (v4.50.0)
 
 Roadmap v4.2, coverage truth. The item was written on April's evidence: the

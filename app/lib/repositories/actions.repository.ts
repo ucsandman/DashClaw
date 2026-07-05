@@ -545,6 +545,12 @@ function orNull<T>(value: T | null | undefined): T | null {
   return value || null;
 }
 
+// Fleet attribution (drizzle/0049, v4.3): harness_session_id / subagent_uuid
+// are free-form client-supplied ids — accept a string ≤ 200 chars, else NULL.
+function boundedIdText(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
+}
+
 function orDefault<T>(value: T | null | undefined, fallback: T): T {
   return value || fallback;
 }
@@ -639,6 +645,11 @@ interface ActionData {
   idempotency_key?: string | null;
   session_id?: string | null;
   guard_decision_id?: string | null;
+  // Fleet attribution (drizzle/0049, v4.3): harness session uuid (stamped on
+  // every record) + subagent instance uuid (leaf lineage evidence). Bounded to
+  // ≤ 200 chars server-side; anything else persists NULL.
+  harness_session_id?: string | null;
+  subagent_uuid?: string | null;
   // Approvals lifecycle (drizzle/0039): how long the client will poll for an
   // approval decision. Only read when the row is created as pending_approval.
   approval_wait_seconds?: number | null;
@@ -693,6 +704,8 @@ function createActionInsertValues(payload: CreateActionPayload) {
     idempotency_key: orNull(data.idempotency_key),
     session_id: orNull(data.session_id),
     guard_decision_id: orNull(data.guard_decision_id),
+    harness_session_id: boundedIdText(data.harness_session_id),
+    subagent_uuid: boundedIdText(data.subagent_uuid),
   };
 }
 
@@ -729,6 +742,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
+      harness_session_id, subagent_uuid,
       close_source, approval_expires_at
     ) VALUES (
       ${orgId},
@@ -767,6 +781,8 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.idempotency_key},
       ${values.session_id},
       ${values.guard_decision_id},
+      ${values.harness_session_id},
+      ${values.subagent_uuid},
       ${closeSource},
       ${approvalExpiresAt}
     )
@@ -960,6 +976,18 @@ interface UpdateActionOutcomeOptions {
    * token/cost update never rewrites the provenance.
    */
   closeSource?: string | null;
+  /**
+   * Fleet attribution (v4.3, drizzle/0049): the spawned subagent instance uuid
+   * the posttool extracts from an Agent/Task tool_response and sends as
+   * outcome_metadata.spawned_agent_uuid. Persisted selectively — merged as the
+   * single key {"spawned_agent_uuid": ...} into the row's outcome_progress
+   * jsonb; every other outcome_metadata key stays dropped. Deliberately NOT
+   * gated on the row still being 'running': a sync spawn's patch lands at spawn
+   * completion (often after Stop auto-closed the spawn row), and the lineage
+   * stamp must land regardless — it is not a close field. Sanitized to a
+   * string ≤ 200 chars, else ignored.
+   */
+  spawnedAgentUuid?: string | null;
 }
 
 // Statuses a close write may set. close_source is stamped only when the new
@@ -1038,15 +1066,26 @@ async function updateActionOutcomeViaTaggedSql(
     patch: NormalizedOutcomePatch;
     gate: string | null;
     closeSource: string | null;
+    spawnedAgentUuid: string | null;
   },
 ): Promise<Row | null> {
-  const { sql, orgId, actionId, patch, gate, closeSource } = ctx;
+  const { sql, orgId, actionId, patch, gate, closeSource, spawnedAgentUuid } = ctx;
   const { data, fields } = patch;
   const includeErrorMessage = fields.includes('error_message');
   const newStatus = outcomeValue(data, fields, 'status');
   const updated = await sql`
     UPDATE action_records SET
       status            = COALESCE(${outcomeValue(data, fields, 'status')}, status),
+      -- Fleet attribution (v4.3): merge ONLY the spawned_agent_uuid lineage key
+      -- into outcome_progress. Unconditional w.r.t. row status (see
+      -- UpdateActionOutcomeOptions.spawnedAgentUuid) — the caller passes it on
+      -- the ungated write path.
+      outcome_progress  = CASE
+        WHEN ${spawnedAgentUuid}::text IS NOT NULL
+        THEN COALESCE(outcome_progress, '{}'::jsonb)
+             || jsonb_build_object('spawned_agent_uuid', ${spawnedAgentUuid}::text)
+        ELSE outcome_progress
+      END,
       close_source      = CASE
         WHEN ${closeSource}::text IS NOT NULL
           AND ${newStatus} = ANY(${TERMINAL_CLOSE_STATUSES}::text[])
@@ -1097,18 +1136,24 @@ export async function updateActionOutcome(
   const { gateStatus } = options;
   const gate = gateStatus ?? null;
   const closeSource = options.closeSource ?? null;
+  // Fleet attribution (v4.3): sanitized here as the authoritative gate — a
+  // non-string or over-200-char value is ignored, never persisted.
+  const spawnedAgentUuid = boundedIdText(options.spawnedAgentUuid);
 
   // Verify existence and ownership
   const existing = await sql`SELECT action_id FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId} LIMIT 1`;
   if (existing.length === 0) return null;
 
   const { data, fields } = normalizeOutcomePatch(outcome);
-  if (fields.length === 0) return null;
+  // A lineage-stamp-only call (no outcome fields) is still a real write.
+  if (fields.length === 0 && !spawnedAgentUuid) return null;
 
   // Test-contract compatibility path for sql mocks that only provide .query()
-  // responses. close_source is not stamped on this path — it exists only for
-  // the .query()-only test contract; production always uses the tagged-sql path.
+  // responses. close_source / spawnedAgentUuid are not stamped on this path —
+  // it exists only for the .query()-only test contract; production always uses
+  // the tagged-sql path.
   if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
+    if (fields.length === 0) return null;
     return updateActionOutcomeViaQueryMock({
       sql,
       orgId,
@@ -1125,6 +1170,7 @@ export async function updateActionOutcome(
     patch: { data, fields },
     gate,
     closeSource,
+    spawnedAgentUuid,
   });
 }
 

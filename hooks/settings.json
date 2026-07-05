@@ -2,7 +2,7 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*",
+        "matcher": "Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -14,7 +14,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*",
+        "matcher": "Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*",
         "hooks": [
           {
             "type": "command",

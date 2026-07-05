@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import {
   Zap, ArrowRight,
   RefreshCw, Activity, Search, MousePointer2, Info,
   History, Target, X, AlertCircle, CheckCircle2,
-  Clock, Terminal, FileText, ChevronRight, Maximize2, ZoomIn, ZoomOut
+  Clock, Terminal, FileText, ChevronRight, Maximize2, ZoomIn, ZoomOut, GitBranch
 } from 'lucide-react';
 import PageLayout from '../components/PageLayout';
 import { Card, CardContent, CardHeader } from '../components/ui/Card';
@@ -27,8 +28,10 @@ function fmtCost(v: unknown): string {
   return `$${n.toFixed(2)}`;
 }
 
-export default function SwarmTopologyPage() {
+function SwarmTopologyPageInner() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const swarmId = searchParams.get('swarm_id');
   const demo = isDemoMode();
   const { agentId: globalAgentId } = useAgentFilter();
 
@@ -478,7 +481,8 @@ export default function SwarmTopologyPage() {
   const fetchGraph = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch('/api/swarm/graph');
+      const url = swarmId ? `/api/swarm/graph?swarm_id=${encodeURIComponent(swarmId)}` : '/api/swarm/graph';
+      const res = await fetch(url);
       if (!res.ok) throw new Error('Failed to load swarm data');
       const json = await res.json();
       setGraphData(json);
@@ -487,7 +491,7 @@ export default function SwarmTopologyPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [swarmId]);
 
   useEffect(() => {
     fetchGraph();
@@ -877,6 +881,18 @@ export default function SwarmTopologyPage() {
       actions={<button onClick={fetchGraph} className="p-2 text-secondary transition-colors hover:text-white" aria-label="Refresh topology"><RefreshCw size={18} className={loading ? 'animate-spin' : ''} /></button>}
     >
       <div className="space-y-6">
+        {swarmId && (
+          <div className="flex items-center justify-between rounded-lg border border-border bg-surface-tertiary px-4 py-2.5 text-xs text-secondary">
+            <span className="flex items-center gap-2">
+              <GitBranch size={13} className="shrink-0 text-tertiary" />
+              Scoped to session <code className="font-mono text-[11px] text-white">{swarmId.slice(0, 12)}…</code>
+            </span>
+            <Link href="/swarm" className="font-medium text-tertiary transition-colors hover:text-white">
+              Clear
+            </Link>
+          </div>
+        )}
+
         {/* ROW 1: TOPOLOGY CANVAS + INSPECTOR (FULL VIEWPORT HEIGHT) */}
         <div className="flex h-[calc(100vh-140px)] min-h-[600px] flex-col gap-6 lg:flex-row">
 
@@ -1104,6 +1120,16 @@ export default function SwarmTopologyPage() {
         </div>
       </div>
     </PageLayout>
+  );
+}
+
+// Next 16: any page reading useSearchParams must render inside a Suspense
+// boundary or `next build` fails (see reference_next16_usesearchparams_suspense).
+export default function SwarmTopologyPage() {
+  return (
+    <Suspense fallback={null}>
+      <SwarmTopologyPageInner />
+    </Suspense>
   );
 }
 

@@ -22,15 +22,11 @@ export async function GET(request: Request) {
     // 1. Fetch all agents in the org (broad discovery via repository)
     let agents: Array<{ agent_id: string; name?: string }>;
     if (swarmId) {
-      // Swarm-scoped: start with action_records for the swarm, then merge broader discovery
-      const swarmAgents = await sql`SELECT DISTINCT agent_id, MAX(agent_name) as name FROM action_records WHERE org_id = ${orgId} AND swarm_id = ${swarmId} GROUP BY agent_id` as Array<{ agent_id: string; name?: string }>;
-      const allAgents = await listAgentsForOrg(sql, orgId);
-      const swarmIds = new Set(swarmAgents.map((a) => a.agent_id));
-      // Merge any agents not already found via swarm action_records
-      agents = [
-        ...swarmAgents,
-        ...allAgents.filter((a) => !swarmIds.has(a.agent_id)).map((a) => ({ agent_id: a.agent_id, name: a.agent_name }))
-      ];
+      // Swarm-scoped: ONLY the agents that acted in this swarm/fan-out session.
+      // (Pre-v4.3 this branch merged the whole org roster back in, so the scope
+      // never filtered anything — the /agents Fan-outs deep link made that a
+      // visible lie. A scoped view must actually scope.)
+      agents = await sql`SELECT DISTINCT agent_id, MAX(agent_name) as name FROM action_records WHERE org_id = ${orgId} AND swarm_id = ${swarmId} GROUP BY agent_id` as Array<{ agent_id: string; name?: string }>;
     } else {
       const allAgents = await listAgentsForOrg(sql, orgId);
       agents = allAgents.map((a) => ({ agent_id: a.agent_id, name: a.agent_name }));

@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:7e297f1d9a54cdf60fefe2d376bd3c4f33e9c9f7 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:861c67f3aa0dbaf52693383c7b6ddfd210e67f34 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">282</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">283</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
@@ -199,7 +199,8 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>22</b> routes added, <b>10</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>23</b> routes added, <b>10</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/coverage <span class="sig">New route: GET, POST</span></li>
@@ -298,10 +299,11 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/actions/stats"><td><code>/api/actions/stats</code></td><td>GET</td><td class="sig">app/api/actions/stats/route.ts</td></tr></tbody></table></details>
 <details><summary>/activity/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/activity"><td><code>/api/activity</code></td><td>GET</td><td class="sig">app/api/activity/route.ts</td></tr></tbody></table></details>
 <details><summary>/admin/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/admin/trigger-outcome-sweep"><td><code>/api/admin/trigger-outcome-sweep</code></td><td>POST</td><td class="sig">app/api/admin/trigger-outcome-sweep/route.ts</td></tr></tbody></table></details>
-<details><summary>/agents/* (9)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents"><td><code>/api/agents</code></td><td>GET</td><td class="sig">app/api/agents/route.ts</td></tr>
+<details><summary>/agents/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents"><td><code>/api/agents</code></td><td>GET</td><td class="sig">app/api/agents/route.ts</td></tr>
     <tr data-path="/api/agents/[agentId]"><td><code>/api/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/route.ts</td></tr>
     <tr data-path="/api/agents/[agentId]/profile"><td><code>/api/agents/[agentId]/profile</code></td><td>GET</td><td class="sig">app/api/agents/[agentId]/profile/route.ts</td></tr>
     <tr data-path="/api/agents/connections"><td><code>/api/agents/connections</code></td><td>GET, POST</td><td class="sig">app/api/agents/connections/route.ts</td></tr>
+    <tr data-path="/api/agents/fanouts"><td><code>/api/agents/fanouts</code></td><td>GET</td><td class="sig">app/api/agents/fanouts/route.ts</td></tr>
     <tr data-path="/api/agents/heartbeat"><td><code>/api/agents/heartbeat</code></td><td>POST</td><td class="sig">app/api/agents/heartbeat/route.ts</td></tr>
     <tr data-path="/api/agents/invoke"><td><code>/api/agents/invoke</code></td><td>POST</td><td class="sig">app/api/agents/invoke/route.ts</td></tr>
     <tr data-path="/api/agents/registry"><td><code>/api/agents/registry</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/route.ts</td></tr>

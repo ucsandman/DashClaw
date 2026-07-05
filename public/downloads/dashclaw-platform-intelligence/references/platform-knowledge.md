@@ -157,7 +157,7 @@ Client request hits middleware.js
 | `/approvals` | Desktop approval queue |
 | `/decisions` | Visual causal chain ledger with inline message trails in expanded rows |
 | `/decisions/{actionId}` | Chronological decision timeline (guard decisions, messages, assumptions, actions, outcomes, open loops) |
-| `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record + outcome coverage against transcript ground truth, explicit "no evidence" state when an agent has no reports |
+| `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record + outcome coverage against transcript ground truth, explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions and deep-links to `/swarm?swarm_id=<harness_session_id>` (scoped fan-out graph, `GET /api/agents/fanouts`) |
 | `/agents/{agentId}` | Agent governance profile — vitals strip, trust posture, policies, decisions, assumptions, signals |
 | `/policies` | Shields-first policy builder (ActivityTab + CustomTab, AI generator inline, agent-scope picker, risk explainer) |
 | `/policies/generate` | AI policy generator standalone page |

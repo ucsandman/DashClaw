@@ -158,6 +158,13 @@ TOOL_CATALOG: dict[str, dict] = {
         "orchestration", "danger",
         _risk(75, spawn=True, network=True, modify=True, escalate=True),
     ),
+    # `Workflow` fans out multiple sub-agents deterministically (Claude Code
+    # dynamic workflows). Same governance profile as Agent/Task spawns so a
+    # fan-out is guard-evaluated and recorded before it runs (roadmap v4.3).
+    "Workflow": _tool(
+        "orchestration", "danger",
+        _risk(75, spawn=True, network=True, modify=True, escalate=True),
+    ),
     "Skill": _tool(
         "orchestration", "danger",
         _risk(60, spawn=True, modify=True, escalate=True),

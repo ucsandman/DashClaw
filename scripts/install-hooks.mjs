@@ -136,7 +136,7 @@ export function hookBlocks(python = 'python') {
       {
         // Skill is included so the auto skill-scan in dashclaw_pretool.py fires
         // when a skill is loaded (secret + dangerous-pattern detection, warn-only).
-        matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*',
+        matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*',
         hooks: [
           {
             type: 'command',
@@ -148,7 +148,7 @@ export function hookBlocks(python = 'python') {
     ],
     PostToolUse: [
       {
-        matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*',
+        matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*',
         hooks: [
           {
             type: 'command',
@@ -281,7 +281,7 @@ export function mergeGlobalStopHook(settings, repoRoot, { remove = false, python
 export function globalGovernanceBlocks(repoRoot, python = 'python') {
   // --agent-id: see globalStopCommand — per-harness identity via argv.
   const cmd = (name) => `${python} "${toPosixPath(join(repoRoot, 'hooks', name))}" --agent-id claude-code`;
-  const matcher = 'Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*';
+  const matcher = 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*';
   return {
     PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3600000 }] }],
     PostToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_posttool.py') }] }],

@@ -219,6 +219,8 @@ const navItems = [
   { href: '#posture-scan', label: 'Scan (snapshot)', indent: true },
   { href: '#coverage', label: 'Coverage' },
   { href: '#coverage-get', label: 'GET /api/coverage', indent: true },
+  { href: '#fanouts', label: 'Fan-outs' },
+  { href: '#fanouts-get', label: 'GET /api/agents/fanouts', indent: true },
   { href: '#work-orders', label: 'Work Orders' },
   { href: '#submitWorkOrder', label: 'submitWorkOrder', indent: true },
   { href: '#getWorkOrder', label: 'getWorkOrder', indent: true },
@@ -2842,6 +2844,32 @@ const { score, snapshot } = await res.json();`}
   headers: { 'x-api-key': apiKey },
 });
 const { coverage } = await res.json();`}
+                  </CodeBlock>
+                }
+              />
+            </div>
+          </section>
+
+          <section id="fanouts" className="scroll-mt-20 pt-12 border-t border-border">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Fan-outs</h3>
+              <p className="text-xs text-text-tertiary mb-4">Multi-agent lineage as persisted evidence, not a client-side guess. Every recorded action carries its harness session (<code className="text-brand">harness_session_id</code>); subagent leaf actions carry the subagent instance uuid (<code className="text-brand">subagent_uuid</code>); spawn rows carry the spawned agent&apos;s uuid via <code className="text-brand">outcome_metadata.spawned_agent_uuid</code> on the outcome PATCH — the one <code className="text-brand">outcome_metadata</code> key the server persists. A fan-out reads as one governed unit with per-leaf attribution, joined at read time. Powers the Fan-outs panel on the <code className="text-brand">/agents</code> page, deep-linking to <code className="text-brand">/swarm?swarm_id=&lt;harness_session_id&gt;</code>.</p>
+              <MethodEntry
+                id="fanouts-get"
+                signature="GET /api/agents/fanouts"
+                description="Recent multi-agent harness sessions, newest-first, grouped by harness_session_id. Synthetic/loadtest agents excluded from the default view."
+                params={[
+                  { name: 'window_hours', type: 'number', required: false, desc: '1-168, default 24' },
+                  { name: 'limit', type: 'number', required: false, desc: '1-100, default 20' },
+                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents — diagnostics only; the /agents panel never sets it' },
+                ]}
+                returns="{ fanouts: [{ harness_session_id, parent_agent_id, agents, agent_count, spawn_count, action_count, linked_leaf_count, first_at, last_at }], window_hours, lastUpdated }"
+                example={
+                  <CodeBlock title="Read recent fan-outs">
+{`const res = await fetch('/api/agents/fanouts', {
+  headers: { 'x-api-key': apiKey },
+});
+const { fanouts } = await res.json();`}
                   </CodeBlock>
                 }
               />

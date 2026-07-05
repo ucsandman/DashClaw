@@ -73,6 +73,12 @@ class TestSpecificTools(unittest.TestCase):
         self.assertEqual(r["category"], "orchestration")
         self.assertEqual(r["required_permission"], "danger")
 
+    def test_workflow_orchestration_danger(self):
+        """v4.3: Workflow (dynamic-workflow fan-out) mirrors Agent/Task."""
+        r = classify_tool("Workflow", {"prompt": "fan out"})
+        self.assertEqual(r["category"], "orchestration")
+        self.assertEqual(r["required_permission"], "danger")
+
     def test_sleep_system_allow(self):
         r = classify_tool("Sleep", {})
         self.assertEqual(r["category"], "system")

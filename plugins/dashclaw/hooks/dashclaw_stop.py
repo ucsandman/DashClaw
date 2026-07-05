@@ -528,11 +528,13 @@ def datetime_now_iso():
 # whether Pre/PostToolUse fired, so a PreToolUse outage now lowers a number
 # the server can see instead of silently thinning the ledger. The governed
 # matcher mirrors the PreToolUse harness matcher in hooks/settings.json
-# ("Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*") exactly, including
-# how MCP tool names appear in the transcript (mcp__<server>__<method>).
+# ("Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*") exactly,
+# including how MCP tool names appear in the transcript
+# (mcp__<server>__<method>). Workflow added in v4.3 (fleet attribution) when
+# the spawn layer started governing Workflow fan-outs alongside Agent/Task.
 # ---------------------------------------------------------------------------
 
-_GOVERNED_TOOL_RE = re.compile(r"^(?:Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*)$")
+_GOVERNED_TOOL_RE = re.compile(r"^(?:Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*)$")
 
 
 def _is_governed_tool_name(name):

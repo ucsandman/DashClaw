@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:7e297f1d9a54cdf60fefe2d376bd3c4f33e9c9f7",
+  "timestamp": "sha1:861c67f3aa0dbaf52693383c7b6ddfd210e67f34",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -666,6 +666,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/agents/connections/route.ts"
+    },
+    {
+      "path": "/api/agents/fanouts",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/agents/fanouts/route.ts"
     },
     {
       "path": "/api/agents/heartbeat",

@@ -223,6 +223,12 @@ describe('buildHookEntries / buildHookEnv', () => {
     assert.match(entries.Stop[0].hooks[0].command, / --agent-id "my-claude"$/);
   });
 
+  it('matches the Workflow tool so dynamic-workflow fan-outs are governed (v4.3)', () => {
+    const entries = buildHookEntries('/tmp/hooks', 'python3');
+    assert.match(entries.PreToolUse[0].matcher, /Workflow/);
+    assert.match(entries.PostToolUse[0].matcher, /Workflow/);
+  });
+
   it('hook env defaults to observe mode', () => {
     const env = buildHookEnv({ endpoint: 'http://x', apiKey: 'k', agentId: 'a' });
     assert.match(env, /DASHCLAW_HOOK_MODE=observe/);

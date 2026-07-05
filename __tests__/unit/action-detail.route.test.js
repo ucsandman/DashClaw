@@ -349,6 +349,68 @@ describe('/api/actions/[actionId]', () => {
         expect(body.action.status).toBe('failed');
       });
 
+      it('persists outcome_metadata.spawned_agent_uuid via the UNGATED token call (Stop-hook path)', async () => {
+        mockValidateActionOutcome.mockReturnValue({
+          valid: true,
+          data: { status: 'completed', timestamp_end: '2026-07-04T00:00:00Z' },
+          errors: [],
+        });
+        mockUpdateActionOutcome
+          .mockResolvedValueOnce({ action_id: 'act_1', status: 'completed' }) // gated close
+          .mockResolvedValueOnce({ action_id: 'act_1', status: 'completed' }); // ungated lineage
+
+        const res = await PATCH(
+          req({
+            close_if_running: true,
+            status: 'completed',
+            timestamp_end: '2026-07-04T00:00:00Z',
+            outcome_metadata: { spawned_agent_uuid: 'uuid_spawn_1', exit_code: 0, error_type: 'x' },
+          }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(2);
+        // Close call stays gated; lineage rides the ungated call's options.
+        expect(mockUpdateActionOutcome.mock.calls[0][4]).toEqual({ gateStatus: 'running', closeSource: 'stop_autoclose' });
+        expect(mockUpdateActionOutcome.mock.calls[1][4]).toEqual({ spawnedAgentUuid: 'uuid_spawn_1' });
+        // The rest of outcome_metadata stays dropped — never a repository field.
+        for (const call of mockUpdateActionOutcome.mock.calls) {
+          expect(call[3]).not.toHaveProperty('outcome_metadata');
+          expect(call[3]).not.toHaveProperty('exit_code');
+          expect(call[3]).not.toHaveProperty('error_type');
+        }
+      });
+
+      it('lineage stamp still lands when the close gate rejects (already-terminal row)', async () => {
+        // Sync spawn: the spawn's PostToolUse patch arrives after Stop
+        // auto-closed the spawn row. The gated close returns null but the
+        // ungated lineage write must still land and return the row.
+        mockValidateActionOutcome.mockReturnValue({
+          valid: true,
+          data: { status: 'completed', timestamp_end: '2026-07-04T00:00:00Z' },
+          errors: [],
+        });
+        const terminalRow = { action_id: 'act_1', status: 'completed' };
+        mockUpdateActionOutcome
+          .mockResolvedValueOnce(null)          // gate mismatched (terminal)
+          .mockResolvedValueOnce(terminalRow);  // lineage write applies anyway
+
+        const res = await PATCH(
+          req({
+            close_if_running: true,
+            status: 'completed',
+            timestamp_end: '2026-07-04T00:00:00Z',
+            outcome_metadata: { spawned_agent_uuid: 'uuid_spawn_2' },
+          }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(2);
+        expect(mockUpdateActionOutcome.mock.calls[1][4]).toEqual({ spawnedAgentUuid: 'uuid_spawn_2' });
+        const body = await res.json();
+        expect(body.action).toEqual(terminalRow);
+      });
+
       it('omits close_if_running from validated data so the flag never hits the DB', async () => {
         // The flag is a route-level contract, not a column. validateActionOutcome
         // is called with the full body, but only validated fields go to the
@@ -372,6 +434,60 @@ describe('/api/actions/[actionId]', () => {
           const fields = call[3];
           expect(fields).not.toHaveProperty('close_if_running');
         }
+      });
+    });
+
+    describe('outcome_metadata.spawned_agent_uuid (fleet attribution, normal PATCH path)', () => {
+      it('persists the key via the ungated call on the normal completion path', async () => {
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { status: 'completed' }, errors: [] });
+        mockUpdateActionOutcome
+          .mockResolvedValueOnce({ action_id: 'act_1', status: 'completed' }) // gated close
+          .mockResolvedValueOnce({ action_id: 'act_1', status: 'completed' }); // ungated lineage
+
+        const res = await PATCH(
+          req({ status: 'completed', outcome_metadata: { spawned_agent_uuid: 'uuid_norm', exit_code: 1 } }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(2);
+        expect(mockUpdateActionOutcome.mock.calls[0][4]).toEqual({ gateStatus: 'running', closeSource: 'outcome' });
+        expect(mockUpdateActionOutcome.mock.calls[1][4]).toEqual({ spawnedAgentUuid: 'uuid_norm' });
+        for (const call of mockUpdateActionOutcome.mock.calls) {
+          expect(call[3]).not.toHaveProperty('outcome_metadata');
+          expect(call[3]).not.toHaveProperty('exit_code');
+        }
+      });
+
+      it('ignores a non-string or oversized spawned_agent_uuid (no extra repository call)', async () => {
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { status: 'completed' }, errors: [] });
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
+
+        let res = await PATCH(
+          req({ status: 'completed', outcome_metadata: { spawned_agent_uuid: 12345 } }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(1); // gated close only
+
+        mockUpdateActionOutcome.mockClear();
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
+        res = await PATCH(
+          req({ status: 'completed', outcome_metadata: { spawned_agent_uuid: 'x'.repeat(201) } }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(1);
+      });
+
+      it('ignores a non-object outcome_metadata', async () => {
+        mockValidateActionOutcome.mockReturnValue({ valid: true, data: { status: 'completed' }, errors: [] });
+        mockUpdateActionOutcome.mockResolvedValue({ action_id: 'act_1', status: 'completed' });
+        const res = await PATCH(
+          req({ status: 'completed', outcome_metadata: 'uuid_not_an_object' }),
+          routeCtx,
+        );
+        expect(res.status).toBe(200);
+        expect(mockUpdateActionOutcome).toHaveBeenCalledTimes(1);
       });
     });
   });

@@ -611,6 +611,117 @@ class TestPosttoolIntegration(unittest.TestCase):
         parsed = datetime.fromisoformat(ts)
         self.assertIsNotNone(parsed)
 
+    # -----------------------------------------------------------------------
+    # 13. v4.3 fleet attribution: spawned_agent_uuid extraction (verdict 2b)
+    # -----------------------------------------------------------------------
+
+    def test_agent_spawn_extracts_spawned_agent_uuid_from_text(self):
+        """An Agent tool_response with a text line like `agentId: <uuid>`
+        gets extracted into outcome_metadata.spawned_agent_uuid so the spawn
+        row can be read-time joined against its leaf calls' subagent_uuid."""
+        tool_use_id = "post-tu-agent-001"
+        action_id = "act-agent-001"
+        _write_temp_action(tool_use_id, action_id)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Agent",
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "Subagent finished.\nagentId: a0e90f949e494f49c\nDone."},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["method"] == "PATCH"][0]["body"]
+        self.assertEqual(body["outcome_metadata"]["spawned_agent_uuid"], "a0e90f949e494f49c")
+
+    def test_task_alias_spawn_extracts_spawned_agent_uuid_from_json_shape(self):
+        """A JSON-shaped tool_response with a top-level agentId/agent_id key
+        is also read (`Task` is the pre-2.1.63 alias for `Agent`)."""
+        tool_use_id = "post-tu-agent-002"
+        action_id = "act-agent-002"
+        _write_temp_action(tool_use_id, action_id)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Task",
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "ok", "agentId": "b7c1-uuid-002"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["method"] == "PATCH"][0]["body"]
+        self.assertEqual(body["outcome_metadata"]["spawned_agent_uuid"], "b7c1-uuid-002")
+
+    def test_workflow_spawn_extracts_spawned_agent_uuid(self):
+        """Workflow (dynamic-workflow fan-out) gets the same extraction as
+        Agent/Task."""
+        tool_use_id = "post-tu-workflow-001"
+        action_id = "act-workflow-001"
+        _write_temp_action(tool_use_id, action_id)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Workflow",
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "spawned.\nagentId: c9d2-uuid-003"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["method"] == "PATCH"][0]["body"]
+        self.assertEqual(body["outcome_metadata"]["spawned_agent_uuid"], "c9d2-uuid-003")
+
+    def test_no_spawned_agent_uuid_when_absent(self):
+        """No agentId anywhere in the response — the field is simply omitted
+        (fail-soft), never set to null."""
+        tool_use_id = "post-tu-agent-003"
+        action_id = "act-agent-003"
+        _write_temp_action(tool_use_id, action_id)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Agent",
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "Subagent finished with no id reported."},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["method"] == "PATCH"][0]["body"]
+        self.assertNotIn("spawned_agent_uuid", body["outcome_metadata"])
+
+    def test_spawned_agent_uuid_not_extracted_for_non_spawn_tools(self):
+        """Extraction is gated to Agent/Task/Workflow — a Bash output that
+        happens to contain the string 'agentId:' must not be mistaken for a
+        spawn's outcome."""
+        tool_use_id = "post-tu-bash-agentid"
+        action_id = "act-bash-agentid"
+        _write_temp_action(tool_use_id, action_id)
+        self.addCleanup(_cleanup_temp_action, tool_use_id)
+
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_use_id": tool_use_id,
+                "tool_response": {"output": "grep result: agentId: not-a-real-spawn"},
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["method"] == "PATCH"][0]["body"]
+        self.assertNotIn("spawned_agent_uuid", body["outcome_metadata"])
+
 
 if __name__ == "__main__":
     unittest.main()

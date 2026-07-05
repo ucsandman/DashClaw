@@ -14,6 +14,7 @@ Never blocks. Always exits 0.
 
 import json
 import os
+import re
 import sys
 import tempfile
 import urllib.request
@@ -180,6 +181,87 @@ def _extract_outcome(tool_response):
 
 
 # ---------------------------------------------------------------------------
+# Spawn linkage extraction (v4.3 fleet attribution, verdict 2b)
+#
+# Agent/Task/Workflow spawns hand back the spawned sub-agent's harness uuid
+# in their tool_response once the spawn completes (sync) or launches (async).
+# Persisting it into outcome_metadata.spawned_agent_uuid lets the read path
+# join this spawn row against its leaves' subagent_uuid (stamped by pretool)
+# inside one harness_session_id — a read-time join, never a client guess.
+# Fail-soft throughout: no match found simply omits the field.
+# ---------------------------------------------------------------------------
+
+_SPAWN_TOOLS = ("Agent", "Task", "Workflow")
+_AGENT_ID_LINE_RE = re.compile(r"agentId\s*:\s*([A-Za-z0-9_.-]+)", re.IGNORECASE)
+_MAX_SPAWNED_UUID = 200
+
+
+def _agent_id_from_mapping(obj):
+    """Return the agentId/agent_id value from a JSON-shaped dict, or None."""
+    if not isinstance(obj, dict):
+        return None
+    for key in ("agentId", "agent_id"):
+        val = obj.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()[:_MAX_SPAWNED_UUID]
+    return None
+
+
+def _agent_id_from_text(text):
+    """Return the value of an `agentId: <id>` line in free text, or None."""
+    if not text:
+        return None
+    m = _AGENT_ID_LINE_RE.search(text)
+    return m.group(1)[:_MAX_SPAWNED_UUID] if m else None
+
+
+def _agent_id_from_json_string(text):
+    """Parse text as JSON and pull agentId/agent_id if it is object-shaped."""
+    if not text:
+        return None
+    try:
+        parsed = json.loads(text)
+    except (TypeError, ValueError):
+        return None
+    return _agent_id_from_mapping(parsed)
+
+
+def _extract_spawned_agent_uuid(tool_name, tool_response):
+    """Extract the spawned agent's harness uuid from an Agent/Task/Workflow
+    tool_response, or None. Handles the text shape (a line like
+    `agentId: a0e90f949e494f49c` inside output/stdout/MCP content blocks) and
+    the JSON shape (a top-level or embedded agentId/agent_id key)."""
+    if tool_name not in _SPAWN_TOOLS:
+        return None
+    try:
+        resp = tool_response
+        if isinstance(resp, str):
+            return _agent_id_from_json_string(resp) or _agent_id_from_text(resp)
+        if isinstance(resp, list):
+            resp = {"content": resp}
+        if not isinstance(resp, dict):
+            return None
+
+        found = _agent_id_from_mapping(resp)
+        if found:
+            return found
+
+        for key in ("output", "stdout"):
+            found = _agent_id_from_text(resp.get(key) if isinstance(resp.get(key), str) else None)
+            if found:
+                return found
+
+        content = resp.get("content")
+        if isinstance(content, list):
+            texts = [b.get("text", "") for b in content if isinstance(b, dict)]
+            blob = "\n".join(t for t in texts if t)
+            return _agent_id_from_json_string(blob) or _agent_id_from_text(blob)
+    except Exception:
+        pass
+    return None
+
+
+# ---------------------------------------------------------------------------
 # HTTP helper
 # ---------------------------------------------------------------------------
 
@@ -320,6 +402,13 @@ def main():
     # Extract structured outcome from tool_response
     tool_response = data.get("tool_response") or {}
     status, output_summary, outcome_metadata = _extract_outcome(tool_response)
+
+    # v4.3 fleet attribution: an Agent/Task/Workflow spawn's tool_response
+    # carries the spawned sub-agent's harness uuid once available. Fail-soft —
+    # no match simply omits the field, never blocks the PATCH.
+    spawned_agent_uuid = _extract_spawned_agent_uuid(tool_name, tool_response)
+    if spawned_agent_uuid:
+        outcome_metadata["spawned_agent_uuid"] = spawned_agent_uuid
 
     # PATCH the action with the outcome
     _patch_action(action_id, _patch_body(status, output_summary, outcome_metadata))

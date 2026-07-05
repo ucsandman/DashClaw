@@ -182,8 +182,8 @@ async function downloadHooksBundle(endpoint, hooksDst, { fetchImpl = fetch } = {
 // ---------------------------------------------------------------------------
 
 const HOOK_EVENTS = {
-  PreToolUse: { matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*', script: 'dashclaw_pretool.py', timeout: 3600000 },
-  PostToolUse: { matcher: 'Agent|Task|Bash|Edit|Write|MultiEdit|mcp__.*', script: 'dashclaw_posttool.py' },
+  PreToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*', script: 'dashclaw_pretool.py', timeout: 3600000 },
+  PostToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*', script: 'dashclaw_posttool.py' },
   Stop: { script: 'dashclaw_stop.py' },
 };
 

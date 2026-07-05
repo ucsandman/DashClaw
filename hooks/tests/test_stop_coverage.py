@@ -336,7 +336,7 @@ class TestStopCoverageReport(unittest.TestCase):
         Grep, and Glob (not in the harness matcher) are excluded."""
         session_id = "sess-cov-matcher"
         governed_names = [
-            "Agent", "Task", "Bash", "Edit", "Write", "MultiEdit", "Skill",
+            "Agent", "Task", "Workflow", "Bash", "Edit", "Write", "MultiEdit", "Skill",
             "mcp__some-server__some_method",
         ]
         ungoverned_names = ["Read", "Grep", "Glob"]

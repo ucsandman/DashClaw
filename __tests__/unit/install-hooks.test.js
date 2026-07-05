@@ -173,6 +173,11 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
     expect(hookBlocks().PreToolUse[0].matcher).toContain('Skill');
   });
 
+  it('matches the Workflow tool so dynamic-workflow fan-outs are governed (v4.3)', () => {
+    expect(hookBlocks().PreToolUse[0].matcher).toContain('Workflow');
+    expect(hookBlocks().PostToolUse[0].matcher).toContain('Workflow');
+  });
+
   it('bakes the chosen interpreter into every hook command when one is passed', () => {
     expect(globalStopCommand('C:\\Projects\\DashClaw', 'python3'))
       .toBe('python3 "C:/Projects/DashClaw/hooks/dashclaw_stop.py" --agent-id claude-code');
@@ -205,6 +210,12 @@ describe('session digest hook', () => {
   it('globalGovernanceBlocks includes SessionStart with absolute path', () => {
     const blocks = globalGovernanceBlocks('/repo', 'python3');
     expect(blocks.SessionStart[0].hooks[0].command).toContain('/repo/hooks/dashclaw_session_digest.py');
+  });
+
+  it('globalGovernanceBlocks matches the Workflow tool (v4.3)', () => {
+    const blocks = globalGovernanceBlocks('/repo', 'python3');
+    expect(blocks.PreToolUse[0].matcher).toContain('Workflow');
+    expect(blocks.PostToolUse[0].matcher).toContain('Workflow');
   });
 
   it('re-merge does not duplicate the SessionStart entry', () => {

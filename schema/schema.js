@@ -179,6 +179,13 @@ export const actionRecords = pgTable('action_records', {
   // terminal). NULL = pre-v4.2 (no backfill). Makes outcome coverage computable
   // from durable data instead of string-matching the auto-close summary.
   closeSource: text('close_source'),
+  // Fleet attribution (v4.3, drizzle/0049). harnessSessionId: the harness
+  // session uuid stamped on every record — the fan-out grouping key (NOT
+  // sessionId, which is the sess_* DashClaw-session namespace). subagentUuid:
+  // the subagent instance uuid on a leaf call, persisted lineage evidence for
+  // the read-time fan-out join. Both NULL on pre-v4.3 rows; no backfill.
+  harnessSessionId: text('harness_session_id'),
+  subagentUuid: text('subagent_uuid'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({

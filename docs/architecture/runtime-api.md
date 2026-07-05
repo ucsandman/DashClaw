@@ -152,6 +152,8 @@ Rules:
 
 **Closure provenance (`close_source`).** Every closed row is stamped server-side with how it closed: `outcome` (this endpoint, or a legacy PATCH carrying a real terminal status), `stop_autoclose` (a `close_if_running: true` PATCH won the close), or `direct` (created already terminal, e.g. via MCP `dashclaw_record`). This makes outcome coverage computable from durable data instead of matching a summary string. Separately, the Claude Code Stop hook posts one fail-silent per-turn report to `POST /api/coverage` comparing the transcript's `tool_use` ground truth against the session's recorded actions ("record coverage"). Both figures render as a Coverage column on `/agents`, with an explicit "no evidence" state, and feed a posture finding when either drops below 90%.
 
+**Lineage stamping (`harness_session_id`, `subagent_uuid`).** Every recorded action — pretool's `?record=true` payload, the `POST /api/actions` fallback, and the Stop hook's text-turn actions — carries its harness session (`harness_session_id`), and subagent leaf calls also carry the subagent instance uuid (`subagent_uuid`). Spawn (`Agent`/`Task`/`Workflow`) rows carry the spawned agent's uuid via `outcome_metadata.spawned_agent_uuid` on the outcome PATCH — the only `outcome_metadata` key the server persists (into `outcome_progress`); every other key is still dropped. A multi-agent fan-out is joined from this evidence at read time (never guessed client-side) and surfaced on the `/agents` Fan-outs panel, deep-linking to the scoped `/swarm` graph.
+
 ### 4. Assumptions (`POST /api/assumptions`)
 
 Records beliefs underpinning an action. Assumptions are useful for drift detection, auditability, and post-action review.

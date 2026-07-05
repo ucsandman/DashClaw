@@ -1183,6 +1183,57 @@ async function main() {
       `coverage findings before=${covBefore} after=${covAfter}`);
   }
 
+  // W1–W4: fleet attribution (roadmap v4.3) — a fan-out reads as one governed
+  // unit with per-leaf lineage, joined from persisted evidence (never guessed).
+  {
+    const parent = agentFor('w-parent');
+    const child = `${parent}:explore`;
+    const hsid = `smoke-fanout-${RUN}`;
+    const spawnUuid = `a-smoke-${RUN}`;
+
+    // Parent spawn (orchestration) + composed child leaf, one harness session.
+    const spawn = await api('POST', '/api/actions', {
+      agent_id: parent, action_type: 'orchestration',
+      declared_goal: `spawn a smoke subagent ${RUN}`, status: 'running',
+      harness_session_id: hsid,
+    });
+    const spawnId = spawn.json?.action?.action_id || spawn.json?.action_id;
+    const leaf = await api('POST', '/api/actions', {
+      agent_id: child, action_type: 'smoke.read',
+      declared_goal: `leaf work inside the smoke subagent ${RUN}`, status: 'completed',
+      harness_session_id: hsid, subagent_uuid: spawnUuid,
+    });
+    check('W1', 'lineage fields persist on record (harness_session_id + subagent_uuid accepted)',
+      Boolean(spawnId) && (leaf.status === 200 || leaf.status === 201),
+      `spawn=${spawn.status} id=${spawnId} leaf=${leaf.status}`);
+
+    // The spawn's PostToolUse patch carries the spawned agent uuid; only this
+    // one outcome_metadata key persists (into outcome_progress jsonb).
+    const patch = await api('PATCH', `/api/actions/${spawnId}`, {
+      status: 'completed', output_summary: `spawn done ${RUN}`,
+      outcome_metadata: { spawned_agent_uuid: spawnUuid, exit_code: 0 },
+    });
+    check('W2', 'spawn patch persists spawned_agent_uuid (lineage stamp survives the outcome whitelist)',
+      patch.status === 200, `status=${patch.status}`);
+
+    // Diagnostic view: the fan-out is one unit — both agents, the spawn, and
+    // the leaf LINKED to it via the read-time join.
+    const diag = await api('GET', '/api/agents/fanouts?include_synthetic=1&window_hours=1');
+    const unit = (diag.json?.fanouts || []).find((f) => f.harness_session_id === hsid);
+    check('W3', 'fan-out reads as one unit with per-leaf lineage (join populated)',
+      diag.json?.synthetic_included === true && unit?.agent_count === 2
+      && unit?.spawn_count === 1 && Number(unit?.linked_leaf_count) === 1
+      && unit?.parent_agent_id === parent,
+      `unit=${JSON.stringify(unit)}`);
+
+    // Real view: synthetic fan-outs are invisible (shared predicate holds).
+    const real = await api('GET', '/api/agents/fanouts');
+    const leaked = (real.json?.fanouts || []).some((f) => f.harness_session_id === hsid);
+    check('W4', 'real fan-out view excludes the synthetic session (no smoke-minted fan-out)',
+      real.status === 200 && !leaked,
+      `sessions=${JSON.stringify((real.json?.fanouts || []).map((f) => f.harness_session_id))}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

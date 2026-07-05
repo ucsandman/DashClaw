@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**329 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 249 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**330 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 250 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 
@@ -13,6 +13,7 @@
 - [Approvals](#approvals)
 - [Agent Fleet and Profile](#agent-fleet-and-profile)
 - [Coverage](#coverage)
+- [Fan-outs](#fan-outs)
 - [Loops and Assumptions](#loops-and-assumptions)
 - [Signals](#signals)
 - [Behavior Guard](#behavior-guard)
@@ -110,6 +111,16 @@ Event coverage — orthogonal to posture's *policy* coverage (`coveredUnits`). A
 | `/api/coverage` | GET | Per-agent record coverage (`sum(recorded)/sum(expected)`, 24h window) and outcome coverage (share of hook-recorded actions closed with a real outcome vs Stop-hook auto-close, via `close_source` on `action_records`). `?include_synthetic=1` is a diagnostics view; real views and posture exclude synthetic/loadtest agents. Powers the Coverage column on `/agents`. |
 
 Outcome coverage depends on `close_source` (`outcome` \| `stop_autoclose` \| `direct`), stamped server-side on every action close — see [Action Recording](#action-recording). A posture finding fires when either coverage figure drops below 90% for a real agent (min 20 sampled), deep-linking to `/agents`.
+
+## Fan-outs
+
+**Maturity:** New (v4.3, 2026-07)
+
+Multi-agent lineage as persisted evidence, not a client-side guess — see [Action Recording](#action-recording) for the fields.
+
+| Endpoint | Methods | Purpose |
+|---|---|---|
+| `/api/agents/fanouts` | GET | Recent harness sessions (grouped by `harness_session_id`, synthetic excluded): `{ fanouts: [{ harness_session_id, parent_agent_id, agents, agent_count, spawn_count, action_count, linked_leaf_count, first_at, last_at }], window_hours, lastUpdated }`. `linked_leaf_count` is the read-time join count of leaves whose `subagent_uuid` matches a spawn's `outcome_metadata.spawned_agent_uuid` in the same session. Params: `window_hours` (1-168, default 24), `limit` (1-100, default 20), `?include_synthetic=1` diagnostics-only. Powers the Fan-outs panel on `/agents`, each row deep-linking to `/swarm?swarm_id=<harness_session_id>`. |
 
 ## Guard Decisions Audit Log
 
@@ -209,6 +220,8 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 **Token capture pipeline (Claude Code):** the `Stop` hook (`hooks/dashclaw_stop.py`) reads the session transcript at turn end, sums LLM token usage across that turn's assistant messages (cache_read tokens weighted at 0.1× to match Anthropic billing), and PATCHes the per-turn share onto every action_id the pretool opened during the turn. Same idea for the OpenClaw plugin (v1.2.1+) via the `llm_output` and `agent_end` hooks.
 
 **Closure provenance (v4.2):** every closed row is stamped server-side with `close_source` — `outcome` (a real PATCH/outcome write), `stop_autoclose` (a `close_if_running: true` PATCH won the close), or `direct` (created already terminal). Null means pre-v4.2. This is the durable data behind outcome coverage; see [Coverage](#coverage).
+
+**Fleet attribution (v4.3):** `POST /api/actions` (and the guard `?record=true` payload) accepts `harness_session_id` and `subagent_uuid` on every record — the harness session groups a multi-agent fan-out; `subagent_uuid` is the subagent instance uuid on a leaf call. Spawn (`Agent`/`Task`/`Workflow`) rows carry the spawned agent's uuid via `outcome_metadata.spawned_agent_uuid` on the outcome PATCH — the one `outcome_metadata` key the server persists (into `outcome_progress`); every other key is still dropped. Lineage is a read-time join, never a client guess; see [Fan-outs](#fan-outs).
 
 | `/api/actions/[actionId]/artifacts` | GET | `getActionArtifacts` | `get_action_artifacts` |
 | `/api/actions/[actionId]/graph` | GET | `getActionGraph` | `get_action_graph` |

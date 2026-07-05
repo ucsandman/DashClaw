@@ -13,6 +13,55 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.51.0] — 2026-07-04
+
+Roadmap v4.3 — **Fleet attribution: parent → subagent → workflow lineage.**
+Lineage lands as persisted evidence joined at read time — never a client-side
+guess. A multi-agent fan-out now reads as one governed unit with per-leaf
+attribution instead of N unrelated agents.
+
+### Added
+- **Lineage columns** (drizzle/0049): `action_records.harness_session_id`
+  (stamped by the PreToolUse hook on *every* record) and
+  `action_records.subagent_uuid` (stamped on leaf calls inside a subagent).
+  The `sess_*` DashClaw-session namespace is untouched — overloading
+  `session_id` would have corrupted session aggregates (documented collision).
+- **Spawn linkage**: the PostToolUse hook extracts the spawned agent id from
+  an Agent/Task/Workflow tool_response and the server selectively persists
+  that ONE `outcome_metadata` key (`spawned_agent_uuid`) into the
+  `outcome_progress` jsonb — build finding: the outcome whitelist had silently
+  dropped *all* `outcome_metadata` since it existed. The stamp lands even on
+  already-auto-closed spawn rows (lineage is not a close field). The fan-out
+  view joins `leaf.subagent_uuid = spawn.spawned_agent_uuid` per session.
+- **Workflow fan-outs are governed at spawn**: `Workflow` joins `Agent|Task`
+  in every hook matcher (settings template, installers) and the tool
+  classifier — a fan-out is guard-evaluated and recorded as `orchestration`
+  before it runs. Per-run leaf ids remain an upstream gap (no run identifier
+  on hook stdin), recorded in the spec.
+- **Fan-outs surface**: new `GET /api/agents/fanouts` (route 330;
+  `?include_synthetic=1` diagnostic) over a read-time lineage join; `/agents`
+  gains a Fan-outs panel (parent, agents, spawns/actions, span) deep-linking
+  to `/swarm?swarm_id=<session>`; `/swarm` finally honors the scope param.
+- **Smoke section W** — W1–W4 pin the lineage contract: fields persist, the
+  stamp survives the whitelist, the fan-out reads as one unit with the join
+  populated, synthetic sessions stay invisible.
+
+### Fixed
+- `GET /api/swarm/graph?swarm_id=` scoped branch merged the entire org roster
+  back into the "scoped" result, so scoping never filtered anything
+  (pre-existing, previously unreachable from the UI). A scoped view now
+  returns only the session's agents.
+
+### Changed (data, owner-directed)
+- Historical identity migration: the mislabeled `codex` agent (all Claude
+  Code sessions recorded under it via the stray env var fixed in v4.50.0) is
+  renamed to `claude-code` across ~100k ledger rows in 12 tables, composed
+  subagent ids included; unique-key collisions merged in favor of the newer
+  `claude-code` rows. Real Codex CLI runs still mint `codex` going forward.
+
+No Node/Python SDK source change — the SDKs are not republished (registry
+stays at 4.32.0).
+
 ## [4.50.0] — 2026-07-04
 
 Roadmap v4.2 — **Coverage truth: the record knows what it missed.** The item

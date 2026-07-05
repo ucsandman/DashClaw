@@ -25,13 +25,13 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-04), generated API inventory reports **329 routes**: **56 stable**, **24 beta**, **249 experimental**.
+As of this verification (2026-07-04), generated API inventory reports **330 routes**: **56 stable**, **24 beta**, **250 experimental**.
 
 ## Product boundary
 
 ### DashClaw owns
 
-- **Attribution**: which agent attempted which action, with `agent_id`, optional `agent_name`, and org scoping.
+- **Attribution**: which agent attempted which action, with `agent_id`, optional `agent_name`, org scoping, and fleet lineage — every row carries its harness session (`harness_session_id`), subagent leaves carry their instance uuid (`subagent_uuid`), and spawn rows carry the spawned agent's uuid (`outcome_metadata.spawned_agent_uuid`), so a multi-agent fan-out is joined from evidence at read time, never guessed.
 - **Policy decisions**: allow, block, or require approval, evaluated before the action proceeds — mechanically enforced on hook/capability surfaces, honored by cooperative callers (`docs/architecture/enforcement-boundary.md`).
 - **Human-in-the-loop approval**: approval queues and chat/native approval bridges.
 - **Action ledger**: durable `action_records` rows with status, risk, reasoning, assumptions, costs, tokens, and trace data.
@@ -59,7 +59,7 @@ As of this verification (2026-07-04), generated API inventory reports **329 rout
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
-| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. Backed by `GET /api/agents` + `GET /api/coverage`. |
+| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (parent, agents involved, spawn/action counts, first/last activity) and deep-links each row to `/swarm?swarm_id=<harness_session_id>`, scoped to that fan-out. Backed by `GET /api/agents` + `GET /api/coverage` + `GET /api/agents/fanouts`. |
 | Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
 | Policy Builder | `/policies` | Interruption contract cockpit: plain-English contract of when agents interrupt you (editable spend thresholds, grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, and import/proof surfaces. |
 | Policy Coach | `/policy-coach` | Behavior Learning (v1, observe-only): evidence-backed policy suggestions learned from locally-recorded agent behavior, with simulate-before-adopt and dismiss suppression. See `docs/behavior-learning.md`. |

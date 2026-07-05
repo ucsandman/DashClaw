@@ -741,6 +741,100 @@ class TestPretoolIntegration(unittest.TestCase):
         self.assertEqual(body["agent_id"], "codex:explore")
         self.assertEqual(body["agent_name"], "codex/Explore")
 
+    # -----------------------------------------------------------------------
+    # 17. v4.3 fleet attribution: harness_session_id, subagent_uuid, Workflow
+    # -----------------------------------------------------------------------
+
+    def test_harness_session_id_stamped_on_every_record(self):
+        """harness_session_id rides EVERY record payload, not just swarm or
+        subagent calls (verdict 1) — unlike swarm_id, this is unconditional."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+                "tool_use_id": "tu-harness-plain",
+                "session_id": "sess-harness-plain",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["harness_session_id"], "sess-harness-plain")
+        self.assertNotIn("swarm_id", body)  # plain (non-spawn, non-subagent) call
+
+    def test_harness_session_id_truncated_to_200_chars(self):
+        """The server contract caps harness_session_id at 200 chars."""
+        long_session_id = "s" * 300
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+                "tool_use_id": "tu-harness-long",
+                "session_id": long_session_id,
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(len(body["harness_session_id"]), 200)
+
+    def test_subagent_leaf_call_stamps_subagent_uuid(self):
+        """A subagent leaf call (agent_id/agent_type on stdin) persists the
+        stdin agent_id as subagent_uuid (verdict 2a) alongside the existing
+        intel.subagent/swarm_id/composed-id fields, unchanged."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Bash",
+                "tool_input": {"command": "ls"},
+                "tool_use_id": "tu-subagent-uuid",
+                "session_id": "sess-subagent-uuid",
+                "agent_id": "subagent-xyz",
+                "agent_type": "Explore",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["subagent_uuid"], "subagent-xyz")
+        self.assertEqual(body["harness_session_id"], "sess-subagent-uuid")
+        # Existing behavior unchanged
+        self.assertEqual(body["agent_id"], "test-agent:explore")
+        self.assertEqual(body["swarm_id"], "sess-subagent-uuid")
+        self.assertEqual(body["intel"]["subagent"], {"agent_id": "subagent-xyz", "agent_type": "Explore"})
+
+    def test_spawn_call_has_no_subagent_uuid(self):
+        """The spawn call itself (Agent/Task/Workflow) carries no agent_id on
+        stdin — only leaf calls inside the spawned subagent do — so it must
+        not get a subagent_uuid."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Agent", "tool_input": {"prompt": "do X"}, "tool_use_id": "tu-spawn-no-uuid", "session_id": "s"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertNotIn("subagent_uuid", body)
+
+    def test_workflow_spawn_is_governed_and_tagged(self):
+        """Workflow (Claude Code dynamic-workflow fan-out) is governed as
+        orchestration and tagged into the session swarm, same as Agent/Task."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Workflow",
+                "tool_input": {"prompt": "fan out"},
+                "tool_use_id": "tu-workflow-1",
+                "session_id": "sess-workflow",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+        guard_reqs = [r for r in self.log.get_all() if r["path"] == "/api/guard"]
+        self.assertEqual(len(guard_reqs), 1, "Workflow spawn should be governed")
+        body = guard_reqs[0]["body"]
+        self.assertEqual(body["tool"]["category"], "orchestration")
+        self.assertEqual(body["action_type"], "orchestration")
+        self.assertEqual(body["swarm_id"], "sess-workflow")
+        self.assertEqual(body["harness_session_id"], "sess-workflow")
+
 
 class TestPretoolSingleCall(unittest.TestCase):
     """Phase-3 fast path: guard+record collapsed into ONE HTTP call via

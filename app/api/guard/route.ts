@@ -28,6 +28,12 @@ type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
 type GuardResult = { decision: string; risk_score?: number; decision_id?: string };
 
+// Fleet attribution (v4.3): accept a client-supplied id string ≤ 200 chars,
+// else null. The repository re-applies the same bound as the authoritative gate.
+function boundedIdField(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
+}
+
 /**
  * ?record=true support: create the running action record in-request (the same
  * insert POST /api/actions performs, via the shared repository function) so a
@@ -161,6 +167,14 @@ export async function POST(request: Request) {
     if (!valid) {
       return NextResponse.json({ error: 'Validation failed', details: errors }, { status: 400 });
     }
+
+    // Fleet attribution (v4.3): the pretool hook stamps the harness session uuid
+    // on every ?record=true guard payload, and the subagent instance uuid on a
+    // leaf call. Threaded onto the validated field bag so recordRunningAction's
+    // insert persists them; sanitize to ≤ 200 chars (else null). No effect on
+    // guard evaluation — these are attribution-only fields.
+    data.harness_session_id = boundedIdField(body?.harness_session_id);
+    data.subagent_uuid = boundedIdField(body?.subagent_uuid);
 
     // SECURITY: Block prompt injection patterns in declared_goal (per D-04)
     const goalText = data.declared_goal || '';
