@@ -165,6 +165,7 @@ describe('hosted-workspace repository', () => {
         action_count: 5,
       },
     ]); // queryLiveTrialFacts SELECT
+    sql.mockResolvedValueOnce([]); // v6.4: raw-source select before the freeze
     sql.mockResolvedValueOnce([]); // INSERT into hosted_trial_snapshots
     sql.mockResolvedValueOnce([
       { table_name: 'api_keys', column_name: 'org_id' },
@@ -200,6 +201,7 @@ describe('hosted-workspace repository', () => {
         action_count: 3,
       },
     ]); // queryLiveTrialFacts SELECT
+    sql.mockResolvedValueOnce([]); // v6.4: raw-source select before the freeze
     sql.mockResolvedValueOnce([]); // INSERT into hosted_trial_snapshots
     sql.mockResolvedValueOnce([
       { table_name: 'action_records', column_name: 'org_id' },

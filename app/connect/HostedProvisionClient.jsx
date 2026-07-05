@@ -36,10 +36,19 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
     try {
       const form = document.getElementById('dashclaw-turnstile-form');
       const turnstileToken = form ? new FormData(form).get('cf-turnstile-response') || '' : '';
+      // v6.4 reach attribution: the referrer + any UTM params already on this
+      // page's URL, sent once with the mint. Sanitized and resolved server-side.
+      const params = new URLSearchParams(window.location.search);
+      const source = {
+        referrer: document.referrer || undefined,
+        utm_source: params.get('utm_source') || undefined,
+        utm_medium: params.get('utm_medium') || undefined,
+        utm_campaign: params.get('utm_campaign') || undefined,
+      };
       const res = await fetch('/api/hosted/workspaces', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ turnstile_token: turnstileToken }),
+        body: JSON.stringify({ turnstile_token: turnstileToken, source }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));

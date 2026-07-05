@@ -1451,6 +1451,7 @@ async function main() {
           && fun.json?.hosted === true
           && typeof fun.json?.funnel?.minted === 'number'
           && typeof fun.json?.annotations?.returned === 'number' // v5.3 sharpened distinctions
+          && Array.isArray(fun.json?.annotations?.bySource) // v6.4 reach attribution
           && !JSON.stringify(fun.json).includes('org_'),
         `funnel=${fun.status} minted=${fun.json?.funnel?.minted}`);
     }

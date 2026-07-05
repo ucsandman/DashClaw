@@ -11,6 +11,7 @@ import {
   deleteHostedWorkspace,
   computeFunnelAggregates,
   getTrialFunnel,
+  SOURCE_ROLLUP_CAP,
   type TrialFunnelFacts,
 } from '../../app/lib/repositories/hosted-workspace.repository';
 import type { SqlTag } from '../../app/lib/types/db';
@@ -66,6 +67,7 @@ describe('queryLiveTrialFacts', () => {
       firstActionAtMs: 5000, lastActionAtMs: 700_000_000,
       actionCount: 42, frozenRetainedWeek1: null, archived: false,
       firstKeyUsedAtMs: 4000, firstSeenAtMs: 1500, lastSeenAtMs: 600_000_000,
+      mintSource: null, // factsRow carries no mint_source → unknown, never guessed (v6.4)
       firstActionVia: 'agent',
     }]);
   });
@@ -94,10 +96,11 @@ describe('queryLiveTrialFacts', () => {
 
 describe('snapshotTrialFunnelFacts', () => {
   it('inserts a frozen row with retained_week1 computed from last activity', async () => {
-    const sql = makeSqlMock([[factsRow], []]);
+    // Call order: facts query, raw-source select (v6.4), snapshot INSERT.
+    const sql = makeSqlMock([[factsRow], [{ raw: { utm_source: 'reddit' } }], []]);
     const r = await snapshotTrialFunnelFacts(sql, 'org_abc');
     expect(r.snapshotted).toBe(true);
-    const insert = sql.calls[1]!;
+    const insert = sql.calls[2]!;
     expect(insert.text).toContain('INSERT INTO hosted_trial_snapshots');
     expect(insert.text).toContain('ON CONFLICT (org_id) DO NOTHING');
     // values: orgId, mintedAtMs, keyUsed, firstIso, lastIso, count, retained,
@@ -108,6 +111,9 @@ describe('snapshotTrialFunnelFacts', () => {
     expect(insert.values[8]).toBe(new Date(1_500).toISOString());
     expect(insert.values[9]).toBe(new Date(600_000_000).toISOString());
     expect(insert.values[10]).toBe('agent');
+    // v6.4: mint_source (null here — factsRow predates capture) + frozen raw.
+    expect(insert.values[11]).toBeNull();
+    expect(insert.values[12]).toBe(JSON.stringify({ utm_source: 'reddit' }));
   });
 
   it('skips cap-0 placeholders (no facts row → no insert)', async () => {
@@ -156,7 +162,7 @@ const mk = (over: Partial<TrialFunnelFacts>): TrialFunnelFacts => ({
   firstActionAtMs: null, lastActionAtMs: null, actionCount: 0,
   frozenRetainedWeek1: null, archived: false,
   firstKeyUsedAtMs: null, firstSeenAtMs: null, lastSeenAtMs: null,
-  firstActionVia: null, ...over,
+  mintSource: null, firstActionVia: null, ...over,
 });
 
 describe('computeFunnelAggregates', () => {
@@ -170,6 +176,7 @@ describe('computeFunnelAggregates', () => {
       returned: 0, returnedNeverConnected: 0,
       medianHoursToFirstKeyUse: null,
       firstActionVia: { browser: 0, agent: 0 },
+      bySource: [],
     });
   });
 
@@ -266,6 +273,36 @@ describe('computeFunnelAggregates', () => {
       mk({ orgId: 'o2', archived: true, frozenRetainedWeek1: false, mintedAtMs: Date.parse('2026-06-01T00:00:00Z') }),
     ], NOW);
     expect(agg.source.truthfulSince).toBe('2026-06-01T00:00:00.000Z');
+  });
+});
+
+// v6.4 reach attribution — per-channel annotation.
+describe('computeFunnelAggregates bySource (v6.4)', () => {
+  it('buckets by mint source with truthful zeros; null = explicit unknown', () => {
+    const agg = computeFunnelAggregates([
+      mk({ orgId: 'a', mintSource: 'reddit', firstActionAtMs: 1 }),
+      mk({ orgId: 'b', mintSource: 'reddit' }),
+      mk({ orgId: 'c', mintSource: 'direct' }),
+      mk({ orgId: 'd', mintSource: null }), // pre-v6.4 mint
+    ], NOW);
+    expect(agg.annotations.bySource).toEqual([
+      { source: 'reddit', minted: 2, firstAction: 1 },
+      { source: 'direct', minted: 1, firstAction: 0 }, // zero rendered, never hidden
+      { source: 'unknown', minted: 1, firstAction: 0 },
+    ]);
+  });
+
+  it('rolls labels beyond the cap into other (public route, attacker-mintable labels)', () => {
+    const facts = Array.from({ length: SOURCE_ROLLUP_CAP + 3 }, (_, i) =>
+      mk({ orgId: `o${i}`, mintSource: `src-${String(i).padStart(2, '0')}` }),
+    );
+    // Make the first source dominant so ordering is deterministic.
+    facts.push(mk({ orgId: 'dup', mintSource: 'src-00', firstActionAtMs: 1 }));
+    const agg = computeFunnelAggregates(facts, NOW);
+    expect(agg.annotations.bySource).toHaveLength(SOURCE_ROLLUP_CAP + 1);
+    const other = agg.annotations.bySource.at(-1)!;
+    expect(other.source).toBe('other');
+    expect(other.minted).toBe(3); // 13 distinct labels + 1 dup − top 10 = 3 rolled up
   });
 });
 

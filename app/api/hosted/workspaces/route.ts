@@ -6,6 +6,7 @@ import { isHostedMode, hostedConfig } from '../../../lib/hosted/flag';
 import { verifyTurnstile } from '../../../lib/hosted/turnstile';
 import { createRateLimiter } from '../../../lib/hosted/rate-limit';
 import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository';
+import { resolveMintSource } from '../../../lib/hosted/mint-source';
 import { getSql } from '../../../lib/db';
 import { mintTrialSessionToken, trialSessionCookieOptions, TRIAL_SESSION_COOKIE } from '../../../lib/hosted/trial-session';
 
@@ -88,10 +89,16 @@ export async function POST(request: Request) {
     if (active >= cfg.maxActiveTrials) {
       return NextResponse.json({ error: 'Trials are full', full: true }, { status: 503 });
     }
+    // v6.4 reach attribution: one write at mint. Client-reported referrer/UTM,
+    // sanitized + resolved to a channel label; spoofable by design (measurement,
+    // not security). Own-host referrers read as no referrer.
+    const mintSource = resolveMintSource(body.source, new URL(request.url).hostname);
     const result = await provisionHostedWorkspace(sql, {
       trialDays: cfg.trialDays,
       trialActionCap: cfg.trialActionCap,
       label: 'trial',
+      mintSource: mintSource.source,
+      mintSourceRaw: mintSource.raw,
     });
     // v5.1 "a way back in": mint a trial session cookie alongside the key so
     // closing the tab no longer orphans the workspace. Expiry is pinned to

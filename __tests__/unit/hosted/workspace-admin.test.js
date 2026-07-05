@@ -178,6 +178,7 @@ describe('POST /api/hosted/cleanup', () => {
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]);
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([{ org_id: 'org_a', minted_at_ms: Date.now() - 86400000, key_used: false, first_action_at_ms: null, last_action_at_ms: null, action_count: 0 }]); // queryLiveTrialFacts
+    sqlMock.mockResolvedValueOnce([{ raw: null }]); // SELECT trial_mint_source_raw
     sqlMock.mockResolvedValueOnce([]); // INSERT snapshot
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
@@ -186,6 +187,7 @@ describe('POST /api/hosted/cleanup', () => {
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([{ org_id: 'org_b', minted_at_ms: Date.now() - 86400000, key_used: false, first_action_at_ms: null, last_action_at_ms: null, action_count: 0 }]); // queryLiveTrialFacts
     sqlMock.mockResolvedValueOnce([]); // INSERT snapshot
+    sqlMock.mockResolvedValueOnce([{ raw: null }]); // SELECT trial_mint_source_raw
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);
     const res = await cleanupPOST(req());
@@ -203,6 +205,7 @@ describe('POST /api/hosted/cleanup', () => {
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]);
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([{ org_id: 'org_ok', minted_at_ms: Date.now() - 86400000, key_used: false, first_action_at_ms: null, last_action_at_ms: null, action_count: 0 }]); // queryLiveTrialFacts
+    sqlMock.mockResolvedValueOnce([{ raw: null }]); // SELECT trial_mint_source_raw
     sqlMock.mockResolvedValueOnce([]); // INSERT snapshot
     sqlMock.mockResolvedValueOnce([]);
     sqlMock.mockResolvedValueOnce([]);

@@ -70,15 +70,28 @@ export async function countActiveTrials(
 
 export async function provisionHostedWorkspace(
   sql: SqlTag,
-  { trialDays, trialActionCap, label = 'trial' }: { trialDays: number; trialActionCap: number; label?: string },
+  {
+    trialDays,
+    trialActionCap,
+    label = 'trial',
+    mintSource = null,
+    mintSourceRaw = null,
+  }: {
+    trialDays: number;
+    trialActionCap: number;
+    label?: string;
+    /** v6.4 reach attribution: resolved channel label + sanitized raw strings. One write, never updated. */
+    mintSource?: string | null;
+    mintSourceRaw?: Record<string, string> | null;
+  },
 ): Promise<{ orgId: string; apiKey: string; keyPrefix: string; expiresAt: string }> {
   const orgId = generateId('org');
   const slug = `trial-${orgId.slice(4, 12)}`;
   const expiresAt = new Date(Date.now() + trialDays * 86_400_000).toISOString();
 
   await sql`
-    INSERT INTO organizations (id, name, slug, plan, hosted_mode, trial_ends_at, trial_action_cap, trial_actions_used)
-    VALUES (${orgId}, ${'Trial workspace'}, ${slug}, ${'free'}, TRUE, ${expiresAt}, ${trialActionCap}, 0)
+    INSERT INTO organizations (id, name, slug, plan, hosted_mode, trial_ends_at, trial_action_cap, trial_actions_used, trial_mint_source, trial_mint_source_raw)
+    VALUES (${orgId}, ${'Trial workspace'}, ${slug}, ${'free'}, TRUE, ${expiresAt}, ${trialActionCap}, 0, ${mintSource}, ${mintSourceRaw === null ? null : JSON.stringify(mintSourceRaw)})
   `;
   try {
     const { apiKey, keyPrefix } = await mintOrgApiKey(sql, orgId, { label });
@@ -237,6 +250,8 @@ export type TrialFunnelFacts = {
   firstKeyUsedAtMs: number | null;
   firstSeenAtMs: number | null;
   lastSeenAtMs: number | null;
+  /** v6.4 channel label captured at mint; null = pre-v6.4 mint (unknown, never guessed). */
+  mintSource: string | null;
   /** Which door the first governed action came through; null when unknown or no action. */
   firstActionVia: 'browser' | 'agent' | null;
 };
@@ -278,6 +293,7 @@ export async function queryLiveTrialFacts(
          WHERE k.org_id = o.id AND k.first_used_at IS NOT NULL) AS first_key_used_at_ms,
       (EXTRACT(EPOCH FROM o.trial_first_seen_at) * 1000)::float8 AS first_seen_at_ms,
       (EXTRACT(EPOCH FROM o.trial_last_seen_at) * 1000)::float8 AS last_seen_at_ms,
+      o.trial_mint_source AS mint_source,
       (EXTRACT(EPOCH FROM activity.first_action_at) * 1000)::float8 AS first_action_at_ms,
       (EXTRACT(EPOCH FROM activity.last_action_at) * 1000)::float8 AS last_action_at_ms,
       activity.first_action_agent_id,
@@ -318,6 +334,7 @@ export async function queryLiveTrialFacts(
       firstKeyUsedAtMs: toMs(r.first_key_used_at_ms),
       firstSeenAtMs: toMs(r.first_seen_at_ms),
       lastSeenAtMs: toMs(r.last_seen_at_ms),
+      mintSource: typeof r.mint_source === 'string' && r.mint_source.length > 0 ? r.mint_source : null,
       firstActionVia: firstActionViaFromAgentId(r.first_action_agent_id, firstActionAtMs !== null),
     };
   });
@@ -338,10 +355,16 @@ export async function snapshotTrialFunnelFacts(
   const retainedWeek1 =
     f.lastActionAtMs !== null && f.lastActionAtMs - f.mintedAtMs >= WEEK_MS;
   const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
+  // v6.4: freeze the raw source strings alongside the label — the org row
+  // (and its raw evidence) is about to be deleted.
+  const rawRows = await sql`
+    SELECT trial_mint_source_raw AS raw FROM organizations WHERE id = ${orgId} LIMIT 1
+  `;
+  const mintSourceRaw = rawRows[0]?.raw ?? null;
   await sql`
     INSERT INTO hosted_trial_snapshots
       (org_id, minted_at, key_used, first_action_at, last_action_at, action_count, retained_week1,
-       first_key_used_at, first_seen_at, last_seen_at, first_action_via)
+       first_key_used_at, first_seen_at, last_seen_at, first_action_via, mint_source, mint_source_raw)
     VALUES (
       ${orgId},
       to_timestamp(${f.mintedAtMs} / 1000.0),
@@ -353,7 +376,9 @@ export async function snapshotTrialFunnelFacts(
       ${iso(f.firstKeyUsedAtMs)},
       ${iso(f.firstSeenAtMs)},
       ${iso(f.lastSeenAtMs)},
-      ${f.firstActionVia}
+      ${f.firstActionVia},
+      ${f.mintSource},
+      ${mintSourceRaw === null ? null : JSON.stringify(mintSourceRaw)}
     )
     ON CONFLICT (org_id) DO NOTHING
   `;
@@ -378,7 +403,18 @@ export type TrialFunnelAnnotations = {
   medianHoursToFirstKeyUse: number | null;
   /** Which door activated orgs came through; unknowns in neither bucket. */
   firstActionVia: { browser: number; agent: number };
+  /**
+   * v6.4 reach attribution: per-channel mints + first actions, minted-desc.
+   * 'direct' = captured with no referrer/UTM; 'unknown' = pre-v6.4 mint
+   * (never guessed); labels beyond the top ten roll up into 'other' (labels
+   * are attacker-mintable strings on a public route). Truthful zeros: a
+   * source with mints and no first actions renders exactly that.
+   */
+  bySource: Array<{ source: string; minted: number; firstAction: number }>;
 };
+
+/** Top-N cap before 'other' rollup on the public per-source annotation. */
+export const SOURCE_ROLLUP_CAP = 10;
 
 export type TrialFunnel = {
   computedAt: string;
@@ -443,6 +479,29 @@ export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): T
   // count nowhere — truthful zeros, never guessed.
   const isReturned = (f: TrialFunnelFacts) =>
     f.lastSeenAtMs !== null && f.lastSeenAtMs - f.mintedAtMs > RETURN_GAP_MS;
+  // v6.4: per-channel resolution. Aggregate by label, top-N + 'other' rollup;
+  // null labels (pre-v6.4 mints) are an explicit 'unknown' bucket.
+  const bySourceMap = new Map<string, { minted: number; firstAction: number }>();
+  for (const f of facts) {
+    const label = f.mintSource ?? 'unknown';
+    const entry = bySourceMap.get(label) ?? { minted: 0, firstAction: 0 };
+    entry.minted += 1;
+    if (f.firstActionAtMs !== null) entry.firstAction += 1;
+    bySourceMap.set(label, entry);
+  }
+  const bySourceAll = [...bySourceMap.entries()]
+    .map(([source, counts]) => ({ source, ...counts }))
+    .sort((a, b) => b.minted - a.minted || (a.source < b.source ? -1 : 1));
+  const bySource = bySourceAll.slice(0, SOURCE_ROLLUP_CAP);
+  const overflow = bySourceAll.slice(SOURCE_ROLLUP_CAP);
+  if (overflow.length > 0) {
+    bySource.push({
+      source: 'other',
+      minted: overflow.reduce((n, s) => n + s.minted, 0),
+      firstAction: overflow.reduce((n, s) => n + s.firstAction, 0),
+    });
+  }
+
   const annotations: TrialFunnelAnnotations = {
     returned: facts.filter(isReturned).length,
     returnedNeverConnected: facts.filter(
@@ -453,6 +512,7 @@ export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): T
       browser: facts.filter((f) => f.firstActionVia === 'browser').length,
       agent: facts.filter((f) => f.firstActionVia === 'agent').length,
     },
+    bySource,
   };
 
   const byWeek = new Map<string, TrialFunnelFacts[]>();
@@ -496,7 +556,8 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
       (EXTRACT(EPOCH FROM first_key_used_at) * 1000)::float8 AS first_key_used_at_ms,
       (EXTRACT(EPOCH FROM first_seen_at) * 1000)::float8 AS first_seen_at_ms,
       (EXTRACT(EPOCH FROM last_seen_at) * 1000)::float8 AS last_seen_at_ms,
-      first_action_via
+      first_action_via,
+      mint_source
     FROM hosted_trial_snapshots
   `;
   return rows.map((r) => ({
@@ -511,7 +572,8 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
     firstKeyUsedAtMs: toMs(r.first_key_used_at_ms),
     firstSeenAtMs: toMs(r.first_seen_at_ms),
     lastSeenAtMs: toMs(r.last_seen_at_ms),
-    // Pre-v5.3 snapshots carry NULL = unknown; never guessed on read.
+    // Pre-v5.3/v6.4 snapshots carry NULL = unknown; never guessed on read.
+    mintSource: typeof r.mint_source === 'string' && r.mint_source.length > 0 ? r.mint_source : null,
     firstActionVia: r.first_action_via === 'browser' || r.first_action_via === 'agent' ? r.first_action_via : null,
   }));
 }

@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v6.4: mints now carry their source (reach attribution, pulled forward)
+
+The roadmap's own watch-list trigger fired the day it was written: PR
+#9313 went live and the Glama listing was approved within hours of v6.2 —
+channels moving, and every mint still source-blind. So v6.4 jumped the
+queue ahead of v6.3 (SEO), exactly as the order rationale said it should:
+attribution must exist before arrivals do, or the v6.5 read can't tell a
+successful reach act from organic drift.
+
+The mechanism is the v5.3 template applied to a new fact. One write at
+mint: the `/connect` page sends `document.referrer` plus any UTM params on
+its URL; the server sanitizes (allowlisted keys, length caps) and resolves
+one channel label — `utm_source` beats referrer host beats `direct`, and
+an own-host referrer is not a channel. Org grain
+(`organizations.trial_mint_source` + raw strings), frozen into
+`hosted_trial_snapshots` by the same fail-closed deletion freeze as v4.6
+(drizzle/0054), aggregated as `annotations.bySource` — an annotation,
+never a step — with truthful zeros, `unknown` (pre-v6.4 mint) kept
+distinct from `direct` (captured, arrived bare), and a top-10 + `other`
+rollup because labels are attacker-mintable strings on a public route.
+Spoofable by design: this is measurement, not security, and the raw
+strings never leave the database.
+
+Live proof, walked end to end on a local hosted-mode instance: a mint
+tagged `utm_source=v64-live-proof` showed up in `GET /api/hosted/funnel`
+as `{"source":"v64-live-proof","minted":1,"firstAction":0}` (a truthful
+zero), rendered in the /setup card's new Source table, and — after a real
+`deleteHostedWorkspace` — survived as a frozen snapshot carrying both the
+label and the raw referrer/UTM strings. Test residue then cleaned to zero
+per the funnel-truth protocol. Smoke AA1 now pins `bySource` on every CI
+run. 53 targeted tests green before the full gate.
+
+The measurement contract gains channel resolution with nothing new for
+Wes to operate: tag outbound links with `utm_source` and the funnel does
+the rest. The submissions already out there needed no retrofit — GitHub
+referrers resolve on their own.
+
 ## 2026-07-05 — v6.2: findable where agent builders look — and the recon that drafted it was wrong (registry presence)
 
 The item began by falsifying its own premise. Roadmap v6's drafting

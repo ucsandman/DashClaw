@@ -33,6 +33,11 @@ export const organizations = pgTable('organizations', {
   // on trial-session resolution. A timestamp, not page-view analytics.
   trialFirstSeenAt: timestamp('trial_first_seen_at', { withTimezone: true }),
   trialLastSeenAt: timestamp('trial_last_seen_at', { withTimezone: true }),
+  // v6.4 reach attribution: one write at mint, never updated. Label resolved
+  // utm_source > referrer host > 'direct'; raw keeps only the sanitized
+  // referrer/UTM strings it was derived from.
+  trialMintSource: text('trial_mint_source'),
+  trialMintSourceRaw: jsonb('trial_mint_source_raw'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -1821,6 +1826,9 @@ export const hostedTrialSnapshots = pgTable('hosted_trial_snapshots', {
   firstSeenAt: timestamp('first_seen_at', { withTimezone: true }),
   lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
   firstActionVia: text('first_action_via'), // 'browser' | 'agent'
+  // v6.4: mint source frozen at deletion; NULL on pre-v6.4 snapshots = unknown.
+  mintSource: text('mint_source'),
+  mintSourceRaw: jsonb('mint_source_raw'),
 });
 
 // @domain governance

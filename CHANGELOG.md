@@ -13,6 +13,42 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.60.0] — 2026-07-05
+
+Roadmap v6.4 "reach attribution" — pulled forward per the roadmap's own
+watch-list trigger (reach channels started moving the same day: PR #9313
+live, Glama listing approved). Before this, a mint carried no source: a
+successful reach act would have been indistinguishable from organic
+arrival, wasting the v6.5 measurement read. Spec:
+`docs/superpowers/specs/2026-07-05-reach-attribution-v64.md`.
+
+### Added
+
+- **Mint-time source capture** (one write at mint, no analytics platform):
+  the `/connect` mint sends `document.referrer` + the page's
+  `utm_source`/`utm_medium`/`utm_campaign`; the server sanitizes
+  (`app/lib/hosted/mint-source.ts` — allowlisted keys, length caps) and
+  resolves one channel label (`utm_source` > referrer host > `direct`;
+  own-host referrers are not a channel). Stored at org grain
+  (`organizations.trial_mint_source` + `_raw`), spoofable by design —
+  measurement, not security.
+- **Snapshot freeze** (drizzle/0054): `hosted_trial_snapshots` gains
+  `mint_source` + `mint_source_raw`, written by the same fail-closed
+  deletion freeze as v4.6. Pre-v6.4 rows stay NULL = unknown, never
+  guessed.
+- **Per-channel funnel annotation**: `GET /api/hosted/funnel` and the
+  /setup "Trial activation funnel" card gain `annotations.bySource`
+  (`{source, minted, firstAction}`, truthful zeros, `unknown` distinct
+  from `direct`, top-10 + `other` rollup since labels are
+  attacker-mintable strings on a public route).
+- Tests: mint-source resolver suite, bySource aggregation (unknown bucket,
+  rollup), snapshot freeze columns; policy smoke AA1 now pins
+  `annotations.bySource`.
+- Live proof (local hosted mode): a mint tagged `utm_source=v64-live-proof`
+  appeared in the funnel route and rendered on /setup; deleting the
+  workspace froze `mint_source` + raw strings into the snapshot; residue
+  cleaned to zero.
+
 ## [4.59.2] — 2026-07-05
 
 Roadmap v6.2 "registry presence" — be findable where agent builders look,
