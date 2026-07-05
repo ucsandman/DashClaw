@@ -47,6 +47,11 @@ const PUBLIC_ROUTES = [
   // (it 401s without the operator key and 404s on hosted/Neon).
   '/api/internal/resolve-key',
   '/api/auth',
+  // Session probe: returns only the caller's own cookie-derived state
+  // (role/authType from their own JWT; {authenticated:false} for anonymous —
+  // never org data). Public so unauthenticated pages (marketing, /login) can
+  // gate client fetches on it without every visitor's console logging a 401.
+  '/api/session/effective',
   '/api/cron',
   '/api/telegram/webhook',  // auth: x-telegram-bot-api-secret-token + chat-id allowlist (in route)
   '/api/discord/interactions',  // auth: Ed25519 signature + user_id allowlist (in route)

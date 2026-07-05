@@ -204,6 +204,15 @@ describe('middleware API-key auth', () => {
     expect(res.status).not.toBe(401);
   });
 
+  it('session probe is public: /api/session/effective needs no key', async () => {
+    // Regression: the probe route itself answers {authenticated:false} for
+    // anonymous callers, but default-deny middleware 401'd it first — so every
+    // anonymous visitor to a marketing page that gates client fetches on the
+    // probe (AgentFilterProvider, useEffectiveRole consumers) got a console 401.
+    const res = await middleware(req('/api/session/effective'));
+    expect(res.status).toBe(200);
+  });
+
   // OAuth connector path (Leg 2): /api/mcp answers an unauthenticated request with
   // 401 + WWW-Authenticate so Claude starts OAuth discovery; a live Bearer token
   // resolves to an org and passes through. Inherits the beforeEach env + sqlMock.

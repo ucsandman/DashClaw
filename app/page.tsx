@@ -22,6 +22,11 @@ import {
 
 export default function LandingPage() {
   const hosted = isHostedMode();
+  // The trial CTA renders when this IS the hosted instance or when the
+  // marketing build points at one (NEXT_PUBLIC_HOSTED_TRIAL_URL). In either
+  // case the trial is the one primary action — self-host drops to the quiet
+  // style so brand orange stays a signal, not wallpaper (.impeccable #2).
+  const trialConfigured = hosted || Boolean(process.env.NEXT_PUBLIC_HOSTED_TRIAL_URL);
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary text-base">
       {/* ── 1. Navbar ── */}
@@ -47,13 +52,14 @@ export default function LandingPage() {
             DashClaw intercepts agent actions at the moment intent becomes a real-world call. In coding and personal agents (Claude Code, Codex, Hermes, OpenClaw) it can hard-block via lifecycle hooks; in chat-based clients it governs through approvals and a verifiable record. Intercept, enforce, record, approve, and verify every high-risk decision in one open source runtime.
           </p>
 
-          {/* CTA row */}
+          {/* CTA row — one primary (the trial when configured, self-host
+              otherwise), single-line labels on one shared baseline. */}
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
             <HostedTrialCTA />
             <TrackedLink
               href="/self-host"
               event="marketing_hero_cta_clicked"
-              className={hosted ? 'px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2' : 'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20'}
+              className={trialConfigured ? 'px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2 whitespace-nowrap' : 'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20 whitespace-nowrap'}
             >
               Self host the runtime <ArrowRight size={18} aria-hidden="true" />
             </TrackedLink>
@@ -63,11 +69,19 @@ export default function LandingPage() {
                 stays the entrypoint for external links. */}
             <a
               href="#live-demo"
-              className="px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2"
+              className="px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-all inline-flex items-center gap-2 whitespace-nowrap"
             >
               <Terminal size={16} aria-hidden="true" /> Run live demo
             </a>
           </div>
+
+          {/* Trial terms, under the whole row so the buttons stay aligned. */}
+          {trialConfigured ? (
+            <p className="mt-3 text-xs text-text-tertiary">
+              Free for 30 days, no credit card. Your first governed action runs
+              in the browser, no install needed.
+            </p>
+          ) : null}
 
           {/* npx demo, demoted */}
           <div className="mt-6 flex justify-center">

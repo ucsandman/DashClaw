@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.56.0",
+    "current_version": "4.56.1",
     "next_bump": "none",
-    "reason": "4.56.0 ships roadmap v5.2 (first governed action in the browser): a guided zero-install activation card on /connect for hosted-trial sessions - one same-origin POST /api/guard?record=true riding the v5.1 trial session cookie, decision rendered in place, deep link to the row in /decisions. No new routes, no schema change, no new auth surface (security-reviewed: SHIP, 0 findings). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.56.1 landing-hero polish + clean anonymous console: one primary CTA (self-host drops to secondary when the trial is configured), aligned single-line CTA row with the trial terms caption under it, /api/agents fetch gated on the session probe, and /api/session/effective made public (rate-limited, cookie-self-reporting; security-reviewed SHIP 0 findings) so anonymous visitors get a zero-error console. No Node/Python SDK source change - the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.56.0",
+    "current_version": "4.56.1",
     "next_bump": "none",
-    "reason": "4.56.0 ships roadmap v5.2 (first governed action in the browser): a guided zero-install activation card on /connect for hosted-trial sessions - one same-origin POST /api/guard?record=true riding the v5.1 trial session cookie, decision rendered in place, deep link to the row in /decisions. No new routes, no schema change, no new auth surface (security-reviewed: SHIP, 0 findings). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.56.1 landing-hero polish + clean anonymous console: one primary CTA (self-host drops to secondary when the trial is configured), aligned single-line CTA row with the trial terms caption under it, /api/agents fetch gated on the session probe, and /api/session/effective made public (rate-limited, cookie-self-reporting; security-reviewed SHIP 0 findings) so anonymous visitors get a zero-error console. No Node/Python SDK source change - the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.56.0 first governed action in the browser (roadmap v5.2): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.56.1 hero polish + public session probe: platform-only, SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

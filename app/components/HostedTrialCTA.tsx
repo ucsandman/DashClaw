@@ -40,25 +40,16 @@ export default function HostedTrialCTA() {
     };
   }, [trialUrl]);
 
+  // Single-line label so the CTA row keeps one shared baseline; the trial
+  // terms live in the caption the page renders under the whole row.
   const className =
-    'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20';
-
-  // v5.2: the trial reaches a real governed action entirely in the browser —
-  // say so where the trial is pitched.
-  const caption = (
-    <span className="text-xs text-text-tertiary">
-      No install needed — your first governed action runs in the browser.
-    </span>
-  );
+    'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20 whitespace-nowrap';
 
   if (trialUrl) {
     return (
-      <span className="inline-flex flex-col items-center gap-1.5">
-        <a href={trialUrl} className={className}>
-          Start a hosted trial — free for 30 days <ArrowRight size={18} aria-hidden="true" />
-        </a>
-        {caption}
-      </span>
+      <a href={trialUrl} className={className}>
+        Start a hosted trial <ArrowRight size={18} aria-hidden="true" />
+      </a>
     );
   }
 
@@ -77,11 +68,8 @@ export default function HostedTrialCTA() {
   }
 
   return (
-    <span className="inline-flex flex-col items-center gap-1.5">
-      <a href="/connect" className={className}>
-        Start a hosted trial — free for 30 days <ArrowRight size={18} aria-hidden="true" />
-      </a>
-      {caption}
-    </span>
+    <a href="/connect" className={className}>
+      Start a hosted trial <ArrowRight size={18} aria-hidden="true" />
+    </a>
   );
 }

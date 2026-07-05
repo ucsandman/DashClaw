@@ -13,6 +13,33 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.56.1] — 2026-07-05
+
+Landing-hero polish + a clean anonymous console. Platform-only — SDKs stay
+at 4.32.0.
+
+### Fixed
+- **One primary CTA in the hero.** The marketing deployment rendered two
+  competing brand-orange buttons: the self-host CTA's quiet style was keyed
+  to the server's hosted flag, which is off on the marketing site even
+  though the trial CTA renders there (`NEXT_PUBLIC_HOSTED_TRIAL_URL`). The
+  self-host button now drops to the secondary style whenever the trial CTA
+  is configured, the three CTA labels are single-line on one shared
+  baseline, and the trial terms ("Free for 30 days, no credit card. Your
+  first governed action runs in the browser, no install needed.") sit as
+  one caption under the whole row instead of dangling beneath one button.
+- **Zero console errors for anonymous visitors.** `AgentFilterProvider`
+  (mounted on every page, marketing included) fetched `/api/agents`
+  unconditionally, logging a 401 in every anonymous visitor's console. The
+  fetch is now gated on the session probe (demo mode still passes), and
+  `/api/session/effective` — which answers `{authenticated:false}` from the
+  caller's own cookie and nothing else — joined `PUBLIC_ROUTES`
+  (boundary-matched, rate-limited, headers stripped) so the probe itself no
+  longer 401s. Security review of the middleware change: SHIP, 0 findings;
+  pinned by `middleware-auth.test.js`. Verified rendered: marketing-mode
+  build, zero console errors and zero 4xx/5xx at load and full-page scroll,
+  desktop and mobile.
+
 ## [4.56.0] — 2026-07-05
 
 Roadmap v5.2 — **First governed action in the browser.** v5.1 gave a

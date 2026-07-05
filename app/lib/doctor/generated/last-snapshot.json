@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:d980620460282d08fbcfc91329fdf9a58e67e933",
+  "timestamp": "sha1:d8bc1449121b7fc603c78eac663ebe142b972b13",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3922,6 +3922,7 @@
       "files": [
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
+        "__tests__/unit/first-governed-action.test.jsx",
         "__tests__/unit/hosted/capacity.route.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/flag.test.js",
@@ -4747,7 +4748,8 @@
       "name": "NEXT_PUBLIC_HOSTED_TRIAL_URL",
       "required": false,
       "files": [
-        "app/components/HostedTrialCTA.tsx"
+        "app/components/HostedTrialCTA.tsx",
+        "app/page.tsx"
       ],
       "in_env_example": false
     },

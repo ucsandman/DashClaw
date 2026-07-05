@@ -12,6 +12,33 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the hero said it twice in orange (v4.56.1)
+
+Wes looked at the landing page after v4.56.0 and called it what it was:
+sloppy. Two brand-orange CTAs side by side (the trial and self-host), the
+trial button's label wrapping to two lines while its neighbors sat at
+different heights, and the zero-install caption I'd added in v5.2 dangling
+under one button of a ragged row. Root cause of the double orange: the
+self-host button's quiet style was keyed to the *server's* hosted flag,
+which is off on the marketing deployment even though the trial CTA renders
+there from `NEXT_PUBLIC_HOSTED_TRIAL_URL` — so the one page most strangers
+see broke the "orange is signal, not wallpaper" principle. Fixed: one
+primary, single-line labels on one baseline, the trial terms as a single
+caption under the whole row.
+
+The verification pass then caught something better than a layout nit:
+every anonymous visitor's console logged a 401, because the agent-filter
+provider (mounted on every page, marketing included) fetched `/api/agents`
+unconditionally. Gating that on the session probe just moved the 401 to
+the probe itself — default-deny middleware was rejecting
+`/api/session/effective` before the route (which answers
+`{authenticated:false}` from the caller's own cookie, nothing else) could
+respond. That went to `PUBLIC_ROUTES` with the boundary-aware matcher, a
+regression test, and a focused security review (SHIP, zero findings). The
+audience this product courts opens devtools; the console is a marketing
+surface too. Verified rendered in marketing mode: zero console errors,
+zero 4xx, desktop and mobile.
+
 ## 2026-07-05 — the product demonstrates itself (v4.56.0, roadmap v5.2)
 
 v5.2, the activation step itself. v5.1 gave a minted trial a session and a

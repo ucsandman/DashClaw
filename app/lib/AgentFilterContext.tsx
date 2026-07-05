@@ -2,6 +2,8 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
+import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { isDemoMode } from './isDemoMode';
 
 export interface AgentFilterOption {
   agent_id: string;
@@ -60,9 +62,21 @@ export function AgentFilterProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // This provider wraps every page, public marketing included. An anonymous
+  // visitor has no session, so an unconditional /api/agents fetch put a
+  // guaranteed 401 in every visitor's console. Gate on the effective session
+  // (same probe useRealtime gates on); demo mode stays allowed — the demo
+  // middleware serves /api/agents to anonymous visitors there.
+  const { authenticated, settled } = useEffectiveRole();
   useEffect(() => {
+    if (!settled) return;
+    if (!authenticated && !isDemoMode()) {
+      setAgents([]);
+      setLoading(false);
+      return;
+    }
     fetchAgents();
-  }, [fetchAgents]);
+  }, [settled, authenticated, fetchAgents]);
 
   return (
     <AgentFilterContext.Provider value={{ agents, agentId, setAgentId, loading }}>
