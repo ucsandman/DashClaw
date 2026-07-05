@@ -12,6 +12,38 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.63.2: verify-before-recommend catches five first-run killers
+
+Wes wanted to recommend the two quick-start commands (`npm i -g @dashclaw/cli`
++ `dashclaw install claude --trial`, and `npx dashclaw up`) to the Claude Code
+subreddit, and asked for them to be double-checked first. Running them exactly
+as a stranger would — published packages, clean environment, sandboxed home,
+local Docker Postgres — found that `npx dashclaw up` **did not work at all on
+a local database**, in five compounding ways: an indefinite silent hang from
+migration scripts holding idle DB connections; the drizzle schema chain never
+running in local setup (so `settings` and every newer column simply didn't
+exist — the fresh-vs-legacy drift class, in the flagship onboarding command);
+a token_budgets migration that was invalid SQL on every PostgreSQL; a dotenv
+import that crashes wherever npm doesn't hoist it; and a stdout
+pipe-backpressure deadlock in setup's process runner. Plus the CLI dying raw
+when host port 5433 was already taken.
+
+Why nobody ever saw this: every previous end-to-end proof of `up` ran against
+a Neon URL, whose stateless HTTP driver neither hangs nor exercises the local
+driver path, and hosted deploys apply the drizzle chain in the Vercel build.
+The lesson is uncomfortable and worth writing down: **"proven end to end" is
+only proven for the environment it ran in.** The local-database path — the
+one the README leads with for self-hosters — had never once been walked to
+completion on a clean machine.
+
+All six fixes shipped as v4.63.2 + @dashclaw/cli 0.6.2, then the whole
+pipeline was re-proven green on a clean database: install → migrations (135
+tables) → build → healthy server → auto-wired hooks → a real guard decision
+in the ledger, hook-fired, evidence-graded. The npm publish of
+dashclaw@4.63.2 is load-bearing, not ceremonial: `up` resolves which app
+tarball to install from the npm version, so fresh users only get these fixes
+once 4.63.2 is npm latest.
+
 ## 2026-07-05 — v4.63.1: the docs get a front door, and the drift audit pays for itself
 
 A staff-devadvocate pass over the entire documentation set, run the way an
