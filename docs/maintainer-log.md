@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.61.0: the auth layer stops blaming the caller's key for the instance's problems
+
+A cold audit session (four parallel read-only auditors over docs, runtime,
+integration surfaces, and CI, then one conviction pick) surfaced a finding
+this repo had documented against itself for weeks without fixing: any
+database failure inside the middleware's credential lookup — stale schema
+after a deploy, unreachable Postgres, a missing column — was swallowed
+into a flat `401 "Invalid or missing API key"`. Our own CLAUDE.md called
+it the top gotcha; the plugin, hooks, and Desktop-connector docs all
+carried workaround notes; and `middleware.js` itself already stated the
+correct principle for trial sessions ("a DB lookup FAILURE is NOT the same
+as 'org gone'") while violating it on the path every SDK key, MCP call,
+hook, and trial key takes. For a stranger's first hour, that's the worst
+lie the product can tell: *your key is wrong* when the truth is *your
+instance is broken, here's the one command*.
+
+Now a lookup failure answers `503` with the same classified bodies the
+operator-key path and `apiErrors.ts` already use — `SCHEMA_NOT_INITIALIZED`
+(with `migrate_url`), `DB_CONNECTION_FAILED`, `AUTH_LOOKUP_FAILED` — each
+saying explicitly that the key itself was not checked. `401` regains its
+meaning: the database positively rejected the credential. Enforcement is
+unchanged (503 still denies; failures are never cached), and the OAuth
+bearer path stops sending Desktop clients into a doomed re-auth loop when
+the DB is down. Ten regression tests pin the contract, including
+"an infra failure is never cached: the same key succeeds on the next
+request."
+
+What I rejected for this slot, for the record: seeding governance policies
+on fresh self-host installs (a real gap — the out-of-box `guard` allows
+everything — but pre-seeding policy is a product/charter call, not an
+engineering one); hosted-trial links in the npm/PyPI SDK READMEs (real,
+shallow, still worth doing); and a systemic schema-drift prover (highest
+value, but a migration-infra rewrite is not a "one change" risk profile).
+The audit also re-found the self-dependency pin drifting again
+(`package.json` pins `dashclaw@^4.21.0` vs 4.61.0) — the exact class the
+June audit fixed once; it needs a gate, not another one-off fix.
+
 ## 2026-07-05 — v6.3: the search surface existed only as 404s (marketing SEO truth pass)
 
 The recon for this item took one curl to justify it: `/robots.txt` and

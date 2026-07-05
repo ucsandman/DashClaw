@@ -109,7 +109,7 @@ The installer paths also require Python on PATH plus the same env vars. **Folder
 
 ## Troubleshooting
 
-- **MCP tools listed but every call returns 401.** Your instance is on a stale schema. Run `npm run db:migrate` against it, then retry.
+- **MCP tools listed but every call returns 503 `SCHEMA_NOT_INITIALIZED`.** Your instance is on a stale schema. Run `npm run db:migrate` against it, then retry. (Instances older than v4.61.0 answer this as a misleading 401.)
 - **Tools don't appear after install.** Run `/reload-plugins`, then `/mcp`, and confirm `DASHCLAW_URL` + `DASHCLAW_API_KEY` are set in the environment the MCP server launches from.
 - **MCP works but the hooks govern nothing.** The bundled hooks need Python on PATH and `DASHCLAW_BASE_URL` (or `DASHCLAW_URL`) + `DASHCLAW_API_KEY` in the environment Claude Code launched from — without either they exit silently. The hooks launch via a Node shim (`hooks/run_hook.cjs`) that probes `python3` then `python`, so confirm `python3 --version` or `python --version` resolves and that the plugin is enabled (`/reload-plugins`). If you used the standalone installer instead, a per-project `.claude/settings.json` also has to pass Claude Code's folder-trust gate — the bundled plugin hooks do not.
 - **Guard always allows, or you see a demo-mode warning.** `DASHCLAW_BASE_URL` points at the demo instance. Set it to your real instance.

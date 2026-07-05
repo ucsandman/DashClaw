@@ -13,6 +13,41 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.61.0] — 2026-07-05
+
+Auth-lookup failure honesty. A cold audit (principal-engineer pass over the
+whole repo) picked this as the single change that most improves adoption
+and trust: any database failure inside the middleware's API-key/OAuth
+lookup — stale schema after a deploy, unreachable Postgres, missing column —
+was swallowed into a flat `401 "Invalid or missing API key"`. The project's
+own docs called it "the stale-schema trap": the error blamed the caller's
+key when the instance was broken, which is the worst possible first-hour
+signal for a new adopter. The repo already stated the correct principle for
+trial sessions ("a DB lookup FAILURE is NOT the same as 'org gone'",
+`middleware.js`); this release applies it to the main auth path.
+
+### Changed
+
+- **Middleware auth now answers `503` — never `401` — when the credential
+  lookup itself fails.** Classified bodies mirror `app/lib/apiErrors.ts`
+  and the operator-key path: `SCHEMA_NOT_INITIALIZED` (Postgres
+  42P01/42703, with `migrate_url`), `DB_CONNECTION_FAILED` (08xxx/57P03,
+  network errors, Neon driver fetch failures), `AUTH_LOOKUP_FAILED`
+  (anything else). Every body says the key itself was not checked and
+  names the fix. A `401` now means the database positively rejected the
+  credential (no such key, or revoked). Applies to the api_keys slow path,
+  the self-host internal resolve-key hop (whose 500 body now carries the
+  Postgres error code so the distinction survives the hop), and OAuth
+  bearer verification (a DB outage no longer triggers the `/api/mcp`
+  re-auth challenge loop). Fail-closed is unchanged: a 503 still denies;
+  failures are never cached, so the next request re-checks.
+
+### Fixed
+
+- Docs that taught the old misleading symptom (CLAUDE.md gotcha, plugin +
+  hooks troubleshooting, Claude Desktop connector guide, hosted runbook,
+  platform-intelligence skill) now describe the honest 503 contract.
+
 ## [4.60.1] — 2026-07-05
 
 Roadmap v6.3 "organic search surface" — the marketing SEO truth pass. The

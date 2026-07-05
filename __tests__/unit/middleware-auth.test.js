@@ -118,10 +118,35 @@ describe('middleware API-key auth', () => {
       expect(res.status).toBe(401);
     });
 
-    it('fails closed with 401 when the internal route errors (non-2xx)', async () => {
+    it('fails closed with 503 (verification unavailable) when the internal route errors (non-2xx)', async () => {
+      // Contract change (auth-lookup failure honesty): a resolver failure means
+      // the key was never checked, so the answer is 503, not 401 "key invalid".
       fetchMock.mockResolvedValue(routeReply(null, false, 500));
       const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
-      expect(res.status).toBe(401);
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe('AUTH_LOOKUP_FAILED');
+    });
+
+    it('surfaces a schema error code from the internal route as 503 SCHEMA_NOT_INITIALIZED', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        json: async () => ({ resolved: null, code: '42P01' }),
+      });
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe('SCHEMA_NOT_INITIALIZED');
+      expect(body.migrate_url).toBe('/api/setup/migrate');
+    });
+
+    it('surfaces a network failure on the internal hop as 503 DB_CONNECTION_FAILED', async () => {
+      fetchMock.mockRejectedValue(new TypeError('fetch failed'));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe('DB_CONNECTION_FAILED');
     });
 
     // SSRF guard: the internal hop carries the operator key, so a spoofed Host
@@ -138,7 +163,11 @@ describe('middleware API-key auth', () => {
       spoofed.url = 'https://evil.example.com/api/actions';
       spoofed.nextUrl = new URL(spoofed.url);
       const res = await middleware(spoofed);
-      expect(res.status).toBe(401);
+      // Denied as 503 "verification unavailable" (the key was never checked —
+      // refusing the untrusted hop is an instance-side condition, not a bad
+      // key). The property this test pins is the second assertion: the
+      // operator key must never leave the middleware toward a spoofed host.
+      expect(res.status).toBe(503);
       expect(fetchMock).not.toHaveBeenCalled();
     });
 
@@ -149,6 +178,86 @@ describe('middleware API-key auth', () => {
       expect(res.status).toBe(200);
       const [url] = fetchMock.mock.calls[0];
       expect(String(url)).toBe('http://127.0.0.1:4242/api/internal/resolve-key');
+    });
+  });
+
+  // Auth-lookup failure honesty: an infrastructure failure during key/token
+  // verification (stale schema, unreachable DB) must answer 503 naming the fix,
+  // never 401 "Invalid API key" — the key was not checked. This was the
+  // known stale-schema trap: after a schema-changing deploy without
+  // db:migrate, every authenticated request looked like a bad key.
+  describe('auth-lookup failure honesty (infra failure → 503, never 401)', () => {
+    beforeEach(() => {
+      vi.stubEnv('DATABASE_URL', 'postgres://ep-auth.neon.tech/db');
+    });
+
+    const failWith = (message, code) =>
+      sqlMock.mockRejectedValue(Object.assign(new Error(message), code ? { code } : {}));
+
+    it('stale schema (42P01 undefined_table) answers 503 SCHEMA_NOT_INITIALIZED with a migrate pointer', async () => {
+      failWith('relation "api_keys" does not exist', '42P01');
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      const body = await res.json();
+      expect(body.code).toBe('SCHEMA_NOT_INITIALIZED');
+      expect(body.migrate_url).toBe('/api/setup/migrate');
+      expect(body.setup_url).toBe('/setup');
+    });
+
+    it('missing column (42703 undefined_column) answers 503 SCHEMA_NOT_INITIALIZED', async () => {
+      failWith('column ak.first_used_at does not exist', '42703');
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('SCHEMA_NOT_INITIALIZED');
+    });
+
+    it('connection failure (08006) answers 503 DB_CONNECTION_FAILED', async () => {
+      failWith('connection failure', '08006');
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('DB_CONNECTION_FAILED');
+    });
+
+    it('driver network failure (fetch TypeError) answers 503 DB_CONNECTION_FAILED', async () => {
+      sqlMock.mockRejectedValue(new TypeError('fetch failed'));
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('DB_CONNECTION_FAILED');
+    });
+
+    it('an unclassified lookup failure answers 503 AUTH_LOOKUP_FAILED (still not 401)', async () => {
+      failWith('something unexpected');
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('AUTH_LOOKUP_FAILED');
+    });
+
+    it('an infra failure is never cached: the same key succeeds on the next request', async () => {
+      const key = uniqueKey();
+      sqlMock.mockRejectedValueOnce(Object.assign(new Error('connection failure'), { code: '08006' }));
+      const first = await middleware(req('/api/actions', { apiKey: key }));
+      expect(first.status).toBe(503);
+      sqlMock.mockResolvedValue([{ org_id: 'org_ok', role: 'admin', revoked_at: null, hosted_mode: false }]);
+      const second = await middleware(req('/api/actions', { apiKey: key }));
+      expect(second.status).toBe(200);
+    });
+
+    it('a definitive no-such-key answer still 401s (503 is reserved for lookup failures)', async () => {
+      sqlMock.mockResolvedValue([]);
+      const res = await middleware(req('/api/actions', { apiKey: uniqueKey() }));
+      expect(res.status).toBe(401);
+    });
+
+    it('bearer-token verification failure answers 503, not the OAuth challenge', async () => {
+      // A new token would not help while the DB is down; challenging on
+      // /api/mcp would send the client into a doomed re-auth loop.
+      failWith('connection failure', '08006');
+      const res = await middleware(req('/api/mcp', {
+        method: 'POST',
+        headers: { host: 'x.dashclaw.app', authorization: `Bearer oat_infra_${++keyCounter}` },
+      }));
+      expect(res.status).toBe(503);
+      expect((await res.json()).code).toBe('DB_CONNECTION_FAILED');
     });
   });
 

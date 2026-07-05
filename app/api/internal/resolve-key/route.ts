@@ -71,8 +71,11 @@ export async function POST(request: Request): Promise<Response> {
     });
   } catch (err) {
     // Transient DB failure — 500 tells the middleware to fail closed WITHOUT
-    // caching (so a later request retries instead of 401-ing for 5 minutes).
+    // caching (so a later request retries). The Postgres error code rides
+    // along so the middleware can answer an honest 503 (schema vs connection)
+    // instead of a misleading 401.
     console.error('[INTERNAL] resolve-key failed:', (err as Error).message);
-    return NextResponse.json({ resolved: null }, { status: 500 });
+    const code = (err as { code?: string })?.code;
+    return NextResponse.json({ resolved: null, code }, { status: 500 });
   }
 }

@@ -222,7 +222,7 @@ Then continue with the post-deploy flip checks in [`HOSTED_TRIAL_RUNBOOK.md`](./
 | Name | Where it comes from | Breaks without it |
 |---|---|---|
 | `DASHCLAW_HOSTED` | literally the string `true` | Every `/api/hosted/*` route 404s; no trials can be minted; landing page builds with the self-host hero (`app/lib/hosted/flag.ts:2`) |
-| `DATABASE_URL` | Neon, step B1 (pooled) | Build fails at auto-migrate; at runtime every authed request 401s |
+| `DATABASE_URL` | Neon, step B1 (pooled) | Build fails at auto-migrate; at runtime every authed request answers 503 `DB_CONNECTION_FAILED` |
 | `NEXTAUTH_SECRET` | generated, step B2 | No login session can be verified; dashboard inaccessible |
 | `ENCRYPTION_KEY` | generated, step B2 (exactly 32 chars) | Settings writes return 503 "Server misconfigured"; security check goes critical |
 | `DASHCLAW_API_KEY` | generated, step B2 (`oc_live_`+32 hex) | Readiness check exits 1; no admin key seeded, so you can't inspect/delete trial workspaces |
@@ -264,7 +264,7 @@ Then continue with the post-deploy flip checks in [`HOSTED_TRIAL_RUNBOOK.md`](./
 | Google sign-in shows a Google error page | Redirect URI mismatch | The error page literally names the URI it received | Make the OAuth client's redirect URI exactly `https://hosted.dashclaw.io/api/auth/callback/google` |
 | Trial signups land on "trials are full" | `HOSTED_MAX_ACTIVE_TRIALS` reached (fail-closed, by design) | `/api/hosted/capacity` | Raise the cap, or let cleanup reclaim expired trials |
 | Cleanup workflow red | Secret mismatch | The Actions run log prints the HTTP status | Re-set `HOSTED_CLEANUP_SECRET` in repo secrets to match Vercel's value |
-| Dashboard 401s on everything | Schema drift or wrong `DATABASE_URL` | `/setup`, `/api/health`, Neon console | Verify `DATABASE_URL`; redeploy (auto-migrate reruns); see `/api/doctor` Database section |
+| Dashboard 503s on everything (`SCHEMA_NOT_INITIALIZED` / `DB_CONNECTION_FAILED`) | Schema drift or wrong `DATABASE_URL` | `/setup`, `/api/health`, Neon console | Verify `DATABASE_URL`; redeploy (auto-migrate reruns); see `/api/doctor` Database section |
 
 Monitoring, minimal: watch Vercel function logs for `[HOSTED]` lines after each release, glance at `organizations WHERE hosted_mode = true` in the Neon console weekly, confirm the daily "Hosted cleanup" run is green, and re-run `npm run hosted:smoke` against production periodically.
 

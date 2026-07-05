@@ -81,7 +81,7 @@ If you previously installed the `.mcpb` extension or a uploaded plugin named `da
 - **The Authorize button does nothing.** Reload the consent tab (it must be served by the current deploy) and click again. If it persists, open DevTools → Console; a CSP `form-action` error means the page is stale — reconnect from Claude.
 - **Tools appear but calls return errors / HTML.** Re-run the health check; confirm the instance is up. (A past bug where the proxy called the protection-walled deployment URL and got an HTML SSO page is fixed — the callback uses the public production domain.)
 - **Tools don't appear at all.** The connection didn't finish OAuth — remove the connector and re-add it by URL.
-- **Auth errors right after a deploy or pull.** Usually the instance DB is behind the code — run `npm run db:migrate` against that instance, then reconnect.
+- **Auth errors right after a deploy or pull.** Usually the instance DB is behind the code — since v4.61.0 this answers 503 `SCHEMA_NOT_INITIALIZED` naming the fix (older instances: a misleading 401). Run `npm run db:migrate` against that instance, then reconnect.
 - **Never point the connector at the demo deployment** (e.g. `dashclaw.io`). Demo mode rejects writes (`403`) — use your own instance.
 
 ## Other integration paths (not the consumer connector)

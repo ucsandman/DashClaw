@@ -488,9 +488,69 @@ async function resolveApiKeyViaInternalRoute(keyHash, request) {
     headers: { 'Content-Type': 'application/json', 'x-internal-auth': operatorKey },
     body: JSON.stringify({ keyHash }),
   });
-  if (!res.ok) throw new Error(`internal resolve-key ${res.status}`);
+  if (!res.ok) {
+    // The route's 500 body carries the underlying Postgres error code (if any)
+    // so the schema-vs-connection distinction survives the internal hop.
+    const data = await res.json().catch(() => ({}));
+    throw new AuthLookupUnavailableError(
+      classifyAuthLookupFailure({ code: data?.code }),
+      new Error(`internal resolve-key ${res.status}`)
+    );
+  }
   const data = await res.json().catch(() => ({}));
   return data?.resolved ?? null;
+}
+
+// ── Auth-lookup failure honesty ─────────────────────────────────────────────
+// A credential-lookup FAILURE is NOT the same as "key invalid" (the same
+// principle resolveTrialOrg documents above for trial orgs). If the schema is
+// stale or the database is unreachable, the key was never checked — answering
+// 401 "Invalid API key" sends a brand-new operator debugging the wrong thing
+// (their key) instead of the real one (their instance). Classified failures
+// surface as 503 with the same SCHEMA_NOT_INITIALIZED / DB_CONNECTION_FAILED
+// shape the operator-key path and app/lib/apiErrors.ts already use.
+// Fail-closed is preserved: a 503 still denies the request; the only path to
+// an authenticated forward is a positive DB answer.
+class AuthLookupUnavailableError extends Error {
+  constructor(kind, cause) {
+    super(`auth lookup unavailable (${kind}): ${cause?.message || cause}`);
+    this.name = 'AuthLookupUnavailableError';
+    this.kind = kind; // 'schema' | 'connection' | 'unknown'
+  }
+}
+
+// Mirrors app/lib/apiErrors.ts (42P01 → schema, 08xxx → connection); the edge
+// middleware keeps its own copy rather than importing the TS module.
+function classifyAuthLookupFailure(err) {
+  const code = String(err?.code || err?.sourceError?.code || '');
+  if (code === '42P01' || code === '42703') return 'schema'; // undefined_table / undefined_column
+  if (code.startsWith('08') || code === '57P03') return 'connection';
+  if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EAI_AGAIN'].includes(code)) return 'connection';
+  // The Neon HTTP driver surfaces network failure as a fetch TypeError.
+  if (err instanceof TypeError && /fetch/i.test(err?.message || '')) return 'connection';
+  return 'unknown';
+}
+
+const AUTH_UNAVAILABLE_BODIES = {
+  schema: {
+    error: 'Could not verify the API key: the database schema is missing or behind the code (the key itself was not checked). Run migrations — npm run db:migrate locally, or POST to /api/setup/migrate — then retry.',
+    code: 'SCHEMA_NOT_INITIALIZED',
+  },
+  connection: {
+    error: 'Could not verify the API key: the database is unreachable (the key itself was not checked). Check DATABASE_URL and that the database is up, then retry.',
+    code: 'DB_CONNECTION_FAILED',
+  },
+  unknown: {
+    error: 'Could not verify the API key: the credential lookup failed (the key itself was not checked). Check the server logs and /setup, then retry.',
+    code: 'AUTH_LOOKUP_FAILED',
+  },
+};
+
+function authLookupUnavailableResponse(request, kind) {
+  const shape = AUTH_UNAVAILABLE_BODIES[kind] || AUTH_UNAVAILABLE_BODIES.unknown;
+  const body = { ...shape, setup_url: '/setup' };
+  if (body.code === 'SCHEMA_NOT_INITIALIZED') body.migrate_url = '/api/setup/migrate';
+  return securedJson(request, body, { status: 503 });
 }
 
 async function resolveApiKey(keyHash, request) {
@@ -511,8 +571,12 @@ async function resolveApiKey(keyHash, request) {
       return result;
     } catch (err) {
       console.error('[AUTH] Self-host API key resolution failed:', err.message);
-      // Fail closed, but do NOT cache — a later request retries.
-      return null;
+      // Fail closed, but do NOT cache — a later request retries. Throw
+      // (classified) so the caller answers 503 "verification unavailable",
+      // never 401 "key invalid": the key was not checked.
+      throw err instanceof AuthLookupUnavailableError
+        ? err
+        : new AuthLookupUnavailableError(classifyAuthLookupFailure(err), err);
     }
   }
 
@@ -555,10 +619,12 @@ async function resolveApiKey(keyHash, request) {
     return result;
   } catch (err) {
     console.error('[AUTH] API key lookup failed:', err.message);
-    // Self-host with local Postgres: Neon HTTP driver can't reach TCP-only Postgres.
-    // The fast-path (DASHCLAW_API_KEY exact match) handles the primary key.
-    // For secondary keys, fail open is not safe — return null.
-    return null;
+    // The lookup failed — the key was neither validated nor rejected. Throw
+    // (classified) so handleDatabaseKey answers 503, not a misleading 401.
+    // Nothing is cached, so a later request retries. (On self-host with
+    // TCP-only Postgres the Neon HTTP driver always lands here; the 503's
+    // DB_CONNECTION_FAILED body points at the instance, not the key.)
+    throw new AuthLookupUnavailableError(classifyAuthLookupFailure(err), err);
   }
 }
 
@@ -609,7 +675,9 @@ async function resolveOAuthToken(tokenHash) {
     return result;
   } catch (err) {
     console.error('[AUTH] OAuth token lookup failed:', err.message);
-    return null;
+    // Same contract as resolveApiKey: a lookup failure is not "token invalid".
+    // Throw (classified) so handleBearerAuth answers 503; nothing is cached.
+    throw new AuthLookupUnavailableError(classifyAuthLookupFailure(err), err);
   }
 }
 
@@ -1639,7 +1707,16 @@ async function handleBearerAuth(request, pathname, requestHeaders) {
   if (!bearer) return null;
 
   const tokenHash = await hashApiKey(bearer); // Web Crypto SHA-256 hex (matches hashToken)
-  const oauth = await resolveOAuthToken(tokenHash);
+  let oauth;
+  try {
+    oauth = await resolveOAuthToken(tokenHash);
+  } catch (err) {
+    // Infra failure: the token was never checked. A 503 is honest; the /api/mcp
+    // OAuth challenge would be wrong here (a new token wouldn't help).
+    const kind = err instanceof AuthLookupUnavailableError ? err.kind : 'unknown';
+    console.error(`[AUTH] Bearer verification unavailable (${kind}) for ${pathname}`);
+    return authLookupUnavailableResponse(request, kind);
+  }
   if (oauth) {
     requestHeaders.set('x-org-id', oauth.orgId);
     requestHeaders.set('x-org-role', oauth.role);
@@ -1782,7 +1859,16 @@ async function handleOperatorKey(request, requestHeaders) {
 // Slow path: hash the key and look up in api_keys table
 async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
   const keyHash = await hashApiKey(apiKey);
-  const resolved = await resolveApiKey(keyHash, request);
+  let resolved;
+  try {
+    resolved = await resolveApiKey(keyHash, request);
+  } catch (err) {
+    // Infra failure (stale schema, DB unreachable): the key was never checked.
+    // Deny with an honest 503 naming the fix, not a misleading 401.
+    const kind = err instanceof AuthLookupUnavailableError ? err.kind : 'unknown';
+    console.error(`[AUTH] API key verification unavailable (${kind}) for ${pathname}`);
+    return authLookupUnavailableResponse(request, kind);
+  }
 
   if (!resolved) {
     console.warn(`[SECURITY] Unauthorized API access attempt: ${pathname} from ${getClientIp(request)}`);

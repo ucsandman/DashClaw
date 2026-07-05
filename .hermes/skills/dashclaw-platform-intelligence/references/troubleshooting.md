@@ -79,6 +79,8 @@ If Doctor reports `drift_detected`, see [Drift Guard Failed](#drift-guard-failed
 
 **"Unauthorized - Invalid or missing API key"**
 
+Since v4.61.0 a 401 means the database positively rejected the credential (no such key, or revoked). If the instance itself is broken -- stale schema, unreachable database -- you get a 503 naming the fix instead (see [503](#error-503-server-misconfigured)); older instances answered both cases with this 401.
+
 1. Check `x-api-key` header is being sent (not query params -- those leak in logs)
 2. Check `DASHCLAW_API_KEY` is set in the server's `.env`
 3. If using multi-org keys, verify the key hash exists in `api_keys` table and is not revoked
@@ -137,6 +139,18 @@ For agents that batch operations, implement client-side rate limiting or increas
   node scripts/_run-with-env.mjs scripts/migrate-multi-tenant.mjs
   ```
 - Or create the org: `POST /api/orgs` with admin key
+
+**"Could not verify the API key: the database schema is missing or behind the code"** (`SCHEMA_NOT_INITIALIZED`)
+- The auth lookup hit a missing table/column (Postgres 42P01/42703) -- the key itself was not checked
+- Fix: `npm run db:migrate` against the instance, or `POST /api/setup/migrate`, then retry
+
+**"Could not verify the API key: the database is unreachable"** (`DB_CONNECTION_FAILED`)
+- The auth lookup could not reach the database -- the key itself was not checked
+- Fix: Check `DATABASE_URL` and that the database is up, then retry
+
+**"Could not verify the API key: the credential lookup failed"** (`AUTH_LOOKUP_FAILED`)
+- The auth lookup failed for an unclassified reason -- the key itself was not checked
+- Fix: Check the server logs and `/setup`, then retry. Nothing is cached, so a retry re-checks
 
 ## Error: redirect_uri Not Associated
 
