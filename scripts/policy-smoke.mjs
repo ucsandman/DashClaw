@@ -491,7 +491,9 @@ async function main() {
     }
 
     // Stats + proposal derivation with small seeded thresholds.
-    const proposalsUrl = `/api/policies/proposals?days=30&min_fired=3&min_resolved=3`;
+    // include_synthetic=1: smoke traffic is excluded from tuning evidence by
+    // default since the v4.5 ride-along fix (same toggle as tightening's).
+    const proposalsUrl = `/api/policies/proposals?days=30&min_fired=3&min_resolved=3&include_synthetic=1`;
     const first = await api('GET', proposalsUrl);
     const statsRow = (first.json?.policies || []).find((p) => p.policy_id === pid);
     check('T1', 'stats row shows fired.require_approval=3 and approved=3',
@@ -1302,6 +1304,133 @@ async function main() {
     check('Y1', 'behavior undo 404s when nothing is recorded for the signature',
       undo.status === 404,
       `status=${undo.status} body=${JSON.stringify(undo.json)}`);
+  }
+
+  // Z: loosening direction — proposals that relax (roadmap v4.5).
+  // Spec: docs/superpowers/specs/2026-07-05-loosening-direction.md
+  // The tightening mirror, live: seed an over-interrupting envelope policy
+  // (one type always approved, one never fired), prove it mines into a
+  // carve-out proposal (smoke-only synthetic path), prove the default GET
+  // never sees it, then the full ratify round-trip: policy relaxed → the
+  // carved type flows free while the sibling stays governed → pattern
+  // retires (its own updated_at reset) → undo keeps the relaxation.
+  {
+    console.log('\nLoosening proposals (proposals that relax)...');
+    const agent = agentFor('loosen');
+    const carveType = `smoke.loosen.carve.${RUN}`;
+    const keepType = `smoke.loosen.keep.${RUN}`;
+    const pid = await createPolicy('loosening-loop', 'require_approval',
+      { action_types: [carveType, keepType] }, [agent]);
+
+    // Drive 3 interruptions on the carve type and approve each — unique
+    // declared_goal per iteration (identical goals would trigger the builtin
+    // operator-approval grant after the first approval, see T1).
+    let seeded = 0;
+    for (let i = 1; i <= 3; i++) {
+      const guarded = await api('POST', '/api/guard?record=true', {
+        action_type: carveType, declared_goal: `loosening smoke action ${RUN} #${i}`,
+        agent_id: agent,
+      });
+      const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+      const interrupted = guarded.json?.decision === 'require_approval'
+        && (guarded.json?.matched_policies || []).includes(pid);
+      if (interrupted && actionId) {
+        const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow' });
+        if (approved.status < 400) seeded++;
+      }
+    }
+    check('Z1', 'seeded 3 interruptions on the carve type, all approved', seeded === 3, `seeded=${seeded}/3`);
+
+    // Z1 (mine): the always-approved envelope type mines into a carve-out
+    // proposal via the smoke-only synthetic path.
+    const looseningUrl = `/api/policies/loosening?include_synthetic=1&min_fired=3&min_resolved=3&days=7`;
+    const lp = await api('GET', looseningUrl);
+    const found = (lp.json?.proposals || []).find((p) => p.policy_id === pid);
+    check('Z1', 'carve-out proposal mines with evidence + surgical patch',
+      lp.status === 200 && !!found
+        && found.rule === 'relax_policy_scope'
+        && found.action_type === carveType
+        && found.evidence?.fired >= 3
+        && found.evidence?.approvals?.approved === 3
+        && found.evidence?.override_rate === 1
+        && Array.isArray(found.patch?.rules?.action_types)
+        && !found.patch.rules.action_types.includes(carveType)
+        && found.patch.rules.action_types.includes(keepType)
+        && /^lp_[a-f0-9]{16}$/.test(found.id),
+      `status=${lp.status} found=${!!found} rule=${found?.rule} fired=${found?.evidence?.fired} approved=${found?.evidence?.approvals?.approved}`);
+
+    // Z2: the DEFAULT GET never mines synthetic traffic (S3's bar, mirrored) —
+    // and the tuning proposals GET holds the same bar since the v4.5
+    // ride-along fix.
+    const lpDefault = await api('GET', '/api/policies/loosening?days=7');
+    const defaultBlob = JSON.stringify(lpDefault.json?.proposals || []);
+    // The tuning GET lists every active policy; the exclusion strips the
+    // EVIDENCE — the smoke policy's stats row must read zero fires.
+    const tuningDefault = await api('GET', '/api/policies/proposals?days=30&min_fired=3&min_resolved=3');
+    const tuningStatsRow = (tuningDefault.json?.policies || []).find((p) => p.policy_id === pid);
+    check('Z2', 'default loosening + tuning GETs exclude synthetic evidence entirely',
+      lpDefault.status === 200 && !defaultBlob.includes(carveType) && !defaultBlob.includes(`"${agent}"`)
+        && tuningDefault.status === 200
+        && (tuningStatsRow?.fired?.total ?? 0) === 0 && (tuningStatsRow?.approvals?.approved ?? 0) === 0,
+      `loosening_leak=${defaultBlob.includes(carveType)} tuning_fired=${tuningStatsRow?.fired?.total} tuning_approved=${tuningStatsRow?.approvals?.approved}`);
+
+    if (found) {
+      // Z3: ratify relaxes the policy server-side; the carved type flows
+      // free while the sibling type stays governed — the interrupt-volume
+      // drop proven live and surgical.
+      const rat = await api('POST', '/api/policies/loosening', {
+        action: 'ratify', proposal_id: found.id,
+        proposal: { rule: found.rule, policy_id: found.policy_id, action_type: found.action_type },
+      });
+      const carveAfter = await api('POST', '/api/guard', {
+        action_type: carveType, declared_goal: `carved type after ratify ${RUN}`, agent_id: agent,
+      });
+      const keepAfter = await api('POST', '/api/guard', {
+        action_type: keepType, declared_goal: `sibling type after ratify ${RUN}`, agent_id: agent,
+      });
+      check('Z3', 'ratify relaxes the policy: carved type → allow, sibling type still interrupted',
+        rat.status === 200
+          && carveAfter.json?.decision === 'allow'
+          && keepAfter.json?.decision === 'require_approval'
+          && (keepAfter.json?.matched_policies || []).includes(pid),
+        `status=${rat.status} carve=${carveAfter.json?.decision} keep=${keepAfter.json?.decision}`);
+
+      // Z4: the ratified pattern retires (the policy's updated_at bump reset
+      // its evidence window — self-suppression through the policy, not
+      // bookkeeping); undo removes only the judgment and KEEPS the change.
+      const lp2 = await api('GET', looseningUrl);
+      const stillMined = (lp2.json?.proposals || []).some((p) => p.id === found.id && p.status === 'pending');
+      const undo = await api('POST', '/api/policies/loosening', { action: 'undo', proposal_id: found.id });
+      const polAfterUndo = await api('GET', '/api/policies');
+      const liveRow = (polAfterUndo.json?.policies || []).find((p) => p.id === pid);
+      let liveTypes = [];
+      try {
+        const r = typeof liveRow?.rules === 'string' ? JSON.parse(liveRow.rules) : liveRow?.rules;
+        liveTypes = Array.isArray(r?.action_types) ? r.action_types : [];
+      } catch { /* leave empty */ }
+      check('Z4', 'ratified pattern retires; undo removes the judgment, keeps the relaxation (change_kept)',
+        !stillMined && undo.status === 200 && undo.json?.change_kept === pid
+          && !liveTypes.includes(carveType) && liveTypes.includes(keepType),
+        `stillMined=${stillMined} undo=${undo.status} kept=${undo.json?.change_kept} types=${JSON.stringify(liveTypes)}`);
+
+      // Z5: integrity — a tampered snapshot (wrong action_type for the id)
+      // is refused; dismiss without a reason is refused.
+      const tampered = await api('POST', '/api/policies/loosening', {
+        action: 'ratify', proposal_id: found.id,
+        proposal: { rule: found.rule, policy_id: found.policy_id, action_type: keepType },
+      });
+      const noReason = await api('POST', '/api/policies/loosening', {
+        action: 'dismiss', proposal_id: found.id,
+        proposal: { rule: found.rule, policy_id: found.policy_id, action_type: found.action_type },
+      });
+      check('Z5', 'tampered snapshot → 400; dismiss without reason → 400',
+        tampered.status === 400 && noReason.status === 400,
+        `tampered=${tampered.status} noReason=${noReason.status}`);
+    } else {
+      check('Z3', 'ratify round-trip', false, 'no proposal from Z1 to ratify');
+      check('Z4', 'retire + undo change_kept', false, 'no proposal from Z1');
+      check('Z5', 'integrity checks', false, 'no proposal from Z1');
+    }
   }
 
   // ------------------------------------------------------------- cleanup ---

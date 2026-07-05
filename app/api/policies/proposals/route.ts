@@ -39,7 +39,9 @@ const MAX_REASON_LENGTH = 500;
  *
  * Query: ?days=30 (7–90) · ?min_fired= / ?min_resolved= (1–100; primarily
  * for the policy smoke harness to exercise the loop with small seeded
- * volumes — production callers use the defaults).
+ * volumes — production callers use the defaults) · ?include_synthetic=1
+ * (smoke-only: harness traffic is excluded from the evidence by default
+ * since the v4.5 ride-along fix).
  */
 export async function GET(request: Request) {
   try {
@@ -55,11 +57,12 @@ export async function GET(request: Request) {
       100,
       TUNING_DEFAULTS.minResolved,
     );
+    const includeSynthetic = searchParams.get('include_synthetic') === '1';
 
     const [policies, mixRows, outcomeRows, fired60, dismissed, degradation] = await Promise.all([
       getActivePolicies(sql, orgId),
-      getDecisionMixByPolicy(sql, orgId, days),
-      getApprovalOutcomesByPolicy(sql, orgId, days),
+      getDecisionMixByPolicy(sql, orgId, days, { includeSynthetic }),
+      getApprovalOutcomesByPolicy(sql, orgId, days, { includeSynthetic }),
       getDecisionCountsByPolicy(sql, orgId, TUNING_DEFAULTS.deadPolicyDays),
       getTuningDismissals(sql, orgId),
       // Same window as the evidence queries: the rate shown next to the

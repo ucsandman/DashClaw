@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-07-04
+last-verified: 2026-07-05
 doc-type: architecture
 ---
 
@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-04), generated API inventory reports **330 routes**: **56 stable**, **24 beta**, **250 experimental**.
+As of this verification (2026-07-05), generated API inventory reports **331 routes**: **57 stable**, **24 beta**, **250 experimental**.
 
 ## Product boundary
 
@@ -102,6 +102,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/review/verdict` | Review verdicts | `POST { verdict, shape? }` (admin): `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. |
 | `/api/policies/proposals` | Policy-tuning proposals | `GET` returns per-policy interruption stats (rolling window) + rule-based tuning proposals with evidence; `POST { action: dismiss\|undismiss, proposal_id, reason? }` (admin) records dismissals. Accepting = the human PATCHes `/api/policies`; nothing auto-applies. Backs the `/policies` "Tuning proposals" section. |
 | `/api/policies/tightening` | Tightening proposals (findings → proposals, roadmap v3.2) | `GET` computes proposals on read from ungoverned-allow guard decisions, grouped (action_type × riskLevel) to mirror posture's `review_incident` findings one-to-one; `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify creates the ACTIVE `require_approval` policy server-side and resolves the mirrored posture finding, dismiss records why (content-stable `tp_` ids stop re-proposing), undo removes the judgment but keeps a created policy. Decisions persist in `tightening_proposal_decisions` (drizzle 0042). Backs the `/policies` "Tightening proposals" section. |
+| `/api/policies/loosening` | Loosening proposals (the tightening mirror, roadmap v4.5) | `GET` computes proposals on read from interrupt-approval outcomes at (policy, action_type) grain — an envelope action type approved ~100% of the time (bar 0.95, minFired 10, minResolved 5) proposes a scope carve-out (`relax_policy_scope`); a policy always overridden with no surgical fix (protected_path, rate_limit, envelope-emptying) proposes deactivation (`deactivate_policy`); risk_threshold policies excluded (tuning owns that direction); synthetic traffic excluded in SQL. `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify rebuilds the patch server-side from CURRENT rules and applies it (self-suppresses via the policy's updated_at evidence-window reset), dismiss records why (content-stable `lp_` ids stop re-proposing), undo removes the judgment but keeps the change (`change_kept`). Decisions persist in `loosening_proposal_decisions` (drizzle 0051). Backs the `/policies` judgment-spine "Loosening" group. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |

@@ -38,30 +38,43 @@ function makeSqlMock() {
 type UpsertCall = [unknown, string, { key: string; category: string; value: string }];
 
 describe('getDecisionMixByPolicy', () => {
-  it('calls sql.query once with [orgId, days] and the expected SQL shape', async () => {
+  it('calls sql.query once with [orgId, days, synthetic toggle + patterns] and the expected SQL shape', async () => {
     const mockSql = makeSqlMock();
     await getDecisionMixByPolicy(mockSql, 'org_1', 30);
 
     expect(mockSql.query).toHaveBeenCalledTimes(1);
     const [text, params] = mockSql.query.mock.calls[0]!;
-    expect(params).toEqual(['org_1', 30]);
+    // v4.5 ride-along: synthetic exclusion ON by default ($3 false + the two
+    // shared LIKE-pattern arrays from calibration-mining).
+    expect(params!.slice(0, 3)).toEqual(['org_1', 30, false]);
+    expect(params).toHaveLength(5);
     expect(text).toContain('jsonb_array_elements_text');
     expect(text).toContain('GREATEST(');
     expect(text).toContain('updated_at');
+    expect(text).toContain('NOT LIKE ALL');
+  });
+
+  it('includeSynthetic:true flips only the toggle param', async () => {
+    const mockSql = makeSqlMock();
+    await getDecisionMixByPolicy(mockSql, 'org_1', 30, { includeSynthetic: true });
+    const [, params] = mockSql.query.mock.calls[0]!;
+    expect(params![2]).toBe(true);
   });
 });
 
 describe('getApprovalOutcomesByPolicy', () => {
-  it('calls sql.query once with [orgId, days] and the expected SQL shape', async () => {
+  it('calls sql.query once with [orgId, days, synthetic toggle + patterns] and the expected SQL shape', async () => {
     const mockSql = makeSqlMock();
     await getApprovalOutcomesByPolicy(mockSql, 'org_1', 30);
 
     expect(mockSql.query).toHaveBeenCalledTimes(1);
     const [text, params] = mockSql.query.mock.calls[0]!;
-    expect(params).toEqual(['org_1', 30]);
+    expect(params!.slice(0, 3)).toEqual(['org_1', 30, false]);
+    expect(params).toHaveLength(5);
     expect(text).toContain('jsonb_array_elements_text');
     expect(text).toContain('GREATEST(');
     expect(text).toContain('updated_at');
+    expect(text).toContain('NOT LIKE ALL');
     expect(text).toContain('[HITL Decision: DENY');
     expect(text).toContain('approved_by IS NOT NULL');
     expect(text).toContain('pending_approval');

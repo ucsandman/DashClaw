@@ -1771,6 +1771,31 @@ export const tighteningProposalDecisions = pgTable('tightening_proposal_decision
 }));
 
 // @domain governance
+// Loosening proposals (roadmap v4.5): the human's ratify/dismiss judgment on
+// a ledger-derived proposal to RELAX an over-interrupting policy — the v3.2
+// tightening mirror. Proposals are computed on read from approval outcomes
+// (app/lib/posture/loosening.ts); only the decision persists, keyed by the
+// engine's content-stable lp_ id. policy_id records the policy a ratify
+// relaxed — undo keeps the change (change_kept, the policy_kept precedent);
+// action_type is set on scope carve-outs, null on deactivations.
+export const looseningProposalDecisions = pgTable('loosening_proposal_decisions', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  proposalId: text('proposal_id').notNull(),
+  rule: text('rule').notNull(),
+  decision: text('decision').notNull(), // 'ratified' | 'dismissed'
+  actionType: text('action_type'),
+  policyId: text('policy_id'),
+  snapshot: jsonb('snapshot'),
+  reason: text('reason'),
+  decidedBy: text('decided_by'),
+  decidedAt: timestamp('decided_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgProposalUnique: unique('loosening_proposal_decisions_org_proposal_unique').on(t.orgId, t.proposalId),
+  orgDecisionIdx: index('idx_loosening_decisions_org_decision').on(t.orgId, t.decision),
+}));
+
+// @domain governance
 // x402 spend governance (drizzle/0021, money types normalized to numeric in
 // drizzle/0044). These tables were raw-SQL-only from 0021 until 2026-07-03 —
 // the money subsystem was invisible to schema tooling (arch-review finding).

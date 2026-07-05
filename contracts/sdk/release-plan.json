@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.52.0",
+    "current_version": "4.53.0",
     "next_bump": "none",
-    "reason": "4.52.0 ships roadmap v4.4 (one judgment spine): unified JudgmentSpine on /policies (tuning + tightening + calibration + behavior-learning queues, one ratify/dismiss/undo grammar through each engine's existing routes), behavior suggestions gain undo + persisted adoption (drizzle/0050), and agent_allowlist becomes the 16th guard policy type (behavior-learning enforceable 2/6 -> 3/6). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.53.0 ships roadmap v4.5 (loosening direction): the tightening mirror - /api/policies/loosening derives relaxation proposals on read from interrupt-approval outcomes (relax_policy_scope carve-outs + deactivate_policy, content-stable lp_ ids, decisions in loosening_proposal_decisions drizzle/0051), fifth JudgmentSpine queue on /policies, and the tuning repository's synthetic-exclusion gap is fixed (harness traffic no longer counts as tuning evidence). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.52.0",
+    "current_version": "4.53.0",
     "next_bump": "none",
-    "reason": "4.52.0 ships roadmap v4.4 (one judgment spine): unified JudgmentSpine on /policies (tuning + tightening + calibration + behavior-learning queues, one ratify/dismiss/undo grammar through each engine's existing routes), behavior suggestions gain undo + persisted adoption (drizzle/0050), and agent_allowlist becomes the 16th guard policy type (behavior-learning enforceable 2/6 -> 3/6). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.53.0 ships roadmap v4.5 (loosening direction): the tightening mirror - /api/policies/loosening derives relaxation proposals on read from interrupt-approval outcomes (relax_policy_scope carve-outs + deactivate_policy, content-stable lp_ ids, decisions in loosening_proposal_decisions drizzle/0051), fifth JudgmentSpine queue on /policies, and the tuning repository's synthetic-exclusion gap is fixed (harness traffic no longer counts as tuning evidence). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.52.0 one judgment spine (roadmap v4.4): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.53.0 loosening direction (roadmap v4.5): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

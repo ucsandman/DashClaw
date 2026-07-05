@@ -18,6 +18,13 @@ import {
   type TighteningProposal,
 } from '../lib/tighteningClient';
 import {
+  fetchLooseningProposals,
+  ratifyLooseningProposal,
+  dismissLooseningProposal,
+  undoLooseningDecision,
+  type LooseningProposal,
+} from '../lib/looseningClient';
+import {
   fetchCalibrationProposals,
   ratifyProposal,
   dismissCalibrationProposal,
@@ -45,7 +52,7 @@ const GROUP_LABEL = 'text-xs font-mono uppercase tracking-wider text-tertiary';
 const INPUT_CLASS =
   'min-w-0 flex-1 rounded-md border border-border bg-surface-secondary px-2.5 py-1 text-xs text-primary placeholder:text-tertiary focus:border-border-active focus:outline-none';
 
-type QueueKey = 'tuning' | 'tightening' | 'calibration' | 'behavior';
+type QueueKey = 'tuning' | 'tightening' | 'loosening' | 'calibration' | 'behavior';
 type Phase = 'pending' | 'accepted' | 'dismissed' | 'terminal';
 
 function RowError({ message }: { message?: string | null }) {
@@ -506,6 +513,74 @@ const tighteningAdapter: ProposalAdapter<TighteningProposal> = {
   undo: (p) => undoTighteningDecision(p.id),
 };
 
+const LOOSENING_RULE_HELP =
+  'Policies you override yourself — interrupts approved ~100% of the time, mined from the same ledger tightening reads, pointed the other way. Ratifying relaxes the policy in one click; dismissing records why and stops the re-proposal.';
+
+function looseningMono(p: LooseningProposal): ReactNode {
+  return p.rule === 'relax_policy_scope'
+    ? <>remove &ldquo;{p.action_type}&rdquo; &middot; {p.policy_name}</>
+    : <>deactivate &middot; {p.policy_name}</>;
+}
+
+const looseningAdapter: ProposalAdapter<LooseningProposal> = {
+  queue: 'loosening',
+  anchorId: 'loosening',
+  label: 'Loosening',
+  description: LOOSENING_RULE_HELP,
+  errorText: "Couldn't load loosening proposals.",
+  emptyText: (wd) => `No over-interrupting patterns in the last ${wd ?? 30} days — every interrupt is earning its click.`,
+  reasonRequired: true,
+  primaryVerb: 'Ratify',
+  hasPrimary: () => true,
+  primaryArmed: (p) =>
+    p.rule === 'relax_policy_scope' ? (
+      <>
+        Relaxes &ldquo;{p.policy_name}&rdquo; now &mdash; &ldquo;{p.action_type}&rdquo; actions stop
+        requiring approval; the rest of the policy stays governed.
+      </>
+    ) : (
+      <>
+        Deactivates &ldquo;{p.policy_name}&rdquo; now &mdash; it stops interrupting entirely.
+        Reactivate any time at /policies.
+      </>
+    ),
+  primaryConfirm: (p) =>
+    p.rule === 'relax_policy_scope' ? 'Confirm — relax policy' : 'Confirm — deactivate policy',
+  accepted: (p) =>
+    p.rule === 'relax_policy_scope' ? (
+      <>Relaxed &mdash; &ldquo;{p.action_type}&rdquo; no longer interrupts; the policy keeps its other action types.</>
+    ) : (
+      <>Deactivated &mdash; &ldquo;{p.policy_name}&rdquo; no longer interrupts. It remains at /policies, toggleable.</>
+    ),
+  dismissedText: 'Dismissed — this pattern stops re-proposing.',
+  undoAfterAccepted: true,
+  fetch: async () => {
+    const payload = await fetchLooseningProposals();
+    return { items: payload.proposals ?? [], windowDays: payload.window_days };
+  },
+  view: (p) => {
+    const status: Phase = p.status === 'ratified' ? 'accepted' : p.status === 'dismissed' ? 'dismissed' : 'pending';
+    const ev = p.evidence;
+    return {
+      key: p.id,
+      title: p.title,
+      badge: p.rule === 'relax_policy_scope' ? 'carve-out' : 'deactivate',
+      mono: looseningMono(p),
+      evidence: [
+        <>
+          {`${ev.fired} interrupted · ${ev.approvals.approved} approved, ${ev.approvals.denied} denied (${Math.round(ev.override_rate * 1000) / 10}% overridden) · last ${ev.window_days} day${ev.window_days === 1 ? '' : 's'}`}
+          {' · '}
+          <Link href="/decisions" className="text-brand hover:underline">evidence in the decisions ledger</Link>
+        </>,
+      ],
+      phase: status,
+    };
+  },
+  primary: (p) => ratifyLooseningProposal(p),
+  dismiss: (p, reason) => dismissLooseningProposal(p, reason),
+  undo: (p) => undoLooseningDecision(p.id),
+};
+
 const CALIBRATION_RULE_LABELS: Record<CalibrationProposal['rule'], string> = {
   over_scored_benign: 'Over-scored benign',
   under_scored_danger: 'Under-scored danger',
@@ -870,19 +945,20 @@ function BehaviorGroup({ onCount }: { onCount: (pending: number) => void }) {
 }
 
 // ---------------------------------------------------------------------------
-// The spine: one section, four labeled groups, one decision grammar.
+// The spine: one section, five labeled groups, one decision grammar.
 // ---------------------------------------------------------------------------
 
 const QUEUE_LABELS: Record<QueueKey, string> = {
   tuning: 'Tuning',
   tightening: 'Tightening',
+  loosening: 'Loosening',
   calibration: 'Calibration',
   behavior: 'Behavior',
 };
 
 export default function JudgmentSpine() {
   const [counts, setCounts] = useState<Record<QueueKey, number | null>>({
-    tuning: null, tightening: null, calibration: null, behavior: null,
+    tuning: null, tightening: null, loosening: null, calibration: null, behavior: null,
   });
 
   const setCount = useCallback((queue: QueueKey, n: number) => {
@@ -891,6 +967,7 @@ export default function JudgmentSpine() {
 
   const onCountTuning = useCallback((n: number) => setCount('tuning', n), [setCount]);
   const onCountTightening = useCallback((n: number) => setCount('tightening', n), [setCount]);
+  const onCountLoosening = useCallback((n: number) => setCount('loosening', n), [setCount]);
   const onCountCalibration = useCallback((n: number) => setCount('calibration', n), [setCount]);
   const onCountBehavior = useCallback((n: number) => setCount('behavior', n), [setCount]);
 
@@ -913,13 +990,14 @@ export default function JudgmentSpine() {
           </div>
         </div>
         <p className="mt-1 text-sm text-tertiary">
-          Every pending judgment across tuning, tightening, calibration, and behavior — one place, one decision grammar.
+          Every pending judgment across tuning, tightening, loosening, calibration, and behavior — one place, one decision grammar.
           A human ratifies each one; nothing changes until you click.
         </p>
       </div>
 
       <ProposalGroup adapter={tuningAdapter} onCount={onCountTuning} />
       <ProposalGroup adapter={tighteningAdapter} onCount={onCountTightening} />
+      <ProposalGroup adapter={looseningAdapter} onCount={onCountLoosening} />
       <ProposalGroup adapter={calibrationAdapter} onCount={onCountCalibration} />
       <BehaviorGroup onCount={onCountBehavior} />
     </section>

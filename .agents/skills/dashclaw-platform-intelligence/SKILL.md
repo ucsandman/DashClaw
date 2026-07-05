@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:861c67f3aa0dbaf52693383c7b6ddfd210e67f34`
+**Shape snapshot:** `sha1:d7e2ddf96c7b9a7b88858e8a53ba1876cb5f3eb3`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **282** active API routes across **70** categories (330 total including archived)
+- **283** active API routes across **70** categories (331 total including archived)
 - **4** required + **193** optional environment variables
-- **107** database tables
+- **108** database tables
 
 ## API Surface
 
@@ -375,6 +375,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/policies/contract`
 - `POST` `/api/policies/generate`
 - `POST` `/api/policies/import`
+- `GET, POST` `/api/policies/loosening`
 - `GET` `/api/policies/modes`
 - `POST` `/api/policies/modes/import`
 - `POST` `/api/policies/modes/preview`
@@ -753,7 +754,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 107 tables defined in `schema/schema.js` (Drizzle ORM):
+All 108 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -815,6 +816,7 @@ All 107 tables defined in `schema/schema.js` (Drizzle ORM):
 - `learning_recommendations`
 - `learning_velocity`
 - `live_canary_runs`
+- `loosening_proposal_decisions`
 - `message_threads`
 - `milestones`
 - `notification_preferences`

@@ -12,6 +12,50 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the mirror, and the evidence stream that was lying to the tuner (v4.53.0)
+
+Roadmap v4.5, the loosening direction. v3.2 taught the instrument to propose
+tightening; this ship teaches it to propose the opposite, from the opposite
+evidence: a policy whose interruptions humans approve ~100% of the time is a
+wrong interrupt by the MAINTAINER thesis, and until today the only lever a
+human had for those was the June disable-pattern — bulk-disable or
+bulk-accept. v4.1 had already named the live class ("100%-approved
+protected-path interrupts = v4.5 loosening evidence"), and it is exactly the
+class the tuning engine cannot touch: its one relaxation rule is gated to
+`risk_threshold` policies, so every `require_approval` envelope (including
+every policy a tightening ratify creates), every `protected_path`, every
+`rate_limit` had no relaxation path at all.
+
+The design choice that mattered: a sibling engine mirroring tightening, not
+new tuning rules. Tuning's accept is a client-side PATCH with dismiss-only
+persistence — the roadmap's mandate ("same proposal shape and surface as
+tightening, human-ratified only, same undo") needs the full grammar:
+content-stable `lp_` ids that double as ratify integrity checks, a
+decisions-only table (drizzle/0051), server-side patch rebuild from CURRENT
+rules, and undo that keeps the change (`change_kept`, the `policy_kept`
+precedent). Two rules at two grains — carve the always-approved action type
+out of the envelope when something governed remains; deactivate when no
+surgical fix exists. One policy never gets both, and `risk_threshold` stays
+with tuning: the v4.4 thesis was one human, one queue slot per judgment.
+Ratify self-suppresses through the policy's `updated_at` evidence-window
+reset — the loop closes through the policy, not bookkeeping.
+
+The part that doesn't make me look good: while grounding the evidence
+queries I found the tuning repository has had **no synthetic exclusion since
+v1** — every `smoke-*` and `loadtest-*` agent, every `smoke.%` action type,
+counted as tuning evidence the whole time. That is the same failure v4.1
+diagnosed in the flood path, pointed at the proposal engine, and it sat
+unnoticed through four roadmap cycles that touched this exact subsystem. It
+is fixed in this ship (SQL-side, before aggregation, smoke keeps a
+`?include_synthetic=1` toggle), and the degradation stat deliberately stays
+unfiltered — latency blown on harness traffic is still latency blown.
+
+Live proof: smoke Z1–Z5 — seed an over-interrupting envelope, mine the
+carve-out, ratify, watch the carved type flow free while its sibling still
+interrupts, watch the pattern retire itself, undo and keep the relaxation.
+113/113. The fifth queue renders on `/policies` between Tightening and
+Calibration. Next: v4.6, funnel truth.
+
 ## 2026-07-04 — one queue for every judgment, and the fourth queue nobody counted (v4.52.0)
 
 Roadmap v4.4, the one judgment spine. The item's premise said three parallel

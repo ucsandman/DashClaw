@@ -13,7 +13,51 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [4.52.0] — 2026-07-04
+## [4.53.0] — 2026-07-05
+
+Roadmap v4.5 — **Loosening direction: proposals that relax.** v3.2 built
+tightening; precision requires the mirror or over-interrupting policies get
+bulk-disabled instead of tuned (the June disable-pattern, re-proven live by
+v4.1). Spec: `docs/superpowers/specs/2026-07-05-loosening-direction.md`.
+
+### Added
+- **`/api/policies/loosening`** (route 331, stable): loosening proposals
+  computed on read from interrupt-approval outcomes — the exact evidence
+  class v4.1 recorded ("100%-approved protected-path interrupts = loosening
+  evidence"). Two rules at two grains: `relax_policy_scope` carves an
+  always-approved action type out of a policy's `action_types` envelope
+  (exact-match splice; the rest stays governed), `deactivate_policy` for
+  policies always overridden with no surgical fix (protected_path,
+  rate_limit, envelope-emptying). `risk_threshold` policies are excluded —
+  tuning owns that direction; one human never sees the same policy in two
+  queues. Bar: override rate ≥ 0.95 with minFired 10 / minResolved 5,
+  deadline-degraded and synthetic decisions excluded in SQL.
+- **Ratify applies the relaxation server-side** in the same request
+  (tightening's precedent): the `lp_` content-stable id doubles as a
+  snapshot integrity check, the patch is rebuilt from the policy's CURRENT
+  rules (409 on drift), and the write self-suppresses the proposal through
+  the policy's `updated_at` evidence-window reset. Undo deletes the judgment
+  and keeps the change (`change_kept` — the `policy_kept` precedent).
+  Decisions persist in `loosening_proposal_decisions` (drizzle/0051).
+- **Fifth judgment-spine queue** on `/policies` (`#loosening`): same row
+  grammar, ratify/dismiss/undo buttons, evidence line with approved/denied
+  counts and override rate, deep link to the decisions ledger.
+- Engine unit tests (16) pin both rules, the 0.95 boundary, the
+  envelope-empty fallthrough, and the tuning-ownership exclusion; smoke
+  Z1–Z5 prove the live round-trip: seed → mine → surgical ratify (carved
+  type flows, sibling still interrupts) → self-retire → undo keeps the
+  relaxation. 113/113 live checks.
+
+### Fixed
+- **The tuning repository had no synthetic exclusion** — `smoke-*`/
+  `loadtest-*` agents and `smoke.%`/`loadtest.%`/`liveproof.%` action types
+  counted as tuning evidence since v1 (the same failure v4.1 diagnosed in
+  the flood path, pointed at the proposal engine). Both evidence queries
+  now exclude harness traffic in SQL before aggregation; the smoke harness
+  uses the new `?include_synthetic=1` toggle on `/api/policies/proposals`.
+  `getDegradationStats` deliberately stays unfiltered — it measures
+  guard-path latency health, and a deadline blown on harness traffic is a
+  real miss.
 
 Roadmap v4.4 — **One judgment spine: unify the proposal queues.** Every
 policy judgment a human faces — tuning, tightening, calibration, and

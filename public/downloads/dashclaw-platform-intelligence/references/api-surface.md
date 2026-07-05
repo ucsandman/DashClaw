@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**330 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 250 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**331 active routes** (verified 2026-07-05 against `docs/api-inventory.json`): 57 stable, 24 beta, 250 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 
@@ -186,8 +186,9 @@ Govern-the-governance: a gaming-resistant org governance posture score over 6 di
 | `/api/posture/findings/[key]/resolve` | POST | Human-gated finding resolution: `create_draft` \| `snooze` \| `accept_risk` (DRAFT-ONLY — never auto-applies) |
 | `/api/posture/scan` | POST | Recompute the score and persist a trend snapshot |
 | `/api/policies/tightening` | GET, POST | Tightening proposals (findings → proposals): GET computes proposals on read from ungoverned-allow decisions, mirroring posture's `review_incident` findings one-to-one (content-stable `tp_` ids); POST (admin) `ratify` creates the ACTIVE `require_approval` policy + resolves the mirrored finding, `dismiss` records why and stops re-proposing, `undo` removes the judgment but keeps a created policy |
+| `/api/policies/loosening` | GET, POST | Loosening proposals (the tightening mirror, v4.5): GET computes proposals on read from interrupt-approval outcomes — an envelope action type approved ~100% of the time proposes a scope carve-out (`relax_policy_scope`), a policy always overridden with no surgical fix proposes deactivation (`deactivate_policy`); content-stable `lp_` ids; POST (admin) `ratify` applies the relaxation server-side (self-suppresses via the policy's evidence-window reset), `dismiss` records why, `undo` removes the judgment but keeps the change (`change_kept`) |
 
-UI: `/posture`, plus the `/policies` "Tightening proposals" section (ratify/dismiss/undo are buttons). MCP (read-only): `dashclaw_posture`, `dashclaw_posture_next`. CLI: `dashclaw posture`, `dashclaw next`, `dashclaw posture resolve <key>`. Tables: `posture_findings_state`, `posture_snapshots`, `tightening_proposal_decisions`.
+UI: `/posture`, plus the `/policies` judgment spine (Tightening and Loosening groups; ratify/dismiss/undo are buttons). MCP (read-only): `dashclaw_posture`, `dashclaw_posture_next`. CLI: `dashclaw posture`, `dashclaw next`, `dashclaw posture resolve <key>`. Tables: `posture_findings_state`, `posture_snapshots`, `tightening_proposal_decisions`, `loosening_proposal_decisions`.
 
 ## Workflows
 

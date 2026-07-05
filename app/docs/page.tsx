@@ -141,6 +141,7 @@ const navItems = [
   { href: '#risk-breakdown', label: 'Risk composition', indent: true },
   { href: '#risk-calibration', label: 'Calibration proposals', indent: true },
   { href: '#tightening-proposals', label: 'Tightening proposals', indent: true },
+  { href: '#loosening-proposals', label: 'Loosening proposals', indent: true },
   { href: '#action-recording', label: 'Action Recording' },
   { href: '#createAction', label: 'createAction', indent: true },
   { href: '#waitForApproval', label: 'waitForApproval', indent: true },
@@ -796,6 +797,19 @@ npm run livingcode:refresh`}</CodeBlock>
                 and resolves the posture finding; dismiss records why and stops the re-proposal. The same queue
                 is available at <code className="text-xs">GET /api/policies/tightening</code>. Nothing
                 auto-applies — every policy exists because a human ratified it.
+              </p>
+            </div>
+            <div id="loosening-proposals" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
+              <h3 className="text-sm font-semibold text-text-primary mb-1.5">Loosening proposals</h3>
+              <p className="text-sm text-text-secondary leading-relaxed">
+                The tightening mirror. When a policy&apos;s interruptions are approved ~100% of the time —
+                a wrong interrupt by definition — the pattern renders as an evidence card in the{' '}
+                <code className="text-xs">/policies</code> judgment queue. Ratify relaxes the policy in the
+                same click: carve the always-approved action type out of its envelope (the rest stays
+                governed) or, when no surgical fix exists, deactivate it. Undo keeps the change — the policy
+                is a first-class row at <code className="text-xs">/policies</code>. The same queue is
+                available at <code className="text-xs">GET /api/policies/loosening</code>. Harness traffic
+                never counts as evidence, and risk-threshold policies stay with tuning.
               </p>
             </div>
           </section>

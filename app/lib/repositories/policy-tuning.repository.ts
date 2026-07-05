@@ -9,6 +9,10 @@
 // proposal from immediately re-proposing off stale rows.
 
 import type { SqlTag } from '../types/db';
+import {
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+} from '../calibration-mining.js';
 import { getSettings, upsertSetting } from './settings.repository';
 import type { DecisionMixRow, ApprovalOutcomeRow } from '../policy-tuning/engine';
 
@@ -33,8 +37,35 @@ export interface TuningDismissal {
  */
 // COALESCE matters: NOT (false OR NULL) is NULL in SQL, which would silently
 // drop every non-degraded row whose reason is NULL from the evidence queries.
-const IS_DEGRADED = `(gd.degraded OR COALESCE(gd.reason, '') ILIKE '%exceeded deadline%')`;
-const NOT_DEGRADED = `NOT ${IS_DEGRADED}`;
+// Exported for the loosening repository (v4.5) — same evidence stream, same
+// degradation discipline.
+export const IS_DEGRADED = `(gd.degraded OR COALESCE(gd.reason, '') ILIKE '%exceeded deadline%')`;
+export const NOT_DEGRADED = `NOT ${IS_DEGRADED}`;
+
+/**
+ * Synthetic-traffic exclusion (v4.5 ride-along fix): harness traffic
+ * (smoke- and loadtest- prefixed agents; smoke./loadtest./liveproof. action
+ * types) counted as tuning evidence since v1 — the exact failure v4.1 diagnosed in
+ * the flood path, pointed at the proposal engine. Same shared patterns and
+ * SQL placement (before any aggregation) as tightening.repository.ts /
+ * posture.repository.ts; $-offsets are provided by each caller. Exported for
+ * the loosening repository, which reads the same stream.
+ */
+export function syntheticExclusionSql(
+  includeParam: number,
+  typeParam: number,
+  agentParam: number,
+): string {
+  return `($${includeParam}::boolean OR (
+        (gd.action_type IS NULL OR gd.action_type NOT LIKE ALL($${typeParam}::text[]))
+        AND (gd.agent_id IS NULL OR gd.agent_id NOT LIKE ALL($${agentParam}::text[]))
+      ))`;
+}
+
+export const SYNTHETIC_PARAMS = [
+  SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
+  SYNTHETIC_AGENT_LIKE_PATTERNS,
+] as const;
 
 /**
  * Per-(policy, decision) fire counts over the last `days` days, clipped per
@@ -45,6 +76,7 @@ export async function getDecisionMixByPolicy(
   sql: SqlTag,
   orgId: string,
   days = 30,
+  opts: { includeSynthetic?: boolean } = {},
 ): Promise<DecisionMixRow[]> {
   const rows = await sql.query(
     `SELECT sub.policy_id AS policy_id,
@@ -61,6 +93,7 @@ export async function getDecisionMixByPolicy(
          AND gd.matched_policies IS NOT NULL
          AND gd.matched_policies LIKE '[%'
          AND ${NOT_DEGRADED}
+         AND ${syntheticExclusionSql(3, 4, 5)}
      ) sub
      JOIN guard_policies gp ON gp.id = sub.policy_id AND gp.org_id = $1
      WHERE sub.fired_at > GREATEST(
@@ -68,7 +101,7 @@ export async function getDecisionMixByPolicy(
        COALESCE(gp.updated_at::timestamptz, '-infinity'::timestamptz)
      )
      GROUP BY sub.policy_id, sub.decision`,
-    [orgId, days],
+    [orgId, days, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
   );
   return rows as unknown as DecisionMixRow[];
 }
@@ -89,6 +122,7 @@ export async function getApprovalOutcomesByPolicy(
   sql: SqlTag,
   orgId: string,
   days = 30,
+  opts: { includeSynthetic?: boolean } = {},
 ): Promise<ApprovalOutcomeRow[]> {
   const rows = await sql.query(
     `SELECT sub.policy_id AS policy_id,
@@ -114,6 +148,7 @@ export async function getApprovalOutcomesByPolicy(
          AND gd.matched_policies IS NOT NULL
          AND gd.matched_policies LIKE '[%'
          AND ${NOT_DEGRADED}
+         AND ${syntheticExclusionSql(3, 4, 5)}
      ) sub
      JOIN action_records ar
        ON ar.guard_decision_id = sub.decision_id AND ar.org_id = $1
@@ -123,7 +158,7 @@ export async function getApprovalOutcomesByPolicy(
        COALESCE(gp.updated_at::timestamptz, '-infinity'::timestamptz)
      )
      GROUP BY sub.policy_id`,
-    [orgId, days],
+    [orgId, days, opts.includeSynthetic === true, ...SYNTHETIC_PARAMS],
   );
   return rows as unknown as ApprovalOutcomeRow[];
 }
@@ -147,7 +182,9 @@ export interface DegradationStats {
 /**
  * Org-wide deadline-degradation rate over the last `days` days — the surface
  * counterpart of the NOT_DEGRADED evidence exclusion above. Same legacy
- * reason-ILIKE fallback for pre-0037 rows.
+ * reason-ILIKE fallback for pre-0037 rows. Deliberately NOT
+ * synthetic-filtered (v4.5): this is a latency-health metric, not policy
+ * evidence — a deadline blown on harness traffic is a real guard-path miss.
  */
 export async function getDegradationStats(
   sql: SqlTag,
