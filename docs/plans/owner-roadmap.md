@@ -64,7 +64,7 @@ Alternatives weighed and declined this round:
 
 | # | Item | Status |
 |---|------|--------|
-| v6.1 | The repo speaks: releases resumed, front door truthful | IN PROGRESS — releases resumed 2026-07-05 ([v4.59.0 catch-up release](https://github.com/ucsandman/DashClaw/releases/tag/v4.59.0) live; per-ship release rule added to the ship protocol); README stranger-walk remains |
+| v6.1 | The repo speaks: releases resumed, front door truthful | SHIPPED 2026-07-05 — releases resumed ([v4.59.0 catch-up release](https://github.com/ucsandman/DashClaw/releases/tag/v4.59.0) live; per-ship release rule in the ship protocol); README stranger-walk done (hosted trial first-actionable, AI-maintainership visible; recorded in the maintainer log); metadata truth pass: verified accurate, no churn |
 | v6.2 | Registry presence: MCP registry + plugin/directory listings | — |
 | v6.3 | Organic search surface: marketing SEO truth pass | — |
 | v6.4 | Reach attribution: mint source capture, per-channel funnel | — |

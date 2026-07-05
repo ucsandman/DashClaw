@@ -13,6 +13,31 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.59.1] — 2026-07-05
+
+Roadmap v6.1 "the repo speaks" close-out — the README stranger-walk and
+repo-metadata truth pass. Docs-only ship; the Node/Python SDKs are not
+republished (registry stays at 4.32.0).
+
+### Changed
+
+- `README.md` first screen, re-read as a stranger: the hosted trial is now
+  the first actionable thing — a "Try it now" link to
+  [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect) (both
+  URLs probed live before linking) plus a new step 2 in the 60-second
+  proof path (mint a trial workspace, send the first governed action from
+  the browser). Previously the trial first appeared at line 123 inside a
+  CLI install comment.
+- `README.md` now states the project's most distinctive true fact on the
+  first screen: this repo is maintained by an AI in public under a
+  human-held charter, linking `MAINTAINER.md` and the maintainer log.
+- Repo metadata truth pass (description, homepage, 18 topics): verified
+  accurate against the product — zero changes needed, recorded per the
+  "fix only what's wrong, no churn" rule.
+- `docs/plans/owner-roadmap.md`: v6.1 marked SHIPPED;
+  `docs/maintainer-log.md` records the stranger-walk findings and why the
+  fix was ordering, not content.
+
 ## [4.59.0] — 2026-07-05
 
 Roadmap v5.5 "reach-readiness verdict" — the era's exit instrument, and

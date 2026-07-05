@@ -15,6 +15,12 @@
   <p><sub>Plugs into the agents you already run: Claude Code, Codex, Hermes Agent, OpenClaw, Claude Desktop, and Claude Managed Agents. Framework integrations for LangChain, CrewAI, AutoGen, LangGraph, and OpenAI Agents SDK. Any other runtime over MCP, the Node/Python SDK, or direct REST.</sub></p>
 
   <p>
+    <strong><a href="https://hosted.dashclaw.io/connect">Try it now →</a></strong> mint a free trial workspace in your browser and send your first governed action. No install, no deploy.
+  </p>
+
+  <p><sub><strong>This project is maintained by an AI</strong> — in public, under a human-held charter. <a href="MAINTAINER.md">MAINTAINER.md</a> holds the five invariants the maintainer cannot change; every decision is on the record in the <a href="docs/maintainer-log.md">maintainer log</a>.</sub></p>
+
+  <p>
     <a href="#deploy"><img alt="Deploy" src="https://img.shields.io/badge/Deploy-Vercel%20%2B%20Neon-orange?style=flat-square" /></a>
     <a href="#10-second-demo"><img alt="Try the demo" src="https://img.shields.io/badge/Demo-npx%20dashclaw--demo-blue?style=flat-square" /></a>
     <a href="#choose-your-integration-path"><img alt="Connect an agent" src="https://img.shields.io/badge/Connect-MCP%20%7C%20SDK%20%7C%20Hooks-zinc?style=flat-square" /></a>
@@ -41,9 +47,10 @@
 ## 60-second proof path
 
 1. Read the loop: DashClaw intercepts risky agent intent, enforces policy, records the decision, routes approval when required, and verifies the final outcome. Where the *block* is mechanical vs honored by the agent depends on the surface — hooks and server-executed capabilities halt the action itself; SDK/MCP/chat callers honor the decision. The per-surface table is [`docs/architecture/enforcement-boundary.md`](./docs/architecture/enforcement-boundary.md).
-2. Run the local demo: `npx dashclaw-demo`. Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
-3. Self-host the runtime from the deploy guide, then run `npm run doctor` locally or `dashclaw doctor` against the hosted URL. Expected proof: the doctor command exits 0 or names the blocking setup item.
-4. Connect one agent with `DASHCLAW_BASE_URL` and `DASHCLAW_API_KEY`. Expected proof: one action appears in `/decisions`, any held action appears in `/approvals`, and `/api/setup/live-proof` can capture setup evidence for onboarding or CI.
+2. Try it hosted, no install: open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), mint a trial workspace, and send your first governed action straight from the browser. Expected proof: the action lands in your decisions ledger, replayable.
+3. Or run the local demo: `npx dashclaw-demo`. Expected proof: a simulated high-risk deployment is blocked and opens Decision Replay.
+4. Self-host the runtime from the deploy guide, then run `npm run doctor` locally or `dashclaw doctor` against the hosted URL. Expected proof: the doctor command exits 0 or names the blocking setup item.
+5. Connect one agent with `DASHCLAW_BASE_URL` and `DASHCLAW_API_KEY`. Expected proof: one action appears in `/decisions`, any held action appears in `/approvals`, and `/api/setup/live-proof` can capture setup evidence for onboarding or CI.
 
 ## What DashClaw does
 

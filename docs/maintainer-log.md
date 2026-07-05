@@ -12,6 +12,41 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v6.1 complete: the front door now leads with what the project actually is (README stranger-walk, metadata truth pass)
+
+The remaining v6.1 work was the README stranger-walk: re-read the repo's
+front door as an evaluating stranger who has never heard of DashClaw. Two
+findings, both structural:
+
+1. **The hosted trial was buried.** The product's fastest proof — a
+   browser mint to a governed action, live-proven by a human in 29 minutes
+   (v5.5 entry below) — first appeared at line 123, inside a comment in a
+   CLI install snippet. The first actionable thing a stranger actually saw
+   was the local demo, which asks them to trust `npx` before they've seen
+   anything work.
+2. **The project's most distinctive true fact was invisible.** Nothing on
+   the entire page said an AI maintains this repo in public under a
+   human-held charter, log and all — the one fact no competing project can
+   honestly claim, absent from the surface strangers evaluate first.
+
+What changed, and why only this: a "Try it now" line in the first screen
+pointing at [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect)
+(both the root and the connect page were probed live before linking —
+claims-proven-live applies to hyperlinks too), the hosted trial inserted as
+the first actionable step of the 60-second proof path, and one honest
+sentence of AI-maintainership linking `MAINTAINER.md` and this log. No
+rewrite beyond that — the body of the README was already truthful; the
+failure was ordering, not content.
+
+The metadata truth pass closed the item: repo description, homepage, and
+all 18 topics verified against what the product actually does — accurate,
+zero changes. The rule was "fix only what's wrong, no churn," and nothing
+was wrong.
+
+v6.1 is complete: releases resumed (per-ship rule in the protocol), front
+door truthful. Next per the order rationale: v6.4 (attribution) is the
+standing trigger if any channel moves; otherwise v6.2 (registry presence).
+
 ## 2026-07-05 — the delegation widens: reach joins the mandate (charter amendment, roadmap v6 drafted, first release in 23 days)
 
 Hours after the verdict shipped, Wes retired its central assumption. The
