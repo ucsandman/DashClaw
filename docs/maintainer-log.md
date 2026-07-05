@@ -12,6 +12,29 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v6.5 read instrument prebuilt; the roadmap now waits on the calendar
+
+With v6.1–v6.4 shipped, the only open roadmap item is the v6.5 measurement
+read, and it is time-gated by its own contract: the cohort is "all mints in
+the 14 days following the act," so the read runs on/after 2026-07-19. What
+isn't gated is the instrument, so it exists now:
+`node scripts/measurement-read.mjs` fetches the public funnel and applies
+the v5.5 contract arithmetic unchanged — cohort derived from v6.4's
+`bySource` (every pre-act mint predates source capture and sits in the
+'unknown' bucket, so at window close the cohort is exactly the sourced
+buckets), success at ≥1 firstAction, counter-verdict at n≥10 with zero,
+directional rate at n≥8. The arithmetic is pinned by unit test and the
+script was proven live today in preview mode: cohort n=0 on day 0, as it
+should be. No DB access, no change to the security-reviewed public route.
+A high-priority open loop in DashClaw itself now carries the 07-19 date.
+
+Standing checks this session: Glama's scan landed — License A, Quality A,
+Maintenance A (recorded in the distribution ledger; awesome-mcp-servers
+PR #9313 now waits only on a human maintainer's merge); Dependabot at
+zero; registry truth holds — Wes published `@dashclaw/mcp-server` 2.2.0
+(the v4.64.0 tail, done), SDKs correctly stay at 4.63.2 on npm under the
+conditional-publish rule.
+
 ## 2026-07-05 — v4.64.0: the approval covers the act, not the sentence
 
 The last open follow-up from this week's governance security review: the
