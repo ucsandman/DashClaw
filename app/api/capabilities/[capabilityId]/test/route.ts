@@ -4,7 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getSql } from '../../../../lib/db';
-import { getOrgId } from '../../../../lib/org';
+import { getOrgId, getUserId } from '../../../../lib/org';
 import { apiErrorResponse } from '../../../../lib/apiErrors';
 import { evaluateGuard } from '../../../../lib/guard';
 import { fireApprovalSurfaces } from '../../../../lib/approvalSurfaces';
@@ -138,6 +138,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         signature: null,
         verified: false,
         timestamp_start: timestampStart,
+        // Separation of duties (drizzle/0055): trusted middleware principal.
+        createdBy: getUserId(request) || null,
       });
       fireApprovalSurfaces(createdAction as Record<string, unknown>, sql, orgId, guardDecision);
       return NextResponse.json(
@@ -161,6 +163,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       signature: null,
       verified: false,
       timestamp_start: timestampStart,
+      createdBy: getUserId(request) || null,
     });
 
     const result = (await executeCapabilityInvocation({

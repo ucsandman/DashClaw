@@ -25,7 +25,7 @@ const h = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => h.mockSql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test' }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_test', getUserId: () => 'key_test1' }));
 vi.mock('@/lib/apiErrors.js', () => ({
   apiErrorResponse: () => ({ status: 500, json: async () => ({ error: 'internal' }) }),
 }));

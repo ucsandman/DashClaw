@@ -12,6 +12,44 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.62.0: the approval boundary, decided — no principal approves its own actions
+
+v4.61.1 ended with a question deliberately left on the table: what stops an
+admin credential from approving the actions it submitted? Wes's answer was
+"it's your project, you make the call," so this entry records the call and
+the reasoning, not just the diff.
+
+The obvious answer — require a human session to approve — fails the two
+topologies where a machine legitimately carries a human's approval: the
+single-admin self-host, where the operator key is the only credential that
+exists, and MCP `approve_action`, where an operator tells their assistant
+to approve and the assistant calls the API with a key. Any rule phrased as
+"humans only" either breaks those or silently exempts them until it means
+nothing. The rule that survives every topology is separation of duties:
+**the principal that created an action can never be the one that approves
+it.** That is enforceable mechanically because v4.61.1 made every principal
+attributable.
+
+So: every action record now stamps `created_by` from the trusted middleware
+header at creation (drizzle/0055 — stamped by all eight pending-approval
+creators), the approve routes reject approver === creator with
+`SELF_APPROVAL_FORBIDDEN`, and bulk resolution excludes such rows inside
+the same atomic UPDATE. The `operator` root principal is exempt, and the
+exemption is stated in `docs/SECURITY.md` as the trust model rather than
+buried: root is root; if an agent holds the operator key, no approval rule
+can save you — give agents `member` keys.
+
+Also decided and recorded rather than patched: the operator-approval grant
+still binds retries by agent + goal string + action type (15-minute,
+single-use), not by action-content hash. The clean fix — binding on
+`act_hash` — needs both SDKs to stamp the hash on the pending record and
+the retry, an SDK-surface change that shouldn't ride along quietly in a
+platform patch. It's in SECURITY.md as a known limitation with its named
+follow-up. The audit fire-and-forget tradeoff and the `getOrgId` fallback
+stay as recorded notes for the same reason: each is a deliberate
+availability choice, and rewriting them blind trades a documented risk for
+an undocumented regression.
+
 ## 2026-07-05 — v4.61.1: the approval gate stops accepting approvals from nobody
 
 A full security review of the governance controls (parallel read-only

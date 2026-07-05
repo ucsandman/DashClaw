@@ -13,6 +13,40 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.62.0] — 2026-07-05
+
+Separation of duties on the approval gate — the maintainer's call on the
+boundary question v4.61.1 left open. Requiring a human session to approve
+would break the two legitimate machine-carried approval paths (single-admin
+self-host on the operator key; MCP `approve_action`, where a human directs
+an assistant). The invariant that survives every topology is narrower and
+stronger: **the principal that created an action can never be the principal
+that approves it.**
+
+### Security
+
+- **`created_by` principal stamp** (drizzle/0055). Every action record now
+  stores the middleware-attributed principal of the creating request
+  (`operator`, `key_<uuid>`, `trial:<org>`, session user) — taken from the
+  trusted auth header, never the client body. Stamped by every
+  pending-approval creator: `POST /api/actions`, guard `?record=true`, x402
+  purchases, capability invoke/test, workflow execute, work orders, and
+  registered-agent invocations. NULL on legacy/system rows.
+- **Self-approval is rejected.** The approval routes refuse an approval
+  whose principal equals the action's `created_by`
+  (`403 SELF_APPROVAL_FORBIDDEN`); bulk resolution excludes such rows inside
+  the same atomic UPDATE (reported as failed, never resolved). An explicitly
+  minted admin agent key can no longer approve its own submissions.
+- **The `operator` root principal is exempt, and that boundary is now
+  documented as the trust model** (`docs/SECURITY.md`): in single-admin
+  self-host the operator key legitimately submits and approves; an agent
+  holding root is outside what enforcement can protect. Give agents scoped
+  `member` keys.
+- **Grant-binding limitation recorded honestly**: the operator-approval
+  grant still binds retries by agent + goal string + action type (15-minute
+  single-use window), not by action-content hash; binding on `act_hash` is
+  the recorded follow-up once the SDKs stamp it on both sides.
+
 ## [4.61.1] — 2026-07-05
 
 Security hardening from a full governance-controls review (adversarial

@@ -298,6 +298,7 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "verified" boolean DEFAULT false,
   "approved_by" text,
   "approved_at" timestamp,
+  "created_by" text,
   "approval_grant_used_at" timestamp,
   "approval_expires_at" timestamp with time zone,
   "outcome_status" text NOT NULL DEFAULT 'pending',

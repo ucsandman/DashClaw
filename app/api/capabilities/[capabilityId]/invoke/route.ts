@@ -4,7 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { getSql } from '../../../../lib/db';
-import { getOrgId } from '../../../../lib/org';
+import { getOrgId, getUserId } from '../../../../lib/org';
 import { apiErrorResponse } from '../../../../lib/apiErrors';
 import { evaluateGuard } from '../../../../lib/guard';
 import { fireApprovalSurfaces } from '../../../../lib/approvalSurfaces';
@@ -165,6 +165,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         signature: null,
         verified: identity.verified,
         timestamp_start,
+        // Separation of duties (drizzle/0055): trusted middleware principal.
+        createdBy: getUserId(request) || null,
       });
 
       // Notify operators (Telegram/Discord/webhook) like POST /api/actions does.
@@ -241,6 +243,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
         signature: null,
         verified: identity.verified,
         timestamp_start,
+        createdBy: getUserId(request) || null,
       });
 
       // Notify operators (Telegram/Discord/webhook) like POST /api/actions does.
@@ -268,6 +271,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       signature: null,
       verified: identity.verified,
       timestamp_start,
+      createdBy: getUserId(request) || null,
     });
 
     // 7. Invoke the capability

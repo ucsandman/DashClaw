@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic';
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
-import { getOrgId } from '../../lib/org';
+import { getOrgId, getUserId } from '../../lib/org';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { evaluateGuard } from '../../lib/guard';
 import { digestJson } from '../../lib/integrity/canonicalize';
@@ -125,6 +125,8 @@ export async function POST(request: Request) {
         verified: null,
         timestamp_start: new Date().toISOString(),
         riskScore: guard.risk_score,
+        // Separation of duties (drizzle/0055): trusted middleware principal.
+        createdBy: getUserId(request) || null,
       });
     }
 

@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
-import { getOrgId } from '../../../lib/org';
+import { getOrgId, getUserId } from '../../../lib/org';
 import { invokeRegisteredAgent } from '../../../lib/agent-registry';
 
 /**
@@ -23,6 +23,8 @@ export async function POST(request: Request) {
       callerAgentId: body.agent_id || null,
       body: body.payload || {},
       declaredGoal: body.declared_goal,
+      // Separation of duties (drizzle/0055): trusted middleware principal.
+      createdBy: getUserId(request) || null,
     } as Parameters<typeof invokeRegisteredAgent>[2] & Record<string, unknown>));
     return NextResponse.json(payload, { status });
   } catch (err) {

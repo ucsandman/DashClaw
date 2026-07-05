@@ -132,7 +132,7 @@ export async function hasAction(sql: SqlClient, orgId: string, actionId: string)
 
 export async function getActionStatus(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
-    SELECT status, agent_id, model, action_type, approval_expires_at, created_at
+    SELECT status, agent_id, model, action_type, approval_expires_at, created_at, created_by
     FROM action_records
     WHERE action_id = ${actionId} AND org_id = ${orgId}
     LIMIT 1
@@ -231,7 +231,9 @@ interface RecordBulkApprovalsData {
  * Bulk variant of recordApproval: one UPDATE over many ids. The same
  * status='pending_approval' WHERE guard applies per row, so racing
  * resolutions are simply not returned (callers count them as failed).
- * Returns the action_ids actually resolved.
+ * Separation of duties (drizzle/0055): rows the approver's own principal
+ * created are excluded the same way (reported as failed, never resolved);
+ * the 'operator' root principal is exempt. Returns the action_ids resolved.
  */
 export async function recordBulkApprovals(
   sql: SqlClient,
@@ -256,8 +258,9 @@ export async function recordBulkApprovals(
      WHERE org_id = $6
        AND action_id = ANY($7)
        AND status = 'pending_approval'
+       AND ($8 = 'operator' OR created_by IS DISTINCT FROM $8)
      RETURNING action_id`,
-    [newStatus, errorMessage, approvedBy, decisionUpper === 'ALLOW', reasoningAppend, orgId, actionIds],
+    [newStatus, errorMessage, approvedBy, decisionUpper === 'ALLOW', reasoningAppend, orgId, actionIds, userId],
   );
   return rows.map((r) => r.action_id as string);
 }
@@ -666,6 +669,10 @@ interface CreateActionPayload {
   verified: unknown;
   timestamp_start: string;
   riskScore?: number | null;
+  // Middleware-attributed principal (x-user-id) of the CREATING request —
+  // never from the client body. Approvals reject approver === created_by
+  // (separation of duties, drizzle/0055); NULL = system/legacy, unenforced.
+  createdBy?: string | null;
 }
 
 function createActionInsertValues(payload: CreateActionPayload) {
@@ -706,6 +713,7 @@ function createActionInsertValues(payload: CreateActionPayload) {
     guard_decision_id: orNull(data.guard_decision_id),
     harness_session_id: boundedIdText(data.harness_session_id),
     subagent_uuid: boundedIdText(data.subagent_uuid),
+    created_by: orNull(payload.createdBy),
   };
 }
 
@@ -742,7 +750,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
-      harness_session_id, subagent_uuid,
+      created_by, harness_session_id, subagent_uuid,
       close_source, approval_expires_at
     ) VALUES (
       ${orgId},
@@ -781,6 +789,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.idempotency_key},
       ${values.session_id},
       ${values.guard_decision_id},
+      ${values.created_by},
       ${values.harness_session_id},
       ${values.subagent_uuid},
       ${closeSource},

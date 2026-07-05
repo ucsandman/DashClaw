@@ -71,6 +71,9 @@ interface InvokeRegisteredAgentArgs {
   callerAgentId?: string | null;
   body?: unknown;
   declaredGoal?: string | null;
+  // Middleware-attributed principal of the invoking request (separation of
+  // duties, drizzle/0055) — passed by the route, never from the body.
+  createdBy?: string | null;
 }
 
 interface InvokeResult {
@@ -85,7 +88,7 @@ interface InvokeResult {
 export async function invokeRegisteredAgent(
   sql: SqlTag,
   orgId: string,
-  { entryId, capabilityId, callerAgentId = null, body = {}, declaredGoal }: InvokeRegisteredAgentArgs = {},
+  { entryId, capabilityId, callerAgentId = null, body = {}, declaredGoal, createdBy = null }: InvokeRegisteredAgentArgs = {},
 ): Promise<InvokeResult> {
   if (!entryId || !capabilityId) {
     return { status: 400, payload: { error: 'registered_agent_id and capability_id are required' } };
@@ -164,14 +167,14 @@ export async function invokeRegisteredAgent(
   }
 
   if (guardDecision.decision === 'require_approval' || capability.requires_approval) {
-    await createActionRecord(sql, { orgId, action_id: actionId, data: actionData, actionStatus: 'pending_approval', costEstimate: 0, signature: null, verified: false, timestamp_start: timestampStart });
+    await createActionRecord(sql, { orgId, action_id: actionId, data: actionData, actionStatus: 'pending_approval', costEstimate: 0, signature: null, verified: false, timestamp_start: timestampStart, createdBy });
     await recordInvocation(sql, orgId, { registeredAgentId: entryId, capabilityId, actionId, callerAgentId });
     return { status: 202, payload: { success: false, error: 'pending_approval', action_id: actionId } };
   }
 
   await createActionRecord(sql, {
     orgId, action_id: actionId, data: actionData, actionStatus: 'running',
-    costEstimate: capability.pricing?.estimated_cost_usd || 0, signature: null, verified: false, timestamp_start: timestampStart,
+    costEstimate: capability.pricing?.estimated_cost_usd || 0, signature: null, verified: false, timestamp_start: timestampStart, createdBy,
   });
 
   const result: any = await executeCapabilityInvocation({ endpoint, authHeaders, schema, body });

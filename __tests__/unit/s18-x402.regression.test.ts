@@ -28,7 +28,7 @@ const m = vi.hoisted(() => ({
   resolveAgentIdentity: vi.fn(),
 }));
 vi.mock('@/lib/db.js', () => ({ getSql: () => m.sql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1' }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: () => 'org_1', getUserId: () => 'key_test1' }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: m.evaluateGuard, verifyX402BudgetAfterInsert: vi.fn(async () => null) }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: m.createActionRecord,

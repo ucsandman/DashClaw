@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import crypto from 'node:crypto';
 import { NextResponse, after } from 'next/server';
-import { getOrgId } from '../../lib/org';
+import { getOrgId, getUserId } from '../../lib/org';
 import { validateGuardInput } from '../../lib/validate';
 import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
 import { getSql } from '../../lib/db';
@@ -45,6 +45,7 @@ async function recordRunningAction(
   orgId: string,
   data: GuardData,
   result: GuardResult,
+  createdBy: string | null,
 ): Promise<{ recorded: boolean; action_id?: string; reason?: string }> {
   // Mirrors the two-call flow: the hook never records a blocked action
   // (the guard_decisions audit row already captures the block).
@@ -92,6 +93,8 @@ async function recordRunningAction(
     verified: data.verification_status === 'verified',
     timestamp_start: new Date().toISOString(),
     riskScore: result.risk_score ?? null,
+    // Separation of duties (drizzle/0055): trusted middleware principal.
+    createdBy,
   });
 
   // Same post-response side effects as POST /api/actions (event for Mission
@@ -362,7 +365,7 @@ export async function POST(request: Request) {
           try {
             // recordRunningAction short-circuits on the existing action row;
             // when the prior record attempt failed it heals by creating one.
-            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) });
+            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, getUserId(request) || null);
             replay.recorded = rec.recorded;
             if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
             else if (rec.reason) replay.recorded_error = rec.reason;
@@ -406,7 +409,7 @@ export async function POST(request: Request) {
     if (recordParam) {
       const mutable = result as Record<string, unknown>;
       try {
-        const rec = await recordRunningAction(sql, orgId, data, result);
+        const rec = await recordRunningAction(sql, orgId, data, result, getUserId(request) || null);
         mutable.recorded = rec.recorded;
         if (rec.recorded && rec.action_id) {
           mutable.action_id = rec.action_id;

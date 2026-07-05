@@ -24,7 +24,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: mocks.getSql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: mocks.getOrgId }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: mocks.getOrgId, getUserId: () => 'key_test1' }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: mocks.evaluateGuard }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({ createActionRecord: mocks.createActionRecord }));
 vi.mock('@/lib/repositories/artifacts.repository.js', () => ({

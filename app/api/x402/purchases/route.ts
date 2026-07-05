@@ -4,7 +4,7 @@ export const revalidate = 0;
 import crypto from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
-import { getOrgId } from '../../../lib/org';
+import { getOrgId, getUserId } from '../../../lib/org';
 import { evaluateGuard, verifyX402BudgetAfterInsert } from '../../../lib/guard';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { validateX402Purchase } from '../../../lib/validate.js';
@@ -245,6 +245,8 @@ export async function POST(request: Request) {
       verified: identity.verified,
       timestamp_start,
       riskScore: authoritativeRisk,
+      // Separation of duties (drizzle/0055): trusted middleware principal.
+      createdBy: getUserId(request) || null,
     });
     createdActionId = action_id;
 

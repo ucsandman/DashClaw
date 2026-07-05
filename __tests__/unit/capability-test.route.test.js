@@ -20,7 +20,7 @@ const {
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId, getUserId: () => 'key_test1' }));
 vi.mock('@/lib/capability-runtime.js', () => ({
   prepareCapabilityInvocation: mockPrepareCapabilityInvocation,
   executeCapabilityInvocation: mockExecuteCapabilityInvocation,

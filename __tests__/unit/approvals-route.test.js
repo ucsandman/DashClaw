@@ -110,6 +110,55 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(mockRecordApproval).not.toHaveBeenCalled();
   });
 
+  it('rejects self-approval: the creating principal cannot approve its own action', async () => {
+    // Separation of duties (drizzle/0055): the same credential that created
+    // the pending action POSTs its own approval — machine self-approval
+    // through the human gate. Rejected regardless of role.
+    mockGetUserId.mockReturnValueOnce('key_agent1');
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+  });
+
+  it("exempts the 'operator' root principal from the self-approval gate (single-admin self-host)", async () => {
+    mockGetUserId.mockReturnValueOnce('operator');
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'operator',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'running', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockRecordApproval).toHaveBeenCalled();
+  });
+
+  it('allows approval by a different principal than the creator', async () => {
+    mockGetActionStatus.mockResolvedValueOnce({
+      status: 'pending_approval', agent_id: 'agent_1', created_by: 'key_agent1',
+      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
+    });
+    const updatedAction = { action_id: 'act_123', status: 'running', agent_id: 'agent_1' };
+    mockRecordApproval.mockResolvedValueOnce(updatedAction);
+    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
+
+    // Approver is user_1 (default mock), creator is key_agent1 — distinct.
+    const res = await POST(req({ decision: 'allow' }), { params });
+
+    expect(res.status).toBe(200);
+  });
+
   it('rejects invalid decision with 400', async () => {
     const res = await POST(req({ decision: 'maybe' }), { params });
     const data = await res.json();

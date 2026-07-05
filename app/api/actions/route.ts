@@ -340,6 +340,9 @@ export async function POST(request: Request) {
       verified,
       timestamp_start,
       riskScore: authoritativeRisk,
+      // Separation of duties (drizzle/0055): trusted middleware principal,
+      // never the body — approvals reject approver === created_by.
+      createdBy: getUserId(request) || null,
     });
 
     // Fire-and-forget meter increments and presence update (don't block response)

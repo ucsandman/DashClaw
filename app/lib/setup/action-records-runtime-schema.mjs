@@ -23,6 +23,9 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   { name: 'verified', sql: 'integer DEFAULT 0' },
   { name: 'approved_by', sql: 'text' },
   { name: 'approved_at', sql: 'timestamp' },
+  // Separation of duties (drizzle/0055): creating principal; approvals
+  // reject approver === created_by (operator exempt).
+  { name: 'created_by', sql: 'text' },
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
   { name: 'approval_grant_used_at', sql: 'timestamp' },

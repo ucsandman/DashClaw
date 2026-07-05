@@ -161,6 +161,11 @@ export const actionRecords = pgTable('action_records', {
   verified: boolean('verified').default(false),
   approvedBy: text('approved_by'),
   approvedAt: timestamp('approved_at'),
+  // Separation of duties (drizzle/0055): the middleware-attributed principal
+  // that created the row (key_<uuid> / operator / trial:<org> / session user).
+  // Approvals reject approver === created_by (operator exempt — root
+  // credential; single-admin self-host). NULL on legacy/system rows.
+  createdBy: text('created_by'),
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
   approvalGrantUsedAt: timestamp('approval_grant_used_at'),

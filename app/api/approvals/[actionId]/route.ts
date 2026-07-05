@@ -98,6 +98,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       return NextResponse.json({ error: 'Action is not pending approval' }, { status: 400 });
     }
 
+    // SECURITY: separation of duties (drizzle/0055) — the principal that
+    // created the action may not approve it, or the human gate is a machine
+    // approving itself. 'operator' is exempt: in single-admin self-host the
+    // root credential legitimately does both, and if an agent holds root the
+    // gate was already forfeit. NULL created_by (legacy/system rows) is
+    // unenforceable and stays approvable.
+    if (userId !== 'operator' && action.created_by && action.created_by === userId) {
+      return NextResponse.json(
+        {
+          error: 'The credential that created this action cannot approve it. Approve from the dashboard, or use a different admin credential.',
+          code: 'SELF_APPROVAL_FORBIDDEN',
+        },
+        { status: 403 }
+      );
+    }
+
     // SECURITY: redact likely secrets before storing human reasoning.
     const dlpFindings: Array<{ severity?: string; category?: string }> = [];
     const safeReasoning = reasoning ? redactAny(reasoning, dlpFindings) : reasoning;
