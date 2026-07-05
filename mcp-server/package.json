@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/mcp-server",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "mcpName": "io.github.ucsandman/dashclaw",
   "description": "MCP server for DashClaw governance and governed execution — guard, record, invoke, discover capabilities, and run provider operations (Vercel, Neon, Stripe, GitHub, and more) through the governance loop.",
   "type": "module",

@@ -169,6 +169,47 @@ describe('guard risk breakdown', () => {
   });
 });
 
+describe('guard risk breakdown — evidence-derived sibling', () => {
+  beforeEach(() => __resetGuardCaches());
+
+  it('folds evidence into effective (only raises) and attributes it as a sibling', async () => {
+    const result = await evaluateGuard('org_ev_b1', {
+      action_type: 'test',
+      agent_id: 'a1',
+      act: { kind: 'sql', statement: 'DELETE FROM users' },
+    }, stubSql());
+    const b = result.risk_breakdown;
+    // evidence: DELETE base 60 + whereless 20 + declared/derived mismatch 10 = 90
+    expect(b.evidence_derived).toMatchObject({ derived_action_type: 'security', total: 90, mismatch: true });
+    expect(b.effective).toBe(90); // test base 15 folded up to evidence 90
+    expect(b.final).toBe(90);
+    expect(result.risk_score).toBe(90);
+    // The sibling is NOT part of the server heuristic sum.
+    expect(Math.max(0, Math.min(b.base.score + b.modifiers.reduce((s, m) => s + m.delta, 0), 100))).toBe(b.server_total);
+  });
+
+  it('evidence_derived is null when no act is attached', async () => {
+    const result = await evaluateGuard('org_ev_b2', {
+      action_type: 'deploy',
+      agent_id: 'a1',
+      declared_goal: 'ship it',
+    }, stubSql());
+    expect(result.risk_breakdown.evidence_derived).toBeNull();
+    sumBreakdown(result.risk_breakdown);
+  });
+
+  it('a benign act cannot lower a higher declared score', async () => {
+    const result = await evaluateGuard('org_ev_b3', {
+      action_type: 'security',
+      agent_id: 'a1',
+      act: { kind: 'http', request: { method: 'GET', url: 'http://localhost/health' } },
+    }, stubSql());
+    const b = result.risk_breakdown;
+    expect(b.evidence_derived.total).toBe(0); // GET 10 - localhost 10
+    expect(b.effective).toBe(80); // security base 80 preserved
+  });
+});
+
 describe('goal-pattern word boundaries (false-positive fixes)', () => {
   it("does not add goal modifiers for 'monkey', 'pushback', or 'formatting'", () => {
     const benign = computeRiskScore({

@@ -1108,7 +1108,60 @@ def _enrich_tool(tool_name, tool_input, tool_info):
     return _enrich_default(tool_name, tool_input, tool_info)
 
 
-def _build_guard_context(tool_name, tool_info, enrichment):
+_ACT_COMMAND_CAP = 8192
+_ACT_FILE_EXCERPT_CAP = 4096
+
+# Same pattern set as the SDKs' scrub_act (parity; the server re-redacts).
+_ACT_SCRUB_PATTERNS = [
+    (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
+    (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
+    (re.compile(r"ghp_[A-Za-z0-9]{20,}"), "[REDACTED]"),
+    (re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.IGNORECASE), "Bearer [REDACTED]"),
+]
+_ACT_SCRUB_KV = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNORECASE)
+
+
+def _scrub_act_text(text):
+    """Mask secret-looking substrings before the act leaves the machine."""
+    if not text:
+        return text
+    for pattern, replacement in _ACT_SCRUB_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return _ACT_SCRUB_KV.sub(lambda m: m.group(1) + "=[REDACTED]", text)
+
+
+def _build_act(tool_name, tool_input):
+    """Evidence-first guard: attach the actual act (shell command / file
+    write) so the server can classify it and fold the derived risk in,
+    independent of this hook's own (also client-side, and therefore
+    tamperable) classification. PowerShell rides the same shell path as Bash
+    (see _enrich_tool). See
+    docs/superpowers/specs/2026-07-05-evidence-first-guard.md."""
+    if tool_name in ("Bash", "PowerShell"):
+        command = str(tool_input.get("command") or "")
+        if not command:
+            return None
+        return {"kind": "shell", "command": _scrub_act_text(command[:_ACT_COMMAND_CAP])}
+    if tool_name in ("Write", "Edit", "MultiEdit"):
+        path = tool_input.get("file_path") or tool_input.get("path") or ""
+        if not path:
+            # act.file.path is required non-empty server-side; omit act rather
+            # than send a payload the server would 400 on (ACT_TOO_LARGE's
+            # sibling validation error), which would break the tool call.
+            return None
+        content = str(_outbound_content(tool_name, tool_input) or "")
+        return {
+            "kind": "file",
+            "file": {
+                "path": path,
+                "content_excerpt": _scrub_act_text(content[:_ACT_FILE_EXCERPT_CAP]),
+                "bytes": len(content.encode("utf-8", errors="ignore")),
+            },
+        }
+    return None
+
+
+def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
     """Assemble the guard context dict and forward the resolved target path."""
     context = {
         "action_type": enrichment["action_type"],
@@ -1133,6 +1186,9 @@ def _build_guard_context(tool_name, tool_info, enrichment):
     # protected_path guard policy can match it. Omitted when there is no path.
     if enrichment.get("target"):
         context["target"] = enrichment["target"]
+    act = _build_act(tool_name, tool_input)
+    if act:
+        context["act"] = act
     return context
 
 
@@ -1322,7 +1378,7 @@ def main():
     enrichment = _enrich_tool(tool_name, tool_input, tool_info)
 
     # Step 4: Build guard context
-    context = _build_guard_context(tool_name, tool_info, enrichment)
+    context = _build_guard_context(tool_name, tool_info, enrichment, tool_input)
     _attach_harness_session(context)
     _attach_autoscan_content(context, tool_name, tool_input)
     _attach_subagent_provenance(context, data, tool_name)

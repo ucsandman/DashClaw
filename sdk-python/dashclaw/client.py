@@ -1,4 +1,5 @@
 import json
+import re
 import time
 import urllib.parse
 import urllib.request
@@ -7,6 +8,68 @@ import base64
 import warnings
 from datetime import datetime, timezone
 from contextlib import contextmanager
+
+# ---------------------------------------------------------------------------
+# Evidence-first guard — client-side scrub. Applied to an `act` payload before
+# it rides guard()/create_action() to the server, so a captured Authorization
+# header or an embedded secret never leaves the machine even as evidence. The
+# server still re-redacts (defense in depth, not the only redaction layer).
+# Node parity: sdk/dashclaw.js scrubAct. See
+# docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
+# ---------------------------------------------------------------------------
+
+_SCRUB_HEADER_KEYS = {"authorization", "cookie", "x-api-key"}
+
+_SCRUB_TEXT_PATTERNS = [
+    (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
+    (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
+    (re.compile(r"ghp_[A-Za-z0-9]{20,}"), "[REDACTED]"),
+    (re.compile(r"Bearer\s+[A-Za-z0-9._-]+", re.IGNORECASE), "Bearer [REDACTED]"),
+]
+_SCRUB_KV_PATTERN = re.compile(r"(password|token|secret)\s*=\s*[^\s&\"']+", re.IGNORECASE)
+
+
+def _scrub_act_text(text):
+    """Mask secret-looking substrings in a command/body/content excerpt."""
+    if not isinstance(text, str) or not text:
+        return text
+    out = text
+    for pattern, replacement in _SCRUB_TEXT_PATTERNS:
+        out = pattern.sub(replacement, out)
+    return _SCRUB_KV_PATTERN.sub(lambda m: f"{m.group(1)}=[REDACTED]", out)
+
+
+def _scrub_act_headers(headers):
+    """Drop Authorization/Cookie/x-api-key entries from a headers map."""
+    if not isinstance(headers, dict):
+        return headers
+    return {k: v for k, v in headers.items() if k.lower() not in _SCRUB_HEADER_KEYS}
+
+
+def scrub_act(act):
+    """Pure helper: return a scrubbed deep copy of an `act` payload ({kind,
+    command, request, statement, file}) safe to send as guard/create_action
+    evidence. Strips secret-bearing headers and masks common token shapes in
+    text excerpts.
+    """
+    if not isinstance(act, dict):
+        return act
+    clone = json.loads(json.dumps(act))
+    if isinstance(clone.get("command"), str):
+        clone["command"] = _scrub_act_text(clone["command"])
+    if isinstance(clone.get("statement"), str):
+        clone["statement"] = _scrub_act_text(clone["statement"])
+    request = clone.get("request")
+    if isinstance(request, dict):
+        if isinstance(request.get("body_excerpt"), str):
+            request["body_excerpt"] = _scrub_act_text(request["body_excerpt"])
+        if isinstance(request.get("headers"), dict):
+            request["headers"] = _scrub_act_headers(request["headers"])
+    file_payload = clone.get("file")
+    if isinstance(file_payload, dict) and isinstance(file_payload.get("content_excerpt"), str):
+        file_payload["content_excerpt"] = _scrub_act_text(file_payload["content_excerpt"])
+    return clone
+
 
 class DashClawError(Exception):
     """Base error for DashClaw SDK."""
@@ -1261,6 +1324,55 @@ class DashClaw:
         if context.get("agent_name") is None and self.agent_name:
             payload["agent_name"] = self.agent_name
         return self._request("/api/guard", "POST", json=payload)
+
+    def run_governed(self, act, params, fn):
+        """Evidence-first guard: one call that runs the full governance loop
+        with `act` attached, so the server classifies it and folds the
+        derived risk in rather than trusting a self-declared action_type.
+        Node parity: sdk/dashclaw.js runGoverned. See
+        docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
+
+        guard(with act) -> create_action -> (if pending_approval and
+        params.get("wait") is not False) wait_for_approval -> fn() ->
+        one-shot outcome report (completed on success, failed on exception).
+
+        ``act``: {"kind": "shell"|"http"|"sql"|"file", ...} — see the wire
+        contract. Scrubbed client-side before send.
+        ``params``: context/action fields (action_type, declared_goal,
+        risk_score, ...). ``wait`` (default True) controls whether to block
+        on a pending approval; pass ``wait=False`` to skip
+        wait_for_approval and poll separately instead.
+        ``fn``: zero-arg callable — the real work to run once guard/approval
+        clears.
+
+        Raises GuardBlockedError when guard or create_action blocks the
+        action, ApprovalDeniedError when an operator denies the pending
+        approval.
+        """
+        context = dict(params or {})
+        wait = context.pop("wait", None)
+        scrubbed_act = scrub_act(act)
+
+        decision = self.guard({**context, "act": scrubbed_act})
+        if decision.get("decision") == "block":
+            raise GuardBlockedError(decision)
+
+        action_type = context.get("action_type")
+        declared_goal = context.get("declared_goal")
+        extra = {k: v for k, v in context.items() if k not in ("action_type", "declared_goal")}
+        result = self.create_action(action_type, declared_goal, act=scrubbed_act, **extra)
+        action_id = result.get("action_id")
+        action = result.get("action") or {}
+        if action.get("status") == "pending_approval" and wait is not False:
+            self.wait_for_approval(action_id)
+
+        try:
+            value = fn()
+            self.report_action_outcome(action_id, "completed")
+            return value
+        except Exception as e:
+            self.report_action_outcome(action_id, "failed", error_message=str(e))
+            raise
 
     def get_guard_decisions(self, decision=None, limit=20, offset=0, agent_id=None):
         params = {

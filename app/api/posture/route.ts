@@ -25,7 +25,7 @@ export async function GET(request: Request) {
       computePosturePayload(sql, orgId),
       listPostureSnapshots(sql, orgId, 30),
     ]);
-    const { score, unitCount, coveredUnits } = payload;
+    const { score, unitCount, coveredUnits, enforcementEvidenceMix } = payload;
 
     // Operator attribution (who quieted a finding, and why) is for humans on
     // the review surface — middleware sets x-user-id only on session auth.
@@ -50,6 +50,9 @@ export async function GET(request: Request) {
       status: score.status,
       cappedBy: score.cappedBy,
       dimensions: score.dimensions,
+      // evidence-first guard: enforcement dimension's evidence/declared
+      // decision mix, for the /posture detail. Null when no sample carries it.
+      enforcementEvidenceMix,
       findings,
       summary: {
         totalUnits: unitCount,

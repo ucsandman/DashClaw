@@ -22,6 +22,7 @@ type FindingStatus = 'open' | 'drafted' | 'resolved' | 'snoozed' | 'accepted_ris
 type Severity = 'critical' | 'high' | 'medium' | 'low';
 
 interface DimensionScore { dimension: Dimension; score: number; weight: number }
+interface EvidenceMix { evidence: number; declared: number }
 interface PostureFix { type: string; policyType?: string; rules?: unknown; deepLink?: string; actionIds?: string[]; proposalId?: string }
 interface Finding {
   key: string;
@@ -39,6 +40,9 @@ interface PostureResponse {
   status: 'healthy' | 'needs_attention' | 'at_risk';
   cappedBy: 'incident' | null;
   dimensions: DimensionScore[];
+  /** evidence-first guard: enforcement dimension detail. Null when no
+   *  sampled decision carries an intent_source yet. */
+  enforcementEvidenceMix: EvidenceMix | null;
   summary: { totalUnits: number; openFindings: number; pointsRecoverable: number };
   snapshots: { score: number; createdAt: string | null }[];
   snapshotTs: string | null;
@@ -165,7 +169,7 @@ function ScoreHero({ data }: { data: PostureResponse }) {
 // Dimension row
 // ─────────────────────────────────────────────────────────────────────────────
 
-function DimensionCard({ dim }: { dim: DimensionScore }) {
+function DimensionCard({ dim, evidenceMix }: { dim: DimensionScore; evidenceMix?: EvidenceMix | null }) {
   const needsAttention = dim.score < ATTENTION_THRESHOLD;
   return (
     <div
@@ -185,17 +189,22 @@ function DimensionCard({ dim }: { dim: DimensionScore }) {
           style={{ width: `${Math.max(0, Math.min(100, dim.score))}%` }}
         />
       </div>
+      {evidenceMix && (evidenceMix.evidence > 0 || evidenceMix.declared > 0) && (
+        <div className="mt-1.5 text-[10px] tabular-nums text-tertiary" title="Recent decisions graded from server-classified evidence vs. self-declared intent">
+          <span className="text-secondary">{evidenceMix.evidence}</span> evidence · <span className="text-secondary">{evidenceMix.declared}</span> declared
+        </div>
+      )}
     </div>
   );
 }
 
-function DimensionRow({ dimensions }: { dimensions: DimensionScore[] }) {
+function DimensionRow({ dimensions, enforcementEvidenceMix }: { dimensions: DimensionScore[]; enforcementEvidenceMix?: EvidenceMix | null }) {
   const byKey = new Map(dimensions.map((d) => [d.dimension, d]));
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
       {DIMENSION_ORDER.map((d) => {
         const dim = byKey.get(d) ?? { dimension: d, score: 100, weight: 0 };
-        return <DimensionCard key={d} dim={dim} />;
+        return <DimensionCard key={d} dim={dim} evidenceMix={d === 'enforcement' ? enforcementEvidenceMix : null} />;
       })}
     </div>
   );
@@ -552,7 +561,7 @@ export default function PosturePage() {
       ) : posture ? (
         <div className="space-y-6">
           <ScoreHero data={posture} />
-          <DimensionRow dimensions={posture.dimensions} />
+          <DimensionRow dimensions={posture.dimensions} enforcementEvidenceMix={posture.enforcementEvidenceMix} />
 
           <div className="rounded-xl border border-border bg-surface-secondary">
             <div className="flex items-center justify-between px-4 py-3">

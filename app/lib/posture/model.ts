@@ -40,15 +40,27 @@ export function unitWeight(u: GovernableUnit): number {
 
 const GRADE: Record<Decision, 0 | 0.5 | 1> = { allow: 0, warn: 0.5, require_approval: 1, block: 1 };
 
+// Evidence-first guard (docs/superpowers/specs/2026-07-05-evidence-first-guard.md
+// §6): on the enforcement dimension, coverage earned from a self-declared
+// action_type/risk (no `act` attached, server never re-derived it) counts for
+// half as much as coverage grounded in server-classified evidence — a
+// mechanical hook decision with act evidence counts as evidence too, since
+// the server classifies uniformly regardless of transport. `intentSource` is
+// optional so existing callers (and the pre-existing test suite) are
+// unaffected; omit it, or return null/'evidence', for full-strength grading.
 export function gradeCoverage(
   u: GovernableUnit,
   replay: (unitKey: string) => Decision,
   infraOk: (u: GovernableUnit) => boolean,
+  intentSource?: (u: GovernableUnit) => 'evidence' | 'declared' | null,
 ): CoverageResult {
   const decision = replay(u.key);
   const baseGrade = GRADE[decision];
   const ok = infraOk(u);
-  const grade = ok ? baseGrade : 0;
+  let grade = ok ? baseGrade : 0;
+  if (grade > 0 && u.dimension === 'enforcement' && intentSource?.(u) === 'declared') {
+    grade = grade * 0.5;
+  }
   return { grade, hasFiringPolicy: baseGrade > 0, infraOk: ok };
 }
 

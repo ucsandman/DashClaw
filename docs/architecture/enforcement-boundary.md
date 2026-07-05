@@ -30,7 +30,7 @@ product must say so.
 | Hermes Agent plugin | **Mechanical** | `pre_tool_call` lifecycle veto |
 | OpenClaw gateway plugin | **Mechanical** | `before_tool_call` hard veto, fail-closed by default; tools the gateway never proxies fall back to self-report (cooperative) |
 | `dashclaw_invoke` / `POST /api/capabilities/:id/invoke` | **Mechanical** | DashClaw is the executor: guard runs server-side, `block` → 403 and the call never happens, `require_approval` → execution withheld until an operator approves. Applies to capabilities registered as `http_api` |
-| SDK (`claw.guard()`) / direct API / bare MCP tools | Cooperative | Guard returns the decision; the calling code must honor it. The server records a blocked action and returns 403 on `record`, but cannot stop an out-of-band act |
+| SDK (`claw.guard()`) / direct API / bare MCP tools | Cooperative | Guard returns the decision; the calling code must honor it. The server records a blocked action and returns 403 on `record`, but cannot stop an out-of-band act. Since v4.63.0 these callers can attach the actual act (`act: {kind, …}`) so the server classifies from evidence instead of trusting the declaration — see "Evidence-graded intent" below |
 | Claude Desktop / consumer web chat (OAuth connector, `/api/mcp`) | Cooperative | The governance skill guides the model to call `dashclaw_guard` first; consumer chat exposes no tool-interception layer, so there is no mechanical backstop |
 | Org emergency halt | Decision-layer absolute | Every guard evaluation returns `block` within ~3s across instances; execution stops mechanically only on the mechanical rows above |
 
@@ -72,6 +72,31 @@ third-party pre-execution hook contract (e.g. Cowork hooks are verified to
 fire, or Desktop adds a tool-middleware API). Until then, proposals to "force
 Desktop through DashClaw" resolve to the two shipped paths: the cooperative
 connector + governance skill, or capability registration.
+
+## Evidence-graded intent (added v4.63.0, extends — does not supersede — the table)
+
+The table above is about the *execution* channel: can DashClaw stop the act.
+There is a second, orthogonal channel: the *intent* channel — is what guard
+evaluated true? Before v4.63.0 every cooperative caller self-declared
+`action_type`, `risk_score`, and `declared_goal`, so a prompt-injected model
+could author its own declaration. Evidence-first guard narrows this:
+
+- Callers may attach the actual act to `POST /api/guard` — the shell command,
+  HTTP request, SQL statement, or file write (`act: {kind, …}`, capped,
+  redacted before persistence). The server classifies it deterministically and
+  folds the derived risk in via `max()` — evidence can only raise a score,
+  never lower it (trust-model D1 preserved).
+- A declared/derived mismatch swaps the derived `action_type` in for policy
+  matching, adds a modifier, and is flagged on the decision.
+- Every decision records `intent_source: 'evidence' | 'declared'`; the
+  `require_evidence` policy type escalates declared-only calls; posture grades
+  the mix.
+
+**The honest threat model:** evidence grading defeats a lying *model* — the
+developer-controlled wrapper, not the LLM, authors the payload. It does not
+defeat a lying *developer or process*, which can fabricate the payload
+wholesale; only credential custody (the capability-registry row above) is
+mechanical against that adversary. Copy must not claim otherwise.
 
 ## Hardening defaults (graduated with this ADR, v3.6)
 

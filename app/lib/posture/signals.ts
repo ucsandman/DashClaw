@@ -246,7 +246,7 @@ async function buildReplayMap(
  *   yet read here; Task 8 will wire this).
  */
 export function buildAdjustments(
-  decisionRows: { id: unknown; risk_score: unknown; action_type: unknown; agent_id?: unknown; created_at: unknown }[],
+  decisionRows: { id: unknown; risk_score: unknown; action_type: unknown; agent_id?: unknown; created_at: unknown; context?: unknown }[],
 ): Adjustments {
   const incidents: Incident[] = decisionRows
     .filter((r) => {
@@ -274,6 +274,51 @@ export function buildAdjustments(
     approvalFollowThrough: 1, // deferred to Task 8
     coachOpenGapUnitKeys: [], // deferred to Task 8
   };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Step 3b — evidence-first guard: intent-source signal per unit
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Evidence/declared mix shown on the enforcement dimension detail (/posture). */
+export interface EvidenceMix { evidence: number; declared: number }
+
+function parseIntentSource(context: unknown): 'evidence' | 'declared' | null {
+  let ctx: Record<string, unknown> | null = null;
+  if (context && typeof context === 'object') ctx = context as Record<string, unknown>;
+  else if (typeof context === 'string') {
+    try { ctx = JSON.parse(context) as Record<string, unknown>; } catch { ctx = null; }
+  }
+  const v = ctx?.intent_source;
+  return v === 'evidence' || v === 'declared' ? v : null;
+}
+
+/**
+ * Build the per-unit intent-source lookup + the aggregate evidence/declared
+ * mix for the enforcement dimension, from the SAME decision rows already
+ * fetched for incidents (no new query — spec §6). This is necessarily a
+ * narrow sample (getRecentDecisions only returns high-risk `allow` decisions),
+ * so it undercounts total enforcement traffic; treat it as "is this unit's
+ * recent leak evidence-graded or self-declared", not a claim of full
+ * coverage. Rows lacking a persisted intent_source (pre-upgrade decisions, or
+ * a decision the classifier never touched) contribute no signal —
+ * gradeCoverage then grades at full strength (handle absence gracefully).
+ */
+export function buildIntentSourceSignal(
+  decisionRows: { action_type: unknown; context?: unknown }[],
+): { byUnitKey: Map<string, 'evidence' | 'declared'>; enforcementMix: EvidenceMix } {
+  const byUnitKey = new Map<string, 'evidence' | 'declared'>();
+  const enforcementMix: EvidenceMix = { evidence: 0, declared: 0 };
+  // Rows are ordered created_at DESC (getRecentDecisions), so the first row
+  // seen per action_type is the most recent — first-write-wins below.
+  for (const r of decisionRows) {
+    const src = parseIntentSource(r.context);
+    if (!src) continue;
+    if (src === 'evidence') enforcementMix.evidence += 1; else enforcementMix.declared += 1;
+    const unitKey = r.action_type ? `action_type:${String(r.action_type)}` : null;
+    if (unitKey && !byUnitKey.has(unitKey)) byUnitKey.set(unitKey, src);
+  }
+  return { byUnitKey, enforcementMix };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -351,6 +396,10 @@ export interface PosturePayload {
   unitCount: number;
   /** Units whose coverage grade is 1 (fully governed). Always 0..unitCount. */
   coveredUnits: number;
+  /** evidence-first guard: enforcement dimension's evidence/declared
+   *  mix from the recent-decision sample, for the /posture detail. Null when
+   *  no sampled decision carries an intent_source yet. */
+  enforcementEvidenceMix: EvidenceMix | null;
 }
 
 /**
@@ -405,10 +454,15 @@ export async function computePosturePayload(
   // 4. Build adjustments.
   const adjustments = buildAdjustments(decisionRows);
 
+  // 4b. Evidence-first guard: intent-source signal per unit,
+  // derived from the same decision rows (no new query).
+  const { byUnitKey: intentSourceByUnitKey, enforcementMix } = buildIntentSourceSignal(decisionRows);
+  const intentSource = (u: GovernableUnit): 'evidence' | 'declared' | null => intentSourceByUnitKey.get(u.key) ?? null;
+
   // 5. Grade coverage for each unit.
   const coverageByKey: Record<string, number> = {};
   for (const unit of units) {
-    const { grade } = gradeCoverage(unit, replay, infraOk);
+    const { grade } = gradeCoverage(unit, replay, infraOk, intentSource);
     coverageByKey[unit.key] = grade;
   }
 
@@ -440,5 +494,7 @@ export async function computePosturePayload(
   // units, and this number can never leave 0..unitCount.
   const coveredUnits = units.filter((u) => (coverageByKey[u.key] ?? 0) >= 1).length;
 
-  return { score, findings, unitCount: units.length, coveredUnits };
+  const enforcementEvidenceMix = enforcementMix.evidence + enforcementMix.declared > 0 ? enforcementMix : null;
+
+  return { score, findings, unitCount: units.length, coveredUnits, enforcementEvidenceMix };
 }

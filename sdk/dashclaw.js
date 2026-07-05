@@ -80,6 +80,62 @@ async function readBlockedStreamDecision(res) {
   return body.decision || { reason: 'SSE stream blocked by policy' };
 }
 
+// ---------------------------------------------------------------------------
+// Evidence-first guard — client-side scrub. Applied to an `act` payload
+// before it rides guard()/createAction() to the server, so a captured
+// Authorization header or an embedded secret never leaves the machine even
+// as evidence. The server still re-redacts (this is defense in depth, not
+// the only redaction layer). See
+// docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
+// ---------------------------------------------------------------------------
+
+const SCRUB_HEADER_KEYS = new Set(['authorization', 'cookie', 'x-api-key']);
+
+/** Mask secret-looking substrings in a command/body/content excerpt. */
+function scrubActText(text) {
+  if (typeof text !== 'string' || !text) return text;
+  return text
+    .replace(/oc_live_[A-Za-z0-9_-]+/g, '[REDACTED]')
+    .replace(/sk-[A-Za-z0-9_-]{10,}/g, '[REDACTED]')
+    .replace(/ghp_[A-Za-z0-9]{20,}/g, '[REDACTED]')
+    .replace(/Bearer\s+[A-Za-z0-9._-]+/gi, 'Bearer [REDACTED]')
+    .replace(/(password|token|secret)\s*=\s*[^\s&"']+/gi, (_m, key) => `${key}=[REDACTED]`);
+}
+
+/** Drop Authorization/Cookie/x-api-key entries from a headers map. */
+function scrubActHeaders(headers) {
+  if (!headers || typeof headers !== 'object') return headers;
+  const out = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (SCRUB_HEADER_KEYS.has(key.toLowerCase())) continue;
+    out[key] = value;
+  }
+  return out;
+}
+
+/**
+ * Pure helper: return a scrubbed deep copy of an `act` payload ({ kind,
+ * command, request, statement, file }) safe to send as guard/createAction
+ * evidence. Strips secret-bearing headers and masks common token shapes in
+ * text excerpts. Exported for unit testing.
+ */
+function scrubAct(act) {
+  if (!act || typeof act !== 'object') return act;
+  const clone = JSON.parse(JSON.stringify(act));
+  if (typeof clone.command === 'string') clone.command = scrubActText(clone.command);
+  if (typeof clone.statement === 'string') clone.statement = scrubActText(clone.statement);
+  if (clone.request && typeof clone.request === 'object') {
+    if (typeof clone.request.body_excerpt === 'string') {
+      clone.request.body_excerpt = scrubActText(clone.request.body_excerpt);
+    }
+    if (clone.request.headers) clone.request.headers = scrubActHeaders(clone.request.headers);
+  }
+  if (clone.file && typeof clone.file === 'object' && typeof clone.file.content_excerpt === 'string') {
+    clone.file.content_excerpt = scrubActText(clone.file.content_excerpt);
+  }
+  return clone;
+}
+
 /**
  * Dispatch the accumulated SSE event (if any) and reset the parser state.
  * Returns the parsed frame, or null for empty/unparseable events.
@@ -368,6 +424,81 @@ class DashClaw {
       });
     }
     return this._post('/api/actions', payload);
+  }
+
+  // ---------------------------------------------------------------------------
+  // Evidence-first guard — attach the actual act (shell/http/sql/file) so the
+  // server classifies it and folds the derived risk in, rather than trusting
+  // a self-declared action_type. See
+  // docs/superpowers/specs/2026-07-05-evidence-first-guard.md. `act` rides
+  // through guard()'s existing context spread — its shape is unaffected.
+  // ---------------------------------------------------------------------------
+
+  /**
+   * One call that runs the full governance loop with evidence attached:
+   * guard (with act) → createAction → (if pending_approval and
+   * params.wait !== false) waitForApproval → fn() → one-shot outcome report.
+   *
+   * @param {Object} act - { kind: 'shell'|'http'|'sql'|'file', ... } — see the
+   *   wire contract in the spec above. Scrubbed client-side before send.
+   * @param {Object} [params] - context/action fields (action_type,
+   *   declared_goal, risk_score, ...). `wait` (default true) controls whether
+   *   to block on a pending approval; pass `wait: false` to skip
+   *   waitForApproval and poll separately instead.
+   * @param {Function} fn - the real work to run once guard/approval clears.
+   * @returns {Promise<*>} fn()'s return value.
+   * @throws {GuardBlockedError} when guard or createAction blocks the action.
+   * @throws {ApprovalDeniedError} when an operator denies the pending approval.
+   */
+  async runGoverned(act, params, fn) {
+    const { wait, ...context } = params || {};
+    const scrubbedAct = scrubAct(act);
+
+    const decision = await this.guard({ ...context, act: scrubbedAct });
+    if (decision.decision === 'block') throw new GuardBlockedError(decision);
+
+    const { action, action_id } = await this.createAction({ ...context, act: scrubbedAct });
+    if (action?.status === 'pending_approval' && wait !== false) {
+      await this.waitForApproval(action_id);
+    }
+
+    try {
+      const result = await fn();
+      await this.reportActionOutcome(action_id, { status: 'completed' });
+      return result;
+    } catch (err) {
+      await this.reportActionOutcome(action_id, { status: 'failed', error_message: err?.message || String(err) });
+      throw err;
+    }
+  }
+
+  /**
+   * runGoverned() wrapped around a real fetch(). Derives
+   * `act: {kind:'http', request:{method,url,body_excerpt}}` from the request
+   * so the server evidence-classifies it instead of trusting a declared
+   * action_type.
+   * @param {string} url
+   * @param {Object} [init] - fetch() options (method, headers, body, ...)
+   * @param {Object} [params] - same as runGoverned's params (action_type,
+   *   declared_goal, wait, ...); defaults action_type to 'api' (the type the server derives for http acts, so guardedFetch calls grade as evidence).
+   * @returns {Promise<Response>}
+   */
+  async guardedFetch(url, init = {}, params = {}) {
+    const method = (init.method || 'GET').toUpperCase();
+    const bodyExcerpt = typeof init.body === 'string' ? init.body.slice(0, 4096) : undefined;
+    const act = {
+      kind: 'http',
+      request: {
+        method,
+        url: String(url).slice(0, 2048),
+        ...(bodyExcerpt !== undefined ? { body_excerpt: bodyExcerpt } : {}),
+      },
+    };
+    return this.runGoverned(act, {
+      action_type: 'api',
+      declared_goal: `HTTP ${method} ${url}`,
+      ...params,
+    }, () => fetch(url, init));
   }
 
   /**
@@ -1983,4 +2114,4 @@ class DashClaw {
   }
 }
 
-export { DashClaw, ApprovalDeniedError, GuardBlockedError };
+export { DashClaw, ApprovalDeniedError, GuardBlockedError, scrubAct };

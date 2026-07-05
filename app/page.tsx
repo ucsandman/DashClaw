@@ -402,7 +402,9 @@ export default function LandingPage() {
                   SDK, MCP, and chat-based callers consult guard and honor the
                   decision cooperatively. Every call is still recorded, a block is
                   never downgraded in the ledger, and any gap between decision and
-                  behavior is visible evidence, not silence.
+                  behavior is visible evidence, not silence. SDK callers can attach
+                  the actual command or request, so the server classifies the risk
+                  from evidence instead of trusting the declaration.
                 </p>
               </div>
             </div>

@@ -436,6 +436,25 @@ async function evaluateX402SpendLimitPolicy({ rules, context, sql, orgId }: Poli
   return moreSevereResult(spendDecision, await x402BudgetDecision(rules, context, sql, orgId, spend));
 }
 
+// ── require_evidence evaluation ──
+// Demands that a matching call was graded from an attached act (evidence),
+// not from self-declared intent. Modeled on non_fabrication's fail-closed
+// template: when evidence is absent it RAISES the decision to `enforcement`
+// (raiseDecision never downgrades). intent_source is computed once in
+// evaluateGuard and threaded onto the context before local policies run.
+function evaluateRequireEvidencePolicy({ rules, context }: PolicyEvalArgs): PolicyResult | null {
+  const actionTypes = Array.isArray(rules.action_types) ? rules.action_types : [];
+  const matches = actionTypes.length === 0
+    || (context.action_type !== undefined && actionTypes.includes(context.action_type));
+  if (!matches) return null;
+  if (context.intent_source === 'evidence') return null;
+  const enforcement = rules.enforcement === 'block' || rules.enforcement === 'require_approval'
+    ? rules.enforcement
+    : 'warn';
+  const label = context.action_type ?? 'action';
+  return { action: enforcement, reason: `Evidence required for "${label}" but the call was graded from self-declared intent (no act attached)` };
+}
+
 // One evaluator per policy type. evaluatePolicy is a thin dispatcher over this map.
 const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   risk_threshold: ({ rules, context, effectiveRiskScore }) => {
@@ -535,6 +554,7 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     return null;
   },
   x402_spend_limit: evaluateX402SpendLimitPolicy,
+  require_evidence: evaluateRequireEvidencePolicy,
 };
 
 // Dispatch via a Map so a user-controlled policy_type cannot reach an inherited

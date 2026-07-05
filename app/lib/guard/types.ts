@@ -22,6 +22,11 @@ export interface GuardEvalContext {
   act_status?: string;
   jti?: string | null;
   act_hash?: string | null;
+  // Evidence-first: the caller-attached actual act (shell/http/sql/file) the
+  // server classifies (app/lib/guard/evidence.ts), and the grading source it
+  // resolved to. Both flow through the persisted decision context.
+  act?: unknown;
+  intent_source?: 'evidence' | 'declared';
   target?: string;
   write_paths?: unknown;
   provider?: string;
@@ -81,6 +86,10 @@ export interface PolicyRules {
   budget_window_days?: number;
   budget_scope?: string;
   on_failure?: string;
+  // require_evidence: escalation applied when a matching call was graded from
+  // self-declared intent (no act attached). action_types (above) scopes it;
+  // empty = all.
+  enforcement?: string;
 }
 
 export interface PolicyResult {

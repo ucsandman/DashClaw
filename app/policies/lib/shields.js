@@ -74,6 +74,14 @@ export const SHIELDS = [
     policyType: 'non_fabrication',
     defaultRules: { on_violation: 'require_approval', content_path: 'content', source_path: 'source_of_truth' },
   },
+  {
+    id: 'evidence_required',
+    name: 'Evidence Required',
+    description: 'Require approval when a call is graded from a self-declared intent instead of server-classified evidence',
+    icon: 'Fingerprint',
+    policyType: 'require_evidence',
+    defaultRules: { action_types: [], enforcement: 'require_approval' },
+  },
 ];
 
 /**

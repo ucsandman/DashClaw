@@ -25,6 +25,7 @@ const FORMS = {
   non_fabrication: { name: 'NF', type: 'non_fabrication', actionTypes: ['message'], onViolation: 'block', agentIds: [] },
   protected_path: { name: 'PP', type: 'protected_path', protectedPaths: ['**/auth/**', '**/secrets/**'], action: 'require_approval', agentIds: [] },
   agent_allowlist: { name: 'Envelope', type: 'agent_allowlist', allowedActionTypes: ['read', 'search'], action: 'warn', agentIds: [] },
+  require_evidence: { name: 'Evidence', type: 'require_evidence', actionTypes: ['deploy'], enforcement: 'require_approval', agentIds: [] },
   x402_spend_limit: { name: 'Spend', type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['exa'], blockedProviders: [], agentIds: [] },
 };
 

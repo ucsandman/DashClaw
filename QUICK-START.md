@@ -111,7 +111,9 @@ Once connected, your agent appears in the [Agent Registry](http://localhost:3000
 ### The Governance Loop (with optional human review):
 1. **Guard** &rarr; `claw.guard()` checks intent against policy. Your code
    aborts on `block` — on the SDK path the decision is advisory and this
-   `if` is the enforcement, so don't skip it.
+   `if` is the enforcement, so don't skip it. Attach the actual act
+   (`act: { kind: 'shell', command }` — or `http` / `sql` / `file`) and the
+   server classifies from evidence instead of trusting your declaration.
 2. **Record** &rarr; `claw.createAction()` logs the start of the action. The
    server may gate it here with `action.status === 'pending_approval'`.
 3. **Wait (optional)** &rarr; If the action is `pending_approval`, call

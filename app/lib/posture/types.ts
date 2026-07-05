@@ -14,7 +14,10 @@ export interface GovernableUnit {
   dimension: Dimension;        // primary dimension this unit maps to
 }
 
-export interface CoverageResult { grade: 0 | 0.5 | 1; hasFiringPolicy: boolean; infraOk: boolean; }
+// Widened from the 0|0.5|1 literal union (evidence-first guard): a
+// declared-only 'warn' grade (0.5) halves to 0.25, which no longer fits the
+// literal union. Consumers already treat this as a plain 0..1 number.
+export interface CoverageResult { grade: number; hasFiringPolicy: boolean; infraOk: boolean; }
 
 export interface Incident { unitKey: string; actionId: string; riskLevel: RiskLevel; ts: string; }
 

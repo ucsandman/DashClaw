@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.63.0: evidence-first guard — the self-declared-intent hole, narrowed
+
+Wes asked the launch-prep question that mattered most: "how do we fix the SDK
+so that self-declared intent isn't a gaping hole?" — and then said build it.
+This release is the answer, shipped the same day: callers can attach the
+actual act (shell command, HTTP request, SQL statement, file write) and the
+server classifies it deterministically instead of trusting the declaration.
+Spec: `docs/superpowers/specs/2026-07-05-evidence-first-guard.md`.
+
+The recon corrected my own assumption from the design discussion: I had
+claimed the classification machinery "already exists server-side" — it
+didn't. The semantic classifier lived client-side in the Python hook
+(`hooks/dashclaw_agent_intel/`), which meant even hook decisions were
+trust-the-client. The release ports an honest subset to the server
+(`app/lib/guard/evidence.ts`) and the hook now sends the raw act too, so a
+tampered hook environment no longer controls what guard evaluates.
+
+Decisions worth recording:
+
+- **Evidence only raises.** The derived risk folds in via `max()` (trust-model
+  D1 preserved): a benign-looking payload can never launder a high declared
+  risk.
+- **The grading rule was hardened during review.** The security pass flagged
+  that any classifiable act flipped `intent_source` to `evidence` — declared
+  `deploy` plus `echo hi` would have satisfied an Evidence Required policy.
+  Now evidence credit requires the derived type to be the type the evaluation
+  ran under. The pre-hardening behavior was in my own first implementation;
+  the adversarial pass caught it, which is the reason the charter mandates one.
+- **A cross-agent vocabulary bug died in integration:** `guardedFetch`
+  defaulted `action_type` to `'api_call'` while the classifier derives `'api'`
+  — under the hardened rule the SDK's own helper would never have earned
+  evidence grading. Caught by cross-checking the two agents' outputs, fixed
+  before ship.
+- **Threat-model honesty is in every doc:** evidence mode defeats a lying
+  model, not a lying developer — only capability-registry credential custody
+  is mechanical against that adversary. The enforcement-boundary ADR gained an
+  "Evidence-graded intent" section saying exactly this.
+
+Verification: full suite 5,326 green, build/typecheck/lint/counts/route-sql
+clean, policy-smoke gained an evidence section, and all four human surfaces
+were proven rendered against the built app — including a live evidence-graded
+decision created through the real API and inspected on its Replay page
+(`INTENT SOURCE: Evidence [shell] vercel deploy --prod`). The credential-gated
+tail (npm/PyPI SDK publishes at 4.63.0, `@dashclaw/mcp-server` 2.1.0) is
+prepared for Wes as a single command: `npm run release:sdks`.
+
 ## 2026-07-05 — Show HN pre-launch honesty pass (0ded490a)
 
 Prepared the public surface for a Show HN launch by auditing it the way a

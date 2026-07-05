@@ -92,6 +92,20 @@ export function computeEffectiveRisk(context: GuardEvalContext): { agentRiskScor
   return { agentRiskScore, effectiveRiskScore };
 }
 
+/**
+ * Evidence-derived risk sibling: the score the server classified from the
+ * caller-attached act. A SIBLING term of the breakdown — it folds into
+ * `effective` via max (evidence only RAISES) but never enters any hashed or
+ * signed vector (score-provenance invariant).
+ */
+export interface EvidenceDerivedBreakdown {
+  derived_action_type: string;
+  base_risk: number;
+  modifiers: { reason: string; delta: number }[];
+  total: number;
+  mismatch: boolean;
+}
+
 /** Full derivation ledger for one guard evaluation's risk score. */
 export interface RiskBreakdown {
   /** Server heuristic: action-type base score. */
@@ -124,6 +138,8 @@ export interface RiskBreakdown {
   } | null;
   /** The persisted guard_decisions.risk_score (effective + predictive, clamped). */
   final: number;
+  /** Evidence-derived sibling term (null when no valid act was classified). */
+  evidence_derived?: EvidenceDerivedBreakdown | null;
 }
 
 // Coerce a risk_templates row into computeAutoRisk's template shape (rules is
@@ -150,6 +166,7 @@ export async function computeRiskAssessment(
   sql: GuardSql,
   orgId: string,
   context: GuardEvalContext,
+  evidenceDerived?: EvidenceDerivedBreakdown | null,
 ): Promise<{ agentRiskScore: number | null; effectiveRiskScore: number; breakdownBase: Omit<RiskBreakdown, 'predictive' | 'final'> }> {
   const terms = serverRiskTerms(context);
   const { agentRiskScore } = computeEffectiveRisk(context);
@@ -171,10 +188,13 @@ export async function computeRiskAssessment(
   }
 
   const clientClamped = agentRiskScore != null ? Math.max(0, Math.min(agentRiskScore, 100)) : null;
+  // Evidence folds in like templates and client-reported: max only, so it can
+  // only RAISE the effective score (trust-model D1).
   const effectiveRiskScore = Math.max(
     terms.total,
     template?.score ?? 0,
     clientClamped ?? 0,
+    evidenceDerived?.total ?? 0,
   );
 
   return {
@@ -187,6 +207,7 @@ export async function computeRiskAssessment(
       template,
       client_reported: clientClamped,
       effective: effectiveRiskScore,
+      evidence_derived: evidenceDerived ?? null,
     },
   };
 }

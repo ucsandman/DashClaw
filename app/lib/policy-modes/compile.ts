@@ -335,6 +335,8 @@ export function nominalDecision(policy: CompiledModePolicy): DecisionType {
       return (r.action as DecisionType) ?? 'warn';
     case 'protected_path':
       return (r.action as DecisionType) ?? 'require_approval';
+    case 'require_evidence':
+      return (r.enforcement as DecisionType) ?? 'require_approval';
     default:
       return (r.action as DecisionType) ?? 'block';
   }

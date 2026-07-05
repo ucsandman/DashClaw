@@ -62,6 +62,49 @@ describe('coverage grading', () => {
   });
 });
 
+// Evidence-first guard (v4.63.0): on the enforcement dimension, a declared-only
+// decision earns half the grade of an evidence-graded one; the 4th param is
+// optional so every pre-existing call above (3 args) is unaffected.
+describe('coverage grading — evidence-first guard (spec §6)', () => {
+  const enforcementUnit = unit({ dimension: 'enforcement' });
+  const spendUnit = unit({ dimension: 'spend' });
+
+  it('declared-only halves an enforcement-dimension grade', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'block', () => true, () => 'declared');
+    expect(r.grade).toBe(0.5);
+  });
+
+  it('evidence-graded keeps full strength', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'block', () => true, () => 'evidence');
+    expect(r.grade).toBe(1);
+  });
+
+  it('no signal (null) — e.g. no recent decision carries intent_source — keeps full strength', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'block', () => true, () => null);
+    expect(r.grade).toBe(1);
+  });
+
+  it('omitting the callback entirely preserves pre-existing (3-arg) behavior', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'block', () => true);
+    expect(r.grade).toBe(1);
+  });
+
+  it('a declared-only warn grade (0.5) halves to 0.25 — not clamped back to the old literal union', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'warn', () => true, () => 'declared');
+    expect(r.grade).toBe(0.25);
+  });
+
+  it('the discount only applies to the enforcement dimension', () => {
+    const r = gradeCoverage(spendUnit, () => 'block', () => true, () => 'declared');
+    expect(r.grade).toBe(1);
+  });
+
+  it('a zero grade (no firing policy) stays zero regardless of intent source', () => {
+    const r = gradeCoverage(enforcementUnit, () => 'allow', () => true, () => 'declared');
+    expect(r.grade).toBe(0);
+  });
+});
+
 describe('score aggregation', () => {
   const units: GovernableUnit[] = [
     unit({ key: 'a', riskLevel: 'critical', dimension: 'enforcement' }),

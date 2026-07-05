@@ -443,6 +443,139 @@ class TestPretoolIntegration(unittest.TestCase):
         self.assertEqual(body["tool"]["category"], "file_io")
 
     # -----------------------------------------------------------------------
+    # 9b. Evidence-first guard: `act` attached in _build_guard_context
+    # (docs/superpowers/specs/2026-07-05-evidence-first-guard.md)
+    # -----------------------------------------------------------------------
+
+    def test_bash_act_evidence_attached(self):
+        """Bash calls attach act: {kind: shell, command}."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Bash", "tool_input": {"command": "ls -la"}, "tool_use_id": "tu-act-001"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["act"], {"kind": "shell", "command": "ls -la"})
+
+    def test_powershell_act_evidence_attached(self):
+        """PowerShell rides the same shell act path as Bash."""
+        code, _, _ = _run_hook(
+            {"tool_name": "PowerShell", "tool_input": {"command": "Get-ChildItem"}, "tool_use_id": "tu-act-002"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["act"], {"kind": "shell", "command": "Get-ChildItem"})
+
+    def test_bash_act_command_capped_at_8192(self):
+        """A command longer than 8192 chars is truncated in the act payload."""
+        long_command = "echo " + ("a" * 9000)
+        code, _, _ = _run_hook(
+            {"tool_name": "Bash", "tool_input": {"command": long_command}, "tool_use_id": "tu-act-003"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(len(body["act"]["command"]), 8192)
+        self.assertEqual(body["act"]["command"], long_command[:8192])
+
+    def test_write_act_evidence_attached(self):
+        """Write calls attach act: {kind: file, file: {path, content_excerpt, bytes}}."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/tmp/output.txt", "content": "hello world"},
+                "tool_use_id": "tu-act-004",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["act"], {
+            "kind": "file",
+            "file": {"path": "/tmp/output.txt", "content_excerpt": "hello world", "bytes": 11},
+        })
+
+    def test_edit_act_uses_new_string(self):
+        """Edit calls attach act.file.content_excerpt from new_string."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Edit",
+                "tool_input": {"file_path": "/tmp/code.py", "old_string": "a", "new_string": "b = 2"},
+                "tool_use_id": "tu-act-005",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["act"]["kind"], "file")
+        self.assertEqual(body["act"]["file"]["content_excerpt"], "b = 2")
+        self.assertEqual(body["act"]["file"]["path"], "/tmp/code.py")
+
+    def test_multiedit_act_joins_edits(self):
+        """MultiEdit joins each edit's new_string, mirroring _outbound_content."""
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "MultiEdit",
+                "tool_input": {
+                    "file_path": "/tmp/multi.py",
+                    "edits": [{"old_string": "a", "new_string": "one"}, {"old_string": "b", "new_string": "two"}],
+                },
+                "tool_use_id": "tu-act-006",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(body["act"]["file"]["content_excerpt"], "one\ntwo")
+
+    def test_file_act_content_excerpt_capped_but_bytes_reflect_full_size(self):
+        """content_excerpt is capped at 4096 chars; bytes reflects the full content length."""
+        content = "x" * 5000
+        code, _, _ = _run_hook(
+            {
+                "tool_name": "Write",
+                "tool_input": {"file_path": "/tmp/big.txt", "content": content},
+                "tool_use_id": "tu-act-007",
+            },
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertEqual(len(body["act"]["file"]["content_excerpt"]), 4096)
+        self.assertEqual(body["act"]["file"]["bytes"], 5000)
+
+    def test_write_without_a_path_omits_act(self):
+        """A file tool call with no resolvable path must not send a malformed
+        act.file (server requires a non-empty path) — omit act instead."""
+        code, _, _ = _run_hook(
+            {"tool_name": "Write", "tool_input": {"content": "hello"}, "tool_use_id": "tu-act-009"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertNotIn("act", body)
+
+    def test_mcp_tool_has_no_act(self):
+        """Tools outside shell/file (e.g. mcp__) get no act — additive, not universal."""
+        code, _, _ = _run_hook(
+            {"tool_name": "mcp__agentcash__get_balance", "tool_input": {}, "tool_use_id": "tu-act-008"},
+            self._env(),
+        )
+        self.assertEqual(code, 0)
+
+        body = [r for r in self.log.get_all() if r["path"] == "/api/guard"][0]["body"]
+        self.assertNotIn("act", body)
+
+    # -----------------------------------------------------------------------
     # 10. System tools (EnterPlanMode) are ungoverned
     # -----------------------------------------------------------------------
 

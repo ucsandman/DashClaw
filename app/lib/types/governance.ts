@@ -33,6 +33,7 @@ export type GuardPolicyType =
   | 'permission_escalation'
   | 'green_contract'
   | 'branch_freshness'
+  | 'require_evidence'
   | 'x402_spend_limit';
 
 export type GreenLevel = 'targeted' | 'package' | 'workspace' | 'merge_ready';

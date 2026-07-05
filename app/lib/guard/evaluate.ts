@@ -18,7 +18,9 @@ import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, 
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, x402BudgetWindow } from './policy';
 import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings } from './caches';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
-import type { RiskBreakdown } from './risk';
+import type { RiskBreakdown, EvidenceDerivedBreakdown } from './risk';
+import { classifyAct } from './evidence';
+import type { ActInput } from './evidence';
 import { persistGuardDecision } from './persistence';
 
 // Evaluation deadline: the hook gives the whole guard call one attempt with a
@@ -468,6 +470,8 @@ interface GuardFinalizeInput {
   recovery: unknown;
   predictiveRisk: { total_adjustment?: number } | null;
   riskBreakdown: RiskBreakdown;
+  intentSource: 'evidence' | 'declared';
+  evidenceDerived: EvidenceDerivedBreakdown | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
 }
@@ -494,6 +498,9 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
     context: {
       ...(input.safeContextForLog as Record<string, unknown>),
       _risk_breakdown: input.riskBreakdown,
+      // Grading source (evidence|declared) — posture reads this to weight the
+      // enforcement dimension; the evidence sibling rides in _risk_breakdown.
+      intent_source: input.intentSource,
       ...(acc.shields.prompt_injection !== null
         ? { _shields: { prompt_injection: acc.shields.prompt_injection } }
         : {}),
@@ -548,6 +555,13 @@ function buildGuardResult(input: GuardFinalizeInput) {
     risk_score: input.adjustedRiskScore,
     agent_risk_score: input.agentRiskScore,
     risk_breakdown: input.riskBreakdown,
+    intent_source: input.intentSource,
+    ...(input.evidenceDerived
+      ? {
+          derived_action_type: input.evidenceDerived.derived_action_type,
+          ...(input.evidenceDerived.mismatch ? { evidence_mismatch: true } : {}),
+        }
+      : {}),
     verification_status: statuses.verificationStatus,
     agent_id: context.agent_id || null,
     agent_name: context.agent_name || null,
@@ -562,6 +576,40 @@ function buildGuardResult(input: GuardFinalizeInput) {
   };
 }
 
+// Evidence-first grading. Classifies the caller-attached act, derives the
+// evidence sibling term, resolves declared/derived mismatch (proceeds under the
+// derived action_type for policy matching), and enriches the context so
+// protected_path / act-binding policies see the real target. Mutates `context`
+// (action_type on mismatch, target/write_paths when absent); returns null when
+// there is no gradeable evidence — the zero-behavior-change path.
+function foldEvidenceIntoContext(context: GuardEvalContext): EvidenceDerivedBreakdown | null {
+  const evidence = classifyAct(context.act);
+  if (!evidence) return null;
+
+  const declaredType = typeof context.action_type === 'string' ? context.action_type : undefined;
+  const declaredBase = serverRiskTerms(context).base.score;
+  const modifiers = evidence.modifiers.map((m) => ({ reason: m.reason, delta: m.delta }));
+  let mismatch = false;
+  if (evidence.derived_action_type !== declaredType && evidence.base_risk > declaredBase) {
+    mismatch = true;
+    modifiers.push({ reason: `declared/derived mismatch (declared ${declaredType ?? 'none'} → derived ${evidence.derived_action_type})`, delta: 10 });
+    context.action_type = evidence.derived_action_type;
+  }
+  const total = Math.max(0, Math.min(evidence.base_risk + modifiers.reduce((s, m) => s + m.delta, 0), 100));
+
+  const act = context.act as ActInput | undefined;
+  if (act && act.kind === 'http' && !context.target && act.request && typeof act.request.url === 'string') {
+    context.target = act.request.url;
+  }
+  if (act && act.kind === 'file' && act.file && typeof act.file.path === 'string') {
+    const paths = Array.isArray(context.write_paths) ? (context.write_paths as unknown[]).slice() : [];
+    if (!paths.includes(act.file.path)) paths.push(act.file.path);
+    context.write_paths = paths;
+  }
+
+  return { derived_action_type: evidence.derived_action_type, base_risk: evidence.base_risk, modifiers, total, mismatch };
+}
+
 export async function evaluateGuard(orgId: string, context: GuardEvalContext, sql: GuardSql, options: GuardOptions = {}) {
   // SECURITY: orgId is the tenant boundary. Without this guard a caller bug
   // that loses orgId (null/undefined/'') would cause Postgres to evaluate
@@ -570,6 +618,20 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   if (!orgId || typeof orgId !== 'string') {
     throw new Error('evaluateGuard: orgId is required and must be a string');
   }
+
+  // Evidence-first: classify the caller-attached act and fold its derived risk
+  // in (evidence only RAISES). Pure/synchronous, so it runs before the deadline
+  // race. intent_source rides on the context so require_evidence policies and
+  // the persisted decision can read it.
+  const evidenceDerived = foldEvidenceIntoContext(context);
+  // 'evidence' only when the derived type IS the type this evaluation ran
+  // under (equal to declared, or swapped in on mismatch). A trivial unrelated
+  // act (declared deploy + `echo hi`) must not satisfy require_evidence.
+  const intentSource: 'evidence' | 'declared' =
+    evidenceDerived && evidenceDerived.derived_action_type === context.action_type
+      ? 'evidence'
+      : 'declared';
+  context.intent_source = intentSource;
 
   // Replay + action-binding pre-checks (decided at the audit boundary).
   const replayBlockReason = computeReplayBlockReason(context, orgId);
@@ -607,7 +669,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const syncTerms = serverRiskTerms(context);
   const { agentRiskScore: syncAgentRisk } = computeEffectiveRisk(context);
   let agentRiskScore: number | null = syncAgentRisk;
-  let adjustedRiskScore = syncTerms.total;
+  let adjustedRiskScore = Math.max(syncTerms.total, evidenceDerived?.total ?? 0);
   let predictiveRisk:
     | {
         total_adjustment?: number;
@@ -622,9 +684,10 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     server_total: syncTerms.total,
     template: null,
     client_reported: null,
-    effective: syncTerms.total,
+    effective: adjustedRiskScore,
     predictive: null,
-    final: syncTerms.total,
+    final: adjustedRiskScore,
+    evidence_derived: evidenceDerived,
   };
 
   // Policy evaluation is bounded by a deadline (DASHCLAW_GUARD_DEADLINE_MS,
@@ -637,7 +700,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const runEvaluation = async (): Promise<'completed'> => {
     const policies = await timed('policies', () => loadApplicablePolicies(sql, orgId, context.agent_id || null));
 
-    const riskAssessment = await timed('risk', () => computeRiskAssessment(sql, orgId, context));
+    const riskAssessment = await timed('risk', () => computeRiskAssessment(sql, orgId, context, evidenceDerived));
     agentRiskScore = riskAssessment.agentRiskScore;
     const serverEvidenceScore = Math.max(
       riskAssessment.breakdownBase.server_total,
@@ -805,7 +868,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext, recovery, predictiveRisk,
-    riskBreakdown, timings, degraded: degradedDetail,
+    riskBreakdown, intentSource, evidenceDerived, timings, degraded: degradedDetail,
   };
 
   await persistGuardDecision(sql, buildGuardDecisionRow(input));

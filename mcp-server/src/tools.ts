@@ -59,6 +59,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         write_paths: { type: 'array', items: { type: 'string' }, description: 'File paths the action will write or modify (protected-path policy matching)' },
         content: { type: 'string', description: 'Outbound content excerpt (file content, message body) so secret-scan and content policies can evaluate it' },
         tool_name: { type: 'string', description: 'Name of the tool that will perform the action (e.g., Write, Bash, send_email)' },
+        act: { type: 'object', description: 'Evidence-first guard: attach the actual act being evaluated so the server classifies it and folds the derived risk in, instead of trusting only the declared action_type/risk_score above. Shape: { kind: "shell"|"http"|"sql"|"file", command? (shell), request?: { method, url, body_excerpt? } (http), statement? (sql), file?: { path, content_excerpt?, bytes? } (file) }. Optional — omit when you have no concrete evidence to attach.' },
         approval_wait_seconds: { type: 'integer', description: 'How long you will poll dashclaw_wait_for_approval if the decision is require_approval (default 300; the approval expires after this window + a retry grace)' },
       },
       required: ['action_type', 'declared_goal', 'risk_score'],
@@ -688,6 +689,11 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         ...(Array.isArray(input.write_paths) && input.write_paths.length > 0 ? { write_paths: input.write_paths.slice(0, 100) } : {}),
         ...(typeof input.content === 'string' && input.content ? { content: input.content.slice(0, 20000) } : {}),
         ...(typeof input.tool_name === 'string' && input.tool_name ? { tool: { name: input.tool_name } } : {}),
+        // Evidence-first guard: forward the actual act (shell/http/sql/file)
+        // when the caller supplied one, so the server classifies it and folds
+        // the derived risk in rather than trusting only the declared fields
+        // above. See docs/superpowers/specs/2026-07-05-evidence-first-guard.md.
+        ...(input.act && typeof input.act === 'object' ? { act: input.act } : {}),
         // Approvals lifecycle (roadmap v2.3): declare the wait window this
         // MCP client will poll (dashclaw_wait_for_approval default: 300s) so
         // a require_approval row gets a truthful approval_expires_at stamp.

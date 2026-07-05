@@ -62,6 +62,10 @@ interface DecisionRow {
   action_type: unknown;
   agent_id: unknown;      // for the JS-side isSyntheticEvent defense filter (v3.1)
   created_at: unknown;
+  // evidence-first guard: raw context JSON (text column) — carries
+  // intent_source when the guard evaluator persisted one. Parsed in JS, same
+  // as every other context reader (context->'x' fails on this TEXT column).
+  context: unknown;
   [k: string]: unknown;
 }
 
@@ -200,7 +204,7 @@ export async function getRecentDecisions(
   // (act_gd_*) identifies the decision. Selecting non-existent columns 500s
   // the whole /api/posture route, so this stays pinned to real columns.
   const rows = await sql`
-    SELECT id, risk_score, action_type, agent_id, created_at
+    SELECT id, risk_score, action_type, agent_id, created_at, context
     FROM guard_decisions
     WHERE org_id = ${orgId}
       AND decision = 'allow'

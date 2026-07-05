@@ -194,7 +194,7 @@ npm install dashclaw     # Node 18+
 pip install dashclaw     # Python 3.7+
 ```
 
-147-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, work orders, drift detection, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 233 methods including ready-made framework integrations:
+149-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, work orders, drift detection, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 234 methods including ready-made framework integrations:
 
 ```python
 # LangChain — auto-log LLM calls, tool use, and costs
@@ -272,8 +272,13 @@ const claw = new DashClaw({
   agentId: 'my-agent',
 });
 
-// 1. Guard
-const decision = await claw.guard({ action_type: 'deploy', risk_score: 80 });
+// 1. Guard — attach the real act and the server classifies from evidence,
+//    not your declaration (evidence can only raise the risk, never lower it)
+const decision = await claw.guard({
+  action_type: 'deploy',
+  risk_score: 80,
+  act: { kind: 'shell', command: 'vercel deploy --prod' },
+});
 
 // 2. Record
 const action = await claw.createAction({
@@ -368,14 +373,15 @@ await claw.createAction({ /* ... */, idempotency_key: key });
 
 DashClaw is not observability. It is control before execution. The model:
 
-1. **Every agent action is evaluated against active policies before the action runs.** Policies are declarative; the policy builder ships with nine pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, and others), an AI generator, and YAML import.
+1. **Every agent action is evaluated against active policies before the action runs.** Policies are declarative; the policy builder ships with ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, and others), an AI generator, and YAML import.
 2. **Sensitive actions require human approval.** Approvals route to the dashboard, the CLI (`@dashclaw/cli`), the mobile PWA at `/approve`, Telegram, or Discord. Same action, any surface.
    Approval *volume* is governed too: when one policy (or the fleet) exceeds its interruption budget (default 10 per policy / 30 fleet-wide per 15-minute window), per-action pings collapse into a single flood banner on `/approvals` with pause-rule and bulk-resolve controls — pending approvals are never auto-resolved, and the platform's own verification traffic is excluded from flood detection.
 3. **Every decision is recorded.** The decisions ledger is replayable: declared goal, reasoning, matched policies, assumptions, signals, and the final outcome.
 4. **Outcomes are durable.** The five-state finality machine guarantees no silent double-execute on retry, and the sweep catches lost confirmations.
 5. **Evidence is exportable.** Compliance evidence bundles (signed manifests, JSON exports) are produced from real action records, not synthetic fixtures.
 6. **Prompt injection scanning is on by default.** Declared goals are scanned for injection patterns. High-confidence system-override patterns ("ignore previous instructions" and family) force a `block` decision at guard time — halted mechanically on enforcing surfaces, honored by cooperative callers ([enforcement boundary](./docs/architecture/enforcement-boundary.md)); lower-severity patterns (delimiter injection, exfiltration probes) raise a `warn`.
-7. **Agent identity is cryptographically verified.** Agents may present a JWKS-verified JWT instead of self-asserting `agent_id`. DashClaw checks the signature against the issuer's published keys (EdDSA / RSA / ECDSA), rejects replayed tokens, and can bind a token to its intended action — the verified `sub` overrides any body-supplied `agent_id`. Fail-soft on the issuer side: a downed issuer never blocks a decision (the token degrades to unverified). Replay protection defaults to `required`, so a verified token *does* fail closed when the replay store is unreachable; API-key callers are unaffected. See [`docs/agent-identity.md`](./docs/agent-identity.md).
+7. **Intent can be graded from evidence, not just declaration.** SDK, MCP, and REST callers can attach the actual act — the shell command, HTTP request, SQL statement, or file write — and the server classifies it deterministically, folding derived risk in so evidence can only raise a score, never lower it. Decisions record `intent_source: evidence | declared`, a `require_evidence` policy escalates declared-only calls, and posture shows the mix. This defeats a lying *model* (the wrapper authors the payload, not the LLM); a lying *process* is only stopped by credential custody via the capability registry ([enforcement boundary](./docs/architecture/enforcement-boundary.md)).
+8. **Agent identity is cryptographically verified.** Agents may present a JWKS-verified JWT instead of self-asserting `agent_id`. DashClaw checks the signature against the issuer's published keys (EdDSA / RSA / ECDSA), rejects replayed tokens, and can bind a token to its intended action — the verified `sub` overrides any body-supplied `agent_id`. Fail-soft on the issuer side: a downed issuer never blocks a decision (the token degrades to unverified). Replay protection defaults to `required`, so a verified token *does* fail closed when the replay store is unreachable; API-key callers are unaffected. See [`docs/agent-identity.md`](./docs/agent-identity.md).
 
 The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md). The runtime API contract is in [`docs/architecture/runtime-api.md`](./docs/architecture/runtime-api.md).
 

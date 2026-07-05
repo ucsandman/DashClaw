@@ -29,6 +29,8 @@ const DEFAULT_FORM_STATE = {
   protectedPaths: [],
   // agent_allowlist (Behavior Learning)
   allowedActionTypes: [],
+  // require_evidence
+  enforcement: 'require_approval',
   // x402_spend_limit (x402 spend governance)
   maxSpendUsd: '',
   approvalThreshold: '',
@@ -66,6 +68,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'non_fabrication', label: 'Non-Fabrication', desc: 'Block or route to approval outbound content that states a fact not traceable to its source-of-truth' },
   { value: 'protected_path', label: 'Protected Path', desc: 'Warn or require approval when an action touches sensitive paths (auth, secrets, billing, middleware, …)' },
   { value: 'agent_allowlist', label: 'Agent Allowlist', desc: 'Warn (or escalate) when an agent uses an action type outside its observed safe envelope' },
+  { value: 'require_evidence', label: 'Evidence Required', desc: 'Escalate guard calls that declare intent without attaching the actual act (command, request, statement, or file write)' },
   { value: 'x402_spend_limit', label: 'x402 Spend Limit', desc: 'Govern x402 purchases: cap per-purchase spend, enforce a rolling-window budget, and allow/block providers' },
 ];
 
@@ -308,6 +311,16 @@ const POLICY_TYPE_HANDLERS = {
       const count = cleanList(form.allowedActionTypes).length;
       const verb = form.action === 'block' ? 'Block' : form.action === 'require_approval' ? 'Require approval for' : 'Warn on';
       return `${verb} actions whose type is outside the agent’s allowlist${count > 0 ? ` of ${count} action type${count === 1 ? '' : 's'}` : ''}${scoped}.`;
+    },
+  },
+  require_evidence: {
+    compile: (form) => ({
+      action_types: cleanStringList(form.actionTypes),
+      enforcement: form.enforcement === 'warn' || form.enforcement === 'block' ? form.enforcement : 'require_approval',
+    }),
+    summary: (form, scoped) => {
+      const verb = form.enforcement === 'block' ? 'Block' : form.enforcement === 'warn' ? 'Warn on' : 'Require approval for';
+      return `${verb} ${actionListText(form.actionTypes)} guard calls that declare intent without attaching the actual act${scoped}.`;
     },
   },
   x402_spend_limit: {

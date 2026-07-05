@@ -1526,6 +1526,46 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- AD ----
+  // Evidence-first guard (v4.63.0): the server classifies the caller-attached
+  // act and folds its derived risk in (evidence only RAISES), and the
+  // require_evidence switch escalates declared-only calls.
+  console.log('\nAD. evidence-first guard...');
+  {
+    // A declared-benign call whose ACT is destructive classifies high + mismatch.
+    const { status, json } = await api('POST', '/api/guard', {
+      action_type: 'read',
+      declared_goal: `evidence mismatch ${RUN}`,
+      agent_id: agentFor('evidence'),
+      act: { kind: 'shell', command: 'rm -rf /prod-data' },
+    });
+    check('AD1', 'evidence: a destructive act under a benign declared type grades high + flags mismatch',
+      status === 200 && json?.intent_source === 'evidence' && json?.evidence_mismatch === true && (json?.risk_score ?? 0) >= 80,
+      `status=${status} intent_source=${json?.intent_source} mismatch=${json?.evidence_mismatch} risk=${json?.risk_score}`);
+
+    // Evidence Required switch: a declared-only deploy (no act) must escalate.
+    await createPolicy('evidence-required', 'require_evidence', { action_types: ['deploy'], enforcement: 'require_approval' }, [agentFor('evidence-req')]);
+    const declaredOnly = await api('POST', '/api/guard', {
+      action_type: 'deploy',
+      declared_goal: `evidence required ${RUN}`,
+      agent_id: agentFor('evidence-req'),
+    });
+    check('AD2', 'require_evidence: a declared-only deploy escalates to require_approval',
+      declaredOnly.status === 200 && declaredOnly.json?.decision === 'require_approval' && declaredOnly.json?.intent_source === 'declared',
+      `status=${declaredOnly.status} decision=${declaredOnly.json?.decision} intent_source=${declaredOnly.json?.intent_source}`);
+
+    // The same call WITH an act (evidence-graded) is not escalated by the switch.
+    const withEvidence = await api('POST', '/api/guard', {
+      action_type: 'deploy',
+      declared_goal: `evidence graded ${RUN}`,
+      agent_id: agentFor('evidence-req'),
+      act: { kind: 'shell', command: 'vercel deploy --prod' },
+    });
+    check('AD3', 'require_evidence: an evidence-graded deploy is NOT escalated by the switch',
+      withEvidence.status === 200 && withEvidence.json?.intent_source === 'evidence' && withEvidence.json?.decision !== 'require_approval',
+      `status=${withEvidence.status} decision=${withEvidence.json?.decision} intent_source=${withEvidence.json?.intent_source}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

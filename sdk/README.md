@@ -269,6 +269,64 @@ a missing or malformed `sourceOfTruth` blocks. A signature proves integrity, the
 verdict, the ruleset version, and the issuer — not time-of-issuance or the
 correctness of prose with no extractable token.
 
+### Evidence-first guard
+
+On the SDK path every guard input (`action_type`, `risk_score`, `declared_goal`)
+is self-declared — a prompt-injected or misaligned model can author its own
+declaration and guard evaluates fiction. Attach the actual `act` (the shell
+command, HTTP request, SQL statement, or file write being evaluated) and the
+**server** classifies it and folds the derived risk into the decision, never
+lowering it. This defeats a lying *model* (the wrapper, not the LLM, authors
+the payload) — it does not defeat a lying *developer*; only credential custody
+(the capability registry) does.
+
+`runGoverned()` runs the full loop in one call:
+
+```javascript
+await claw.runGoverned(
+  { kind: 'shell', command: 'vercel deploy --prod' },
+  { action_type: 'deploy', declared_goal: 'Ship release 2.13.4 to production', risk_score: 75 },
+  async () => {
+    return execSync('vercel deploy --prod');
+  },
+);
+```
+
+Declare the `action_type` the server derives for the act (it is returned as
+`derived_action_type`): the decision grades `intent_source: 'evidence'` only
+when the derived type is the type the evaluation ran under, so an unrelated
+act can't satisfy an Evidence Required policy.
+
+`guardedFetch()` derives the `act` from the request for you:
+
+```javascript
+const res = await claw.guardedFetch(
+  'https://api.stripe.com/v1/charges',
+  { method: 'POST', body: JSON.stringify({ amount: 500 }) },
+  { action_type: 'api', declared_goal: 'Charge customer for order #4471' },
+);
+```
+
+- `runGoverned(act, params, fn)` -- guard (with `act`) → `createAction` → if
+  `pending_approval` and `params.wait !== false`, `waitForApproval` → `fn()` →
+  one-shot outcome (`completed` on success, `failed` on throw). Throws
+  `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass
+  `wait: false` to skip blocking on approval and poll separately.
+- `guardedFetch(url, init, params?)` -- `runGoverned()` wrapped around a real
+  `fetch()`; derives `act: { kind: 'http', request: { method, url, body_excerpt } }`
+  from `init`. `params.action_type` defaults to `'api'` — the type the server derives for http acts, so the call grades as evidence.
+
+**Client-side scrub.** Before an `act` is sent, `Authorization`/`Cookie`/`x-api-key`
+header values are stripped and `oc_live_*`/`sk-*`/`ghp_*`/`Bearer …` tokens and
+`password=`/`token=`/`secret=` substrings are masked in command/body excerpts.
+The pure helper is exported for testing: `import { scrubAct } from 'dashclaw'`.
+The server still re-redacts — this is defense in depth, not the only layer.
+
+**Forward compatibility.** `act` is an additive field on `POST /api/guard`.
+Sending it to a DashClaw instance that predates evidence-first guard is safe —
+unrecognized keys are silently ignored by the server's validator, not
+rejected, so no fallback or retry-without-`act` is needed.
+
 ---
 
 ## SDK Tiers
@@ -311,6 +369,8 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 - `waitForApproval(id)` -- Real-time SSE listener for human-in-the-loop approvals (automatic polling fallback)
 - `approveAction(id, decision, reasoning?)` -- Submit approval decisions from code
 - `getPendingApprovals()` -- List actions awaiting human review
+- `runGoverned(act, params, fn)` -- Evidence-first guard: one call that runs guard (with `act`) → `createAction` → optional `waitForApproval` → `fn()` → one-shot outcome report. See [Evidence-first guard](#evidence-first-guard) above.
+- `guardedFetch(url, init, params?)` -- `runGoverned()` wrapped around a real `fetch()`; derives the `act` from the request.
 
 ### Policies
 - `simulatePolicy({ policy_type, rules, days })` -- Side-effect-free dry-run of a proposed policy against recent historical actions before committing it (pairs with `guard()` for live enforcement). `policy_type` and `rules` are required; `days` is optional. Returns `{ summary: { total, matches, block, warn, require_approval, allow }, matches, sample_size, window_days }`. Persists nothing.

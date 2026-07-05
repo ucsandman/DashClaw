@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildUnits, applyFindingStates, buildAdjustments } from '../../app/lib/posture/signals';
+import { buildUnits, applyFindingStates, buildAdjustments, buildIntentSourceSignal } from '../../app/lib/posture/signals';
 import type { GovernableUnit, PostureFinding } from '../../app/lib/posture/types';
 
 const cap = (over: Partial<GovernableUnit> = {}): GovernableUnit => ({
@@ -115,5 +115,51 @@ describe('buildAdjustments', () => {
       row({ id: 'act_gd_real' }),
     ]);
     expect(adj.incidents.map((i) => i.actionId)).toEqual(['act_gd_real']);
+  });
+});
+
+// Evidence-first guard (v4.63.0, spec §6): reads the same decision rows
+// buildAdjustments already consumes — no new query shape.
+describe('buildIntentSourceSignal', () => {
+  const row = (over: Record<string, unknown> = {}) => ({
+    action_type: 'deploy', context: { intent_source: 'evidence' }, ...over,
+  });
+
+  it('counts evidence and declared rows into the aggregate mix', () => {
+    const { enforcementMix } = buildIntentSourceSignal([
+      row({ context: { intent_source: 'evidence' } }),
+      row({ context: { intent_source: 'declared' } }),
+      row({ context: { intent_source: 'declared' } }),
+    ]);
+    expect(enforcementMix).toEqual({ evidence: 1, declared: 2 });
+  });
+
+  it('the most recent row per action_type wins the per-unit signal (rows arrive DESC)', () => {
+    const { byUnitKey } = buildIntentSourceSignal([
+      row({ action_type: 'deploy', context: { intent_source: 'evidence' } }), // most recent
+      row({ action_type: 'deploy', context: { intent_source: 'declared' } }), // older, ignored
+    ]);
+    expect(byUnitKey.get('action_type:deploy')).toBe('evidence');
+  });
+
+  it('rows with no intent_source (pre-upgrade decisions) contribute no signal', () => {
+    const { byUnitKey, enforcementMix } = buildIntentSourceSignal([
+      row({ context: {} }),
+      row({ context: null }),
+      row({ context: '{"other":"field"}' }),
+    ]);
+    expect(byUnitKey.size).toBe(0);
+    expect(enforcementMix).toEqual({ evidence: 0, declared: 0 });
+  });
+
+  it('parses a stringified context JSON column the same as an object', () => {
+    const { byUnitKey } = buildIntentSourceSignal([
+      row({ action_type: 'migrate', context: '{"intent_source":"declared"}' }),
+    ]);
+    expect(byUnitKey.get('action_type:migrate')).toBe('declared');
+  });
+
+  it('malformed context JSON is treated as no signal, not a throw', () => {
+    expect(() => buildIntentSourceSignal([row({ context: '{not json' })])).not.toThrow();
   });
 });

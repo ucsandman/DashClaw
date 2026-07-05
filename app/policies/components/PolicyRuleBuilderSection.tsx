@@ -565,6 +565,37 @@ export default function PolicyRuleBuilderSection({
         </div>
       )}
 
+      {form.type === 'require_evidence' && (
+        <div className="space-y-4">
+          <p className="text-xs text-tertiary">
+            Escalates guard calls that declare intent without attaching the actual act (the shell
+            command, HTTP request, SQL statement, or file write) for the server to classify.
+            Leave the action types empty to require evidence on every call.
+          </p>
+          <ActionTypePicker
+            label="Action Types"
+            options={actionOptions}
+            selected={form.actionTypes}
+            onChange={(next) => onChange('actionTypes', next)}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-secondary mb-1">When evidence is missing</label>
+              <select
+                aria-label="Require evidence enforcement"
+                value={form.enforcement}
+                onChange={(event) => onChange('enforcement', event.target.value)}
+                className={selectClass}
+              >
+                {DECISION_ACTIONS.map((action) => (
+                  <option key={action.value} value={action.value}>{action.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {form.type === 'protected_path' && (
         <div className="space-y-4">
           <p className="text-xs text-tertiary">

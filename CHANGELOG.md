@@ -13,6 +13,49 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.63.0] — 2026-07-05
+
+**Evidence-first guard**: SDK, MCP, and REST callers can attach the actual act —
+the shell command, HTTP request, SQL statement, or file write — and the server
+classifies it deterministically instead of trusting the self-declared
+`action_type`/`risk_score`. Closes the "self-declared intent" hole against a
+lying *model* (the developer-controlled wrapper authors the payload, not the
+LLM); a lying *process* is still only stopped by credential custody via the
+capability registry. Spec: `docs/superpowers/specs/2026-07-05-evidence-first-guard.md`.
+
+### Added
+- `act` field on `POST /api/guard` (`{kind: shell|http|sql|file, …}`, capped at
+  16KB, per-field caps, scrubbed client-side and redacted server-side before
+  persistence). The server classifier (`app/lib/guard/evidence.ts`) derives an
+  action type and risk that folds in via `max()` — evidence can only raise a
+  score, never lower it.
+- Declared/derived mismatch handling: evaluation proceeds under the derived
+  action type, adds a `+10` modifier, and flags `evidence_mismatch` on the
+  decision. Guard responses carry `intent_source: evidence|declared` and
+  `derived_action_type`; `intent_source` grades `evidence` only when the
+  derived type is the type the evaluation ran under, so an unrelated junk act
+  cannot satisfy an evidence policy.
+- `require_evidence` policy type (17th) — escalates declared-only guard calls
+  to warn / require_approval / block; available in the policy builder's type
+  picker and as the 10th pre-built safety switch ("Evidence Required").
+- Node SDK: `runGoverned(act, params, fn)` and `guardedFetch(url, init, params?)`
+  (147 → 149 methods) with a client-side secret scrub (`scrubAct`, exported).
+  Python SDK: `run_governed(act, params, fn)` + `scrub_act` (233 → 234 methods).
+- MCP: `dashclaw_guard` accepts and forwards `act`. Claude Code hook: attaches
+  the real Bash/PowerShell command and file-write payloads as `act` (scrubbed),
+  so hook decisions are evidence-graded server-side even if the hook's own
+  client-side classification is tampered with.
+- Decision Replay shows the intent source (Evidence with the redacted act, or
+  Declared); `/posture`'s enforcement dimension grades declared-only decisions
+  at half weight and shows the evidence/declared mix.
+- `@dashclaw/mcp-server` 2.0.1 → 2.1.0 (act passthrough).
+
+### Notes
+- Zero behavior change when `act` is absent — characterization suite unchanged.
+- Sending `act` to an older server is safe (unknown keys are ignored).
+- The enforcement-boundary ADR gained an "Evidence-graded intent" section with
+  the honest threat model; nothing new enters any hashed or signed vector.
+
 ## [4.62.2] — 2026-07-05
 
 The two structural risks named in the v4.62.1 audit, tackled. Pure refactors —

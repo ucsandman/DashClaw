@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (233 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (234 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -355,6 +355,49 @@ decision = claw.guard({
 Fail-closed: a missing or malformed `source_of_truth` blocks. A signature proves
 integrity, the verdict, the ruleset version, and the issuer — not
 time-of-issuance or the correctness of prose with no extractable token.
+
+### Evidence-first guard
+
+On the SDK path every guard input (`action_type`, `risk_score`, `declared_goal`)
+is self-declared — a prompt-injected or misaligned model can author its own
+declaration and guard evaluates fiction. Attach the actual `act` (the shell
+command, HTTP request, SQL statement, or file write being evaluated) and the
+**server** classifies it and folds the derived risk into the decision, never
+lowering it. This defeats a lying *model* (the wrapper, not the LLM, authors
+the payload) — it does not defeat a lying *developer*; only credential custody
+(the capability registry) does.
+
+`run_governed()` runs the full loop in one call:
+
+```python
+claw.run_governed(
+    {"kind": "shell", "command": "vercel deploy --prod"},
+    {"action_type": "deploy", "declared_goal": "Ship release 2.13.4 to production", "risk_score": 75},
+    lambda: subprocess.run(["vercel", "deploy", "--prod"], check=True),
+)
+```
+
+Declare the `action_type` the server derives for the act (returned as
+`derived_action_type`): the decision grades `intent_source: "evidence"` only
+when the derived type is the type the evaluation ran under, so an unrelated
+act can't satisfy an Evidence Required policy.
+
+**Methods:**
+
+| Method | Description |
+|--------|-------------|
+| `run_governed(act, params, fn)` | guard (with `act`) -> `create_action` -> if pending_approval and `params.get("wait") is not False`, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to skip blocking on approval. |
+
+**Client-side scrub.** Before an `act` is sent, `Authorization`/`Cookie`/`x-api-key`
+header values are stripped and `oc_live_*`/`sk-*`/`ghp_*`/`Bearer …` tokens and
+`password=`/`token=`/`secret=` substrings are masked in command/body excerpts.
+The pure helper is exported for testing: `from dashclaw import scrub_act`. The
+server still re-redacts — this is defense in depth, not the only layer.
+
+**Forward compatibility.** `act` is an additive field on `POST /api/guard`.
+Sending it to a DashClaw instance that predates evidence-first guard is safe —
+unrecognized keys are silently ignored by the server's validator, not
+rejected, so no fallback or retry-without-`act` is needed.
 
 ### Compliance & Governance Patterns
 
@@ -1024,13 +1067,14 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (233 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (234 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **147 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **149 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
 | Guard | `guard` | `guard` | Yes |
+| Guard | `runGoverned` | `run_governed` | Yes |
 | Actions | `createAction` | `create_action` | Yes |
 | Actions | `updateOutcome` | `update_outcome` | Yes |
 | Assumptions | `recordAssumption` | `record_assumption` | Yes |

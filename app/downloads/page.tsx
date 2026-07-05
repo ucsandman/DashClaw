@@ -372,7 +372,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 147-method surface across core governance, durable finality, scoring, learning, messaging, handoffs, scanning, threads, sessions, execution-studio domains, x402 spend governance, work orders, and drift detection.
+                Canonical 149-method surface across core governance, durable finality, scoring, learning, messaging, handoffs, scanning, threads, sessions, execution-studio domains, x402 spend governance, work orders, and drift detection.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_NODE_VERSION})`}>{`npm install dashclaw`}</CommandBlock>
             </div>
@@ -390,7 +390,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Broader Python surface (233 methods) with framework integrations: LangChain callback handler, CrewAI task instrumentation, AutoGen conversation monitoring, and x402 spend governance.
+                Broader Python surface (234 methods) with framework integrations: LangChain callback handler, CrewAI task instrumentation, AutoGen conversation monitoring, and x402 spend governance.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION})`}>{`pip install dashclaw`}</CommandBlock>
             </div>

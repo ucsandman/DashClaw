@@ -45,6 +45,33 @@ interface ActionData {
   tokens_out: number;
 }
 
+// Evidence-first guard: the server-classified `act` a caller attached
+// to guard, redacted and capped before persistence. Excerpt fields only —
+// never headers/secrets (server re-redacts regardless of client scrubbing).
+interface GuardAct {
+  kind?: 'shell' | 'http' | 'sql' | 'file';
+  command?: string;
+  request?: { method?: string; url?: string; body_excerpt?: string };
+  statement?: string;
+  file?: { path?: string; content_excerpt?: string };
+}
+
+interface GuardDecisionContext {
+  // Absent on decisions recorded before this feature shipped — render nothing,
+  // not 'Declared', when absent (spec §7).
+  intent_source?: 'evidence' | 'declared';
+  act?: GuardAct | null;
+}
+
+// The evidence-derived risk sibling (app/lib/guard/risk.ts EvidenceDerivedBreakdown)
+// — rides inside risk_breakdown, not context, alongside the rest of the risk
+// derivation ledger. `mismatch` is the field name the evaluator persists (not
+// `evidence_mismatch`).
+interface EvidenceDerived {
+  derived_action_type: string;
+  mismatch: boolean;
+}
+
 interface GuardDecision {
   decision?: string;
   action_type?: string;
@@ -61,7 +88,24 @@ interface GuardDecision {
       llm?: { adjustment: number } | null;
     } | null;
     final?: number;
+    evidence_derived?: EvidenceDerived | null;
   } | null;
+  context?: GuardDecisionContext | null;
+}
+
+// The redacted excerpt to show for an evidence-graded decision's act — one
+// line, kind-specific, already capped/redacted server-side; truncated again
+// here purely for on-page readability.
+export function actExcerpt(act: GuardAct | null | undefined): string | null {
+  if (!act) return null;
+  const raw =
+    act.kind === 'shell' ? act.command :
+    act.kind === 'http' ? [act.request?.method, act.request?.url].filter(Boolean).join(' ') :
+    act.kind === 'sql' ? act.statement :
+    act.kind === 'file' ? act.file?.path :
+    null;
+  if (!raw) return null;
+  return raw.length > 120 ? `${raw.slice(0, 120)}…` : raw;
 }
 
 // Compact one-line risk composition for the story card: every escalation
@@ -327,6 +371,32 @@ export default function PublicReplayPage() {
                     <p className="mt-3 text-sm text-secondary italic border-l-2 border-white/5 pl-3 leading-relaxed group-hover/decision:text-secondary transition-colors">
                       &ldquo;{guardDecision?.reason ?? guardDecision?.reasons?.[0]}&rdquo;
                     </p>
+                  )}
+                  {guardDecision?.context?.intent_source && (
+                    <div className="mt-3 flex items-start gap-2">
+                      {guardDecision.context.intent_source === 'evidence' ? (
+                        <ShieldCheck size={12} className="mt-0.5 shrink-0 text-success" />
+                      ) : (
+                        <Info size={12} className="mt-0.5 shrink-0 text-disabled" />
+                      )}
+                      <div className="text-xs leading-relaxed">
+                        <span className="font-bold uppercase tracking-wide text-disabled">Intent source: </span>
+                        <span className={guardDecision.context.intent_source === 'evidence' ? 'font-semibold text-success' : 'text-tertiary'}>
+                          {guardDecision.context.intent_source === 'evidence' ? 'Evidence' : 'Declared'}
+                        </span>
+                        {guardDecision.context.intent_source === 'evidence' && guardDecision.context.act && (
+                          <span className="ml-1.5 font-mono text-disabled">
+                            [{guardDecision.context.act.kind}]{actExcerpt(guardDecision.context.act) ? ` ${actExcerpt(guardDecision.context.act)}` : ''}
+                          </span>
+                        )}
+                        {guardDecision.risk_breakdown?.evidence_derived?.mismatch && (
+                          <div className="mt-1 text-warning">
+                            Declared <span className="font-mono">{action.action_type}</span> — evidence classified this as{' '}
+                            <span className="font-mono">{guardDecision.risk_breakdown.evidence_derived.derived_action_type}</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   )}
                   {defense && (
                     <div className="mt-3">

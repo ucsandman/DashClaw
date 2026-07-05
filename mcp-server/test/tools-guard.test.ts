@@ -134,6 +134,25 @@ describe("dashclaw_guard context enrichment", () => {
     await makeHandlers().dashclaw_guard({ ...GUARD_INPUT, content: "x".repeat(30000) });
     expect(lastRequestBody().content.length).toBe(20000);
   });
+
+  it("forwards act evidence for evidence-first guard (2026-07-05)", async () => {
+    await makeHandlers().dashclaw_guard({
+      ...GUARD_INPUT,
+      act: { kind: "shell", command: "rm -rf /prod-data" },
+    });
+    const body = lastRequestBody();
+    expect(body.act).toEqual({ kind: "shell", command: "rm -rf /prod-data" });
+  });
+
+  it("omits act when not supplied (no null in the payload)", async () => {
+    await makeHandlers().dashclaw_guard(GUARD_INPUT);
+    expect("act" in lastRequestBody()).toBe(false);
+  });
+
+  it("ignores a non-object act instead of forwarding garbage", async () => {
+    await makeHandlers().dashclaw_guard({ ...GUARD_INPUT, act: "rm -rf /" });
+    expect("act" in lastRequestBody()).toBe(false);
+  });
 });
 
 describe("idempotency keys (Organ 3 Phase 3)", () => {

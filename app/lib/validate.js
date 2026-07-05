@@ -319,9 +319,57 @@ const GUARD_INPUT_SCHEMA = {
   // declared at request time so a require_approval row recorded via
   // ?record=true gets a truthful approval_expires_at stamp.
   approval_wait_seconds: { type: 'integer', min: 5, max: 86400 },
+  // Evidence-first: the actual act the server classifies (shell/http/sql/file).
+  // The generic object check runs here; validateGuardInput deep-validates the
+  // per-kind payload family and size caps below.
+  act:             { type: 'object' },
 };
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit'];
+// Evidence-first `act` payload — deep validation (caps + per-kind family).
+// The generic object check in GUARD_INPUT_SCHEMA handles the non-object case;
+// this enforces the wire contract (docs/superpowers/specs/2026-07-05-evidence-first-guard.md §1).
+const ACT_KINDS = ['shell', 'http', 'sql', 'file'];
+const ACT_MAX_BYTES = 16 * 1024;
+const ACT_HTTP_METHODS = ['GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE', 'TRACE', 'CONNECT'];
+
+function validateActField(act, addError) {
+  let serialized;
+  try {
+    serialized = JSON.stringify(act);
+  } catch {
+    addError('act must be JSON-serializable');
+    return;
+  }
+  if (serialized.length > ACT_MAX_BYTES) {
+    addError('act exceeds max serialized size of 16KB (ACT_TOO_LARGE)');
+    return;
+  }
+  if (!ACT_KINDS.includes(act.kind)) {
+    addError(`act.kind must be one of: ${ACT_KINDS.join(', ')}`);
+    return;
+  }
+  if (act.kind === 'shell') {
+    if (typeof act.command !== 'string' || act.command.length === 0) addError('act.command must be a non-empty string for kind "shell"');
+    else if (act.command.length > 8192) addError('act.command exceeds max length of 8192');
+  } else if (act.kind === 'http') {
+    if (!isPlainObject(act.request)) { addError('act.request must be an object for kind "http"'); return; }
+    if (typeof act.request.method !== 'string' || !ACT_HTTP_METHODS.includes(act.request.method.toUpperCase())) addError('act.request.method must be a valid HTTP method');
+    if (typeof act.request.url !== 'string' || act.request.url.length === 0) addError('act.request.url must be a non-empty string');
+    else if (act.request.url.length > 2048) addError('act.request.url exceeds max length of 2048');
+    if (act.request.body_excerpt !== undefined && (typeof act.request.body_excerpt !== 'string' || act.request.body_excerpt.length > 4096)) addError('act.request.body_excerpt must be a string of at most 4096 chars');
+  } else if (act.kind === 'sql') {
+    if (typeof act.statement !== 'string' || act.statement.length === 0) addError('act.statement must be a non-empty string for kind "sql"');
+    else if (act.statement.length > 8192) addError('act.statement exceeds max length of 8192');
+  } else if (act.kind === 'file') {
+    if (!isPlainObject(act.file)) { addError('act.file must be an object for kind "file"'); return; }
+    if (typeof act.file.path !== 'string' || act.file.path.length === 0) addError('act.file.path must be a non-empty string');
+    else if (act.file.path.length > 1024) addError('act.file.path exceeds max length of 1024');
+    if (act.file.content_excerpt !== undefined && (typeof act.file.content_excerpt !== 'string' || act.file.content_excerpt.length > 4096)) addError('act.file.content_excerpt must be a string of at most 4096 chars');
+    if (act.file.bytes !== undefined && (!Number.isInteger(act.file.bytes) || act.file.bytes < 0)) addError('act.file.bytes must be a non-negative integer');
+  }
+}
+
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit', 'require_evidence'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -341,7 +389,18 @@ export function validateGuardInput(body) {
   if (safeBody.action && !safeBody.action_type) normalized.action_type = safeBody.action;
   if (safeBody.intent && !safeBody.declared_goal) normalized.declared_goal = safeBody.intent;
 
-  return validate(normalized, GUARD_INPUT_SCHEMA);
+  const result = validate(normalized, GUARD_INPUT_SCHEMA);
+
+  // Deep-validate the optional evidence `act` payload. validate() only copies
+  // act into data when it passed the generic object check, so a present-but-
+  // non-object act already errored and data.act is absent — skip the deep pass.
+  if (isPlainObject(result.data.act)) {
+    const before = result.errors.length;
+    validateActField(result.data.act, (msg) => result.errors.push(msg));
+    if (result.errors.length > before) result.valid = false;
+  }
+
+  return result;
 }
 
 // A rules.tests entry must be { name: non-empty string, input: object,
@@ -545,6 +604,17 @@ const POLICY_TYPE_VALIDATORS = {
     // is a valid guard action but not a valid degradation target.
     if (rules.on_failure !== undefined && !['allow', 'block', 'require_approval'].includes(rules.on_failure)) {
       addError('x402_spend_limit policy rules.on_failure must be one of allow, block, require_approval when present');
+    }
+  },
+  require_evidence: (rules, addError) => {
+    // Evidence-first (17th type). action_types scopes it (empty/absent = all);
+    // enforcement is the escalation applied when a matching call was graded
+    // from self-declared intent (no act attached). Both optional.
+    if (rules.action_types !== undefined && !Array.isArray(rules.action_types)) {
+      addError('require_evidence policy rules.action_types must be an array when present');
+    }
+    if (rules.enforcement !== undefined && !['warn', 'require_approval', 'block'].includes(rules.enforcement)) {
+      addError('require_evidence policy rules.enforcement must be one of warn, require_approval, block when present');
     }
   },
 };
