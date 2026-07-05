@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (26383 symbols, 52833 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (26418 symbols, 52927 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,17 +73,17 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-05 (commit 27b815bf). Confidence: 100%.
+Last indexed: 2026-07-05 (commit bad32ca5). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed code intelligence” engine that ingests a target source repository (and optional policy/rules inputs), traverses and parses code into structured representations, analyzes dependencies and governance constraints, and generates LLM-synthesized documentation artifacts (wiki pages) that are served through an MCP server and supporting CLI/web tooling.
+This repository is a governed agent and documentation platform: it ingests source code and configuration (e.g., repository files, agent rules/policies, and tool definitions), transforms them through indexing/analysis and policy-aware orchestration, and outputs generated knowledge artifacts (LLM-ready wiki pages), runnable agent workflows, and an MCP server + web-facing tooling surface for downstream consumption.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **React/Next.js presentation and client orchestration… | - |
+| `app` | The **app** module is the **front-end application layer** of repowise’s overall… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
-| `app/components` | The **app/components** module is the **UI-layer component library** for… | - |
-| `app/lib` | The app/lib module is the core service-layer library for repowise’s posture… | - |
-| `application` | The **Application (top-level)** module is the entry-stage UI composition layer… | - |
+| `app/components` | The app/components module is the UI-layer component library for repowise’s web… | - |
+| `app/lib` | The **app/lib module** is the core service-layer subsystem in repowise’s… | - |
+| `application` | The **Application (top-level)** module is the entry-stage of repowise’s **web… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
 | `.claude` | The **.claude module** is a **repository intelligence and command-safety… | - |
@@ -103,11 +103,11 @@ This repository is an end-to-end “governed code intelligence” engine that in
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 47 | Wes Sander |
-| `CHANGELOG.md` | 100.0th percentile | 84 | Wes Sander |
-| `app/lib/guard.ts` | 99.9th percentile | 26 | Wes Sander |
-| `package-lock.json` | 99.9th percentile | 85 | Wes Sander |
-| `scripts/policy-smoke.mjs` | 99.8th percentile | 21 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 48 | Wes Sander |
+| `CHANGELOG.md` | 100.0th percentile | 85 | Wes Sander |
+| `app/lib/guard.ts` | 99.9th percentile | 27 | Wes Sander |
+| `package-lock.json` | 99.9th percentile | 86 | Wes Sander |
+| `scripts/policy-smoke.mjs` | 99.8th percentile | 22 | Wes Sander |
 
 ### Repowise MCP Workflow
 
