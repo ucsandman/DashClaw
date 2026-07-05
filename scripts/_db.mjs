@@ -38,7 +38,13 @@ export function createSqlFromEnv() {
     return Number.isFinite(v) && v > 0 ? v : 10;
   })();
 
-  const client = postgres(url, { max });
+  // idle_timeout matters: most scripts never call sql.end(), and an idle
+  // pooled TCP connection keeps the Node event loop alive forever — observed
+  // live as `npx dashclaw up` hanging indefinitely inside setup's migration
+  // scripts on every local (non-Neon) database. Closing idle connections
+  // after 5s lets those scripts exit naturally; postgres.js reconnects
+  // transparently if a later query needs the pool again.
+  const client = postgres(url, { max, idle_timeout: 5 });
   const sql = (...args) => client(...args);
   sql.query = async (text, params = []) => client.unsafe(text, params);
   sql.end = async (opts) => client.end(opts);

@@ -13,6 +13,63 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.63.2] — 2026-07-05
+
+**First-run reliability.** Live-verifying the two README quick-start commands
+exactly as a fresh user runs them (published packages, clean environment,
+local Docker Postgres) surfaced five compounding first-run killers — none
+visible on hosted/Neon deployments, where every prior end-to-end proof ran.
+All five are fixed and the full pipeline is proven green end to end: install →
+Postgres → drizzle + legacy migrations → build → healthy server → auto-wired
+Claude Code hooks → a real guard decision in the ledger.
+
+### Fixed
+- **`npx dashclaw up` actually completes on a local database now.** Live-verifying
+  the quick-start commands as a fresh user surfaced five compounding first-run
+  killers, all invisible on hosted/Neon deployments:
+  1. *Indefinite hang in setup.* `scripts/_db.mjs` gave local (non-Neon)
+     connections a `postgres.js` pool with no `idle_timeout`; roughly a dozen
+     setup migration scripts never call `sql.end()`, so each one finished its
+     work and then held the event loop open forever — `up` sat silently on
+     "Running setup" for as long as you let it. Idle connections now close
+     after 5s and the scripts exit naturally. (Neon URLs use the stateless
+     HTTP driver, which is why every hosted proof passed.)
+  2. *The drizzle chain never ran locally.* Local setup executed only the
+     legacy `migrate-*` scripts, but the schema source of truth — `settings`,
+     `token_budgets`, `agent_messages.action_id`, every newer table — lives in
+     `drizzle/*.sql`, which only the Vercel build applied. Fresh local installs
+     ended `no_tables`-unready with `settings` missing. `scripts/auto-migrate.mjs`
+     now runs first in `SETUP_MIGRATION_SCRIPTS`.
+  3. *`migrate-token-budgets` was a parse error on every PostgreSQL* —
+     `UNIQUE(org_id, COALESCE(agent_id, ''))` inline in CREATE TABLE is not
+     legal SQL; the expression uniqueness now lives in a UNIQUE INDEX matching
+     `drizzle/0017`.
+  4. *`migrate-behavioral-ai` imported `dotenv/config`* — dotenv is not a
+     dependency of this package, so fresh installs crashed with
+     ERR_MODULE_NOT_FOUND wherever npm didn't hoist it transitively
+     (`backfill-embeddings.mjs` had the same import; both now use
+     `./_load-env.mjs`).
+  5. *Pipe-backpressure deadlock in setup's process runner.* `runAsync` in
+     `scripts/setup.mjs` drained a child's stderr but never its stdout, so any
+     migration chattier than the ~64KB pipe buffer blocked on write forever —
+     which the newly-added drizzle chain is on a fresh database. stdout is now
+     drained too.
+- **`@dashclaw/cli` 0.6.2 — `npx dashclaw up` no longer dies when port 5433 is
+  taken.** Both Docker and embedded provisioning hardcoded host port 5433; any
+  machine with another Postgres there (a second dev database is common) got a
+  raw `Command failed: docker run` and a half-created `dashclaw-pg` container
+  that poisoned every retry. Provisioning now prefers 5433 and scans forward
+  to the first free port (logged, never silent), reuses a running container on
+  whatever port it maps, restarts a stopped one on its recorded port, and only
+  recreates it (data volume preserved) when that port was taken by another
+  process. A failed `docker run` cleans up its half-created container, docker
+  errors surface stderr instead of being swallowed, and the port-free probe
+  uses a dual connect+wildcard-listen check because on Windows a loopback bind
+  falsely succeeds while another process holds the wildcard port. If the DB
+  legitimately moves ports, `up` updates the saved instance config and the
+  app's `.env.local` in place. Found by live-verifying the README quick-start
+  commands as a fresh user; proven against the real poisoned-port state.
+
 ## [4.63.1] — 2026-07-05
 
 **Documentation restructure.** The docs now have a front door and an adoption-journey

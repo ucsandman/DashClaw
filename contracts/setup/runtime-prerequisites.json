@@ -1,6 +1,7 @@
 {
   "owner": "app/lib/setup/runtime-prerequisites.mjs",
   "migration_scripts": [
+    "scripts/auto-migrate.mjs",
     "scripts/migrate-api-keys-compat.mjs",
     "scripts/migrate-multi-tenant.mjs",
     "scripts/migrate-action-records-compat.mjs",

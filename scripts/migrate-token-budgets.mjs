@@ -26,6 +26,10 @@ async function run() {
 
   try {
     console.log('Step 1: Creating token_budgets table...');
+    // NOTE: expressions are not allowed in an inline UNIQUE table constraint
+    // (the old `UNIQUE(org_id, COALESCE(agent_id, ''))` was a parse error on
+    // every PostgreSQL) — the expression uniqueness lives in a UNIQUE INDEX,
+    // mirroring drizzle/0017_latent_schema_gaps.sql.
     await sql`
       CREATE TABLE IF NOT EXISTS token_budgets (
         id TEXT PRIMARY KEY DEFAULT gen_random_uuid()::text,
@@ -35,9 +39,12 @@ async function run() {
         weekly_limit INTEGER NOT NULL DEFAULT 126000,
         monthly_limit INTEGER NOT NULL DEFAULT 540000,
         created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-        UNIQUE(org_id, COALESCE(agent_id, ''))
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
       )
+    `;
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS token_budgets_org_agent_unique
+        ON token_budgets (org_id, COALESCE(agent_id, ''))
     `;
     console.log('  ✅ token_budgets table ready');
 

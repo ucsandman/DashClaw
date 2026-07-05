@@ -17,7 +17,8 @@ process.on('unhandledRejection', (reason) => {
 });
 
 import { generateActionEmbedding } from '../app/lib/embeddings.js';
-import 'dotenv/config';
+// dotenv is not a dependency of this package — use the repo env loader.
+import './_load-env.mjs';
 import { createSqlFromEnv } from './_db.mjs';
 
 const args = process.argv.slice(2);

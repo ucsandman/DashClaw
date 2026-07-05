@@ -56,6 +56,8 @@ npx dashclaw up --source-dir <path> # use a local repo checkout instead of the p
 
 Re-running `npx dashclaw up` on an existing install boots the server without re-provisioning. Failures checkpoint and resume from where they stopped.
 
+Postgres prefers host port 5433; when something else already holds it, provisioning scans forward to the first free port and says so (an existing `dashclaw-pg` container keeps whatever port it was created with — data lives in the `dashclaw_pgdata` volume and survives container recreation).
+
 ### `dashclaw down`
 
 Stop the local server (and the Docker DB if `up` started it).

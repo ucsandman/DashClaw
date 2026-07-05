@@ -4,7 +4,10 @@ process.on("unhandledRejection", (reason) => {
   process.exit(1);
 });
 
-import 'dotenv/config';
+// Env comes from the caller (setup.mjs / _run-with-env) or ./_load-env.mjs —
+// `dotenv` is not a dependency of this package, so importing 'dotenv/config'
+// crashes on fresh installs where npm didn't hoist it transitively.
+import './_load-env.mjs';
 import { createSqlFromEnv } from './_db.mjs';
 
 async function migrate() {

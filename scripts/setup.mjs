@@ -221,10 +221,18 @@ async function runAsync(cmd, args, opts = {}) {
       return;
     }
     let stderr = '';
+    let stdout = '';
     child.stderr?.on('data', (data) => {
       stderr += String(data);
     });
-    child.on('close', (code) => resolve({ code, stderr }));
+    // stdout MUST be drained too: with stdio 'pipe', a child that logs more
+    // than the ~64KB pipe buffer blocks on write forever if nobody reads it.
+    // Observed live: auto-migrate's NOTICE output deadlocked setup on a fresh
+    // local database while the quiet legacy scripts sailed through.
+    child.stdout?.on('data', (data) => {
+      stdout += String(data);
+    });
+    child.on('close', (code) => resolve({ code, stderr, stdout }));
     child.on('error', () => resolve({ code: 1, stderr: 'spawn error' }));
   });
 }

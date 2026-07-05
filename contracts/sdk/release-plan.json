@@ -1,25 +1,22 @@
 {
   "node": {
-    "current_version": "4.63.1",
+    "current_version": "4.63.2",
     "next_bump": "none",
-    "reason": "4.63.1 docs-accuracy release: no Node SDK code change, but sdk/README.md changed materially (false 'pairing is legacy-only' claim corrected to the canonical createPairing/waitForPairing, Sessions + Drift Detection surfaces documented for the first time, getPendingApprovals pagination). Republish refreshes the npm registry README; code is identical to 4.63.0.",
+    "reason": "4.63.2 first-run reliability release: no Node SDK source change, but publishing dashclaw@4.63.2 to npm is REQUIRED anyway - `npx dashclaw up` resolves which app tarball to install from the npm `dashclaw` version, so the local-install fixes (setup hangs, missing drizzle chain) only reach fresh users once 4.63.2 is the npm latest.",
     "domains": [
-      "platform",
-      "docs"
+      "platform"
     ]
   },
   "python": {
-    "current_version": "4.63.1",
+    "current_version": "4.63.2",
     "next_bump": "none",
-    "reason": "4.63.1 docs-accuracy release: no Python SDK code change, but sdk-python/README.md changed materially (phantom get_lessons parity row removed, Sessions + Drift Detection documented, Node-only gaps stated). Republish refreshes the PyPI long_description; code is identical to 4.63.0.",
+    "reason": "4.63.2 first-run reliability release: no Python SDK source change; republish rides along with the Node publish per the unified-version model (release:sdks is idempotent).",
     "domains": [
-      "platform",
-      "docs"
+      "platform"
     ]
   },
-  "reason": "v4.63.1 documentation restructure + drift fixes: new docs/ information architecture (hub, concepts, integration guides, operations, troubleshooting), QUICK-START rewrite, SDK/CLI README drift fixes. SDK READMEs changed (no SDK code change) - republish to refresh registry READMEs via npm run release:sdks.",
+  "reason": "v4.63.2 fixes four first-run killers in `npx dashclaw up` on local databases (idle-connection hang, missing drizzle chain in local setup, invalid token_budgets DDL, dotenv import crash, stdout pipe deadlock) plus @dashclaw/cli 0.6.2 port-conflict handling. npm publish required so `up` fetches the fixed tarball.",
   "domains": [
-    "platform",
-    "docs"
+    "platform"
   ]
 }

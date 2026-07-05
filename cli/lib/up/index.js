@@ -13,6 +13,7 @@
 // without touching the network, Docker, or a real Next server.
 
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -90,6 +91,24 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spaw
   return parsed;
 }
 
+/**
+ * Rewrites the DATABASE_URL line in the app's .env.local after the local DB
+ * legitimately moved ports. Best-effort: a missing file or line is left alone
+ * (setup will write it on its next run).
+ */
+export function rewriteEnvDatabaseUrl(appDir, databaseUrl, logger = console) {
+  const envPath = join(appDir, '.env.local');
+  try {
+    if (!existsSync(envPath)) return;
+    const src = readFileSync(envPath, 'utf8');
+    if (!/^DATABASE_URL=.*$/m.test(src)) return;
+    writeFileSync(envPath, src.replace(/^DATABASE_URL=.*$/m, `DATABASE_URL=${databaseUrl}`));
+    logger.error(`[ok] Updated DATABASE_URL in ${envPath}`);
+  } catch (e) {
+    logger.error(`[warn] Could not update ${envPath}: ${e.message} — update DATABASE_URL manually.`);
+  }
+}
+
 /** Default process-liveness probe: signal 0 succeeds iff the pid exists. */
 export function defaultProcessAlive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
@@ -163,12 +182,24 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   });
   const db = (dbMode === 'url' && done('db_ready') && inst.databaseUrl)
     ? { databaseUrl: inst.databaseUrl, stop: async () => {} }
-    : await deps.provisionDatabase({ mode: dbMode, baseDir, promptFn: deps.promptFn, logger });
+    : await deps.provisionDatabase({
+        mode: dbMode, baseDir, promptFn: deps.promptFn, logger,
+        savedDatabaseUrl: inst.databaseUrl,
+      });
   if (!done('db_ready')) {
     inst = saveInstance(baseDir, { dbMode, databaseUrl: db.databaseUrl });
     inst = checkpoint(baseDir, 'db_ready');
   }
-  const databaseUrl = inst.databaseUrl ?? db.databaseUrl;
+  // Provisioning is authoritative: if the DB legitimately moved ports (its old
+  // port got taken and the container was recreated), chase the move — update
+  // the saved URL and the app's .env.local so the server doesn't point at a
+  // stranger's Postgres.
+  if (db.databaseUrl && inst.databaseUrl && db.databaseUrl !== inst.databaseUrl) {
+    logger.error(`[warn] Database URL changed (${inst.databaseUrl} -> ${db.databaseUrl}) — updating saved config.`);
+    inst = saveInstance(baseDir, { databaseUrl: db.databaseUrl });
+    if (done('setup_done') && appDir) rewriteEnvDatabaseUrl(appDir, db.databaseUrl, logger);
+  }
+  const databaseUrl = db.databaseUrl ?? inst.databaseUrl;
 
   // 4. setup_done -----------------------------------------------------------
   let apiKey = inst.apiKey;
