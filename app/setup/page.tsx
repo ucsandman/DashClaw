@@ -10,6 +10,8 @@ import { LIVE_CANARY_STALE_MS } from '../lib/posture/findings';
 import { getJtiReplayMode } from '../lib/replay-protection';
 import { getActBindingMode } from '../lib/act-binding';
 import { resolveDegradedAction } from '../lib/guard';
+import { isHostedMode } from '../lib/hosted/flag';
+import { getTrialFunnel, type TrialFunnel } from '../lib/repositories/hosted-workspace.repository';
 
 // v3.6 enforcement-posture card: what this instance's hardening knobs resolve
 // to right now, read through the same getters the guard uses so the card can
@@ -189,6 +191,21 @@ export default async function SetupPage() {
   ]);
   const view = projectReadinessReport(report, { isAuthenticated: true });
   const overall = view.verification;
+
+  // v4.6 funnel truth: the trial activation funnel, hosted instances only.
+  // Aggregate-only (no org identifiers — same disclosure norm as the rest of
+  // this unauthenticated page); an error renders as an error line, never
+  // silence.
+  let trialFunnel: TrialFunnel | null = null;
+  let trialFunnelError = false;
+  if (isHostedMode()) {
+    try {
+      trialFunnel = await getTrialFunnel(getSql());
+    } catch (err) {
+      trialFunnelError = true;
+      console.error('[setup] trial funnel query failed:', err);
+    }
+  }
 
   const canaryChecks = (canary.result?.checks || []).map((c: any) => ({
     id: c.id,
@@ -425,6 +442,86 @@ export default async function SetupPage() {
                 and <code>docs/architecture/enforcement-boundary.md</code>.
               </p>
             </article>
+            {isHostedMode() ? (
+              <article className="rounded-2xl border border-white/10 bg-white/5 p-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-semibold text-primary">Trial activation funnel</h2>
+                    <p className="mt-1 text-sm text-secondary">
+                      Mint → first key used → first governed action → retained week 1, computed from
+                      this instance&apos;s ledgers. Expired trials keep counting through deletion-time
+                      snapshots{trialFunnel ? ` (${trialFunnel.source.archived} archived)` : ''}.
+                    </p>
+                  </div>
+                  {trialFunnel?.source.truthfulSince ? (
+                    <span className="text-xs text-tertiary">
+                      evidence since {trialFunnel.source.truthfulSince.slice(0, 10)}
+                    </span>
+                  ) : null}
+                </div>
+                {trialFunnelError ? (
+                  <p className="mt-4 text-sm text-error">
+                    Funnel query failed. The exact database error is in server logs.
+                  </p>
+                ) : trialFunnel ? (
+                  <>
+                    <dl className="mt-4 grid gap-3 sm:grid-cols-4">
+                      {[
+                        { label: 'Minted', value: trialFunnel.funnel.minted, of: null as number | null },
+                        { label: 'First key used', value: trialFunnel.funnel.keyUsed, of: trialFunnel.funnel.minted },
+                        { label: 'First governed action', value: trialFunnel.funnel.firstAction, of: trialFunnel.funnel.minted },
+                        { label: 'Retained week 1', value: trialFunnel.funnel.retainedWeek1, of: trialFunnel.funnel.week1Eligible },
+                      ].map((step) => (
+                        <div key={step.label} className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                          <dt className="text-xs uppercase tracking-wide text-secondary">{step.label}</dt>
+                          <dd className="mt-1 text-2xl font-semibold text-primary">{step.value}</dd>
+                          <dd className="text-xs text-tertiary">
+                            {step.of === null ? ' ' : step.of > 0 ? `${Math.round((step.value / step.of) * 100)}% of ${step.of}` : 'no eligible workspaces yet'}
+                          </dd>
+                        </div>
+                      ))}
+                    </dl>
+                    <div className="mt-3 space-y-1 text-xs text-tertiary">
+                      {trialFunnel.funnel.week1Pending > 0 ? (
+                        <p>
+                          {trialFunnel.funnel.week1Pending} workspace{trialFunnel.funnel.week1Pending === 1 ? '' : 's'} minted
+                          less than 7 days ago — too young to judge retention.
+                        </p>
+                      ) : null}
+                      {trialFunnel.medianHoursToFirstAction !== null ? (
+                        <p>Median time to first governed action: {trialFunnel.medianHoursToFirstAction}h.</p>
+                      ) : null}
+                    </div>
+                    {trialFunnel.cohorts.length > 0 ? (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="text-secondary">
+                              <th className="py-1 pr-3 font-medium">Mint week</th>
+                              <th className="py-1 pr-3 font-medium">Minted</th>
+                              <th className="py-1 pr-3 font-medium">Key used</th>
+                              <th className="py-1 pr-3 font-medium">First action</th>
+                              <th className="py-1 pr-3 font-medium">Retained wk1</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-primary">
+                            {trialFunnel.cohorts.map((c) => (
+                              <tr key={c.weekStart} className="border-t border-white/10">
+                                <td className="py-1 pr-3">{c.weekStart}</td>
+                                <td className="py-1 pr-3">{c.minted}</td>
+                                <td className="py-1 pr-3">{c.keyUsed}</td>
+                                <td className="py-1 pr-3">{c.firstAction}</td>
+                                <td className="py-1 pr-3">{c.week1Eligible > 0 ? `${c.retainedWeek1}/${c.week1Eligible}` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+              </article>
+            ) : null}
             {view.sections.map((section: any) => (
               <article key={section.id} className="rounded-2xl border border-white/10 bg-white/5 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-3">
