@@ -218,6 +218,8 @@ CREATE TABLE IF NOT EXISTS "organizations" (
   "hosted_mode" boolean NOT NULL DEFAULT FALSE,
   "trial_action_cap" integer,
   "trial_actions_used" integer NOT NULL DEFAULT 0,
+  "trial_first_seen_at" timestamptz,
+  "trial_last_seen_at" timestamptz,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now(),
   CONSTRAINT "organizations_slug_unique" UNIQUE("slug")
@@ -321,6 +323,7 @@ CREATE TABLE IF NOT EXISTS "api_keys" (
   "role" text DEFAULT 'member',
   "scope" text,
   "last_used_at" timestamp,
+  "first_used_at" timestamp,
   "revoked_at" timestamp,
   "created_at" timestamp DEFAULT now()
 )
@@ -356,6 +359,12 @@ ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_action_cap INTEGER
 ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_actions_used INTEGER NOT NULL DEFAULT 0
 --> statement-breakpoint
 ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS scope TEXT
+--> statement-breakpoint
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_first_seen_at timestamptz
+--> statement-breakpoint
+ALTER TABLE organizations ADD COLUMN IF NOT EXISTS trial_last_seen_at timestamptz
+--> statement-breakpoint
+ALTER TABLE api_keys ADD COLUMN IF NOT EXISTS first_used_at timestamp
 --> statement-breakpoint
 CREATE INDEX IF NOT EXISTS organizations_hosted_mode_idx ON organizations(hosted_mode) WHERE hosted_mode = TRUE
 --> statement-breakpoint

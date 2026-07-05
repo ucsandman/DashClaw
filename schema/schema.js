@@ -29,6 +29,10 @@ export const organizations = pgTable('organizations', {
   hostedMode: boolean('hosted_mode').default(false).notNull(),
   trialActionCap: integer('trial_action_cap'),
   trialActionsUsed: integer('trial_actions_used').default(0).notNull(),
+  // v5.3: org-grain trial visit stamps, written fire-and-forget by middleware
+  // on trial-session resolution. A timestamp, not page-view analytics.
+  trialFirstSeenAt: timestamp('trial_first_seen_at', { withTimezone: true }),
+  trialLastSeenAt: timestamp('trial_last_seen_at', { withTimezone: true }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -59,6 +63,9 @@ export const apiKeys = pgTable('api_keys', {
   role: text('role').default('member'),
   scope: text('scope'),
   lastUsedAt: timestamp('last_used_at'),
+  // v5.3: set once (COALESCE) alongside every last_used_at stamp; NULL means
+  // "used before v5.3 or never" — deliberately not backfilled.
+  firstUsedAt: timestamp('first_used_at'),
   revokedAt: timestamp('revoked_at'),
   createdAt: timestamp('created_at').defaultNow(),
 }, (table) => ({
@@ -1809,6 +1816,11 @@ export const hostedTrialSnapshots = pgTable('hosted_trial_snapshots', {
   lastActionAt: timestamp('last_action_at', { withTimezone: true }),
   actionCount: integer('action_count').notNull().default(0),
   retainedWeek1: boolean('retained_week1').notNull().default(false),
+  // v5.3 sharpened facts; NULL on pre-v5.3 snapshots = unknown, never guessed.
+  firstKeyUsedAt: timestamp('first_key_used_at', { withTimezone: true }),
+  firstSeenAt: timestamp('first_seen_at', { withTimezone: true }),
+  lastSeenAt: timestamp('last_seen_at', { withTimezone: true }),
+  firstActionVia: text('first_action_via'), // 'browser' | 'agent'
 });
 
 // @domain governance

@@ -491,6 +491,25 @@ export default async function SetupPage() {
                       {trialFunnel.medianHoursToFirstAction !== null ? (
                         <p>Median time to first governed action: {trialFunnel.medianHoursToFirstAction}h.</p>
                       ) : null}
+                      {/* v5.3 sharpened distinctions — annotations, not steps. */}
+                      <p>
+                        {trialFunnel.annotations.returned} returned after the mint sitting (seen again
+                        &gt;1h after mint); {trialFunnel.annotations.returnedNeverConnected} of those never
+                        used the key or acted. Visits are stamped only since this instance began stamping
+                        them — older mints read as never returned.
+                      </p>
+                      {trialFunnel.annotations.medianHoursToFirstKeyUse !== null ? (
+                        <p>Median time to first key use: {trialFunnel.annotations.medianHoursToFirstKeyUse}h.</p>
+                      ) : null}
+                      {trialFunnel.funnel.firstAction > 0 ? (
+                        <p>
+                          First governed actions: {trialFunnel.annotations.firstActionVia.browser} in the
+                          browser, {trialFunnel.annotations.firstActionVia.agent} via an agent
+                          {trialFunnel.annotations.firstActionVia.browser + trialFunnel.annotations.firstActionVia.agent < trialFunnel.funnel.firstAction
+                            ? ', the rest predate door tracking'
+                            : ''}.
+                        </p>
+                      ) : null}
                     </div>
                     {trialFunnel.cohorts.length > 0 ? (
                       <div className="mt-4 overflow-x-auto">

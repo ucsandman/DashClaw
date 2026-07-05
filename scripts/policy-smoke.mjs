@@ -1450,6 +1450,7 @@ async function main() {
         fun.status === 200
           && fun.json?.hosted === true
           && typeof fun.json?.funnel?.minted === 'number'
+          && typeof fun.json?.annotations?.returned === 'number' // v5.3 sharpened distinctions
           && !JSON.stringify(fun.json).includes('org_'),
         `funnel=${fun.status} minted=${fun.json?.funnel?.minted}`);
     }

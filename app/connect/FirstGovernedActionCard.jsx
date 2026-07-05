@@ -15,7 +15,8 @@ import { Send, ArrowRight, AlertCircle, ShieldCheck, RotateCcw } from 'lucide-re
  * if any default ever matches a synthetic pattern, browser activations
  * silently vanish from the hosted funnel.
  */
-export const FIRST_ACTION_AGENT_ID = 'browser-first-action';
+import { BROWSER_FIRST_ACTION_AGENT_ID as FIRST_ACTION_AGENT_ID } from '../lib/hosted/browser-action.js';
+export { FIRST_ACTION_AGENT_ID };
 export const FIRST_ACTION_AGENT_NAME = 'Browser (first action)';
 export const FIRST_ACTION_TYPES = ['connect.first_action', 'send_email', 'deploy', 'db_write'];
 export const FIRST_ACTION_DEFAULT_GOAL = 'Send my first governed action from the browser';

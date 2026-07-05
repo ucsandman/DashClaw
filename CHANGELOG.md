@@ -13,6 +13,48 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.57.0] — 2026-07-05
+
+Roadmap v5.3 — activation instrument sharpened. The hosted-trial funnel
+closes its two recorded blind spots (now that v5.1 sessions make them
+closable) and gains the browser-vs-agent distinction v5.2 made reachable.
+Platform-only — SDKs stay at 4.32.0. Spec:
+`docs/superpowers/specs/2026-07-05-activation-instrument-sharpened-design.md`.
+
+### Added
+- **Trial visit stamps (org grain).** `organizations.trial_first_seen_at`
+  / `trial_last_seen_at`, written fire-and-forget by middleware on a
+  cache-miss positive trial-session resolution (the 60s trial-org cache
+  doubles as the write throttle). A timestamp, not page-view analytics —
+  the funnel can finally distinguish "minted and never returned" from
+  "returned, never connected an agent."
+- **`api_keys.first_used_at`.** Set once (COALESCE) alongside every
+  `last_used_at` stamp on both resolution paths (inline Neon middleware +
+  the self-host internal resolve-key route). Deliberately not backfilled:
+  NULL means "used before 4.57.0 or never" — time-from-mint-to-first-key-use
+  is measurable for keys used from now on.
+- **Funnel annotations** on `GET /api/hosted/funnel` and the /setup "Trial
+  activation funnel" card: `returned` (seen again >1h after mint),
+  `returnedNeverConnected`, `medianHoursToFirstKeyUse`, and
+  `firstActionVia` (browser vs agent, keyed on the v5.2 card's pinned
+  agent id, now a shared constant in `app/lib/hosted/browser-action.js`).
+  Annotations, not new steps — the 4-step funnel is untouched, and unknowns
+  (pre-4.57.0 evidence) count in no bucket, truthful-zeros style.
+- **Snapshot extension** (`drizzle/0053`): `hosted_trial_snapshots` gains
+  `first_key_used_at`, `first_seen_at`, `last_seen_at`, `first_action_via`,
+  frozen at deletion time inside the same fail-closed
+  snapshot-before-delete write; pre-4.57.0 archived rows keep NULLs.
+
+### Security
+- Focused review of the new middleware writes + public aggregate
+  disclosure: SHIP, 0 blockers, 2 LOW accepted-tradeoff notes recorded in
+  the spec (self-reported agent id can distort the browser/agent split —
+  analytics only; small-n annotation counts are the same low-cardinality
+  property the v4.6 review accepted). Cross-org stamping impossible (UPDATE
+  keyed on the JWT-verified org id); the v5.1 transient-vs-gone cookie
+  contract is untouched (stamp fires only after a positive resolve,
+  fire-and-forget).
+
 ## [4.56.1] — 2026-07-05
 
 Landing-hero polish + a clean anonymous console. Platform-only — SDKs stay

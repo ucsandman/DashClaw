@@ -4,6 +4,7 @@ import {
   SYNTHETIC_AGENT_LIKE_PATTERNS,
   SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS,
 } from '../calibration-mining.js';
+import { BROWSER_FIRST_ACTION_AGENT_ID } from '../hosted/browser-action.js';
 import type { SqlTag } from '../types/db';
 
 function generateId(prefix: string): string {
@@ -230,7 +231,21 @@ export type TrialFunnelFacts = {
   /** Frozen at deletion time on archived rows; null on live rows (computed on read). */
   frozenRetainedWeek1: boolean | null;
   archived: boolean;
+  // v5.3 sharpened facts. All nullable: NULL = unknown (pre-v5.3 evidence),
+  // never guessed — first_used_at is not backfilled and visit stamps only
+  // exist since trial sessions started stamping.
+  firstKeyUsedAtMs: number | null;
+  firstSeenAtMs: number | null;
+  lastSeenAtMs: number | null;
+  /** Which door the first governed action came through; null when unknown or no action. */
+  firstActionVia: 'browser' | 'agent' | null;
 };
+
+/** 'browser' | 'agent' | null from a raw agent id, given the org acted at all. */
+function firstActionViaFromAgentId(agentId: unknown, acted: boolean): 'browser' | 'agent' | null {
+  if (!acted) return null;
+  return agentId === BROWSER_FIRST_ACTION_AGENT_ID ? 'browser' : 'agent';
+}
 
 function toMs(value: unknown): number | null {
   if (value === null || value === undefined) return null;
@@ -258,20 +273,27 @@ export async function queryLiveTrialFacts(
         SELECT 1 FROM api_keys k
         WHERE k.org_id = o.id AND k.last_used_at IS NOT NULL
       ) AS key_used,
+      (SELECT (EXTRACT(EPOCH FROM MIN(k.first_used_at::timestamptz)) * 1000)::float8
+         FROM api_keys k
+         WHERE k.org_id = o.id AND k.first_used_at IS NOT NULL) AS first_key_used_at_ms,
+      (EXTRACT(EPOCH FROM o.trial_first_seen_at) * 1000)::float8 AS first_seen_at_ms,
+      (EXTRACT(EPOCH FROM o.trial_last_seen_at) * 1000)::float8 AS last_seen_at_ms,
       (EXTRACT(EPOCH FROM activity.first_action_at) * 1000)::float8 AS first_action_at_ms,
       (EXTRACT(EPOCH FROM activity.last_action_at) * 1000)::float8 AS last_action_at_ms,
+      activity.first_action_agent_id,
       COALESCE(activity.action_count, 0)::int AS action_count
     FROM organizations o
     LEFT JOIN LATERAL (
-      SELECT MIN(ts) AS first_action_at, MAX(ts) AS last_action_at, COUNT(*)::int AS action_count
+      SELECT MIN(ts) AS first_action_at, MAX(ts) AS last_action_at, COUNT(*)::int AS action_count,
+             (ARRAY_AGG(agent_id ORDER BY ts))[1] AS first_action_agent_id
       FROM (
-        SELECT gd.created_at::timestamptz AS ts
+        SELECT gd.created_at::timestamptz AS ts, gd.agent_id AS agent_id
         FROM guard_decisions gd
         WHERE gd.org_id = o.id
           AND (gd.action_type IS NULL OR gd.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
           AND (gd.agent_id IS NULL OR gd.agent_id NOT LIKE ALL(${SYNTHETIC_AGENT_LIKE_PATTERNS}::text[]))
         UNION ALL
-        SELECT ar.created_at::timestamptz AS ts
+        SELECT ar.created_at::timestamptz AS ts, ar.agent_id AS agent_id
         FROM action_records ar
         WHERE ar.org_id = o.id
           AND (ar.action_type IS NULL OR ar.action_type NOT LIKE ALL(${SYNTHETIC_ACTION_TYPE_LIKE_PATTERNS}::text[]))
@@ -282,16 +304,23 @@ export async function queryLiveTrialFacts(
       AND o.trial_action_cap > 0
       AND (${orgId}::text IS NULL OR o.id = ${orgId})
   `;
-  return rows.map((r) => ({
-    orgId: String(r.org_id),
-    mintedAtMs: toMs(r.minted_at_ms) ?? 0,
-    keyUsed: r.key_used === true,
-    firstActionAtMs: toMs(r.first_action_at_ms),
-    lastActionAtMs: toMs(r.last_action_at_ms),
-    actionCount: Number(r.action_count) || 0,
-    frozenRetainedWeek1: null,
-    archived: false,
-  }));
+  return rows.map((r) => {
+    const firstActionAtMs = toMs(r.first_action_at_ms);
+    return {
+      orgId: String(r.org_id),
+      mintedAtMs: toMs(r.minted_at_ms) ?? 0,
+      keyUsed: r.key_used === true,
+      firstActionAtMs,
+      lastActionAtMs: toMs(r.last_action_at_ms),
+      actionCount: Number(r.action_count) || 0,
+      frozenRetainedWeek1: null,
+      archived: false,
+      firstKeyUsedAtMs: toMs(r.first_key_used_at_ms),
+      firstSeenAtMs: toMs(r.first_seen_at_ms),
+      lastSeenAtMs: toMs(r.last_seen_at_ms),
+      firstActionVia: firstActionViaFromAgentId(r.first_action_agent_id, firstActionAtMs !== null),
+    };
+  });
 }
 
 /**
@@ -308,17 +337,23 @@ export async function snapshotTrialFunnelFacts(
   if (!f) return { snapshotted: false };
   const retainedWeek1 =
     f.lastActionAtMs !== null && f.lastActionAtMs - f.mintedAtMs >= WEEK_MS;
+  const iso = (ms: number | null) => (ms === null ? null : new Date(ms).toISOString());
   await sql`
     INSERT INTO hosted_trial_snapshots
-      (org_id, minted_at, key_used, first_action_at, last_action_at, action_count, retained_week1)
+      (org_id, minted_at, key_used, first_action_at, last_action_at, action_count, retained_week1,
+       first_key_used_at, first_seen_at, last_seen_at, first_action_via)
     VALUES (
       ${orgId},
       to_timestamp(${f.mintedAtMs} / 1000.0),
       ${f.keyUsed},
-      ${f.firstActionAtMs === null ? null : new Date(f.firstActionAtMs).toISOString()},
-      ${f.lastActionAtMs === null ? null : new Date(f.lastActionAtMs).toISOString()},
+      ${iso(f.firstActionAtMs)},
+      ${iso(f.lastActionAtMs)},
       ${f.actionCount},
-      ${retainedWeek1}
+      ${retainedWeek1},
+      ${iso(f.firstKeyUsedAtMs)},
+      ${iso(f.firstSeenAtMs)},
+      ${iso(f.lastSeenAtMs)},
+      ${f.firstActionVia}
     )
     ON CONFLICT (org_id) DO NOTHING
   `;
@@ -333,13 +368,29 @@ export type TrialFunnelCounts = {
   week1Eligible: number;
 };
 
+// v5.3 annotations — sharpened distinctions rendered UNDER the funnel, never
+// new steps. Unknowns (pre-v5.3 NULLs) count in no bucket.
+export type TrialFunnelAnnotations = {
+  /** Seen again more than RETURN_GAP_MS after mint — one sitting is not a return. */
+  returned: number;
+  /** Returned, but never used the key and never acted. */
+  returnedNeverConnected: number;
+  medianHoursToFirstKeyUse: number | null;
+  /** Which door activated orgs came through; unknowns in neither bucket. */
+  firstActionVia: { browser: number; agent: number };
+};
+
 export type TrialFunnel = {
   computedAt: string;
   funnel: TrialFunnelCounts & { week1Pending: number };
   medianHoursToFirstAction: number | null;
+  annotations: TrialFunnelAnnotations;
   cohorts: Array<TrialFunnelCounts & { weekStart: string }>;
   source: { live: number; archived: number; truthfulSince: string | null };
 };
+
+/** A visit that starts more than this after mint counts as a return, not the mint sitting. */
+export const RETURN_GAP_MS = 60 * 60 * 1000;
 
 function weekStartUtc(ms: number): string {
   const d = new Date(ms);
@@ -370,16 +421,39 @@ export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): T
   });
 
   const overall = count(facts);
-  const deltas = facts
-    .filter((f) => f.firstActionAtMs !== null)
-    .map((f) => ((f.firstActionAtMs as number) - f.mintedAtMs) / 3_600_000)
-    .sort((a, b) => a - b);
-  const median =
-    deltas.length === 0
-      ? null
-      : deltas.length % 2 === 1
+  const medianHoursSinceMint = (getMs: (f: TrialFunnelFacts) => number | null): number | null => {
+    const deltas = facts
+      .map((f) => {
+        const ms = getMs(f);
+        return ms === null ? null : (ms - f.mintedAtMs) / 3_600_000;
+      })
+      .filter((d): d is number => d !== null)
+      .sort((a, b) => a - b);
+    if (deltas.length === 0) return null;
+    const raw =
+      deltas.length % 2 === 1
         ? deltas[(deltas.length - 1) / 2]!
         : (deltas[deltas.length / 2 - 1]! + deltas[deltas.length / 2]!) / 2;
+    return Math.round(raw * 10) / 10;
+  };
+  const median = medianHoursSinceMint((f) => f.firstActionAtMs);
+
+  // v5.3 annotations. "Returned" needs a positive seen-stamp beyond the mint
+  // sitting; NULL stamps (pre-v5.3 mints, archived unknowns) are unknown and
+  // count nowhere — truthful zeros, never guessed.
+  const isReturned = (f: TrialFunnelFacts) =>
+    f.lastSeenAtMs !== null && f.lastSeenAtMs - f.mintedAtMs > RETURN_GAP_MS;
+  const annotations: TrialFunnelAnnotations = {
+    returned: facts.filter(isReturned).length,
+    returnedNeverConnected: facts.filter(
+      (f) => isReturned(f) && !f.keyUsed && f.firstActionAtMs === null,
+    ).length,
+    medianHoursToFirstKeyUse: medianHoursSinceMint((f) => f.firstKeyUsedAtMs),
+    firstActionVia: {
+      browser: facts.filter((f) => f.firstActionVia === 'browser').length,
+      agent: facts.filter((f) => f.firstActionVia === 'agent').length,
+    },
+  };
 
   const byWeek = new Map<string, TrialFunnelFacts[]>();
   for (const f of facts) {
@@ -396,7 +470,8 @@ export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): T
   return {
     computedAt: now.toISOString(),
     funnel: { ...overall, week1Pending: overall.minted - overall.week1Eligible },
-    medianHoursToFirstAction: median === null ? null : Math.round(median * 10) / 10,
+    medianHoursToFirstAction: median,
+    annotations,
     cohorts,
     source: {
       live: facts.filter((f) => !f.archived).length,
@@ -417,7 +492,11 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
       (EXTRACT(EPOCH FROM first_action_at) * 1000)::float8 AS first_action_at_ms,
       (EXTRACT(EPOCH FROM last_action_at) * 1000)::float8 AS last_action_at_ms,
       action_count,
-      retained_week1
+      retained_week1,
+      (EXTRACT(EPOCH FROM first_key_used_at) * 1000)::float8 AS first_key_used_at_ms,
+      (EXTRACT(EPOCH FROM first_seen_at) * 1000)::float8 AS first_seen_at_ms,
+      (EXTRACT(EPOCH FROM last_seen_at) * 1000)::float8 AS last_seen_at_ms,
+      first_action_via
     FROM hosted_trial_snapshots
   `;
   return rows.map((r) => ({
@@ -429,6 +508,11 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
     actionCount: Number(r.action_count) || 0,
     frozenRetainedWeek1: r.retained_week1 === true,
     archived: true,
+    firstKeyUsedAtMs: toMs(r.first_key_used_at_ms),
+    firstSeenAtMs: toMs(r.first_seen_at_ms),
+    lastSeenAtMs: toMs(r.last_seen_at_ms),
+    // Pre-v5.3 snapshots carry NULL = unknown; never guessed on read.
+    firstActionVia: r.first_action_via === 'browser' || r.first_action_via === 'agent' ? r.first_action_via : null,
   }));
 }
 

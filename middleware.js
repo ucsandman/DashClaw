@@ -412,6 +412,19 @@ async function resolveTrialOrg(orgId) {
       }
     : null;
   trialOrgCache.set(orgId, { timestamp: now, result });
+  // v5.3: org-grain trial visit stamp (first/last seen — a timestamp, not
+  // page-view analytics). Fire-and-forget AFTER the positive resolve so a
+  // failed stamp never blocks a request or disturbs the transient-vs-gone
+  // contract above. Runs only on a cache-miss positive resolution, so the
+  // 60s cache doubles as the write throttle.
+  if (result) {
+    sql`
+      UPDATE organizations
+      SET trial_first_seen_at = COALESCE(trial_first_seen_at, NOW()),
+          trial_last_seen_at = NOW()
+      WHERE id = ${orgId} AND hosted_mode = TRUE
+    `.catch(() => {});
+  }
   return result;
 }
 
@@ -535,8 +548,9 @@ async function resolveApiKey(keyHash, request) {
     };
     apiKeyCache.set(keyHash, { timestamp: now, result });
 
-    // Update last_used_at (fire and forget)
-    sql`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE key_hash = ${keyHash}`.catch(() => {});
+    // Update last_used_at (fire and forget); first_used_at set once (v5.3 —
+    // a first use is by definition a cache miss, so the stamp is exact).
+    sql`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP, first_used_at = COALESCE(first_used_at, CURRENT_TIMESTAMP) WHERE key_hash = ${keyHash}`.catch(() => {});
 
     return result;
   } catch (err) {

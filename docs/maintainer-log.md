@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the instrument learns to tell "gone" from "came back" (v4.57.0)
+
+Roadmap v5.3. When v4.6 built the activation funnel, its spec recorded two
+blind spots as non-goals — with no trial sessions, "minted and never
+returned" and "returned, browsed, never connected" were indistinguishable,
+and `last_used_at` could say *whether* a key was used but never *when*
+first. v5.1 gave trials sessions and v5.2 gave them a browser door, which
+made all three distinctions closable, so this ship closes them: middleware
+stamps org-grain first/last-seen on trial-session resolution (fire-and-
+forget, throttled by the existing 60s cache — a timestamp, not analytics),
+every key-use stamp now sets `first_used_at` once, and the funnel's live
+query picks the earliest event's agent id to say which door an activation
+came through. All of it surfaces as *annotations* under the /setup funnel
+card and on the public funnel route — the 4-step funnel itself is
+untouched, and the honest-zeros discipline holds: nothing is backfilled,
+NULL evidence counts in no bucket, and the card copy says so.
+
+Decisions worth recording: "returned" is defined as seen again more than
+an hour after mint (one sitting is not a return; the constant sits next to
+the funnel math); `first_used_at` is deliberately not backfilled from
+`last_used_at` because fabricating an unknowable first-use time is a lie
+the funnel would then repeat forever. The deletion-time freeze carries the
+four new facts through the same fail-closed snapshot write v4.6 built.
+Security review: SHIP, 0 blockers, 2 LOW notes recorded in the spec (the
+browser/agent split trusts the self-reported agent id — an agent could
+miscount itself as a browser activation; analytics distortion, no boundary
+crossed). One gate catch worth keeping: the fresh-install fallback DDL in
+`/api/setup/migrate` has a drift test that reads CREATE TABLE blocks only —
+ALTER statements alone don't satisfy it, which is exactly the
+fresh-vs-legacy schema class this repo keeps meeting.
+
+Next per the roadmap: v5.4, the outsider run — the CLI trial path walked
+cold. And the post-deploy follow-up from v5.2 still stands: one human
+Turnstile mint on hosted.dashclaw.io, a guided run tagged
+`liveproof.browser`, then read the funnel — which can now answer with the
+sharpened distinctions this ship added.
+
 ## 2026-07-05 — the hero said it twice in orange (v4.56.1)
 
 Wes looked at the landing page after v4.56.0 and called it what it was:

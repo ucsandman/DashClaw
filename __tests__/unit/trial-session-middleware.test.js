@@ -82,6 +82,20 @@ describe('trial session — page routes', () => {
     expect(res.headers.get('x-middleware-request-x-user-id')).toBe(`trial:${orgId}`);
   });
 
+  it('a resolved trial session stamps the org visit — first seen once, last seen always (v5.3)', async () => {
+    const orgId = uniqueOrg();
+    sqlMock.mockResolvedValue([liveTrialOrgRow()]);
+    const cookie = `dashclaw-trial-session=${await trialJwt({ orgId })}`;
+    const res = await middleware(req('/decisions', { cookie }));
+    expect(res.status).toBe(200);
+    const stamp = sqlMock.mock.calls
+      .map((c) => (Array.isArray(c[0]) ? c[0].join(' ') : String(c[0])))
+      .find((t) => t.includes('trial_last_seen_at'));
+    expect(stamp).toBeTruthy();
+    expect(stamp).toContain('COALESCE(trial_first_seen_at, NOW())');
+    expect(stamp).toContain('hosted_mode = TRUE');
+  });
+
   it('deleted/cleaned-up org: redirect to /connect?trial=expired and the cookie is cleared', async () => {
     sqlMock.mockResolvedValue([]); // org gone
     const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;

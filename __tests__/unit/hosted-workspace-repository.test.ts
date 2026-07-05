@@ -40,6 +40,11 @@ const factsRow = {
   first_action_at_ms: 5_000,
   last_action_at_ms: 700_000_000, // ≥ 7 days after mint
   action_count: 42,
+  // v5.3 sharpened facts
+  first_key_used_at_ms: 4_000,
+  first_seen_at_ms: 1_500,
+  last_seen_at_ms: 600_000_000,
+  first_action_agent_id: 'my-agent',
 };
 
 // ─────────────────────────────────────────────────────────────── facts ─────
@@ -54,10 +59,14 @@ describe('queryLiveTrialFacts', () => {
     expect(text).toContain('NOT LIKE ALL');
     expect(text).toContain('::timestamptz');
     expect(text).toContain('last_used_at IS NOT NULL');
+    expect(text).toContain('first_used_at IS NOT NULL'); // v5.3: first key use timing
+    expect(text).toContain('trial_first_seen_at');       // v5.3: visit stamps
     expect(facts).toEqual([{
       orgId: 'org_abc', mintedAtMs: 1000, keyUsed: true,
       firstActionAtMs: 5000, lastActionAtMs: 700_000_000,
       actionCount: 42, frozenRetainedWeek1: null, archived: false,
+      firstKeyUsedAtMs: 4000, firstSeenAtMs: 1500, lastSeenAtMs: 600_000_000,
+      firstActionVia: 'agent',
     }]);
   });
 
@@ -67,7 +76,17 @@ describe('queryLiveTrialFacts', () => {
       first_action_at_ms: null, last_action_at_ms: null, action_count: '0',
     }]]);
     const [f] = await queryLiveTrialFacts(sql, 'org_x');
-    expect(f).toMatchObject({ mintedAtMs: 1000, keyUsed: false, firstActionAtMs: null, actionCount: 0 });
+    expect(f).toMatchObject({
+      mintedAtMs: 1000, keyUsed: false, firstActionAtMs: null, actionCount: 0,
+      firstKeyUsedAtMs: null, firstSeenAtMs: null, lastSeenAtMs: null,
+      firstActionVia: null, // no action → no door, never guessed
+    });
+  });
+
+  it('recognizes the browser door by the pinned agent id (v5.3)', async () => {
+    const sql = makeSqlMock([[{ ...factsRow, first_action_agent_id: 'browser-first-action' }]]);
+    const [f] = await queryLiveTrialFacts(sql, null);
+    expect(f!.firstActionVia).toBe('browser');
   });
 });
 
@@ -81,9 +100,14 @@ describe('snapshotTrialFunnelFacts', () => {
     const insert = sql.calls[1]!;
     expect(insert.text).toContain('INSERT INTO hosted_trial_snapshots');
     expect(insert.text).toContain('ON CONFLICT (org_id) DO NOTHING');
-    // values: orgId, mintedAtMs, keyUsed, firstIso, lastIso, count, retained
+    // values: orgId, mintedAtMs, keyUsed, firstIso, lastIso, count, retained,
+    //         firstKeyUsedIso, firstSeenIso, lastSeenIso, firstActionVia (v5.3)
     expect(insert.values[0]).toBe('org_abc');
     expect(insert.values[6]).toBe(true); // 700_000_000ms - 1000ms ≥ 7 days
+    expect(insert.values[7]).toBe(new Date(4_000).toISOString());
+    expect(insert.values[8]).toBe(new Date(1_500).toISOString());
+    expect(insert.values[9]).toBe(new Date(600_000_000).toISOString());
+    expect(insert.values[10]).toBe('agent');
   });
 
   it('skips cap-0 placeholders (no facts row → no insert)', async () => {
@@ -130,7 +154,9 @@ const NOW = new Date('2026-07-05T00:00:00.000Z');
 const mk = (over: Partial<TrialFunnelFacts>): TrialFunnelFacts => ({
   orgId: 'org_1', mintedAtMs: NOW.getTime() - 10 * DAY, keyUsed: false,
   firstActionAtMs: null, lastActionAtMs: null, actionCount: 0,
-  frozenRetainedWeek1: null, archived: false, ...over,
+  frozenRetainedWeek1: null, archived: false,
+  firstKeyUsedAtMs: null, firstSeenAtMs: null, lastSeenAtMs: null,
+  firstActionVia: null, ...over,
 });
 
 describe('computeFunnelAggregates', () => {
@@ -140,6 +166,11 @@ describe('computeFunnelAggregates', () => {
     expect(agg.medianHoursToFirstAction).toBeNull();
     expect(agg.cohorts).toEqual([]);
     expect(agg.source).toEqual({ live: 0, archived: 0, truthfulSince: null });
+    expect(agg.annotations).toEqual({
+      returned: 0, returnedNeverConnected: 0,
+      medianHoursToFirstKeyUse: null,
+      firstActionVia: { browser: 0, agent: 0 },
+    });
   });
 
   it('a young org is week1Pending, never not-retained', () => {
@@ -183,6 +214,50 @@ describe('computeFunnelAggregates', () => {
     expect(agg.cohorts).toHaveLength(8);
     expect(agg.cohorts[0]!.weekStart > agg.cohorts[1]!.weekStart).toBe(true);
     expect(agg.cohorts.every((c) => /^\d{4}-\d{2}-\d{2}$/.test(c.weekStart))).toBe(true);
+  });
+
+  it('returned needs a seen-stamp beyond the mint sitting; NULL stamps are unknown, not "gone" (v5.3)', () => {
+    const minted = NOW.getTime() - 10 * DAY;
+    const HOUR = 3_600_000;
+    const agg = computeFunnelAggregates([
+      mk({ orgId: 'a', mintedAtMs: minted, lastSeenAtMs: minted + HOUR }),          // exactly 1h = mint sitting
+      mk({ orgId: 'b', mintedAtMs: minted, lastSeenAtMs: minted + HOUR + 1 }),      // returned
+      mk({ orgId: 'c', mintedAtMs: minted, lastSeenAtMs: null }),                   // unknown — counts nowhere
+      mk({ orgId: 'd', mintedAtMs: minted, lastSeenAtMs: minted + 2 * DAY, keyUsed: true }), // returned AND connected
+    ], NOW);
+    expect(agg.annotations.returned).toBe(2);
+    expect(agg.annotations.returnedNeverConnected).toBe(1); // only b: d used the key
+  });
+
+  it('a browser first action still counts as returnedNeverConnected=false (v5.3)', () => {
+    const minted = NOW.getTime() - 10 * DAY;
+    const agg = computeFunnelAggregates([
+      mk({ mintedAtMs: minted, lastSeenAtMs: minted + 2 * DAY, firstActionAtMs: minted + 2 * DAY, firstActionVia: 'browser' }),
+    ], NOW);
+    expect(agg.annotations.returned).toBe(1);
+    expect(agg.annotations.returnedNeverConnected).toBe(0);
+    expect(agg.annotations.firstActionVia).toEqual({ browser: 1, agent: 0 });
+  });
+
+  it('median hours to first key use, over orgs with first_used_at evidence only (v5.3)', () => {
+    const minted = NOW.getTime() - 10 * DAY;
+    const HOUR = 3_600_000;
+    const agg = computeFunnelAggregates([
+      mk({ orgId: 'a', mintedAtMs: minted, firstKeyUsedAtMs: minted + HOUR }),
+      mk({ orgId: 'b', mintedAtMs: minted, firstKeyUsedAtMs: minted + 2 * HOUR }),
+      mk({ orgId: 'c', mintedAtMs: minted, keyUsed: true, firstKeyUsedAtMs: null }), // pre-v5.3 use: whether, not when
+    ], NOW);
+    expect(agg.annotations.medianHoursToFirstKeyUse).toBe(1.5);
+  });
+
+  it('firstActionVia buckets: unknown (pre-v5.3 archived) rows count in neither (v5.3)', () => {
+    const agg = computeFunnelAggregates([
+      mk({ orgId: 'a', firstActionAtMs: 1, firstActionVia: 'browser' }),
+      mk({ orgId: 'b', firstActionAtMs: 1, firstActionVia: 'agent' }),
+      mk({ orgId: 'c', archived: true, frozenRetainedWeek1: false, firstActionAtMs: 1, firstActionVia: null }),
+    ], NOW);
+    expect(agg.funnel.firstAction).toBe(3);
+    expect(agg.annotations.firstActionVia).toEqual({ browser: 1, agent: 1 });
   });
 
   it('truthfulSince is the earliest mint across live + archived', () => {

@@ -24,5 +24,7 @@ export async function resolveKeyForAuth(sql: SqlTag, keyHash: string): Promise<R
 }
 
 export async function touchKeyLastUsed(sql: SqlTag, keyHash: string): Promise<void> {
-  await sql`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP WHERE key_hash = ${keyHash}`;
+  // first_used_at set once (v5.3): mirrors the inline Neon stamp in
+  // middleware.js resolveApiKey — keep the two in sync.
+  await sql`UPDATE api_keys SET last_used_at = CURRENT_TIMESTAMP, first_used_at = COALESCE(first_used_at, CURRENT_TIMESTAMP) WHERE key_hash = ${keyHash}`;
 }

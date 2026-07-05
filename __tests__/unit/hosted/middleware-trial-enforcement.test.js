@@ -79,6 +79,25 @@ describe('middleware hosted-trial enforcement', () => {
     expect(body.error).toMatch(/action cap/i);
   });
 
+  it('key auth stamps first_used_at once alongside last_used_at (v5.3)', async () => {
+    const apiKey = uniqueKey();
+    sqlMock.mockResolvedValueOnce([{
+      org_id: 'org_x',
+      role: 'admin',
+      revoked_at: null,
+      hosted_mode: true,
+      trial_ends_at: '2099-01-01T00:00:00Z',
+      trial_action_cap: 10000,
+      trial_actions_used: 5,
+    }]);
+    await middleware(req('/api/actions', apiKey));
+    const touch = sqlMock.mock.calls
+      .map((c) => (Array.isArray(c[0]) ? c[0].join(' ') : String(c[0])))
+      .find((t) => t.includes('SET last_used_at'));
+    expect(touch).toBeTruthy();
+    expect(touch).toContain('first_used_at = COALESCE(first_used_at, CURRENT_TIMESTAMP)');
+  });
+
   it('passes through when hosted org is within limits', async () => {
     const apiKey = uniqueKey();
     sqlMock.mockResolvedValueOnce([{
