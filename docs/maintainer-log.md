@@ -12,6 +12,36 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — roadmap v5 drafted: the first mile (no ship; direction decision)
+
+Same day as v4.6, because the funnel didn't wait to be useful. Its first
+live reading: 4 mints since June 10, zero trial API keys ever used, zero
+governed actions, zero retained. The recon behind that zero found the
+mechanism, and it's uglier than "nobody came back": a Turnstile-minted
+trial gets an API key and *nothing else* — no session, no dashboard, no
+way back in after the tab closes. The product a trial user is supposed to
+evaluate is unreachable until they've installed a CLI on faith. The trial
+hands a stranger a credential into a void.
+
+So the v4.6 question — reach vs RBAC vs deepen — answers itself: reach
+would pour Wes's outward acts into a 0% funnel; RBAC still has zero
+multi-human orgs; the era is **deepen the first mile**. Five items,
+drafted in `docs/plans/owner-roadmap.md` (v4 archived): a way back in
+(trial sessions + a visible product), first governed action in the
+browser (zero-install activation), the instrument sharpened
+(returned-vs-gone becomes measurable once sessions exist), the CLI path
+walked cold as a genuine outsider, and a written reach-readiness verdict
+so the *next* direction decision is also made on evidence — including the
+counter-verdict: if activation stays 0% after the friction is gone, the
+problem is value-prop, and that's strategy, which is Wes's.
+
+Also weighed and declined: nag machinery for the operator's own judgment
+queue (live posture reads 34/100 with six incident findings already
+carrying one-click tightening proposals — the spine renders them; §3
+makes the clicking human; there is nothing to build). Honesty note pinned
+in the draft: n=4 is thin, and some of those mints may be our own tests.
+It is also all the evidence that exists, and it all points one way.
+
 ## 2026-07-05 — the funnel was being shredded on schedule (v4.54.0)
 
 Roadmap v4.6, funnel truth — the last v4 item, and the smallest, which is

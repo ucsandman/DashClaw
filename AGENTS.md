@@ -73,17 +73,17 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-05 (commit 3e1fd2a1). Confidence: 100%.
+Last indexed: 2026-07-05 (commit e7304165). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end codebase documentation and governed-agent platform: it ingests a target repository (source files + optional policy/rules inputs), builds an internal representation via parsing and dependency analysis, generates LLM-synthesised wiki/wiki-like artifacts, and exposes them through an MCP server and supporting CLI/web-facing tooling.
+This repository is a codebase documentation and governed-agent platform: it ingests a source repository (files, contracts, and policy/rules), transforms it through indexing/parsing and dependency/policy analysis, and outputs LLM-synthesised wiki/documentation artifacts plus agent-ready tooling served via an MCP server and a web UI.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
-| `app` | The **app** module is the **front-end application layer** of repowise’s overall… | - |
+| `app` | The **app** module is the **React/Next.js front-end layer of repowise’s… | - |
 | `__tests__/unit` | The __tests__/unit module is the unit-test stage of repowise’s quality gate for… | - |
-| `app/components` | The app/components module is the UI-layer component library for repowise’s web… | - |
-| `app/lib` | The **app/lib module** is the core service-layer subsystem in repowise’s… | - |
-| `application` | The **Application (top-level)** module is the entry-stage of repowise’s **web… | - |
+| `app/components` | The **app/components module is the UI-layer component library for repowise’s… | - |
+| `app/lib` | The app/lib module is the core service-layer “glue” inside repowise’s backend… | - |
+| `application` | The **Application (top-level)** module is the entry-stage orchestration layer… | - |
 | `app/api/_archive` | The **api/_archive** module is the **archival API layer** in repowise’s larger… | - |
 | `scripts` | The **scripts** module is the **application-layer orchestration toolkit** for… | - |
 | `.claude` | The **.claude module** is a **repository intelligence and command-safety… | - |
@@ -103,11 +103,11 @@ This repository is an end-to-end codebase documentation and governed-agent platf
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 49 | Wes Sander |
-| `CHANGELOG.md` | 100.0th percentile | 84 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 50 | Wes Sander |
+| `CHANGELOG.md` | 100.0th percentile | 85 | Wes Sander |
 | `app/lib/guard.ts` | 99.9th percentile | 27 | Wes Sander |
-| `scripts/policy-smoke.mjs` | 99.9th percentile | 23 | Wes Sander |
-| `package-lock.json` | 99.8th percentile | 86 | Wes Sander |
+| `scripts/policy-smoke.mjs` | 99.9th percentile | 24 | Wes Sander |
+| `package-lock.json` | 99.8th percentile | 87 | Wes Sander |
 
 ### Repowise MCP Workflow
 
