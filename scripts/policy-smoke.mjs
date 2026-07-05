@@ -1135,6 +1135,54 @@ async function main() {
       `status=${bulk.status} body=${JSON.stringify(bulk.json)}`);
   }
 
+  // V1–V4: coverage truth (roadmap v4.2) — the record knows what it missed.
+  // A degraded expected-vs-recorded report renders sub-threshold math in the
+  // diagnostic view; the real view and posture never consume synthetic evidence.
+  {
+    const degraded = agentFor('v-degraded');
+    const healthy = agentFor('v-healthy');
+
+    // Baseline BEFORE the synthetic reports land: coverage findings must not
+    // move because of them (posture consumes the synthetic-excluded view).
+    const postureBefore = await api('GET', '/api/posture');
+    const covBefore = (postureBefore.json?.findings || []).filter((f) => f?.fix?.type === 'view_coverage').length;
+
+    const post = await api('POST', '/api/coverage', {
+      agent_id: degraded, harness: 'policy-smoke', harness_session_id: `smoke-${RUN}`,
+      expected: 40, recorded: 8,
+    });
+    const postOk = post.status === 201 || post.status === 200;
+    await api('POST', '/api/coverage', {
+      agent_id: healthy, harness: 'policy-smoke', harness_session_id: `smoke-${RUN}`,
+      expected: 30, recorded: 30,
+    });
+    check('V1', 'coverage report accepted (a dropped event stream is reportable evidence)',
+      postOk, `status=${post.status} body=${JSON.stringify(post.json)}`);
+
+    // Diagnostic view: the deliberately dropped stream is detected within the
+    // same session — 8/40 = 20%, far below the 90% posture bar — and the
+    // healthy control reads 100%, not null and not degraded.
+    const diag = await api('GET', '/api/coverage?include_synthetic=1');
+    const dRow = (diag.json?.coverage || []).find((c) => c.agentId === degraded);
+    const hRow = (diag.json?.coverage || []).find((c) => c.agentId === healthy);
+    check('V2', 'diagnostic view detects the dropped stream (20%) and clears the healthy control (100%)',
+      diag.json?.synthetic_included === true && dRow?.recordPct === 20 && hRow?.recordPct === 100,
+      `degraded=${JSON.stringify(dRow)} healthy=${JSON.stringify(hRow)}`);
+
+    // Real view: synthetic evidence is excluded (shared v3.1/v4.1 predicate) —
+    // smoke traffic never mints a coverage number or a posture finding.
+    const real = await api('GET', '/api/coverage');
+    const leaked = (real.json?.coverage || []).some((c) => c.agentId === degraded || c.agentId === healthy);
+    check('V3', 'real coverage view excludes the synthetic reports (no smoke-minted coverage)',
+      real.status === 200 && !leaked, `coverage=${JSON.stringify((real.json?.coverage || []).map((c) => c.agentId))}`);
+
+    const postureAfter = await api('GET', '/api/posture');
+    const covAfter = (postureAfter.json?.findings || []).filter((f) => f?.fix?.type === 'view_coverage').length;
+    check('V4', 'no smoke-minted coverage posture finding (synthetic exclusion holds end-to-end)',
+      postureAfter.status === 200 && covAfter === covBefore,
+      `coverage findings before=${covBefore} after=${covAfter}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

@@ -520,6 +520,109 @@ def datetime_now_iso():
 
 
 # ---------------------------------------------------------------------------
+# Coverage truth (v4.2) — Stop-hook coverage report
+#
+# Per turn, report how many governed tool_use blocks the transcript actually
+# shows (`expected`) against how many made it into the session's tool_use ->
+# action_id map (`recorded`). Transcript ground truth is independent of
+# whether Pre/PostToolUse fired, so a PreToolUse outage now lowers a number
+# the server can see instead of silently thinning the ledger. The governed
+# matcher mirrors the PreToolUse harness matcher in hooks/settings.json
+# ("Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*") exactly, including
+# how MCP tool names appear in the transcript (mcp__<server>__<method>).
+# ---------------------------------------------------------------------------
+
+_GOVERNED_TOOL_RE = re.compile(r"^(?:Agent|Task|Bash|Edit|Write|MultiEdit|Skill|mcp__.*)$")
+
+
+def _is_governed_tool_name(name):
+    return bool(name) and bool(_GOVERNED_TOOL_RE.match(name))
+
+
+def _collect_turn_tool_uses(entries, start):
+    """(tool_use_id, tool_name) pairs from tool_use blocks in entries[start:].
+
+    Mirrors how dashclaw_code_session_reporter._collect_tool_use_action_map
+    walks assistant message content — same slice, same block shape."""
+    out = []
+    for e in entries[start:]:
+        msg = e.get("message") if isinstance(e, dict) else None
+        if not isinstance(msg, dict):
+            continue
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            tool_use_id = block.get("id")
+            name = block.get("name")
+            if tool_use_id and name:
+                out.append((tool_use_id, name))
+    return out
+
+
+def _read_turn_session_tool_map(session_id):
+    """Reuse the code-session reporter's tool_use_id -> action_id reader so
+    the intersection logic isn't duplicated. {} on any import/read failure."""
+    try:
+        from dashclaw_code_session_reporter import _read_session_tool_map
+        return _read_session_tool_map(session_id)
+    except Exception:
+        return {}
+
+
+def _compute_coverage_counts(entries, start, session_id):
+    """(expected, recorded) governed tool_use counts for this turn.
+
+    expected = governed tool_use blocks the transcript shows; recorded = the
+    subset with an action_id already in the session tool map (written by
+    dashclaw_pretool.py's write_action_id). Fail-silent: (0, 0) on error so
+    the caller skips the POST."""
+    try:
+        governed = [tu for tu in _collect_turn_tool_uses(entries, start) if _is_governed_tool_name(tu[1])]
+        if not governed:
+            return 0, 0
+        tool_map = _read_turn_session_tool_map(session_id)
+        recorded = sum(1 for tool_use_id, _ in governed if tool_use_id in tool_map)
+        return len(governed), recorded
+    except Exception:
+        return 0, 0
+
+
+def _post_coverage_report(session_id, expected, recorded):
+    """POST one fail-silent report to /api/coverage. Never raises."""
+    body = {
+        "agent_id": AGENT_ID,
+        "harness": "claude-code",
+        "harness_session_id": session_id,
+        "expected": expected,
+        "recorded": recorded,
+    }
+    req = _build_action_request(BASE_URL + "/api/coverage", body, "POST")
+    try:
+        request_with_retry(req, timeout=3)
+    except urllib.error.HTTPError as e:
+        _log_hook_error("coverage -> HTTP " + str(e.code))
+    except Exception as e:
+        _log_hook_error("coverage -> " + type(e).__name__ + ": " + str(e))
+
+
+def _maybe_report_coverage(entries, last_uuid, session_id):
+    """Report this turn's expected-vs-recorded governed tool_use counts to
+    POST /api/coverage. Skipped when the turn governed nothing — the quiet
+    path stays quiet. Fail-silent end to end."""
+    try:
+        start = _resolve_turn_start(entries, last_uuid)
+        expected, recorded = _compute_coverage_counts(entries, start, session_id)
+        if expected == 0:
+            return
+        _post_coverage_report(session_id, expected, recorded)
+    except Exception as e:
+        _log_hook_error("coverage -> " + type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
 # Assumption auto-capture
 #
 # The global working agreement mandates agents surface assumptions in an exact
@@ -1035,6 +1138,10 @@ def main():
     tokens_in, tokens_out, model, new_cursor = _collect_turn_usage(entries, last_uuid)
 
     _apply(action_ids, tokens_in, tokens_out, model, session_id)
+
+    # Coverage truth (v4.2): report this turn's expected-vs-recorded governed
+    # tool_use counts. Fail-silent; skipped when the turn governed nothing.
+    _maybe_report_coverage(entries, last_uuid, session_id)
 
     # Assumption auto-capture: ship any "ASSUMPTIONS I'M MAKING:" items from
     # this turn's assistant text to /api/assumptions. Idempotent + fail-silent.

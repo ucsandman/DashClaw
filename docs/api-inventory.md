@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `328`
+- Total routes: `329`
 - Stable routes: `56`
 - Beta routes: `24`
-- Experimental routes: `248`
+- Experimental routes: `249`
 
 ## Routes
 
@@ -150,6 +150,7 @@ doc-type: architecture
 | `/api/compliance/schedules` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/schedules/route.ts` |
 | `/api/compliance/schedules/{scheduleId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/compliance/schedules/[scheduleId]/route.ts` |
 | `/api/compliance/trends` | `GET` | `experimental` | `(default)` | `app/api/compliance/trends/route.ts` |
+| `/api/coverage` | `GET, POST` | `experimental` | `(default)` | `app/api/coverage/route.ts` |
 | `/api/cron/code-session-cache-crater` | `GET` | `beta` | `/api/cron` | `app/api/cron/code-session-cache-crater/route.ts` |
 | `/api/cron/code-session-weekly-memo` | `GET` | `beta` | `/api/cron` | `app/api/cron/code-session-weekly-memo/route.ts` |
 | `/api/cron/integration-health` | `GET` | `beta` | `/api/cron` | `app/api/cron/integration-health/route.ts` |

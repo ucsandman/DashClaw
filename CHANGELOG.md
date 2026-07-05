@@ -13,6 +13,54 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.50.0] — 2026-07-04
+
+Roadmap v4.2 — **Coverage truth: the record knows what it missed.** The item
+was drafted on the April ~96% PostToolUse miss rate; live diagnosis found the
+miss had recovered invisibly (~3% auto-close over 48h) — and that
+invisibility, in both directions, is the defect this release fixes.
+
+### Added
+- **Closure provenance** — `action_records.close_source` (`outcome` |
+  `stop_autoclose` | `direct`, drizzle/0048): every action row now records
+  durably *how* it reached terminal state, replacing string-matching on the
+  Stop-hook placeholder. Stamped server-side only, atomically with the close.
+- **Coverage reports** — the Claude Code Stop hook posts one per-turn
+  expected-vs-recorded report to the new `POST /api/coverage` (route 329),
+  computed from the transcript's `tool_use` ground truth — evidence that is
+  independent of whether PreToolUse/PostToolUse fired. `GET /api/coverage`
+  returns per-agent record + outcome coverage over a window;
+  `?include_synthetic=1` is an ephemeral diagnostic view.
+- **`/agents` Coverage column** — per-agent record coverage with an explicit
+  dashed **"No evidence"** state, so absence of evidence never renders as
+  health; outcome coverage in the tooltip.
+- **Posture finding** — `Event coverage dropped` (dimension: auditability)
+  fires when a real agent's record or outcome coverage falls below 90% with a
+  minimum evidence sample of 20, deep-linking to `/agents`. Synthetic families
+  (smoke/loadtest/liveproof) are excluded end-to-end via the shared predicate.
+- **Smoke section V** — V1–V4 live-prove the drop-detection math (a 20%
+  degraded stream vs a 100% healthy control) and that synthetic reports never
+  leak into real coverage or posture.
+
+### Fixed
+- `route-sql:check` false positive: prose like `` foo.sql` `` in a route-file
+  comment counted as a tagged SQL template (pre-existing gate breakage on
+  `app/api/setup/migrate/route.ts`); the scanner now requires a real `sql`
+  identifier boundary.
+- Fresh-install parity for `close_source`: added to `CRITICAL_TABLES_DDL` and
+  the runtime reconcile column list (and declared in
+  `contracts/setup/runtime-migration.json`), so fresh and legacy schemas agree.
+
+### Operational (this machine, not code)
+- Root-caused fleet-wide mis-attribution: a stray User-level
+  `DASHCLAW_AGENT_ID=codex` plus pre-v4.29 global hook wiring recorded **all**
+  Claude Code sessions as agent `codex` (`claude-code` = 0 rows in 7 days).
+  Rewired global hooks with explicit `--agent-id claude-code` and removed the
+  env var; new sessions attribute correctly. Historical rows are not rewritten.
+
+No Node/Python SDK source change — the SDKs are not republished (registry
+stays at 4.32.0).
+
 ## [4.49.1] — 2026-07-04
 
 Roadmap v4.1 — own-fleet interruption noise. The 2026-07-04 approval-flood

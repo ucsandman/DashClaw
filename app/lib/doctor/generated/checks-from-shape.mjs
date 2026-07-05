@@ -39,6 +39,7 @@ const TABLES = [
   "content",
   "context_entries",
   "context_points",
+  "coverage_reports",
   "daily_totals",
   "decisions",
   "drift_alerts",

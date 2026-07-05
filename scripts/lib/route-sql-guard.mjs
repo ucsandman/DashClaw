@@ -5,7 +5,9 @@ const PATTERNS = [
   {
     key: 'tagged_template',
     label: 'sql tagged template',
-    regex: /\bsql\s*`/g,
+    // (?<![.\w]) keeps prose like `foo.sql` followed by a closing markdown
+    // backtick in comments from counting as a tagged template.
+    regex: /(?<![.\w])sql\s*`/g,
   },
   {
     key: 'query_call',

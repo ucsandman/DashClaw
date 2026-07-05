@@ -17,6 +17,7 @@ import {
 } from '../repositories/posture.repository';
 import { getActivePolicies } from '../repositories/guardrails.repository';
 import { getLatestLiveCanaryRunForOrg } from '../repositories/live-canary.repository';
+import { getAgentCoverage } from '../repositories/coverage.repository';
 import { evaluatePolicy } from '../guard';
 import { isSyntheticEvent } from '../calibration-mining.js';
 import {
@@ -24,7 +25,7 @@ import {
   computeScore,
   bucketRiskScore,
 } from './model';
-import { deriveFindings, deriveLiveCanaryFinding } from './findings';
+import { deriveFindings, deriveLiveCanaryFinding, deriveCoverageFinding } from './findings';
 import type {
   GovernableUnit,
   Decision,
@@ -371,7 +372,7 @@ export async function computePosturePayload(
   const sinceTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Parallel data fetch.
-  const [capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun] = await Promise.all([
+  const [capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun, coverageStats] = await Promise.all([
     getCapabilityUnits(sql, orgId),
     getObservedActionUnits(sql, orgId),
     getActivePolicies(sql, orgId),
@@ -379,6 +380,7 @@ export async function computePosturePayload(
     getX402SpendSurfaces(sql, orgId),
     listFindingStates(sql, orgId),
     getLatestLiveCanaryRunForOrg(sql, orgId),
+    getAgentCoverage(sql, orgId),
   ]);
 
   const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
@@ -422,6 +424,15 @@ export async function computePosturePayload(
     const idx = derived.findIndex((f) => f.scoreDelta < canaryFinding.scoreDelta);
     if (idx === -1) derived.push(canaryFinding);
     else derived.splice(idx, 0, canaryFinding);
+  }
+  // v4.2: event-coverage drop joins the queue as one collapsed auditability
+  // finding (offending agents listed). Same splice discipline as the canary so
+  // scoreDelta-descending order holds and snooze/accept_risk apply unchanged.
+  const coverageFinding = deriveCoverageFinding(coverageStats, Date.now());
+  if (coverageFinding) {
+    const idx = derived.findIndex((f) => f.scoreDelta < coverageFinding.scoreDelta);
+    if (idx === -1) derived.push(coverageFinding);
+    else derived.splice(idx, 0, coverageFinding);
   }
   const findings = applyFindingStates(derived, stateByKey);
 

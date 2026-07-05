@@ -213,6 +213,7 @@ export default function AgentsFleetPage() {
                     <th className="px-6 py-4">Agent</th>
                     <th className="px-6 py-4">Status</th>
                     <th className="px-6 py-4">Governance</th>
+                    <th className="px-6 py-4">Coverage</th>
                     <th className="px-6 py-4">Last Action</th>
                     <th className="px-6 py-4 text-right">Inspect</th>
                   </tr>
@@ -283,6 +284,31 @@ export default function AgentsFleetPage() {
                               </div>
                             )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {/* Absence of evidence must render differently from 100% (v4.2 coverage truth) —
+                              null/undefined coverage (or an unresolvable record_pct, e.g. 0 expected calls
+                              in the window) is an explicit muted state, never a hidden zero. */}
+                          {agent.coverage?.record_pct == null ? (
+                            <span
+                              className="inline-flex items-center rounded border border-dashed border-border px-2 py-0.5 text-[11px] font-medium text-tertiary"
+                              title="No coverage reports in the last 24h"
+                            >
+                              No evidence
+                            </span>
+                          ) : (
+                            <span
+                              title={
+                                agent.coverage.outcome_pct != null
+                                  ? `Outcome coverage: ${Math.round(agent.coverage.outcome_pct)}%`
+                                  : 'No outcome coverage data'
+                              }
+                            >
+                              <Badge variant={agent.coverage.record_pct >= 90 ? 'success' : 'warning'} size="xs">
+                                {Math.round(agent.coverage.record_pct)}%
+                              </Badge>
+                            </span>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           {agent.last_action_at ? (

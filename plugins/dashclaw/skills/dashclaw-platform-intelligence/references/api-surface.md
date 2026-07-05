@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**328 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 248 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**329 active routes** (verified 2026-07-04 against `docs/api-inventory.json`): 56 stable, 24 beta, 249 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 
@@ -12,6 +12,7 @@
 - [Action Recording](#action-recording)
 - [Approvals](#approvals)
 - [Agent Fleet and Profile](#agent-fleet-and-profile)
+- [Coverage](#coverage)
 - [Loops and Assumptions](#loops-and-assumptions)
 - [Signals](#signals)
 - [Behavior Guard](#behavior-guard)
@@ -96,6 +97,19 @@ Tool route mapping lives in `mcp-server/lib/routes-inventory.generated.json` —
 | `/api/agents/[agentId]/profile` | GET | Aggregated governance profile: vitals strip, trust posture, assumptions summary, policies, recent decisions, signals. Powers `/agents/[agentId]` page. |
 | `/api/agents/connections` | GET, POST | `getAgentConnections`, `reportConnections` |
 | `/api/agents/heartbeat` | POST | `heartbeat` — auto-updates `agent_presence` on action submission (`418fc872`) |
+
+## Coverage
+
+**Maturity:** New (v4.2, 2026-07)
+
+Event coverage — orthogonal to posture's *policy* coverage (`coveredUnits`). Answers "did the ledger actually see everything that happened," not "is it governed."
+
+| Endpoint | Methods | Purpose |
+|---|---|---|
+| `/api/coverage` | POST | The Claude Code Stop hook's per-turn evidence: `{ agent_id, harness, harness_session_id, expected, recorded }`, where `expected`/`recorded` come from the turn's transcript `tool_use` ground truth vs the session's action map. One fail-silent report per turn; append-only `coverage_reports` table. |
+| `/api/coverage` | GET | Per-agent record coverage (`sum(recorded)/sum(expected)`, 24h window) and outcome coverage (share of hook-recorded actions closed with a real outcome vs Stop-hook auto-close, via `close_source` on `action_records`). `?include_synthetic=1` is a diagnostics view; real views and posture exclude synthetic/loadtest agents. Powers the Coverage column on `/agents`. |
+
+Outcome coverage depends on `close_source` (`outcome` \| `stop_autoclose` \| `direct`), stamped server-side on every action close — see [Action Recording](#action-recording). A posture finding fires when either coverage figure drops below 90% for a real agent (min 20 sampled), deep-linking to `/agents`.
 
 ## Guard Decisions Audit Log
 
@@ -193,6 +207,8 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 **PATCH outcome fields (v2.13.1+):** `status`, `output_summary`, `side_effects`, `artifacts_created`, `error_message`, `timestamp_end`, `duration_ms`, `cost_estimate`, `tokens_in`, `tokens_out`, `model`. When `tokens_in` / `tokens_out` are reported without an explicit `cost_estimate`, the server derives cost from the configured pricing table (see `app/lib/billing.js`) using `model` to pick the right pricing row. The `model` column was added to `action_records` on 2026-04-14 — run `node scripts/_run-with-env.mjs scripts/migrate-action-model-column.mjs` against existing instances before deploying the matching server build.
 
 **Token capture pipeline (Claude Code):** the `Stop` hook (`hooks/dashclaw_stop.py`) reads the session transcript at turn end, sums LLM token usage across that turn's assistant messages (cache_read tokens weighted at 0.1× to match Anthropic billing), and PATCHes the per-turn share onto every action_id the pretool opened during the turn. Same idea for the OpenClaw plugin (v1.2.1+) via the `llm_output` and `agent_end` hooks.
+
+**Closure provenance (v4.2):** every closed row is stamped server-side with `close_source` — `outcome` (a real PATCH/outcome write), `stop_autoclose` (a `close_if_running: true` PATCH won the close), or `direct` (created already terminal). Null means pre-v4.2. This is the durable data behind outcome coverage; see [Coverage](#coverage).
 
 | `/api/actions/[actionId]/artifacts` | GET | `getActionArtifacts` | `get_action_artifacts` |
 | `/api/actions/[actionId]/graph` | GET | `getActionGraph` | `get_action_graph` |

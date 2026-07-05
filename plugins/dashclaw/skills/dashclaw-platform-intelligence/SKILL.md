@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:ec77f57021f7680e9d72bc8fe06f31e183a3bd23`
+**Shape snapshot:** `sha1:7e297f1d9a54cdf60fefe2d376bd3c4f33e9c9f7`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **280** active API routes across **69** categories (328 total including archived)
+- **281** active API routes across **70** categories (329 total including archived)
 - **4** required + **193** optional environment variables
-- **106** database tables
+- **107** database tables
 
 ## API Surface
 
@@ -176,6 +176,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET, POST` `/api/compliance/schedules`
 - `DELETE, PATCH` `/api/compliance/schedules/[scheduleId]`
 - `GET` `/api/compliance/trends`
+
+### `coverage`
+
+- `GET, POST` `/api/coverage`
 
 ### `cron`
 
@@ -748,7 +752,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 106 tables defined in `schema/schema.js` (Drizzle ORM):
+All 107 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -783,6 +787,7 @@ All 106 tables defined in `schema/schema.js` (Drizzle ORM):
 - `content`
 - `context_entries`
 - `context_points`
+- `coverage_reports`
 - `daily_totals`
 - `decisions`
 - `drift_alerts`

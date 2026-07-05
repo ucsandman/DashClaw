@@ -246,6 +246,7 @@ dashclaw doctor`}</pre>
                   'Real-time SSE event stream',
                   'Token usage and cost tracking',
                   'Risk signal monitoring (18 signal types)',
+                  'Coverage truth -- per-agent Coverage column on /agents with an explicit "no evidence" state, plus close_source outcome provenance',
                   'Risk composition ledger -- every guard score itemized (risk_breakdown)',
                   'Session retros -- evidence-based end-of-session defensibility review',
                   'Daily fleet digest through Slack/Discord/email adapters',

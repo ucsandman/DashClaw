@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-04), generated API inventory reports **328 routes**: **56 stable**, **24 beta**, **248 experimental**.
+As of this verification (2026-07-04), generated API inventory reports **329 routes**: **56 stable**, **24 beta**, **249 experimental**.
 
 ## Product boundary
 
@@ -59,10 +59,11 @@ As of this verification (2026-07-04), generated API inventory reports **328 rout
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
+| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. Backed by `GET /api/agents` + `GET /api/coverage`. |
 | Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
 | Policy Builder | `/policies` | Interruption contract cockpit: plain-English contract of when agents interrupt you (editable spend thresholds, grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, and import/proof surfaces. |
 | Policy Coach | `/policy-coach` | Behavior Learning (v1, observe-only): evidence-backed policy suggestions learned from locally-recorded agent behavior, with simulate-before-adopt and dismiss suppression. See `docs/behavior-learning.md`. |
-| Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. Backed by `GET /api/posture`. Experimental. |
+| Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. A finding fires when a real agent's event coverage drops below 90% (min 20 sampled), deep-linking to `/agents`. Backed by `GET /api/posture`. Experimental. |
 | Analytics | `/analytics` | Cost trends, action volume, agent/type breakdowns, policy enforcement stats, and token efficiency. |
 | Spend | `/spend`, `/spend/x402`, `/spend/code` | FinOps rollup over agent LLM cost, x402 capability-purchase spend, and Code Sessions cost (Fleet vs Your-Claude-Code lenses, 7/30/90d trend). Beta. |
 | Work Orders | `/work-orders` | Task-grade contract ledger: orders table (status, type, cost vs budget, worker, age) with a receipt detail view and a client-side receipt-hash verifier, plus a Contracts tab (type registry with JSON Schema input/output, seeded `research_brief` example). DashClaw is the contract + receipt system of record; execution is external workers via `claim`/`complete`. Backed by `/api/work-orders`. |

@@ -2,9 +2,12 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
 import { getOrgId } from '../../lib/org';
 import { attachAgentConnections, listAgentsForOrg } from '../../lib/repositories/agents.repository';
+import { getAgentCoverage } from '../../lib/repositories/coverage.repository';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+const COVERAGE_WINDOW_HOURS = 24;
 
 export async function GET(request: Request) {
   try {
@@ -19,6 +22,25 @@ export async function GET(request: Request) {
 
     if (includeConnections) {
       await attachAgentConnections(sql, orgId, agents);
+    }
+
+    // v4.2 coverage truth: merge per-agent record/outcome coverage in ONE extra
+    // aggregate query (never per-agent). `coverage: null` = no evidence at all,
+    // which must render differently from 100% on /agents.
+    const coverageByAgent = new Map(
+      (await getAgentCoverage(sql, orgId, COVERAGE_WINDOW_HOURS)).map((c) => [c.agentId, c]),
+    );
+    for (const agent of agents) {
+      const cov = coverageByAgent.get(agent.agent_id);
+      agent.coverage = cov
+        ? {
+            record_pct: cov.recordPct,
+            outcome_pct: cov.outcomePct,
+            expected: cov.expected,
+            recorded: cov.recorded,
+            window_hours: COVERAGE_WINDOW_HOURS,
+          }
+        : null;
     }
 
     return NextResponse.json({

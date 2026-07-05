@@ -27,7 +27,8 @@
         "verified",
         "approved_by",
         "approved_at",
-        "approval_grant_used_at"
+        "approval_grant_used_at",
+        "close_source"
       ],
       "reconciled_indexes": [
         "action_records_action_id_idx",

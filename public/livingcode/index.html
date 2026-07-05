@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:ec77f57021f7680e9d72bc8fe06f31e183a3bd23 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:7e297f1d9a54cdf60fefe2d376bd3c4f33e9c9f7 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">281</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">282</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">106</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">107</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (106)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (107)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -94,6 +94,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>content</code></td><td class="sig">—</td></tr>
     <tr><td><code>context_entries</code></td><td class="sig">—</td></tr>
     <tr><td><code>context_points</code></td><td class="sig">—</td></tr>
+    <tr><td><code>coverage_reports</code></td><td class="sig">governance</td></tr>
     <tr><td><code>daily_totals</code></td><td class="sig">—</td></tr>
     <tr><td><code>decisions</code></td><td class="sig">—</td></tr>
     <tr><td><code>drift_alerts</code></td><td class="sig">—</td></tr>
@@ -198,9 +199,10 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>21</b> routes added, <b>9</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>1</b> env_vars removed, <b>22</b> routes added, <b>10</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
+    <li><code>added</code> <b>routes</b>: /api/coverage <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/internal/resolve-key <span class="sig">New route: POST</span></li>
@@ -273,6 +275,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: coverage_reports <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: live_canary_runs <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: tightening_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: work_order_receipts <span class="sig">New table in schema</span></li>
@@ -363,6 +366,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/compliance/schedules"><td><code>/api/compliance/schedules</code></td><td>GET, POST</td><td class="sig">app/api/compliance/schedules/route.ts</td></tr>
     <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.ts</td></tr>
     <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.ts</td></tr></tbody></table></details>
+<details><summary>/coverage/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/coverage"><td><code>/api/coverage</code></td><td>GET, POST</td><td class="sig">app/api/coverage/route.ts</td></tr></tbody></table></details>
 <details><summary>/cron/* (12)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
     <tr data-path="/api/cron/code-session-weekly-memo"><td><code>/api/cron/code-session-weekly-memo</code></td><td>GET</td><td class="sig">app/api/cron/code-session-weekly-memo/route.ts</td></tr>
     <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>

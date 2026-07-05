@@ -59,7 +59,12 @@ trusted `session_start` hook registered by an unrelated tool was observed
 firing in this machine's `~/.codex/config.toml` (2026-07-04). **Known delta vs
 Claude Code** (explicit decision, not an oversight): there is no JSONL
 transcript parser (Codex session ingest rides the `notify` integration
-instead).
+instead). Consequence since v4.2 coverage truth: the Stop hook's per-turn
+coverage report (`POST /api/coverage`, expected-vs-recorded from the
+transcript's `tool_use` blocks) has no ground-truth source on Codex, so
+Codex agents render the "no evidence" coverage state on `/agents`. The
+server-side outcome-coverage dimension (`action_records.close_source`)
+covers Codex regardless.
 
 The **Hermes Agent** surface ships under `.hermes-plugin/` with a
 `plugin.yaml`, installer README, config snippet, and eight shell-hook adapters:

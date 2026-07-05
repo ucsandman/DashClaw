@@ -43,7 +43,9 @@ export type PostureFix =
       /** v3.2: the mirrored tightening proposal on /policies (tp_ id). */
       proposalId?: string }
   /** v3.4: the live-host canary reported a failing public surface. */
-  | { type: 'view_live_canary'; deepLink: string };
+  | { type: 'view_live_canary'; deepLink: string }
+  /** v4.2: event coverage (record or outcome) dropped below the bar for an agent. */
+  | { type: 'view_coverage'; deepLink: string };
 
 export interface PostureFinding {
   key: string;

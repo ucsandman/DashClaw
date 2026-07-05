@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:ec77f57021f7680e9d72bc8fe06f31e183a3bd23",
+  "timestamp": "sha1:7e297f1d9a54cdf60fefe2d376bd3c4f33e9c9f7",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1316,6 +1316,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/compliance/trends/route.ts"
+    },
+    {
+      "path": "/api/coverage",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/coverage/route.ts"
     },
     {
       "path": "/api/cron/code-session-cache-crater",
@@ -5598,6 +5608,11 @@
       "name": "context_points",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "coverage_reports",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "daily_totals",

@@ -255,7 +255,7 @@ describe('/api/actions/[actionId]', () => {
           output_summary: 'Auto-closed by Stop hook',
           timestamp_end: '2026-04-17T22:00:00Z',
         });
-        expect(closeOpts).toEqual({ gateStatus: 'running' });
+        expect(closeOpts).toEqual({ gateStatus: 'running', closeSource: 'stop_autoclose' });
 
         const [, , , tokenFields, tokenOpts] = mockUpdateActionOutcome.mock.calls[1];
         // tokenFields also carries a server-derived cost_estimate; we don't

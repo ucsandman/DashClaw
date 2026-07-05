@@ -139,7 +139,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     if (closeIfRunning) {
       let closeResult = null;
       if (hasCloseFields) {
-        closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running' });
+        // Stop-hook close: stamp closure provenance 'stop_autoclose' (v4.2).
+        closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running', closeSource: 'stop_autoclose' });
       }
       let tokenResult = null;
       if (hasOtherFields) {
@@ -160,7 +161,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
       // If neither close-path nor other-path matches, action does not exist.
       let closeResult = null;
       if (hasCloseFields) {
-        closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running' });
+        // Normal completion PATCH: stamp closure provenance 'outcome' (v4.2).
+        closeResult = await updateActionOutcome(sql, orgId, actionId, closeData, { gateStatus: 'running', closeSource: 'outcome' });
       }
       let tokenResult = null;
       if (hasOtherFields) {

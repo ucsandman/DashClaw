@@ -217,6 +217,8 @@ const navItems = [
   { href: '#posture-findings', label: 'Findings queue', indent: true },
   { href: '#posture-resolve', label: 'Resolve a finding', indent: true },
   { href: '#posture-scan', label: 'Scan (snapshot)', indent: true },
+  { href: '#coverage', label: 'Coverage' },
+  { href: '#coverage-get', label: 'GET /api/coverage', indent: true },
   { href: '#work-orders', label: 'Work Orders' },
   { href: '#submitWorkOrder', label: 'submitWorkOrder', indent: true },
   { href: '#getWorkOrder', label: 'getWorkOrder', indent: true },
@@ -2818,6 +2820,31 @@ const { score, snapshot } = await res.json();`}
                 }
               />
               <p className="text-sm text-text-secondary mb-2 leading-relaxed">Also exposed read-only over MCP — tools <code className="text-brand">dashclaw_posture</code> + <code className="text-brand">dashclaw_posture_next</code> — and as CLI commands <code className="text-brand">dashclaw posture</code> / <code className="text-brand">dashclaw next</code> / <code className="text-brand">dashclaw posture resolve &lt;key&gt;</code> (draft-only). The dashboard view is at <code className="text-brand">/posture</code>.</p>
+            </div>
+          </section>
+
+          <section id="coverage" className="scroll-mt-20 pt-12 border-t border-border">
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Coverage</h3>
+              <p className="text-xs text-text-tertiary mb-4">Event coverage — orthogonal to posture&apos;s policy coverage (&quot;is it governed&quot;). Answers &quot;did the ledger actually see everything that happened.&quot; The Claude Code Stop hook POSTs one fail-silent per-turn report comparing transcript <code className="text-brand">tool_use</code> ground truth against the session&apos;s recorded action map; every closed action also carries a <code className="text-brand">close_source</code> (outcome | stop_autoclose | direct) so outcome coverage is computable from durable data. Operator surface only; no SDK wrapper. Powers the Coverage column on the <code className="text-brand">/agents</code> page and a posture finding when either figure drops below 90% (min 20 sampled).</p>
+              <MethodEntry
+                id="coverage-get"
+                signature="GET /api/coverage"
+                description="Per-agent record coverage (sum(recorded)/sum(expected) over a 24h window) and outcome coverage (share of hook-recorded actions closed with a real outcome vs Stop-hook auto-close). An agent with no reports renders an explicit no-evidence state rather than 100%."
+                params={[
+                  { name: 'window_hours', type: 'number', required: false, desc: '1-168, default 24' },
+                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents — diagnostics only; real views and posture always exclude them' },
+                ]}
+                returns="{ coverage: [{ agentId, expected, recorded, recordPct, outcomePct, outcomeSample }], window_hours, lastUpdated }"
+                example={
+                  <CodeBlock title="Read fleet coverage">
+{`const res = await fetch('/api/coverage', {
+  headers: { 'x-api-key': apiKey },
+});
+const { coverage } = await res.json();`}
+                  </CodeBlock>
+                }
+              />
             </div>
           </section>
 

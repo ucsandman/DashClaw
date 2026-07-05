@@ -25,7 +25,10 @@ export const ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS = [
   { name: 'approved_at', sql: 'timestamp' },
   // Single-use operator-approval grants (drizzle/0045): stamped by the
   // guard's atomic consume; NULL means the approval is still grantable.
-  { name: 'approval_grant_used_at', sql: 'timestamp' }
+  { name: 'approval_grant_used_at', sql: 'timestamp' },
+  // Closure provenance (drizzle/0048, v4.2 coverage truth): 'outcome' |
+  // 'stop_autoclose' | 'direct'; NULL means pre-v4.2 row.
+  { name: 'close_source', sql: 'text' }
 ];
 
 export const ACTION_RECORDS_RUNTIME_COLUMNS = ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS.map((column) => column.name);

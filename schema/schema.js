@@ -173,6 +173,12 @@ export const actionRecords = pgTable('action_records', {
   // outcomes back to guard_decisions.matched_policies for the policy-tuning
   // proposal loop. See drizzle/0035.
   guardDecisionId: text('guard_decision_id'),
+  // Durable closure provenance (v4.2, drizzle/0048). Stamped server-side only:
+  // 'outcome' (a normal PATCH/outcome write closed the row), 'stop_autoclose'
+  // (a close_if_running PATCH won the close), 'direct' (created already
+  // terminal). NULL = pre-v4.2 (no backfill). Makes outcome coverage computable
+  // from durable data instead of string-matching the auto-close summary.
+  closeSource: text('close_source'),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 }, (table) => ({
@@ -1541,6 +1547,28 @@ export const liveCanaryRuns = pgTable('live_canary_runs', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 }, (t) => ({
   orgCreatedIdx: index('idx_live_canary_runs_org_created').on(t.orgId, t.createdAt),
+}));
+
+// @domain governance
+// v4.2 coverage truth (drizzle/0048, docs/superpowers/specs/2026-07-04-coverage-truth.md).
+// The Stop hook's per-turn expected-vs-recorded evidence: expected = governed
+// tool_use blocks in the turn's transcript slice, recorded = those with an
+// action_id in the session tool map. Append-only, org-scoped, one row per turn.
+// Transcript ground truth is independent of whether Pre/PostToolUse fired, so a
+// PreToolUse outage lowers a number the server can see (record coverage) instead
+// of thinning the ledger silently. All access via coverage.repository.ts.
+export const coverageReports = pgTable('coverage_reports', {
+  id: text('id').primaryKey(), // cov_ prefix
+  orgId: text('org_id').notNull(),
+  agentId: text('agent_id').notNull(),
+  harness: text('harness'),
+  harnessSessionId: text('harness_session_id'),
+  expected: integer('expected').notNull(),
+  recorded: integer('recorded').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgCreatedIdx: index('idx_coverage_reports_org_created').on(t.orgId, t.createdAt),
+  orgAgentIdx: index('idx_coverage_reports_org_agent').on(t.orgId, t.agentId),
 }));
 
 // @domain governance

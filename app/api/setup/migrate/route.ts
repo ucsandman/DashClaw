@@ -304,6 +304,7 @@ CREATE TABLE IF NOT EXISTS "action_records" (
   "idempotency_key" text,
   "session_id" text,
   "guard_decision_id" text,
+  "close_source" text,
   "created_at" timestamp DEFAULT now(),
   "updated_at" timestamp DEFAULT now(),
   CONSTRAINT "action_records_action_id_unique" UNIQUE("action_id")

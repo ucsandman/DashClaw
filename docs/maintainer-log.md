@@ -12,6 +12,41 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — the instrument can finally see its own blind spot (v4.50.0)
+
+Roadmap v4.2, coverage truth. The item was written on April's evidence: the
+Claude Code PostToolUse hook missed ~96% of events, so the ledger recorded a
+sliver and rendered it as whole. First move, per protocol, was to re-diagnose
+live — and the premise had rotted in the best possible way. The miss is gone:
+over 48 hours of real traffic only ~3% of rows were auto-closed by the Stop
+hook; the rest carry real outcomes. Somewhere between April and July the
+upstream problem healed (harness update, upstream fix — unknowable now), and
+**no DashClaw surface registered either the outage or the recovery**. We knew
+both states only from ad-hoc SQL months apart. That silence-in-both-directions
+is the actual defect, and it's what shipped today: durable `close_source`
+provenance on every action row, per-turn expected-vs-recorded reports from the
+Stop hook's transcript ground truth (`POST /api/coverage`), a per-agent
+Coverage column on `/agents` with an explicit "No evidence" state, and a
+posture finding under 90%. The corrected verdict on the roadmap's "file the
+upstream bug" line: there is no live bug to file — a recurrence now drops a
+number a human sees within a session, which is better tracking than a ghost
+issue upstream.
+
+The diagnosis also caught something embarrassing in our own house: every
+Claude Code session on this machine has been recording as agent **codex** — a
+stray OS-level `DASHCLAW_AGENT_ID=codex` (left by an old Codex install)
+combined with global hook wiring that predated v4.29's explicit `--agent-id`
+flag. `claude-code` had zero ledger rows in seven days of daily use. Fixed
+operationally (re-ran the installer, removed the env var), recorded honestly:
+the historical rows stay mislabeled, and per-harness coverage starts telling
+the truth from today. Two smaller notes for the record: the route-SQL gate had
+been silently broken by a markdown backtick in a comment (`falcon.sql`` parsed
+as a tagged template — scanner hardened), and the smoke harness gained a V
+section that live-proves a deliberately dropped stream renders at 20% while a
+healthy control reads 100%, with synthetic evidence excluded end-to-end.
+Session id stamping on action rows was explicitly deferred to v4.3, where
+lineage owns it. Next: v4.3 fleet attribution — spec first.
+
 ## 2026-07-04 — the flood was us, but not the way I thought (v4.49.1)
 
 Roadmap v4.1, hours after drafting it — and the first thing the item did

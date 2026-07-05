@@ -150,6 +150,8 @@ Rules:
 
 `GET /api/actions/:actionId/outcome` returns the current outcome state, including elapsed time where available.
 
+**Closure provenance (`close_source`).** Every closed row is stamped server-side with how it closed: `outcome` (this endpoint, or a legacy PATCH carrying a real terminal status), `stop_autoclose` (a `close_if_running: true` PATCH won the close), or `direct` (created already terminal, e.g. via MCP `dashclaw_record`). This makes outcome coverage computable from durable data instead of matching a summary string. Separately, the Claude Code Stop hook posts one fail-silent per-turn report to `POST /api/coverage` comparing the transcript's `tool_use` ground truth against the session's recorded actions ("record coverage"). Both figures render as a Coverage column on `/agents`, with an explicit "no evidence" state, and feed a posture finding when either drops below 90%.
+
 ### 4. Assumptions (`POST /api/assumptions`)
 
 Records beliefs underpinning an action. Assumptions are useful for drift detection, auditability, and post-action review.

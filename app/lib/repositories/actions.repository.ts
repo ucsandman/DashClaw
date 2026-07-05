@@ -696,6 +696,13 @@ function createActionInsertValues(payload: CreateActionPayload) {
   };
 }
 
+// Lifecycle statuses a row can be created in that are NOT yet terminal. Any
+// other create status means the row was born already closed (MCP
+// dashclaw_record, POST with a terminal status, or createBlockedActionRecord),
+// so close_source is stamped 'direct' — the row never transitioned through a
+// PATCH/outcome close. See drizzle/0048 (v4.2 coverage truth).
+const NON_TERMINAL_CREATE_STATUSES = new Set(['running', 'pending', 'pending_approval']);
+
 export async function createActionRecord(sql: SqlClient, payload: CreateActionPayload): Promise<Row | null> {
   const {
     orgId,
@@ -708,6 +715,8 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
   const approvalExpiresAt = actionStatus === 'pending_approval'
     ? computeApprovalExpiry(payload.data?.approval_wait_seconds)
     : null;
+  // Closure provenance (drizzle/0048): a row born terminal is a 'direct' close.
+  const closeSource = NON_TERMINAL_CREATE_STATUSES.has(actionStatus) ? null : 'direct';
 
   const rows = await sql`
     INSERT INTO action_records (
@@ -720,7 +729,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       timestamp_start, timestamp_end, duration_ms, cost_estimate,
       tokens_in, tokens_out, model,
       signature, verified, idempotency_key, session_id, guard_decision_id,
-      approval_expires_at
+      close_source, approval_expires_at
     ) VALUES (
       ${orgId},
       ${action_id},
@@ -758,6 +767,7 @@ export async function createActionRecord(sql: SqlClient, payload: CreateActionPa
       ${values.idempotency_key},
       ${values.session_id},
       ${values.guard_decision_id},
+      ${closeSource},
       ${approvalExpiresAt}
     )
     RETURNING *
@@ -941,7 +951,20 @@ export async function getActionWithRelations(
 
 interface UpdateActionOutcomeOptions {
   gateStatus?: string | null;
+  /**
+   * Closure provenance to stamp (drizzle/0048, v4.2). Only the caller's close
+   * write passes this — 'stop_autoclose' when a close_if_running PATCH wins the
+   * close, 'outcome' for a normal completion PATCH. The stamp lands ONLY when
+   * this write actually transitions the row to a terminal status (the
+   * gateStatus:'running' gate already guarantees the row was open), so a late
+   * token/cost update never rewrites the provenance.
+   */
+  closeSource?: string | null;
 }
+
+// Statuses a close write may set. close_source is stamped only when the new
+// status is one of these AND a closeSource intent was supplied.
+const TERMINAL_CLOSE_STATUSES = ['completed', 'failed', 'cancelled', 'blocked', 'partial'];
 
 interface NormalizedOutcomePatch {
   data: Record<string, unknown>;
@@ -1014,15 +1037,22 @@ async function updateActionOutcomeViaTaggedSql(
     actionId: string;
     patch: NormalizedOutcomePatch;
     gate: string | null;
+    closeSource: string | null;
   },
 ): Promise<Row | null> {
-  const { sql, orgId, actionId, patch, gate } = ctx;
+  const { sql, orgId, actionId, patch, gate, closeSource } = ctx;
   const { data, fields } = patch;
   const includeErrorMessage = fields.includes('error_message');
   const newStatus = outcomeValue(data, fields, 'status');
   const updated = await sql`
     UPDATE action_records SET
       status            = COALESCE(${outcomeValue(data, fields, 'status')}, status),
+      close_source      = CASE
+        WHEN ${closeSource}::text IS NOT NULL
+          AND ${newStatus} = ANY(${TERMINAL_CLOSE_STATUSES}::text[])
+        THEN ${closeSource}
+        ELSE close_source
+      END,
       output_summary    = COALESCE(${outcomeValue(data, fields, 'output_summary')}, output_summary),
       side_effects      = COALESCE(${outcomeValue(data, fields, 'side_effects')}, side_effects),
       artifacts_created = COALESCE(${outcomeValue(data, fields, 'artifacts_created')}, artifacts_created),
@@ -1066,6 +1096,7 @@ export async function updateActionOutcome(
   // gate doesn't match, the UPDATE affects 0 rows and this returns null.
   const { gateStatus } = options;
   const gate = gateStatus ?? null;
+  const closeSource = options.closeSource ?? null;
 
   // Verify existence and ownership
   const existing = await sql`SELECT action_id FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId} LIMIT 1`;
@@ -1074,7 +1105,9 @@ export async function updateActionOutcome(
   const { data, fields } = normalizeOutcomePatch(outcome);
   if (fields.length === 0) return null;
 
-  // Test-contract compatibility path for sql mocks that only provide .query() responses.
+  // Test-contract compatibility path for sql mocks that only provide .query()
+  // responses. close_source is not stamped on this path — it exists only for
+  // the .query()-only test contract; production always uses the tagged-sql path.
   if (typeof sql.query === 'function' && Array.isArray(sql.queryCalls)) {
     return updateActionOutcomeViaQueryMock({
       sql,
@@ -1091,6 +1124,7 @@ export async function updateActionOutcome(
     actionId,
     patch: { data, fields },
     gate,
+    closeSource,
   });
 }
 
@@ -1200,6 +1234,10 @@ export async function setActionOutcome(
         outcome_summary  = ${summary},
         outcome_error    = ${error_message},
         outcome_progress = ${progressJson}::jsonb,
+        -- Closure provenance (drizzle/0048, v4.2): the durable-finality outcome
+        -- write is a real 'outcome' close. COALESCE preserves any earlier stamp
+        -- (e.g. a Stop-hook 'stop_autoclose' PATCH) so first-close truth wins.
+        close_source     = COALESCE(close_source, 'outcome'),
         updated_at       = CURRENT_TIMESTAMP
     WHERE action_id = ${actionId}
       AND org_id    = ${orgId}

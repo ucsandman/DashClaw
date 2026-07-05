@@ -157,12 +157,12 @@ Client request hits middleware.js
 | `/approvals` | Desktop approval queue |
 | `/decisions` | Visual causal chain ledger with inline message trails in expanded rows |
 | `/decisions/{actionId}` | Chronological decision timeline (guard decisions, messages, assumptions, actions, outcomes, open loops) |
-| `/agents` | Fleet roster (presence, health, recent actions) |
+| `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record + outcome coverage against transcript ground truth, explicit "no evidence" state when an agent has no reports |
 | `/agents/{agentId}` | Agent governance profile — vitals strip, trust posture, policies, decisions, assumptions, signals |
 | `/policies` | Shields-first policy builder (ActivityTab + CustomTab, AI generator inline, agent-scope picker, risk explainer) |
 | `/policies/generate` | AI policy generator standalone page |
 | `/security` | Security dashboard (signals, guard decisions, findings) |
-| `/posture` | Governance posture score (score hero + 6 dimension cards + remediation queue + resolve modal + risk-accepted ledger). Gaming-resistant: score only rises from active, proven-to-fire policies; drafting never raises it. |
+| `/posture` | Governance posture score (score hero + 6 dimension cards + remediation queue + resolve modal + risk-accepted ledger). Gaming-resistant: score only rises from active, proven-to-fire policies; drafting never raises it. A finding fires when a real agent's event coverage drops below 90% (min 20 sampled), deep-linking to `/agents`. |
 | `/analytics` | Cost + action analytics (hero stats, cost trend, action volume, breakdowns, token usage) |
 | `/activity` | Raw activity log |
 | `/compliance` | Compliance mapping (framework controls, gap analysis, evidence, reports) |
