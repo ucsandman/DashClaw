@@ -13,6 +13,44 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.61.1] — 2026-07-05
+
+Security hardening from a full governance-controls review (adversarial
+multi-agent pass over auth, guard, approvals, and tenant scoping). Three
+gaps closed; the remaining review findings (grant string-binding, the full
+approval-auth boundary) are surfaced for a product decision, not silently
+patched.
+
+### Security
+
+- **Capability `/test` now runs the guard.** `POST /api/capabilities/[id]/test`
+  called the org's real endpoint with the org's real credentials and a
+  caller-controlled body without `evaluateGuard` — a blocked capability's
+  exact side-effect was reproducible via `/test`, and the org kill-switch
+  (halt) was bypassed entirely. Test invocations now evaluate the guard
+  first: `block` → 403 with a blocked-action record, `require_approval` →
+  202 with a pending approval; policies and halts apply to tests exactly as
+  to invokes.
+- **Ledger deletion is audited.** `DELETE /api/actions` (admin-gated bulk
+  delete) hard-deleted `action_records` with no trace. It now writes an
+  activity-log record (actor, count, ids, filter) so ledger erasure is
+  itself an audited event.
+- **Approvals require an attributable principal.** Key- and operator-
+  authenticated requests carried no `x-user-id`, so `recordApproval` stored
+  `approved_by = ''` — an approval attributed to nobody that still satisfied
+  the guard's operator-approval grant. Middleware now attributes every
+  authenticated principal (`operator` for the bootstrap `DASHCLAW_API_KEY`,
+  the `key_<uuid>` row id for DB keys, `dev` for the dev no-key fallback;
+  sessions and trials were already attributed), both approval routes reject
+  an empty principal with `403 APPROVER_IDENTITY_REQUIRED`, and the guard's
+  grant lookup additionally refuses empty-string `approved_by` grants.
+- **New API keys default to `member`, not `admin`** (API default and the
+  dashboard create-form default). An implicit admin default meant the same
+  key an agent uses to submit actions could approve them — machine
+  self-approval through the human gate. Admin keys must now be requested
+  explicitly; `docs/SECURITY.md` records the rule "agent keys must never be
+  admin."
+
 ## [4.61.0] — 2026-07-05
 
 Auth-lookup failure honesty. A cold audit (principal-engineer pass over the

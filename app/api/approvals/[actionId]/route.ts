@@ -44,6 +44,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
       return NextResponse.json({ error: 'Admin access required for approvals' }, { status: 403 });
     }
 
+    // SECURITY: an approval must be attributable to SOMEONE. Every legitimate
+    // admin path carries a principal (session user, trial:<org>, operator,
+    // key_<uuid> from middleware); an empty one means the grant lookup in
+    // guard.ts would be satisfied by an approval attributed to nobody.
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Approvals require an attributable principal', code: 'APPROVER_IDENTITY_REQUIRED' },
+        { status: 403 }
+      );
+    }
+
     const body = await request.json();
     const { decision, reasoning } = body;
 

@@ -25,7 +25,9 @@ export default function ApiKeysPage() {
   // Create form
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newLabel, setNewLabel] = useState('');
-  const [newRole, setNewRole] = useState('admin');
+  // Least privilege (security review 2026-07-05): agent keys must not be
+  // admin by accident — admin can approve its own pending actions.
+  const [newRole, setNewRole] = useState('member');
   const [creating, setCreating] = useState(false);
 
   // Newly created key (shown once)
@@ -327,7 +329,7 @@ export default function ApiKeysPage() {
                 {creating ? 'Creating…' : 'Create'}
               </button>
               <button
-                onClick={() => { setShowCreateForm(false); setNewLabel(''); setNewRole('admin'); }}
+                onClick={() => { setShowCreateForm(false); setNewLabel(''); setNewRole('member'); }}
                 className="rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-secondary transition-colors hover:border-border-hover hover:text-white"
               >
                 Cancel

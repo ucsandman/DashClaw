@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.61.0",
+    "current_version": "4.61.1",
     "next_bump": "none",
-    "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.61.1 security hardening (2026-07-05 governance review): guard on capability /test, audited ledger deletion, approval attribution (operator/key principals, APPROVER_IDENTITY_REQUIRED, member-default keys). Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.61.0",
+    "current_version": "4.61.1",
     "next_bump": "none",
-    "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+    "reason": "4.61.1 security hardening (2026-07-05 governance review): guard on capability /test, audited ledger deletion, approval attribution (operator/key principals, APPROVER_IDENTITY_REQUIRED, member-default keys). Platform only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.60.1 roadmap v6.3 SEO truth pass: platform/marketing only; Node/Python SDKs not republished; registry stays at 4.32.0.",
+  "reason": "v4.61.1 security hardening: platform only; Node/Python SDKs not republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

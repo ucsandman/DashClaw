@@ -35,6 +35,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
     }
     const userId = getUserId(request);
+    // SECURITY: same attribution gate as the single-approval route — a bulk
+    // resolution attributed to nobody must not exist (see APPROVER_IDENTITY_REQUIRED there).
+    if (!userId) {
+      return NextResponse.json(
+        { error: 'Approvals require an attributable principal', code: 'APPROVER_IDENTITY_REQUIRED' },
+        { status: 403 }
+      );
+    }
     const body = await request.json().catch(() => ({})) as {
       decision?: string; filter?: { policy_id?: string }; limit?: number;
     };

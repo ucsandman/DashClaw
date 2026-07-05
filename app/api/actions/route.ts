@@ -4,7 +4,8 @@ export const revalidate = 0;
 import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
 import { validateActionRecord } from '../../lib/validate.js';
-import { getOrgId, getOrgRole } from '../../lib/org';
+import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
+import { logActivity } from '../../lib/audit';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { verifyAgentSignature } from '../../lib/identity';
@@ -471,6 +472,7 @@ export async function DELETE(request: Request) {
     const sql = getSql();
     const orgId = getOrgId(request);
     const role = getOrgRole(request);
+    const userId = getUserId(request);
 
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
@@ -484,6 +486,18 @@ export async function DELETE(request: Request) {
 
     const actionIds = searchParams.get('action_ids');
 
+    // Deleting governed-action rows removes history from the decision ledger, so
+    // the erasure must itself be an append-only audit event (who, how many,
+    // which filter). Without this, an admin key can silently wipe the record of
+    // what agents did with no forensic trace.
+    const auditDeletion = (deletedIds: string[], filter: Record<string, unknown>) => {
+      logActivity({
+        orgId, actorId: userId || 'unknown', action: 'action.deleted',
+        resourceType: 'action', resourceId: deletedIds.length === 1 ? deletedIds[0] : undefined,
+        details: { deleted_count: deletedIds.length, action_ids: deletedIds.slice(0, 100), filter }, request,
+      }, sql);
+    };
+
     // Bulk delete by specific IDs: ?action_ids=act_1,act_2,act_3
     if (actionIds) {
       const idList = actionIds.split(',').map(id => id.trim()).filter(Boolean);
@@ -491,13 +505,17 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'No valid ids provided' }, { status: 400 });
       }
       const result = await deleteActionsByIds(sql, orgId, idList);
-      return NextResponse.json({ deleted: result.length, action_ids: result.map((r: Record<string, any>) => r.action_id) });
+      const deletedIds = result.map((r: Record<string, any>) => r.action_id);
+      auditDeletion(deletedIds, { action_ids: idList });
+      return NextResponse.json({ deleted: result.length, action_ids: deletedIds });
     }
 
     // Single action deletion
     if (actionId) {
       const result = await deleteActionsByIds(sql, orgId, [actionId]);
-      return NextResponse.json({ deleted: result.length, action_ids: result.map((r: Record<string, any>) => r.action_id) });
+      const deletedIds = result.map((r: Record<string, any>) => r.action_id);
+      auditDeletion(deletedIds, { action_id: actionId });
+      return NextResponse.json({ deleted: result.length, action_ids: deletedIds });
     }
 
     // Bulk deletion requires at least one filter to prevent accidental wipe
@@ -537,6 +555,11 @@ export async function DELETE(request: Request) {
     const result = await sql.query(
       `DELETE FROM action_records ${where} RETURNING action_id`,
       params
+    );
+
+    auditDeletion(
+      result.map((r: Record<string, any>) => r.action_id),
+      { before: before || undefined, agent_id: agentId || undefined, status: status || undefined },
     );
 
     return NextResponse.json({ deleted: result.length });

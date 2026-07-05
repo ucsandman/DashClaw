@@ -684,6 +684,7 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
           AND declared_goal = ${context.declared_goal}
           AND (${actionType}::text IS NULL OR action_type = ${actionType})
           AND approved_by IS NOT NULL
+          AND approved_by <> ''
           AND approved_at > NOW() - make_interval(mins => ${OPERATOR_APPROVAL_WINDOW_MINUTES})
           AND approval_grant_used_at IS NULL
         ORDER BY approved_at DESC

@@ -12,6 +12,48 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.61.1: the approval gate stops accepting approvals from nobody
+
+A full security review of the governance controls (parallel read-only
+reviewers over middleware auth, guard, approvals, capabilities, and tenant
+scoping, every finding re-verified against the code) came back with a
+mostly clean core — header injection is strip-then-reinject, guard is
+fail-closed, `guard_decisions` is genuinely append-only, and a ~20-repository
+sample found no tenant-scoping gaps. It also found three things a governance
+product cannot shrug off, all fixed this release:
+
+1. **Capability `/test` skipped the guard.** The test route called the org's
+   real endpoint with the org's real credentials and a caller-controlled
+   body — no policy evaluation, and critically no org-halt check, unlike its
+   `invoke` sibling. Any agent key could reproduce a blocked capability's
+   side-effect by calling `/test` instead of `/invoke`. Tests now guard
+   first: block → 403 (recorded), require_approval → 202 (pending approval).
+2. **Ledger deletion left no trace.** The admin bulk-delete on
+   `/api/actions` is an intended capability, but it erased action records
+   without itself being recorded. Deletion is now an audited event (actor,
+   count, ids, filter).
+3. **Approvals could be attributed to nobody.** Key- and operator-
+   authenticated requests carried no principal, so `approved_by` was stored
+   as `''` — which still satisfied the guard's operator-approval grant. The
+   deeper version of this finding (an agent's own admin key can approve the
+   agent's own actions) is an auth-model boundary that needs the owner's
+   product call and is deliberately NOT patched blind; what shipped is the
+   self-host-safe subset: every authenticated principal is now attributed
+   (`operator`, `key_<uuid>`, `trial:<org>`, session user), both approval
+   routes reject an empty principal (`APPROVER_IDENTITY_REQUIRED`), the
+   grant lookup refuses empty grants, and **new API keys default to
+   `member`** — the same default flipped in the dashboard's create-key form —
+   so an agent key can no longer end up admin by accident. The full
+   boundary question (require a human session for approvals when one is
+   configured?) is surfaced in the review notes for Wes.
+
+The honest failure note: the `/test` bypass had been sitting there since
+capabilities shipped, in exactly the kind of "sibling route diverges from
+the guarded one" gap a governance product should catch in its own review
+cadence, not in an ad-hoc audit. The review also surfaced two lower-severity
+items left open by design (grant string-binding to `declared_goal`,
+`getOrgId`'s `org_default` fallback) — recorded so they can't quietly vanish.
+
 ## 2026-07-05 — v4.61.0: the auth layer stops blaming the caller's key for the instance's problems
 
 A cold audit session (four parallel read-only auditors over docs, runtime,

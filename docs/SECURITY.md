@@ -425,6 +425,8 @@ DashClaw includes Data Loss Prevention (DLP) redaction to reduce the chance of s
 - Tenant context headers (`x-org-id`, `x-org-role`, `x-user-id`) are stripped from all inbound API requests to prevent spoofing; middleware injects trusted values only after authentication.
 - Readonly API keys are enforced centrally: API-key requests with role `readonly` are blocked from non-GET/HEAD methods.
 - Decrypted integration secrets are only returned to admin API-key callers; non-admin API keys receive encrypted payloads only.
+- New API keys default to role `member` (least privilege). **Agent keys must never be admin**: an admin key can approve its own pending actions, defeating the human-approval gate. Mint `admin` keys explicitly and only for operator/dashboard tooling, not for the agents being governed.
+- Approvals require an attributable principal: middleware attributes every authenticated caller (`x-user-id` = session user, `trial:<org>`, `operator` for the bootstrap `DASHCLAW_API_KEY`, or the `key_<uuid>` row id for DB keys), and the approval routes reject requests whose principal resolves empty (`APPROVER_IDENTITY_REQUIRED`), so `approved_by` can never be blank and the guard's operator-approval grant additionally refuses empty-string grants.
 
 Fail-closed behavior:
 

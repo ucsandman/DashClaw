@@ -94,6 +94,22 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(data.error).toMatch(/admin/i);
   });
 
+  it('rejects an unattributed approver (empty user id) with 403', async () => {
+    // Security review 2026-07-05: before this gate, key-auth requests carried
+    // no x-user-id, recordApproval stored approved_by = '', and the guard's
+    // operator-approval grant treated '' as a valid grant — an approval
+    // attributed to nobody. Middleware now attributes every admin path
+    // (operator / key_<id> / trial:<org>); anything still empty is rejected.
+    mockGetUserId.mockReturnValueOnce('');
+
+    const res = await POST(req({ decision: 'allow' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('APPROVER_IDENTITY_REQUIRED');
+    expect(mockRecordApproval).not.toHaveBeenCalled();
+  });
+
   it('rejects invalid decision with 400', async () => {
     const res = await POST(req({ decision: 'maybe' }), { params });
     const data = await res.json();

@@ -121,12 +121,27 @@ describe('/api/keys POST', () => {
     expect(data.key.label).toBe('API Key');
   });
 
-  it('defaults the key role to admin when none is provided (backward compatible)', async () => {
+  it('defaults the key role to member when none is provided (least privilege)', async () => {
     mockSql.mockResolvedValue([]);
 
     const res = await POST(makeRequest('http://localhost/api/keys', {
       headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin', 'x-user-id': 'user_1' },
       body: { label: 'Key' },
+    }));
+
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    // Security review 2026-07-05: an implicit admin default let agent keys
+    // approve their own pending actions. Admin must be requested explicitly.
+    expect(data.key.role).toBe('member');
+  });
+
+  it('still honors an explicit admin role', async () => {
+    mockSql.mockResolvedValue([]);
+
+    const res = await POST(makeRequest('http://localhost/api/keys', {
+      headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin', 'x-user-id': 'user_1' },
+      body: { label: 'Key', role: 'admin' },
     }));
 
     expect(res.status).toBe(201);

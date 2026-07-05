@@ -14,7 +14,7 @@ export async function findActiveKeyByHash(sql: SqlTag, keyHash: string): Promise
 // internal resolve-key route so self-host TCP Postgres can resolve DB keys.
 export async function resolveKeyForAuth(sql: SqlTag, keyHash: string): Promise<Record<string, unknown>[]> {
   return sql`
-    SELECT ak.org_id, ak.role, ak.revoked_at,
+    SELECT ak.id, ak.org_id, ak.role, ak.revoked_at,
            o.hosted_mode, o.trial_ends_at, o.trial_action_cap, o.trial_actions_used
     FROM api_keys ak
     LEFT JOIN organizations o ON o.id = ak.org_id

@@ -1,14 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSweep } = vi.hoisted(() => ({
+const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSweep, mockUserId } = vi.hoisted(() => ({
   mockListIds: vi.fn(async () => ['act_1', 'act_2']),
   mockBulkRecord: vi.fn(async () => ['act_1', 'act_2']),
   mockClear: vi.fn(async () => {}),
   mockRole: vi.fn(() => 'admin'),
   mockGetPolicy: vi.fn(async () => ({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) })),
   mockSweep: vi.fn(async () => []),
+  mockUserId: vi.fn(() => 'user1'),
 }));
-vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRole, getUserId: () => 'user1' }));
+vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRole, getUserId: mockUserId }));
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
 vi.mock('../../app/lib/repositories/actions.repository', () => ({
   listPendingApprovalIdsByActionTypes: mockListIds,
@@ -32,6 +33,7 @@ function req(body: unknown) {
 beforeEach(() => {
   vi.clearAllMocks();
   mockRole.mockReturnValue('admin');
+  mockUserId.mockReturnValue('user1');
   mockListIds.mockResolvedValue(['act_1', 'act_2']);
   mockBulkRecord.mockResolvedValue(['act_1', 'act_2']);
   mockGetPolicy.mockResolvedValue({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) });
@@ -41,6 +43,15 @@ describe('POST /api/approvals/bulk', () => {
   it('requires admin', async () => {
     mockRole.mockReturnValue('member');
     expect((await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }))).status).toBe(403);
+  });
+  it('rejects an unattributed approver (empty user id) with 403', async () => {
+    // Security review 2026-07-05: same attribution gate as the single route —
+    // a bulk resolution must never be attributed to nobody.
+    mockUserId.mockReturnValue('');
+    const res = await POST(req({ decision: 'allow', filter: { policy_id: 'gp_a' } }));
+    expect(res.status).toBe(403);
+    expect((await res.json()).code).toBe('APPROVER_IDENTITY_REQUIRED');
+    expect(mockBulkRecord).not.toHaveBeenCalled();
   });
   it('rejects bad decisions', async () => {
     expect((await POST(req({ decision: 'nuke', filter: { policy_id: 'gp_a' } }))).status).toBe(400);

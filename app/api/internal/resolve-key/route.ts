@@ -61,6 +61,7 @@ export async function POST(request: Request): Promise<Response> {
     Promise.resolve(touchKeyLastUsed(sql, keyHash)).catch((err: unknown) => console.warn('[RESOLVE-KEY] last_used_at touch failed:', err instanceof Error ? err.message : String(err)));
     return NextResponse.json({
       resolved: {
+        keyId: row.id,
         orgId: row.org_id,
         role: row.role,
         hostedMode: row.hosted_mode === true,

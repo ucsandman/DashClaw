@@ -583,7 +583,7 @@ async function resolveApiKey(keyHash, request) {
   try {
     const sql = neon(process.env.DATABASE_URL);
     const rows = await sql`
-      SELECT ak.org_id, ak.role, ak.revoked_at,
+      SELECT ak.id, ak.org_id, ak.role, ak.revoked_at,
              o.hosted_mode, o.trial_ends_at, o.trial_action_cap, o.trial_actions_used
       FROM api_keys ak
       LEFT JOIN organizations o ON o.id = ak.org_id
@@ -603,6 +603,7 @@ async function resolveApiKey(keyHash, request) {
     }
 
     const result = {
+      keyId: row.id,
       orgId: row.org_id,
       role: row.role,
       hostedMode: row.hosted_mode === true,
@@ -1748,6 +1749,9 @@ function handleNoConfiguredKey(request, requestHeaders) {
   // NODE_ENV=production; that's fine — dev runs over plain HTTP.)
   requestHeaders.set('x-org-id', 'org_default');
   requestHeaders.set('x-org-role', 'admin');
+  // Dev-only path (NODE_ENV=development, no key configured) — attribute the
+  // implicit principal so approvals/audit rows never carry an empty actor.
+  requestHeaders.set('x-user-id', 'dev');
   return forwardWithHeaders(request, requestHeaders);
 }
 
@@ -1852,6 +1856,10 @@ async function handleOperatorKey(request, requestHeaders) {
   // api_keys lookup below. (A 'readonly' gate previously lived here but
   // tested the header we had just set to 'admin', so it was dead code.)
   requestHeaders.set('x-org-role', 'admin');
+  // Attribute the principal: approvals (and audit logs) must never record an
+  // empty actor. The approve routes reject an empty x-user-id outright, so
+  // without this the single-admin self-host operator could not approve at all.
+  requestHeaders.set('x-user-id', 'operator');
 
   return forwardWithHeaders(request, requestHeaders);
 }
@@ -1880,6 +1888,11 @@ async function handleDatabaseKey(request, pathname, requestHeaders, apiKey) {
 
   requestHeaders.set('x-org-id', resolved.orgId);
   requestHeaders.set('x-org-role', resolved.role);
+  // Attribute the principal to the key row (key_<uuid>). A stale cache entry
+  // from before this field existed simply omits the header; the approve
+  // routes then reject with APPROVER_IDENTITY_REQUIRED until the 5-min
+  // cache entry rolls over — fail closed, never a blank approved_by.
+  if (resolved.keyId) requestHeaders.set('x-user-id', String(resolved.keyId));
 
   const trialBlock = enforceHostedTrial(resolved);
   if (trialBlock) {

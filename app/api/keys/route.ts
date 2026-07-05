@@ -61,9 +61,11 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    // `role` defaults to 'admin' so existing (non-UI) callers keep their
-    // behavior; the dashboard now always sends an explicit role.
-    const { label = 'API Key', role = 'admin' } = body;
+    // `role` defaults to 'member' (security review 2026-07-05): agent keys
+    // must never be admin by accident — an admin key can approve its own
+    // pending actions, defeating the human-approval gate. Callers that
+    // genuinely need an admin key must say so explicitly.
+    const { label = 'API Key', role = 'member' } = body;
 
     if (typeof label !== 'string' || label.length > 256) {
       return NextResponse.json({ error: 'Label must be a string of 256 characters or fewer' }, { status: 400 });
