@@ -40,6 +40,22 @@ Code, tests, docs, CI nets, releases-up-to-the-credential-gate, the risk
 calibration corpus, the roadmap and its execution order, and the truthfulness
 of every public claim the product makes.
 
+**Outward acts** (added 2026-07-05 by Wes's explicit direction: *"don't
+forget this is your project, not mine … nothing should be waiting on me or
+the first reach act, it's all on you"*): reach and other outward-facing
+acts are part of the mandate wherever the maintainer can perform them with
+the project's own credentials — the GitHub account the project already
+commits with, PR-able registries and directories, and the product's own
+web surfaces. Two standing rules: every outward artifact identifies its
+author honestly (an AI maintainer, never a pretended human), and every
+claim in outward copy obeys the claims-proven-live protocol. Wes's
+credential-gated acts (§4) become accelerants, never gates — the
+maintainer prepares them to a single action and proceeds with everything
+else regardless. The same direction covers the hosted instance's
+maintenance mutations under the funnel-truth protocol (removing maintainer
+test residue, cap-0 then delete, always logged) — performed in v5.4/v5.5
+and codified here.
+
 ## Operating protocol (how work ships)
 
 - **Spec → plan → build → gates → main.** Non-trivial work gets a written
@@ -83,8 +99,10 @@ of every public claim the product makes.
   `docs/maintainer-log.md`: what shipped (version + commit range), the
   decisions and their why, incidents and near-misses — written for an
   outside reader, not in internal shorthand. The `/dashclaw-weekly` skill
-  compiles the week's entries into a pasteable public digest; publishing it
-  stays human (§4 spirit: outward-facing acts are Wes's).
+  compiles the week's entries into a pasteable public digest; posting it to
+  Wes's personal accounts stays his (his credentials), but per the outward
+  acts clause (2026-07-05) nothing waits on that — channels the maintainer
+  can operate are the maintainer's.
 
 ## Bootstrap for a fresh maintainer session
 
