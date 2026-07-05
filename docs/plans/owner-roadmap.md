@@ -10,141 +10,189 @@ v2.1–v2.7, v3.1–v3.7, shipped v4.22.0–v4.49.0) live at
 (v4.1–v4.6, "no ungoverned lane", v4.49.1–v4.54.0) at
 [`archive/owner-roadmap-v4.md`](archive/owner-roadmap-v4.md); v5
 (v5.1–v5.5, "the first mile", v4.55.0–v4.59.0) at
-[`archive/owner-roadmap-v5.md`](archive/owner-roadmap-v5.md).
+[`archive/owner-roadmap-v5.md`](archive/owner-roadmap-v5.md); v6
+(v6.1–v6.5, "the reach era", v4.59.1–v4.60.1) at
+[`archive/owner-roadmap-v6.md`](archive/owner-roadmap-v6.md).
 
-## Roadmap v6 — the reach era: the product finds its strangers (drafted 2026-07-05)
+## Roadmap v7 — the second mile: from first action to owned instance (drafted 2026-07-05)
 
-v5 fixed the first mile and exited with the reach-readiness verdict
-([`../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`](../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md)):
-**READY** — reach is no longer blocked by the product. The same day, Wes
-retired the last assumption that reach waits on him (*"this is your
-project, not mine … nothing should be waiting on me or the first reach
-act, it's all on you"*), codified in MAINTAINER.md's outward-acts clause
-(commit `b64a8eb2`). So v6 is reach **executed by the maintainer**: make
-DashClaw findable through every channel the project's own credentials can
-operate, attribute what arrives, and read the funnel the verdict's way.
+v6 spent the maintainer's reach: every channel the project's own
+credentials can operate is now live (official MCP registry, Glama scanned
+A/A/A, PulseMCP, SEO-clean marketing surface), attribution is wired, and
+the 14-day measurement window opened the day the era shipped. What v6
+could not do is close itself — its exit read is time-gated to on/after
+2026-07-19. The owner directed v7 drafting before the read (*"let's move
+on to v7 now"*, 2026-07-05); this document is honest about drafting ahead
+of its own steering evidence. The read is absorbed **unchanged** as v7.1,
+becoming the era's entry instrument instead of v6's exit, and the one item
+that depends on its outcome (v7.4) is drafted as an explicit branch, not a
+prediction. Everything else in v7 is chosen to be worth building under
+*any* read outcome.
+
+The era's thesis: v5 proved a stranger can reach a first governed action;
+v6 made strangers findable and arrivals attributable. The funnel past
+`firstAction` — key used, returned, retained, and above all *kept the
+product* — has never fired for a stranger, and the product's own shape
+guarantees one failure in advance: the trial ends at a cap with no door.
+v7 builds the second mile while the measurement window runs, so that
+whichever verdict arrives, the first activated stranger lands on a path
+instead of a wall.
 
 Drafting evidence (2026-07-05, this session):
 
-- **The verdict (v5.5)**: mechanism, instrument, and window bars all met;
-  the measurement contract is written (14-day cohort, ≥1 stranger
-  firstAction; counter-verdict at n≥10 with zero → value-prop, not
-  friction).
-- **The repo recon**: GitHub Releases frozen at v4.20.1 (2026-06-12) while
-  the platform is at 4.59.0 — to an evaluating stranger the public repo
-  has looked dormant for 23 days spanning the project's fastest era; git
-  tags stopped at v2.1.0. The repo is the one outward surface already in
-  daily use, and its front door is stale.
-- **Registry absence**: the MCP server ships on npm but is listed in no
-  MCP registry or directory; the Claude Code plugin exists only inside
-  this repo. In the places agent builders actually search, DashClaw does
-  not appear. (Venue mechanics verified at build time, not assumed here.)
-  *Correction at v6.2 build time (2026-07-05): this was wrong — the
-  official MCP registry has listed `io.github.ucsandman/dashclaw` since
-  2026-06-11 (current at 2.0.1) and PulseMCP auto-ingested it. The
-  drafting recon asserted absence without querying the registry API. The
-  maintainer log entry for v6.2 records the miss.*
-- **The funnel (truthful, post-cleanup)**: 4 mints / 0 key used / 0 first
-  action — all predating the v5 fixes. And an attribution blind spot: a
-  mint carries no source, so even a successful reach act could not be told
-  apart from organic arrival. v6.4 closes this before channels multiply.
+- **Reach is spent.** The distribution ledger
+  (`docs/DISTRIBUTION-LISTINGS.md`) shows every PR-able or
+  credential-free venue done or explicitly declined; all four remaining
+  venues are Wes-account accelerants (charter: accelerants, never gates).
+  awesome-mcp-servers PR #9313 waits only on a human maintainer's merge.
+  "More reach" is no longer a lane the maintainer can execute alone.
+- **The window is open and empty, correctly.** The prebuilt read
+  instrument (`node scripts/measurement-read.mjs`) ran live today in
+  preview: cohort n=0 on day 0. Nothing about the read can be hurried;
+  the contract is arithmetic and the date is 2026-07-19.
+- **The second mile has never fired.** Funnel truth since 2026-06-10:
+  `keyUsed` has never been true for any stranger; `returned`,
+  `retainedWeek1` all zero. Every step past `firstAction` is untested by
+  a real outsider.
+- **The cap is a wall, not a door.** A trial org that activates has no
+  carry-out: compliance/audit export exists, but there is no way to move
+  a workspace's governance record (policies, decisions, agents) into an
+  owned instance. `npx dashclaw up` provisions only fresh, empty
+  instances. The product's happy path ends in data loss for its most
+  successful users. (Mechanics verified at build time, not assumed here.)
+- **The strongest true claim is invisible where strangers look.** "An AI
+  maintains this project under its own governance, in public" lives in
+  repo docs (MAINTAINER.md, the maintainer log) — no marketing page
+  renders it, let alone renders it *live*. The claims-proven-live rule is
+  the product's differentiator and the marketing site doesn't prove it.
 
-Standing honesty rules (from the charter amendment, apply to every item):
-every outward artifact identifies its author as an AI maintainer — never a
+Standing honesty rules (carried from v6, apply to every item): every
+outward artifact identifies its author as an AI maintainer — never a
 pretended human; every claim obeys claims-proven-live; no astroturf; no
 paid placement (billing is §4).
 
 Alternatives weighed and declined this round:
 
-- **Wes-account channels as roadmap items** (Reddit/HN/X posts) — his
-  credentials, so §4 keeps them his; weekly digests stay drafted and
-  pasteable, and nothing in v6 waits on them.
-- **More product before anyone sees it** — the funnel says the constraint
-  is attention, not features. Team/RBAC and the TypeScript migration stay
-  declined (fourth consecutive round; triggers unchanged).
-- **Paid reach** — §4 (billing) and untried free channels; declined until
-  free channels have a measured read.
+- **Waiting idle until the read** — declined by owner direction (the
+  reason this draft exists on 2026-07-05 and not 07-19).
+- **More reach items** — the ledger says the maintainer-executable set is
+  exhausted; remaining venues are Wes accelerants and stay off the
+  roadmap per the charter.
+- **Retention levers** (digests, re-engagement email, notifications) —
+  no retained stranger exists to re-engage; speculative until v7.1/v7.5
+  produce evidence. Revival trigger on the watch list.
+- **Team/RBAC and the TypeScript migration** — declined a fifth
+  consecutive round; triggers unchanged.
+- **Paid reach** — still double-gated: §4 (money) and the free channels
+  have no read yet.
 
-**Status ledger v6** (update in place):
+**Status ledger v7** (update in place):
 
 | # | Item | Status |
 |---|------|--------|
-| v6.1 | The repo speaks: releases resumed, front door truthful | SHIPPED 2026-07-05 — releases resumed ([v4.59.0 catch-up release](https://github.com/ucsandman/DashClaw/releases/tag/v4.59.0) live; per-ship release rule in the ship protocol); README stranger-walk done (hosted trial first-actionable, AI-maintainership visible; recorded in the maintainer log); metadata truth pass: verified accurate, no churn |
-| v6.2 | Registry presence: MCP registry + plugin/directory listings | SHIPPED 2026-07-05 — official registry verified live+current at 2.0.1 (predated v6: published 2026-06-11, the drafting recon missed it); PulseMCP auto-listed; [awesome-mcp-servers PR #9313](https://github.com/punkpeye/awesome-mcp-servers/pull/9313) submitted; `glama.json` added; full ledger incl. 8 declined venues + 4 Wes accelerants in `docs/DISTRIBUTION-LISTINGS.md` |
-| v6.3 | Organic search surface: marketing SEO truth pass | SHIPPED 2026-07-05 (v4.60.1) — host-aware robots.txt + 18-URL sitemap (marketing host only; every other host `Disallow: /`), canonical+OG on all 17 marketing pages, JSON-LD with git-derived dates; claims audit found copy sound (one Hermes count reworded); crawl-clean proven (all sitemap URLs 200, per-host curl proof); outcome bar rides v6.4 `bySource` into the v6.5 read; spec `docs/superpowers/specs/2026-07-05-seo-truth-pass-v63.md` |
-| v6.4 | Reach attribution: mint source capture, per-channel funnel | SHIPPED 2026-07-05 (v4.60.0) — pulled forward per the watch-list trigger (channels moved the same day). Referrer/UTM captured at mint (org grain, drizzle/0054, snapshot-frozen), funnel + /setup render `bySource` with truthful zeros; live-proven end to end incl. the deletion freeze; spec `docs/superpowers/specs/2026-07-05-reach-attribution-v64.md` |
-| v6.5 | The measurement read: the verdict's contract, applied | TIME-GATED — the cohort is "all mints in the 14 days following the act" (v5.5 contract); the reach acts shipped 2026-07-05, so the read runs on/after 2026-07-19. Read instrument prebuilt 2026-07-05: `node scripts/measurement-read.mjs` applies the contract arithmetic to the public funnel's `bySource` (cohort = every sourced bucket; 'unknown' = pre-act), arithmetic pinned by unit test, proven live in preview mode |
+| v7.1 | The measurement read (carried from v6.5, unchanged) | TIME-GATED — runs on/after 2026-07-19; instrument prebuilt (`node scripts/measurement-read.mjs`), arithmetic unit-tested, open loop carries the date |
+| v7.2 | The graduation path: the cap becomes a door | — |
+| v7.3 | The self-governance proof surface | — |
+| v7.4 | The branch: what the read steers | BLOCKED on v7.1 (by design — drafted as a branch, chosen by evidence) |
+| v7.5 | The era-exit read: the second mile measured | LAST — needs v7.2/v7.3 live for a window, and v7.1's cohort read as baseline |
 | — | FinOps Phase C / CostClaw paid add-on | GATED on Wes (RFC 0002 §8) |
 
-## v6.1 The repo speaks
+## v7.1 The measurement read (carried from v6.5, unchanged)
 
-The public repo is the one outward surface already operating daily, and it
-currently testifies against the project (last release June 12).
+The v5.5 contract, applied as arithmetic — same cohort (all mints in the
+14 days following the 2026-07-05 reach acts), same thresholds (≥1 stranger
+`firstAction` = activation; n≥10 with zero = counter-verdict → value-prop;
+directional ≥25% rate at n≥8), same per-channel resolution from v6.4's
+`bySource`.
 
-- Resume tags + GitHub Releases: a catch-up release at v4.59.0 whose notes
-  say plainly that release publishing paused between v4.21 and v4.58 (the
-  CHANGELOG carries the per-version detail), then **one release per ship**
-  — appended to the ship protocol so it cannot silently stop again.
-- README first screen, re-read as a stranger: the hosted trial should be
-  the first actionable thing, and the project's most distinctive true fact
-  — an AI maintains this in public, log and all — should be visible, not
-  buried.
-- Repo metadata truth pass (description, topics, homepage): verify, fix
-  only what's wrong, no churn.
-- Acceptance: v4.59.0 release live; ship protocol updated; README
-  stranger-walk recorded with what changed and why.
+- Run `node scripts/measurement-read.mjs` on/after 2026-07-19; write the
+  verdict document; append to the maintainer log; link it here.
+- Acceptance (unchanged from v6.5, plus the branch): the read exists,
+  cites per-channel numbers, applies the contract arithmetic unchanged —
+  and **selects the v7.4 lane in writing**, with the evidence that chose
+  it.
 
-## v6.2 Registry presence
+## v7.2 The graduation path: the cap becomes a door
 
-Be findable where agent builders actually look, with submissions the
-project's own GitHub credentials can make.
+The trial's ceiling (30 days / capped actions) currently ends in data
+loss: an activated stranger's policies, decisions, and agents evaporate
+with the workspace. Graduation makes the cap a door to an owned instance.
 
-- Publish the MCP server to the official MCP registry and the PR-able
-  community directories; list the Claude Code plugin where plugins are
-  discovered. Verify each venue's mechanics at build time; some will turn
-  out to require human accounts — decline those explicitly rather than
-  fake a human.
-- Every submission is recorded in the maintainer log with a link; copy is
-  claims-proven-live; authorship is honest (AI maintainer).
-- Acceptance: at least one official registry listing live and verified;
-  a recorded submissions ledger including declined venues and why.
+- Workspace carry-out: export a trial org's governance record and import
+  it into a self-hosted instance (the `npx dashclaw up` path). API keys
+  never migrate — minted fresh on the owned instance. Exact scope of the
+  carried record (policies, decisions, action history, agents,
+  assumptions) is verified at build time against the schema, not assumed
+  here.
+- The human's entire role is clicks (HUMAN-EXPERIENCE.md): a button on
+  the trial card (/setup, /connect) — visible before the cap looms, not
+  only at the wall. The terminal appears only where the *owned instance*
+  is born, which is already the documented `npx dashclaw up` first-run.
+- The funnel learns the truth: a `graduated` annotation, snapshot-frozen
+  like the rest of funnel truth, truthful zeros included. Graduation is
+  the funnel's real conversion event and v7.5 reads it.
+- Acceptance: one real migration proven live (trial workspace → fresh
+  owned instance with the record visible in its UI); the button rendered
+  and verified; the funnel annotation live with truthful zeros; docs and
+  marketing updated in the same ship.
 
-## v6.3 Organic search surface
+## v7.3 The self-governance proof surface
 
-The marketing site as a landing surface for strangers who search.
+The project's most distinctive true fact, made visible where strangers
+actually land — as live evidence, not copy.
 
-- SEO truth pass on the marketing pages: metadata, Open Graph, sitemap,
-  robots, structured data; guides render as self-contained landing pages;
-  `.impeccable.md` bar holds; zero fabricated claims.
-- Acceptance: crawl-clean (no broken or accidentally-blocked pages),
-  rendered proof, and an explicit measured bar (set and recorded at build
-  time, not asserted here).
+- One public marketing page that renders DashClaw governing its own
+  maintainer: live aggregate evidence (governed actions to date, latest
+  governed ship, decision cadence) sourced from the instance that governs
+  this repo's maintenance, plus the human-readable trail (maintainer log,
+  MAINTAINER.md, livingcode). Aggregate-only follows the
+  `/api/hosted/funnel` precedent — no org ids, no raw decision content;
+  the exposure boundary gets a security review before ship.
+- Registered in `app/lib/marketingSeo.ts` (v6.3 rule), linked from the
+  front page — a deep URL nobody links to is not a surface.
+- Acceptance: page live and crawl-clean; linked from the front page; the
+  numbers are live queries, not hardcoded; security review recorded;
+  zero fabricated claims.
 
-## v6.4 Reach attribution
+## v7.4 The branch: what the read steers
 
-Close the funnel's source blind spot before channels multiply.
+Drafted as a branch on purpose — this era was written before its steering
+evidence, and this is where that honesty lands. v7.1's verdict selects
+exactly one lane; the lane's own spec is then drafted citing the read.
 
-- Mint-time source capture: referrer/UTM at org grain — one write at mint,
-  no analytics platform, nothing beyond the referrer/UTM strings.
-  Snapshot-frozen like the rest of funnel truth (drizzle migration extends
-  `hosted_trial_snapshots`).
-- Funnel renders per-source mints as an annotation (truthful zeros
-  included); the measurement contract gains channel resolution.
-- Acceptance: a mint from a tagged link shows its source in the funnel
-  route and the /setup card; smoke pins it; maintainer runs stay excluded
-  by the existing protocol.
+- **Lane A — activation** (≥1 cohort `firstAction`): the mechanism
+  converts attention. Deepen the channel that converted (`bySource` names
+  it) with more of what worked, maintainer-executable only; shift the
+  open question to the second mile (do activated orgs return? does
+  anyone graduate?) which v7.5 measures.
+- **Lane B — counter-verdict** (n≥10, zero `firstAction`): friction is
+  falsified; the diagnosis is value-prop/positioning — strategy, Wes's
+  (§4). The maintainer's deliverable is the evidence pack: full
+  per-channel funnel, where arrivals stopped, and testable copy
+  hypotheses (README lead, landing hero) the maintainer can run without
+  money while Wes decides positioning.
+- **Lane C — no verdict fires** (zero `firstAction`, n<10): attention
+  itself was insufficient to test anything. The accelerant list goes to
+  Wes with the numbers attached (the maintainer's own venues are spent —
+  that is now a measured fact, not a claim), and the maintainer's
+  remaining lever is compounding surfaces: v7.3 and the guides.
+- Acceptance: the lane is selected in writing by v7.1's verdict; the
+  selected lane's spec exists and cites the read; the unselected lanes
+  are struck through here with the reason.
 
-## v6.5 The measurement read
+## v7.5 The era-exit read: the second mile measured
 
-The era's exit instrument, per the verdict's own contract.
+The era exists to produce this the way v5 produced the verdict and v6
+produced the cohort read.
 
-- After v6.1–v6.3 have been live for the contract's window, run the
-  14-day cohort read and write the next verdict: activation (the mechanism
-  converts attention) or value-prop (the counter-verdict; positioning is
-  strategy and the evidence goes to Wes).
-- Acceptance: the read exists, cites per-channel numbers from v6.4,
-  applies the v5.5 contract arithmetic unchanged, and is appended to the
-  maintainer log and linked here; v7 drafting cites it.
+- After v7.2 and v7.3 have been live for a contract-worthy window (set
+  and recorded at v7.2/v7.3 ship time, not asserted here), read the full
+  chain — mint → firstAction → keyUsed → returned → **graduated** — with
+  v7.1's cohort read as the baseline, and write the exit verdict that
+  steers v8.
+- Acceptance: the exit read exists, cites the graduation annotation and
+  the v7.1 baseline, is appended to the maintainer log and linked here;
+  v8 drafting cites it.
 
 ## Gated (needs Wes before any build)
 
@@ -154,7 +202,7 @@ The era's exit instrument, per the verdict's own contract.
 
 ## Watch list (revival triggers)
 
-Carried from v5, updated for the era:
+Carried from v6, updated for the era:
 
 - Guard degradation recurrence → revive load-CI wiring + the LLM
   slow-path scenario.
@@ -162,31 +210,33 @@ Carried from v5, updated for the era:
   KILL (`docs/architecture/enforcement-boundary.md`).
 - Hosted multi-tenant future → per-org JWKS issuer binding.
 - More than one human governs an org → team/RBAC.
+- A retained stranger exists (v7.5 reads one) → retention levers leave
+  the declined list.
 - Next semver major → `dashclaw/legacy` subpath removal rides it
   (deprecation plan in `docs/sdk-parity.md`).
 - Google OAuth on the hosted instance (the A2 flip) — Wes's credentials,
   an accelerant, never a gate (charter, 2026-07-05).
-- A reach channel produces mints before v6.4 ships → pull v6.4 forward
-  (unattributed arrivals waste the read).
-- awesome-mcp-servers PR #9313 merge (both bot requirements met
-  2026-07-05; Glama listing live) → note it in the ledger when it lands;
-  a listing going live is a channel moving, which strengthens the v6.4
-  pull-forward.
+- awesome-mcp-servers PR #9313 merges → note it in the ledger; a listing
+  going live mid-window is a channel moving and belongs in v7.1's
+  per-channel read.
+- Any Wes accelerant lands (plugin directory, awesome-claude-code,
+  Connectors) → ledger entry + tagged links so v6.4 attribution catches
+  it.
 
-## v6 order rationale
+## v7 order rationale
 
-v6.1 first: cheapest, highest-credibility fix, and every later venue links
-back to the repo — a stale front door poisons all of them. v6.4 second in
-spirit (pulled forward on the watch-list trigger if any channel moves):
-attribution must exist before arrivals do. v6.2 and v6.3 are the channels
-themselves and can proceed in either order. v6.5 last: the era exists to
-produce that read, the way v5 existed to produce the verdict. Order
+v7.2 and v7.3 first and in parallel-friendly order: both are worth
+building under any read outcome, both fill the gated window with the
+funnel's next wall and the product's strongest proof, and neither
+consumes the other's surface. v7.1 fires on the calendar, not on effort.
+v7.4 cannot precede its evidence — that is the era's honesty about being
+drafted early. v7.5 last: the era exists to produce that read. Order
 changes only with a written reason in the commit (v1 rule, kept).
 
 ## Standing chores (no status; every session touches them as needed)
 
 - Registry truth: `npm view` the four packages vs manifests when releasing.
-- **A GitHub Release rides every ship** (v6.1 rule, once shipped).
+- **A GitHub Release rides every ship** (v6.1 rule).
 - Dependabot: keep at zero open alerts; per-lockfile fixes.
 - Corpus: add vectors per MAINTAINER.md protocol as incidents occur.
 - Keep `/explain`, README, and docs truthful when any of the above ships.

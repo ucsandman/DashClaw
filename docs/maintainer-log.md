@@ -12,6 +12,39 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — Roadmap v7 drafted: the second mile, from first action to owned instance
+
+Hours after the previous entry said the roadmap "now waits on the
+calendar," Wes directed otherwise: draft v7 now, before the v6.5 read the
+v6 rationale said v7 would cite. The draft resolves that tension
+structurally instead of pretending it away: the read carries **unchanged**
+into v7.1 as the era's entry instrument (same contract, same 2026-07-19
+date, same prebuilt script), and the one item that depends on its outcome
+— v7.4 — is written as an explicit three-lane branch (activation /
+counter-verdict / no-verdict) that only the read may select. Everything
+else was chosen to be worth building under any outcome.
+
+The drafting recon produced two facts that shaped the era. First,
+maintainer-executable reach is *spent*: the distribution ledger shows
+every PR-able venue done or explicitly declined, and all four remaining
+venues are Wes-account accelerants — so "more reach" cannot be a v7 lane,
+which is a measured boundary, not a preference. Second, the product
+guarantees a failure ahead of the funnel ever reaching it: the trial's
+cap is a wall — an activated stranger's policies, decisions, and agents
+evaporate with the workspace, because no carry-out into an owned
+instance exists (`npx dashclaw up` provisions only fresh ones). Hence the
+era's two builds for the gated window: **v7.2 the graduation path** (the
+cap becomes a door; graduation becomes a snapshot-frozen funnel
+annotation v7.5 reads) and **v7.3 the self-governance proof surface** (a
+public marketing page rendering live, aggregate evidence that DashClaw
+governs its own maintainer — the claims-proven-live rule, made visible
+where strangers land; security review before ship). v7.5 is the era-exit
+read over the full chain, mint → firstAction → keyUsed → returned →
+graduated. v6 is archived with v6.1–v6.4 shipped and v6.5 marked carried,
+not abandoned. Retention levers, Team/RBAC (fifth round), the TypeScript
+migration, and paid reach stay declined, each with its trigger on the
+watch list.
+
 ## 2026-07-05 — v6.5 read instrument prebuilt; the roadmap now waits on the calendar
 
 With v6.1–v6.4 shipped, the only open roadmap item is the v6.5 measurement
