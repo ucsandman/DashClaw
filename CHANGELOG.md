@@ -13,6 +13,52 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.55.0] — 2026-07-05
+
+Roadmap v5.1 — **A way back in.** The hosted trial's first funnel reading
+(v4.6) was 4 mints, 0 activations: the mechanism recon found that a
+Turnstile-minted trial got an API key and *nothing else* — no session, no
+dashboard, no way back after the tab closed. The trial handed a stranger a
+credential into a void. This ships the way back in. Spec:
+`docs/superpowers/specs/2026-07-05-a-way-back-in-design.md`. Platform-only —
+no SDK source change, so npm/PyPI stay at 4.32.0.
+
+### Added
+- **Trial session cookie** (`dashclaw-trial-session`): `POST
+  /api/hosted/workspaces` now mints a signed httpOnly JWT session (HS256 via
+  `NEXTAUTH_SECRET`, `SameSite=Lax`, `Secure` in prod, `exp` pinned to the
+  trial's `trial_ends_at`) alongside the API key, so closing the tab no
+  longer orphans the workspace. Degrades to today's key-only response when
+  `NEXTAUTH_SECRET` is unset; the response reports `session: boolean` so the
+  UI never promises a dashboard it didn't sign the browser into.
+- **Middleware trial-session branch** (hosted-only, fail-closed): after the
+  NextAuth and local-admin checks, a valid trial cookie whose org is a live
+  hosted trial renders that trial's *own* mission-control and decisions
+  (`x-org-role: admin` of exactly its own org). Same-origin dashboard
+  fetches get read visibility with the trial write envelope (action cap +
+  expiry via `enforceHostedTrial`). A cleaned-up/expired trial lands on an
+  honest `/connect?trial=expired` state, never a dead `/login`. A transient
+  DB error **preserves** the cookie (deny-and-retry) — only a definitively
+  gone trial clears it.
+- **`/connect` way back in**: the post-mint screen adds "Open your
+  dashboard" (only when a session was actually minted); a returning trial
+  visitor sees a workspace card (expiry, action usage, links to
+  mission-control/decisions/API-keys); the mint section stays available so a
+  capped trial always has a path forward. Mission Control and the decisions
+  ledger empty states link to "connect your first agent".
+
+### Security
+- **Operator-route hardening.** The new trial admin session armed four
+  routes that gated on `x-org-role: admin` alone. A shared
+  `denyTrialPrincipal` guard (hosted-only, fail-closed) now blocks a
+  hosted-trial principal from cross-tenant/operator ops: `GET`/`DELETE
+  /api/hosted/workspaces/:id` (inspect/delete any workspace), `POST
+  /api/orgs` (create uncapped tenants), `POST /api/hosted/cleanup`
+  (instance sweep, admin-role path), and `GET /api/keys/reveal` (the
+  operator bootstrap key). The operator (non-trial org) still passes; the
+  cron/secret paths are unchanged. Found by an in-ship security review
+  (BLOCK → fixed → SHIP).
+
 ## [4.54.0] — 2026-07-05
 
 Roadmap v4.6 — **Funnel truth: read the trial evidence.** The hosted trial

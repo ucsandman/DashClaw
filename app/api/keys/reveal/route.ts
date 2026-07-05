@@ -3,6 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgRole, getUserId } from '../../../lib/org';
+import { denyTrialPrincipal } from '../../../lib/hosted/trial-principal';
 
 /**
  * GET /api/keys/reveal
@@ -48,6 +49,14 @@ export async function GET(request: Request) {
       { status: 403 }
     );
   }
+
+  // SECURITY (v5.1): the bootstrap key belongs to the instance OPERATOR.
+  // "admin" here only means admin of the requester's own org — a hosted
+  // trial user is admin of their trial org and must never read the
+  // operator's env key. On self-host this is a no-op (no trial principals),
+  // so the operator's QuickStart/settings reveal keeps working.
+  const trialDenied = await denyTrialPrincipal(request);
+  if (trialDenied) return trialDenied;
 
   const bootstrapKey = process.env.DASHCLAW_API_KEY;
   if (!bootstrapKey) {

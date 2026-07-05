@@ -7,6 +7,7 @@ import { verifyTurnstile } from '../../../lib/hosted/turnstile';
 import { createRateLimiter } from '../../../lib/hosted/rate-limit';
 import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository';
 import { getSql } from '../../../lib/db';
+import { mintTrialSessionToken, trialSessionCookieOptions, TRIAL_SESSION_COOKIE } from '../../../lib/hosted/trial-session';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 let _limiter: (ReturnType<typeof createRateLimiter> & { _max?: number }) | null = null;
@@ -92,15 +93,34 @@ export async function POST(request: Request) {
       trialActionCap: cfg.trialActionCap,
       label: 'trial',
     });
-    return NextResponse.json({
+    // v5.1 "a way back in": mint a trial session cookie alongside the key so
+    // closing the tab no longer orphans the workspace. Expiry is pinned to
+    // trial_ends_at. Without NEXTAUTH_SECRET there is nothing to sign with —
+    // degrade to today's key-only response rather than minting an unsigned
+    // session. The `session` field reports whether the browser was actually
+    // signed in, so the post-mint UI never promises a dashboard it didn't
+    // sign the browser into.
+    const hasSession = Boolean(process.env.NEXTAUTH_SECRET);
+    const response = NextResponse.json({
       workspace_id: result.orgId,
       api_key: result.apiKey,
       key_prefix: result.keyPrefix,
       endpoint: publicEndpoint(request),
       expires_at: result.expiresAt,
       trial_action_cap: cfg.trialActionCap,
+      session: hasSession,
       next_steps_url: `${publicEndpoint(request)}/connect?hosted=${result.orgId}`,
     });
+    if (hasSession) {
+      const token = await mintTrialSessionToken(
+        { orgId: result.orgId, expiresAt: result.expiresAt },
+        process.env.NEXTAUTH_SECRET as string,
+      );
+      response.cookies.set(TRIAL_SESSION_COOKIE, token, trialSessionCookieOptions(result.expiresAt));
+    } else {
+      console.warn('[HOSTED] NEXTAUTH_SECRET unset - trial workspace minted without a session cookie (no way back in).');
+    }
+    return response;
   } catch (err) {
     console.error('[HOSTED] provision failed:', err);
     return NextResponse.json({ error: 'Provisioning failed' }, { status: 500 });

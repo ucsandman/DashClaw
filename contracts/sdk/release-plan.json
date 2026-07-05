@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.54.0",
+    "current_version": "4.55.0",
     "next_bump": "none",
-    "reason": "4.54.0 ships roadmap v4.6 (funnel truth): the hosted-trial activation funnel - mint -> first key used -> first governed action -> retained week 1 - computed from existing ledgers with the shared synthetic exclusion, GET /api/hosted/funnel (route 332, aggregate-only, hosted-gated, 60s memo) + a /setup card in hosted mode, and hosted_trial_snapshots (drizzle/0052) frozen fail-closed inside deleteHostedWorkspace so expired trials keep counting (survivorship-bias fix). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.55.0 ships roadmap v5.1 (a way back in): a Turnstile-minted hosted trial now gets a signed httpOnly session cookie (dashclaw-trial-session, HS256 via NEXTAUTH_SECRET, exp pinned to trial_ends_at) so closing the tab no longer orphans the workspace; the middleware accepts it (hosted-only, fail-closed) to render the trial's own mission-control/decisions, and a /connect workspace card + honest trial-ended state give a click-only way back in. Also hardens four role-only operator routes (workspaces/[id], orgs POST, hosted/cleanup, keys/reveal) against the newly-armed trial-admin principal. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.54.0",
+    "current_version": "4.55.0",
     "next_bump": "none",
-    "reason": "4.54.0 ships roadmap v4.6 (funnel truth): the hosted-trial activation funnel - mint -> first key used -> first governed action -> retained week 1 - computed from existing ledgers with the shared synthetic exclusion, GET /api/hosted/funnel (route 332, aggregate-only, hosted-gated, 60s memo) + a /setup card in hosted mode, and hosted_trial_snapshots (drizzle/0052) frozen fail-closed inside deleteHostedWorkspace so expired trials keep counting (survivorship-bias fix). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.55.0 ships roadmap v5.1 (a way back in): a Turnstile-minted hosted trial now gets a signed httpOnly session cookie (dashclaw-trial-session, HS256 via NEXTAUTH_SECRET, exp pinned to trial_ends_at) so closing the tab no longer orphans the workspace; the middleware accepts it (hosted-only, fail-closed) to render the trial's own mission-control/decisions, and a /connect workspace card + honest trial-ended state give a click-only way back in. Also hardens four role-only operator routes (workspaces/[id], orgs POST, hosted/cleanup, keys/reveal) against the newly-armed trial-admin principal. No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.54.0 funnel truth (roadmap v4.6): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.55.0 a way back in (roadmap v5.1): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

@@ -16,6 +16,13 @@ function req(method, id, { role = 'admin' } = {}) {
   });
 }
 
+// v5.1: denyTrialPrincipal runs first on the operator path — it looks up the
+// CALLER's own org (org_admin here) and only proceeds for a non-trial org.
+// Queue that lookup ahead of each test's target-workspace mocks.
+function callerIsOperator() {
+  sqlMock.mockResolvedValueOnce([{ id: 'org_admin', name: 'Operator', hosted_mode: false }]);
+}
+
 function paramsPromise(workspaceId) {
   return Promise.resolve({ workspaceId });
 }
@@ -45,12 +52,14 @@ describe('GET /api/hosted/workspaces/:id', () => {
   });
 
   it('returns 404 for unknown workspace', async () => {
+    callerIsOperator();
     sqlMock.mockResolvedValueOnce([]);
     const res = await GET(req('GET', 'org_missing'), { params: paramsPromise('org_missing') });
     expect(res.status).toBe(404);
   });
 
   it('returns 404 for non-hosted org', async () => {
+    callerIsOperator();
     sqlMock.mockResolvedValueOnce([{
       id: 'org_real', name: 'Real', hosted_mode: false,
       trial_ends_at: null, trial_action_cap: null, trial_actions_used: 0,
@@ -60,6 +69,7 @@ describe('GET /api/hosted/workspaces/:id', () => {
   });
 
   it('returns workspace summary for known hosted id', async () => {
+    callerIsOperator();
     sqlMock.mockResolvedValueOnce([{
       id: 'org_x', name: 'Trial', hosted_mode: true,
       trial_ends_at: '2026-05-18T00:00:00Z', trial_action_cap: 10000, trial_actions_used: 17,
@@ -88,12 +98,14 @@ describe('DELETE /api/hosted/workspaces/:id', () => {
   });
 
   it('refuses to delete non-hosted orgs (404)', async () => {
+    callerIsOperator();
     sqlMock.mockResolvedValueOnce([{ hosted_mode: false }]);
     const res = await DELETE(req('DELETE', 'org_real'), { params: paramsPromise('org_real') });
     expect(res.status).toBe(404);
   });
 
   it('deletes a hosted workspace (200)', async () => {
+    callerIsOperator();
     sqlMock.mockResolvedValueOnce([{ hosted_mode: true }]); // existence check
     sqlMock.mockResolvedValueOnce([]); // revoke keys
     sqlMock.mockResolvedValueOnce([]); // delete org
@@ -158,6 +170,7 @@ describe('POST /api/hosted/cleanup', () => {
   });
 
   it('deletes each expired workspace and returns counts', async () => {
+    callerIsOperator(); // admin-role path runs denyTrialPrincipal first
     // 1: findExpiredWorkspaces returns two orgs
     sqlMock.mockResolvedValueOnce([{ id: 'org_a' }, { id: 'org_b' }]);
     // org_a delete: existence check -> hosted, revoke keys, queryLiveTrialFacts,
@@ -182,6 +195,7 @@ describe('POST /api/hosted/cleanup', () => {
   });
 
   it('collects per-org errors without aborting the sweep', async () => {
+    callerIsOperator(); // admin-role path runs denyTrialPrincipal first
     sqlMock.mockResolvedValueOnce([{ id: 'org_fail' }, { id: 'org_ok' }]);
     // org_fail: existence check throws
     sqlMock.mockRejectedValueOnce(new Error('db flaked'));

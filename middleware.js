@@ -20,7 +20,7 @@ import {
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
   demoListWorkOrders, demoGetWorkOrder, demoListWorkOrderTypes
 } from './app/lib/demo/demoMiddleware';
-import { getViewerContextFromCookieHeader } from './app/lib/sessionViewer.mjs';
+import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
 import { addSecurityHeaders } from './app/lib/security-headers';
 
@@ -100,6 +100,16 @@ async function getLocalAdminSession(request) {
     process.env
   );
   return viewer.authType === 'local' ? viewer.session : null;
+}
+
+// v5.1 "a way back in": trial session minted by POST /api/hosted/workspaces.
+// resolveTrialSession verifies ONLY the trial cookie (it gates on
+// DASHCLAW_HOSTED=true internally, so on non-hosted instances it always
+// returns null). We call it only after getToken + the local-admin lookup
+// have both returned null, so re-running the full viewer chain here would be
+// wasted edge crypto.
+async function getTrialSession(request) {
+  return resolveTrialSession(request.headers.get('cookie') || '', process.env);
 }
 
 function getDashclawMode() {
@@ -353,6 +363,51 @@ async function verifyOrgExists(orgId) {
     // SECURITY: Fail closed for non-default orgs, non-self-host deployments, or Neon driver.
     return false;
   }
+}
+
+// Hosted-trial org facts for trial-session requests (v5.1). Deliberately a
+// SHORT TTL (60s, vs 1h for orgExistsCache): a cleanup-deleted or expired
+// trial org must invalidate its outstanding sessions quickly.
+//
+// CRITICAL distinction — a DB lookup FAILURE is NOT the same as "org gone":
+// this function THROWS on a transient DB error and returns null only when the
+// query positively succeeds and the org is absent or non-trial. Callers must
+// keep the two apart, because on the page path "org gone" clears the
+// re-entry cookie while "DB blip" must preserve it (else one momentary Neon
+// error permanently orphans a live trial — the exact failure this feature
+// exists to prevent). Only definitive results are cached; a throw caches
+// nothing, so a retry re-queries.
+const trialOrgCache = new Map();
+const TRIAL_ORG_CACHE_TTL = 60 * 1000;
+
+async function resolveTrialOrg(orgId) {
+  const now = Date.now();
+  const cached = trialOrgCache.get(orgId);
+  if (cached && now - cached.timestamp < TRIAL_ORG_CACHE_TTL) {
+    return cached.result;
+  }
+
+  // No try/catch: a DB error propagates so the caller can distinguish it from
+  // a definitive "not a trial org". Do not add one here.
+  const sql = neon(process.env.DATABASE_URL);
+  const rows = await sql`
+    SELECT hosted_mode, trial_ends_at, trial_action_cap, trial_actions_used
+    FROM organizations
+    WHERE id = ${orgId}
+    LIMIT 1
+  `;
+  const row = rows[0];
+  const result = row && row.hosted_mode
+    ? {
+        orgId,
+        hostedMode: true,
+        trialEndsAt: row.trial_ends_at,
+        trialActionCap: row.trial_action_cap,
+        trialActionsUsed: row.trial_actions_used,
+      }
+    : null;
+  trialOrgCache.set(orgId, { timestamp: now, result });
+  return result;
 }
 
 // In-memory cache for API key -> org resolution (5-min TTL)
@@ -1408,12 +1463,67 @@ function isPublicPagePath(pathname) {
   return pathname === '/' || pathname === '/setup' || pathname.startsWith('/setup/');
 }
 
+// v5.1: a trial cookie was presented but is unusable (expired JWT, bad
+// signature, or the org was cleaned up). Clear it and land on an honest
+// "trial ended" state with the mint path visible — never a dead /login,
+// which (without an OAuth provider configured) has nothing a stranger can
+// click.
+function trialExpiredRedirect(request) {
+  const response = NextResponse.redirect(new URL('/connect?trial=expired', request.url));
+  response.cookies.delete(TRIAL_SESSION_COOKIE);
+  return response;
+}
+
+// Trial-session page access (v5.1). Returns one of:
+//   { session }          — cookie valid AND its org is a live hosted trial
+//   { expired: true }    — cookie present but DEFINITIVELY unusable (bad/
+//                          expired JWT, or the org was cleaned up): the
+//                          caller clears the cookie and routes to the honest
+//                          trial-ended page
+//   { expired: false }   — no trial cookie, OR a transient DB error while
+//                          resolving the org: the caller must NOT clear the
+//                          cookie (a still-valid session must survive a Neon
+//                          blip and work on retry) — it just falls through to
+//                          /login for this one request.
+// On non-hosted instances getTrialSession is mechanically inert, so a forged
+// trial cookie falls through to /login like any anonymous request.
+async function authenticateTrialPage(request) {
+  const cookieHeader = request.headers.get('cookie') || '';
+  if (!hasTrialSessionCookie(cookieHeader)) {
+    return { session: null, expired: false };
+  }
+  const trialSession = await getTrialSession(request);
+  if (trialSession) {
+    try {
+      const org = await resolveTrialOrg(trialSession.orgId);
+      if (org) return { session: trialSession, expired: false };
+      // Query succeeded, org is absent/non-trial → genuinely gone.
+    } catch (err) {
+      // Transient DB failure — the JWT is still valid; preserve the cookie
+      // and deny only this request so a retry gets back in.
+      console.error('[AUTH] Trial page org lookup failed (transient, cookie preserved):', err.message);
+      return { session: null, expired: false };
+    }
+  }
+  // Cookie present but the JWT is bad/expired, OR the org is definitively
+  // gone. Only an actual hosted instance routes to the trial-ended page;
+  // elsewhere a trial cookie is just an unknown cookie.
+  return { session: null, expired: process.env.DASHCLAW_HOSTED === 'true' };
+}
+
 async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   // /login — redirect to dashboard if already logged in
   if (pathname === '/login') {
     if (token) return NextResponse.redirect(new URL('/mission-control', request.url));
+    const trial = await authenticateTrialPage(request);
+    if (trial.session) return NextResponse.redirect(new URL('/mission-control', request.url));
+    // A visitor who lands on /login carrying a DEFINITIVELY-dead trial cookie
+    // gets the same honest trial-ended routing as every protected page —
+    // otherwise the behavior is inconsistent by entry point, and on hosted
+    // /login has no working sign-in to offer them.
+    if (trial.expired) return trialExpiredRedirect(request);
     return NextResponse.next();
   }
 
@@ -1425,7 +1535,14 @@ async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
   let session = token;
   if (!session) {
     session = await getLocalAdminSession(request);
-    if (!session) {
+  }
+  if (!session) {
+    const trial = await authenticateTrialPage(request);
+    if (trial.session) {
+      session = trial.session;
+    } else if (trial.expired) {
+      return trialExpiredRedirect(request);
+    } else {
       return NextResponse.redirect(new URL('/login', request.url));
     }
   }
@@ -1560,11 +1677,40 @@ async function handleSessionAuth(request, pathname, requestHeaders) {
   let sessionToken = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
   if (!sessionToken) {
-    const localSession = await getLocalAdminSession(request);
-    if (!localSession) {
+    sessionToken = await getLocalAdminSession(request);
+  }
+
+  if (!sessionToken) {
+    // v5.1: same-origin dashboard fetches from a trial session. The session
+    // grants VISIBILITY — reads stay open so the dashboard remains legible
+    // even at the action cap — while writes get exactly the trial envelope
+    // the key path enforces (expiry + cap via enforceHostedTrial). Cheap
+    // presence probe first so the no-cookie majority (logged-out browsers,
+    // health checks) skip the trial verify entirely.
+    let trialOrg = null;
+    let trialSession = null;
+    if (hasTrialSessionCookie(request.headers.get('cookie') || '')) {
+      trialSession = await getTrialSession(request);
+      if (trialSession) {
+        try {
+          trialOrg = await resolveTrialOrg(trialSession.orgId);
+        } catch {
+          // Transient DB error: 401 this fetch (the client retries). Unlike
+          // the page path there is no cookie to preserve here.
+          trialOrg = null;
+        }
+      }
+    }
+    if (!trialOrg) {
       return securedJson(request, { error: 'Unauthorized - Session required' }, { status: 401 });
     }
-    sessionToken = localSession;
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      const trialBlock = enforceHostedTrial(trialOrg);
+      if (trialBlock) {
+        return securedJson(request, trialBlock.body, { status: trialBlock.status });
+      }
+    }
+    sessionToken = trialSession;
   }
 
   setSessionPrincipalHeaders(requestHeaders, sessionToken);

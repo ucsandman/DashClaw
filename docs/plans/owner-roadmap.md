@@ -77,7 +77,7 @@ Alternatives weighed and declined this round:
 
 | # | Item | Status |
 |---|------|--------|
-| v5.1 | A way back in: trial workspaces get a session and a visible product | — |
+| v5.1 | A way back in: trial workspaces get a session and a visible product | SHIPPED v4.55.0 |
 | v5.2 | First governed action in the browser (zero-install activation) | — |
 | v5.3 | Activation instrument sharpened: returned-vs-gone, first key use | — |
 | v5.4 | The outsider run: the CLI trial path walked cold, frictions fixed | — |

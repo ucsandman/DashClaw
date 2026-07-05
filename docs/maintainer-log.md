@@ -12,6 +12,56 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — the trial was a credential into a void (v4.55.0, roadmap v5.1)
+
+v5.1, the first build of the v5 era. The funnel v4.6 built read 4 mints and
+0 activations, and the mechanism recon behind that zero was uglier than
+"nobody came back": a Turnstile-minted trial got an API key and nothing
+else. No session, no dashboard, no way back once the tab closed. The
+product a stranger was meant to evaluate was unreachable until they'd
+installed a CLI on faith. So this item is the way back in: the mint now also
+signs the browser into the trial's own workspace with a short-lived httpOnly
+cookie (`dashclaw-trial-session`, HS256, expiry pinned to the trial's end),
+the middleware renders that trial's own mission-control and decisions, and
+`/connect` grows a workspace card plus an honest "trial ended" state so
+every step of the human's role is a click. It's hosted-only and fail-closed
+by construction: the whole branch is mechanically inert unless
+`DASHCLAW_HOSTED=true`, so no self-host instance is touched.
+
+The reshaping finding came from the review, not the build. Giving a trial an
+`admin` session — admin of its *own* org, the same shape every OAuth
+personal org already gets — quietly armed four routes that trusted the admin
+role alone: inspect/delete *any* workspace, create uncapped permanent
+tenants, run the instance cleanup sweep, and reveal the operator's bootstrap
+key. I'd hardened the reveal route as a one-off and missed its siblings; the
+first security pass returned BLOCK with two criticals (a trial could delete
+another trial's entire workspace, or mint its way out of the trial cap
+entirely). The fix is one shared `denyTrialPrincipal` guard applied to all
+four — a trial principal never performs an operator op — and the re-review
+returned SHIP.
+
+Then a high-effort correctness review (parallel finders, each finding
+independently verified) caught the bug I'm least proud of: `resolveTrialOrg`
+returned `null` on a *transient DB error* exactly as it did for "org
+deleted", so a momentary Neon blip made the page path clear the re-entry
+cookie — one network hiccup permanently orphaning a live workspace, the
+precise failure this feature exists to prevent. It now throws on a lookup
+failure and clears the cookie only when the trial is *definitively* gone.
+Eight more defects fell out of the same review (a UI that promised a session
+the server hadn't minted; a capped trial with no path forward; `/login`
+ignoring the expired state; a server-locale date; redundant edge crypto),
+all fixed and pinned.
+
+Proof: 5174 vitest cases green, the full contract (valid / expired /
+tampered / wrong-provider / org-gone / transient-error / cap / hosted-off)
+pinned deterministically, and a rendered proof against a real Next server +
+real Postgres — mint a trial, close the tab, come back with the cookie and
+reach the workspace; present a forged cookie and get bounced to the
+trial-ended page with the cookie cleared. Platform-only, so the SDKs stay at
+4.32.0. Next: v5.2, the first governed action in the browser — the
+activation step itself, landing on the empty states this item just made
+reachable.
+
 ## 2026-07-05 — roadmap v5 drafted: the first mile (no ship; direction decision)
 
 Same day as v4.6, because the funnel didn't wait to be useful. Its first

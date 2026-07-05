@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
 import { getOrgId, getOrgRole } from '../../lib/org';
 import { seedDefaultData } from '../../lib/scoringProfiles';
+import { denyTrialPrincipal } from '../../lib/hosted/trial-principal';
 import crypto from 'crypto';
 
 // Hash API key using Node crypto (server-side)
@@ -53,6 +54,15 @@ export async function POST(request: Request) {
     if (role !== 'admin') {
       return NextResponse.json({ error: 'Forbidden - admin role required' }, { status: 403 });
     }
+
+    // SECURITY (v5.1): tenant creation is an operator power. A hosted-trial
+    // session is admin of its own capped, expiring org — but the org it would
+    // create here has no hosted_mode, no cap, no expiry, and returns a raw
+    // admin key. Without this gate a stranger could mint one Turnstile-gated
+    // trial and convert it into unlimited permanent uncapped orgs, escaping
+    // every trial control. No-op on self-host (no trial principals).
+    const trialDenied = await denyTrialPrincipal(request);
+    if (trialDenied) return trialDenied;
 
     const sql = getSql();
     const body = await request.json();

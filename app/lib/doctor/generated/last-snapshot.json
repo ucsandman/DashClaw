@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:840449ba520e06563cc02195400fde88c3f84921",
+  "timestamp": "sha1:d980620460282d08fbcfc91329fdf9a58e67e933",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3928,6 +3928,7 @@
         "__tests__/unit/hosted/publicConfig.test.js",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",
+        "app/connect/page.tsx",
         "app/lib/hosted/flag.ts",
         "app/lib/hosted/publicConfig.ts",
         "middleware.js"
@@ -4674,6 +4675,7 @@
         "__tests__/unit/health-tables.test.js",
         "__tests__/unit/health.route.test.js",
         "app/api/auth/local/route.ts",
+        "app/api/hosted/workspaces/route.ts",
         "app/api/oauth/authorize/route.ts",
         "middleware.js"
       ],
@@ -4802,6 +4804,7 @@
         "app/lib/auth.ts",
         "app/lib/db.ts",
         "app/lib/events.ts",
+        "app/lib/hosted/trial-session.ts",
         "app/lib/hosted/turnstile.ts",
         "app/lib/next-config-headers.cjs",
         "app/lib/readiness/workflow.mjs",

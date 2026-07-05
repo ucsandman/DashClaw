@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, Copy, AlertCircle, Sparkles } from 'lucide-react';
+import { Check, Copy, AlertCircle, Sparkles, ArrowRight } from 'lucide-react';
 import { STACK_OPTIONS, renderTemplate } from './hostedTemplates.js';
 
 function CopyButton({ value, label = 'Copy config' }) {
@@ -155,6 +155,29 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
               {rendered.code}
             </pre>
           </div>
+
+          {/* v5.1: the mint also set a trial session cookie — the dashboard
+              is now a real destination, and losing this tab no longer
+              orphans the workspace. Only shown when the server actually
+              signed the browser in (data.session); if it couldn't (no
+              NEXTAUTH_SECRET), we don't promise a dashboard that would bounce
+              them to /login. */}
+          {state.data.session ? (
+            <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
+              <a
+                href="/mission-control"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
+              >
+                Open your dashboard
+                <ArrowRight size={14} aria-hidden="true" />
+              </a>
+              <p className="max-w-md text-xs leading-relaxed text-text-tertiary">
+                Your browser now holds a session for this workspace — come back
+                to your dashboard anytime until the trial ends. The key above is
+                shown once; your dashboard is not.
+              </p>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

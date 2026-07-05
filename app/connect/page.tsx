@@ -14,9 +14,15 @@ import {
   ArrowRight,
 } from 'lucide-react';
 
+import { headers } from 'next/headers';
+
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import HostedProvisionSection from './HostedProvisionSection';
+import TrialWorkspaceCard from './TrialWorkspaceCard';
+import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
+import { getSql } from '../lib/db';
+import { getHostedWorkspace } from '../lib/repositories/hosted-workspace.repository';
 
 /*
  * Framework agnostic /connect runbook.
@@ -586,7 +592,49 @@ dashclaw doctor`}</CodeBlock>
 }
 
 interface ConnectPageProps {
-  searchParams?: Promise<{ hosted?: string }>;
+  searchParams?: Promise<{ hosted?: string; trial?: string }>;
+}
+
+// v5.1: /connect is unmatched by middleware (public), so the page resolves
+// the trial session itself from the cookie header — the same self-serve
+// pattern /settings uses. Returns the live trial org or null; every failure
+// (no cookie, bad signature, expired JWT, org cleaned up, DB error) is just
+// "no card".
+async function getTrialWorkspaceForViewer(): Promise<Record<string, unknown> | null> {
+  // /connect is a public, high-traffic page served on non-hosted hosts too
+  // (marketing/demo, every self-host). getTrialViewer can only ever match on
+  // a hosted instance, so short-circuit before doing any cookie/JWT/DB work.
+  if (process.env.DASHCLAW_HOSTED !== 'true') return null;
+  try {
+    const headerStore = await headers();
+    const cookieHeader = headerStore.get('cookie') || '';
+    const viewer = await getViewerContextFromCookieHeader(cookieHeader, process.env);
+    if (viewer.authType !== 'trial') return null;
+    const orgId = (viewer.session as { orgId?: string }).orgId;
+    if (!orgId) return null;
+    const org = await getHostedWorkspace(getSql(), orgId);
+    return org && org.hostedMode ? org : null;
+  } catch {
+    return null;
+  }
+}
+
+function TrialExpiredNotice() {
+  return (
+    <section className="mb-10 rounded-3xl border border-border bg-surface-secondary p-6 sm:p-8">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">
+        Trial ended
+      </p>
+      <h2 className="mt-3 text-2xl font-semibold tracking-tight text-text-primary">
+        This trial workspace is no longer available.
+      </h2>
+      <p className="mt-2 max-w-2xl text-sm text-text-secondary leading-relaxed">
+        Trial workspaces are time-boxed and removed after they expire, along
+        with their data. You can mint a fresh workspace below and be governing
+        an agent again in under a minute.
+      </p>
+    </section>
+  );
 }
 
 export default async function ConnectPage({ searchParams }: ConnectPageProps = {}) {
@@ -679,14 +727,38 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
     );
   }
 
+  // The trial-aware surfaces only appear on the plain /connect page (not the
+  // ?hosted post-mint landing above), so resolve the trial session here —
+  // one lookup, and only on the path that uses it.
+  const trialExpired = params?.trial === 'expired';
+  const trialWorkspace = await getTrialWorkspaceForViewer();
+
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary">
       <PublicNavbar />
 
       <main className="px-6 pb-20 pt-28">
         <div className="mx-auto max-w-5xl">
+          {/* v5.1: an unusable trial session landed here via the middleware
+              redirect — say so honestly; the mint section below is the path
+              back in. */}
+          {trialExpired && !trialWorkspace ? <TrialExpiredNotice /> : null}
+          {/* v5.1: returning trial user — their workspace, one click away. */}
+          {trialWorkspace ? (
+            <TrialWorkspaceCard
+              orgId={String(trialWorkspace.orgId)}
+              trialEndsAt={trialWorkspace.trialEndsAt ? String(trialWorkspace.trialEndsAt) : null}
+              trialActionCap={trialWorkspace.trialActionCap == null ? null : Number(trialWorkspace.trialActionCap)}
+              trialActionsUsed={trialWorkspace.trialActionsUsed == null ? null : Number(trialWorkspace.trialActionsUsed)}
+            />
+          ) : null}
           {/* Hosted instances only: anonymous trial mint (Turnstile-gated).
-              Renders nothing when DASHCLAW_HOSTED is unset (self-host). */}
+              Renders nothing when DASHCLAW_HOSTED is unset (self-host).
+              Always rendered — even for a signed-in trial visitor — so a
+              trial that has become unusable (e.g. hit its action cap, which
+              blocks minting a replacement key) always has a working way
+              forward: mint a fresh workspace. The global/per-IP mint caps,
+              not this page, are what bound abuse. */}
           <HostedProvisionSection />
           <FullConnectGuide />
         </div>

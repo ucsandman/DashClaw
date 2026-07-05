@@ -623,7 +623,19 @@ function DecisionsLedgerInner() {
               ))}
             </div>
           ) : actions.length === 0 ? (
-            <EmptyState icon={Inbox} title="No actions found" description="Adjust filters or wait for agent activity" />
+            <EmptyState
+              icon={Inbox}
+              title="No actions found"
+              description="Adjust filters or wait for agent activity"
+              action={
+                <Link
+                  href="/connect"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-3 py-1.5 text-xs font-semibold text-secondary transition-colors hover:border-border-hover hover:text-white"
+                >
+                  Connect your first agent
+                </Link>
+              }
+            />
           ) : (
             <div className="space-y-2">
               {/* Select all row */}

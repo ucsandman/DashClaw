@@ -1455,6 +1455,46 @@ async function main() {
     }
   }
 
+  // ---------------------------------------------------------------- AB ----
+  // v5.1 a way back in. On a hosted-off instance (this smoke run) the trial
+  // session surface must be mechanically inert: the mint route 404s, and a
+  // forged dashclaw-trial-session cookie on a page request is just an
+  // unknown cookie — plain /login redirect, never a trial-expired state.
+  // The hosted-ON contract (cookie minting, org-scoped page render,
+  // expired-org redirect, cap envelope) is pinned by vitest
+  // (trial-session-middleware.test.js, trial-session-routes.test.ts):
+  // flipping DASHCLAW_HOSTED means restarting the server mid-run
+  // (v4.4/v4.6 precedent for non-live-smokeable).
+  console.log('\nAB. v5.1 a way back in...');
+  {
+    const cap = await api('GET', '/api/hosted/capacity');
+    if (cap.status === 404) {
+      const mint = await api('POST', '/api/hosted/workspaces', {});
+      check('AB1', 'hosted off: POST /api/hosted/workspaces is gated (404)',
+        mint.status === 404, `mint=${mint.status}`);
+      const page = await fetch(`${BASE}/decisions`, {
+        redirect: 'manual',
+        headers: { cookie: 'dashclaw-trial-session=forged.trial.cookie' },
+      });
+      const loc = page.headers.get('location') || '';
+      check('AB2', 'hosted off: forged trial cookie on a page → plain /login redirect',
+        page.status >= 300 && page.status < 400
+          && loc.includes('/login') && !loc.includes('trial=expired'),
+        `status=${page.status} location=${loc}`);
+    } else {
+      // Hosted instance: the mint route is live (Turnstile-gated) — assert
+      // only that a forged/garbage trial cookie never grants a page render.
+      const page = await fetch(`${BASE}/decisions`, {
+        redirect: 'manual',
+        headers: { cookie: 'dashclaw-trial-session=forged.trial.cookie' },
+      });
+      const loc = page.headers.get('location') || '';
+      check('AB2', 'hosted on: forged trial cookie never renders a page (redirected out)',
+        page.status >= 300 && page.status < 400 && loc.length > 0,
+        `status=${page.status} location=${loc}`);
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
