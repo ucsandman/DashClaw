@@ -14,7 +14,7 @@ Before any UI, design, copy, or marketing/visual change, **read `.impeccable.md`
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 
-This project is indexed by GitNexus as **DashClaw** (26313 symbols, 52687 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+This project is indexed by GitNexus as **DashClaw** (26383 symbols, 52833 relationships, 300 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
 
 > Index stale? Run `node .gitnexus/run.cjs analyze` from the project root — it auto-selects an available runner. No `.gitnexus/run.cjs` yet? `npx gitnexus analyze` (npm 11 crash → `npm i -g gitnexus`; #1939).
 
@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-05 (commit 09f303b9). Confidence: 100%.
+Last indexed: 2026-07-05 (commit 27b815bf). Confidence: 100%.
 ### Architecture
-This repository is an end-to-end “governed agent + documentation + MCP tooling” platform: it ingests source code and configuration (repository files, contracts, policy/rules, and agent skills), transforms them through indexing/parsing, policy/contract enforcement, and tool orchestration, and outputs generated knowledge artifacts (LLM-ready wiki/wiki-like pages), runnable agent workflows, and an MCP server exposing tools to external clients (plus optional web/media rendering).
+This repository is an end-to-end “governed code intelligence” engine that ingests a target source repository (and optional policy/rules inputs), traverses and parses code into structured representations, analyzes dependencies and governance constraints, and generates LLM-synthesized documentation artifacts (wiki pages) that are served through an MCP server and supporting CLI/web tooling.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,11 +103,11 @@ This repository is an end-to-end “governed agent + documentation + MCP tooling
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 46 | Wes Sander |
-| `app/lib/guard.ts` | 100.0th percentile | 26 | Wes Sander |
-| `CHANGELOG.md` | 99.9th percentile | 83 | Wes Sander |
-| `package-lock.json` | 99.9th percentile | 84 | Wes Sander |
-| `scripts/policy-smoke.mjs` | 99.8th percentile | 20 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 47 | Wes Sander |
+| `CHANGELOG.md` | 100.0th percentile | 84 | Wes Sander |
+| `app/lib/guard.ts` | 99.9th percentile | 26 | Wes Sander |
+| `package-lock.json` | 99.9th percentile | 85 | Wes Sander |
+| `scripts/policy-smoke.mjs` | 99.8th percentile | 21 | Wes Sander |
 
 ### Repowise MCP Workflow
 
