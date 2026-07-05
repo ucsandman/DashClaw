@@ -169,7 +169,7 @@ evidence.
   and the counter-verdict explicitly; v6 drafting can cite it the way v5's
   drafting cites the funnel.
 - **Shipped v4.59.0** — the verdict is
-  [`../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`](../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md):
+  [`../../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md`](../../superpowers/specs/2026-07-05-reach-readiness-verdict-v55.md):
   **READY**. The v5.2 human live proof landed the same session (a human
   Turnstile mint reached a governed browser action in 29 minutes; the
   maintainer run was then removed under the funnel-truth protocol), so the
