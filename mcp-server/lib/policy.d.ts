@@ -1,4 +1,4 @@
-import type { ActionContext, Capability, PolicyDecision, PolicyEffect, PolicyRule } from "./types.js";
+import type { ActionContext, PolicyDecision, PolicyRule } from "./types.js";
 /**
  * The policy engine is the safety core. It reasons about
  *   capability × environment kind × provider × live-flag
@@ -22,6 +22,3 @@ import type { ActionContext, Capability, PolicyDecision, PolicyEffect, PolicyRul
  */
 export declare function defaultDecision(ctx: ActionContext): PolicyDecision;
 export declare function evaluatePolicy(rules: readonly PolicyRule[], ctx: ActionContext): PolicyDecision;
-/** Human-readable capability label for messages. */
-export declare function capabilityLabel(c: Capability): string;
-export declare function effectIsExecutable(effect: PolicyEffect): boolean;

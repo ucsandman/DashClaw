@@ -1,7 +1,7 @@
 /**
  * Optimal Files bundle builder. Pure — no DB, no HTTP, no fs.
  *
- * Per the A4 refactor in AGENTLENS_INTEGRATION_GOAL.md:
+ * Per the A4 refactor in docs/architecture/AGENTLENS_INTEGRATION_GOAL.md:
  *
  *   - `buildOptimalFilesBundle` accepts pre-computed aggregates and an
  *     optional `existingPaths: Set<string>` to compute `overwriteRisk`.

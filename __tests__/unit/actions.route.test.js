@@ -58,7 +58,7 @@ vi.mock('next/server', async () => {
 });
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate.js', () => ({ validateActionRecord: mockValidateActionRecord }));
+vi.mock('@/lib/validate.js', () => ({ validateActionRecord: mockValidateActionRecord, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   listActions: mockListActions,
   createActionRecord: mockCreateActionRecord,

@@ -861,4 +861,12 @@ export function enforceFieldLimits(body, limits = {}) {
   return errors.length > 0 ? { ok: false, errors } : { ok: true };
 }
 
+/**
+ * Fleet attribution (v4.3): accept a client-supplied id string ≤ 200 chars,
+ * else null. The repository re-applies the same bound as the authoritative gate.
+ */
+export function boundedIdField(value) {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
+}
+
 export { ACTION_TYPES, ACTION_STATUSES, LOOP_TYPES, LOOP_STATUSES, LOOP_PRIORITIES, OUTCOME_FIELDS, POLICY_TYPES, DEFAULT_MAX_LENGTH };

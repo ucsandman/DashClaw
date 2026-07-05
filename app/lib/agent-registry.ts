@@ -1,5 +1,5 @@
 /**
- * Agent registry orchestration (SPEC-mega.md Group C). A registry invocation is
+ * Agent registry orchestration (docs/archive/SPEC-mega.md Group C). A registry invocation is
  * NOT a new invocation system: it routes through the EXISTING capability
  * runtime (prepare + execute, which already do auth, timeout, retry, request and
  * response mapping, and SSRF defense), the EXISTING guard, and the EXISTING

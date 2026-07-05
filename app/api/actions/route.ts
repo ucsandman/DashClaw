@@ -3,7 +3,7 @@ export const revalidate = 0;
 
 import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
-import { validateActionRecord } from '../../lib/validate.js';
+import { validateActionRecord, boundedIdField } from '../../lib/validate.js';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { logActivity } from '../../lib/audit';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
@@ -37,11 +37,6 @@ import crypto from 'crypto';
 
 const GUARD_DECISION_ID_RE = /^act_gd_[a-f0-9]{16}$/;
 
-// Fleet attribution (v4.3): accept a client-supplied id string ≤ 200 chars,
-// else null. The repository re-applies the same bound as the authoritative gate.
-function boundedIdField(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
-}
 
 
 export async function GET(request: Request) {

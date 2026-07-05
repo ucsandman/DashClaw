@@ -1,5 +1,5 @@
 /**
- * Reputation repository (SPEC-mega.md Group B). All SQL for the reputation
+ * Reputation repository (docs/archive/SPEC-mega.md Group B). All SQL for the reputation
  * tables plus evidence sourcing and the recompute orchestrator. Every query is
  * org-scoped (WHERE org_id = ${orgId}); there is no cross-org access. The
  * vector math and receipt signing live in app/lib/reputation.js.

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Sync helper for cli/lib/code/vendored.js. Compares the vendored copy of
- * merge.js + bundle.js#absolutize against the canonical sources under
+ * merge.ts + bundle.ts#absolutize against the canonical sources under
  * app/lib/claude-code/optimal-files/. Prints a per-symbol drift report and
  * exits non-zero when the canonical sources have changed in ways that the
  * vendored copy doesn't reflect.
@@ -27,11 +27,11 @@ const VENDORED = path.join(REPO_ROOT, 'cli', 'lib', 'code', 'vendored.js');
 // particular) stays server-side.
 const CANONICAL = [
   {
-    file: path.join(REPO_ROOT, 'app', 'lib', 'claude-code', 'optimal-files', 'merge.js'),
+    file: path.join(REPO_ROOT, 'app', 'lib', 'claude-code', 'optimal-files', 'merge.ts'),
     expect: ['parseMarkdownSections', 'normalizeHeading', 'previewMerge', 'applyMerge'],
   },
   {
-    file: path.join(REPO_ROOT, 'app', 'lib', 'claude-code', 'optimal-files', 'bundle.js'),
+    file: path.join(REPO_ROOT, 'app', 'lib', 'claude-code', 'optimal-files', 'bundle.ts'),
     // `absolutize` is renamed `_ensureInsideProject` in the vendored copy
     // because the CLI uses it as a path-traversal guard rather than a path
     // builder. Map the rename here.

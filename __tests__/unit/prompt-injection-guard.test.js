@@ -17,7 +17,7 @@ const { mockSql, mockEvaluateGuard, mockScanForPromptInjection, mockValidateGuar
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: mockEvaluateGuard }));
 vi.mock('@/lib/promptInjection.js', () => ({ scanForPromptInjection: mockScanForPromptInjection }));
-vi.mock('@/lib/validate.js', () => ({ validateGuardInput: mockValidateGuardInput }));
+vi.mock('@/lib/validate.js', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
 
 import { POST } from '@/api/guard/route.js';
 

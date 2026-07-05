@@ -62,7 +62,6 @@ const SCAN_INDIVIDUAL_FILES = ['sdk/dashclaw.js'];
 // choice — keep the list short.
 const FILE_ALLOWLIST = new Set([
   'app/docs/page.js',                              // SDK code examples
-  'app/components/GuardSimulation.js',             // Demo UI badge
   'app/lib/demo/fixtures/journey-agents.js',       // Demo agent fixtures
   'app/lib/demo/fixtures/persona-agents.js',       // Demo agent fixtures
   'app/lib/demo/fixtures/tutorial-assumptions.js', // Demo agent fixtures

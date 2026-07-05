@@ -3,8 +3,6 @@ import {
   buildActionEvent,
   buildAssumptionEvent,
   buildGuardEvent,
-  buildOperatorBrief,
-  buildRecentChangesDigest,
   collapseRoutineTelemetry,
 } from '@/lib/missionControl.js';
 
@@ -74,72 +72,3 @@ describe('missionControl normalization', () => {
   });
 });
 
-describe('missionControl summaries', () => {
-  it('keeps pending approvals and invalidated assumptions in operator brief summaries', () => {
-    const brief = buildOperatorBrief({
-      actions: [
-        {
-          action_id: 'act_approval',
-          action_type: 'deploy',
-          declared_goal: 'Release auth hotfix',
-          status: 'pending_approval',
-          risk_score: 84,
-          created_at: '2026-03-10T11:40:00.000Z',
-        },
-      ],
-      assumptions: [
-        {
-          assumption_id: 'asm_invalid',
-          action_id: 'act_approval',
-          assumption: 'Dependency version is already deployed',
-          invalidated: 1,
-          invalidated_reason: 'Production still runs the previous patch level',
-          created_at: '2026-03-10T11:44:00.000Z',
-        },
-      ],
-    });
-
-    expect(brief.running.map((item) => item.id)).toContain('action:act_approval');
-    expect(brief.interventions.map((item) => item.id)).toContain('assumption:asm_invalid');
-    expect(brief.needsAttention.map((item) => item.id)).toContain('assumption:asm_invalid');
-  });
-
-  it('builds a recent changes digest from high-signal events', () => {
-    const digest = buildRecentChangesDigest({
-      actions: [
-        {
-          action_id: 'act_1',
-          action_type: 'deploy',
-          declared_goal: 'Release auth hotfix',
-          status: 'failed',
-          error_message: 'Migration timed out',
-          created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
-        },
-      ],
-      guardDecisions: [
-        {
-          id: 'guard_1',
-          decision: 'require_approval',
-          action_type: 'deploy',
-          reason: 'High-risk deployment window',
-          created_at: new Date(Date.now() - 6 * 60 * 1000).toISOString(),
-        },
-      ],
-      assumptions: [
-        {
-          assumption_id: 'asm_1',
-          action_id: 'act_1',
-          assumption: 'Schema rollback is available',
-          validated: 0,
-          invalidated: 0,
-          drift_score: 74,
-          created_at: new Date(Date.now() - 7 * 60 * 1000).toISOString(),
-        },
-      ],
-    });
-
-    expect(digest.total).toBe(3);
-    expect(digest.changes.find((item) => item.id === 'governance')?.count).toBe(2);
-    expect(digest.highlights.length).toBeGreaterThan(0);
-  });
-});

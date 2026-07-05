@@ -4,7 +4,7 @@ export const revalidate = 0;
 import crypto from 'node:crypto';
 import { NextResponse, after } from 'next/server';
 import { getOrgId, getUserId } from '../../lib/org';
-import { validateGuardInput } from '../../lib/validate';
+import { validateGuardInput, boundedIdField } from '../../lib/validate';
 import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
 import { getSql } from '../../lib/db';
 import { apiErrorResponse } from '../../lib/apiErrors';
@@ -28,11 +28,6 @@ type GuardSql = ReturnType<typeof getSql>;
 type GuardData = Record<string, unknown> & { agent_id?: string; agent_name?: string; declared_goal?: string; verification_status?: string };
 type GuardResult = { decision: string; risk_score?: number; decision_id?: string };
 
-// Fleet attribution (v4.3): accept a client-supplied id string ≤ 200 chars,
-// else null. The repository re-applies the same bound as the authoritative gate.
-function boundedIdField(value: unknown): string | null {
-  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
-}
 
 /**
  * ?record=true support: create the running action record in-request (the same

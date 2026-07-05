@@ -178,3 +178,11 @@ DashClaw__AI_Governance.mp4
 .offlocal/
 .playwright-cli/
 .playwright-mcp/
+
+# One-off audit/spec/ratchet artifacts belong in docs/archive, never at root (cleanup 2026-07-05)
+/*-mega.md
+/*-mega.json
+/supergoal*.txt
+# Mangled-Windows-path litter (absolute paths written as literal filenames by a buggy tool)
+/C[:U]sers*
+/C[:P]rojects*

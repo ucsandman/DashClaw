@@ -1,5 +1,5 @@
 /**
- * Registered-agents repository (SPEC-mega.md Group C). All SQL for the agent
+ * Registered-agents repository (docs/archive/SPEC-mega.md Group C). All SQL for the agent
  * registry: registered providers, their grouped capabilities, and the thin
  * invocation records that reference the existing action + capability. Every
  * query is org-scoped; there is no cross-org access.

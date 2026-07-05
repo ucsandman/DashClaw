@@ -1,8 +1,6 @@
 import type {
   ActionContext,
-  Capability,
   PolicyDecision,
-  PolicyEffect,
   PolicyRule,
 } from "./types.js";
 
@@ -133,28 +131,4 @@ export function evaluatePolicy(rules: readonly PolicyRule[], ctx: ActionContext)
   }
 
   return resolved;
-}
-
-/** Human-readable capability label for messages. */
-export function capabilityLabel(c: Capability): string {
-  switch (c) {
-    case "read":
-      return "read";
-    case "write":
-      return "write";
-    case "deploy":
-      return "deploy";
-    case "env_change":
-      return "environment-variable change";
-    case "delete":
-      return "delete";
-    case "destructive_sql":
-      return "destructive SQL";
-    case "purchase":
-      return "purchase";
-  }
-}
-
-export function effectIsExecutable(effect: PolicyEffect): boolean {
-  return effect === "allow";
 }

@@ -115,26 +115,4 @@ export function evaluatePolicy(rules, ctx) {
     }
     return resolved;
 }
-/** Human-readable capability label for messages. */
-export function capabilityLabel(c) {
-    switch (c) {
-        case "read":
-            return "read";
-        case "write":
-            return "write";
-        case "deploy":
-            return "deploy";
-        case "env_change":
-            return "environment-variable change";
-        case "delete":
-            return "delete";
-        case "destructive_sql":
-            return "destructive SQL";
-        case "purchase":
-            return "purchase";
-    }
-}
-export function effectIsExecutable(effect) {
-    return effect === "allow";
-}
 //# sourceMappingURL=policy.js.map

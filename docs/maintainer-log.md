@@ -12,6 +12,34 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.62.1: structural health pass — audit fresh, delete only what grep proves dead
+
+A principal-engineer-style sweep of the whole tree, deliberately ignoring the
+repo's own prior audit reports (they're what accumulated at the root; trusting
+them would be circular). Four parallel read-only auditors mapped app/, the
+SDK/CLI/MCP packages, both test trees, and the root/scripts junk; every
+finding was then re-verified by hand before acting, which mattered: the
+auditors' "dead code" lists contained real false positives — `decisionActions`
+et al. in the context-menu registry are live via a dispatch map, and the
+claude-code `claudemd`/`audit`/`apply` trio is production-dead but deliberately
+extracted and well-tested, so it stayed. What actually went: two orphaned
+components, the superseded `connectGuide`, two production-dead missionControl
+summaries, ~190 lines of duplicate readiness builders, three unreferenced
+mcp-server exports, two dead hook functions (all mirrors), and a fully-skipped
+Python test file. Two genuine repairs: `sync-cli-vendored-code.mjs` had been
+silently broken since a `.js`→`.ts` rename (a drift check that can't find its
+canonical source detects nothing), and `boundedIdField` existed as two
+byte-identical copies in the two hottest routes — now one export in
+`validate.js`. The biggest coverage gap found — `POST /api/internal/resolve-key`,
+the self-host auth bridge, zero direct tests — got a 14-test suite. Root
+hygiene: audit/spec one-offs archived under `docs/archive/`, ~10.5 MB of
+unreferenced PNGs and an orphan `agents/ceo/` persona deleted, `.gitignore`
+hardened. Deliberately left for their own sessions, in order: the two parallel
+persistence layers (repositories vs ad-hoc SQL in `app/lib/*.ts` vs raw SQL in
+27 route files), the 2,000-line `guard.ts` god module, and the error envelope
+only 93/285 routes actually use. Full suite green before (5,232) and after
+(5,241); build, lint, typecheck, contract gates all pass.
+
 ## 2026-07-05 — v4.62.0: the approval boundary, decided — no principal approves its own actions
 
 v4.61.1 ended with a question deliberately left on the table: what stops an

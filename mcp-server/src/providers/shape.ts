@@ -32,9 +32,3 @@ export function booleanField(value: Record<string, any>, key: string, label: str
   return value[key];
 }
 
-export function numberField(value: Record<string, any>, key: string, label: string): number {
-  if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
-    throw new DashclawError(`${label} response is missing number field ${key}.`);
-  }
-  return value[key];
-}

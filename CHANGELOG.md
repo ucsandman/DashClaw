@@ -13,6 +13,75 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.62.1] — 2026-07-05
+
+Structural health pass. An independent audit of the current tree (app/, sdk/,
+sdk-python/, cli/, mcp-server/, packages/, both test trees) followed by
+behavior-preserving cleanup: dead code deleted only after grep-verifying zero
+callers, one silently broken drift check repaired, one duplicated validator
+unified, and the biggest untested auth path given direct coverage. No route,
+SDK-surface, or contract changes.
+
+### Fixed
+
+- **`scripts/sync-cli-vendored-code.mjs` was silently dead.** The drift check
+  that guards `cli/lib/code/vendored.js` against its canonical sources had
+  pointed at `merge.js`/`bundle.js` since those files were renamed to `.ts` —
+  every run reported `missing_canonical` and could never detect real drift.
+  Re-pointed at `merge.ts`/`bundle.ts`; the check runs again and confirms the
+  vendored copy is currently in sync.
+
+### Added
+
+- **14 unit tests for `POST /api/internal/resolve-key`**
+  (`__tests__/unit/internal-resolve-key.route.test.ts`) — the self-host
+  API-key resolution bridge previously had zero direct tests (it was only
+  exercised through a fully mocked fetch in the middleware suite). Now covered:
+  the Neon/self-host gate (404 before auth), operator-key auth including
+  empty-key edge cases, the resolved-principal payload shape, revoked and
+  unknown keys, `touchKeyLastUsed` stamping, and DB-error responses.
+
+### Changed
+
+- **`boundedIdField` deduplicated.** The fleet-attribution id bound existed as
+  byte-identical private copies in `app/api/actions/route.ts` and
+  `app/api/guard/route.ts`; it now lives once in `app/lib/validate.js` and both
+  routes import it.
+- **Root hygiene.** One-off audit/spec artifacts moved to `docs/archive/`
+  (`AUDIT_FINDINGS.md`, `OVERNIGHT-CLEANUP-REPORT.md`, `SPEC-mega.md`,
+  `bar-mega.json`) and `AGENTLENS_INTEGRATION_GOAL.md` to `docs/architecture/`,
+  with every citing reference updated. Deleted ~10.5 MB of unreferenced root
+  PNGs, a stray supergoal prompt dump, and the orphan `agents/ceo/` persona
+  config (unrelated to DashClaw; references a skill and `$AGENT_HOME` that do
+  not exist in this repo). `.gitignore` hardened against the artifact classes
+  that got committed (`*-mega.*`, root supergoal dumps, mangled-path litter).
+
+### Removed
+
+Dead code, each deletion grep-verified to have zero callers outside its own
+file/tests before removal:
+
+- `app/components/GuardSimulation.tsx` (308 lines) and
+  `app/components/SwarmActivityLog.tsx` (220 lines) — orphaned components with
+  no importers; also dropped the stale `GuardSimulation.js` entry from the
+  version-hardcode allowlist.
+- `app/lib/connectGuide.ts` and its test — superseded by the host resolution
+  in `app/lib/guideContent.ts`; nothing in production imported it.
+- `app/lib/missionControl.ts` — `buildRecentChangesDigest` and
+  `buildOperatorBrief` (production-dead; only their own tests called them).
+- `app/lib/readiness/configurationCheck.mjs` — two private, unexported
+  near-duplicates of the real section builders in `applicationCheck.mjs` /
+  `databaseCheck.mjs` (~190 lines), plus the import only they used.
+- `mcp-server` — unreferenced exports `capabilityLabel`, `effectIsExecutable`
+  (`src/policy.ts`) and `numberField` (`src/providers/shape.ts`); committed
+  `lib/` build output regenerated.
+- Hooks — dead `_clear_session_tool_map` in `dashclaw_code_session_reporter.py`
+  and an unused duplicate `_safe_session_id` (with its regex) in
+  `dashclaw_agent_intel/behavior_recorder.py`, removed from the canonical
+  `hooks/` copies and all tracked mirrors.
+- `sdk-python/tests/test_ws5_m5_adaptive_loop.py` — entire class skipped with
+  "feature removed in SDK refactor"; a dead test file, not coverage.
+
 ## [4.62.0] — 2026-07-05
 
 Separation of duties on the approval gate — the maintainer's call on the
@@ -2384,7 +2453,7 @@ Fixes verified against an external agent's first-run feedback (each finding was 
 
 ### Overnight hardening pass (branch `overnight/cleanup-2026-06-01`)
 
-A batch of behavior-preserving bug fixes from an unattended cleanup run. No new routes, SDK methods, or contract changes; each fix ships a regression test and the full suite stays green. See `OVERNIGHT-CLEANUP-REPORT.md` for root-cause detail and the per-fix commits.
+A batch of behavior-preserving bug fixes from an unattended cleanup run. No new routes, SDK methods, or contract changes; each fix ships a regression test and the full suite stays green. See `docs/archive/OVERNIGHT-CLEANUP-REPORT.md` for root-cause detail and the per-fix commits.
 
 - **Fixed (MCP).** `dashclaw_loop_list` no longer returns 500: the `/api/actions/loops` count query was missing the `action_records` join the main query has, so any `agent_id` filter (always sent by a configured server) errored. `dashclaw_learning_query` now reads `/api/learning` (the store `dashclaw_learning_log` writes to) instead of the recommendations consolidator, so logged decisions can be queried back.
 - **Fixed (Node SDK).** `_request` drops `undefined`/`null` query params instead of sending the literal `status=undefined` (a regression from v1 that silently emptied filtered lists); a non-JSON error body (502/504/413/429) now throws a status-bearing error instead of a `SyntaxError`; and `waitForApproval`'s polling fallback returns the same `{ action, open_loops, assumptions, message_summary }` shape as the SSE fast-path.

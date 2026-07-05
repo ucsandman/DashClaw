@@ -1,5 +1,5 @@
 /**
- * Agent reputation math (SPEC-mega.md Group B). Deterministic, dependency-free
+ * Agent reputation math (docs/archive/SPEC-mega.md Group B). Deterministic, dependency-free
  * except for DashClaw's existing integrity layer (canonical-json hashing +
  * Ed25519 signing via node:crypto) and the timing-safe comparator. Ported from
  * the Agent-Reputation-Oracle math (decay, Bayesian smoothing, volume,

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:d8bc1449121b7fc603c78eac663ebe142b972b13",
+  "timestamp": "sha1:8ccd22d20b5c9a1911f6de9618b728be9942aff5",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3373,14 +3373,6 @@
       "required": false,
       "files": [
         "scripts/generate-agent-keys.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "AGENT_PRIVATE_KEY_JWK",
-      "required": false,
-      "files": [
-        "app/lib/connectGuide.ts"
       ],
       "in_env_example": false
     },

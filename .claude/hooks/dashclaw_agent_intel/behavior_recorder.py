@@ -36,7 +36,6 @@ _PENDING_TTL_SECONDS = 24 * 3600
 _MAX_FIELD = 200
 _FILE_WRITE_TOOLS = frozenset({"Write", "Edit", "MultiEdit", "NotebookEdit"})
 _FILE_READ_TOOLS = frozenset({"Read", "NotebookRead"})
-_SESSION_ID_RE = re.compile(r"[^A-Za-z0-9._-]")
 
 # Secret patterns — kept in sync with secret-scan.js. (name, compiled regex).
 _SECRET_PATTERNS = [
@@ -207,12 +206,6 @@ def command_shape(command, workspace=None):
 
 
 # ── Sample construction ───────────────────────────────────────────────────────
-
-def _safe_session_id(session_id):
-    if not session_id:
-        return ""
-    return _SESSION_ID_RE.sub("_", session_id)
-
 
 def _now_iso():
     return datetime.now(timezone.utc).isoformat()

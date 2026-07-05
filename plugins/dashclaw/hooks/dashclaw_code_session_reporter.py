@@ -81,13 +81,6 @@ def _read_session_tool_map(session_id):
     return out
 
 
-def _clear_session_tool_map(session_id):
-    try:
-        os.remove(_session_tool_map_path(session_id))
-    except Exception:
-        pass
-
-
 # ---------------------------------------------------------------------------
 # Payload privacy — metadata/token-counts only by default
 # ---------------------------------------------------------------------------
@@ -240,7 +233,7 @@ def _collect_tool_use_action_map(session_id, raw_lines):
 
 
 def _derive_project_slug(transcript_path):
-    """Per addendum #3 in AGENTLENS_INTEGRATION_GOAL.md: slug =
+    """Per addendum #3 in docs/architecture/AGENTLENS_INTEGRATION_GOAL.md: slug =
     basename(dirname(transcript_path)). Claude Code lays JSONL files out
     as ~/.claude/projects/<slug>/<session>.jsonl, so the parent directory
     name is the canonical project identifier."""

@@ -19,7 +19,7 @@ const { mockSql, mockValidateGuardInput, mockEvaluateGuard } = vi.hoisted(() => 
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput }));
+vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
 vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({ listGuardDecisions: vi.fn() }));
 // Phase 2b: stub the replay store so verified-token tests don't silently

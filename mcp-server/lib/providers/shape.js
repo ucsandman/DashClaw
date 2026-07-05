@@ -26,10 +26,4 @@ export function booleanField(value, key, label) {
     }
     return value[key];
 }
-export function numberField(value, key, label) {
-    if (typeof value[key] !== "number" || !Number.isFinite(value[key])) {
-        throw new DashclawError(`${label} response is missing number field ${key}.`);
-    }
-    return value[key];
-}
 //# sourceMappingURL=shape.js.map

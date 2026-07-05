@@ -1,7 +1,7 @@
 /**
  * guideContent.js — Shared URL helper for framework integration guide pages.
  *
- * Replicates the host resolution logic from connectGuide.js so guide pages
+ * Resolves the instance host from request headers so guide pages
  * produce correct absolute URLs without hardcoding.
  */
 

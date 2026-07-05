@@ -94,7 +94,7 @@ Editing the doc but leaving its stamp behind is itself a stale-date bug — bump
 ### Never touch — these record history, a past date is correct
 - `CHANGELOG.md` release headings (`## [x.y.z] — <date>`) and every dated entry under them.
 - "shipped/landed/added on `<date>`" notes, commit-history references, ADR/spec dates.
-- Anything under `.supergoal/`, `.organism/`, `docs/superpowers/`, `AUDIT_FINDINGS.md`, `.audit-findings-full.md`, memory files, and other scratch/working artifacts — these are dated logs, not living docs (and most aren't even shipped surfaces).
+- Anything under `.supergoal/`, `.organism/`, `docs/superpowers/`, `docs/archive/AUDIT_FINDINGS.md`, `.audit-findings-full.md`, memory files, and other scratch/working artifacts — these are dated logs, not living docs (and most aren't even shipped surfaces).
 
 ### A frozen clock in code is a bug, not a stamp
 A literal `new Date('YYYY-MM-DD')` in app code (vs `new Date()`) freezes that page's
