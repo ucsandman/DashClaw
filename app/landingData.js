@@ -1,38 +1,10 @@
-import { Zap, Compass, Scale, Shield, UsersRound } from 'lucide-react';
-
 /* ─── data ───
- * Only arrays actually rendered by app/page.tsx live here. The landing page's
- * other feature lists are inline in app/page.tsx — add capability copy there,
- * not in a new export (an unrendered export here ships nothing).
+ * Only arrays actually rendered by the landing page live here
+ * (frameworkQuickstarts via app/components/StackQuickstarts.tsx, signals via
+ * app/page.tsx). Other landing copy is inline in app/page.tsx — add
+ * capability copy there, not in a new export (an unrendered export here
+ * ships nothing).
  */
-
-export const corePrimitives = [
-  {
-    icon: Compass,
-    title: 'Intent',
-    description: 'Agents declare what they want to do.',
-  },
-  {
-    icon: Shield,
-    title: 'Guard',
-    description: 'Evaluate policies before agents act.',
-  },
-  {
-    icon: UsersRound,
-    title: 'Approval',
-    description: 'Pause risky decisions for human review.',
-  },
-  {
-    icon: Zap,
-    title: 'Action',
-    description: 'The governed decision is executed.',
-  },
-  {
-    icon: Scale,
-    title: 'Evidence',
-    description: 'A signed replay is recorded for audit.',
-  },
-];
 
 export const frameworkQuickstarts = [
   {
