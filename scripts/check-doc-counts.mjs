@@ -139,6 +139,7 @@ const COUNT_CHECKS = [
   S.sdk && { file: 'PROJECT_DETAILS.md', label: 'SDK method counts', re: /exposes \*\*(\d+) public methods\*\* in `sdk\/dashclaw\.js` and the Python SDK \*\*(\d+)\*\*/, expected: [S.sdk.node, S.sdk.python] },
   S.sdk && { file: 'docs/sdk-reference.md', label: 'Node SDK methods (catalogue)', re: /Full v2 method catalogue \((\d+) methods\)/, expected: [S.sdk.node] },
   S.sdk && { file: 'docs/sdk-reference.md', label: 'SDK method counts (posture note)', re: /do not change the (\d+) Node \/ (\d+) Python counts/, expected: [S.sdk.node, S.sdk.python] },
+  S.sdk && { file: 'docs/architecture/runtime-api.md', label: 'Node SDK methods (runtime-api)', re: /exposes (\d+) public methods across the core runtime/, expected: [S.sdk.node] },
   { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups\.\*\*/, expected: [S.mcpTools] },
   { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups:\*\*/, expected: [S.mcpTools] },
   S.sdk && { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'Node SDK methods', re: /`sdk\/dashclaw\.js`, (\d+) methods/, expected: [S.sdk.node] },

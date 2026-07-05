@@ -22,20 +22,28 @@ def run():
     })
 
     decision = result.get("decision", "unknown")
-    action_id = result.get("action_id")
 
     print(f"⚖️ DashClaw decision: {decision.upper()}")
 
-    if action_id:
-        print(f"🔗 View decision replay: http://localhost:3000/decisions/{action_id}")
+    # 3. Follow the decision. On the SDK path the decision is advisory —
+    # this `if` is the enforcement, so don't skip it.
+    if decision == "block":
+        print("🛑 Action BLOCKED by governance policy. Nothing executes.")
+        return
 
-    # 3. Follow the decision
-    if decision == "allow":
-        print("✅ Action permitted. Proceeding with deployment.")
-    elif decision == "require_approval":
+    # 4. Record the action — this writes the replayable entry in the
+    # decisions ledger (guard() alone evaluates but does not record).
+    action = claw.create_action(
+        action_type="deploy",
+        declared_goal="Deploy build v2.1.0 to production environment",
+    )["action"]
+
+    print(f"🔗 View decision replay: {claw.base_url}/decisions/{action['action_id']}")
+
+    if decision == "require_approval" or action.get("status") == "pending_approval":
         print("⏳ Action paused. Awaiting human operator approval in Mission Control.")
     else:
-        print("🛑 Action BLOCKED by governance policy.")
+        print("✅ Action permitted. Proceeding with deployment.")
 
 if __name__ == "__main__":
     try:

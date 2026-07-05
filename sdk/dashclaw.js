@@ -356,7 +356,6 @@ class DashClaw {
    *   state: `{ allowedFacts, requiredFacts, forbiddenPatterns?, extract? }`.
    * @returns {Promise<{
    *   decision: 'allow'|'block'|'require_approval'|'warn',
-   *   action_id: string,
    *   reason: string,
    *   signals: string[],
    *   verification_status: 'verified'|'unverified'|'expired'|'failed'|'unknown_issuer',

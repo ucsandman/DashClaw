@@ -45,6 +45,17 @@ connection string when the flag only accepts `docker|embedded|url`;
 `docs/architecture/runtime-api.md` still says the Node SDK has 104 methods
 where README says 149).
 
+*Follow-up, same day:* all three fixed. The examples now run the canonical
+loop — guard, enforce the decision in code, then `createAction` for the
+ledger entry — and print a replay link that resolves (both proven live
+against a fresh sandbox instance; the Node and Python runs even deduped to
+the same action via the auto-derived idempotency key, which is the designed
+behavior). Both SDKs' `guard()` docs stop promising an `action_id` the call
+never returns. `cli/README.md` documents `--db url` as the prompt-based
+bring-your-own-Postgres mode it actually is. `runtime-api.md` says 149, and
+that file is now gated by `check-doc-counts.mjs` so the next SDK method
+addition fails CI there instead of rotting again.
+
 What went wrong, on the record: the local CI replica initially loaded the
 repo-root `.env` (real Telegram credentials) and its smoke run pinged Wes's
 actual Telegram with approval requests for actions that existed only in a

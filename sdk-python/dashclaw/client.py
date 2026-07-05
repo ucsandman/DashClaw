@@ -1292,7 +1292,6 @@ class DashClaw:
 
         Returns a guard decision dict with at minimum:
             decision         : 'allow' | 'block' | 'require_approval' | 'warn'
-            action_id        : str
             reason           : str | None
             signals          : list[str]
             verification_status : 'verified' | 'unverified' | 'expired'

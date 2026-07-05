@@ -48,7 +48,7 @@ npx dashclaw up --yes               # non-interactive, accept all defaults
 npx dashclaw up --no-browser        # skip opening /setup in the browser
 npx dashclaw up --db docker         # force Docker Postgres
 npx dashclaw up --db embedded       # force embedded Postgres (~40 MB download)
-npx dashclaw up --db <url>          # use an existing postgresql:// connection string
+npx dashclaw up --db url            # bring your own Postgres — prompts for a postgresql:// connection string
 npx dashclaw up --dir <path>        # install to a custom directory (default: ~/.dashclaw)
 npx dashclaw up --port <n>          # bind to a custom port (default: 3000)
 npx dashclaw up --source-dir <path> # use a local repo checkout instead of the published tarball

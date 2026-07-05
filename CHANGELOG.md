@@ -28,6 +28,20 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
   DB-minted keys, neither able to read, mutate, enumerate, approve, or consume
   the other's governance resources). A regression in any publicly claimed
   governance behavior now fails the push that introduces it.
+- **`first-governed-action` examples never printed their decision-replay
+  link.** Both the Node and Python variants destructured an `action_id` off
+  `guard()` — which evaluates but does not record, so the field is never
+  present and the advertised "View decision replay" line silently never
+  printed. The examples now run the canonical loop (guard → enforce the
+  decision in code → `createAction` for the ledger entry) and print a replay
+  link that resolves; both SDKs' `guard()` doc comments stop promising an
+  `action_id` the call never returns. Proven live against a fresh instance.
+- **`cli/README.md` documented a `--db <url>` form that crashes.** The flag
+  accepts only `docker|embedded|url`; the doc now describes `--db url` as the
+  prompt-based bring-your-own-Postgres mode it actually is.
+- **`docs/architecture/runtime-api.md` said the Node SDK has 104 public
+  methods; the real count is 149.** Corrected, and the file is now gated by
+  `check-doc-counts.mjs` so it cannot silently drift again.
 
 ## [4.63.0] — 2026-07-05
 
