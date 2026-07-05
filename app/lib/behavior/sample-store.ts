@@ -236,3 +236,21 @@ export async function writeDismissal(record: Dismissal): Promise<Dismissal[]> {
   await fs.writeFile(file, JSON.stringify(next, null, 2), 'utf-8');
   return next;
 }
+
+/**
+ * Remove a dismissal / accepted-advisory / adopted record by signature (the
+ * undo path). Returns the removed record (so the caller can echo its policy_id),
+ * or null when nothing was recorded for that signature. Best-effort; the file is
+ * only rewritten when something was actually removed.
+ */
+export async function removeDismissal(signature: string): Promise<Dismissal | null> {
+  const dir = resolveSamplesDir();
+  const file = path.join(dir, DISMISSALS_FILE);
+  const existing = await readDismissals();
+  const removed = existing.find((d) => d.signature === signature) || null;
+  if (!removed) return null;
+  const next = existing.filter((d) => d.signature !== signature);
+  await fs.mkdir(dir, { recursive: true });
+  await fs.writeFile(file, JSON.stringify(next, null, 2), 'utf-8');
+  return removed;
+}

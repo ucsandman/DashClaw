@@ -131,6 +131,7 @@ interface PolicyRules {
   threshold?: number;
   action?: string;
   action_types?: string[];
+  allowed_action_types?: string[];
   target_prefix?: string;
   paths?: string[];
   max_actions?: number;
@@ -1824,6 +1825,19 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     if (Array.isArray(context.write_paths)) candidates.push(...(context.write_paths as string[]));
     const hit = candidates.find((p) => matchesProtectedPath(p, paths));
     if (hit) return { action: rules.action || 'require_approval', reason: `Protected path touched: ${hit}` };
+    return null;
+  },
+  agent_allowlist: ({ rules, context }) => {
+    // Behavior Learning: warn (default) when an agent uses an action type outside
+    // its observed safe envelope. Fires only on NOVEL action types by construction
+    // (the envelope is the learned allow-set), so it is precision-at-volume safe.
+    const allowed = Array.isArray(rules.allowed_action_types) ? rules.allowed_action_types : [];
+    if (allowed.length === 0) return null;
+    const actionType = context.action_type;
+    if (!actionType) return null;
+    if (!allowed.includes(actionType)) {
+      return { action: rules.action || 'warn', reason: `Action type "${actionType}" is outside the agent's allowlist` };
+    }
     return null;
   },
   rate_limit: async ({ rules, context, sql, orgId }) => {

@@ -13,6 +13,47 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.52.0] — 2026-07-04
+
+Roadmap v4.4 — **One judgment spine: unify the proposal queues.** Every
+policy judgment a human faces — tuning, tightening, calibration, and
+behavior-learning — now appears in one Judgment queue on `/policies` with
+one decision grammar (propose → ratify/dismiss → undo). The engines stay
+where they live; only the review surface and the decision UX unify.
+
+### Added
+- **JudgmentSpine** (`app/policies/components/JudgmentSpine.tsx`): one
+  section replacing the three sibling proposal sections (Tuning,
+  Tightening, Calibration) and additionally hosting pending
+  behavior-learning suggestions — per-queue adapters over each engine's
+  existing GET/POST routes, no new aggregate API, no persistence moves.
+  Queue anchors preserved (`#tightening` deep-links from posture still
+  land) and `/policy-coach` remains the behavior workbench.
+- **Behavior suggestions join the decision grammar**: new
+  `action: 'undo'` on `POST /api/behavior/suggestions` (deletes the
+  recorded judgment; an adoption's draft policy is kept and echoed as
+  `policy_kept`, the tightening precedent), and adopt-enforceable now
+  persists a `status='adopted'` suppression row with the new
+  `behavior_dismissals.policy_id` column (drizzle/0050).
+- **`agent_allowlist` guard policy type** (16th): warns (or escalates)
+  when an agent uses an action type outside its observed safe envelope;
+  fires only on novel action types by construction. Behavior Learning's
+  enforceable suggestion types lift 2/6 → 3/6 with simulation ==
+  enforcement parity (`decideSample` mirrors the evaluator); authoring
+  supported in the `/policies` policy builder. No-lift verdicts for the
+  sequence pair and model-mismatch recorded in `docs/behavior-learning.md`
+  with revival triggers.
+- **Smoke X1–X3 + Y1**: allowlist enforcement round-trip and the behavior
+  undo contract, live-proven (107/107).
+
+### Fixed
+- **Adopted suggestions no longer re-surface as pending**: adopting an
+  enforceable behavior suggestion had never written a suppression row, so
+  the same suggestion returned on every analysis pass. The `adopted` row
+  closes it (and makes the adoption undoable).
+- **Warn-level reasons ride in `signals`** (existing guard contract) — the
+  new smoke pins it rather than expecting a top-level `reason`.
+
 ## [4.51.0] — 2026-07-04
 
 Roadmap v4.3 — **Fleet attribution: parent → subagent → workflow lineage.**

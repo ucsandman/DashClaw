@@ -1234,6 +1234,76 @@ async function main() {
       `sessions=${JSON.stringify((real.json?.fanouts || []).map((f) => f.harness_session_id))}`);
   }
 
+  // X1–X3: Judgment spine — agent_allowlist enforcement (roadmap v4.4).
+  // Spec: docs/superpowers/specs/2026-07-04-one-judgment-spine.md (verdict 3).
+  // NOTE ON LETTERING: the task that produced this section asked for B1/B2 —
+  // B is already the claim-id namespace for block_action_type/x402 checks
+  // above, so reusing it here would make FAILED output ambiguous. X is the
+  // next unused letter in this file's own sequence (…T,U,V,W).
+  console.log('\nJudgment spine (behavior queue + allowlist enforcement)...');
+  {
+    const agent = agentFor('allowlist');
+    const allowedType = `smoke.allowed.${RUN}`;
+    const unlistedType = `smoke.unlisted.${RUN}`;
+    const pid = await createPolicy('agent-allowlist', 'agent_allowlist',
+      { allowed_action_types: [allowedType], action: 'warn' }, [agent]);
+
+    const allowed = await api('POST', '/api/guard', {
+      action_type: allowedType, declared_goal: `call inside the allowlisted envelope ${RUN}`, agent_id: agent,
+    });
+    check('X1', 'agent_allowlist: action type inside the envelope → allow, policy not matched',
+      allowed.json?.decision === 'allow' && !(allowed.json?.matched_policies || []).includes(pid),
+      `decision=${allowed.json?.decision} matched=${JSON.stringify(allowed.json?.matched_policies)}`);
+
+    const unlisted = await api('POST', '/api/guard', {
+      action_type: unlistedType, declared_goal: `call outside the allowlisted envelope ${RUN}`, agent_id: agent,
+    });
+    check('X2', 'agent_allowlist: novel action type → warn with policy matched',
+      unlisted.json?.decision === 'warn' && (unlisted.json?.matched_policies || []).includes(pid),
+      `decision=${unlisted.json?.decision} matched=${JSON.stringify(unlisted.json?.matched_policies)}`);
+    // Warn-level reasons ride in signals (guard.ts applyResult routes warn to
+    // acc.warnings, never top-level reason — same as warn_action_type).
+    const signals = Array.isArray(unlisted.json?.signals) ? unlisted.json.signals : [];
+    check('X3', 'agent_allowlist: warn signal names the allowlist violation',
+      signals.some((s) => typeof s === 'string' && s.includes('outside the agent')),
+      `signals=${JSON.stringify(signals)}`);
+
+    // Policy cleanup happens in the centralized loop below (pid is already in
+    // createdPolicyIds from createPolicy), matching every other section's
+    // convention — no separate try/finally needed here.
+  }
+
+  // Y1: Behavior judgment undo contract (roadmap v4.4, spec verdict 2a).
+  // Undo works purely by signature match against a recorded dismissal/adopted
+  // row — nothing recorded for a run-unique fake signature, so it 404s. This
+  // is the one behavior-queue check that is genuinely live-smokeable without
+  // side effects: it proves the negative (undo never no-ops into a false 200).
+  //
+  // dismiss and adopt are deliberately NOT live-smoked here, and this is not
+  // the same "adopt needs samples" carve-out the spec anticipated for dismiss
+  // too — dismiss re-derives the suggestion from a LIVE analyzeSamples() call
+  // and 404s unless the posted suggestion_id matches a currently-mined
+  // suggestion (app/api/behavior/suggestions/route.ts:106-110); there is no
+  // client-trusted snapshot path the way calibration's ratify has (P1 above).
+  // The only way to make a real suggestion exist is to upload real behavior
+  // samples via POST /api/behavior/samples/ingest, which is refused unless the
+  // org has explicitly flipped the default-OFF BEHAVIOR_UPLOAD_ENABLED setting
+  // (app/api/behavior/samples/ingest/route.ts:169-173) — flipping a real org's
+  // privacy setting from a smoke script is out of scope and not isolated the
+  // way every other check here is. adopt has the same live-sample dependency
+  // plus its own 400-gate when simulation.total===0 (route.ts:141-145). Both
+  // branches are pinned by __tests__/unit/behavior-suggestions.route.test.js
+  // instead.
+  {
+    const fakeSuggestionId = `smoke-fake-suggestion-${RUN}`;
+    const undo = await api('POST', '/api/behavior/suggestions', {
+      action: 'undo', suggestion_id: fakeSuggestionId,
+    });
+    check('Y1', 'behavior undo 404s when nothing is recorded for the signature',
+      undo.status === 404,
+      `status=${undo.status} body=${JSON.stringify(undo.json)}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

@@ -5,6 +5,7 @@ import {
   listBehaviorSamples,
   pruneBehaviorSamples,
   upsertBehaviorDismissal,
+  deleteBehaviorDismissal,
 } from '@/lib/repositories/behavior.repository.js';
 
 const sample = (over = {}) => ({
@@ -123,5 +124,34 @@ describe('upsertBehaviorDismissal', () => {
   it('requires a signature', async () => {
     const sql = createSqlMock();
     await expect(upsertBehaviorDismissal(sql, 'org_1', {})).rejects.toThrow(/signature/);
+  });
+
+  it('persists policy_id on an adopted row', async () => {
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    await upsertBehaviorDismissal(sql, 'org_1', { signature: 'bsg_abc', status: 'adopted', policy_id: 'gp_1' });
+    expect(sql.taggedCalls[0].text).toContain('policy_id');
+    expect(sql.taggedCalls[0].values).toContain('gp_1');
+  });
+});
+
+describe('deleteBehaviorDismissal', () => {
+  it('deletes by (org_id, signature) and returns the removed row', async () => {
+    const sql = createSqlMock({ taggedResponses: [[{ signature: 'bsg_abc', status: 'adopted', policy_id: 'gp_1' }]] });
+    const removed = await deleteBehaviorDismissal(sql, 'org_1', 'bsg_abc');
+    expect(removed).toEqual({ signature: 'bsg_abc', status: 'adopted', policy_id: 'gp_1' });
+    expect(sql.taggedCalls[0].text).toContain('DELETE FROM behavior_dismissals');
+    expect(sql.taggedCalls[0].text).toContain('RETURNING signature, status, policy_id');
+    expect(sql.taggedCalls[0].values[0]).toBe('org_1');
+  });
+
+  it('returns null when nothing was recorded for the signature', async () => {
+    const sql = createSqlMock({ taggedResponses: [[]] });
+    expect(await deleteBehaviorDismissal(sql, 'org_1', 'bsg_missing')).toBe(null);
+  });
+
+  it('returns null for a missing signature without querying', async () => {
+    const sql = createSqlMock();
+    expect(await deleteBehaviorDismissal(sql, 'org_1', '')).toBe(null);
+    expect(sql.taggedCalls).toHaveLength(0);
   });
 });

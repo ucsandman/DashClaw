@@ -16,11 +16,12 @@
  * Routes surface the choice as `sample_source` so the UI can show provenance.
  */
 
-import { readSamples, readDismissals, writeDismissal } from './sample-store';
+import { readSamples, readDismissals, writeDismissal, removeDismissal } from './sample-store';
 import {
   listBehaviorSamples,
   listBehaviorDismissals,
   upsertBehaviorDismissal,
+  deleteBehaviorDismissal,
 } from '../repositories/behavior.repository';
 import type { SqlTag } from '../types/db';
 
@@ -69,4 +70,22 @@ export async function recordBehaviorDismissal(
     return;
   }
   await upsertBehaviorDismissal(sql, orgId, record);
+}
+
+/**
+ * Remove a dismissal / adopted record by signature from the source it was
+ * recorded against (the undo path). Returns the removed record (so the route can
+ * echo `policy_kept`), or null when nothing was recorded. The referenced
+ * guard-policy draft is never deleted here.
+ */
+export async function removeBehaviorDismissal(
+  sql: SqlTag,
+  orgId: string,
+  source: SampleSource,
+  signature: string
+): Promise<Record<string, unknown> | null> {
+  if (source === 'local') {
+    return removeDismissal(signature);
+  }
+  return deleteBehaviorDismissal(sql, orgId, signature);
 }

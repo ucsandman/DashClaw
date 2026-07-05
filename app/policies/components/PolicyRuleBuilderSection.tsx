@@ -603,6 +603,42 @@ export default function PolicyRuleBuilderSection({
         </div>
       )}
 
+      {form.type === 'agent_allowlist' && (
+        <div className="space-y-4">
+          <p className="text-xs text-tertiary">
+            Warns (or escalates) when the agent uses an action type outside this list — its observed
+            safe envelope. The Policy Coach pre-fills the list from the agent&apos;s recorded behavior;
+            the policy fires only on novel action types.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2">
+              <label className="block text-xs text-secondary mb-1">Allowed action types (one per line)</label>
+              <textarea
+                aria-label="Allowed action types"
+                value={(form.allowedActionTypes || []).join('\n')}
+                onChange={(event) => onChange('allowedActionTypes', event.target.value.split('\n'))}
+                placeholder={'read\nsearch\nbuild'}
+                rows={4}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-secondary mb-1">Action</label>
+              <select
+                aria-label="Agent allowlist action"
+                value={form.action}
+                onChange={(event) => onChange('action', event.target.value)}
+                className={selectClass}
+              >
+                {DECISION_ACTIONS.map((action) => (
+                  <option key={action.value} value={action.value}>{action.label}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+      )}
+
       {form.type === 'x402_spend_limit' && (
         <div className="space-y-4">
           <p className="text-xs text-tertiary">

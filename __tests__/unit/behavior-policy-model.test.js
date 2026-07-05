@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   RULE_KINDS, decideSample, detectReloadLoops, detectFailureLoops,
-  behaviorRuleToGuardPolicy, isEnforceable,
+  behaviorRuleToGuardPolicy, isEnforceable, ENFORCEABLE_KINDS,
 } from '@/lib/behavior/policy-model.js';
 
 const base = (over) => ({ event_id: 'e', ts: '2026-06-01T10:00:00Z', agent_id: 'a', tool: 'Bash', ...over });
@@ -24,6 +24,18 @@ describe('behavior/policy-model decideSample', () => {
     expect(decideSample(rule, base({ model: 'claude-haiku-4-5', declared_goal: 'refactor the module', action_type: 'refactor' }))).toBe('warn');
     expect(decideSample(rule, base({ model: 'claude-opus-4-8', declared_goal: 'refactor the module', action_type: 'refactor' }))).toBe('allow');
     expect(decideSample(rule, base({ model: null, declared_goal: 'refactor the module', action_type: 'refactor' }))).toBe('allow');
+  });
+
+  it('agent_allowlist: warns on an action type outside the envelope, allows inside', () => {
+    const rule = { kind: RULE_KINDS.AGENT_ALLOWLIST, action: 'warn', allow: { tools: ['Read'], action_types: ['review', 'read'], command_verbs: [] } };
+    expect(decideSample(rule, base({ action_type: 'deploy' }))).toBe('warn'); // novel → fires
+    expect(decideSample(rule, base({ action_type: 'review' }))).toBe('allow'); // inside envelope
+    expect(decideSample(rule, base({ action_type: undefined }))).toBe('allow'); // unknown → never flag
+  });
+
+  it('agent_allowlist: never fires when the envelope has no action types', () => {
+    const rule = { kind: RULE_KINDS.AGENT_ALLOWLIST, action: 'warn', allow: { tools: ['Read'], action_types: [], command_verbs: [] } };
+    expect(decideSample(rule, base({ action_type: 'deploy' }))).toBe('allow');
   });
 });
 
@@ -78,9 +90,25 @@ describe('behavior/policy-model guard mapping', () => {
     expect(p.rules.paths).toEqual(['**/auth/**']);
   });
 
+  it('maps agent_allowlist to an agent_allowlist guard policy', () => {
+    const rule = { kind: RULE_KINDS.AGENT_ALLOWLIST, action: 'warn', allow: { tools: ['Read'], action_types: ['review', 'read'], command_verbs: [] } };
+    const p = behaviorRuleToGuardPolicy(rule, { agentId: 'a' });
+    expect(p.policy_type).toBe('agent_allowlist');
+    expect(p.rules).toEqual({ allowed_action_types: ['review', 'read'], action: 'warn' });
+    expect(p.agent_ids).toBe('["a"]');
+  });
+
   it('returns null for advisory kinds (no guard policy in V1)', () => {
     expect(isEnforceable(RULE_KINDS.REPEATED_RELOAD_WARN)).toBe(false);
     expect(behaviorRuleToGuardPolicy({ kind: RULE_KINDS.REPEATED_RELOAD_WARN }, { agentId: 'a' })).toBe(null);
-    expect(behaviorRuleToGuardPolicy({ kind: RULE_KINDS.AGENT_ALLOWLIST }, { agentId: 'a' })).toBe(null);
+    expect(behaviorRuleToGuardPolicy({ kind: RULE_KINDS.FAILED_LOOP_WARN }, { agentId: 'a' })).toBe(null);
+  });
+
+  it('has three enforceable kinds (destructive, protected-path, agent-allowlist)', () => {
+    expect(ENFORCEABLE_KINDS).toHaveLength(3);
+    expect(isEnforceable(RULE_KINDS.AGENT_ALLOWLIST)).toBe(true);
+    expect([...ENFORCEABLE_KINDS].sort()).toEqual(
+      [RULE_KINDS.DESTRUCTIVE_COMMAND_APPROVAL, RULE_KINDS.PROTECTED_PATH_APPROVAL, RULE_KINDS.AGENT_ALLOWLIST].sort(),
+    );
   });
 });

@@ -7,9 +7,7 @@ import { Skeleton } from '../../components/ui/Skeleton';
 import { fetchSummary, type PolicySummary } from '../lib/modesClient';
 import ContractPanel from './ContractPanel';
 import ReviewFeed from './ReviewFeed';
-import TuningProposals from './TuningProposals';
-import TighteningProposals from './TighteningProposals';
-import CalibrationProposals from './CalibrationProposals';
+import JudgmentSpine from './JudgmentSpine';
 import ModeDrawer from './ModeDrawer';
 import ApprovalFloodBanner from '../../components/ApprovalFloodBanner';
 
@@ -100,9 +98,7 @@ export default function PolicyCockpit() {
       <ApprovalFloodBanner onResolved={load} />
       <ContractPanel onChangeMode={() => setDrawerOpen(true)} onContractChanged={load} highlight={policyHighlight} shields={summary.shields} refreshSignal={contractRefresh} />
       <ReviewFeed onPolicyChange={() => { setContractRefresh((n) => n + 1); load(); }} />
-      <TuningProposals onPolicyChange={() => { setContractRefresh((n) => n + 1); load(); }} />
-      <TighteningProposals onPolicyChange={() => { setContractRefresh((n) => n + 1); load(); }} />
-      <CalibrationProposals />
+      <JudgmentSpine />
       <ModeDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onApplied={load} />
     </div>
   );

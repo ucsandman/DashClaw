@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.51.0",
+    "current_version": "4.52.0",
     "next_bump": "none",
-    "reason": "4.49.1 ships roadmap v4.1 (own-fleet interruption noise): the shared synthetic-traffic predicate widens to the guard-load harness (loadtest-* agents) and the loadtest.*/liveproof.* action-type families, so flood counting, posture, tightening proposals, and calibration mining stop reporting harness traffic as real interrupts (the 2026-07-04 '1,802 interrupts' flood banner was the load harness). No Node/Python SDK source change \u2014 version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.52.0 ships roadmap v4.4 (one judgment spine): unified JudgmentSpine on /policies (tuning + tightening + calibration + behavior-learning queues, one ratify/dismiss/undo grammar through each engine's existing routes), behavior suggestions gain undo + persisted adoption (drizzle/0050), and agent_allowlist becomes the 16th guard policy type (behavior-learning enforceable 2/6 -> 3/6). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.51.0",
+    "current_version": "4.52.0",
     "next_bump": "none",
-    "reason": "4.49.1 ships roadmap v4.1 (own-fleet interruption noise): the shared synthetic-traffic predicate widens to the guard-load harness (loadtest-* agents) and the loadtest.*/liveproof.* action-type families, so flood counting, posture, tightening proposals, and calibration mining stop reporting harness traffic as real interrupts (the 2026-07-04 '1,802 interrupts' flood banner was the load harness). No Node/Python SDK source change \u2014 version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
+    "reason": "4.52.0 ships roadmap v4.4 (one judgment spine): unified JudgmentSpine on /policies (tuning + tightening + calibration + behavior-learning queues, one ratify/dismiss/undo grammar through each engine's existing routes), behavior suggestions gain undo + persisted adoption (drizzle/0050), and agent_allowlist becomes the 16th guard policy type (behavior-learning enforceable 2/6 -> 3/6). No Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished. Registry stays at 4.32.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.51.0 fleet attribution (roadmap v4.3): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
+  "reason": "v4.52.0 one judgment spine (roadmap v4.4): no Node/Python SDK source change - version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
   "domains": [
     "platform"
   ]

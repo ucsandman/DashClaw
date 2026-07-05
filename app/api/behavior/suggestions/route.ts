@@ -5,13 +5,14 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { randomUUID } from 'node:crypto';
 import { getSql } from '../../../lib/db';
-import { getOrgId } from '../../../lib/org';
-import { loadBehaviorSamples, recordBehaviorDismissal } from '../../../lib/behavior/sample-source';
+import { getOrgId, getUserId } from '../../../lib/org';
+import { loadBehaviorSamples, recordBehaviorDismissal, removeBehaviorDismissal } from '../../../lib/behavior/sample-source';
 import { analyzeSamples } from '../../../lib/behavior/analyzer';
 import { simulateBehaviorPolicy } from '../../../lib/behavior/simulate';
 import { behaviorRuleToGuardPolicy } from '../../../lib/behavior/policy-model';
 import { validatePolicy } from '../../../lib/validate.js';
 import { insertPolicy } from '../../../lib/repositories/guardrails.repository';
+import { logActivity } from '../../../lib/audit';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
 
 const EDITABLE_RULE_KEYS = ['action', 'risk_threshold', 'paths', 'max_reloads', 'window_minutes', 'max_failures', 'min_tier'];
@@ -52,12 +53,16 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/behavior/suggestions — Act on a suggestion.
- * Body: { action: 'adopt' | 'dismiss', suggestion_id, ... }
+ * Body: { action: 'adopt' | 'dismiss' | 'undo', suggestion_id, ... }
  *   dismiss: { reason?, suppress_similar? } — records a local dismissal.
  *   adopt:   { acknowledged_simulation: true, edited? } — REQUIRES simulation
  *            review. Enforceable suggestions create an INACTIVE guard-policy
- *            draft (active=0, never auto-enforced). Advisory suggestions are
- *            recorded as accepted observations (no policy). @beta
+ *            draft (active=0, never auto-enforced) AND write a status='adopted'
+ *            suppression row so the suggestion stops re-surfacing. Advisory
+ *            suggestions are recorded as accepted observations (no policy).
+ *   undo:    deletes the recorded dismissal/adopted row by signature so the
+ *            suggestion re-surfaces; the guard-policy draft an adoption created
+ *            is KEPT (tightening's policy_kept precedent) and echoed. @beta
  */
 export async function POST(request: Request) {
   try {
@@ -73,6 +78,31 @@ export async function POST(request: Request) {
     // Same source selection as GET so the suggestion being acted on exists,
     // and the dismissal lands beside the samples it was derived from.
     const { samples, source } = await loadBehaviorSamples(sql, orgId);
+
+    // Undo works purely by signature — the suggestion need not still surface (an
+    // adopted one is suppressed by its own row). Deletes the recorded row and
+    // echoes the kept draft policy id; never touches the guard policy itself.
+    if (action === 'undo') {
+      const removed = await removeBehaviorDismissal(sql, orgId, source, suggestionId);
+      if (!removed) {
+        return NextResponse.json({ error: 'Nothing recorded for this suggestion to undo' }, { status: 404 });
+      }
+      const policyKept = (removed.policy_id as string | undefined) ?? null;
+      logActivity(
+        {
+          orgId,
+          actorId: getUserId(request),
+          action: 'behavior_suggestion.undone',
+          resourceType: 'behavior_suggestion',
+          resourceId: suggestionId,
+          details: { policy_kept: policyKept, status: (removed.status as string | undefined) ?? null },
+          request,
+        },
+        sql,
+      );
+      return NextResponse.json({ ok: true, suggestion_id: suggestionId, removed: true, policy_kept: policyKept });
+    }
+
     const { suggestions } = analyzeSamples(samples, { dismissals: [] });
     const suggestion = (suggestions as Array<Record<string, any>>).find((s) => s.id === suggestionId);
     if (!suggestion) {
@@ -157,6 +187,23 @@ export async function POST(request: Request) {
         agentIds: draft.agent_ids,
         active: 0,
       });
+
+      // Persist an 'adopted' suppression row pointing at the draft. Without this
+      // the suggestion re-surfaces as pending on the next GET (isSuppressed only
+      // checks dismissal signatures) — the latent re-surface defect this fixes.
+      // policy_id makes the adoption undoable while keeping the draft.
+      const adoptedRecord = {
+        signature: suggestion.id,
+        agent_id: suggestion.agent_id,
+        type: suggestion.type,
+        target: suggestion.target,
+        reason: reason || 'adopted (enforceable draft created)',
+        status: 'adopted',
+        suppress_similar: true,
+        policy_id: id,
+        ts: new Date().toISOString(),
+      };
+      await recordBehaviorDismissal(sql, orgId, source, adoptedRecord);
 
       // Best-effort activity event so the draft shows up on the Policies surface
       // feed; never fail adoption on a publish error.

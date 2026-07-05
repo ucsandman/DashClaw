@@ -27,6 +27,8 @@ const DEFAULT_FORM_STATE = {
   maxCommitsBehind: 0,
   // protected_path (Behavior Learning)
   protectedPaths: [],
+  // agent_allowlist (Behavior Learning)
+  allowedActionTypes: [],
   // x402_spend_limit (x402 spend governance)
   maxSpendUsd: '',
   approvalThreshold: '',
@@ -63,6 +65,7 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'branch_freshness', label: 'Branch Freshness', desc: 'Block actions when the branch is stale/diverged or too many commits behind' },
   { value: 'non_fabrication', label: 'Non-Fabrication', desc: 'Block or route to approval outbound content that states a fact not traceable to its source-of-truth' },
   { value: 'protected_path', label: 'Protected Path', desc: 'Warn or require approval when an action touches sensitive paths (auth, secrets, billing, middleware, …)' },
+  { value: 'agent_allowlist', label: 'Agent Allowlist', desc: 'Warn (or escalate) when an agent uses an action type outside its observed safe envelope' },
   { value: 'x402_spend_limit', label: 'x402 Spend Limit', desc: 'Govern x402 purchases: cap per-purchase spend, enforce a rolling-window budget, and allow/block providers' },
 ];
 
@@ -295,6 +298,18 @@ const POLICY_TYPE_HANDLERS = {
       return `${actionVerb(form.action)} actions that touch ${count > 0 ? `${count} protected path pattern${count === 1 ? '' : 's'}` : 'protected paths'}${scoped}.`;
     },
   },
+  agent_allowlist: {
+    compile: (form) => ({
+      allowed_action_types: cleanStringList(form.allowedActionTypes),
+      // warn is the engine default; 'allow' would be a silent no-op so it is excluded.
+      action: form.action === 'block' || form.action === 'require_approval' ? form.action : 'warn',
+    }),
+    summary: (form, scoped) => {
+      const count = cleanList(form.allowedActionTypes).length;
+      const verb = form.action === 'block' ? 'Block' : form.action === 'require_approval' ? 'Require approval for' : 'Warn on';
+      return `${verb} actions whose type is outside the agent’s allowlist${count > 0 ? ` of ${count} action type${count === 1 ? '' : 's'}` : ''}${scoped}.`;
+    },
+  },
   x402_spend_limit: {
     compile: (form) => {
       const rules = {};
@@ -383,6 +398,7 @@ export function decompilePolicyForm(policy) {
     actionType: orVal(rules.action_type, ''),
     targetPrefix: orVal(rules.target_prefix, ''),
     protectedPaths: arrOr(rules.paths, DEFAULT_FORM_STATE.protectedPaths),
+    allowedActionTypes: arrOr(rules.allowed_action_types, DEFAULT_FORM_STATE.allowedActionTypes),
     maxSpendUsd: coalesce(rules.max_spend_usd, DEFAULT_FORM_STATE.maxSpendUsd),
     approvalThreshold: coalesce(rules.approval_threshold, DEFAULT_FORM_STATE.approvalThreshold),
     allowedProviders: arrOr(rules.allowed_providers, DEFAULT_FORM_STATE.allowedProviders),

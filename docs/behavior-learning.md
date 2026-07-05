@@ -126,25 +126,26 @@ One JSON object per line in `<YYYY-MM-DD>.jsonl`:
 | `repeated_reload_warn` | Same file re-read N+ times in a window with no intervening change | Advisory | warn |
 | `failed_loop_warn` | Same command failing N+ times in a window | Advisory | warn |
 | `model_task_mismatch_warn` | A below-`mid`-tier (cheap) model doing heavy work — refactor, migration, security review, multi-file debugging, architecture | Advisory | warn |
-| `agent_allowlist` | The agent's normal safe envelope (reads/tests/lints/builds) | Advisory (scopes other suggestions) | — |
+| `agent_allowlist` | The agent's normal safe envelope (reads/tests/lints/builds) — warns on **novel** action types outside it | **Enforceable** → guard `agent_allowlist` | warn |
 
 Each suggestion carries `confidence`, `sample_size`, `matching_sample_size`,
 `evidence_event_ids`, `evidence_examples`, `expected_effect`, `false_positive_risk`,
 `severity`, and (for enforceable types) a `draft_policy`.
 
-### Enforceable vs advisory
+### Enforceable vs advisory (3 of 6)
 
-Two types compile to **faithful, enforceable guard policies** — what the Policy Coach
+Three types compile to **faithful, enforceable guard policies** — what the Policy Coach
 simulates is exactly what the guard would do once you activate the draft:
 
 - `destructive_command_approval` → `risk_threshold` `{ threshold, action: require_approval }` (destructive commands reliably score high via the bash classifier + server risk scoring, which is how the analyzer picks the threshold).
-- `protected_path_approval` → the **new `protected_path` guard policy type** `{ paths: [globs], action }`, matched against the action's target path with the same matcher the simulator uses (`app/lib/behavior/path-match.js`).
+- `protected_path_approval` → the `protected_path` guard policy type `{ paths: [globs], action }`, matched against the action's target path with the same matcher the simulator uses (`app/lib/behavior/path-match.js`).
+- `agent_allowlist` → the **`agent_allowlist` guard policy type** `{ allowed_action_types: [...], action: warn }` (v4.4). Fires only on action types **outside** the agent's observed safe envelope, so it is precision-at-volume safe by construction. `decideSample` and the guard evaluator are one function, so simulation matches enforcement.
 
-The other four are **advisory** in v1. DashClaw's guard evaluates a single action at a
+The other three are **advisory** in v1. DashClaw's guard evaluates a single action at a
 PreToolUse check and has no model/task or cross-action-sequence context, so reload loops,
-failure loops, model/task mismatch, and allowlists are surfaced as evidence-backed
-observations (fully simulatable) rather than enforced policies. Adopting one records an
-**accepted observation** locally so it stops re-surfacing. See *v2 follow-ups*.
+failure loops, and model/task mismatch are surfaced as evidence-backed observations (fully
+simulatable) rather than enforced policies. Adopting one records an **accepted observation**
+locally so it stops re-surfacing. See *v2 follow-ups*.
 
 ## Simulation before adoption
 
@@ -160,9 +161,10 @@ decision (`acknowledged_simulation: true` is also required).
 
 ## Adopt / Edit / Dismiss
 
-- **Adopt** — enforceable: creates an **inactive** `guard_policies` draft (`active=0`). It appears on `/policies` where you can review and activate it. Advisory: records an accepted observation.
+- **Adopt** — enforceable: creates an **inactive** `guard_policies` draft (`active=0`) **and** writes a `status='adopted'` suppression row (carrying the draft's `policy_id`) so the suggestion stops re-surfacing as pending. It appears on `/policies` where you can review and activate it. Advisory: records an accepted observation.
 - **Edit** (enforceable only) — tweak the threshold / path globs / decision, simulate the edited rule, then adopt.
 - **Dismiss** — records a local dismissal with an optional reason. Check *Suppress similar* to hide all suggestions of that type for that agent. Dismissals never re-surface the same suggestion.
+- **Undo** (v4.4) — deletes the recorded dismissal / adopted row by signature so the suggestion re-surfaces (`POST { action: 'undo', suggestion_id }`; `404` when nothing is recorded). Undo of an adoption **keeps** the draft policy (tightening's `policy_kept` precedent — the policy is a first-class row managed at `/policies`) and echoes it as `policy_kept`.
 
 ## Using it from the CLI / MCP / other agents
 
@@ -172,15 +174,21 @@ decision (`acknowledged_simulation: true` is also required).
 
 ## Storage & schema
 
-Behavior Learning adds **no database migration**. Samples and dismissals are local files;
-adopted drafts reuse the existing `guard_policies` table (`insertPolicy(..., { active: 0 })`).
-The only schema-adjacent change is the new `protected_path` value in the `POLICY_TYPES`
-enum (`app/lib/validate.js`) and its evaluation branch in the guard engine
-(`app/lib/guard.js`) — both authorable from `/policies`.
+Samples are local files; dismissals/adopted rows live in the local `.dismissals.json`
+(local mode) or the org-scoped `behavior_dismissals` table (uploaded mode). Adopted drafts
+reuse the existing `guard_policies` table (`insertPolicy(..., { active: 0 })`). The
+`agent_allowlist` and `protected_path` values in the `POLICY_TYPES` enum
+(`app/lib/validate.js`) and their evaluation branches in the guard engine
+(`app/lib/guard.ts`) are both authorable from `/policies`. v4.4 adds one nullable column,
+`behavior_dismissals.policy_id` (`drizzle/0050`), set only on `status='adopted'` rows so
+undo can echo `policy_kept` and keep the draft.
 
 ## Limitations & v2 follow-ups
 
-- **Advisory types are not enforced in v1.** Making reload/failure-loop, model/task-mismatch enforceable needs a sequence- and model-aware guard context (v2).
+- **Three types stay advisory (no lift) — recorded verdicts + revival triggers (v4.4).** Each keeps its advisory route through the spine (adopt = accepted observation):
+  - `repeated_reload_warn`, `failed_loop_warn` — **no path yet.** Both key on a command/target shape repeating across an ordered window. `guard_decisions` persists only `action_type` + free-text `context`; the only windowed primitive is `rate_limit`'s per-agent count of *all* evaluations. Compiling the loop rules to that would enforce a coarser rule than the one simulated, violating the feature's core invariant (simulation and enforcement share `decideSample`). **Revival trigger:** a persisted command-shape key on `guard_decisions` (the sequence-aware guard context v2 names).
+  - `model_task_mismatch_warn` — **no path.** PreToolUse hook stdin carries no model identity; the guard context cannot see what model is acting. **Revival trigger:** model identity on hook stdin.
+  - `behavioral_anomaly` / `semantic_check` are not alternative paths — both are key-gated (OpenAI/LLM), and DashClaw setup never requires an LLM key, so enforceable defaults cannot depend on one.
 - **`model` is best-effort for Claude Code.** Claude Code does not expose the model to tool hooks, so the recorder reads it from `DASHCLAW_MODEL` / `ANTHROPIC_MODEL` / `CLAUDE_MODEL` if set; otherwise `model_task_mismatch_warn` stays quiet for that agent.
 - **Tokens/cost are not in samples.** Hook samples lack per-action token/cost (the Stop hook computes those for the Decisions ledger, keyed by `action_id`). A v2 enrichment could join cost via `action_id`.
 - **Local-first.** Hosted DashClaw instances can't read a developer's local sample dir; v1 targets the self-hosted / local-dev path. Opt-in cloud upload is a possible v2.

@@ -321,7 +321,7 @@ const GUARD_INPUT_SCHEMA = {
   approval_wait_seconds: { type: 'integer', min: 5, max: 86400 },
 };
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'x402_spend_limit'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -420,6 +420,21 @@ const POLICY_TYPE_VALIDATORS = {
       addError('protected_path policy requires a non-empty rules.paths array');
     } else if (!rules.paths.every((p) => typeof p === 'string' && p.length > 0 && p.length <= 256)) {
       addError('protected_path rules.paths must be non-empty strings (<=256 chars)');
+    }
+  },
+  agent_allowlist: (rules, addError) => {
+    // Behavior Learning: per-agent action-type allowlist. rules.allowed_action_types
+    // is a non-empty array of strings (the observed safe envelope); rules.action
+    // defaults to 'warn' and must be a raising action (never 'allow', which would
+    // make the policy a silent no-op). The generic GUARD_ACTIONS check above still
+    // runs; this narrows it to exclude 'allow'.
+    if (!Array.isArray(rules.allowed_action_types) || rules.allowed_action_types.length === 0) {
+      addError('agent_allowlist policy requires a non-empty rules.allowed_action_types array');
+    } else if (!rules.allowed_action_types.every((t) => typeof t === 'string' && t.length > 0 && t.length <= 128)) {
+      addError('agent_allowlist rules.allowed_action_types must be non-empty strings (<=128 chars)');
+    }
+    if (rules.action !== undefined && !['warn', 'require_approval', 'block'].includes(rules.action)) {
+      addError('agent_allowlist rules.action must be one of warn, require_approval, block when present');
     }
   },
   rate_limit: (rules, addError) => {

@@ -1632,6 +1632,10 @@ export const behaviorDismissals = pgTable('behavior_dismissals', {
   reason: text('reason'),
   status: text('status'),
   suppressSimilar: integer('suppress_similar').default(0),
+  // Set only on status='adopted' rows (drizzle/0050): points at the guard_policies
+  // draft the adoption created, so undo can echo policy_kept and keep the draft.
+  // NULL on dismissed / accepted_advisory rows.
+  policyId: text('policy_id'),
   ts: timestamp('ts', { withTimezone: true }).defaultNow(),
 }, (t) => ({
   orgSignatureUnique: unique('behavior_dismissals_org_signature_unique').on(t.orgId, t.signature),

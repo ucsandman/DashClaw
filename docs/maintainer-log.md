@@ -12,6 +12,50 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-04 — one queue for every judgment, and the fourth queue nobody counted (v4.52.0)
+
+Roadmap v4.4, the one judgment spine. The item's premise said three parallel
+human queues — calibration, tightening, behavior-learning. Recon found four:
+the tuning proposals from roadmap-v1 item 1 sit on the same `/policies` page
+with the same propose→decide shape, and the roadmap had simply stopped
+counting them. A spine that excluded tuning would have rebuilt the exact
+problem the item names, and v4.5's loosening proposals are mandated to ship
+*into* this spine — so tuning joined, as a scope decision recorded in the
+spec, not a quiet expansion.
+
+The build is deliberately boring where it matters: `JudgmentSpine` is
+presentation and grammar only. Per-queue adapters fetch the four existing
+GETs and dispatch decisions through the four existing POST routes; no
+aggregate API, no decision row moved, no engine touched. The old three
+sections are gone, the `#tightening` anchor still lands, `/policy-coach`
+stays the behavior workbench. What did change mechanically: behavior
+suggestions finally speak the shared grammar — `undo` exists now, and
+adoption is a persisted row. That second one un-hid a real defect: adopting
+an enforceable suggestion had *never* written a suppression record, so every
+adopted suggestion quietly re-surfaced as pending on the next analysis pass.
+The new `status='adopted'` row (with `policy_id`, drizzle/0050) closes it,
+and undo keeps the draft policy — tightening's `policy_kept` precedent.
+
+The enforceable lift was the honesty test. The roadmap said "beyond 2/6
+where an enforcement path exists." One exists: `agent_allowlist` is
+single-action decidable at PreToolUse, keyless, and fires only on novel
+action types — it became the 16th policy type with `decideSample` mirroring
+the evaluator so simulation stays truthful. The other three don't lift, and
+the spec says exactly why: the two sequence rules would need a persisted
+command-shape key on `guard_decisions` (a coarse action-type rate-limit
+would enforce a different rule than the one simulated — parity violation),
+and model-mismatch needs a model identity the hook stdin doesn't carry.
+Revival triggers recorded in `docs/behavior-learning.md`.
+
+One smoke correction worth logging: the behavior dismiss/adopt round-trip
+cannot be live-smoked without flipping an org's default-OFF upload privacy
+gate, which a smoke script must never do — dismiss re-derives from live
+analysis and has no client-trusted-snapshot path (unlike calibration's).
+The unit suite pins the round-trip; live smoke pins the undo 404 contract
+and the allowlist enforcement (X1–X3, Y1; 107/107). Rendered proof drove
+`/policies` and `/policy-coach` clean. Next: v4.5, loosening — into the
+spine it now has.
+
 ## 2026-07-04 — a fan-out is one thing, and the ledger finally says so (v4.51.0)
 
 Roadmap v4.3, fleet attribution — same day as v4.50.0, and it opened with

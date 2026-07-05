@@ -376,8 +376,11 @@ function analyzeAgent(agentId: string, samples: Sample[], opts: AnalyzerOptions)
   const envelope = buildEnvelope(agentId, samples);
   const safeIds = samples.filter(isSafeOp).map((s) => s.event_id);
   if (safeIds.length >= opts.minMatch && (envelope.safe_envelope.tools.length || envelope.safe_envelope.command_verbs.length)) {
+    // action:'warn' is the ENFORCEMENT action for the compiled agent_allowlist
+    // guard policy (fires on action types outside the observed safe envelope);
+    // the envelope itself is the allow-set carried in `allow`.
     const allowRule: BehaviorRule = {
-      kind: RULE_KINDS.AGENT_ALLOWLIST, agent_id: agentId, action: 'allow',
+      kind: RULE_KINDS.AGENT_ALLOWLIST, agent_id: agentId, action: 'warn',
       allow: envelope.safe_envelope,
     };
     suggestions.push(makeSuggestion({

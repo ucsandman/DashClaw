@@ -217,7 +217,7 @@ export async function pruneBehaviorSamples(sql: SqlTag, orgId: string): Promise<
 /** Dismissals mapped to the local .dismissals.json record shape. */
 export async function listBehaviorDismissals(sql: SqlTag, orgId: string): Promise<Record<string, unknown>[]> {
   const rows = await sql`
-    SELECT signature, agent_id, type, target, reason, status, suppress_similar, ts
+    SELECT signature, agent_id, type, target, reason, status, suppress_similar, policy_id, ts
     FROM behavior_dismissals
     WHERE org_id = ${orgId}
     ORDER BY ts DESC
@@ -230,6 +230,7 @@ export async function listBehaviorDismissals(sql: SqlTag, orgId: string): Promis
     reason: r.reason ?? null,
     status: r.status ?? null,
     suppress_similar: Number(r.suppress_similar) === 1,
+    policy_id: r.policy_id ?? null,
     ts: toIso(r.ts) || null,
   }));
 }
@@ -242,10 +243,15 @@ interface DismissalRecord {
   reason?: string | null;
   status?: string | null;
   suppress_similar?: boolean;
+  policy_id?: string | null;
   ts?: string;
 }
 
-/** Upsert (replace-by-signature) a dismissal / accepted-advisory record. */
+/**
+ * Upsert (replace-by-signature) a dismissal / accepted-advisory / adopted
+ * record. `policy_id` is set only on status='adopted' rows (points at the draft
+ * the adoption created); NULL for dismiss / accepted_advisory.
+ */
 export async function upsertBehaviorDismissal(
   sql: SqlTag,
   orgId: string,
@@ -254,15 +260,43 @@ export async function upsertBehaviorDismissal(
   if (!record?.signature) throw new Error('upsertBehaviorDismissal: signature is required');
   await sql`
     INSERT INTO behavior_dismissals (
-      org_id, signature, agent_id, type, target, reason, status, suppress_similar, ts
+      org_id, signature, agent_id, type, target, reason, status, suppress_similar, policy_id, ts
     ) VALUES (
       ${orgId}, ${record.signature}, ${record.agent_id || null}, ${record.type || null},
       ${record.target || null}, ${record.reason || null}, ${record.status || null},
-      ${record.suppress_similar ? 1 : 0}, ${record.ts || new Date().toISOString()}
+      ${record.suppress_similar ? 1 : 0}, ${record.policy_id || null},
+      ${record.ts || new Date().toISOString()}
     )
     ON CONFLICT (org_id, signature) DO UPDATE SET
       agent_id = EXCLUDED.agent_id, type = EXCLUDED.type, target = EXCLUDED.target,
       reason = EXCLUDED.reason, status = EXCLUDED.status,
-      suppress_similar = EXCLUDED.suppress_similar, ts = EXCLUDED.ts
+      suppress_similar = EXCLUDED.suppress_similar, policy_id = EXCLUDED.policy_id,
+      ts = EXCLUDED.ts
   `;
+}
+
+/**
+ * Delete a dismissal / adopted row by (org, signature) — the undo path. Returns
+ * the removed row's { signature, status, policy_id } (so the route can echo
+ * policy_kept), or null when nothing was recorded. The referenced guard-policy
+ * draft is NEVER deleted here (tightening's policy_kept precedent).
+ */
+export async function deleteBehaviorDismissal(
+  sql: SqlTag,
+  orgId: string,
+  signature: string
+): Promise<{ signature: string; status: string | null; policy_id: string | null } | null> {
+  if (!signature) return null;
+  const rows = await sql`
+    DELETE FROM behavior_dismissals
+    WHERE org_id = ${orgId} AND signature = ${signature}
+    RETURNING signature, status, policy_id
+  `;
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  const r = rows[0] as Record<string, unknown>;
+  return {
+    signature: String(r.signature),
+    status: (r.status as string | null) ?? null,
+    policy_id: (r.policy_id as string | null) ?? null,
+  };
 }

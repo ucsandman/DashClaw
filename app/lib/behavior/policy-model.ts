@@ -29,6 +29,7 @@ export const RULE_KINDS = Object.freeze({
 export const ENFORCEABLE_KINDS = Object.freeze([
   RULE_KINDS.DESTRUCTIVE_COMMAND_APPROVAL,
   RULE_KINDS.PROTECTED_PATH_APPROVAL,
+  RULE_KINDS.AGENT_ALLOWLIST,
 ]);
 
 export const DECISIONS = Object.freeze(['allow', 'warn', 'require_approval', 'block']);
@@ -127,9 +128,16 @@ export function decideSample(rule: BehaviorRule | null | undefined, sample: Beha
       return matches ? (rule.action || 'warn') : 'allow';
     }
     case RULE_KINDS.AGENT_ALLOWLIST: {
-      // An allowlist never gates — it documents the safe envelope. Decision is
-      // always 'allow'; coverage is tracked separately by sampleMatchesAllowlist.
-      return 'allow';
+      // Faithful to the `agent_allowlist` guard evaluator (guard.ts): fire the
+      // rule's action (default 'warn') when the sample's action_type is NOT in
+      // the observed safe envelope's action_types, 'allow' otherwise. Mirrors the
+      // guard exactly (non-empty allowed list, action_type truthy, not-in-list →
+      // warn) so simulation and enforcement stay one function.
+      const allow = rule.allow || {};
+      const allowed = Array.isArray(allow.action_types) ? allow.action_types : [];
+      if (!allowed.length) return 'allow'; // no envelope → never fires
+      if (!sample.action_type) return 'allow'; // unknown action type → never flag
+      return allowed.includes(sample.action_type) ? 'allow' : (rule.action || 'warn');
     }
     default:
       return 'allow';
@@ -300,6 +308,18 @@ export function behaviorRuleToGuardPolicy(rule: BehaviorRule, { agentId, name }:
         rules: { paths: Array.isArray(rule.paths) ? rule.paths : [], action: rule.action || 'require_approval' },
         agent_ids: agentIds,
       };
+    case RULE_KINDS.AGENT_ALLOWLIST: {
+      // Compile the observed safe envelope's action_types into an `agent_allowlist`
+      // guard policy that warns (default) on any action type outside the envelope.
+      const allow = rule.allow || {};
+      const allowedActionTypes = Array.isArray(allow.action_types) ? allow.action_types : [];
+      return {
+        name: name || `behavior: agent allowlist → ${rule.action || 'warn'} on novel action types (${agentId || 'all'})`,
+        policy_type: 'agent_allowlist',
+        rules: { allowed_action_types: allowedActionTypes, action: rule.action || 'warn' },
+        agent_ids: agentIds,
+      };
+    }
     default:
       return null; // advisory — no guard policy in V1
   }

@@ -108,13 +108,17 @@ describe('behavior/analyzer suggestion generation', () => {
     expect(sug.matching_sample_size).toBeGreaterThanOrEqual(3);
   });
 
-  it('emits an agent_allowlist observation describing the safe envelope', () => {
+  it('emits an ENFORCEABLE agent_allowlist suggestion describing the safe envelope', () => {
     n = 0;
     const res = analyzeSamples(filler(8));
     const sug = findType(res, RULE_KINDS.AGENT_ALLOWLIST);
     expect(sug).toBeTruthy();
-    expect(sug.advisory).toBe(true);
+    // v4.4: agent_allowlist is now enforceable (2/6 → 3/6) and carries a draft policy.
+    expect(sug.enforceable).toBe(true);
+    expect(sug.advisory).toBe(false);
     expect(sug.rule.allow.tools).toContain('Read');
+    expect(sug.draft_policy).toBeTruthy();
+    expect(sug.draft_policy.policy_type).toBe('agent_allowlist');
   });
 
   it('does not emit suggestions below the minimum sample count', () => {
