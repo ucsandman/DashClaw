@@ -1,6 +1,6 @@
 {
   "node": {
-    "current_version": "4.60.1",
+    "current_version": "4.61.0",
     "next_bump": "none",
     "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
@@ -8,7 +8,7 @@
     ]
   },
   "python": {
-    "current_version": "4.60.1",
+    "current_version": "4.61.0",
     "next_bump": "none",
     "reason": "4.60.1 roadmap v6.3 SEO truth pass: host-aware robots.txt/sitemap.xml, canonical+OG+JSON-LD across the 17 marketing pages. Platform/marketing only - no Node/Python SDK source change; version advances per the unified model but the SDKs are NOT republished; registry stays at 4.32.0.",
     "domains": [
