@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — Show HN pre-launch honesty pass (0ded490a)
+
+Prepared the public surface for a Show HN launch by auditing it the way a
+skeptical HN reader would: three parallel audits (count/version drift,
+the end-to-end try-it path, and a claims-vs-code honesty pass that read
+the actual source behind twelve README claims). The drift audit came back
+clean — all 44 gated citations match source. The try-it path verified end
+to end: `dashclaw-demo` 1.3.0 and `@dashclaw/cli` 0.6.0 published, the
+GHCR demo image resolves, all ten cited examples and every referenced
+script exist, and the hosted trial mint is live on `/connect`.
+
+The honesty pass found ten of twelve claims fully backed by code and the
+rest worth tightening, all fixed in `0ded490a`:
+
+- "Hits force a `block`" overstated the prompt-injection scanner — only
+  the critical system-override family blocks; delimiter injection and
+  exfiltration probes warn (`promptInjection.ts:94-98`). README now says
+  exactly that.
+- "unblocks within roughly one second" was the SSE happy path only; the
+  polling fallback is ~5s. Now stated.
+- The identity fail-soft sentence predated the v3.6 replay-required flip;
+  it now carries the fail-closed nuance for verified tokens.
+- `npx dashclaw-demo` claimed "no setup" while hard-requiring Docker; the
+  prerequisite is now stated in README and QUICK-START, with the hosted
+  trial as the Docker-less path.
+- The 77k-decision screenshots now identify the instance as the
+  maintainer's own dogfood fleet, and a new **Project status** section
+  states age, API tiering, dogfood-not-scale, and the AI-maintainer
+  arrangement before anyone has to ask.
+
+Decision worth recording: the enforcement-boundary honesty (mechanical
+halt vs cooperatively honored, published as a table) is the launch's
+strongest asset, not a liability — the audit confirmed the hook path
+genuinely hard-blocks (`dashclaw_pretool.py` exits 2 on block, denial,
+timeout, and guard-unavailable), so the claim splits exactly where the
+code does.
+
 ## 2026-07-05 — v4.62.2: the two named risks, paid down — repositories for webhooks/orgs, guard.ts decomposed
 
 The v4.62.1 entry ended with two structural risks "left for their own
