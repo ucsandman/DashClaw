@@ -95,9 +95,16 @@ retained_week1   boolean NOT NULL
 - 404 unless `isHostedMode()` (the capacity precedent); no further auth.
   Response is aggregate-only — counts, rates, week cohorts, a median.
   **No org ids, slugs, key prefixes, or per-org rows ever.** This is an
-  explicit decision: aggregates of an anonymous free trial are the same
-  exposure class as the public capacity count, and it is the only
-  zero-terminal owner path on the hosted instance.
+  explicit decision, re-confirmed at the in-ship security review (verdict
+  SHIP; Low finding): the funnel discloses MORE than capacity — conversion
+  rates and cohort trends are business intelligence, not just a capacity
+  flag — but it is the only zero-terminal owner path on the hosted
+  instance, gating the route alone would be theater while the public
+  `/setup` card renders the same aggregates, and the numbers describe an
+  anonymous free trial. Wes can overturn by making `/setup`'s funnel card
+  operator-only when a hosted owner-session story exists (watch-list:
+  team/RBAC). Review also added a per-instance 60s memo on the route so
+  anonymous hot loops hit memory, not the DB.
 - Shape:
 
 ```json
