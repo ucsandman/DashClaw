@@ -3,6 +3,12 @@ import { getSql } from '../../lib/db';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { logActivity } from '../../lib/audit';
 import { isValidWebhookUrl } from '../../lib/validate.js';
+import {
+  listWebhooksByOrg,
+  insertWebhook,
+  findWebhookById,
+  deleteWebhook,
+} from '../../lib/repositories/webhooks.repository';
 import crypto from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -21,12 +27,7 @@ export async function GET(request: Request) {
     const orgId = getOrgId(request);
     const sql = getSql();
 
-    const webhooks = await sql`
-      SELECT id, url, secret, events, active, failure_count, last_triggered_at, created_at, created_by
-      FROM webhooks
-      WHERE org_id = ${orgId}
-      ORDER BY created_at DESC
-    `;
+    const webhooks = await listWebhooksByOrg(sql, orgId);
 
     // Mask secrets: reveal 4 chars (6th-through-3rd from the end), keeping the
     // final 2 hidden so the full suffix is never exposed.
@@ -75,10 +76,7 @@ export async function POST(request: Request) {
     const secret = crypto.randomBytes(32).toString('hex');
     const now = new Date().toISOString();
 
-    await sql`
-      INSERT INTO webhooks (id, org_id, url, secret, events, active, created_by, failure_count, created_at)
-      VALUES (${webhookId}, ${orgId}, ${url}, ${secret}, ${JSON.stringify(events)}, 1, ${userId}, 0, ${now})
-    `;
+    await insertWebhook(sql, { webhookId, orgId, url, secret, events, userId, now });
 
     logActivity({
       orgId, actorId: userId, action: 'webhook.created',
@@ -112,14 +110,12 @@ export async function DELETE(request: Request) {
     const sql = getSql();
     const userId = getUserId(request);
 
-    const existing = await sql`
-      SELECT id FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}
-    `;
+    const existing = await findWebhookById(sql, webhookId, orgId);
     if (existing.length === 0) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
 
-    await sql`DELETE FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}`;
+    await deleteWebhook(sql, webhookId, orgId);
 
     logActivity({
       orgId, actorId: userId, action: 'webhook.deleted',

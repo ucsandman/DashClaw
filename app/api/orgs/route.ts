@@ -6,6 +6,11 @@ import { getSql } from '../../lib/db';
 import { getOrgId, getOrgRole } from '../../lib/org';
 import { seedDefaultData } from '../../lib/scoringProfiles';
 import { denyTrialPrincipal } from '../../lib/hosted/trial-principal';
+import {
+  listOrgWithActiveKeys,
+  insertOrganization,
+  insertApiKey,
+} from '../../lib/repositories/orgs.repository';
 import crypto from 'crypto';
 
 // Hash API key using Node crypto (server-side)
@@ -32,13 +37,7 @@ export async function GET(request: Request) {
 
     // SECURITY: Only return the caller's own org (not all orgs).
     // Avoid returning sensitive billing identifiers (stripe_*) unless strictly necessary.
-    const orgs = await sql`
-      SELECT id, name, slug, plan, created_at, updated_at,
-        (SELECT COUNT(*) FROM api_keys WHERE org_id = organizations.id AND revoked_at IS NULL) as active_keys
-      FROM organizations
-      WHERE id = ${callerOrgId}
-      ORDER BY created_at DESC
-    `;
+    const orgs = await listOrgWithActiveKeys(sql, callerOrgId);
 
     return NextResponse.json({ organizations: orgs });
   } catch (error) {
@@ -88,11 +87,7 @@ export async function POST(request: Request) {
     const orgId = `org_${crypto.randomUUID()}`;
 
     // Create the organization
-    const orgResult = await sql`
-      INSERT INTO organizations (id, name, slug, plan)
-      VALUES (${orgId}, ${name.trim()}, ${slug}, ${plan})
-      RETURNING *
-    `;
+    const orgResult = await insertOrganization(sql, { orgId, name: name.trim(), slug, plan });
 
     // Generate first admin API key
     const rawKey = generateApiKey();
@@ -100,10 +95,7 @@ export async function POST(request: Request) {
     const keyPrefix = rawKey.substring(0, 8);
     const keyId = `key_${crypto.randomUUID()}`;
 
-    await sql`
-      INSERT INTO api_keys (id, org_id, key_hash, key_prefix, label, role)
-      VALUES (${keyId}, ${orgId}, ${keyHash}, ${keyPrefix}, 'Admin Key', 'admin')
-    `;
+    await insertApiKey(sql, { keyId, orgId, keyHash, keyPrefix, label: 'Admin Key', role: 'admin' });
 
     // Seed default scoring profiles and risk templates for the new org.
     // Non-blocking — a seed failure must not prevent org creation.

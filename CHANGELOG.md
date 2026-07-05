@@ -13,7 +13,34 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
-## [4.62.1] — 2026-07-05
+## [4.62.2] — 2026-07-05
+
+The two structural risks named in the v4.62.1 audit, tackled. Pure refactors —
+no route, response-shape, SDK, or contract changes; the full suite passes with
+an identical test count (5,241) before and after.
+
+### Changed
+
+- **Webhooks and orgs now have real repositories.** The two domains that had
+  no `app/lib/repositories/` module at all — their SQL lived raw in six route
+  files — are extracted: `webhooks.repository.ts` (6 functions) and
+  `orgs.repository.ts` (10 functions), query text moved verbatim, routes keep
+  their existing validation/auth/response logic and pass their `getSql()`
+  instance through. No test changed. The route-SQL ratchet baseline drops from
+  **83 direct calls to 58** and is regenerated so CI now enforces the lower
+  bound (`docs/route-sql-baseline.json`).
+- **`app/lib/guard.ts` split into cohesive modules.** The 2,025-line policy
+  engine is now a 25-line façade re-exporting an identical 15-export surface
+  from `app/lib/guard/`: `caches.ts` (every piece of module-level mutable
+  state — all four caches, invalidation, `__resetGuardCaches`,
+  `getOrgHaltState`), `risk.ts` (scoring + breakdown), `policy.ts`
+  (`evaluatePolicy`/`evaluateWebhookPolicy` + degradation contract),
+  `persistence.ts` (`persistGuardDecision`), `evaluate.ts` (`evaluateGuard`
+  orchestration + x402 post-insert verification), with `types.ts`/`internal.ts`
+  for shared types and severity helpers. Code moved verbatim — the
+  halt-before-replay seam and all statement ordering inside `evaluateGuard`
+  are unchanged, and no consumer import or test was touched. Dependency
+  layering is one-directional (no submodule imports the façade).
 
 Structural health pass. An independent audit of the current tree (app/, sdk/,
 sdk-python/, cli/, mcp-server/, packages/, both test trees) followed by

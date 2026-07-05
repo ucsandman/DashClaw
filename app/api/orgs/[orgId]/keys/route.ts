@@ -4,6 +4,13 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../../lib/db';
 import { getOrgId, getOrgRole } from '../../../../lib/org';
+import {
+  findOrgId,
+  listApiKeys,
+  insertApiKey,
+  findApiKeyById,
+  revokeApiKey,
+} from '../../../../lib/repositories/orgs.repository';
 import crypto from 'crypto';
 
 function hashKey(key: string): string {
@@ -33,18 +40,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgI
     }
 
     // Verify org exists
-    const org = await sql`SELECT id FROM organizations WHERE id = ${orgId}`;
+    const org = await findOrgId(sql, orgId);
     if (org.length === 0) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
 
     // Return keys without the hash (security)
-    const keys = await sql`
-      SELECT id, key_prefix, label, role, last_used_at, created_at, revoked_at
-      FROM api_keys
-      WHERE org_id = ${orgId}
-      ORDER BY created_at DESC
-    `;
+    const keys = await listApiKeys(sql, orgId);
 
     return NextResponse.json({ keys });
   } catch (error) {
@@ -73,7 +75,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
     const body = await request.json();
 
     // Verify org exists
-    const org = await sql`SELECT id FROM organizations WHERE id = ${orgId}`;
+    const org = await findOrgId(sql, orgId);
     if (org.length === 0) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
@@ -94,10 +96,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ org
     const keyPrefix = rawKey.substring(0, 8);
     const keyId = `key_${crypto.randomUUID()}`;
 
-    await sql`
-      INSERT INTO api_keys (id, org_id, key_hash, key_prefix, label, role)
-      VALUES (${keyId}, ${orgId}, ${keyHash}, ${keyPrefix}, ${label}, ${keyRole})
-    `;
+    await insertApiKey(sql, { keyId, orgId, keyHash, keyPrefix, label, role: keyRole });
 
     return NextResponse.json({
       key: {
@@ -139,9 +138,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ o
       return NextResponse.json({ error: 'id query parameter is required' }, { status: 400 });
     }
 
-    const existing = await sql`
-      SELECT id, revoked_at FROM api_keys WHERE id = ${keyId} AND org_id = ${orgId}
-    `;
+    const existing = await findApiKeyById(sql, keyId, orgId);
     if (existing.length === 0) {
       return NextResponse.json({ error: 'API key not found' }, { status: 404 });
     }
@@ -149,9 +146,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ o
       return NextResponse.json({ error: 'API key is already revoked' }, { status: 409 });
     }
 
-    await sql`
-      UPDATE api_keys SET revoked_at = CURRENT_TIMESTAMP WHERE id = ${keyId} AND org_id = ${orgId}
-    `;
+    await revokeApiKey(sql, keyId, orgId);
 
     return NextResponse.json({ success: true, revoked: keyId });
   } catch (error) {

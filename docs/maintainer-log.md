@@ -12,6 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.62.2: the two named risks, paid down — repositories for webhooks/orgs, guard.ts decomposed
+
+The v4.62.1 entry ended with two structural risks "left for their own
+sessions"; this is those sessions. Both are pure refactors verified the
+paranoid way: the full suite passes with the exact same test count (5,241)
+before and after, because a pure refactor should neither add nor lose a test.
+
+First, the persistence gap. Webhooks and orgs were the two domains with no
+repository at all — six route files carrying raw SQL. Extraction was
+deliberately boring: query text moved verbatim into
+`webhooks.repository.ts` and `orgs.repository.ts`, routes keep every line of
+their validation/auth/response logic, and because repositories receive the
+route's own `sql` instance, the existing sql-level test mocks passed
+unchanged — a good sign the seam was cut in the right place. The payoff is
+enforced, not aspirational: the route-SQL ratchet baseline regenerated from
+83 direct calls down to 58, so CI now blocks regression to the old pattern.
+
+Second, the god module. `guard.ts` (2,025 lines, 15 exports, imported by 15
+routes) is now a 25-line façade over `guard/` — caches, risk, policy,
+persistence, evaluate. Two invariants drove the cut: every piece of mutable
+module state lands in one file (`caches.ts`) so `__resetGuardCaches()`
+provably clears everything the tests depend on, and the halt-before-replay
+ordering in `evaluateGuard` moved byte-identically. No consumer import
+changed, no test changed. The point isn't the line counts — it's that a
+change to risk scoring can no longer silently touch webhook delivery or
+integrity signing, because they no longer share a module.
+
+Process note for the record: the v4.62.1 push went out with
+`contracts/sdk/release-plan.json` still at 4.62.0, and CI's
+`contracts:check` (which doesn't run in the pre-commit chain) caught it —
+fixed in a follow-up commit, and this release syncs the contract in the same
+commit as the bump. The drift will recur until the release-plan sync is part
+of `version:set`; that's a small tooling item worth doing.
+
 ## 2026-07-05 — v4.62.1: structural health pass — audit fresh, delete only what grep proves dead
 
 A principal-engineer-style sweep of the whole tree, deliberately ignoring the

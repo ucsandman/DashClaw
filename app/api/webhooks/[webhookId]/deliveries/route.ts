@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getOrgId } from '../../../../lib/org';
 import { getSql } from '../../../../lib/db';
+import { findWebhookById, listWebhookDeliveries } from '../../../../lib/repositories/webhooks.repository';
 
 // GET /api/webhooks/[webhookId]/deliveries - Recent deliveries
 export async function GET(request: Request, { params }: { params: Promise<{ webhookId: string }> }) {
@@ -18,9 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ webh
     const sql = getSql();
 
     // Verify webhook belongs to this org
-    const whRows = await sql`
-      SELECT id FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}
-    `;
+    const whRows = await findWebhookById(sql, webhookId, orgId);
     if (whRows.length === 0) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }
@@ -28,13 +27,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ webh
     // payload + response_body are redacted at write time (redactForStorage in
     // app/lib/webhooks.ts logWebhookDelivery), so exposing them read-only is
     // safe and lets users debug deliveries without external tooling.
-    const deliveries = await sql`
-      SELECT id, event_type, status, response_status, attempted_at, duration_ms, payload, response_body
-      FROM webhook_deliveries
-      WHERE webhook_id = ${webhookId} AND org_id = ${orgId}
-      ORDER BY attempted_at DESC
-      LIMIT 20
-    `;
+    const deliveries = await listWebhookDeliveries(sql, webhookId, orgId);
 
     return NextResponse.json({ deliveries });
   } catch (error) {

@@ -4,6 +4,12 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { getOrgId, getOrgRole } from '../../../lib/org';
+import {
+  getOrgById,
+  countActiveKeys,
+  findOrgId,
+  updateOrganizationName,
+} from '../../../lib/repositories/orgs.repository';
 
 // GET /api/orgs/[orgId] - Get org details (admin only)
 export async function GET(request: Request, { params }: { params: Promise<{ orgId: string }> }) {
@@ -22,19 +28,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ orgI
       return NextResponse.json({ error: 'Forbidden - cannot access other organizations' }, { status: 403 });
     }
 
-    const orgs = await sql`
-      SELECT id, name, slug, plan, created_at, updated_at
-      FROM organizations
-      WHERE id = ${orgId}
-    `;
+    const orgs = await getOrgById(sql, orgId);
 
     if (orgs.length === 0) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
 
-    const keyCount = await sql`
-      SELECT COUNT(*) as total FROM api_keys WHERE org_id = ${orgId} AND revoked_at IS NULL
-    `;
+    const keyCount = await countActiveKeys(sql, orgId);
 
     return NextResponse.json({
       organization: orgs[0],
@@ -65,7 +65,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ or
 
     const body = await request.json();
 
-    const existing = await sql`SELECT id FROM organizations WHERE id = ${orgId}`;
+    const existing = await findOrgId(sql, orgId);
     if (existing.length === 0) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
@@ -84,13 +84,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ or
     // SECURITY: 'plan' is intentionally excluded from PATCH.
     // Plan updates must be handled via Stripe webhooks or a dedicated billing service.
 
-    const result = await sql`
-      UPDATE organizations
-      SET name = COALESCE(${name?.trim() || null}, name),
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = ${orgId}
-      RETURNING *
-    `;
+    const result = await updateOrganizationName(sql, orgId, name?.trim() || null);
 
     return NextResponse.json({ organization: result[0] });
   } catch (error) {

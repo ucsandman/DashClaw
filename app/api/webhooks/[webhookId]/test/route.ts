@@ -6,6 +6,7 @@ import { getOrgId, getOrgRole, getUserId } from '../../../../lib/org';
 import { deliverWebhook } from '../../../../lib/webhooks';
 import { logActivity } from '../../../../lib/audit';
 import { getSql } from '../../../../lib/db';
+import { findWebhookForDelivery } from '../../../../lib/repositories/webhooks.repository';
 
 // POST /api/webhooks/[webhookId]/test - Send test payload (admin only)
 export async function POST(request: Request, { params }: { params: Promise<{ webhookId: string }> }) {
@@ -23,9 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ web
     const sql = getSql();
     const userId = getUserId(request);
 
-    const rows = await sql`
-      SELECT id, url, secret FROM webhooks WHERE id = ${webhookId} AND org_id = ${orgId}
-    `;
+    const rows = await findWebhookForDelivery(sql, webhookId, orgId);
     if (rows.length === 0) {
       return NextResponse.json({ error: 'Webhook not found' }, { status: 404 });
     }

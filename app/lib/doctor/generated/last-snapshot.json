@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:8ccd22d20b5c9a1911f6de9618b728be9942aff5",
+  "timestamp": "sha1:e6bba31bad98d9d0a390e34053104efde0c664ab",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3883,7 +3883,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-degradation.test.js",
-        "app/lib/guard.ts"
+        "app/lib/guard/evaluate.ts"
       ],
       "in_env_example": false
     },
@@ -3893,7 +3893,7 @@
       "files": [
         "__tests__/unit/guard-degradation.test.js",
         "__tests__/unit/x402-guard-policy.test.js",
-        "app/lib/guard.ts"
+        "app/lib/guard/policy.ts"
       ],
       "in_env_example": false
     },
@@ -4295,7 +4295,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-shields.test.js",
-        "app/lib/guard.ts",
+        "app/lib/guard/evaluate.ts",
         "app/lib/validateEnv.ts"
       ],
       "in_env_example": false
@@ -4490,7 +4490,7 @@
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
-        "app/lib/guard.ts",
+        "app/lib/guard/policy.ts",
         "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "scripts/test-semantic-guard.mjs"
@@ -4877,7 +4877,7 @@
         "__tests__/unit/guard-characterization.test.js",
         "__tests__/unit/guard-degradation.test.js",
         "app/lib/embeddings.ts",
-        "app/lib/guard.ts",
+        "app/lib/guard/policy.ts",
         "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "examples/openai-deploy-pipeline/index.js",
