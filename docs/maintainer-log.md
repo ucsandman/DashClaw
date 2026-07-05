@@ -12,7 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
-## 2026-07-05 — Cold audit verdict: the trust mechanism itself was a false claim. Fixed.
+## 2026-07-05 — v4.63.1: the docs get a front door, and the drift audit pays for itself
+
+A staff-devadvocate pass over the entire documentation set, run the way an
+outsider would hit it: learn the product only from the repo, judge where a
+competent engineer gets lost, restructure, rewrite, and call out every place
+the docs no longer match the code.
+
+The verdict on the old docs: the *facts* were mostly right (counts, commands,
+and enforcement claims verified against source), but the *structure* failed
+adopters. `docs/` held 311 files with no index — real user guides interleaved
+alphabetically with 178 historical specs, strategy notes, and my own process
+paper trail. There was no mental-model page, no operator guide, no
+troubleshooting doc, four competing quick-start entry points, and two
+unrelated things both named "the demo."
+
+Shipped: a documentation index (`docs/README.md`) ordered by adoption journey,
+`docs/concepts.md` (the whole mental model on one page, honest about
+mechanical-vs-cooperative enforcement per the ADR copy rule), real integration
+guides for Claude Code and MCP, an operator guide, a troubleshooting guide
+keyed to the errors the API actually returns, and a QUICK-START rewrite with
+one recommended path. The internal directories are now explicitly labeled as
+process artifacts rather than left to masquerade as documentation.
+
+The drift audit (four parallel read-only inventory passes: docs, SDKs,
+MCP/CLI, API routes) found and fixed eleven mismatches, the worst being
+`sdk/README.md` telling users pairing requires the deprecated legacy SDK —
+false since the promotion, and self-contradicted forty lines earlier in the
+same file — plus 15 real SDK methods (Sessions, Drift) documented nowhere and
+an implemented-but-undocumented CLI kill switch (`dashclaw halt`). Three new
+`check-doc-counts` gates pin the new pages' numbers. Known and deliberately
+deferred: the stale env-var help text in `mcp-server/src/cli.ts` (another
+session holds unstaged work in that package) and aligning the in-app
+`/docs` page with the new IA (needs its own build-gated pass).
+
+No SDK code changed; the SDK READMEs did (materially), so 4.63.1 republishes
+both packages purely to refresh the registry-rendered READMEs — the pairing
+falsehood was live on npm.
 
 A full cold audit of the project (docs vs code vs tests, five parallel
 read-only passes) was asked to name the single change that most improves

@@ -368,7 +368,7 @@ The v2 SDK exposes the stable governance runtime plus promoted execution domains
 - `recordAssumption(assumption)` -- Integrity tracking ("I believe Z while doing X")
 - `waitForApproval(id)` -- Real-time SSE listener for human-in-the-loop approvals (automatic polling fallback)
 - `approveAction(id, decision, reasoning?)` -- Submit approval decisions from code
-- `getPendingApprovals()` -- List actions awaiting human review
+- `getPendingApprovals(limit = 20, offset = 0)` -- List actions awaiting human review (paginated)
 - `runGoverned(act, params, fn)` -- Evidence-first guard: one call that runs guard (with `act`) → `createAction` → optional `waitForApproval` → `fn()` → one-shot outcome report. See [Evidence-first guard](#evidence-first-guard) above.
 - `guardedFetch(url, init, params?)` -- `runGoverned()` wrapped around a real `fetch()`; derives the `act` from the request.
 
@@ -507,6 +507,27 @@ await claw.createHandoff({
 const latest = await claw.getLatestHandoff();
 ```
 
+### Sessions
+- `createSession(agentId, workspace, branch = null)` -- Start a tracked agent session (`POST /api/sessions`). `agentId` defaults to the constructor's agent.
+- `getSession(sessionId)` -- Fetch a single session.
+- `updateSession(sessionId, updates)` -- Update session state (`status`, `green_level`, `branch_freshness`, `commits_behind`, `blocked_reason`).
+- `listSessions(filters)` -- List sessions (`agent_id`, `status`, `limit`).
+- `getSessionEvents(sessionId)` -- Fetch the event stream for a session.
+
+### Drift Detection
+Statistical drift detection over agent behavior: compute baselines from history, detect deviations in a recent window, and manage the resulting alerts.
+
+- `detectDrift({ agentId, windowDays = 7 })` -- Run drift detection for an agent (or all agents) against computed baselines.
+- `computeDriftBaselines({ agentId, lookbackDays = 30 })` -- Compute statistical baselines from historical data.
+- `recordDriftSnapshots()` -- Record daily metric snapshots for trend visualization.
+- `listDriftAlerts({ agentId, severity, acknowledged, limit = 50 })` -- List drift alerts with filters.
+- `acknowledgeDriftAlert(alertId)` -- Acknowledge an alert.
+- `deleteDriftAlert(alertId)` -- Delete an alert.
+- `getDriftStats({ agentId })` -- Aggregate drift-detection statistics.
+- `getDriftSnapshots({ agentId, metric, limit = 30 })` -- Metric trend snapshots.
+- `getDriftMetrics()` -- List available drift metrics.
+- `getDriftReport(filters)` -- Assumption-drift report (the assumption ledger filtered to drift-relevant rows).
+
 ### Security Scanning
 - `scanPromptInjection(text, { source })` -- Scan text for prompt injection attacks.
 
@@ -529,16 +550,18 @@ if (result.recommendation === 'block') {
 
 ## Agent Identity
 
-Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing currently lives **only** on the deprecated `dashclaw/legacy` SDK (removed in v5.0.0 — it must be promoted to the canonical SDK before then); the REST endpoints are callable directly from any HTTP client.
+Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing enrollment (`createPairing` + `waitForPairing`) is **canonical** — it was promoted from the legacy SDK and lives on the main `dashclaw` client. Only the admin-side identity reads (`getPairing`, `registerIdentity`, `getIdentities`) remain legacy/Python-only; the REST endpoints for those are callable directly from any HTTP client.
 
 ### Create Pairing
 
 ```javascript
-// Node SDK — pairing is on the deprecated dashclaw/legacy subpath (removed in v5.0.0)
-import { DashClaw } from 'dashclaw/legacy';
+import { DashClaw } from 'dashclaw';
 const claw = new DashClaw({ baseUrl, apiKey, agentId });
 
-const { pairing } = await claw.createPairing(publicKeyPem, 'RSASSA-PKCS1-v1_5', 'my-agent');
+const { pairing } = await claw.createPairing(publicKeyPem, {
+  algorithm: 'RSASSA-PKCS1-v1_5',
+  agentName: 'my-agent',
+});
 console.log(pairing.id); // pair_...
 ```
 
@@ -551,6 +574,7 @@ const approved = await claw.waitForPairing(pairing.id, { timeout: 300 });
 ### Get Pairing
 
 ```javascript
+// dashclaw/legacy or Python SDK only — or GET /api/pairings/:id over HTTP
 const status = await claw.getPairing(pairingId);
 console.log(status.pairing.status); // pending | approved | expired
 ```

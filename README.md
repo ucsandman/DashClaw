@@ -421,7 +421,13 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 
 ## Documentation
 
-- [Quick start](./QUICK-START.md): eight-minute walkthrough from clone to first governed action.
+**[docs/README.md](./docs/README.md) is the full documentation index** — ordered by adoption journey (understand → try → connect → operate → reference). Highlights:
+
+- [Concepts](./docs/concepts.md): the whole mental model on one page — primitives, the loop, risk scoring, what "block" means per surface.
+- [Quick start](./QUICK-START.md): from zero to first governed action.
+- [Governing Claude Code](./docs/integrations/claude-code.md) · [Governing agents over MCP](./docs/integrations/mcp.md): the two highest-traffic integration guides.
+- [Operating DashClaw](./docs/operations.md): policies, approvals, posture, the emergency halt, doctor.
+- [Troubleshooting](./docs/troubleshooting.md): the errors you'll actually see, with fixes.
 - **[/explain](https://dashclaw.io/explain/)** — interactive explainer: the governance loop, a guard-decision simulator, and a policy playground.
 - [Node SDK reference](./sdk/README.md): canonical reference for the `dashclaw` npm package.
 - [Python SDK reference](./sdk-python/README.md): same surface, snake_case.

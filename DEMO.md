@@ -2,6 +2,8 @@
 
 A full-stack demo that exercises every major DashClaw feature in one workflow execution.
 
+> Looking for the **1-minute intro demo** instead? That's `npx dashclaw-demo` (Docker-based, no instance needed — blocks a simulated deploy and opens Decision Replay); see [QUICK-START.md](./QUICK-START.md). This page is the deeper walkthrough for a **running instance**: capabilities, policies, knowledge collections, and the workflow engine.
+
 ## What It Creates
 
 | Feature | What's Seeded |

@@ -1088,7 +1088,6 @@ The Node.js v2 SDK exposes a curated subset of **149 methods** focused on agent 
 | Lifecycle | `reportConnections` | `report_connections` | Yes |
 | Learning | `getLearningVelocity` | `get_learning_velocity` | Yes |
 | Learning | `getLearningCurves` | `get_learning_curves` | Yes |
-| Learning | `getLessons` | `get_lessons` | Yes |
 | Messaging | `sendMessage` | `send_message` | Yes |
 | Messaging | `getInbox` | `get_inbox` | Yes |
 | Handoffs | `createHandoff` | `create_handoff` | Yes |
@@ -1099,7 +1098,14 @@ The Node.js v2 SDK exposes a curated subset of **149 methods** focused on agent 
 | Work Orders | `completeWorkOrder` | `complete_work_order` | Yes |
 | Scoring | _(17 scoring/risk methods)_ | _(equivalent methods)_ | Yes |
 
-Methods like `createWebhook`, `getActivityLogs`, `mapCompliance`, and `getProofReport` are available in this Python SDK but are **v1 only** in the Node.js SDK.
+Methods like `createWebhook`, `getActivityLogs`, `mapCompliance`, and `getProofReport` are available in this Python SDK but are **v1 only** in the Node.js SDK. Conversely, a few Node v2 methods have no Python equivalent yet — `getLessons` (consolidated lesson readback) and `recordPurchaseResult` (x402; Python callers post the result snapshot to `POST /api/artifacts` directly). The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
+
+## Sessions & Drift Detection
+
+Two smaller canonical surfaces, at parity with Node v2:
+
+- **Sessions** — track agent work sessions: `create_session(workspace=None, branch=None)` (agent id comes from the client), `get_session(session_id)`, `update_session(session_id, **updates)`, `list_sessions(agent_id=None, status=None, limit=50)`, `get_session_events(session_id)`.
+- **Drift detection** — statistical drift over agent behavior: `detect_drift(agent_id=None, window_days=7)`, `compute_drift_baselines(agent_id=None, lookback_days=30)`, `record_drift_snapshots()`, `list_drift_alerts(...)`, `acknowledge_drift_alert(alert_id)`, `delete_drift_alert(alert_id)`, `get_drift_stats(agent_id=None)`, `get_drift_snapshots(...)`, `get_drift_metrics()`, `get_drift_report(**filters)`.
 
 ## Execution Studio
 

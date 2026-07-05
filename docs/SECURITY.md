@@ -2,6 +2,16 @@
 
 This is the operator-facing security guide for DashClaw (self-host and cloud). It documents the security model, key controls, and how to run audits.
 
+> Sections are dated and reverse-chronological (newest first) down to the evergreen **Core Controls** reference; older dated sweeps are preserved below it as an audit trail.
+
+## 2026-07-05 Intent-Integrity and Approval-Boundary Hardening
+
+Three trust-boundary changes shipped in the first days of July 2026:
+
+- **Evidence-graded intent (v4.63.0).** Guard callers can attach the actual act — shell command, HTTP request, SQL statement, or file write (`act: {kind, …}`, size-capped, secret-redacted before persistence). The server classifies the act deterministically and folds the derived risk in via `max()`, so evidence can raise a score but never lower it. Decisions record `intent_source: evidence | declared`; a `require_evidence` policy type escalates declared-only calls. Threat model and limits: [`architecture/enforcement-boundary.md`](./architecture/enforcement-boundary.md) ("Evidence-graded intent") — this defeats a lying model, not a lying process.
+- **Separation of duties on approvals (v4.61.1/v4.62.0).** Every approval-capable surface stamps `created_by`; an actor approving an action they created is rejected with `SELF_APPROVAL_FORBIDDEN` (single-operator `root` deployments exempt by explicit design).
+- **Replay protection default flip (2026-07-04, v3.6 graduation).** `DASHCLAW_JTI_REPLAY_PROTECTION` now defaults to `required` for JWKS-verified callers (fail-closed when the replay store is unreachable); API-key callers are unaffected. `DASHCLAW_ACT_BINDING` defaults to `best_effort`. Both keep one-env-var rollbacks.
+
 ## 2026-06-09 Launch Security Posture Sweep (ASVS 5.0.0)
 
 Scope: `middleware.js` public allowlist, stable/beta mutating API posture, centralized security headers, outbound fetch/SSRF defenses, secret/client-bundle exposure, and ASVS-oriented residual risks.

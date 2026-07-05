@@ -13,7 +13,57 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.63.1] — 2026-07-05
+
+**Documentation restructure.** The docs now have a front door and an adoption-journey
+information architecture; a full drift audit against the live code fixed every
+mismatch it found.
+
+### Added
+- `docs/README.md` — the documentation index (understand → try → connect →
+  operate → reference), including an explicit map of which `docs/` directories
+  are internal process artifacts rather than product documentation.
+- `docs/concepts.md` — the mental model on one page: the four primitives, the
+  governance loop, decision verdicts, the risk max-blend, evidence-graded
+  intent, the mechanical-vs-cooperative enforcement boundary, approvals, and
+  durable outcomes.
+- `docs/integrations/claude-code.md` and `docs/integrations/mcp.md` — real
+  integration guides for the two highest-traffic connection paths, honest per
+  the enforcement-boundary copy rule.
+- `docs/operations.md` — the operator guide: day-one policy seeding, the five
+  approval surfaces, the ledger, posture, the emergency halt, doctor.
+- `docs/troubleshooting.md` — the errors integrators actually hit
+  (`503 SCHEMA_NOT_INITIALIZED`, `410 APPROVAL_EXPIRED`, `409` outcome
+  conflicts, the guard-vs-action id footgun, silent hooks) with fixes.
+- `sdk/README.md` / `sdk-python/README.md`: the Sessions surface (5 methods)
+  and Drift Detection surface (10 methods) are documented for the first time.
+- `cli/README.md`: `dashclaw halt on|off|status` — the org kill switch — was
+  implemented but undocumented.
+- Three new `check-doc-counts.mjs` gates so the new pages' counts cannot rot.
+
 ### Fixed
+- `sdk/README.md` claimed pairing lives "only on the deprecated legacy SDK"
+  with a `dashclaw/legacy` import example — `createPairing`/`waitForPairing`
+  have been canonical since their promotion; the claim contradicted the same
+  file's own Messaging section. Corrected, example now imports `dashclaw`.
+- `sdk-python/README.md` parity table listed a `get_lessons` method that does
+  not exist in the Python client; removed, real Node-only gaps stated instead.
+- `docs/architecture/capabilities.md` — a stale early taxonomy contradicting
+  `PROJECT_DETAILS.md`, still linked from `docs/agent-bootstrap.md` as "the
+  Extensions Guide" — now carries a SUPERSEDED banner and the bootstrap doc
+  points at the current system map.
+- `QUICK-START.md` rewritten: one recommended entry path instead of four
+  competing ones, and the closing scope note no longer reads as *encouraging*
+  new routes into `app/api/_archive/`.
+- `DEMO.md` and the `npx dashclaw-demo` quick start now cross-link — two
+  unrelated things were both called "the demo" with no reference to each other.
+- `docs/SECURITY.md` gained the missing 2026-07-05 hardening section
+  (evidence-graded intent, separation-of-duties approvals, the JTI replay
+  default flip) and a note on its section ordering.
+- `CONTRIBUTING.md` gates now match CI (`typecheck`, `next build`, full vitest,
+  `check-doc-counts --strict`); `docs/documentation-governance.md` refreshed
+  after five stale months to govern the docs that actually exist.
+
 - **The "claims are proven live in CI" promise is now true.** MAINTAINER.md,
   README, and the trust-and-failure model all stated that the policy smoke
   harness runs in CI on every push — it never did. Neither did the cross-org

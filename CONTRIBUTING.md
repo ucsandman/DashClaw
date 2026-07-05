@@ -80,9 +80,12 @@ A PR is a proposed change to the repository. It lets CI run checks and lets main
 
 1.  Create a new branch for your work.
 2.  Ensure your code follows the existing style and patterns.
-3.  **Run Linting**: Before submitting, ensure there are no linting errors:
+3.  **Run the verification gates** before submitting:
     ```bash
     npm run lint
+    npx vitest run            # the FULL suite — targeted runs miss regressions in unrelated files
+    npx next build            # required for any change under app/**
+    npm run typecheck         # required for any changed .ts file (vitest transpiles without type-checking; the build will not)
     ```
 4.  **Run CI parity checks locally** before opening a PR:
     ```bash
@@ -91,6 +94,7 @@ A PR is a proposed change to the repository. It lets CI run checks and lets main
     npm run openapi:check
     npm run api:inventory:check
     npm run route-sql:check
+    node scripts/check-doc-counts.mjs --strict
     ```
 5.  Submit your PR with a clear description of the changes and the problem they solve.
 

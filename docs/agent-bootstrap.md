@@ -112,4 +112,4 @@ The short version:
 ---
 
 ## 4. Legacy "Importing"
-Feature sets related to importing memory, goals, and messaging have been moved to **Extensions**. If your workflow requires these, refer to the [Extensions Guide](architecture/capabilities.md).
+Feature sets related to importing memory, goals, and messaging were retired from the core runtime. The current system map — which surfaces are core, extension, and archived — is [`PROJECT_DETAILS.md`](../PROJECT_DETAILS.md); the messaging and memory-adjacent methods that remain live are catalogued in [`sdk/README.md`](../sdk/README.md) (Node) and [`sdk-python/README.md`](../sdk-python/README.md) (Python).

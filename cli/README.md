@@ -84,6 +84,18 @@ Deny a single action by ID.
 dashclaw deny act_01h... --reason "Outside change window"
 ```
 
+### `dashclaw halt`
+
+The org kill switch, from the terminal. Requires an admin API key.
+
+```bash
+dashclaw halt on --reason "runaway deploy loop"   # every guard evaluation for the org returns block
+dashclaw halt status                              # who halted, why, since when
+dashclaw halt off                                 # resume normal guard evaluation
+```
+
+The halt is absolute at the decision layer (propagates across instances in ~3 s); whether a blocked action is mechanically stopped depends on the surface — see `docs/architecture/enforcement-boundary.md` in the repo.
+
 ### `dashclaw install claude`
 
 Provision DashClaw governance into Claude Code without cloning the repo.
