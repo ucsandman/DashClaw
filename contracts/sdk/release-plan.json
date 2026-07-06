@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.66.4",
+    "current_version": "4.66.5",
     "next_bump": "none",
-    "reason": "4.66.4 signals health pass: no Node SDK source change - behavior-preserving decomposition of app/lib/signals.ts. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.66.5 page-hotspot health pass: no Node SDK source change - component decompositions of app/learning/page.tsx and app/policy-coach/page.tsx. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.66.4",
+    "current_version": "4.66.5",
     "next_bump": "none",
-    "reason": "4.66.4 signals health pass: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.66.5 page-hotspot health pass: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.66.4 continues the health pass on decision-adjacent hotspots: computeSignals (app/lib/signals.ts, a 536-line function hotspot) decomposed into 16 exported pure build*Signals functions with bodies moved verbatim and push order preserved. 71 pre-existing signals tests unchanged; 18 new tests pin every severity threshold boundary (red/amber cutoffs, dedup semantics, malformed-context handling). No SDK changes.",
+  "reason": "v4.66.5 finishes the day's health pass on the last two function-hotspot biomarkers: LearningDashboard (app/learning/page.tsx, 788-line component) and PolicyCoachPage (app/policy-coach/page.tsx, 536-line component) decomposed into module-level section components with state and handlers unchanged. All 30 page tests pass unchanged; both pages render-proved in demo mode (full SSR content, zero console errors). No SDK changes.",
   "domains": [
     "platform"
   ]

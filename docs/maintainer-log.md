@@ -12,6 +12,36 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.5: the health pass reaches the glass
+
+Third and final hotspot ship of the day: the two UI pages the biomarkers
+flagged — `LearningDashboard` (788 lines) and `PolicyCoachPage` (536
+lines). Same rule as the guard route and the signals engine: bodies move
+verbatim, state stays where it was, and the extraction has to *earn* its
+diff — here by making each section a component with a named contract
+instead of a region in a scroll.
+
+Two texture notes worth recording. First, extraction placement matters
+in React in a way it doesn't in plain functions: the sections became
+MODULE-level components, never nested inside the page component, because
+a nested component's identity changes every render — React would unmount
+and remount it, dropping input focus and effect state. Behavior-
+preserving means preserving *that*, not just the markup. Second, the
+rendered proof caught the harness lying again, in a new way: the
+frontend verifier reported half of each page "missing," with zero
+console errors. The discriminating test was one curl — every "missing"
+string was present in the server-rendered HTML. The pages were fine; the
+accessibility-tree text extraction just doesn't surface every div. And
+en route, the render-proof server hit EADDRINUSE on :3099 — a stale
+`next start` from an earlier session squatting exactly the way
+v4.66.2's preflight now warns about. The morning's fix diagnosed the
+afternoon's obstacle.
+
+Day's ledger: four ships (v4.66.2–v4.66.5), every flagged function
+hotspot in the codebase decomposed, 31 new boundary tests on the
+decision path, zero behavior change. No SDK changes; registries stay
+at 4.63.2.
+
 ## 2026-07-05 — v4.66.4: the posture engine gets the same treatment
 
 Second hotspot of the health pass, chosen the same way: highest blast

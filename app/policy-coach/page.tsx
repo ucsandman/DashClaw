@@ -333,87 +333,20 @@ export default function PolicyCoachPage() {
       {/* Recorder control — turn capture on/off and set an auto-stop window. The
           local agent hook honors this on its next run (an explicit
           DASHCLAW_BEHAVIOR_SAMPLES_ENABLED env var still overrides it). */}
-      <Card hover={false} className="mb-5">
-        <CardContent className="py-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 text-sm font-medium text-white">
-                <Power size={15} className={recorderOn ? 'text-success' : 'text-tertiary'} />
-                Behavior recorder is {recorderOn ? 'on' : 'off'}
-              </div>
-              <p className="mt-1 text-xs text-tertiary">
-                {recorderOn && recorderCfg?.until
-                  ? `Capturing redacted samples (local-only unless anonymized upload is opted in) — auto-stops ${fmtTs(recorderCfg.until)}.`
-                  : recorderOn
-                    ? 'Capturing redacted samples until you turn it off — they stay local unless you opt in to anonymized upload below.'
-                    : 'Turn this on to let your agents capture redacted behavior samples for evidence-backed suggestions. Samples stay on the capture machine unless you separately opt in to anonymized upload (default off).'}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {!recorderOn && (
-                <select
-                  value={recorderDuration}
-                  onChange={(e) => setRecorderDuration(e.target.value)}
-                  disabled={!isAdmin || recorderBusy}
-                  aria-label="Auto-stop window"
-                  className="rounded-lg border border-border bg-surface-tertiary px-2.5 py-1.5 text-xs text-white focus:border-brand focus:outline-none disabled:opacity-40"
-                >
-                  <option value="1">for 1 day</option>
-                  <option value="7">for 7 days</option>
-                  <option value="30">for 30 days</option>
-                  <option value="">until I turn it off</option>
-                </select>
-              )}
-              <button
-                className={recorderOn ? secondaryBtn : primaryBtn}
-                disabled={!isAdmin || recorderBusy}
-                title={!isAdmin ? 'Admin access required' : undefined}
-                onClick={() => saveRecorder(!recorderOn)}
-              >
-                <Power size={13} /> {recorderBusy ? 'Saving…' : recorderOn ? 'Turn off' : 'Turn on'}
-              </button>
-            </div>
-          </div>
-          {!isAdmin && (
-            <p className="mt-2 text-[11px] text-tertiary">Only workspace admins can change the recorder.</p>
-          )}
-          {/* Opt-in anonymized upload — default OFF, server-enforced. */}
-          <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3" data-testid="upload-optin">
-            <div className="min-w-0">
-              <div className="text-xs font-medium text-secondary">
-                Anonymized upload is {recorderCfg?.upload_enabled ? 'on' : 'off'}
-              </div>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-tertiary">
-                Default off. When on (and agents set <code className="font-mono">DASHCLAW_BEHAVIOR_UPLOAD=1</code>),
-                samples upload with goals, project names, and agent names dropped; sessions and paths replaced by
-                salted hashes; command operands masked. Enables the full coach on hosted dashboards.
-              </p>
-            </div>
-            <button
-              className={recorderCfg?.upload_enabled ? secondaryBtn : primaryBtn}
-              disabled={!isAdmin || recorderBusy}
-              title={!isAdmin ? 'Admin access required' : undefined}
-              onClick={() => saveUpload(!recorderCfg?.upload_enabled)}
-            >
-              {recorderBusy ? 'Saving…' : recorderCfg?.upload_enabled ? 'Disable upload' : 'Enable upload'}
-            </button>
-          </div>
-        </CardContent>
-      </Card>
+      <RecorderCard
+        recorderOn={recorderOn}
+        recorderCfg={recorderCfg}
+        recorderDuration={recorderDuration}
+        onDurationChange={setRecorderDuration}
+        recorderBusy={recorderBusy}
+        isAdmin={isAdmin}
+        onSaveRecorder={saveRecorder}
+        onSaveUpload={saveUpload}
+      />
 
       {/* Live observability strip — visible while the recorder is effective. */}
       {recorderOn && (
-        <div
-          aria-live="polite"
-          className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-tertiary"
-        >
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-success" aria-hidden="true" /> Live
-          </span>
-          <span>Last sample: <span className="text-secondary">{ageLabel(status?.newest_ts)}</span></span>
-          <span>Captured this session: <span className="tabular-nums text-secondary">{capturedThisSession}</span></span>
-          {recorderCfg?.until && <span>Auto-stops: <span className="text-secondary">{fmtTs(recorderCfg.until)}</span></span>}
-        </div>
+        <LiveStrip status={status} recorderCfg={recorderCfg} capturedThisSession={capturedThisSession} />
       )}
 
       {notice && (
@@ -525,73 +458,224 @@ export default function PolicyCoachPage() {
       )}
 
       {dismissing && (
-        <Modal onClose={() => setDismissing(null)} title="Dismiss suggestion">
-          <p className="mb-3 text-xs text-tertiary">{TYPE_META[dismissing.type]?.label} for <span className="text-secondary">{dismissing.agent_id}</span></p>
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Reason (optional)</label>
-          <textarea
-            value={dismissReason}
-            onChange={(e) => setDismissReason(e.target.value)}
-            rows={2}
-            className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
-            placeholder="e.g. false positive — this agent is allowed to do this"
-          />
-          <label className="mb-4 flex items-center gap-2 text-xs text-secondary">
-            <input type="checkbox" checked={suppressSimilar} onChange={(e) => setSuppressSimilar(e.target.checked)} className="accent-brand" />
-            Suppress similar suggestions of this type for this agent
-          </label>
-          <div className="flex justify-end gap-2">
-            <button className={secondaryBtn} onClick={() => setDismissing(null)}>Cancel</button>
-            <button className={primaryBtn} disabled={busy === dismissing.id} onClick={submitDismiss}>Dismiss</button>
-          </div>
-        </Modal>
+        <DismissModal
+          dismissing={dismissing}
+          dismissReason={dismissReason}
+          onReasonChange={setDismissReason}
+          suppressSimilar={suppressSimilar}
+          onSuppressChange={setSuppressSimilar}
+          busy={busy === dismissing.id}
+          onCancel={() => setDismissing(null)}
+          onSubmit={submitDismiss}
+        />
       )}
 
       {editing && editForm && (
-        <Modal onClose={() => setEditing(null)} title="Edit draft policy">
-          <p className="mb-3 text-xs text-tertiary">{TYPE_META[editing.type]?.label} for <span className="text-secondary">{editing.agent_id}</span></p>
-          {editing.type === 'protected_path_approval' ? (
-            <>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Protected path globs (one per line)</label>
-              <textarea
-                value={editForm.paths}
-                onChange={(e) => setEditForm({ ...editForm, paths: e.target.value })}
-                rows={5}
-                className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs text-white focus:border-brand focus:outline-none"
-              />
-            </>
-          ) : (
-            <>
-              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Risk threshold (0–100)</label>
-              <input
-                type="number" min={0} max={100}
-                value={editForm.risk_threshold}
-                onChange={(e) => setEditForm({ ...editForm, risk_threshold: e.target.value })}
-                className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
-              />
-            </>
-          )}
-          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Decision</label>
-          <select
-            value={editForm.action}
-            onChange={(e) => setEditForm({ ...editForm, action: e.target.value })}
-            className="mb-4 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
-          >
-            <option value="warn">Warn</option>
-            <option value="require_approval">Require approval</option>
-            <option value="block">Block</option>
-          </select>
-          {sims[editing.id] && <SimGrid sim={sims[editing.id]} />}
-          <div className="mt-4 flex justify-end gap-2">
-            <button className={secondaryBtn} disabled={busy === editing.id} onClick={() => runSimulation(editing, editedRuleFromForm(editing))}>
-              <PlayCircle size={13} /> Simulate edit
-            </button>
-            <button className={primaryBtn} disabled={busy === editing.id || !sims[editing.id]} onClick={() => adopt(editing, editedRuleFromForm(editing))}>
-              Adopt edited draft
-            </button>
-          </div>
-        </Modal>
+        <EditPolicyModal
+          editing={editing}
+          editForm={editForm}
+          setEditForm={setEditForm}
+          sim={sims[editing.id]}
+          busy={busy === editing.id}
+          onClose={() => setEditing(null)}
+          onSimulate={() => runSimulation(editing, editedRuleFromForm(editing))}
+          onAdopt={() => adopt(editing, editedRuleFromForm(editing))}
+        />
       )}
     </PageLayout>
+  );
+}
+
+interface RecorderCardProps {
+  recorderOn: boolean;
+  recorderCfg: any;
+  recorderDuration: string;
+  onDurationChange: (value: string) => void;
+  recorderBusy: boolean;
+  isAdmin: boolean;
+  onSaveRecorder: (enabled: boolean) => void;
+  onSaveUpload: (upload_enabled: boolean) => void;
+}
+
+function RecorderCard({ recorderOn, recorderCfg, recorderDuration, onDurationChange, recorderBusy, isAdmin, onSaveRecorder, onSaveUpload }: RecorderCardProps) {
+  return (
+    <Card hover={false} className="mb-5">
+      <CardContent className="py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-medium text-white">
+              <Power size={15} className={recorderOn ? 'text-success' : 'text-tertiary'} />
+              Behavior recorder is {recorderOn ? 'on' : 'off'}
+            </div>
+            <p className="mt-1 text-xs text-tertiary">
+              {recorderOn && recorderCfg?.until
+                ? `Capturing redacted samples (local-only unless anonymized upload is opted in) — auto-stops ${fmtTs(recorderCfg.until)}.`
+                : recorderOn
+                  ? 'Capturing redacted samples until you turn it off — they stay local unless you opt in to anonymized upload below.'
+                  : 'Turn this on to let your agents capture redacted behavior samples for evidence-backed suggestions. Samples stay on the capture machine unless you separately opt in to anonymized upload (default off).'}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {!recorderOn && (
+              <select
+                value={recorderDuration}
+                onChange={(e) => onDurationChange(e.target.value)}
+                disabled={!isAdmin || recorderBusy}
+                aria-label="Auto-stop window"
+                className="rounded-lg border border-border bg-surface-tertiary px-2.5 py-1.5 text-xs text-white focus:border-brand focus:outline-none disabled:opacity-40"
+              >
+                <option value="1">for 1 day</option>
+                <option value="7">for 7 days</option>
+                <option value="30">for 30 days</option>
+                <option value="">until I turn it off</option>
+              </select>
+            )}
+            <button
+              className={recorderOn ? secondaryBtn : primaryBtn}
+              disabled={!isAdmin || recorderBusy}
+              title={!isAdmin ? 'Admin access required' : undefined}
+              onClick={() => onSaveRecorder(!recorderOn)}
+            >
+              <Power size={13} /> {recorderBusy ? 'Saving…' : recorderOn ? 'Turn off' : 'Turn on'}
+            </button>
+          </div>
+        </div>
+        {!isAdmin && (
+          <p className="mt-2 text-[11px] text-tertiary">Only workspace admins can change the recorder.</p>
+        )}
+        {/* Opt-in anonymized upload — default OFF, server-enforced. */}
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3" data-testid="upload-optin">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-secondary">
+              Anonymized upload is {recorderCfg?.upload_enabled ? 'on' : 'off'}
+            </div>
+            <p className="mt-0.5 text-[11px] leading-relaxed text-tertiary">
+              Default off. When on (and agents set <code className="font-mono">DASHCLAW_BEHAVIOR_UPLOAD=1</code>),
+              samples upload with goals, project names, and agent names dropped; sessions and paths replaced by
+              salted hashes; command operands masked. Enables the full coach on hosted dashboards.
+            </p>
+          </div>
+          <button
+            className={recorderCfg?.upload_enabled ? secondaryBtn : primaryBtn}
+            disabled={!isAdmin || recorderBusy}
+            title={!isAdmin ? 'Admin access required' : undefined}
+            onClick={() => onSaveUpload(!recorderCfg?.upload_enabled)}
+          >
+            {recorderBusy ? 'Saving…' : recorderCfg?.upload_enabled ? 'Disable upload' : 'Enable upload'}
+          </button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LiveStrip({ status, recorderCfg, capturedThisSession }: { status: any; recorderCfg: any; capturedThisSession: number }) {
+  return (
+    <div
+      aria-live="polite"
+      className="mb-5 flex flex-wrap items-center gap-x-4 gap-y-1 px-1 text-[11px] text-tertiary"
+    >
+      <span className="inline-flex items-center gap-1.5">
+        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-status-success" aria-hidden="true" /> Live
+      </span>
+      <span>Last sample: <span className="text-secondary">{ageLabel(status?.newest_ts)}</span></span>
+      <span>Captured this session: <span className="tabular-nums text-secondary">{capturedThisSession}</span></span>
+      {recorderCfg?.until && <span>Auto-stops: <span className="text-secondary">{fmtTs(recorderCfg.until)}</span></span>}
+    </div>
+  );
+}
+
+interface DismissModalProps {
+  dismissing: any;
+  dismissReason: string;
+  onReasonChange: (value: string) => void;
+  suppressSimilar: boolean;
+  onSuppressChange: (value: boolean) => void;
+  busy: boolean;
+  onCancel: () => void;
+  onSubmit: () => void;
+}
+
+function DismissModal({ dismissing, dismissReason, onReasonChange, suppressSimilar, onSuppressChange, busy, onCancel, onSubmit }: DismissModalProps) {
+  return (
+    <Modal onClose={onCancel} title="Dismiss suggestion">
+      <p className="mb-3 text-xs text-tertiary">{TYPE_META[dismissing.type]?.label} for <span className="text-secondary">{dismissing.agent_id}</span></p>
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Reason (optional)</label>
+      <textarea
+        value={dismissReason}
+        onChange={(e) => onReasonChange(e.target.value)}
+        rows={2}
+        className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
+        placeholder="e.g. false positive — this agent is allowed to do this"
+      />
+      <label className="mb-4 flex items-center gap-2 text-xs text-secondary">
+        <input type="checkbox" checked={suppressSimilar} onChange={(e) => onSuppressChange(e.target.checked)} className="accent-brand" />
+        Suppress similar suggestions of this type for this agent
+      </label>
+      <div className="flex justify-end gap-2">
+        <button className={secondaryBtn} onClick={onCancel}>Cancel</button>
+        <button className={primaryBtn} disabled={busy} onClick={onSubmit}>Dismiss</button>
+      </div>
+    </Modal>
+  );
+}
+
+interface EditPolicyModalProps {
+  editing: any;
+  editForm: EditForm;
+  setEditForm: (form: EditForm) => void;
+  sim?: any;
+  busy: boolean;
+  onClose: () => void;
+  onSimulate: () => void;
+  onAdopt: () => void;
+}
+
+function EditPolicyModal({ editing, editForm, setEditForm, sim, busy, onClose, onSimulate, onAdopt }: EditPolicyModalProps) {
+  return (
+    <Modal onClose={onClose} title="Edit draft policy">
+      <p className="mb-3 text-xs text-tertiary">{TYPE_META[editing.type]?.label} for <span className="text-secondary">{editing.agent_id}</span></p>
+      {editing.type === 'protected_path_approval' ? (
+        <>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Protected path globs (one per line)</label>
+          <textarea
+            value={editForm.paths}
+            onChange={(e) => setEditForm({ ...editForm, paths: e.target.value })}
+            rows={5}
+            className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 font-mono text-xs text-white focus:border-brand focus:outline-none"
+          />
+        </>
+      ) : (
+        <>
+          <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Risk threshold (0–100)</label>
+          <input
+            type="number" min={0} max={100}
+            value={editForm.risk_threshold}
+            onChange={(e) => setEditForm({ ...editForm, risk_threshold: e.target.value })}
+            className="mb-3 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
+          />
+        </>
+      )}
+      <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-tertiary">Decision</label>
+      <select
+        value={editForm.action}
+        onChange={(e) => setEditForm({ ...editForm, action: e.target.value })}
+        className="mb-4 w-full rounded-lg border border-border bg-surface-tertiary px-3 py-2 text-sm text-white focus:border-brand focus:outline-none"
+      >
+        <option value="warn">Warn</option>
+        <option value="require_approval">Require approval</option>
+        <option value="block">Block</option>
+      </select>
+      {sim && <SimGrid sim={sim} />}
+      <div className="mt-4 flex justify-end gap-2">
+        <button className={secondaryBtn} disabled={busy} onClick={onSimulate}>
+          <PlayCircle size={13} /> Simulate edit
+        </button>
+        <button className={primaryBtn} disabled={busy || !sim} onClick={onAdopt}>
+          Adopt edited draft
+        </button>
+      </div>
+    </Modal>
   );
 }
 

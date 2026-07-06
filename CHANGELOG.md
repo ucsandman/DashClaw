@@ -13,6 +13,27 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.5] — 2026-07-05
+
+**Page-hotspot health pass.** Finishes the day's structural hardening on the
+last two function-hotspot biomarkers, both UI pages. Behavior-preserving:
+state, handlers, fetch logic, and JSX are unchanged — section markup moved
+verbatim into module-level components (stable identity, so focus and mount
+behavior are untouched). All 30 page tests pass unchanged; both pages
+render-proved on a fresh demo-mode build (full SSR content for every
+section, zero console errors, zero failed requests).
+
+### Changed
+- **`app/learning/page.tsx`** — the 788-line `LearningDashboard` is now a
+  state-holder over seven section components (`ExportHeaderCard`,
+  `StatsOverview`, `DecisionsCard`, `LessonsCard`, `RecommendationOpsCard`,
+  `SuggestedPoliciesCard`, `CodeSignalsCard`, `LogDecisionModal`), with the
+  pure outcome/confidence helpers at module scope.
+- **`app/policy-coach/page.tsx`** — the 536-line `PolicyCoachPage` sheds its
+  four big inline blocks: `RecorderCard` (recorder + upload opt-in),
+  `LiveStrip`, `DismissModal`, and `EditPolicyModal` are now module-level
+  components; the page keeps only state, handlers, and layout.
+
 ## [4.66.4] — 2026-07-05
 
 **Signals health pass.** Continues v4.66.3's hotspot work on the next
