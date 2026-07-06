@@ -538,6 +538,11 @@ dashclaw doctor`}</CodeBlock>
             <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {[
                 {
+                  href: '/guides/platform',
+                  title: 'Complete Platform Guide',
+                  desc: 'Every page, endpoint, SDK method, CLI command, MCP tool, and hook — with live-captured examples and a stable/experimental mark on each of 1,400+ entries.',
+                },
+                {
                   href: '/guides/claude-code',
                   title: 'Claude Code',
                   desc: 'Govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and MCP tool calls (mcp__*) via PreToolUse hooks. Zero SDK code required.',

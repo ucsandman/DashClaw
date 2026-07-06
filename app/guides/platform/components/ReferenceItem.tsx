@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { ChevronDown, ChevronRight, FlaskConical } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { ChevronDown, ChevronRight, FlaskConical, Link2 } from 'lucide-react';
 import type { GuideItem } from '../types';
 import StatusBadge from './StatusBadge';
 import CopyButton from './CopyButton';
@@ -47,10 +47,41 @@ function InputsTable({ inputs }: { inputs: Record<string, unknown> }) {
   );
 }
 
+export interface RelatedLink {
+  id: string;
+  name: string;
+  kind: string;
+}
+
 /** One inventory entry: collapsed row -> expandable full reference card. */
-export default function ReferenceItem({ item }: { item: GuideItem }) {
+export default function ReferenceItem({
+  item,
+  forceOpen = false,
+  related = [],
+}: {
+  item: GuideItem;
+  forceOpen?: boolean;
+  related?: RelatedLink[];
+}) {
   const [open, setOpen] = useState(false);
   const [tryOpen, setTryOpen] = useState(false);
+
+  // Deep-link support: when the URL hash targets this item, expand and scroll to it.
+  useEffect(() => {
+    if (forceOpen) {
+      setOpen(true);
+      document.getElementById(item.id)?.scrollIntoView({ block: 'center' });
+    }
+  }, [forceOpen, item.id]);
+
+  async function copyLink() {
+    try {
+      const url = `${window.location.origin}${window.location.pathname}#${item.id}`;
+      await navigator.clipboard.writeText(url);
+    } catch {
+      /* clipboard unavailable */
+    }
+  }
 
   const isApi = item.kind === 'api' && item.status !== 'archived';
   const [method = '', ...pathParts] = item.interface.split(' ');
@@ -80,6 +111,15 @@ export default function ReferenceItem({ item }: { item: GuideItem }) {
               {item.interface}
             </code>
             <CopyButton value={item.interface} compact />
+            <button
+              type="button"
+              onClick={copyLink}
+              aria-label="Copy direct link to this entry"
+              title="Copy direct link"
+              className="inline-flex items-center rounded-full border border-border bg-surface-tertiary px-2 py-1 text-text-tertiary transition-colors hover:border-border-hover hover:text-white"
+            >
+              <Link2 size={12} />
+            </button>
           </div>
           {item.purpose && <DetailRow label="What">{item.purpose}</DetailRow>}
           {item.clickPath && <DetailRow label="Click path">{item.clickPath}</DetailRow>}
@@ -106,6 +146,24 @@ export default function ReferenceItem({ item }: { item: GuideItem }) {
           {item.file && (
             <DetailRow label="Source">
               <code className="font-mono text-text-tertiary">{item.file}</code>
+            </DetailRow>
+          )}
+          {related.length > 0 && (
+            <DetailRow label="Also via">
+              <div className="flex flex-wrap gap-1.5">
+                {related.map((r) => (
+                  <a
+                    key={r.id}
+                    href={`#${r.id}`}
+                    className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-tertiary px-2 py-0.5 font-mono text-[11px] text-secondary transition-colors hover:border-brand hover:text-brand"
+                  >
+                    <span className="uppercase text-[9px] tracking-wider text-text-tertiary">
+                      {r.kind.replace('sdk-', '').replace('mcp-tool', 'mcp')}
+                    </span>
+                    {r.name}
+                  </a>
+                ))}
+              </div>
             </DetailRow>
           )}
           {canTry && !tryOpen && (

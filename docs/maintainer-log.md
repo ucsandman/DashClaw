@@ -12,6 +12,30 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.69.0: the audit pays rent
+
+An audit that only produces a log entry is theater, so the v4.68.0
+findings got fixed the same day. The Python README's imaginary
+`include_signals` kwarg is gone (the server's query flag is documented
+instead); Codebase Intelligence — a whole live page nobody could reach —
+is now in the sidebar's Observe group; and the guide itself got the
+follow-through features: deep links to any of the 1,415 entries,
+cross-links between an API route and the SDK/MCP surfaces that call it,
+a key helper in the Try-It panel, and `/` to search.
+
+The piece that matters most long-term is the smallest: a CI gate
+(`guide:drift:check`) that fails the build if the API inventory changes
+without the guide dataset being regenerated. A "100% coverage" claim
+that can silently rot is worse than no claim; now it can't.
+
+Two findings resolved as not-bugs, for the record: the Node README's
+149-method count is correct under the canonical counting rule (the
+guide's larger number includes the constructor, error classes, and the
+capabilities namespace — the guide now explains the difference), and
+`/quality` is an intentional legacy-bookmark redirect that should stay
+unlinked. One human step stays open: the walkthrough Loom recording,
+whose placeholder already renders a calm coming-soon poster.
+
 ## 2026-07-06 — v4.68.0: the whole product in one honest page
 
 **Shipped:** `/guides/platform` — the complete platform guide. Not a curated

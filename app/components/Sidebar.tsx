@@ -12,7 +12,7 @@ import {
   Download, Workflow, BookOpen, Wrench, Fingerprint, Bell, Inbox,
   FlaskConical, ChevronDown, Stethoscope, ClipboardCheck, Lock, ShieldCheck,
   LayoutDashboard, UserCog, Network, Award,
-  DollarSign, ShoppingCart, Gauge, AppWindow, ClipboardList,
+  DollarSign, ShoppingCart, Gauge, AppWindow, ClipboardList, Code2,
 } from 'lucide-react';
 import DashClawLogo from './DashClawLogo';
 
@@ -62,6 +62,7 @@ const navGroups: NavGroup[] = [
       { href: '/reputation', icon: Award, label: 'Reputation' },
       { href: '/security', icon: ShieldAlert, label: 'Security' },
       { href: '/code-sessions', icon: Terminal, label: 'Code Sessions' },
+      { href: '/mission-control/codebase', icon: Code2, label: 'Codebase' },
       { href: '/analytics', icon: TrendingUp, label: 'Analytics' },
       { href: '/activity', icon: Activity, label: 'Activity' },
       { href: '/widget', icon: AppWindow, label: 'Status Widget', popout: true },

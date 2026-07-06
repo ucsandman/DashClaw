@@ -30,7 +30,7 @@ export const AREA_BLURBS: Record<string, string> = {
     'Track the assumptions an agent made while acting, tied to the action that depended on them, with confidence and impact-if-wrong.',
   'api-agents': 'Fleet registry: agent heartbeats, connections, lineage, and per-agent governance coverage.',
   'sdk-node':
-    'The canonical Node/TypeScript SDK (npm install dashclaw). One DashClaw client, zero runtime dependencies, Node 18+. The dashclaw/legacy subpath is DEPRECATED and will be removed in v5.0.0 — its 193 methods are listed here so you can migrate off them deliberately.', // version-hardcode-allowed
+    'The canonical Node/TypeScript SDK (npm install dashclaw). One DashClaw client, zero runtime dependencies, Node 18+. Note on counts: this list includes the constructor, error classes, and the execution.capabilities namespace, so it is larger than the official public-method count (scripts/count-sdk-methods.mjs), which counts class-body methods only. The dashclaw/legacy subpath is DEPRECATED and will be removed in v5.0.0 — its 193 methods are listed here so you can migrate off them deliberately.', // version-hardcode-allowed
   'sdk-python':
     'The Python SDK (pip install dashclaw) mirrors the platform surface with snake_case names — 234 public methods on one DashClaw client. OpenClawAgent is a plain alias of DashClaw.',
   cli: 'The @dashclaw/cli terminal client: one-command local install (npx dashclaw up), approvals inbox, kill switch, doctor, code-session ingest, and governance provisioning for Claude Code and Codex.',

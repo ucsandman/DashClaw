@@ -115,8 +115,18 @@ export default function TryItPanel({
           />
         </label>
         <label className="block">
-          <span className="mb-1 block text-[11px] text-text-tertiary">
-            API key (stored only in your browser)
+          <span className="mb-1 flex items-center justify-between text-[11px] text-text-tertiary">
+            <span>API key (stored only in your browser)</span>
+            {config.baseUrl && (
+              <a
+                href={`${config.baseUrl.replace(/\/$/, '')}/api-keys`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-brand hover:underline"
+              >
+                create one →
+              </a>
+            )}
           </span>
           <input
             type="password"

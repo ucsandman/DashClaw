@@ -311,7 +311,7 @@ Check actions against policies and fetch guard audit history:
 
 ```python
 # Check an action against policies
-decision = claw.guard({"action_type": "deploy", "risk_score": 80}, include_signals=True)
+decision = claw.guard({"action_type": "deploy", "risk_score": 80})
 print(decision["decision"])  # allow | block | require_approval
 print(decision["risk_score"])  # Server-computed authoritative score
 print(decision["agent_risk_score"])  # Raw agent-supplied value (or None)
@@ -324,7 +324,7 @@ decisions = claw.get_guard_decisions(decision="block", limit=50)
 
 | Method | Description |
 |--------|-------------|
-| `guard(context, include_signals=False)` | Check action context against active policies |
+| `guard(context)` | Check action context against active policies. (Live signal warnings: call the API directly with `POST /api/guard?include_signals=true` — the SDK does not expose this flag.) |
 | `get_guard_decisions(decision=None, limit=20, offset=0, agent_id=None)` | Get guard decision history. Filter by decision type |
 
 ### Non-fabrication checks

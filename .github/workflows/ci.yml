@@ -65,6 +65,9 @@ jobs:
       - name: Check contract convergence
         run: npm run contracts:check
 
+      - name: Check platform guide drift
+        run: npm run guide:drift:check
+
       - name: Check WS1 latency regression evidence
         run: npm run reliability:ws1:check
 

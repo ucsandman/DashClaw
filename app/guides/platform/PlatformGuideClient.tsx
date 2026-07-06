@@ -50,14 +50,74 @@ export default function PlatformGuideClient() {
   return <GuideBody data={data} />;
 }
 
+/** Normalize an endpoint string ("POST /api/guard", "/api/guard?x=1") to its /api path. */
+function endpointPath(endpoint: string | undefined): string | null {
+  if (!endpoint) return null;
+  const match = endpoint.match(/\/api\/[a-zA-Z0-9_\-/{}[\]:]+/);
+  return match ? match[0].replace(/\/$/, '').toLowerCase() : null;
+}
+
 function GuideBody({ data }: { data: GuideData }) {
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<Set<ItemStatus>>(new Set());
   const [reviewed, setReviewed] = useState<Set<string>>(new Set());
+  const [hashTarget, setHashTarget] = useState('');
 
   useEffect(() => {
     setReviewed(loadProgress());
+    const readHash = () => setHashTarget(window.location.hash.replace(/^#/, ''));
+    readHash();
+    window.addEventListener('hashchange', readHash);
+    // '/' focuses search unless the user is already typing somewhere.
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (e.key === '/' && tag !== 'INPUT' && tag !== 'TEXTAREA') {
+        e.preventDefault();
+        document.querySelector<HTMLInputElement>('input[type="search"]')?.focus();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('hashchange', readHash);
+      window.removeEventListener('keydown', onKey);
+    };
   }, []);
+
+  // Cross-link index: /api path -> SDK methods + MCP tools that call it, and
+  // the reverse (API entry id per path) so SDK/MCP entries link back.
+  const relatedByItemId = useMemo(() => {
+    const byPath = new Map<string, { id: string; name: string; kind: string }[]>();
+    const apiByPath = new Map<string, { id: string; name: string; kind: string }>();
+    for (const area of data.areas) {
+      for (const it of area.items) {
+        if (it.kind === 'api' && it.status !== 'archived') {
+          const p = endpointPath(it.interface);
+          if (p && !apiByPath.has(p)) apiByPath.set(p, { id: it.id, name: it.name, kind: 'api' });
+        }
+        if (it.kind === 'sdk-node' || it.kind === 'sdk-python' || it.kind === 'mcp-tool') {
+          const p = endpointPath(it.endpoint);
+          if (!p) continue;
+          if (!byPath.has(p)) byPath.set(p, []);
+          byPath.get(p)!.push({ id: it.id, name: it.name, kind: it.kind });
+        }
+      }
+    }
+    const out = new Map<string, { id: string; name: string; kind: string }[]>();
+    for (const area of data.areas) {
+      for (const it of area.items) {
+        if (it.kind === 'api') {
+          const p = endpointPath(it.interface);
+          const rel = (p && byPath.get(p)) || [];
+          if (rel.length) out.set(it.id, rel.slice(0, 8));
+        } else if (it.kind === 'sdk-node' || it.kind === 'sdk-python' || it.kind === 'mcp-tool') {
+          const p = endpointPath(it.endpoint);
+          const api = p ? apiByPath.get(p) : null;
+          if (api) out.set(it.id, [api]);
+        }
+      }
+    }
+    return out;
+  }, [data.areas]);
 
   function toggleReviewed(areaId: string) {
     const next = new Set(reviewed);
@@ -250,7 +310,12 @@ function GuideBody({ data }: { data: GuideData }) {
                 />
                 <div className="overflow-hidden rounded-xl border border-border bg-surface-secondary">
                   {area.items.map((item) => (
-                    <ReferenceItem key={item.id} item={item} />
+                    <ReferenceItem
+                      key={item.id}
+                      item={item}
+                      forceOpen={hashTarget === item.id}
+                      related={relatedByItemId.get(item.id) || []}
+                    />
                   ))}
                   {area.items.length === 0 && (
                     <p className="px-4 py-3 text-xs text-text-tertiary">No entries match the current filter.</p>

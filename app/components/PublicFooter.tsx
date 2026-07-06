@@ -33,6 +33,9 @@ export default function PublicFooter() {
             <BookOpen size={14} />
             Docs
           </Link>
+          <Link href="/guides/platform" className="hover:text-text-primary transition-colors">
+            Platform Guide
+          </Link>
           <Link href="/downloads" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
             <Download size={14} />
             Downloads

@@ -13,6 +13,44 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.69.0] — 2026-07-06
+
+**Guide follow-through.** The v4.68.0 platform-guide audit surfaced real
+defects and real gaps; this release closes them the same day.
+
+### Fixed
+- **Python SDK README** documented a `guard(context, include_signals=...)`
+  parameter that does not exist (calling it raises `TypeError`). Removed; the
+  server's `POST /api/guard?include_signals=true` query flag is noted as the
+  way to get live signal warnings.
+- **`/mission-control/codebase` was unreachable** — a live Codebase
+  Intelligence page with zero inbound links. Now in the sidebar's Observe
+  group. (`/quality` was also flagged but is an intentional legacy-bookmark
+  redirect and stays unlinked.)
+
+### Added
+- **Guide drift CI gate** — `npm run guide:drift:check`
+  (`scripts/check-platform-guide-drift.mjs`) fails the build when the API
+  surface in `docs/api-inventory.json` changes without the platform guide's
+  dataset being regenerated. The guide can claim 100% coverage only while
+  this passes.
+- **Guide polish**: URL-hash deep links that expand and scroll to any of the
+  1,415 entries (with a copy-link button on each), "Also via" cross-links
+  between an API route and the SDK methods / MCP tools that call it (and
+  back), a "create one →" API-key helper in the Try-It panel, and `/` to
+  focus search.
+- **Discoverability**: the Complete Platform Guide is now the first card in
+  /connect's guides grid and a link in the public footer.
+
+### Notes
+- The Node SDK README's method count (149) is **correct** per the canonical
+  counting rule (`scripts/count-sdk-methods.mjs`: class-body public methods
+  only); the guide lists more entries because it also documents the
+  constructor, error classes, and the `execution.capabilities` namespace.
+  The guide now says so explicitly.
+- The beachhead blog's placeholder Loom already renders a graceful "coming
+  soon" poster; the walkthrough recording remains the open human step.
+
 ## [4.68.0] — 2026-07-06
 
 **The Complete Platform Guide.** One interactive reference covering 100% of
