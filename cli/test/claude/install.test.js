@@ -236,7 +236,10 @@ describe('buildHookEntries / buildHookEnv', () => {
   it('hook commands point at the hooks dir with the given python', () => {
     const entries = buildHookEntries('/tmp/hooks', 'python3');
     assert.match(entries.PreToolUse[0].hooks[0].command, /^python3 ".*dashclaw_pretool\.py" --agent-id "claude-code"$/);
-    assert.equal(entries.PreToolUse[0].hooks[0].timeout, 3600000);
+    // Seconds — a ms-scale value here overflows the harness timer and the
+    // hook is cancelled instantly (fail-open). Must stay under 2147483.
+    assert.equal(entries.PreToolUse[0].hooks[0].timeout, 3660);
+    assert.ok(entries.PreToolUse[0].hooks[0].timeout < 2147483);
     assert.equal(entries.Stop[0].matcher, undefined);
   });
 

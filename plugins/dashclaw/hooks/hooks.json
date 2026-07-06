@@ -7,7 +7,7 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/run_hook.cjs\" dashclaw_pretool.py",
-            "timeout": 3600000
+            "timeout": 3660
           }
         ]
       }

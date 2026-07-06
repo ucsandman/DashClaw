@@ -141,7 +141,11 @@ export function hookBlocks(python = 'python') {
           {
             type: 'command',
             command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py" --agent-id claude-code`,
-            timeout: 3600000,
+            // Seconds, not ms. 3600000 (a ms value pasted into a seconds field)
+            // overflows the harness's 32-bit timer, which cancels the hook
+            // instantly and FAILS OPEN — blocks and approval waits are skipped.
+            // 3660 > the hook's max 3600s approval wait, so exit-2 fires first.
+            timeout: 3660,
           },
         ],
       },
@@ -283,7 +287,7 @@ export function globalGovernanceBlocks(repoRoot, python = 'python') {
   const cmd = (name) => `${python} "${toPosixPath(join(repoRoot, 'hooks', name))}" --agent-id claude-code`;
   const matcher = 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*';
   return {
-    PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3600000 }] }],
+    PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3660 }] }],
     PostToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_posttool.py') }] }],
     Stop: [{ hooks: [{ type: 'command', command: cmd('dashclaw_stop.py') }] }],
     SessionStart: [{ hooks: [{ type: 'command', command: cmd('dashclaw_session_digest.py'), timeout: 10 }] }],

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.72.0",
+    "current_version": "4.72.1",
     "next_bump": "none",
-    "reason": "4.72.0 page-hotspot health pass: no Node SDK source change - frontend page decomposition + tests only. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.72.1 hook-timeout enforcement fix: no Node SDK source change - installer/plugin/CLI hook config + docs only. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.72.0",
+    "current_version": "4.72.1",
     "next_bump": "none",
-    "reason": "4.72.0 page-hotspot health pass: no Python SDK source change; PyPI stays at 4.63.2.",
+    "reason": "4.72.1 hook-timeout enforcement fix: no Python SDK source change; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.72.0 retires the two worst page-component function hotspots: app/decisions/[actionId]/page.tsx (1,261 -> 467 lines, 9 focused modules) and app/scoring/page.tsx (980 -> 453 lines, 6 modules), behavior-preserving verbatim extraction with 33 new unit tests pinning the extracted pure logic and tab rendering; existing scoring-page flow tests pass unchanged. Rendered proof on both pages (all tabs click-verified on the production build). No SDK source changes.",
+  "reason": "v4.72.1 closes a silent fail-open in Claude Code enforcement: every DashClaw hook installer wrote the pretool hook timeout as 3600000 - a milliseconds value in a field Claude Code reads as SECONDS. seconds*1000 overflows the harness's 32-bit timer, so the timer fires immediately, the harness cancels the still-running hook, and the tool call proceeds - block decisions and approval waits were never enforced (decisions still landed in the ledger, which masked it). Fixed to 3660s across scripts/install-hooks.mjs, the Claude Code plugin hooks.json (plugin 2.15.1), the CLI installer (@dashclaw/cli 0.7.2), hooks/settings.json, and the docs/guide examples. Found while investigating why require_approval writes proceeded without operator approval.",
   "domains": [
     "platform"
   ]

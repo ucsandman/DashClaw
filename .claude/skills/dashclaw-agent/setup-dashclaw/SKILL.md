@@ -188,7 +188,7 @@ The `dashclaw_agent_intel/` module is required — `dashclaw_pretool.py` imports
           {
             "type": "command",
             "command": "python .claude/hooks/dashclaw_pretool.py",
-            "timeout": 3600000
+            "timeout": 3660
           }
         ]
       }

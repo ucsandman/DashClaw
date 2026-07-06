@@ -13,6 +13,37 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.72.1] — 2026-07-06
+
+**Enforcement fix: the Claude Code pretool hook was being cancelled by the
+harness — fail-open.** Every DashClaw hook installer wrote the PreToolUse
+timeout as `3600000`, a milliseconds value in a field Claude Code reads as
+**seconds**. The harness multiplies by 1000, the result overflows the
+32-bit timer ceiling (2,147,483,647 ms), the timer fires immediately, and
+Claude Code cancels the hook and lets the tool call proceed. Net effect:
+`block` decisions and `require_approval` waits were never enforced in
+Claude Code sessions, while guard decisions still landed in the ledger —
+which made the gap invisible. Found by investigating why writes to a
+protected path succeeded with their approvals still pending.
+
+### Fixed
+- Pretool hook timeout corrected to `3660` (seconds; just above the hook's
+  maximum 3600s approval wait, so its own exit-2 block always resolves
+  first) in every surface that plants it: `scripts/install-hooks.mjs`
+  (both variants), `hooks/settings.json`, the Claude Code plugin
+  `hooks.json` (`dashclaw` plugin **2.15.1**), the CLI installer
+  (`@dashclaw/cli` **0.7.2**), the Claude Code guide's example config, the
+  setup skill, and the platform-guide entry (which had documented the
+  broken value as intentional "1-hour timeout (3600000ms)").
+- CLI installer test now pins the corrected value and asserts it stays
+  under the 2,147,483s overflow ceiling.
+
+### Operator action
+- Existing installs keep the broken value until hooks are reinstalled or
+  the settings entry is edited: change `"timeout": 3600000` to
+  `"timeout": 3660` on the `dashclaw_pretool` PreToolUse hook and restart
+  the session.
+
 ## [4.72.0] — 2026-07-06
 
 **Page-hotspot health pass #2.** After v4.71.0 retired the worst file in the

@@ -12,6 +12,57 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.72.1: the owner catches the governor asleep
+
+Minutes after v4.72.0 shipped, the owner asked the question this whole
+project exists to make askable: "how were you able to write to those
+files if I didn't approve those actions?" He was right to ask. The ledger
+showed `require_approval` decisions for three protected-path writes, the
+approval queue showed them pending — and the files were written anyway.
+My own release had gone out through a governance gate that wasn't
+holding.
+
+The investigation ruled out the plausible suspects one by one. The server
+was blameless: guard evaluated correctly, recorded `pending_approval`
+rows, and the approve routes stamp `approved_by` only via admin-gated
+paths (the "future" approval timestamps that briefly looked like a second
+bug turned out to be a naive-TIMESTAMP column read back through a
+local-timezone driver). The hook was blameless too: run by hand against
+the same protected path, it printed "Waiting for approval… then blocking"
+and sat there correctly. The gap was in the seam between the hook and the
+harness: this session's transcript held 73 `hook_cancelled` events — all
+of them the pretool hook, none of the other hooks. The installed config
+set the hook timeout to `3600000`, a milliseconds value in a field Claude
+Code reads as seconds. The harness multiplies by 1000; 3.6 billion ms
+overflows the 32-bit timer ceiling; the timer fires immediately; the
+harness cancels the hook and runs the tool. Every block and every
+approval wait, silently skipped — while the orphaned hook process lived
+just long enough to land its guard call, so the ledger kept filling with
+decisions that looked enforced. A `block` on a `git push origin main`
+went through the same hole.
+
+The worst part is the shape of the failure, and it's worth recording
+plainly: a governance system whose *evidence pipeline* keeps working
+while its *enforcement* is dead produces maximum false confidence. The
+decisions page looked perfect all week.
+
+Fixed everywhere the value is planted: both installer variants, the
+Claude Code plugin bundle (2.15.1), the CLI installer (0.7.2), the
+template settings, the guide example, the setup skill, and a
+platform-guide entry that had documented the broken value as an
+intentional "1-hour timeout." The corrected value is 3660 seconds — just
+above the hook's own maximum approval wait, so the hook's exit-2 block
+always fires before the harness gives up. A CLI test now pins the value
+under the overflow ceiling. Existing installs need the one-line settings
+edit (see the CHANGELOG) and a session restart.
+
+Diagnostic residue was cleaned: the two test approval requests I created
+while reproducing the gap are cancelled with notes, and the byte-identical
+probe write left no diff. The three writes the owner asked about were
+mine, made under a decision that said to wait; the honest answer to his
+question is "because the enforcement layer was broken, and I found out
+only because you asked."
+
 ## 2026-07-06 — v4.72.0: the health pass moves to the pages
 
 The owner's direction was one line: keep the momentum. With the roadmap

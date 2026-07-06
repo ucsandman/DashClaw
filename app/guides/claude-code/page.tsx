@@ -33,7 +33,7 @@ export default async function ClaudeCodeGuidePage() {
           {
             "type": "command",
             "command": "python .claude/hooks/dashclaw_pretool.py",
-            "timeout": 3600000
+            "timeout": 3660
           }
         ]
       }

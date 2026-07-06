@@ -187,7 +187,10 @@ async function downloadHooksBundle(endpoint, hooksDst, { fetchImpl = fetch } = {
 // ---------------------------------------------------------------------------
 
 const HOOK_EVENTS = {
-  PreToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*', script: 'dashclaw_pretool.py', timeout: 3600000 },
+  // timeout is SECONDS (Claude Code hook schema). 3600000 was a ms value in a
+  // seconds field: seconds*1000 overflows the harness's 32-bit timer, the hook
+  // is cancelled instantly, and every block/approval wait FAILS OPEN.
+  PreToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*', script: 'dashclaw_pretool.py', timeout: 3660 },
   PostToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*', script: 'dashclaw_posttool.py' },
   Stop: { script: 'dashclaw_stop.py' },
 };
