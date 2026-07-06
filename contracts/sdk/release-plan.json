@@ -1,22 +1,23 @@
 {
   "node": {
-    "current_version": "4.66.0",
+    "current_version": "4.66.1",
     "next_bump": "none",
-    "reason": "4.66.0 self-governance proof surface: no Node SDK source change - the new GET /api/self-governance is a public aggregate endpoint and /proof is a marketing page. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.66.1 up-freshness fix: no Node SDK source change - the fix lives in @dashclaw/cli (0.7.1), which versions independently. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.66.0",
+    "current_version": "4.66.1",
     "next_bump": "none",
-    "reason": "4.66.0 self-governance proof surface: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.66.1 up-freshness fix: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.66.0 ships the self-governance proof surface (roadmap v7.3): public /proof marketing page rendering live aggregate evidence from the governing instance via the new default-off GET /api/self-governance (aggregate-only, synthetic traffic excluded, security review recorded). Platform only - no SDK, CLI, or plugin changes.",
+  "reason": "v4.66.1 fixes `dashclaw up` freshness: the CLI now resolves the platform version from the latest GitHub Release (one rides every ship) instead of npm latest, which lags on platform-only releases and was serving fresh installs a 4.63.2 platform without the graduation-import route. Ships as @dashclaw/cli 0.7.1; no SDK changes.",
   "domains": [
-    "platform"
+    "platform",
+    "cli"
   ]
 }

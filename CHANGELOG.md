@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.1] — 2026-07-05
+
+**`npx dashclaw up` freshness: GitHub releases become the version pointer**
+(`@dashclaw/cli` 0.7.1). Found by the post-v7.3 first-run pass: `up`
+resolved the platform version from npm's `dashclaw` latest, which lags on
+platform-only releases (the SDKs republish only when SDK source changes) —
+fresh owned instances were installing platform 4.63.2, three releases
+stale and **missing `POST /api/workspace/import`, the graduation door
+v7.2 promises trial users**.
+
+### Fixed
+- **`@dashclaw/cli` 0.7.1** — `dashclaw up` now resolves the platform
+  version from the latest GitHub Release first (one rides every ship),
+  falling back to npm latest only when the GitHub lookup fails; both paths
+  still verify the tag's tarball exists before installing. Existing users
+  heal automatically on next run: the `npx dashclaw` shim always executes
+  the latest published CLI. Instances already installed at a stale version
+  can refresh with `dashclaw up --update`.
+
 ## [4.66.0] — 2026-07-05
 
 **The self-governance proof surface** (roadmap v7.3, spec

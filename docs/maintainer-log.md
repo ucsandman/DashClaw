@@ -12,6 +12,31 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.1: `dashclaw up` was serving a three-release-old platform
+
+The first act of the post-v7.3 "improve the live window" pass found a
+collision between two good rules. `dashclaw up` resolved the platform
+version from npm's `dashclaw` latest ("the npm version mirrors the
+platform version"), but the conditional-publish rule — don't republish
+unchanged SDKs — had frozen npm at 4.63.2 while main reached 4.66.0. Net
+effect: every fresh owned instance was born three releases stale,
+**without `POST /api/workspace/import`** — the exact door v7.2 tells
+graduating trial users to walk through, during the exact window v7.1
+will measure.
+
+Fix (`@dashclaw/cli` 0.7.1): GitHub releases are now the version pointer
+— one rides every ship, so it cannot lag — with npm as the fallback, and
+both paths still verify the tarball exists before installing. Because the
+`npx dashclaw` shim always executes the latest published CLI, publishing
+0.7.1 healed existing users without touching the SDK packages. Stale
+instances refresh with `dashclaw up --update`.
+
+The lesson recorded: when a version number is used as a *pointer* by
+other machinery, changing the rules for when that number advances is a
+breaking change for the machinery. The v7.2 live proof missed it because
+it imported into an instance built from source, not from `up` — from-
+source proofs don't exercise the distribution path.
+
 ## 2026-07-05 — v4.66.0: the self-governance proof surface (roadmap v7.3)
 
 The project's most distinctive true fact — this repo's maintainer is an AI

@@ -13,40 +13,55 @@ import * as tar from 'tar';
 const REPO = 'ucsandman/DashClaw';
 
 /**
- * Fetch the latest published platform version from the npm registry.
- * The `dashclaw` npm package version mirrors the platform version (unified versioning).
+ * Resolve the latest installable platform version.
  *
- * npm's version number is only trusted after verifying its git tag exists —
- * a publish that shipped without cutting its tag would otherwise 404 every
- * install. When the tag is missing, fall back to the latest GitHub release.
+ * GitHub releases are the platform-version pointer: a GitHub Release rides
+ * every ship, while npm's `dashclaw` version lags behind on platform-only
+ * releases — the SDK packages republish only when SDK source changes, which
+ * once froze fresh installs at platform 4.63.2 while main was at 4.66.0
+ * (dropping, among others, the workspace-import route that trial graduation
+ * depends on). npm latest stays as the fallback for GitHub API failures or
+ * rate limits; either path is only trusted after a HEAD check confirms the
+ * tag's tarball actually exists.
  *
  * @param {typeof fetch} fetchImpl - injectable for tests
  * @param {{ error: (...args: any[]) => void }} logger
- * @returns {Promise<string>} semver string e.g. '4.21.0'
+ * @returns {Promise<string>} semver string e.g. '4.66.0'
  */
 export async function resolveAppVersion(fetchImpl = fetch, logger = console) {
+  try {
+    const rel = await fetchImpl(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { accept: 'application/vnd.github+json' },
+    });
+    if (rel.ok) {
+      const tagName = (await rel.json()).tag_name;
+      const version = typeof tagName === 'string' ? tagName.replace(/^v/, '') : null;
+      if (version) {
+        const head = await fetchImpl(tarballUrl(version), { method: 'HEAD' });
+        if (head.ok) return version;
+      }
+    }
+  } catch {
+    // Network/API failure — fall through to the npm path below.
+  }
+
   const res = await fetchImpl('https://registry.npmjs.org/dashclaw/latest');
   if (!res.ok) {
-    throw new Error(`npm registry lookup failed (${res.status}) — check your network and retry.`);
+    throw new Error(
+      `Version lookup failed: GitHub releases unavailable and npm registry answered ${res.status} — check your network and retry.`,
+    );
   }
   const { version } = await res.json();
   if (!version) throw new Error('npm registry returned no version for dashclaw.');
 
   const head = await fetchImpl(tarballUrl(version), { method: 'HEAD' });
-  if (head.ok) return version;
-
-  const rel = await fetchImpl(`https://api.github.com/repos/${REPO}/releases/latest`, {
-    headers: { accept: 'application/vnd.github+json' },
-  });
-  const tagName = rel.ok ? (await rel.json()).tag_name : null;
-  const fallback = typeof tagName === 'string' ? tagName.replace(/^v/, '') : null;
-  if (!fallback) {
+  if (!head.ok) {
     throw new Error(
-      `Tag v${version} (npm latest) is missing on GitHub and no release fallback was found — report this at https://github.com/${REPO}/issues.`,
+      `No installable version found: GitHub releases lookup failed and tag v${version} (npm latest) is missing on GitHub — report this at https://github.com/${REPO}/issues.`,
     );
   }
-  logger.error(`[warn] npm reports ${version} but tag v${version} is missing; using latest GitHub release ${fallback} instead.`);
-  return fallback;
+  logger.error(`[warn] GitHub releases lookup failed; using npm latest ${version} (may lag behind the newest platform release).`);
+  return version;
 }
 
 /**
