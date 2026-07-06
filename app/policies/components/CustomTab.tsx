@@ -38,9 +38,7 @@ function formatRules(policy: any): string {
     case 'block_action_type': return `${(rules.action_types || []).join(', ')} → block`;
     case 'rate_limit': return `Max ${rules.max_actions} / ${rules.window_minutes ?? 60}min → ${rules.action || 'warn'}`; // 60 = the guard's default window (guard.ts)
     case 'webhook_check': { try { return `Webhook → ${new URL(rules.url).hostname}`; } catch { return 'Webhook'; } }
-    case 'semantic_check': return `Semantic: "${(rules.instruction || '').slice(0, 50)}..."`;
     case 'non_fabrication': return `Non-fabrication → ${rules.on_violation || 'block'}`;
-    case 'behavioral_anomaly': return `Anomaly < ${Math.round((rules.similarity_threshold ?? 0.75) * 100)}% similar → ${rules.action || 'require_approval'}`;
     case 'permission_escalation': return rules.enforce ? `Permission escalation → ${rules.action || 'block'}` : 'Permission escalation (disabled)';
     case 'green_contract': return `${(rules.action_types || []).join(', ')} need ${rules.required_level || 'workspace'} green → ${rules.action || 'block'}`;
     case 'branch_freshness': return `${(rules.action_types || []).join(', ')} when ${(rules.freshness || ['stale', 'diverged']).join('/')} → ${rules.action || 'block'}`;
@@ -816,7 +814,6 @@ export default function CustomTab() {
           <option value="block_action_type">Block action type</option>
           <option value="rate_limit">Rate limit</option>
           <option value="webhook_check">Webhook check</option>
-          <option value="semantic_check">Semantic check</option>
           <option value="non_fabrication">Non-fabrication</option>
         </select>
         <label htmlFor="policy-status-filter" className="sr-only">Filter by status</label>

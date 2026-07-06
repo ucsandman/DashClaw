@@ -2,8 +2,7 @@
 //
 // Decisions and policies are discriminated unions. The policy discriminant is
 // `policy_type` (exactly how app/lib/guard.js evaluatePolicy switches); the
-// `rules` JSON-text column parses into the matching `rules` shape. All 15 live
-// policy types are modelled.
+// `rules` JSON-text column parses into the matching `rules` shape.
 
 import type { Brand, Nullable } from './brand';
 import type {
@@ -28,8 +27,6 @@ export type GuardPolicyType =
   | 'rate_limit'
   | 'webhook_check'
   | 'non_fabrication'
-  | 'behavioral_anomaly'
-  | 'semantic_check'
   | 'permission_escalation'
   | 'green_contract'
   | 'branch_freshness'
@@ -55,8 +52,6 @@ export type GuardPolicy =
       policy_type: 'non_fabrication';
       rules: { action_types?: string[]; content_path?: string; source_path?: string; on_violation?: 'block' | 'require_approval' };
     }
-  | { policy_type: 'behavioral_anomaly'; rules: { similarity_threshold?: number; min_history?: number; action?: DecisionType } }
-  | { policy_type: 'semantic_check'; rules: { instruction: string; model?: string; fallback?: 'allow' | 'block' | 'require_approval' } }
   | { policy_type: 'permission_escalation'; rules: { enforce: boolean; action?: DecisionType } }
   | { policy_type: 'green_contract'; rules: { action_types: string[]; required_level: GreenLevel; action?: DecisionType } }
   | { policy_type: 'branch_freshness'; rules: { action_types: string[]; freshness?: string[]; max_commits_behind?: number; action?: DecisionType } }

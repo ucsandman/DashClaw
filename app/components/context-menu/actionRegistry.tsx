@@ -9,8 +9,6 @@ import {
   Link as LinkIcon,
   ExternalLink,
   RefreshCw,
-  Clock,
-  ShieldOff,
   Archive,
   MailOpen,
   XCircle,
@@ -138,19 +136,15 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   assumption: assumptionActions,
   loop: loopActions,
   capability: capabilityActions,
-  agent: agentActions,
   policy: policyActions,
   webhook: webhookActions,
   apiKey: apiKeyActions,
-  secret: secretActions,
-  postureFinding: postureActions,
   knowledge: knowledgeActions,
   message: messageActions,
   session: sessionActions,
   codeSession: codeSessionActions,
   workflow: workflowActions,
   modelStrategy: modelStrategyActions,
-  prompt: promptActions,
   teamMember: teamMemberActions,
 };
 
@@ -260,10 +254,6 @@ function capabilityActions(entity: EntityTarget): MenuItem[] {
   ];
 }
 
-function agentActions(entity: EntityTarget): MenuItem[] {
-  return [{ id: 'inspect', label: 'Inspect agent', icon: Eye, run: (ctx) => ctx.push(`/agents/${entity.id}`) }];
-}
-
 function policyActions(entity: EntityTarget): MenuItem[] {
   return [
     {
@@ -304,54 +294,6 @@ function apiKeyActions(entity: EntityTarget): MenuItem[] {
       danger: true,
       run: async (ctx) => {
         await del(`/api/keys?id=${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function secretActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'mark-rotated',
-      label: 'Mark rotated',
-      icon: RefreshCw,
-      run: async (ctx) => {
-        await patchJson(`/api/secrets/${entity.id}`, { last_rotated_at: new Date().toISOString() });
-        ctx.refresh();
-      },
-    },
-    {
-      id: 'delete',
-      label: 'Delete secret',
-      icon: Trash2,
-      danger: true,
-      separatorBefore: true,
-      run: async (ctx) => {
-        await del(`/api/secrets/${entity.id}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function postureActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'snooze',
-      label: 'Snooze',
-      icon: Clock,
-      run: async (ctx) => {
-        await postJson(`/api/posture/findings/${enc(entity.id)}/resolve`, { action: 'snooze' });
-        ctx.refresh();
-      },
-    },
-    {
-      id: 'accept-risk',
-      label: 'Accept risk',
-      icon: ShieldOff,
-      run: async (ctx) => {
-        await postJson(`/api/posture/findings/${enc(entity.id)}/resolve`, { action: 'accept_risk' });
         ctx.refresh();
       },
     },
@@ -435,21 +377,6 @@ function modelStrategyActions(entity: EntityTarget): MenuItem[] {
       danger: true,
       run: async (ctx) => {
         await del(`/api/model-strategies/${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function promptActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'delete',
-      label: 'Delete template',
-      icon: Trash2,
-      danger: true,
-      run: async (ctx) => {
-        await del(`/api/prompts/templates/${enc(entity.id)}`);
         ctx.refresh();
       },
     },

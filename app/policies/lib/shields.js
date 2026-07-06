@@ -48,17 +48,6 @@ export const SHIELDS = [
     defaultRules: { action_types: ['api'] },
   },
   {
-    id: 'secret_guard',
-    name: 'Secret Exposure Guard',
-    description: 'Block actions that might expose credentials or secrets',
-    icon: 'Lock',
-    policyType: 'semantic_check',
-    defaultRules: {
-      instruction: 'Block actions that might expose API keys, passwords, authentication tokens, or credentials. Also block actions that reference .env files or secret management systems.',
-      fallback: 'block',
-    },
-  },
-  {
     id: 'outbound_gate',
     name: 'Outbound Message Gate',
     description: 'Require approval before sending messages or posts',

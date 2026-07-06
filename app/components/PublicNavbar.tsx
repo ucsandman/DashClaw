@@ -38,7 +38,7 @@ export default function PublicNavbar() {
         </div>
         <div className="flex items-center gap-3">
           <Link href="/demo?sandbox=1" className="px-4 py-1.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors whitespace-nowrap">
-            Mission Control
+            Live Demo
           </Link>
           <Link href="/self-host" className="hidden sm:inline-flex px-4 py-1.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors whitespace-nowrap">
             Get Started

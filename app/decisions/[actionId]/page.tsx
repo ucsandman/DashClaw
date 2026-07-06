@@ -27,11 +27,7 @@ export default function DecisionReplayPage() {
 
   const [activeTab, setActiveTab] = useState('timeline');
   const [action, setAction] = useState<any>(null);
-  const [loops, setLoops] = useState<any[]>([]);
   const [assumptions, setAssumptions] = useState<any[]>([]);
-  const [messages, setMessages] = useState<any[]>([]);
-  const [messageCorrelation, setMessageCorrelation] = useState('none');
-  const [messageThreadName, setMessageThreadName] = useState<string | null>(null);
   const [trace, setTrace] = useState<any>(null);
   const [graph, setGraph] = useState<any>(null);
   const [guardDecision, setGuardDecision] = useState<any>(null);
@@ -40,7 +36,6 @@ export default function DecisionReplayPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingOps, setPendingOps] = useState<Record<string, any>>({});
   const [invalidateReasons, setInvalidateReasons] = useState<Record<string, string>>({});
-  const [resolveTexts, setResolveTexts] = useState<Record<string, string>>({});
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const showToast = useCallback((msg: string) => {
@@ -51,12 +46,6 @@ export default function DecisionReplayPage() {
   useEffect(() => () => { if (toastTimer.current) clearTimeout(toastTimer.current); }, []);
 
   const fetchData = useCallback(async () => {
-    // Reset message state synchronously so prior-decision header doesn't
-    // leak onto the new URL during the action fetch roundtrip.
-    setMessages([]);
-    setMessageCorrelation('none');
-    setMessageThreadName(null);
-
     try {
       const res = await fetch(`/api/actions/${actionId}`);
       if (!res.ok) {
@@ -65,34 +54,11 @@ export default function DecisionReplayPage() {
       }
       const data = await res.json();
       setAction(data.action);
-      setLoops(data.open_loops || []);
       setAssumptions(data.assumptions || []);
       setDefense(data.agent_defense || null);
       // Exact FK-linked guard decision (action_records.guard_decision_id) —
       // when present it supersedes the legacy time-window correlation below.
       if (data.guard_decision) setGuardDecision(data.guard_decision);
-
-      // Fetch correlated messages + metadata for the timeline header
-      try {
-        const msgRes = await fetch(`/api/actions/${actionId}/messages`);
-        if (msgRes.ok) {
-          const msgData = await msgRes.json();
-          const msgs = msgData.messages || [];
-          setMessages(msgs);
-          setMessageCorrelation(msgData.correlation || 'none');
-
-          const firstThreadId = msgs.find((m: any) => m.thread_id)?.thread_id;
-          if (firstThreadId) {
-            try {
-              const tRes = await fetch(`/api/messages/threads/${encodeURIComponent(firstThreadId)}`);
-              if (tRes.ok) {
-                const tData = await tRes.json();
-                if (tData.thread?.name) setMessageThreadName(tData.thread.name);
-              }
-            } catch { /* thread fetch is best-effort */ }
-          }
-        }
-      } catch { /* messages are optional */ }
 
       // Fetch trace data for failed/completed actions
       if (data.action.status === 'failed' || data.action.status === 'completed') {
@@ -143,8 +109,8 @@ export default function DecisionReplayPage() {
   }, [actionId, fetchData]);
 
   const timelineEvents = useMemo(
-    () => buildTimelineEvents({ action, guardDecision, messages, assumptions, loops }),
-    [action, guardDecision, messages, assumptions, loops]
+    () => buildTimelineEvents({ action, guardDecision, assumptions }),
+    [action, guardDecision, assumptions]
   );
 
   // --- Assumption actions ---
@@ -191,52 +157,6 @@ export default function DecisionReplayPage() {
       showToast('Invalidate assumption failed');
     }
     setPendingOps(prev => { const n = { ...prev }; delete n[assumptionId]; return n; });
-  };
-
-  // --- Loop actions ---
-  const handleResolveLoop = async (loopId: any) => {
-    const resolution = resolveTexts[loopId]?.trim();
-    if (!resolution) return;
-    setPendingOps(prev => ({ ...prev, [loopId]: 'resolving' }));
-    try {
-      const res = await fetch(`/api/actions/loops/${loopId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'resolved', resolution })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
-        setResolveTexts(prev => { const n = { ...prev }; delete n[loopId]; return n; });
-      } else {
-        showToast('Resolve loop failed');
-      }
-    } catch (err) {
-      console.error('Failed to resolve loop:', err);
-      showToast('Resolve loop failed');
-    }
-    setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
-  };
-
-  const handleCancelLoop = async (loopId: any) => {
-    setPendingOps(prev => ({ ...prev, [loopId]: 'cancelling' }));
-    try {
-      const res = await fetch(`/api/actions/loops/${loopId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
-      } else {
-        showToast('Cancel loop failed');
-      }
-    } catch (err) {
-      console.error('Failed to cancel loop:', err);
-      showToast('Cancel loop failed');
-    }
-    setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
   };
 
   if (loading) {
@@ -423,9 +343,6 @@ export default function DecisionReplayPage() {
             <>
               <ChronologicalTimeline
                 timelineEvents={timelineEvents}
-                messages={messages}
-                messageCorrelation={messageCorrelation}
-                messageThreadName={messageThreadName}
               />
 
               <CausalTimeline
@@ -489,12 +406,6 @@ export default function DecisionReplayPage() {
           action={action}
           defense={defense}
           trace={trace}
-          loops={loops}
-          pendingOps={pendingOps}
-          resolveTexts={resolveTexts}
-          setResolveTexts={setResolveTexts}
-          onResolveLoop={handleResolveLoop}
-          onCancelLoop={handleCancelLoop}
         />
       </div>
     </PageLayout>

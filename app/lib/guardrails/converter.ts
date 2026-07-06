@@ -75,9 +75,6 @@ function convertRule(policyType: string, rules: Record<string, unknown>): Record
       return { block: true, _dashclaw_type: 'rate_limit', _max_actions: rules.max_actions || 50, _window_minutes: rules.window_minutes || 60 };
     case 'webhook_check':
       return { require: 'approval', _dashclaw_type: 'webhook_check', _url: rules.url, _timeout_ms: rules.timeout_ms || 5000, _on_timeout: rules.on_timeout || 'require_approval' };
-    case 'behavioral_anomaly':
-    case 'semantic_check':
-      return { block: true, _dashclaw_type: policyType, _note: 'Advanced policy type - test generation limited' };
     default:
       return { block: true, _dashclaw_type: policyType };
   }

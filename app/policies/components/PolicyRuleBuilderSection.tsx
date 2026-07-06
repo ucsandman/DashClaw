@@ -284,39 +284,6 @@ export default function PolicyRuleBuilderSection({
         </div>
       )}
 
-      {form.type === 'semantic_check' && (
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs text-secondary mb-1">Instruction (Natural Language)</label>
-            <textarea
-              aria-label="Instruction"
-              value={form.instruction}
-              onChange={(event) => onChange('instruction', event.target.value)}
-              placeholder="e.g. Do not allow the agent to delete files in the /system directory."
-              required
-              rows={3}
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-xs text-secondary mb-1">Fallback Action (if LLM is unavailable)</label>
-            <select
-              aria-label="Fallback Action"
-              value={form.fallback}
-              onChange={(event) => onChange('fallback', event.target.value)}
-              className={selectClass}
-            >
-              <option value="require_approval">Require approval (fail-closed default)</option>
-              <option value="block">Block (strict fail-closed)</option>
-              <option value="allow">Allow (fail-open escape hatch)</option>
-            </select>
-            <p className="text-xs text-tertiary mt-1">
-              To enable this, set <code className="text-secondary">GUARD_LLM_KEY</code> (or OPENAI_API_KEY) in your environment variables.
-            </p>
-          </div>
-        </div>
-      )}
-
       {form.type === 'non_fabrication' && (
         <div className="space-y-4">
           <p className="text-xs text-tertiary">
@@ -368,60 +335,6 @@ export default function PolicyRuleBuilderSection({
                 placeholder="source_of_truth"
                 className={inputClass}
               />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {form.type === 'behavioral_anomaly' && (
-        <div className="space-y-4">
-          <p className="text-xs text-tertiary">
-            Compares each action against the agent&apos;s recent history using embedding similarity.
-            Requires embeddings — set <code className="text-secondary">OPENAI_API_KEY</code>. The policy
-            stays dormant until the agent has at least the baseline number of recorded actions.
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-xs text-secondary mb-1">Similarity threshold (0&ndash;1)</label>
-              <input
-                aria-label="Similarity threshold"
-                type="number"
-                min="0"
-                max="1"
-                step="0.05"
-                value={form.similarityThreshold}
-                onChange={(event) => {
-                  const value = event.target.value === ''
-                    ? ''
-                    : Math.max(0, Math.min(1, parseFloat(event.target.value) || 0));
-                  onChange('similarityThreshold', value);
-                }}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-secondary mb-1">Baseline samples</label>
-              <input
-                aria-label="Baseline samples"
-                type="number"
-                min="1"
-                value={form.minHistory}
-                onChange={(event) => onChange('minHistory', parseInt(event.target.value, 10) || 1)}
-                className={inputClass}
-              />
-            </div>
-            <div>
-              <label className="block text-xs text-secondary mb-1">On anomaly</label>
-              <select
-                aria-label="Behavioral anomaly action"
-                value={form.action}
-                onChange={(event) => onChange('action', event.target.value)}
-                className={selectClass}
-              >
-                {DECISION_ACTIONS.map((action) => (
-                  <option key={action.value} value={action.value}>{action.label}</option>
-                ))}
-              </select>
             </div>
           </div>
         </div>

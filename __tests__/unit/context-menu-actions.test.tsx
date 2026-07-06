@@ -128,27 +128,6 @@ describe('context-menu governance routes', () => {
     expect(revoked.map((i) => i.id)).not.toContain('revoke');
   });
 
-  it('secret mark-rotated → PATCH /api/secrets/:id {last_rotated_at}', async () => {
-    await run('secret', 'sec_1', 'mark-rotated');
-    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/secrets/sec_1');
-    expect(call).toBeTruthy();
-    expect(call?.[1]?.method).toBe('PATCH');
-    expect(typeof JSON.parse(call?.[1]?.body).last_rotated_at).toBe('string');
-  });
-
-  it('posture snooze + accept-risk → POST /api/posture/findings/:key/resolve', async () => {
-    await run('postureFinding', 'PF.secrets.rotation', 'snooze');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/posture/findings/PF.secrets.rotation/resolve',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'snooze' }) }),
-    );
-    await run('postureFinding', 'PF.secrets.rotation', 'accept-risk');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/posture/findings/PF.secrets.rotation/resolve',
-      expect.objectContaining({ method: 'POST', body: JSON.stringify({ action: 'accept_risk' }) }),
-    );
-  });
-
   it('knowledge delete → DELETE /api/knowledge/collections/:id', async () => {
     await run('knowledge', 'col_1', 'delete');
     expect(fetchMock).toHaveBeenCalledWith('/api/knowledge/collections/col_1', { method: 'DELETE' });

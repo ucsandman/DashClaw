@@ -112,22 +112,6 @@ describe('studio consolidation — sidebar IA', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders Workflows and Capabilities, with Capabilities outside the Labs group', async () => {
-    const { default: Sidebar } = await import('@/components/Sidebar');
-    const { container } = render(<Sidebar />);
-
-    expect(screen.getAllByText('Workflows').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Capabilities').length).toBeGreaterThan(0);
-
-    // Capabilities moved to Govern: no capabilities link inside any Labs group.
-    const labsGroups = container.querySelectorAll('[id="nav-group-labs"]');
-    expect(labsGroups.length).toBeGreaterThan(0);
-    for (const labs of labsGroups) {
-      expect(labs.querySelector('a[href="/capabilities"]')).toBeNull();
-    }
-    expect(container.querySelector('a[href="/capabilities"]')).toBeTruthy();
-  });
-
   it('does not render the retired Model Strategies and Branch Finish entries', async () => {
     const { default: Sidebar } = await import('@/components/Sidebar');
     const { container } = render(<Sidebar />);

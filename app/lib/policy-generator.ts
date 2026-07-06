@@ -25,8 +25,6 @@ const POLICY_TYPE_SCHEMAS: Record<string, string> = {
   green_contract: '{ "action_types": ["deploy"], "required_level": "targeted"|"package"|"workspace"|"merge_ready", "action": "block"|"require_approval" }',
   branch_freshness: '{ "action_types": ["deploy"], "freshness": ["stale", "diverged"], "max_commits_behind": <number>, "action": "block"|"require_approval" }',
   protected_path: '{ "paths": ["glob", ...], "action": "block"|"warn"|"require_approval" }  // protects files/dirs from being written or deleted; use for "don\'t delete/touch X"',
-  semantic_check: '{ "instruction": "what to check for in the action content", "action": "block"|"warn"|"require_approval" }',
-  behavioral_anomaly: '{ "similarity_threshold": <0.0-1.0, default 0.75>, "min_history": <number, default 5>, "action": "warn"|"block"|"require_approval" }',
 };
 
 interface PolicyDraft {

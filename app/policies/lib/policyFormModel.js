@@ -60,8 +60,6 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'allow_grant', label: 'Allow Grant', desc: 'Explicitly allow an action type, optionally scoped to a target prefix' },
   { value: 'rate_limit', label: 'Rate Limit', desc: 'Warn or block when an agent exceeds action frequency' },
   { value: 'webhook_check', label: 'Webhook Check', desc: 'Call an external endpoint for custom decision logic' },
-  { value: 'semantic_check', label: 'Semantic Check', desc: 'Use an LLM to evaluate action intent against natural-language rules' },
-  { value: 'behavioral_anomaly', label: 'Behavioral Anomaly', desc: 'Flag actions unlike the agent’s recent behavior (embedding similarity). Requires an OpenAI key.' },
   { value: 'permission_escalation', label: 'Permission Escalation', desc: 'Block actions whose required tool permission exceeds the agent’s approved pairing level' },
   { value: 'green_contract', label: 'Green Contract', desc: 'Gate actions (e.g. deploy) until tests reach a required green level' },
   { value: 'branch_freshness', label: 'Branch Freshness', desc: 'Block actions when the branch is stale/diverged or too many commits behind' },
@@ -226,14 +224,6 @@ const POLICY_TYPE_HANDLERS = {
       return `Call ${host || 'the configured webhook'} before allowing the action. If the webhook times out, ${form.webhookOnTimeout || 'require_approval'} the action${scoped}.`;
     },
   },
-  semantic_check: {
-    compile: (form) => ({
-      instruction: cleanString(form.instruction),
-      fallback: form.fallback || 'require_approval',
-    }),
-    summary: (form, scoped) =>
-      `Use a semantic check to evaluate whether the action violates the instruction: "${cleanString(form.instruction)}"${scoped}.`,
-  },
   non_fabrication: {
     compile: (form) => ({
       ...(Array.isArray(form.actionTypes) && form.actionTypes.length > 0
@@ -248,17 +238,6 @@ const POLICY_TYPE_HANDLERS = {
         ? `${actionListText(form.actionTypes)} actions`
         : 'any action';
       return `${form.onViolation === 'require_approval' ? 'Require approval for' : 'Block'} ${nfScope} whose outbound content states a fact not traceable to its source-of-truth${scoped}.`;
-    },
-  },
-  behavioral_anomaly: {
-    compile: (form) => ({
-      similarity_threshold: Math.max(0, Math.min(1, Number(form.similarityThreshold) || 0)),
-      min_history: Math.max(1, Number(form.minHistory) || 5),
-      action: form.action,
-    }),
-    summary: (form, scoped) => {
-      const pct = Math.round((Number(form.similarityThreshold) || 0) * 100);
-      return `${actionVerb(form.action)} actions less than ${pct}% similar to the agent’s recent behavior, after ${Number(form.minHistory) || 5} baseline samples${scoped}. Requires embeddings (OpenAI key).`;
     },
   },
   permission_escalation: {

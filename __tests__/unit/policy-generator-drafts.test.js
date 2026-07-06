@@ -109,20 +109,4 @@ describe('policyGeneratorDrafts', () => {
     expect(rules.action).toBe('block');
   });
 
-  it('normalizes a semantic_check draft and round-trips the instruction', () => {
-    const draft = normalizeGeneratedPolicyDraft({
-      name: 'No secrets in output',
-      policy_type: 'semantic_check',
-      rules: { instruction: 'block if it contains secrets', action: 'warn' },
-    });
-
-    expect(draft.formState.type).toBe('semantic_check');
-    expect(draft.formState.instruction).toBe('block if it contains secrets');
-    expect(draft.formState.action).toBe('warn');
-
-    const payload = compilePolicyPayload(draft.formState);
-    expect(payload.policy_type).toBe('semantic_check');
-    const rules = JSON.parse(payload.rules);
-    expect(rules.instruction).toBe('block if it contains secrets');
-  });
 });

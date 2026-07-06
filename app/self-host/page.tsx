@@ -258,12 +258,11 @@ dashclaw doctor`}</pre>
                 ],
               },
               {
-                category: 'Compliance & Audit',
+                category: 'Audit & Evidence',
                 features: [
-                  'GDPR, SOC 2, NIST AI RMF, ISO 27001, IMDA Agentic mapping',
-                  'One-click compliance export bundles',
+                  'Signed, replayable audit trail (Ed25519 receipts, JWKS export)',
                   'Evidence packaging (guard decisions + action records)',
-                  'Scheduled recurring exports on cron',
+                  'Tamper-evident proof of what was blocked, approved, and by whom',
                 ],
               },
               {
@@ -359,7 +358,6 @@ dashclaw doctor`}</pre>
                 <li>Designs guard policies for cost ceilings, risk thresholds, and action allowlists</li>
                 <li>Configures evaluation scorers to track output quality (5 built-in types)</li>
                 <li>Sets up prompt template registries with version control and rollback</li>
-                <li>Generates compliance export bundles for GDPR, SOC 2, NIST AI RMF, ISO 27001, IMDA Agentic</li>
                 <li>Configures behavioral drift detection with statistical baselines</li>
                 <li>Sets up learning analytics to track agent velocity and maturity</li>
                 <li>Troubleshoots 401, 403, 429, and 503 errors with guided diagnostics</li>

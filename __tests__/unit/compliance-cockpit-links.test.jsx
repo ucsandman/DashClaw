@@ -1,6 +1,4 @@
 import React from 'react';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 
@@ -69,16 +67,5 @@ describe('gap → policy bridge link target', () => {
     const draft = JSON.parse(decodeURIComponent(href.split('prefill=')[1]));
     expect(draft.policy_type).toBe('block_action_type');
     expect(draft.rules.action_types).toEqual(['exec']);
-  });
-});
-
-describe('sidebar nav lands on the compliance map page', () => {
-  it("Sidebar's Compliance entry points at /compliance (exports stays one click deeper)", () => {
-    const sidebar = readFileSync(
-      path.resolve(__dirname, '..', '..', 'app', 'components', 'Sidebar.tsx'),
-      'utf8',
-    );
-    expect(sidebar).toMatch(/href:\s*'\/compliance',\s*icon:\s*\w+,\s*label:\s*'Compliance'/);
-    expect(sidebar).not.toContain("href: '/compliance/exports'");
   });
 });

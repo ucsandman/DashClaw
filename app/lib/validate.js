@@ -383,7 +383,7 @@ function validateActField(act, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'behavioral_anomaly', 'semantic_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit', 'require_evidence'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit', 'require_evidence'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -457,16 +457,6 @@ const GREEN_CONTRACT_LEVELS = ['targeted', 'package', 'workspace', 'merge_ready'
 // One validator per policy type — each pushes type-specific errors via addError.
 // Mirrors the original per-type switch exactly (check order + messages preserved).
 const POLICY_TYPE_VALIDATORS = {
-  behavioral_anomaly: (rules, addError) => {
-    if (typeof rules.similarity_threshold !== 'number' || rules.similarity_threshold < 0 || rules.similarity_threshold > 1) {
-      addError('behavioral_anomaly policy requires rules.similarity_threshold (0.0-1.0)');
-    }
-  },
-  semantic_check: (rules, addError) => {
-    if (!isNonEmptyString(rules.instruction)) {
-      addError('semantic_check policy requires rules.instruction string');
-    }
-  },
   risk_threshold: (rules, addError) => {
     if (typeof rules.threshold !== 'number' || rules.threshold < 0 || rules.threshold > 100) {
       addError('risk_threshold policy requires rules.threshold (0-100)');

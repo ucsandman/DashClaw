@@ -176,12 +176,6 @@ export async function POST(request: Request) {
           const text = await (resourceHandlers['dashclaw://agent/{agent_id}/history'] as (args: Record<string, unknown>) => Promise<string>)({ agent_id: historyMatch[1] });
           return jsonrpc(id, { contents: [{ uri, text }] });
         }
-        // Match template: dashclaw://code-sessions/sessions/{session_id}
-        const sessionMatch = uri.match(/^dashclaw:\/\/code-sessions\/sessions\/([^/]+)$/);
-        if (sessionMatch) {
-          const text = await (resourceHandlers['dashclaw://code-sessions/sessions/{session_id}'] as (args: Record<string, unknown>) => Promise<string>)({ session_id: sessionMatch[1] });
-          return jsonrpc(id, { contents: [{ uri, text }] });
-        }
         return jsonrpcError(id, -32602, `Unknown resource: ${uri}`);
       }
 

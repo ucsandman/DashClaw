@@ -123,13 +123,7 @@ export function mapSignals(signals: Row[] | null | undefined): FeedItem[] {
       agent_id: s.agent_id || null,
       timestamp: s.detected_at || null,
       action_url: s.agent_id ? `/agents/${encodeURIComponent(s.agent_id)}` : '/security',
-      suggested_action: s.type === 'integration_mismatch' ? 'disable' : s.type === 'workflow_stuck' ? 'cancel' : 'investigate',
-      ...(s.type === 'workflow_stuck' && s.action_id ? {
-        metadata: {
-          run_action_id: s.action_id,
-          template_id: (s.trigger && s.trigger.startsWith('workflow:')) ? s.trigger.slice('workflow:'.length) : null,
-        },
-      } : {}),
+      suggested_action: s.type === 'integration_mismatch' ? 'disable' : 'investigate',
     };
   });
 }

@@ -17,8 +17,6 @@ const FORMS = {
   allow_grant: { name: 'Allow', type: 'allow_grant', actionType: 'api', targetPrefix: 'stripe.com', agentIds: [] },
   rate_limit: { name: 'Rate', type: 'rate_limit', maxActions: 50, windowMinutes: 60, action: 'warn', agentIds: [] },
   webhook_check: { name: 'Webhook', type: 'webhook_check', webhookUrl: 'https://guard.example.com/check', webhookTimeout: 5000, webhookOnTimeout: 'allow', agentIds: [] },
-  semantic_check: { name: 'Semantic', type: 'semantic_check', instruction: 'No deleting system files.', fallback: 'allow', agentIds: [] },
-  behavioral_anomaly: { name: 'Anomaly', type: 'behavioral_anomaly', similarityThreshold: 0.75, minHistory: 5, action: 'require_approval', agentIds: [] },
   permission_escalation: { name: 'Perm', type: 'permission_escalation', enforce: true, action: 'block', agentIds: [] },
   green_contract: { name: 'Green', type: 'green_contract', actionTypes: ['deploy'], requiredLevel: 'workspace', action: 'block', agentIds: [] },
   branch_freshness: { name: 'Branch', type: 'branch_freshness', actionTypes: ['deploy'], freshness: ['stale', 'diverged'], maxCommitsBehind: 0, action: 'block', agentIds: [] },
@@ -52,10 +50,7 @@ describe('policy type coverage (UI ↔ backend contract)', () => {
     }
   });
 
-  it('produces the exact rule shapes the guard engine reads for the four added types', () => {
-    expect(JSON.parse(compilePolicyPayload(FORMS.behavioral_anomaly).rules)).toEqual({
-      similarity_threshold: 0.75, min_history: 5, action: 'require_approval',
-    });
+  it('produces the exact rule shapes the guard engine reads for the added types', () => {
     expect(JSON.parse(compilePolicyPayload(FORMS.permission_escalation).rules)).toEqual({
       enforce: true, action: 'block',
     });
@@ -74,7 +69,7 @@ describe('policy type coverage (UI ↔ backend contract)', () => {
   });
 
   it('round-trips the added types through decompile', () => {
-    for (const type of ['behavioral_anomaly', 'permission_escalation', 'green_contract', 'branch_freshness', 'allow_grant', 'warn_action_type']) {
+    for (const type of ['permission_escalation', 'green_contract', 'branch_freshness', 'allow_grant', 'warn_action_type']) {
       const payload = compilePolicyPayload(FORMS[type]);
       const form = decompilePolicyForm({ ...payload, rules: payload.rules });
       expect(form.type).toBe(type);
@@ -84,7 +79,6 @@ describe('policy type coverage (UI ↔ backend contract)', () => {
   });
 
   it('summarizes the added types in plain language', () => {
-    expect(buildPolicySummary(FORMS.behavioral_anomaly)).toMatch(/similar/i);
     expect(buildPolicySummary(FORMS.permission_escalation)).toMatch(/permission/i);
     expect(buildPolicySummary({ ...FORMS.permission_escalation, enforce: false })).toMatch(/disabled/i);
     expect(buildPolicySummary(FORMS.green_contract)).toMatch(/workspace/i);

@@ -20,7 +20,6 @@ vi.mock('@/components/PageLayout', () => ({
     </div>
   ),
 }));
-vi.mock('@/components/MessageTrail', () => ({ default: () => null }));
 vi.mock('@/components/OutcomeBadge', () => ({ OutcomeBadge: () => null }));
 vi.mock('../../app/lib/AgentFilterContext', () => ({
   useAgentFilter: () => ({ agentId: null }),

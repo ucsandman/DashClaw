@@ -497,22 +497,6 @@ export default function LandingPage() {
               </ul>
             </div>
 
-            {/* Compliance evidence, one honest line */}
-            <div className="mt-10 pt-8 border-t border-border flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-              <p className="text-sm text-text-secondary leading-relaxed max-w-xl">
-                Every governed decision doubles as audit evidence. DashClaw maps guard
-                decisions and approvals to SOC 2, ISO 27001, GDPR, and NIST AI RMF and
-                generates audit-ready exports; it does not assert that your deployment
-                is certified.
-              </p>
-              <Link
-                href="/compliance"
-                className="inline-flex items-center gap-1.5 text-sm text-brand hover:text-brand-hover transition-colors shrink-0"
-              >
-                Compliance engine <ArrowRight size={14} aria-hidden="true" />
-              </Link>
-            </div>
-
             {/* Self-governance proof, one honest line (v7.3) */}
             <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
               <p className="text-sm text-text-secondary leading-relaxed max-w-xl">

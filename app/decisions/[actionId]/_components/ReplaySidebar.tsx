@@ -1,9 +1,8 @@
 'use client';
 
-import type { Dispatch, SetStateAction } from 'react';
 import Link from 'next/link';
 import {
-  RefreshCw, ArrowUp, Link2, ShieldCheck, ShieldAlert,
+  ArrowUp, Link2, ShieldCheck, ShieldAlert,
   Activity, ChevronRight, Fingerprint
 } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../../../components/ui/Card';
@@ -14,16 +13,10 @@ interface ReplaySidebarProps {
   action: any;
   defense: any;
   trace: any;
-  loops: any[];
-  pendingOps: Record<string, any>;
-  resolveTexts: Record<string, string>;
-  setResolveTexts: Dispatch<SetStateAction<Record<string, string>>>;
-  onResolveLoop: (loopId: any) => void;
-  onCancelLoop: (loopId: any) => void;
 }
 
 export default function ReplaySidebar({
-  action, defense, trace, loops, pendingOps, resolveTexts, setResolveTexts, onResolveLoop, onCancelLoop
+  action, defense, trace
 }: ReplaySidebarProps) {
   return (
     <div className="space-y-6">
@@ -111,47 +104,6 @@ export default function ReplaySidebar({
                   </div>
                 </div>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Open Dependency Loop */}
-      {loops.filter(l => l.status === 'open').length > 0 && (
-        <Card hover={false} className="border-l-4 border-l-amber-500">
-          <CardHeader title="Active Interventions" icon={RefreshCw} count={loops.filter(l => l.status === 'open').length} />
-          <CardContent>
-            <div className="space-y-4">
-              {loops.filter(l => l.status === 'open').map(loop => (
-                <div key={loop.loop_id} className="bg-white/5 p-3 rounded-lg">
-                  <div className="text-xs text-white font-medium mb-2">{loop.description}</div>
-                  <div className="flex flex-col gap-2">
-                    <input
-                      type="text"
-                      placeholder="Resolution info..."
-                      value={resolveTexts[loop.loop_id] || ''}
-                      onChange={(e) => setResolveTexts(prev => ({ ...prev, [loop.loop_id]: e.target.value }))}
-                      className="px-2 py-1.5 bg-black/40 border border-white/10 rounded text-[10px] text-white focus:outline-none focus:border-success/50"
-                    />
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => onResolveLoop(loop.loop_id)}
-                        disabled={!resolveTexts[loop.loop_id]?.trim() || !!pendingOps[loop.loop_id]}
-                        className="flex-1 px-2 py-1 bg-status-success text-white hover:bg-emerald-600 disabled:opacity-50 text-[10px] rounded font-bold transition-colors"
-                      >
-                        Resolve
-                      </button>
-                      <button
-                        onClick={() => onCancelLoop(loop.loop_id)}
-                        disabled={!!pendingOps[loop.loop_id]}
-                        className="px-2 py-1 text-secondary hover:text-white text-[10px] transition-colors"
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
             </div>
           </CardContent>
         </Card>

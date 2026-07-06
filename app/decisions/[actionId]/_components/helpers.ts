@@ -29,12 +29,10 @@ export function getRiskColor(score: any) {
 export interface TimelineInputs {
   action: any;
   guardDecision: any;
-  messages: any[];
   assumptions: any[];
-  loops: any[];
 }
 
-export function buildTimelineEvents({ action, guardDecision, messages, assumptions, loops }: TimelineInputs) {
+export function buildTimelineEvents({ action, guardDecision, assumptions }: TimelineInputs) {
   if (!action) return [];
   const events: any[] = [];
 
@@ -46,15 +44,6 @@ export function buildTimelineEvents({ action, guardDecision, messages, assumptio
       data: guardDecision,
     });
   }
-
-  // Messages
-  messages.forEach(msg => {
-    events.push({
-      type: 'message',
-      timestamp: msg.created_at,
-      data: msg,
-    });
-  });
 
   // Action started
   if (action.timestamp_start) {
@@ -82,15 +71,6 @@ export function buildTimelineEvents({ action, guardDecision, messages, assumptio
       data: action,
     });
   }
-
-  // Open loops
-  loops.forEach(loop => {
-    events.push({
-      type: 'open_loop',
-      timestamp: loop.created_at || action.timestamp_end || action.timestamp_start,
-      data: loop,
-    });
-  });
 
   return events.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 }

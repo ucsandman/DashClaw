@@ -38,26 +38,6 @@ describe('policyFormModel', () => {
     });
   });
 
-  it('compiles semantic check state into the current route payload', () => {
-    const payload = compilePolicyPayload({
-      name: 'Protect system files',
-      type: 'semantic_check',
-      instruction: 'Do not allow the agent to delete files in /system.',
-      fallback: 'allow',
-      agentIds: [],
-    });
-
-    expect(payload).toEqual({
-      name: 'Protect system files',
-      policy_type: 'semantic_check',
-      rules: JSON.stringify({
-        instruction: 'Do not allow the agent to delete files in /system.',
-        fallback: 'allow',
-      }),
-      agent_ids: null,
-    });
-  });
-
   it('compiles non_fabrication state into the route payload', () => {
     const payload = compilePolicyPayload({
       name: 'No fabricated facts',
@@ -178,15 +158,6 @@ describe('policyFormModel', () => {
         agentIds: [],
       })
     ).toContain('guard.example.com');
-
-    expect(
-      buildPolicySummary({
-        type: 'semantic_check',
-        instruction: 'Do not allow deletion of system files.',
-        fallback: 'allow',
-        agentIds: [],
-      })
-    ).toContain('Do not allow deletion of system files');
   });
 });
 
@@ -259,13 +230,6 @@ describe('policyFormModel — full-type characterization', () => {
       .toEqual({ url: 'https://y.com', timeout_ms: 5000, on_timeout: 'require_approval' });
   });
 
-  it('compiles behavioral_anomaly (clamps similarity 0..1, min_history >=1)', () => {
-    expect(rulesOf({ type: 'behavioral_anomaly', similarityThreshold: 0.8, minHistory: 10, action: 'warn', agentIds: [] }))
-      .toEqual({ similarity_threshold: 0.8, min_history: 10, action: 'warn' });
-    expect(rulesOf({ type: 'behavioral_anomaly', similarityThreshold: 5, minHistory: 0, action: 'block', agentIds: [] }))
-      .toEqual({ similarity_threshold: 1, min_history: 5, action: 'block' });
-  });
-
   it('compiles permission_escalation', () => {
     expect(rulesOf({ type: 'permission_escalation', enforce: true, action: 'block', agentIds: [] }))
       .toEqual({ enforce: true, action: 'block' });
@@ -313,7 +277,7 @@ describe('policyFormModel — full-type characterization', () => {
     expect(Object.keys(parsed)).toEqual(['threshold', 'action', 'tests']);
   });
 
-  it('round-trips x402_spend_limit and behavioral_anomaly through decompile', () => {
+  it('round-trips x402_spend_limit through decompile', () => {
     const x402 = decompilePolicyForm({
       policy_type: 'x402_spend_limit',
       rules: JSON.stringify({ max_spend_usd: 25, approval_threshold: 10, allowed_providers: ['a'], blocked_providers: ['b'] }),
@@ -334,16 +298,6 @@ describe('policyFormModel — full-type characterization', () => {
     expect(budget.budgetApprovalThreshold).toBe(25);
     expect(budget.budgetWindowDays).toBe(7);
     expect(budget.budgetScope).toBe('agent');
-
-    const ba = decompilePolicyForm({
-      policy_type: 'behavioral_anomaly',
-      rules: JSON.stringify({ similarity_threshold: 0.9, min_history: 7, action: 'warn' }),
-      agent_ids: JSON.stringify(['agt_x']),
-    });
-    expect(ba.similarityThreshold).toBe(0.9);
-    expect(ba.minHistory).toBe(7);
-    expect(ba.action).toBe('warn');
-    expect(ba.agentIds).toEqual(['agt_x']);
   });
 
   it('summarizes every type with the correct action verb and scope', () => {
@@ -357,8 +311,6 @@ describe('policyFormModel — full-type characterization', () => {
       .toBe('Require approval for deploy actions when the branch is stale or diverged and more than 2 commits behind.');
     expect(buildPolicySummary({ type: 'protected_path', protectedPaths: ['auth/', 'x'], action: 'block', agentIds: [] }))
       .toBe('Block actions that touch 2 protected path patterns.');
-    expect(buildPolicySummary({ type: 'behavioral_anomaly', similarityThreshold: 0.75, minHistory: 5, action: 'block', agentIds: [] }))
-      .toContain('Block actions less than 75% similar');
     expect(buildPolicySummary({ type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['a'], blockedProviders: [], agentIds: [] }))
       .toBe('Govern x402 purchases: block purchases over $10, require approval at $5, only allow 1 provider.');
     expect(buildPolicySummary({ type: 'x402_spend_limit', budgetUsd: 50, budgetApprovalThreshold: 25, budgetWindowDays: 7, budgetScope: 'agent', agentIds: [] }))

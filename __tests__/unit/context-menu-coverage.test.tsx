@@ -70,11 +70,6 @@ describe('context-menu coverage — representative menus', () => {
     expect(ids).toEqual(expect.arrayContaining(['delete', 'open', 'copy-id']));
   });
 
-  it('prompt menu offers Delete + Copy ID', () => {
-    const ids = getActionsFor(ent('prompt', 'tpl_1')).map((i) => i.id);
-    expect(ids).toEqual(expect.arrayContaining(['delete', 'copy-id']));
-  });
-
   it('teamMember menu offers Remove + Copy ID', () => {
     const ids = getActionsFor(ent('teamMember', 'u_1')).map((i) => i.id);
     expect(ids).toEqual(expect.arrayContaining(['remove', 'copy-id']));
@@ -90,12 +85,6 @@ describe('context-menu coverage — representative menus', () => {
     const del = getActionsFor(ent('modelStrategy', 'str_9')).find((i) => i.id === 'delete');
     await del?.run(ctx(ent('modelStrategy', 'str_9')));
     expect(global.fetch).toHaveBeenCalledWith('/api/model-strategies/str_9', { method: 'DELETE' });
-  });
-
-  it('prompt delete calls DELETE /api/prompts/templates/:id', async () => {
-    const del = getActionsFor(ent('prompt', 'tpl_9')).find((i) => i.id === 'delete');
-    await del?.run(ctx(ent('prompt', 'tpl_9')));
-    expect(global.fetch).toHaveBeenCalledWith('/api/prompts/templates/tpl_9', { method: 'DELETE' });
   });
 
   it('teamMember remove calls DELETE /api/team/:id', async () => {

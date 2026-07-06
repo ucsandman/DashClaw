@@ -5,14 +5,10 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isDemoMode } from '../lib/isDemoMode';
 import {
-  Radar, Zap, ShieldAlert, Users, KeyRound,
-  Settings, BarChart3, Clock, PanelLeftClose,
-  PanelLeft, Menu, X, Activity, Shield, Microscope,
-  Terminal, TrendingUp, GraduationCap, Plug,
-  Download, Workflow, BookOpen, Wrench, Fingerprint, Bell, Inbox,
-  FlaskConical, ChevronDown, Stethoscope, ClipboardCheck, Lock, ShieldCheck,
-  LayoutDashboard, UserCog, Network, Award,
-  DollarSign, ShoppingCart, Gauge, AppWindow, ClipboardList, Code2, Crosshair,
+  Zap, ShieldAlert, KeyRound, Settings, Clock, PanelLeftClose,
+  PanelLeft, Menu, X, Activity, Shield, Microscope, Plug,
+  Fingerprint, Bell, FlaskConical, ChevronDown, Stethoscope,
+  ClipboardCheck, Crosshair,
 } from 'lucide-react';
 import DashClawLogo from './DashClawLogo';
 
@@ -20,8 +16,6 @@ interface NavItem {
   href: string;
   icon: React.ElementType;
   label: string;
-  /** Pop out into a small floating window (window.open) instead of navigating — used by the chrome-free /widget. */
-  popout?: boolean;
 }
 
 interface NavGroup {
@@ -31,74 +25,39 @@ interface NavGroup {
   headerIcon?: React.ElementType;
 }
 
+// The enforcement loop's front door: intercept → decide → approve → prove.
+// Approvals is the hero; Decisions is the audit ledger; Policies + Calibration
+// are the safety switches; the Configure group is auth/setup/health support.
 const navGroups: NavGroup[] = [
   {
     label: 'Govern',
     items: [
-      { href: '/mission-control', icon: Radar, label: 'Mission Control' },
-      { href: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { href: '/decisions', icon: Zap, label: 'Decisions' },
       { href: '/approvals', icon: Clock, label: 'Approvals' },
-      { href: '/work-orders', icon: ClipboardList, label: 'Work Orders' },
+      { href: '/decisions', icon: Zap, label: 'Decisions' },
       { href: '/policies', icon: Shield, label: 'Policies' },
       { href: '/calibration', icon: Crosshair, label: 'Calibration' },
-      { href: '/policy-coach', icon: ShieldCheck, label: 'Policy Coach' },
-      { href: '/posture', icon: Gauge, label: 'Posture' },
-      { href: '/agents', icon: Users, label: 'Fleet' },
-      { href: '/agents/registry', icon: Network, label: 'Registry' },
-      { href: '/capabilities', icon: Wrench, label: 'Capabilities' },
-    ],
-  },
-  {
-    label: 'Spend',
-    items: [
-      { href: '/spend', icon: DollarSign, label: 'Overview' },
-      { href: '/spend/x402', icon: ShoppingCart, label: 'Purchases' },
-      { href: '/spend/code', icon: Terminal, label: 'Your Claude Code' },
-    ],
-  },
-  {
-    label: 'Observe',
-    items: [
-      { href: '/reputation', icon: Award, label: 'Reputation' },
-      { href: '/security', icon: ShieldAlert, label: 'Security' },
-      { href: '/code-sessions', icon: Terminal, label: 'Code Sessions' },
-      { href: '/mission-control/codebase', icon: Code2, label: 'Codebase' },
-      { href: '/analytics', icon: TrendingUp, label: 'Analytics' },
-      { href: '/activity', icon: Activity, label: 'Activity' },
-      { href: '/widget', icon: AppWindow, label: 'Status Widget', popout: true },
-      { href: '/compliance', icon: Download, label: 'Compliance' },
     ],
   },
   {
     label: 'Configure',
     items: [
+      { href: '/setup', icon: ClipboardCheck, label: 'Setup' },
       { href: '/api-keys', icon: KeyRound, label: 'API Keys' },
+      { href: '/identities', icon: Fingerprint, label: 'Identities' },
       { href: '/integrations', icon: Plug, label: 'Integrations' },
       { href: '/webhooks', icon: Bell, label: 'Webhooks' },
-      { href: '/identities', icon: Fingerprint, label: 'Identities' },
-      { href: '/team', icon: UserCog, label: 'Team' },
-      { href: '/secrets', icon: Lock, label: 'Secrets' },
+      { href: '/security', icon: ShieldAlert, label: 'Security' },
       { href: '/doctor', icon: Stethoscope, label: 'Doctor' },
       { href: '/settings', icon: Settings, label: 'Settings' },
     ],
   },
   {
-    label: 'Labs',
+    label: 'More',
     collapsible: true,
     headerIcon: FlaskConical,
     items: [
       { href: '/assumptions', icon: Microscope, label: 'Assumptions' },
       { href: '/sessions', icon: Activity, label: 'Agent Sessions' },
-      { href: '/drift', icon: TrendingUp, label: 'Drift' },
-      { href: '/learning', icon: GraduationCap, label: 'Learning' },
-      { href: '/scoring', icon: BarChart3, label: 'Scoring' },
-      { href: '/evaluations', icon: ClipboardCheck, label: 'Evaluations' },
-      { href: '/prompts', icon: Terminal, label: 'Prompts' },
-      { href: '/messages', icon: Inbox, label: 'Messages' },
-      { href: '/workflows', icon: Workflow, label: 'Workflows' },
-      { href: '/knowledge', icon: BookOpen, label: 'Knowledge' },
-      { href: '/swarm', icon: Network, label: 'Swarm' },
     ],
   },
 ];
@@ -141,11 +100,8 @@ export default function Sidebar() {
   }, []);
 
   const isActive = (href: string) => {
-    if (href === '/mission-control') return pathname === '/mission-control' || pathname === '/';
-    // Fleet (/agents) must not also light up for the sibling /agents/registry route.
-    if (href === '/agents') return pathname === '/agents' || (pathname.startsWith('/agents/') && !pathname.startsWith('/agents/registry'));
-    // Spend overview must not also light up for sibling /spend/* routes.
-    if (href === '/spend') return pathname === '/spend';
+    // Approvals is the home/front door: also light up on the root path.
+    if (href === '/approvals') return pathname === '/approvals' || pathname === '/';
     return pathname.startsWith(href);
   };
 
@@ -157,16 +113,8 @@ export default function Sidebar() {
         key={item.href}
         href={item.href}
         aria-current={active ? 'page' : undefined}
-        onClick={(e) => {
-          if (item.popout) {
-            // Float the chrome-free widget instead of navigating the dashboard
-            // to it (or opening an awkward full browser tab).
-            e.preventDefault();
-            window.open(item.href, 'dashclaw-widget', 'popup,width=380,height=720');
-          }
-          setMobileOpen(false);
-        }}
-        title={item.popout ? `${item.label} (opens in a floating window)` : collapsed ? item.label : undefined}
+        onClick={() => setMobileOpen(false)}
+        title={collapsed ? item.label : undefined}
         className={`relative mb-0.5 flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors duration-150 ${
           active
             ? 'bg-brand-subtle text-white'
@@ -196,7 +144,7 @@ export default function Sidebar() {
             {!collapsed && <span className="text-lg font-semibold text-white">DashClaw</span>}
           </a>
         ) : (
-          <Link href="/mission-control" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
+          <Link href="/approvals" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <DashClawLogo size={20} />
             {!collapsed && <span className="text-lg font-semibold text-white">DashClaw</span>}
           </Link>

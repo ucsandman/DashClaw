@@ -4,9 +4,6 @@ import { render, cleanup, fireEvent, screen } from '@testing-library/react';
 // Render-pins for the Decision Replay tab components extracted in the
 // v4.72.0 decomposition. No jest-dom — assert via queries/textContent.
 
-vi.mock('@/components/MessageTrail', () => ({
-  TimelineMessage: ({ message }: any) => <div data-testid="timeline-message">{message.id}</div>,
-}));
 vi.mock('@/components/OutcomeBadge', () => ({ OutcomeBadge: () => null }));
 vi.mock('@/components/AgentDefenseCard', () => ({ default: () => null }));
 vi.mock('next/link', () => ({
@@ -35,35 +32,9 @@ const baseAction = {
 describe('ChronologicalTimeline', () => {
   it('shows the empty state without events', () => {
     const { container } = render(
-      <ChronologicalTimeline timelineEvents={[]} messages={[]} messageCorrelation="none" messageThreadName={null} />
+      <ChronologicalTimeline timelineEvents={[]} />
     );
     expect(container.textContent).toContain('No timeline events to display.');
-  });
-
-  it('labels time-window correlation as inferred', () => {
-    const { container } = render(
-      <ChronologicalTimeline
-        timelineEvents={[{ type: 'message', timestamp: '2026-07-01T10:01:00Z', data: { id: 'm1' } }]}
-        messages={[{ id: 'm1' }]}
-        messageCorrelation="time_window"
-        messageThreadName={null}
-      />
-    );
-    expect(container.textContent).toContain('inferred from timing');
-    expect(screen.getByTestId('timeline-message').textContent).toBe('m1');
-  });
-
-  it('labels explicit correlation and the thread name', () => {
-    const { container } = render(
-      <ChronologicalTimeline
-        timelineEvents={[]}
-        messages={[{ id: 'm1' }]}
-        messageCorrelation="explicit"
-        messageThreadName="release-thread"
-      />
-    );
-    expect(container.textContent).toContain('explicitly linked');
-    expect(container.textContent).toContain('release-thread');
   });
 
   it('renders guard, start, and outcome events', () => {
@@ -74,9 +45,6 @@ describe('ChronologicalTimeline', () => {
           { type: 'action_start', timestamp: '2026-07-01T10:00:00Z', data: baseAction },
           { type: 'outcome', timestamp: '2026-07-01T10:05:00Z', data: { ...baseAction, output_summary: 'It worked' } },
         ]}
-        messages={[]}
-        messageCorrelation="none"
-        messageThreadName={null}
       />
     );
     expect(container.textContent).toContain('ALLOW');
@@ -240,41 +208,16 @@ describe('EvidenceTab', () => {
 });
 
 describe('ReplaySidebar', () => {
-  it('renders identity and gates loop resolution on a reason', () => {
-    const onResolveLoop = vi.fn();
-    const { container, rerender } = render(
+  it('renders the decision identity', () => {
+    const { container } = render(
       <ReplaySidebar
         action={baseAction}
         defense={null}
         trace={null}
-        loops={[{ loop_id: 'l1', status: 'open', description: 'Follow up on export' }]}
-        pendingOps={{}}
-        resolveTexts={{}}
-        setResolveTexts={vi.fn()}
-        onResolveLoop={onResolveLoop}
-        onCancelLoop={vi.fn()}
       />
     );
     expect(container.textContent).toContain('act_test_1');
-    expect(container.textContent).toContain('Follow up on export');
-    const resolve = screen.getByText('Resolve') as HTMLButtonElement;
-    expect(resolve.disabled).toBe(true);
-
-    rerender(
-      <ReplaySidebar
-        action={baseAction}
-        defense={null}
-        trace={null}
-        loops={[{ loop_id: 'l1', status: 'open', description: 'Follow up on export' }]}
-        pendingOps={{}}
-        resolveTexts={{ l1: 'done via v4.72.0' }}
-        setResolveTexts={vi.fn()}
-        onResolveLoop={onResolveLoop}
-        onCancelLoop={vi.fn()}
-      />
-    );
-    fireEvent.click(screen.getByText('Resolve'));
-    expect(onResolveLoop).toHaveBeenCalledWith('l1');
+    expect(container.textContent).toContain('Test Agent');
   });
 
   it('links lineage entries to their decisions', () => {
@@ -283,12 +226,6 @@ describe('ReplaySidebar', () => {
         action={baseAction}
         defense={null}
         trace={{ parent_chain: [{ action_id: 'act_parent', declared_goal: 'Parent goal' }] }}
-        loops={[]}
-        pendingOps={{}}
-        resolveTexts={{}}
-        setResolveTexts={vi.fn()}
-        onResolveLoop={vi.fn()}
-        onCancelLoop={vi.fn()}
       />
     );
     const link = container.querySelector('a[href="/decisions/act_parent"]');

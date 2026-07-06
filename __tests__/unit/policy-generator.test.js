@@ -39,11 +39,10 @@ describe('parseGeneratedPolicies — structured {drafts, assumptions, clarificat
 });
 
 describe('buildSystemPrompt', () => {
-  it('documents the new policy types and the never-empty instruction', () => {
+  it('documents the policy types and the never-empty instruction', () => {
     const prompt = buildSystemPrompt();
     expect(prompt).toContain('protected_path');
-    expect(prompt).toContain('semantic_check');
-    expect(prompt).toContain('behavioral_anomaly');
+    expect(prompt).toContain('risk_threshold');
     expect(prompt).toMatch(/NEVER return an empty/i);
   });
 });

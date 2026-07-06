@@ -20,9 +20,7 @@ describe('no alert()/confirm() on the quality pages (repo error-pattern complian
 });
 
 describe('IA: one name per surface', () => {
-  it('sidebar says Scoring for /scoring; /scoring page title is Scoring', () => {
-    const sidebar = read('app', 'components', 'Sidebar.tsx');
-    expect(sidebar).toMatch(/href:\s*'\/scoring',\s*icon:\s*\w+,\s*label:\s*'Scoring'/);
+  it('/scoring page title is Scoring and both Labs surfaces carry Labs breadcrumbs', () => {
     const scoring = read('app', 'scoring', 'page.tsx');
     expect(scoring).toContain('title="Scoring"');
     // Both Labs surfaces carry Labs breadcrumbs (the old taxonomy said Operations).

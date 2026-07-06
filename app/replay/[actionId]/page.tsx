@@ -10,7 +10,6 @@ import {
 import { formatCost, formatTokens } from '../../lib/formatCost';
 import { Badge } from '../../components/ui/Badge';
 import { Card, CardContent } from '../../components/ui/Card';
-import CommunicationTrail from '../../components/CommunicationTrail';
 import { AgentDefenseBadges } from '../../components/AgentDefenseCard';
 import type { AgentDefense } from '../../lib/agent-defense';
 
@@ -405,9 +404,6 @@ export default function PublicReplayPage() {
                   )}
                 </div>
               </Link>
-
-              {/* Communication Trail */}
-              <CommunicationTrail actionId={action.action_id} actingAgentId={action.agent_id} />
 
               {/* 3. THE OUTCOME */}
               <div className="relative flex gap-6">

@@ -18,7 +18,7 @@ describe('buildTimelineEvents', () => {
 
   it('returns [] when action is missing', () => {
     expect(buildTimelineEvents({
-      action: null, guardDecision: null, messages: [], assumptions: [], loops: []
+      action: null, guardDecision: null, assumptions: []
     })).toEqual([]);
   });
 
@@ -26,32 +26,26 @@ describe('buildTimelineEvents', () => {
     const events = buildTimelineEvents({
       action,
       guardDecision: { created_at: '2026-07-01T09:59:00Z', decision: 'allow' },
-      messages: [{ id: 'm1', created_at: '2026-07-01T10:01:00Z' }],
       assumptions: [{ assumption_id: 'a1', created_at: '2026-07-01T10:02:00Z' }],
-      loops: [{ loop_id: 'l1', created_at: '2026-07-01T10:06:00Z' }],
     });
     expect(events.map(e => e.type)).toEqual([
-      'guard', 'action_start', 'message', 'assumption', 'outcome', 'open_loop',
+      'guard', 'action_start', 'assumption', 'outcome',
     ]);
   });
 
-  it('falls back to action timestamps when assumption/loop dates are missing', () => {
+  it('falls back to action timestamps when assumption dates are missing', () => {
     const events = buildTimelineEvents({
       action,
       guardDecision: null,
-      messages: [],
       assumptions: [{ assumption_id: 'a1' }],
-      loops: [{ loop_id: 'l1' }],
     });
     const assumption = events.find(e => e.type === 'assumption');
-    const loop = events.find(e => e.type === 'open_loop');
     expect(assumption?.timestamp).toBe(action.timestamp_start);
-    expect(loop?.timestamp).toBe(action.timestamp_end);
   });
 
   it('omits start/outcome events when the action has no timestamps', () => {
     const events = buildTimelineEvents({
-      action: {}, guardDecision: null, messages: [], assumptions: [], loops: []
+      action: {}, guardDecision: null, assumptions: []
     });
     expect(events).toEqual([]);
   });

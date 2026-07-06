@@ -21,7 +21,6 @@ import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
 import { useRealtime } from '../hooks/useRealtime';
-import MessageTrail from '../components/MessageTrail';
 import { OutcomeBadge } from '../components/OutcomeBadge';
 import { parseJsonArray } from '../lib/parseJson';
 import {
@@ -844,21 +843,6 @@ function DecisionsLedgerInner() {
 
                         {detail && (
                           <>
-                            {detail.open_loops?.length > 0 && (
-                              <div>
-                                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Open Loops · {detail.open_loops.length}</div>
-                                <div className="space-y-1">
-                                  {detail.open_loops.map((loop: any) => (
-                                    <div key={loop.loop_id} className="flex items-center gap-2 text-sm">
-                                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${loop.status === 'open' ? 'bg-status-warning' : 'bg-status-success'}`} />
-                                      <span className="text-secondary">{loop.description}</span>
-                                      <span className="text-[11px] text-tertiary">({loop.loop_type} · {loop.priority})</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
                             {detail.assumptions?.length > 0 && (
                               <div>
                                 <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">Assumptions · {detail.assumptions.length}</div>
@@ -877,13 +861,6 @@ function DecisionsLedgerInner() {
                               </div>
                             )}
 
-                            {detail.message_summary && (
-                              <MessageTrail
-                                actionId={action.action_id}
-                                summary={detail.message_summary}
-                                compact={true}
-                              />
-                            )}
                           </>
                         )}
 
