@@ -313,10 +313,12 @@ const res = await claw.guardedFetch(
 ```
 
 - `runGoverned(act, params, fn)` -- guard (with `act`) → `createAction` → if
-  `pending_approval` and `params.wait !== false`, `waitForApproval` → `fn()` →
-  one-shot outcome (`completed` on success, `failed` on throw). Throws
-  `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass
-  `wait: false` to skip blocking on approval and poll separately.
+  `pending_approval`, `waitForApproval` → `fn()` → one-shot outcome
+  (`completed` on success, `failed` on throw). Throws `GuardBlockedError` on
+  block, `ApprovalDeniedError` on denial. Pass `wait: false` to get an
+  `ApprovalPendingError` instead of blocking — `fn()` is never run while the
+  approval is pending; poll `waitForApproval(err.actionId)` and re-run once
+  approved.
 - `guardedFetch(url, init, params?)` -- `runGoverned()` wrapped around a real
   `fetch()`; derives `act: { kind: 'http', request: { method, url, body_excerpt } }`
   from `init`. `params.action_type` defaults to `'api'` — the type the server derives for http acts, so the call grades as evidence.
@@ -662,6 +664,7 @@ DashClaw uses standard HTTP status codes and custom error classes:
 
 - `GuardBlockedError` -- Thrown by **any** SDK call when the server returns HTTP 403 with `{ decision: { decision: 'block' } }`. Note that a successful `guard()` call returning `{ decision: 'block' }` in a **200** body does **not** throw — it just returns the decision object. Always check `decision.decision === 'block'` after `guard()` and throw `new GuardBlockedError(decision)` yourself if you want to abort early, as shown in the governance loop above.
 - `ApprovalDeniedError` -- Thrown by `waitForApproval()` when an operator denies the action (server sets `status` to `failed` or `cancelled`) or when the approval expires server-side (`status` becomes `expired`; check `err.status`).
+- `ApprovalPendingError` -- Thrown by `runGoverned(..., { wait: false })` when the decision is `require_approval`: the governed `fn()` is **never** executed while the approval is pending (`err.actionId` carries the action to poll). Call `waitForApproval(err.actionId)` and re-run once approved.
 
 ---
 

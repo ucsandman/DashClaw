@@ -11,7 +11,7 @@ import { getSql } from '../../db';
 import { getSetupStatus } from '../../setupStatus.mjs';
 import { upsertAgentPresence } from '../../repositories/agents.repository';
 import { createActionRecord } from '../../repositories/actions.repository';
-import { persistGuardDecision } from '../../guard';
+import { persistGuardDecision, evaluateGuard, invalidateGuardPolicyCache } from '../../guard';
 
 // The canary org satisfies the org_id foreign keys and isolates every canary
 // row from real org-scoped surfaces (posture, mining, rate_limit windows,
@@ -38,11 +38,12 @@ function check(id, status, title, message, fix = null) {
  * that table will produce the meaningful verdict.
  */
 async function sweepLeftovers(sql) {
-  for (const table of ['agent_presence', 'action_records', 'guard_decisions']) {
+  for (const table of ['agent_presence', 'action_records', 'guard_decisions', 'guard_policies']) {
     try {
       if (table === 'agent_presence') await sql`DELETE FROM agent_presence WHERE org_id = ${CANARY_ORG_ID}`;
       if (table === 'action_records') await sql`DELETE FROM action_records WHERE org_id = ${CANARY_ORG_ID}`;
       if (table === 'guard_decisions') await sql`DELETE FROM guard_decisions WHERE org_id = ${CANARY_ORG_ID}`;
+      if (table === 'guard_policies') await sql`DELETE FROM guard_policies WHERE org_id = ${CANARY_ORG_ID}`;
     } catch (err) {
       console.warn(`[Doctor] write-canary: leftover sweep of ${table} failed:`, err?.message || err);
     }
@@ -179,6 +180,47 @@ export async function runChecks({ env = process.env } = {}) {
       await sql`DELETE FROM guard_decisions WHERE id = ${decisionId} AND org_id = ${CANARY_ORG_ID}`;
     } catch (err) {
       console.warn('[Doctor] write-canary: guard_decisions cleanup failed:', err?.message || err);
+    }
+  }
+
+  // Enforcement canary — the check the others can't make: an ACTIVE policy
+  // actually flips a live decision. Inserts a block policy in the canary org,
+  // runs the REAL evaluateGuard (policy load → evaluation → decision → audit
+  // persist), and requires the decision to come back `block` with its audit
+  // row readable. "Policies configured" and "tables writable" can both pass
+  // while evaluation silently allows everything; only this proves enforcement.
+  const canaryPolicyId = `gp_doctor_canary_${runId}`;
+  try {
+    await sql`
+      INSERT INTO guard_policies (id, org_id, name, policy_type, rules, active)
+      VALUES (${canaryPolicyId}, ${CANARY_ORG_ID}, 'Doctor enforcement canary', 'block_action_type',
+              ${JSON.stringify({ action_types: ['doctor_canary_probe'] })}, 1)
+    `;
+    invalidateGuardPolicyCache(CANARY_ORG_ID);
+    const result = await evaluateGuard(CANARY_ORG_ID, {
+      agent_id: CANARY_AGENT_ID,
+      agent_name: 'Doctor write-path canary',
+      action_type: 'doctor_canary_probe',
+      declared_goal: 'Doctor enforcement canary probe (synthetic, deleted immediately)',
+      reversible: true,
+    }, sql);
+    if (result.decision !== 'block') {
+      throw new Error(`expected decision "block", got "${result.decision}"${result.degraded ? ' (evaluation was DEGRADED — fallback answered, not the policy pass)' : ''}`);
+    }
+    const auditRows = await sql`SELECT id FROM guard_decisions WHERE id = ${result.decision_id} AND org_id = ${CANARY_ORG_ID}`;
+    if (!auditRows || auditRows.length === 0) throw new Error('block decision returned but its audit row is not readable');
+    checks.push(check('canary_guard_enforcement', 'pass', 'Guard enforcement (end to end)',
+      'A live block policy was loaded, evaluated, enforced (decision: block), and audited — governance is actually governing.'));
+  } catch (err) {
+    checks.push(check('canary_guard_enforcement', 'fail', 'Guard enforcement (end to end)',
+      `Enforcement canary did NOT produce an audited block — active policies may not be enforcing: ${err?.message || err}`));
+  } finally {
+    try {
+      await sql`DELETE FROM guard_policies WHERE id = ${canaryPolicyId} AND org_id = ${CANARY_ORG_ID}`;
+      invalidateGuardPolicyCache(CANARY_ORG_ID);
+      await sql`DELETE FROM guard_decisions WHERE org_id = ${CANARY_ORG_ID}`;
+    } catch (err) {
+      console.warn('[Doctor] write-canary: enforcement canary cleanup failed:', err?.message || err);
     }
   }
 

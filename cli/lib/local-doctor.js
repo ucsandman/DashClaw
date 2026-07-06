@@ -365,6 +365,37 @@ async function checkHooksTrust(ctx) {
   return check('local_hooks_trust', 'local-machine', 'pass', 'DashClaw Claude hooks', `${commands.length} DashClaw hook(s) installed, scripts present`);
 }
 
+/**
+ * Standing enforcement-mode surface: `dashclaw install claude` writes
+ * DASHCLAW_HOOK_MODE=observe and announces it exactly once in the install
+ * output. Nothing else ever mentioned it again, so a deployment can sit in
+ * audit-only mode forever while the operator sees "Blocked by policy"-shaped
+ * log lines and believes blocks are real (observe prints "[observe] Would
+ * block" and lets the tool call proceed).
+ */
+async function checkHookMode(ctx) {
+  const envPath = join(ctx.homedir, '.dashclaw', 'claude-hooks', '.env');
+  let content;
+  try {
+    content = ctx.fs.readFileSync(envPath, 'utf8');
+  } catch {
+    return null; // installer-managed hooks not present — nothing to report
+  }
+  // Env vars override the file, same precedence the hooks apply.
+  const fileMode = (content.match(/^\s*DASHCLAW_HOOK_MODE\s*=\s*(\S+)/m) || [])[1];
+  const mode = (process.env.DASHCLAW_HOOK_MODE || fileMode || 'enforce').toLowerCase();
+  if (mode === 'enforce') {
+    return check('local_hook_mode', 'local-machine', 'pass', 'Hook enforcement mode', 'DASHCLAW_HOOK_MODE=enforce — policy blocks and approval gates physically stop tool calls');
+  }
+  return check(
+    'local_hook_mode',
+    'local-machine',
+    'warn',
+    'Hook enforcement mode',
+    `DASHCLAW_HOOK_MODE=${mode} — hooks LOG decisions but do not stop anything: a "block" lets the tool call proceed. Set DASHCLAW_HOOK_MODE=enforce in ${envPath} when you are ready to enforce.`,
+  );
+}
+
 /** DETECT-ONLY: deleting user env vars is not trivially safe. */
 async function checkEnvLeak(ctx) {
   const names = new Set();
@@ -450,7 +481,7 @@ export async function runLocalChecks(ctx) {
     }
   }
 
-  for (const runner of [checkCliShimStale, checkHooksTrust, checkEnvLeak]) {
+  for (const runner of [checkCliShimStale, checkHooksTrust, checkHookMode, checkEnvLeak]) {
     try {
       const result = await runner(ctx);
       if (result) checks.push(result);

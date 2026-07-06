@@ -20,6 +20,13 @@
  * that build breaks. Run install.ts directly to bootstrap when scripts ARE present.
  */
 import { spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
+
+// Not a git repo means an end user running `npm ci` on a release tarball
+// (`dashclaw up` does exactly this) — living-merge is contributor tooling,
+// so exit silently instead of narrating an internal script they can't need.
+// (`.git` is a dir in a clone and a file in a worktree; existsSync covers both.)
+if (!existsSync('.git')) process.exit(0);
 
 const r = spawnSync(process.execPath, ['--import', 'tsx', 'scripts/living-merge/install.ts'], { stdio: 'inherit' });
 if (r.error || r.status !== 0) {

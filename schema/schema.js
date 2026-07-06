@@ -661,6 +661,10 @@ export const guardDecisions = pgTable('guard_decisions', {
   evidence: text('evidence'),
   riskScore: integer('risk_score'),
   actionType: text('action_type'),
+  // Client idempotency key, denormalized out of context so the replay
+  // short-circuit is an indexed lookup instead of a jsonb-cast seq scan over
+  // the whole window (drizzle/0058). NULL when the caller sent no key.
+  idempotencyKey: text('idempotency_key'),
   createdAt: timestamp('created_at').defaultNow(),
   // True when the decision was finalized off a degradation path (deadline race
   // today). Detail lives in context._degraded; this column exists so the

@@ -10,6 +10,8 @@ const {
   mockHasAgentAction,
   mockInsertActionEmbedding,
   mockDeleteActionsByIds,
+  mockListActionIdsByFilter,
+  mockMaybeSweepLostOutcomes,
   mockGetActionByIdempotencyKey,
   mockEvaluateGuard,
   mockCheckQuotaFast,
@@ -33,6 +35,8 @@ const {
   mockHasAgentAction: vi.fn(),
   mockInsertActionEmbedding: vi.fn(),
   mockDeleteActionsByIds: vi.fn(),
+  mockListActionIdsByFilter: vi.fn(async () => []),
+  mockMaybeSweepLostOutcomes: vi.fn(async () => []),
   mockGetActionByIdempotencyKey: vi.fn(),
   mockEvaluateGuard: vi.fn(),
   mockCheckQuotaFast: vi.fn(),
@@ -64,6 +68,8 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   createBlockedActionRecord: mockCreateBlockedActionRecord,
   deleteActionsByIds: mockDeleteActionsByIds,
+  listActionIdsByFilter: mockListActionIdsByFilter,
+  maybeSweepLostOutcomes: mockMaybeSweepLostOutcomes,
   hasAgentAction: mockHasAgentAction,
   insertActionEmbedding: mockInsertActionEmbedding,
   getActionByIdempotencyKey: mockGetActionByIdempotencyKey,
@@ -645,6 +651,7 @@ describe('/api/actions DELETE', () => {
   });
 
   it('performs bulk delete with before filter', async () => {
+    mockListActionIdsByFilter.mockResolvedValue(['act_1', 'act_2']);
     mockSql.query.mockResolvedValue([{ action_id: 'act_1' }, { action_id: 'act_2' }]);
 
     const res = await DELETE(makeRequest('http://localhost/api/actions?before=2026-01-01', {
@@ -654,6 +661,20 @@ describe('/api/actions DELETE', () => {
     expect(res.status).toBe(200);
     const data = await res.json();
     expect(data.deleted).toBe(2);
+    // Write-ahead erasure audit: the target set is resolved before deleting.
+    expect(mockListActionIdsByFilter).toHaveBeenCalled();
+  });
+
+  it('fails closed: nothing is deleted when the erasure audit row cannot be written', async () => {
+    // The audit INSERT is the only tagged-sql call on this path; reject it.
+    mockSql.mockRejectedValueOnce(new Error('audit insert failed'));
+
+    const res = await DELETE(makeRequest('http://localhost/api/actions?action_id=act_1', {
+      headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+    }));
+
+    expect(res.status).toBe(500);
+    expect(mockDeleteActionsByIds).not.toHaveBeenCalled();
   });
 
   it('returns 500 on error', async () => {

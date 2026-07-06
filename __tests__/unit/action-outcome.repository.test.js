@@ -216,6 +216,85 @@ describe('sweepLostOutcomesForOrg', () => {
     expect(fullSql).toContain("'cancelled'");
     expect(fullSql).toContain("'blocked'");
   });
+
+  it('flips zombie lifecycle status to unknown in the primary UPDATE (running/pending/NULL only)', async () => {
+    const sql = makeSqlMock([[], []]);
+    await sweepLostOutcomesForOrg(sql, 'org_a', 15);
+    const fullSql = sql.mock.calls[0][0].join('');
+    // The ledger must stop implying in-flight work: swept rows still claiming
+    // running/pending flip to 'unknown'; other statuses are preserved by CASE.
+    expect(fullSql).toContain("'unknown'");
+    expect(fullSql).toMatch(/CASE\s+WHEN\s+status/i);
+    expect(fullSql).toContain("'running'");
+    expect(fullSql).toContain("'pending'");
+    // pending_approval is owned by the approvals expiry sweep — never flipped here.
+    expect(fullSql.match(/CASE[\s\S]*?END/i)?.[0] || '').not.toContain('pending_approval');
+  });
+
+  it('backfills legacy lost_confirmation rows still stuck in running (second UPDATE)', async () => {
+    const sql = makeSqlMock([[], [{ action_id: 'act_legacy' }]]);
+    await sweepLostOutcomesForOrg(sql, 'org_a', 15);
+    expect(sql.mock.calls.length).toBe(2);
+    const backfillSql = sql.mock.calls[1][0].join('');
+    expect(backfillSql).toContain("'lost_confirmation'");
+    expect(backfillSql).toContain("'unknown'");
+  });
+
+  it('a backfill failure never sinks the primary sweep result', async () => {
+    const queue = [[{ action_id: 'act_1' }]];
+    const sql = vi.fn(() => {
+      if (queue.length) return Promise.resolve(queue.shift());
+      return Promise.reject(new Error('backfill boom'));
+    });
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const rows = await sweepLostOutcomesForOrg(sql, 'org_a', 15);
+      expect(rows).toHaveLength(1);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+});
+
+describe('maybeSweepLostOutcomes (lazy throttled trigger)', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    const { __resetLostOutcomeSweepThrottle } = await import('../../app/lib/repositories/actions.repository.js');
+    __resetLostOutcomeSweepThrottle();
+  });
+
+  it('resolves the org timeout setting, sweeps, and throttles the second call', async () => {
+    const { maybeSweepLostOutcomes } = await import('../../app/lib/repositories/actions.repository.js');
+    // Queue: settings read → primary sweep UPDATE → backfill UPDATE.
+    const sql = makeSqlMock([
+      [{ value: '20' }],
+      [{ action_id: 'act_z1' }],
+      [],
+    ]);
+    const rows = await maybeSweepLostOutcomes(sql, 'org_throttle');
+    expect(rows).toHaveLength(1);
+    // The org's configured 20-minute timeout reached the sweep.
+    const sweepArgs = sql.mock.calls[1];
+    expect(sweepArgs).toContain(20);
+
+    // Second call inside the throttle window: no queries, empty result.
+    const callsBefore = sql.mock.calls.length;
+    const again = await maybeSweepLostOutcomes(sql, 'org_throttle');
+    expect(again).toEqual([]);
+    expect(sql.mock.calls.length).toBe(callsBefore);
+  });
+
+  it('falls back to the 15-minute default when the setting read fails', async () => {
+    const { maybeSweepLostOutcomes } = await import('../../app/lib/repositories/actions.repository.js');
+    let first = true;
+    const sql = vi.fn(() => {
+      if (first) { first = false; return Promise.reject(new Error('settings table missing')); }
+      return Promise.resolve([]);
+    });
+    await maybeSweepLostOutcomes(sql, 'org_fallback');
+    const sweepArgs = sql.mock.calls[1];
+    expect(sweepArgs).toContain(15);
+  });
 });
 
 describe('listOrgsWithStaleOutcomes', () => {

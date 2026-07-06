@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:9b714984daa0f0541dd2875133dd70e4b8a53308",
+  "timestamp": "sha1:ced15dd01e367f5fe26448dea3a5d74e7d919147",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3750,6 +3750,7 @@
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "scripts/auto-migrate.mjs",
+        "scripts/bench-guard-hotpath.mjs",
         "scripts/branch-finish.mjs",
         "scripts/collect-platform-convergence-evidence.mjs",
         "scripts/demo-agent.mjs",
@@ -3936,6 +3937,14 @@
         "mcp-server/lib/tools.js",
         "mcp-server/src/tools.ts",
         "mcp-server/test/tools-guard.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_HOOK_MODE",
+      "required": false,
+      "files": [
+        "cli/lib/local-doctor.js"
       ],
       "in_env_example": false
     },
@@ -5140,6 +5149,7 @@
       "name": "S",
       "required": false,
       "files": [
+        "cli/lib/up/db.js",
         "scripts/build-desktop-plugin.mjs"
       ],
       "in_env_example": false
@@ -6079,6 +6089,7 @@
     "lost_confirmation",
     "mcp_degraded",
     "message",
+    "observe_mode",
     "stale_action",
     "test"
   ]

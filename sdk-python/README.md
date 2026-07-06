@@ -390,7 +390,7 @@ act can't satisfy an Evidence Required policy.
 
 | Method | Description |
 |--------|-------------|
-| `run_governed(act, params, fn)` | guard (with `act`) -> `create_action` -> if pending_approval and `params.get("wait") is not False`, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to skip blocking on approval. |
+| `run_governed(act, params, fn)` | guard (with `act`) -> `create_action` -> if pending_approval, `wait_for_approval` -> `fn()` -> one-shot outcome (`completed` on success, `failed` on exception). Raises `GuardBlockedError` on block, `ApprovalDeniedError` on denial. Pass `params={"wait": False, ...}` to raise `ApprovalPendingError` instead of blocking — `fn()` is never run while the approval is pending; poll and re-run once approved. |
 
 **Client-side scrub.** Before an `act` is sent, `Authorization`/`Cookie`/`x-api-key`
 header values are stripped and `oc_live_*`/`sk-*`/`ghp_*`/`Bearer …` tokens and

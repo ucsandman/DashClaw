@@ -124,23 +124,44 @@ describe('runGoverned', () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it('skips waitForApproval when params.wait === false, and does not forward wait into guard/createAction', async () => {
+  it('wait: false on a pending approval throws ApprovalPendingError and NEVER runs fn (no silent approval bypass)', async () => {
     vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'require_approval' });
     vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'pending_approval' }, action_id: 'act_3' });
+    const waitSpy = vi.spyOn(claw, 'waitForApproval').mockResolvedValue({});
+    const outcomeSpy = vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
+    const fn = vi.fn().mockResolvedValue('ok');
+
+    await expect(
+      claw.runGoverned(
+        { kind: 'shell', command: 'rm x' },
+        { action_type: 'cleanup', declared_goal: 'g', wait: false },
+        fn,
+      )
+    ).rejects.toMatchObject({ name: 'ApprovalPendingError', actionId: 'act_3' });
+
+    expect(waitSpy).not.toHaveBeenCalled();
+    expect(fn).not.toHaveBeenCalled();
+    expect(outcomeSpy).not.toHaveBeenCalled();
+    expect(claw.guard.mock.calls[0][0]).not.toHaveProperty('wait');
+    expect(claw.createAction.mock.calls[0][0]).not.toHaveProperty('wait');
+  });
+
+  it('wait: false with an allow decision runs fn normally (no approval involved)', async () => {
+    vi.spyOn(claw, 'guard').mockResolvedValue({ decision: 'allow' });
+    vi.spyOn(claw, 'createAction').mockResolvedValue({ action: { status: 'running' }, action_id: 'act_3b' });
     const waitSpy = vi.spyOn(claw, 'waitForApproval').mockResolvedValue({});
     vi.spyOn(claw, 'reportActionOutcome').mockResolvedValue({});
     const fn = vi.fn().mockResolvedValue('ok');
 
-    await claw.runGoverned(
-      { kind: 'shell', command: 'rm x' },
+    const result = await claw.runGoverned(
+      { kind: 'shell', command: 'ls' },
       { action_type: 'cleanup', declared_goal: 'g', wait: false },
       fn,
     );
 
+    expect(result).toBe('ok');
     expect(waitSpy).not.toHaveBeenCalled();
     expect(fn).toHaveBeenCalledTimes(1);
-    expect(claw.guard.mock.calls[0][0]).not.toHaveProperty('wait');
-    expect(claw.createAction.mock.calls[0][0]).not.toHaveProperty('wait');
   });
 
   it('propagates ApprovalDeniedError without calling fn or reporting an outcome', async () => {

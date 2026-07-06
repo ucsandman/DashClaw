@@ -323,6 +323,42 @@ export function buildBranchStaleSignals(recentDecisions: Row[] | null): Signal[]
   return signals;
 }
 
+/**
+ * Observe-mode agents from recent guard decisions. The hook stamps its
+ * enforcement posture (enforcement_mode) on every guard call; an agent whose
+ * LATEST decision in the window says 'observe' has hooks that log blocks
+ * without stopping anything — the operator must see that standing state, not
+ * discover it during an incident. Rows are ordered newest-first, so the first
+ * decision seen per agent IS its latest; agents that flipped to enforce clear
+ * immediately. Decisions without the field (SDKs, MCP, older hooks) are
+ * "unreported", never counted as observe.
+ */
+export function buildObserveModeSignals(recentDecisions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  const seenAgents = new Set();
+  for (const dec of recentDecisions || []) {
+    if (!dec.agent_id || seenAgents.has(dec.agent_id)) continue;
+    seenAgents.add(dec.agent_id);
+    try {
+      const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
+      if (ctx?.enforcement_mode === 'observe') {
+        signals.push({
+          type: 'observe_mode',
+          severity: 'amber',
+          label: `Hooks in observe mode: ${dec.agent_id}`,
+          detail: `This agent's governance hooks are reporting decisions in OBSERVE mode — a "block" is logged but the tool call proceeds anyway.`,
+          help: 'Set DASHCLAW_HOOK_MODE=enforce in the agent\'s hook env (see `dashclaw doctor`) when you are ready for blocks and approval gates to physically stop tool calls.',
+          agent_id: dec.agent_id,
+          detected_at: dec.created_at || null,
+        });
+      }
+    } catch (e) {
+      console.warn(`[signals] observe_mode: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
+    }
+  }
+  return signals;
+}
+
 /** MCP server health from recent guard decisions with intel. */
 export function buildMcpDegradedSignals(recentMcpDecisions: Row[] | null): Signal[] {
   const signals: Signal[] = [];
@@ -377,7 +413,7 @@ export function buildGreenInsufficientSignals(greenDecisions: Row[] | null): Sig
 }
 
 /**
- * Compute all 18 risk signal types for an org.
+ * Compute all 19 risk signal types for an org.
  *
  * @param orgId
  * @param filterAgentId - optional agent filter
@@ -607,6 +643,13 @@ export async function computeSignals(
     signals.push(...buildBranchStaleSignals(recentDecisions));
   } catch (e) {
     console.warn('[signals] branch_stale category failed:', (e as Error)?.message || e);
+  }
+
+  // Rides on the same 1h recent-decisions batch as branch_stale — no extra query.
+  try {
+    signals.push(...buildObserveModeSignals(recentDecisions));
+  } catch (e) {
+    console.warn('[signals] observe_mode category failed:', (e as Error)?.message || e);
   }
 
   try {

@@ -14,12 +14,16 @@ const {
   mockUpsertAgentPresence,
   mockCreateActionRecord,
   mockPersistGuardDecision,
+  mockEvaluateGuard,
+  mockInvalidateGuardPolicyCache,
 } = vi.hoisted(() => ({
   mockGetSetupStatus: vi.fn(),
   mockGetSql: vi.fn(),
   mockUpsertAgentPresence: vi.fn(),
   mockCreateActionRecord: vi.fn(),
   mockPersistGuardDecision: vi.fn(),
+  mockEvaluateGuard: vi.fn(),
+  mockInvalidateGuardPolicyCache: vi.fn(),
 }));
 
 vi.mock('@/lib/setupStatus.mjs', () => ({ getSetupStatus: mockGetSetupStatus }));
@@ -30,7 +34,11 @@ vi.mock('@/lib/repositories/agents.repository', () => ({
 vi.mock('@/lib/repositories/actions.repository', () => ({
   createActionRecord: mockCreateActionRecord,
 }));
-vi.mock('@/lib/guard', () => ({ persistGuardDecision: mockPersistGuardDecision }));
+vi.mock('@/lib/guard', () => ({
+  persistGuardDecision: mockPersistGuardDecision,
+  evaluateGuard: mockEvaluateGuard,
+  invalidateGuardPolicyCache: mockInvalidateGuardPolicyCache,
+}));
 
 import { runChecks, CANARY_ORG_ID } from '@/lib/doctor/checks/write-canary.mjs';
 
@@ -63,6 +71,7 @@ function healthyMocks(sql) {
   mockUpsertAgentPresence.mockResolvedValue([{ org_id: CANARY_ORG_ID, agent_id: 'doctor_write_canary' }]);
   mockCreateActionRecord.mockResolvedValue({ action_id: 'act_doctor_canary_x' });
   mockPersistGuardDecision.mockResolvedValue(undefined);
+  mockEvaluateGuard.mockResolvedValue({ decision: 'block', decision_id: 'act_gd_canary' });
 }
 
 beforeEach(() => vi.clearAllMocks());
@@ -88,6 +97,7 @@ describe('doctor/checks/write-canary', () => {
       'canary_agent_presence',
       'canary_action_records',
       'canary_guard_decisions',
+      'canary_guard_enforcement',
     ]);
     expect(checks.every((c) => c.category === 'write-canary')).toBe(true);
     expect(checks.every((c) => c.status === 'pass')).toBe(true);
@@ -171,6 +181,36 @@ describe('doctor/checks/write-canary', () => {
     expect(checks[0].status).toBe('fail');
     expect(mockUpsertAgentPresence).not.toHaveBeenCalled();
     expect(mockCreateActionRecord).not.toHaveBeenCalled();
+  });
+
+  it('fails the enforcement canary when the live block policy does not produce a block', async () => {
+    const sql = makeSqlMock();
+    healthyMocks(sql);
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', decision_id: 'act_gd_canary' });
+
+    const checks = await runChecks({ env: { DATABASE_URL: 'postgres://test' } });
+
+    const enforcement = checks.find((c) => c.id === 'canary_guard_enforcement');
+    expect(enforcement.status).toBe('fail');
+    expect(enforcement.message).toMatch(/expected decision "block"/i);
+    // The canary policy is cleaned up and the policy cache invalidated even on failure.
+    expect(sql.calls.some((c) => /DELETE FROM guard_policies/i.test(c.text))).toBe(true);
+    expect(mockInvalidateGuardPolicyCache).toHaveBeenCalledWith(CANARY_ORG_ID);
+  });
+
+  it('passes the enforcement canary when the block decision lands and its audit row reads back', async () => {
+    const sql = makeSqlMock();
+    healthyMocks(sql);
+
+    const checks = await runChecks({ env: { DATABASE_URL: 'postgres://test' } });
+
+    const enforcement = checks.find((c) => c.id === 'canary_guard_enforcement');
+    expect(enforcement.status).toBe('pass');
+    expect(mockEvaluateGuard).toHaveBeenCalledWith(
+      CANARY_ORG_ID,
+      expect.objectContaining({ action_type: 'doctor_canary_probe' }),
+      sql,
+    );
   });
 
   it('still passes when only the post-verify cleanup DELETE fails (write was proven)', async () => {

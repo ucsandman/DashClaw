@@ -5,6 +5,7 @@ import { NextResponse, after } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { logActivity } from '../../../lib/audit';
+import { apiErrorResponse } from '../../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
 import { redactAny } from '../../../lib/security';
 import {
@@ -146,11 +147,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         .catch((err: unknown) => console.error('[APPROVAL] x402 deny reconcile failed:', (err as Error)?.message));
     }
 
-    logActivity({
+    // after(): the approve/deny audit row is governance evidence (who resolved
+    // the gate). A bare fire-and-forget insert can be dropped when the lambda
+    // freezes at response time on Vercel; after() keeps it alive to completion.
+    after(() => logActivity({
       orgId, actorId: userId, action: `action.${decision}ed`,
       resourceType: 'action', resourceId: actionId,
       details: { decision, reasoning }, request,
-    }, sql);
+    }, sql));
 
     // Emit event for real-time updates
     void publishOrgEvent(EVENTS.ACTION_UPDATED, {
@@ -186,7 +190,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
     });
 
   } catch (error) {
-    console.error('[APPROVAL] POST error:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    // Classified handler: a stale schema / dead DB on the approval path must
+    // answer with the honest SCHEMA_NOT_INITIALIZED / DB_CONNECTION_FAILED
+    // shape every other governance route uses — not an anonymous 500 that
+    // sends the operator debugging the wrong layer.
+    return apiErrorResponse(error, 'APPROVAL POST');
   }
 }

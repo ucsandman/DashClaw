@@ -13,6 +13,71 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.73.0] — 2026-07-06
+
+Two work streams in one release: a measured performance pass over the
+governed-action hot path, and a silent-failure hardening sweep across every
+client surface (SDKs, hooks, MCP server, CLI, doctor).
+
+### Performance
+- **Guard hot-path latency: the single hook call (`POST /api/guard?record=true`)
+  dropped p50 221→124ms / p95 263→185ms (−44% / −30%) on a 10ms-RTT database**
+  (local-Postgres self-host: ~7ms p50). The cost was sequential DB round trips,
+  not any single query; independent reads now overlap:
+  - the record path's gate reads (idempotency row, org plan, quota meter) run
+    concurrently with the replay lookup and the evaluation;
+  - the learning-context read overlaps the mandatory audit persist (the persist
+    is still awaited and still fail-closed — no decision is ever returned
+    unaudited);
+  - the org-halt check runs concurrently with the idempotent-replay lookup, and
+    policy + risk-template loads run concurrently on cold caches;
+  - `POST /api/actions` batches its four independent gate reads into one wait
+    (the idempotent-replay gate stays serial: a replayed key still does no
+    other work).
+- **`guard_decisions.idempotency_key` column + partial index (drizzle/0058)**
+  replaces the idempotent-replay lookup's per-row `context::jsonb` seq scan
+  over the 10-minute window — measured 3.05ms → 0.038ms at ~1k window rows,
+  and the cost no longer grows with fleet decision volume. Deploy-before-migrate
+  is safe in both directions: the audit INSERT retries with the legacy column
+  list on 42703 and the lookup falls back to the jsonb scan, so an unmigrated
+  instance keeps working and keeps replay dedupe. Run `npm run db:migrate`
+  after pulling.
+- The guard route now emits a **`Server-Timing` response header**
+  (`replay`/`eval`/`record`/`total`) so stage latency is observable per call
+  from any client or browser devtools. Response bodies are unchanged.
+- **New: `scripts/bench-guard-hotpath.mjs`** — a repeatable hot-path benchmark
+  against any running instance: six scenarios (simple allow, the hook path,
+  idempotent replay, approval-gated decision, standalone record, health floor),
+  p50/p90/p95/p99 per scenario plus the Server-Timing stage split, and
+  `--assert scenario:stat:ms` regression gates that exit non-zero so a future
+  slowdown is caught by a gate, not a user.
+
+### Fixed
+- **`runGoverned(..., { wait: false })` was a silent approval bypass** in both
+  SDKs: when a decision came back `require_approval`, the governed work ran
+  anyway with the approval still pending. Both SDKs now throw
+  `ApprovalPendingError` instead (the work is never executed while approval is
+  pending); poll `waitForApproval` and re-run once approved.
+- **A guard decision that cannot be durably audited now answers an honest 503**
+  (`GUARD_AUDIT_PERSIST_FAILED`, with `/setup` pointer) instead of a generic
+  500 — callers can tell "governance is degraded" apart from an ordinary error.
+- **MCP server: a post-execution audit-write failure no longer rewrites
+  execution truth.** When the governed work ran but the local audit append
+  failed, the result now carries `audit_error` alongside the truthful execution
+  outcome instead of misreporting the run as failed (or staying silent).
+- Silent-failure sweep across the pretool/posttool/stop hooks, CLI local
+  doctor, doctor checks, and repositories: swallowed exceptions now surface as
+  loud, classified errors with actionable messages.
+
+### Added
+- **Enforcement-posture attribution**: the pretool hook reports
+  `enforcement_mode` (`enforce` vs `observe`) on every guard call, persisted
+  with the decision — the dashboard and doctor can now show when an agent's
+  blocks are logged but not actually enforced (the failure mode behind the
+  v4.72.1 incident).
+- `/decisions` renders the server-reconciled `unknown` outcome state (zombie
+  actions whose outcome never arrived within the stale-outcome window).
+
 ## [4.72.1] — 2026-07-06
 
 **Enforcement fix: the Claude Code pretool hook was being cancelled by the

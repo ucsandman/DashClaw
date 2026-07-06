@@ -169,22 +169,52 @@ export async function getGuardDecisionByIdempotencyKey(
   idempotencyKey: string | null | undefined,
 ): Promise<Row | null> {
   if (!idempotencyKey) return null;
+  // created_at is TEXT on fresh drizzle-chain installs (drizzle/0000) and
+  // timestamp on setup/migrate installs — the cast is the one form that
+  // works on both. Bare `created_at >` raises 42883 on TEXT, the catch
+  // below returns null, and idempotency silently never fires.
+  // Column list is exactly what the replay response builder consumes —
+  // SELECT * here shipped the full context/evidence blobs (KBs per row)
+  // on every hook call for nothing.
+  const columns = `id, decision, reason, risk_score, matched_policies,
+              verification_status, agent_id, agent_name, created_at`;
   try {
-    // created_at is TEXT on fresh drizzle-chain installs (drizzle/0000) and
-    // timestamp on setup/migrate installs — the cast is the one form that
-    // works on both. Bare `created_at >` raises 42883 on TEXT, the catch
-    // below returns null, and idempotency silently never fires.
+    // Fast path (drizzle/0058): the key is a real column served by a partial
+    // index — the previous context::jsonb->>'idempotency_key' predicate was a
+    // per-row jsonb-cast seq scan over the whole window, on every hook call.
     const rows = await sql.query(
-      `SELECT * FROM guard_decisions
+      `SELECT ${columns}
+       FROM guard_decisions
        WHERE org_id = $1
+         AND idempotency_key = $2
          AND created_at::timestamptz > NOW() - INTERVAL '10 minutes'
-         AND context::jsonb->>'idempotency_key' = $2
        ORDER BY created_at::timestamptz DESC
        LIMIT 1`,
       [orgId, idempotencyKey]
     );
     return rows[0] || null;
   } catch (err) {
+    // 42703 = the idempotency_key column doesn't exist yet (deploy ahead of
+    // migration). Fall back to the legacy jsonb-extract scan so replay
+    // dedupe keeps working until db:migrate runs.
+    if ((err as { code?: string }).code === '42703') {
+      try {
+        const rows = await sql.query(
+          `SELECT ${columns}
+           FROM guard_decisions
+           WHERE org_id = $1
+             AND created_at::timestamptz > NOW() - INTERVAL '10 minutes'
+             AND context::jsonb->>'idempotency_key' = $2
+           ORDER BY created_at::timestamptz DESC
+           LIMIT 1`,
+          [orgId, idempotencyKey]
+        );
+        return rows[0] || null;
+      } catch (fallbackErr) {
+        console.warn('[Guard] idempotency replay lookup failed (re-evaluating):', (fallbackErr as Error).message);
+        return null;
+      }
+    }
     console.warn('[Guard] idempotency replay lookup failed (re-evaluating):', (err as Error).message);
     return null;
   }

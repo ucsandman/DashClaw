@@ -4,7 +4,7 @@ export const revalidate = 0;
 import crypto from 'node:crypto';
 import { NextResponse, after } from 'next/server';
 import { getOrgId, getUserId } from '../../lib/org';
-import { validateGuardInput, boundedIdField } from '../../lib/validate';
+import { validateGuardInput, boundedIdField, enforcementModeField } from '../../lib/validate';
 import { evaluateGuard, getOrgHaltState } from '../../lib/guard';
 import { getSql } from '../../lib/db';
 import { apiErrorResponse } from '../../lib/apiErrors';
@@ -31,12 +31,38 @@ type GuardResult = { decision: string; risk_score?: number; decision_id?: string
  * governed hook needs ONE HTTP call instead of guard + record. Additive — the
  * response without the param is unchanged.
  */
+/**
+ * The record path's three gate reads (idempotency row, org plan, quota meter)
+ * depend only on the request payload — never on the guard decision — so the
+ * route starts them concurrently with the evaluation and passes the settled
+ * result in. The reads themselves, and the order their results are applied,
+ * are identical to the previous inline sequence; only the wall-clock overlap
+ * changed. Quota was already eventually-consistent (meters increment in
+ * after()), so reading it a few tens of ms earlier weakens nothing.
+ */
+interface PreparedRecordReads {
+  existing: Record<string, unknown> | null;
+  quotaAllowed: boolean;
+}
+
+async function prepareRecordReads(sql: GuardSql, orgId: string, data: GuardData): Promise<PreparedRecordReads> {
+  const [existing, plan] = await Promise.all([
+    typeof data.idempotency_key === 'string' && data.idempotency_key
+      ? getActionByIdempotencyKey(sql, orgId, data.idempotency_key)
+      : Promise.resolve(null),
+    getOrgPlan(orgId, sql),
+  ]);
+  const quota = await checkQuotaFast(orgId, 'actions_per_month', plan, sql);
+  return { existing: existing as Record<string, unknown> | null, quotaAllowed: quota.allowed };
+}
+
 async function recordRunningAction(
   sql: GuardSql,
   orgId: string,
   data: GuardData,
   result: GuardResult,
   createdBy: string | null,
+  prepared?: Promise<PreparedRecordReads | null> | null,
 ): Promise<{ recorded: boolean; action_id?: string; reason?: string }> {
   // Mirrors the two-call flow: the hook never records a blocked action
   // (the guard_decisions audit row already captures the block).
@@ -45,20 +71,17 @@ async function recordRunningAction(
     return { recorded: false, reason: 'agent_id and declared_goal are required to record an action' };
   }
 
+  const reads = (prepared ? await prepared : null) ?? await prepareRecordReads(sql, orgId, data);
+
   // Idempotency short-circuit, mirroring POST /api/actions: a retried call
   // returns the existing row instead of inserting a duplicate.
-  if (typeof data.idempotency_key === 'string' && data.idempotency_key) {
-    const existing = await getActionByIdempotencyKey(sql, orgId, data.idempotency_key);
-    if (existing) {
-      return { recorded: true, action_id: String(existing.action_id ?? existing.id) };
-    }
+  if (reads.existing) {
+    return { recorded: true, action_id: String(reads.existing.action_id ?? reads.existing.id) };
   }
 
   // Same quota gate POST /api/actions applies — record=true must not bypass
   // plan or hosted-trial caps.
-  const plan = await getOrgPlan(orgId, sql);
-  const quota = await checkQuotaFast(orgId, 'actions_per_month', plan, sql);
-  if (!quota.allowed) return { recorded: false, reason: 'Monthly action limit exceeded' };
+  if (!reads.quotaAllowed) return { recorded: false, reason: 'Monthly action limit exceeded' };
 
   // Same redaction POST /api/actions applies before persisting.
   const record: Record<string, unknown> = { ...data };
@@ -128,7 +151,7 @@ async function tryIdempotentReplay(
   sql: GuardSql,
   orgId: string,
   data: GuardData,
-  opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null },
+  opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null; prepared?: Promise<PreparedRecordReads | null> | null },
 ): Promise<NextResponse | null> {
   if (typeof data.idempotency_key !== 'string' || !data.idempotency_key) return null;
 
@@ -139,8 +162,13 @@ async function tryIdempotentReplay(
   // action carrying a matching idempotency_key would be served its cached
   // pre-halt decision for up to the replay window. (Same cached settings
   // read evaluateGuard uses, so /api/halt's eager invalidation still wins.)
-  const orgHalted = !!(await getOrgHaltState(sql, orgId))?.halted;
-  const prior = orgHalted ? null : await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
+  // The two lookups are independent reads; the halt verdict is applied to the
+  // lookup result exactly as before, so a halted org still never replays.
+  const [haltState, priorRow] = await Promise.all([
+    getOrgHaltState(sql, orgId),
+    getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key),
+  ]);
+  const prior = haltState?.halted ? null : priorRow;
   if (!prior) return null;
 
   let priorPolicies: unknown[] = [];
@@ -164,7 +192,7 @@ async function tryIdempotentReplay(
     try {
       // recordRunningAction short-circuits on the existing action row;
       // when the prior record attempt failed it heals by creating one.
-      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, opts.createdBy);
+      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, opts.createdBy, opts.prepared);
       replay.recorded = rec.recorded;
       if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
       else if (rec.reason) replay.recorded_error = rec.reason;
@@ -231,7 +259,19 @@ async function attachAssumptionAlerts(
  * Provider-agnostic: works with any OIDC issuer (Keycloak, Auth0, AgentLair,
  * etc.) — see docs/agent-identity.md for setup examples.
  */
+// Route-level stage timings exposed as a standard Server-Timing header so a
+// benchmark (scripts/bench-guard-hotpath.mjs) or browser devtools can split
+// the caller-observed latency into replay-lookup / evaluation / record without
+// touching the response body. Durations are attached to every success path.
+function serverTimingHeader(stages: Record<string, number>): string {
+  return Object.entries(stages)
+    .map(([name, dur]) => `${name};dur=${Math.max(0, Math.round(dur))}`)
+    .join(', ');
+}
+
 export async function POST(request: Request) {
+  const stageTimings: Record<string, number> = {};
+  const routeStart = Date.now();
   try {
     const orgId = getOrgId(request);
     let body;
@@ -250,6 +290,10 @@ export async function POST(request: Request) {
     // guard evaluation — these are attribution-only fields.
     data.harness_session_id = boundedIdField(body?.harness_session_id);
     data.subagent_uuid = boundedIdField(body?.subagent_uuid);
+    // Client enforcement posture (attribution-only, like the fleet fields
+    // above): rides in the persisted decision context so signals/doctor can
+    // surface agents whose hooks observe but do not enforce.
+    data.enforcement_mode = enforcementModeField(body?.enforcement_mode);
 
     // SECURITY: Block prompt injection patterns in declared_goal (per D-04)
     const goalText = data.declared_goal || '';
@@ -310,12 +354,30 @@ export async function POST(request: Request) {
     // short (10 min, see repository): dedupe absorbs retries, not policy
     // changes. Lookup failures fall through to a normal evaluation.
     const recordParam = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true';
+
+    // Record-path gate reads (idempotency row, org plan, quota meter) depend
+    // only on the request payload, never on the decision — start them now so
+    // they overlap the replay lookup and the evaluation instead of running
+    // serially after them. A failed prepare resolves null and the record path
+    // falls back to its inline reads; the catch also keeps an abandoned
+    // prepare (early-return paths) from surfacing as an unhandled rejection.
+    const preparedRecordReads = recordParam
+      ? prepareRecordReads(sql, orgId, data).catch(() => null)
+      : null;
+
+    const replayStart = Date.now();
     const replayResponse = await tryIdempotentReplay(sql, orgId, data, {
       secretScan,
       recordParam,
       createdBy: getUserId(request) || null,
+      prepared: preparedRecordReads,
     });
-    if (replayResponse) return replayResponse;
+    stageTimings.replay = Date.now() - replayStart;
+    if (replayResponse) {
+      stageTimings.total = Date.now() - routeStart;
+      replayResponse.headers.set('Server-Timing', serverTimingHeader(stageTimings));
+      return replayResponse;
+    }
 
     const includeSignals = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('include_signals') === 'true';
 
@@ -325,10 +387,12 @@ export async function POST(request: Request) {
       computeSignalsFn = computeSignals;
     }
 
+    const evalStart = Date.now();
     const result = await evaluateGuard(orgId, data, sql, {
       includeSignals,
       computeSignals: computeSignalsFn as unknown as NonNullable<Parameters<typeof evaluateGuard>[3]>['computeSignals'],
     });
+    stageTimings.eval = Date.now() - evalStart;
 
     if (secretScan) (result as Record<string, unknown>).secret_scan = secretScan;
 
@@ -339,8 +403,9 @@ export async function POST(request: Request) {
     // the param the response is byte-identical to the pre-record behavior.
     if (recordParam) {
       const mutable = result as Record<string, unknown>;
+      const recordStart = Date.now();
       try {
-        const rec = await recordRunningAction(sql, orgId, data, result, getUserId(request) || null);
+        const rec = await recordRunningAction(sql, orgId, data, result, getUserId(request) || null, preparedRecordReads);
         mutable.recorded = rec.recorded;
         if (rec.recorded && rec.action_id) {
           mutable.action_id = rec.action_id;
@@ -352,9 +417,14 @@ export async function POST(request: Request) {
         mutable.recorded = false;
         mutable.recorded_error = 'Failed to create action record';
       }
+      stageTimings.record = Date.now() - recordStart;
     }
 
-    return NextResponse.json(result, { status: 200 });
+    stageTimings.total = Date.now() - routeStart;
+    return NextResponse.json(result, {
+      status: 200,
+      headers: { 'Server-Timing': serverTimingHeader(stageTimings) },
+    });
   } catch (err) {
     return apiErrorResponse(err, 'GUARD POST');
   }

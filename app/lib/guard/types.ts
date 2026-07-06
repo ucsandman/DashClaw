@@ -124,6 +124,8 @@ export interface GuardDecisionInsert {
   evidence: string | null;
   riskScore: number;
   actionType: string | null;
+  /** Client idempotency key, denormalized for the indexed replay lookup (drizzle/0058). */
+  idempotencyKey: string | null;
   createdAt: string;
   degraded: boolean;
 }

@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:9b714984daa0f0541dd2875133dd70e4b8a53308`
+**Shape snapshot:** `sha1:ced15dd01e367f5fe26448dea3a5d74e7d919147`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **287** active API routes across **72** categories (335 total including archived)
-- **4** required + **194** optional environment variables
+- **4** required + **195** optional environment variables
 - **109** database tables
 
 ## API Surface
@@ -559,7 +559,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 84 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 85 file(s)
 - **`DATABASE_URL`** - referenced in 109 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
@@ -613,6 +613,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_GUARD_DEADLINE_MS` *(undocumented)*
 - `DASHCLAW_GUARD_FALLBACK` *(undocumented)*
 - `DASHCLAW_GUARD_UNAVAILABLE_POLICY` *(undocumented)*
+- `DASHCLAW_HOOK_MODE` *(undocumented)*
 - `DASHCLAW_HOSTED` *(undocumented)*
 - `DASHCLAW_HTTP_RETRIES` *(undocumented)*
 - `DASHCLAW_HTTP_RETRY_BASE_MS` *(undocumented)*
@@ -892,6 +893,7 @@ These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNa
 - `lost_confirmation`
 - `mcp_degraded`
 - `message`
+- `observe_mode`
 - `stale_action`
 - `test`
 

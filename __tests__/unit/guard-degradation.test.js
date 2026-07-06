@@ -234,8 +234,10 @@ describe('guard degradation contract', () => {
     function guardInsert(sql) {
       const call = sql.taggedCalls.find((c) => c.text.includes('INSERT INTO guard_decisions'));
       expect(call).toBeTruthy();
-      // Values order mirrors persistGuardDecision's INSERT column list.
-      return { context: JSON.parse(call.values[12]), degraded: call.values[17], result: call };
+      // Values order mirrors persistGuardDecision's INSERT column list
+      // (idempotency_key landed at index 16 in drizzle/0058, shifting
+      // created_at/degraded right by one).
+      return { context: JSON.parse(call.values[12]), degraded: call.values[18], result: call };
     }
 
     it('deadline degradation persists degraded=true, context._degraded, and _timings', async () => {

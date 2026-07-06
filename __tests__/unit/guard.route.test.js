@@ -9,7 +9,7 @@ const { mockSql, mockValidateGuardInput, mockEvaluateGuard, mockListGuardDecisio
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
+vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null), enforcementModeField: (v) => (typeof v === 'string' && ['enforce', 'observe', 'warn', 'off'].includes(v.trim().toLowerCase()) ? v.trim().toLowerCase() : null) }));
 vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({ listGuardDecisions: mockListGuardDecisions }));
 // Phase 2b: stub the replay store. Without this mock the route would call
@@ -141,7 +141,7 @@ describe('/api/guard', () => {
       expect(mockEvaluateGuard).toHaveBeenCalledWith(
         'org_1',
         // verification_status defaults to 'unverified' when no Authorization header is provided (Phase 2)
-        { action_type: 'read', verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null },
+        { action_type: 'read', verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, enforcement_mode: null },
         mockSql,
         { includeSignals: true, computeSignals: expect.any(Function) }
       );
@@ -158,7 +158,7 @@ describe('/api/guard', () => {
       expect(mockEvaluateGuard).toHaveBeenCalledWith(
         'org_42',
         // verification_status defaults to 'unverified' when no Authorization header is provided (Phase 2)
-        { action_type: 'deploy', risk_score: 50, verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null },
+        { action_type: 'deploy', risk_score: 50, verification_status: 'unverified', replay_status: 'not_applicable', jti: null, act_status: 'not_applicable', act_hash: null, harness_session_id: null, subagent_uuid: null, enforcement_mode: null },
         mockSql,
         { includeSignals: false, computeSignals: null },
       );

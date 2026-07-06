@@ -28,7 +28,7 @@ import {
   Zap, Hammer, Rocket, FileText, Briefcase, Shield, MessageSquare,
   Link as LinkIcon, Calendar, Search, Eye, Wrench, RefreshCw, FlaskConical,
   Settings, Radio, AlertTriangle, Trash2, Package, Inbox,
-  CheckCircle2, XCircle, Clock, Loader2, Ban,
+  CheckCircle2, XCircle, Clock, Loader2, Ban, HelpCircle,
   ChevronUp, ChevronDown, ChevronLeft, ChevronRight, RotateCw,
   ShieldCheck, ShieldAlert, ExternalLink, Info,
   Square, CheckSquare,
@@ -43,6 +43,9 @@ const typeIconMap: Record<string, React.ElementType> = {
 
 const statusIconMap: Record<string, React.ElementType> = {
   completed: CheckCircle2, failed: XCircle, pending: Clock, running: Loader2, cancelled: Ban, blocked: Ban,
+  // 'unknown' = server-reconciled zombie: was 'running', outcome never
+  // reported within the timeout window (stale-outcome sweep).
+  unknown: HelpCircle,
 };
 
 const statusDotMap: Record<string, string> = {
@@ -52,6 +55,7 @@ const statusDotMap: Record<string, string> = {
   failed: 'bg-status-error',
   blocked: 'bg-status-error',
   cancelled: 'bg-zinc-500',
+  unknown: 'bg-zinc-500',
 };
 
 const statusTextMap: Record<string, string> = {
@@ -61,6 +65,7 @@ const statusTextMap: Record<string, string> = {
   failed: 'text-error',
   blocked: 'text-error',
   cancelled: 'text-tertiary',
+  unknown: 'text-tertiary',
 };
 
 // Enforcement-type → ledger status alias for /decisions?decision= deep links
@@ -542,7 +547,7 @@ function DecisionsLedgerInner() {
             </select>
             <select value={filterStatus} onChange={(e) => { setFilterStatus(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All statuses</option>
-              {['running','pending','pending_approval','blocked','completed','failed','cancelled'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
+              {['running','pending','pending_approval','blocked','completed','failed','cancelled','unknown'].map(s => <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>)}
             </select>
             <select value={filterOutcome} onChange={(e) => { setFilterOutcome(e.target.value); setPage(0); }} className={`${selectClass} md:flex-1`}>
               <option value="">All outcomes</option>

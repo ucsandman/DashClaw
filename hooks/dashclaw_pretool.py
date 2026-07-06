@@ -1181,6 +1181,11 @@ def _build_guard_context(tool_name, tool_info, enrichment, tool_input):
         # approval_expires_at stamp (server adds a retry grace on top).
         # Clamped to the server's accepted range (5..86400).
         "approval_wait_seconds": max(5, min(int(APPROVAL_TIMEOUT), 86400)),
+        # Enforcement posture: tell the server how this hook will TREAT the
+        # decision (enforce = blocks stop the tool call; observe = logged
+        # only). Attribution-only server-side, but it is the ONLY way the
+        # dashboard can show that an agent's blocks are not actually enforced.
+        "enforcement_mode": HOOK_MODE,
     }
     # Forward the resolved target path (file tools, bash redirects) so a
     # protected_path guard policy can match it. Omitted when there is no path.

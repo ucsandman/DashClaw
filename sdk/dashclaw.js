@@ -25,6 +25,14 @@ class GuardBlockedError extends Error {
   }
 }
 
+class ApprovalPendingError extends Error {
+  constructor(actionId) {
+    super(`Action ${actionId} is pending approval — the governed work was NOT executed. Poll waitForApproval('${actionId}') and re-run once approved.`);
+    this.name = 'ApprovalPendingError';
+    this.actionId = actionId;
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Module-level private helpers — not exported, not part of the published API.
 // ---------------------------------------------------------------------------
@@ -442,12 +450,15 @@ class DashClaw {
    *   wire contract in the spec above. Scrubbed client-side before send.
    * @param {Object} [params] - context/action fields (action_type,
    *   declared_goal, risk_score, ...). `wait` (default true) controls whether
-   *   to block on a pending approval; pass `wait: false` to skip
-   *   waitForApproval and poll separately instead.
+   *   to block on a pending approval; pass `wait: false` to get an
+   *   ApprovalPendingError instead of blocking — the governed work is NEVER
+   *   run while the approval is pending. Poll and re-run once approved.
    * @param {Function} fn - the real work to run once guard/approval clears.
    * @returns {Promise<*>} fn()'s return value.
    * @throws {GuardBlockedError} when guard or createAction blocks the action.
    * @throws {ApprovalDeniedError} when an operator denies the pending approval.
+   * @throws {ApprovalPendingError} when the action needs approval and
+   *   `wait: false` was passed (fn() was not executed).
    */
   async runGoverned(act, params, fn) {
     const { wait, ...context } = params || {};
@@ -457,7 +468,12 @@ class DashClaw {
     if (decision.decision === 'block') throw new GuardBlockedError(decision);
 
     const { action, action_id } = await this.createAction({ ...context, act: scrubbedAct });
-    if (action?.status === 'pending_approval' && wait !== false) {
+    if (action?.status === 'pending_approval') {
+      // `wait: false` must not become a silent approval bypass: the previous
+      // behavior fell through and executed fn() with the approval still
+      // pending — an ungoverned run of exactly the work a human was asked to
+      // review. Fail loud instead; the caller polls and re-runs.
+      if (wait === false) throw new ApprovalPendingError(action_id);
       await this.waitForApproval(action_id);
     }
 
@@ -2113,4 +2129,4 @@ class DashClaw {
   }
 }
 
-export { DashClaw, ApprovalDeniedError, GuardBlockedError, scrubAct };
+export { DashClaw, ApprovalDeniedError, GuardBlockedError, ApprovalPendingError, scrubAct };

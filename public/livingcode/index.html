@@ -48,15 +48,15 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:9b714984daa0f0541dd2875133dd70e4b8a53308 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:ced15dd01e367f5fe26448dea3a5d74e7d919147 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">288</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">194</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">195</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">109</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
-      <div class="cell"><div class="n">13</div><div class="k">Signals</div></div>
+      <div class="cell"><div class="n">14</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
@@ -170,7 +170,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>x402_endpoints</code></td><td class="sig">governance</td></tr>
     <tr><td><code>x402_providers</code></td><td class="sig">governance</td></tr>
     <tr><td><code>x402_purchases</code></td><td class="sig">governance</td></tr></tbody></table></details>
-<details><summary>Signals (13)</summary><ul class="diff">    <li><code>approval_flood</code></li>
+<details><summary>Signals (14)</summary><ul class="diff">    <li><code>approval_flood</code></li>
     <li><code>autonomy_spike</code></li>
     <li><code>branch_stale</code></li>
     <li><code>cost_exceeded</code></li>
@@ -181,6 +181,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>lost_confirmation</code></li>
     <li><code>mcp_degraded</code></li>
     <li><code>message</code></li>
+    <li><code>observe_mode</code></li>
     <li><code>stale_action</code></li>
     <li><code>test</code></li></ul></details></section>
 
@@ -201,7 +202,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>54</b> env_vars added, <b>2</b> env_vars removed, <b>28</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>55</b> env_vars added, <b>2</b> env_vars removed, <b>28</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
@@ -240,6 +241,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_AUDIT_MAX_ENTRIES <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_EXPOSE_ERROR_DETAIL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_GUARD_DEADLINE_MS <span class="sig">New env var (optional, undocumented)</span></li>
+    <li><code>added</code> <b>env_vars</b>: DASHCLAW_HOOK_MODE <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_RETRIES <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_RETRY_BASE_MS <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: DASHCLAW_HTTP_TIMEOUT_MS <span class="sig">New env var (optional, undocumented)</span></li>

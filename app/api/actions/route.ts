@@ -5,7 +5,7 @@ import { NextResponse, after } from 'next/server';
 import { getSql } from '../../lib/db';
 import { validateActionRecord, boundedIdField } from '../../lib/validate.js';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
-import { logActivity } from '../../lib/audit';
+import { logActivityStrict } from '../../lib/audit';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { verifyAgentSignature } from '../../lib/identity';
@@ -28,7 +28,9 @@ import {
   hasAgentAction,
   insertActionEmbedding,
   isFirstActionForOrg,
+  listActionIdsByFilter,
   listActions,
+  maybeSweepLostOutcomes,
   sweepExpiredApprovals,
 } from '../../lib/repositories/actions.repository';
 import { getModelPricing, getSettings } from '../../lib/repositories/settings.repository';
@@ -58,6 +60,22 @@ export async function GET(request: Request) {
     const days = searchParams.get('days') || undefined;
     const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 200);
     const offset = parseInt(searchParams.get('offset') || '0', 10);
+
+    // Lazy zombie reconciliation: flip stale running/pending rows whose
+    // outcome timed out to status='unknown' before listing, so the ledger
+    // stops implying work is in flight. Throttled per org (10 min) inside the
+    // helper; the cron outcome-sweep remains the primary reconciler where a
+    // scheduler exists. Best-effort — a failure never blocks the list.
+    const reconciled = await maybeSweepLostOutcomes(sql, orgId).catch((err: unknown) => {
+      console.warn('[ACTIONS GET] lazy outcome sweep failed:', (err as Error)?.message);
+      return [] as Awaited<ReturnType<typeof maybeSweepLostOutcomes>>;
+    });
+    if (reconciled.length > 0) {
+      void publishOrgEvent(EVENTS.ACTION_UPDATED, {
+        orgId,
+        bulk: { decision: 'lost_confirmation', resolved: reconciled.length, action_ids: reconciled.map((r) => String(r.action_id)) },
+      });
+    }
 
     // Lazy expiry sweep (roadmap v2.3): the approval queue is exactly where a
     // dead pending row would be mistaken for an approvable one, so flip
@@ -128,8 +146,15 @@ export async function POST(request: Request) {
     // action_records (org_id, idempotency_key) prevents a race-condition
     // double-insert even if two requests hit this code path simultaneously
     // — the second INSERT will fail and a retry resolves through this read.
+    // Idempotency stays a SERIAL gate: a replayed key must return the
+    // existing row without doing any other work (pinned by the route test),
+    // so the batched reads below must not have started yet.
+    const existingIdem = data.idempotency_key
+      ? await getActionByIdempotencyKey(sql, orgId, data.idempotency_key)
+      : null;
+
     if (data.idempotency_key) {
-      const existing = await getActionByIdempotencyKey(sql, orgId, data.idempotency_key);
+      const existing = existingIdem;
       if (existing) {
         return NextResponse.json({
           action: existing,
@@ -143,20 +168,34 @@ export async function POST(request: Request) {
       }
     }
 
+    // Independent gate reads, batched (hot-path latency): guard-decision
+    // validation, org plan + actions quota, the agent-known probe, and the
+    // signature-enforcement setting all depend only on the request payload.
+    // Running them concurrently collapses four serial round trips into one
+    // wait; the results are applied below in the exact order the serial code
+    // checked them, so every early-return status and response body is
+    // unchanged.
+    const gdidRaw = data.guard_decision_id != null ? String(data.guard_decision_id) : null;
+    const [gdValid, planAndQuota, agentKnown, enforcementSettings] = await Promise.all([
+      gdidRaw
+        ? (GUARD_DECISION_ID_RE.test(gdidRaw) ? guardDecisionExists(sql, orgId, gdidRaw) : Promise.resolve(false))
+        : Promise.resolve(true),
+      getOrgPlan(orgId, sql).then(async (plan) => ({ plan, quota: await checkQuotaFast(orgId, 'actions_per_month', plan, sql) })),
+      data.agent_id ? hasAgentAction(sql, orgId, data.agent_id) : Promise.resolve(false),
+      getSettings(sql, orgId, { key: 'ENFORCE_AGENT_SIGNATURES' }).catch(() => null),
+    ]);
+
     // SECURITY: a client-supplied guard_decision_id must be exactly the
     // server's decision-id format AND resolve to a same-org guard decision —
     // otherwise policy-tuning evidence could be pointed at foreign or
     // nonexistent decisions (2026-07-01 security review, LOW). The
     // ?record=true guard path stamps this server-side and never trusts the
     // client value.
-    if (data.guard_decision_id != null) {
-      const gdid = String(data.guard_decision_id);
-      if (!GUARD_DECISION_ID_RE.test(gdid) || !(await guardDecisionExists(sql, orgId, gdid))) {
-        return NextResponse.json(
-          { error: 'guard_decision_id does not match a guard decision in this org' },
-          { status: 400 },
-        );
-      }
+    if (!gdValid) {
+      return NextResponse.json(
+        { error: 'guard_decision_id does not match a guard decision in this org' },
+        { status: 400 },
+      );
     }
 
     // SECURITY (R3): shared identity contract. A JWKS-verified JWT's `sub`
@@ -190,9 +229,8 @@ export async function POST(request: Request) {
     if (data.side_effects != null) data.side_effects = redactAny(data.side_effects, dlpFindings);
     if (data.artifacts_created != null) data.artifacts_created = redactAny(data.artifacts_created, dlpFindings);
 
-    // Quota check: actions per month (fast meter path)
-    const plan = await getOrgPlan(orgId, sql);
-    const actionsQuota = await checkQuotaFast(orgId, 'actions_per_month', plan, sql);
+    // Quota check: actions per month (fast meter path, read in the batch above)
+    const { plan, quota: actionsQuota } = planAndQuota;
     if (!actionsQuota.allowed) {
       return NextResponse.json(
         { error: 'Monthly action limit exceeded. Upgrade your plan.', code: 'QUOTA_EXCEEDED', usage: actionsQuota.usage, limit: actionsQuota.limit },
@@ -203,7 +241,7 @@ export async function POST(request: Request) {
     // Quota check: agents (only block new agent_ids)
     let isNewAgent = false;
     if (data.agent_id) {
-      const existing = await hasAgentAction(sql, orgId, data.agent_id);
+      const existing = agentKnown;
       isNewAgent = !existing;
 
       // SECURITY: Closed enrollment mode — reject unknown agent_ids
@@ -238,12 +276,11 @@ export async function POST(request: Request) {
     // Default OFF — signatures are an advanced feature, not a setup prerequisite.
     // Check DB setting first (runtime-toggleable), fall back to env var
     let enforceSignatures = process.env.ENFORCE_AGENT_SIGNATURES === 'true';
-    try {
-      const enforcementSettings = await getSettings(sql, orgId, { key: 'ENFORCE_AGENT_SIGNATURES' });
-      if (enforcementSettings.length > 0) {
-        enforceSignatures = enforcementSettings[0]?.value === 'true';
-      }
-    } catch { /* best-effort: settings table may not exist yet — env var fallback applies */ }
+    // Setting read in the batch above; a failed read (settings table may not
+    // exist yet) resolved null — the env var fallback applies, as before.
+    if (enforcementSettings && enforcementSettings.length > 0) {
+      enforceSignatures = enforcementSettings[0]?.value === 'true';
+    }
 
     if (enforceSignatures && !signature) {
       return NextResponse.json(
@@ -500,15 +537,16 @@ export async function DELETE(request: Request) {
 
     // Deleting governed-action rows removes history from the decision ledger, so
     // the erasure must itself be an append-only audit event (who, how many,
-    // which filter). Without this, an admin key can silently wipe the record of
-    // what agents did with no forensic trace.
-    const auditDeletion = (deletedIds: string[], filter: Record<string, unknown>) => {
-      logActivity({
+    // which filter). WRITE-AHEAD and AWAITED: the audit row lands before any
+    // row is deleted, and if it cannot be written the deletion fails closed —
+    // a fire-and-forget audit here previously meant an erasure could complete
+    // with its only forensic trace silently dropped.
+    const auditDeletion = (targetIds: string[], filter: Record<string, unknown>) =>
+      logActivityStrict({
         orgId, actorId: userId || 'unknown', action: 'action.deleted',
-        resourceType: 'action', resourceId: deletedIds.length === 1 ? deletedIds[0] : undefined,
-        details: { deleted_count: deletedIds.length, action_ids: deletedIds.slice(0, 100), filter }, request,
+        resourceType: 'action', resourceId: targetIds.length === 1 ? targetIds[0] : undefined,
+        details: { deleted_count: targetIds.length, action_ids: targetIds.slice(0, 100), filter }, request,
       }, sql);
-    };
 
     // Bulk delete by specific IDs: ?action_ids=act_1,act_2,act_3
     if (actionIds) {
@@ -516,17 +554,17 @@ export async function DELETE(request: Request) {
       if (idList.length === 0) {
         return NextResponse.json({ error: 'No valid ids provided' }, { status: 400 });
       }
+      await auditDeletion(idList, { action_ids: idList });
       const result = await deleteActionsByIds(sql, orgId, idList);
       const deletedIds = result.map((r: Record<string, any>) => r.action_id);
-      auditDeletion(deletedIds, { action_ids: idList });
       return NextResponse.json({ deleted: result.length, action_ids: deletedIds });
     }
 
     // Single action deletion
     if (actionId) {
+      await auditDeletion([actionId], { action_id: actionId });
       const result = await deleteActionsByIds(sql, orgId, [actionId]);
       const deletedIds = result.map((r: Record<string, any>) => r.action_id);
-      auditDeletion(deletedIds, { action_id: actionId });
       return NextResponse.json({ deleted: result.length, action_ids: deletedIds });
     }
 
@@ -553,6 +591,13 @@ export async function DELETE(request: Request) {
     }
 
     const where = `WHERE ${conditions.join(' AND ')}`;
+    const filter = { before: before || undefined, agent_id: agentId || undefined, status: status || undefined };
+
+    // Resolve the target set first so the write-ahead audit row can name the
+    // ids being erased. A row inserted between this read and the DELETE below
+    // survives (the audit names what was requested at decision time).
+    const targetIds = await listActionIdsByFilter(sql, orgId, { before, agentId, status });
+    await auditDeletion(targetIds, filter);
 
     // Clean up related loops + assumptions first
     await sql.query(
@@ -567,11 +612,6 @@ export async function DELETE(request: Request) {
     const result = await sql.query(
       `DELETE FROM action_records ${where} RETURNING action_id`,
       params
-    );
-
-    auditDeletion(
-      result.map((r: Record<string, any>) => r.action_id),
-      { before: before || undefined, agent_id: agentId || undefined, status: status || undefined },
     );
 
     return NextResponse.json({ deleted: result.length });

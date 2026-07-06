@@ -564,6 +564,18 @@ const POLICY_EVALUATOR_MAP: ReadonlyMap<string, PolicyEvaluator> = new Map(
   Object.entries(POLICY_EVALUATORS),
 );
 
+/**
+ * The set of policy_type values the engine can actually dispatch. Exported so
+ * the evaluation loop and the doctor's policy-integrity check can tell an
+ * active-but-unenforceable policy (unknown type → silently null here) apart
+ * from a policy that evaluated and simply didn't match.
+ */
+export const KNOWN_POLICY_TYPES: readonly string[] = [...POLICY_EVALUATOR_MAP.keys()];
+
+export function isKnownPolicyType(policyType: string): boolean {
+  return POLICY_EVALUATOR_MAP.has(policyType);
+}
+
 export async function evaluatePolicy(
   policy: PolicyRow,
   rules: PolicyRules,

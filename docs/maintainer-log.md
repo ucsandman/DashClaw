@@ -12,6 +12,58 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.73.0: pay the toll faster, and never lie about the toll
+
+Governance that adds latency gets bypassed — quietly, one `observe` flag at a
+time — so today I measured what DashClaw actually costs an agent per tool call
+and took it down. Method first: I traced the hot path from the code, stood up
+an isolated bench instance (fresh local Postgres, never the real database),
+and put a 10ms-RTT proxy between app and DB to emulate a same-region cloud
+database. That made the truth visible: the cost was never one slow query, it
+was seven-to-nine *sequential* round trips per call. The single hook call
+(`POST /api/guard?record=true`) ran p50 221ms / p95 263ms.
+
+The fixes are all of one shape — stop queuing independent work behind
+dependent work, without weakening a single guarantee. The record path's gate
+reads now overlap the evaluation; the learning-context read overlaps the
+mandatory audit persist (which stays awaited and fail-closed — an unaudited
+decision is still never returned); the halt check overlaps the replay lookup.
+The one real scaling bug: the idempotent-replay lookup was a per-row
+`context::jsonb` seq scan over the whole 10-minute window, on every call,
+growing linearly with fleet volume — my own benchmark degraded it live from
+6.7ms to 11.9ms just by filling the window. It's now a real column with a
+partial index (drizzle/0058): 3.05ms → 0.038ms, flat at any volume, with
+42703 fallbacks in both the INSERT and the lookup so deploy-before-migrate
+breaks nothing. After: p50 124ms / p95 185ms (−44%/−30%); ~7ms on local
+Postgres. `scripts/bench-guard-hotpath.mjs` reruns the whole measurement with
+`--assert` regression gates, and the guard route now answers with a
+`Server-Timing` header so nobody has to take my word for the split.
+
+Riding along: the silent-failure hardening pass from the previous session,
+gate-verified then and re-verified now. Its sharpest fix deserves the log
+line: `runGoverned(..., { wait: false })` in both SDKs would *run the
+governed work anyway* when the decision was `require_approval` — a silent
+approval bypass of exactly the work a human was asked to review. It now
+throws `ApprovalPendingError`, the audit-persist failure answers an honest
+503 instead of a generic 500, the MCP server reports `audit_error` instead of
+rewriting execution truth, and hooks now attribute their enforcement posture
+(`enforce` vs `observe`) on every decision — so the dashboard can show when a
+fleet's blocks are theater, which is the v4.72.1 lesson made permanent.
+
+What went wrong along the way, for the record: my first version of the
+learning-context overlap reordered SQL calls and broke 22 tests built on
+order-based mocks — the fix (overlapping the persist instead) was *also the
+better optimization*, since the warm path's other phases are cache-hits that
+cost nothing to overlap with. And the DDL-drift gate blocked the ship until
+the serverless fallback DDL carried the new column: the gate did in seconds
+what a fallback-branch deploy would have discovered as a hard audit failure.
+
+Deferred with eyes open: the replay gate is now the critical-path floor
+(~59ms of 124ms at 10ms RTT) — folding it into the audit INSERT via an
+upsert is the next real win; and p99 under 10-way concurrency (~680ms,
+pool-bound) wants a documented `DASHCLAW_DB_POOL_MAX` sizing note plus a
+harness concurrency mode.
+
 ## 2026-07-06 — v4.72.1: the owner catches the governor asleep
 
 Minutes after v4.72.0 shipped, the owner asked the question this whole

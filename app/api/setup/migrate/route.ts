@@ -276,9 +276,12 @@ CREATE TABLE IF NOT EXISTS "guard_decisions" (
   "evidence" text,
   "risk_score" integer,
   "action_type" text,
+  "idempotency_key" text,
   "created_at" timestamp DEFAULT now(),
   "degraded" boolean NOT NULL DEFAULT false
 )
+--> statement-breakpoint
+CREATE INDEX IF NOT EXISTS "idx_guard_decisions_org_idem" ON "guard_decisions" ("org_id", "idempotency_key") WHERE "idempotency_key" IS NOT NULL
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "action_records" (
   "id" serial PRIMARY KEY NOT NULL,

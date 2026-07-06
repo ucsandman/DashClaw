@@ -28,6 +28,19 @@ export function redactErrorDetail(err: any): string {
 export function apiErrorResponse(err: any, label: string): NextResponse {
   console.error(`[${label}] error:`, err);
 
+  // Guard refused to return a decision it could not durably audit (see
+  // persistGuardDecision). This is the one failure where the caller MUST be
+  // able to tell "governance is degraded" apart from a generic 500 — the
+  // production detail-redaction gate below would otherwise swallow the code.
+  // The message is fixed text (no internals), so it is safe to return as-is.
+  if (err.code === 'GUARD_AUDIT_PERSIST_FAILED') {
+    return NextResponse.json({
+      error: 'Guard decision could not be durably recorded; the decision was withheld rather than returned unaudited. Check database health (/setup) and retry.',
+      code: 'GUARD_AUDIT_PERSIST_FAILED',
+      setup_url: '/setup',
+    }, { status: 503 });
+  }
+
   // PostgreSQL 42P01: undefined_table — schema not initialized
   if (err.code === '42P01') {
     return NextResponse.json({

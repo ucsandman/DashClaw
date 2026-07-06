@@ -96,6 +96,20 @@ class ApprovalDeniedError(DashClawError):
         super().__init__(message, status=403)
         self.decision = decision
 
+class ApprovalPendingError(DashClawError):
+    """Thrown by run_governed(wait=False) when the action still needs approval.
+
+    The governed work was NOT executed. Poll wait_for_approval(action_id) and
+    re-run once approved.
+    """
+    def __init__(self, action_id):
+        super().__init__(
+            f"Action {action_id} is pending approval — the governed work was NOT executed. "
+            f"Poll wait_for_approval({action_id!r}) and re-run once approved.",
+            status=202,
+        )
+        self.action_id = action_id
+
 class DashClaw:
     def __init__(
         self,
@@ -399,12 +413,74 @@ class DashClaw:
                 "ts_bucket": int(time.time() // 3600),
             })
 
+        # guard_mode pre-check: these constructor options were previously
+        # accepted, validated, documented — and never read again, so
+        # guard_mode="enforce" / hitl_mode="wait" silently governed nothing
+        # (the README's own HITL example was a no-op). Enforced here now.
+        self._guard_check(payload)
+
         # Identity Verification: Sign the payload if a private key is available.
         signature = self._sign_payload(payload)
         if signature:
             payload["_signature"] = signature
 
-        return self._request("/api/actions", "POST", json=payload)
+        result = self._request("/api/actions", "POST", json=payload)
+
+        # hitl_mode="wait": physically hold the agent at the approval gate.
+        # wait_for_approval raises ApprovalDeniedError on deny and TimeoutError
+        # on timeout — exactly the contract the README documents.
+        if self.hitl_mode == "wait" and isinstance(result, dict):
+            action = result.get("action") or {}
+            action_id = result.get("action_id") or action.get("action_id")
+            if action.get("status") == "pending_approval" and action_id:
+                approved = self.wait_for_approval(action_id)
+                if isinstance(approved, dict):
+                    result = {**result, "action": approved}
+        return result
+
+    # Fields worth forwarding to the guard pre-check (mirrors the legacy Node
+    # SDK's _guardCheck context).
+    _GUARD_CONTEXT_FIELDS = (
+        "action_type", "declared_goal", "risk_score", "systems_touched",
+        "reversible", "target", "write_paths", "content", "source_of_truth", "act",
+    )
+
+    def _guard_check(self, payload):
+        """Pre-flight guard evaluation for create_action, per guard_mode.
+
+        off     — no pre-check (the server still evaluates guard on POST
+                  /api/actions; a block there raises via the 403 response).
+        warn    — evaluate and print warnings/blocks, never stop the action.
+        enforce — evaluate; a block decision raises GuardBlockedError, and a
+                  FAILED guard call raises too (fail closed): proceeding when
+                  the guard cannot answer would silently drop enforcement.
+        """
+        if self.guard_mode == "off":
+            return
+        context = {k: payload[k] for k in self._GUARD_CONTEXT_FIELDS if payload.get(k) is not None}
+        context["agent_id"] = payload.get("agent_id", self.agent_id)
+        try:
+            decision = self.guard(context)
+        except Exception as e:
+            if self.guard_mode == "enforce":
+                raise DashClawError(
+                    f"Guard check failed and guard_mode='enforce' — refusing to proceed ungoverned: {e}"
+                )
+            print(f"[DashClaw] Guard check failed (guard_mode='warn', proceeding): {e}")
+            return
+        if self.guard_callback:
+            try:
+                self.guard_callback(decision)
+            except Exception as cb_err:
+                print(f"[DashClaw] guard_callback raised: {cb_err}")
+        is_blocked = decision.get("decision") == "block"
+        warnings_list = decision.get("warnings") or []
+        if warnings_list:
+            print(f"[DashClaw] Guard warnings: {'; '.join(str(w) for w in warnings_list)}")
+        if is_blocked:
+            if self.guard_mode == "enforce":
+                raise GuardBlockedError(decision)
+            print(f"[DashClaw] Guard would block (guard_mode='warn', proceeding): {decision.get('reason')}")
 
     def record_assumption(self, assumption):
         """Record what the agent believed to be true when making a decision.
@@ -1339,14 +1415,17 @@ class DashClaw:
         contract. Scrubbed client-side before send.
         ``params``: context/action fields (action_type, declared_goal,
         risk_score, ...). ``wait`` (default True) controls whether to block
-        on a pending approval; pass ``wait=False`` to skip
-        wait_for_approval and poll separately instead.
+        on a pending approval; pass ``wait=False`` to get an
+        ApprovalPendingError instead of blocking — the governed work is
+        NEVER run while the approval is pending. Poll and re-run once
+        approved.
         ``fn``: zero-arg callable — the real work to run once guard/approval
         clears.
 
         Raises GuardBlockedError when guard or create_action blocks the
         action, ApprovalDeniedError when an operator denies the pending
-        approval.
+        approval, ApprovalPendingError when the action needs approval and
+        ``wait=False`` was passed (fn() was not executed).
         """
         context = dict(params or {})
         wait = context.pop("wait", None)
@@ -1362,7 +1441,12 @@ class DashClaw:
         result = self.create_action(action_type, declared_goal, act=scrubbed_act, **extra)
         action_id = result.get("action_id")
         action = result.get("action") or {}
-        if action.get("status") == "pending_approval" and wait is not False:
+        if action.get("status") == "pending_approval":
+            # wait=False must not become a silent approval bypass: the previous
+            # behavior fell through and executed fn() with the approval still
+            # pending. Fail loud instead; the caller polls and re-runs.
+            if wait is False:
+                raise ApprovalPendingError(action_id)
             self.wait_for_approval(action_id)
 
         try:

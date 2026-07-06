@@ -57,6 +57,9 @@ export interface OkResponse {
     reason: string;
     data: unknown;
     dashclaw?: DashclawResponseMetadata;
+    /** Set when the action RAN but its audit-log write failed — the execution
+     * result is truthful, the local trail is incomplete. Never silent. */
+    audit_error?: string;
 }
 export interface ErrorResponse {
     status: "error";
@@ -68,6 +71,8 @@ export interface ErrorResponse {
     action: string;
     error: string;
     dashclaw?: DashclawResponseMetadata;
+    /** See OkResponse.audit_error. */
+    audit_error?: string;
 }
 export interface PreExecutionErrorResponse {
     status: "error";

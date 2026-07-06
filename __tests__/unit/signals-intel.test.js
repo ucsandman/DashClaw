@@ -184,6 +184,63 @@ describe('branch_stale signal', () => {
   });
 });
 
+// ── observe_mode ───────────────────────────────────────────────────────────────
+// Rides on the same recentDecisions batch as branch_stale. The agent's LATEST
+// decision (rows are newest-first) decides its posture.
+describe('observe_mode signal', () => {
+  const decisionWithMode = (id, agent_id, mode, created_at) => ({
+    id,
+    agent_id,
+    context: JSON.stringify(mode === undefined ? {} : { enforcement_mode: mode }),
+    reason: null,
+    created_at,
+  });
+
+  it('emits amber for an agent whose latest decision reports observe', async () => {
+    const sql = makeIntelSql({
+      recentDecisions: [decisionWithMode('dec_1', 'agent_obs', 'observe', '2026-06-12T10:00:00Z')],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    const s = signals.find((sig) => sig.type === 'observe_mode');
+    expect(s).toBeTruthy();
+    expect(s.severity).toBe('amber');
+    expect(s.agent_id).toBe('agent_obs');
+    expect(s.label).toContain('observe mode');
+  });
+
+  it('does not emit when the latest decision is enforce, even with older observe rows', async () => {
+    // Newest-first ordering: the enforce row is the agent's current posture.
+    const sql = makeIntelSql({
+      recentDecisions: [
+        decisionWithMode('dec_2', 'agent_flip', 'enforce', '2026-06-12T10:05:00Z'),
+        decisionWithMode('dec_1', 'agent_flip', 'observe', '2026-06-12T10:00:00Z'),
+      ],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    expect(signals.find((sig) => sig.type === 'observe_mode')).toBeUndefined();
+  });
+
+  it('treats decisions without the field as unreported, never observe', async () => {
+    const sql = makeIntelSql({
+      recentDecisions: [decisionWithMode('dec_1', 'agent_sdk', undefined, '2026-06-12T10:00:00Z')],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    expect(signals.find((sig) => sig.type === 'observe_mode')).toBeUndefined();
+  });
+
+  it('one signal per agent, multiple observe agents each get one', async () => {
+    const sql = makeIntelSql({
+      recentDecisions: [
+        decisionWithMode('dec_3', 'agent_a', 'observe', '2026-06-12T10:02:00Z'),
+        decisionWithMode('dec_2', 'agent_a', 'observe', '2026-06-12T10:01:00Z'),
+        decisionWithMode('dec_1', 'agent_b', 'observe', '2026-06-12T10:00:00Z'),
+      ],
+    });
+    const signals = await computeSignals('org1', null, sql);
+    expect(signals.filter((sig) => sig.type === 'observe_mode')).toHaveLength(2);
+  });
+});
+
 // ── mcp_degraded ───────────────────────────────────────────────────────────────
 describe('mcp_degraded signal', () => {
   it('emits amber for degraded MCP server with non-auth_required status', async () => {

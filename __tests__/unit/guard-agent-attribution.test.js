@@ -17,7 +17,7 @@ const { mockSql, mockValidateGuardInput, mockEvaluateGuard, mockListGuardDecisio
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null) }));
+vi.mock('@/lib/validate', () => ({ validateGuardInput: mockValidateGuardInput, boundedIdField: (v) => (typeof v === 'string' && v.length > 0 && v.length <= 200 ? v : null), enforcementModeField: (v) => (typeof v === 'string' && ['enforce', 'observe', 'warn', 'off'].includes(v.trim().toLowerCase()) ? v.trim().toLowerCase() : null) }));
 vi.mock('@/lib/guard', () => ({ evaluateGuard: mockEvaluateGuard }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({ listGuardDecisions: mockListGuardDecisions }));
 
@@ -48,6 +48,34 @@ describe('/api/guard — Phase 1 agent attribution', () => {
     expect(mockEvaluateGuard).toHaveBeenCalledWith(
       'org_1',
       expect.objectContaining({ agent_id: 'agt_body_id', agent_name: 'body-worker' }),
+      mockSql,
+      expect.any(Object)
+    );
+  });
+
+  it('threads enforcement_mode into the evaluated (and persisted) context; garbage normalizes to null', async () => {
+    mockValidateGuardInput.mockImplementation((body) => ({ valid: true, data: body, errors: [] }));
+
+    await POST(makeRequest('http://localhost/api/guard', {
+      headers: { 'x-org-id': 'org_1' },
+      body: { action_type: 'deploy', agent_id: 'a1', enforcement_mode: 'observe' },
+    }));
+    expect(mockEvaluateGuard).toHaveBeenCalledWith(
+      'org_1',
+      expect.objectContaining({ enforcement_mode: 'observe' }),
+      mockSql,
+      expect.any(Object)
+    );
+
+    mockEvaluateGuard.mockClear();
+    await POST(makeRequest('http://localhost/api/guard', {
+      headers: { 'x-org-id': 'org_1' },
+      body: { action_type: 'deploy', agent_id: 'a1', enforcement_mode: 'definitely-not-a-mode' },
+    }));
+    // Unknown values must read as "unreported" (null), never as a posture.
+    expect(mockEvaluateGuard).toHaveBeenCalledWith(
+      'org_1',
+      expect.objectContaining({ enforcement_mode: null }),
       mockSql,
       expect.any(Object)
     );

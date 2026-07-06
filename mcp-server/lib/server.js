@@ -14,7 +14,7 @@ import { DashClawClient } from "./client.js";
 import { TOOL_DEFINITIONS, createToolHandlers } from "./tools.js";
 import { RESOURCE_DEFINITIONS, createResourceHandlers } from "./resources.js";
 import { registerTools } from "./tools/index.js";
-import { DASHCLAW_GATED_TOOLS, enabledProviders, governanceEnabled, providerForTool, } from "./registration.js";
+import { DASHCLAW_GATED_TOOLS, enabledProviders, governanceEnabled, governanceMisconfigured, providerForTool, } from "./registration.js";
 const require = createRequire(import.meta.url);
 export const PACKAGE_VERSION = require("../package.json").version;
 /**
@@ -162,6 +162,17 @@ export function composeServer(server, store) {
     const governance = governanceEnabled();
     if (governance) {
         registerGovernance(server, client);
+    }
+    else {
+        // Half-configured = almost certainly a broken deploy, not an opt-out.
+        // Say so loudly on stderr: without this the governance tools just never
+        // register and the agent runs completely ungoverned in silence.
+        const missing = governanceMisconfigured();
+        if (missing) {
+            console.error(`[dashclaw] WARNING: governance tools NOT registered — ${missing} is missing while its counterpart is set. ` +
+                `Agents on this server are running UNGOVERNED (no dashclaw_guard/dashclaw_record). ` +
+                `Set ${missing} to restore governance.`);
+        }
     }
     const providers = enabledProviders(store);
     const allowed = (name) => {

@@ -23,6 +23,41 @@ import { execFileSync, spawnSync } from 'node:child_process';
 // Keep this in sync with the "embedded-postgres" version in cli/package.json.
 const EMBEDDED_PG_VERSION = 'embedded-postgres@18.4.0-beta.17';
 
+// Windows exit status 0xC0000135 (STATUS_DLL_NOT_FOUND). The embedded
+// Postgres binaries link against the Microsoft Visual C++ runtime, which a
+// fresh Windows install (and Windows Sandbox) does not ship — initdb dies at
+// exec with this code and EMPTY stderr, which reads as pure noise to a
+// first-run user.
+const STATUS_DLL_NOT_FOUND = '3221225781';
+const VC_REDIST_HINT =
+  'Embedded Postgres needs the Microsoft Visual C++ runtime, which this Windows machine does not have. '
+  + 'Install it once from https://aka.ms/vs/17/release/vc_redist.x64.exe (or `winget install Microsoft.VCRedist.2015+.x64`), '
+  + 'then re-run `npx dashclaw up`. Alternatively retry with --db docker or --db url.';
+
+/**
+ * True on Windows machines missing the VC++ runtime DLLs the embedded
+ * Postgres binaries need. Checked BEFORE the embedded attempt so the failure
+ * is actionable instead of a raw 0xC0000135 with empty stderr.
+ */
+export function missingVcRuntime({ platform = process.platform, exists = existsSync } = {}) {
+  if (platform !== 'win32') return false;
+  const sys32 = join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+  return !(exists(join(sys32, 'vcruntime140.dll')) && exists(join(sys32, 'msvcp140.dll')));
+}
+
+/**
+ * Renders an embedded-postgres failure as an actionable message. Maps the
+ * Windows DLL-not-found exit code to the VC++ runtime remediation even when
+ * the preflight passed (a different DLL may be the missing one).
+ */
+export function embeddedFailureMessage(err) {
+  const base = `Embedded Postgres (${EMBEDDED_PG_VERSION}) failed: ${err.message}`;
+  if (String(err.message).includes(STATUS_DLL_NOT_FOUND)) {
+    return `${base} — this exit code means a required system DLL is missing. ${VC_REDIST_HINT}`;
+  }
+  return `${base}. Retry with --db docker or --db url.`;
+}
+
 export const DEFAULT_DB_PORT = 5433;
 // Scan window when the preferred port is taken: preferred+1 .. preferred+10.
 const PORT_SCAN_SPAN = 10;
@@ -249,6 +284,7 @@ async function dockerProvision({ preferredPort, ops, isFree, logger }) {
 export async function provisionDatabase({
   mode, baseDir, promptFn, savedDatabaseUrl,
   dockerOps = realDockerOps, isFree = isPortFree, waitForDbPort = waitForPort, logger = console,
+  checkVcRuntime = missingVcRuntime,
 }) {
   let preferredPort = DEFAULT_DB_PORT;
   if (savedDatabaseUrl) {
@@ -268,6 +304,9 @@ export async function provisionDatabase({
   }
 
   // mode === 'embedded'
+  if (checkVcRuntime()) {
+    throw new Error(VC_REDIST_HINT);
+  }
   const port = await pickDbPort({ preferred: preferredPort, isFree, logger });
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
   const pgDir = join(baseDir, 'pg');
@@ -292,9 +331,7 @@ export async function provisionDatabase({
     if (!dirPreExisted) {
       rmSync(pgDir, { recursive: true, force: true });
     }
-    throw new Error(
-      `Embedded Postgres (${EMBEDDED_PG_VERSION}) failed: ${e.message}. Retry with --db docker or --db url.`,
-    );
+    throw new Error(embeddedFailureMessage(e));
   }
   try { await pg.createDatabase('dashclaw'); } catch { /* already exists on resume — fine */ }
   logger.error(`[ok] Embedded Postgres running (port ${port}, data in ${pgDir})`);

@@ -546,6 +546,21 @@ function transportDetail(result) {
         return `HTTP ${result._status}`;
     return 'no decision in response';
 }
+// Parse a client.fetch() response and make failure STRUCTURAL: on non-2xx (or
+// transport failure) the returned object always carries `error` + `_status`.
+// Write tools previously forwarded whatever body a 4xx/5xx sent — if that body
+// looked plausible, the caller had no signal that the write was NOT persisted.
+async function jsonOrFailure(res) {
+    const data = await res.json().catch(() => ({}));
+    if (res.ok)
+        return data;
+    const body = data && typeof data === 'object' ? data : {};
+    return {
+        ...body,
+        error: body.error ? String(body.error) : `HTTP ${res.status || 0} — request failed; the write was NOT persisted`,
+        _status: res.status ?? 0,
+    };
+}
 // Idempotency key derivation — mirror of the reference implementation in
 // sdk/dashclaw.js deriveIdempotencyKey (and the Python hook/SDK mirrors):
 // sorted "k=v" pairs joined with "|", SHA-256 hex. Identical parts must derive
@@ -735,8 +750,33 @@ export function createToolHandlers(client) {
             const timeout = (input.timeout_seconds ?? 300) * 1000;
             const interval = (input.poll_interval_seconds ?? 3) * 1000;
             const start = Date.now();
+            // Poll-failure honesty: a transport error / non-2xx has no `action` key
+            // and previously fell straight through to the sleep, so a full-window
+            // API outage (or a plain wrong action_id) returned the exact same
+            // payload as "the human genuinely didn't decide in time". Track the
+            // failures so the caller can tell the two apart.
+            let pollErrors = 0;
+            let pollSuccesses = 0;
+            let lastPollError = null;
             while (Date.now() - start < timeout) {
                 const result = await client.get(`/api/actions/${input.action_id}`, {}, { timeout: 10000 });
+                if (transportFailed(result) || !result.action) {
+                    // A definitive 404 is terminal: this action will never resolve —
+                    // keeping the caller polling for the full window would be a lie.
+                    if (result?._status === 404) {
+                        return JSON.stringify({
+                            approved: false,
+                            error: `Action ${input.action_id} not found — nothing to wait for (wrong action_id, or the record was never created).`,
+                            status_confirmed: false,
+                            waited_seconds: Math.round((Date.now() - start) / 1000),
+                        });
+                    }
+                    pollErrors++;
+                    lastPollError = transportDetail(result);
+                    await new Promise((r) => setTimeout(r, interval));
+                    continue;
+                }
+                pollSuccesses++;
                 const status = result?.action?.status;
                 if (status && status !== 'pending_approval') {
                     // An approval flips the row to 'running' (approved_by set); the
@@ -766,16 +806,33 @@ export function createToolHandlers(client) {
                 }
                 await new Promise((r) => setTimeout(r, interval));
             }
+            // Every poll failed → this is an OUTAGE report, not a timeout: the
+            // pending status was never once confirmed.
+            if (pollSuccesses === 0 && pollErrors > 0) {
+                return JSON.stringify({
+                    approved: false,
+                    error: `Could not confirm approval status: all ${pollErrors} polls failed (last: ${lastPollError}). The DashClaw API was unreachable or erroring for the entire wait — this is NOT a human timeout.`,
+                    status_confirmed: false,
+                    poll_errors: pollErrors,
+                    waited_seconds: Math.round((Date.now() - start) / 1000),
+                });
+            }
             return JSON.stringify({
                 approved: false,
                 timed_out: true,
                 action: { status: 'pending_approval' },
+                status_confirmed: true,
+                ...(pollErrors > 0 ? { poll_errors: pollErrors, last_poll_error: lastPollError } : {}),
                 waited_seconds: Math.round((Date.now() - start) / 1000),
             });
         },
         async dashclaw_session_start(input) {
             const result = await client.post('/api/sessions', {
-                agent_id: input.agent_id,
+                // Same WRITE-identity precedence as guard/record/invoke: the
+                // server-configured agent_id wins. This was the one write path that
+                // trusted the caller's raw value, so a session could be opened under
+                // an arbitrary identity while its records stamped the real one.
+                agent_id: agentId(input),
                 workspace: input.workspace,
                 branch: input.branch,
             }, { timeout: 10000 });
@@ -814,8 +871,7 @@ export function createToolHandlers(client) {
                     bundle: args.bundle,
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_handoff_latest(args) {
             const params = new URLSearchParams();
@@ -835,8 +891,7 @@ export function createToolHandlers(client) {
                 method: 'POST',
                 body: JSON.stringify({ session_id: args.session_id }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_secret_list(args) {
             const params = new URLSearchParams();
@@ -863,8 +918,7 @@ export function createToolHandlers(client) {
                 method: 'PATCH',
                 body: JSON.stringify({ last_rotated_at: new Date().toISOString() }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_skill_scan(args) {
             const res = await client.fetch('/api/skills/scan', {
@@ -874,8 +928,7 @@ export function createToolHandlers(client) {
                     files: args.files,
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_loop_add(args) {
             const res = await client.fetch('/api/actions/loops', {
@@ -888,8 +941,7 @@ export function createToolHandlers(client) {
                     owner: args.owner,
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_loop_list(args) {
             const params = new URLSearchParams();
@@ -918,8 +970,7 @@ export function createToolHandlers(client) {
                     resolution: args.resolution || 'Closed by agent via dashclaw_loop_close',
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_assumption_record(args) {
             const res = await client.fetch('/api/assumptions', {
@@ -930,8 +981,7 @@ export function createToolHandlers(client) {
                     basis: args.basis,
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_learning_log(args) {
             const res = await client.fetch('/api/learning', {
@@ -943,8 +993,7 @@ export function createToolHandlers(client) {
                     outcome: args.outcome,
                 }),
             });
-            const data = await res.json();
-            return JSON.stringify(data);
+            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_learning_query(args) {
             // Query the same store dashclaw_learning_log writes to. POST /api/learning
@@ -1052,10 +1101,21 @@ export function createToolHandlers(client) {
                 algorithm: 'RSASSA-PKCS1-v1_5',
             }, { timeout: 10000 });
             let pairing = created.pairing || created;
+            // Same poll-failure honesty as dashclaw_wait_for_approval: a transport
+            // error has no pairing/status and used to read as "still pending" for
+            // the whole window.
+            let pairPollErrors = 0;
+            let lastPairPollError = null;
             if (input.wait && pairing?.id) {
                 const deadline = Date.now() + 300000;
                 while (Date.now() < deadline) {
                     const res = await client.get(`/api/pairings/${encodeURIComponent(pairing.id)}`, {}, { timeout: 10000 });
+                    if (transportFailed(res)) {
+                        pairPollErrors++;
+                        lastPairPollError = transportDetail(res);
+                        await new Promise((r) => setTimeout(r, 2000));
+                        continue;
+                    }
                     const current = res.pairing || res;
                     if (current.status && current.status !== 'pending') {
                         pairing = current;
@@ -1069,9 +1129,12 @@ export function createToolHandlers(client) {
                 status: pairing.status,
                 pairing_url: pairing.pairing_url,
                 private_key_path: keyPath,
+                ...(pairPollErrors > 0 ? { poll_errors: pairPollErrors, last_poll_error: lastPairPollError } : {}),
                 next: pairing.status === 'approved'
                     ? 'Approved — sign recorded actions with the private key (see docs/agent-identity.md).'
-                    : 'Awaiting admin approval on the DashClaw Identities page.',
+                    : pairPollErrors > 0 && pairing.status === 'pending'
+                        ? `Status unconfirmed for part of the wait (${pairPollErrors} failed polls; last: ${lastPairPollError}) — check the DashClaw Identities page.`
+                        : 'Awaiting admin approval on the DashClaw Identities page.',
             });
         },
         async dashclaw_posture(input) {

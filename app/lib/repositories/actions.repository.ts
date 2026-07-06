@@ -1365,6 +1365,18 @@ export async function setActionOutcome(
  * "outcome was implicitly confirmed via the legacy path." Genuinely orphan
  * actions (status='running' / 'pending' / 'pending_approval' / null) still
  * sweep as intended.
+ *
+ * Lifecycle reconciliation (zombie-running fix): a swept row whose lifecycle
+ * status is still 'running' / 'pending' / NULL ALSO flips to status='unknown'
+ * — the ledger must stop implying work is in flight when no outcome was ever
+ * confirmed. 'pending_approval' is deliberately NOT flipped here: the
+ * approvals expiry sweep owns that lifecycle (approval_expires_at). A late
+ * agent PATCH still lands (updateOutcome overwrites status), so a genuinely
+ * slow action self-heals to completed/failed. A second backfill UPDATE
+ * reconciles rows that were marked lost_confirmation BEFORE this change and
+ * are therefore stuck at status='running' with outcome_status already
+ * terminal (the primary UPDATE's outcome_status='pending' gate can never
+ * reach them again).
  */
 export async function sweepLostOutcomesForOrg(
   sql: SqlClient,
@@ -1379,6 +1391,11 @@ export async function sweepLostOutcomesForOrg(
     SET outcome_status  = 'lost_confirmation',
         outcome_at      = NOW(),
         outcome_summary = 'No outcome reported within timeout window',
+        status          = CASE WHEN status IS NULL OR status IN ('running', 'pending')
+                               THEN 'unknown' ELSE status END,
+        error_message   = CASE WHEN status IS NULL OR status IN ('running', 'pending')
+                               THEN COALESCE(error_message, 'Outcome never reported — reconciled to unknown by the stale-outcome sweep')
+                               ELSE error_message END,
         updated_at      = CURRENT_TIMESTAMP
     WHERE org_id = ${orgId}
       AND outcome_status = 'pending'
@@ -1386,7 +1403,71 @@ export async function sweepLostOutcomesForOrg(
       AND (status IS NULL OR status NOT IN ('completed', 'failed', 'cancelled', 'blocked'))
     RETURNING action_id, agent_id, agent_name, action_type, declared_goal, created_at, outcome_at
   `;
+  // Backfill: rows already lost_confirmation but still claiming 'running' /
+  // 'pending' (swept before the lifecycle reconciliation existed). Count-only
+  // — their lost_confirmation signal/webhook already fired when they flipped.
+  try {
+    const backfilled = await sql`
+      UPDATE action_records
+      SET status = 'unknown',
+          error_message = COALESCE(error_message, 'Outcome never reported — reconciled to unknown by the stale-outcome sweep'),
+          updated_at = CURRENT_TIMESTAMP
+      WHERE org_id = ${orgId}
+        AND outcome_status = 'lost_confirmation'
+        AND (status IS NULL OR status IN ('running', 'pending'))
+      RETURNING action_id
+    `;
+    if (backfilled.length > 0) {
+      console.warn(`[OUTCOME SWEEP] reconciled ${backfilled.length} zombie running/pending row(s) already marked lost_confirmation (org ${orgId})`);
+    }
+  } catch (err) {
+    console.warn('[OUTCOME SWEEP] zombie-status backfill failed:', (err as Error)?.message || err);
+  }
   return rows;
+}
+
+// ── Lazy outcome-sweep trigger (self-host installs without the cron) ────────
+// The cron route (/api/cron/outcome-sweep) is the primary reconciler, but a
+// self-host instance with no scheduler would never run it — zombies would
+// only ever be *flagged* (signals, doctor), never healed. Piggyback on the
+// actions list (the page that would otherwise display the lie), throttled
+// per org so Mission Control polling doesn't turn into a write per request.
+const LOST_OUTCOME_SWEEP_THROTTLE_MS = 10 * 60 * 1000;
+const lostOutcomeSweepLastRun = new Map<string, number>();
+
+/** Test-only: clear the lazy outcome-sweep throttle. */
+export function __resetLostOutcomeSweepThrottle(): void {
+  lostOutcomeSweepLastRun.clear();
+}
+
+const OUTCOME_TIMEOUT_DEFAULT_MINUTES = 15;
+
+// Same clamp as the cron route's resolveTimeoutMinutes (floor 1, ceiling 24h).
+async function resolveOutcomeTimeoutMinutes(sql: SqlClient, orgId: string): Promise<number> {
+  try {
+    const { getSettings } = await import('./settings.repository');
+    const rows = await getSettings(sql, orgId, { key: 'DASHCLAW_OUTCOME_TIMEOUT_MINUTES' });
+    const raw = (rows?.[0] as Row | undefined)?.value;
+    if (raw == null || raw === '') return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
+    const n = Number(raw);
+    if (!Number.isFinite(n)) return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
+    return Math.min(24 * 60, Math.max(1, Math.floor(n)));
+  } catch {
+    return OUTCOME_TIMEOUT_DEFAULT_MINUTES;
+  }
+}
+
+/**
+ * Throttled lazy wrapper around sweepLostOutcomesForOrg. Returns the newly
+ * swept rows, or [] when throttled. Callers treat it as best-effort.
+ */
+export async function maybeSweepLostOutcomes(sql: SqlClient, orgId: string): Promise<Row[]> {
+  const now = Date.now();
+  const last = lostOutcomeSweepLastRun.get(orgId) ?? 0;
+  if (now - last < LOST_OUTCOME_SWEEP_THROTTLE_MS) return [];
+  lostOutcomeSweepLastRun.set(orgId, now);
+  const timeoutMinutes = await resolveOutcomeTimeoutMinutes(sql, orgId);
+  return sweepLostOutcomesForOrg(sql, orgId, timeoutMinutes);
 }
 
 /**
@@ -1824,6 +1905,38 @@ export async function deleteActionsByIds(sql: SqlClient, orgId: string, idList: 
   await sql`DELETE FROM open_loops WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`;
   await sql`DELETE FROM assumptions WHERE action_id = ANY(${idList}) AND org_id = ${orgId}`;
   return sql`DELETE FROM action_records WHERE action_id = ANY(${idList}) AND org_id = ${orgId} RETURNING action_id`;
+}
+
+/**
+ * Resolve the action_ids a filtered bulk delete would remove, so the erasure
+ * audit row can be written (and awaited) BEFORE any row is deleted. Mirrors
+ * the filter semantics of DELETE /api/actions exactly.
+ */
+export async function listActionIdsByFilter(
+  sql: SqlClient,
+  orgId: string,
+  { before, agentId, status }: { before?: string | null; agentId?: string | null; status?: string | null },
+): Promise<string[]> {
+  const conditions = ['org_id = $1'];
+  const params: unknown[] = [orgId];
+  let paramIdx = 2;
+  if (before) {
+    conditions.push(`timestamp_start::timestamptz < $${paramIdx++}::timestamptz`);
+    params.push(before);
+  }
+  if (agentId) {
+    conditions.push(`agent_id = $${paramIdx++}`);
+    params.push(agentId);
+  }
+  if (status) {
+    conditions.push(`status = $${paramIdx++}`);
+    params.push(status);
+  }
+  const rows = await sql.query(
+    `SELECT action_id FROM action_records WHERE ${conditions.join(' AND ')}`,
+    params
+  );
+  return rows.map((r: Row) => String(r.action_id));
 }
 
 interface CostAggregationOptions {

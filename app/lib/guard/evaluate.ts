@@ -16,7 +16,7 @@ import { getJtiReplayMode } from '../replay-protection';
 import { grantMatches } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
-import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, x402BudgetWindow } from './policy';
+import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, x402BudgetWindow, isKnownPolicyType } from './policy';
 import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings } from './caches';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
 import type { RiskBreakdown, EvidenceDerivedBreakdown } from './risk';
@@ -216,6 +216,22 @@ interface GuardPhaseDeps {
   orgId: string;
 }
 
+// A policy that is ACTIVE but cannot run is a silent-enforcement gap: the
+// operator sees it listed as on while it governs nothing. Surface it on every
+// decision (warnings ride the response + signals) and log once per policy per
+// instance so the hot path doesn't spam. The doctor's policy-integrity check
+// covers the same conditions statically.
+const unenforceableWarned = new Set<string>();
+
+function notePolicyUnenforceable(acc: GuardAccumulator, policy: PolicyRow, why: string): void {
+  acc.warnings.push(`Policy "${policy.name}" (${policy.id}) is ACTIVE but cannot enforce: ${why}`);
+  const key = `${policy.id}:${why}`;
+  if (!unenforceableWarned.has(key)) {
+    unenforceableWarned.add(key);
+    console.warn('[Guard] active policy cannot enforce:', { policy_id: policy.id, name: policy.name, why });
+  }
+}
+
 async function runLocalPolicies(
   policies: PolicyRow[],
   deps: GuardPhaseDeps,
@@ -224,11 +240,16 @@ async function runLocalPolicies(
 ): Promise<void> {
   const { context, sql, orgId } = deps;
   for (const policy of policies) {
+    if (!isKnownPolicyType(policy.policy_type)) {
+      notePolicyUnenforceable(acc, policy, `unknown policy_type "${policy.policy_type}"`);
+      continue;
+    }
     let rules: PolicyRules;
     try {
       rules = JSON.parse(policy.rules);
     } catch {
-      continue; // skip malformed
+      notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
+      continue;
     }
 
     const result = await evaluatePolicy(policy, rules, context, sql, orgId, adjustedRiskScore);
@@ -254,6 +275,9 @@ function applyAllowGrants(policies: PolicyRow[], context: GuardEvalContext, acc:
     try {
       rules = JSON.parse(policy.rules);
     } catch {
+      // Fail-closed direction (grant just doesn't downgrade), but still honest:
+      // the operator configured a grant that silently never applies.
+      notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
       continue;
     }
     if (grantMatches(rules as { action_type?: unknown; target_prefix?: unknown }, context)) {
@@ -388,7 +412,10 @@ async function runWebhookPolicies(
   };
   for (const policy of webhookPolicies) {
     let rules: PolicyRules;
-    try { rules = JSON.parse(policy.rules); } catch { continue; }
+    try { rules = JSON.parse(policy.rules); } catch {
+      notePolicyUnenforceable(acc, policy, 'rules is not valid JSON');
+      continue;
+    }
 
     const webhookResult = await evaluateWebhookPolicy(policy, rules, context, orgId, sql, preliminary);
     if (!webhookResult) continue;
@@ -523,6 +550,12 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
     evidence: input.evidenceJson,
     riskScore: input.adjustedRiskScore,
     actionType: context.action_type || null,
+    // Denormalized from context for the indexed replay lookup (drizzle/0058);
+    // the copy inside the context JSON stays for forensics/back-compat.
+    idempotencyKey:
+      typeof context.idempotency_key === 'string' && context.idempotency_key
+        ? context.idempotency_key
+        : null,
     createdAt: input.evaluatedAt,
     degraded: input.degraded !== null,
   };
@@ -711,9 +744,13 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const deadlineMs = guardDeadlineMs();
   const evalStart = Date.now();
   const runEvaluation = async (): Promise<'completed'> => {
-    const policies = await timed('policies', () => loadApplicablePolicies(sql, orgId, context.agent_id || null));
-
-    const riskAssessment = await timed('risk', () => computeRiskAssessment(sql, orgId, context, evidenceDerived));
+    // Independent lookups (both served from the 30s caches when warm; on a
+    // cold instance this halves the lookup round trips). phase_in_flight is
+    // diagnostic-only and may name either phase while they overlap.
+    const [policies, riskAssessment] = await Promise.all([
+      timed('policies', () => loadApplicablePolicies(sql, orgId, context.agent_id || null)),
+      timed('risk', () => computeRiskAssessment(sql, orgId, context, evidenceDerived)),
+    ]);
     agentRiskScore = riskAssessment.agentRiskScore;
     const serverEvidenceScore = Math.max(
       riskAssessment.breakdownBase.server_total,
@@ -869,9 +906,19 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   // Learning context — best-effort enrichment. Skipped on a degraded decision
   // (deadline or fast failure): the remaining budget is reserved for the
   // mandatory audit persist, and on a fast DB failure the read would fail too.
-  const learningContext = (deadlineExceeded || evaluationError)
+  // Learning context — best-effort response enrichment (the persisted audit
+  // row never reads it). Started here, at the same point the serial code
+  // issued its read, but awaited AFTER the audit persist is started below so
+  // its round trip overlaps the mandatory INSERT instead of extending the
+  // critical path. Degraded decisions skip it, exactly as before: the
+  // remaining budget is reserved for the mandatory audit persist.
+  // getLearningContext never rejects, but the catch keeps an abandoned read
+  // from ever surfacing as an unhandled rejection.
+  const learningStart = Date.now();
+  // Promise.resolve() guards against test doubles that return a bare value.
+  const learningPromise = (deadlineExceeded || evaluationError)
     ? null
-    : await getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type });
+    : Promise.resolve(getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type })).catch(() => null);
   let recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
   if ((deadlineExceeded || evaluationError) && recovery) {
     // Recovery was computed from partial (pre-degradation) state — mark it so.
@@ -880,11 +927,21 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
 
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
-    adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext, recovery, predictiveRisk,
+    adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext: null, recovery, predictiveRisk,
     riskBreakdown, intentSource, evidenceDerived, timings, degraded: degradedDetail,
   };
 
-  await persistGuardDecision(sql, buildGuardDecisionRow(input));
+  // The audit persist stays the mandatory blocking gate (awaited below; a
+  // failure still throws GUARD_AUDIT_PERSIST_FAILED and no decision is
+  // returned) — but its round trip runs concurrently with the best-effort
+  // learning read above, which only the RESPONSE consumes. The no-op catch
+  // suppresses a premature unhandled-rejection warning while the learning
+  // read settles; the await below still observes the real failure.
+  const persistPromise = persistGuardDecision(sql, buildGuardDecisionRow(input));
+  persistPromise.catch(() => {});
+  input.learningContext = learningPromise ? await learningPromise : null;
+  if (timings && learningPromise) timings.learning = Date.now() - learningStart;
+  await persistPromise;
   publishGuardDecisionEvent(input);
   return buildGuardResult(input);
 }

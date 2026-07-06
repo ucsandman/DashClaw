@@ -14,6 +14,7 @@ from dashclaw.client import (
     DashClaw,
     GuardBlockedError,
     ApprovalDeniedError,
+    ApprovalPendingError,
     scrub_act,
 )
 
@@ -182,24 +183,42 @@ class TestRunGoverned(unittest.TestCase):
         self.assertEqual(result, "ok")
         self.assertEqual(client.wait_for_approval_calls, ["act_2"])
 
-    def test_skips_wait_and_forwarded_context_when_wait_is_false(self):
+    def test_wait_false_on_pending_approval_raises_and_never_runs_fn(self):
         client = RecordingDashClaw(responses={
             ("POST", "/api/guard"): {"decision": "require_approval"},
             ("POST", "/api/actions"): {"action_id": "act_3", "action": {"status": "pending_approval"}},
         })
+        fn_called = []
+
+        with self.assertRaises(ApprovalPendingError) as ctx:
+            client.run_governed(
+                {"kind": "shell", "command": "rm x"},
+                {"action_type": "cleanup", "declared_goal": "g", "wait": False},
+                lambda: fn_called.append(True) or "ok",
+            )
+
+        self.assertEqual(ctx.exception.action_id, "act_3")
+        self.assertEqual(fn_called, [])
+        self.assertEqual(client.wait_for_approval_calls, [])
+        guard_call = next(c for c in client.calls if c["path"] == "/api/guard")
+        self.assertNotIn("wait", guard_call["body"])
+        create_call = next(c for c in client.calls if c["path"] == "/api/actions")
+        self.assertNotIn("wait", create_call["body"])
+
+    def test_wait_false_with_allow_decision_runs_fn_normally(self):
+        client = RecordingDashClaw(responses={
+            ("POST", "/api/guard"): {"decision": "allow"},
+            ("POST", "/api/actions"): {"action_id": "act_3b", "action": {"status": "running"}},
+        })
 
         result = client.run_governed(
-            {"kind": "shell", "command": "rm x"},
+            {"kind": "shell", "command": "ls"},
             {"action_type": "cleanup", "declared_goal": "g", "wait": False},
             lambda: "ok",
         )
 
         self.assertEqual(result, "ok")
         self.assertEqual(client.wait_for_approval_calls, [])
-        guard_call = next(c for c in client.calls if c["path"] == "/api/guard")
-        self.assertNotIn("wait", guard_call["body"])
-        create_call = next(c for c in client.calls if c["path"] == "/api/actions")
-        self.assertNotIn("wait", create_call["body"])
 
     def test_propagates_approval_denied_without_calling_fn_or_reporting_outcome(self):
         client = RecordingDashClaw(responses={

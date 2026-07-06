@@ -19,7 +19,11 @@ import type { SqlTag } from '@/lib/types/db';
 
 const PINNED_EXPORTS: Record<string, string[]> = {
   guard_policies: ['id', 'name', 'policy_type', 'rules', 'active', 'agent_ids', 'created_by', 'created_at', 'updated_at'],
-  guard_decisions: ['id', 'agent_id', 'agent_name', 'verification_status', 'replay_status', 'act_status', 'act_hash', 'decision', 'reason', 'matched_policies', 'context', 'evidence', 'risk_score', 'action_type', 'created_at', 'degraded'],
+  // idempotency_key is EXPORTED consciously: a client retry identifier, the
+  // same class as action_records.idempotency_key below (already exported) —
+  // not credential-shaped, and replay lookups additionally bind on org_id +
+  // a 10-minute window, so imported history cannot satisfy a live replay.
+  guard_decisions: ['id', 'agent_id', 'agent_name', 'verification_status', 'replay_status', 'act_status', 'act_hash', 'decision', 'reason', 'matched_policies', 'context', 'evidence', 'risk_score', 'action_type', 'idempotency_key', 'created_at', 'degraded'],
   // signature/verified are DENIED: they attest to the source instance's
   // signing key and must never present as natively verified after import.
   action_records: ['action_id', 'agent_id', 'agent_name', 'swarm_id', 'parent_action_id', 'action_type', 'declared_goal', 'reasoning', 'authorization_scope', 'trigger', 'systems_touched', 'input_summary', 'status', 'reversible', 'risk_score', 'confidence', 'recommendation_id', 'recommendation_applied', 'recommendation_override_reason', 'output_summary', 'side_effects', 'artifacts_created', 'error_message', 'timestamp_start', 'timestamp_end', 'duration_ms', 'cost_estimate', 'tokens_in', 'tokens_out', 'model', 'approved_by', 'approved_at', 'created_by', 'approval_grant_used_at', 'act_content_hash', 'approval_expires_at', 'outcome_status', 'outcome_at', 'outcome_summary', 'outcome_error', 'outcome_progress', 'idempotency_key', 'session_id', 'guard_decision_id', 'close_source', 'harness_session_id', 'subagent_uuid', 'created_at', 'updated_at'],

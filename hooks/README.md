@@ -205,7 +205,7 @@ Read-only and strictly fail-silent: missing config, an unreachable instance, or 
 | `DASHCLAW_API_KEY` | Yes | -- | Operator API key from `/settings` |
 | `DASHCLAW_AGENT_ID` | No | `claude-code` | Identity for this agent in DashClaw. A `--agent-id <id>` flag on the hook command line (written by the harness installers since v2.2) takes precedence, so each harness on a machine reports its own identity even when this var is exported machine-wide. |
 | `DASHCLAW_SUBAGENT_IDENTITY` | No | `distinct` | `distinct` (default since v2.2) gives each sub-agent type its own composed agent_id (`<parent>:<type>`) — a distinct fleet agent; the server falls back to the parent's pairing/targeted policies and rolls agent-scoped x402 budgets up to the family base. `provenance` restores the legacy behavior (agent_id stays the parent; sub-agent identity rides the provenance fields only). |
-| `DASHCLAW_HOOK_MODE` | No | `enforce` | `enforce` blocks on policy violations. `observe` logs everything but never blocks. |
+| `DASHCLAW_HOOK_MODE` | No | `enforce` | `enforce` blocks on policy violations. `observe` logs everything but never blocks. The hook reports this mode on every guard call (`enforcement_mode`), so observe-mode agents surface as an amber signal in Mission Control and a doctor warning — audit-only posture is visible, not silent. |
 | `DASHCLAW_PERMISSION_MODE` | No | `danger` | Permission mode passed to the guard for policy evaluation |
 | `DASHCLAW_GOVERNED_CATEGORIES` | No | `execution,orchestration,file_io,interactive,mcp` | Comma-separated list of tool categories that are governed |
 | `DASHCLAW_GUARD_TIMEOUT` | No | `5` | Timeout in seconds for the guard request. By default the guard makes **one attempt** (no retries); set `DASHCLAW_GUARD_RETRIES=2` to restore the old three-attempt behavior. |
@@ -216,7 +216,7 @@ Read-only and strictly fail-silent: missing config, an unreachable instance, or 
 | `DASHCLAW_BEHAVIOR_UPLOAD` | No | unset (off) | Opt-in anonymized behavior-sample upload (`1`/`true`/`yes`); requires the server-side org setting too. |
 | `DASHCLAW_BEHAVIOR_INSIGHTS` | No | on | Set `0` to opt out of the throttled behavior-insights push from the Stop hook. |
 | `DASHCLAW_TRACK_TEXT_TURNS` | No | unset (off) | Set `1` to record synthetic `conversation` actions for text-only turns so their tokens land in analytics. |
-| `DASHCLAW_GUARD_UNAVAILABLE_POLICY` | No | `block` | Behavior when the guard is unreachable after retries. `block` fails closed (exits 2). `warn` prints a stderr warning and proceeds. `allow` proceeds silently. All three paths still write the orphan log for backfill. |
+| `DASHCLAW_GUARD_UNAVAILABLE_POLICY` | No | `block` | Behavior when the guard is unreachable after retries. `block` fails closed (exits 2). `warn` prints a stderr warning and proceeds. `allow` prints a stderr notice and proceeds. All three paths still write the orphan log for backfill. |
 | `DASHCLAW_APPROVAL_TIMEOUT` | No | `30` | Timeout in seconds when polling for operator approval |
 | `DASHCLAW_DISABLE_DOTENV` | No | unset | Test isolation escape hatch. When set to any truthy value, the hooks skip the `.env` walk so the subprocess only sees env vars the caller passes in. The hook test suite sets this. **Never set this in production**: it disables the standard `.env.local` and `.env` loading the install flow relies on. |
 

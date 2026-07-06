@@ -315,7 +315,7 @@ describe('Tool Handlers', () => {
   });
 
   describe('dashclaw_session_start', () => {
-    it('calls POST /api/sessions', async () => {
+    it('calls POST /api/sessions with the server-configured identity winning (same precedence as record/guard)', async () => {
       mockPost.mockResolvedValue({ session: { id: 'sess_1', status: 'active' } });
 
       const result = await handlers.dashclaw_session_start({
@@ -323,8 +323,11 @@ describe('Tool Handlers', () => {
         workspace: 'research',
       });
 
+      // WRITE identity precedence: the caller-supplied agent_id is only a
+      // fallback — a session must not open under an arbitrary identity while
+      // its records stamp the configured one.
       expect(mockPost).toHaveBeenCalledWith('/api/sessions', {
-        agent_id: 'my-agent',
+        agent_id: 'default-agent',
         workspace: 'research',
         branch: undefined,
       }, { timeout: 10000 });

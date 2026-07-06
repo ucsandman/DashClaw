@@ -26,3 +26,12 @@ export declare function enabledProviders(store?: Store): ProviderId[];
 export declare function providerForTool(name: string): ProviderId | undefined;
 /** Governance set registers only when both DashClaw credentials are set. */
 export declare function governanceEnabled(): boolean;
+/**
+ * Half-configured governance is almost always a mistake (dropped env var,
+ * typo, secret-manager hiccup) — and its failure mode is the worst kind:
+ * the governance tools silently never register, so the agent proceeds with
+ * zero guard/record calls and nothing in-band says so. Returns the missing
+ * var name when exactly one of the pair is set, else null. Fully-unset stays
+ * silent by design (someone who never opted in shouldn't see noise).
+ */
+export declare function governanceMisconfigured(): string | null;

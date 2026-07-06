@@ -80,26 +80,32 @@ export async function runGuarded(store, ctx, exec) {
                 approval.capability === ctx.capability &&
                 approval.tool === ctx.tool &&
                 approval.providerResource === ctx.resourceLabel;
-            async function executeAllowed(reason) {
-                const startedAt = Date.now();
+            // Post-execution audit writes must never rewrite execution truth: once
+            // exec() has run, a failing appendAudit (full disk, stale lock) that
+            // escaped this function used to bubble to the outer catch and report
+            // executed:false — inviting the caller to retry a provider action that
+            // already happened. Capture the failure and surface it as audit_error
+            // on an otherwise-truthful response instead.
+            function auditSafely(result, errorMessage) {
                 try {
-                    const data = await exec();
-                    auditWithDecision("success", "allow");
-                    const { outcomeRecorded, outcomeError } = await recordOutcomeSafely("success", startedAt);
-                    return {
-                        ...base,
-                        status: "ok",
-                        policy_decision: "allow",
-                        executed: true,
-                        mode,
-                        reason,
-                        data,
-                        dashclaw: dashclawDecision ? { ...dashclawMeta(), outcome_recorded: outcomeRecorded, error: outcomeError } : undefined,
-                    };
+                    auditWithDecision(result, "allow", errorMessage);
+                    return undefined;
                 }
                 catch (err) {
                     const message = err instanceof Error ? err.message : String(err);
-                    auditWithDecision("error", "allow", message);
+                    console.error(`[dashclaw] audit write failed after execution (result=${result}): ${message}`);
+                    return `Audit log write failed after execution: ${message}. The execution result above is truthful, but this attempt is missing from the local audit trail.`;
+                }
+            }
+            async function executeAllowed(reason) {
+                const startedAt = Date.now();
+                let data;
+                try {
+                    data = await exec();
+                }
+                catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    const auditError = auditSafely("error", message);
                     const { outcomeRecorded, outcomeError } = await recordOutcomeSafely("error", startedAt, message);
                     return {
                         ...base,
@@ -108,8 +114,23 @@ export async function runGuarded(store, ctx, exec) {
                         executed: true,
                         error: message,
                         dashclaw: dashclawDecision ? { ...dashclawMeta(), outcome_recorded: outcomeRecorded, error: outcomeError } : undefined,
+                        ...(auditError ? { audit_error: auditError } : {}),
                     };
                 }
+                // exec() succeeded — nothing past this point may claim executed:false.
+                const auditError = auditSafely("success");
+                const { outcomeRecorded, outcomeError } = await recordOutcomeSafely("success", startedAt);
+                return {
+                    ...base,
+                    status: "ok",
+                    policy_decision: "allow",
+                    executed: true,
+                    mode,
+                    reason,
+                    data,
+                    dashclaw: dashclawDecision ? { ...dashclawMeta(), outcome_recorded: outcomeRecorded, error: outcomeError } : undefined,
+                    ...(auditError ? { audit_error: auditError } : {}),
+                };
             }
             if (risky) {
                 const startedAt = Date.now();

@@ -953,4 +953,19 @@ export function boundedIdField(value) {
   return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : null;
 }
 
+/**
+ * Client enforcement posture: the hook stamps how it will TREAT this guard
+ * decision (enforce = blocks physically stop the tool call; observe = blocks
+ * are logged only; warn = printed but not stopped). Attribution-only — never
+ * affects evaluation — but it is the server's only window into whether the
+ * client actually enforces. Unknown values normalize to null ("unreported"),
+ * never to a mode: a garbled value must not read as either posture.
+ */
+const ENFORCEMENT_MODES = new Set(['enforce', 'observe', 'warn', 'off']);
+export function enforcementModeField(value) {
+  if (typeof value !== 'string') return null;
+  const mode = value.trim().toLowerCase();
+  return ENFORCEMENT_MODES.has(mode) ? mode : null;
+}
+
 export { ACTION_TYPES, ACTION_STATUSES, LOOP_TYPES, LOOP_STATUSES, LOOP_PRIORITIES, OUTCOME_FIELDS, POLICY_TYPES, DEFAULT_MAX_LENGTH };

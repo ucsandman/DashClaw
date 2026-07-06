@@ -8,6 +8,7 @@ import assert from 'node:assert/strict';
 
 import {
   chooseDbMode, dockerCommandFor, provisionDatabase, pickDbPort, DEFAULT_DB_PORT,
+  missingVcRuntime, embeddedFailureMessage,
 } from '../../lib/up/db.js';
 
 describe('chooseDbMode', () => {
@@ -41,6 +42,41 @@ describe('provisionDatabase — url mode', () => {
       () => provisionDatabase({ mode: 'url', promptFn: async () => 'mysql://x' }),
       /postgresql:\/\//,
     );
+  });
+});
+
+describe('embedded mode — Windows VC++ runtime guard', () => {
+  test('missingVcRuntime is false off Windows regardless of DLL state', () => {
+    assert.strictEqual(missingVcRuntime({ platform: 'linux', exists: () => false }), false);
+  });
+
+  test('missingVcRuntime is true on Windows when the runtime DLLs are absent', () => {
+    assert.strictEqual(missingVcRuntime({ platform: 'win32', exists: () => false }), true);
+  });
+
+  test('missingVcRuntime is false on Windows when the runtime DLLs are present', () => {
+    assert.strictEqual(missingVcRuntime({ platform: 'win32', exists: () => true }), false);
+  });
+
+  test('provisionDatabase preflights the VC++ runtime with an actionable error', async () => {
+    await assert.rejects(
+      () => provisionDatabase({ mode: 'embedded', baseDir: '/tmp/x', checkVcRuntime: () => true }),
+      /vc_redist\.x64\.exe/,
+    );
+  });
+
+  test('embeddedFailureMessage maps STATUS_DLL_NOT_FOUND (0xC0000135) to the VC++ remediation', () => {
+    const msg = embeddedFailureMessage(new Error(
+      'Postgres init script failed (code: 3221225781, signal: null). ERROR OUTPUT: .',
+    ));
+    assert.ok(msg.includes('vc_redist.x64.exe'), `expected VC++ remediation in: ${msg}`);
+    assert.ok(msg.includes('3221225781'), 'expected the original exit code to survive');
+  });
+
+  test('embeddedFailureMessage keeps the generic remediation for other failures', () => {
+    const msg = embeddedFailureMessage(new Error('port already bound'));
+    assert.ok(msg.includes('--db docker'), `expected generic remediation in: ${msg}`);
+    assert.ok(!msg.includes('vc_redist'), 'must not blame the VC++ runtime for unrelated failures');
   });
 });
 

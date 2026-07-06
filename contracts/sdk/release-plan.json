@@ -1,22 +1,26 @@
 {
   "node": {
-    "current_version": "4.72.1",
+    "current_version": "4.73.0",
     "next_bump": "none",
-    "reason": "4.72.1 hook-timeout enforcement fix: no Node SDK source change - installer/plugin/CLI hook config + docs only. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.73.0 ships real Node SDK source changes (sdk/dashclaw.js + sdk/legacy/dashclaw-v1.js): runGoverned({wait:false}) no longer silently executes work whose approval is still pending - it throws the new ApprovalPendingError. REPUBLISH: npm moves from 4.63.2 to 4.73.0 via npm run release:sdks.",
     "domains": [
-      "platform"
+      "platform",
+      "node-sdk"
     ]
   },
   "python": {
-    "current_version": "4.72.1",
+    "current_version": "4.73.0",
     "next_bump": "none",
-    "reason": "4.72.1 hook-timeout enforcement fix: no Python SDK source change; PyPI stays at 4.63.2.",
+    "reason": "4.73.0 ships real Python SDK source changes (dashclaw/client.py + __init__.py): same wait=False approval-bypass fix via ApprovalPendingError. REPUBLISH: PyPI moves from 4.63.2 to 4.73.0 via npm run release:sdks.",
     "domains": [
-      "platform"
+      "platform",
+      "python-sdk"
     ]
   },
-  "reason": "v4.72.1 closes a silent fail-open in Claude Code enforcement: every DashClaw hook installer wrote the pretool hook timeout as 3600000 - a milliseconds value in a field Claude Code reads as SECONDS. seconds*1000 overflows the harness's 32-bit timer, so the timer fires immediately, the harness cancels the still-running hook, and the tool call proceeds - block decisions and approval waits were never enforced (decisions still landed in the ledger, which masked it). Fixed to 3660s across scripts/install-hooks.mjs, the Claude Code plugin hooks.json (plugin 2.15.1), the CLI installer (@dashclaw/cli 0.7.2), hooks/settings.json, and the docs/guide examples. Found while investigating why require_approval writes proceeded without operator approval.",
+  "reason": "v4.73.0 combines the guard hot-path performance pass (hook-call p50 221->124ms on a 10ms-RTT DB; drizzle/0058 idempotency_key column+index replacing the volume-linear jsonb replay scan; Server-Timing header; scripts/bench-guard-hotpath.mjs regression harness) with the silent-failure hardening sweep (SDK wait:false approval bypass fixed in both SDKs, GUARD_AUDIT_PERSIST_FAILED honest 503, MCP audit_error truthfulness, hook enforcement_mode attribution). Both SDKs republish this release.",
   "domains": [
-    "platform"
+    "platform",
+    "node-sdk",
+    "python-sdk"
   ]
 }

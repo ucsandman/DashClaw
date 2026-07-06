@@ -133,10 +133,28 @@ describe('guard characterization — decision matrix', () => {
     }
   });
 
-  it('malformed rules JSON → policy skipped silently', async () => {
-    const sql = makeSql([{ id: 'gp_bad', name: 'Bad', policy_type: 'risk_threshold', rules: '{broken' }]);
-    const result = await evaluateGuard(freshOrg(), { action_type: 'deploy', risk_score: 99, agent_id: 'a1' }, sql);
-    expect(result.decision).toBe('allow');
+  it('malformed rules JSON → policy skipped but LOUD: decision unchanged, unenforceable warning surfaced', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const sql = makeSql([{ id: 'gp_bad', name: 'Bad', policy_type: 'risk_threshold', rules: '{broken' }]);
+      const result = await evaluateGuard(freshOrg(), { action_type: 'deploy', risk_score: 99, agent_id: 'a1' }, sql);
+      expect(result.decision).toBe('allow');
+      expect(result.warnings.some((w) => w.includes('cannot enforce'))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('unknown policy_type → skipped but LOUD: unenforceable warning surfaced', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const sql = makeSql([{ id: 'gp_new', name: 'Future', policy_type: 'not_a_real_type', rules: '{}' }]);
+      const result = await evaluateGuard(freshOrg(), { action_type: 'deploy', agent_id: 'a1' }, sql);
+      expect(result.decision).toBe('allow');
+      expect(result.warnings.some((w) => w.includes('unknown policy_type'))).toBe(true);
+    } finally {
+      warnSpy.mockRestore();
+    }
   });
 
   it('fail-closed default: semantic_check without any LLM key → require_approval', async () => {

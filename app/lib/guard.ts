@@ -10,7 +10,7 @@
  *   - guard/evaluate.ts     — evaluateGuard orchestration + verifyX402BudgetAfterInsert
  */
 
-export { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy } from './guard/policy';
+export { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, KNOWN_POLICY_TYPES, isKnownPolicyType } from './guard/policy';
 export { computeRiskScore } from './guard/risk';
 export type { RiskFactor, RiskBreakdown } from './guard/risk';
 export {

@@ -17,10 +17,23 @@ const mockExpireOverdueApproval = vi.fn();
 const mockReconcileStalePurchases = vi.fn(() => Promise.resolve([]));
 const mockFireWebhooksForApproval = vi.fn(() => Promise.resolve());
 
+// after() callbacks run immediately in tests (the route now defers the
+// approve/deny audit write through after() so Vercel can't drop it).
 vi.mock('next/server', async (importOriginal) => {
   const actual = await importOriginal();
-  return { ...actual, after: () => {} };
+  return {
+    ...actual,
+    after: (cb) => {
+      try {
+        const r = typeof cb === 'function' ? cb() : undefined;
+        if (r && typeof r.catch === 'function') r.catch(() => {});
+      } catch { /* deferred work must not sink the test request */ }
+    },
+  };
 });
+vi.mock('../../app/lib/approvalNotifications.js', () => ({
+  clearApprovalNotifications: vi.fn(() => Promise.resolve()),
+}));
 vi.mock('../../app/lib/db.js', () => ({ getSql: () => mockGetSql }));
 vi.mock('../../app/lib/org.js', () => ({
   getOrgId: (...a) => mockGetOrgId(...a),

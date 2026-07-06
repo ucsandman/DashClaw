@@ -98,6 +98,16 @@ MAX_SUMMARY = 500
 def _log(tag, msg):
     if not DEBUG:
         return
+    _log_always(tag, msg)
+
+
+def _log_always(tag, msg):
+    """Unconditional append to the shared hook error log (NOT debug-gated).
+
+    Real failures — a dropped outcome PATCH leaves the action stuck in
+    `running` forever — must leave a trace like the stop/pretool hooks do;
+    only diagnostic breadcrumbs stay behind DASHCLAW_HOOK_DEBUG.
+    """
     try:
         path = os.path.join(tempfile.gettempdir(), "dashclaw_hook_errors.log")
         ts = datetime.now(timezone.utc).isoformat()
@@ -266,12 +276,14 @@ def _extract_spawned_agent_uuid(tool_name, tool_response):
 # ---------------------------------------------------------------------------
 
 def _patch_action(action_id, body):
-    """PATCH /api/actions/{action_id}. Failures log (if DEBUG) and return.
+    """PATCH /api/actions/{action_id}. Failures ALWAYS log and return.
 
     Retries up to three times with 0.4s then 0.8s backoff between
     attempts so a Vercel or Neon cold start does not drop the action's
     terminal status, which would otherwise leave the row stuck in
-    `running` and pollute Mission Control as a zombie.
+    `running` and pollute Mission Control as a zombie. A final failure is
+    appended to dashclaw_hook_errors.log unconditionally (not debug-gated):
+    a silently dropped outcome is an audit-trail gap, not a breadcrumb.
     """
     url = BASE_URL + "/api/actions/" + action_id
     data = json.dumps(body).encode("utf-8")
@@ -287,9 +299,11 @@ def _patch_action(action_id, body):
     try:
         request_with_retry(req, timeout=2)
     except urllib.error.HTTPError as e:
-        _log("patch_failed", "action_id=" + action_id + " HTTP " + str(e.code))
+        _log_always("patch_failed", "action_id=" + action_id + " HTTP " + str(e.code)
+                    + " — outcome not recorded; action may be stuck in 'running'")
     except Exception as e:
-        _log("patch_failed", "action_id=" + action_id + " " + type(e).__name__ + ": " + str(e))
+        _log_always("patch_failed", "action_id=" + action_id + " " + type(e).__name__ + ": " + str(e)
+                    + " — outcome not recorded; action may be stuck in 'running'")
 
 
 # ---------------------------------------------------------------------------

@@ -269,8 +269,18 @@ class DashClaw {
     try {
       decision = await this.guard(context);
     } catch (err) {
-      // Guard API failure is fail-open: log and proceed
-      console.warn(`[DashClaw] Guard check failed (proceeding): ${err.message}`);
+      // enforce = fail closed: a guard call that cannot answer must not turn
+      // into a silent allow — that is exactly the guarantee 'enforce' sells.
+      // warn/off stay fail-open (log and proceed) since they never blocked.
+      if (this.guardMode === 'enforce') {
+        const unavailable = new Error(
+          `Guard check failed and guardMode='enforce' — refusing to proceed ungoverned: ${err.message}`
+        );
+        unavailable.name = 'GuardUnavailableError';
+        unavailable.cause = err;
+        throw unavailable;
+      }
+      console.warn(`[DashClaw] Guard check failed (proceeding, guardMode='${this.guardMode}'): ${err.message}`);
       return;
     }
 
