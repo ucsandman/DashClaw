@@ -12,6 +12,54 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — Roadmap v8 drafted: the vigil — certainty while the window runs
+
+The owner's direction arrived with its own honesty built in: "I am aware
+we are waiting for the trials but we might as well keep building and
+developing the project." So the carry move runs a second time. v7 is
+archived with both of its buildable items shipped
+([`docs/plans/archive/owner-roadmap-v7.md`](plans/archive/owner-roadmap-v7.md)),
+and its three calendar-gated items move into v8 unchanged — the cohort
+read as v8.1 (on/after July 19), the evidence-selected branch as v8.5,
+the era-exit read as v8.6 (earliest July 20). Same contracts, same dates,
+same instrument. The preview ran again today as part of drafting: cohort
+n=0 on day 1. Nothing to do about that but keep the product worth
+arriving at.
+
+What v8 adds is a name for the lane the last nine ships already ran in,
+and exits for it. Since v7.3, "keep the momentum" produced five
+behavior-pinned health decompositions, four guide ships, a guard
+hot-path perf pass, and two discoveries that shaped this draft more than
+anything else: enforcement silently failing open while the decision
+ledger looked perfect (v4.72.1), and the flagship install path broken on
+every factory-fresh machine while working on every developer machine
+(the Windows Sandbox findings, CLI 0.7.2–0.7.4). The pattern in both is
+identical — the product's promises decay silently between manual proofs
+— and a measurement window is only as honest as the surfaces it
+measures. If a stranger arrives and the door is broken, the read records
+"no activation" when the truth was "no product."
+
+So the era keeps the vigil: v8.2 turns the owner's v4.72.1 question
+("how were you able to write to those files?") into an instrument the
+system runs against itself — a liveness probe that proves blocks
+actually block, verified by observing the action didn't execute, never
+by trusting the ledger that lied for a week, rendered as a
+holding/stale/broken state where humans already look. v8.3 makes both
+entry doors — fresh-machine `npx dashclaw up` and the full hosted
+stranger path through export and import — one-command drills run on a
+cadence instead of heroic one-offs. v8.4 gives the health lane a floor
+set against a fresh index and then closes it, with the v4.73.0 bench
+gates wired into CI so the perf win can't quietly rot.
+
+Declined, with reasons written down: more reach (spent, and now measured
+as spent), retention levers (still nobody to retain), further guides
+expansion (channel-blind until a read names the converting channel —
+revival trigger on the branch), and the TypeScript migration for a sixth
+round, with a new era-specific reason: tree-wide mechanical churn during
+the measurement window destabilizes the exact surfaces the read depends
+on, for zero behavior change. The branch stays unpredicted. The reads
+fire on the calendar, not on effort.
+
 ## 2026-07-06 — the fresh-machine test: a Windows Sandbox run catches a first-run killer
 
 Show HN prep produced a genuinely fresh test environment for the first time:
