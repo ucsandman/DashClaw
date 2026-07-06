@@ -13,6 +13,35 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.68.0] — 2026-07-06
+
+**The Complete Platform Guide.** One interactive reference covering 100% of
+the product surface — 1,415 entries spanning every product page (93), every
+API route+method (449, including the 48 archived `_archive` routes documented
+as not-routable), the full Node SDK (162 canonical + 193 deprecated legacy
+methods), the full Python SDK (234 methods), the CLI (36 commands), the MCP
+server (151 tools + 6 resources), and the hook/auth/setup surface. Every
+entry carries an evidence-based stable/beta/experimental/deprecated/archived
+mark.
+
+### Added
+- **`/guides/platform`** — searchable, filterable interactive guide with
+  per-area read-progress tracking, copy-to-clipboard on every snippet,
+  expandable per-endpoint reference cards (inputs, auth, response shape,
+  errors, gotchas, source file), and per-endpoint "Try it" panels that run
+  against the reader's own instance with a key they supply (stored only in
+  their browser — nothing baked in).
+- **Live-captured examples** in the quickstart: the governed-action loop
+  (health → guard → record → decisions ledger → assumptions/loops → posture)
+  shown as real request/response pairs captured from a running instance —
+  PowerShell (`curl.exe`) first, bash, TypeScript SDK, Python SDK, and MCP
+  tool forms. Keys/org ids replaced with placeholders; nothing fabricated.
+- **`docs/platform-guide-coverage.json`** — coverage manifest mapping every
+  one of the 1,415 inventoried items to its guide section, with a
+  `liveVerified` flag distinguishing live-exercised interfaces from
+  code-derived documentation.
+- Docs page callout + sidebar link to the new guide.
+
 ## [4.67.0] — 2026-07-05
 
 **Guides expansion: 8 → 11 frameworks.** The roadmap's compounding-surface

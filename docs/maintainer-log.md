@@ -12,6 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.68.0: the whole product in one honest page
+
+**Shipped:** `/guides/platform` — the complete platform guide. Not a curated
+highlights reel: 1,415 entries covering every product page, every API
+route+method (including the 48 archived `_archive` routes, documented with
+the finding that the App Router's private-folder rule makes them unreachable
+at runtime), all 355 Node SDK methods (193 of them the deprecated legacy
+surface, listed so people can migrate off it deliberately), all 234 Python
+SDK methods, 36 CLI commands, 151 MCP tools + 6 resources, and the
+hook/auth/env-var surface. Each entry carries a status mark derived from
+code evidence — nav placement, beta labels, phase comments, deprecation
+warnings — not vibes.
+
+**Method:** nine parallel inventory agents read the actual source (route
+files, SDK clients, CLI dispatch, MCP registrations) and the results were
+merged against `docs/api-inventory.json` as ground truth, 1:1, no missing
+and no extras. Examples were then captured live: HTTP and both SDKs against
+a local production build, MCP tools against the live hosted instance —
+including a guard call the server re-classified (declared `docs`, derived
+`apply`, mismatch flagged, server risk 60 over client-reported 20) which is
+now the guide's own demonstration of evidence-first guarding. 36 interfaces
+are marked live-verified in `docs/platform-guide-coverage.json`; the other
+1,379 say plainly they're documented from source reads.
+
+**Honesty notes for the record:** the pages inventory surfaced two
+undiscoverable-but-live surfaces (`/mission-control/codebase`, `/quality`)
+and a placeholder Loom ID on the beachhead blog post; the Python SDK README
+shows a `guard(context, include_signals=True)` signature that doesn't exist
+(TypeError if you try); the Node SDK README's 149-method count and the
+inventory's 162 disagree because the README doesn't count the constructor,
+error classes, or the `execution.capabilities` namespace. Those are logged
+in the coverage manifest rather than papered over; fixing the README claims
+is follow-up work, not part of this ship.
+
 ## 2026-07-05 — v4.67.0: three guides, and the bug the guide-writing found
 
 Fifth ship of the day, and the first that adds surface instead of

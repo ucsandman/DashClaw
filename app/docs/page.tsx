@@ -124,6 +124,7 @@ function SectionNav({ items }: SectionNavProps) {
 /* ─── nav items for sidebar ─── */
 
 const navItems = [
+  { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
   { href: '#mcp-tools', label: 'Tools (33)', indent: true },
@@ -301,6 +302,18 @@ export default async function DocsPage({ searchParams }: DocsPageProps) {
         <SectionNav items={navItems} />
 
         <div className="min-w-0 flex-1">
+
+          {/* ── Complete platform guide callout ── */}
+          <div className="mb-10 rounded-xl border border-brand/25 bg-surface-secondary p-5">
+            <p className="font-mono text-[11px] uppercase tracking-wider text-brand">New</p>
+            <p className="mt-1 text-sm text-text-secondary leading-relaxed">
+              Looking for the whole surface — every page, endpoint, SDK method, CLI command, MCP tool, and hook,
+              with live-captured examples and a stable/experimental mark on each?
+            </p>
+            <Link href="/guides/platform" className="mt-2 inline-block text-sm font-medium text-brand hover:text-brand-hover">
+              Open the Complete Platform Guide →
+            </Link>
+          </div>
 
           {/* ── Quick Start ── */}
           <section id="quick-start" className="scroll-mt-20 pb-12 border-b border-border">
