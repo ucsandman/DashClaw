@@ -5,23 +5,7 @@ import { useEffect, useState } from 'react';
 import { Play, X } from 'lucide-react';
 import CopyButton from './CopyButton';
 
-const LS_KEY = 'dashclaw-guide-tryit';
-
-interface TryItState {
-  baseUrl: string;
-  apiKey: string;
-}
-
-function loadConfig(): TryItState {
-  if (typeof window === 'undefined') return { baseUrl: '', apiKey: '' };
-  try {
-    const raw = window.localStorage.getItem(LS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {
-    /* fall through */
-  }
-  return { baseUrl: window.location.origin, apiKey: '' };
-}
+import { loadTryItConfig, saveTryItConfig, type TryItConfig } from '../lib/tryitConfig';
 
 /**
  * Runs a real request against the reader's OWN instance with a key they
@@ -39,23 +23,19 @@ export default function TryItPanel({
   defaultBody?: string;
   onClose: () => void;
 }) {
-  const [config, setConfig] = useState<TryItState>({ baseUrl: '', apiKey: '' });
+  const [config, setConfig] = useState<TryItConfig>({ baseUrl: '', apiKey: '' });
   const [body, setBody] = useState(defaultBody || '');
   const [result, setResult] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    setConfig(loadConfig());
+    setConfig(loadTryItConfig());
   }, []);
 
-  function saveConfig(next: TryItState) {
+  function saveConfig(next: TryItConfig) {
     setConfig(next);
-    try {
-      window.localStorage.setItem(LS_KEY, JSON.stringify(next));
-    } catch {
-      /* storage unavailable — keep in-memory only */
-    }
+    saveTryItConfig(next);
   }
 
   async function send() {

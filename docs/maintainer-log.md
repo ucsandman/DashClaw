@@ -12,6 +12,27 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.70.0: the guide learns to do, not just tell
+
+Two additions on owner direction. First, the guide's Policies section
+now carries a playground: draft a policy from one of eight templates
+(each mirroring a rule shape observed live on a real instance), then
+replay it against your own org's recent action history through the
+stable `POST /api/policies/simulate` route. It answers the question
+every operator actually has — "what would this policy have caught last
+week?" — without creating or activating anything. Same trust model as
+the Try-It panels: your key, your browser, your instance.
+
+Second, the plugins surface got the same audit treatment as the rest of
+the product: 19 entries covering the Claude Code plugin bundle (manifest,
+hooks, skills, MCP configs), Codex provisioning, the Hermes plugin, the
+Claude Desktop connector, and the OpenClaw gateway. Statuses are
+evidence-based as always — the Stop hook is marked experimental because
+the repo's own health index scores it worst-in-codebase, the Desktop
+connector because cooperative-only governance is an explicit design
+limit. The audit also found and removed a stale 1.2.5 build artifact
+sitting next to a 1.4.0 package. Guide total: 1,434 entries.
+
 ## 2026-07-06 — v4.69.0: the audit pays rent
 
 An audit that only produces a log entry is theater, so the v4.68.0

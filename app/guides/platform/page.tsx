@@ -30,7 +30,7 @@ export default function PlatformGuidePage() {
             </h1>
             <p className="mt-4 max-w-3xl text-sm leading-relaxed text-secondary">
               {counts.total} entries: every product page, API endpoint, SDK method (Node and Python), CLI
-              command, MCP tool, and governance hook — each marked stable, beta, experimental, deprecated,
+              command, MCP tool, governance hook, and plugin surface — each marked stable, beta, experimental, deprecated,
               or archived based on evidence in the code, not guesswork. Examples are real captured
               request/response pairs; where a live capture was not possible, the section says so.
             </p>

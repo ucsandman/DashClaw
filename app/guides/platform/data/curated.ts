@@ -10,7 +10,7 @@ export const NAV_GROUPS: Array<{ label: string; areaIds: string[] }> = [
     areaIds: ['api-guard', 'api-actions', 'api-policies', 'api-approvals', 'api-assumptions', 'api-agents'],
   },
   { label: 'API reference', areaIds: [] }, // filled with remaining api-* areas at render time
-  { label: 'SDKs & tooling', areaIds: ['sdk-node', 'sdk-python', 'cli', 'mcp', 'hooks'] },
+  { label: 'SDKs & tooling', areaIds: ['sdk-node', 'sdk-python', 'cli', 'mcp', 'hooks', 'plugins'] },
   { label: 'Everything else', areaIds: ['other'] },
 ];
 
@@ -37,6 +37,8 @@ export const AREA_BLURBS: Record<string, string> = {
   mcp: 'The @dashclaw/mcp-server package exposes governance as MCP tools for Claude Code, Claude Desktop, Codex, and any MCP host. Needs only a base URL and an API key (agent id optional — org_id is NOT required).',
   hooks:
     'Claude Code PreToolUse/PostToolUse/Stop hooks that intercept every tool call and route it through guard, with Codex and Hermes parity surfaces. DASHCLAW_HOOK_MODE controls enforcement.',
+  plugins:
+    'The distributable plugin bundles: the Claude Code plugin (MCP server + governance skills + hooks in one install), the Codex provisioning surface (dashclaw install codex), the Hermes lifecycle-hook plugin, and the OpenClaw gateway plugin. One entry per hook, skill, manifest, and runtime target — parity gaps are marked, not hidden.',
   auth: 'How every request authenticates: the x-api-key header, agent vs operator/admin keys, OAuth bearer, the pairing flow, and org scoping. Includes the classic 503 SCHEMA_NOT_INITIALIZED trap.',
   setup:
     'Everything needed to run your own instance: required env vars (from .env.example), npx dashclaw up, Vercel deploy, db:migrate, and the /setup readiness page.',

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.69.0",
+    "current_version": "4.70.0",
     "next_bump": "none",
-    "reason": "4.69.0 guide follow-through: no Node SDK source change - guide polish, drift CI gate, nav/discoverability fixes, and a Python README correction. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.70.0 policy playground + plugins audit: no Node SDK source change - a guide-embedded policy simulator and a 19-entry plugins area in the platform guide. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.69.0",
+    "current_version": "4.70.0",
     "next_bump": "none",
-    "reason": "4.69.0 guide follow-through: README-only fix (removed the nonexistent include_signals kwarg from guard() docs). No Python SDK source change; PyPI stays at 4.63.2.",
+    "reason": "4.70.0 policy playground + plugins audit: no Python SDK source change; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.69.0 follows through on the v4.68.0 platform-guide audit: fixes the defects the guide-building surfaced (Python README fake guard kwarg, unreachable /mission-control/codebase now in the Observe sidebar group), polishes the guide (hash deep-links, API-to-SDK/MCP cross-links, try-it key helper, '/' search shortcut), adds a CI drift gate (guide:drift:check) so the guide cannot silently rot, and surfaces the guide on /connect and the public footer. No SDK source changes.",
+  "reason": "v4.70.0 adds an interactive policy playground to the platform guide's Policies section (drafts a policy and replays it against the reader's own action history via POST /api/policies/simulate - read-only, nothing activated) and extends the guide with a Plugins area: 19 audited entries covering the Claude Code plugin manifest, hooks, skills, MCP configs, the Codex install surface, the Hermes plugin, the Claude Desktop connector, and the OpenClaw gateway plugin, each with evidence-based status. No SDK source changes.",
   "domains": [
     "platform"
   ]

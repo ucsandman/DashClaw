@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, Search } from 'lucide-react';
 import type { GuideArea, GuideData, ItemStatus } from './types';
 import { AREA_BLURBS, NAV_GROUPS, buildQuickstart } from './data/curated';
 import CodeTabs from './components/CodeTabs';
+import PolicyPlayground from './components/PolicyPlayground';
 import ReferenceItem from './components/ReferenceItem';
 import StatusBadge from './components/StatusBadge';
 
@@ -308,6 +309,7 @@ function GuideBody({ data }: { data: GuideData }) {
                   onToggle={() => toggleReviewed(area.id)}
                   statusMix={area.items}
                 />
+                {area.id === 'api-policies' && <PolicyPlayground />}
                 <div className="overflow-hidden rounded-xl border border-border bg-surface-secondary">
                   {area.items.map((item) => (
                     <ReferenceItem

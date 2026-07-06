@@ -1,9 +1,9 @@
 {
   "generatedAt": "2026-07-06",
   "note": "Maps every inventoried surface item to the /guides/platform section documenting it. liveVerified=true means the exact interface was exercised against a running instance during capture; everything else is documented from source code reads.",
-  "total": 1415,
+  "total": 1434,
   "liveVerified": 36,
-  "codeOnly": 1379,
+  "codeOnly": 1398,
   "items": [
     {
       "item": "/mission-control",
@@ -9908,6 +9908,139 @@
       "kind": "other",
       "status": "stable",
       "section": "Widget, Webhook Formats & More (#other)",
+      "liveVerified": false
+    },
+    {
+      "item": "DashClaw plugin — Claude Code manifest",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "DashClaw plugin — Codex manifest",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "DashClaw plugin — Hermes Agent manifest",
+      "kind": "plugin",
+      "status": "beta",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "DashClaw Claude Desktop connector",
+      "kind": "plugin",
+      "status": "experimental",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "MCP config — Claude Code (.mcp-claude.json)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "MCP config — Codex + Hermes (.mcp.json)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_pretool.py",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_posttool.py",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_stop.py",
+      "kind": "plugin",
+      "status": "experimental",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_session_digest.py",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_code_session_reporter.py",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "run_hook.cjs",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw_agent_intel/ (shared hook library)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "Skill: dashclaw-governance",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "Skill: dashclaw-platform-intelligence",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "Plugin assets (icon.png, logo.png)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw install codex",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "@dashclaw/openclaw-plugin (OpenClaw gateway plugin)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "dashclaw-demo (npx one-liner)",
+      "kind": "plugin",
+      "status": "stable",
+      "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
       "liveVerified": false
     }
   ]

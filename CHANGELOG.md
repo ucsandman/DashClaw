@@ -13,6 +13,31 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.70.0] — 2026-07-06
+
+**Policy playground + plugins audit.** The platform guide grows its first
+truly interactive governance tool and closes its thinnest coverage area.
+
+### Added
+- **Policy playground** in the guide's Policies section: pick a policy type
+  (8 templates mirroring real live-observed rule shapes), edit the rules
+  JSON, and replay the draft against your own instance's recent action
+  history via `POST /api/policies/simulate`. Read-only — shows exactly what
+  the policy *would have* blocked, warned, or sent to approval, with summary
+  tiles and the first matched actions. Uses the same browser-only connection
+  config as the Try-It panels.
+- **Plugins area in the guide** — 19 audited entries covering the Claude
+  Code plugin (manifest, 6 hooks, 2 skills, MCP configs, assets), the Codex
+  install surface, the Hermes plugin (beta), the Claude Desktop connector
+  (experimental, cooperative-only by design), the OpenClaw gateway plugin,
+  and the demo package — each with evidence-based status. Guide total:
+  1,415 → 1,434 entries.
+
+### Fixed
+- Removed a stale local `openclaw-plugin` 1.2.5 build artifact surfaced by
+  the plugins audit (package is at 1.4.0; the tgz was untracked and
+  referenced nowhere).
+
 ## [4.69.0] — 2026-07-06
 
 **Guide follow-through.** The v4.68.0 platform-guide audit surfaced real
