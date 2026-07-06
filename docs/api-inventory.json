@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 335,
+    "total_routes": 336,
     "stable_routes": 57,
     "beta_routes": 24,
-    "experimental_routes": 254
+    "experimental_routes": 255
   },
   "routes": [
     {
@@ -914,6 +914,16 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/billing/portal/route.ts"
+    },
+    {
+      "path": "/api/calibration/controller",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/calibration/controller/route.ts"
     },
     {
       "path": "/api/calibration/proposals",
