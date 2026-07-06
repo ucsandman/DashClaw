@@ -84,7 +84,6 @@ from dashclaw_agent_intel import classify_bash, scan_file_operation, classify_to
 from dashclaw_agent_intel.bash_classifier import is_bounded_rm, is_regenerable_artifact_rm
 from dashclaw_agent_intel.file_scanner import is_placeholder_path
 from dashclaw_agent_intel.http_client import request_with_retry, env_retries
-from dashclaw_agent_intel import behavior_recorder
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -539,12 +538,11 @@ def write_action_id(tool_use_id, action_id):
     """Write action_id to a temp file keyed by tool_use_id.
 
     Also appends the (tool_use_id, action_id) pair to a per-session mapping
-    log so the Stop hook's code-session reporter can populate the
-    `tool_use_action_map` field in POST /api/code-sessions/ingest-jsonl.
-    PostToolUse cleans up the per-tool_use_id file after PATCHing, so the
-    session-scoped log is the only persistent record of which Claude Code
-    tool calls correspond to which DashClaw action_records by the time
-    Stop fires.
+    log the Stop hook's coverage counter reads (expected-vs-recorded governed
+    tool_uses for /api/coverage). PostToolUse cleans up the per-tool_use_id
+    file after PATCHing, so the session-scoped log is the only persistent
+    record of which Claude Code tool calls correspond to which DashClaw
+    action_records by the time Stop fires.
     """
     path = os.path.join(tempfile.gettempdir(), "dashclaw_last_action_" + tool_use_id)
     try:
@@ -557,8 +555,8 @@ def write_action_id(tool_use_id, action_id):
 
 
 def _append_session_tool_map(session_id, tool_use_id, action_id):
-    """Append "<tool_use_id>\\t<action_id>" to a per-session log used by the
-    Stop hook's code-session reporter. Best-effort; never raises."""
+    """Append "<tool_use_id>\\t<action_id>" to a per-session log the Stop hook's
+    coverage counter reads. Best-effort; never raises."""
     path = os.path.join(
         tempfile.gettempdir(),
         "dashclaw_session_tool_map_" + _safe_session_id(session_id),
@@ -938,138 +936,6 @@ def _maybe_warn_demo_mode():
 
 
 # ---------------------------------------------------------------------------
-# Skill auto-scan (out-of-the-box protection)
-# ---------------------------------------------------------------------------
-# When the agent loads a Skill, scan its files for embedded secrets and
-# dangerous/injection patterns and WARN (never block — advisory by design, the
-# operator stays in control). Reuses POST /api/skills/scan, which dedupes by
-# content hash so repeat loads of an unchanged skill are cheap. Opt out with
-# DASHCLAW_SKILL_SCAN=0.
-
-_SKILL_SCAN_ENABLED = (os.environ.get("DASHCLAW_SKILL_SCAN") or "1") != "0"
-_SKILL_TEXT_EXTS = (".md", ".txt", ".py", ".js", ".mjs", ".ts", ".json",
-                    ".yaml", ".yml", ".sh", ".toml", ".rb", ".go")
-_SKILL_SCAN_MAX_FILE = 100_000      # per-file byte cap
-_SKILL_SCAN_MAX_TOTAL = 400_000     # total chars sent
-_SKILL_SCAN_MAX_FILES = 50
-
-
-def _skill_leaf(skill_name):
-    """Return a safe skill leaf name, or None when the name is not filesystem-safe."""
-    leaf = (skill_name or "").split(":")[-1].strip()
-    if not leaf or any(sep in leaf for sep in ("/", "\\", "..")):
-        return None
-    return leaf
-
-
-def _skill_candidate_dirs(leaf):
-    roots = []
-    proj = os.environ.get("CLAUDE_PROJECT_DIR") or WORKSPACE
-    if proj:
-        roots.append(os.path.join(proj, ".claude", "skills", leaf))
-    roots.append(os.path.join(os.path.expanduser("~"), ".claude", "skills", leaf))
-    return roots
-
-
-def _resolve_skill_dir(skill_name):
-    """Best-effort: find the on-disk directory for a loaded skill, or None.
-
-    Only project- and user-level skill dirs are resolvable here; built-in or
-    plugin-bundled skills we can't locate are skipped (nothing to scan). The
-    leaf-name guard rejects path separators so a crafted skill name can't walk
-    outside the skills dir."""
-    leaf = _skill_leaf(skill_name)
-    if not leaf:
-        return None
-    for d in _skill_candidate_dirs(leaf):
-        if os.path.isdir(d):
-            return d
-    return None
-
-
-def _read_skill_file(fp):
-    """Return a capped text file's content, or None when too big / unreadable."""
-    try:
-        if os.path.getsize(fp) > _SKILL_SCAN_MAX_FILE:
-            return None
-        with open(fp, encoding="utf-8", errors="replace") as f:
-            return f.read()
-    except Exception:
-        return None
-
-
-def _collect_skill_files(skill_dir):
-    """Read the skill's text files into a {relpath: content} map (capped)."""
-    files = {}
-    total = 0
-    for root, _dirs, names in os.walk(skill_dir):
-        for n in names:
-            if not n.lower().endswith(_SKILL_TEXT_EXTS):
-                continue
-            fp = os.path.join(root, n)
-            content = _read_skill_file(fp)
-            if content is None:
-                continue
-            rel = os.path.relpath(fp, skill_dir).replace("\\", "/")
-            files[rel] = content
-            total += len(content)
-            if total >= _SKILL_SCAN_MAX_TOTAL or len(files) >= _SKILL_SCAN_MAX_FILES:
-                return files
-    return files
-
-
-def _warn_skill_findings(skill_name, findings):
-    """Print the auto-scan summary + per-finding lines for a flagged skill."""
-    high = any(f.get("severity") == "high" for f in findings)
-    rules = ", ".join(sorted({f.get("rule_id", "issue") for f in findings}))
-    sev_word = "secrets/dangerous code" if high else "suspicious patterns"
-    log("[DashClaw] ⚠ Skill '%s' flagged by auto-scan (%s: %s). Review before trusting it."
-        % (skill_name, sev_word, rules))
-    for f in findings[:6]:
-        loc = f.get("file") or ""
-        line = f.get("line")
-        where = (" — %s:%s" % (loc, line)) if loc else ""
-        log("   - [%s] %s%s" % (f.get("severity") or "warn", f.get("rule_id") or "finding", where))
-
-
-def _skill_name_from_input(tool_input):
-    return (tool_input.get("skill") or tool_input.get("name")
-            or tool_input.get("command") or "").strip()
-
-
-def _skill_scan_files(skill_name):
-    skill_dir = _resolve_skill_dir(skill_name)
-    return _collect_skill_files(skill_dir) if skill_dir else {}
-
-
-def _skill_scan_findings(skill_name, files):
-    resp = api_request("POST", "/api/skills/scan",
-                       body={"skill_name": skill_name, "files": files})
-    return (resp or {}).get("findings") or []
-
-
-def scan_skill_and_warn(tool_input):
-    """Scan a loaded skill for secrets / dangerous patterns and warn.
-
-    Advisory only: prints to stderr, never blocks, never raises."""
-    if not _SKILL_SCAN_ENABLED:
-        return
-    try:
-        skill_name = _skill_name_from_input(tool_input)
-        if not skill_name:
-            return
-        files = _skill_scan_files(skill_name)
-        if not files:
-            return
-        findings = _skill_scan_findings(skill_name, files)
-        if not findings:
-            return
-        _warn_skill_findings(skill_name, findings)
-    except Exception:
-        pass
-
-
-# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -1322,19 +1188,6 @@ def _warn_assumption_alerts(guard_resp):
         pass  # fail-silent: the alert simply rides again next call
 
 
-def _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision):
-    """Behavior Learning: passively record a redacted sample of this governed
-    tool call (opt-in via DASHCLAW_BEHAVIOR_SAMPLES_ENABLED; fully fail-silent).
-    For allow/warn/approval the pending sample is finalized by PostToolUse;
-    an enforce-mode block is recorded terminally here since PostToolUse won't fire."""
-    try:
-        behavior_recorder.record_pre(
-            tool_use_id, tool_name, tool_input, context, guard_resp, decision, HOOK_MODE, WORKSPACE
-        )
-    except Exception:
-        pass
-
-
 def _dispatch_decision(decision, guard_resp, context, tool_use_id):
     """Route the guard decision to its handler. Each handler calls sys.exit."""
     if decision == "warn":
@@ -1363,14 +1216,6 @@ def main():
 
     global _SESSION_ID
     _SESSION_ID = data.get("session_id") or ""
-
-    # Skill loads aren't governed actions, but DashClaw scans them for embedded
-    # secrets and dangerous/injection patterns and warns out of the box
-    # (advisory; never blocks). Handled before the governance flow because Skill
-    # is not in the governed-tool set.
-    if tool_name == "Skill":
-        scan_skill_and_warn(tool_input)
-        sys.exit(0)
 
     # Step 1: Classify the tool using the intel module
     tool_info = classify_tool(tool_name, tool_input)
@@ -1411,7 +1256,6 @@ def main():
     decision = guard_resp.get("decision", "allow")
     _warn_secret_scan(guard_resp, decision)
     _warn_assumption_alerts(guard_resp)
-    _record_behavior_sample(tool_use_id, tool_name, tool_input, context, guard_resp, decision)
     _dispatch_decision(decision, guard_resp, context, tool_use_id)
 
 

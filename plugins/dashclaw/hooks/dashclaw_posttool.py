@@ -24,7 +24,6 @@ from datetime import datetime, timezone
 # Import the shared HTTP retry helper from the sibling intel package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
-from dashclaw_agent_intel import behavior_recorder
 
 # ---------------------------------------------------------------------------
 # Load .env file (C:/Projects/DashClaw/.env) before reading config.
@@ -392,17 +391,6 @@ def _patch_body(status, output_summary, outcome_metadata):
     }
 
 
-def _record_behavior_post(tool_use_id, status, outcome_metadata, action_id):
-    """Finalize behavior sample; fail-silent because PostToolUse must never block."""
-    try:
-        behavior_recorder.record_post(
-            tool_use_id, status, outcome_metadata, action_id,
-            os.environ.get("DASHCLAW_WORKSPACE"),
-        )
-    except Exception:
-        pass
-
-
 def main():
     _log("invoked", "pid=" + str(os.getpid()))
     _require_configured()
@@ -427,10 +415,6 @@ def main():
     # PATCH the action with the outcome
     _patch_action(action_id, _patch_body(status, output_summary, outcome_metadata))
     _log("patched", "action_id=" + action_id + " status=" + status)
-
-    # Behavior Learning: finalize the pending sample stashed by PreToolUse with
-    # this outcome and append it to the local JSONL log (opt-in, fail-silent).
-    _record_behavior_post(tool_use_id, status, outcome_metadata, action_id)
 
     # Clean up temp file
     _cleanup_temp(tool_use_id)

@@ -20,9 +20,7 @@ package (extracted in the health pass so each seam is unit-testable):
   - dashclaw_agent_intel.stop_transcript — transcript parsing, turn/usage
     math, tool_use collection, assumption extraction, distribution.
   - dashclaw_agent_intel.stop_state — tempdir session state (turn actions,
-    cursor, posted-assumption keys, throttle markers, upload offsets).
-  - dashclaw_agent_intel.stop_uploads — insights push + opt-in anonymized
-    behavior-sample upload.
+    cursor, posted-assumption keys, throttle markers).
 
 Never blocks. Always exits 0.
 """
@@ -30,15 +28,15 @@ Never blocks. Always exits 0.
 import hashlib
 import json
 import os
+import re
 import sys
+import tempfile
 import urllib.request
 import urllib.error
 
 # Import the shared HTTP retry helper from the sibling intel package.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dashclaw_agent_intel.http_client import request_with_retry
-from dashclaw_agent_intel import behavior_recorder
-from dashclaw_agent_intel import stop_uploads
 from dashclaw_agent_intel.stop_state import (
     log_hook_error as _log_hook_error,
     read_cursor as _read_cursor,
@@ -143,24 +141,6 @@ AGENT_ID = _argv_agent_id() or os.environ.get("DASHCLAW_AGENT_ID") or "claude-co
 # analytics instead of just in the orphan-tokens drift log. Default off to
 # avoid ledger inflation for users who only want tool-call governance.
 TRACK_TEXT_TURNS = (os.environ.get("DASHCLAW_TRACK_TEXT_TURNS") or "").strip() in ("1", "true", "yes")
-# Code Sessions ingest — ON by default since the payload is metadata/token-
-# counts only (prompt text is stripped by dashclaw_code_session_reporter;
-# full content requires the explicit DASHCLAW_CODE_SESSIONS_CONTENT=full
-# opt-in). Opt out entirely with DASHCLAW_CODE_SESSIONS_ENABLED=0.
-# Fail-silent: any error inside the reporter is logged and swallowed.
-CODE_SESSIONS_ENABLED = (os.environ.get("DASHCLAW_CODE_SESSIONS_ENABLED") or "1").strip().lower() not in ("0", "false", "no")
-# Policy Coach "learning in the background" — when the recorder is on, the Stop
-# hook pushes a SAFE aggregate snapshot (counts only, no raw behavior) to the
-# server so a hosted dashboard can show DashClaw is alive and learning. On by
-# default whenever the recorder is enabled; opt out with
-# DASHCLAW_BEHAVIOR_INSIGHTS=0. Throttled so it recomputes at most every 10 min.
-INSIGHTS_OPT_OUT = (os.environ.get("DASHCLAW_BEHAVIOR_INSIGHTS") or "").strip().lower() in ("0", "false", "no")
-# Anonymized behavior-sample upload — OPT-IN, DEFAULT OFF (non-negotiable):
-# an absent/unset DASHCLAW_BEHAVIOR_UPLOAD means OFF. When explicitly enabled
-# (1/true/yes) AND the recorder is on, the Stop hook uploads NEW JSONL samples
-# anonymized client-side (anonymize_sample_for_upload) to
-# /api/behavior/samples/ingest. Throttled, batched, fail-silent.
-BEHAVIOR_UPLOAD_ENABLED = (os.environ.get("DASHCLAW_BEHAVIOR_UPLOAD") or "").strip().lower() in ("1", "true", "yes")
 
 
 # ---------------------------------------------------------------------------
@@ -322,14 +302,33 @@ def _apply(action_ids, tokens_in, tokens_out, model, session_id=""):
 # the server can see instead of silently thinning the ledger.
 # ---------------------------------------------------------------------------
 
+_SESSION_ID_RE = re.compile(r"[^A-Za-z0-9._-]")
+
+
 def _read_turn_session_tool_map(session_id):
-    """Reuse the code-session reporter's tool_use_id -> action_id reader so
-    the intersection logic isn't duplicated. {} on any import/read failure."""
+    """Read the (tool_use_id -> action_id) map dashclaw_pretool.py appended for
+    this session (tab-separated, last write wins). {} on any read failure.
+    Inlined from the retired code-session reporter so the KEEP /api/coverage
+    counter no longer depends on it."""
+    if not session_id:
+        return {}
+    safe = _SESSION_ID_RE.sub("_", session_id)
+    path = os.path.join(tempfile.gettempdir(), "dashclaw_session_tool_map_" + safe)
+    out = {}
     try:
-        from dashclaw_code_session_reporter import _read_session_tool_map
-        return _read_session_tool_map(session_id)
+        with open(path, encoding="utf-8") as f:
+            for raw in f:
+                line = raw.rstrip("\n")
+                if not line or "\t" not in line:
+                    continue
+                tu, _, aid = line.partition("\t")
+                tu = tu.strip()
+                aid = aid.strip()
+                if tu and aid:
+                    out[tu] = aid
     except Exception:
         return {}
+    return out
 
 
 def _compute_coverage_counts(entries, start, session_id):
@@ -443,16 +442,6 @@ def _capture_assumptions(entries, last_uuid, action_ids, session_id):
 # Main
 # ---------------------------------------------------------------------------
 
-def _flush_pending_samples():
-    # Behavior Learning: flush any pending samples whose PostToolUse never fired
-    # as 'interrupted' so early-stop doesn't lose data. Local-only + fail-silent,
-    # so it must run BEFORE the server-config early-exit below.
-    try:
-        behavior_recorder.record_stop(os.environ.get("DASHCLAW_WORKSPACE"))
-    except Exception:
-        pass
-
-
 _STDIN_READ_ERROR = object()
 
 
@@ -468,69 +457,18 @@ def _read_stdin_payload():
         return _STDIN_READ_ERROR
 
 
-def _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor):
-    """Ship the turn's JSONL slice (metadata-only by default) to the
-    code-sessions ingest endpoint. ON by default; opt out with
-    DASHCLAW_CODE_SESSIONS_ENABLED=0. Fail-silent. Returns the ingest
-    response dict on success, None otherwise."""
-    if not CODE_SESSIONS_ENABLED:
-        return None
-    try:
-        from dashclaw_code_session_reporter import report_turn
-        result = report_turn(
-            base_url=BASE_URL,
-            api_key=API_KEY,
-            agent_id=AGENT_ID,
-            session_id=session_id,
-            transcript_path=transcript_path,
-            entries=entries,
-            previous_cursor=last_uuid,
-            new_cursor=new_cursor,
-        )
-        return result if isinstance(result, dict) else None
-    except Exception as e:
-        _log_hook_error("code_session_reporter -> " + type(e).__name__ + ": " + str(e))
-        return None
-
-
 # ---------------------------------------------------------------------------
 # End-of-turn recap (the "visible first session" line)
 # ---------------------------------------------------------------------------
 
-def _fetch_session_cost(ingest_result):
-    """(cost_usd, cache_savings_usd) for the ingested code session, or None.
-
-    Reads the same code_sessions row the /api/finops/spend claude-code lens
-    aggregates, so the recap numbers match the dashboard by construction."""
-    try:
-        cs_id = ((ingest_result or {}).get("session") or {}).get("id")
-        if not cs_id:
-            return None
-        req = urllib.request.Request(
-            BASE_URL + "/api/code-sessions/sessions/" + str(cs_id),
-            headers={"x-api-key": API_KEY},
-        )
-        body = request_with_retry(req, timeout=2, retries=0)
-        session = (json.loads(body.decode("utf-8")) or {}).get("session") or {}
-        return float(session.get("cost_usd") or 0), float(session.get("cache_savings_usd") or 0)
-    except Exception:
-        return None
-
-
-def _print_session_recap(turn_action_ids, session_id, ingest_result):
+def _print_session_recap(turn_action_ids, session_id):
     """ONE stderr line after a turn with >=1 governed action; silent when the
     turn governed nothing (the quiet path stays quiet). Fail-silent."""
     if not turn_action_ids:
         return
     try:
         count = max(_count_session_actions(session_id), len(turn_action_ids))
-        cost = _fetch_session_cost(ingest_result)
-        if cost is not None:
-            line = ("[DashClaw] Governed %d action(s) this session — $%.2f"
-                    " (caching saved $%.2f) · %s/decisions"
-                    % (count, cost[0], cost[1], BASE_URL))
-        else:
-            line = "[DashClaw] Governed %d action(s) this session · %s/decisions" % (count, BASE_URL)
+        line = "[DashClaw] Governed %d action(s) this session · %s/decisions" % (count, BASE_URL)
         sys.stderr.write(line + "\n")
         sys.stderr.flush()
     except Exception:
@@ -538,8 +476,6 @@ def _print_session_recap(turn_action_ids, session_id, ingest_result):
 
 
 def main():
-    _flush_pending_samples()
-
     if not BASE_URL or not API_KEY:
         sys.exit(0)
 
@@ -569,28 +505,12 @@ def main():
     # this turn's assistant text to /api/assumptions. Idempotent + fail-silent.
     _capture_assumptions(entries, last_uuid, action_ids, session_id)
 
-    ingest_result = _report_code_session(session_id, transcript_path, entries, last_uuid, new_cursor)
-
     # Visible first session: one stderr recap line when this turn governed
     # anything (silent otherwise).
-    _print_session_recap(action_ids, session_id, ingest_result)
+    _print_session_recap(action_ids, session_id)
 
     _write_cursor(session_id, new_cursor)
     _clear_turn_actions(session_id)
-
-    # Behavior Learning: push the SAFE aggregate snapshot (counts only) so a
-    # hosted dashboard can show DashClaw is alive and learning. Throttled +
-    # fail-silent; raw behavior never leaves the machine.
-    stop_uploads.maybe_push_insights(
-        BASE_URL, API_KEY, INSIGHTS_OPT_OUT,
-        os.environ.get("DASHCLAW_WORKSPACE"), _log_hook_error,
-    )
-
-    # Opt-in anonymized sample upload (DASHCLAW_BEHAVIOR_UPLOAD=1; default OFF).
-    stop_uploads.maybe_push_samples(
-        BASE_URL, API_KEY, BEHAVIOR_UPLOAD_ENABLED,
-        os.environ.get("DASHCLAW_WORKSPACE"), _log_hook_error,
-    )
     sys.exit(0)
 
 

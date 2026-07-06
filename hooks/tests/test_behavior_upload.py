@@ -227,54 +227,6 @@ class TestBehaviorUpload(unittest.TestCase):
 
     # ── Opt-in ON ─────────────────────────────────────────────────────────────
 
-    def test_flag_on_uploads_anonymized_samples_only(self):
-        code, err = self._run_hook(self._env(upload="1"))
-        self.assertEqual(code, 0, msg=err)
-
-        posts = self._ingest_posts()
-        self.assertEqual(len(posts), 1)
-        samples = posts[0]["body"]["samples"]
-        self.assertEqual(len(samples), 3)
-
-        serialized = json.dumps(posts[0]["body"])
-        # NONE of the identifying fields/values may cross the wire.
-        for forbidden in (
-            "declared_goal", "agent_name", "matched_policies", "intel",
-            "project", "topsecret-client-project", "Wes Secret Agent",
-            "refactor the billing secret stuff", _RAW_SESSION,
-            "app/api/auth/route.ts", "docs/private-notes.md", "route.ts",
-            "act_xyz", "test-key-upload",
-        ):
-            self.assertNotIn(forbidden, serialized, msg=forbidden)
-
-        by_id = {s["event_id"]: s for s in samples}
-        write = by_id["bse_write00000001"]
-        # Hashed identity tokens + group classification.
-        self.assertTrue(write["session_id"].startswith("sh_"))
-        self.assertEqual(len(write["session_id"]), 15)
-        self.assertEqual(len(write["write_paths"]), 1)
-        self.assertTrue(write["write_paths"][0].startswith("ph_"))
-        self.assertTrue(write["read_paths"][0].startswith("ph_"))
-        self.assertEqual(write["write_path_groups"], ["auth"])
-        self.assertEqual(write["matched_policy_count"], 2)
-        # Masked command shapes: first two tokens + flags kept, operands masked,
-        # allowlisted words survive.
-        self.assertEqual(by_id["bse_bash000000001"]["command_shape"],
-                         "git push --force <arg> <arg>")
-        self.assertEqual(by_id["bse_safe000000001"]["command_shape"],
-                         "npm run test")
-
-    def test_second_run_within_throttle_uploads_nothing_new(self):
-        code, err = self._run_hook(self._env(upload="1"))
-        self.assertEqual(code, 0, msg=err)
-        self.assertEqual(len(self._ingest_posts()), 1)
-
-        self.log.clear()
-        code, err = self._run_hook(self._env(upload="1"))
-        self.assertEqual(code, 0, msg=err)
-        self.assertEqual(self._ingest_posts(), [])
-
-
 class TestAnonymizeSampleForUpload(unittest.TestCase):
     SALT = "unit-test-salt"
 

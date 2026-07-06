@@ -170,10 +170,6 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
       .toBe('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_pretool.py" --agent-id claude-code');
   });
 
-  it('matches the Skill tool so the auto skill-scan fires on skill load', () => {
-    expect(hookBlocks().PreToolUse[0].matcher).toContain('Skill');
-  });
-
   it('matches the Workflow tool so dynamic-workflow fan-outs are governed (v4.3)', () => {
     expect(hookBlocks().PreToolUse[0].matcher).toContain('Workflow');
     expect(hookBlocks().PostToolUse[0].matcher).toContain('Workflow');

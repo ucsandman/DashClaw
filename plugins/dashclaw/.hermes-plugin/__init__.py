@@ -116,16 +116,6 @@ def _slash_policies(args, ctx=None):
     )
 
 
-def _slash_session(args, ctx=None):
-    session_id = (ctx.session_id if ctx and hasattr(ctx, "session_id") else None)
-    if not session_id:
-        return "No active session id."
-    res = _api("GET", "/api/code-sessions/sessions?session_uuid=" + session_id)
-    if isinstance(res, dict) and "error" in res:
-        return f"DashClaw session: {session_id} (live-ingest endpoint: /api/code-sessions/ingest-live)"
-    return f"DashClaw session: {session_id}\nLive ingest endpoint: /api/code-sessions/ingest-live"
-
-
 # ---------------------------------------------------------------------------
 # CLI subcommands — `hermes dashclaw <sub>`
 # ---------------------------------------------------------------------------
@@ -190,20 +180,6 @@ def _cli_doctor(args):
             backlog = summary.get("approval_backlog", {}) or {}
             _check("GET /api/operations/summary", True,
                    f"actions_24h={throughput.get('last_24h', 0)}, pending_approvals={backlog.get('pending_count', 0)}")
-
-        live = _api(
-            "POST",
-            "/api/code-sessions/ingest-live",
-            body={"session_uuid": "doctor-probe-do-not-record", "finalize": True,
-                  "project": {"slug": "doctor-probe", "source_host": "hook"}},
-            timeout=8,
-        )
-        if isinstance(live, dict) and "error" not in live:
-            _check("POST /api/code-sessions/ingest-live", True, "finalize probe ok")
-        else:
-            _check("POST /api/code-sessions/ingest-live", False,
-                   (live or {}).get("detail") or (live or {}).get("error") or "no response")
-            all_ok = False
     else:
         print("  (skipped — set DASHCLAW_BASE_URL + DASHCLAW_API_KEY first)")
 
@@ -277,8 +253,6 @@ def register(ctx):
                              description="List pending DashClaw approvals.")
         ctx.register_command(name="dashclaw-policies",  handler=_slash_policies,
                              description="List active DashClaw policies.")
-        ctx.register_command(name="dashclaw-session",   handler=_slash_session,
-                             description="Show current session id and live-ingest endpoint.")
 
     # CLI subcommands — `hermes dashclaw <sub>`.
     if hasattr(ctx, "register_cli_command"):

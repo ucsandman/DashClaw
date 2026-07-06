@@ -134,9 +134,7 @@ export function hookBlocks(python = 'python') {
   return {
     PreToolUse: [
       {
-        // Skill is included so the auto skill-scan in dashclaw_pretool.py fires
-        // when a skill is loaded (secret + dangerous-pattern detection, warn-only).
-        matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*',
+        matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*',
         hooks: [
           {
             type: 'command',
@@ -171,10 +169,9 @@ export function hookBlocks(python = 'python') {
         ],
       },
     ],
-    // Session digest: prints recent decisions/lessons/handoff into the new
-    // session's context. Read-only and fail-silent (see the hook's docstring),
-    // so a down API costs at most its internal ~3s budget. SessionStart
-    // entries take no matcher.
+    // SessionStart hook: spawns the enforcement-liveness probe (v8.2) detached.
+    // Read-only and fail-silent (see the hook's docstring), so a down API costs
+    // at most its internal ~3s budget. SessionStart entries take no matcher.
     SessionStart: [
       {
         hooks: [
@@ -454,12 +451,11 @@ function main() {
 
   ensureDir(hooksDest);
 
-  // Copy the Python hook scripts. The code-session reporter is lazily imported
-  // by dashclaw_stop.py when DASHCLAW_CODE_SESSIONS_ENABLED=1; copy it
-  // unconditionally (it is a runtime no-op when the feature is off) so the
-  // Code Sessions feature doesn't silently break after a local install.
-  // enforcement_liveness_probe.py: spawned detached by the session digest
-  // (v8.2); copied so the probe travels with the hooks it exercises.
+  // Copy the Python hook scripts. dashclaw_code_session_reporter.py is copied
+  // for backward compatibility with older installs (the hooks no longer import
+  // it after the v5 governance-core cull); it is removed with the code-sessions
+  // subsystem. enforcement_liveness_probe.py: spawned detached by the SessionStart
+  // hook (v8.2); copied so the probe travels with the hooks it exercises.
   for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
