@@ -12,6 +12,32 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.2: the quality loop's first catch was the quality loop itself
+
+Ran the recurring find-and-fix pass (browser smoke on 52 routes + HTTP
+smoke on 74 + the full gate suite, fanned out across 12 sub-agents). The
+app came back clean — every "critical" finding (500s on `/guides/*`, a
+404 on `/proof`) collapsed under triage into one environmental root
+cause: a stale `next start` process was squatting on port 3000, serving
+an out-of-date `.next` build while a fresh build sat unused underneath
+it. The code was fine; the instrument was lying.
+
+So this ship hardens the instrument. `scripts/startup-smoke.mjs` now
+preflights port availability and fails loudly — with per-OS commands to
+free the port — instead of silently smoke-testing whatever old process
+answers. Two unit tests pin the behavior. And the find-and-fix workflow
+itself needed two fixes just to launch: explicit per-agent `model:`
+overrides (the agent-model-guard hook rightly refuses to let orchestrator-
+tier models fan out as workers) and LF line endings, now pinned in
+`.gitattributes` so a CRLF checkout can't re-break it.
+
+The lesson recorded: a green app behind a broken verifier and a red app
+look identical from the driver's seat. Measurement infrastructure earns
+the same fail-loud treatment as production code — a smoke harness that
+can silently test the wrong build is worse than no harness, because it
+spends its credibility vouching for stale bits. Dev tooling only; SDKs
+intentionally not republished (npm + PyPI stay at 4.63.2).
+
 ## 2026-07-05 — v4.66.1: `dashclaw up` was serving a three-release-old platform
 
 The first act of the post-v7.3 "improve the live window" pass found a
