@@ -7,7 +7,8 @@ import { getOrgId, getOrgRole, getUserId } from '../../../lib/org';
 import { getSql } from '../../../lib/db';
 import { apiErrorResponse } from '../../../lib/apiErrors';
 import { logActivity } from '../../../lib/audit';
-import { listPendingApprovalIdsByActionTypes, recordBulkApprovals, sweepExpiredApprovals } from '../../../lib/repositories/actions.repository';
+import { listPendingApprovalIdsByActionTypes, recordBulkApprovals, sweepExpiredApprovals, listActionApprovalFacts } from '../../../lib/repositories/actions.repository';
+import { ingestApprovalAdjudicationBatch } from '../../../lib/guard/calibration-feedback';
 import { getPolicyById } from '../../../lib/repositories/guardrails.repository';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 import { EVENTS, publishOrgEvent } from '../../../lib/events';
@@ -120,6 +121,26 @@ export async function POST(request: Request) {
         });
       }
     });
+
+    // Calibration feedback: every bulk-resolved interruption is a labeled
+    // adjudication (allow → benign, deny → dangerous). Batched — one state
+    // fold — and best-effort by contract (the batch ingest never throws).
+    if (resolvedIds.length > 0) {
+      after(async () => {
+        const facts = await listActionApprovalFacts(sql as never, orgId, resolvedIds)
+          .catch((err: unknown) => {
+            console.warn('[APPROVALS_BULK] calibration fact lookup failed:', (err as Error)?.message);
+            return [];
+          });
+        await ingestApprovalAdjudicationBatch(sql, orgId, facts.map((f) => ({
+          actionId: f.action_id,
+          agentId: f.agent_id,
+          riskScore: f.risk_score,
+          approved: decision === 'allow',
+          source: 'bulk_approval' as const,
+        })));
+      });
+    }
 
     logActivity({
       orgId, actorId: userId, action: `approvals.bulk_${decision}`,

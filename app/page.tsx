@@ -11,6 +11,7 @@ import {
   Gauge,
   Wallet,
   Stethoscope,
+  Crosshair,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -111,6 +112,12 @@ const OPERATE_SURFACES = [
     title: 'Spend',
     desc: 'Fleet LLM cost plus x402 capability purchases, with per-purchase caps, window budgets, and live "$X of $Y used" meters.',
     href: '/spend',
+  },
+  {
+    icon: Crosshair,
+    title: 'Calibrated interruption',
+    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve/deny verdicts. Shadow first, tighten-only when active.',
+    href: '/calibration',
   },
   {
     icon: Stethoscope,

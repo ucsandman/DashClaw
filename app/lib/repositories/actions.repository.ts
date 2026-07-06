@@ -151,6 +151,26 @@ export async function getActionSummary(sql: SqlClient, orgId: string, actionId: 
   return rows[0] || null;
 }
 
+/** Calibration-feedback facts for a set of resolved approvals (bulk route). */
+export async function listActionApprovalFacts(
+  sql: SqlClient,
+  orgId: string,
+  actionIds: string[],
+): Promise<Array<{ action_id: string; agent_id: string | null; risk_score: number }>> {
+  if (actionIds.length === 0) return [];
+  const rows = await sql.query(
+    `SELECT action_id, agent_id, risk_score
+     FROM action_records
+     WHERE org_id = $1 AND action_id = ANY($2)`,
+    [orgId, actionIds],
+  );
+  return rows.map((r: Row) => ({
+    action_id: String(r.action_id ?? ''),
+    agent_id: (r.agent_id as string | null) ?? null,
+    risk_score: Number(r.risk_score) || 0,
+  }));
+}
+
 export async function getActionTimeBounds(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
     SELECT agent_id, timestamp_start, timestamp_end

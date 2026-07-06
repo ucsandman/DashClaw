@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:ced15dd01e367f5fe26448dea3a5d74e7d919147 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:5ec6d857b7400b7dc85c054e6f55fd80ef395e43 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">288</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">289</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">195</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">109</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">111</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">14</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (109)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (111)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -108,6 +108,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>feedback</code></td><td class="sig">—</td></tr>
     <tr><td><code>goals</code></td><td class="sig">—</td></tr>
     <tr><td><code>governed_secrets</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>guard_calibration_events</code></td><td class="sig">governance</td></tr>
+    <tr><td><code>guard_calibration_state</code></td><td class="sig">governance</td></tr>
     <tr><td><code>guard_decisions</code></td><td class="sig">—</td></tr>
     <tr><td><code>guard_policies</code></td><td class="sig">governance</td></tr>
     <tr><td><code>guardrails_test_runs</code></td><td class="sig">—</td></tr>
@@ -202,9 +204,10 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>55</b> env_vars added, <b>2</b> env_vars removed, <b>28</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>55</b> env_vars added, <b>2</b> env_vars removed, <b>29</b> routes added, <b>14</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/coverage <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
@@ -289,6 +292,8 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: coverage_reports <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: guard_calibration_events <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: guard_calibration_state <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: hosted_trial_snapshots <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: live_canary_runs <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: loosening_proposal_decisions <span class="sig">New table in schema</span></li>
@@ -343,7 +348,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/behavior/suggestions"><td><code>/api/behavior/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/behavior/suggestions/route.ts</td></tr></tbody></table></details>
 <details><summary>/billing/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/billing/checkout"><td><code>/api/billing/checkout</code></td><td>POST</td><td class="sig">app/api/billing/checkout/route.ts</td></tr>
     <tr data-path="/api/billing/portal"><td><code>/api/billing/portal</code></td><td>GET</td><td class="sig">app/api/billing/portal/route.ts</td></tr></tbody></table></details>
-<details><summary>/calibration/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/calibration/proposals"><td><code>/api/calibration/proposals</code></td><td>GET, POST</td><td class="sig">app/api/calibration/proposals/route.ts</td></tr></tbody></table></details>
+<details><summary>/calibration/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/calibration/controller"><td><code>/api/calibration/controller</code></td><td>GET, POST</td><td class="sig">app/api/calibration/controller/route.ts</td></tr>
+    <tr data-path="/api/calibration/proposals"><td><code>/api/calibration/proposals</code></td><td>GET, POST</td><td class="sig">app/api/calibration/proposals/route.ts</td></tr></tbody></table></details>
 <details><summary>/capabilities/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/capabilities"><td><code>/api/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/route.ts</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]"><td><code>/api/capabilities/[capabilityId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/capabilities/[capabilityId]/route.ts</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]/access"><td><code>/api/capabilities/[capabilityId]/access</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/[capabilityId]/access/route.ts</td></tr>

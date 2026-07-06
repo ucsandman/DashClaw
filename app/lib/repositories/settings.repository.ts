@@ -96,6 +96,13 @@ export const VALID_SETTING_KEYS = [
   // Written ONLY by the admin-gated /api/halt route; read on the guard hot
   // path (piggybacked on the cached settings read in guard.ts).
   'DASHCLAW_ORG_HALT',
+  // Calibrated interruption controller (governance-core-theory §1). MODE is
+  // 'off' (default) | 'shadow' | 'active'; TARGET_RATE is the operator-set
+  // false-interruption bound α as a decimal string ('0.10'). Written by the
+  // admin-gated /api/calibration/controller route; read on the guard hot
+  // path (piggybacked on the same cached settings read as the halt flag).
+  'CALIBRATION_CONTROLLER_MODE',
+  'CALIBRATION_TARGET_RATE',
   // Local admin login brute-force guard — JSON {fails, last_fail_at}.
   // Written by the system (login-guard.repository via /api/auth/local);
   // listed here so an admin can inspect/clear a lockout via the settings API.

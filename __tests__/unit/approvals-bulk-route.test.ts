@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSweep, mockUserId } = vi.hoisted(() => ({
+const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSweep, mockUserId, mockApprovalFacts, mockIngestBatch } = vi.hoisted(() => ({
   mockListIds: vi.fn(async () => ['act_1', 'act_2']),
   mockBulkRecord: vi.fn(async () => ['act_1', 'act_2']),
   mockClear: vi.fn(async () => {}),
@@ -8,6 +8,8 @@ const { mockListIds, mockBulkRecord, mockClear, mockRole, mockGetPolicy, mockSwe
   mockGetPolicy: vi.fn(async () => ({ id: 'gp_a', name: '[Tightened] other', policy_type: 'require_approval', rules: JSON.stringify({ action_types: ['other'], _tightened: true }) })),
   mockSweep: vi.fn(async () => []),
   mockUserId: vi.fn(() => 'user1'),
+  mockApprovalFacts: vi.fn(async () => [{ action_id: 'act_1', agent_id: 'ag', risk_score: 75 }]),
+  mockIngestBatch: vi.fn(async () => 1),
 }));
 vi.mock('../../app/lib/org', () => ({ getOrgId: () => 'org1', getOrgRole: mockRole, getUserId: mockUserId }));
 vi.mock('../../app/lib/db', () => ({ getSql: () => ({}) }));
@@ -15,6 +17,10 @@ vi.mock('../../app/lib/repositories/actions.repository', () => ({
   listPendingApprovalIdsByActionTypes: mockListIds,
   recordBulkApprovals: mockBulkRecord,
   sweepExpiredApprovals: mockSweep,
+  listActionApprovalFacts: mockApprovalFacts,
+}));
+vi.mock('../../app/lib/guard/calibration-feedback', () => ({
+  ingestApprovalAdjudicationBatch: mockIngestBatch,
 }));
 vi.mock('../../app/lib/repositories/guardrails.repository', () => ({ getPolicyById: mockGetPolicy }));
 vi.mock('../../app/lib/approvalNotifications', () => ({ clearApprovalNotifications: mockClear }));

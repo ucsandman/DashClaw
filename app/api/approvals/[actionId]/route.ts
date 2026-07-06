@@ -18,6 +18,7 @@ import {
 import { reconcileStalePurchases } from '../../../lib/repositories/x402.repository';
 import { fireWebhooksForApproval } from '../../../lib/webhooks';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
+import { ingestApprovalAdjudication } from '../../../lib/guard/calibration-feedback';
 
 // Truthful response for acting on a dead approval (roadmap v2.3): the
 // requesting client stopped polling long ago, so flipping the row to
@@ -170,6 +171,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
 
     // Fetch full action for webhook payload (getActionStatus only returns status + agent_id)
     const fullAction = await getActionSummary(sql, orgId, actionId);
+
+    // Calibration feedback (calibrated interruption controller): this human
+    // verdict IS the ground-truth label for "was the interruption correct".
+    // Best-effort by contract (ingest never throws) and off the response path.
+    if (fullAction) {
+      after(() => ingestApprovalAdjudication(sql, orgId, {
+        actionId,
+        agentId: (fullAction.agent_id as string | null) ?? null,
+        riskScore: Number(fullAction.risk_score) || 0,
+        approved: decision === 'allow',
+        source: 'approval',
+      }));
+    }
     const approvalEvent = decision === 'allow' ? 'approval_granted' : 'approval_denied';
     if (fullAction) {
       fireWebhooksForApproval(orgId, approvalEvent, {

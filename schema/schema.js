@@ -1931,3 +1931,38 @@ export const x402Purchases = pgTable('x402_purchases', {
 }, (t) => ({
   providerIdx: index('idx_x402_purchases_provider').on(t.orgId, t.providerId, t.createdAt),
 }));
+
+// Calibrated interruption controller (governance-core-theory §1): one durable
+// state row per org — the adaptive-conformal threshold θ plus the per-agent
+// e-process map, rehydrated by coerceCalibrationState (the jsonb blob is the
+// single mutable record; the events table below is the audit stream it can be
+// rebuilt from). Written only by the adjudication feedback path and the
+// admin-gated controller route, read on the guard hot path via a 30s cache.
+// @domain governance
+export const guardCalibrationState = pgTable('guard_calibration_state', {
+  orgId: text('org_id').primaryKey(),
+  state: jsonb('state').notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// The controller's labeled feedback ledger: one row per human adjudication
+// consumed (approve → benign, deny → dangerous), with the θ movement it
+// caused. Makes the controller's own adaptations auditable and the state
+// row rebuildable; powers the /calibration observed-vs-target series.
+// @domain governance
+export const guardCalibrationEvents = pgTable('guard_calibration_events', {
+  id: serial('id').primaryKey(),
+  orgId: text('org_id').notNull(),
+  actionId: text('action_id'),
+  agentId: text('agent_id'),
+  riskScore: real('risk_score'),
+  thetaBefore: real('theta_before'),
+  thetaAfter: real('theta_after'),
+  label: text('label').notNull(), // 'benign' | 'dangerous'
+  loss: integer('loss').notNull(), // ℓ_t: 1 = false interruption at θ_t
+  source: text('source').notNull(), // 'approval' | 'bulk_approval' | 'seed'
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgCreatedIdx: index('idx_gcal_events_org_created').on(t.orgId, t.createdAt),
+}));

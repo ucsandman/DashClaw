@@ -8,6 +8,8 @@
 
 import { baseAgentId } from '../agent-identity-resolve';
 import type { GuardSql, PolicyRow } from './types';
+import type { CalibrationSettings, CalibrationState } from './calibration';
+import { parseCalibrationSettings } from './calibration';
 
 // Hot-path caches (pattern: middleware apiKeyCache). Guard is invoked on every
 // governed tool call; policies and the predictive-risk settings change rarely.
@@ -24,6 +26,13 @@ export interface OrgHaltState {
 
 const predictiveSettingsCache = new Map<string, { enabled: boolean; threshold: number; expires: number }>();
 const riskTemplateCache = new Map<string, { rows: Array<Record<string, unknown>>; expires: number }>();
+
+// Calibrated interruption controller (calibration.ts). Settings ride the same
+// single settings read as the predictive cache; the θ/e-process state row is
+// loaded lazily ONLY when the controller mode is shadow|active, so the
+// default-off path costs zero extra round trips.
+const calibrationSettingsCache = new Map<string, { settings: CalibrationSettings; expires: number }>();
+const calibrationStateCache = new Map<string, { state: CalibrationState | null; expires: number }>();
 
 // The org kill switch gets its OWN short cache, not the 30s settings TTL:
 // /api/halt invalidates eagerly only on the instance that served the request,
@@ -54,9 +63,29 @@ export function invalidateGuardSettingsCache(orgId?: string): void {
   if (orgId) {
     predictiveSettingsCache.delete(orgId);
     orgHaltCache.delete(orgId);
+    calibrationSettingsCache.delete(orgId);
+    calibrationStateCache.delete(orgId);
   } else {
     predictiveSettingsCache.clear();
     orgHaltCache.clear();
+    calibrationSettingsCache.clear();
+    calibrationStateCache.clear();
+  }
+}
+
+/**
+ * Called by the calibration feedback path and the controller route so a θ
+ * update / mode flip / alarm reset reaches the guard within the instance
+ * immediately (other warm instances converge within the 30s TTL, same
+ * contract as policy edits).
+ */
+export function invalidateGuardCalibrationCache(orgId?: string): void {
+  if (orgId) {
+    calibrationSettingsCache.delete(orgId);
+    calibrationStateCache.delete(orgId);
+  } else {
+    calibrationSettingsCache.clear();
+    calibrationStateCache.clear();
   }
 }
 
@@ -82,6 +111,8 @@ export function __resetGuardCaches(): void {
   predictiveSettingsCache.clear();
   riskTemplateCache.clear();
   orgHaltCache.clear();
+  calibrationSettingsCache.clear();
+  calibrationStateCache.clear();
 }
 
 // Active org risk templates, served from the short-TTL cache (same pattern as
@@ -157,11 +188,11 @@ function parseHaltSetting(value: unknown): OrgHaltState | null {
   }
 }
 
-// ONE settings read fills BOTH caches — predictive (30s) and halt (3s). The
-// halt entry expiring first is what bounds cross-instance halt lag at ~3s;
-// each halt refresh re-fills the predictive entry too (fresher than its TTL
-// requires, never staler). Cold evaluations still cost exactly one settings
-// query — the guard-hotpath round-trip budget counts on it.
+// ONE settings read fills the predictive (30s), halt (3s) AND calibration
+// (30s) caches. The halt entry expiring first is what bounds cross-instance
+// halt lag at ~3s; each halt refresh re-fills the other entries too (fresher
+// than their TTL requires, never staler). Cold evaluations still cost exactly
+// one settings query — the guard-hotpath round-trip budget counts on it.
 async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number; halt: OrgHaltState | null }> {
   const { getSettings } = await import('../repositories/settings.repository');
   const riskSettings = await getSettings(sql, orgId, { category: 'general' });
@@ -175,7 +206,52 @@ async function loadGeneralSettings(sql: GuardSql, orgId: string): Promise<{ enab
   const halt = parseHaltSetting(settingsList.find((s) => s.key === 'DASHCLAW_ORG_HALT')?.value);
   predictiveSettingsCache.set(orgId, predictive);
   orgHaltCache.set(orgId, { halt, expires: now + HALT_CACHE_TTL_MS });
+  calibrationSettingsCache.set(orgId, {
+    settings: parseCalibrationSettings(settingsList as Array<{ key?: unknown; value?: unknown }>),
+    expires: now + GUARD_CACHE_TTL_MS,
+  });
   return { enabled: predictive.enabled, threshold: predictive.threshold, halt };
+}
+
+async function getCalibrationSettings(sql: GuardSql, orgId: string): Promise<CalibrationSettings> {
+  const hit = calibrationSettingsCache.get(orgId);
+  if (hit && hit.expires > Date.now()) return hit.settings;
+  await loadGeneralSettings(sql, orgId);
+  // loadGeneralSettings always fills the entry; fall back defensively anyway.
+  return calibrationSettingsCache.get(orgId)?.settings ?? parseCalibrationSettings([]);
+}
+
+/**
+ * Hot-path runtime for the calibrated interruption controller: null when the
+ * controller is off (the default — costs at most the shared settings read).
+ * When shadow|active, the org's θ/e-process state row is loaded through its
+ * own 30s cache; a missing row (org never adjudicated anything) yields a
+ * fresh default state so shadow assessment still records. Best-effort: a
+ * state-load failure returns null and never blocks guard.
+ */
+export async function getCalibrationRuntime(
+  sql: GuardSql,
+  orgId: string,
+): Promise<{ settings: CalibrationSettings; state: CalibrationState } | null> {
+  const settings = await getCalibrationSettings(sql, orgId);
+  if (settings.mode === 'off') return null;
+  const hit = calibrationStateCache.get(orgId);
+  if (hit && hit.expires > Date.now()) {
+    return hit.state ? { settings, state: hit.state } : null;
+  }
+  try {
+    const [{ getCalibrationState }, { freshCalibrationState }] = await Promise.all([
+      import('../repositories/calibration-state.repository'),
+      import('./calibration'),
+    ]);
+    const state = (await getCalibrationState(sql, orgId)) ?? freshCalibrationState();
+    calibrationStateCache.set(orgId, { state, expires: Date.now() + GUARD_CACHE_TTL_MS });
+    return { settings, state };
+  } catch (err) {
+    console.warn('[Guard] calibration state load failed (continuing without):', (err as Error).message);
+    calibrationStateCache.set(orgId, { state: null, expires: Date.now() + GUARD_CACHE_TTL_MS });
+    return null;
+  }
 }
 
 export async function getPredictiveSettings(sql: GuardSql, orgId: string): Promise<{ enabled: boolean; threshold: number }> {

@@ -12,6 +12,67 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.74.0: the calibrated interruption controller, and a theory under the runtime
+
+Two deliverables in one session: the platform's first adaptive enforcement
+component that carries a provable guarantee, and the document that puts the
+whole governance core on a mathematical footing
+(`docs/architecture/governance-core-theory.md`).
+
+The problem is the one that actually kills governance adoption: interruption
+precision. A static `risk_threshold: 80` is a guess; when it's wrong too
+often, humans learn to click approve without reading — or turn the thing
+off. The repo already collected the exact feedback needed to do better
+(every approve/deny on a `require_approval` is a verdict on whether the
+interruption was worth it) and already had two human-ratified proposal rails
+consuming it heuristically (tuning ≥0.9 override rate, loosening ≥0.95).
+What was missing was a guarantee. The controller supplies it: the operator
+sets a target false-interruption rate α on `/calibration`, and an online
+adaptive-conformal threshold holds the labeled rate at α with a bound that
+needs **no distributional assumptions at all** — it survives drift,
+dependence, and adversarial agents, because it is a consequence of the
+update arithmetic (re-derived as Theorem 1 in the doc; the θ ceiling
+constant was chosen so the clamped update's bound is exact, and tests pin
+the behavior on golden-vector-seeded streams with an induced mid-stream
+drift). Per-agent e-process alarms turn the denial stream into escalation
+with anytime-valid false-alarm control — the operator can watch continuously
+without alpha inflation, which is the property a dashboard alarm actually
+needs.
+
+The charter shaped the design in a way worth recording: the two-sided
+conformal ideal wants to move the threshold both directions, and the
+constitution says automation may tighten but never loosen. So the automated
+direction is tighten-only (the controller is one more raising phase in the
+evaluator, structurally unable to downgrade or touch `block`), and the
+loosening direction ships as *evidence* routed to the existing `/policies`
+ratification rails — the math narrows the human decision instead of
+absorbing it. Shadow mode records a `_calibration` sibling on every
+persisted decision, so an org can watch the would-have-done trail before
+activating. Everything is default off; activation is an admin click,
+audit-logged.
+
+Live proof before shipping: a real pending deploy (risk 95) approved by a
+second admin principal produced the calibration event θ 80 → 81.8 — exactly
++γ(1−α) — and the separation-of-duties gate correctly 403'd the first
+attempt when the creator credential tried to approve its own action. The
+bench story is honest: the calibration phase reads 0ms at p50/p95/max in the
+persisted timings ledger and off-mode adds zero queries, but the absolute
+`--assert guard_record:p95:250` gate missed on today's Neon connection — so
+I built pristine main in a worktree and benched both interleaved: main was
+*slower* than the branch in the same window. Regression: none; environment:
+noisy; both facts recorded rather than averaged away.
+
+The theory doc covers the rest of the redesign brief with deliberate
+honesty: the sheaf treatment of policy scopes is *rejected* (two-level
+scopes + join composition make the cohomological obstruction vacuous — the
+trigger for revisiting is documented), the tamper-evident ledger is designed
+but deferred (it sits on the mandatory audit gate the perf pass just tuned),
+the enforcement boundary gets an algebraic-effects criterion that formalizes
+the existing ADR, and the five constitutional invariants are checked as
+temporal properties against the actual code paths — surfacing two hygiene
+findings (behavior-suggestion draft creation lacks an admin gate; NULL
+`created_by` legacy rows are self-approval-unenforceable) now on the record.
+
 ## 2026-07-06 — v4.73.1 + CLI 0.7.4: the sandbox kept finding what dev machines can't
 
 The owner ran `npx dashclaw up` in the fresh-machine sandbox three more

@@ -15,6 +15,7 @@ This page is the index for everything in `docs/` and the doc files at the repo r
 | [Concepts: how DashClaw works](./concepts.md) | The mental model in one page — the four primitives, the governance loop, decision types, risk scoring, and what "block" really means on each surface. Start here. |
 | [Enforcement boundary (ADR)](./architecture/enforcement-boundary.md) | The honest per-surface table of where blocks are **mechanical** (hooks, gateway plugins, server-executed capabilities) vs **cooperative** (SDK/MCP/chat callers honor the decision). Every enforcement claim in this repo defers to this file. |
 | [Trust and failure model (ADR)](./architecture/trust-and-failure-model.md) | What DashClaw trusts, what it verifies, and what happens during an outage. Read this before you rely on DashClaw for anything consequential. |
+| [Governance core theory](./architecture/governance-core-theory.md) | The mathematical foundation under the runtime: the calibrated interruption controller (distribution-free error bound + anytime-valid alarms, with proof sketches), the decision lattice, the charter invariants as temporal properties, and honest verdicts on what machinery does and doesn't pay for itself. |
 | [PROJECT_DETAILS.md](../PROJECT_DETAILS.md) | The full system map: every UI surface, route tier, and SDK domain. The best-maintained single reference in the repo. |
 
 ## 2. Try it
@@ -74,7 +75,7 @@ You connected an agent. Now you are the operator.
 | Surface | Canonical reference |
 |---|---|
 | HTTP API — the core loop | [Runtime API contract](./architecture/runtime-api.md) |
-| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **335 routes**: 57 stable, 24 beta, 254 experimental) |
+| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **336 routes**: 57 stable, 24 beta, 255 experimental) |
 | HTTP API — pinned stable contract | [OpenAPI spec](./openapi/critical-stable.openapi.json) ([about](./openapi/README.md)) — covers the stable tier only; beta/experimental routes have no OpenAPI coverage by design |
 | Node SDK (`dashclaw` on npm) | [`sdk/README.md`](../sdk/README.md) — the canonical method catalogue |
 | Python SDK (`dashclaw` on PyPI) | [`sdk-python/README.md`](../sdk-python/README.md) — broader surface, snake_case, framework integrations |

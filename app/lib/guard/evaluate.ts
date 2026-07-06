@@ -17,7 +17,9 @@ import { grantMatches } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
 import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, x402BudgetWindow, isKnownPolicyType } from './policy';
-import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings } from './caches';
+import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime } from './caches';
+import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
+import type { CalibrationAssessment } from './calibration';
 import { serverRiskTerms, computeEffectiveRisk, computeRiskAssessment } from './risk';
 import type { RiskBreakdown, EvidenceDerivedBreakdown } from './risk';
 import { classifyAct } from './evidence';
@@ -424,6 +426,49 @@ async function runWebhookPolicies(
   }
 }
 
+/**
+ * Calibrated interruption controller (calibration.ts; theory §1). Runs after
+ * the last phase where policies can raise the decision and BEFORE the grant
+ * post-passes, so an operator-approval grant still covers a controller-raised
+ * interruption (the approve-then-retry loop keeps working).
+ *
+ * Charter-compliant by construction: shadow mode only RECORDS what the
+ * calibrated threshold would do; active mode only ever RAISES to
+ * require_approval via raiseDecision (tighten-only — it can never downgrade
+ * anything and never touches block). Best-effort: a failure here must never
+ * block guard.
+ */
+async function runCalibrationController(
+  deps: GuardPhaseDeps,
+  adjustedRiskScore: number,
+  acc: GuardAccumulator,
+): Promise<CalibrationAssessment | null> {
+  const { context, sql, orgId } = deps;
+  try {
+    const runtime = await getCalibrationRuntime(sql, orgId);
+    if (!runtime) return null;
+    const assessment = assessCalibration(runtime.state, runtime.settings, adjustedRiskScore, context.agent_id || null);
+    let applied = false;
+    if (
+      runtime.settings.mode === 'active' &&
+      (assessment.would_interrupt || assessment.agent_alarmed) &&
+      sevOf(acc.highestDecision) < DECISION_SEVERITY.require_approval
+    ) {
+      applied = true;
+      const reason = assessment.would_interrupt
+        ? `Calibration controller: risk ${adjustedRiskScore} ≥ calibrated threshold ${Math.round(assessment.theta * 10) / 10} (target false-interruption rate ${runtime.settings.targetRate})`
+        : `Calibration alarm: agent denial e-process crossed its anytime-valid threshold — human review required`;
+      acc.reasons.push(reason);
+      acc.matchedPolicies.push(CALIBRATION_POLICY_ID);
+      raiseDecision(acc, 'require_approval');
+    }
+    return { ...assessment, applied };
+  } catch (err) {
+    console.warn('[Guard] calibration controller failed (continuing without):', (err as Error).message);
+    return null;
+  }
+}
+
 async function runSignalChecks(
   deps: GuardPhaseDeps,
   options: GuardOptions,
@@ -512,6 +557,7 @@ interface GuardFinalizeInput {
   riskBreakdown: RiskBreakdown;
   intentSource: 'evidence' | 'declared';
   evidenceDerived: EvidenceDerivedBreakdown | null;
+  calibration: CalibrationAssessment | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
 }
@@ -544,6 +590,9 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
       ...(acc.shields.prompt_injection !== null
         ? { _shields: { prompt_injection: acc.shields.prompt_injection } }
         : {}),
+      // Controller assessment (shadow AND active) — the shadow-mode evidence
+      // trail lives here: what the calibrated threshold would have done.
+      ...(input.calibration ? { _calibration: input.calibration } : {}),
       ...(input.timings ? { _timings: input.timings } : {}),
       ...(input.degraded ? { _degraded: input.degraded } : {}),
     },
@@ -615,6 +664,7 @@ function buildGuardResult(input: GuardFinalizeInput) {
     learning: input.learningContext || undefined,
     ...(input.recovery ? { recovery: input.recovery } : {}),
     ...(input.predictiveRisk ? { predictive_risk: input.predictiveRisk } : {}),
+    ...(input.calibration ? { calibration: input.calibration } : {}),
     ...(input.degraded ? { degraded: true } : {}),
     // Backward compatibility
     reasons: acc.reasons,
@@ -724,6 +774,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
         llm_skipped?: string;
       }
     | null = null;
+  let calibration: CalibrationAssessment | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
     modifiers: syncTerms.modifiers,
@@ -785,6 +836,9 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     await timed('local_policies', () => runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc));
     scanPromptInjection(context, liveAcc);
     await timed('webhooks', () => runWebhookPolicies(policies, deps, liveAcc));
+    // Calibrated interruption controller — after every phase that can raise
+    // via policies, before grants (so grants can still cover its raise).
+    calibration = await timed('calibration', () => runCalibrationController(deps, adjustedRiskScore, liveAcc));
     // Grants run after the LAST phase where org policies can raise warn /
     // require_approval (webhook_check, above). The later phases can only append
     // warnings (runSignalChecks) or raise to block (replay/act overrides), which
@@ -928,7 +982,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext: null, recovery, predictiveRisk,
-    riskBreakdown, intentSource, evidenceDerived, timings, degraded: degradedDetail,
+    riskBreakdown, intentSource, evidenceDerived, calibration, timings, degraded: degradedDetail,
   };
 
   // The audit persist stays the mandatory blocking gate (awaited below; a

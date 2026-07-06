@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**335 active routes** (verified 2026-07-05 against `docs/api-inventory.json`): 57 stable, 24 beta, 254 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**336 active routes** (verified 2026-07-06 against `docs/api-inventory.json`): 57 stable, 24 beta, 255 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 
@@ -23,6 +23,7 @@
 - [x402 Governed Capability Spend](#x402-governed-capability-spend)
 - [FinOps / Spend](#finops--spend)
 - [Governance Posture](#governance-posture)
+- [Calibrated Interruption Controller](#calibrated-interruption-controller)
 - [Workflows](#workflows)
 - [Context Manager](#context-manager)
 - [Agent Messaging](#agent-messaging)
@@ -189,6 +190,18 @@ Govern-the-governance: a gaming-resistant org governance posture score over 6 di
 | `/api/policies/loosening` | GET, POST | Loosening proposals (the tightening mirror, v4.5): GET computes proposals on read from interrupt-approval outcomes — an envelope action type approved ~100% of the time proposes a scope carve-out (`relax_policy_scope`), a policy always overridden with no surgical fix proposes deactivation (`deactivate_policy`); content-stable `lp_` ids; POST (admin) `ratify` applies the relaxation server-side (self-suppresses via the policy's evidence-window reset), `dismiss` records why, `undo` removes the judgment but keeps the change (`change_kept`) |
 
 UI: `/posture`, plus the `/policies` judgment spine (Tightening and Loosening groups; ratify/dismiss/undo are buttons). MCP (read-only): `dashclaw_posture`, `dashclaw_posture_next`. CLI: `dashclaw posture`, `dashclaw next`, `dashclaw posture resolve <key>`. Tables: `posture_findings_state`, `posture_snapshots`, `tightening_proposal_decisions`, `loosening_proposal_decisions`.
+
+## Calibrated Interruption Controller
+
+**Maturity:** Experimental
+
+Distribution-free control of the interruption error rate. The operator sets a target false-interruption rate α; an online adaptive-conformal threshold θ learns from human approve/deny verdicts on interruptions (the long-run labeled false-interruption rate converges to α with no distributional assumptions), and per-agent e-process alarms escalate a misbehaving agent with anytime-valid false-alarm control. Default OFF. Shadow mode records what θ would do on every guard decision (`_calibration` sibling in the persisted context); active mode is tighten-only — it raises `allow`/`warn` to `require_approval` at θ (or on a standing agent alarm) and can never loosen anything or touch `block`. Loosening evidence routes to the existing `/api/policies/tightening`–`/api/policies/loosening` ratification rails. Theory + proofs: `docs/architecture/governance-core-theory.md`.
+
+| Endpoint | Methods | Purpose |
+|---|---|---|
+| `/api/calibration/controller` | GET, POST | GET: snapshot — mode, target rate, calibrated θ, long-run + windowed observed false-interruption rate, per-agent e-values/alarms, recent adjudication events, active `risk_threshold` policies for θ-vs-policy context. POST (admin, audit-logged): set `mode` (`off`\|`shadow`\|`active`) / `target_rate`, `reset_agent_alarm`, `reset_state` |
+
+UI: `/calibration` (Govern nav; mode flip is a click with a two-step confirm on active, alarms reset by button). Settings keys: `CALIBRATION_CONTROLLER_MODE`, `CALIBRATION_TARGET_RATE` (category `general`, read on the guard hot path via the cached settings read). Tables: `guard_calibration_state` (one θ/e-process row per org), `guard_calibration_events` (the labeled adjudication ledger).
 
 ## Workflows
 

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.73.1",
+    "current_version": "4.74.0",
     "next_bump": "none",
-    "reason": "No Node SDK source change in 4.73.1 - the version advances per the unified model but the SDK is NOT republished; npm stays at 4.73.0.",
+    "reason": "No Node SDK source change in 4.74.0 - the version advances per the unified model but the SDK is NOT republished; npm stays at 4.73.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.73.1",
+    "current_version": "4.74.0",
     "next_bump": "none",
-    "reason": "No Python SDK source change in 4.73.1 - the version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.73.0.",
+    "reason": "No Python SDK source change in 4.74.0 - the version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.73.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.73.1 is the fresh-Windows first-run fix pass found by Windows Sandbox testing: migration statements are comment-stripped before execution so non-UTF8 databases (WIN1252 embedded clusters) no longer hard-fail the drizzle chain on non-ASCII comment characters; setup.mjs treats a failed auto-migrate as fatal instead of warn-and-continue (no more bootable partial schemas); /setup gains an instance nav + entry CTAs so the post-install landing page is no longer a dead end. Platform-only: the SDKs are not republished. @dashclaw/cli 0.7.4 ships separately (pg_ctl server lifecycle for elevated Windows shells, UTF-8 initdb, VC++ runtime auto-install).",
+  "reason": "v4.74.0 ships the calibrated interruption controller (default off, shadow-mode first): an online adaptive-conformal threshold learned from human approve/deny verdicts holds an operator-set false-interruption rate with a distribution-free bound, per-agent e-process alarms give anytime-valid escalation, active mode is tighten-only (raises to require_approval; never loosens, never touches block), and the /calibration operator page + admin route /api/calibration/controller expose it. Companion doc: docs/architecture/governance-core-theory.md (the mathematical foundation for the governance core). Platform-only: the SDKs are not republished.",
   "domains": [
     "platform"
   ]

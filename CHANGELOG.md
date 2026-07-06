@@ -13,6 +13,59 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.74.0] — 2026-07-06
+
+The calibrated interruption controller: DashClaw's first adaptive enforcement
+component with a provable guarantee, plus the mathematical foundation document
+for the whole governance core. The failure it attacks is the one that gets
+governance switched off — interruptions that are wrong too often.
+
+### Added
+
+- **Calibrated interruption controller** (`app/lib/guard/calibration.ts`,
+  default **off**, shadow-mode first per the charter). Set a target
+  false-interruption rate α on `/calibration`; an online adaptive-conformal
+  threshold θ learns from your approve/deny verdicts on interruptions and
+  holds the labeled false-interruption rate at α with a **distribution-free,
+  drift-proof bound** (Theorem 1 in the theory doc; pinned empirically by
+  golden-vector-seeded tests including an induced mid-stream drift scenario).
+  Per-agent **e-process alarms** (test supermartingale + Ville's inequality)
+  escalate a misbehaving agent the moment cumulative denial evidence crosses
+  the threshold, with false-alarm probability ≤ 5% at every stopping time.
+- **Charter-compliant by construction**: shadow mode only records what the
+  calibrated threshold would do (a `_calibration` sibling on every persisted
+  decision); active mode is **tighten-only** — it raises `allow`/`warn` to
+  `require_approval` and structurally cannot downgrade anything or touch
+  `block`; loosening evidence routes to the existing human-ratified tuning /
+  loosening proposal rails on `/policies`. Activation is an admin click,
+  audit-logged.
+- **Feedback loop wired to real adjudications**: approve → benign label,
+  deny → dangerous label, expiry → no label (selective labeling handled, not
+  assumed). Ingestion rides the approval routes best-effort (single + bulk),
+  every consumed label lands in the new `guard_calibration_events` audit
+  ledger, and controller state persists per org in `guard_calibration_state`
+  (drizzle/0059; missing-table tolerant for pre-migration installs).
+- **Operator surface `/calibration`** (Govern nav): mode control with a
+  two-step active confirm, target-rate input, θ-vs-policy and observed-vs-
+  target trends, standing agent alarms with one-click reset, and the
+  adjudication ledger. Admin API: `GET/POST /api/calibration/controller`.
+- **`docs/architecture/governance-core-theory.md`** — the governance core on
+  a rigorous mathematical footing: the calibrated-interruption theorems with
+  proof sketches and honest limits; the decision lattice formalized; the five
+  charter invariants as temporal properties checked against the code (two
+  hygiene findings reported); the tamper-evident ledger design (accepted,
+  deferred); the algebraic-effects reading of the enforcement boundary; and
+  explicit verdicts where machinery does not pay for itself.
+
+### Performance
+
+- Hot-path cost: controller **off adds zero queries** (settings ride the
+  existing cached read; pinned by the guard query-budget tests);
+  shadow/active adds one cached state read per org per 30s. The calibration
+  phase measures 0ms at p50/p95/max in the persisted `_timings` ledger, and
+  an interleaved main-vs-branch bench showed no regression attributable to
+  this change.
+
 ## [4.73.1] — 2026-07-06
 
 Fresh-Windows first-run fixes, all found by running `npx dashclaw up` in a

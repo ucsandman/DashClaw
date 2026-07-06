@@ -53,6 +53,8 @@ const TABLES = [
   "feedback",
   "goals",
   "governed_secrets",
+  "guard_calibration_events",
+  "guard_calibration_state",
   "guard_decisions",
   "guard_policies",
   "guardrails_test_runs",
