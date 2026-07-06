@@ -1,9 +1,9 @@
 {
   "generatedAt": "2026-07-06",
   "note": "Maps every inventoried surface item to the /guides/platform section documenting it. liveVerified=true means the exact interface was exercised against a running instance during capture; everything else is documented from source code reads.",
-  "total": 1434,
+  "total": 1436,
   "liveVerified": 36,
-  "codeOnly": 1398,
+  "codeOnly": 1400,
   "items": [
     {
       "item": "/mission-control",
@@ -1228,6 +1228,20 @@
       "kind": "api",
       "status": "experimental",
       "section": "Billing (#api-billing)",
+      "liveVerified": false
+    },
+    {
+      "item": "GET /api/calibration/controller",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Calibration (#api-calibration)",
+      "liveVerified": false
+    },
+    {
+      "item": "POST /api/calibration/controller",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Calibration (#api-calibration)",
       "liveVerified": false
     },
     {

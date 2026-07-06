@@ -3,10 +3,10 @@
     "generatedAt": "2026-07-06",
     "archiveNote": "UNREACHABLE at runtime, independent of auth/middleware. Next.js App Router treats any path segment starting with an underscore as a private folder (https://nextjs.org/docs/app/building-your-application/routing/colocation#private-folders) and excludes it from route generation entirely. So app/api/_archive/**/route.js files never become live endpoints — a request to /api/_archive/anything 404s before middleware.js or next.config.js are even consulted for that path. Confirmed by reading next.config.js (no rewrites() or redirects() entry references '_archive') and middleware.js in full (zero string matches for '_archive'; its matcher config only lists '/api/:path*' plus specific pages, and none of the demo-mode dispatch tables, PUBLIC_ROUTES, or hosted-public-path checks mention _archive). scripts/lib/route-sql-guard.mjs explicitly skips the '_archive' directory when walking route files, confirming the team already treats it as inert/excluded tooling-side. Net effect: these 48 archived route files are dead code from a routing standpoint — the handlers themselves are syntactically intact and mostly still reference live schema tables (verified goals, milestones, ideas, contacts, interactions, agent_messages, message_threads, shared_docs, context_points, context_entries, calendar_events, snippets, user_observations/preferences/moods/approaches, notification_preferences, workflows, executions, scheduled_jobs, agent_pairings, agent_identities, content, health_snapshots, entities, topics, and feedback all still exist in schema/schema.js), but none of that matters because the folder is never mounted as a route. Un-archiving (renaming _archive -> something routable) would make most of them functional again since they read live tables.",
     "counts": {
-      "total": 1434,
+      "total": 1436,
       "stable": 790,
       "beta": 61,
-      "experimental": 341,
+      "experimental": 343,
       "archived": 48,
       "deprecated": 194
     }
