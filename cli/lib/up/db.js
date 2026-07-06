@@ -125,6 +125,19 @@ export function embeddedFailureMessage(err) {
   return `${base}. Retry with --db docker or --db url.`;
 }
 
+/**
+ * Extra embedded-postgres options when running as root on POSIX (the fresh
+ * root-VPS case, caught live by the first `drill:fresh-linux --as-root` run):
+ * postgres refuses to run as root, and embedded-postgres's escape hatch is
+ * `createPostgresUser: true` (it provisions a `postgres` system user and runs
+ * the cluster as that user). No-op everywhere else — including Windows, where
+ * the elevated-token case is handled by the pg_ctl lifecycle instead.
+ */
+export function rootPostgresOptions({ platform = process.platform, getuid = process.getuid } = {}) {
+  if (platform === 'win32' || typeof getuid !== 'function') return {};
+  return getuid() === 0 ? { createPostgresUser: true } : {};
+}
+
 export const DEFAULT_DB_PORT = 5433;
 // Scan window when the preferred port is taken: preferred+1 .. preferred+10.
 const PORT_SCAN_SPAN = 10;
@@ -409,6 +422,7 @@ export async function provisionDatabase({
     port,
     persistent: true,
     initdbFlags: INITDB_FLAGS,
+    ...rootPostgresOptions(),
   });
   try {
     // initdb refuses a non-empty data dir, so only initialise a cluster that

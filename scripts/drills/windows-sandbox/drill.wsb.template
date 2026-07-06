@@ -1,0 +1,14 @@
+<Configuration>
+  <MappedFolders>
+    <MappedFolder>
+      <HostFolder>{{HOST_DIR}}</HostFolder>
+      <SandboxFolder>C:\Shared</SandboxFolder>
+      <ReadOnly>false</ReadOnly>
+    </MappedFolder>
+  </MappedFolders>
+  <LogonCommand>
+    <Command>powershell.exe -ExecutionPolicy Bypass -File C:\Shared\drill.ps1</Command>
+  </LogonCommand>
+  <MemoryInMB>8192</MemoryInMB>
+  <Networking>Default</Networking>
+</Configuration>

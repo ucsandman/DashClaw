@@ -117,7 +117,7 @@ Alternatives weighed and declined this round:
 |---|------|--------|
 | v8.1 | The cohort read (carried from v7.1, unchanged) | TIME-GATED — runs on/after 2026-07-19; instrument prebuilt (`node scripts/measurement-read.mjs`), arithmetic unit-tested, open loop carries the date |
 | v8.2 | Enforcement liveness: the governor proves itself awake | SHIPPED 2026-07-06 (v4.75.0) — probe live on the governing instance (verdict `held` through the real hook + real policies), seeded v4.72.1 config detected and rendered red, aggregates unpolluted by construction; spec + evidence: `docs/superpowers/specs/2026-07-06-enforcement-liveness-v82.md` |
-| v8.3 | Entry-path drills: both doors proven on repeat | — |
+| v8.3 | Entry-path drills: both doors proven on repeat | SHIPPED 2026-07-06 (v4.76.0) — Linux drill green live (root break caught + fixed, @dashclaw/cli 0.7.6), hosted drill 6/6 live (local hosted build; live-hosted gated on operator token), Windows drill built + staged for the sandbox ritual; drill-mint token security-reviewed; spec: `docs/superpowers/specs/2026-07-06-entry-path-drills-v83.md` |
 | v8.4 | The health floor: the momentum lane gets a target and an exit | — |
 | v8.5 | The branch (carried from v7.4, unchanged) | BLOCKED on v8.1 (by design — selected by evidence) |
 | v8.6 | The era-exit read (carried from v7.5, unchanged) | TIME-GATED — earliest 2026-07-20 (14 days v7.2+v7.3 both-live, recorded at v7.3 ship); needs v8.1's cohort read as baseline |
@@ -214,6 +214,19 @@ runnable on a cadence.
   each recorded against the live surfaces; one seeded break per drill
   demonstrably caught; the drill commands documented where the release
   ritual lives.
+- **SHIPPED 2026-07-06 (v4.76.0).** As built: three one-command drills in
+  `scripts/drills/` (fresh-linux, fresh-windows, hosted-stranger) that
+  exercise the *distribution* path. Linux drill **green live** and its
+  `--as-root` run caught a real fresh-root-VPS break (embedded Postgres
+  refuses root; fixed in `rootPostgresOptions`, @dashclaw/cli 0.7.6).
+  Hosted drill **6/6 live** against a local hosted-mode build + wrong-token
+  seeded break fails closed; the live-hosted run is gated on an operator
+  setting `HOSTED_DRILL_TOKEN` (a timing-safe, cohort-excluded, security-
+  reviewed Turnstile substitute). Windows Sandbox drill built + staged +
+  documented; its factory-fresh cold-boot green run stays part of the
+  manual sandbox retest ritual (poorly observable to automate in-session,
+  stated honestly rather than claimed). macOS = recorded gap. Evidence:
+  `docs/superpowers/specs/2026-07-06-entry-path-drills-v83.md`.
 
 ## v8.4 The health floor: the momentum lane gets a target and an exit
 

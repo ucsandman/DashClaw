@@ -4,6 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { isHostedMode, hostedConfig } from '../../../lib/hosted/flag';
 import { verifyTurnstile } from '../../../lib/hosted/turnstile';
+import { isDrillMint, DRILL_MINT_SOURCE } from '../../../lib/hosted/drill-mint';
 import { createRateLimiter } from '../../../lib/hosted/rate-limit';
 import { provisionHostedWorkspace, countActiveTrials } from '../../../lib/repositories/hosted-workspace.repository';
 import { resolveMintSource } from '../../../lib/hosted/mint-source';
@@ -64,14 +65,22 @@ export async function POST(request: Request) {
   let body: any = {};
   try { body = await request.json(); } catch { /* best-effort: empty request body is allowed */ }
 
+  // v8.3 entry-path drills: an operator-held token (x-hosted-drill-token
+  // header vs HOSTED_DRILL_TOKEN env, timing-safe, no-op when unset)
+  // substitutes for Turnstile so the stranger drill can mint scriptably.
+  // Drill mints are force-labeled source='drill' below and still rate-limited.
+  const drillMint = isDrillMint(request);
+
   // Verify turnstile BEFORE consuming a rate-limit slot so bot requests with bad
   // tokens don't burn quota for legitimate users sharing a NAT egress IP.
-  const turnstile = await verifyTurnstile(body.turnstile_token || '', ip);
-  if (!turnstile.ok) {
-    return NextResponse.json(
-      { error: `turnstile verification failed: ${turnstile.reason}` },
-      { status: 400 },
-    );
+  if (!drillMint) {
+    const turnstile = await verifyTurnstile(body.turnstile_token || '', ip);
+    if (!turnstile.ok) {
+      return NextResponse.json(
+        { error: `turnstile verification failed: ${turnstile.reason}` },
+        { status: 400 },
+      );
+    }
   }
 
   const rl = getLimiter().take(ip);
@@ -92,7 +101,9 @@ export async function POST(request: Request) {
     // v6.4 reach attribution: one write at mint. Client-reported referrer/UTM,
     // sanitized + resolved to a channel label; spoofable by design (measurement,
     // not security). Own-host referrers read as no referrer.
-    const mintSource = resolveMintSource(body.source, new URL(request.url).hostname);
+    const mintSource = drillMint
+      ? { source: DRILL_MINT_SOURCE, raw: null }
+      : resolveMintSource(body.source, new URL(request.url).hostname);
     const result = await provisionHostedWorkspace(sql, {
       trialDays: cfg.trialDays,
       trialActionCap: cfg.trialActionCap,

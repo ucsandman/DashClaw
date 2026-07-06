@@ -59,6 +59,12 @@ export function resolveMintSource(input: unknown, ownHost: string | null): Resol
   }
   const fromUtm = raw.utm_source ? normalizeLabel(raw.utm_source) : null;
   const fromReferrer = !fromUtm && raw.referrer ? referrerHost(raw.referrer, ownHost) : null;
-  const source = fromUtm ?? (fromReferrer ? normalizeLabel(fromReferrer) : null) ?? 'direct';
+  let source = fromUtm ?? (fromReferrer ? normalizeLabel(fromReferrer) : null) ?? 'direct';
+  // 'drill' is RESERVED for the server-forced label on drill-token mints
+  // (v8.3): the cohort read excludes that bucket by definition, so a client
+  // must never be able to self-select into it (a stranger mint labeled
+  // 'drill' would silently vanish from measurement). Client-derived claims
+  // are remapped to a visible, still-counted label.
+  if (source === 'drill') source = 'drill-claimed';
   return { source, raw: Object.keys(raw).length > 0 ? raw : null };
 }

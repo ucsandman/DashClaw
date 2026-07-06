@@ -9,10 +9,25 @@ import assert from 'node:assert/strict';
 import {
   chooseDbMode, dockerCommandFor, provisionDatabase, pickDbPort, DEFAULT_DB_PORT,
   missingVcRuntime, embeddedFailureMessage, installVcRedist,
-  clusterInitialised, provisionEmbeddedWindows,
+  clusterInitialised, provisionEmbeddedWindows, rootPostgresOptions,
 } from '../../lib/up/db.js';
 
 const quietLogger = { error: () => {}, log: () => {} };
+
+describe('rootPostgresOptions', () => {
+  test('root on POSIX gets createPostgresUser (postgres refuses root; the fresh root-VPS class)', () => {
+    assert.deepStrictEqual(
+      rootPostgresOptions({ platform: 'linux', getuid: () => 0 }),
+      { createPostgresUser: true },
+    );
+  });
+
+  test('non-root POSIX, Windows, and platforms without getuid are all no-ops', () => {
+    assert.deepStrictEqual(rootPostgresOptions({ platform: 'linux', getuid: () => 1000 }), {});
+    assert.deepStrictEqual(rootPostgresOptions({ platform: 'win32', getuid: undefined }), {});
+    assert.deepStrictEqual(rootPostgresOptions({ platform: 'darwin', getuid: undefined }), {});
+  });
+});
 
 describe('chooseDbMode', () => {
   test('honors explicit flagDb even when docker is available', async () => {

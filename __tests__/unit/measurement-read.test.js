@@ -21,6 +21,16 @@ describe('deriveCohort', () => {
     expect(deriveCohort(undefined)).toEqual({ channels: [], n: 0, firstAction: 0 });
     expect(deriveCohort([{ source: 'unknown', minted: 4, firstAction: 0 }]).n).toBe(0);
   });
+
+  it("excludes the 'drill' bucket (v8.3 drill mints are maintainer traffic, never cohort)", () => {
+    const cohort = deriveCohort([
+      { source: 'drill', minted: 2, firstAction: 2 },
+      { source: 'github', minted: 3, firstAction: 1 },
+    ]);
+    expect(cohort.n).toBe(3);
+    expect(cohort.firstAction).toBe(1);
+    expect(cohort.channels.map((c) => c.source)).toEqual(['github']);
+  });
 });
 
 describe('applyContract', () => {

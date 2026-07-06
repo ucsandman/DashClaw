@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/cli",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "DashClaw terminal client — approve agent actions and diagnose your instance",
   "type": "module",
   "keywords": [

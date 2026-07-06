@@ -47,4 +47,9 @@ describe('resolveMintSource', () => {
     expect(resolveMintSource({ utm_source: '!!!', referrer: 'https://news.ycombinator.com/item' }, OWN_HOST).source)
       .toBe('news.ycombinator.com');
   });
+  it("reserves 'drill' for server-forced drill mints — client claims are remapped (v8.3 security review)", () => {
+    expect(resolveMintSource({ utm_source: 'drill' }, OWN_HOST).source).toBe('drill-claimed');
+    expect(resolveMintSource({ utm_source: 'DRILL' }, OWN_HOST).source).toBe('drill-claimed');
+    expect(resolveMintSource({ referrer: 'https://drill/' }, OWN_HOST).source).toBe('drill-claimed');
+  });
 });

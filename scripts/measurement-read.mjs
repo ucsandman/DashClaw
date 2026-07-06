@@ -20,9 +20,13 @@ export const ACT_DATE = '2026-07-05';
 export const READ_DATE = '2026-07-19'; // act + 14 days
 export const DEFAULT_FUNNEL_URL = 'https://hosted.dashclaw.io/api/hosted/funnel';
 
-/** Cohort = every sourced bucket; 'unknown' = pre-v6.4 (pre-act) mints. */
+/** Cohort = every sourced bucket; 'unknown' = pre-v6.4 (pre-act) mints;
+ * 'drill' = v8.3 entry-path drill mints (synthetic maintainer traffic,
+ * force-labeled at mint — never strangers, so never cohort). */
 export function deriveCohort(bySource) {
-  const channels = (bySource ?? []).filter((s) => s.source !== 'unknown');
+  const channels = (bySource ?? []).filter(
+    (s) => s.source !== 'unknown' && s.source !== 'drill',
+  );
   return {
     channels,
     n: channels.reduce((sum, s) => sum + s.minted, 0),

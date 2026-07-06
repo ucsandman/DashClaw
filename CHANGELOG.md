@@ -13,6 +13,57 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.76.0] — 2026-07-06
+
+Entry-path drills: both doors proven on repeat (roadmap v8.3). Three
+consecutive pre-launch sweeps found a flagship entry path broken, each caught
+by a one-off manual effort. This turns those efforts into repeatable,
+one-command, machine-readable drills that exercise the DISTRIBUTION path
+(`npx dashclaw up` resolving the published CLI + release tarball) on
+factory-fresh machines — the class CI's from-source `up-smoke` cannot catch.
+
+### Added
+
+- **`npm run drill:fresh-linux`** — owned-instance door on a disposable
+  `node:20` container: `dashclaw up` → embedded Postgres → health → first
+  governed action. `--as-root` models a fresh root VPS. **Proven green live**
+  this ship (health 200, action 201, guard allow).
+- **`npm run drill:fresh-windows`** — owned-instance door on a factory-fresh
+  Windows image via Windows Sandbox, fully automated (`drill.ps1` at logon,
+  host launcher polls a shared-folder result). The kept successor to the
+  interactive `SandboxShared` harness.
+- **`npm run drill:hosted`** — stranger door against the live hosted instance:
+  mint → key works → first governed action → export → import into an owned
+  instance → teardown. **Proven 6/6 live** against a local hosted-mode build;
+  the seeded wrong-token run fails closed as expected. This is the drill that
+  would have caught the missing hosted import route (v7.2) the day it lagged.
+- **Hosted drill-mint token** (`app/lib/hosted/drill-mint.ts`): an
+  operator-held `HOSTED_DRILL_TOKEN` (timing-safe, ≥24 chars, unset = no
+  bypass) substitutes for Turnstile on mint so the stranger drill can run
+  scriptably. Drill mints are **force-labeled `source='drill'`** and excluded
+  from the reach cohort read; the `'drill'` label is reserved server-side so a
+  normal mint cannot self-select into the excluded bucket (v8.3 security
+  review). Rate limiting unchanged.
+- `--cli @dashclaw/cli@<old>` reproduces historic break classes (`@0.7.2` =
+  Windows VC++ runtime; `@0.7.1` = frozen-version missing import route).
+
+### Fixed
+
+- **`@dashclaw/cli` 0.7.6**: `dashclaw up --db embedded` as **root on POSIX**
+  (a common fresh-VPS shape) failed — embedded Postgres refuses root and the
+  CLI didn't set the `createPostgresUser` escape hatch. `rootPostgresOptions()`
+  sets it when running as root (no-op on Windows / non-root). Caught live by
+  the first `drill:fresh-linux --as-root` run.
+
+### Notes
+
+- macOS has no maintainer-executable fresh-machine drill (no VM on the
+  maintainer host) — a recorded, deliberate gap.
+- The live-hosted.dashclaw.io stranger run is gated on an operator setting (and
+  rotating) `HOSTED_DRILL_TOKEN` on the hosted deploy env.
+- Spec + acceptance evidence:
+  `docs/superpowers/specs/2026-07-06-entry-path-drills-v83.md`.
+
 ## [4.75.0] — 2026-07-06
 
 Enforcement liveness: the governor proves itself awake (roadmap v8.2). The

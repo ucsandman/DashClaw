@@ -82,6 +82,7 @@ CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ th
 - `npx vitest run` - the **full** suite (targeted runs miss regressions in unrelated files)
 - `npx next build` - required for any change under `app/**`
 - For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
+- **Entry-path drills (v8.3, `scripts/drills/README.md`)**: a release touching `cli/**`, `scripts/setup.mjs`, or the `up` path runs `npm run drill:fresh-windows` (and/or `drill:fresh-linux`) first; one touching hosted mint/export/import runs `npm run drill:hosted`. A drill failure is a broken ship - fix on the spot, log it in the maintainer log. These test the DISTRIBUTION path on factory-fresh machines; CI's `up-smoke.yml` (from-source, dev-imaged runners) does not cover that class.
 
 CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook regenerates the doc/contract/livingcode artifacts for you (see "Generated artifacts").
 

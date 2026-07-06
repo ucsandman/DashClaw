@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:37b69da5750dbd76d4a52aa5ebd37f2f471e142e`
+**Shape snapshot:** `sha1:0501a40e8d79224905d6082ddea82dfd72528da0`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **289** active API routes across **73** categories (337 total including archived)
-- **4** required + **195** optional environment variables
+- **4** required + **201** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -564,7 +564,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 85 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 86 file(s)
 - **`DATABASE_URL`** - referenced in 109 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
@@ -580,6 +580,7 @@ These have fallbacks or only activate specific features.
 - `ANTHROPIC_API_KEY` *(undocumented)*
 - `ANTHROPIC_MODEL` *(undocumented)*
 - `API_INVENTORY_VERIFIED_DATE` *(undocumented)*
+- `API_KEY` *(undocumented)*
 - `API_SECRET` *(undocumented)*
 - `BASE_URL` *(undocumented)*
 - `CI` *(undocumented)*
@@ -649,6 +650,8 @@ These have fallbacks or only activate specific features.
 - `DISCORD_APPROVER_USER_ID` *(undocumented)*
 - `DISCORD_BOT_TOKEN` *(undocumented)*
 - `DISCORD_PUBLIC_KEY` *(undocumented)*
+- `DRILL_IMPORT_API_KEY` *(undocumented)*
+- `DRILL_IMPORT_BASE_URL` *(undocumented)*
 - `ENFORCE_AGENT_SIGNATURES` *(undocumented)*
 - `GITHUB_CLIENT_ID` *(undocumented)*
 - `GITHUB_CLIENT_SECRET` *(undocumented)*
@@ -667,7 +670,10 @@ These have fallbacks or only activate specific features.
 - `GUARD_LLM_KEY` *(undocumented)*
 - `GUARD_LLM_MODEL` *(undocumented)*
 - `GUARD_WEBHOOK_SECRET` *(undocumented)*
+- `HOSTED_ADMIN_API_KEY` *(undocumented)*
 - `HOSTED_CLEANUP_SECRET` *(undocumented)*
+- `HOSTED_DRILL_BASE_URL` *(undocumented)*
+- `HOSTED_DRILL_TOKEN` *(undocumented)*
 - `HOSTED_MAX_ACTIVE_TRIALS` *(undocumented)*
 - `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` *(undocumented)*
 - `HOSTED_SMOKE_BASE_URL` *(undocumented)*

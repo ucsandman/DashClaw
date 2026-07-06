@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.75.0",
+    "current_version": "4.76.0",
     "next_bump": "none",
-    "reason": "No Node SDK source change in 4.75.0 - the version advances per the unified model but the SDK is NOT republished; npm stays at 4.73.0.",
+    "reason": "No Node SDK source change in 4.76.0 - the version advances per the unified model but the SDK is NOT republished; npm stays at 4.73.0.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.75.0",
+    "current_version": "4.76.0",
     "next_bump": "none",
-    "reason": "No Python SDK source change in 4.75.0 - the version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.73.0.",
+    "reason": "No Python SDK source change in 4.76.0 - the version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.73.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.75.0 ships enforcement liveness (roadmap v8.2): a probe (hooks/enforcement_liveness_probe.py, auto-spawned by the SessionStart digest at most 1x/12h) drives a synthetic held action through the real pretool hook under harness-faithful timeout semantics and verdicts by whether the action executed - never by the ledger. Verdicts land in enforcement_liveness_runs (own table, drizzle 0060) via GET/POST /api/enforcement-liveness and render as holding/stale/broken on /setup#enforcement-liveness and the Mission Control posture scorecard; the exact v4.72.1 overflowed-timeout config is a pinned regression test. Platform-only: the SDKs are not republished.",
+  "reason": "v4.76.0 ships entry-path drills (roadmap v8.3): one-command fresh-machine + hosted stranger drills (scripts/drills/) that exercise the distribution path; a hosted drill-mint token (HOSTED_DRILL_TOKEN, timing-safe, force-labeled source=drill, cohort-excluded) as the operator-held Turnstile substitute; and a CLI fix (rootPostgresOptions/createPostgresUser) the Linux root drill caught live. Platform SDKs unchanged; @dashclaw/cli 0.7.5 (source changed) republishes.",
   "domains": [
     "platform"
   ]

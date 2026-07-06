@@ -1,7 +1,7 @@
 export const meta = {
   name: 'dashclaw-preship-sweep',
   description: 'Pre-ship go/no-go: run the verification gates, the drift/count audit, and a DashClaw-stack security review in parallel, then synthesize one BLOCK/PASS verdict. Roster = the project-pinned subagents (gate-runner=haiku, drift-auditor=sonnet, security-reviewer=opus) so the cheap work runs cheap and Opus is reserved for the security pass + synthesis.',
-  whenToUse: 'Run right before `dashclaw-ship` (or before pushing to main). It replaces the manual "lint+vitest+build, then check the counts, then eyeball security" sequence with three parallel specialists and a single verdict. Pass the changed-files summary or diff scope via args.scope to focus the security + drift passes.',
+  whenToUse: 'Run right before `dashclaw-ship` (or before pushing to main). It replaces the manual "lint+vitest+build, then check the counts, then eyeball security" sequence with three parallel specialists and a single verdict. Pass the changed-files summary or diff scope via args.scope to focus the security + drift passes. Entry-path drill precondition (v8.3): a diff touching cli/**, scripts/setup.mjs, or the up path needs a green `npm run drill:fresh-windows` (or drill:fresh-linux) first; one touching hosted mint/export/import needs `npm run drill:hosted` — see scripts/drills/README.md.',
   phases: [
     { title: 'Sweep', detail: 'gate-runner + drift-auditor + security-reviewer in parallel' },
     { title: 'Synthesize', detail: 'combine into one go/no-go verdict' },

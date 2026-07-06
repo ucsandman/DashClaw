@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:37b69da5750dbd76d4a52aa5ebd37f2f471e142e",
+  "timestamp": "sha1:0501a40e8d79224905d6082ddea82dfd72528da0",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3469,6 +3469,14 @@
       "in_env_example": false
     },
     {
+      "name": "API_KEY",
+      "required": false,
+      "files": [
+        "scripts/drills/fresh-linux.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "API_SECRET",
       "required": false,
       "files": [
@@ -3774,6 +3782,7 @@
         "scripts/branch-finish.mjs",
         "scripts/collect-platform-convergence-evidence.mjs",
         "scripts/demo-agent.mjs",
+        "scripts/drills/hosted-stranger.mjs",
         "scripts/fuzz-api.mjs",
         "scripts/guard-load.mjs",
         "scripts/live-canary.mjs",
@@ -4412,6 +4421,22 @@
       "in_env_example": false
     },
     {
+      "name": "DRILL_IMPORT_API_KEY",
+      "required": false,
+      "files": [
+        "scripts/drills/hosted-stranger.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DRILL_IMPORT_BASE_URL",
+      "required": false,
+      "files": [
+        "scripts/drills/hosted-stranger.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "ENCRYPTION_KEY",
       "required": true,
       "files": [
@@ -4584,12 +4609,36 @@
       "in_env_example": false
     },
     {
+      "name": "HOSTED_ADMIN_API_KEY",
+      "required": false,
+      "files": [
+        "scripts/drills/hosted-stranger.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "HOSTED_CLEANUP_SECRET",
       "required": false,
       "files": [
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/hosted/cleanup/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "HOSTED_DRILL_BASE_URL",
+      "required": false,
+      "files": [
+        "scripts/drills/hosted-stranger.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "HOSTED_DRILL_TOKEN",
+      "required": false,
+      "files": [
+        "scripts/drills/hosted-stranger.mjs"
       ],
       "in_env_example": false
     },

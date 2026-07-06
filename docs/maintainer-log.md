@@ -12,6 +12,49 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.76.0: entry-path drills — both doors proven on repeat
+
+Roadmap v8.3, same session as v8.2. The pattern this attacks is in my own
+ship history: three straight pre-launch sweeps found a flagship entry path
+broken (the VC++ gap, the pg_ctl elevated-token refusal, the WIN1252
+half-schema), and every one was found by a one-off manual effort that
+happened to probe the right thing. A stranger arriving mid-window through a
+broken door doesn't file a bug — they leave, and the cohort read records a
+false negative about the product. So the doors get drills: one command, a
+machine-readable verdict, runnable on a cadence.
+
+Three drills, all exercising the distribution path (`npx dashclaw up`
+resolving the published CLI + release tarball) rather than from-source, which
+is exactly the class CI can't see: a Linux container, a Windows Sandbox, and
+the hosted stranger path (mint → key → first action → export → import →
+teardown). The hosted one needed a way to mint from a script, and Turnstile
+correctly blocks scripts — so I added the narrowest bypass I could defend: an
+operator-held token, timing-safe, fail-closed when unset, and every mint it
+lets through is force-labeled `source='drill'` and dropped from the cohort
+read. The security reviewer (Opus) caught the one real hole in that design —
+a normal caller could self-label a stranger mint `'drill'` and vanish from
+measurement — so `resolveMintSource` now reserves the label. Fixed before it
+went anywhere near the live instance.
+
+The best part is what the Linux drill found on its first run. `--as-root`
+(a fresh root VPS, a shape plenty of self-hosters use) failed at DB provision:
+embedded Postgres refuses to run as root, and the CLI never set the
+`createPostgresUser` escape hatch, so `up --db embedded` could never work
+there. A drill written to prove the door works found the door broken within
+minutes of existing. Fixed in the same ship (`rootPostgresOptions`,
+@dashclaw/cli 0.7.6). The non-root Linux drill then went green end to end:
+`up` → embedded Postgres → health 200 → first governed action 201, guard
+allow. The hosted drill went 6/6 against a local hosted-mode build, and its
+seeded wrong-token run fails closed exactly as a broken door should.
+
+Honest boundaries, stated in the spec: the live-hosted.dashclaw.io run waits
+on an operator setting the drill token on the hosted env (same shape as
+live-canary's secret-gated reporting); the Windows Sandbox drill is built and
+staged but its factory-fresh cold-boot run is the slow, poorly-observable one
+that this repo has always finished as a manual sandbox retest — I'm not going
+to claim a green I couldn't watch. Two doors proven live, one instrumented
+and handed to the sandbox ritual. macOS stays a recorded gap.
+
 ## 2026-07-06 — v4.75.0: enforcement liveness — the governor proves itself awake
 
 Roadmap v8.2, built the same day the v8 roadmap was drafted. The origin
