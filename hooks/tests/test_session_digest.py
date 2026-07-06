@@ -14,7 +14,9 @@ HOOK = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 
 def run_hook(env_overrides):
-    env = {**os.environ, "DASHCLAW_DISABLE_DOTENV": "1"}
+    # DASHCLAW_LIVENESS_PROBE_DISABLED: the digest spawns the v8.2 liveness
+    # probe as a detached side effect on real installs; tests isolate it.
+    env = {**os.environ, "DASHCLAW_DISABLE_DOTENV": "1", "DASHCLAW_LIVENESS_PROBE_DISABLED": "1"}
     # Start from a config-clean slate so machine env vars don't leak in.
     for k in ("DASHCLAW_BASE_URL", "DASHCLAW_URL", "DASHCLAW_API_KEY", "DASHCLAW_AGENT_ID", "DASHCLAW_DIGEST_DISABLED"):
         env.pop(k, None)
@@ -142,3 +144,55 @@ def test_disabled_flag_prints_nothing():
         srv.shutdown()
     assert r.returncode == 0
     assert r.stdout == b""
+
+
+# ---------------------------------------------------------------------------
+# v8.2: enforcement-liveness probe spawn (detached, marker-throttled)
+# ---------------------------------------------------------------------------
+
+def _import_digest():
+    import importlib
+    import sys as _sys
+    _sys.path.insert(0, os.path.dirname(HOOK))
+    os.environ.setdefault("DASHCLAW_DISABLE_DOTENV", "1")
+    module = importlib.import_module("dashclaw_session_digest")
+    return module
+
+
+def test_probe_spawn_throttled_by_fresh_marker(tmp_path, monkeypatch):
+    digest = _import_digest()
+    home = tmp_path / "home"
+    root = home / ".dashclaw" / "liveness-probe"
+    root.mkdir(parents=True)
+    marker = root / ".last-spawn"
+    marker.write_text("now")
+    monkeypatch.setattr(os.path, "expanduser", lambda p: str(home) if p == "~" else p)
+    monkeypatch.delenv("DASHCLAW_LIVENESS_PROBE_DISABLED", raising=False)
+    calls = []
+    monkeypatch.setattr(digest.subprocess, "Popen", lambda *a, **k: calls.append(a))
+    digest._maybe_spawn_liveness_probe()
+    assert calls == []
+
+
+def test_probe_spawn_fires_and_writes_marker(tmp_path, monkeypatch):
+    digest = _import_digest()
+    home = tmp_path / "home"
+    monkeypatch.setattr(os.path, "expanduser", lambda p: str(home) if p == "~" else p)
+    monkeypatch.delenv("DASHCLAW_LIVENESS_PROBE_DISABLED", raising=False)
+    calls = []
+    monkeypatch.setattr(digest.subprocess, "Popen", lambda *a, **k: calls.append((a, k)))
+    digest._maybe_spawn_liveness_probe()
+    assert len(calls) == 1
+    argv = calls[0][0][0]
+    assert argv[1].endswith("enforcement_liveness_probe.py")
+    assert argv[2:] == ["--source", "session-start"]
+    assert (home / ".dashclaw" / "liveness-probe" / ".last-spawn").exists()
+
+
+def test_probe_spawn_disabled_env(tmp_path, monkeypatch):
+    digest = _import_digest()
+    monkeypatch.setenv("DASHCLAW_LIVENESS_PROBE_DISABLED", "1")
+    calls = []
+    monkeypatch.setattr(digest.subprocess, "Popen", lambda *a, **k: calls.append(a))
+    digest._maybe_spawn_liveness_probe()
+    assert calls == []

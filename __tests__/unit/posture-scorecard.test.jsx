@@ -21,6 +21,8 @@ const baseProps = {
   pendingActions: [{ action_id: 'act_1' }, { action_id: 'act_2' }],
   signalCounts: { red: 1, amber: 2, total: 3 },
   capabilityHealth: [{ health_status: 'healthy' }, { health_status: 'degraded' }],
+  enforcementLiveness: { state: 'holding', latest: null },
+  enforcementLivenessError: null,
   feedItems,
   summary: null,
   sortedAgents: [],
@@ -56,5 +58,58 @@ describe('PostureScorecard', () => {
     const { container } = render(<PostureScorecard {...baseProps} activeCategory="failure" />);
     const pressed = container.querySelector('[aria-pressed="true"]');
     expect(pressed?.textContent).toContain('Failures · 24h');
+  });
+});
+
+// v8.2 enforcement-liveness tile: a probe that stopped running must NEVER
+// render green (see app/lib/enforcement-liveness.ts contract). Asserts the
+// row's status dot color directly, not just the status word text.
+function livenessRow(container) {
+  return [...container.querySelectorAll('.group')].find((el) => el.textContent?.includes('Enforcement Liveness'));
+}
+
+describe('PostureScorecard enforcement-liveness row (v8.2)', () => {
+  it('renders holding as ok (green)', () => {
+    const { container } = render(
+      <PostureScorecard {...baseProps} enforcementLiveness={{ state: 'holding', latest: null }} enforcementLivenessError={null} />,
+    );
+    const row = livenessRow(container);
+    expect(row).toBeTruthy();
+    expect(row.textContent).toContain('holding');
+    expect(row.querySelector('.bg-status-success')).toBeTruthy();
+  });
+
+  it('renders stale as warn (amber), never ok', () => {
+    const { container } = render(
+      <PostureScorecard {...baseProps} enforcementLiveness={{ state: 'stale', latest: null }} enforcementLivenessError={null} />,
+    );
+    const row = livenessRow(container);
+    expect(row.textContent).toContain('stale');
+    expect(row.querySelector('.bg-status-warning')).toBeTruthy();
+    expect(row.querySelector('.bg-status-success')).toBeFalsy();
+  });
+
+  it('renders broken as critical (red), never ok', () => {
+    const { container } = render(
+      <PostureScorecard {...baseProps} enforcementLiveness={{ state: 'broken', latest: null }} enforcementLivenessError={null} />,
+    );
+    const row = livenessRow(container);
+    expect(row.textContent).toContain('broken');
+    expect(row.querySelector('.bg-status-error')).toBeTruthy();
+    expect(row.querySelector('.bg-status-success')).toBeFalsy();
+  });
+
+  it('a missing/failed slice degrades to warn, never ok', () => {
+    const { container } = render(
+      <PostureScorecard
+        {...baseProps}
+        enforcementLiveness={{ state: null, latest: null }}
+        enforcementLivenessError="Enforcement liveness unavailable"
+      />,
+    );
+    const row = livenessRow(container);
+    expect(row.textContent).toContain('unavailable');
+    expect(row.querySelector('.bg-status-success')).toBeFalsy();
+    expect(row.querySelector('.bg-status-warning')).toBeTruthy();
   });
 });

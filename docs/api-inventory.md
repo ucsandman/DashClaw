@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `336`
+- Total routes: `337`
 - Stable routes: `57`
 - Beta routes: `24`
-- Experimental routes: `255`
+- Experimental routes: `256`
 
 ## Routes
 
@@ -176,6 +176,7 @@ doc-type: architecture
 | `/api/drift/snapshots` | `GET` | `experimental` | `(default)` | `app/api/drift/snapshots/route.ts` |
 | `/api/drift/stats` | `GET` | `experimental` | `(default)` | `app/api/drift/stats/route.ts` |
 | `/api/echo` | `GET, POST` | `experimental` | `(default)` | `app/api/echo/route.ts` |
+| `/api/enforcement-liveness` | `GET, POST` | `experimental` | `(default)` | `app/api/enforcement-liveness/route.ts` |
 | `/api/evaluations` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/route.ts` |
 | `/api/evaluations/runs` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/runs/route.ts` |
 | `/api/evaluations/runs/{runId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/evaluations/runs/[runId]/route.ts` |

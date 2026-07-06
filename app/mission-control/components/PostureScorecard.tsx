@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, AlertTriangle, ShieldAlert, ShieldCheck,
-  Wrench, Plug, Repeat, Inbox,
+  Wrench, Plug, Repeat, Inbox, Radio,
 } from 'lucide-react';
 import { Card } from '../../components/ui/Card';
 import AgentSpendCard from '../../components/AgentSpendCard';
@@ -17,6 +17,12 @@ interface PostureScorecardProps {
   pendingActions: any[];
   signalCounts: { red: number; amber: number; total: number };
   capabilityHealth: any[];
+  // Optional: mission-control/page.tsx must destructure these two fields from
+  // useMissionData() and pass them through for the tile to show live data —
+  // until then the component degrades to its own "checking"/warn default
+  // rather than typecheck-breaking the page.
+  enforcementLiveness?: { state: 'holding' | 'stale' | 'broken' | null; latest: any };
+  enforcementLivenessError?: string | null;
   feedItems: any[];
   summary: any;
   sortedAgents: any[];
@@ -29,7 +35,8 @@ interface PostureScorecardProps {
 
 export function PostureScorecard(props: PostureScorecardProps) {
   const {
-    agentId, decisionMetrics, pendingActions, signalCounts, capabilityHealth, feedItems,
+    agentId, decisionMetrics, pendingActions, signalCounts, capabilityHealth,
+    enforcementLiveness, enforcementLivenessError, feedItems,
     summary, sortedAgents, criticalAgentIds, failedAgentIds, activeCategory, onToggleCategory,
   } = props;
 
@@ -45,6 +52,18 @@ export function PostureScorecard(props: PostureScorecardProps) {
   const capUntested = capabilityHealth.filter((c: any) => capStatus(c) === 'untested' || capStatus(c) === 'unknown').length;
   const capHealthy = capabilityHealth.filter((c: any) => capStatus(c) === 'healthy').length;
   const capTotal = capabilityHealth.length;
+
+  // v8.2 enforcement-liveness: a missing/failed fetch is left as null state and
+  // must never render as 'ok' — a silent probe is the exact v4.72.1 failure // version-hardcode-allowed
+  // shape this tile exists to catch, so "we don't know yet" reads as a warning.
+  const livenessState = enforcementLiveness?.state ?? null;
+  const livenessLevel: StatusLevel =
+    livenessState === 'holding' ? 'ok' : livenessState === 'broken' ? 'critical' : 'warn';
+  const livenessWord = enforcementLivenessError
+    ? 'unavailable'
+    : livenessState === 'holding' || livenessState === 'stale' || livenessState === 'broken'
+      ? livenessState
+      : 'checking';
 
   const rows: {
     key: string; icon: any; label: string; statusWord: string; level: StatusLevel; count: number; href: string;
@@ -78,6 +97,11 @@ export function PostureScorecard(props: PostureScorecardProps) {
     {
       key: 'stale', icon: Repeat, label: 'Stale Loops · 48h', count: stale, href: '/dashboard',
       level: stale > 0 ? 'warn' : 'ok', statusWord: stale > 0 ? `${stale} stale` : 'clear',
+    },
+    {
+      key: 'enforcement-liveness', icon: Radio, label: 'Enforcement Liveness',
+      count: livenessLevel === 'ok' ? 0 : 1, href: '/setup#enforcement-liveness',
+      level: livenessLevel, statusWord: livenessWord,
     },
   ];
 

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:5ec6d857b7400b7dc85c054e6f55fd80ef395e43",
+  "timestamp": "sha1:37b69da5750dbd76d4a52aa5ebd37f2f471e142e",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -1557,6 +1557,16 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/echo/route.ts"
+    },
+    {
+      "path": "/api/enforcement-liveness",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/enforcement-liveness/route.ts"
     },
     {
       "path": "/api/evaluations",
@@ -5732,6 +5742,11 @@
       "name": "drift_snapshots",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "enforcement_liveness_runs",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "entities",

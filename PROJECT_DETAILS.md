@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-06), generated API inventory reports **336 routes**: **57 stable**, **24 beta**, **255 experimental**.
+As of this verification (2026-07-06), generated API inventory reports **337 routes**: **57 stable**, **24 beta**, **256 experimental**.
 
 ## Product boundary
 
@@ -55,7 +55,7 @@ As of this verification (2026-07-06), generated API inventory reports **336 rout
 | Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, a live recent-action log, and inline Approve/Deny for pending approvals (operator decisions resolved via `/api/approvals/[actionId]`, cleared across all channels). 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
 | Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
-| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), and the live host canary — hourly external probes of the production hosts as a real client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, hosted MCP handshake) reported via `POST /api/live-canary`, with fresh failures also raised as a posture auditability finding. |
+| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), the live host canary — hourly external probes of the production hosts as a real client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, hosted MCP handshake) reported via `POST /api/live-canary`, with fresh failures also raised as a posture auditability finding — and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) proving the pretool hook seam actually holds held actions, where a probe that has silently stopped running renders stale, never green. |
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |

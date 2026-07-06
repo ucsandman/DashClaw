@@ -116,7 +116,7 @@ Alternatives weighed and declined this round:
 | # | Item | Status |
 |---|------|--------|
 | v8.1 | The cohort read (carried from v7.1, unchanged) | TIME-GATED — runs on/after 2026-07-19; instrument prebuilt (`node scripts/measurement-read.mjs`), arithmetic unit-tested, open loop carries the date |
-| v8.2 | Enforcement liveness: the governor proves itself awake | — |
+| v8.2 | Enforcement liveness: the governor proves itself awake | SHIPPED 2026-07-06 (v4.75.0) — probe live on the governing instance (verdict `held` through the real hook + real policies), seeded v4.72.1 config detected and rendered red, aggregates unpolluted by construction; spec + evidence: `docs/superpowers/specs/2026-07-06-enforcement-liveness-v82.md` |
 | v8.3 | Entry-path drills: both doors proven on repeat | — |
 | v8.4 | The health floor: the momentum lane gets a target and an exit | — |
 | v8.5 | The branch (carried from v7.4, unchanged) | BLOCKED on v8.1 (by design — selected by evidence) |
@@ -169,6 +169,17 @@ into an instrument the system runs against itself.
   the same ship. Exact probe mechanics (which hook, which cadence, where
   the "did not execute" witness lives) are verified at build time
   against the harness, not assumed here.
+- **SHIPPED 2026-07-06 (v4.75.0).** Mechanics as built:
+  `hooks/enforcement_liveness_probe.py` runs the installed pretool hook
+  under harness-faithful timeout arithmetic (seconds; ×1000 past int32 =
+  instant cancel = fail-open) with a synthetic Write to a probe-owned
+  `.env` witness path as `smoke-liveness-probe`; exit 2 = held, anything
+  else executes the witness. Cadence = SessionStart digest spawns it
+  detached at most 1×/12h. Verdicts in `enforcement_liveness_runs` only;
+  surfaces: `/setup#enforcement-liveness` + Mission Control posture row
+  (holding/stale/broken; stale never green). All acceptance clauses
+  proven live 2026-07-06 — evidence in
+  `docs/superpowers/specs/2026-07-06-enforcement-liveness-v82.md`.
 
 ## v8.3 Entry-path drills: both doors proven on repeat
 

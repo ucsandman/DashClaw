@@ -12,6 +12,7 @@ import {
   Wallet,
   Stethoscope,
   Crosshair,
+  HeartPulse,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -118,6 +119,12 @@ const OPERATE_SURFACES = [
     title: 'Calibrated interruption',
     desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve/deny verdicts. Shadow first, tighten-only when active.',
     href: '/calibration',
+  },
+  {
+    icon: HeartPulse,
+    title: 'Enforcement liveness',
+    desc: 'A probe drives a synthetic held action through the real hook seam and verifies it did not execute. A healthy ledger can hide a dead hook; this catches it, and a silent probe never renders green.',
+    href: '/setup#enforcement-liveness',
   },
   {
     icon: Stethoscope,

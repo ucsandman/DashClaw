@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:5ec6d857b7400b7dc85c054e6f55fd80ef395e43`
+**Shape snapshot:** `sha1:37b69da5750dbd76d4a52aa5ebd37f2f471e142e`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,9 +45,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **288** active API routes across **72** categories (336 total including archived)
+- **289** active API routes across **73** categories (337 total including archived)
 - **4** required + **195** optional environment variables
-- **111** database tables
+- **112** database tables
 
 ## API Surface
 
@@ -226,6 +226,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `echo`
 
 - `GET, POST` `/api/echo`
+
+### `enforcement-liveness`
+
+- `GET, POST` `/api/enforcement-liveness`
 
 ### `evaluations`
 
@@ -767,7 +771,7 @@ These have fallbacks or only activate specific features.
 
 ## Database Tables
 
-All 111 tables defined in `schema/schema.js` (Drizzle ORM):
+All 112 tables defined in `schema/schema.js` (Drizzle ORM):
 
 - `action_embeddings`
 - `action_records`
@@ -808,6 +812,7 @@ All 111 tables defined in `schema/schema.js` (Drizzle ORM):
 - `drift_alerts`
 - `drift_baselines`
 - `drift_snapshots`
+- `enforcement_liveness_runs`
 - `entities`
 - `eval_runs`
 - `eval_scorers`

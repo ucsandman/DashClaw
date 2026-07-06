@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 336,
+    "total_routes": 337,
     "stable_routes": 57,
     "beta_routes": 24,
-    "experimental_routes": 255
+    "experimental_routes": 256
   },
   "routes": [
     {
@@ -1507,6 +1507,16 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/echo/route.ts"
+    },
+    {
+      "path": "/api/enforcement-liveness",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/enforcement-liveness/route.ts"
     },
     {
       "path": "/api/evaluations",

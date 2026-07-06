@@ -18,7 +18,9 @@ Config (env or .env.local discovered by walking up from this file):
 """
 import json
 import os
+import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -133,9 +135,45 @@ def _handoff_lines(h):
     ]
 
 
+def _maybe_spawn_liveness_probe():
+    """v8.2 enforcement liveness: launch the probe detached, at most once per
+    12h (marker-file throttle), so the governing instance proves its own
+    enforcement seam every working day without new infrastructure. Fail-silent
+    and detached — session start is never delayed or broken by the probe."""
+    if os.environ.get("DASHCLAW_LIVENESS_PROBE_DISABLED"):
+        return
+    probe = os.path.join(os.path.dirname(os.path.abspath(__file__)), "enforcement_liveness_probe.py")
+    if not os.path.isfile(probe):
+        return
+    root = os.path.join(os.path.expanduser("~"), ".dashclaw", "liveness-probe")
+    marker = os.path.join(root, ".last-spawn")
+    try:
+        if time.time() - os.path.getmtime(marker) < 12 * 3600:
+            return
+    except OSError:
+        pass  # no marker yet: first run
+    try:
+        os.makedirs(root, exist_ok=True)
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+        kwargs = {}
+        if os.name == "nt":
+            kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        with open(os.path.join(root, "last-run.log"), "w", encoding="utf-8") as log:
+            subprocess.Popen(
+                [sys.executable, probe, "--source", "session-start"],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=log, **kwargs,
+            )
+    except Exception:
+        pass  # never let the probe break session start
+
+
 def main():
     if not BASE_URL or not API_KEY or os.environ.get("DASHCLAW_DIGEST_DISABLED"):
         return
+    _maybe_spawn_liveness_probe()
     try:
         learning = _get(f"/api/learning?agent_id={urllib.parse.quote(AGENT_ID)}&limit=10") or {}
     except Exception:

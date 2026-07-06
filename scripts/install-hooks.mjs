@@ -193,7 +193,7 @@ export function hookBlocks(python = 'python') {
 // path-separator-bounded occurrences so user-authored wrappers with similar
 // names (e.g. `my_dashclaw_pretool.py`, `dashclaw_metrics.py`) are NOT
 // silently removed on re-install.
-export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_session_digest.py'];
+export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py'];
 // Full regex-escape (every metacharacter incl. backslash), not just '.', so the
 // alternation is always well-formed regardless of the filename contents.
 const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -458,7 +458,9 @@ function main() {
   // by dashclaw_stop.py when DASHCLAW_CODE_SESSIONS_ENABLED=1; copy it
   // unconditionally (it is a runtime no-op when the feature is off) so the
   // Code Sessions feature doesn't silently break after a local install.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'dashclaw_session_digest.py']) {
+  // enforcement_liveness_probe.py: spawned detached by the session digest
+  // (v8.2); copied so the probe travels with the hooks it exercises.
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);

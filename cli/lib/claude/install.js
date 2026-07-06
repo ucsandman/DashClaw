@@ -47,6 +47,12 @@ const HOOK_FILES = [
   'dashclaw_stop.py',
   'dashclaw_code_session_reporter.py',
 ];
+// Shipped when present in the bundle, skipped otherwise — a newer CLI must
+// keep installing against an older hosted bundle. enforcement_liveness_probe
+// (v8.2) is not wired as a hook here (the CLI does not install the
+// SessionStart digest that auto-spawns it), but travels with the hooks so
+// `python .claude/hooks/enforcement_liveness_probe.py` works out of the box.
+const OPTIONAL_HOOK_FILES = ['enforcement_liveness_probe.py'];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 const HOOKS_BUNDLE_PATH = '/downloads/dashclaw-claude-code-hooks.zip';
 
@@ -135,6 +141,10 @@ function copyHooksFromRepo(hooksSrc, hooksDst) {
     const sp = join(hooksSrc, name);
     if (!existsSync(sp)) throw new Error(`Required hook script missing: ${sp}`);
     copyFileSync(sp, join(hooksDst, name));
+  }
+  for (const name of OPTIONAL_HOOK_FILES) {
+    const sp = join(hooksSrc, name);
+    if (existsSync(sp)) copyFileSync(sp, join(hooksDst, name));
   }
   const intelSrc = join(hooksSrc, HOOK_INTEL_DIR);
   if (!existsSync(intelSrc) || !statSync(intelSrc).isDirectory()) {

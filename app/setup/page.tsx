@@ -9,6 +9,11 @@ import {
   type LiveCanaryRun,
 } from '../lib/repositories/live-canary.repository';
 import { LIVE_CANARY_STALE_MS } from '../lib/posture/findings';
+import {
+  getLatestEnforcementLivenessRunForOrg,
+  deriveEnforcementLivenessState,
+  type EnforcementLivenessRun,
+} from '../lib/repositories/enforcement-liveness.repository';
 import { getJtiReplayMode } from '../lib/replay-protection';
 import { getActBindingMode } from '../lib/act-binding';
 import { resolveDegradedAction } from '../lib/guard';
@@ -182,14 +187,42 @@ async function readLiveCanary(): Promise<{ run: LiveCanaryRun | null; error: boo
   }
 }
 
+// v4.72.1 taught us a decision ledger can stay healthy while enforcement is // version-hardcode-allowed
+// silently dead (a hook-timeout misconfig cancelled the pretool hook; blocks
+// failed open). This probe drives a synthetic held action through the real
+// hook seam and records whether it actually executed. Same public-page org
+// rule as the live canary: only the operator's own runs, never another
+// tenant's on a shared host.
+async function readEnforcementLiveness(): Promise<{ run: EnforcementLivenessRun | null; error: boolean }> {
+  try {
+    const sql = getSql();
+    return { run: await getLatestEnforcementLivenessRunForOrg(sql, canaryDisplayOrgId()), error: false };
+  } catch (err) {
+    console.error('[Setup] enforcement-liveness read failed:', err);
+    return { run: null, error: true };
+  }
+}
+
+function relativeAgo(iso: string | null | undefined): string {
+  const ms = iso ? Date.now() - Date.parse(iso) : NaN;
+  if (!Number.isFinite(ms) || ms < 0) return 'an unknown time';
+  const mins = Math.floor(ms / 60000);
+  if (mins < 1) return 'moments';
+  if (mins < 60) return `${mins}m`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h`;
+  return `${Math.floor(hours / 24)}d`;
+}
+
 export default async function SetupPage() {
   // The canary runs alongside the readiness report: real writes under the
   // isolated canary org, so a dead write path fails HERE before an agent
   // ever hits it. An engine error is rendered, never swallowed.
-  const [report, canary, liveCanary] = await Promise.all([
+  const [report, canary, liveCanary, enforcementLiveness] = await Promise.all([
     getReadinessReport(process.env),
     runCanaryMemoized(),
     readLiveCanary(),
+    readEnforcementLiveness(),
   ]);
   const view = projectReadinessReport(report, { isAuthenticated: true });
   const overall = view.verification;
@@ -260,6 +293,30 @@ export default async function SetupPage() {
   const liveReportedAt = liveRun
     ? new Date(liveRun.finished_at).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
     : null;
+
+  // v8.2 enforcement-liveness card. State comes from the same derivation the
+  // API route and posture finding use, so this card can never disagree with
+  // them about what "holding" means. A read error is treated the same as
+  // "stale" for the badge (we cannot prove enforcement held), but rendered
+  // with its own message so it's never confused with an actually-stale probe.
+  const livenessRun = enforcementLiveness.run;
+  const livenessState = deriveEnforcementLivenessState(livenessRun, Date.now());
+  const livenessStatus = enforcementLiveness.error
+    ? 'warn'
+    : !livenessRun
+      ? 'skipped'
+      : livenessState === 'holding'
+        ? 'pass'
+        : livenessState === 'stale'
+          ? 'warn'
+          : 'fail';
+  const livenessChecks = (livenessRun?.checks ?? []).map((c) => ({
+    id: c.id,
+    label: c.title,
+    detail: c.detail || (c.status === 'pass' ? 'Held as expected.' : 'See detail above.'),
+    status: c.status,
+    nextAction: null,
+  }));
 
   // v3.6: enforcement posture. Values come from the guard's own getters, so
   // this card is the instance's live truth, not a copy of the docs.
@@ -434,6 +491,81 @@ export default async function SetupPage() {
                       <p className="mb-3 text-xs text-tertiary">Last reported {liveReportedAt}.</p>
                     )}
                     <CheckList checks={liveChecks} />
+                  </>
+                )}
+              </div>
+            </article>
+            <article id="enforcement-liveness" className="rounded-2xl border border-white/10 bg-white/5 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-xl font-semibold text-primary">Enforcement liveness</h2>
+                  <p className="mt-1 text-sm text-secondary">
+                    A synthetic held action is driven through the real pretool hook seam, and this
+                    checks that it did not execute. A healthy decision ledger can still hide a dead
+                    hook (v4.72.1) — this is the probe that catches that. // version-hardcode-allowed
+                  </p>
+                </div>
+                <span className={`text-xs font-semibold uppercase tracking-wide ${checkTone(livenessStatus)}`}>
+                  {livenessStatus}
+                </span>
+              </div>
+              <p className="mt-3 text-xs text-tertiary">
+                Checked: a synthetic action recorded as held, replayed through the same hook path a
+                live agent uses, then verified as not-executed. Never reaches your action or guard ledgers.
+              </p>
+              <div className="mt-4">
+                {enforcementLiveness.error ? (
+                  <p className="rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
+                    Enforcement-liveness reports could not be read (database unreachable or not yet migrated).
+                    The full error is logged server-side.
+                  </p>
+                ) : !livenessRun ? (
+                  <p className="text-sm text-secondary">
+                    No probe run yet. Run <code>npm run liveness:probe</code> to drive the first synthetic
+                    held action through the hook seam and file a verdict here.
+                  </p>
+                ) : (
+                  <>
+                    {livenessState === 'stale' ? (
+                      <p className="mb-3 rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
+                        No probe run in the last 24h &mdash; a silent probe is the v4.72.1 failure shape. // version-hardcode-allowed
+                        Run: <code>npm run liveness:probe</code>
+                      </p>
+                    ) : livenessState === 'broken' ? (
+                      <p className="mb-3 rounded-xl border border-status-error/40 bg-error-subtle p-3 text-sm text-error">
+                        {livenessRun.detail || 'The probe action executed or its outcome could not be proven.'}
+                        {' '}Check the pretool hook&rsquo;s timeout and config (see the hook fields below) and rerun the probe.
+                      </p>
+                    ) : (
+                      <p className="mb-3 text-xs text-tertiary">
+                        Enforcement held the probe action {relativeAgo(livenessRun.finished_at)} ago.
+                      </p>
+                    )}
+                    <div className="mb-3 grid gap-2 text-xs text-secondary sm:grid-cols-2">
+                      <div className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                        <div className="text-tertiary">Verdict</div>
+                        <code className="text-primary">{livenessRun.verdict}</code>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                        <div className="text-tertiary">Decision</div>
+                        <code className="text-primary">{livenessRun.decision ?? 'none'}</code>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                        <div className="text-tertiary">Witness</div>
+                        <code className="text-primary">
+                          {livenessRun.witness.executed ? 'executed' : 'not executed'} ({livenessRun.witness.path})
+                        </code>
+                      </div>
+                      <div className="rounded-xl border border-white/10 bg-primary/40 p-3">
+                        <div className="text-tertiary">Hook</div>
+                        <code className="text-primary">
+                          {livenessRun.hook.installed ? (livenessRun.hook.mode || 'installed') : 'not installed'}
+                          {livenessRun.hook.overflowed ? ' · timeout overflowed' : ''}
+                          {livenessRun.hook.cancelled ? ' · cancelled' : ''}
+                        </code>
+                      </div>
+                    </div>
+                    <CheckList checks={livenessChecks} />
                   </>
                 )}
               </div>

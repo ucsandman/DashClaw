@@ -1586,6 +1586,31 @@ export const liveCanaryRuns = pgTable('live_canary_runs', {
 }));
 
 // @domain governance
+// v8.2 enforcement liveness (docs/plans/owner-roadmap.md §v8.2): verdicts
+// filed by hooks/enforcement_liveness_probe.py, which drives a synthetic
+// action through the pretool hook seam on the governing instance. Structurally
+// isolated from action_records/guard_decisions so synthetic probe traffic can
+// never reach posture, calibration, or funnel mining (live-canary precedent).
+// `hook`/`witness`/`checks` are free-form JSON describing the probe's
+// evidence; `decision` is the guard decision the probe observed, if any.
+export const enforcementLivenessRuns = pgTable('enforcement_liveness_runs', {
+  id: text('id').primaryKey(),
+  orgId: text('org_id').notNull().references(() => organizations.id, { onDelete: 'cascade' }),
+  source: text('source').notNull().default('manual'),
+  verdict: text('verdict').notNull(),
+  detail: text('detail').notNull(),
+  hook: jsonb('hook').notNull(),
+  witness: jsonb('witness').notNull(),
+  decision: text('decision'),
+  checks: jsonb('checks').notNull(),
+  startedAt: timestamp('started_at', { withTimezone: true }).notNull(),
+  finishedAt: timestamp('finished_at', { withTimezone: true }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, (t) => ({
+  orgCreatedIdx: index('idx_enforcement_liveness_runs_org_created').on(t.orgId, t.createdAt),
+}));
+
+// @domain governance
 // v4.2 coverage truth (drizzle/0048, docs/superpowers/specs/2026-07-04-coverage-truth.md).
 // The Stop hook's per-turn expected-vs-recorded evidence: expected = governed
 // tool_use blocks in the turn's transcript slice, recorded = those with an

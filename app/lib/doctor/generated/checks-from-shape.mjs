@@ -45,6 +45,7 @@ const TABLES = [
   "drift_alerts",
   "drift_baselines",
   "drift_snapshots",
+  "enforcement_liveness_runs",
   "entities",
   "eval_runs",
   "eval_scorers",

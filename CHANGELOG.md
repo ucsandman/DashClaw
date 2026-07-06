@@ -13,6 +13,65 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.75.0] — 2026-07-06
+
+Enforcement liveness: the governor proves itself awake (roadmap v8.2). The
+failure this attacks is v4.72.1's — a hook timeout misconfig cancelled the
+pretool hook on every call, cancellation is fail-open, and the decision
+ledger kept looking perfectly healthy while every block silently stopped
+enforcing. The only detector that fired was the owner asking "how were you
+able to write to those files?". That question is now an instrument the
+system runs against itself.
+
+### Added
+
+- **Enforcement-liveness probe** (`hooks/enforcement_liveness_probe.py`,
+  `npm run liveness:probe`): drives a synthetic held action — a `Write` to a
+  probe-owned `.env` witness path, as the synthetic agent
+  `smoke-liveness-probe` — through the real, unmodified PreToolUse hook
+  under harness-faithful semantics (`timeout` is seconds; seconds×1000 past
+  int32 overflows the harness timer and cancels the hook fail-open; exit 2
+  blocks, everything else proceeds). The verdict comes from **observing
+  whether the action executed** — the witness file — never from reading the
+  decision ledger, because the ledger is exactly what lied in v4.72.1.
+  Verdicts: `held`, `executed` (the v4.72.1 class), `unprovable` (no holding
+  policy / observe mode / hook missing or hung — rendered broken, because
+  enforcement you cannot prove is not enforcement).
+- **Per-session cadence with zero new infrastructure**: the SessionStart
+  digest hook spawns the probe detached at most once per 12h (marker
+  throttle; `DASHCLAW_LIVENESS_PROBE_DISABLED=1` kill switch). The probe
+  file is managed by `install-hooks` and ships in the CLI hook bundle.
+- **`GET`/`POST /api/enforcement-liveness`** + `enforcement_liveness_runs`
+  (drizzle `0060`): probe verdicts in their own table — never
+  `action_records`/`guard_decisions` (live-canary precedent) — with 30-day
+  retention pruned on insert. GET returns the derived state.
+- **Holding / stale / broken surfaces**: `/setup#enforcement-liveness` card
+  and a Mission Control Posture Scorecard row, both derived from one shared
+  function (`app/lib/enforcement-liveness.ts`, 24h staleness window). A
+  probe that silently stops running renders **stale, never green** — a
+  silent probe is itself the v4.72.1 failure shape. Broken/stale also land
+  as posture findings (broken = critical).
+- **The seeded regression**: the exact v4.72.1 config (`timeout: 3600000`)
+  is pinned by `test_seeded_v4721_timeout_yields_executed` and was driven
+  live against a local prod build — verdict `executed`, surface red, fix
+  instruction named. The healthy path was proven the same day on the
+  governing instance: verdict `held` through the real hook and three real
+  policies in ~1s.
+
+### Notes
+
+- Probe guard rows are synthetic (`smoke-` prefix) and excluded from every
+  aggregate (posture, /proof, calibration mining, funnel, coverage,
+  tightening/loosening evidence); the raw ledger keeps the labeled row as an
+  audit trail, and approval-wait probes cancel their pending approval in
+  teardown.
+- Spec + acceptance evidence:
+  `docs/superpowers/specs/2026-07-06-enforcement-liveness-v82.md`.
+- **`dashclaw` plugin 2.16.0**: hook bundle gains the probe +
+  session-digest auto-spawn. **`@dashclaw/cli` 0.7.5**: `dashclaw install
+  claude` ships the probe as an optional bundle file (older hosted bundles
+  keep installing cleanly).
+
 ## [4.74.0] — 2026-07-06
 
 The calibrated interruption controller: DashClaw's first adaptive enforcement

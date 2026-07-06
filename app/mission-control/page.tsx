@@ -22,6 +22,7 @@ export default function MissionControlPage() {
   const {
     signals, loops, health, actions, pendingActions, decisionMetrics,
     capabilityHealth, summary, feedItems, loading, livePulse, refresh,
+    enforcementLiveness, enforcementLivenessError,
   } = useMissionData(agentId);
 
   const [showQuickStart, setShowQuickStart] = useState(true);
@@ -209,6 +210,8 @@ export default function MissionControlPage() {
           pendingActions={pendingActions}
           signalCounts={signalCounts}
           capabilityHealth={capabilityHealth}
+          enforcementLiveness={enforcementLiveness}
+          enforcementLivenessError={enforcementLivenessError}
           feedItems={visibleFeedItems}
           summary={summary}
           sortedAgents={sortedAgents}

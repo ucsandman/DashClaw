@@ -12,6 +12,10 @@ export interface MissionData {
   decisionMetrics: any;
   capabilityHealth: any[];
   capabilityHealthError: string | null;
+  /** v8.2 enforcement-liveness tile. state is null until the first fetch lands or on fetch failure —
+   *  callers must never treat null as healthy (a failed/absent fetch is not "holding"). */
+  enforcementLiveness: { state: 'holding' | 'stale' | 'broken' | null; latest: any };
+  enforcementLivenessError: string | null;
   summary: any;
   feedItems: any[];
   loading: boolean;
@@ -28,6 +32,8 @@ const EMPTY: MissionData = {
   decisionMetrics: null,
   capabilityHealth: [],
   capabilityHealthError: null,
+  enforcementLiveness: { state: null, latest: null },
+  enforcementLivenessError: null,
   summary: null,
   feedItems: [],
   loading: true,
@@ -98,6 +104,16 @@ export function useMissionData(agentId: any): MissionData & { refresh: () => voi
         '/api/capabilities/health?limit=200',
         (j) => ({ capabilityHealth: j.capabilities || [], capabilityHealthError: null }),
         () => ({ capabilityHealthError: 'Capability health unavailable' }),
+      ),
+      // v8.2: a failed fetch here must degrade independently and never read as
+      // "holding" — a silent probe is the exact v4.72.1 failure shape. // version-hardcode-allowed
+      slice(
+        '/api/enforcement-liveness?limit=1',
+        (j) => ({
+          enforcementLiveness: { state: j.state ?? null, latest: (j.runs || [])[0] ?? null },
+          enforcementLivenessError: null,
+        }),
+        () => ({ enforcementLivenessError: 'Enforcement liveness unavailable' }),
       ),
       // Feed stays UNSCOPED so global capability/integration health survive even
       // when an agent is selected (the feed drops agent_id:null items when scoped).

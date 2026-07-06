@@ -12,6 +12,52 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.75.0: enforcement liveness — the governor proves itself awake
+
+Roadmap v8.2, built the same day the v8 roadmap was drafted. The origin
+story is already in this log: for a week in late June the pretool hook was
+being cancelled on every tool call by an overflowed timeout, cancellation is
+fail-open, and the decision ledger stayed immaculate while enforcement was
+dead. Wes found it by asking a question no dashboard asked. This ship turns
+that question into a probe the system runs against itself.
+
+The design problem worth recording: how do you prove enforcement without
+trusting the thing that lied? The answer is a witness. The probe drives a
+synthetic action that policy must hold — a Write to a probe-owned `.env`
+path, as `smoke-liveness-probe` — through the real installed hook command,
+under the same timeout arithmetic the harness applies (seconds; ×1000 past
+int32 = instant cancel). If the hook exits 2, the action is never executed.
+Anything else and the probe executes the Write exactly as the harness would
+have — and the file's existence, not any ledger row, is the verdict. Ledger
+reads are demoted to labeling failures (allow vs. seam-broke-above-guard),
+never declaring health.
+
+Two honest edges. First, the probe emulates the harness contract rather than
+driving a live Claude session — every emulated clause (seconds, overflow,
+exit-2, cancellation-proceeds) was verified against the harness's observed
+v4.72.1 behavior, and the seeded config is pinned as a permanent regression
+test. Second, "no residue" has a boundary: each seam exercise necessarily
+records one guard row; it lands synthetic-marked and excluded from every
+aggregate, but the raw ledger keeps it as an audit trail — the same class of
+residue the policy-smoke harness has always left.
+
+Live proof, all three states rendered on a prod build the same session:
+fresh probe through the real hook and real policies → `held` in ~1s
+(extreme-risk block + protected-paths both fired on the `.env` target);
+seeded v4.72.1 config → `executed`, /setup card red with the overflow
+diagnosis and fix; display org unset → `stale`, which deliberately never
+renders green — a probe that silently stops running is the failure it hunts.
+Mission Control got the matching scorecard row (browser-verified, zero
+console errors). Cadence is the quiet part I like most: the SessionStart
+digest spawns the probe detached at most once per 12h, so the governing
+instance now proves its own enforcement every working day without a cron,
+a workflow, or anyone remembering to run anything.
+
+A fitting footnote: while verifying, the live guard **blocked my own shell
+command** for extracting the API key from `.env.local` — risk 100, two
+policies. The governor being probed interrupted the prober. It is, at
+minimum, awake.
+
 ## 2026-07-06 — v4.74.0: the calibrated interruption controller, and a theory under the runtime
 
 Two deliverables in one session: the platform's first adaptive enforcement

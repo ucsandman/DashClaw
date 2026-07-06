@@ -48,20 +48,20 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:5ec6d857b7400b7dc85c054e6f55fd80ef395e43 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:37b69da5750dbd76d4a52aa5ebd37f2f471e142e · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">289</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">290</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">195</div><div class="k">Optional env vars</div></div>
-      <div class="cell"><div class="n">111</div><div class="k">Tables</div></div>
+      <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">14</div><div class="k">Signals</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Adapters</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Setting keys</div></div>
 </div>
 
-<section><h2>Shape</h2><details><summary>Tables (111)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
+<section><h2>Shape</h2><details><summary>Tables (112)</summary><table><thead><tr><th>Name</th><th>Domain</th></tr></thead><tbody>    <tr><td><code>action_embeddings</code></td><td class="sig">—</td></tr>
     <tr><td><code>action_records</code></td><td class="sig">governance</td></tr>
     <tr><td><code>activity_logs</code></td><td class="sig">—</td></tr>
     <tr><td><code>agent_connections</code></td><td class="sig">—</td></tr>
@@ -100,6 +100,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr><td><code>drift_alerts</code></td><td class="sig">—</td></tr>
     <tr><td><code>drift_baselines</code></td><td class="sig">—</td></tr>
     <tr><td><code>drift_snapshots</code></td><td class="sig">—</td></tr>
+    <tr><td><code>enforcement_liveness_runs</code></td><td class="sig">governance</td></tr>
     <tr><td><code>entities</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_runs</code></td><td class="sig">—</td></tr>
     <tr><td><code>eval_scorers</code></td><td class="sig">—</td></tr>
@@ -204,13 +205,14 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>55</b> env_vars added, <b>2</b> env_vars removed, <b>29</b> routes added, <b>14</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>55</b> env_vars added, <b>2</b> env_vars removed, <b>30</b> routes added, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/coverage <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/digest/fleet <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/enforcement-liveness <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/halt <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/hosted/funnel <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/internal/resolve-key <span class="sig">New route: POST</span></li>
@@ -292,6 +294,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: coverage_reports <span class="sig">New table in schema</span></li>
+    <li><code>added</code> <b>tables</b>: enforcement_liveness_runs <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: guard_calibration_events <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: guard_calibration_state <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: hosted_trial_snapshots <span class="sig">New table in schema</span></li>
@@ -412,6 +415,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/drift/snapshots"><td><code>/api/drift/snapshots</code></td><td>GET</td><td class="sig">app/api/drift/snapshots/route.ts</td></tr>
     <tr data-path="/api/drift/stats"><td><code>/api/drift/stats</code></td><td>GET</td><td class="sig">app/api/drift/stats/route.ts</td></tr></tbody></table></details>
 <details><summary>/echo/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/echo"><td><code>/api/echo</code></td><td>GET, POST</td><td class="sig">app/api/echo/route.ts</td></tr></tbody></table></details>
+<details><summary>/enforcement-liveness/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/enforcement-liveness"><td><code>/api/enforcement-liveness</code></td><td>GET, POST</td><td class="sig">app/api/enforcement-liveness/route.ts</td></tr></tbody></table></details>
 <details><summary>/evaluations/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/evaluations"><td><code>/api/evaluations</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/route.ts</td></tr>
     <tr data-path="/api/evaluations/runs"><td><code>/api/evaluations/runs</code></td><td>GET, POST</td><td class="sig">app/api/evaluations/runs/route.ts</td></tr>
     <tr data-path="/api/evaluations/runs/[runId]"><td><code>/api/evaluations/runs/[runId]</code></td><td>GET, PATCH</td><td class="sig">app/api/evaluations/runs/[runId]/route.ts</td></tr>

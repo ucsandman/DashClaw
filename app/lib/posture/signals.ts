@@ -18,6 +18,7 @@ import {
 import { getActivePolicies } from '../repositories/guardrails.repository';
 import { getLatestLiveCanaryRunForOrg } from '../repositories/live-canary.repository';
 import { getAgentCoverage } from '../repositories/coverage.repository';
+import { getLatestEnforcementLivenessRunForOrg } from '../repositories/enforcement-liveness.repository';
 import { evaluatePolicy } from '../guard';
 import { isSyntheticEvent } from '../calibration-mining.js';
 import {
@@ -25,7 +26,9 @@ import {
   computeScore,
   bucketRiskScore,
 } from './model';
-import { deriveFindings, deriveLiveCanaryFinding, deriveCoverageFinding } from './findings';
+import {
+  deriveFindings, deriveLiveCanaryFinding, deriveCoverageFinding, deriveEnforcementLivenessFinding,
+} from './findings';
 import type {
   GovernableUnit,
   Decision,
@@ -421,7 +424,10 @@ export async function computePosturePayload(
   const sinceTs = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
 
   // 1. Parallel data fetch.
-  const [capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun, coverageStats] = await Promise.all([
+  const [
+    capUnits, actionUnits, activePolicies, decisionRows, x402Rows, findingStates, canaryRun,
+    coverageStats, enforcementLivenessRun,
+  ] = await Promise.all([
     getCapabilityUnits(sql, orgId),
     getObservedActionUnits(sql, orgId),
     getActivePolicies(sql, orgId),
@@ -430,6 +436,7 @@ export async function computePosturePayload(
     listFindingStates(sql, orgId),
     getLatestLiveCanaryRunForOrg(sql, orgId),
     getAgentCoverage(sql, orgId),
+    getLatestEnforcementLivenessRunForOrg(sql, orgId),
   ]);
 
   const x402Slugs = new Set(x402Rows.map((r) => String(r.slug || '')));
@@ -487,6 +494,14 @@ export async function computePosturePayload(
     const idx = derived.findIndex((f) => f.scoreDelta < coverageFinding.scoreDelta);
     if (idx === -1) derived.push(coverageFinding);
     else derived.splice(idx, 0, coverageFinding);
+  }
+  // v8.2: enforcement-liveness joins the queue the same way — unlike the
+  // canary, a stale probe is itself a finding (see deriveEnforcementLivenessFinding).
+  const enforcementLivenessFinding = deriveEnforcementLivenessFinding(enforcementLivenessRun, Date.now());
+  if (enforcementLivenessFinding) {
+    const idx = derived.findIndex((f) => f.scoreDelta < enforcementLivenessFinding.scoreDelta);
+    if (idx === -1) derived.push(enforcementLivenessFinding);
+    else derived.splice(idx, 0, enforcementLivenessFinding);
   }
   const findings = applyFindingStates(derived, stateByKey);
 

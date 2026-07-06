@@ -1,9 +1,9 @@
 {
   "generatedAt": "2026-07-06",
   "note": "Maps every inventoried surface item to the /guides/platform section documenting it. liveVerified=true means the exact interface was exercised against a running instance during capture; everything else is documented from source code reads.",
-  "total": 1436,
+  "total": 1438,
   "liveVerified": 36,
-  "codeOnly": 1400,
+  "codeOnly": 1402,
   "items": [
     {
       "item": "/mission-control",
@@ -10055,6 +10055,20 @@
       "kind": "plugin",
       "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
+      "liveVerified": false
+    },
+    {
+      "item": "GET /api/enforcement-liveness",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Enforcement Liveness (#api-enforcement-liveness)",
+      "liveVerified": false
+    },
+    {
+      "item": "POST /api/enforcement-liveness",
+      "kind": "api",
+      "status": "experimental",
+      "section": "Enforcement Liveness (#api-enforcement-liveness)",
       "liveVerified": false
     }
   ]
