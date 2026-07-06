@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:e6bba31bad98d9d0a390e34053104efde0c664ab · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:b8741ff53f580244569ee551a681e4559a6e15f0 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">285</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">287</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">192</div><div class="k">Optional env vars</div></div>
@@ -201,7 +201,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>2</b> env_vars removed, <b>25</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>52</b> env_vars added, <b>2</b> env_vars removed, <b>27</b> routes added, <b>12</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/proposals <span class="sig">New route: GET, POST</span></li>
@@ -225,6 +225,8 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/work-orders/claim <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders/types <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/work-orders/types/[type] <span class="sig">New route: DELETE, GET, PUT</span></li>
+    <li><code>added</code> <b>routes</b>: /api/workspace/export <span class="sig">New route: GET</span></li>
+    <li><code>added</code> <b>routes</b>: /api/workspace/import <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/budget <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
@@ -573,6 +575,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts</td></tr>
     <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/cancel"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/cancel</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts</td></tr>
     <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/resume"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/resume</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts</td></tr></tbody></table></details>
+<details><summary>/workspace/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workspace/export"><td><code>/api/workspace/export</code></td><td>GET</td><td class="sig">app/api/workspace/export/route.ts</td></tr>
+    <tr data-path="/api/workspace/import"><td><code>/api/workspace/import</code></td><td>POST</td><td class="sig">app/api/workspace/import/route.ts</td></tr></tbody></table></details>
 <details><summary>/x402/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/x402/budget"><td><code>/api/x402/budget</code></td><td>GET</td><td class="sig">app/api/x402/budget/route.ts</td></tr>
     <tr data-path="/api/x402/providers"><td><code>/api/x402/providers</code></td><td>GET, POST</td><td class="sig">app/api/x402/providers/route.ts</td></tr>
     <tr data-path="/api/x402/providers/[id]"><td><code>/api/x402/providers/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/x402/providers/[id]/route.ts</td></tr>

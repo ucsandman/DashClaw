@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { ArrowRight, ShieldCheck, KeyRound, ScrollText } from 'lucide-react';
+import ExportWorkspaceButton from './ExportWorkspaceButton';
 
 interface TrialWorkspaceCardProps {
   orgId: string;
@@ -63,7 +64,10 @@ export default function TrialWorkspaceCard({
       <p className="mt-4 max-w-2xl text-sm text-text-secondary leading-relaxed">
         Your browser holds the session for this workspace until the trial
         ends. Lost your API key? Mint a new one from API keys — the value is
-        shown once at creation.
+        shown once at creation. The record is yours: export it any time and
+        import it into a self-hosted instance with{' '}
+        <code className="font-mono text-xs">dashclaw import</code> — the trial
+        cap is a door, not a wall.
       </p>
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
@@ -88,6 +92,7 @@ export default function TrialWorkspaceCard({
           <KeyRound size={14} aria-hidden="true" />
           Manage API keys
         </Link>
+        <ExportWorkspaceButton />
       </div>
     </section>
   );

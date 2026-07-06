@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 332,
+    "total_routes": 334,
     "stable_routes": 57,
     "beta_routes": 24,
-    "experimental_routes": 251
+    "experimental_routes": 253
   },
   "routes": [
     {
@@ -3139,6 +3139,24 @@
       "maturity": "experimental",
       "matched_prefix": "/api/workflows",
       "file": "app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts"
+    },
+    {
+      "path": "/api/workspace/export",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/workspace/export/route.ts"
+    },
+    {
+      "path": "/api/workspace/import",
+      "methods": [
+        "POST"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/workspace/import/route.ts"
     },
     {
       "path": "/api/x402/budget",

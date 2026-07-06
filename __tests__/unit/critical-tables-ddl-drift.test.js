@@ -21,6 +21,7 @@ import { describe, expect, it } from 'vitest';
 import { getTableConfig } from 'drizzle-orm/pg-core';
 import {
   organizations, users, apiKeys, actionRecords, guardPolicies, guardDecisions,
+  hostedTrialSnapshots,
 } from '../../schema/schema.js';
 import { CRITICAL_TABLES_DDL } from '@/api/setup/migrate/route.js';
 
@@ -54,6 +55,9 @@ const SCHEMA_BACKED_TABLES = [
   ['action_records', actionRecords],
   ['guard_policies', guardPolicies],
   ['guard_decisions', guardDecisions],
+  // v7.2: in the fallback DDL since the graduation ship — a fallback-branch
+  // hosted deploy must be able to freeze snapshots at cleanup time.
+  ['hosted_trial_snapshots', hostedTrialSnapshots],
 ];
 
 describe('CRITICAL_TABLES_DDL column-set drift gate', () => {

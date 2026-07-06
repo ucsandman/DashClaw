@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:e6bba31bad98d9d0a390e34053104efde0c664ab",
+  "timestamp": "sha1:b8741ff53f580244569ee551a681e4559a6e15f0",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -3304,6 +3304,24 @@
       "file_path": "app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts"
     },
     {
+      "path": "/api/workspace/export",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/workspace/export/route.ts"
+    },
+    {
+      "path": "/api/workspace/import",
+      "methods": [
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/workspace/import/route.ts"
+    },
+    {
       "path": "/api/x402/budget",
       "methods": [
         "GET"
@@ -4237,6 +4255,7 @@
         "__tests__/unit/routing-tasks.route.test.js",
         "__tests__/unit/security-status.route.test.js",
         "__tests__/unit/webhooks.route.test.js",
+        "__tests__/unit/workspace-routes.test.js",
         "app/api/internal/resolve-key/route.ts",
         "app/api/security/status/route.ts",
         "app/api/setup/migrate/route.ts",

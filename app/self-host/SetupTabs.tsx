@@ -46,6 +46,10 @@ export default function SetupTabs() {
         <p className="text-sm text-secondary">
           No OAuth required to get started. Use Quick Start to deploy solo in under 10 minutes.
           Switch to Team Setup when you&apos;re ready to invite teammates.
+          Coming from the hosted trial? Click <strong>Export workspace</strong> on your trial&apos;s{' '}
+          <code className="font-mono text-xs">/connect</code> card, then run{' '}
+          <code className="font-mono text-xs">dashclaw import &lt;file&gt;</code> once your instance is up —
+          policies, decisions, and action history carry over (API keys never do).
         </p>
       </div>
 

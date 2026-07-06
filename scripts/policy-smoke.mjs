@@ -1497,6 +1497,7 @@ async function main() {
           && typeof fun.json?.funnel?.minted === 'number'
           && typeof fun.json?.annotations?.returned === 'number' // v5.3 sharpened distinctions
           && Array.isArray(fun.json?.annotations?.bySource) // v6.4 reach attribution
+          && typeof fun.json?.annotations?.graduated === 'number' // v7.2 graduation
           && !JSON.stringify(fun.json).includes('org_'),
         `funnel=${fun.status} minted=${fun.json?.funnel?.minted}`);
     }
@@ -1609,6 +1610,54 @@ async function main() {
     check('AD3', 'require_evidence: an evidence-graded deploy is NOT escalated by the switch',
       withEvidence.status === 200 && withEvidence.json?.intent_source === 'evidence' && withEvidence.json?.decision !== 'require_approval',
       `status=${withEvidence.status} decision=${withEvidence.json?.decision} intent_source=${withEvidence.json?.intent_source}`);
+  }
+
+  // ---------------------------------------------------------------- AE ----
+  // v7.2 graduation path: the workspace carry-out. Full-org export is NOT
+  // smoked here — the operator org's action_records are unbounded and the
+  // bundle would be arbitrarily large; the export contract (shape, deny-list,
+  // graduation stamp) is pinned by vitest (workspace-bundle-repository,
+  // workspace-routes) and the v7.2 live proof ran it end to end on a
+  // trial-sized org. Smoke pins what must hold on every live instance: the
+  // routes are auth-gated, validation is loud, and import is idempotent.
+  console.log('\nAE. v7.2 graduation path (workspace carry-out)...');
+  {
+    const anon = await fetch(`${BASE}/api/workspace/export`);
+    check('AE1', 'workspace export: unauthenticated → 401',
+      anon.status === 401, `status=${anon.status}`);
+
+    const bad = await api('POST', '/api/workspace/import', { format: 'not-a-bundle' });
+    check('AE2', 'workspace import: malformed bundle → 400, loudly',
+      bad.status === 400 && typeof bad.json?.error === 'string',
+      `status=${bad.status} error=${bad.json?.error}`);
+
+    // An INACTIVE policy so the import never affects this org's guard.
+    const policyId = `gp_smoke_import_${RUN}`;
+    const bundle = {
+      format: 'dashclaw-workspace-bundle',
+      version: 1,
+      exported_at: new Date().toISOString(),
+      org: { id: 'org_smoke_source', name: 'smoke' },
+      counts: { guard_policies: 1 },
+      tables: {
+        guard_policies: [{
+          id: policyId,
+          name: `smoke import ${RUN}`,
+          policy_type: 'block_action_type',
+          rules: '{"action_types":[]}',
+          active: 0,
+        }],
+      },
+    };
+    const first = await api('POST', '/api/workspace/import', bundle);
+    check('AE3', 'workspace import: a new row imports into the caller org',
+      first.status === 201 && first.json?.imported === 1,
+      `status=${first.status} imported=${first.json?.imported}`);
+    const second = await api('POST', '/api/workspace/import', bundle);
+    check('AE4', 'workspace import: re-importing the same bundle is a no-op (idempotent)',
+      second.status === 201 && second.json?.imported === 0 && second.json?.skipped === 1,
+      `status=${second.status} imported=${second.json?.imported} skipped=${second.json?.skipped}`);
+    createdPolicyIds.push(policyId); // ride the standard cleanup
   }
 
   // ------------------------------------------------------------- cleanup ---

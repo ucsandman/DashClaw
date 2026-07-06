@@ -13,6 +13,37 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.65.0] — 2026-07-05
+
+**The graduation path: the trial cap becomes a door** (roadmap v7.2, spec
+`docs/superpowers/specs/2026-07-05-graduation-path-v72.md`). A hosted
+trial's governance record no longer dies with the workspace.
+
+### Added
+- **Workspace carry-out**: `GET /api/workspace/export` downloads the org's
+  durable governance record (guard policies, guard decisions, action
+  records, open loops, assumptions, agent identities) as a versioned
+  bundle; `POST /api/workspace/import` loads one into the caller's org —
+  idempotent (re-import skips existing rows) and org re-scoped. Column
+  sets are derived from the schema and pinned by a classification test;
+  credentials, credential-equivalents, and managed secret values never
+  ride a bundle. `signature`/`verified` are stripped too — they attest to
+  the source instance's signing key (security review hardening).
+- **Export workspace button** on the trial card at `/connect` — one click,
+  file downloads; the first export of a hosted trial stamps graduation.
+- **`dashclaw import <bundle.json>`** (CLI 0.7.0): loads a bundle into the
+  configured instance over HTTP.
+- **`graduated` funnel annotation** — orgs that took their record out;
+  snapshot-frozen at deletion (drizzle/0057), truthful zeros, rendered on
+  `/setup`.
+
+### Fixed
+- `/setup` now actually renders the per-channel `bySource` table — v4.60.0
+  claimed this render and it never landed (recorded in the maintainer log).
+- The fresh-install fallback DDL (`CRITICAL_TABLES_DDL`) was missing
+  `hosted_trial_snapshots` entirely; the table is now present and
+  registered in the drift-gate test so it cannot rot again.
+
 ## [4.64.0] — 2026-07-05
 
 **Act-content grant binding.** The operator-approval grant now covers the

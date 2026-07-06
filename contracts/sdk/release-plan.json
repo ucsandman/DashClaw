@@ -1,23 +1,23 @@
 {
   "node": {
-    "current_version": "4.64.0",
+    "current_version": "4.65.0",
     "next_bump": "none",
-    "reason": "4.64.0 act-content grant binding: no Node SDK source change - the SDK already sends the scrubbed act on guard() and createAction(), so the server-side binding is automatic. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.65.0 graduation path: no Node SDK source change - the workspace export/import routes are plain HTTP and the human path is the trial-card button + dashclaw import. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.64.0",
+    "current_version": "4.65.0",
     "next_bump": "none",
-    "reason": "4.64.0 act-content grant binding: no Python SDK source change - run_governed already sends the scrubbed act on both calls. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.65.0 graduation path: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.64.0 binds the operator-approval grant to a server-computed hash of the approved act (action_records.act_content_hash, drizzle/0056) - approving act X no longer authorizes a different act Y sharing the goal tuple. Platform + MCP server only: @dashclaw/mcp-server 2.2.0 (dashclaw_record gains `act`) is the one package that needs publishing.",
+  "reason": "v4.65.0 makes the trial cap a door (roadmap v7.2): workspace carry-out bundle (GET /api/workspace/export, POST /api/workspace/import), Export workspace button on the trial card, graduated funnel annotation. Platform + CLI only: @dashclaw/cli 0.7.0 (new `dashclaw import` subcommand) is the one package that needs publishing.",
   "domains": [
     "platform",
-    "mcp-server"
+    "cli"
   ]
 }

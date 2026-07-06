@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-07-05
+last-verified: 2026-07-06
 doc-type: architecture
 ---
 
@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `332`
+- Total routes: `334`
 - Stable routes: `57`
 - Beta routes: `24`
-- Experimental routes: `251`
+- Experimental routes: `253`
 
 ## Routes
 
@@ -349,6 +349,8 @@ doc-type: architecture
 | `/api/workflows/templates/{templateId}/runs/{runActionId}` | `GET` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts` |
 | `/api/workflows/templates/{templateId}/runs/{runActionId}/cancel` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts` |
 | `/api/workflows/templates/{templateId}/runs/{runActionId}/resume` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts` |
+| `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |
+| `/api/workspace/import` | `POST` | `experimental` | `(default)` | `app/api/workspace/import/route.ts` |
 | `/api/x402/budget` | `GET` | `experimental` | `(default)` | `app/api/x402/budget/route.ts` |
 | `/api/x402/providers` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/providers/route.ts` |
 | `/api/x402/providers/{id}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/x402/providers/[id]/route.ts` |

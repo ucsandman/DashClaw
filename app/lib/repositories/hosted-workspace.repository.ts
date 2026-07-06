@@ -254,6 +254,8 @@ export type TrialFunnelFacts = {
   mintSource: string | null;
   /** Which door the first governed action came through; null when unknown or no action. */
   firstActionVia: 'browser' | 'agent' | null;
+  /** v7.2: first workspace export (graduation). NULL = never exported / pre-v7.2 unknown. */
+  graduatedAtMs: number | null;
 };
 
 /** 'browser' | 'agent' | null from a raw agent id, given the org acted at all. */
@@ -294,6 +296,7 @@ export async function queryLiveTrialFacts(
       (EXTRACT(EPOCH FROM o.trial_first_seen_at) * 1000)::float8 AS first_seen_at_ms,
       (EXTRACT(EPOCH FROM o.trial_last_seen_at) * 1000)::float8 AS last_seen_at_ms,
       o.trial_mint_source AS mint_source,
+      (EXTRACT(EPOCH FROM o.trial_exported_at) * 1000)::float8 AS exported_at_ms,
       (EXTRACT(EPOCH FROM activity.first_action_at) * 1000)::float8 AS first_action_at_ms,
       (EXTRACT(EPOCH FROM activity.last_action_at) * 1000)::float8 AS last_action_at_ms,
       activity.first_action_agent_id,
@@ -336,6 +339,7 @@ export async function queryLiveTrialFacts(
       lastSeenAtMs: toMs(r.last_seen_at_ms),
       mintSource: typeof r.mint_source === 'string' && r.mint_source.length > 0 ? r.mint_source : null,
       firstActionVia: firstActionViaFromAgentId(r.first_action_agent_id, firstActionAtMs !== null),
+      graduatedAtMs: toMs(r.exported_at_ms),
     };
   });
 }
@@ -364,7 +368,8 @@ export async function snapshotTrialFunnelFacts(
   await sql`
     INSERT INTO hosted_trial_snapshots
       (org_id, minted_at, key_used, first_action_at, last_action_at, action_count, retained_week1,
-       first_key_used_at, first_seen_at, last_seen_at, first_action_via, mint_source, mint_source_raw)
+       first_key_used_at, first_seen_at, last_seen_at, first_action_via, mint_source, mint_source_raw,
+       exported_at)
     VALUES (
       ${orgId},
       to_timestamp(${f.mintedAtMs} / 1000.0),
@@ -378,7 +383,8 @@ export async function snapshotTrialFunnelFacts(
       ${iso(f.lastSeenAtMs)},
       ${f.firstActionVia},
       ${f.mintSource},
-      ${mintSourceRaw === null ? null : JSON.stringify(mintSourceRaw)}
+      ${mintSourceRaw === null ? null : JSON.stringify(mintSourceRaw)},
+      ${iso(f.graduatedAtMs)}
     )
     ON CONFLICT (org_id) DO NOTHING
   `;
@@ -403,6 +409,12 @@ export type TrialFunnelAnnotations = {
   medianHoursToFirstKeyUse: number | null;
   /** Which door activated orgs came through; unknowns in neither bucket. */
   firstActionVia: { browser: number; agent: number };
+  /**
+   * v7.2 graduation: orgs that took their record out (first workspace
+   * export). An annotation under the funnel, not a new step; truthful
+   * zeros; pre-v7.2 NULLs count nowhere.
+   */
+  graduated: number;
   /**
    * v6.4 reach attribution: per-channel mints + first actions, minted-desc.
    * 'direct' = captured with no referrer/UTM; 'unknown' = pre-v6.4 mint
@@ -512,6 +524,7 @@ export function computeFunnelAggregates(facts: TrialFunnelFacts[], now: Date): T
       browser: facts.filter((f) => f.firstActionVia === 'browser').length,
       agent: facts.filter((f) => f.firstActionVia === 'agent').length,
     },
+    graduated: facts.filter((f) => f.graduatedAtMs !== null).length,
     bySource,
   };
 
@@ -557,7 +570,8 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
       (EXTRACT(EPOCH FROM first_seen_at) * 1000)::float8 AS first_seen_at_ms,
       (EXTRACT(EPOCH FROM last_seen_at) * 1000)::float8 AS last_seen_at_ms,
       first_action_via,
-      mint_source
+      mint_source,
+      (EXTRACT(EPOCH FROM exported_at) * 1000)::float8 AS exported_at_ms
     FROM hosted_trial_snapshots
   `;
   return rows.map((r) => ({
@@ -572,9 +586,10 @@ async function querySnapshotFacts(sql: SqlTag): Promise<TrialFunnelFacts[]> {
     firstKeyUsedAtMs: toMs(r.first_key_used_at_ms),
     firstSeenAtMs: toMs(r.first_seen_at_ms),
     lastSeenAtMs: toMs(r.last_seen_at_ms),
-    // Pre-v5.3/v6.4 snapshots carry NULL = unknown; never guessed on read.
+    // Pre-v5.3/v6.4/v7.2 snapshots carry NULL = unknown; never guessed on read.
     mintSource: typeof r.mint_source === 'string' && r.mint_source.length > 0 ? r.mint_source : null,
     firstActionVia: r.first_action_via === 'browser' || r.first_action_via === 'agent' ? r.first_action_via : null,
+    graduatedAtMs: toMs(r.exported_at_ms),
   }));
 }
 

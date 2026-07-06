@@ -22,6 +22,8 @@ The public trial instance is [hosted.dashclaw.io](https://hosted.dashclaw.io).
 
 **Browser only:** open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), complete the signup check, and send your first governed action straight from the page — no install — then watch the decision land in your ledger. The mint also signs your browser in to the trial dashboard: Mission Control and the decisions ledger are one click away until the trial ends. The API key is shown once; copy it.
 
+The record is yours to keep: **Export workspace** on the same card downloads your governance record (policies, decisions, action history), and `dashclaw import <file>` loads it into a self-hosted instance later — the trial cap is a door, not a wall.
+
 **Governing Claude Code with it:**
 
 ```bash

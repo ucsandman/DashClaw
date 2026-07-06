@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:e6bba31bad98d9d0a390e34053104efde0c664ab`
+**Shape snapshot:** `sha1:b8741ff53f580244569ee551a681e4559a6e15f0`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **284** active API routes across **70** categories (332 total including archived)
+- **286** active API routes across **71** categories (334 total including archived)
 - **4** required + **192** optional environment variables
 - **109** database tables
 
@@ -538,6 +538,11 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `POST` `/api/workflows/templates/[templateId]/runs/[runActionId]/cancel`
 - `POST` `/api/workflows/templates/[templateId]/runs/[runActionId]/resume`
 
+### `workspace`
+
+- `GET` `/api/workspace/export`
+- `POST` `/api/workspace/import`
+
 ### `x402`
 
 - `GET` `/api/x402/budget`
@@ -551,7 +556,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 82 file(s)
-- **`DATABASE_URL`** - referenced in 108 file(s)
+- **`DATABASE_URL`** - referenced in 109 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 

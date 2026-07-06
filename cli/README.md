@@ -66,6 +66,15 @@ Stop the local server (and the Docker DB if `up` started it).
 npx dashclaw down
 ```
 
+### `dashclaw import <bundle.json>`
+
+Load a workspace carry-out bundle — the file **Export workspace** downloads on a trial's `/connect` card (or `GET /api/workspace/export` on any instance) — into the configured instance. Policies, guard decisions, action records, open loops, assumptions, and agent identities carry over; API keys, OAuth tokens, and secret values never ride a bundle. Idempotent: re-running skips rows that already exist.
+
+```bash
+DASHCLAW_BASE_URL=http://localhost:3000 DASHCLAW_API_KEY=oc_live_... \
+  dashclaw import dashclaw-workspace-*.json
+```
+
 ### `dashclaw approvals`
 
 Interactive inbox for all pending approval requests. Use arrow keys to navigate, `A` to approve, `D` to deny, `O` to open the replay link, `Q` to quit.

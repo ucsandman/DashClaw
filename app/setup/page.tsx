@@ -510,6 +510,12 @@ export default async function SetupPage() {
                             : ''}.
                         </p>
                       ) : null}
+                      {/* v7.2 graduation — an annotation, not a step. */}
+                      <p>
+                        {trialFunnel.annotations.graduated} graduated (exported the workspace record to
+                        take it to an owned instance). Exports are stamped only since this instance began
+                        stamping them — older workspaces read as never exported.
+                      </p>
                     </div>
                     {trialFunnel.cohorts.length > 0 ? (
                       <div className="mt-4 overflow-x-auto">
@@ -531,6 +537,31 @@ export default async function SetupPage() {
                                 <td className="py-1 pr-3">{c.keyUsed}</td>
                                 <td className="py-1 pr-3">{c.firstAction}</td>
                                 <td className="py-1 pr-3">{c.week1Eligible > 0 ? `${c.retainedWeek1}/${c.week1Eligible}` : '—'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    ) : null}
+                    {/* v6.4 reach attribution — per-channel mints. Owed since
+                        the reach-attribution ship, which claimed this render;
+                        it never landed (recorded in the maintainer log at v7.2). */}
+                    {trialFunnel.annotations.bySource.length > 0 ? (
+                      <div className="mt-4 overflow-x-auto">
+                        <table className="w-full text-left text-xs">
+                          <thead>
+                            <tr className="text-secondary">
+                              <th className="py-1 pr-3 font-medium">Mint source</th>
+                              <th className="py-1 pr-3 font-medium">Minted</th>
+                              <th className="py-1 pr-3 font-medium">First action</th>
+                            </tr>
+                          </thead>
+                          <tbody className="text-primary">
+                            {trialFunnel.annotations.bySource.map((s) => (
+                              <tr key={s.source} className="border-t border-white/10">
+                                <td className="py-1 pr-3">{s.source}</td>
+                                <td className="py-1 pr-3">{s.minted}</td>
+                                <td className="py-1 pr-3">{s.firstAction}</td>
                               </tr>
                             ))}
                           </tbody>

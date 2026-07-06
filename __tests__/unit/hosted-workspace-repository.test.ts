@@ -69,6 +69,7 @@ describe('queryLiveTrialFacts', () => {
       firstKeyUsedAtMs: 4000, firstSeenAtMs: 1500, lastSeenAtMs: 600_000_000,
       mintSource: null, // factsRow carries no mint_source → unknown, never guessed (v6.4)
       firstActionVia: 'agent',
+      graduatedAtMs: null, // factsRow carries no exported_at → not graduated (v7.2)
     }]);
   });
 
@@ -162,7 +163,7 @@ const mk = (over: Partial<TrialFunnelFacts>): TrialFunnelFacts => ({
   firstActionAtMs: null, lastActionAtMs: null, actionCount: 0,
   frozenRetainedWeek1: null, archived: false,
   firstKeyUsedAtMs: null, firstSeenAtMs: null, lastSeenAtMs: null,
-  mintSource: null, firstActionVia: null, ...over,
+  mintSource: null, firstActionVia: null, graduatedAtMs: null, ...over,
 });
 
 describe('computeFunnelAggregates', () => {
@@ -176,6 +177,7 @@ describe('computeFunnelAggregates', () => {
       returned: 0, returnedNeverConnected: 0,
       medianHoursToFirstKeyUse: null,
       firstActionVia: { browser: 0, agent: 0 },
+      graduated: 0,
       bySource: [],
     });
   });

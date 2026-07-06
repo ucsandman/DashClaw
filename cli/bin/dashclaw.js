@@ -86,6 +86,8 @@ ${bold('Usage:')}
     --port <n>                           Server port (default: 3000)
     --no-browser                         Do not open the browser when ready
   dashclaw down                          Stop the local DashClaw server (and Docker DB if we started it)
+  dashclaw import <bundle.json>          Import a workspace carry-out bundle (from /api/workspace/export)
+                                         into this instance — idempotent; keys/secrets never ride a bundle
   dashclaw approvals                     Interactive approval inbox
   dashclaw approve <actionId> [--reason]  Approve an action
   dashclaw deny <actionId> [--reason]     Deny an action
@@ -562,6 +564,38 @@ async function cmdInstall() {
       console.error(`Unknown install target: dashclaw install ${target || '(missing)'}\n` +
                     'Try: dashclaw install claude [--trial] | dashclaw install codex [--project <path>]');
       process.exitCode = 1;
+  }
+}
+
+// -- import (v7.2 graduation path) --------------------------------------------
+
+/*
+ * Ingest a workspace carry-out bundle (the file /api/workspace/export
+ * downloads) into the configured instance. HTTP like every other post-up
+ * command; the route is idempotent so re-running is safe.
+ */
+async function cmdImport() {
+  const file = args[1];
+  if (!file || file.startsWith('--')) {
+    console.error('Usage: dashclaw import <bundle.json>   (the file downloaded from your trial\'s "Export workspace")');
+    process.exitCode = 1;
+    return;
+  }
+  try {
+    let bundle;
+    try {
+      bundle = JSON.parse(readFileSync(file, 'utf8'));
+    } catch (err) {
+      throw new Error(err.code === 'ENOENT' ? `File not found: ${file}` : `${file} is not valid JSON`);
+    }
+    const data = await apiRequest({ baseUrl, apiKey }, 'POST', '/api/workspace/import', { body: bundle });
+    console.log(green(`Imported ${data.imported} rows (${data.skipped} skipped — already present or missing their id).`));
+    for (const [table, c] of Object.entries(data.counts || {})) {
+      console.log(`  ${table}: +${c.imported}${c.skipped ? ` (${c.skipped} skipped)` : ''}`);
+    }
+  } catch (err) {
+    console.error(red(`Error: ${err.message}`));
+    process.exitCode = 1;
   }
 }
 
@@ -1298,7 +1332,7 @@ async function cmdEnv() {
 
 // -- Router -------------------------------------------------------------------
 
-const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next', 'env', 'halt']);
+const COMMANDS_NEEDING_CONFIG = new Set(['approvals', 'approve', 'deny', 'doctor', 'code', 'prompts', 'inbox', 'behavior', 'posture', 'next', 'env', 'halt', 'import']);
 // `install` deliberately omitted: provisioning hooks and AGENTS.md shouldn't
 // require the user to have already configured API keys. If config happens to
 // be present, install will pick up baseUrl for the AGENTS.md instance link.
@@ -1344,6 +1378,7 @@ const COMMAND_HANDLERS = {
   code: cmdCode,
   up: cmdUp,
   down: cmdDown,
+  import: cmdImport,
   install: cmdInstall,
   codex: cmdCodex,
   prompts: cmdPrompts,

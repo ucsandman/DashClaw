@@ -12,6 +12,43 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.65.0: the trial cap becomes a door (roadmap v7.2)
+
+The same day v7 was drafted, its first buildable item shipped. A hosted
+trial used to end in data loss — the org's policies, decisions, and
+actions deleted with the workspace. Now the trial card on `/connect`
+carries **Export workspace**: one click downloads a versioned bundle of
+the org's durable governance record, and `dashclaw import <file>` (or
+`POST /api/workspace/import`) loads it into an owned instance. Column
+lists are derived from the schema at runtime and pinned by a
+classification test, so every future schema column must be consciously
+exported or denied; credentials and credential-equivalents (key hashes,
+OAuth token hashes, the instance signing key, managed secret values)
+never ride a bundle by construction. Import is idempotent and re-scopes
+every row to the caller's org. Funnel truth learns the new conversion
+event: a `graduated` annotation (first export of a hosted trial),
+snapshot-frozen at deletion like every other milestone.
+
+The acceptance was proven live, not asserted: a trial minted on a local
+hosted-mode instance (Turnstile test keys), a governed action recorded
+through its key, the button clicked in a real browser (the download's
+filename and contents verified, `jti` and org ids absent), the funnel
+reading `graduated: 1` — then a second, fresh instance provisioned from
+nothing, the bundle imported over HTTP by the CLI, re-imported as a
+clean no-op, and the migrated decisions rendered on the new instance's
+`/decisions` after a real password login. Screenshots in the session
+record.
+
+Two honesty items surfaced during the build. First: v4.60.0's ship notes
+claimed the `/setup` funnel card renders per-channel `bySource` — it
+never did; the commit that shipped attribution never touched the page.
+That render now exists (this ship), and the miss is recorded here per
+the funnel-truth culture. Second: the fallback `CRITICAL_TABLES_DDL`
+lacked `hosted_trial_snapshots` entirely (pre-existing gap found by
+recon) — a fallback-branch hosted deploy could not have frozen snapshots
+at cleanup. The table is now in the fallback DDL and registered in the
+drift gate so it cannot rot again.
+
 ## 2026-07-05 — Roadmap v7 drafted: the second mile, from first action to owned instance
 
 Hours after the previous entry said the roadmap "now waits on the

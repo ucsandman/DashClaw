@@ -38,6 +38,9 @@ export const organizations = pgTable('organizations', {
   // referrer/UTM strings it was derived from.
   trialMintSource: text('trial_mint_source'),
   trialMintSourceRaw: jsonb('trial_mint_source_raw'),
+  // v7.2 graduation: first successful workspace export. NULL = never
+  // exported; the earliest stamp wins (idempotent). Hosted trials only.
+  trialExportedAt: timestamp('trial_exported_at', { withTimezone: true }),
   createdAt: timestamp('created_at').defaultNow(),
   updatedAt: timestamp('updated_at').defaultNow(),
 });
@@ -1839,6 +1842,8 @@ export const hostedTrialSnapshots = pgTable('hosted_trial_snapshots', {
   // v6.4: mint source frozen at deletion; NULL on pre-v6.4 snapshots = unknown.
   mintSource: text('mint_source'),
   mintSourceRaw: jsonb('mint_source_raw'),
+  // v7.2: graduation frozen at deletion; NULL on pre-v7.2 snapshots = unknown.
+  exportedAt: timestamp('exported_at', { withTimezone: true }),
 });
 
 // @domain governance

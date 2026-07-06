@@ -224,7 +224,26 @@ CREATE TABLE IF NOT EXISTS "organizations" (
   "updated_at" timestamp DEFAULT now(),
   "trial_mint_source" text,
   "trial_mint_source_raw" jsonb,
+  "trial_exported_at" timestamptz,
   CONSTRAINT "organizations_slug_unique" UNIQUE("slug")
+)
+--> statement-breakpoint
+CREATE TABLE IF NOT EXISTS "hosted_trial_snapshots" (
+  "org_id" text PRIMARY KEY NOT NULL,
+  "minted_at" timestamptz NOT NULL,
+  "deleted_at" timestamptz NOT NULL DEFAULT now(),
+  "key_used" boolean NOT NULL DEFAULT false,
+  "first_action_at" timestamptz,
+  "last_action_at" timestamptz,
+  "action_count" integer NOT NULL DEFAULT 0,
+  "retained_week1" boolean NOT NULL DEFAULT false,
+  "first_key_used_at" timestamptz,
+  "first_seen_at" timestamptz,
+  "last_seen_at" timestamptz,
+  "first_action_via" text,
+  "mint_source" text,
+  "mint_source_raw" jsonb,
+  "exported_at" timestamptz
 )
 --> statement-breakpoint
 CREATE TABLE IF NOT EXISTS "guard_policies" (
