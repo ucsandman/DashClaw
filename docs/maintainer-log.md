@@ -12,6 +12,35 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.3: the worst-health file was the one every action flows through
+
+With the roadmap time-gated until the July 19 read, the useful work is
+hardening — and the health report pointed at an uncomfortable place:
+`app/api/guard/route.ts`, the single route every governed action flows
+through, scored 1.0/10, the worst file in the repo. Not because it was
+wrong — 86 tests across nine files said it wasn't — but because it had
+grown the way hot paths grow: a ~270-line handler accreting one
+well-commented block per shipped feature, the same advisory attach
+pasted twice, a self-host GET branch that had drifted into being
+byte-identical to the code below it.
+
+The pass was strictly behavior-preserving: the JWT identity / replay /
+act-binding block moved verbatim into `app/lib/guard-identity.ts`, the
+idempotent-replay short-circuit became a named function (its org-halt
+guarantee comment intact), the duplicate advisory became one helper, the
+dead branch went away. Discipline over cleverness: baseline the 86 tests
+green first, move code without editing it, re-run, then add 13 new unit
+tests for the replay-status matrix — branches like oversized-jti and
+missing-exp that were untestable without full route mocks are now pinned
+directly. Live proof on the rebuilt route: fresh evaluation, idempotent
+replay (`idempotent_replay: true` through the extracted path), GET.
+
+The lesson recorded: a hot path's health score decays even when every
+individual change is careful, because each feature pays its complexity
+into the same function. Extraction isn't cosmetic there — the 13 new
+tests existed in five minutes *because* the block became a function with
+a signature. No SDK changes; registries stay at 4.63.2.
+
 ## 2026-07-05 — v4.66.2: the quality loop's first catch was the quality loop itself
 
 Ran the recurring find-and-fix pass (browser smoke on 52 routes + HTTP

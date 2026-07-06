@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.66.2",
+    "current_version": "4.66.3",
     "next_bump": "none",
-    "reason": "4.66.2 quality-loop harness hardening: no Node SDK source change - the fix lives in scripts/startup-smoke.mjs and the find-and-fix workflow config. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.66.3 guard route health pass: no Node SDK source change - behavior-preserving decomposition of app/api/guard/route.ts. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.66.2",
+    "current_version": "4.66.3",
     "next_bump": "none",
-    "reason": "4.66.2 quality-loop harness hardening: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.66.3 guard route health pass: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.66.2 hardens the startup-smoke harness (a port-availability preflight now fails loudly when a stale server holds the target port, instead of silently smoking an old build) and makes the dashclaw-find-and-fix workflow launchable (explicit per-agent model overrides; LF line endings pinned via .gitattributes). Dev tooling only; no SDK changes.",
+  "reason": "v4.66.3 is a behavior-preserving health pass on the guard hot path: app/api/guard/route.ts (worst health file, 1.0/10) decomposed — JWT identity/replay/act-binding extracted to app/lib/guard-identity.ts, idempotent-replay short-circuit and assumption-alert advisory extracted to named helpers, dead self-host GET branch collapsed. Response shape byte-identical (86 pre-existing guard tests unchanged; 13 new unit tests pin the replay-status matrix; live-proved fresh eval + idempotent replay + GET). No SDK changes.",
   "domains": [
     "platform"
   ]

@@ -17,11 +17,7 @@ import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
-import { isSelfHostModeEnabled } from '../../lib/selfHost';
-import { verifyJwt, extractBearerToken } from '../../lib/jwks-verifier';
-import { checkAndRecord as checkAndRecordJti } from '../../lib/repositories/jti-replay.repository';
-import { resolveActStatus } from '../../lib/act-binding';
-import { getJtiReplayMode } from '../../lib/replay-protection';
+import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
 
 type GuardSql = ReturnType<typeof getSql>;
@@ -119,6 +115,87 @@ async function recordRunningAction(
 }
 
 /**
+ * End-to-end idempotency (Organ 3 Phase 3): a duplicate-key call inside the
+ * replay window returns the PRIOR decision instead of re-evaluating. No new
+ * guard_decisions row is written for a replay, so blind client retries cannot
+ * double-count in approval-flood / signal / digest windows — and the original
+ * audit row stays untouched. The lookup window is short (10 min, see
+ * repository): dedupe absorbs retries, not policy changes. Returns the replay
+ * response, or null to fall through to a normal evaluation (including on
+ * lookup failure).
+ */
+async function tryIdempotentReplay(
+  sql: GuardSql,
+  orgId: string,
+  data: GuardData,
+  opts: { secretScan: Record<string, unknown> | null; recordParam: boolean; createdBy: string | null },
+): Promise<NextResponse | null> {
+  if (typeof data.idempotency_key !== 'string' || !data.idempotency_key) return null;
+
+  // Org halt is an emergency override with an immediate-block guarantee, NOT
+  // an ordinary policy change the dedupe window may absorb. A halted org
+  // must skip the replay short-circuit so the request flows into
+  // evaluateGuard (which returns the halt block) — otherwise a retried
+  // action carrying a matching idempotency_key would be served its cached
+  // pre-halt decision for up to the replay window. (Same cached settings
+  // read evaluateGuard uses, so /api/halt's eager invalidation still wins.)
+  const orgHalted = !!(await getOrgHaltState(sql, orgId))?.halted;
+  const prior = orgHalted ? null : await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
+  if (!prior) return null;
+
+  let priorPolicies: unknown[] = [];
+  try { priorPolicies = JSON.parse(String(prior.matched_policies ?? '[]')); } catch { priorPolicies = []; }
+  const replay: Record<string, unknown> = {
+    decision: prior.decision,
+    decision_id: prior.id,
+    action_id: prior.id, // deprecated alias of decision_id (overwritten by the record id below)
+    reason: prior.reason,
+    risk_score: prior.risk_score != null ? Number(prior.risk_score) : null,
+    matched_policies: priorPolicies,
+    verification_status: prior.verification_status,
+    agent_id: prior.agent_id,
+    agent_name: prior.agent_name,
+    evaluated_at: prior.created_at,
+    idempotent_replay: true,
+  };
+  if (opts.secretScan) replay.secret_scan = opts.secretScan;
+  await attachAssumptionAlerts(sql, orgId, data, replay);
+  if (opts.recordParam) {
+    try {
+      // recordRunningAction short-circuits on the existing action row;
+      // when the prior record attempt failed it heals by creating one.
+      const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, opts.createdBy);
+      replay.recorded = rec.recorded;
+      if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
+      else if (rec.reason) replay.recorded_error = rec.reason;
+    } catch (err) {
+      console.error('[Guard] record=true replay record failed:', (err as Error).message);
+      replay.recorded = false;
+      replay.recorded_error = 'Failed to create action record';
+    }
+  }
+  return NextResponse.json(replay, { status: 200 });
+}
+
+/**
+ * Advocate v2a advisory — rides on the response until acknowledged; never
+ * changes the decision. Attached on both the replay path and the fresh
+ * evaluation path.
+ */
+async function attachAssumptionAlerts(
+  sql: GuardSql,
+  orgId: string,
+  data: GuardData,
+  target: Record<string, unknown>,
+): Promise<void> {
+  const alertAgent = typeof data.agent_id === 'string' && data.agent_id ? data.agent_id : null;
+  if (alertAgent) {
+    const alerts = await getAssumptionAlerts(sql, orgId, alertAgent);
+    if (alerts && alerts.length) target.assumption_alerts = alerts;
+  }
+}
+
+/**
  * POST /api/guard — Evaluate guard policies for a proposed action.
  * Returns allow/warn/block/require_approval.
  *
@@ -193,99 +270,11 @@ export async function POST(request: Request) {
     // getSql() ever stops being idempotent (e.g., during hot reload).
     const sql = getSql();
 
-    // Phase 2: JWKS verification — resolve agent identity from JWT bearer token.
-    // Fail-soft: infrastructure errors fall back to 'unverified', never 'failed'.
-    const authHeader = request.headers.get('authorization');
-    const bearerToken = extractBearerToken(authHeader);
-
-    if (bearerToken) {
-      const verificationResult = await verifyJwt(bearerToken);
-
-      if (verificationResult.verification_status === 'verified') {
-        // Cryptographic proof beats self-assertion: JWT sub overrides body agent_id.
-        if (verificationResult.agent_id) {
-          if (data.agent_id && data.agent_id !== verificationResult.agent_id) {
-            console.warn(
-              `[Guard] JWT sub (${verificationResult.agent_id}) overrides body agent_id (${data.agent_id})`
-            );
-          }
-          data.agent_id = verificationResult.agent_id;
-        }
-        if (verificationResult.agent_name && !data.agent_name) {
-          data.agent_name = verificationResult.agent_name;
-        }
-      }
-
-      data.verification_status = verificationResult.verification_status;
-      data.jti = verificationResult.jti || null;
-
-      // Phase 2b: replay-protection check (issue #120, design by @piiiico).
-      // Only verified tokens hit the store — there's no signature trust to
-      // replay without that. The exp_too_far signal flows through verification
-      // status directly (the verifier sets it before any network call).
-      const replayProtection = getJtiReplayMode();
-      if (verificationResult.verification_status === 'exp_too_far') {
-        data.replay_status = 'exp_too_far';
-      } else if (verificationResult.verification_status === 'verified' && replayProtection === 'off') {
-        // Distinct from `not_applicable` so the audit trail can tell apart
-        // "Phase 1 path / no JWT" from "verified JWT but operator opted out
-        // of replay protection." Same allow-everything outcome, different
-        // forensic story during incident review.
-        data.replay_status = 'disabled';
-      } else if (verificationResult.verification_status === 'verified') {
-        // Length cap matches the repository's MAX_JTI_LENGTH (1024). Catching
-        // it here too means a hostile-IdP-issued multi-MB jti never reaches
-        // the store at all and never throws OVERSIZED_JTI. Boundary
-        // validation > deep validation.
-        const oversizedJti = typeof verificationResult.jti === 'string' && verificationResult.jti.length > 1024;
-        if (!verificationResult.jti) {
-          data.replay_status = 'not_present';
-        } else if (oversizedJti) {
-          console.warn('[Guard] Oversized jti rejected from replay store', {
-            jti_length: verificationResult.jti.length,
-            issuer: verificationResult.issuer,
-          });
-          data.replay_status = 'not_present';
-        } else if (typeof verificationResult.exp !== 'number') {
-          // jti without exp can't be safely TTL'd → treat as not_present so
-          // the store never accumulates rows with no purge horizon.
-          data.replay_status = 'not_present';
-        } else if (!verificationResult.issuer) {
-          // Defense in depth: the verifier currently sets verification_status
-          // to 'failed' when issuer is null, so we should never reach here
-          // with a 'verified' status and null issuer. If a future code path
-          // ever does, treat as not_present rather than throwing INVALID_INPUT
-          // out of the repository (which would surface as an unhandled 500).
-          data.replay_status = 'not_present';
-        } else {
-          data.replay_status = await checkAndRecordJti(sql, {
-            jti: verificationResult.jti,
-            issuer: verificationResult.issuer,
-            expiresAt: verificationResult.exp,
-            agentId: verificationResult.agent_id,
-          });
-        }
-      } else {
-        data.replay_status = 'not_applicable';
-      }
-
-      // Phase 2c: action-binding status (issue #121). Its own axis, like
-      // replay_status — never overloads verification_status. Computed for
-      // verified tokens in EVERY mode (off included): even an operator running
-      // DASHCLAW_ACT_BINDING=off gets the `match` signal that tells them their
-      // issuer started minting bindings and it's safe to flip to required.
-      // resolveActStatus returns 'not_applicable' for any non-verified token,
-      // and hashes the raw request context (pre-redaction) so legitimate
-      // matches whose goal contains a redactable pattern still compare.
-      data.act_status = resolveActStatus(verificationResult, data);
-      data.act_hash = verificationResult.act?.hash || null;
-    } else {
-      data.verification_status = 'unverified';
-      data.replay_status = 'not_applicable';
-      data.jti = null;
-      data.act_status = 'not_applicable';
-      data.act_hash = null;
-    }
+    // Phase 2: JWKS verification, replay protection, and act-binding status —
+    // resolves agent identity from the JWT bearer token, mutating `data` in
+    // place (app/lib/guard-identity.ts). Fail-soft: infrastructure errors fall
+    // back to 'unverified', never 'failed'.
+    await resolveAgentIdentity(request, data, sql);
 
     // SECURITY: auto-scan the outbound `content` for secrets/credentials so
     // protection is built in, not opt-in. Warn by default (advisory in the
@@ -321,58 +310,12 @@ export async function POST(request: Request) {
     // short (10 min, see repository): dedupe absorbs retries, not policy
     // changes. Lookup failures fall through to a normal evaluation.
     const recordParam = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('record') === 'true';
-    if (typeof data.idempotency_key === 'string' && data.idempotency_key) {
-      // Org halt is an emergency override with an immediate-block guarantee, NOT
-      // an ordinary policy change the dedupe window may absorb. A halted org
-      // must skip the replay short-circuit so the request flows into
-      // evaluateGuard (which returns the halt block) — otherwise a retried
-      // action carrying a matching idempotency_key would be served its cached
-      // pre-halt decision for up to the replay window. (Same cached settings
-      // read evaluateGuard uses, so /api/halt's eager invalidation still wins.)
-      const orgHalted = !!(await getOrgHaltState(sql, orgId))?.halted;
-      const prior = orgHalted ? null : await getGuardDecisionByIdempotencyKey(sql, orgId, data.idempotency_key);
-      if (prior) {
-        let priorPolicies: unknown[] = [];
-        try { priorPolicies = JSON.parse(String(prior.matched_policies ?? '[]')); } catch { priorPolicies = []; }
-        const replay: Record<string, unknown> = {
-          decision: prior.decision,
-          decision_id: prior.id,
-          action_id: prior.id, // deprecated alias of decision_id (overwritten by the record id below)
-          reason: prior.reason,
-          risk_score: prior.risk_score != null ? Number(prior.risk_score) : null,
-          matched_policies: priorPolicies,
-          verification_status: prior.verification_status,
-          agent_id: prior.agent_id,
-          agent_name: prior.agent_name,
-          evaluated_at: prior.created_at,
-          idempotent_replay: true,
-        };
-        if (secretScan) replay.secret_scan = secretScan;
-        {
-          // Advocate v2a advisory — rides until acknowledged; never changes the decision.
-          const alertAgent = typeof data.agent_id === 'string' && data.agent_id ? data.agent_id : null;
-          if (alertAgent) {
-            const alerts = await getAssumptionAlerts(sql, orgId, alertAgent);
-            if (alerts && alerts.length) replay.assumption_alerts = alerts;
-          }
-        }
-        if (recordParam) {
-          try {
-            // recordRunningAction short-circuits on the existing action row;
-            // when the prior record attempt failed it heals by creating one.
-            const rec = await recordRunningAction(sql, orgId, data, { decision: String(prior.decision), risk_score: prior.risk_score != null ? Number(prior.risk_score) : undefined, decision_id: String(prior.id) }, getUserId(request) || null);
-            replay.recorded = rec.recorded;
-            if (rec.recorded && rec.action_id) replay.action_id = rec.action_id;
-            else if (rec.reason) replay.recorded_error = rec.reason;
-          } catch (err) {
-            console.error('[Guard] record=true replay record failed:', (err as Error).message);
-            replay.recorded = false;
-            replay.recorded_error = 'Failed to create action record';
-          }
-        }
-        return NextResponse.json(replay, { status: 200 });
-      }
-    }
+    const replayResponse = await tryIdempotentReplay(sql, orgId, data, {
+      secretScan,
+      recordParam,
+      createdBy: getUserId(request) || null,
+    });
+    if (replayResponse) return replayResponse;
 
     const includeSignals = (request as Request & { nextUrl: URL }).nextUrl.searchParams.get('include_signals') === 'true';
 
@@ -389,14 +332,7 @@ export async function POST(request: Request) {
 
     if (secretScan) (result as Record<string, unknown>).secret_scan = secretScan;
 
-    {
-      // Advocate v2a advisory — rides until acknowledged; never changes the decision.
-      const alertAgent = typeof data.agent_id === 'string' && data.agent_id ? data.agent_id : null;
-      if (alertAgent) {
-        const alerts = await getAssumptionAlerts(sql, orgId, alertAgent);
-        if (alerts && alerts.length) (result as Record<string, unknown>).assumption_alerts = alerts;
-      }
-    }
+    await attachAssumptionAlerts(sql, orgId, data, result as Record<string, unknown>);
 
     // Optional ?record=true — also create the running action record and return
     // its action_id (one HTTP call for governed hooks instead of two). Without
@@ -443,20 +379,9 @@ export async function GET(request: Request) {
   try {
     const orgId = getOrgId(request);
 
-    // Self-host bypass: if no org is configured yet, return empty results gracefully.
-    if (isSelfHostModeEnabled() && orgId === 'org_default') {
-      const sql = getSql();
-      const { searchParams } = (request as Request & { nextUrl: URL }).nextUrl;
-      const agentId = searchParams.get('agent_id') || undefined;
-      const decision = searchParams.get('decision') || undefined;
-      const days = parseDaysParam(searchParams.get('days'));
-      const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 1000);
-      const offset = parseInt(searchParams.get('offset') || '0', 10);
-
-      const result = await listGuardDecisions(sql, orgId, { agentId, decision, days, limit, offset });
-      return NextResponse.json({ ...result, limit, offset });
-    }
-
+    // Self-host with an unconfigured org ('org_default') takes this same path:
+    // listGuardDecisions simply returns empty results for an unseeded org, so
+    // no bypass branch is needed.
     const sql = getSql();
     const { searchParams } = (request as Request & { nextUrl: URL }).nextUrl;
     const agentId = searchParams.get('agent_id') || undefined;

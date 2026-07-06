@@ -13,6 +13,30 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.3] — 2026-07-05
+
+**Guard hot-path health pass.** `app/api/guard/route.ts` — the file every
+governed action flows through — was the repo's worst-health file (1.0/10:
+a ~270-line handler, a twice-duplicated advisory block, a dead branch).
+This is a behavior-preserving decomposition: the response shape is
+byte-identical, pinned by the 86 pre-existing guard tests (characterization,
+idempotency, jwks, hot-path) plus a live proof of fresh evaluation,
+idempotent replay, and GET against the rebuilt route.
+
+### Changed
+- **`app/lib/guard-identity.ts` (new)** — the Phase 2 JWT verification /
+  replay-protection / act-binding block extracted verbatim from the POST
+  handler. Same mutations, same fail-soft semantics, same log lines.
+- **`app/api/guard/route.ts`** — the idempotent-replay short-circuit is now
+  a named `tryIdempotentReplay` (org-halt bypass guarantee intact); the
+  Advocate advisory attach is one `attachAssumptionAlerts` helper instead of
+  two copies; GET's self-host branch (byte-identical to the normal path)
+  collapsed.
+- **`__tests__/unit/guard-identity.test.js` (new)** — 13 tests directly pin
+  the replay-status matrix (oversized jti, missing exp, null issuer,
+  replay-off `disabled`, `exp_too_far`) and the JWT-sub identity override,
+  branches previously reachable only through full route mocks.
+
 ## [4.66.2] — 2026-07-05
 
 **Quality-loop harness hardening.** The recurring find-and-fix pass this round
