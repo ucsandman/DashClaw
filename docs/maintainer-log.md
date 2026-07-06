@@ -12,6 +12,36 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.71.0: the worst file in the codebase retires its title
+
+Owner direction, verbatim: "fix the stop hook, that 1.0/10 score is
+embarrassing." Fair — v4.70.0 had just published that score in the
+product's own guide.
+
+The score's drivers were structural, not logical: 852 lines of NLOC in
+one file with no matched test file. The functions themselves were small
+and well-commented. So the fix is the proven v4.66.x recipe, not a
+rewrite: bodies moved verbatim into three unit-testable modules in the
+intel package the hooks already ship (stop_transcript for the pure
+turn/token/assumption math, stop_state for the tempdir cross-hook
+contract, stop_uploads for the two throttled uploaders — with config as
+parameters instead of globals). The hook itself is now a 598-line
+orchestrator that re-imports the pieces under their old names.
+
+What made this safe: the existing subprocess suites (integration,
+fail-silent, coverage, assumptions, behavior-upload) ran green before
+and after, unchanged — they pin the hook's observable behavior at the
+process boundary, exactly where it matters for a never-block hook. On
+top of that, 67 new tests pin what the monolith never had pinned
+directly, including the two contracts I'd least like to regress
+silently: the JS-parity half-away-from-zero cache-read rounding
+(divergent banker's rounding was a real cross-runtime drift risk) and
+the sample-upload gate's absent-means-OFF opt-in.
+
+Full hook suite: 494 tests green. Plugin copy synced byte-identical.
+The guide's Stop-hook entry moves experimental → stable with the new
+evidence, and the health index recomputes on the next reindex.
+
 ## 2026-07-06 — v4.70.0: the guide learns to do, not just tell
 
 Two additions on owner direction. First, the guide's Policies section

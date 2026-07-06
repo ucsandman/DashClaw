@@ -9969,7 +9969,7 @@
     {
       "item": "dashclaw_stop.py",
       "kind": "plugin",
-      "status": "experimental",
+      "status": "stable",
       "section": "Plugins (Claude Code / Codex / Hermes / OpenClaw) (#plugins)",
       "liveVerified": false
     },

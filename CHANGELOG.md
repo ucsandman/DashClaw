@@ -13,6 +13,38 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.71.0] — 2026-07-06
+
+**Stop-hook health pass.** `hooks/dashclaw_stop.py` was the repo's
+worst-scoring file (1.0/10 on the health index: 852 NLOC in one file, no
+matched test file) — and the platform guide said so publicly. Same treatment
+as the v4.66.x hotspot passes: behavior-preserving decomposition plus
+boundary tests.
+
+### Changed
+- `hooks/dashclaw_stop.py` (1,172 lines) is now a 598-line orchestrator over
+  three new unit-testable `dashclaw_agent_intel` modules, bodies moved
+  verbatim:
+  - `stop_transcript.py` — transcript parsing, turn boundaries, token-usage
+    math (incl. the JS-parity cache-read rounding), governed tool_use
+    collection, assumption extraction, distribution/PATCH-body math.
+  - `stop_state.py` — the tempdir cross-hook contract: turn actions, cursor,
+    posted-assumption keys, throttle markers, upload offsets,
+    session-id sanitization.
+  - `stop_uploads.py` — insights push + opt-in anonymized sample upload,
+    config as explicit parameters instead of module globals.
+- Plugin bundle copy (`plugins/dashclaw/hooks/`) synced byte-identical.
+
+### Added
+- 67 new Python tests (`test_stop_transcript.py`, `test_stop_state.py`,
+  `test_stop_uploads.py`, `test_dashclaw_stop.py`) pinning the seams the
+  monolith never had pinned: turn-boundary rules, cache-read rounding
+  parity, the governed-tool matcher, assumption idempotency files, the
+  opt-in-default-OFF sample-upload gate, throttle markers, and offset
+  bookkeeping. Full hook suite: 494 tests, all green.
+- The platform guide's Stop-hook entry moves experimental → stable with the
+  new evidence.
+
 ## [4.70.0] — 2026-07-06
 
 **Policy playground + plugins audit.** The platform guide grows its first
