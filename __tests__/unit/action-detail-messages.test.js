@@ -33,13 +33,12 @@ describe('GET /api/actions/[actionId] — message_summary', () => {
       action_type: 'deploy', declared_goal: 'Deploy config', status: 'completed',
       risk_score: 45, confidence: 82, timestamp_start: '2026-01-01T00:00:00Z',
     };
-    const loops = [];
     const assumptions = [];
     const messageSummary = { total: 2, participants: 'agent-1,agent-2', first_message_at: '2026-01-01T00:00:00Z', last_message_at: '2026-01-01T00:01:00Z' };
 
-    // getActionWithRelations does 4 parallel queries: action, loops, assumptions, message summary
+    // getActionWithRelations does 3 parallel queries: action, assumptions, message summary
     mockSql = createSqlMock({
-      taggedResponses: [[actionRow], loops, assumptions, [messageSummary]],
+      taggedResponses: [[actionRow], assumptions, [messageSummary]],
     });
 
     const ctx = { params: Promise.resolve({ actionId: 'act_1' }) };
@@ -59,7 +58,7 @@ describe('GET /api/actions/[actionId] — message_summary', () => {
     const emptyMessageSummary = { total: 0, participants: '', first_message_at: null, last_message_at: null };
 
     mockSql = createSqlMock({
-      taggedResponses: [[actionRow], [], [], [emptyMessageSummary]],
+      taggedResponses: [[actionRow], [], [emptyMessageSummary]],
     });
 
     const ctx = { params: Promise.resolve({ actionId: 'act_1' }) };

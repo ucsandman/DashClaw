@@ -157,21 +157,6 @@ describe('guard characterization — decision matrix', () => {
     }
   });
 
-  it('fail-closed default: semantic_check without any LLM key → require_approval', async () => {
-    delete process.env.GUARD_LLM_KEY;
-    delete process.env.OPENAI_API_KEY;
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
-    try {
-      const sql = makeSql([makePolicy('semantic_check', { instruction: 'never allow X' })]);
-      const result = await evaluateGuard(freshOrg(), { action_type: 'other', agent_id: 'a1' }, sql);
-      expect(result.decision).toBe('require_approval');
-      expect(result.reasons[0]).toContain('Semantic check unavailable');
-      expect(mockCheckSemantic).not.toHaveBeenCalled();
-    } finally {
-      warnSpy.mockRestore();
-    }
-  });
-
   it('fail-closed default: non_fabrication content without a valid source_of_truth → block', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {

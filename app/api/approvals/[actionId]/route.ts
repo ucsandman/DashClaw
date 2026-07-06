@@ -15,7 +15,6 @@ import {
   isApprovalOverdue,
   expireOverdueApproval,
 } from '../../../lib/repositories/actions.repository';
-import { reconcileStalePurchases } from '../../../lib/repositories/x402.repository';
 import { fireWebhooksForApproval } from '../../../lib/webhooks';
 import { clearApprovalNotifications } from '../../../lib/approvalNotifications';
 import { ingestApprovalAdjudication } from '../../../lib/guard/calibration-feedback';
@@ -138,14 +137,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         { error: 'Action was already resolved by another approver' },
         { status: 409 }
       );
-    }
-
-    // x402 lifecycle ride-along (roadmap v2.3): a denied purchase must leave
-    // execution_status='pending' too, or it reserves budget forever (the
-    // spend predicates count pending rows as reserved spend).
-    if (decision === 'deny' && action.action_type === 'x402_purchase') {
-      await reconcileStalePurchases(sql, orgId, [actionId], 'denied', errorMessage || 'Denied by human operator')
-        .catch((err: unknown) => console.error('[APPROVAL] x402 deny reconcile failed:', (err as Error)?.message));
     }
 
     // after(): the approve/deny audit row is governance evidence (who resolved

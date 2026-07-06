@@ -56,14 +56,13 @@ describe('guard hot path — DB round-trip budget', () => {
     expect(roundTrips(sql2)).toBeLessThanOrEqual(2);
   });
 
-  it('cold path queries exactly: policies, risk templates, predictive settings, batched learning context, decision insert', async () => {
+  it('cold path queries exactly: policies, risk templates, predictive settings, decision insert', async () => {
     const sql = createSqlMock({ taggedResponses: [[]] });
     await evaluateGuard(freshOrg(), CTX, sql);
     const texts = sql.taggedCalls.map((c) => c.text);
     expect(texts.filter((t) => t.includes('FROM guard_policies')).length).toBe(1);
     expect(texts.filter((t) => t.includes('FROM risk_templates')).length).toBe(1); // cached 30s thereafter
     expect(texts.filter((t) => t.includes('FROM settings')).length).toBe(1);
-    expect(texts.filter((t) => t.includes('learning_episodes')).length).toBe(1); // ONE batched query
     expect(texts.filter((t) => t.includes('INSERT INTO guard_decisions')).length).toBe(1);
   });
 
@@ -139,9 +138,6 @@ vi.mock('@/lib/usage.js', () => ({
 }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({
   incrementTrialActionCount: vi.fn(async () => {}),
-}));
-vi.mock('@/lib/repositories/agents.repository.js', () => ({
-  upsertAgentPresence: vi.fn(async () => {}),
 }));
 
 import { POST as guardPost } from '@/api/guard/route.js';

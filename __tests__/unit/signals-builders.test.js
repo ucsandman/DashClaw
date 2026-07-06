@@ -4,12 +4,9 @@ import {
   buildAutonomySpikeSignals,
   buildHighImpactSignals,
   buildRepeatedFailureSignals,
-  buildStaleLoopSignals,
   buildAssumptionDriftSignals,
-  buildDriftAlertSignals,
   buildStaleAssumptionSignals,
   buildStaleRunningSignals,
-  buildStuckWorkflowSignals,
   buildStaleApprovalSignals,
   buildIntegrationMismatchSignals,
   buildStalledSessionSignals,
@@ -71,15 +68,6 @@ describe('severity thresholds', () => {
     expect(amber.severity).toBe('amber');
   });
 
-  it('stale_loop: red strictly above 96 hours', () => {
-    const [red, amber] = buildStaleLoopSignals([
-      { loop_id: 'l1', created_at: hoursAgo(97) },
-      { loop_id: 'l2', created_at: hoursAgo(96) },
-    ]);
-    expect(red.severity).toBe('red');
-    expect(amber.severity).toBe('amber');
-  });
-
   it('assumption_drift: red at 4+ invalidations', () => {
     const [red, amber] = buildAssumptionDriftSignals([
       { agent_id: 'a1', invalidation_count: '4' },
@@ -87,17 +75,6 @@ describe('severity thresholds', () => {
     ]);
     expect(red.severity).toBe('red');
     expect(amber.severity).toBe('amber');
-  });
-
-  it('drift_alert: red only for critical; flat-baseline z renders the no-variance phrase', () => {
-    const [red, amber] = buildDriftAlertSignals([
-      { agent_id: 'a1', metric: 'block_rate', severity: 'critical', direction: 'up', pct_change: 40, z_score: 3.2, created_at: hoursAgo(1) },
-      { agent_id: 'a2', metric: 'block_rate', severity: 'warning', direction: 'up', pct_change: 20, z_score: 999, created_at: hoursAgo(1) },
-    ]);
-    expect(red.severity).toBe('red');
-    expect(amber.severity).toBe('amber');
-    expect(amber.detail).toContain('baseline shows no variance');
-    expect(buildDriftAlertSignals(null)).toEqual([]);
   });
 
   it('stale_assumption: red strictly above 30 days', () => {
@@ -113,15 +90,6 @@ describe('severity thresholds', () => {
     const [red, amber] = buildStaleRunningSignals([
       { action_id: 'a1', timestamp_start: hoursAgo(25) },
       { action_id: 'a2', timestamp_start: hoursAgo(24) },
-    ]);
-    expect(red.severity).toBe('red');
-    expect(amber.severity).toBe('amber');
-  });
-
-  it('workflow_stuck: red strictly above 60 minutes', () => {
-    const [red, amber] = buildStuckWorkflowSignals([
-      { action_id: 'a1', timestamp_start: minutesAgo(61) },
-      { action_id: 'a2', timestamp_start: minutesAgo(60) },
     ]);
     expect(red.severity).toBe('red');
     expect(amber.severity).toBe('amber');

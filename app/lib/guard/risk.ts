@@ -6,6 +6,7 @@
 
 import type { GuardSql, GuardEvalContext } from './types';
 import { loadOrgRiskTemplates } from './caches';
+import { computeAutoRisk } from './riskTemplates';
 
 const ACTION_TYPE_BASE_SCORES = {
   deploy: 75, security: 80, migrate: 70, apply: 60, sync: 40,
@@ -176,7 +177,6 @@ export async function computeRiskAssessment(
     const rows = await loadOrgRiskTemplates(sql, orgId);
     if (rows.length > 0) {
       const templates = rows.map(coerceRiskTemplate);
-      const { computeAutoRisk } = await import('../scoringProfiles');
       const score = computeAutoRisk(context as Parameters<typeof computeAutoRisk>[0], templates);
       if (score != null) {
         const matched = templates.find((t) => t.action_type === context.action_type) || templates[0]!;

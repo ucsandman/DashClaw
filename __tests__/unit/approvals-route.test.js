@@ -14,7 +14,6 @@ const mockRecordApproval = vi.fn();
 const mockGetActionStatus = vi.fn();
 const mockGetActionSummary = vi.fn();
 const mockExpireOverdueApproval = vi.fn();
-const mockReconcileStalePurchases = vi.fn(() => Promise.resolve([]));
 const mockFireWebhooksForApproval = vi.fn(() => Promise.resolve());
 
 // after() callbacks run immediately in tests (the route now defers the
@@ -74,9 +73,6 @@ vi.mock('../../app/lib/repositories/actions.repository.js', async (importOrigina
     expireOverdueApproval: (...a) => mockExpireOverdueApproval(...a),
   };
 });
-vi.mock('../../app/lib/repositories/x402.repository.js', () => ({
-  reconcileStalePurchases: (...a) => mockReconcileStalePurchases(...a),
-}));
 vi.mock('../../app/lib/webhooks.js', () => ({
   fireWebhooksForApproval: (...a) => mockFireWebhooksForApproval(...a),
 }));
@@ -409,35 +405,4 @@ describe('POST /api/approvals/[actionId]', () => {
     expect(data.error).toMatch(/not pending/i);
   });
 
-  it('reconciles the paired x402 purchase to denied when an x402 approval is denied', async () => {
-    mockGetActionStatus.mockResolvedValueOnce({
-      status: 'pending_approval', agent_id: 'agent_1', action_type: 'x402_purchase',
-      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
-    });
-    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
-    mockRecordApproval.mockResolvedValueOnce(updatedAction);
-    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
-
-    const res = await POST(req({ decision: 'deny', reasoning: 'Too expensive' }), { params });
-
-    expect(res.status).toBe(200);
-    expect(mockReconcileStalePurchases).toHaveBeenCalledWith(
-      expect.anything(), 'org_test', ['act_123'], 'denied', expect.stringContaining('Too expensive'),
-    );
-  });
-
-  it('does not touch x402 purchases on a non-x402 deny', async () => {
-    mockGetActionStatus.mockResolvedValueOnce({
-      status: 'pending_approval', agent_id: 'agent_1', action_type: 'deploy',
-      approval_expires_at: new Date(Date.now() + 60_000).toISOString(),
-    });
-    const updatedAction = { action_id: 'act_123', status: 'failed', agent_id: 'agent_1' };
-    mockRecordApproval.mockResolvedValueOnce(updatedAction);
-    mockGetActionSummary.mockResolvedValueOnce(updatedAction);
-
-    const res = await POST(req({ decision: 'deny' }), { params });
-
-    expect(res.status).toBe(200);
-    expect(mockReconcileStalePurchases).not.toHaveBeenCalled();
-  });
 });

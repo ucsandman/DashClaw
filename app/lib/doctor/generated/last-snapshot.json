@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:0501a40e8d79224905d6082ddea82dfd72528da0",
+  "timestamp": "sha1:ea43fbcba04e1bbc5855b326eb71fa70ee9ec38c",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -4580,11 +4580,9 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
-        "__tests__/unit/guard-degradation.test.js",
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
-        "app/lib/guard/policy.ts",
         "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "scripts/test-semantic-guard.mjs"
@@ -4994,9 +4992,7 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
-        "__tests__/unit/guard-degradation.test.js",
         "app/lib/embeddings.ts",
-        "app/lib/guard/policy.ts",
         "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "examples/openai-deploy-pipeline/index.js",
@@ -6164,14 +6160,12 @@
   "signal_types": [
     "approval_flood",
     "autonomy_spike",
-    "branch_stale",
     "cost_exceeded",
     "coverage_drop",
     "green_insufficient",
     "integration_health_changed",
     "integration_mismatch",
     "lost_confirmation",
-    "mcp_degraded",
     "message",
     "observe_mode",
     "stale_action",

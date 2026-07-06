@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:0501a40e8d79224905d6082ddea82dfd72528da0`
+**Shape snapshot:** `sha1:ea43fbcba04e1bbc5855b326eb71fa70ee9ec38c`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -898,14 +898,12 @@ These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNa
 
 - `approval_flood`
 - `autonomy_spike`
-- `branch_stale`
 - `cost_exceeded`
 - `coverage_drop`
 - `green_insufficient`
 - `integration_health_changed`
 - `integration_mismatch`
 - `lost_confirmation`
-- `mcp_degraded`
 - `message`
 - `observe_mode`
 - `stale_action`

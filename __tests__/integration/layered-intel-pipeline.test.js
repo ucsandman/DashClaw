@@ -35,18 +35,12 @@ const {
   mockPublishOrgEvent,
   mockScanSensitiveData,
   mockScanForPromptInjection,
-  mockIsEmbeddingsEnabled,
-  mockGetLearningContext,
   mockDeliverGuardWebhook,
-  mockCheckSemantic,
 } = vi.hoisted(() => ({
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn((text) => ({ findings: [], redacted: text, clean: true })),
   mockScanForPromptInjection: vi.fn(() => ({ clean: true, recommendation: 'allow', matches: [], categories: [] })),
-  mockIsEmbeddingsEnabled: vi.fn(() => false),
-  mockGetLearningContext: vi.fn(() => null),
   mockDeliverGuardWebhook: vi.fn(),
-  mockCheckSemantic: vi.fn(),
 }));
 
 vi.mock('@/lib/events.js', () => ({
@@ -55,10 +49,7 @@ vi.mock('@/lib/events.js', () => ({
 }));
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }));
 vi.mock('@/lib/promptInjection.js', () => ({ scanForPromptInjection: mockScanForPromptInjection }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: vi.fn() }));
-vi.mock('@/lib/learning-context.js', () => ({ getLearningContext: mockGetLearningContext }));
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
-vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
 
 import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
 import { updateSession } from '@/lib/sessions.js';
@@ -141,119 +132,7 @@ afterEach(() => {
 });
 
 // ---------------------------------------------------------------------------
-// Half 1: guard recovery for branch_freshness violation
-// ---------------------------------------------------------------------------
-
-describe('layered intel pipeline — guard recovery on branch_freshness', () => {
-  /**
-   * RED step (observed during authoring):
-   *   An initial wrong expectation `expect(result.recovery.signal).toBe('wrong_signal')`
-   *   correctly failed, proving the harness bites. Corrected to 'branch_stale'.
-   */
-
-  it('branch_freshness block carries a recovery object with branch_stale signal', async () => {
-    // guard.ts buildRecovery() maps context.intel.branch.freshness==='stale'
-    // to signal 'branch_stale' via evaluateRecoveryRecipes.
-    const sql = createGuardMockSql({
-      policies: [
-        makePolicy('gp_bf_1', 'branch_freshness', {
-          action_types: ['deploy'],
-          max_commits_behind: 3,
-        }),
-      ],
-    });
-
-    const context = {
-      action_type: 'deploy',
-      agent_id: 'agent_li2',
-      intel: {
-        branch: { name: 'feat/stale-feature', freshness: 'stale', commits_behind: 7 },
-      },
-    };
-
-    const result = await evaluateGuard('org_li2', context, sql);
-
-    // Decision: block
-    expect(result.decision).toBe('block');
-    expect(result.reasons[0]).toContain('feat/stale-feature');
-    expect(result.reasons[0]).toContain('stale');
-    expect(result.reasons[0]).toContain('7 commits behind');
-    expect(result.matched_policies).toContain('gp_bf_1');
-
-    // Recovery object must be present (branch_stale recipe from recovery.ts)
-    expect(result.recovery).toBeDefined();
-    expect(result.recovery).not.toBeNull();
-
-    // Signal matches the branch_stale recipe
-    expect(result.recovery.signal).toBe('branch_stale');
-
-    // Suggestion from RECOVERY_RECIPES['branch_stale']
-    expect(result.recovery.suggestion).toContain('main');
-    expect(result.recovery.suggestion).toContain('Rebase');
-
-    // Steps contain the suggest_rebase action
-    expect(result.recovery.steps).toBeInstanceOf(Array);
-    expect(result.recovery.steps.length).toBeGreaterThan(0);
-    expect(result.recovery.steps[0]).toMatchObject({ action: 'suggest_rebase' });
-  });
-
-  it('branch_freshness over a looser threshold still yields branch_stale recovery', async () => {
-    // Stale branch with commits_behind over the policy max (6 > 5) → block +
-    // branch_stale recovery whose recipe escalation is warn_only.
-    const sql = createGuardMockSql({
-      policies: [
-        makePolicy('gp_bf_2', 'branch_freshness', {
-          action_types: ['deploy'],
-          max_commits_behind: 5,
-        }),
-      ],
-    });
-
-    const context = {
-      action_type: 'deploy',
-      agent_id: 'agent_li2b',
-      intel: {
-        branch: { name: 'feat/slightly-stale', freshness: 'stale', commits_behind: 6 },
-      },
-    };
-
-    const result = await evaluateGuard('org_li2b', context, sql);
-
-    expect(result.decision).toBe('block');
-    expect(result.recovery).toBeDefined();
-    expect(result.recovery.signal).toBe('branch_stale');
-    // escalation for branch_stale recipe is warn_only
-    expect(result.recovery.escalation).toBe('warn_only');
-  });
-
-  it('fresh branch produces no recovery object (allow result)', async () => {
-    // When the branch is fresh, no signals are emitted → no recovery.
-    const sql = createGuardMockSql({
-      policies: [
-        makePolicy('gp_bf_3', 'branch_freshness', {
-          action_types: ['deploy'],
-          max_commits_behind: 5,
-        }),
-      ],
-    });
-
-    const context = {
-      action_type: 'deploy',
-      agent_id: 'agent_li2c',
-      intel: {
-        branch: { name: 'main', freshness: 'fresh', commits_behind: 0 },
-      },
-    };
-
-    const result = await evaluateGuard('org_li2c', context, sql);
-
-    expect(result.decision).toBe('allow');
-    expect(result.recovery).toBeUndefined();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// Half 2: session persistence agrees with guard signal (blocked_reason)
+// Session persistence agrees with guard signal (blocked_reason)
 // ---------------------------------------------------------------------------
 
 describe('layered intel pipeline — session persistence of blocked_reason', () => {

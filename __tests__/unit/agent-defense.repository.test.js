@@ -40,7 +40,6 @@ describe('getActionWithRelations agent_defense wiring', () => {
     const sql = createSqlMock({
       taggedResponses: [
         [actionRow()], // action
-        [],            // open_loops
         [{ assumption_id: 'asm_1', validated: 1, invalidated: 0 }], // assumptions
         [{ total: 0, participants: '', first_message_at: null, last_message_at: null }],
       ],
@@ -73,7 +72,6 @@ describe('getActionWithRelations agent_defense wiring', () => {
     const sql = createSqlMock({
       taggedResponses: [
         [actionRow({ guard_decision_id: null })],
-        [],
         [],
         [{ total: 0, participants: '', first_message_at: null, last_message_at: null }],
       ],

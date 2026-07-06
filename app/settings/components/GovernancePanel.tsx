@@ -30,12 +30,6 @@ const DEFAULTS: GovernanceForm = {
   outcomeTimeout: '15',
 };
 
-interface LlmStatus {
-  available?: boolean;
-  provider?: string;
-  model?: string;
-}
-
 interface SaveStatus {
   type: 'success' | 'error';
   message: string;
@@ -43,7 +37,6 @@ interface SaveStatus {
 
 export default function GovernancePanel() {
   const [form, setForm] = useState<GovernanceForm>(DEFAULTS);
-  const [llm, setLlm] = useState<LlmStatus | null>(null); // { available, provider, model }
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<SaveStatus | null>(null); // { type, message }
@@ -51,10 +44,7 @@ export default function GovernancePanel() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [sRes, lRes] = await Promise.all([
-        fetch('/api/settings'),
-        fetch('/api/settings/llm-status'),
-      ]);
+      const sRes = await fetch('/api/settings');
       const sData = await sRes.json().catch(() => ({}));
       const map: Record<string, string> = {};
       (sData.settings || []).forEach((s: { key: string; value: string }) => { map[s.key] = s.value; });
@@ -64,7 +54,6 @@ export default function GovernancePanel() {
         costThreshold: map[KEYS.costThreshold] ?? DEFAULTS.costThreshold,
         outcomeTimeout: map[KEYS.outcomeTimeout] ?? DEFAULTS.outcomeTimeout,
       });
-      if (lRes.ok) setLlm(await lRes.json().catch(() => null));
     } catch {
       // Leave defaults — non-admins get masked/empty reads and a 403 on save.
     }
@@ -124,27 +113,6 @@ export default function GovernancePanel() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      {/* LLM provider badge — closes the /api/settings/llm-status orphan */}
-      <div className="rounded-2xl border border-border bg-surface-secondary p-5">
-        <div className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">AI provider</div>
-        {llm?.available ? (
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-status-success" />
-            <span className="text-sm text-success">
-              {llm.provider || 'Configured'}{llm.model ? ` · ${llm.model}` : ''}
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <span aria-hidden="true" className="h-2 w-2 rounded-full bg-zinc-500" />
-            <span className="text-sm text-secondary">No AI provider configured</span>
-          </div>
-        )}
-        <p className="mt-2 text-xs text-tertiary">
-          The optional <code className="text-secondary bg-black/40 px-1 rounded">llm_judge</code> evaluation scorer needs a configured provider; the rest of the governance runtime never calls a model.
-        </p>
-      </div>
-
       {/* Governance flags */}
       <div className="rounded-2xl border border-border bg-surface-secondary p-6 space-y-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">

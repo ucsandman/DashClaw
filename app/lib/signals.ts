@@ -109,24 +109,6 @@ export function buildRepeatedFailureSignals(repeatedFailures: Row[]): Signal[] {
   return signals;
 }
 
-export function buildStaleLoopSignals(staleLoops: Row[]): Signal[] {
-  const signals: Signal[] = [];
-  for (const loop of staleLoops) {
-    const hoursOld = Math.round((Date.now() - new Date(loop.created_at).getTime()) / (1000 * 60 * 60));
-    signals.push({
-      type: 'stale_loop',
-      severity: hoursOld > 96 ? 'red' : 'amber',
-      label: `Unresolved dependency (${hoursOld}h): ${loop.description?.substring(0, 50) || 'Unknown'}`,
-      detail: `Unresolved dependency for ${loop.agent_name || loop.agent_id || 'unknown agent'} has been blocking decision completion for ${hoursOld} hours.`,
-      help: 'Unresolved dependencies weaken decision integrity. Resolve or cancel to restore the governance chain.',
-      agent_id: loop.agent_id,
-      loop_id: loop.loop_id,
-      detected_at: loop.created_at,
-    });
-  }
-  return signals;
-}
-
 export function buildAssumptionDriftSignals(assumptionDrift: Row[]): Signal[] {
   const signals: Signal[] = [];
   for (const drift of assumptionDrift) {
@@ -138,24 +120,6 @@ export function buildAssumptionDriftSignals(assumptionDrift: Row[]): Signal[] {
       help: 'Frequent assumption invalidations degrade the decision basis. Review and re-validate the foundational assumptions.',
       agent_id: drift.agent_id,
       detected_at: drift.last_seen || null,
-    });
-  }
-  return signals;
-}
-
-export function buildDriftAlertSignals(driftAlerts: Row[] | null): Signal[] {
-  const signals: Signal[] = [];
-  for (const row of driftAlerts || []) {
-    const absZ = Math.abs(Number(row.z_score));
-    const zPhrase = absZ >= 999 ? 'baseline shows no variance' : `z ${Number(row.z_score)}`;
-    signals.push({
-      type: 'drift_alert',
-      severity: row.severity === 'critical' ? 'red' : 'amber',
-      label: `Behavioral drift: ${row.agent_id} ${String(row.metric).replace(/_/g, ' ')} ${row.direction} ${Math.abs(Number(row.pct_change))}%`,
-      detail: row.description || `${row.metric} for ${row.agent_id} shifted from its 30-day baseline (${zPhrase}).`,
-      help: 'This agent\'s recent behavior deviates statistically from its 30-day baseline. Review the evidence on the Drift page and acknowledge the alert once triaged.',
-      agent_id: row.agent_id,
-      detected_at: row.created_at,
     });
   }
   return signals;
@@ -192,25 +156,6 @@ export function buildStaleRunningSignals(staleRunning: Row[]): Signal[] {
       agent_id: action.agent_id,
       action_id: action.action_id,
       detected_at: action.timestamp_start,
-    });
-  }
-  return signals;
-}
-
-export function buildStuckWorkflowSignals(stuckWorkflows: Row[]): Signal[] {
-  const signals: Signal[] = [];
-  for (const row of stuckWorkflows) {
-    const ageMinutes = Math.round((Date.now() - new Date(row.timestamp_start).getTime()) / 60000);
-    signals.push({
-      type: 'workflow_stuck',
-      severity: ageMinutes > 60 ? 'red' : 'amber',
-      label: `Stuck workflow: ${row.declared_goal || 'Unknown'}`,
-      detail: `Running for ${ageMinutes}m without completing. Agent: ${row.agent_name || row.agent_id || 'unknown'}.`,
-      help: 'Cancel the workflow from the operations feed or investigate the stuck step.',
-      agent_id: row.agent_id,
-      action_id: row.action_id,
-      trigger: row.trigger || null,
-      detected_at: row.timestamp_start,
     });
   }
   return signals;
@@ -449,7 +394,7 @@ export async function computeSignals(
     return null;
   };
 
-  const [autonomySpikes, highImpact, repeatedFailures, staleLoops, assumptionDrift, staleAssumptions, staleRunning, stalePresence, stuckWorkflows, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions, driftAlerts] = (await Promise.all([
+  const [autonomySpikes, highImpact, repeatedFailures, assumptionDrift, staleAssumptions, staleRunning, stalePresence, staleApprovals, connections, health, stalledSessions, recentDecisions, recentMcpDecisions, greenDecisions] = (await Promise.all([
     sql`
       SELECT agent_id, agent_name, COUNT(*) as action_count,
              MAX(timestamp_start::timestamptz) AS last_seen
@@ -484,17 +429,6 @@ export async function computeSignals(
       GROUP BY agent_id, agent_name
       HAVING COUNT(*) > 3
       ORDER BY failure_count DESC
-    `,
-    sql`
-      SELECT ol.loop_id, ol.description, ol.priority, ol.loop_type, ol.created_at,
-             ar.agent_id, ar.agent_name, ar.declared_goal
-      FROM open_loops ol
-      LEFT JOIN action_records ar ON ol.action_id = ar.action_id
-      WHERE ol.status = 'open'
-        AND ol.org_id = ${orgId}
-        AND ol.created_at < NOW() - INTERVAL '48 hours'
-      ORDER BY ol.created_at ASC
-      LIMIT 10
     `,
     sql`
       SELECT ar.agent_id, ar.agent_name, COUNT(*) as invalidation_count,
@@ -548,19 +482,6 @@ export async function computeSignals(
         AND (status != 'offline' OR current_task_id IS NOT NULL)
       LIMIT 10
     `,
-    // Workflow executions stuck running for > 30 minutes (but not yet swept as lost)
-    sql`
-      SELECT action_id, agent_id, agent_name, declared_goal, timestamp_start, duration_ms, trigger
-      FROM action_records
-      WHERE status = 'running'
-        AND org_id = ${orgId}
-        AND action_type = 'workflow_execute'
-        AND outcome_status <> 'lost_confirmation'
-        AND timestamp_start::timestamptz < NOW() - INTERVAL '30 minutes'
-        AND timestamp_start::timestamptz > NOW() - INTERVAL '24 hours'
-      ORDER BY timestamp_start ASC
-      LIMIT 10
-    `,
     // Pending approvals older than 1 hour
     sql`
       SELECT action_id, agent_id, agent_name, declared_goal, timestamp_start, risk_score
@@ -603,22 +524,10 @@ export async function computeSignals(
       ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
       ORDER BY created_at DESC LIMIT 10
     `.catch(warnNull('green_insufficient')),
-    // Statistical behavioral drift — open warning/critical alerts from the
-    // drift engine (app/lib/drift.ts). Best-effort: the tables may not exist
-    // on older deploys. Without this query, a critical drift alert was
-    // invisible unless someone happened to visit /drift.
-    sql`
-      SELECT id, agent_id, metric, severity, direction, pct_change, z_score, description, created_at
-      FROM drift_alerts
-      WHERE org_id = ${orgId} AND acknowledged = FALSE AND severity IN ('warning', 'critical')
-        AND created_at::timestamptz > NOW() - INTERVAL '7 days'
-        ${filterAgentId ? sql`AND agent_id = ${filterAgentId}` : sql``}
-      ORDER BY created_at DESC LIMIT 10
-    `.catch(warnNull('drift_alert')),
     // Tuple cast: each Promise.all result is a non-empty Row[] (or null for a
     // failed best-effort query); a plain array type makes destructured
     // positions possibly-undefined under noUncheckedIndexedAccess.
-  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
+  ])) as [Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[], Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null, Row[] | null];
 
   const signals: Signal[] = [];
 
@@ -626,12 +535,9 @@ export async function computeSignals(
   signals.push(...buildAutonomySpikeSignals(autonomySpikes, spikeThreshold));
   signals.push(...buildHighImpactSignals(highImpact));
   signals.push(...buildRepeatedFailureSignals(repeatedFailures));
-  signals.push(...buildStaleLoopSignals(staleLoops));
   signals.push(...buildAssumptionDriftSignals(assumptionDrift));
-  signals.push(...buildDriftAlertSignals(driftAlerts));
   signals.push(...buildStaleAssumptionSignals(staleAssumptions));
   signals.push(...buildStaleRunningSignals(staleRunning));
-  signals.push(...buildStuckWorkflowSignals(stuckWorkflows));
   signals.push(...buildStaleApprovalSignals(staleApprovals));
   signals.push(...buildIntegrationMismatchSignals(connections, health));
 

@@ -8,8 +8,6 @@ import { baseAgentId } from '../agent-identity-resolve';
 import { scanSensitiveData } from '../security';
 import { scanForPromptInjection } from '../promptInjection';
 import { EVENTS, publishOrgEvent } from '../events';
-import { getLearningContext } from '../learning-context';
-import { evaluateRecoveryRecipes } from '../recovery';
 import { getActBindingMode } from '../act-binding';
 import { computeActContentHash } from '../act-content-hash';
 import { getJtiReplayMode } from '../replay-protection';
@@ -497,27 +495,6 @@ function redactContextForLog(context: GuardEvalContext, nonFabStripPaths: Set<st
   return safeContextForLog;
 }
 
-// Recovery recipe evaluation — best-effort enrichment for non-allow decisions.
-function buildRecovery(context: GuardEvalContext, reasons: string[], highestDecision: string): unknown {
-  try {
-    if (highestDecision === 'allow') return null;
-    const recentSignals: Array<{ type: string; severity: string; agent_id?: string | null }> = [];
-    if (context.intel?.branch?.freshness === 'stale') {
-      recentSignals.push({ type: 'branch_stale', severity: 'amber', agent_id: context.agent_id });
-    }
-    if (context.intel?.mcp?.healthy === false) {
-      recentSignals.push({ type: 'mcp_degraded', severity: 'amber', agent_id: context.agent_id });
-    }
-    if (reasons.some((r) => r.includes('Green contract'))) {
-      recentSignals.push({ type: 'green_insufficient', severity: 'red', agent_id: context.agent_id });
-    }
-    const recipes = evaluateRecoveryRecipes(recentSignals as Array<{ type: string; severity: string; agent_id: string }>);
-    return recipes.length > 0 ? recipes[0] : null;
-  } catch {
-    return null; // recovery is best-effort
-  }
-}
-
 /**
  * Evaluate guard policies for an incoming agent action.
  */
@@ -551,8 +528,6 @@ interface GuardFinalizeInput {
   adjustedRiskScore: number;
   agentRiskScore: number | null;
   evaluatedAt: string;
-  learningContext: unknown;
-  recovery: unknown;
   predictiveRisk: { total_adjustment?: number } | null;
   riskBreakdown: RiskBreakdown;
   intentSource: 'evidence' | 'declared';
@@ -661,8 +636,6 @@ function buildGuardResult(input: GuardFinalizeInput) {
     agent_id: context.agent_id || null,
     agent_name: context.agent_name || null,
     evaluated_at: input.evaluatedAt,
-    learning: input.learningContext || undefined,
-    ...(input.recovery ? { recovery: input.recovery } : {}),
     ...(input.predictiveRisk ? { predictive_risk: input.predictiveRisk } : {}),
     ...(input.calibration ? { calibration: input.calibration } : {}),
     ...(input.degraded ? { degraded: true } : {}),
@@ -957,45 +930,15 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   applyBlockOverride(acc, replayBlockReason);
   applyBlockOverride(acc, actBlockReason);
 
-  // Learning context — best-effort enrichment. Skipped on a degraded decision
-  // (deadline or fast failure): the remaining budget is reserved for the
-  // mandatory audit persist, and on a fast DB failure the read would fail too.
-  // Learning context — best-effort response enrichment (the persisted audit
-  // row never reads it). Started here, at the same point the serial code
-  // issued its read, but awaited AFTER the audit persist is started below so
-  // its round trip overlaps the mandatory INSERT instead of extending the
-  // critical path. Degraded decisions skip it, exactly as before: the
-  // remaining budget is reserved for the mandatory audit persist.
-  // getLearningContext never rejects, but the catch keeps an abandoned read
-  // from ever surfacing as an unhandled rejection.
-  const learningStart = Date.now();
-  // Promise.resolve() guards against test doubles that return a bare value.
-  const learningPromise = (deadlineExceeded || evaluationError)
-    ? null
-    : Promise.resolve(getLearningContext(sql, orgId, { agentId: context.agent_id, actionType: context.action_type })).catch(() => null);
-  let recovery = buildRecovery(context, acc.reasons, acc.highestDecision);
-  if ((deadlineExceeded || evaluationError) && recovery) {
-    // Recovery was computed from partial (pre-degradation) state — mark it so.
-    recovery = { ...(recovery as Record<string, unknown>), partial: true, partial_reason: 'evaluation degraded (deadline or failure); recovery computed from accumulated partial state' };
-  }
-
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
-    adjustedRiskScore, agentRiskScore, evaluatedAt, learningContext: null, recovery, predictiveRisk,
+    adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
     riskBreakdown, intentSource, evidenceDerived, calibration, timings, degraded: degradedDetail,
   };
 
-  // The audit persist stays the mandatory blocking gate (awaited below; a
-  // failure still throws GUARD_AUDIT_PERSIST_FAILED and no decision is
-  // returned) — but its round trip runs concurrently with the best-effort
-  // learning read above, which only the RESPONSE consumes. The no-op catch
-  // suppresses a premature unhandled-rejection warning while the learning
-  // read settles; the await below still observes the real failure.
-  const persistPromise = persistGuardDecision(sql, buildGuardDecisionRow(input));
-  persistPromise.catch(() => {});
-  input.learningContext = learningPromise ? await learningPromise : null;
-  if (timings && learningPromise) timings.learning = Date.now() - learningStart;
-  await persistPromise;
+  // The audit persist is the mandatory blocking gate: a failure throws
+  // GUARD_AUDIT_PERSIST_FAILED and no decision is ever returned.
+  await persistGuardDecision(sql, buildGuardDecisionRow(input));
   publishGuardDecisionEvent(input);
   return buildGuardResult(input);
 }

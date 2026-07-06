@@ -12,13 +12,11 @@ import { verifyAgentSignature } from '../../lib/identity';
 import { resolveAgentIdentity } from '../../lib/identity-resolution';
 import { estimateCost } from '../../lib/billing';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
-import { generateActionEmbedding, isEmbeddingsEnabled } from '../../lib/embeddings';
 import { evaluateGuard } from '../../lib/guard';
 import { fireActionAlert } from '../../lib/actionAlerts';
 import { fireNewConnectAlert } from '../../lib/notification-adapters/discord';
 import { fireApprovalSurfaces } from '../../lib/approvalSurfaces';
 import { redactAny } from '../../lib/security';
-import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import {
   createActionRecord,
@@ -26,7 +24,6 @@ import {
   deleteActionsByIds,
   getActionByIdempotencyKey,
   hasAgentAction,
-  insertActionEmbedding,
   isFirstActionForOrg,
   listActionIdsByFilter,
   listActions,
@@ -403,45 +400,10 @@ export async function POST(request: Request) {
       }),
     );
 
-    // Implicit heartbeat: submitting an action means the agent is online
-    if (data.agent_id) {
-      meterUpdates.push(
-        upsertAgentPresence(sql, orgId, {
-          agent_id: data.agent_id,
-          agent_name: data.agent_name || null,
-          status: 'online',
-          current_task_id: action_id,
-          metadata: null,
-          timestamp: new Date().toISOString(),
-        }).catch((err: unknown) => {
-          // best-effort, never block action creation — but log so failures are diagnosable
-          console.debug('[presence] heartbeat skipped:', (err as Error)?.message);
-        }) as Promise<void>
-      );
-    }
-
-    // Background indexing for behavioral anomaly detection
-    const indexAction = async () => {
-      if (!isEmbeddingsEnabled()) return;
-      try {
-        const embedding = await generateActionEmbedding(data);
-        if (embedding) {
-          await insertActionEmbedding(sql, {
-            orgId,
-            agentId: data.agent_id,
-            actionId: action_id,
-            embedding,
-          });
-        }
-      } catch (e) {
-        console.warn('[API] Background indexing failed:', (e as Error).message);
-      }
-    };
-
     // after() keeps the lambda alive until the returned promise settles —
     // un-awaited writes get killed when the response ends on Vercel.
-    after(() => Promise.all([...meterUpdates, indexAction()]).catch((err: unknown) => {
-      console.warn('[API] Background meter/index update failed:', (err as Error).message);
+    after(() => Promise.all([...meterUpdates]).catch((err: unknown) => {
+      console.warn('[API] Background meter update failed:', (err as Error).message);
     }));
 
     const response = NextResponse.json({

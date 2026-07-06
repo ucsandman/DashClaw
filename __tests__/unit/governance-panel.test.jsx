@@ -3,11 +3,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // Pins the governance-settings wiring: the panel must seed the runtime flags
-// from GET /api/settings + the LLM badge from /api/settings/llm-status, save
-// each flag via POST /api/settings, and — critically — store the predictive
-// keys with category 'general' (guard.js reads them with that exact filter, so
-// any other category would be a silent no-op). It must also fully remove a
-// setting via DELETE, not just overwrite it.
+// from GET /api/settings, save each flag via POST /api/settings, and —
+// critically — store the predictive keys with category 'general' (guard.js
+// reads them with that exact filter, so any other category would be a silent
+// no-op). It must also fully remove a setting via DELETE, not just overwrite it.
 
 const { default: GovernancePanel } = await import('@/settings/components/GovernancePanel.jsx');
 
@@ -22,9 +21,6 @@ function makeFetch() {
   return vi.fn(async (url, options = {}) => {
     const u = String(url);
     const method = options.method || 'GET';
-    if (u === '/api/settings/llm-status') {
-      return { ok: true, json: async () => ({ available: true, provider: 'Anthropic', model: 'claude-opus-4-8' }) };
-    }
     if (u.startsWith('/api/settings') && method === 'GET') {
       return { ok: true, json: async () => ({ settings: SETTINGS }) };
     }
@@ -37,11 +33,10 @@ function makeFetch() {
 afterEach(() => { vi.restoreAllMocks(); });
 
 describe('GovernancePanel', () => {
-  it('renders the LLM provider badge and seeds flags from /api/settings', async () => {
+  it('seeds flags from /api/settings', async () => {
     global.fetch = makeFetch();
     render(<GovernancePanel />);
 
-    expect(await screen.findByText(/Anthropic · claude-opus-4-8/)).toBeTruthy();
     // cost threshold seeded from the stored value
     await waitFor(() => expect(screen.getByDisplayValue('5')).toBeTruthy());
   });

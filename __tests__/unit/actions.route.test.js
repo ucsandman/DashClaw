@@ -498,14 +498,11 @@ describe('/api/actions POST', () => {
     expect(res.headers.get('x-quota-warning')).toContain('actions_per_month');
   });
 
-  it('schedules meter/index background work via after(), not as an un-awaited promise (Vercel free tier)', async () => {
+  it('schedules meter background work via after(), not as an un-awaited promise (Vercel free tier)', async () => {
     // Capture after() callbacks instead of invoking them, so we can prove the
-    // background indexing runs in the after() phase, not during the request.
+    // background meter work runs in the after() phase, not during the request.
     const deferred = [];
     mockAfter.mockImplementation((cb) => { deferred.push(cb); });
-    mockIsEmbeddingsEnabled.mockReturnValue(true);
-    mockGenerateActionEmbedding.mockResolvedValue([0.1, 0.2]);
-    mockInsertActionEmbedding.mockResolvedValue(undefined);
 
     const res = await POST(makeRequest('http://localhost/api/actions', {
       headers: { 'x-org-id': 'org_1' },
@@ -513,17 +510,14 @@ describe('/api/actions POST', () => {
     }));
 
     expect(res.status).toBe(201);
-    // Un-awaited inline Promise.all would have started indexing already —
-    // it must be deferred until after the response is sent.
-    expect(mockGenerateActionEmbedding).not.toHaveBeenCalled();
+    // The meter/quota work must be deferred to the after() phase so it is not
+    // dropped when the lambda freezes at response time on Vercel.
     expect(mockAfter).toHaveBeenCalled();
 
-    // Run the deferred callbacks: the meter/index work executes there.
-    // (Other after() callbacks — alerts, digest tick — may reject against the
-    // bare mocks; tolerate that, we only assert on the indexing path.)
+    // Run the deferred callbacks: the meter work executes there. (Other after()
+    // callbacks — alerts, digest tick — may reject against the bare mocks;
+    // tolerate that.)
     await Promise.all(deferred.map((cb) => Promise.resolve().then(cb).catch(() => { /* unrelated after() work */ })));
-    expect(mockGenerateActionEmbedding).toHaveBeenCalledTimes(1);
-    expect(mockInsertActionEmbedding).toHaveBeenCalledTimes(1);
   });
 
   it('returns 409 on duplicate action_id', async () => {

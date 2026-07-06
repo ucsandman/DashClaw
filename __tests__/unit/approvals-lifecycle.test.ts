@@ -1,20 +1,10 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Approvals lifecycle hygiene (roadmap v2.3).
 // Spec: docs/plans/2026-07-02-approvals-lifecycle-hygiene.md
 // Pins: the expiry-stamp math, the overdue predicate (including the legacy
-// NULL-stamp rule), the create-path stamping, the x402 ride-along on
-// expire/sweep, and the spend-predicate exclusion of denied/expired rows.
-
-const { mockReconcile } = vi.hoisted(() => ({
-  mockReconcile: vi.fn(async () => [] as string[]),
-}));
-// Partial mock: the actions-repository expiry helpers must see the mocked
-// reconcile, while the spend-predicate tests below exercise the REAL queries.
-vi.mock('../../app/lib/repositories/x402.repository', async (importOriginal) => {
-  const actual = await importOriginal<Record<string, unknown>>();
-  return { ...actual, reconcileStalePurchases: mockReconcile };
-});
+// NULL-stamp rule), the create-path stamping, and the spend-predicate
+// exclusion of denied/expired rows.
 
 import {
   computeApprovalExpiry,
@@ -52,10 +42,6 @@ function makeSql(responses: Row[][] = []) {
   sql.calls = calls;
   return sql;
 }
-
-beforeEach(() => {
-  mockReconcile.mockClear();
-});
 
 describe('computeApprovalExpiry', () => {
   const NOW = 1_750_000_000_000;
@@ -128,36 +114,27 @@ describe('createActionRecord expiry stamping', () => {
   });
 });
 
-describe('expireOverdueApproval / sweepExpiredApprovals x402 ride-along', () => {
-  it('reconciles the paired purchase when the expired action is an x402 purchase', async () => {
-    const sql = makeSql([[{ action_id: 'act_x', status: 'expired', action_type: 'x402_purchase' }]]);
+describe('expireOverdueApproval / sweepExpiredApprovals', () => {
+  it('flips ONE overdue row to expired', async () => {
+    const sql = makeSql([[{ action_id: 'act_x', status: 'expired', action_type: 'deploy' }]]);
     const row = await expireOverdueApproval(sql, 'org1', 'act_x');
     expect(row?.status).toBe('expired');
-    expect(mockReconcile).toHaveBeenCalledWith(sql, 'org1', ['act_x'], 'expired', expect.stringContaining('Approval expired'));
   });
 
-  it('does not touch x402 for non-purchase actions', async () => {
-    const sql = makeSql([[{ action_id: 'act_d', status: 'expired', action_type: 'deploy' }]]);
-    await expireOverdueApproval(sql, 'org1', 'act_d');
-    expect(mockReconcile).not.toHaveBeenCalled();
-  });
-
-  it('returns null (and reconciles nothing) when the flip loses the race', async () => {
+  it('returns null when the flip loses the race', async () => {
     const sql = makeSql([[]]);
     const row = await expireOverdueApproval(sql, 'org1', 'act_r');
     expect(row).toBeNull();
-    expect(mockReconcile).not.toHaveBeenCalled();
   });
 
-  it('sweep flips overdue rows and reconciles only the x402 subset', async () => {
+  it('sweep flips every overdue row for the org', async () => {
     const sql = makeSql([[
       { action_id: 'act_1', agent_id: 'a', action_type: 'deploy' },
-      { action_id: 'act_2', agent_id: 'a', action_type: 'x402_purchase' },
+      { action_id: 'act_2', agent_id: 'a', action_type: 'api' },
     ]]);
     const swept = await sweepExpiredApprovals(sql, 'org1');
     expect(swept).toHaveLength(2);
     expect(sql.calls[0]!.text).toContain("status = 'pending_approval'");
-    expect(mockReconcile).toHaveBeenCalledWith(sql, 'org1', ['act_2'], 'expired', expect.any(String));
   });
 });
 

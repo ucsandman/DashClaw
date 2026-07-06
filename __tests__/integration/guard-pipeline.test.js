@@ -15,7 +15,6 @@ const {
   mockScanSensitiveData,
   mockScanForPromptInjection,
   mockIsEmbeddingsEnabled,
-  mockGetLearningContext,
   mockDeliverGuardWebhook,
   mockCheckSemantic,
 } = vi.hoisted(() => ({
@@ -23,7 +22,6 @@ const {
   mockScanSensitiveData: vi.fn((text) => ({ findings: [], redacted: text, clean: true })),
   mockScanForPromptInjection: vi.fn(() => ({ clean: true, recommendation: 'allow', matches: [], categories: [] })),
   mockIsEmbeddingsEnabled: vi.fn(() => false),
-  mockGetLearningContext: vi.fn(() => null),
   mockDeliverGuardWebhook: vi.fn(),
   mockCheckSemantic: vi.fn(),
 }));
@@ -35,7 +33,6 @@ vi.mock('@/lib/events.js', () => ({
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }));
 vi.mock('@/lib/promptInjection.js', () => ({ scanForPromptInjection: mockScanForPromptInjection }));
 vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: vi.fn() }));
-vi.mock('@/lib/learning-context.js', () => ({ getLearningContext: mockGetLearningContext }));
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
 
@@ -353,35 +350,7 @@ describe('guard pipeline integration', () => {
     expect(result.reasons).toHaveLength(0);
   });
 
-  // 8. recovery recipe in response
-  it('recovery recipe in response for green_contract block', async () => {
-    const sql = createMockSql({
-      policies: [
-        makePolicy('gp_test_8', 'green_contract', {
-          action_types: ['deploy'],
-          required_level: 'workspace',
-        }),
-      ],
-    });
-
-    const context = {
-      action_type: 'deploy',
-      agent_id: 'agent_1',
-      intel: { green: { observed_level: 'targeted' } },
-    };
-
-    const result = await evaluateGuard('org_1', context, sql);
-
-    expect(result.decision).toBe('block');
-    expect(result.recovery).toBeDefined();
-    expect(result.recovery.signal).toBe('green_insufficient');
-    expect(result.recovery.suggestion).toEqual(expect.stringContaining('workspace'));
-    expect(result.recovery.steps).toEqual(
-      expect.arrayContaining([expect.objectContaining({ action: 'suggest_test_run' })]),
-    );
-  });
-
-  // 9. multiple policies compose — highest severity wins
+  // 8. multiple policies compose — highest severity wins
   it('multiple policies compose: highest severity wins', async () => {
     const sql = createMockSql({
       policies: [

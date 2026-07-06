@@ -13,7 +13,6 @@ import { scanSensitiveData, redactAny } from '../../lib/security';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/repositories/guard.repository';
 import { createActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
-import { upsertAgentPresence } from '../../lib/repositories/agents.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
 import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
@@ -111,24 +110,16 @@ async function recordRunningAction(
     createdBy,
   });
 
-  // Same post-response side effects as POST /api/actions (event for Mission
-  // Control, meters, implicit presence heartbeat). after() — not a bare
-  // fire-and-forget promise — because on Vercel the function can freeze the
-  // moment the response returns, dropping the meter increment (a quota/billing
-  // undercount that never self-heals).
+  // Same post-response side effects as POST /api/actions (event for the live
+  // decision stream, meters). after() — not a bare fire-and-forget promise —
+  // because on Vercel the function can freeze the moment the response returns,
+  // dropping the meter increment (a quota/billing undercount that never
+  // self-heals).
   after(() => {
     void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
     return Promise.all([
       incrementMeter(orgId, 'actions_per_month', sql),
       incrementTrialActionCount(sql, orgId).catch((err: unknown) => console.warn('[GUARD] trial action count increment failed:', err instanceof Error ? err.message : String(err))),
-      upsertAgentPresence(sql, orgId, {
-        agent_id: data.agent_id as string,
-        agent_name: data.agent_name || null,
-        status: 'online',
-        current_task_id: action_id,
-        metadata: null,
-        timestamp: new Date().toISOString(),
-      }).catch((err: unknown) => console.warn('[GUARD] agent presence upsert failed:', err instanceof Error ? err.message : String(err))),
     ]).catch((err: unknown) => {
       console.warn('[Guard] record=true background updates failed:', (err as Error).message);
     });

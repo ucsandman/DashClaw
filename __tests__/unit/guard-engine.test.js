@@ -230,46 +230,6 @@ describe('evaluateGuard', () => {
     expect(countQuery.text).not.toContain('FROM action_records');
   });
 
-  // --- semantic_check ---
-
-  it('blocks on semantic check violation', async () => {
-    mockCheckSemantic.mockResolvedValue({ allowed: false, reason: 'Violates safety policy' });
-    const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check safety' })]);
-    const result = await evaluateGuard('org_1', { action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('block');
-    expect(result.reasons[0]).toContain('Semantic Violation');
-  });
-
-  it('allows on semantic check pass', async () => {
-    mockCheckSemantic.mockResolvedValue({ allowed: true, reason: 'OK' });
-    const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check safety' })]);
-    const result = await evaluateGuard('org_1', { action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('allow');
-  });
-
-  it('falls back to require_approval when semantic check fails (default fail-closed)', async () => {
-    mockCheckSemantic.mockResolvedValue(null);
-    const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check' })]);
-    const result = await evaluateGuard('org_1', { action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('require_approval');
-  });
-
-  it('falls back to block when semantic check fails and fallback=block', async () => {
-    mockCheckSemantic.mockResolvedValue(null);
-    const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check', fallback: 'block' })]);
-    const result = await evaluateGuard('org_1', { action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('block');
-  });
-
-  // --- behavioral_anomaly ---
-
-  it('skips behavioral_anomaly when embeddings disabled', async () => {
-    mockIsEmbeddingsEnabled.mockReturnValue(false);
-    const sql = makeSql([makePolicy('behavioral_anomaly', { similarity_threshold: 0.75 })]);
-    const result = await evaluateGuard('org_1', { agent_id: 'a1', action_type: 'deploy' }, sql);
-    expect(result.decision).toBe('allow');
-  });
-
   // --- webhook_check ---
 
   it('escalates decision on webhook response', async () => {

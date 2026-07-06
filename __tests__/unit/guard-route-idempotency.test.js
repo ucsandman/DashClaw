@@ -47,7 +47,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: mockCreateActionRecord,
   getActionByIdempotencyKey: mockGetActionByKey,
 }));
-vi.mock('@/lib/repositories/agents.repository.js', () => ({ upsertAgentPresence: vi.fn(async () => undefined) }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
 vi.mock('@/lib/usage.js', () => ({
   checkQuotaFast: vi.fn(async () => ({ allowed: true })),

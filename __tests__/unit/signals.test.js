@@ -75,7 +75,7 @@ describe('computeSignals', () => {
       [{ agent_id: 'a1', agent_name: 'Bot', action_count: '150', last_seen: t }],
       [{ action_id: 'act_1', agent_id: 'a1', agent_name: 'Bot', declared_goal: 'X', risk_score: '95', action_type: 'd', timestamp_start: t }],
       [{ agent_id: 'a2', agent_name: 'Bot', failure_count: '4', last_seen: t }],
-      [], [{ agent_id: 'a3', agent_name: 'Bot', invalidation_count: '3', last_seen: t }], [], [],
+      [{ agent_id: 'a3', agent_name: 'Bot', invalidation_count: '3', last_seen: t }],
     ]);
     const signals = await computeSignals('org_1', null, sql);
     const byType = Object.fromEntries(signals.map((s) => [s.type, s]));
@@ -116,22 +116,10 @@ describe('computeSignals', () => {
     expect(signals[0].severity).toBe('red');
   });
 
-  it('detects stale_loop', async () => {
-    const sql = createSignalSqlMock([
-      [], [], [],
-      [{ loop_id: 'l1', description: 'Wait for approval', priority: 'high', loop_type: 'approval', created_at: new Date(Date.now() - 60 * 60 * 1000 * 60).toISOString(), agent_id: 'a1', agent_name: 'Bot', declared_goal: 'Deploy' }],
-      [], [], [],
-    ]);
-    const signals = await computeSignals('org_1', null, sql);
-    expect(signals[0].type).toBe('stale_loop');
-    expect(signals[0].severity).toBe('amber');
-  });
-
   it('detects assumption_drift', async () => {
     const sql = createSignalSqlMock([
-      [], [], [], [],
+      [], [], [],
       [{ agent_id: 'a1', agent_name: 'Bot', invalidation_count: '3' }],
-      [], [],
     ]);
     const signals = await computeSignals('org_1', null, sql);
     expect(signals[0].type).toBe('assumption_drift');
@@ -140,9 +128,8 @@ describe('computeSignals', () => {
 
   it('detects assumption_drift red for >= 4 invalidations', async () => {
     const sql = createSignalSqlMock([
-      [], [], [], [],
+      [], [], [],
       [{ agent_id: 'a1', agent_name: 'Bot', invalidation_count: '5' }],
-      [], [],
     ]);
     const signals = await computeSignals('org_1', null, sql);
     expect(signals[0].severity).toBe('red');
@@ -174,9 +161,8 @@ describe('computeSignals', () => {
 
   it('detects stale_assumption', async () => {
     const sql = createSignalSqlMock([
-      [], [], [], [], [],
+      [], [], [], [],
       [{ assumption_id: 'asm_1', assumption: 'API is stable', created_at: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000).toISOString(), action_id: 'act_1', agent_id: 'a1', agent_name: 'Bot' }],
-      [],
     ]);
     const signals = await computeSignals('org_1', null, sql);
     expect(signals[0].type).toBe('stale_assumption');
@@ -185,7 +171,7 @@ describe('computeSignals', () => {
 
   it('detects stale_running_action', async () => {
     const sql = createSignalSqlMock([
-      [], [], [], [], [], [],
+      [], [], [], [], [],
       [{ action_id: 'act_1', agent_id: 'a1', agent_name: 'Bot', declared_goal: 'Long task', timestamp_start: new Date(Date.now() - 10 * 60 * 60 * 1000).toISOString(), risk_score: '50' }],
     ]);
     const signals = await computeSignals('org_1', null, sql);
@@ -194,12 +180,12 @@ describe('computeSignals', () => {
   });
 
   it('detects agent_silent: amber when idle, red while holding a task', async () => {
-    // stalePresence is the 8th Promise.all query (index 7). The SQL now bounds
+    // stalePresence is now the 7th Promise.all query (index 6). The SQL bounds
     // silence to a recent 10m..48h window so weeks-dead agents stop firing; this
     // covers the JS mapping (severity + detected_at) for rows the query returns.
     const t = new Date(Date.now() - 30 * 60 * 1000).toISOString();
     const sql = createSignalSqlMock([
-      [], [], [], [], [], [], [],
+      [], [], [], [], [], [],
       [
         { agent_id: 'a1', agent_name: 'Idle', last_heartbeat_at: t, current_task_id: null, status: 'online' },
         { agent_id: 'a2', agent_name: 'Busy', last_heartbeat_at: t, current_task_id: 'act_x', status: 'online' },

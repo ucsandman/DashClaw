@@ -5,9 +5,7 @@
 
 import { baseAgentId } from '../agent-identity-resolve';
 import { deliverGuardWebhook } from '../webhooks';
-import { checkSemanticGuardrail } from '../llm';
-import { generateActionEmbedding, isEmbeddingsEnabled } from '../embeddings';
-import { matchesProtectedPath } from '../behavior/path-match';
+import { matchesProtectedPath } from './protected-path';
 import { grantMatches, targetPrefixMatches } from '../policy-shapes';
 import { verify } from '../integrity/verify';
 import type { SourceOfTruth } from '../integrity/verify';
@@ -196,111 +194,6 @@ async function evaluateNonFabricationPolicy({ policy, rules, context, sql }: Pol
     return nonFabFailClosed(ctx, sourceValid);
   }
   return nonFabVerifiedResult(ctx, onViolation);
-}
-
-// ── behavioral_anomaly evaluation (decomposed) ──
-
-async function countAgentEmbeddings(sql: GuardSql, orgId: string, agentId: string): Promise<number | null> {
-  try {
-    const countRows = await sql`
-      SELECT COUNT(*)::int AS count
-      FROM action_embeddings
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-    `;
-    return (countRows[0]?.count as number | undefined) ?? 0;
-  } catch (err) {
-    const msg = (err as Error)?.message;
-    if (msg?.includes('does not exist') || msg?.includes('vector')) {
-      console.warn('[Guard] action_embeddings missing or pgvector unavailable. Skipping anomaly detection.');
-      return null;
-    }
-    throw err;
-  }
-}
-
-async function maxEmbeddingSimilarity(sql: GuardSql, embedding: unknown, orgId: string, agentId: string): Promise<number | null> {
-  const similarityQuery = `
-    SELECT 1 - (embedding <=> $1::vector) as similarity
-    FROM action_embeddings
-    WHERE org_id = $2 AND agent_id = $3
-    ORDER BY similarity DESC
-    LIMIT 1
-  `;
-  try {
-    const rows = await sql.query(similarityQuery, [JSON.stringify(embedding), orgId, agentId]);
-    if (rows.length === 0) return null;
-    return Number(rows[0]?.similarity);
-  } catch (err) {
-    const msg = (err as Error).message;
-    if (msg?.includes('vector') || msg?.includes('does not exist')) {
-      console.warn('[Guard] pgvector not enabled or table missing. Skipping anomaly detection.');
-      return null;
-    }
-    throw err;
-  }
-}
-
-async function hasEnoughEmbeddingHistory(sql: GuardSql, orgId: string, agentId: string, minHistory: number): Promise<boolean> {
-  const historyCount = await countAgentEmbeddings(sql, orgId, agentId);
-  return historyCount !== null && historyCount >= minHistory;
-}
-
-async function evaluateBehavioralAnomalyPolicy({ rules, context, sql, orgId }: PolicyEvalArgs): Promise<PolicyResult | null> {
-  if (!isEmbeddingsEnabled()) {
-    console.warn('[Guard] behavioral_anomaly policy skipped: No OpenAI API Key configured.');
-    return null;
-  }
-  const threshold = rules.similarity_threshold ?? 0.75;
-  const agentId = context.agent_id;
-  if (!agentId) return null;
-  if (!(await hasEnoughEmbeddingHistory(sql, orgId, agentId, rules.min_history ?? 5))) return null;
-
-  // GuardEvalContext's loosely-typed fields (systems_touched: unknown) are read
-  // defensively inside generateActionEmbedding; runtime shape is compatible.
-  const embedding = await generateActionEmbedding(context as Parameters<typeof generateActionEmbedding>[0]);
-  if (!embedding) return null;
-
-  const maxSimilarity = await maxEmbeddingSimilarity(sql, embedding, orgId, agentId);
-  if (maxSimilarity !== null && maxSimilarity < threshold) {
-    return {
-      action: rules.action || 'require_approval',
-      reason: `Behavioral Anomaly: Action similarity (${(maxSimilarity * 100).toFixed(1)}%) is below the safety threshold (${(threshold * 100).toFixed(0)}%).`,
-    };
-  }
-  return null;
-}
-
-// ── semantic_check evaluation ──
-
-// Result when the semantic check itself could not run (LLM returned nothing).
-function semanticFallbackResult(fallback: string): PolicyResult | null {
-  if (fallback === 'block') return { action: 'block', reason: 'Semantic check failed (fallback: block)' };
-  if (fallback === 'require_approval') return { action: 'require_approval', reason: 'Semantic check failed (fallback: require_approval)' };
-  return null; // fallback === 'allow' — pass-through
-}
-
-const hasGuardLlmKey = (): boolean => !!(process.env.GUARD_LLM_KEY || process.env.OPENAI_API_KEY);
-
-async function evaluateSemanticCheckPolicy({ context, rules }: PolicyEvalArgs): Promise<PolicyResult | null> {
-  const instruction = rules.instruction;
-  if (!instruction) return null;
-
-  // Degradation contract: per-policy fallback → DASHCLAW_GUARD_FALLBACK →
-  // fail-closed default (require_approval). 'allow' is the explicit escape hatch.
-  const fallback = resolveDegradedAction(rules.fallback);
-  const model = rules.model || 'gpt-4o-mini';
-
-  if (!hasGuardLlmKey()) {
-    console.warn('[Guard] semantic_check policy skipped: No GUARD_LLM_KEY or OPENAI_API_KEY configured. Requiring approval as safe fallback.');
-    return { action: 'require_approval', reason: 'Semantic check unavailable (no LLM key configured) — human review required' };
-  }
-
-  // checkSemanticGuardrail returns the parsed LLM JSON ({ allowed, reason }) or null.
-  const result = (await checkSemanticGuardrail(context, instruction, model)) as { allowed?: boolean; reason?: string } | null;
-
-  if (!result) return semanticFallbackResult(fallback);
-  if (result.allowed === false) return { action: 'block', reason: `Semantic Violation: ${result.reason}` };
-  return null;
 }
 
 // ── permission_escalation evaluation ──
@@ -526,8 +419,6 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   // Handled separately after the local policy loop.
   webhook_check: () => null,
   non_fabrication: evaluateNonFabricationPolicy,
-  behavioral_anomaly: evaluateBehavioralAnomalyPolicy,
-  semantic_check: evaluateSemanticCheckPolicy,
   permission_escalation: evaluatePermissionEscalationPolicy,
   green_contract: ({ rules, context }) => {
     const actionTypes = rules.action_types || [];

@@ -129,41 +129,6 @@ describe('guard degradation contract', () => {
     });
   });
 
-  describe('semantic degradation', () => {
-    it('LLM call failure defaults to require_approval (fail-closed default)', async () => {
-      process.env.GUARD_LLM_KEY = 'mock-key';
-      mockCheckSemantic.mockResolvedValue(null);
-      const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check' })]);
-      const result = await evaluateGuard('org_sd1', { action_type: 'deploy' }, sql);
-      expect(result.decision).toBe('require_approval');
-      expect(result.reason).toContain('fallback: require_approval');
-    });
-
-    it('DASHCLAW_GUARD_FALLBACK=allow restores fail-open for semantic degradation', async () => {
-      process.env.GUARD_LLM_KEY = 'mock-key';
-      process.env.DASHCLAW_GUARD_FALLBACK = 'allow';
-      mockCheckSemantic.mockResolvedValue(null);
-      const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check' })]);
-      const result = await evaluateGuard('org_sd2', { action_type: 'deploy' }, sql);
-      expect(result.decision).toBe('allow');
-    });
-
-    it('missing-LLM-key behavior is unchanged (require_approval with the no-key reason)', async () => {
-      // No GUARD_LLM_KEY / OPENAI_API_KEY in env (cleared in beforeEach).
-      const savedOpenAi = process.env.OPENAI_API_KEY;
-      delete process.env.OPENAI_API_KEY;
-      try {
-        const sql = makeSql([makePolicy('semantic_check', { instruction: 'Check' })]);
-        const result = await evaluateGuard('org_sd3', { action_type: 'deploy' }, sql);
-        expect(result.decision).toBe('require_approval');
-        expect(result.reason).toContain('no LLM key configured');
-        expect(mockCheckSemantic).not.toHaveBeenCalled();
-      } finally {
-        if (savedOpenAi !== undefined) process.env.OPENAI_API_KEY = savedOpenAi;
-      }
-    });
-  });
-
   describe('evaluation deadline', () => {
     it('returns a persisted degraded require_approval when a phase overruns the deadline', async () => {
       process.env.DASHCLAW_GUARD_DEADLINE_MS = '50';

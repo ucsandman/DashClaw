@@ -2,7 +2,6 @@ import { OUTCOME_FIELDS } from '../validate.js';
 import { computeActContentHash } from '../act-content-hash';
 import { buildAgentDefense, type AgentDefense } from '../agent-defense';
 import { getGuardDecisionById } from './guardrails.repository';
-import { reconcileStalePurchases } from './x402.repository';
 
 type Row = Record<string, unknown>;
 
@@ -57,23 +56,10 @@ export function isApprovalOverdue(
   return Number.isFinite(created) ? created < nowMs - LEGACY_APPROVAL_TTL_HOURS * 3_600_000 : false;
 }
 
-// x402 lifecycle ride-along: an expired x402 approval must release its
-// reserved budget (the spend predicates count pending purchase rows).
-// Best-effort — an expiry must never fail because the purchase flip did.
-async function reconcileExpiredX402(sql: SqlClient, orgId: string, expiredRows: Row[]): Promise<void> {
-  const x402Ids = expiredRows
-    .filter((r) => r.action_type === 'x402_purchase')
-    .map((r) => String(r.action_id));
-  if (!x402Ids.length) return;
-  await reconcileStalePurchases(sql, orgId, x402Ids, 'expired', APPROVAL_EXPIRED_ERROR)
-    .catch((err: unknown) => console.error('[approvals] x402 expiry reconcile failed:', (err as Error)?.message));
-}
-
 /**
  * Flip ONE overdue pending_approval row to expired. The WHERE clause re-checks
  * both the status and the overdue condition, so a concurrent approve/deny (or
- * a not-actually-overdue caller) safely returns null. Paired x402 purchase
- * rows are reconciled to 'expired' in the same call.
+ * a not-actually-overdue caller) safely returns null.
  */
 export async function expireOverdueApproval(sql: SqlClient, orgId: string, actionId: string): Promise<Row | null> {
   const rows = await sql`
@@ -88,9 +74,7 @@ export async function expireOverdueApproval(sql: SqlClient, orgId: string, actio
            OR (approval_expires_at IS NULL AND created_at < NOW() - make_interval(hours => ${LEGACY_APPROVAL_TTL_HOURS})))
     RETURNING *
   `;
-  const expired = rows[0] || null;
-  if (expired) await reconcileExpiredX402(sql, orgId, [expired]);
-  return expired;
+  return rows[0] || null;
 }
 
 /**
@@ -98,8 +82,7 @@ export async function expireOverdueApproval(sql: SqlClient, orgId: string, actio
  * Runs opportunistically where operators look at the queue (the
  * status=pending_approval list, the bulk-approval route) — no cron on the
  * free tier. The partial index idx_action_records_pending_expiry keeps this
- * a candidates-only scan. Paired x402 purchase rows are reconciled to
- * 'expired' in the same call.
+ * a candidates-only scan.
  */
 export async function sweepExpiredApprovals(sql: SqlClient, orgId: string, limit = 200): Promise<Row[]> {
   const cap = Math.min(Math.max(1, limit), 500);
@@ -120,7 +103,6 @@ export async function sweepExpiredApprovals(sql: SqlClient, orgId: string, limit
       AND status = 'pending_approval'
     RETURNING action_id, agent_id, action_type
   `;
-  if (rows.length > 0) await reconcileExpiredX402(sql, orgId, rows);
   return rows;
 }
 
@@ -920,7 +902,6 @@ export async function insertActionEmbedding(
 
 interface ActionWithRelations {
   action: Row;
-  open_loops: Row[];
   assumptions: Row[];
   message_summary: {
     total: number;
@@ -945,9 +926,8 @@ export async function getActionWithRelations(
   orgId: string,
   actionId: string,
 ): Promise<ActionWithRelations | null> {
-  const [actions, loops, assumptions, msgSummaryRows] = await Promise.all([
+  const [actions, assumptions, msgSummaryRows] = await Promise.all([
     sql`SELECT * FROM action_records WHERE action_id = ${actionId} AND org_id = ${orgId}`,
-    sql`SELECT * FROM open_loops WHERE action_id = ${actionId} AND org_id = ${orgId} ORDER BY created_at DESC`,
     sql`SELECT * FROM assumptions WHERE action_id = ${actionId} AND org_id = ${orgId} ORDER BY created_at DESC`,
     sql`SELECT COUNT(*)::int AS total,
         COALESCE(STRING_AGG(DISTINCT from_agent_id, ',') || CASE WHEN STRING_AGG(DISTINCT to_agent_id, ',') IS NOT NULL THEN ',' || STRING_AGG(DISTINCT to_agent_id, ',') ELSE '' END, '') AS participants,
@@ -974,7 +954,6 @@ export async function getActionWithRelations(
 
   return {
     action,
-    open_loops: loops,
     assumptions,
     guard_decision: guardDecision
       ? (() => {

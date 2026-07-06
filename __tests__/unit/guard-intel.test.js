@@ -283,24 +283,6 @@ describe('guard intel-aware policy types', () => {
       expect(result.decision).toBe('allow');
     });
 
-    it('return shape includes recovery when decision is not allow', async () => {
-      const sql = createSqlMock({
-        taggedResponses: [
-          [makePolicy('green_contract', { action_types: ['deploy'], required_level: 'workspace' })],
-        ],
-      });
-      const context = {
-        action_type: 'deploy',
-        agent_id: 'agent_1',
-        intel: { green: { observed_level: 'targeted' } },
-      };
-      const result = await evaluateGuard('org_1', context, sql);
-      expect(result.decision).toBe('block');
-      // Recovery wiring: green_insufficient signal should produce a recipe
-      expect(result.recovery).toBeDefined();
-      expect(result.recovery.signal).toBe('green_insufficient');
-    });
-
     it('return shape omits recovery when decision is allow', async () => {
       const sql = createSqlMock({
         taggedResponses: [[]],
@@ -309,25 +291,6 @@ describe('guard intel-aware policy types', () => {
       const result = await evaluateGuard('org_1', context, sql);
       expect(result.decision).toBe('allow');
       expect(result.recovery).toBeUndefined();
-    });
-
-    it('includes branch_stale recovery when branch is stale and decision is not allow', async () => {
-      const sql = createSqlMock({
-        taggedResponses: [
-          [makePolicy('branch_freshness', { action_types: ['deploy'], max_commits_behind: 0 })],
-        ],
-      });
-      const context = {
-        action_type: 'deploy',
-        agent_id: 'agent_1',
-        intel: {
-          branch: { name: 'feat/old', freshness: 'stale', commits_behind: 5 },
-        },
-      };
-      const result = await evaluateGuard('org_1', context, sql);
-      expect(result.decision).toBe('block');
-      expect(result.recovery).toBeDefined();
-      expect(result.recovery.signal).toBe('branch_stale');
     });
   });
 });
