@@ -12,6 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — the fresh-machine test: a Windows Sandbox run catches a first-run killer
+
+Show HN prep produced a genuinely fresh test environment for the first time:
+a Windows Sandbox harness (disposable, factory-clean Windows 11, nothing
+preinstalled) driving `npx dashclaw up` exactly as a stranger would. It
+failed immediately — and not in a way any of our dev machines could have
+shown. Embedded Postgres died with `code: 3221225781` and empty stderr.
+That code is `0xC0000135` STATUS_DLL_NOT_FOUND: the Postgres binaries need
+the Microsoft Visual C++ runtime, which fresh Windows installs don't ship
+and every developer machine silently has. The third pre-launch sweep in a
+row to find the flagship install path broken, and the strongest argument
+yet that "works locally" proves nothing about first-run.
+
+The fix (shipped inside v4.73.0's commit, alongside the other session's
+work): the CLI now preflights the VC++ runtime DLLs on Windows before
+attempting embedded Postgres, and maps the raw exit code to remediation
+(vc_redist link, winget command, `--db docker` / `--db url`) if it still
+occurs — six new tests pin both paths. A second outsider-facing fix rode
+along: the living-merge `prepare` hook now exits silently on release
+tarballs instead of telling end users to run an internal contributor
+script. The CLI fix reaches users as `@dashclaw/cli` 0.7.3 (the `dashclaw`
+npm shim delegates to it, so old wrappers pick it up too); the tarball fix
+reaches them through the v4.73.0 GitHub release that `dashclaw up`
+resolves.
+
+Two process notes, honestly recorded. First: this session's three files
+were swept into v4.73.0 by a concurrently running maintainer session doing
+its own ship — no harm (the files were gate-green), but the changelog
+initially omitted them; this entry and the amended v4.73.0 changelog
+restore the record. Second: while cleaning up, the maintainer's own
+`rm -rf` was blocked by DashClaw's pretool hook at risk 100 — the
+governance layer interrupting its own maintainer mid-session, which is
+precisely the product working.
+
 ## 2026-07-06 — v4.73.0: pay the toll faster, and never lie about the toll
 
 Governance that adds latency gets bypassed — quietly, one `observe` flag at a

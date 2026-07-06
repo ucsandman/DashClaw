@@ -68,6 +68,19 @@ client surface (SDKs, hooks, MCP server, CLI, doctor).
 - Silent-failure sweep across the pretool/posttool/stop hooks, CLI local
   doctor, doctor checks, and repositories: swallowed exceptions now surface as
   loud, classified errors with actionable messages.
+- **`npx dashclaw up` embedded Postgres died on fresh Windows machines with a
+  bare `code: 3221225781` and empty stderr** (found by a Windows Sandbox
+  fresh-machine test). That code is `0xC0000135` STATUS_DLL_NOT_FOUND: the
+  embedded Postgres binaries need the Microsoft Visual C++ runtime, which
+  fresh Windows installs don't ship. The CLI now preflights the runtime DLLs
+  before the embedded attempt and maps the exit code if it still slips
+  through, both with an actionable fix (vc_redist download link, winget
+  command, or `--db docker` / `--db url`). Reaches users as `@dashclaw/cli`
+  0.7.3.
+- **Release-tarball installs no longer print contributor-tooling noise**: the
+  living-merge npm `prepare` hook exits silently when there is no `.git`
+  (i.e. every `dashclaw up` install), instead of telling end users to run an
+  internal `install.ts` script.
 
 ### Added
 - **Enforcement-posture attribution**: the pretool hook reports
