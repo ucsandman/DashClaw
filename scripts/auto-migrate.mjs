@@ -27,6 +27,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
+import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
 import './_load-env.mjs';
@@ -96,10 +97,11 @@ log(`Found ${migrationFiles.length} migration file(s): ${migrationFiles.join(', 
 const statements = [];
 for (const filename of migrationFiles) {
   const content = readFileSync(resolve(migrationsDir, filename), 'utf8');
-  const fileStatements = content
-    .split('--> statement-breakpoint')
-    .map((s) => s.trim())
-    .filter(Boolean);
+  // splitSqlStatements also strips full-line comments — REQUIRED, not
+  // cosmetic: comment text is converted to the database encoding server-side,
+  // and non-ASCII comment characters hard-fail on non-UTF8 databases (22P05
+  // on WIN1252, the fresh-Windows embedded default), killing the whole chain.
+  const fileStatements = splitSqlStatements(content);
   log(`  ${filename}: ${fileStatements.length} statements`);
   for (const stmt of fileStatements) statements.push(stmt);
 }

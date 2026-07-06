@@ -13,7 +13,7 @@
 UPDATE action_records
 SET outcome_status  = 'lost_confirmation',
     outcome_at      = NOW(),
-    outcome_summary = COALESCE(outcome_summary, 'Backfilled — orphan past 24h retention window'),
+    outcome_summary = COALESCE(outcome_summary, 'Backfilled - orphan past 24h retention window'),
     updated_at      = CURRENT_TIMESTAMP
 WHERE outcome_status = 'pending'
   AND status = 'running'

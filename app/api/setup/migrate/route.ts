@@ -11,6 +11,7 @@ import {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
   ACTION_RECORDS_RUNTIME_INDEX_DEFINITIONS,
 } from '../../../lib/setup/action-records-runtime-schema.mjs';
+import { splitSqlStatements } from '../../../lib/setup/sql-statements.mjs';
 
 export {
   ACTION_RECORDS_RUNTIME_COLUMN_DEFINITIONS,
@@ -79,10 +80,9 @@ export async function POST(request: Request) {
       ddl = CRITICAL_TABLES_DDL;
     }
 
-    const statements = ddl
-      .split('--> statement-breakpoint')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // Strips full-line comments too — non-ASCII comment characters hard-fail
+    // statement encoding conversion on non-UTF8 databases (see sql-statements.mjs).
+    const statements = splitSqlStatements(ddl);
 
     // Postgres error codes safe to skip on re-run
     const SAFE_CODES = new Set([

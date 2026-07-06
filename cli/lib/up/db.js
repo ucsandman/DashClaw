@@ -17,11 +17,19 @@
 // on resume so a working install never silently moves.
 
 import { join } from 'node:path';
-import { existsSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { existsSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync, spawnSync } from 'node:child_process';
 
 // Keep this in sync with the "embedded-postgres" version in cli/package.json.
 const EMBEDDED_PG_VERSION = 'embedded-postgres@18.4.0-beta.17';
+
+// Force a UTF-8 cluster regardless of host locale. Without this, initdb on
+// Windows inherits the OS locale (e.g. English_United States.1252) and
+// creates a WIN1252-encoded database — DashClaw's migration SQL is UTF-8 and
+// statements containing characters with no WIN1252 equivalent hard-fail with
+// 22P05, leaving a partial schema (observed live in Windows Sandbox).
+const INITDB_FLAGS = ['--encoding=UTF8', '--no-locale'];
 
 // Windows exit status 0xC0000135 (STATUS_DLL_NOT_FOUND). The embedded
 // Postgres binaries link against the Microsoft Visual C++ runtime, which a
@@ -29,10 +37,62 @@ const EMBEDDED_PG_VERSION = 'embedded-postgres@18.4.0-beta.17';
 // exec with this code and EMPTY stderr, which reads as pure noise to a
 // first-run user.
 const STATUS_DLL_NOT_FOUND = '3221225781';
+const VC_REDIST_URL = 'https://aka.ms/vs/17/release/vc_redist.x64.exe';
 const VC_REDIST_HINT =
   'Embedded Postgres needs the Microsoft Visual C++ runtime, which this Windows machine does not have. '
-  + 'Install it once from https://aka.ms/vs/17/release/vc_redist.x64.exe (or `winget install Microsoft.VCRedist.2015+.x64`), '
+  + `Install it once from ${VC_REDIST_URL} (or \`winget install Microsoft.VCRedist.2015+.x64\`), `
   + 'then re-run `npx dashclaw up`. Alternatively retry with --db docker or --db url.';
+
+// Redistributable installer exit codes that mean the runtime is (or already
+// was) in place: 0 = installed, 1638 = a newer version is already installed,
+// 3010 = installed, reboot pending (the DLLs are on disk and loadable now).
+const VC_REDIST_OK_EXIT_CODES = new Set([0, 1638, 3010]);
+
+/**
+ * Downloads and silently installs the Microsoft Visual C++ redistributable so
+ * `npx dashclaw up` stays one command on a fresh Windows machine. Elevation
+ * goes through `Start-Process -Verb RunAs`: an already-elevated shell runs it
+ * directly, a standard shell surfaces the Windows UAC consent dialog — that
+ * dialog IS the user's approval for the system-wide install. Throws (with the
+ * manual remediation appended) when the download or install fails; the caller
+ * re-checks the DLLs afterwards as the authoritative success signal.
+ */
+export async function installVcRedist({
+  logger = console,
+  fetchFn = fetch,
+  spawn = spawnSync,
+  downloadDir = tmpdir(),
+} = {}) {
+  logger.error(
+    '[..] Embedded Postgres needs the Microsoft Visual C++ runtime — installing it now '
+    + '(one-time, ~25 MB from microsoft.com; Windows may show an admin consent prompt) ...',
+  );
+  const exePath = join(downloadDir, 'dashclaw-vc_redist.x64.exe');
+  let res;
+  try {
+    res = await fetchFn(VC_REDIST_URL);
+  } catch (e) {
+    throw new Error(`VC++ runtime download failed (${e.message}). ${VC_REDIST_HINT}`);
+  }
+  if (!res.ok) {
+    throw new Error(`VC++ runtime download failed (HTTP ${res.status}). ${VC_REDIST_HINT}`);
+  }
+  writeFileSync(exePath, Buffer.from(await res.arrayBuffer()));
+  const psPath = exePath.replace(/'/g, "''");
+  const script =
+    `$p = Start-Process -FilePath '${psPath}' -ArgumentList '/install','/quiet','/norestart' -Verb RunAs -Wait -PassThru; `
+    + 'exit $p.ExitCode';
+  const run = spawn('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script], { stdio: 'ignore' });
+  if (run.error) {
+    throw new Error(`VC++ runtime install could not start (${run.error.message}). ${VC_REDIST_HINT}`);
+  }
+  if (!VC_REDIST_OK_EXIT_CODES.has(run.status)) {
+    throw new Error(
+      `VC++ runtime installer exited with code ${run.status} (declined admin prompt, or install failure). ${VC_REDIST_HINT}`,
+    );
+  }
+  logger.error('[ok] Microsoft Visual C++ runtime installed.');
+}
 
 /**
  * True on Windows machines missing the VC++ runtime DLLs the embedded
@@ -51,8 +111,15 @@ export function missingVcRuntime({ platform = process.platform, exists = existsS
  * the preflight passed (a different DLL may be the missing one).
  */
 export function embeddedFailureMessage(err) {
-  const base = `Embedded Postgres (${EMBEDDED_PG_VERSION}) failed: ${err.message}`;
-  if (String(err.message).includes(STATUS_DLL_NOT_FOUND)) {
+  // embedded-postgres rejects with NO value when the postgres process exits
+  // before it is ready (its start() does `reject()` bare) — the real reason is
+  // in the log lines it already printed. Guard, or this helper itself crashes
+  // with "Cannot read properties of undefined" and eats the actual error
+  // (observed live in Windows Sandbox).
+  const detail = err?.message
+    ?? 'the Postgres process exited before it was ready — the reason is in the log lines above';
+  const base = `Embedded Postgres (${EMBEDDED_PG_VERSION}) failed: ${detail}`;
+  if (String(detail).includes(STATUS_DLL_NOT_FOUND)) {
     return `${base} — this exit code means a required system DLL is missing. ${VC_REDIST_HINT}`;
   }
   return `${base}. Retry with --db docker or --db url.`;
@@ -91,7 +158,7 @@ export function dockerAvailableSync() {
  * @param {Function}    [opts.promptFn] - async (message) => string
  * @returns {Promise<'docker'|'embedded'|'url'>}
  */
-export async function chooseDbMode({ flagDb, dockerAvailable, yes = false, promptFn }) {
+export async function chooseDbMode({ flagDb, dockerAvailable, yes = false, promptFn, logger = console }) {
   if (flagDb) return flagDb;
   if (yes) return dockerAvailable ? 'docker' : 'embedded';
 
@@ -104,7 +171,12 @@ export async function chooseDbMode({ flagDb, dockerAvailable, yes = false, promp
     '  3. I have a postgresql:// URL',
   ];
   const def = dockerAvailable ? '1' : '2';
-  const answer = (await promptFn(`${lines.join('\n')}\nChoice [${def}]: `)).trim() || def;
+  // The menu is printed OUTSIDE the readline prompt: on Windows, readline
+  // re-renders multi-line prompts on input events, so the whole menu was
+  // echoed twice (observed live in Windows Sandbox). Only the one-line
+  // "Choice" question goes through promptFn.
+  logger.error(lines.join('\n'));
+  const answer = (await promptFn(`Choice [${def}]: `)).trim() || def;
   return { 1: 'docker', 2: 'embedded', 3: 'url' }[answer] ?? (dockerAvailable ? 'docker' : 'embedded');
 }
 
@@ -284,7 +356,7 @@ async function dockerProvision({ preferredPort, ops, isFree, logger }) {
 export async function provisionDatabase({
   mode, baseDir, promptFn, savedDatabaseUrl,
   dockerOps = realDockerOps, isFree = isPortFree, waitForDbPort = waitForPort, logger = console,
-  checkVcRuntime = missingVcRuntime,
+  checkVcRuntime = missingVcRuntime, installVc = installVcRedist,
 }) {
   let preferredPort = DEFAULT_DB_PORT;
   if (savedDatabaseUrl) {
@@ -305,11 +377,24 @@ export async function provisionDatabase({
 
   // mode === 'embedded'
   if (checkVcRuntime()) {
-    throw new Error(VC_REDIST_HINT);
+    // Fresh Windows machines (and Windows Sandbox) don't ship the VC++
+    // runtime the Postgres binaries link against. Install it in-flow instead
+    // of failing with homework — `dashclaw up` promises ONE command.
+    await installVc({ logger });
+    if (checkVcRuntime()) {
+      throw new Error(`The VC++ runtime installer finished but the runtime DLLs are still missing. ${VC_REDIST_HINT}`);
+    }
+  }
+  const pgDir = join(baseDir, 'pg');
+  if (process.platform === 'win32') {
+    // postgres.exe hard-refuses an elevated (admin) token — the norm in
+    // Windows Sandbox and admin terminals. pg_ctl creates the restricted
+    // token PostgreSQL requires, so on Windows the server lifecycle goes
+    // through pg_ctl instead of embedded-postgres spawning postgres directly.
+    return provisionEmbeddedWindows({ baseDir, pgDir, preferredPort, isFree, logger });
   }
   const port = await pickDbPort({ preferred: preferredPort, isFree, logger });
   const { default: EmbeddedPostgres } = await import('embedded-postgres');
-  const pgDir = join(baseDir, 'pg');
   // Record whether the data dir existed BEFORE this run.
   // Only clean up on failure when WE created it (a pre-existing dir means
   // a working prior install whose data we must not delete).
@@ -323,9 +408,13 @@ export async function provisionDatabase({
     password: localDb.password,
     port,
     persistent: true,
+    initdbFlags: INITDB_FLAGS,
   });
   try {
-    await pg.initialise();
+    // initdb refuses a non-empty data dir, so only initialise a cluster that
+    // does not exist yet (PG_VERSION marks an initialised cluster) — without
+    // this, every resumed `up` with an embedded DB fails at re-init.
+    if (!clusterInitialised(pgDir)) await pg.initialise();
     await pg.start();
   } catch (e) {
     if (!dirPreExisted) {
@@ -336,6 +425,122 @@ export async function provisionDatabase({
   try { await pg.createDatabase('dashclaw'); } catch { /* already exists on resume — fine */ }
   logger.error(`[ok] Embedded Postgres running (port ${port}, data in ${pgDir})`);
   return { databaseUrl: localDbUrlFor(port), stop: () => pg.stop() };
+}
+
+/** True when pgDir already holds an initialised cluster (initdb completed). */
+export function clusterInitialised(pgDir, exists = existsSync) {
+  return exists(join(pgDir, 'PG_VERSION'));
+}
+
+/** Last lines of the pg_ctl server log, for actionable start-failure errors. */
+async function pgLogTail(logFile, lines = 12) {
+  try {
+    const { readFileSync } = await import('node:fs');
+    const content = readFileSync(logFile, 'utf8').trim().split(/\r?\n/);
+    return ` Server log (${logFile}):\n${content.slice(-lines).join('\n')}`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Windows lifecycle for the embedded cluster, via pg_ctl.
+ *
+ * Why not embedded-postgres's own start(): it spawns postgres.exe directly,
+ * and postgres.exe refuses to run under a token with admin privileges
+ * ("Execution of PostgreSQL by a user with administrative permissions is not
+ * permitted"). initdb self-restricts its token, pg_ctl restricts the token it
+ * starts postgres with — postgres itself does not. Routing start/stop through
+ * pg_ctl works from BOTH elevated and normal shells. Consequence: the server
+ * is detached from this process, so a previous `up` may have left it running —
+ * `pg_ctl status` first, and reuse it on its saved port.
+ *
+ * All effects are injectable for unit tests.
+ */
+export async function provisionEmbeddedWindows({
+  baseDir, pgDir, preferredPort, isFree = isPortFree, logger = console,
+  bins,                    // { pg_ctl } — default: @embedded-postgres/windows-x64
+  spawn = spawnSync,
+  initCluster,             // default: embedded-postgres initialise()
+  connectClient,           // default: pg Client — async (port) => { query, end }
+}) {
+  const localDb = new URL(LOCAL_DB_URL);
+  const pgCtl = bins?.pg_ctl ?? (await import('@embedded-postgres/windows-x64')).pg_ctl;
+  const logFile = join(baseDir, 'pg.log');
+
+  const running = spawn(pgCtl, ['-D', pgDir, 'status'], { stdio: 'ignore' }).status === 0;
+  let port = preferredPort;
+  if (running) {
+    // A detached server from a previous `up` is still serving — reuse it on
+    // the port it was started with (the saved databaseUrl's port). Probing
+    // for a free port here would wrongly route around our own server.
+    logger.error(`[ok] Embedded Postgres already running (port ${port}, data in ${pgDir})`);
+  } else {
+    port = await pickDbPort({ preferred: preferredPort, isFree, logger });
+    const dirPreExisted = existsSync(pgDir);
+    try {
+      if (!clusterInitialised(pgDir)) {
+        if (initCluster) {
+          await initCluster({ pgDir, user: localDb.username, password: localDb.password });
+        } else {
+          const { default: EmbeddedPostgres } = await import('embedded-postgres');
+          await new EmbeddedPostgres({
+            databaseDir: pgDir,
+            user: localDb.username,
+            password: localDb.password,
+            port,
+            persistent: true,
+            initdbFlags: INITDB_FLAGS,
+          }).initialise();
+        }
+      }
+      const res = spawn(
+        pgCtl,
+        ['-D', pgDir, '-o', `-p ${port}`, '-l', logFile, '-w', '-t', '60', 'start'],
+        { stdio: 'ignore' },
+      );
+      if (res.error || res.status !== 0) {
+        const reason = res.error ? res.error.message : `pg_ctl start exited ${res.status}.`;
+        throw new Error(`${reason}${await pgLogTail(logFile)}`);
+      }
+    } catch (e) {
+      if (!dirPreExisted) {
+        rmSync(pgDir, { recursive: true, force: true });
+      }
+      throw new Error(embeddedFailureMessage(e));
+    }
+    logger.error(`[ok] Embedded Postgres running (port ${port}, data in ${pgDir})`);
+  }
+
+  await createDashclawDatabase({ port, localDb, connectClient });
+  return {
+    databaseUrl: localDbUrlFor(port),
+    stop: async () => {
+      spawn(pgCtl, ['-D', pgDir, '-m', 'fast', 'stop'], { stdio: 'ignore' });
+    },
+  };
+}
+
+/** CREATE DATABASE dashclaw, tolerating "already exists" (resume). */
+async function createDashclawDatabase({ port, localDb, connectClient }) {
+  const connect = connectClient ?? (async (p) => {
+    const { default: pg } = await import('pg');
+    const client = new pg.Client({
+      host: 'localhost', port: p,
+      user: localDb.username, password: localDb.password,
+      database: 'postgres',
+    });
+    await client.connect();
+    return client;
+  });
+  const client = await connect(port);
+  try {
+    await client.query(`CREATE DATABASE ${localDb.pathname.slice(1)}`);
+  } catch (e) {
+    if (e.code !== '42P04') throw e; // 42P04 = duplicate_database (resume)
+  } finally {
+    await client.end();
+  }
 }
 
 /** Polls :port until it accepts TCP connections, or throws on timeout. */

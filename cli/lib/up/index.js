@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { STEPS, loadInstance, saveInstance, checkpoint } from './instance.js';
 import { resolveAppVersion, downloadAndExtract } from './fetch-app.js';
 import { dockerAvailableSync, chooseDbMode, provisionDatabase } from './db.js';
-import { installDeps, buildApp, startServer, waitForHealth, openBrowser } from './run.js';
+import { installDeps, buildApp, startServer, waitForHealth, openBrowser, winSafeSpawnSync } from './run.js';
 import { installClaude } from '../claude/install.js';
 import { parseUpArgs } from './args.js';
 import { ask } from '../config.js';
@@ -58,7 +58,7 @@ export function resolveBaseDir(args) {
  * @param {object} [opts.logger]
  * @param {Function} [opts.spawn]  injectable spawnSync for testing (default: spawnSync)
  */
-export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spawn: spawnFn = spawnSync }) {
+export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spawn: spawnFn = winSafeSpawnSync }) {
   logger.error('-> Running setup (migrations + first admin) ...');
   const res = spawnFn(
     'node',
@@ -71,7 +71,9 @@ export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spaw
     ],
     // stdin MUST be 'ignore': the default open pipe makes any stray readline
     // prompt in the child hang forever (observed: 12-minute silent hang).
-    { cwd: appDir, encoding: 'utf8', shell: process.platform === 'win32', stdio: ['ignore', 'pipe', 'pipe'] },
+    // Windows shell handling (npm-style .cmd resolution + DEP0190 avoidance)
+    // lives in winSafeSpawnSync.
+    { cwd: appDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
   );
   const stdout = res.stdout || '';
   const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
@@ -178,7 +180,7 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   // is both wrong and hangs. Reuse the saved URL when db_ready is already
   // checkpointed and inst.databaseUrl is set.
   const dbMode = inst.dbMode ?? await deps.chooseDbMode({
-    flagDb: args.db, dockerAvailable: deps.dockerAvailable, yes: args.yes, promptFn: deps.promptFn,
+    flagDb: args.db, dockerAvailable: deps.dockerAvailable, yes: args.yes, promptFn: deps.promptFn, logger,
   });
   const db = (dbMode === 'url' && done('db_ready') && inst.databaseUrl)
     ? { databaseUrl: inst.databaseUrl, stop: async () => {} }
@@ -312,6 +314,15 @@ export async function runDown({
     // No shell — house decision (see db.js): docker args are passed directly.
     dockerStop('dashclaw-pg');
     logger.log('[ok] Stopped Docker Postgres (container dashclaw-pg).');
+  }
+  if (inst.dbMode === 'embedded' && process.platform === 'win32') {
+    // On Windows the embedded server runs detached via pg_ctl (see db.js) and
+    // survives the up process — stop it here, best-effort.
+    try {
+      const { pg_ctl } = await import('@embedded-postgres/windows-x64');
+      const res = spawnSync(pg_ctl, ['-D', join(baseDir, 'pg'), '-m', 'fast', 'stop'], { stdio: 'ignore' });
+      if (res.status === 0) logger.log('[ok] Stopped embedded Postgres.');
+    } catch { /* binaries not installed — nothing to stop */ }
   }
 }
 

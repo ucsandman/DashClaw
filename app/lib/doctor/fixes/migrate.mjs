@@ -1,6 +1,7 @@
 // app/lib/doctor/fixes/migrate.mjs
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { splitSqlStatements } from '../../setup/sql-statements.mjs';
 
 /**
  * Run DDL migrations — same logic as POST /api/setup/migrate.
@@ -21,10 +22,9 @@ export async function apply({ env = process.env } = {}) {
       .map((f) => readFileSync(resolve(drizzleDir, f), 'utf8'))
       .join('\n--> statement-breakpoint\n');
 
-    const statements = ddl
-      .split('--> statement-breakpoint')
-      .map((s) => s.trim())
-      .filter(Boolean);
+    // Strips full-line comments too — non-ASCII comment characters hard-fail
+    // statement encoding conversion on non-UTF8 databases (see sql-statements.mjs).
+    const statements = splitSqlStatements(ddl);
     const SAFE_CODES = new Set(['42P07', '42P16', '42701', '42710', '42P10', '23505']);
 
     let created = 0;

@@ -13,6 +13,61 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.73.1] — 2026-07-06
+
+Fresh-Windows first-run fixes, all found by running `npx dashclaw up` in a
+factory-clean Windows Sandbox. The install now completes end to end on a
+machine with nothing on it; three platform bugs and a UX dead end fell out.
+
+### Fixed
+- **Migrations no longer hard-fail on non-UTF8 databases.** initdb on Windows
+  inherits the OS locale, so fresh embedded clusters were WIN1252-encoded —
+  and the UTF-8 arrows (`→`) in drizzle migration *comments* have no WIN1252
+  equivalent, so Postgres rejected the statement (22P05) and `auto-migrate`
+  died at the first one, early in the chain. All three migration executors
+  (`scripts/auto-migrate.mjs`, `POST /api/setup/migrate`, the doctor migrate
+  fix) now share `app/lib/setup/sql-statements.mjs`, which strips full-line
+  SQL comments ($$-body-aware) before statements reach the server, plus a
+  vitest guard that the stripped chain is 100% ASCII. The one non-ASCII
+  character inside a string literal (drizzle/0005) is now a plain hyphen.
+- **A failed core schema migration is now fatal in setup.** `setup.mjs`
+  previously warned and continued when `auto-migrate` failed; the legacy
+  migrate scripts then produced a bootable but *partial* schema (missing
+  `live_canary_runs`, `guard_decisions.agent_name`, and everything after the
+  failure point) that passed the core-tables readiness check and failed at
+  runtime in confusing ways. Setup now reports `ok:false` and exits non-zero,
+  so `npx dashclaw up` surfaces the real error instead of checkpointing a
+  broken install as done.
+- **`/setup` is no longer a dead end.** The post-install landing page (what
+  `dashclaw up` opens) had no navigation into the product. It now carries an
+  instance header — logo plus Mission Control / Decisions / Connect /
+  Settings / Docs links — and two entry CTAs ("Open Mission Control",
+  "Connect an agent"). Still fully server-rendered and pre-auth, so it keeps
+  working when the database is down.
+
+### `@dashclaw/cli` 0.7.4 (ships separately via `cd cli && npm publish`)
+- **Embedded Postgres works from elevated (admin) shells** — the norm in
+  Windows Sandbox and admin terminals. `postgres.exe` refuses an admin token;
+  the server lifecycle on Windows now goes through `pg_ctl`, which creates
+  the restricted token PostgreSQL requires. A detached server left running by
+  a previous `up` is detected (`pg_ctl status`) and reused on its saved port,
+  and `dashclaw down` stops it.
+- **Embedded clusters are created UTF-8** (`initdb --encoding=UTF8
+  --no-locale`) regardless of host locale — the other half of the WIN1252
+  fix, and enough on its own to make the existing v4.73.0 tarball migrate
+  cleanly.
+- **The Microsoft VC++ runtime is auto-installed** when missing (fresh
+  Windows lacks it; the Postgres binaries link against it). One-time ~25 MB
+  download from microsoft.com, elevation via the Windows UAC consent dialog;
+  the manual-install message remains as the fallback when the install fails.
+- **Resumed installs no longer re-run initdb** on an existing data directory
+  (it refuses non-empty dirs — every resumed embedded install would have
+  failed, on all platforms).
+- Embedded-postgres failures that reject with no error value no longer crash
+  the error formatter ("Cannot read properties of undefined") and eat the
+  real message; the DB picker menu no longer prints twice on Windows; the
+  Node DEP0190 deprecation warning no longer appears mid-prompt.
+
 ## [4.73.0] — 2026-07-06
 
 Two work streams in one release: a measured performance pass over the

@@ -12,6 +12,48 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.73.1 + CLI 0.7.4: the sandbox kept finding what dev machines can't
+
+The owner ran `npx dashclaw up` in the fresh-machine sandbox three more
+times today, and each run peeled back another layer that "works on every
+developer machine" had been hiding. Round one: the VC++ preflight shipped
+in 0.7.3 correctly detected the missing runtime — and handed the user
+homework, which fails the one-command promise. The CLI now downloads and
+installs the Microsoft redistributable itself (UAC consent dialog is the
+approval; the manual message survives as fallback). Round two:
+`postgres.exe` refuses to run under an elevated admin token, which is
+exactly what a sandbox terminal is. `initdb` self-restricts its token;
+`postgres.exe` doesn't — so the Windows server lifecycle now goes through
+`pg_ctl`, which creates the restricted token PostgreSQL requires and works
+from both elevated and normal shells.
+
+Round three was the one worth the whole exercise: the install "completed"
+and the runtime threw `relation "live_canary_runs" does not exist`. The
+fresh embedded cluster was WIN1252-encoded (initdb inherits the Windows
+locale), the UTF-8 arrows in our migration *comments* have no WIN1252
+equivalent, Postgres hard-fails the statement, `auto-migrate` correctly
+died at the first arrow — and `setup.mjs` warned and continued, letting
+the legacy scripts assemble a bootable partial schema that passed the
+readiness check. Three fixes, each sufficient alone: clusters are created
+UTF-8; all three migration executors now strip comments before statements
+reach the server (shared `sql-statements.mjs`, with a vitest guard that
+the stripped chain is pure ASCII); and a failed auto-migrate is now fatal
+in setup — no more success reports on top of a partial schema. Along the
+way: resumed embedded installs re-ran initdb on a non-empty data dir
+(would have failed everywhere), and the error formatter crashed on
+embedded-postgres's bare `reject()`, eating the real error.
+
+The owner also caught a product failure no gate had: `dashclaw up` opens
+`/setup` as the landing page, and that page offered no way *into* the
+product — a status report as a dead end. It now carries an instance nav
+and two entry CTAs, still pre-auth and server-rendered so it works when
+the database is down. Verification for the whole pass: the drizzle chain
+replayed against real fresh PG18 clusters in both encodings (WIN1252 +
+UTF-8, zero hard failures, the previously-missing table and column
+present), 204/204 CLI tests, full platform gates green, and a clean
+end-to-end sandbox install. v4.73.1 is platform-only — the SDKs are not
+republished; `@dashclaw/cli` 0.7.4 publishes separately.
+
 ## 2026-07-06 — Roadmap v8 drafted: the vigil — certainty while the window runs
 
 The owner's direction arrived with its own honesty built in: "I am aware

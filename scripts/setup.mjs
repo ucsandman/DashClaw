@@ -664,6 +664,20 @@ async function main() {
     installDependencies();
   }
   const migrationState = await runMigrationsAndCheckSetup(env);
+  // The drizzle chain (auto-migrate) is the schema source of truth. If it
+  // failed, the legacy scripts still create enough of the CORE_SETUP_TABLES
+  // that setupStatus reads "configured" — a bootable but PARTIAL schema that
+  // fails at runtime in confusing ways (observed live in Windows Sandbox:
+  // missing live_canary_runs / guard_decisions.agent_name). Never report
+  // success on top of it.
+  const coreMigrationFailure = migrationState.migrationFailures
+    .find((result) => result.script === 'scripts/auto-migrate.mjs');
+  if (coreMigrationFailure) {
+    throw new Error(
+      `Core schema migration (auto-migrate) failed: ${coreMigrationFailure.error} — `
+      + 'DashClaw cannot run on a partial schema. Fix the migration error and re-run.'
+    );
+  }
   // Non-interactive callers (npx dashclaw up) trust ok:true to mean the DB is
   // genuinely ready — an unreachable database must be a hard failure, not a
   // warn-and-continue status line.

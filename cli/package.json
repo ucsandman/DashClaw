@@ -1,6 +1,6 @@
 {
   "name": "@dashclaw/cli",
-  "version": "0.7.3",
+  "version": "0.7.4",
   "description": "DashClaw terminal client — approve agent actions and diagnose your instance",
   "type": "module",
   "keywords": [
@@ -27,6 +27,7 @@
   "dependencies": {
     "dashclaw": "^2.2.1",
     "embedded-postgres": "18.4.0-beta.17",
+    "pg": "^8.22.0",
     "tar": "^7.4.0"
   },
   "license": "MIT",
