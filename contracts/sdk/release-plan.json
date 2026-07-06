@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.67.0",
+    "current_version": "4.68.0",
     "next_bump": "none",
-    "reason": "4.67.0 guides expansion: no Node SDK source change - new guide pages, runnable examples, and an additive actions-route response fix. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.68.0 Complete Platform Guide: no Node SDK source change - a new /guides/platform reference page plus its data and coverage manifest. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.67.0",
+    "current_version": "4.68.0",
     "next_bump": "none",
-    "reason": "4.67.0 guides expansion: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.68.0 Complete Platform Guide: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.67.0 expands the framework guides from 8 to 11 (AutoGen, Pydantic AI, Vercel AI SDK) with two new live-proven runnable examples, adds the guides to /connect and /self-host, and fixes the POST /api/actions idempotent-replay response to carry the top-level action_id alias like the fresh-create path (the SDKs auto-send idempotency keys, so retried goals broke clients reading response.action_id). No SDK source changes.",
+  "reason": "v4.68.0 ships the Complete Platform Guide at /guides/platform: a 1,415-entry interactive reference covering every page, API route, SDK method, CLI command, MCP tool, and hook, with live-captured examples, per-endpoint try-it panels, and a coverage manifest at docs/platform-guide-coverage.json. Platform-only change; no SDK source changes.",
   "domains": [
     "platform"
   ]
