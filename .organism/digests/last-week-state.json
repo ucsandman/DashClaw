@@ -1,6 +1,6 @@
 {
   "organism": "dashclaw",
-  "timestamp": "2026-06-08T13:10:01.181116+00:00",
+  "timestamp": "2026-07-06T13:01:22.956617+00:00",
   "collector_status": {
     "git_stats": "ok",
     "test_health": "ok",
@@ -20,7 +20,7 @@
         "commits": 50
       }
     ],
-    "files_changed_7d": 214
+    "files_changed_7d": 177
   },
   "test_health": {
     "js_tests": {
@@ -33,61 +33,61 @@
       "passed": 0,
       "failed": 0
     },
-    "test_file_ratio": 0.36131687242798355,
+    "test_file_ratio": 0.3942307692307692,
     "untested_routes": []
   },
   "code_quality": {
-    "files_over_300_lines": 158,
+    "files_over_300_lines": 233,
     "largest_files": [
       {
         "path": "app/docs/page.tsx",
-        "lines": 3066
+        "lines": 3559
+      },
+      {
+        "path": "mcp-server/test/providers.test.ts",
+        "lines": 3334
       },
       {
         "path": "sdk/legacy/dashclaw-v1.js",
-        "lines": 2960
+        "lines": 2970
       },
       {
-        "path": "middleware.js",
-        "lines": 1615
-      },
-      {
-        "path": "sdk/dashclaw.js",
-        "lines": 1539
-      },
-      {
-        "path": "schema/schema.js",
-        "lines": 1438
+        "path": "mcp-server/src/provider-actions.ts",
+        "lines": 2793
       },
       {
         "path": "app/lib/repositories/actions.repository.ts",
-        "lines": 1366
+        "lines": 2153
       },
       {
-        "path": "app/decisions/[actionId]/page.tsx",
-        "lines": 1271
+        "path": "sdk/dashclaw.js",
+        "lines": 2132
       },
       {
-        "path": "app/lib/demo/demoMiddleware.ts",
-        "lines": 1181
+        "path": "middleware.js",
+        "lines": 2101
       },
       {
-        "path": "cli/bin/dashclaw.js",
-        "lines": 1163
+        "path": "mcp-server/src/tools/index.ts",
+        "lines": 1996
       },
       {
-        "path": "packages/openclaw-plugin/src/index.ts",
-        "lines": 1115
+        "path": "schema/schema.js",
+        "lines": 1933
+      },
+      {
+        "path": "mcp-server/lib/provider-actions.js",
+        "lines": 1825
       }
     ],
     "eslint_status": "fail",
-    "python_files_over_300": 30,
+    "python_files_over_300": 45,
     "todo_count": 0,
     "archive_size_kb": 151
   },
   "dependency_health": {
-    "js_dependencies": 51,
-    "js_outdated": 31,
+    "js_dependencies": 48,
+    "js_outdated": 28,
     "js_vulnerabilities": 0,
     "python_dependencies": 0,
     "lockfile_age_days": 0
