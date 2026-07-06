@@ -12,6 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.0: the self-governance proof surface (roadmap v7.3)
+
+The project's most distinctive true fact — this repo's maintainer is an AI
+agent whose every change runs through a live DashClaw instance — was
+buried in documents strangers never open. Now it's a public page:
+**`/proof`** renders live aggregate evidence from the governing instance
+(governed actions to date, guard decisions and their mix, decision
+cadence, latest governed ship) next to the permanent written trail (this
+log, `MAINTAINER.md`, releases, livingcode). Linked from the front page,
+navbar, and footer; registered in the marketing SEO registry.
+
+The exposure boundary got the same treatment as the trial funnel and a
+recorded security review (PASS, sign-off in the spec): the new
+`GET /api/self-governance` is default-off (404 unless the operator sets
+`DASHCLAW_SELF_GOVERNANCE_PUBLIC=true`), aggregate-only, and structurally
+incapable of leaking content — the SQL emits only counts and timestamps,
+decision buckets are fixed literals, and no free-text column is selected.
+The page fetches an operator-set URL with a 5-minute revalidate and, when
+the feed is unreachable, says so instead of showing stale or invented
+numbers.
+
+One honesty decision worth recording: the first local proof run showed
+the instance's raw counts included its own smoke- and load-test traffic —
+which inflated exactly the dramatic categories (`block` 775→307,
+`require_approval` 3,456→1,192 once excluded). The aggregates now exclude
+the shared synthetic families like every other real-traffic view. A proof
+page that counts its own load tests as governance would be the thing it
+claims not to be.
+
+For v7.5: the contract-worthy window starts when this page's source flag
+is live on the governing instance; with v7.2 live 2026-07-05, the
+earliest era-exit read is **2026-07-20** (14 days both-live), one day
+after v7.1's calendar gate.
+
 ## 2026-07-05 — v4.65.0: the trial cap becomes a door (roadmap v7.2)
 
 The same day v7 was drafted, its first buildable item shipped. A hosted

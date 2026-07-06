@@ -22,6 +22,7 @@ export default function PublicNavbar() {
         <div className="hidden sm:flex items-center gap-5 text-sm text-text-secondary whitespace-nowrap">
           <Link href="/#features" className="hover:text-text-primary transition-colors">Features</Link>
           <a href="/explain" className="hover:text-text-primary transition-colors">How it works</a>
+          <Link href="/proof" className="hover:text-text-primary transition-colors">Proof</Link>
           <Link href="/connect" className="hover:text-text-primary transition-colors">Connect</Link>
           <Link href="/docs" className="hover:text-text-primary transition-colors">Docs</Link>
           <Link href="/downloads" className="hover:text-text-primary transition-colors">Downloads</Link>
@@ -81,6 +82,9 @@ export default function PublicNavbar() {
               <a href="/explain" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
                 How it works
               </a>
+              <Link href="/proof" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
+                Proof
+              </Link>
               <Link href="/connect" onClick={closeMobile} className="rounded-lg px-3 py-2.5 text-sm text-text-secondary transition-colors hover:bg-white/5 hover:text-text-primary">
                 Connect an Agent
               </Link>

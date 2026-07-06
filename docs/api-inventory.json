@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 334,
+    "total_routes": 335,
     "stable_routes": 57,
     "beta_routes": 24,
-    "experimental_routes": 253
+    "experimental_routes": 254
   },
   "routes": [
     {
@@ -2690,6 +2690,15 @@
       "maturity": "beta",
       "matched_prefix": "/api/security",
       "file": "app/api/security/status/route.ts"
+    },
+    {
+      "path": "/api/self-governance",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "(default)",
+      "file": "app/api/self-governance/route.ts"
     },
     {
       "path": "/api/session/effective",

@@ -22,6 +22,7 @@ export const MARKETING_ORIGIN = 'https://www.dashclaw.io';
  */
 export const MARKETING_ROUTES = [
   '/',
+  '/proof',
   '/guides/claude-code',
   '/guides/codex',
   '/guides/hermes',

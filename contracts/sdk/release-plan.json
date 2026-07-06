@@ -1,23 +1,22 @@
 {
   "node": {
-    "current_version": "4.65.0",
+    "current_version": "4.66.0",
     "next_bump": "none",
-    "reason": "4.65.0 graduation path: no Node SDK source change - the workspace export/import routes are plain HTTP and the human path is the trial-card button + dashclaw import. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.66.0 self-governance proof surface: no Node SDK source change - the new GET /api/self-governance is a public aggregate endpoint and /proof is a marketing page. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.65.0",
+    "current_version": "4.66.0",
     "next_bump": "none",
-    "reason": "4.65.0 graduation path: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
+    "reason": "4.66.0 self-governance proof surface: no Python SDK source change. Version advances per the unified model but the Python SDK is NOT republished; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.65.0 makes the trial cap a door (roadmap v7.2): workspace carry-out bundle (GET /api/workspace/export, POST /api/workspace/import), Export workspace button on the trial card, graduated funnel annotation. Platform + CLI only: @dashclaw/cli 0.7.0 (new `dashclaw import` subcommand) is the one package that needs publishing.",
+  "reason": "v4.66.0 ships the self-governance proof surface (roadmap v7.3): public /proof marketing page rendering live aggregate evidence from the governing instance via the new default-off GET /api/self-governance (aggregate-only, synthetic traffic excluded, security review recorded). Platform only - no SDK, CLI, or plugin changes.",
   "domains": [
-    "platform",
-    "cli"
+    "platform"
   ]
 }

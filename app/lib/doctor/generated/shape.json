@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:b8741ff53f580244569ee551a681e4559a6e15f0",
+  "timestamp": "sha1:0fb910f04fe698437c5b3a455691e00811f6de28",
   "routes": [
     {
       "path": "/api/_archive/agent-schedules",
@@ -2812,6 +2812,15 @@
       "file_path": "app/api/security/status/route.ts"
     },
     {
+      "path": "/api/self-governance",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/self-governance/route.ts"
+    },
+    {
       "path": "/api/session/effective",
       "methods": [
         "GET"
@@ -4123,6 +4132,14 @@
       "in_env_example": false
     },
     {
+      "name": "DASHCLAW_SELF_GOVERNANCE_PUBLIC",
+      "required": false,
+      "files": [
+        "app/api/self-governance/route.ts"
+      ],
+      "in_env_example": false
+    },
+    {
       "name": "DASHCLAW_SIGNING_KEY_JWK",
       "required": false,
       "files": [
@@ -4742,6 +4759,7 @@
       "name": "NEXT_PUBLIC_DASHCLAW_VERSION",
       "required": false,
       "files": [
+        "app/api/self-governance/route.ts",
         "app/components/Sidebar.tsx",
         "app/settings/page.tsx"
       ],
@@ -5119,6 +5137,14 @@
       "required": false,
       "files": [
         "scripts/build-desktop-plugin.mjs"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "SELF_GOVERNANCE_SOURCE_URL",
+      "required": false,
+      "files": [
+        "app/proof/page.tsx"
       ],
       "in_env_example": false
     },

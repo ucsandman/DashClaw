@@ -99,6 +99,15 @@ function isHostedPublicRequest(pathname, method) {
   return false;
 }
 
+// v7.3 self-governance proof surface. Same posture as the hosted public
+// routes: reachable without an API key, GET + exact path only, and the route
+// self-guards — 404 unless DASHCLAW_SELF_GOVERNANCE_PUBLIC. Aggregate-only
+// payload (no org identifiers, no free-text columns); exposure boundary in
+// docs/superpowers/specs/2026-07-05-self-governance-proof-v73.md.
+function isSelfGovernancePublicRequest(pathname, method) {
+  return pathname === '/api/self-governance' && method === 'GET';
+}
+
 async function getLocalAdminSession(request) {
   const viewer = await getViewerContextFromCookieHeader(
     request.headers.get('cookie') || '',
@@ -1963,7 +1972,8 @@ async function handleApiRequest(request, pathname) {
   // public prefix (/api/cron -> /api/cron-report) ship unauthenticated, the
   // same foot-gun that previously exposed the whole /api/prompts surface.
   if (PUBLIC_ROUTES.some(route => pathname === route || pathname.startsWith(route + '/')) ||
-      isHostedPublicRequest(pathname, request.method)) {
+      isHostedPublicRequest(pathname, request.method) ||
+      isSelfGovernancePublicRequest(pathname, request.method)) {
     return forwardPublicApi(request, strippedApiRequestHeaders, ip);
   }
 

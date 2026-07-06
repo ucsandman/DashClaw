@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:b8741ff53f580244569ee551a681e4559a6e15f0`
+**Shape snapshot:** `sha1:0fb910f04fe698437c5b3a455691e00811f6de28`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **286** active API routes across **71** categories (334 total including archived)
-- **4** required + **192** optional environment variables
+- **287** active API routes across **72** categories (335 total including archived)
+- **4** required + **194** optional environment variables
 - **109** database tables
 
 ## API Surface
@@ -445,6 +445,10 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `POST` `/api/security/scan`
 - `GET` `/api/security/status`
 
+### `self-governance`
+
+- `GET` `/api/self-governance`
+
 ### `session`
 
 - `GET` `/api/session/effective`
@@ -628,6 +632,7 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_PAIRING_TTL_MINUTES` *(undocumented)*
 - `DASHCLAW_RATE_LIMIT_MAX` *(undocumented)*
 - `DASHCLAW_RATE_LIMIT_WINDOW_MS` *(undocumented)*
+- `DASHCLAW_SELF_GOVERNANCE_PUBLIC` *(undocumented)*
 - `DASHCLAW_SIGNING_KEY_JWK` *(undocumented)*
 - `DASHCLAW_SUPPRESS_LEGACY_WARNING` *(undocumented)*
 - `DASHCLAW_TIMEOUT_MS` *(undocumented)*
@@ -717,6 +722,7 @@ These have fallbacks or only activate specific features.
 - `RESEARCH_API_URL` *(undocumented)*
 - `RESEND_API_KEY` *(undocumented)*
 - `S` *(undocumented)*
+- `SELF_GOVERNANCE_SOURCE_URL` *(undocumented)*
 - `SENTRY_AUTH_TOKEN` *(undocumented)*
 - `SERVICE_NAME` *(undocumented)*
 - `SQL_CAPTURE_FILE` *(undocumented)*

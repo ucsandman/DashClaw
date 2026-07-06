@@ -13,6 +13,32 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.0] — 2026-07-05
+
+**The self-governance proof surface** (roadmap v7.3, spec
+`docs/superpowers/specs/2026-07-05-self-governance-proof-v73.md`). The
+project's most distinctive true fact — DashClaw's maintenance is itself
+governed by DashClaw — rendered as live evidence where strangers land,
+not as copy.
+
+### Added
+- **`/proof` marketing page** — live aggregate evidence that DashClaw
+  governs its own maintainer: governed actions to date, guard decisions
+  and their mix, decision cadence, latest governed ship. Numbers are
+  server-side fetches of `SELF_GOVERNANCE_SOURCE_URL` (5-minute
+  revalidate); when the feed is unreachable the page says so honestly
+  instead of showing cached or fabricated numbers. Linked from the front
+  page, navbar, and footer; registered in `MARKETING_ROUTES`.
+- **`GET /api/self-governance`** — public, aggregate-only evidence
+  endpoint on the `/api/hosted/funnel` precedent: 404 unless the operator
+  opts the instance in with `DASHCLAW_SELF_GOVERNANCE_PUBLIC=true`, 60s
+  in-memory memo, no org identifiers and no free-text columns on the wire
+  (fixed-literal decision keys; the only strings are the manifest-derived
+  platform version and ISO timestamps). Synthetic verification traffic
+  (smoke/loadtest/liveproof families) is excluded — the proof counts real
+  governance only. Instance-wide by design — multi-tenant instances should
+  leave the flag unset.
+
 ## [4.65.0] — 2026-07-05
 
 **The graduation path: the trial cap becomes a door** (roadmap v7.2, spec

@@ -92,7 +92,7 @@ Alternatives weighed and declined this round:
 |---|------|--------|
 | v7.1 | The measurement read (carried from v6.5, unchanged) | TIME-GATED — runs on/after 2026-07-19; instrument prebuilt (`node scripts/measurement-read.mjs`), arithmetic unit-tested, open loop carries the date |
 | v7.2 | The graduation path: the cap becomes a door | SHIPPED 2026-07-05 (v4.65.0) — Export workspace button on the trial card → versioned bundle (schema-derived allow-lists, credentials never ride); `dashclaw import` + `POST /api/workspace/import` (idempotent, org re-scoped); `graduated` funnel annotation, snapshot-frozen; proven live end to end (trial minted → button clicked → bundle imported into a fresh instance → record rendered on its /decisions). Ride-alongs: /setup now actually renders `bySource` (owed since v4.60.0 — the ship claimed it, the render never landed) and `hosted_trial_snapshots` added to the fallback DDL + drift gate. Spec `docs/superpowers/specs/2026-07-05-graduation-path-v72.md` |
-| v7.3 | The self-governance proof surface | — |
+| v7.3 | The self-governance proof surface | SHIPPED 2026-07-05 (v4.66.0) — `/proof` live: aggregate evidence (governed actions, guard-decision mix, cadence, latest governed ship) fetched from the governing instance via the new default-off `GET /api/self-governance` (aggregate-only, synthetic traffic excluded, security review PASS recorded in the spec); linked from front page/navbar/footer, in `MARKETING_ROUTES`; honest "unavailable" state instead of stale numbers. v7.5 window recorded: earliest era-exit read 2026-07-20 (14 days v7.2+v7.3 both-live). Spec `docs/superpowers/specs/2026-07-05-self-governance-proof-v73.md` |
 | v7.4 | The branch: what the read steers | BLOCKED on v7.1 (by design — drafted as a branch, chosen by evidence) |
 | v7.5 | The era-exit read: the second mile measured | LAST — needs v7.2/v7.3 live for a window, and v7.1's cohort read as baseline |
 | — | FinOps Phase C / CostClaw paid add-on | GATED on Wes (RFC 0002 §8) |
@@ -185,8 +185,9 @@ exactly one lane; the lane's own spec is then drafted citing the read.
 The era exists to produce this the way v5 produced the verdict and v6
 produced the cohort read.
 
-- After v7.2 and v7.3 have been live for a contract-worthy window (set
-  and recorded at v7.2/v7.3 ship time, not asserted here), read the full
+- After v7.2 and v7.3 have been live for a contract-worthy window
+  (recorded at v7.3 ship: 14 days both-live → earliest read
+  **2026-07-20**), read the full
   chain — mint → firstAction → keyUsed → returned → **graduated** — with
   v7.1's cohort read as the baseline, and write the exit verdict that
   steers v8.

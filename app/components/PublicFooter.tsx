@@ -26,6 +26,9 @@ export default function PublicFooter() {
           <a href="/explain" className="hover:text-text-primary transition-colors">
             How it works
           </a>
+          <Link href="/proof" className="hover:text-text-primary transition-colors">
+            Proof
+          </Link>
           <Link href="/docs" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
             <BookOpen size={14} />
             Docs

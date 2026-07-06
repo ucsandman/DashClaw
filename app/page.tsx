@@ -498,6 +498,20 @@ export default function LandingPage() {
                 Compliance engine <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
+
+            {/* Self-governance proof, one honest line (v7.3) */}
+            <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
+              <p className="text-sm text-text-secondary leading-relaxed max-w-xl">
+                This isn&apos;t hypothetical: DashClaw&apos;s own maintainer is an AI agent, and
+                every change it ships runs through a live DashClaw instance.
+              </p>
+              <Link
+                href="/proof"
+                className="inline-flex items-center gap-1.5 text-sm text-brand hover:text-brand-hover transition-colors shrink-0"
+              >
+                See the live proof <ArrowRight size={14} aria-hidden="true" />
+              </Link>
+            </div>
           </div>
         </section>
 
