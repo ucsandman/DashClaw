@@ -48,10 +48,10 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:ea43fbcba04e1bbc5855b326eb71fa70ee9ec38c · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:10b89c68015c0b4879a8055ae26f11ddc6d03a20 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">290</div><div class="k">Active routes</div></div>
-      <div class="cell"><div class="n">48</div><div class="k">Archived routes</div></div>
+      <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">201</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>61</b> env_vars added, <b>2</b> env_vars removed, <b>30</b> routes added, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>61</b> env_vars added, <b>2</b> env_vars removed, <b>30</b> routes added, <b>48</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -233,6 +233,54 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/workspace/export <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/workspace/import <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/budget <span class="sig">New route: GET</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/agent-schedules <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/bounties <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/bug-hunter <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/calendar <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/content <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/context/points <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/context/threads <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/context/threads/[threadId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/context/threads/[threadId]/entries <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/digest <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/docs/raw <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/feedback <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/feedback/[feedbackId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/feedback/stats <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/goals <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/handoffs <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/identities <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/inspiration <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/invite/[token] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/memory <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/messages <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/messages/attachments <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/messages/docs <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/messages/threads <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/notifications <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/onboarding/api-key <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/onboarding/status <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/onboarding/workspace <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/pairings <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/pairings/[pairingId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/pairings/[pairingId]/approve <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/preferences <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/relationships <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/agents <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/agents/[agentId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/health <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/stats <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/tasks <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/tasks/[taskId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/routing/tasks/[taskId]/complete <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/schedules <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/snippets <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/snippets/[snippetId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/snippets/[snippetId]/use <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/sync <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/tokens <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/tokens/budget <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/_archive/workflows <span class="sig">Route removed</span></li>
     <li><code>added</code> <b>env_vars</b>: API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>

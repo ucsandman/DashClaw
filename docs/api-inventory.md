@@ -13,63 +13,15 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `337`
+- Total routes: `289`
 - Stable routes: `57`
 - Beta routes: `24`
-- Experimental routes: `256`
+- Experimental routes: `208`
 
 ## Routes
 
 | Path | Methods | Maturity | Rule Prefix | File |
 |---|---|---|---|---|
-| `/api/_archive/agent-schedules` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/agent-schedules/route.js` |
-| `/api/_archive/bounties` | `GET` | `experimental` | `(default)` | `app/api/_archive/bounties/route.js` |
-| `/api/_archive/bug-hunter` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/bug-hunter/route.js` |
-| `/api/_archive/calendar` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/calendar/route.js` |
-| `/api/_archive/content` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/content/route.js` |
-| `/api/_archive/context/points` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/context/points/route.js` |
-| `/api/_archive/context/threads` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/context/threads/route.js` |
-| `/api/_archive/context/threads/{threadId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/_archive/context/threads/[threadId]/route.js` |
-| `/api/_archive/context/threads/{threadId}/entries` | `POST` | `experimental` | `(default)` | `app/api/_archive/context/threads/[threadId]/entries/route.js` |
-| `/api/_archive/digest` | `GET` | `experimental` | `(default)` | `app/api/_archive/digest/route.js` |
-| `/api/_archive/docs/raw` | `GET` | `experimental` | `(default)` | `app/api/_archive/docs/raw/route.js` |
-| `/api/_archive/feedback` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/feedback/route.js` |
-| `/api/_archive/feedback/stats` | `GET` | `experimental` | `(default)` | `app/api/_archive/feedback/stats/route.js` |
-| `/api/_archive/feedback/{feedbackId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/_archive/feedback/[feedbackId]/route.js` |
-| `/api/_archive/goals` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/goals/route.js` |
-| `/api/_archive/handoffs` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/handoffs/route.js` |
-| `/api/_archive/identities` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/identities/route.js` |
-| `/api/_archive/inspiration` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/inspiration/route.js` |
-| `/api/_archive/invite/{token}` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/invite/[token]/route.js` |
-| `/api/_archive/memory` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/memory/route.js` |
-| `/api/_archive/messages` | `GET, PATCH, POST` | `experimental` | `(default)` | `app/api/_archive/messages/route.js` |
-| `/api/_archive/messages/attachments` | `GET` | `experimental` | `(default)` | `app/api/_archive/messages/attachments/route.js` |
-| `/api/_archive/messages/docs` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/messages/docs/route.js` |
-| `/api/_archive/messages/threads` | `GET, PATCH, POST` | `experimental` | `(default)` | `app/api/_archive/messages/threads/route.js` |
-| `/api/_archive/notifications` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/notifications/route.js` |
-| `/api/_archive/onboarding/api-key` | `POST` | `experimental` | `(default)` | `app/api/_archive/onboarding/api-key/route.js` |
-| `/api/_archive/onboarding/status` | `GET` | `experimental` | `(default)` | `app/api/_archive/onboarding/status/route.js` |
-| `/api/_archive/onboarding/workspace` | `POST` | `experimental` | `(default)` | `app/api/_archive/onboarding/workspace/route.js` |
-| `/api/_archive/pairings` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/pairings/route.js` |
-| `/api/_archive/pairings/{pairingId}` | `GET` | `experimental` | `(default)` | `app/api/_archive/pairings/[pairingId]/route.js` |
-| `/api/_archive/pairings/{pairingId}/approve` | `POST` | `experimental` | `(default)` | `app/api/_archive/pairings/[pairingId]/approve/route.js` |
-| `/api/_archive/preferences` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/preferences/route.js` |
-| `/api/_archive/relationships` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/relationships/route.js` |
-| `/api/_archive/routing/agents` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/routing/agents/route.js` |
-| `/api/_archive/routing/agents/{agentId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/_archive/routing/agents/[agentId]/route.js` |
-| `/api/_archive/routing/health` | `GET` | `experimental` | `(default)` | `app/api/_archive/routing/health/route.js` |
-| `/api/_archive/routing/stats` | `GET` | `experimental` | `(default)` | `app/api/_archive/routing/stats/route.js` |
-| `/api/_archive/routing/tasks` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/routing/tasks/route.js` |
-| `/api/_archive/routing/tasks/{taskId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/_archive/routing/tasks/[taskId]/route.js` |
-| `/api/_archive/routing/tasks/{taskId}/complete` | `POST` | `experimental` | `(default)` | `app/api/_archive/routing/tasks/[taskId]/complete/route.js` |
-| `/api/_archive/schedules` | `GET` | `experimental` | `(default)` | `app/api/_archive/schedules/route.js` |
-| `/api/_archive/snippets` | `DELETE, GET, POST` | `experimental` | `(default)` | `app/api/_archive/snippets/route.js` |
-| `/api/_archive/snippets/{snippetId}` | `GET` | `experimental` | `(default)` | `app/api/_archive/snippets/[snippetId]/route.js` |
-| `/api/_archive/snippets/{snippetId}/use` | `POST` | `experimental` | `(default)` | `app/api/_archive/snippets/[snippetId]/use/route.js` |
-| `/api/_archive/sync` | `POST` | `experimental` | `(default)` | `app/api/_archive/sync/route.js` |
-| `/api/_archive/tokens` | `GET, POST` | `experimental` | `(default)` | `app/api/_archive/tokens/route.js` |
-| `/api/_archive/tokens/budget` | `GET, PUT` | `experimental` | `(default)` | `app/api/_archive/tokens/budget/route.js` |
-| `/api/_archive/workflows` | `GET` | `experimental` | `(default)` | `app/api/_archive/workflows/route.js` |
 | `/api/actions` | `DELETE, GET, POST` | `stable` | `/api/actions` | `app/api/actions/route.ts` |
 | `/api/actions/costs` | `GET` | `stable` | `/api/actions` | `app/api/actions/costs/route.ts` |
 | `/api/actions/loops` | `GET, POST` | `stable` | `/api/actions` | `app/api/actions/loops/route.ts` |

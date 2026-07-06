@@ -225,7 +225,7 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**337 routes**: 57 stable, 24 beta, 256 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**289 routes**: 57 stable, 24 beta, 208 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Work Orders — task-grade contracts + receipts
 
@@ -451,7 +451,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 
 Honest expectations, stated plainly:
 
-- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is explicitly tiered for exactly this reason — 57 stable routes pinned in the [OpenAPI contract](./docs/openapi/critical-stable.openapi.json), 24 beta, 256 experimental. Build against stable; experimental routes can change without notice.
+- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is explicitly tiered for exactly this reason — 57 stable routes pinned in the [OpenAPI contract](./docs/openapi/critical-stable.openapi.json), 24 beta, 208 experimental. Build against stable; experimental routes can change without notice.
 - **Proven by dogfood, not by scale.** The core loop is exercised continuously by the maintainer's own agent fleet (the screenshots above) and by a CI policy-smoke harness that live-proves the public claims on every push. External production deployments are early. Treat this as young infrastructure that takes correctness seriously, not a battle-tested incumbent.
 - **AI-maintained, human-governed.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](./MAINTAINER.md); risk-bearing invariants (blocks are absolute, no self-approval, humans ratify policy changes, credentials stay human) cannot be changed by the maintainer. The [maintainer log](./docs/maintainer-log.md) records every decision in public.
 

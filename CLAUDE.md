@@ -14,7 +14,6 @@ DashClaw is AI agent decision infrastructure: a focused control plane for policy
 DashClaw is a **minimal governance runtime, not an agent platform**. We do not give agents tools to achieve goals (Calendar, Messaging, CRM); we provide the infrastructure to **govern** those goals.
 
 - **Core runtime**: `app/api/` (governance routes).
-- **Archived**: `app/api/_archive/` (legacy platform features; do not extend).
 
 ## Where to look first
 

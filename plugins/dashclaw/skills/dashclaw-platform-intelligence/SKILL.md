@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:ea43fbcba04e1bbc5855b326eb71fa70ee9ec38c`
+**Shape snapshot:** `sha1:10b89c68015c0b4879a8055ae26f11ddc6d03a20`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **289** active API routes across **73** categories (337 total including archived)
+- **289** active API routes across **73** categories (289 total including archived)
 - **4** required + **201** optional environment variables
 - **112** database tables
 
@@ -565,7 +565,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 86 file(s)
-- **`DATABASE_URL`** - referenced in 109 file(s)
+- **`DATABASE_URL`** - referenced in 103 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
