@@ -1,6 +1,13 @@
 /**
  * Shared signal computation. Extracted from /api/signals/route.js
  * Used by both the API route and the cron job.
+ *
+ * Structure (v4.66.x health pass): computeSignals fetches the org's rows in
+ * one parallel batch, then delegates each signal category to a pure
+ * `build*Signals` function below. The builders are exported for direct unit
+ * testing of severity thresholds; their bodies (and the push order, which
+ * the stable red-first sort preserves for equal severities) are unchanged
+ * from the original inline loops.
  */
 
 type SqlClient = {
@@ -30,6 +37,344 @@ interface Signal {
 
 // DB rows from the various signal queries are dynamic; fields are read by name.
 type Row = Record<string, any>;
+
+export function buildStalePresenceSignals(stalePresence: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const presence of stalePresence) {
+    const minutesSilent = Math.max(
+      10,
+      Math.round((Date.now() - new Date(presence.last_heartbeat_at).getTime()) / 60000),
+    );
+    signals.push({
+      type: 'agent_silent',
+      severity: presence.current_task_id ? 'red' : 'amber',
+      label: `Agent heartbeat lost: ${presence.agent_name || presence.agent_id}`,
+      detail: `This agent has not sent a heartbeat for ${minutesSilent} minutes.`,
+      help: presence.current_task_id
+        ? 'Agent is silent while assigned to an active task. Investigate potential process crash or network failure.'
+        : 'Agent heartbeat lost. It may be offline or unable to reach the dashboard.',
+      agent_id: presence.agent_id,
+      detected_at: presence.last_heartbeat_at,
+    });
+  }
+  return signals;
+}
+
+export function buildAutonomySpikeSignals(autonomySpikes: Row[], spikeThreshold: number): Signal[] {
+  const signals: Signal[] = [];
+  for (const spike of autonomySpikes) {
+    signals.push({
+      type: 'autonomy_spike',
+      severity: parseInt(spike.action_count, 10) > spikeThreshold * 2 ? 'red' : 'amber',
+      label: `Governance alert: ${spike.agent_name || spike.agent_id} (${spike.action_count} ungoverned decisions/hr)`,
+      detail: `This agent made ${spike.action_count} decisions in the last hour without proportional oversight, exceeding the governance threshold of ${spikeThreshold}.`,
+      help: 'High decision frequency without oversight may indicate ungoverned autonomy. Review recent decisions and enforce policy throttling.',
+      agent_id: spike.agent_id,
+      detected_at: spike.last_seen || null,
+    });
+  }
+  return signals;
+}
+
+export function buildHighImpactSignals(highImpact: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const action of highImpact) {
+    signals.push({
+      type: 'high_impact_low_oversight',
+      severity: parseInt(action.risk_score, 10) >= 90 ? 'red' : 'amber',
+      label: `Ungoverned high-risk decision: ${action.declared_goal?.substring(0, 50) || 'Unknown'}`,
+      detail: `${action.agent_name || action.agent_id} is executing an irreversible decision (risk: ${action.risk_score}) without governance authorization.`,
+      help: 'High-risk irreversible decisions must have explicit authorization_scope. Enforce policy compliance before execution.',
+      agent_id: action.agent_id,
+      action_id: action.action_id,
+      detected_at: action.timestamp_start,
+    });
+  }
+  return signals;
+}
+
+export function buildRepeatedFailureSignals(repeatedFailures: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const fail of repeatedFailures) {
+    signals.push({
+      type: 'repeated_failures',
+      severity: parseInt(fail.failure_count, 10) > 5 ? 'red' : 'amber',
+      label: `Decision reliability degraded: ${fail.agent_name || fail.agent_id} (${fail.failure_count} failures in 24h)`,
+      detail: `This agent's decision reliability has degraded with ${fail.failure_count} failures in the last 24 hours, exceeding the integrity threshold of 3.`,
+      help: 'Repeated decision failures indicate degraded reliability. Review decision rationale and underlying assumptions.',
+      agent_id: fail.agent_id,
+      detected_at: fail.last_seen || null,
+    });
+  }
+  return signals;
+}
+
+export function buildStaleLoopSignals(staleLoops: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const loop of staleLoops) {
+    const hoursOld = Math.round((Date.now() - new Date(loop.created_at).getTime()) / (1000 * 60 * 60));
+    signals.push({
+      type: 'stale_loop',
+      severity: hoursOld > 96 ? 'red' : 'amber',
+      label: `Unresolved dependency (${hoursOld}h): ${loop.description?.substring(0, 50) || 'Unknown'}`,
+      detail: `Unresolved dependency for ${loop.agent_name || loop.agent_id || 'unknown agent'} has been blocking decision completion for ${hoursOld} hours.`,
+      help: 'Unresolved dependencies weaken decision integrity. Resolve or cancel to restore the governance chain.',
+      agent_id: loop.agent_id,
+      loop_id: loop.loop_id,
+      detected_at: loop.created_at,
+    });
+  }
+  return signals;
+}
+
+export function buildAssumptionDriftSignals(assumptionDrift: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const drift of assumptionDrift) {
+    signals.push({
+      type: 'assumption_drift',
+      severity: parseInt(drift.invalidation_count, 10) >= 4 ? 'red' : 'amber',
+      label: `Decision basis degrading: ${drift.agent_name || drift.agent_id} (${drift.invalidation_count} assumptions invalidated)`,
+      detail: `${drift.invalidation_count} assumptions invalidated in the last 7 days, indicating the decision basis for this agent is eroding.`,
+      help: 'Frequent assumption invalidations degrade the decision basis. Review and re-validate the foundational assumptions.',
+      agent_id: drift.agent_id,
+      detected_at: drift.last_seen || null,
+    });
+  }
+  return signals;
+}
+
+export function buildDriftAlertSignals(driftAlerts: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  for (const row of driftAlerts || []) {
+    const absZ = Math.abs(Number(row.z_score));
+    const zPhrase = absZ >= 999 ? 'baseline shows no variance' : `z ${Number(row.z_score)}`;
+    signals.push({
+      type: 'drift_alert',
+      severity: row.severity === 'critical' ? 'red' : 'amber',
+      label: `Behavioral drift: ${row.agent_id} ${String(row.metric).replace(/_/g, ' ')} ${row.direction} ${Math.abs(Number(row.pct_change))}%`,
+      detail: row.description || `${row.metric} for ${row.agent_id} shifted from its 30-day baseline (${zPhrase}).`,
+      help: 'This agent\'s recent behavior deviates statistically from its 30-day baseline. Review the evidence on the Drift page and acknowledge the alert once triaged.',
+      agent_id: row.agent_id,
+      detected_at: row.created_at,
+    });
+  }
+  return signals;
+}
+
+export function buildStaleAssumptionSignals(staleAssumptions: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const asm of staleAssumptions) {
+    const daysOld = Math.round((Date.now() - new Date(asm.created_at).getTime()) / (1000 * 60 * 60 * 24));
+    signals.push({
+      type: 'stale_assumption',
+      severity: daysOld > 30 ? 'red' : 'amber',
+      label: `Unverified decision basis (${daysOld}d): ${asm.assumption?.substring(0, 50) || 'Unknown'}`,
+      detail: `This assumption has not been verified for ${daysOld} days and may no longer support sound decisions.`,
+      help: 'Unverified assumptions weaken the decision basis. Validate or invalidate to maintain decision integrity.',
+      agent_id: asm.agent_id,
+      assumption_id: asm.assumption_id,
+      detected_at: asm.created_at,
+    });
+  }
+  return signals;
+}
+
+export function buildStaleRunningSignals(staleRunning: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const action of staleRunning) {
+    const hoursRunning = Math.round((Date.now() - new Date(action.timestamp_start).getTime()) / (1000 * 60 * 60));
+    signals.push({
+      type: 'stale_running_action',
+      severity: hoursRunning > 24 ? 'red' : 'amber',
+      label: `Stalled decision (${hoursRunning}h): ${action.declared_goal?.substring(0, 60) || 'Unknown goal'}`,
+      detail: `${action.agent_name || action.agent_id} has had this decision executing for ${hoursRunning} hours without resolution. The governance record is incomplete.`,
+      help: 'Stalled decisions leave the audit trail incomplete. Investigate whether the decision is stuck or should be finalized.',
+      agent_id: action.agent_id,
+      action_id: action.action_id,
+      detected_at: action.timestamp_start,
+    });
+  }
+  return signals;
+}
+
+export function buildStuckWorkflowSignals(stuckWorkflows: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const row of stuckWorkflows) {
+    const ageMinutes = Math.round((Date.now() - new Date(row.timestamp_start).getTime()) / 60000);
+    signals.push({
+      type: 'workflow_stuck',
+      severity: ageMinutes > 60 ? 'red' : 'amber',
+      label: `Stuck workflow: ${row.declared_goal || 'Unknown'}`,
+      detail: `Running for ${ageMinutes}m without completing. Agent: ${row.agent_name || row.agent_id || 'unknown'}.`,
+      help: 'Cancel the workflow from the operations feed or investigate the stuck step.',
+      agent_id: row.agent_id,
+      action_id: row.action_id,
+      trigger: row.trigger || null,
+      detected_at: row.timestamp_start,
+    });
+  }
+  return signals;
+}
+
+export function buildStaleApprovalSignals(staleApprovals: Row[]): Signal[] {
+  const signals: Signal[] = [];
+  for (const row of staleApprovals) {
+    const ageHours = Math.round((Date.now() - new Date(row.timestamp_start).getTime()) / 3600000);
+    signals.push({
+      type: 'approval_backlog',
+      severity: ageHours >= 4 ? 'red' : 'amber',
+      label: `Stale approval: ${row.declared_goal || 'Unknown'}`,
+      detail: `Pending for ${ageHours}h. Risk: ${row.risk_score || 'unknown'}. Agent: ${row.agent_name || row.agent_id || 'unknown'}.`,
+      help: 'Review and approve or deny this action from the approvals queue.',
+      agent_id: row.agent_id,
+      action_id: row.action_id,
+      detected_at: row.timestamp_start,
+    });
+  }
+  return signals;
+}
+
+/**
+ * Integration mismatch: agent reports using a provider but credentials are
+ * missing or broken. Skipped entirely when either prefetched query failed
+ * (integration_health table may not exist yet).
+ */
+export function buildIntegrationMismatchSignals(connections: Row[] | null, health: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  if (!connections || !health) return signals;
+  const healthMap: Record<string, Row> = Object.fromEntries(health.map((h) => [h.provider, h]));
+  for (const conn of connections) {
+    const entry = healthMap[conn.provider];
+    const h = entry?.status;
+    if (h === 'error') {
+      signals.push({
+        type: 'integration_mismatch',
+        severity: 'red',
+        label: `Integration Credential Error (${conn.provider})`,
+        detail: `Agent "${conn.agent_id}" reports using ${conn.provider} but stored credentials are invalid.`,
+        help: 'Update credentials on the Integrations page.',
+        agent_id: conn.agent_id,
+        provider: conn.provider,
+        detected_at: entry?.checked_at || null,
+      });
+    } else if (!h && h !== 'healthy' && h !== 'degraded') {
+      // No health record means credentials were never configured or checked
+      const hasAnyHealth = health.length > 0; // health cron has run at least once
+      if (hasAnyHealth) {
+        signals.push({
+          type: 'integration_mismatch',
+          severity: 'amber',
+          label: `Missing Integration Credentials (${conn.provider})`,
+          detail: `Agent "${conn.agent_id}" reports using ${conn.provider} but no credentials are configured.`,
+          help: 'Configure credentials on the Integrations page.',
+          agent_id: conn.agent_id,
+          provider: conn.provider,
+          detected_at: null,
+        });
+      }
+    }
+  }
+  return signals;
+}
+
+/** Sessions in 'running' status with no activity for 2+ hours. */
+export function buildStalledSessionSignals(stalledSessions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  for (const sess of stalledSessions || []) {
+    const hoursStalled = Math.round((Date.now() - new Date(sess.last_activity).getTime()) / 3600000);
+    signals.push({
+      type: 'session_stalled',
+      severity: hoursStalled >= 4 ? 'red' : 'amber',
+      label: `Session stalled (${hoursStalled}h): ${sess.agent_id}`,
+      detail: `Session ${sess.id} has been running with no tool activity for ${hoursStalled} hours`,
+      help: 'Consider restarting the agent session or checking for blockers',
+      agent_id: sess.agent_id,
+      session_id: sess.id,
+      detected_at: sess.last_activity || null,
+    });
+  }
+  return signals;
+}
+
+/** Stale branch detection from recent guard decisions with intel. */
+export function buildBranchStaleSignals(recentDecisions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  const seenAgents = new Set();
+  for (const dec of recentDecisions || []) {
+    try {
+      const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
+      const branch = ctx?.intel?.branch;
+      if (branch?.freshness === 'stale' && !seenAgents.has(dec.agent_id)) {
+        seenAgents.add(dec.agent_id);
+        const behind = branch.commits_behind || 0;
+        signals.push({
+          type: 'branch_stale', severity: behind >= 5 ? 'red' : 'amber',
+          label: `Stale branch: ${branch.name || 'unknown'} (${behind} behind)`,
+          detail: `Agent ${dec.agent_id} is working on a branch ${behind} commits behind main`,
+          help: 'Rebase or merge-forward before running tests',
+          agent_id: dec.agent_id,
+          detected_at: dec.created_at || null,
+        });
+      }
+    } catch (e) {
+      console.warn(`[signals] branch_stale: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
+    }
+  }
+  return signals;
+}
+
+/** MCP server health from recent guard decisions with intel. */
+export function buildMcpDegradedSignals(recentMcpDecisions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  const seenServers = new Set();
+  for (const dec of recentMcpDecisions || []) {
+    try {
+      const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
+      const mcp = ctx?.intel?.mcp;
+      if (mcp && !mcp.healthy && !seenServers.has(mcp.server)) {
+        seenServers.add(mcp.server);
+        signals.push({
+          type: 'mcp_degraded', severity: mcp.status === 'auth_required' ? 'red' : 'amber',
+          label: `MCP degraded: ${mcp.server} (${mcp.status})`,
+          detail: mcp.error || `MCP server ${mcp.server} is ${mcp.status}`,
+          help: 'Check MCP server configuration and connectivity',
+          agent_id: dec.agent_id,
+          detected_at: dec.created_at || null,
+        });
+      }
+    } catch (e) {
+      console.warn(`[signals] mcp_degraded: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
+    }
+  }
+  return signals;
+}
+
+/** Green contract insufficiency from recent guard decisions. */
+export function buildGreenInsufficientSignals(greenDecisions: Row[] | null): Signal[] {
+  const signals: Signal[] = [];
+  const seenGreenAgents = new Set();
+  for (const dec of greenDecisions || []) {
+    try {
+      const reason = dec.reason || '';
+      if (reason.includes('Green contract') && !seenGreenAgents.has(dec.agent_id)) {
+        seenGreenAgents.add(dec.agent_id);
+        const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
+        const green = ctx?.intel?.green;
+        signals.push({
+          type: 'green_insufficient', severity: 'red',
+          label: `Green insufficient: ${dec.agent_id} (${green?.observed_level || 'none'})`,
+          detail: 'Agent attempted deploy/merge without sufficient test verification',
+          help: 'Run tests at the required green level before proceeding',
+          agent_id: dec.agent_id,
+          detected_at: dec.created_at || null,
+        });
+      }
+    } catch (e) {
+      console.warn(`[signals] green_insufficient: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
+    }
+  }
+  return signals;
+}
 
 /**
  * Compute all 18 risk signal types for an org.
@@ -241,288 +586,37 @@ export async function computeSignals(
 
   const signals: Signal[] = [];
 
-  for (const presence of stalePresence) {
-    const minutesSilent = Math.max(
-      10,
-      Math.round((Date.now() - new Date(presence.last_heartbeat_at).getTime()) / 60000),
-    );
-    signals.push({
-      type: 'agent_silent',
-      severity: presence.current_task_id ? 'red' : 'amber',
-      label: `Agent heartbeat lost: ${presence.agent_name || presence.agent_id}`,
-      detail: `This agent has not sent a heartbeat for ${minutesSilent} minutes.`,
-      help: presence.current_task_id
-        ? 'Agent is silent while assigned to an active task. Investigate potential process crash or network failure.'
-        : 'Agent heartbeat lost. It may be offline or unable to reach the dashboard.',
-      agent_id: presence.agent_id,
-      detected_at: presence.last_heartbeat_at,
-    });
-  }
+  signals.push(...buildStalePresenceSignals(stalePresence));
+  signals.push(...buildAutonomySpikeSignals(autonomySpikes, spikeThreshold));
+  signals.push(...buildHighImpactSignals(highImpact));
+  signals.push(...buildRepeatedFailureSignals(repeatedFailures));
+  signals.push(...buildStaleLoopSignals(staleLoops));
+  signals.push(...buildAssumptionDriftSignals(assumptionDrift));
+  signals.push(...buildDriftAlertSignals(driftAlerts));
+  signals.push(...buildStaleAssumptionSignals(staleAssumptions));
+  signals.push(...buildStaleRunningSignals(staleRunning));
+  signals.push(...buildStuckWorkflowSignals(stuckWorkflows));
+  signals.push(...buildStaleApprovalSignals(staleApprovals));
+  signals.push(...buildIntegrationMismatchSignals(connections, health));
 
-  for (const spike of autonomySpikes) {
-    signals.push({
-      type: 'autonomy_spike',
-      severity: parseInt(spike.action_count, 10) > spikeThreshold * 2 ? 'red' : 'amber',
-      label: `Governance alert: ${spike.agent_name || spike.agent_id} (${spike.action_count} ungoverned decisions/hr)`,
-      detail: `This agent made ${spike.action_count} decisions in the last hour without proportional oversight, exceeding the governance threshold of ${spikeThreshold}.`,
-      help: 'High decision frequency without oversight may indicate ungoverned autonomy. Review recent decisions and enforce policy throttling.',
-      agent_id: spike.agent_id,
-      detected_at: spike.last_seen || null,
-    });
-  }
-
-  for (const action of highImpact) {
-    signals.push({
-      type: 'high_impact_low_oversight',
-      severity: parseInt(action.risk_score, 10) >= 90 ? 'red' : 'amber',
-      label: `Ungoverned high-risk decision: ${action.declared_goal?.substring(0, 50) || 'Unknown'}`,
-      detail: `${action.agent_name || action.agent_id} is executing an irreversible decision (risk: ${action.risk_score}) without governance authorization.`,
-      help: 'High-risk irreversible decisions must have explicit authorization_scope. Enforce policy compliance before execution.',
-      agent_id: action.agent_id,
-      action_id: action.action_id,
-      detected_at: action.timestamp_start,
-    });
-  }
-
-  for (const fail of repeatedFailures) {
-    signals.push({
-      type: 'repeated_failures',
-      severity: parseInt(fail.failure_count, 10) > 5 ? 'red' : 'amber',
-      label: `Decision reliability degraded: ${fail.agent_name || fail.agent_id} (${fail.failure_count} failures in 24h)`,
-      detail: `This agent's decision reliability has degraded with ${fail.failure_count} failures in the last 24 hours, exceeding the integrity threshold of 3.`,
-      help: 'Repeated decision failures indicate degraded reliability. Review decision rationale and underlying assumptions.',
-      agent_id: fail.agent_id,
-      detected_at: fail.last_seen || null,
-    });
-  }
-
-  for (const loop of staleLoops) {
-    const hoursOld = Math.round((Date.now() - new Date(loop.created_at).getTime()) / (1000 * 60 * 60));
-    signals.push({
-      type: 'stale_loop',
-      severity: hoursOld > 96 ? 'red' : 'amber',
-      label: `Unresolved dependency (${hoursOld}h): ${loop.description?.substring(0, 50) || 'Unknown'}`,
-      detail: `Unresolved dependency for ${loop.agent_name || loop.agent_id || 'unknown agent'} has been blocking decision completion for ${hoursOld} hours.`,
-      help: 'Unresolved dependencies weaken decision integrity. Resolve or cancel to restore the governance chain.',
-      agent_id: loop.agent_id,
-      loop_id: loop.loop_id,
-      detected_at: loop.created_at,
-    });
-  }
-
-  for (const drift of assumptionDrift) {
-    signals.push({
-      type: 'assumption_drift',
-      severity: parseInt(drift.invalidation_count, 10) >= 4 ? 'red' : 'amber',
-      label: `Decision basis degrading: ${drift.agent_name || drift.agent_id} (${drift.invalidation_count} assumptions invalidated)`,
-      detail: `${drift.invalidation_count} assumptions invalidated in the last 7 days, indicating the decision basis for this agent is eroding.`,
-      help: 'Frequent assumption invalidations degrade the decision basis. Review and re-validate the foundational assumptions.',
-      agent_id: drift.agent_id,
-      detected_at: drift.last_seen || null,
-    });
-  }
-
-  for (const row of driftAlerts || []) {
-    const absZ = Math.abs(Number(row.z_score));
-    const zPhrase = absZ >= 999 ? 'baseline shows no variance' : `z ${Number(row.z_score)}`;
-    signals.push({
-      type: 'drift_alert',
-      severity: row.severity === 'critical' ? 'red' : 'amber',
-      label: `Behavioral drift: ${row.agent_id} ${String(row.metric).replace(/_/g, ' ')} ${row.direction} ${Math.abs(Number(row.pct_change))}%`,
-      detail: row.description || `${row.metric} for ${row.agent_id} shifted from its 30-day baseline (${zPhrase}).`,
-      help: 'This agent\'s recent behavior deviates statistically from its 30-day baseline. Review the evidence on the Drift page and acknowledge the alert once triaged.',
-      agent_id: row.agent_id,
-      detected_at: row.created_at,
-    });
-  }
-
-  for (const asm of staleAssumptions) {
-    const daysOld = Math.round((Date.now() - new Date(asm.created_at).getTime()) / (1000 * 60 * 60 * 24));
-    signals.push({
-      type: 'stale_assumption',
-      severity: daysOld > 30 ? 'red' : 'amber',
-      label: `Unverified decision basis (${daysOld}d): ${asm.assumption?.substring(0, 50) || 'Unknown'}`,
-      detail: `This assumption has not been verified for ${daysOld} days and may no longer support sound decisions.`,
-      help: 'Unverified assumptions weaken the decision basis. Validate or invalidate to maintain decision integrity.',
-      agent_id: asm.agent_id,
-      assumption_id: asm.assumption_id,
-      detected_at: asm.created_at,
-    });
-  }
-
-  for (const action of staleRunning) {
-    const hoursRunning = Math.round((Date.now() - new Date(action.timestamp_start).getTime()) / (1000 * 60 * 60));
-    signals.push({
-      type: 'stale_running_action',
-      severity: hoursRunning > 24 ? 'red' : 'amber',
-      label: `Stalled decision (${hoursRunning}h): ${action.declared_goal?.substring(0, 60) || 'Unknown goal'}`,
-      detail: `${action.agent_name || action.agent_id} has had this decision executing for ${hoursRunning} hours without resolution. The governance record is incomplete.`,
-      help: 'Stalled decisions leave the audit trail incomplete. Investigate whether the decision is stuck or should be finalized.',
-      agent_id: action.agent_id,
-      action_id: action.action_id,
-      detected_at: action.timestamp_start,
-    });
-  }
-
-  for (const row of stuckWorkflows) {
-    const ageMinutes = Math.round((Date.now() - new Date(row.timestamp_start).getTime()) / 60000);
-    signals.push({
-      type: 'workflow_stuck',
-      severity: ageMinutes > 60 ? 'red' : 'amber',
-      label: `Stuck workflow: ${row.declared_goal || 'Unknown'}`,
-      detail: `Running for ${ageMinutes}m without completing. Agent: ${row.agent_name || row.agent_id || 'unknown'}.`,
-      help: 'Cancel the workflow from the operations feed or investigate the stuck step.',
-      agent_id: row.agent_id,
-      action_id: row.action_id,
-      trigger: row.trigger || null,
-      detected_at: row.timestamp_start,
-    });
-  }
-
-  for (const row of staleApprovals) {
-    const ageHours = Math.round((Date.now() - new Date(row.timestamp_start).getTime()) / 3600000);
-    signals.push({
-      type: 'approval_backlog',
-      severity: ageHours >= 4 ? 'red' : 'amber',
-      label: `Stale approval: ${row.declared_goal || 'Unknown'}`,
-      detail: `Pending for ${ageHours}h. Risk: ${row.risk_score || 'unknown'}. Agent: ${row.agent_name || row.agent_id || 'unknown'}.`,
-      help: 'Review and approve or deny this action from the approvals queue.',
-      agent_id: row.agent_id,
-      action_id: row.action_id,
-      detected_at: row.timestamp_start,
-    });
-  }
-
-  // Integration mismatch: agent reports using a provider but credentials are missing or broken
-  // (skipped when either prefetched query failed — integration_health table may not exist yet)
-  if (connections && health) {
-    const healthMap: Record<string, Row> = Object.fromEntries(health.map((h) => [h.provider, h]));
-    for (const conn of connections) {
-      const entry = healthMap[conn.provider];
-      const h = entry?.status;
-      if (h === 'error') {
-        signals.push({
-          type: 'integration_mismatch',
-          severity: 'red',
-          label: `Integration Credential Error (${conn.provider})`,
-          detail: `Agent "${conn.agent_id}" reports using ${conn.provider} but stored credentials are invalid.`,
-          help: 'Update credentials on the Integrations page.',
-          agent_id: conn.agent_id,
-          provider: conn.provider,
-          detected_at: entry?.checked_at || null,
-        });
-      } else if (!h && h !== 'healthy' && h !== 'degraded') {
-        // No health record means credentials were never configured or checked
-        const hasAnyHealth = health.length > 0; // health cron has run at least once
-        if (hasAnyHealth) {
-          signals.push({
-            type: 'integration_mismatch',
-            severity: 'amber',
-            label: `Missing Integration Credentials (${conn.provider})`,
-            detail: `Agent "${conn.agent_id}" reports using ${conn.provider} but no credentials are configured.`,
-            help: 'Configure credentials on the Integrations page.',
-            agent_id: conn.agent_id,
-            provider: conn.provider,
-            detected_at: null,
-          });
-        }
-      }
-    }
-  }
-
-  // Detect sessions in 'running' status with no activity for 2+ hours
   try {
-    for (const sess of stalledSessions || []) {
-      const hoursStalled = Math.round((Date.now() - new Date(sess.last_activity).getTime()) / 3600000);
-      signals.push({
-        type: 'session_stalled',
-        severity: hoursStalled >= 4 ? 'red' : 'amber',
-        label: `Session stalled (${hoursStalled}h): ${sess.agent_id}`,
-        detail: `Session ${sess.id} has been running with no tool activity for ${hoursStalled} hours`,
-        help: 'Consider restarting the agent session or checking for blockers',
-        agent_id: sess.agent_id,
-        session_id: sess.id,
-        detected_at: sess.last_activity || null,
-      });
-    }
+    signals.push(...buildStalledSessionSignals(stalledSessions));
   } catch (e) { /* signal collection is best-effort */ }
 
-  // Stale branch detection from recent guard decisions with intel
   try {
-    const seenAgents = new Set();
-    for (const dec of recentDecisions || []) {
-      try {
-        const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
-        const branch = ctx?.intel?.branch;
-        if (branch?.freshness === 'stale' && !seenAgents.has(dec.agent_id)) {
-          seenAgents.add(dec.agent_id);
-          const behind = branch.commits_behind || 0;
-          signals.push({
-            type: 'branch_stale', severity: behind >= 5 ? 'red' : 'amber',
-            label: `Stale branch: ${branch.name || 'unknown'} (${behind} behind)`,
-            detail: `Agent ${dec.agent_id} is working on a branch ${behind} commits behind main`,
-            help: 'Rebase or merge-forward before running tests',
-            agent_id: dec.agent_id,
-            detected_at: dec.created_at || null,
-          });
-        }
-      } catch (e) {
-        console.warn(`[signals] branch_stale: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
-      }
-    }
+    signals.push(...buildBranchStaleSignals(recentDecisions));
   } catch (e) {
     console.warn('[signals] branch_stale category failed:', (e as Error)?.message || e);
   }
 
-  // MCP server health from recent guard decisions with intel
   try {
-    const seenServers = new Set();
-    for (const dec of recentMcpDecisions || []) {
-      try {
-        const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
-        const mcp = ctx?.intel?.mcp;
-        if (mcp && !mcp.healthy && !seenServers.has(mcp.server)) {
-          seenServers.add(mcp.server);
-          signals.push({
-            type: 'mcp_degraded', severity: mcp.status === 'auth_required' ? 'red' : 'amber',
-            label: `MCP degraded: ${mcp.server} (${mcp.status})`,
-            detail: mcp.error || `MCP server ${mcp.server} is ${mcp.status}`,
-            help: 'Check MCP server configuration and connectivity',
-            agent_id: dec.agent_id,
-            detected_at: dec.created_at || null,
-          });
-        }
-      } catch (e) {
-        console.warn(`[signals] mcp_degraded: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
-      }
-    }
+    signals.push(...buildMcpDegradedSignals(recentMcpDecisions));
   } catch (e) {
     console.warn('[signals] mcp_degraded category failed:', (e as Error)?.message || e);
   }
 
-  // Green contract insufficiency from recent guard decisions
   try {
-    const seenGreenAgents = new Set();
-    for (const dec of greenDecisions || []) {
-      try {
-        const reason = dec.reason || '';
-        if (reason.includes('Green contract') && !seenGreenAgents.has(dec.agent_id)) {
-          seenGreenAgents.add(dec.agent_id);
-          const ctx = typeof dec.context === 'string' ? JSON.parse(dec.context) : dec.context;
-          const green = ctx?.intel?.green;
-          signals.push({
-            type: 'green_insufficient', severity: 'red',
-            label: `Green insufficient: ${dec.agent_id} (${green?.observed_level || 'none'})`,
-            detail: 'Agent attempted deploy/merge without sufficient test verification',
-            help: 'Run tests at the required green level before proceeding',
-            agent_id: dec.agent_id,
-            detected_at: dec.created_at || null,
-          });
-        }
-      } catch (e) {
-        console.warn(`[signals] green_insufficient: failed to parse context for decision ${dec.id}:`, (e as Error)?.message || e);
-      }
-    }
+    signals.push(...buildGreenInsufficientSignals(greenDecisions));
   } catch (e) {
     console.warn('[signals] green_insufficient category failed:', (e as Error)?.message || e);
   }

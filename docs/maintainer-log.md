@@ -12,6 +12,31 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.66.4: the posture engine gets the same treatment
+
+Second hotspot of the health pass, chosen the same way: highest blast
+radius among the biomarkers. `computeSignals` — the 536-line function
+that turns the org's raw rows into the red/amber posture the operator
+actually sees (guard's `include_signals`, `/api/signals`, the cron, the
+agent profile) — became a thin orchestrator over sixteen exported pure
+`build*Signals` functions. Bodies moved verbatim; push order preserved
+because the red-first sort is stable and equal-severity order is
+therefore part of the observable contract.
+
+The payoff is the same as v4.66.3 and arrived just as fast: 18 new tests
+pin every severity boundary at its exact edge — spike >2x, risk ≥90,
+failures >5, loops >96h, assumptions >30d, `auth_required` red, the
+per-agent and per-server dedup, the malformed-intel-context warn path.
+Before the extraction, none of those boundaries could be tested without
+mocking seventeen SQL queries; a wrong `>=` vs `>` in a threshold would
+have shipped silently. Now it can't.
+
+The lesson recorded: the same one as this morning, confirmed on a second
+subject — hot functions decay structurally even under careful review,
+and the cheapest hardening is making their branches individually
+callable. Two files, 31 new boundary tests, zero behavior change,
+one day. No SDK changes; registries stay at 4.63.2.
+
 ## 2026-07-05 — v4.66.3: the worst-health file was the one every action flows through
 
 With the roadmap time-gated until the July 19 read, the useful work is

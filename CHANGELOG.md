@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.4] — 2026-07-05
+
+**Signals health pass.** Continues v4.66.3's hotspot work on the next
+decision-adjacent biomarker: `computeSignals` in `app/lib/signals.ts` — the
+posture engine behind `?include_signals=true` on guard, `/api/signals`, the
+signals cron, and agent profiles — was a single 536-line function.
+Behavior-preserving: bodies moved verbatim, push order preserved (the stable
+red-first sort keeps equal-severity ordering identical), all 71 pre-existing
+signals tests pass unchanged.
+
+### Changed
+- **`app/lib/signals.ts`** — each signal category's row→signal mapping is now
+  an exported pure `build*Signals` function (16 of them);  `computeSignals`
+  reduces to: settings fetch → one parallel query batch → builders → filter
+  → sort. Best-effort try/catch semantics per category are unchanged.
+- **`__tests__/unit/signals-builders.test.js` (new)** — 18 tests pin every
+  severity threshold at its exact boundary (spike >2x, risk ≥90, failures >5,
+  loops >96h, invalidations ≥4, assumptions >30d, running >24h, workflows
+  >60m, approvals/sessions ≥4h, branch ≥5 behind, `auth_required` red), plus
+  per-agent/per-server dedup and malformed-intel-context handling — none of
+  which were directly testable while the loops lived inline.
+
 ## [4.66.3] — 2026-07-05
 
 **Guard hot-path health pass.** `app/api/guard/route.ts` — the file every
