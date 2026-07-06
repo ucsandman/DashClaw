@@ -1,5 +1,7 @@
+import { EventEmitter } from 'node:events';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  assertPortAvailable,
   createStartServerSpawnConfig,
   formatSetupStatusSummary,
   sendTerminationSignal,
@@ -107,6 +109,35 @@ describe('startup smoke runner', () => {
     expect(config.options.shell).toBe(false);
     expect(config.options.detached).toBe(true);
     expect(config.options.env.PORT).toBe('3100');
+  });
+
+  it('resolves when the target port is free', async () => {
+    function fakeServer() {
+      const emitter = new EventEmitter();
+      emitter.listen = () => {
+        process.nextTick(() => emitter.emit('listening'));
+      };
+      emitter.close = (cb) => cb();
+      return emitter;
+    }
+
+    await expect(assertPortAvailable(3100, { createServerImpl: fakeServer })).resolves.toBeUndefined();
+  });
+
+  it('rejects with an actionable message when a stale server already holds the port', async () => {
+    function fakeServer() {
+      const emitter = new EventEmitter();
+      emitter.listen = () => {
+        const error = new Error('address already in use');
+        error.code = 'EADDRINUSE';
+        process.nextTick(() => emitter.emit('error', error));
+      };
+      emitter.close = (cb) => cb();
+      return emitter;
+    }
+
+    await expect(assertPortAvailable(3100, { createServerImpl: fakeServer }))
+      .rejects.toThrow(/port 3100 is already in use/i);
   });
 
   it('rejects invalid startup smoke ports before spawning a shell command', () => {

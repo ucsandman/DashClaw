@@ -3,6 +3,7 @@
 import { spawn } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import {
+  assertPortAvailable,
   createStartServerSpawnConfig,
   shutdownChildProcess,
   waitForConfiguredSetup,
@@ -65,7 +66,17 @@ function createLogBuffer(limit = 200) {
 async function main() {
   const options = parseArgs(process.argv.slice(2));
   const setupStatusUrl = `${options.baseUrl.replace(/\/$/, '')}/api/setup/status`;
-  const startServer = createStartServerSpawnConfig({ port: getPortFromBaseUrl(options.baseUrl) });
+  const port = getPortFromBaseUrl(options.baseUrl);
+
+  try {
+    await assertPortAvailable(port);
+  } catch (error) {
+    console.error(`[startup-smoke] ${error.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const startServer = createStartServerSpawnConfig({ port });
   const child = spawn(startServer.command, startServer.args, startServer.options);
 
   const stdoutBuffer = createLogBuffer();

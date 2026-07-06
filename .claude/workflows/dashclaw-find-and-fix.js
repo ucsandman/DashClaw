@@ -121,7 +121,7 @@ const disc = await agent(
     ' (e.g. curl -s -o /dev/null -w "%{http_code}" ' +
     DEV_URL +
     '). Set serverUp true only if it returns a real HTTP status (not 000 / connection refused). Do NOT start the server yourself - the caller owns its lifecycle.',
-  { phase: 'Discover', schema: DISCOVER_SCHEMA },
+  { phase: 'Discover', schema: DISCOVER_SCHEMA, model: 'haiku' },
 )
 
 const routes = (disc && disc.routes) || []
@@ -151,7 +151,7 @@ if (disc && disc.serverUp) {
           ': ' +
           chunk.join(', ') +
           '.\nFor each route: request the full URL sending the demo-mode cookie (e.g. curl -s -H "Cookie: dashclaw_demo=1" ...), mirroring playwright.config.js storageState so gated pages render when the target server runs in demo mode. Record the status code and inspect the start of the HTML body. Report a finding (source "http-smoke", location = the route) when: status is >= 500; the page returns a Next.js error overlay, "Application error", "Internal Server Error", an unhandled exception or a stack trace; or the route 404s even though a page file exists. A 200 that renders is NOT a finding. EXPECTED-SKIP - do NOT report these as findings at any severity, they are intentional behavior: a 307/302 redirect to /login (the middleware auth gate when smoking without a session); /demo redirecting to /#live-demo (the intentional demo entrypoint); a redirect to /setup or /connect (onboarding gates). Return JSON findings; empty array if all clean. Do not edit files.',
-        { label: 'smoke:' + (i + 1) + '/' + routeChunks.length, phase: 'Detect', schema: FINDINGS_SCHEMA },
+        { label: 'smoke:' + (i + 1) + '/' + routeChunks.length, phase: 'Detect', schema: FINDINGS_SCHEMA, model: 'haiku' },
       ),
     )
   })
@@ -179,7 +179,7 @@ GATES.forEach((g) => {
         '.\nPipe noisy output to a file and read only the failing lines if it is large. Report each distinct failure as a finding (source "' +
         g.src +
         '", location = the file:line or check name, evidence = the error message). If it passes clean, return an empty findings array. Do NOT fix anything and do NOT edit files - this is detection only.',
-      { label: 'gate:' + g.key, phase: 'Detect', schema: FINDINGS_SCHEMA },
+      { label: 'gate:' + g.key, phase: 'Detect', schema: FINDINGS_SCHEMA, model: 'haiku' },
     ),
   )
 })
@@ -201,7 +201,7 @@ const triage = await agent(
     '\nOne root cause often appears as several findings (a 500 in http-smoke + a console error in browser + a failing test). Dedup them. Cluster into ATOMIC issues, each fixable independently in one small change. Rank by severity: critical = app/route down or build fails; high = a feature broken or a test failing; medium = console error or visual breakage; low = cosmetic or expected auth/setup gating. For each issue give a stable kebab-case id, the files most likely involved (read the repo to confirm, do not guess), a one-line repro, and a concrete fixHint. Respect the DashClaw governance boundary: never propose extending app/api/_archive/** or adding agent-platform features. Return at most ' +
     TOP_N +
     ' issues, highest severity first.',
-  { phase: 'Triage', schema: ISSUES_SCHEMA },
+  { phase: 'Triage', schema: ISSUES_SCHEMA, model: 'sonnet' },
 )
 const issues = (triage && triage.issues) || []
 if (issues.length === 0) {
@@ -226,7 +226,7 @@ const fixed = (
           ' if a dev server is up). ' +
           GUARDRAILS +
           '\nReturn JSON: status (fixed | partial | skipped); diff = the unified diff of your change from "git --no-pager diff" (empty string if skipped); verification = exactly what you ran and its result; notes. If you cannot fix it safely, return status "skipped" with an empty diff and the reason in notes.',
-        { label: 'fix:' + issue.id, phase: 'Fix', isolation: 'worktree', schema: FIX_SCHEMA },
+        { label: 'fix:' + issue.id, phase: 'Fix', isolation: 'worktree', schema: FIX_SCHEMA, model: 'sonnet' },
       ),
     ),
   )
@@ -246,7 +246,7 @@ const integrate = await agent(
   'Integrate these verified candidate fixes into the main working tree, one at a time, keeping ONLY what stays green. Candidates (JSON, each has id + a unified diff): ' +
     JSON.stringify(applicable.map((f) => ({ id: f.id, diff: f.diff, verification: f.verification }))) +
     '\nProcess them in severity order. For each: apply the diff with "git apply" (or re-create the edit by hand if the patch no longer applies cleanly against current state). After applying, run the cheapest check that proves it did not break anything - always npm run lint, plus the relevant test file, plus npm run build for any app/** change. If it applies clean and the check passes, KEEP it and add its id to landed. If it conflicts or regresses, revert just that change ("git checkout -- <files>") and add it to deferred with the reason. Do NOT git commit - leave the landed changes in the working tree for the operator to review and ship. Finally run npm run lint once more and report it as finalGate. Return JSON {landed, deferred, finalGate}.',
-  { phase: 'Integrate', schema: INTEGRATE_SCHEMA },
+  { phase: 'Integrate', schema: INTEGRATE_SCHEMA, model: 'sonnet' },
 )
 
 const landed = (integrate && integrate.landed) || []

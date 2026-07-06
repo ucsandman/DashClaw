@@ -32,3 +32,4 @@ docs/api-inventory.json merge=regenerate
 docs/api-inventory.md merge=regenerate
 docs/openapi/critical-stable.openapi.json merge=regenerate
 # <<< living-merge <<<
+.claude/workflows/*.js text eol=lf

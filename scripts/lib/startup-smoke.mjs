@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createServer } from 'node:net';
 
 export function formatSetupStatusSummary(body = {}, status = null) {
   const http = status == null ? '' : `http=${status} `;
@@ -14,6 +15,34 @@ function normalizePort(port) {
     throw new Error(`Invalid port for startup smoke: ${port}`);
   }
   return String(normalized);
+}
+
+// Guards against the "stale server on the port" false-positive class: if a
+// prior smoke run (or a leftover `next start`) is still bound to this port,
+// spawning a new server either fails to bind or the poll below ends up
+// hitting the OLD process while a fresh .next build sits unused underneath
+// it — every route looks broken even though the current build is fine.
+export function assertPortAvailable(port, { host = '127.0.0.1', createServerImpl = createServer } = {}) {
+  const targetPort = normalizePort(port);
+  return new Promise((resolve, reject) => {
+    const tester = createServerImpl();
+    tester.once('error', (error) => {
+      if (error?.code === 'EADDRINUSE') {
+        reject(new Error(
+          `startup smoke: port ${targetPort} is already in use by another process. ` +
+          'A stale server left on this port will be tested instead of the fresh build. ' +
+          `Free it first (Windows: netstat -ano | findstr :${targetPort} then taskkill /PID <pid> /F; ` +
+          `POSIX: lsof -i:${targetPort} then kill <pid>) and re-run.`,
+        ));
+        return;
+      }
+      reject(error);
+    });
+    tester.once('listening', () => {
+      tester.close(() => resolve());
+    });
+    tester.listen(Number(targetPort), host);
+  });
 }
 
 export function createStartServerSpawnConfig({

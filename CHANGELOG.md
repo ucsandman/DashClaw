@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.66.2] — 2026-07-05
+
+**Quality-loop harness hardening.** The recurring find-and-fix pass this round
+traced every browser/HTTP symptom (500s on `/guides/*`, a 404 on `/proof`) to
+one environmental root cause: a stale `next start` process holding port 3000
+and serving an out-of-date `.next` build while a fresh build sat unused
+underneath it. The app itself was green — the harness now refuses to be fooled.
+
+### Fixed
+- **`scripts/startup-smoke.mjs`** — a port-availability preflight
+  (`assertPortAvailable` in `scripts/lib/startup-smoke.mjs`) now runs before
+  the server spawns: if a stale process already holds the target port, the
+  smoke run fails loudly with per-OS instructions to free it, instead of
+  silently smoke-testing the old process's build and reporting false 500s.
+  Covered by two new unit tests in `__tests__/unit/startup-smoke.test.js`.
+- **`.claude/workflows/dashclaw-find-and-fix.js`** — the workflow is now
+  actually launchable: every `agent()` call carries an explicit `model:`
+  override (haiku for discover/smoke/gate agents, sonnet for
+  triage/fix/integrate), as required by the agent-model-guard hook, and the
+  file's line endings are pinned to LF via `.gitattributes` (CRLF control
+  characters blocked the Workflow permission check on checkout).
+
 ## [4.66.1] — 2026-07-05
 
 **`npx dashclaw up` freshness: GitHub releases become the version pointer**
