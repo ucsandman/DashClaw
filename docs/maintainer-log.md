@@ -12,6 +12,46 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-06 — v4.72.0: the health pass moves to the pages
+
+The owner's direction was one line: keep the momentum. With the roadmap
+deliberately parked (v7.1's measurement read is time-gated to July 19 and
+v7.4 branches off its result), the open lane is the one the last three
+ships ran in — and v4.71.0's "worst file retires its title" had an obvious
+sequel. After the stop hook's 1.0/10, the next-worst structural scores on
+the health index were three page-component function hotspots. This ship
+takes the two biggest.
+
+The Decision Replay page — the product's core evidence surface — was one
+1,261-line component: five tab bodies, two timeline cards, a sidebar, and
+all the pure logic (event ordering, risk bands, drift math) inlined into a
+single function. It's now a 467-line orchestrator over nine focused
+modules, bodies moved verbatim. Same treatment for /scoring: 980 lines
+down to 453 over six modules split along its four tabs. The decomposition
+also surfaced genuinely dead code the monolith had been hiding — a
+never-rendered result-summary cluster and four unused icon imports — which
+is the kind of thing a 1,200-line function makes invisible.
+
+What made this safe, same as last time: pin behavior at the boundary
+before trusting the refactor. The existing scoring-page flow tests (batch
+score, dimension CRUD, calibrate params) run through the decomposed
+components unchanged and stay green; 33 new tests pin what was never
+pinned directly — timeline event ordering and fallback timestamps, the
+40/70 risk bands, drift labels, the 80/60/40 score bands, and the tab
+empty states. Full suite: 5,442 tests green. And because unit tests prove
+data exists, not that anyone can see it, both pages were driven in a
+headless browser against the production build — every tab on both pages
+click-verified rendering.
+
+One honest note for the record: my first browser-verification pass
+reported both pages "failed" because my own text assertions were
+case-sensitive against CSS-uppercased labels. The pages were fine; the
+verifier was wrong. Worth remembering which side of that to suspect
+first.
+
+No routes, schema, or SDK surfaces changed; the SDKs stay at their last
+published release. The health index recomputes on the next reindex.
+
 ## 2026-07-06 — v4.71.0: the worst file in the codebase retires its title
 
 Owner direction, verbatim: "fix the stop hook, that 1.0/10 score is

@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.71.0",
+    "current_version": "4.72.0",
     "next_bump": "none",
-    "reason": "4.71.0 stop-hook health pass: no Node SDK source change - Python hook decomposition + tests only. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
+    "reason": "4.72.0 page-hotspot health pass: no Node SDK source change - frontend page decomposition + tests only. Version advances per the unified model but the Node SDK is NOT republished; npm stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.71.0",
+    "current_version": "4.72.0",
     "next_bump": "none",
-    "reason": "4.71.0 stop-hook health pass: hooks are distributed via the plugin bundle, not the PyPI SDK - no Python SDK source change; PyPI stays at 4.63.2.",
+    "reason": "4.72.0 page-hotspot health pass: no Python SDK source change; PyPI stays at 4.63.2.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.71.0 retires the repo's worst health score (hooks/dashclaw_stop.py, 1.0/10): the 1,172-line Stop hook is decomposed behavior-preserving into a 598-line orchestrator plus three unit-testable dashclaw_agent_intel modules (stop_transcript, stop_state, stop_uploads), with 67 new dedicated tests on top of the existing subprocess suites (494 Python hook tests total, all green). Plugin bundle copy synced byte-identical. No SDK source changes.",
+  "reason": "v4.72.0 retires the two worst page-component function hotspots: app/decisions/[actionId]/page.tsx (1,261 -> 467 lines, 9 focused modules) and app/scoring/page.tsx (980 -> 453 lines, 6 modules), behavior-preserving verbatim extraction with 33 new unit tests pinning the extracted pure logic and tab rendering; existing scoring-page flow tests pass unchanged. Rendered proof on both pages (all tabs click-verified on the production build). No SDK source changes.",
   "domains": [
     "platform"
   ]

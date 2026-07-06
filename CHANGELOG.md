@@ -13,6 +13,39 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.72.0] — 2026-07-06
+
+**Page-hotspot health pass #2.** After v4.71.0 retired the worst file in the
+codebase, the next-worst structural offenders on the health index were three
+page-component function hotspots. This release decomposes the two biggest —
+behavior-preserving verbatim extraction, same recipe as the stop-hook pass —
+and pins the extracted logic with tests.
+
+### Changed
+- `app/decisions/[actionId]/page.tsx` (1,261 lines, the Decision Replay
+  surface) is now a 467-line orchestrator over 9 focused modules in
+  `_components/`: pure helpers (timeline event ordering, the 40/70 risk
+  bands, status variants, assumption-drift math), `ChronologicalTimeline`,
+  `CausalTimeline`, the Policies/Assumptions/Signals/Evidence tab bodies,
+  `ReplaySidebar`, and `CopyButton`.
+- `app/scoring/page.tsx` (980 lines) is now a 453-line orchestrator over 6
+  modules in `_components/`: shared types + constants, the 80/60/40 score-band
+  helpers, and the Profiles/Score Explorer/Risk Templates/Calibrate tab
+  components. Existing scoring-page flow tests (Score recent, dimension CRUD,
+  calibrate params) pass unchanged through the new structure.
+
+### Added
+- 33 new unit tests (`decision-replay-helpers.test.ts`,
+  `decision-replay-components.test.tsx`, `scoring-page-helpers.test.ts`)
+  pinning timeline event ordering and fallback timestamps, the 40/70 risk
+  bands, drift labels, the 80/60/40 score bands, tab empty states, and the
+  assumption/loop action wiring.
+
+### Removed
+- Dead code that rode along in the replay page since its early revisions:
+  the never-rendered `getResultText`/`getResultSummary`/`decisionType`
+  cluster and four unused lucide imports.
+
 ## [4.71.0] — 2026-07-06
 
 **Stop-hook health pass.** `hooks/dashclaw_stop.py` was the repo's
