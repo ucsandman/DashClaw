@@ -1,0 +1,3 @@
+dashclaw
+pydantic-ai
+python-dotenv

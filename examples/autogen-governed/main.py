@@ -9,6 +9,7 @@ No OPENAI_API_KEY required — runs the governance flow directly.
 """
 
 import os
+import time
 from dotenv import load_dotenv
 from dashclaw import DashClaw
 
@@ -19,6 +20,12 @@ claw = DashClaw(
     api_key=os.environ["DASHCLAW_API_KEY"],
     agent_id="autogen-deploy-agent",
 )
+
+# Each demo run is a distinct logical action. The SDK derives an idempotency
+# key from (agent, type, goal, session) so blind retries dedupe — without a
+# per-run session_id, re-running this script inside an hour would replay the
+# previous (already-completed) action instead of creating a new one.
+RUN_ID = f"demo-{int(time.time())}"
 
 
 def governed_deploy_tool(environment: str) -> str:
@@ -46,6 +53,7 @@ def governed_deploy_tool(environment: str) -> str:
         f"Deploy to {environment}",
         risk_score=70 if environment == "production" else 30,
         systems_touched=[environment],
+        session_id=RUN_ID,
     )
     action_id = action["action_id"]
     print(f"Action recorded: {action_id}")
@@ -61,11 +69,11 @@ def governed_deploy_tool(environment: str) -> str:
             return f"DENIED: {e}"
 
     # 4. ASSUMPTION: Record what we believe to be true
-    claw.record_assumption({
-        "action_id": action_id,
-        "assumption": f"Tests pass on {environment}",
-        "basis": "CI pipeline green for current branch",
-    })
+    claw.register_assumption(
+        action_id,
+        f"Tests pass on {environment}",
+        basis="CI pipeline green for current branch",
+    )
 
     # 5. EXECUTE: Simulated deploy (no real infra needed)
     deploy_result = f"Successfully deployed to {environment}. Version: v2.9.0"

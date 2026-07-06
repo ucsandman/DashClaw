@@ -12,6 +12,36 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-05 — v4.67.0: three guides, and the bug the guide-writing found
+
+Fifth ship of the day, and the first that adds surface instead of
+hardening it: the framework guides grow from 8 to 11 — AutoGen, Pydantic
+AI, Vercel AI SDK. This is the roadmap's Lane-C lever (compounding
+surfaces the maintainer can build while the measurement window runs).
+Each guide follows the house pattern — YAML policy, seven steps, a proof
+moment on /decisions — and each is backed by a runnable example that was
+actually executed against a fresh build before shipping, twice.
+
+"Twice" is the story. The first run of the new Pydantic AI example
+passed; the second crashed with a KeyError. The chain: the SDKs
+auto-derive an idempotency key from (agent, type, goal, hour-bucket), so
+a re-run inside the hour replays the prior action — and the replay
+branch of POST /api/actions returned `{action, idempotent_replay}`
+WITHOUT the top-level `action_id` alias the fresh-create response
+carries. Every client reading `response.action_id` — including our own
+published examples — broke only on the retry path, the exact path
+idempotency exists to make safe. One-line additive route fix, regression
+assertion, and the examples now stamp a per-run session_id so demo
+re-runs create new actions instead of poking terminal ones.
+
+The lesson recorded: writing the guide IS the test. A guide forces you
+to run the product the way a stranger would — from a clean directory,
+twice, with current package versions (Context7-verified: `ai` v7,
+`isStepCount`, Node waitForApproval in milliseconds, Python in seconds,
+`register_assumption` over the deprecated form). The v4.66.x health
+ships made the code honest; this one made the front door honest. No SDK
+source changes; registries stay at 4.63.2.
+
 ## 2026-07-05 — v4.66.5: the health pass reaches the glass
 
 Third and final hotspot ship of the day: the two UI pages the biomarkers

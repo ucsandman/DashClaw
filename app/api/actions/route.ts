@@ -133,6 +133,11 @@ export async function POST(request: Request) {
       if (existing) {
         return NextResponse.json({
           action: existing,
+          // Top-level convenience alias, matching the fresh-create response —
+          // without it, clients reading response.action_id break only on the
+          // replay path (the SDKs auto-send idempotency keys, so any retried
+          // goal hit this).
+          action_id: (existing as Record<string, unknown>).action_id,
           idempotent_replay: true,
         });
       }

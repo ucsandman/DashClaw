@@ -569,6 +569,9 @@ describe('/api/actions POST', () => {
       const data = await res.json();
       expect(data.idempotent_replay).toBe(true);
       expect(data.action.action_id).toBe('act_prev');
+      // Top-level alias must match the fresh-create response shape — clients
+      // reading response.action_id broke only on the replay path without it.
+      expect(data.action_id).toBe('act_prev');
 
       // Critical: nothing downstream runs on a replay — no quota, no guard,
       // no create, no signature verification.

@@ -572,6 +572,21 @@ dashclaw doctor`}</CodeBlock>
                   title: 'OpenClaw',
                   desc: 'Framework native plugin. Intercepts PreToolUse and PostToolUse and calls guard, record, and waitForApproval automatically.',
                 },
+                {
+                  href: '/guides/autogen',
+                  title: 'AutoGen',
+                  desc: 'Govern AutoGen tool calls with the 4-step loop using the Python SDK. Includes a runnable example.',
+                },
+                {
+                  href: '/guides/pydantic-ai',
+                  title: 'Pydantic AI',
+                  desc: 'Register governed functions in the agent tools list with the Python SDK. Includes a runnable example.',
+                },
+                {
+                  href: '/guides/vercel-ai-sdk',
+                  title: 'Vercel AI SDK',
+                  desc: 'A generic governed() wrapper for tool execute functions with the Node.js SDK. Includes a runnable example.',
+                },
               ].map((g) => (
                 <Link
                   key={g.href}

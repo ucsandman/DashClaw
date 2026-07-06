@@ -1,0 +1,15 @@
+{
+  "name": "vercel-ai-governed",
+  "private": true,
+  "type": "module",
+  "description": "Vercel AI SDK + DashClaw governance example — governed tool execute functions",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "dependencies": {
+    "ai": "^7.0.0",
+    "dashclaw": "^4.63.2",
+    "dotenv": "^16.4.5",
+    "zod": "^4.1.12"
+  }
+}

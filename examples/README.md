@@ -31,6 +31,8 @@ dashclaw approve act_<id shown in Terminal 1>
 | `langgraph-governed` | LangGraph | Python | StateGraph governance node pattern |
 | `crewai-governed` | CrewAI | Python | @tool decorator governance pattern |
 | `autogen-governed` | AutoGen | Python | Governed tool calls via the 4-step loop |
+| `pydantic-ai-governed` | Pydantic AI | Python | Governed agent tool via the 4-step loop |
+| `vercel-ai-governed` | Vercel AI SDK | Node.js | governed() wrapper for tool execute functions |
 | `managed-agent-governed` | Anthropic (Managed Agent) | Python | Cloud-hosted agent with custom governance tools |
 | `managed-agent-mcp` | Anthropic (Managed Agent) | Python | Same, via the MCP server — zero custom tools |
 | `work-order-worker` | Node SDK | Node.js | Work-order worker: claim → execute → complete with a receipt |
@@ -59,6 +61,14 @@ A LangGraph StateGraph with a `governance_node` that runs guard checks and recor
 ### crewai-governed
 
 A CrewAI agent using the `@tool` decorator to wrap governance calls around tool execution. Demonstrates guard → create_action → update_outcome flow within CrewAI's tool abstraction. Requires Python 3.10+ and the DashClaw Python SDK. No OPENAI_API_KEY needed.
+
+### pydantic-ai-governed
+
+A governed database-migration tool registered on a Pydantic AI agent via `tools=[...]`. Demonstrates the full 4-step loop including `wait_for_approval` HITL, plus the `TestModel` pattern for exercising the agent loop in tests. Requires Python 3.10+ and the DashClaw Python SDK. No LLM API key needed.
+
+### vercel-ai-governed
+
+A generic `governed()` higher-order function that wraps any Vercel AI SDK tool `execute` in the 4-step loop (guard → createAction → waitForApproval → updateOutcome), applied to a support agent's lookup and refund tools. Node.js 20+ and the DashClaw Node SDK. No LLM API key needed.
 
 ### Claude Managed Agents (MCP) ⭐ Recommended
 

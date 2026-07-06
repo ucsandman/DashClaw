@@ -495,6 +495,18 @@ dashclaw doctor`}</pre>
               <h3 className="text-sm font-semibold text-text-primary">OpenClaw</h3>
               <p className="text-xs text-text-secondary mt-1">Framework-native plugin</p>
             </Link>
+            <Link href="/guides/autogen" className="p-4 rounded-xl bg-surface-secondary border border-border hover:border-border-active transition-colors">
+              <h3 className="text-sm font-semibold text-text-primary">AutoGen</h3>
+              <p className="text-xs text-text-secondary mt-1">Governed tool calls</p>
+            </Link>
+            <Link href="/guides/pydantic-ai" className="p-4 rounded-xl bg-surface-secondary border border-border hover:border-border-active transition-colors">
+              <h3 className="text-sm font-semibold text-text-primary">Pydantic AI</h3>
+              <p className="text-xs text-text-secondary mt-1">Governed agent tools</p>
+            </Link>
+            <Link href="/guides/vercel-ai-sdk" className="p-4 rounded-xl bg-surface-secondary border border-border hover:border-border-active transition-colors">
+              <h3 className="text-sm font-semibold text-text-primary">Vercel AI SDK</h3>
+              <p className="text-xs text-text-secondary mt-1">Governed execute wrapper</p>
+            </Link>
           </div>
         </div>
       </section>

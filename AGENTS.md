@@ -73,9 +73,9 @@ The global `~/.codex/AGENTS.md` covers core behavior; these are DashClaw-specifi
 
 This repository is indexed by Repowise. Use the Repowise MCP tools for codebase orientation, discovery, implementation context, modification risk, design rationale, and cleanup planning. MCP data reflects the last index run; verify against source files before editing.
 
-Last indexed: 2026-07-06 (commit 7e9aed37). Confidence: 100%.
+Last indexed: 2026-07-06 (commit 93e49cdc). Confidence: 100%.
 ### Architecture
-Repo is a codebase documentation and “governed agent” platform that ingests a target repository (source files, configs, and contracts), builds an indexed representation (file traversal → parsing/AST extraction → dependency/policy analysis), and generates LLM-synthesised wiki/wiki-like artifacts that are served through an MCP server and supporting CLI/web-facing workflows.
+Repo is a codebase documentation and “governed agent” platform: it ingests a target repository (source files + optional contracts/policy inputs), traverses and parses code into ASTs, analyzes dependencies and governance rules, and then generates LLM-synthesised wiki/wiki-like artifacts that are served via an MCP server and a web-facing UI/CLI workflow.
 ### Key Modules
 | Module | Purpose | Owner |
 |--------|---------|-------|
@@ -103,8 +103,8 @@ Repo is a codebase documentation and “governed agent” platform that ingests 
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|
-| `docs/maintainer-log.md` | 100.0th percentile | 86 | Wes Sander |
-| `CHANGELOG.md` | 100.0th percentile | 98 | Wes Sander |
+| `docs/maintainer-log.md` | 100.0th percentile | 87 | Wes Sander |
+| `CHANGELOG.md` | 100.0th percentile | 99 | Wes Sander |
 | `docs/plans/owner-roadmap.md` | 99.9th percentile | 57 | Wes Sander |
 | `app/lib/guard.ts` | 99.9th percentile | 29 | Wes Sander |
 | `scripts/policy-smoke.mjs` | 99.9th percentile | 31 | Wes Sander |

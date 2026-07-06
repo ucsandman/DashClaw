@@ -13,6 +13,37 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [4.67.0] — 2026-07-05
+
+**Guides expansion: 8 → 11 frameworks.** The roadmap's compounding-surface
+lever: three new step-by-step integration guides, each backed by a runnable
+example that was executed live against a fresh build before shipping.
+
+### Added
+- **`/guides/autogen`** — govern AutoGen tool calls with the Python SDK
+  4-step loop; backed by the existing `examples/autogen-governed`.
+- **`/guides/pydantic-ai`** + **`examples/pydantic-ai-governed`** — governed
+  functions in the agent `tools=[...]` list, with the `TestModel` pattern for
+  keyless agent-loop tests.
+- **`/guides/vercel-ai-sdk`** + **`examples/vercel-ai-governed`** — a generic
+  `governed()` wrapper that turns any AI SDK tool `execute` into a governed
+  one (guard → createAction → waitForApproval → updateOutcome), verified
+  against `ai` v7.
+- All three discoverable from the `/connect` framework-guides grid and the
+  `/self-host` integration section.
+
+### Fixed
+- **POST `/api/actions` idempotent replay now carries the top-level
+  `action_id` alias** like the fresh-create response. The SDKs auto-derive
+  idempotency keys from (agent, type, goal, hour), so any client reading
+  `response.action_id` broke only on the retry path — found when the new
+  example crashed on its second run. Regression assertion added.
+- **Examples are re-runnable**: `autogen-governed`, `pydantic-ai-governed`,
+  and `vercel-ai-governed` stamp each demo run with a `session_id` nonce so
+  a re-run within the idempotency window creates new actions instead of
+  replaying the prior (terminal) ones; the two Python examples also move off
+  the deprecated `record_assumption` to `register_assumption`.
+
 ## [4.66.5] — 2026-07-05
 
 **Page-hotspot health pass.** Finishes the day's structural hardening on the
