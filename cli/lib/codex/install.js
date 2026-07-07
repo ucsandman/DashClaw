@@ -59,9 +59,6 @@ const HOOK_FILES = [
   'dashclaw_pretool.py',
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
-  // dashclaw_stop.py imports this for Code Sessions ingest; without it the
-  // import fails inside a try/except and ingest silently no-ops (v2.7 fix).
-  'dashclaw_code_session_reporter.py',
   // SessionStart enforcement-liveness probe (v8.2) — the SessionStart hook
   // (wired once codex-cli 0.139.0's SessionStart event was confirmed to fire;
   // see PLUGIN_PARITY.md). Replaced the retired session-digest hook.

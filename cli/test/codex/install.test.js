@@ -364,7 +364,6 @@ describe('installCodex (end-to-end)', () => {
       'dashclaw_pretool.py',
       'dashclaw_posttool.py',
       'dashclaw_stop.py',
-      'dashclaw_code_session_reporter.py',
       'enforcement_liveness_probe.py',
     ]) {
       assert.equal(

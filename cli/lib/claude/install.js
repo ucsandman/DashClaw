@@ -45,7 +45,6 @@ const HOOK_FILES = [
   'dashclaw_pretool.py',
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
-  'dashclaw_code_session_reporter.py',
 ];
 // Shipped when present in the bundle, skipped otherwise — a newer CLI must
 // keep installing against an older hosted bundle. enforcement_liveness_probe
