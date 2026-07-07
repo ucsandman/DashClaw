@@ -4,7 +4,6 @@ import { neon } from '@neondatabase/serverless';
 import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
-  demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
   demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
@@ -1084,11 +1083,6 @@ const demoFixturePropRoute = (key) => ({ request, fixtures }) => demoJson(reques
 const DEMO_API_ROUTES = [
   // Health
   ['/api/health', demoPayloadRoute(demoHealthPayload)],
-  // Agent registry (Wave 13 residue) + actions
-  ['/api/agents/registry', ({ request, url }) => demoJson(request, demoRegistryList(url))],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*', 'capabilities']), ({ request }) => demoJson(request, demoRegistryCapabilities())],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*']), ({ request }) => demoJson(request, demoRegistryDetail())],
-  ['/api/agents/invoke', ({ request }) => demoJson(request, demoRegistryInvoke())],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],

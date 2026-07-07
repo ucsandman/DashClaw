@@ -1,35 +1,13 @@
 {
   "node": {
     "canonical_root": "execution.capabilities",
-    "required_methods": [
-      "list",
-      "create",
-      "get",
-      "update",
-      "invoke",
-      "test",
-      "getHealth",
-      "listHealth",
-      "getHistory"
-    ]
+    "required_methods": []
   },
   "python": {
     "domains": {
       "capabilities": {
         "canonical_root": "capabilities",
-        "required_methods": [
-          "list_capabilities",
-          "create_capability",
-          "get_capability",
-          "update_capability",
-          "invoke_capability",
-          "test_capability",
-          "get_capability_health",
-          "list_capability_health",
-          "get_capability_history",
-          "add_agent_capability",
-          "list_agent_capabilities"
-        ]
+        "required_methods": []
       }
     }
   },

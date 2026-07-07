@@ -23,12 +23,6 @@ export const RESOURCE_DEFINITIONS: ResourceDefinition[] = [
     mimeType: "application/json",
   },
   {
-    uri: "dashclaw://capabilities",
-    name: "DashClaw Capabilities",
-    description: "Available capabilities and their health status.",
-    mimeType: "application/json",
-  },
-  {
     uri: "dashclaw://agent/{agent_id}/history",
     name: "Agent Action History",
     description: "Recent action history for a specific agent (last 50 records).",
@@ -51,11 +45,6 @@ export function createResourceHandlers(client: DashClawClient): Record<string, R
   return {
     "dashclaw://policies": async () => {
       const result = await client.get("/api/policies", {}, { timeout: 10000 });
-      return JSON.stringify(result);
-    },
-
-    "dashclaw://capabilities": async () => {
-      const result = await client.get("/api/capabilities", {}, { timeout: 10000 });
       return JSON.stringify(result);
     },
 

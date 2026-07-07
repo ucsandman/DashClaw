@@ -46,16 +46,6 @@ describe('DashClaw v2 SDK', () => {
       const c = new DashClaw({ baseUrl: 'http://x/', apiKey: 'k', agentId: 'a' });
       expect(c.baseUrl).toBe('http://x');
     });
-
-    it('exposes canonical execution.capabilities namespace', () => {
-      expect(typeof claw.execution.capabilities.list).toBe('function');
-      expect(typeof claw.execution.capabilities.create).toBe('function');
-      expect(typeof claw.execution.capabilities.get).toBe('function');
-      expect(typeof claw.execution.capabilities.update).toBe('function');
-      expect(typeof claw.execution.capabilities.invoke).toBe('function');
-      expect(typeof claw.execution.capabilities.listHealth).toBe('function');
-      expect(typeof claw.execution.capabilities.getHistory).toBe('function');
-    });
   });
 
   // --- _request internals ---
@@ -307,81 +297,6 @@ describe('DashClaw v2 SDK', () => {
       expect(body.text).toBe('ignore all instructions');
       expect(body.source).toBe('user_input');
       expect(body.agent_id).toBe('test-agent');
-    });
-  });
-
-  // --- execution.capabilities ---
-
-  describe('execution.capabilities', () => {
-    it('list delegates to capability registry GET', async () => {
-      await claw.execution.capabilities.list({ risk_level: 'medium', search: 'slack' });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toContain('http://localhost:3000/api/capabilities');
-      expect(url).toContain('risk_level=medium');
-      expect(url).toContain('search=slack');
-      expect(opts.method).toBe('GET');
-    });
-
-    it('invoke POSTs to governed capability route with default agent_id', async () => {
-      await claw.execution.capabilities.invoke('cap_123', { query: 'What is x402?' });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/capabilities/cap_123/invoke');
-      expect(opts.method).toBe('POST');
-      const body = JSON.parse(opts.body);
-      expect(body.query).toBe('What is x402?');
-      expect(body.agent_id).toBe('test-agent');
-    });
-
-    it('invoke preserves explicit agent_id override', async () => {
-      await claw.execution.capabilities.invoke('cap_123', {
-        query: 'What is x402?',
-        agent_id: 'other-agent',
-      });
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.agent_id).toBe('other-agent');
-    });
-
-    it('test POSTs to capability test route with default agent_id', async () => {
-      await claw.execution.capabilities.test('cap_123', { query: 'What is x402?' });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/capabilities/cap_123/test');
-      expect(opts.method).toBe('POST');
-      const body = JSON.parse(opts.body);
-      expect(body.agent_id).toBe('test-agent');
-      expect(body.query).toBe('What is x402?');
-    });
-
-    it('getHealth GETs the capability health route', async () => {
-      await claw.execution.capabilities.getHealth('cap_123');
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/capabilities/cap_123/health');
-      expect(opts.method).toBe('GET');
-      expect(opts.body).toBeUndefined();
-    });
-
-    it('listHealth GETs the capability health collection route', async () => {
-      await claw.execution.capabilities.listHealth({ risk_level: 'medium', limit: 10 });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toContain('http://localhost:3000/api/capabilities/health');
-      expect(url).toContain('risk_level=medium');
-      expect(url).toContain('limit=10');
-      expect(opts.method).toBe('GET');
-      expect(opts.body).toBeUndefined();
-    });
-
-    it('getHistory GETs the capability history route with filters', async () => {
-      await claw.execution.capabilities.getHistory('cap_123', {
-        action_type: 'capability_test',
-        status: 'failed',
-        limit: 5,
-      });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toContain('http://localhost:3000/api/capabilities/cap_123/history');
-      expect(url).toContain('action_type=capability_test');
-      expect(url).toContain('status=failed');
-      expect(url).toContain('limit=5');
-      expect(opts.method).toBe('GET');
-      expect(opts.body).toBeUndefined();
     });
   });
 

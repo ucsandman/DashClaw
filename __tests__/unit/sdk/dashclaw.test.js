@@ -351,13 +351,6 @@ describe('sdk/dashclaw.js characterization', () => {
       ['approveAction without reasoning', (c) => c.approveAction('act_1', 'deny'), 'POST',
         '/api/actions/act_1/approve', { decision: 'deny' }],
       ['getActionGraph', (c) => c.getActionGraph('act_1'), 'GET', '/api/actions/act_1/graph', undefined],
-      // capabilities (direct methods)
-      ['createCapability', (c) => c.createCapability({ name: 'cap' }), 'POST', '/api/capabilities', { name: 'cap' }],
-      ['getCapability', (c) => c.getCapability('cap_1'), 'GET', '/api/capabilities/cap_1', undefined],
-      ['updateCapability', (c) => c.updateCapability('cap_1', { name: 'n' }), 'PATCH', '/api/capabilities/cap_1', { name: 'n' }],
-      ['deleteCapability', (c) => c.deleteCapability('cap_1'), 'DELETE', '/api/capabilities/cap_1', undefined],
-      ['getCapabilityHistory', (c) => c.getCapabilityHistory('cap_1', { limit: 5 }), 'GET',
-        '/api/capabilities/cap_1/history?limit=5', undefined],
       // sessions
       ['createSession with explicit args', (c) => c.createSession('agent-2', '/ws', 'main'), 'POST',
         '/api/sessions', { agent_id: 'agent-2', workspace: '/ws', branch: 'main' }],
@@ -372,18 +365,6 @@ describe('sdk/dashclaw.js characterization', () => {
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: { max: 5 } }],
       ['simulatePolicy includes days when given', (c) => c.simulatePolicy({ policy_type: 'cost', rules: {}, days: 7 }),
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: {}, days: 7 }],
-      // agent registry
-      ['registerAgent', (c) => c.registerAgent({ name: 'ext' }), 'POST', '/api/agents/registry', { name: 'ext' }],
-      ['listRegisteredAgents', (c) => c.listRegisteredAgents({ status: 'active' }), 'GET',
-        '/api/agents/registry?status=active', undefined],
-      ['getRegisteredAgent', (c) => c.getRegisteredAgent('ra_1'), 'GET', '/api/agents/registry/ra_1', undefined],
-      ['updateRegisteredAgent', (c) => c.updateRegisteredAgent('ra_1', { name: 'n' }), 'PATCH',
-        '/api/agents/registry/ra_1', { name: 'n' }],
-      ['addAgentCapability maps capability_id', (c) => c.addAgentCapability('ra_1', 'cap_1'), 'POST',
-        '/api/agents/registry/ra_1/capabilities', { capability_id: 'cap_1' }],
-      ['listAgentCapabilities', (c) => c.listAgentCapabilities('ra_1'), 'GET', '/api/agents/registry/ra_1/capabilities', undefined],
-      ['invokeRegisteredAgent drops undefined fields', (c) => c.invokeRegisteredAgent({ registered_agent_id: 'ra_1', capability_id: 'cap_1' }),
-        'POST', '/api/agents/invoke', { registered_agent_id: 'ra_1', capability_id: 'cap_1' }],
     ];
 
     for (const [name, call, method, path, body] of CASES) {

@@ -5,47 +5,12 @@
     {
       "file": "app/api/capabilities/route.js",
       "path": "/api/capabilities",
-      "methods": ["GET", "POST"]
-    },
-    {
-      "file": "app/api/capabilities/health/route.js",
-      "path": "/api/capabilities/health",
-      "methods": ["GET"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/route.js",
-      "path": "/api/capabilities/[capabilityId]",
-      "methods": ["GET", "PATCH", "DELETE"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/health/route.js",
-      "path": "/api/capabilities/[capabilityId]/health",
-      "methods": ["GET"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/history/route.js",
-      "path": "/api/capabilities/[capabilityId]/history",
       "methods": ["GET"]
     },
     {
       "file": "app/api/capabilities/[capabilityId]/invoke/route.js",
       "path": "/api/capabilities/[capabilityId]/invoke",
       "methods": ["POST"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/test/route.js",
-      "path": "/api/capabilities/[capabilityId]/test",
-      "methods": ["POST"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/access/route.js",
-      "path": "/api/capabilities/[capabilityId]/access",
-      "methods": ["GET", "POST"]
-    },
-    {
-      "file": "app/api/capabilities/[capabilityId]/access/[ruleId]/route.js",
-      "path": "/api/capabilities/[capabilityId]/access/[ruleId]",
-      "methods": ["DELETE"]
     },
     {
       "file": "app/api/capabilities/[capabilityId]/access/check/route.js",

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:32e820934f2900177101def9a4a09f580b26a287",
+  "timestamp": "sha1:3a11d3c293a8618ff094a622c0d46bc0b958f0b1",
   "routes": [
     {
       "path": "/api/actions",
@@ -104,49 +104,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/agents/fanouts/route.ts"
-    },
-    {
-      "path": "/api/agents/invoke",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/agents/invoke/route.ts"
-    },
-    {
-      "path": "/api/agents/registry",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/agents/registry/route.ts"
-    },
-    {
-      "path": "/api/agents/registry/[id]",
-      "methods": [
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/agents/registry/[id]/route.ts"
-    },
-    {
-      "path": "/api/agents/registry/[id]/capabilities",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/agents/registry/[id]/capabilities/route.ts"
     },
     {
       "path": "/api/approvals/[actionId]",
@@ -281,49 +238,11 @@
     {
       "path": "/api/capabilities",
       "methods": [
-        "GET",
-        "POST"
+        "GET"
       ],
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/capabilities/route.ts"
-    },
-    {
-      "path": "/api/capabilities/[capabilityId]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "capabilityId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/route.ts"
-    },
-    {
-      "path": "/api/capabilities/[capabilityId]/access",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [
-        "capabilityId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/access/route.ts"
-    },
-    {
-      "path": "/api/capabilities/[capabilityId]/access/[ruleId]",
-      "methods": [
-        "DELETE"
-      ],
-      "dynamic_params": [
-        "capabilityId",
-        "ruleId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/access/[ruleId]/route.ts"
     },
     {
       "path": "/api/capabilities/[capabilityId]/access/check",
@@ -337,28 +256,6 @@
       "file_path": "app/api/capabilities/[capabilityId]/access/check/route.ts"
     },
     {
-      "path": "/api/capabilities/[capabilityId]/health",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "capabilityId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/health/route.ts"
-    },
-    {
-      "path": "/api/capabilities/[capabilityId]/history",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "capabilityId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/history/route.ts"
-    },
-    {
       "path": "/api/capabilities/[capabilityId]/invoke",
       "methods": [
         "POST"
@@ -368,26 +265,6 @@
       ],
       "archived": false,
       "file_path": "app/api/capabilities/[capabilityId]/invoke/route.ts"
-    },
-    {
-      "path": "/api/capabilities/[capabilityId]/test",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "capabilityId"
-      ],
-      "archived": false,
-      "file_path": "app/api/capabilities/[capabilityId]/test/route.ts"
-    },
-    {
-      "path": "/api/capabilities/health",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/capabilities/health/route.ts"
     },
     {
       "path": "/api/coverage",
@@ -1633,11 +1510,9 @@
         "scripts/guard-load.mjs",
         "scripts/live-canary.mjs",
         "scripts/migrate-multi-tenant.mjs",
-        "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/policy-smoke.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-demo-capabilities.mjs",
         "scripts/smoke-hosted.mjs",
         "scripts/startup-smoke.mjs",
         "scripts/telegram-setup-wizard.mjs",
@@ -1712,8 +1587,7 @@
         "scripts/fuzz-api.mjs",
         "scripts/live-canary.mjs",
         "scripts/report-action.mjs",
-        "scripts/report-tokens.mjs",
-        "scripts/seed-registry-demo.mjs"
+        "scripts/report-tokens.mjs"
       ],
       "in_env_example": false
     },
@@ -2042,11 +1916,8 @@
         "mcp-server/test/registration.test.ts",
         "middleware.js",
         "packages/openclaw-plugin/src/index.ts",
-        "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-demo-capabilities.mjs",
-        "scripts/seed-registry-demo.mjs",
         "scripts/test-sdk-live.mjs",
         "scripts/verify-demo-e2e.mjs"
       ],
@@ -2525,9 +2396,7 @@
         "app/lib/next-config-headers.cjs",
         "app/lib/notifications.ts",
         "app/lib/webhooks.ts",
-        "middleware.js",
-        "scripts/patch-demo-capability-endpoints.mjs",
-        "scripts/seed-demo-capabilities.mjs"
+        "middleware.js"
       ],
       "in_env_example": true
     },
@@ -2711,16 +2580,6 @@
       "in_env_example": false
     },
     {
-      "name": "ORG_ID",
-      "required": false,
-      "files": [
-        "scripts/seed-registry-demo.mjs",
-        "scripts/seed-research-capability.js",
-        "scripts/seed-research-capability.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "PORT",
       "required": false,
       "files": [
@@ -2889,24 +2748,6 @@
         "app/lib/events.ts",
         "app/lib/marketingEvents.ts",
         "scripts/export-marketing-events.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "RESEARCH_API_KEY",
-      "required": false,
-      "files": [
-        "scripts/seed-research-capability.js",
-        "scripts/seed-research-capability.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "RESEARCH_API_URL",
-      "required": false,
-      "files": [
-        "scripts/seed-research-capability.js",
-        "scripts/seed-research-capability.mjs"
       ],
       "in_env_example": false
     },

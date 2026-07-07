@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:32e820934f2900177101def9a4a09f580b26a287`
+**Shape snapshot:** `sha1:3a11d3c293a8618ff094a622c0d46bc0b958f0b1`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **127** active API routes across **47** categories (127 total including archived)
-- **4** required + **187** optional environment variables
+- **116** active API routes across **47** categories (116 total including archived)
+- **4** required + **184** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -72,10 +72,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `agents`
 
 - `GET` `/api/agents/fanouts`
-- `POST` `/api/agents/invoke`
-- `GET, POST` `/api/agents/registry`
-- `GET, PATCH` `/api/agents/registry/[id]`
-- `GET, POST` `/api/agents/registry/[id]/capabilities`
 
 ### `approvals`
 
@@ -107,16 +103,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ### `capabilities`
 
-- `GET, POST` `/api/capabilities`
-- `DELETE, GET, PATCH` `/api/capabilities/[capabilityId]`
-- `GET, POST` `/api/capabilities/[capabilityId]/access`
-- `DELETE` `/api/capabilities/[capabilityId]/access/[ruleId]`
+- `GET` `/api/capabilities`
 - `GET` `/api/capabilities/[capabilityId]/access/check`
-- `GET` `/api/capabilities/[capabilityId]/health`
-- `GET` `/api/capabilities/[capabilityId]/history`
 - `POST` `/api/capabilities/[capabilityId]/invoke`
-- `POST` `/api/capabilities/[capabilityId]/test`
-- `GET` `/api/capabilities/health`
 
 ### `coverage`
 
@@ -324,7 +313,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 79 file(s)
 - **`DATABASE_URL`** - referenced in 75 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 4 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
@@ -460,7 +449,6 @@ These have fallbacks or only activate specific features.
 - `OIDC_TOKEN_URL` *(undocumented)*
 - `OIDC_USERINFO_URL` *(undocumented)*
 - `OPENAI_API_KEY` *(undocumented)*
-- `ORG_ID` *(undocumented)*
 - `PORT` *(undocumented)*
 - `POSTHOG_PERSONAL_API_KEY` *(undocumented)*
 - `PW_BASE_URL` *(undocumented)*
@@ -481,8 +469,6 @@ These have fallbacks or only activate specific features.
 - `REALTIME_REPLAY_MAX_EVENTS` *(undocumented)*
 - `REALTIME_REPLAY_WINDOW_SECONDS` *(undocumented)*
 - `REDIS_URL` *(undocumented)*
-- `RESEARCH_API_KEY` *(undocumented)*
-- `RESEARCH_API_URL` *(undocumented)*
 - `RESEND_API_KEY` *(undocumented)*
 - `S` *(undocumented)*
 - `SELF_GOVERNANCE_SOURCE_URL` *(undocumented)*

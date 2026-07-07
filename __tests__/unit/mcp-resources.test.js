@@ -14,8 +14,8 @@ const { createResourceHandlers, RESOURCE_DEFINITIONS } = await import('../../mcp
 import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Resource Definitions', () => {
-  it('exports exactly 4 resource definitions', () => {
-    expect(RESOURCE_DEFINITIONS).toHaveLength(4);
+  it('exports exactly 3 resource definitions', () => {
+    expect(RESOURCE_DEFINITIONS).toHaveLength(3);
   });
 
   it('every definition has uri, name, and description', () => {
@@ -44,17 +44,6 @@ describe('Resource Handlers', () => {
 
       expect(mockGet).toHaveBeenCalledWith('/api/policies', {}, { timeout: 10000 });
       expect(JSON.parse(result)).toEqual({ policies: [{ id: 'gp_1', name: 'Block deploys' }] });
-    });
-  });
-
-  describe('dashclaw://capabilities', () => {
-    it('returns capabilities as JSON text', async () => {
-      mockGet.mockResolvedValue({ capabilities: [{ id: 'cap_1', name: 'Slack' }] });
-
-      const result = await handlers['dashclaw://capabilities']();
-
-      expect(mockGet).toHaveBeenCalledWith('/api/capabilities', {}, { timeout: 10000 });
-      expect(JSON.parse(result)).toEqual({ capabilities: [{ id: 'cap_1', name: 'Slack' }] });
     });
   });
 

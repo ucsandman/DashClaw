@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (89 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (73 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1064,9 +1064,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (89 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (73 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **45 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **28 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|

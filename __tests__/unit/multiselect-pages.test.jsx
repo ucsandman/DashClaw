@@ -16,17 +16,8 @@ vi.mock('@/hooks/useEffectiveRole', () => ({
   useEffectiveRole: () => ({ isAdmin: true, settled: true, authenticated: true }),
 }));
 vi.mock('@/lib/isDemoMode', () => ({ isDemoMode: () => false }));
-// Stub capabilities' heavy presentational components so the test exercises the
-// page's selection wiring, not the card internals.
-vi.mock('@/capabilities/components/CapabilityRegistryCard', () => ({
-  default: ({ capability }) => <div>{capability?.name ?? capability?.capability_id}</div>,
-}));
-vi.mock('@/capabilities/components/CapabilityRegistrySummary', () => ({ default: () => <div /> }));
-vi.mock('@/capabilities/components/CapabilityRegistryFilters', () => ({ default: () => <div /> }));
-
 import ApiKeysPage from '@/api-keys/page';
 import WebhooksPage from '@/webhooks/page';
-import CapabilitiesPage from '@/capabilities/page';
 
 const NOW = '2026-06-01T00:00:00.000Z';
 const KEYS = [1, 2, 3].map((n) => ({
@@ -34,9 +25,6 @@ const KEYS = [1, 2, 3].map((n) => ({
 }));
 const WEBHOOKS = [1, 2, 3].map((n) => ({
   id: `wh_${n}`, url: 'https://example.com/hook', active: true, events: '["signal.detected"]', created_at: NOW,
-}));
-const CAPS = [1, 2, 3].map((n) => ({
-  capability_id: `cap_${n}`, name: `Capability ${n}`, risk_level: 'low', health_status: 'healthy', status: 'active',
 }));
 
 let calls = [];
@@ -54,8 +42,6 @@ beforeEach(() => {
     let body = {};
     if (u.startsWith('/api/keys') && method === 'GET') body = { keys: KEYS };
     else if (u.startsWith('/api/webhooks') && method === 'GET') body = { webhooks: WEBHOOKS };
-    else if (u.includes('/api/capabilities/health')) body = { capabilities: [] };
-    else if (u.startsWith('/api/capabilities') && method === 'GET') body = { capabilities: CAPS };
     return Promise.resolve({ ok: true, json: async () => body });
   });
 });
@@ -85,12 +71,6 @@ describe('multi-select wiring across list pages', () => {
     const { actions } = await selectAllThenAssertCount(<WebhooksPage />);
     fireEvent.click(within(actions).getByText('Delete'));
     await waitFor(() => expect(fetchCalls('DELETE', '/api/webhooks?id=').length).toBe(3));
-  });
-
-  it('capabilities: select-all → count → bulk delete fires 3 capability DELETEs', async () => {
-    const { actions } = await selectAllThenAssertCount(<CapabilitiesPage />);
-    fireEvent.click(within(actions).getByText('Delete'));
-    await waitFor(() => expect(fetchCalls('DELETE', '/api/capabilities/').length).toBe(3));
   });
 
   it('destructive bulk action is gated on confirm — declining fires no request', async () => {

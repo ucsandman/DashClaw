@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `127`
+- Total routes: `116`
 - Stable routes: `38`
 - Beta routes: `17`
-- Experimental routes: `72`
+- Experimental routes: `61`
 
 ## Routes
 
@@ -32,10 +32,6 @@ doc-type: architecture
 | `/api/activity` | `GET` | `beta` | `/api/activity` | `app/api/activity/route.ts` |
 | `/api/admin/trigger-outcome-sweep` | `POST` | `experimental` | `(default)` | `app/api/admin/trigger-outcome-sweep/route.ts` |
 | `/api/agents/fanouts` | `GET` | `experimental` | `/api/agents` | `app/api/agents/fanouts/route.ts` |
-| `/api/agents/invoke` | `POST` | `experimental` | `/api/agents` | `app/api/agents/invoke/route.ts` |
-| `/api/agents/registry` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/registry/route.ts` |
-| `/api/agents/registry/{id}` | `GET, PATCH` | `experimental` | `/api/agents` | `app/api/agents/registry/[id]/route.ts` |
-| `/api/agents/registry/{id}/capabilities` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/registry/[id]/capabilities/route.ts` |
 | `/api/approvals/bulk` | `POST` | `experimental` | `(default)` | `app/api/approvals/bulk/route.ts` |
 | `/api/approvals/floods` | `GET` | `experimental` | `(default)` | `app/api/approvals/floods/route.ts` |
 | `/api/approvals/{actionId}` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/route.ts` |
@@ -48,16 +44,9 @@ doc-type: architecture
 | `/api/auth/local` | `DELETE, POST` | `beta` | `/api/auth` | `app/api/auth/local/route.ts` |
 | `/api/calibration/controller` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/controller/route.ts` |
 | `/api/calibration/proposals` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/proposals/route.ts` |
-| `/api/capabilities` | `GET, POST` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
-| `/api/capabilities/health` | `GET` | `experimental` | `(default)` | `app/api/capabilities/health/route.ts` |
-| `/api/capabilities/{capabilityId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/route.ts` |
-| `/api/capabilities/{capabilityId}/access` | `GET, POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/access/route.ts` |
+| `/api/capabilities` | `GET` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
 | `/api/capabilities/{capabilityId}/access/check` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/access/check/route.ts` |
-| `/api/capabilities/{capabilityId}/access/{ruleId}` | `DELETE` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/access/[ruleId]/route.ts` |
-| `/api/capabilities/{capabilityId}/health` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/health/route.ts` |
-| `/api/capabilities/{capabilityId}/history` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/history/route.ts` |
 | `/api/capabilities/{capabilityId}/invoke` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/invoke/route.ts` |
-| `/api/capabilities/{capabilityId}/test` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/test/route.ts` |
 | `/api/coverage` | `GET, POST` | `experimental` | `(default)` | `app/api/coverage/route.ts` |
 | `/api/cron/integration-health` | `GET` | `beta` | `/api/cron` | `app/api/cron/integration-health/route.ts` |
 | `/api/cron/jti-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/jti-sweep/route.ts` |

@@ -286,20 +286,6 @@ class DashClaw {
     this.agentId = agentId;
     this.agentName = agentName || null;
     this.authToken = authToken || null;
-
-    this.execution = {
-      capabilities: {
-        list: (filters = {}) => this.listCapabilities(filters),
-        create: (data) => this.createCapability(data),
-        get: (capabilityId) => this.getCapability(capabilityId),
-        update: (capabilityId, patch) => this.updateCapability(capabilityId, patch),
-        invoke: (capabilityId, payload = {}) => this.invokeCapability(capabilityId, payload),
-        test: (capabilityId, payload = {}) => this.testCapability(capabilityId, payload),
-        getHealth: (capabilityId) => this.getCapabilityHealth(capabilityId),
-        listHealth: (filters = {}) => this.listCapabilityHealth(filters),
-        getHistory: (capabilityId, filters = {}) => this.getCapabilityHistory(capabilityId, filters),
-      },
-    };
   }
 
   /** @private Authentication headers shared by JSON requests and the SSE stream. */
@@ -930,87 +916,6 @@ class DashClaw {
   }
 
   // ---------------------------------------------------------------------------
-  // Execution Studio — Capability Registry
-  // ---------------------------------------------------------------------------
-
-  /**
-   * GET /api/capabilities — Search the capability registry.
-   * @param {Object} [filters={}] - { category, risk_level, search, limit, offset }
-   */
-  async listCapabilities(filters = {}) {
-    return this._get('/api/capabilities', filters);
-  }
-
-  /**
-   * POST /api/capabilities — Register a capability.
-   */
-  async createCapability(data) {
-    return this._post('/api/capabilities', data);
-  }
-
-  /**
-   * GET /api/capabilities/:id — Fetch a single capability.
-   */
-  async getCapability(capabilityId) {
-    return this._get(`/api/capabilities/${capabilityId}`);
-  }
-
-  /**
-   * PATCH /api/capabilities/:id — Update a capability.
-   */
-  async updateCapability(capabilityId, patch) {
-    return this._patch(`/api/capabilities/${capabilityId}`, patch);
-  }
-
-  /**
-   * DELETE /api/capabilities/:id — Delete a capability.
-   */
-  async deleteCapability(capabilityId) {
-    return this._delete(`/api/capabilities/${capabilityId}`);
-  }
-
-  /**
-   * POST /api/capabilities/:id/invoke — Invoke a governed capability.
-   */
-  async invokeCapability(capabilityId, payload = {}) {
-    return this._post(`/api/capabilities/${capabilityId}/invoke`, {
-      ...payload,
-      agent_id: payload.agent_id || this.agentId,
-    });
-  }
-
-  /**
-   * POST /api/capabilities/:id/test — Run a non-production capability validation call.
-   */
-  async testCapability(capabilityId, payload = {}) {
-    return this._post(`/api/capabilities/${capabilityId}/test`, {
-      ...payload,
-      agent_id: payload.agent_id || this.agentId,
-    });
-  }
-
-  /**
-   * GET /api/capabilities/:id/health — Fetch derived capability health.
-   */
-  async getCapabilityHealth(capabilityId) {
-    return this._get(`/api/capabilities/${capabilityId}/health`);
-  }
-
-  /**
-   * GET /api/capabilities/health — List derived health summaries for matching capabilities.
-   */
-  async listCapabilityHealth(filters = {}) {
-    return this._get('/api/capabilities/health', filters);
-  }
-
-  /**
-   * GET /api/capabilities/:id/history — Fetch recent test and invoke events for a capability.
-   */
-  async getCapabilityHistory(capabilityId, filters = {}) {
-    return this._get(`/api/capabilities/${capabilityId}/history`, filters);
-  }
-
-  // ---------------------------------------------------------------------------
   // Policies — dry-run a proposed policy against historical actions before
   // committing it (no persistence; pairs with guard() for live enforcement).
   // ---------------------------------------------------------------------------
@@ -1027,50 +932,6 @@ class DashClaw {
       rules,
       ...(days !== undefined ? { days } : {}),
     });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Agent Registry — register external delegatable providers; invocations are
-  // governed by the existing capability runtime + guard + action ledger.
-  // ---------------------------------------------------------------------------
-
-  /** POST /api/agents/registry — register an external provider. */
-  async registerAgent(data = {}) {
-    return this._post('/api/agents/registry', data);
-  }
-
-  /** GET /api/agents/registry — list registered agents. */
-  async listRegisteredAgents(filters = {}) {
-    return this._get('/api/agents/registry', filters);
-  }
-
-  /** GET /api/agents/registry/:id — registered agent detail. */
-  async getRegisteredAgent(id) {
-    return this._get(`/api/agents/registry/${id}`);
-  }
-
-  /** PATCH /api/agents/registry/:id — update a registered agent. */
-  async updateRegisteredAgent(id, patch = {}) {
-    return this._patch(`/api/agents/registry/${id}`, patch);
-  }
-
-  /** POST /api/agents/registry/:id/capabilities — group a capability under the agent. */
-  async addAgentCapability(id, capabilityId) {
-    return this._post(`/api/agents/registry/${id}/capabilities`, { capability_id: capabilityId });
-  }
-
-  /** GET /api/agents/registry/:id/capabilities — capabilities grouped under the agent. */
-  async listAgentCapabilities(id) {
-    return this._get(`/api/agents/registry/${id}/capabilities`);
-  }
-
-  /**
-   * POST /api/agents/invoke — invoke a capability through a registered agent,
-   * governed end to end by the existing capability runtime + guard + action.
-   * @param {Object} args - { registered_agent_id, capability_id, agent_id?, payload?, declared_goal? }
-   */
-  async invokeRegisteredAgent({ registered_agent_id, capability_id, agent_id, payload, declared_goal } = {}) {
-    return this._post('/api/agents/invoke', { registered_agent_id, capability_id, agent_id, payload, declared_goal });
   }
 
 }

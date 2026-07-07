@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:32e820934f2900177101def9a4a09f580b26a287 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:3a11d3c293a8618ff094a622c0d46bc0b958f0b1 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">128</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">117</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">187</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">184</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">11</div><div class="k">Signals</div></div>
@@ -202,7 +202,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>58</b> env_vars added, <b>13</b> env_vars removed, <b>21</b> routes added, <b>201</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>58</b> env_vars added, <b>16</b> env_vars removed, <b>21</b> routes added, <b>1</b> routes changed, <b>212</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -280,6 +280,10 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/agents/[agentId]/profile <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/connections <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/heartbeat <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/agents/invoke <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/agents/registry <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/agents/registry/[id] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/agents/registry/[id]/capabilities <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/analytics <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/behavior/insights <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/behavior/recorder <span class="sig">Route removed</span></li>
@@ -289,6 +293,13 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/billing/checkout <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/billing/portal <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId]/access <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId]/access/[ruleId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId]/health <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId]/history <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/[capabilityId]/test <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/capabilities/health <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/alerts <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/alerts/read-all <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/ingest-jsonl <span class="sig">Route removed</span></li>
@@ -424,6 +435,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/x402/providers/[id] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/x402/providers/[id]/endpoints <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/x402/purchases <span class="sig">Route removed</span></li>
+    <li><code>changed</code> <b>routes</b>: /api/capabilities <span class="sig">Methods: GET, POST -&gt; GET</span></li>
     <li><code>added</code> <b>env_vars</b>: API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
@@ -491,6 +503,9 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>env_vars</b>: GUARD_LLM_MODEL <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: NEXT_PUBLIC_APP_URL <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: ORG_ID <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: RESEARCH_API_KEY <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: RESEARCH_API_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: STRIPE_PRICE_BUSINESS <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: STRIPE_PRICE_PRO <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: STRIPE_SECRET_KEY <span class="sig">Env var no longer referenced</span></li>
@@ -520,11 +535,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/actions/stats"><td><code>/api/actions/stats</code></td><td>GET</td><td class="sig">app/api/actions/stats/route.ts</td></tr></tbody></table></details>
 <details><summary>/activity/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/activity"><td><code>/api/activity</code></td><td>GET</td><td class="sig">app/api/activity/route.ts</td></tr></tbody></table></details>
 <details><summary>/admin/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/admin/trigger-outcome-sweep"><td><code>/api/admin/trigger-outcome-sweep</code></td><td>POST</td><td class="sig">app/api/admin/trigger-outcome-sweep/route.ts</td></tr></tbody></table></details>
-<details><summary>/agents/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents/fanouts"><td><code>/api/agents/fanouts</code></td><td>GET</td><td class="sig">app/api/agents/fanouts/route.ts</td></tr>
-    <tr data-path="/api/agents/invoke"><td><code>/api/agents/invoke</code></td><td>POST</td><td class="sig">app/api/agents/invoke/route.ts</td></tr>
-    <tr data-path="/api/agents/registry"><td><code>/api/agents/registry</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/route.ts</td></tr>
-    <tr data-path="/api/agents/registry/[id]"><td><code>/api/agents/registry/[id]</code></td><td>GET, PATCH</td><td class="sig">app/api/agents/registry/[id]/route.ts</td></tr>
-    <tr data-path="/api/agents/registry/[id]/capabilities"><td><code>/api/agents/registry/[id]/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/agents/registry/[id]/capabilities/route.ts</td></tr></tbody></table></details>
+<details><summary>/agents/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents/fanouts"><td><code>/api/agents/fanouts</code></td><td>GET</td><td class="sig">app/api/agents/fanouts/route.ts</td></tr></tbody></table></details>
 <details><summary>/approvals/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.ts</td></tr>
     <tr data-path="/api/approvals/bulk"><td><code>/api/approvals/bulk</code></td><td>POST</td><td class="sig">app/api/approvals/bulk/route.ts</td></tr>
     <tr data-path="/api/approvals/floods"><td><code>/api/approvals/floods</code></td><td>GET</td><td class="sig">app/api/approvals/floods/route.ts</td></tr></tbody></table></details>
@@ -538,16 +549,9 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/auth/local"><td><code>/api/auth/local</code></td><td>DELETE, POST</td><td class="sig">app/api/auth/local/route.ts</td></tr></tbody></table></details>
 <details><summary>/calibration/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/calibration/controller"><td><code>/api/calibration/controller</code></td><td>GET, POST</td><td class="sig">app/api/calibration/controller/route.ts</td></tr>
     <tr data-path="/api/calibration/proposals"><td><code>/api/calibration/proposals</code></td><td>GET, POST</td><td class="sig">app/api/calibration/proposals/route.ts</td></tr></tbody></table></details>
-<details><summary>/capabilities/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/capabilities"><td><code>/api/capabilities</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]"><td><code>/api/capabilities/[capabilityId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/capabilities/[capabilityId]/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/access"><td><code>/api/capabilities/[capabilityId]/access</code></td><td>GET, POST</td><td class="sig">app/api/capabilities/[capabilityId]/access/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/access/[ruleId]"><td><code>/api/capabilities/[capabilityId]/access/[ruleId]</code></td><td>DELETE</td><td class="sig">app/api/capabilities/[capabilityId]/access/[ruleId]/route.ts</td></tr>
+<details><summary>/capabilities/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/capabilities"><td><code>/api/capabilities</code></td><td>GET</td><td class="sig">app/api/capabilities/route.ts</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]/access/check"><td><code>/api/capabilities/[capabilityId]/access/check</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/access/check/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/health"><td><code>/api/capabilities/[capabilityId]/health</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/health/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/history"><td><code>/api/capabilities/[capabilityId]/history</code></td><td>GET</td><td class="sig">app/api/capabilities/[capabilityId]/history/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.ts</td></tr>
-    <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.ts</td></tr>
-    <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.ts</td></tr></tbody></table></details>
+    <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.ts</td></tr></tbody></table></details>
 <details><summary>/coverage/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/coverage"><td><code>/api/coverage</code></td><td>GET, POST</td><td class="sig">app/api/coverage/route.ts</td></tr></tbody></table></details>
 <details><summary>/cron/* (6)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>
     <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.ts</td></tr>

@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 127,
+    "total_routes": 116,
     "stable_routes": 38,
     "beta_routes": 17,
-    "experimental_routes": 72
+    "experimental_routes": 61
   },
   "routes": [
     {
@@ -144,45 +144,6 @@
       "maturity": "experimental",
       "matched_prefix": "/api/agents",
       "file": "app/api/agents/fanouts/route.ts"
-    },
-    {
-      "path": "/api/agents/invoke",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/invoke/route.ts"
-    },
-    {
-      "path": "/api/agents/registry",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/registry/route.ts"
-    },
-    {
-      "path": "/api/agents/registry/{id}",
-      "methods": [
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/registry/[id]/route.ts"
-    },
-    {
-      "path": "/api/agents/registry/{id}/capabilities",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/registry/[id]/capabilities/route.ts"
     },
     {
       "path": "/api/approvals/bulk",
@@ -302,42 +263,11 @@
     {
       "path": "/api/capabilities",
       "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/route.ts"
-    },
-    {
-      "path": "/api/capabilities/health",
-      "methods": [
         "GET"
       ],
       "maturity": "experimental",
       "matched_prefix": "(default)",
-      "file": "app/api/capabilities/health/route.ts"
-    },
-    {
-      "path": "/api/capabilities/{capabilityId}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/route.ts"
-    },
-    {
-      "path": "/api/capabilities/{capabilityId}/access",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/access/route.ts"
+      "file": "app/api/capabilities/route.ts"
     },
     {
       "path": "/api/capabilities/{capabilityId}/access/check",
@@ -349,33 +279,6 @@
       "file": "app/api/capabilities/[capabilityId]/access/check/route.ts"
     },
     {
-      "path": "/api/capabilities/{capabilityId}/access/{ruleId}",
-      "methods": [
-        "DELETE"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/access/[ruleId]/route.ts"
-    },
-    {
-      "path": "/api/capabilities/{capabilityId}/health",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/health/route.ts"
-    },
-    {
-      "path": "/api/capabilities/{capabilityId}/history",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/history/route.ts"
-    },
-    {
       "path": "/api/capabilities/{capabilityId}/invoke",
       "methods": [
         "POST"
@@ -383,15 +286,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/capabilities/[capabilityId]/invoke/route.ts"
-    },
-    {
-      "path": "/api/capabilities/{capabilityId}/test",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/capabilities/[capabilityId]/test/route.ts"
     },
     {
       "path": "/api/coverage",

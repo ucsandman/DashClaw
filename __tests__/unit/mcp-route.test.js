@@ -109,7 +109,7 @@ describe('POST /api/mcp', () => {
     const res = await POST(request);
     const data = await res.json();
 
-    expect(data.result.resources.length).toBeGreaterThanOrEqual(3);
+    expect(data.result.resources.length).toBeGreaterThanOrEqual(2);
     expect(data.result.resourceTemplates).toBeDefined();
   });
 
