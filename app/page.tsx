@@ -5,13 +5,12 @@ import {
   Terminal,
   ShieldCheck,
   FileCheck,
-  Radar,
   Scale,
-  MessageSquare,
-  Wallet,
-  Stethoscope,
   Crosshair,
   HeartPulse,
+  Stethoscope,
+  Inbox,
+  SlidersHorizontal,
 } from 'lucide-react';
 import PublicNavbar from './components/PublicNavbar';
 import PublicFooter from './components/PublicFooter';
@@ -28,12 +27,10 @@ import { isHostedMode } from './lib/hosted/flag';
 import { marketingPageMetadata } from './lib/marketingSeo';
 import JsonLd from './components/JsonLd';
 
-import { signals } from './landingData';
-
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'DashClaw, the governance runtime for AI agents',
+  title: 'DashClaw, the approval layer for unattended AI agents',
   description:
-    'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
+    'When your coding agent tries something destructive, DashClaw catches it before it runs and asks you first, with one click, from anywhere. A fail-closed approval layer for long, unattended agent runs.',
   path: '/',
 });
 
@@ -43,80 +40,81 @@ const GOVERNANCE_LOOP = `const claw = new DashClaw();
 
 // 1. guard: policy decides before anything runs
 const g = await claw.guard({
-  action_type: 'deploy',
-  declared_goal: 'Ship auth-service v2.1 to prod',
-  risk_score: 85,
+  action_type: 'shell',
+  act: { kind: 'shell', command: 'git push --force origin main' },
 });
 
 // 2. createAction: open the decision record
 const action = await claw.createAction({
-  action_type: 'deploy',
-  declared_goal: 'Ship auth-service v2.1 to prod',
+  action_type: 'shell',
+  declared_goal: 'Force-push the rebased branch',
 });
 
-// 3. waitForApproval: block until a human resolves it
+// 3. waitForApproval: freeze until a human resolves it
 if (g.decision === 'require_approval') {
   await claw.waitForApproval(action.id);
 }
 
 // 4. updateOutcome: close the record, one-shot
-await deploy();
+await run();
 await claw.updateOutcome(action.id, { status: 'success' });`;
 
 const LOOP_STEPS = [
   {
-    method: 'guard',
-    text: 'Policy evaluates the declared action before it runs: allow, warn, block, or require_approval. A block is never downgraded.',
+    stage: 'Intercept',
+    text: 'A PreToolUse hook in Claude Code, Codex, or Hermes (plus dashclaw_invoke and the OpenClaw gateway) catches a tool call before it executes.',
   },
   {
-    method: 'createAction',
-    text: 'The decision record opens: declared goal, reasoning, risk score, matched policies, assumptions.',
+    stage: 'Decide',
+    text: 'The guard engine risk-scores the call against your policies into the lattice allow < warn < require_approval < block. The join is max, and a block is absolute.',
   },
   {
-    method: 'waitForApproval',
-    text: 'Held actions route to the dashboard, the CLI, a mobile PWA, Discord, or Telegram. Approvals expire; a lapsed one never releases held work.',
+    stage: 'Approve',
+    text: 'require_approval freezes the action and pages a human, who approves or denies with one click, from the Approvals inbox or a phone. Grants are single-use and bound to the exact action.',
   },
   {
-    method: 'updateOutcome',
-    text: 'Terminal outcomes are one-shot and durable, so a retried agent never silently double-executes.',
+    stage: 'Prove',
+    text: 'Every decision writes a durable, replayable, signed audit row. A liveness probe keeps proving the governor is still enforcing.',
   },
 ];
 
-const OPERATE_SURFACES = [
+const WEDGE_ROWS = [
+  { dim: 'Who it protects', native: 'You, while you watch each prompt', dashclaw: 'The run you walked away from' },
+  { dim: 'When you must be present', native: 'Every prompt, in real time', dashclaw: 'Never; approve later, from a phone' },
+  { dim: 'Policy scope', native: 'Per session, per machine allowlist', dashclaw: 'One policy across every runtime and session' },
+  { dim: 'Audit trail', native: 'None you can export', dashclaw: 'Signed, replayable ledger (Ed25519, JWKS)' },
+  { dim: 'Interruption rate', native: 'Fixed prompts, no tuning', dashclaw: 'Calibrated to a target false-block bound' },
+];
+
+const SUPPORT_SURFACES = [
   {
-    icon: Radar,
-    title: 'Mission Control',
-    desc: 'Fleet posture, the intervention queue, and a live stream of governed events. Emergency halt is one confirmed click.',
-    href: '/demo?sandbox=1',
+    icon: Inbox,
+    title: 'Approvals inbox',
+    desc: 'The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Resolve from a browser, the CLI, a phone, Telegram, or Discord.',
+    href: '/approvals',
   },
   {
     icon: Scale,
     title: 'Decisions ledger',
-    desc: 'Every governed action, replayable: goal, risk composition, matched policies, approver, terminal outcome.',
+    desc: 'Every governed action, replayable: declared goal, risk composition, matched policies, the approver, and the terminal outcome. Signed rows, exportable.',
     href: '/decisions',
   },
   {
-    icon: MessageSquare,
-    title: 'Approvals anywhere',
-    desc: 'Dashboard inbox, CLI, mobile PWA at /approve, Discord and Telegram with one-tap resolve. A flood guard collapses approval storms into one bulk event.',
-    href: '/approve',
-  },
-  {
-    icon: Wallet,
-    title: 'Spend',
-    desc: 'Fleet LLM cost plus x402 capability purchases, with per-purchase caps, window budgets, and live "$X of $Y used" meters.',
-    href: '/spend',
+    icon: SlidersHorizontal,
+    title: 'Policies',
+    desc: 'A small set of safety switches plus calibration review. The default pack is catastrophe-only; anything that loosens enforcement is a proposal you ratify with one click.',
+    href: '/policies',
   },
   {
     icon: Crosshair,
     title: 'Calibrated interruption',
-    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve/deny verdicts. Shadow first, tighten-only when active.',
+    desc: 'Set a target false-interruption rate; the controller holds it with a distribution-free bound, learned from your approve and deny verdicts. Shadow first, tighten-only when active.',
     href: '/calibration',
   },
   {
     icon: HeartPulse,
     title: 'Enforcement liveness',
-    desc: 'A probe drives a synthetic held action through the real hook seam and verifies it did not execute. A healthy ledger can hide a dead hook; this catches it, and a silent probe never renders green.',
+    desc: 'A probe drives a synthetic held action through the real hook seam and verdicts by whether it executed, never by reading the ledger. A healthy ledger can hide a dead hook; a silent probe never renders green.',
     href: '/setup#enforcement-liveness',
   },
   {
@@ -129,10 +127,9 @@ const OPERATE_SURFACES = [
 
 export default function LandingPage() {
   const hosted = isHostedMode();
-  // The trial CTA renders when this IS the hosted instance or when the
-  // marketing build points at one (NEXT_PUBLIC_HOSTED_TRIAL_URL). In either
-  // case the trial is the one primary action — self-host drops to the quiet
-  // style so brand orange stays a signal, not wallpaper (.impeccable #2).
+  // The hosted trial is the secondary door (thesis): the install path is the
+  // one primary action, so the trial CTA renders quiet. It only appears when
+  // this IS the hosted instance or the marketing build points at one.
   const trialConfigured = hosted || Boolean(process.env.NEXT_PUBLIC_HOSTED_TRIAL_URL);
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary text-base">
@@ -144,7 +141,7 @@ export default function LandingPage() {
               '@type': 'SoftwareApplication',
               name: 'DashClaw',
               description:
-                'Open source governance runtime for AI agents: policy evaluates every risky action before it runs, held actions route to a human, every decision lands in a signed, replayable ledger.',
+                'A fail-closed approval layer for unattended AI coding agents: it catches a destructive tool call before it runs, freezes it for one-click human approval from anywhere, and writes a signed, replayable audit row.',
               url: 'https://www.dashclaw.io',
               applicationCategory: 'DeveloperApplication',
               operatingSystem: 'Any',
@@ -163,42 +160,57 @@ export default function LandingPage() {
       <SetupBanner />
 
       <main>
-        {/* ── 1. Hero: the claim on the left, the proof on the right ── */}
+        {/* ── 1. Hero: the claim on the left, a real caught action on the right ── */}
         <section className="pt-28 pb-16 px-6">
           <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[1.05fr_1fr] gap-12 lg:gap-16 items-center">
             <div>
-              <h1 className="text-4xl sm:text-5xl xl:text-[3.5rem] font-bold tracking-tight leading-[1.08] text-text-primary [text-wrap:balance]">
-                Govern AI agents before they act.
+              <h1 className="text-4xl sm:text-5xl xl:text-[3.25rem] font-bold tracking-tight leading-[1.08] text-text-primary [text-wrap:balance]">
+                When your coding agent tries something destructive, DashClaw catches it before it runs.
               </h1>
               <p className="mt-6 text-lg text-text-secondary leading-relaxed max-w-xl">
-                DashClaw is an open source runtime that sits between your agents and
-                production. Policy evaluates every risky action before it runs: allow,
-                block, or hold for a human. Every decision lands in a signed,
-                replayable ledger.
+                It freezes the action and asks you first, with one click, from
+                anywhere. A fail-closed approval layer for the long, unattended
+                runs where your agent&apos;s native permission prompts cannot
+                help, because they need you at the keyboard.
               </p>
 
               <div className="mt-8 flex flex-col sm:flex-row sm:items-center gap-3">
-                <HostedTrialCTA />
                 <TrackedLink
                   href="/self-host"
                   event="marketing_hero_cta_clicked"
-                  className={trialConfigured ? 'px-7 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap' : 'px-7 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-colors inline-flex items-center justify-center gap-2 whitespace-nowrap'}
+                  className="px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center justify-center gap-2 shadow-xl shadow-brand/20 whitespace-nowrap"
                 >
-                  Self host the runtime <ArrowRight size={16} aria-hidden="true" />
+                  Install the runtime <ArrowRight size={18} aria-hidden="true" />
                 </TrackedLink>
-                <InlineCopyCommand command="npx dashclaw-demo" className="px-3 py-2.5 text-xs" />
+                <InlineCopyCommand command="npx dashclaw up" className="px-4 py-2.5 text-sm" />
+              </div>
+              <p className="mt-3 text-xs text-text-tertiary max-w-xl">
+                Installs the runtime, provisions Postgres, mints your key, and
+                wires your first hook. No account on the path to your first
+                caught action.
+              </p>
+
+              <div className="mt-5 flex flex-col sm:flex-row sm:items-center gap-3">
+                <TrackedLink
+                  href="/connect"
+                  event="marketing_hero_plugin_clicked"
+                  className="px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+                >
+                  Governing Claude Code? Install the plugin <ArrowRight size={15} aria-hidden="true" />
+                </TrackedLink>
+                {trialConfigured ? <HostedTrialCTA variant="secondary" /> : null}
               </div>
               {trialConfigured ? (
                 <p className="mt-3 text-xs text-text-tertiary">
-                  Free for 30 days, no credit card. Your first governed action runs in
-                  the browser, no install needed.
+                  Rather not deploy yet? The hosted trial lets you see the
+                  Approvals inbox in your browser, no install.
                 </p>
               ) : null}
 
               <p className="mt-8 text-sm text-text-tertiary max-w-xl">
-                Works with Claude Code, Codex, Hermes, OpenClaw, Claude Managed Agents,
-                OpenAI, LangChain, CrewAI, AutoGen, and any custom runtime over MCP,
-                SDK, or REST.
+                Enforced at the hook seam in Claude Code, Codex, and Hermes, and
+                at the OpenClaw gateway. Honored cooperatively by the Node and
+                Python SDKs, the MCP server, and REST.
               </p>
 
               <div className="mt-4 text-xs text-text-tertiary flex flex-wrap items-center gap-x-3 gap-y-2">
@@ -206,7 +218,7 @@ export default function LandingPage() {
                 <span className="text-text-disabled" aria-hidden="true">&middot;</span>
                 <span>Self hosted</span>
                 <span className="text-text-disabled" aria-hidden="true">&middot;</span>
-                <span>No per seat pricing</span>
+                <span>No account to your first block</span>
                 <span className="text-text-disabled" aria-hidden="true">&middot;</span>
                 <span>Your data stays on your infrastructure</span>
               </div>
@@ -219,7 +231,7 @@ export default function LandingPage() {
         {/* ── 2. Live demo: run a real guard call against a live instance ── */}
         <LiveDemo />
 
-        {/* ── 3. Why: governance runs before the action, tracing runs after ── */}
+        {/* ── 3. The wedge: native prompts protect you at the keyboard ── */}
         <section
           id="vs-alternatives"
           aria-labelledby="vs-alternatives-heading"
@@ -235,14 +247,14 @@ export default function LandingPage() {
                 id="vs-alternatives-heading"
                 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary leading-tight [text-wrap:balance]"
               >
-                Observability tools record what happened. DashClaw governs what is
-                allowed to happen.
+                Native permission prompts protect you at the keyboard. DashClaw protects the runs you walk away from.
               </h2>
               <p className="mt-4 text-text-secondary leading-relaxed">
-                An agent with production credentials generates its actions at runtime.
-                There is no code review for each decision, and a trace only tells you
-                what happened after it happened. The check has to run before the
-                action does.
+                Claude Code and Codex already ship permission prompts for the
+                at-keyboard user, for free. DashClaw does not compete with those.
+                It does the job those prompts structurally cannot, because they
+                need you present: it freezes the dangerous call and lets you
+                approve it minutes or hours later, from anywhere.
               </p>
             </div>
 
@@ -255,7 +267,7 @@ export default function LandingPage() {
                         Dimension
                       </th>
                       <th scope="col" className="px-4 py-3 text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary font-semibold">
-                        Tracing tools (LangSmith, Langfuse)
+                        Native permission prompts
                       </th>
                       <th scope="col" className="px-4 py-3 text-[10px] font-mono uppercase tracking-[0.18em] text-brand font-semibold">
                         DashClaw
@@ -263,13 +275,7 @@ export default function LandingPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {[
-                      { dim: 'When it acts', tracing: 'After the action', dashclaw: 'Before the action' },
-                      { dim: 'Core primitive', tracing: 'Log or trace', dashclaw: 'Guard and policy' },
-                      { dim: 'Human in the loop', tracing: 'Add on', dashclaw: 'First class' },
-                      { dim: 'Compliance evidence', tracing: 'Trace export', dashclaw: 'Action level, policy and approver bound' },
-                      { dim: 'Self host', tracing: 'Available', dashclaw: 'Available, MIT, no paid tier required' },
-                    ].map((row, idx, arr) => (
+                    {WEDGE_ROWS.map((row, idx, arr) => (
                       <tr
                         key={row.dim}
                         className={idx < arr.length - 1 ? 'border-b border-border' : ''}
@@ -277,7 +283,7 @@ export default function LandingPage() {
                         <th scope="row" className="px-4 py-3 font-semibold text-text-primary align-top">
                           {row.dim}
                         </th>
-                        <td className="px-4 py-3 text-text-secondary align-top">{row.tracing}</td>
+                        <td className="px-4 py-3 text-text-secondary align-top">{row.native}</td>
                         <td className="px-4 py-3 text-text-primary font-medium align-top">
                           {row.dashclaw}
                         </td>
@@ -289,24 +295,24 @@ export default function LandingPage() {
             </div>
 
             <p className="mt-8 text-sm text-text-secondary leading-relaxed text-center max-w-2xl mx-auto">
-              Tracing answers the question, what did my agent do. DashClaw answers the
-              question, what is my agent allowed to do. Both have a place. Most teams
-              will eventually run both.
+              This is not observability either. LangSmith and Langfuse record
+              what an agent did, after it did it. DashClaw decides what it is
+              allowed to do, before it runs.
             </p>
           </div>
         </section>
 
-        {/* ── 4. The loop: four calls, annotated ── */}
+        {/* ── 4. The loop: intercept, decide, approve, prove ── */}
         <section id="sdk" className="py-20 px-6 border-t border-border bg-surface-secondary/40 scroll-mt-20">
           <div className="max-w-6xl mx-auto">
             <div className="max-w-2xl mb-12">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-                One loop governs every action
+                The whole product is one loop
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                Four calls, from the SDK, the MCP server, a plugin, or plain REST.
-                Every path lands on the same primitives, the same ledger, and the same
-                approval queue.
+                Intercept, decide, approve, prove. The hook seam runs it for you
+                in Claude Code, Codex, and Hermes; the SDK, MCP server, and REST
+                run the same four calls when you want explicit control.
               </p>
             </div>
 
@@ -314,11 +320,11 @@ export default function LandingPage() {
               <div className="rounded-xl border border-border bg-surface-secondary overflow-hidden">
                 <div className="px-5 py-3 border-b border-border flex items-center gap-2">
                   <Terminal size={14} className="text-text-tertiary" aria-hidden="true" />
-                  <span className="text-xs font-mono text-text-tertiary">govern-deploy.ts</span>
+                  <span className="text-xs font-mono text-text-tertiary">govern-forcepush.ts</span>
                 </div>
                 <pre
                   tabIndex={0}
-                  aria-label="The four-call governance loop in the Node SDK"
+                  aria-label="The governance loop in the Node SDK"
                   className="p-5 font-mono text-xs leading-relaxed text-text-secondary overflow-x-auto bg-surface-primary"
                 >
                   <code>{GOVERNANCE_LOOP}</code>
@@ -328,13 +334,13 @@ export default function LandingPage() {
               <div>
                 <ol className="space-y-6">
                   {LOOP_STEPS.map((step, idx) => (
-                    <li key={step.method} className="flex gap-4">
+                    <li key={step.stage} className="flex gap-4">
                       <span className="font-mono text-sm text-text-tertiary tabular-nums pt-0.5" aria-hidden="true">
                         {idx + 1}
                       </span>
                       <div>
-                        <h3 className="font-mono text-sm font-semibold text-text-primary">
-                          {step.method}
+                        <h3 className="text-sm font-semibold text-text-primary">
+                          {step.stage}
                         </h3>
                         <p className="mt-1 text-sm text-text-secondary leading-relaxed max-w-md">
                           {step.text}
@@ -357,8 +363,66 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── 5. Stack: quickstarts as tabs ── */}
+        {/* ── 5. Two proof points: calibration + liveness ── */}
         <section className="py-20 px-6 border-t border-border">
+          <div className="max-w-4xl mx-auto">
+            <div className="max-w-2xl mb-10">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
+                Two things make the checkpoint livable
+              </h2>
+              <p className="mt-3 text-text-secondary leading-relaxed">
+                A governor you disable is worse than none. These two keep it
+                earning its interruptions, and prove it is still awake.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              <div className="p-6 rounded-xl border border-border bg-surface-secondary">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <Crosshair size={18} className="text-brand" aria-hidden="true" />
+                  <h3 className="text-base font-semibold text-text-primary">Calibrated interruptions</h3>
+                </div>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  A distribution-free controller tunes the interruption
+                  threshold from your approve and deny stream, with a proven
+                  false-block bound. It runs in shadow first, and when active it
+                  only ever tightens; loosening always routes through a proposal
+                  a human ratifies. Governance earns its interruptions instead of
+                  nagging you into turning it off.
+                </p>
+              </div>
+              <div className="p-6 rounded-xl border border-border bg-surface-secondary">
+                <div className="flex items-center gap-2.5 mb-3">
+                  <HeartPulse size={18} className="text-brand" aria-hidden="true" />
+                  <h3 className="text-base font-semibold text-text-primary">Enforcement liveness</h3>
+                </div>
+                <p className="text-sm text-text-secondary leading-relaxed">
+                  Once, the governor stopped enforcing and nothing noticed,
+                  because the ledger kept looking healthy. Now a probe drives a
+                  synthetic held action through the real hook seam and verdicts
+                  by whether it executed, not by reading the ledger. Stale never
+                  renders green.
+                </p>
+              </div>
+            </div>
+
+            <p className="mt-6 text-sm text-text-tertiary">
+              Definitions, theorems, and honest limits are in the{' '}
+              <a
+                href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/governance-core-theory.md"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-text-secondary underline underline-offset-4 decoration-border-hover hover:text-brand transition-colors"
+              >
+                governance core theory doc
+              </a>
+              .
+            </p>
+          </div>
+        </section>
+
+        {/* ── 6. Stack: quickstarts as tabs ── */}
+        <section className="py-20 px-6 border-t border-border bg-surface-secondary/40">
           <div className="max-w-4xl mx-auto">
             <div className="max-w-2xl mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
@@ -367,7 +431,7 @@ export default function LandingPage() {
               <p className="mt-3 text-text-secondary leading-relaxed">
                 One command wires Claude Code, Codex, or Hermes. A plugin covers
                 OpenClaw. The MCP server gives any MCP client the same loop
-                through {'12 tools and 4 resources'}, no SDK and no code changes.
+                through {'12 tools and 3 resources'}, no SDK and no code changes.
                 Everything else takes the Node or Python SDK.
               </p>
             </div>
@@ -375,15 +439,15 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── 6. The enforcement boundary, stated plainly ── */}
-        <section className="py-20 px-6 border-t border-border bg-surface-secondary/40">
+        {/* ── 7. The enforcement boundary, stated plainly ── */}
+        <section className="py-20 px-6 border-t border-border">
           <div className="max-w-4xl mx-auto">
             <div className="max-w-2xl mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
                 Where the block is mechanical, and where it is honored
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                Most governance pitches skip this question. We publish the table.
+                We do not claim universal enforcement. We publish the table.
               </p>
             </div>
 
@@ -394,10 +458,10 @@ export default function LandingPage() {
                   <h3 className="text-base font-semibold text-text-primary">Mechanical halt</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
-                  Claude Code, Codex, and Hermes lifecycle hooks, the OpenClaw plugin,
-                  and every capability DashClaw executes itself. The action is stopped
-                  in the harness before it runs. The agent cannot proceed past a
-                  block.
+                  Claude Code, Codex, and Hermes lifecycle hooks (fail-closed,
+                  exit-2 on block), the OpenClaw gateway, and dashclaw_invoke.
+                  The action is stopped in the seam before it runs. The agent
+                  cannot proceed past a block.
                 </p>
               </div>
               <div className="p-6 rounded-xl border border-border bg-surface-secondary">
@@ -406,12 +470,13 @@ export default function LandingPage() {
                   <h3 className="text-base font-semibold text-text-primary">Honored and recorded</h3>
                 </div>
                 <p className="text-sm text-text-secondary leading-relaxed">
-                  SDK, MCP, and chat-based callers consult guard and honor the
-                  decision cooperatively. Every call is still recorded, a block is
-                  never downgraded in the ledger, and any gap between decision and
-                  behavior is visible evidence, not silence. SDK callers can attach
-                  the actual command or request, so the server classifies the risk
-                  from evidence instead of trusting the declaration.
+                  Bare SDK, MCP, and chat-based callers consult guard and honor
+                  the decision cooperatively. Every call is still recorded, a
+                  block is never downgraded in the ledger, and any gap between
+                  decision and behavior is visible evidence, not silence. SDK
+                  callers can attach the actual command or request, so the server
+                  classifies risk from evidence instead of trusting the
+                  declaration.
                 </p>
               </div>
             </div>
@@ -431,26 +496,25 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* ── 7. Use cases (tabbed: deploys / spend / drift) ── */}
+        {/* ── 8. Use cases (tabbed) ── */}
         <UseCases />
 
-        {/* ── 8. Operating the fleet after the decision ── */}
+        {/* ── 9. The support surfaces around the loop ── */}
         <section id="features" className="py-20 px-6 border-t border-border bg-surface-secondary/40 scroll-mt-20">
           <div className="max-w-6xl mx-auto">
             <div className="max-w-2xl mb-10">
               <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-text-primary">
-                After the decision, the control room
+                One primary surface, and the switches around it
               </h2>
               <p className="mt-3 text-text-secondary leading-relaxed">
-                Governed decisions produce operations: a live fleet view, an approval
-                inbox, a posture score, a spend meter. All of it reads from the same
-                ledger the loop writes.
+                The Approvals inbox is the front door. Everything else reads from
+                the same ledger the loop writes.
               </p>
             </div>
 
             <div className="rounded-xl border border-border overflow-hidden">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-px bg-border">
-                {OPERATE_SURFACES.map((surface) => {
+                {SUPPORT_SURFACES.map((surface) => {
                   const Icon = surface.icon;
                   return (
                     <Link
@@ -471,54 +535,22 @@ export default function LandingPage() {
                 })}
               </div>
             </div>
-
-            {/* Risk signals the runtime raises on its own */}
-            <div className="mt-10">
-              <p className="text-sm text-text-secondary mb-3">
-                The runtime also watches the fleet and raises risk signals on its own:
-              </p>
-              <ul className="flex flex-wrap gap-2">
-                {signals.map((signal) => (
-                  <li
-                    key={signal.name}
-                    className="px-3 py-1 rounded-full border border-border bg-surface-secondary text-xs text-text-secondary"
-                    title={signal.description}
-                  >
-                    {signal.name}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Self-governance proof, one honest line (v7.3) */}
-            <div className="mt-6 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8">
-              <p className="text-sm text-text-secondary leading-relaxed max-w-xl">
-                This isn&apos;t hypothetical: DashClaw&apos;s own maintainer is an AI agent, and
-                every change it ships runs through a live DashClaw instance.
-              </p>
-              <Link
-                href="/proof"
-                className="inline-flex items-center gap-1.5 text-sm text-brand hover:text-brand-hover transition-colors shrink-0"
-              >
-                See the live proof <ArrowRight size={14} aria-hidden="true" />
-              </Link>
-            </div>
           </div>
         </section>
 
-        {/* ── 9. Bottom CTA ── */}
+        {/* ── 10. Bottom CTA ── */}
         <section className="py-20 px-6 border-t border-border">
           <div className="max-w-2xl mx-auto text-center">
             <h2 className="text-2xl sm:text-3xl font-bold tracking-tight [text-wrap:balance]">
-              Put a permission layer in front of your agents.
+              Put an approval layer in front of your unattended runs.
             </h2>
             <p className="mt-3 text-text-secondary">
-              For teams running AI agents where the cost of a bad action is real.
+              For the developer who kicks off a long run and cannot watch every
+              tool call.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-3">
-              <HostedTrialCTA />
-              <Link href="/self-host" className={trialConfigured ? 'px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2' : 'px-6 py-2.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors inline-flex items-center gap-2'}>
-                Self host the runtime
+              <Link href="/self-host" className="px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20">
+                Install the runtime <ArrowRight size={18} aria-hidden="true" />
               </Link>
               {/* Same-page anchor, not <Link href="/demo">: the middleware 302
                   to /#live-demo loses its hash during client-side navigation

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ShieldAlert, DollarSign, Activity } from 'lucide-react';
+import { ShieldAlert, Ban, Activity } from 'lucide-react';
 
 /*
  * Three governance use cases, surfaced as tabs so all three sit in one
@@ -30,19 +30,18 @@ const USE_CASES = [
       'Matched the production_deploy policy, paused the action, routed to the on-call engineer, recorded the approval.',
   },
   {
-    id: 'spend',
-    label: 'Spend',
-    icon: DollarSign,
-    title: 'Cap what agents can spend',
-    outcome: 'Hard ceiling on API and tool spend per run, with policy-level overrides.',
+    id: 'destructive',
+    label: 'Destructive commands',
+    icon: Ban,
+    title: 'Freeze an irreversible command',
+    outcome: 'Destructive shell, git, and database actions hold for one human approval before they run.',
     code: `await claw.guard({
-  agent_id: 'research-agent',
-  action_type: 'external_api_call',
-  risk_score: 58,
-  declared_goal: 'Run a 50k-token GPT-4 pass over the user backlog',
+  agent_id: 'nightly-agent',
+  action_type: 'shell',
+  act: { kind: 'shell', command: 'git push --force origin main' },
 });`,
     caption:
-      'Checked the budget policy for this agent, blocked the call once the run-level token ceiling was reached, opened a loop on the dashboard.',
+      'Classified the command from evidence at the top of the risk scale, held it at the hook seam, and paged the on-call human. The force-push never ran.',
   },
   {
     id: 'drift',
@@ -151,7 +150,7 @@ export default function UseCases() {
         </div>
 
         <p className="mt-6 text-center text-xs text-text-tertiary">
-          Every governed action also lands in the evidence ledger, ready for compliance review without a separate audit pipeline.
+          Every governed action also lands in the signed decision ledger, ready to audit and export without a separate pipeline.
         </p>
       </div>
     </section>

@@ -36,7 +36,7 @@ As of this verification (2026-07-07), generated API inventory reports **116 rout
 - **Human-in-the-loop approval**: approval queues and chat/native approval bridges.
 - **Action ledger**: durable `action_records` rows with status, risk, reasoning, assumptions, costs, tokens, and trace data.
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
-- **Operational signals**: stale actions, drift, lost confirmations, degraded integrations, and policy-relevant alerts.
+- **Operational signals**: stale actions, lost confirmations, assumption drift, degraded integrations, and policy-relevant alerts.
 - **Evidence**: replayable action detail, traces, graphs, artifacts, and evidence bundles.
 
 ### DashClaw does not own
@@ -50,27 +50,20 @@ As of this verification (2026-07-07), generated API inventory reports **116 rout
 
 | Surface | Path | Purpose |
 |:---|:---|:---|
-| Mission Control | `/mission-control` | Two-column instrument panel: a sticky Posture Scorecard (six governance-category status rows that double as filters, runtime vitals, fleet, spend) and a Live Governance Ledger — a multi-select Intervention Queue (inline + bulk approve/deny) over a capped, SSE-live event stream. One coordinated 30s poll with a debounced SSE reconcile (replaces the old three independent polls + the operations-feed band). |
-| Status Widget | `/widget` | Compact, chrome-free, installable (PWA) cockpit: overall posture (calm / active / approval / elevated / offline), key counts, top risk signal, a live recent-action log, and inline Approve/Deny for pending approvals (operator decisions resolved via `/api/approvals/[actionId]`, cleared across all channels). 30s poll + the shared SSE stream; backed by `GET /api/widget/summary`. See `docs/widget.md`. |
-| Decisions | `/decisions` | Visual ledger of governed actions with outcome status and replay links. |
+| Approvals inbox | `/approvals` | The one primary human surface: what your agent just tried, what is frozen and waiting on you, two buttons per item. Multi-select inline + bulk approve/deny over a capped, SSE-live event stream; a flood banner collapses approval storms with pause-rule and bulk-resolve controls, and pending approvals are never auto-resolved. |
+| Decisions | `/decisions` | Visual ledger of governed actions with risk composition, matched policies, approver, outcome status, and replay links. |
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
-| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), the live host canary — hourly external probes of the production hosts as a real client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, hosted MCP handshake) reported via `POST /api/live-canary`, with fresh failures also raised as a posture auditability finding — and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) proving the pretool hook seam actually holds held actions, where a probe that has silently stopped running renders stale, never green. |
+| Policies | `/policies` | Interruption-contract cockpit: a plain-English contract of when agents interrupt you (grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, calibration review, and import/proof surfaces. |
+| Calibration | `/calibration` | Calibrated interruption controller: operator sets a target false-interruption rate; an online adaptive-conformal threshold learns from approve/deny verdicts (distribution-free bound), with anytime-valid per-agent e-process alarms. Shadow mode records what it would do on every decision (`_calibration` sibling); active mode is tighten-only (raises to `require_approval`, never loosens, never touches `block`); loosening evidence routes to the `/policies` proposal rails. Default off; admin-gated `POST /api/calibration/controller`. Theory: `docs/architecture/governance-core-theory.md`. |
+| Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), the live host canary (hourly external probes of the production hosts as a real client, reported via `POST /api/live-canary`), and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) proving the pretool hook seam actually holds held actions, where a probe that has silently stopped running renders stale, never green. |
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
-| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (parent, agents involved, spawn/action counts, first/last activity). Backed by `GET /api/agents` + `GET /api/coverage` + `GET /api/agents/fanouts`. |
-| Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
-| Policy Builder | `/policies` | Interruption contract cockpit: plain-English contract of when agents interrupt you (editable spend thresholds, grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, and import/proof surfaces. |
-| Policy Coach | `/policy-coach` | Behavior Learning (v1, observe-only): evidence-backed policy suggestions learned from locally-recorded agent behavior, with simulate-before-adopt and dismiss suppression. See `docs/behavior-learning.md`. |
-| Calibration | `/calibration` | Calibrated interruption controller: operator sets a target false-interruption rate; an online adaptive-conformal threshold learns from approve/deny verdicts (distribution-free bound), with anytime-valid per-agent e-process alarms. Shadow mode records what it would do on every decision (`_calibration` sibling); active mode is tighten-only (raises to `require_approval`, never loosens, never touches `block`); loosening evidence routes to the `/policies` proposal rails. Default off; admin-gated `POST /api/calibration/controller`. Theory: `docs/architecture/governance-core-theory.md`. |
-| Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. A finding fires when a real agent's event coverage drops below 90% (min 20 sampled), deep-linking to `/agents`. Backed by `GET /api/posture`. Experimental. |
-| Analytics | `/analytics` | Cost trends, action volume, agent/type breakdowns, policy enforcement stats, and token efficiency. |
-| Spend | `/spend`, `/spend/x402`, `/spend/code` | FinOps rollup over agent LLM cost, x402 capability-purchase spend, and Code Sessions cost (Fleet vs Your-Claude-Code lenses, 7/30/90d trend). Beta. |
-| Capabilities | `/capabilities` | Governed HTTP capability registry, health, access rules, testing, and invocation. |
+| Proof | `/proof` | Self-governance evidence: the AI maintainer's own changes run through a live DashClaw instance. Supporting evidence, linked from the footer and about context, not the front door. |
 | Livingcode Dashboard | `/livingcode/` | Static snapshot of routes, env vars, tables, adapters, events, signals, setting keys, health strip, history, and diffs. Regenerated by `npm run livingcode:refresh`. |
 
 ## Runtime architecture
 
-DashClaw is organized into three layers to keep the governance boundary clear.
+DashClaw is organized into two layers to keep the governance boundary clear.
 
 ### Tier 1: Core governance runtime
 
@@ -83,7 +76,7 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/actions/:actionId` | Read or PATCH legacy lifecycle outcome fields | Legacy completion/update path. Durable finality uses the separate `/outcome` route. |
 | `/api/actions/:actionId/outcome` | Durable terminal outcome | One-shot `pending -> completed/partial/failed`; `lost_confirmation` is system-owned. |
 | `/api/actions/:actionId/trace` | Action trace | Read-only evidence path. |
-| `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, loops, and trace data. |
+| `/api/actions/:actionId/graph` | Execution graph | Nodes and edges around an action, assumptions, and trace data. |
 | `/api/approvals/:actionId` | Human approval decision | Also reachable via legacy rewrite `/api/actions/:id/approve`. |
 | `/api/assumptions` | Reasoning integrity records | Assumption tracking linked to actions. |
 | `/api/signals` | Runtime/anomaly signals | Signal listing and detection outputs. |
@@ -97,13 +90,13 @@ These routes define the minimum DashClaw category. They are stable or runtime-cr
 | `/api/policies/review/verdict` | Review verdicts | `POST { verdict, shape? }` (admin): `fine` advances the cursor, `always_allow` mints a scoped allow-grant, `tighten` mints a protected-path / require-approval policy, `mark_all_reviewed` clears the queue. |
 | `/api/calibration/controller` | Calibrated interruption controller | `GET` snapshot (mode, target rate, calibrated θ, observed vs target, per-agent e-process alarms, adjudication events); `POST` (admin, audit-logged) sets mode `off\|shadow\|active` / target rate, resets an agent alarm or the calibrated state. Backs `/calibration`. Theory + guarantees: `docs/architecture/governance-core-theory.md`. |
 | `/api/policies/proposals` | Policy-tuning proposals | `GET` returns per-policy interruption stats (rolling window) + rule-based tuning proposals with evidence; `POST { action: dismiss\|undismiss, proposal_id, reason? }` (admin) records dismissals. Accepting = the human PATCHes `/api/policies`; nothing auto-applies. Backs the `/policies` "Tuning proposals" section. |
-| `/api/policies/tightening` | Tightening proposals (findings → proposals, roadmap v3.2) | `GET` computes proposals on read from ungoverned-allow guard decisions, grouped (action_type × riskLevel) to mirror posture's `review_incident` findings one-to-one; `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify creates the ACTIVE `require_approval` policy server-side and resolves the mirrored posture finding, dismiss records why (content-stable `tp_` ids stop re-proposing), undo removes the judgment but keeps a created policy. Decisions persist in `tightening_proposal_decisions` (drizzle 0042). Backs the `/policies` "Tightening proposals" section. |
+| `/api/policies/tightening` | Tightening proposals (findings → proposals) | `GET` computes proposals on read from ungoverned-allow guard decisions, grouped (action_type × riskLevel); `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify creates the ACTIVE `require_approval` policy server-side, dismiss records why (content-stable `tp_` ids stop re-proposing), undo removes the judgment but keeps a created policy. Decisions persist in `tightening_proposal_decisions` (drizzle 0042). Backs the `/policies` "Tightening proposals" section. |
 | `/api/policies/loosening` | Loosening proposals (the tightening mirror, roadmap v4.5) | `GET` computes proposals on read from interrupt-approval outcomes at (policy, action_type) grain — an envelope action type approved ~100% of the time (bar 0.95, minFired 10, minResolved 5) proposes a scope carve-out (`relax_policy_scope`); a policy always overridden with no surgical fix (protected_path, rate_limit, envelope-emptying) proposes deactivation (`deactivate_policy`); risk_threshold policies excluded (tuning owns that direction); synthetic traffic excluded in SQL. `POST { action: ratify\|dismiss\|undo, proposal_id, proposal, reason? }` (admin): ratify rebuilds the patch server-side from CURRENT rules and applies it (self-suppresses via the policy's updated_at evidence-window reset), dismiss records why (content-stable `lp_` ids stop re-proposing), undo removes the judgment but keeps the change (`change_kept`). Decisions persist in `loosening_proposal_decisions` (drizzle 0051). Backs the `/policies` judgment-spine "Loosening" group. |
 | `/api/integrity/jwks` | Published signing public key (JWKS) | Public. Also at `/.well-known/jwks.json`. Used to re-verify proof receipts and compliance bundles. |
 | `/api/integrity/verify` | Re-verify a receipt or signed bundle | Public, stateless. `POST { receipt }` or `{ bundle }` → `{ ok }`. |
 | `/api/health` | System readiness | Public health/readiness surface. |
 | `/api/keys` | API key management | Stable key lifecycle and reveal path. |
-| `/api/messages` | Agent/system messages | Stable messaging surface used by agent coordination paths. |
+| `/api/messages` | Assumption-notification ack seam | Slim `GET`/`PATCH` surface the pretool hook uses to acknowledge assumption alerts. The full messaging / threads / handoffs product was removed in v5; only the assumption-ack residue survives, backed by `agent_messages`. |
 | `/api/mcp` | Streamable HTTP MCP endpoint | Remote MCP transport for DashClaw tool calls and resources. OAuth-protected (Bearer) for Claude custom connectors; `x-api-key` still works for managed agents. |
 | `/api/oauth/*` | OAuth 2.1 authorization server | DCR + PKCE S256 so the Claude consumer app can add `/api/mcp` as a custom connector. Public discovery at `/.well-known/oauth-{authorization-server,protected-resource}`. See `docs/CLAUDE-DESKTOP-PLUGIN.md`. |
 
@@ -115,29 +108,10 @@ These modules consume core runtime data and add operator value without changing 
 
 | Domain | Representative routes or surfaces | Purpose |
 |:---|:---|:---|
-| Capabilities | `/api/capabilities/*` | Governed HTTP capability registry, access rules, health, test, and invoke. |
-| Agent Registry | `/api/agents/registry/*`, `/api/agents/invoke` | External, org-owned delegatable providers that group capabilities; invocations route through the existing capability runtime + guard + action ledger. |
-| x402 Spend Governance | `GET/POST /api/x402/providers`, `GET/PATCH /api/x402/providers/[id]`, `GET/POST /api/x402/providers/[id]/endpoints`, `GET/POST /api/x402/purchases` | Agent-side x402 spend governance. Agents execute x402 calls themselves; DashClaw registers providers, governs purchases through the guard loop, and records spend. DashClaw never holds a wallet. |
-| FinOps / Spend | `GET /api/finops/spend` (`?lens=fleet\|claude-code`, `?period=7d\|30d\|90d`) | Aggregation-not-fusion rollup unifying agent LLM cost + x402 capability-purchase spend (fleet lens) and Code Sessions cost (claude-code lens) under one Spend surface. Read-only presentation layer over existing tables via `finops.repository.js` (`getFleetSpend`/`getClaudeCodeSpend`); owns no tables. Experimental. |
-| Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions, plus evidence bundles. |
-| Operations | `/api/operations/feed`, `/api/operations/summary` | Mission Control operational feed and runtime metrics. |
-| Status Widget | `GET /api/widget/summary` | One composed, read-only summary (overall posture + active-agents / pending-approvals / signals / recent-spend counts + sanitized recent-action log + top signal) for the `/widget` cockpit. Partial-failure tolerant; composed from existing repositories (no new tables, no direct SQL). Experimental. |
-| Compliance | `/api/compliance/*` | Evidence, mappings, gaps, reports, schedules, and exports. |
-| Evaluations | `/api/evaluations/*` | Scorers, runs, stats, evaluation outputs, and side-effect-free scorer preview (`/api/evaluations/scorers/preview` dry-runs a scorer config without writing an `eval_scores` row). |
-| Scoring | `/api/scoring/*` | Risk profiles, dimensions, templates, calibration, and scoring. |
-| Learning | `/api/learning/*` | Lessons, analytics, recommendations, maturity, and velocity. |
-| Behavior Learning | `/api/behavior/*`, `/policy-coach` UI | Policy Coach (v1, observe-only). `GET /api/behavior/samples` (local sample status), `GET /api/behavior/suggestions` (deterministic per-agent suggestions) + `POST` (adopt/dismiss/undo, simulation-gated), `POST /api/behavior/simulate` (replay over local samples). Samples are local JSONL (`.dashclaw/behavior-samples/`, opt-in `DASHCLAW_BEHAVIOR_SAMPLES_ENABLED`) — no DB rows, no upload. Recorder: `hooks/dashclaw_agent_intel/behavior_recorder.py`. Analyzer/simulator/evaluator: `app/lib/behavior/*`. Three enforceable suggestion types compile to guard policies (`risk_threshold`, `protected_path`, `agent_allowlist`); three are advisory. CLI: `dashclaw behavior status|suggestions`. MCP: `dashclaw_behavior_suggestions`. See `docs/behavior-learning.md`. |
-| Drift | `/api/drift/*` | Drift metrics, snapshots, alerts, and stats. |
-| Prompts | `/api/prompts/*` | Prompt templates, versions, rendering, stats, and raw setup/connect prompts. |
-| Billing and usage | `/api/billing/*`, `/api/usage/*`, `/api/cron/reset-meters` | Stripe checkout/portal, usage readout, and meter reset. |
-| Session handoffs | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/{id}`, `POST /api/handoffs/{id}/consume` | Bridges agent sessions of the same agent: prior session writes a `{summary, open_loops, decisions_made, state_snapshot}` bundle on `on_session_end`; next session reads it via `on_session_start` and injects on first `pre_llm_call`. Hermes hooks wire this automatically; agents on Claude Code / Codex pick up via MCP (`dashclaw_handoff_create/latest/consume`). Table: `code_session_handoffs`. |
-| Governance Posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | Govern-the-governance meta layer: a gaming-resistant org governance score over 6 dimensions measuring what the fleet CAN do vs what it actually GOVERNS, with a prioritized findings queue and a human-gated, DRAFT-ONLY remediation loop (`resolve` does `create_draft \| snooze \| accept_risk` — never auto-activates a policy). The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. `scan` recomputes and persists a trend snapshot. Tables: `posture_findings_state`, `posture_snapshots`. UI: `/posture`. MCP (read-only): `dashclaw_posture`, `dashclaw_posture_next`. CLI: `dashclaw posture`, `dashclaw next`, `dashclaw posture resolve <key>`. Experimental. |
-
-### Tier 3: Archived platform-era routes
-
-Legacy platform features that help agents perform work rather than govern work live under `app/api/_archive/`. They remain physically present for historical compatibility and migration safety, but they are not part of DashClaw's current product identity.
-
-Examples include archived calendar, workspace, old routing, old messages, snippets, preferences, schedules, and older feedback/onboarding paths. Do not promote archived routes in new product copy unless they are intentionally restored to the governance runtime.
+| Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions, plus signed evidence bundles. `GET /api/artifacts/evidence-bundle` signs via `app/lib/integrity/bundle` (the compliance-era signed export folded into the Prove layer). |
+| Capability invoke seam | `GET /api/capabilities`, `/api/capabilities/[id]/invoke`, `/api/capabilities/[id]/access/check` | The `dashclaw_invoke` enforcement seam: server-executed HTTP capabilities pass through guard + per-agent access rules + the action ledger before they run. Inert by default post-cull — there is no in-product create path; capabilities are fed by manual SQL. |
+| Sessions and coverage | `/api/sessions/*`, `GET /api/coverage`, `GET /api/agents/fanouts` | Session lifecycle + retrospection used by the coding-agent hooks and SDK; per-turn expected-vs-recorded tool-use coverage (`close_source` provenance, explicit "no evidence" state); and a fan-outs view of recent multi-agent harness sessions. |
+| Operations summary | `GET /api/operations/summary` | Read-only runtime metrics over the ledger. |
 
 ## Durable execution finality (v2.13.3)
 
@@ -197,13 +171,13 @@ DashClaw is intentionally multi-surface. Claude Code hooks are one strong integr
 
 | Path | Best for | Artifact |
 |:---|:---|:---|
-| MCP server | MCP-capable agents, Claude Desktop/Code, managed agents, remote tool access — plus governed provider execution (credential-gated tools) and verified launch plans on the local stdio server (v2.0.0) | `@dashclaw/mcp-server`, `POST /api/mcp` |
+| MCP server | MCP-capable agents, Claude Desktop/Code, managed agents, remote tool access | `@dashclaw/mcp-server`, `POST /api/mcp` |
 | Claude custom connector (OAuth) | The Claude consumer app (web chat / Desktop / Cowork) — paste a URL, no API key in the UI | `POST /api/mcp` + `/api/oauth/*` (DCR + PKCE), `docs/CLAUDE-DESKTOP-PLUGIN.md` |
 | Node SDK | JavaScript/TypeScript agents and apps | `sdk/dashclaw.js`, npm package `dashclaw` (version in `sdk/package.json`) |
 | Python SDK | Python agents and backend workflows | `sdk-python/dashclaw/client.py` |
 | Claude Code hooks | Coding-agent tool governance (incl. sub-agent spawns and delegated work; per-harness identity via installer-written `--agent-id`, sub-agents as distinct fleet identities by default — see `hooks/README.md` "Sub-agent governance & tracking") without per-call SDK code | `hooks/`, `npm run hooks:install`, `plugins/dashclaw/.claude-plugin/` |
 | Codex plugin | Codex coding-agent governance via field-compatible hook schema | `cli/lib/codex/`, `dashclaw install codex`, `plugins/dashclaw/.codex-plugin/` |
-| Hermes Agent plugin | Per-turn governance context injection, secret redaction, subagent ROI, live session ingest | `.hermes/hooks/`, `plugins/dashclaw/.hermes-plugin/`, `scripts/install-hermes-plugin.{sh,ps1}` |
+| Hermes Agent plugin | Per-turn governance context injection, secret redaction, and session-lifecycle hooks | `.hermes/hooks/`, `plugins/dashclaw/.hermes-plugin/`, `scripts/install-hermes-plugin.{sh,ps1}` |
 | OpenClaw plugin | OpenClaw lifecycle-native governance | `packages/openclaw-plugin/` |
 | Platform intelligence skills | Agent self-instrumentation and platform reference | `public/downloads/dashclaw-platform-intelligence/` and zip bundle |
 | REST API | Custom frameworks and direct integrations | `app/api/**/route.ts`, generated inventory/OpenAPI docs |
@@ -215,12 +189,11 @@ Framework examples exist for OpenAI, Anthropic, LangGraph, CrewAI, AutoGen, Clau
 
 ## SDK surface area
 
-DashClaw ships two Node SDK entry points and a Python SDK.
+DashClaw ships a Node SDK and a Python SDK. The DEPRECATED `dashclaw/legacy` subpath was removed in v5.0.0 as promised.
 
 | Surface | Entry point | Version or role |
 |:---|:---|:---|
-| Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; primary SDK for new work (version tracked in `sdk/package.json`). |
-| Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
+| Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; the SDK for all work (version tracked in `sdk/package.json`). |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
 The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.js` and the Python SDK **51** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
@@ -233,19 +206,6 @@ The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.
 - side-effect-free dry-run: `simulatePolicy` (replays a proposed policy against recent historical actions)
 
 Use `docs/sdk-parity.md` for domain-level parity and consolidation status.
-
-## DashClaw Labs: branch-finish loop
-
-A dogfooded operating loop — `MoltFire + Claude Code Branch Finish` — that drives the Labs surfaces together to finish a branch with governance. Run it from the repo:
-
-| Command | Purpose |
-|:---|:---|
-| `npm run seed:branch-finish` | Idempotently seed the loop's assets: 6 prompt templates (`branch-finish` category), a "Branch Finish — Wes Coding Standards" knowledge collection (item bodies stored in metadata so search works without an embedding key). Requires an admin API key. |
-| `npm run branch-finish -- --dry-run` | Run the loop. `--dry-run` performs zero writes (no learning record, no mark-read) and never touches anything external. |
-
-Each run, in order: renders the branch-finish review prompt (Prompt Library), searches the standards knowledge with a local-substring fallback when no embedding key is configured (Knowledge), guard-gates the push to main (Guard/Policies), simulates a risk-threshold policy against recent history (Policies, side-effect-free), checks capability health (Capabilities), dry-run-scores the outcome via `POST /api/evaluations/scorers/preview` (Evaluations, writes no `eval_scores`), reads prior recommendations and — outside `--dry-run` — records the outcome (Learning) and marks the inbox read (Messages).
-
-Flags `--branch`, `--summary`, `--tests`, `--risks`, `--agent` override the git-derived context; config comes from `DASHCLAW_URL` / `DASHCLAW_API_KEY` (auto-loaded from `.env.local` by the npm scripts). The loop's surfaces live on the real pages (Prompts, Knowledge, Capabilities, Evaluations, Learning). The former `/labs/branch-finish` operator page is retired and permanently redirects to `/decisions`. Definitions live in `scripts/lib/branch-finish-defs.mjs`.
 
 ## Operations and deployment
 
@@ -301,10 +261,9 @@ Release-readiness passes may additionally run SDK integration checks, startup sm
 | `app/lib/notification-adapters/` | Slack, Discord, Linear, GitHub, Email notification adapters. |
 | `app/lib/telegramApprovals.ts` | Telegram approval messages and inline callbacks. |
 | `app/lib/discordApprovals.ts` | Discord approval messages and interaction bridge. |
-| `app/lib/capability-invoke.ts` | Governed HTTP capability invocation. |
+| `app/lib/capability-invoke.ts` | Governed HTTP capability invocation (the `dashclaw_invoke` seam). |
 | `app/lib/template-vars.ts` | Template variable substitution. |
-| `app/lib/usage.ts` | Plan limits, quota enforcement, metering, and cost estimation. |
-| `app/lib/billing.ts` | Token-cost pricing helpers. |
+| `app/lib/billing.ts` | Token-cost pricing helpers (backs guard cost estimation). |
 | `app/lib/policy-generator.ts` | Natural-language policy generation. |
 | `app/lib/predictive-risk.ts` | Statistical and optional LLM-assisted risk scoring. |
 

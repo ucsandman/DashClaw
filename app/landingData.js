@@ -1,9 +1,8 @@
 /* ─── data ───
  * Only arrays actually rendered by the landing page live here
- * (frameworkQuickstarts via app/components/StackQuickstarts.tsx, signals via
- * app/page.tsx). Other landing copy is inline in app/page.tsx — add
- * capability copy there, not in a new export (an unrendered export here
- * ships nothing).
+ * (frameworkQuickstarts via app/components/StackQuickstarts.tsx). Other
+ * landing copy is inline in app/page.tsx — add capability copy there, not in
+ * a new export (an unrendered export here ships nothing).
  */
 
 export const frameworkQuickstarts = [
@@ -25,7 +24,7 @@ export const frameworkQuickstarts = [
     }
   }
 }
-// 12 governance tools + 4 resources
+// 12 governance tools + 3 resources
 // No SDK. No code changes.`
   },
   {
@@ -163,19 +162,8 @@ hooks:
     }
   }
 }
-// Every tool call: guard -> record -> approval
-// -> outcome. x402 spend gating included.`
+// Every tool call: guard -> record -> approval -> outcome.`
   },
-];
-
-export const signals = [
-  { name: 'Autonomy Spike', description: 'Agent taking too many actions without human checkpoints' },
-  { name: 'High Impact, Low Oversight', description: 'Critical actions without sufficient review' },
-  { name: 'Repeated Failures', description: 'Same action type failing multiple times' },
-  { name: 'Stale Loop', description: 'Open loops unresolved past their expected timeline' },
-  { name: 'Assumption Drift', description: 'Assumptions becoming stale or contradicted by outcomes' },
-  { name: 'Stale Assumption', description: 'Assumptions not validated within expected timeframe' },
-  { name: 'Stale Running Action', description: 'Actions stuck in running state for over 4 hours' },
 ];
 
 /* ─── page ─── */

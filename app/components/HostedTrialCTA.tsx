@@ -20,7 +20,7 @@ type Capacity = { full: boolean; active: number; max: number };
  * On a self-hosted instance both are absent (capacity 404s) and this renders
  * nothing, leaving the existing hero untouched.
  */
-export default function HostedTrialCTA() {
+export default function HostedTrialCTA({ variant = 'primary' }: { variant?: 'primary' | 'secondary' }) {
   const trialUrl = process.env.NEXT_PUBLIC_HOSTED_TRIAL_URL || '';
   const [capacity, setCapacity] = useState<Capacity | null>(null);
 
@@ -42,8 +42,12 @@ export default function HostedTrialCTA() {
 
   // Single-line label so the CTA row keeps one shared baseline; the trial
   // terms live in the caption the page renders under the whole row.
+  // secondary keeps brand orange a signal (.impeccable #2): the install path
+  // is the one primary action, the hosted trial is the quiet second door.
   const className =
-    'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20 whitespace-nowrap';
+    variant === 'secondary'
+      ? 'px-6 py-2.5 rounded-lg bg-surface-tertiary border border-border-hover text-text-secondary text-sm font-medium hover:bg-surface-elevated hover:text-text-primary transition-colors inline-flex items-center gap-2 whitespace-nowrap'
+      : 'px-8 py-3 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-all hover:scale-105 inline-flex items-center gap-2 shadow-xl shadow-brand/20 whitespace-nowrap';
 
   if (trialUrl) {
     return (
