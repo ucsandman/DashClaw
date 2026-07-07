@@ -12,7 +12,7 @@ New to the concepts (guard, actions, approvals, outcomes)? Skim [docs/concepts.m
 | A self-contained local demo | **B. `npx dashclaw-demo`** (needs Docker) | ~1 min |
 | Your own instance, governing your own agents | **C. Deploy** — local one-command or Vercel + Neon | ~8 min |
 
-If you're unsure: take door **A**, watch a governed action land, then come back for door C when you want your own instance. (There is also a deeper feature demo — workflows, capabilities, knowledge collections — in [DEMO.md](./DEMO.md); run it after door C.)
+If you're unsure: take door **A**, watch a governed action land, then come back for door C when you want your own instance.
 
 ---
 
@@ -20,7 +20,7 @@ If you're unsure: take door **A**, watch a governed action land, then come back 
 
 The public trial instance is [hosted.dashclaw.io](https://hosted.dashclaw.io).
 
-**Browser only:** open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), complete the signup check, and send your first governed action straight from the page — no install — then watch the decision land in your ledger. The mint also signs your browser in to the trial dashboard: Mission Control and the decisions ledger are one click away until the trial ends. The API key is shown once; copy it.
+**Browser only:** open [hosted.dashclaw.io/connect](https://hosted.dashclaw.io/connect), complete the signup check, and send your first governed action straight from the page — no install — then watch the decision land in your ledger. The mint also signs your browser in to the trial dashboard: the Approvals inbox and the decisions ledger are one click away until the trial ends. The API key is shown once; copy it.
 
 The record is yours to keep: **Export workspace** on the same card downloads your governance record (policies, decisions, action history), and `dashclaw import <file>` loads it into a self-hosted instance later — the trial cap is a door, not a wall.
 
@@ -31,7 +31,7 @@ npm i -g @dashclaw/cli
 dashclaw install claude --trial
 ```
 
-The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **observe mode** (decisions logged, nothing blocked). Trial workspaces come with the `claude-code-starter` policy pack pre-seeded, so your next Claude Code session is governed from the first tool call. After a governed turn, `dashclaw cost` shows the session's spend. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
+The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **observe mode** (decisions logged, nothing blocked). Trial workspaces come with the `claude-code-starter` policy pack pre-seeded, so your next Claude Code session is governed from the first tool call. When a risky action is held, it lands in your Approvals inbox at `/approvals`. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
 
 ## Door B: the 1-minute local demo
 
@@ -94,7 +94,7 @@ cp .env.example .env   # set DASHCLAW_API_KEY (from /api-keys on your instance);
 node index.js
 ```
 
-The agent runs the full governance loop (`guard` → `createAction` → `recordAssumption` → outcome). Open Mission Control and watch the Operations Feed light up, then click through to the Decision Replay to inspect the recorded evidence.
+The agent runs the full governance loop (`guard` → `createAction` → `recordAssumption` → outcome). Open the Approvals inbox at `/approvals` and watch the live decision stream, then click through to the Decision Replay to inspect the recorded evidence.
 
 ### See the approval gate fire
 
@@ -102,7 +102,7 @@ A fresh self-hosted instance starts with **no policies**, so `guard` returns `al
 
 ### Connect your own agent
 
-Open `/connect` on your instance — the golden path for any real agent (OpenAI, LangChain, CrewAI, custom). Once connected, your agent appears in the Agent Registry (`/agents/registry`); grant it scoped permissions from the capability templates at `/capabilities`.
+Open `/connect` on your instance — the golden path for any real agent (OpenAI, LangChain, CrewAI, custom). Once connected, its governed actions land in the decisions ledger at `/decisions`, and anything held waits for you in the Approvals inbox at `/approvals`.
 
 The loop your code implements (Node shown; Python is the same shape in snake_case):
 
@@ -114,17 +114,15 @@ The loop your code implements (Node shown; Python is the same shape in snake_cas
 
 Full instrumentation guide with the working code: [docs/agent-bootstrap.md](./docs/agent-bootstrap.md). Canonical HITL flow including the action-id pitfall: [`sdk/README.md` → Human-in-the-Loop (HITL) Approval Flow](./sdk/README.md#human-in-the-loop-hitl-approval-flow).
 
-> **Work Orders** turn an agent call into a task-grade contract: typed input/output schema, a budget ceiling, and a SHA-256 receipt with cost, output hash, and the governance trail. Page at `/work-orders`; ~75-line reference worker in [`examples/work-order-worker/`](./examples/work-order-worker/).
-
 ---
 
 ## Where to next
 
 - **The full docs index:** [docs/README.md](./docs/README.md)
-- **Operate the fleet** (policies, approvals, posture, halt): [docs/operations.md](./docs/operations.md)
+- **Operate DashClaw** (policies, approvals, the emergency halt): [docs/operations.md](./docs/operations.md)
 - **SDK references:** [`sdk/README.md`](./sdk/README.md) · [`sdk-python/README.md`](./sdk-python/README.md)
 - **The minimal HTTP contract:** [docs/architecture/runtime-api.md](./docs/architecture/runtime-api.md)
 
 ## A note on scope
 
-DashClaw is infrastructure, not an agent platform, and CI enforces that boundary: the core API surface stays governance-only, and legacy platform features live frozen in `app/api/_archive/` (kept for compatibility, never extended). If you're contributing, new routes must be governance primitives — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+DashClaw is a fail-closed approval layer for unattended agent runs, not an agent platform. The core API surface stays governance-only: anything off the intercept → decide → approve → prove loop, or not directly supporting it, is out of scope by definition (see [`THESIS.md`](./THESIS.md)). If you're contributing, new routes must be governance primitives — see [CONTRIBUTING.md](./CONTRIBUTING.md).

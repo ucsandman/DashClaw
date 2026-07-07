@@ -201,60 +201,22 @@ dashclaw doctor`}</pre>
                   'Behavior guard -- no-code policy decisions (mechanically enforced on hook and capability surfaces)',
                   'Human-in-the-loop approval gates with expiry (a lapsed approval can never release work)',
                   'Approval flood guard with bulk resolution',
-                  'One judgment queue on /policies -- tuning, tightening, loosening, calibration, and behavior-learning proposals with ratify/dismiss/undo in one click',
+                  'One judgment queue on /policies -- tuning, tightening, loosening, and calibration proposals with ratify/dismiss/undo in one click',
                   'Calibrated interruption controller on /calibration -- set a target false-interruption rate, hold it with a distribution-free bound (shadow first, tighten-only when active)',
                   'Guard degradation observability (deadline fallbacks surfaced, never silent)',
                   'Prompt injection scanning',
                 ],
               },
               {
-                category: 'Spend Governance',
-                features: [
-                  'x402 provider registry with guarded purchases',
-                  'Per-purchase caps + cumulative window budgets (org or per-agent)',
-                  'Live budget meters -- "$X of $Y used" per window',
-                  'FinOps rollup: agent LLM cost + x402 purchases in one fleet view',
-                ],
-              },
-              {
-                category: 'Quality & Evaluation',
-                features: [
-                  '5 scorer types (regex, keywords, range, custom, LLM judge)',
-                  'Batch evaluation runs across outputs',
-                  'Output quality tracking over time',
-                  'Action-linked scoring for root-cause analysis',
-                ],
-              },
-              {
-                category: 'Scoring Profiles',
-                features: [
-                  'User-defined weighted quality dimensions with custom scales',
-                  '3 composite methods (weighted avg, minimum, geometric mean)',
-                  'Risk templates replace hardcoded agent risk numbers',
-                  'Auto-calibration from real data (percentile analysis)',
-                ],
-              },
-              {
-                category: 'Prompt Management',
-                features: [
-                  'Version-controlled prompt templates',
-                  'Mustache variable rendering (server-side, no LLM)',
-                  'One-click rollback to any version',
-                  'Usage analytics per template',
-                ],
-              },
-              {
                 category: 'Observability',
                 features: [
                   'Real-time SSE event stream',
-                  'Token usage and cost tracking',
-                  'Risk signal monitoring (19 signal types)',
-                  'Coverage truth -- per-agent Coverage column on /agents with an explicit "no evidence" state, plus close_source outcome provenance',
-                  'Fleet attribution -- multi-agent fan-outs joined from persisted lineage evidence, with a Fan-outs panel on /agents deep-linking to a scoped swarm graph',
+                  'Token usage and per-action cost recorded on every decision',
+                  'Risk signal monitoring (autonomy spikes, repeated failures, assumption drift, stale actions)',
+                  'Coverage truth -- record-vs-recorded tool-use coverage with an explicit "no evidence" state, plus close_source outcome provenance',
+                  'Fleet attribution -- multi-agent fan-outs joined from persisted lineage evidence',
                   'Risk composition ledger -- every guard score itemized (risk_breakdown)',
                   'Session retros -- evidence-based end-of-session defensibility review',
-                  'Daily fleet digest through Slack/Discord/email adapters',
-                  'Behavioral drift detection with z-score alerts',
                 ],
               },
               {
@@ -263,33 +225,6 @@ dashclaw doctor`}</pre>
                   'Signed, replayable audit trail (Ed25519 receipts, JWKS export)',
                   'Evidence packaging (guard decisions + action records)',
                   'Tamper-evident proof of what was blocked, approved, and by whom',
-                ],
-              },
-              {
-                category: 'Learning & Feedback',
-                features: [
-                  'Learning velocity -- rate of agent improvement',
-                  '6-level agent maturity model (Novice to Master)',
-                  'Per-skill learning curves',
-                  'User feedback with auto-sentiment and auto-tagging',
-                ],
-              },
-              {
-                category: 'Agent Operations',
-                features: [
-                  'Session handoffs with context preservation',
-                  'Inter-agent messaging and broadcasts',
-                  'Task routing with agent health monitoring',
-                  'Memory health scanning and stale fact detection',
-                ],
-              },
-              {
-                category: 'Work Orders',
-                features: [
-                  'Typed task contracts validated on submit and complete',
-                  'Budget ceilings and timeouts enforced per order',
-                  'Atomic claim leases for external workers',
-                  'Self-verifying SHA-256 receipts with the governance trail',
                 ],
               },
               {

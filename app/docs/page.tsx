@@ -1,11 +1,8 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
 import {
-  ArrowRight, ExternalLink, BookOpen,
-  Terminal, Zap, CircleDot, Eye, ShieldAlert, BarChart3,
-  ChevronRight, Network, Scale, Radio, Users,
-  MessageSquare, Shield, History,
-  ClipboardCheck
+  BookOpen, Terminal, Zap, ShieldAlert,
+  ChevronRight, Network, Scale, Shield, History,
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
 import CopyDocsButton from '../components/CopyDocsButton';
@@ -128,7 +125,7 @@ const navItems = [
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
   { href: '#mcp-tools', label: 'Tools (12)', indent: true },
-  { href: '#mcp-resources', label: 'Resources (6)', indent: true },
+  { href: '#mcp-resources', label: 'Resources (3)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
   { href: '#dashclaw-doctor', label: 'dashclaw doctor', indent: true },
@@ -152,20 +149,11 @@ const navItems = [
   { href: '#updateOutcome', label: 'updateOutcome', indent: true },
   { href: '#recordAssumption', label: 'recordAssumption', indent: true },
   { href: '#signals', label: 'Signals' },
-  { href: '#loops-assumptions', label: 'Loops & Assumptions' },
   { href: '#policies', label: 'Policies' },
   { href: '#simulatePolicy', label: 'simulatePolicy', indent: true },
   { href: '#policies-generate', label: 'AI Policy Generator', indent: true },
   { href: '#policy-tuning', label: 'Tuning proposals', indent: true },
   { href: '#policy-degradation', label: 'Degradation observability', indent: true },
-  { href: '#messaging', label: 'Agent Messaging' },
-  { href: '#sendMessage', label: 'sendMessage', indent: true },
-  { href: '#getInbox', label: 'getInbox', indent: true },
-  { href: '#markRead', label: 'markRead', indent: true },
-  { href: '#archiveMessages', label: 'archiveMessages', indent: true },
-  { href: '#handoffs', label: 'Session Handoffs' },
-  { href: '#createHandoff', label: 'createHandoff', indent: true },
-  { href: '#getLatestHandoff', label: 'getLatestHandoff', indent: true },
   { href: '#security-scanning', label: 'Security Scanning' },
   { href: '#scanPromptInjection', label: 'scanPromptInjection', indent: true },
   { href: '#agent-identity', label: 'Agent Identity' },
@@ -180,21 +168,6 @@ const navItems = [
   { href: '#execution-studio', label: 'Execution Studio (HTTP)' },
   { href: '#execution-graph', label: 'Execution Graph', indent: true },
   { href: '#action-outcome', label: 'Action Outcome', indent: true },
-  { href: '#capability-registry', label: 'Capability Registry', indent: true },
-  { href: '#capability-runtime', label: 'Capability Runtime', indent: true },
-  { href: '#analytics', label: 'Analytics' },
-  { href: '#guard-decisions', label: 'Guard Decisions', indent: true },
-  { href: '#agent-profile', label: 'Agent Profile', indent: true },
-  { href: '#agent-registry', label: 'Agent Registry' },
-  { href: '#x402-spend-governance', label: 'x402 Spend Governance' },
-  { href: '#x402-budget-tiers', label: 'Spend limit tiers', indent: true },
-  { href: '#x402Budget', label: 'GET /api/x402/budget', indent: true },
-  { href: '#finops-spend', label: 'FinOps Spend' },
-  { href: '#governance-posture', label: 'Governance Posture' },
-  { href: '#posture-score', label: 'GET /api/posture', indent: true },
-  { href: '#posture-findings', label: 'Findings queue', indent: true },
-  { href: '#posture-resolve', label: 'Resolve a finding', indent: true },
-  { href: '#posture-scan', label: 'Scan (snapshot)', indent: true },
   { href: '#coverage', label: 'Coverage' },
   { href: '#coverage-get', label: 'GET /api/coverage', indent: true },
   { href: '#fanouts', label: 'Fan-outs' },
@@ -210,9 +183,6 @@ const navItems = [
   { href: '#dashboard-data', label: 'Dashboard Data', indent: true, legacy: true },
   { href: '#automation-snippets', label: 'Automation Snippets', indent: true, legacy: true },
   { href: '#user-preferences', label: 'User Preferences', indent: true, legacy: true },
-  { href: '#compliance-engine', label: 'Compliance Engine', indent: true, legacy: true },
-  { href: '#mapCompliance', label: 'mapCompliance', indent: true, legacy: true },
-  { href: '#getProofReport', label: 'getProofReport', indent: true, legacy: true },
   { href: '#activity-logs', label: 'Activity Logs', indent: true, legacy: true },
   { href: '#getActivityLogs', label: 'getActivityLogs', indent: true, legacy: true },
   { href: '#webhooks', label: 'Webhooks', indent: true, legacy: true },
@@ -418,7 +388,7 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 12 governance tools across 3 groups (core governance, retrospection, agent identity) plus 4 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 12 governance tools across 3 groups (core governance, retrospection, agent identity) plus 3 read-only resources.
             </p>
 
             {/* Tools */}
@@ -866,71 +836,6 @@ if created.get("action", {}).get("status") == "pending_approval":
             />
           </section>
 
-          {/* ── Loops & Assumptions ── */}
-          <section id="loops-assumptions" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <CircleDot size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Loops & Assumptions</h2>
-            </div>
-
-            <p className="text-sm text-secondary leading-relaxed mb-6">
-              The assumption ledger is the agent&apos;s advocate, not paperwork. Governance runs both ways: it protects
-              the world from agents, and it protects the agent — from unfair blame (assumptions recorded before acting
-              are evidence of reasonable behavior on known information), from weaponization (prompt-injection scan
-              outcomes and non-fabrication receipts are persisted with each guard decision), and from bankrupting
-              mistakes (x402 spend gates interrupt before money moves). Every governed action&apos;s detail record
-              (<code className="text-xs">GET /api/actions/:id</code>) carries an <code className="text-xs">agent_defense</code> rollup
-              — what the agent declared, what it assumed, the exact guard decision that governed it
-              (joined by <code className="text-xs">guard_decision_id</code>), and each shield&apos;s outcome. Where a shield
-              didn&apos;t run, the rollup says <code className="text-xs">not_recorded</code> — it never fabricates a clean bill.
-              <code className="text-xs">GET /api/sessions/:id/retro</code> (and the <code className="text-xs">dashclaw_session_retro</code> MCP
-              tool) composes these same per-action rollups across a whole session into one clean/review/flagged
-              defensibility posture.
-            </p>
-
-            <MethodEntry
-              id="registerOpenLoop"
-              signature="claw.registerOpenLoop(actionId, type, desc) / claw.register_open_loop(...)"
-              description="Register an unresolved dependency for a decision. Open loops track work that must be completed before the decision is fully resolved."
-              params={[
-                { name: 'action_id', type: 'string', required: true, desc: 'Associated action' },
-                { name: 'loop_type', type: 'string', required: true, desc: 'The category of the loop' },
-                { name: 'description', type: 'string', required: true, desc: 'What needs to be resolved' },
-              ]}
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`await claw.registerOpenLoop(action_id, 'validation', 'Waiting for PR review');`}
-                  pythonSnippet={`claw.register_open_loop(action_id, 'validation', 'Waiting for PR review')`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="resolveOpenLoop"
-              signature="claw.resolveOpenLoop(loopId, status, res) / claw.resolve_open_loop(...)"
-              description="Resolve a pending loop."
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`await claw.resolveOpenLoop(loop_id, 'completed', 'Approved');`}
-                  pythonSnippet={`claw.resolve_open_loop(loop_id, 'completed', 'Approved')`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="recordAssumption"
-              signature="claw.recordAssumption(asm) / claw.record_assumption(asm)"
-              description="Record what the agent believed to be true when making a decision. Assumptions are the agent's alibi: when an outcome goes wrong, the ledger shows the agent acted reasonably on what it knew — and which belief was later invalidated, by whom, and why. They roll up into the action's agent_defense summary."
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`await claw.recordAssumption({ action_id, assumption: 'User is authenticated' });`}
-                  pythonSnippet={`claw.record_assumption({'action_id': action_id, 'assumption': 'User is authenticated'})`}
-                />
-              }
-            />
-          </section>
 
           {/* ── Policies ── */}
           <section id="policies" className="scroll-mt-20 pt-12 border-t border-border">
@@ -1047,8 +952,8 @@ await fetch(\`\${baseUrl}/api/policies/generate\`, {
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">Degradation observability</h3>
               <p className="text-sm text-text-secondary leading-relaxed mb-2">
                 Guard evaluation runs under a deadline (<code className="text-xs">DASHCLAW_GUARD_DEADLINE_MS</code>,
-                default 3500&nbsp;ms). When the deadline fires or an evaluation phase fails (a policy webhook, the
-                x402 budget sum), the guard does not silently allow: it falls back — per-policy{' '}
+                default 3500&nbsp;ms). When the deadline fires or an evaluation phase fails (for example a policy
+                webhook), the guard does not silently allow: it falls back — per-policy{' '}
                 <code className="text-xs">on_failure</code> override first, then the instance-wide{' '}
                 <code className="text-xs">DASHCLAW_GUARD_FALLBACK</code>, then fail-closed{' '}
                 <code className="text-xs">require_approval</code> — and marks the decision <em>degraded</em>.
@@ -1066,136 +971,7 @@ await fetch(\`\${baseUrl}/api/policies/generate\`, {
             </div>
           </section>
 
-          {/* ── Agent Messaging ── */}
-          <section id="messaging" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <MessageSquare size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Agent Messaging</h2>
-            </div>
 
-            <MethodEntry
-              id="sendMessage"
-              signature="claw.sendMessage(params) / claw.send_message(**kwargs)"
-              description="Send a point-to-point message or broadcast to all agents in the organization."
-              params={[
-                { name: 'to', type: 'string', required: false, desc: 'Target agent ID (omit for broadcast)' },
-                { name: 'body', type: 'string', required: true, desc: 'Message content' },
-                { name: 'type', type: 'string', required: false, desc: 'action|info|lesson|question' },
-                { name: 'urgent', type: 'boolean', required: false, desc: 'Mark as high priority' },
-              ]}
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`await claw.sendMessage({
-  to: 'scout-agent-01',
-  body: 'I have finished indexing the repository. You can start the analysis.',
-  type: 'status'
-});`}
-                  pythonSnippet={`claw.send_message(
-    to="scout-agent-01",
-    body="I have finished indexing the repository. You can start the analysis.",
-    type="status"
-)`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="getInbox"
-              signature="claw.getInbox(options?) / claw.get_inbox(**kwargs)"
-              description="Retrieve messages from the agent inbox with optional filtering."
-              params={[
-                { name: 'type', type: 'string', required: false, desc: 'Filter by message type' },
-                { name: 'unread', type: 'boolean', required: false, desc: 'Only return unread messages' },
-                { name: 'limit', type: 'number', required: false, desc: 'Max messages to return' },
-              ]}
-              returns="Promise<{ messages, total, unread_count }>"
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const { messages } = await claw.getInbox({ unread: true, limit: 10 });`}
-                  pythonSnippet={`result = claw.get_inbox(unread=True, limit=10)`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="markRead"
-              signature="claw.markRead(messageIds) / claw.mark_read(message_ids)"
-              description="Mark messages as read for this agent. Direct messages are marked read only for the target agent (or dashboard); broadcasts update read_by for the reading agent."
-              params={[
-                { name: 'messageIds', type: 'string[]', required: true, desc: 'Message IDs (msg_*) to mark read' },
-              ]}
-              returns="Promise<{ updated }>"
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const { updated } = await claw.markRead(['msg_abc123']);`}
-                  pythonSnippet={`result = claw.mark_read(["msg_abc123"])`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="archiveMessages"
-              signature="claw.archiveMessages(messageIds) / claw.archive_messages(message_ids)"
-              description="Archive messages for this agent so they no longer surface in the active inbox."
-              params={[
-                { name: 'messageIds', type: 'string[]', required: true, desc: 'Message IDs (msg_*) to archive' },
-              ]}
-              returns="Promise<{ updated }>"
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const { updated } = await claw.archiveMessages(['msg_abc123']);`}
-                  pythonSnippet={`result = claw.archive_messages(["msg_abc123"])`}
-                />
-              }
-            />
-          </section>
-
-          {/* ── Session Handoffs ── */}
-          <section id="handoffs" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <Network size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Session Handoffs</h2>
-            </div>
-
-            <MethodEntry
-              id="createHandoff"
-              signature="claw.createHandoff(handoff) / claw.create_handoff(**kwargs)"
-              description="Create a session handoff document to persist state between agent sessions or transfer context to another agent."
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`await claw.createHandoff({
-  summary: 'Completed initial data collection from Jira.',
-  key_decisions: ['Prioritize high-severity bugs', 'Ignore closed tickets'],
-  open_tasks: ['Run security scan on src/', 'Draft fix for #123'],
-  next_priorities: ['Security audit']
-});`}
-                  pythonSnippet={`claw.create_handoff(
-    summary="Completed initial data collection from Jira.",
-    key_decisions=["Prioritize high-severity bugs", "Ignore closed tickets"],
-    open_tasks=["Run security scan on src/", "Draft fix for #123"],
-    next_priorities=["Security audit"]
-)`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="getLatestHandoff"
-              signature="claw.getLatestHandoff() / claw.get_latest_handoff()"
-              description="Retrieve the most recent handoff for the current agent."
-              returns="Promise<Object|null>"
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const handoff = await claw.getLatestHandoff();`}
-                  pythonSnippet={`handoff = claw.get_latest_handoff()`}
-                />
-              }
-            />
-          </section>
 
           {/* ── Security Scanning ── */}
           <section id="security-scanning" className="scroll-mt-20 pt-12 border-t border-border">
@@ -1280,8 +1056,7 @@ const { decision, verification_status } = await claw.guard({
             </p>
             <ul className="text-sm text-text-secondary mb-6 leading-relaxed list-disc pl-5 space-y-1">
               <li><strong>Governance inheritance</strong> — pairing and permission lookups for a composed id fall back to the parent&apos;s row when no exact row exists; an exact row always wins. Sub-agents are governed from day one without per-sub setup.</li>
-              <li><strong>Fleet grouping</strong> — <code className="text-brand">/agents</code> nests composed ids under their parent, so a harness&apos;s sub-agent swarm reads as one family, not fleet noise.</li>
-              <li><strong>Per-family budgets</strong> — agent-scoped x402 window budgets meter by family, so <code className="text-brand">claude-code</code> and its sub-agents draw down one shared budget.</li>
+              <li><strong>Fleet grouping</strong> — composed ids nest under their parent, so a harness&apos;s sub-agent swarm reads as one family (the fan-outs view), not fleet noise.</li>
             </ul>
 
             <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Legacy (v1): public-key pairing</h3>
@@ -1411,7 +1186,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 28 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a read-only execution graph and durable action outcomes on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 28 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md" className="text-brand underline">sdk/README.md</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1478,532 +1253,8 @@ const { rootActionId, nodes, edges } = await res.json();
               />
             </div>
 
-            {/* Capability Registry */}
-            <div id="capability-registry" className="scroll-mt-20 pt-10 pb-4">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Capability Registry</h3>
-              <p className="text-xs text-text-tertiary mb-4">Governed registry of callable capabilities with risk, approval, health, and (future) pricing metadata. Workflow templates can reference capabilities by id or by tag.</p>
-
-              <MethodEntry
-                id="listCapabilities"
-                signature="GET | POST /api/capabilities"
-                description="Search or register a capability. GET supports combinable filters: ?category, ?risk_level (low|medium|high|critical), ?search (ILIKE on name/description/tags). source_type must be one of internal_sdk | http_api | webhook | human_approval | external_marketplace. (org_id, slug) is unique — POST returns 409 on duplicate slug."
-                example={
-                  <CodeBlock title="Register a capability">
-{`await fetch(\`\${baseUrl}/api/capabilities\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'Send Slack Message',
-    description: 'Posts to a configured Slack channel',
-    category: 'messaging',
-    source_type: 'http_api',
-    auth_type: 'oauth',
-    risk_level: 'medium',
-    requires_approval: false,
-    tags: ['notify', 'slack'],
-    health_status: 'healthy',
-    docs_url: 'https://docs.example.com/slack'
-  })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="getCapability"
-                signature="GET | PATCH | DELETE /api/capabilities/:capabilityId"
-                description="Fetch, update, or delete a capability. PATCH validates risk_level and source_type enums on change. DELETE removes the capability (SDK: claw.deleteCapability(capabilityId))."
-                example={
-                  <CodeBlock title="Mark degraded">
-{`await fetch(\`\${baseUrl}/api/capabilities/\${capabilityId}\`, {
-  method: 'PATCH',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ health_status: 'degraded' })
-});`}
-                  </CodeBlock>
-                }
-              />
-            </div>
           </section>
 
-          {/* Capability Runtime */}
-          <section id="capability-runtime" className="scroll-mt-20 pt-8">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Capability Runtime</h3>
-              <p className="text-xs text-text-tertiary mb-4">Governed capability invocation with retry policies, circuit breaker, and health tracking. Capabilities with retry_policy retry transient failures automatically. Capabilities with circuit_breaker auto-block after consecutive failures (reset via test route).</p>
-              <MethodEntry
-                id="invokeCapability"
-                signature="POST /api/capabilities/:capabilityId/invoke"
-                description="Execute a governed capability invocation. Evaluates guard policies, scans for sensitive data, enforces quota, runs the HTTP call with optional retry, and records a full action audit trail. Returns retry_metadata when retry_policy is configured. Returns 503 circuit_breaker_open when the circuit breaker is tripped."
-                example={
-                  <CodeBlock title="Invoke with payload">
-{`const res = await fetch(\`\${baseUrl}/api/capabilities/\${capabilityId}/invoke\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ query: 'What is x402?' })
-});
-const data = await res.json();
-// data.success, data.action_id, data.result, data.elapsed_ms, data.governed
-// data.retry_metadata (when retry_policy configured): { total_attempts, retried, attempts }`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="testCapability"
-                signature="POST /api/capabilities/:capabilityId/test"
-                description="Run a non-production validation call. Bypasses guard policies and circuit breaker. Updates capability health_status and certification_status based on the result. Use this to certify a capability or reset an open circuit breaker."
-                example={
-                  <CodeBlock title="Test a capability">
-{`const res = await fetch(\`\${baseUrl}/api/capabilities/\${capabilityId}/test\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ query: 'test input' })
-});
-const data = await res.json();
-// data.tested, data.health_status, data.certification_status`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="capabilityHealth"
-                signature="GET /api/capabilities/:capabilityId/health"
-                description="Fetch derived health summary including success rates (1d/7d), p95 latency, certification status, recent errors, and stale check. Computed from action_records over the past 7 days."
-                example={
-                  <CodeBlock title="Check capability health">
-{`const res = await fetch(\`\${baseUrl}/api/capabilities/\${capabilityId}/health\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const health = await res.json();
-// health.status (healthy|degraded|failing|untested)
-// health.certification_status (certified|stale|failed|uncertified)
-// health.success_rate_1d, health.success_rate_7d, health.p95_latency_ms`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="capabilityHistory"
-                signature="GET /api/capabilities/:capabilityId/history"
-                description="Fetch invocation and test event history for a capability. Filter by action_type (capability_invoke, capability_test) and status (completed, failed, running, pending_approval). Supports limit and offset pagination."
-                example={
-                  <CodeBlock title="Fetch recent failures">
-{`const res = await fetch(\`\${baseUrl}/api/capabilities/\${capabilityId}/history?status=failed&limit=10\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const history = await res.json();
-// history.events[].action_id, action_type, status, error_message, duration_ms`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-          </section>
-
-          {/* ── Analytics ── */}
-          <section id="analytics" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <BarChart3 size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Analytics</h2>
-            </div>
-            <MethodEntry
-              id="getAnalytics"
-              signature="GET /api/analytics"
-              description="Fetch aggregated governance analytics for the organization over a rolling window. Includes action counts, guard decision totals, signal summaries, and assumption stats. Supports ?days (1–365, default 30)."
-              params={[
-                { name: 'days', type: 'number', required: false, desc: 'Rolling window in days (1–365). Defaults to 30.' },
-              ]}
-              returns="{ actions_total, actions_by_status, guard_decisions_total, guard_decisions_by_outcome, signals_total, assumptions_total }"
-              example={
-                <CodeBlock title="Fetch 7-day analytics">
-{`const res = await fetch(\`\${baseUrl}/api/analytics?days=7\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const data = await res.json();
-// data.actions_total, data.guard_decisions_total, data.signals_total`}
-                </CodeBlock>
-              }
-            />
-
-            {/* Guard Decisions */}
-            <div id="guard-decisions" className="scroll-mt-20 pt-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Guard Decisions</h3>
-              <MethodEntry
-                id="listGuardDecisions"
-                signature="GET /api/guard/decisions"
-                description="List guard evaluation records for the organization. Returns paginated decisions with matched policies and declared goal context. Supports filtering by ?decision (allow|block|flag), ?agent_id, ?limit (max 200), and ?offset."
-                params={[
-                  { name: 'decision', type: 'string', required: false, desc: 'Filter by outcome: allow | block | flag' },
-                  { name: 'agent_id', type: 'string', required: false, desc: 'Filter to a specific agent' },
-                  { name: 'limit', type: 'number', required: false, desc: 'Page size (max 200, default 50)' },
-                  { name: 'offset', type: 'number', required: false, desc: 'Pagination offset (default 0)' },
-                ]}
-                returns="{ decisions: Array<{ id, agent_id, action_type, decision, matched_policies, declared_goal, agent_name, created_at }>, total, stats }"
-                example={
-                  <CodeBlock title="List blocked decisions">
-{`const res = await fetch(\`\${baseUrl}/api/guard/decisions?decision=block&limit=25\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const { decisions, total, stats } = await res.json();
-// decisions[].decision, decisions[].matched_policies, decisions[].declared_goal`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-
-            {/* Agent Profile */}
-            <div id="agent-profile" className="scroll-mt-20 pt-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Agent Profile</h3>
-              <MethodEntry
-                id="getAgentProfile"
-                signature="GET /api/agents/:agentId/profile"
-                description="Fetch the full governance profile for a specific agent. Includes identity, presence (heartbeat state), trust posture, computed risk signals, and assumptions summary. Returns 404 if the agent has not been seen by the instance."
-                params={[
-                  { name: 'agentId', type: 'string', required: true, desc: 'The agent identifier (path parameter)' },
-                ]}
-                returns="{ agent: { agent_id, agent_name, action_count, last_active, presence: { status, last_heartbeat_at, current_task_id } }, trust, signals, assumptions_summary }"
-                example={
-                  <CodeBlock title="Fetch agent profile">
-{`const res = await fetch(\`\${baseUrl}/api/agents/my-agent/profile\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const { agent, trust, signals, assumptions_summary } = await res.json();
-// agent.presence.status, trust.risk_score, signals, assumptions_summary`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-          </section>
-
-          <section id="agent-registry" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Agent Registry</h3>
-              <p className="text-xs text-text-tertiary mb-4">Register external, org-owned providers that group existing capabilities and are invoked through governance. An invocation routes through the existing capability runtime (auth, timeout, retry, request/response mapping, SSRF defense), the guard, and the action ledger; the registry never reimplements HTTP. Risk derives from risk_class + budget + capability metadata via the existing risk map and predictive risk. x402 and auth metadata are recorded; no payment settlement is performed.</p>
-              <MethodEntry
-                id="registerAgent"
-                signature="POST /api/agents/registry"
-                description="Register an external provider. GET /api/agents/registry lists them; GET/PATCH /api/agents/registry/:id read and update one."
-                example={
-                  <CodeBlock title="Register + group a capability">
-{`const { registered_agent } = await claw.registerAgent({ name: 'Pricing API', endpoint: 'https://pricing.example.com', auth_type: 'bearer', risk_class: 'high', default_budget_usd: 5 });
-await claw.addAgentCapability(registered_agent.entry_id, 'cap_123');`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="invokeRegisteredAgent"
-                signature="POST /api/agents/invoke"
-                description="Invoke a capability through a registered agent, governed end to end by the existing capability runtime + guard + action ledger. Returns 403 when guard blocks, 202 when approval is required, and records a thin invocation referencing the resulting action_id."
-                example={
-                  <CodeBlock title="Governed invocation">
-{`const out = await claw.invokeRegisteredAgent({
-  registered_agent_id: registered_agent.entry_id,
-  capability_id: 'cap_123',
-  agent_id: 'agent-1',
-  payload: { q: 'sku-9' }
-});
-// out.success, out.action_id, out.risk_score, out.result`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-          </section>
-
-          <section id="x402-spend-governance" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">x402 Spend Governance</h3>
-              <p className="text-xs text-text-tertiary mb-4">Register x402 providers, govern individual purchases through the guard loop, and record spend for audit. The agent executes the actual x402 call itself — DashClaw registers providers, governs purchase intent, and keeps a tamper-evident ledger. DashClaw never holds a wallet.</p>
-
-              <div id="x402-budget-tiers" className="scroll-mt-20 p-4 rounded-xl bg-surface-secondary border border-border">
-                <h4 className="text-sm font-semibold text-text-primary mb-1.5">Spend limit tiers (x402_spend_limit policy)</h4>
-                <p className="text-sm text-text-secondary leading-relaxed mb-2">
-                  One policy type gates spend at two tiers, evaluated on every governed purchase:
-                </p>
-                <ul className="text-sm text-text-secondary leading-relaxed list-disc pl-5 space-y-1 mb-2">
-                  <li>
-                    <strong>Per-purchase</strong> — <code className="text-xs">max_spend_usd</code> hard-blocks any
-                    single purchase above the cap; <code className="text-xs">approval_threshold</code> pauses one
-                    for human approval.
-                  </li>
-                  <li>
-                    <strong>Cumulative window budget</strong> — <code className="text-xs">budget_usd</code> caps
-                    total spend over a rolling window (<code className="text-xs">budget_window_days</code>, 1–365,
-                    default 30); <code className="text-xs">budget_approval_threshold</code> routes to approval as
-                    the window fills. <code className="text-xs">budget_scope</code> is{' '}
-                    <code className="text-xs">&apos;org&apos;</code> (one shared pool, default) or{' '}
-                    <code className="text-xs">&apos;agent&apos;</code> — each agent family (the base id before{' '}
-                    <code className="text-xs">:</code>, so <code className="text-xs">claude-code</code> and{' '}
-                    <code className="text-xs">claude-code:explore</code> share a meter) is metered separately. A
-                    policy targeted at specific <code className="text-xs">agent_ids</code> meters only those
-                    families.
-                  </li>
-                </ul>
-                <p className="text-sm text-text-secondary leading-relaxed">
-                  A runaway purchase is interrupted <em>before</em> the money moves, and the interruption is recorded
-                  like any other decision. Budget consumption renders live on{' '}
-                  <code className="text-xs">/spend/x402</code> (Window budgets cards) and on each policy&apos;s card
-                  at <code className="text-xs">/policies/rules</code> (&quot;$X of $Y used&quot;).
-                </p>
-              </div>
-              <MethodEntry
-                id="listProviders"
-                signature="GET /api/x402/providers"
-                description="List registered x402 providers (org-scoped). Filter by status."
-                example={<CodeBlock title="List providers">{`const { providers } = await claw.listProviders({ status: 'active' });`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="createProvider"
-                signature="POST /api/x402/providers"
-                description="Register a paid x402 provider. Supply name, category, and optional base_url, description, pricing_model, or metadata."
-                example={
-                  <CodeBlock title="Register a provider">
-{`const { provider } = await claw.createProvider({
-  name: 'Exa Search',
-  category: 'research',
-  base_url: 'https://api.exa.ai',
-});`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="getProvider"
-                signature="GET /api/x402/providers/:id"
-                description="Provider detail including registered endpoints."
-                example={<CodeBlock title="Fetch provider">{`const { provider } = await claw.getProvider(provider.provider_id);`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="updateProvider"
-                signature="PATCH /api/x402/providers/:id"
-                description="Update a provider (name, status, pricing_model, metadata, etc.)."
-                example={<CodeBlock title="Update status">{`await claw.updateProvider(provider.provider_id, { status: 'disabled' });`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="listProviderEndpoints"
-                signature="GET /api/x402/providers/:id/endpoints"
-                description="List the endpoints registered under a provider."
-                example={<CodeBlock title="List endpoints">{`const { endpoints } = await claw.listProviderEndpoints(provider.provider_id);`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="createProviderEndpoint"
-                signature="POST /api/x402/providers/:id/endpoints"
-                description="Add an endpoint to a provider. Supply name, endpoint_url, and optional default_price, sensitivity_level, or metadata."
-                example={
-                  <CodeBlock title="Add an endpoint">
-{`await claw.createProviderEndpoint(provider.provider_id, {
-  name: 'Search',
-  endpoint_url: 'https://api.exa.ai/search',
-  default_price: 0.01,
-  sensitivity_level: 'low',
-});`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="recordPurchase"
-                signature="POST /api/x402/purchases"
-                description="Govern + record a paid acquisition. Routes through the guard loop. Required: agent_id, provider, declared_goal, purchase_reason, context_gap, expected_value. Returns { action, purchase, decision }; branch on action.status (running | pending_approval)."
-                params={[
-                  { name: 'agent_id', type: 'string', required: true, desc: 'Identifier of the agent making the purchase' },
-                  { name: 'provider', type: 'string', required: true, desc: 'Provider id from createProvider' },
-                  { name: 'declared_goal', type: 'string', required: true, desc: 'The agent\'s goal that requires this purchase' },
-                  { name: 'purchase_reason', type: 'string', required: true, desc: 'Why this purchase is necessary' },
-                  { name: 'context_gap', type: 'string', required: true, desc: 'What information the agent lacks locally' },
-                  { name: 'expected_value', type: 'string', required: true, desc: 'What value the agent expects to get' },
-                ]}
-                returns="{ action: { id, status }, purchase: { id }, decision: { decision, risk_score } }"
-                example={
-                  <CodeBlock title="Govern a purchase">
-{`const { action, purchase, decision } = await claw.recordPurchase({
-  agent_id: 'research-agent',
-  provider: provider.provider_id,
-  declared_goal: 'Find recent papers on quantum computing',
-  purchase_reason: 'Context gap: no local data for period 2025-01-01..2026-01-01',
-  context_gap: 'No papers in knowledge base for the requested window',
-  expected_value: 'Retrieve 10+ relevant citations',
-});
-
-if (action.status === 'pending_approval') {
-  await claw.waitForApproval(action.id);
-}
-// Agent now executes the x402 call, then records the result`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="listPurchases"
-                signature="GET /api/x402/purchases"
-                description="List governed purchases (org-scoped). Filter by provider_id."
-                example={<CodeBlock title="List purchases">{`const { purchases } = await claw.listPurchases({ provider_id: provider.provider_id });`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="recordPurchaseResult"
-                signature="POST /api/artifacts (Node-only convenience wrapper)"
-                description="Attach the x402 result snapshot to its purchase action. Reuses the existing artifacts endpoint; links by source_action_id so the snapshot appears in that action's evidence bundle. Python callers post directly to POST /api/artifacts with artifact_type='x402_purchase_result'."
-                params={[
-                  { name: 'actionId', type: 'string', required: true, desc: 'The act_ id returned by recordPurchase' },
-                  { name: 'result', type: 'object', required: true, desc: '{ summary?, data?, url? } — snapshot of what the x402 call returned' },
-                ]}
-                example={
-                  <CodeBlock title="Record the result">
-{`await claw.recordPurchaseResult(action.id, {
-  summary: 'Found 14 papers on quantum computing',
-  data: { count: 14, citations: ['...'] },
-  url: 'https://api.research.example.com/results/...',
-});`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="recordX402Purchase"
-                signature="POST /api/x402/purchases → /api/actions/:id/outcome → /api/artifacts"
-                description="Convenience: record a SETTLED x402 payment end-to-end in one call — govern + record the purchase, mark it succeeded, and (when given) attach the on-chain receipt. Use this for the pay-outside-a-hook self-report pattern: your agent pays through a native shell / wrapper that OpenClaw's hooks never see, so it must report the spend itself. The server resolves/auto-registers the provider from `provider`, so you don't register one first. Python parity: record_x402_purchase()."
-                params={[
-                  { name: 'agent_id', type: 'string', required: true, desc: 'Identifier of the agent that paid' },
-                  { name: 'provider', type: 'string', required: true, desc: 'Provider name/origin, e.g. "stableenrich.dev" — the server resolves it to a provider_id' },
-                  { name: 'spend', type: 'number', required: true, desc: 'Settled USD amount (> 0)' },
-                  { name: 'transaction_hash', type: 'string', required: false, desc: 'On-chain tx hash, attached as receipt evidence' },
-                  { name: 'request_id', type: 'string', required: false, desc: 'Provider request id, attached as receipt evidence' },
-                ]}
-                returns="{ action, purchase, decision, outcome }"
-                example={
-                  <CodeBlock title="Self-report a settled payment">
-{`const settled = await claw.recordX402Purchase({
-  agent_id: 'research-agent',
-  provider: 'stableenrich.dev',   // name/origin
-  spend: 0.007,                   // settled USD
-  transaction_hash: '0xabc…',
-  request_id: 'req_123',
-});`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="x402Budget"
-                signature="GET /api/x402/budget"
-                description="Read window-budget consumption — the same sums the guard's cumulative budget gate enforces, so the meter you see is the meter that blocks. Returns one entry per active x402_spend_limit policy that defines budget_usd or budget_approval_threshold. Org-scoped budgets return window_spend_usd; agent-scoped budgets return families (one spend figure per agent family). ?agent_id= narrows agent-scoped entries to that agent's family. Rendered as the Window budgets cards on /spend/x402 and the consumption line on each policy card at /policies/rules."
-                params={[
-                  { name: 'agent_id', type: 'string', required: false, desc: 'Narrow agent-scoped budgets to this agent\'s family (sub-agent ids resolve to their base id)' },
-                ]}
-                returns="{ budgets: [{ policy_id, policy_name, agent_ids, budget_usd, budget_approval_threshold, budget_window_days, budget_scope, window_start, window_spend_usd?, families?: [{ agent_id, window_spend_usd }] }] }"
-                example={
-                  <CodeBlock title="Read budget consumption">
-{`const res = await fetch(\`\${baseUrl}/api/x402/budget\`, {
-  headers: { 'x-api-key': apiKey }
-});
-const { budgets } = await res.json();
-// budgets[0] -> { policy_name: 'Research spend',
-//   budget_usd: 50, budget_window_days: 30, budget_scope: 'org',
-//   window_start: '2026-06-03T…', window_spend_usd: 43.12 }`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-          </section>
-
-          <section id="finops-spend" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">FinOps Spend</h3>
-              <p className="text-xs text-text-tertiary mb-4">A read-only operator aggregation over already-stored cost. It reconciles spend across surfaces — agent LLM cost, governed x402 purchases, and Claude Code sessions — without doing any new pricing. There is no SDK wrapper; this is a dashboard endpoint that powers the /spend, /spend/x402, and /spend/code UI surfaces.</p>
-              <MethodEntry
-                id="finopsSpend"
-                signature="GET /api/finops/spend"
-                description="Aggregate spend for the org under one lens. Sums cost already recorded by the governance runtime; it owns no tables and introduces no new pricing."
-                params={[
-                  { name: 'lens', type: 'string', required: false, desc: "fleet | claude-code. Default fleet. fleet covers agent LLM cost + x402; claude-code covers Code Sessions cost." },
-                  { name: 'period', type: 'string', required: false, desc: '7d | 30d | 90d. Default 30d.' },
-                ]}
-                returns="fleet: { lens, period, agent, x402, fleet_total_usd }; claude-code: { lens, period, code_sessions, code_total_usd }"
-                example={
-                  <CodeBlock title="Aggregate fleet spend">
-{`// Operator dashboard endpoint — no SDK wrapper
-const res = await fetch('/api/finops/spend?lens=fleet&period=30d', {
-  headers: { 'x-api-key': process.env.DASHCLAW_API_KEY },
-});
-const { lens, period, agent, x402, fleet_total_usd } = await res.json();
-
-// Your Claude Code spend (advisory)
-const code = await fetch('/api/finops/spend?lens=claude-code&period=7d', {
-  headers: { 'x-api-key': process.env.DASHCLAW_API_KEY },
-}).then((r) => r.json());
-// code.code_sessions, code.code_total_usd`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-          </section>
-
-          <section id="governance-posture" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Governance Posture</h3>
-              <p className="text-xs text-text-tertiary mb-4">A gaming-resistant, read-only governance posture score for the org: it measures what the fleet actually GOVERNS versus what it COULD, across six dimensions, and drives a human-gated remediation loop. The score only rises from ACTIVE, proven-to-fire policies — drafting a fix never raises it. Operator surface only; no SDK wrapper. Powers the /posture page. All routes experimental.</p>
-              <MethodEntry
-                id="posture-score"
-                signature="GET /api/posture"
-                description="Compute the current posture score with its six dimension breakdowns, the prioritized findings queue, a summary, and the recent snapshot trend."
-                returns="{ score, status, cappedBy, dimensions, findings, summary, snapshots, snapshotTs }"
-                example={
-                  <CodeBlock title="Read the org posture">
-{`const res = await fetch('/api/posture', {
-  headers: { 'x-api-key': process.env.DASHCLAW_API_KEY },
-});
-const { score, status, dimensions, findings, summary, snapshots } = await res.json();`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="posture-findings"
-                signature="GET /api/posture/findings"
-                description="The prioritized remediation queue, plus the risk-accepted ledger and per-status counts. Filter by status or dimension."
-                params={[
-                  { name: 'status', type: 'string', required: false, desc: 'open | drafted | resolved | snoozed | accepted_risk' },
-                  { name: 'dimension', type: 'string', required: false, desc: 'Filter to one of the six posture dimensions' },
-                ]}
-                returns="{ findings, riskAccepted, counts }"
-                example={
-                  <CodeBlock title="List the open queue">
-{`const res = await fetch('/api/posture/findings?status=open', {
-  headers: { 'x-api-key': apiKey },
-});
-const { findings, riskAccepted, counts } = await res.json();`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="posture-resolve"
-                signature="POST /api/posture/findings/:key/resolve"
-                description="Human-gated resolution. action='create_draft' inserts an INACTIVE policy draft (never auto-activates, never raises the score); 'snooze' defers it; 'accept_risk' records an explicit acceptance in the ledger. Draft-only by design — a human still activates any policy at /policies."
-                params={[
-                  { name: 'action', type: 'string', required: true, desc: 'create_draft | snooze | accept_risk' },
-                  { name: 'note', type: 'string', required: false, desc: 'Operator note (e.g. a risk-acceptance justification)' },
-                ]}
-                returns="{ resolved, action, status, policy?, state, finding? }"
-                example={
-                  <CodeBlock title="Draft a remediation (a human activates it later)">
-{`const res = await fetch('/api/posture/findings/' + key + '/resolve', {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'content-type': 'application/json' },
-  body: JSON.stringify({ action: 'create_draft' }),
-});`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="posture-scan"
-                signature="POST /api/posture/scan"
-                description="Recompute the posture score and persist a trend snapshot for history."
-                returns="{ score, status, dimensions, snapshot, summary }"
-                example={
-                  <CodeBlock title="Recompute and record a snapshot">
-{`const res = await fetch('/api/posture/scan', {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey },
-});
-const { score, snapshot } = await res.json();`}
-                  </CodeBlock>
-                }
-              />
-              <p className="text-sm text-text-secondary mb-2 leading-relaxed">Also exposed read-only over MCP — tools <code className="text-brand">dashclaw_posture</code> + <code className="text-brand">dashclaw_posture_next</code> — and as CLI commands <code className="text-brand">dashclaw posture</code> / <code className="text-brand">dashclaw next</code> / <code className="text-brand">dashclaw posture resolve &lt;key&gt;</code> (draft-only). The dashboard view is at <code className="text-brand">/posture</code>.</p>
-            </div>
-          </section>
 
           <section id="coverage" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="space-y-6">
@@ -2344,29 +1595,6 @@ await sendToSlack(redacted_text);`}
               </section>
 
               {/* Compliance Engine (moved from v2) */}
-              <section id="compliance-engine" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Compliance Engine</h3>
-                <MethodEntry
-                  id="mapCompliance"
-                  signature="claw.mapCompliance(framework) / claw.map_compliance(framework)"
-                  description="Map active policies to a compliance framework's controls."
-                  example={
-                    <CodeBlock>
-{`await claw.mapCompliance('SOC2');`}
-                    </CodeBlock>
-                  }
-                />
-                <MethodEntry
-                  id="getProofReport"
-                  signature="claw.getProofReport(format) / claw.get_proof_report(format)"
-                  description="Generate a compliance proof report from active policies."
-                  example={
-                    <CodeBlock>
-{`const report = await claw.getProofReport('json');`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
 
               {/* Activity Logs (moved from v2) */}
               <section id="activity-logs" className="scroll-mt-20 pt-12 border-t border-border">

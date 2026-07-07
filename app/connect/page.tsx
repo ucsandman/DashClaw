@@ -691,7 +691,7 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
             {/* Keyless connector — the only first-class step */}
             <OAuthConnectorCard hero />
 
-            {/* Mission Control */}
+            {/* Watch it work — the Approvals inbox */}
             <div className="mt-6 rounded-2xl border border-border bg-surface-secondary p-6 sm:p-8">
               <div className="flex items-center gap-2 mb-2">
                 <ShieldCheck size={20} className="text-brand" aria-hidden="true" />

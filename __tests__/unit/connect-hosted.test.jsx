@@ -14,11 +14,11 @@ afterEach(() => {
  * The ?hosted=<orgId> variant is a stripped Add-to-Claude screen for trial
  * users: the keyless OAuth custom connector is the hero (connector-first),
  * the full SDK/CLI/key runbook collapses under an "Advanced" disclosure, and
- * there is a link to Mission Control. With no ?hosted=, the page must render
+ * there is a link to the Approvals inbox. With no ?hosted=, the page must render
  * exactly the existing full guide.
  */
 describe('/connect hosted trial variant', () => {
-  it('hosted: connector hero is first, keyless, with Advanced disclosure + Mission Control link', async () => {
+  it('hosted: connector hero is first, keyless, with Advanced disclosure + Approvals link', async () => {
     const ui = await ConnectPage({ searchParams: Promise.resolve({ hosted: 'org_x' }) });
     const { container } = render(ui);
 

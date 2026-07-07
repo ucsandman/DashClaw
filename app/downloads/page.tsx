@@ -199,7 +199,7 @@ export default function DownloadsPage() {
             icon={Cable}
             eyebrow="Agent plugins"
             title="Plugins"
-            description="One DashClaw plugin source, three ecosystems. Each plugin ships the MCP server config, both skills above, and an agent identity used by Mission Control to separate sessions by host (claude-code, codex, hermes)."
+            description="One DashClaw plugin source, three ecosystems. Each plugin ships the MCP server config, both skills above, and an agent identity used to separate sessions by host (claude-code, codex, hermes)."
           />
 
           {/* Bundle download — single zip containing all three plugin manifests, MCP configs, mirrored skills, assets */}
@@ -320,7 +320,7 @@ hermes dashclaw doctor`}
           <div className="mb-6">
             <DownloadCard
               name="dashclaw-claude-code-hooks"
-              role="The five hook scripts (pretool, posttool, stop, code-session reporter, session digest), the dashclaw_agent_intel/ tool-classification module, default settings.json, and the test suite. The session digest prints recent decisions, lessons, and any unconsumed handoff into every new session's context. Drop the unzipped hooks/ directory into your project's .claude/hooks/."
+              role="The hook scripts (pretool, posttool, stop, and the enforcement-liveness probe), the dashclaw_agent_intel/ tool-classification module, default settings.json, and the test suite. Drop the unzipped hooks/ directory into your project's .claude/hooks/."
               sizeLabel="hooks + agent_intel + tests"
               primaryHref="/downloads/dashclaw-claude-code-hooks.zip"
               primaryLabel="dashclaw-claude-code-hooks.zip"
@@ -372,7 +372,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 28-method surface across core governance, durable finality, learning, messaging, handoffs, scanning, threads, sessions, execution-studio domains, work orders, and drift detection.
+                Canonical 28-method surface across core governance, durable execution finality, security scanning, sessions and the action graph, agent identity, risk signals, and policy simulation.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_NODE_VERSION})`}>{`npm install dashclaw`}</CommandBlock>
             </div>
