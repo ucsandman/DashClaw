@@ -109,16 +109,6 @@ export async function provisionHostedWorkspace(
       console.error(`[HOSTED] starter-pack seeding failed for ${orgId}:`, (err as Error).message);
     }
 
-    // Starter scoring profiles/templates (same seedDefaultData POST /api/orgs
-    // runs) — trials previously landed on a fully-empty Quality page. Lazy
-    // import keeps provisioning's module graph slim; failure never fails signup.
-    try {
-      const { seedDefaultData } = await import('../scoringProfiles');
-      await seedDefaultData(sql, orgId);
-    } catch (err) {
-      console.error(`[HOSTED] scoring seed failed for ${orgId}:`, (err as Error).message);
-    }
-
     return { orgId, apiKey, keyPrefix, expiresAt };
   } catch (err) {
     // Best-effort cleanup — prevents orphaned trial orgs when key insert fails.

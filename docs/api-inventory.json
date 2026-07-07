@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 215,
+    "total_routes": 200,
     "stable_routes": 52,
     "beta_routes": 20,
-    "experimental_routes": 143
+    "experimental_routes": 128
   },
   "routes": [
     {
@@ -903,74 +903,6 @@
       "file": "app/api/enforcement-liveness/route.ts"
     },
     {
-      "path": "/api/evaluations",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/route.ts"
-    },
-    {
-      "path": "/api/evaluations/runs",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/runs/route.ts"
-    },
-    {
-      "path": "/api/evaluations/runs/{runId}",
-      "methods": [
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/runs/[runId]/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/scorers/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers/preview",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/scorers/preview/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers/{scorerId}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/scorers/[scorerId]/route.ts"
-    },
-    {
-      "path": "/api/evaluations/stats",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/evaluations/stats/route.ts"
-    },
-    {
       "path": "/api/finops/spend",
       "methods": [
         "GET"
@@ -1616,85 +1548,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/reputation/verify/route.ts"
-    },
-    {
-      "path": "/api/scoring/calibrate",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/calibrate/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/profiles/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/{profileId}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/profiles/[profileId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/{profileId}/dimensions",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/profiles/[profileId]/dimensions/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/{profileId}/dimensions/{dimensionId}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/risk-templates",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/risk-templates/route.ts"
-    },
-    {
-      "path": "/api/scoring/risk-templates/{templateId}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/risk-templates/[templateId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/score",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/scoring/score/route.ts"
     },
     {
       "path": "/api/secrets",

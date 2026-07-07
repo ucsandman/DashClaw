@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 101 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
+  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 82 methods across Core Governance, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
   - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 177 methods).
+  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 149 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -345,8 +345,6 @@ When you need current data from the codebase, read these:
 | Compliance exporter | `app/lib/compliance/exporter.js` |
 | Drift engine | `app/lib/drift.js` |
 | Learning analytics | `app/lib/learningAnalytics.js` |
-| Scoring profiles engine | `app/lib/scoringProfiles.js` |
-| LLM abstraction (optional) | `app/lib/llm.js` |
 | Doctor engine | `app/lib/doctor/` (+ generated `app/lib/doctor/generated/`) |
 | CLI entrypoint | `cli/bin/dashclaw.js` |
 | CLI doctor formatter | `cli/lib/doctor.js` |

@@ -104,17 +104,4 @@ describe('Phase 4 multi-select — read-only pages expose non-destructive bulk o
     expect(within(actions).getByText('Copy IDs')).toBeTruthy();
     expect(within(actions).queryByText('Delete')).toBeNull();
   });
-
-  it('evaluations: select-all on scores → Copy IDs available', async () => {
-    installFetch((u) => {
-      if (u.includes('/api/evaluations/scorers')) return { scorers: [] };
-      if (u.includes('/api/evaluations/runs')) return { runs: [] };
-      if (u.includes('/api/evaluations/stats')) return {};
-      if (u.includes('/api/evaluations')) return { scores: THREE, total: 3 };
-      return {};
-    });
-    const { default: EvaluationsPage } = await import('@/evaluations/page');
-    const { actions } = await selectAll(<EvaluationsPage />);
-    expect(within(actions).getByText('Copy IDs')).toBeTruthy();
-  });
 });

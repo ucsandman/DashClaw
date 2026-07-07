@@ -1247,11 +1247,6 @@ const DEMO_API_ROUTES = [
   ['/api/compliance/gaps', handleDemoComplianceGaps],
   ['/api/compliance/evidence', demoFixturePropRoute('complianceEvidence')],
   ['/api/compliance/report', buildDemoComplianceReport],
-  // -- Evaluations demo endpoints --
-  ['/api/evaluations', ({ request, fixtures }) => demoJson(request, { scores: fixtures.evalScores, total: fixtures.evalScores.length })],
-  ['/api/evaluations/scorers', ({ request, fixtures }) => demoJson(request, { scorers: fixtures.evalScorers, llm_available: false })],
-  ['/api/evaluations/runs', ({ request, fixtures }) => demoJson(request, { runs: fixtures.evalRuns })],
-  ['/api/evaluations/stats', demoFixturePropRoute('evalStats')],
   // -- Compliance Export demo endpoints --
   ['/api/compliance/exports', handleDemoComplianceExports],
   [(pathname) => /^\/api\/compliance\/exports\/[^/]+$/.test(pathname), handleDemoComplianceExportDetail],
@@ -1267,10 +1262,6 @@ const DEMO_API_ROUTES = [
   ['/api/drift/stats', demoFixturePropRoute('driftStats')],
   ['/api/drift/snapshots', ({ request, fixtures }) => demoJson(request, { snapshots: fixtures.driftSnapshots })],
   ['/api/drift/metrics', demoPayloadRoute(demoDriftMetricsPayload)],
-  // -- Scoring demo endpoints --
-  ['/api/scoring/profiles', ({ request, fixtures }) => demoJson(request, { profiles: fixtures.scoringProfiles })],
-  ['/api/scoring/risk-templates', ({ request, fixtures }) => demoJson(request, { templates: fixtures.riskTemplates })],
-  ['/api/scoring/score', ({ request }) => demoJson(request, { scores: [] })],
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
   ['/api/halt', handleDemoHaltRoute],
@@ -1901,8 +1892,6 @@ export const config = {
     '/decisions/:path*',
     '/assumptions',
     '/assumptions/:path*',
-    '/scoring',
-    '/scoring/:path*',
     '/integrations',
     '/integrations/:path*',
     '/workflows/:path*',
@@ -1936,10 +1925,6 @@ export const config = {
     '/api/compliance/exports/:path*',
     '/api/compliance/schedules/:path*',
     '/api/compliance/trends',
-    '/api/scoring/:path*',
-    '/evaluations',
-    '/evaluations/:path*',
-    '/api/evaluations/:path*',
     '/feedback',
     '/feedback/:path*',
     '/api/feedback/:path*',

@@ -4,7 +4,6 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
 import { getOrgId, getOrgRole } from '../../lib/org';
-import { seedDefaultData } from '../../lib/scoringProfiles';
 import { denyTrialPrincipal } from '../../lib/hosted/trial-principal';
 import {
   listOrgWithActiveKeys,
@@ -96,12 +95,6 @@ export async function POST(request: Request) {
     const keyId = `key_${crypto.randomUUID()}`;
 
     await insertApiKey(sql, { keyId, orgId, keyHash, keyPrefix, label: 'Admin Key', role: 'admin' });
-
-    // Seed default scoring profiles and risk templates for the new org.
-    // Non-blocking — a seed failure must not prevent org creation.
-    seedDefaultData(sql, orgId).catch((err: unknown) => {
-      console.error('[orgs] Failed to seed default scoring data for', orgId, (err as Error).message);
-    });
 
     return NextResponse.json({
       organization: orgResult[0],

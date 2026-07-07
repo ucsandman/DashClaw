@@ -8,7 +8,6 @@ import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumpti
 import { handoffs as tutorialHandoffs } from './fixtures/tutorial-handoffs';
 import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures';
 import { complianceData } from './fixtures/compliance-fixtures';
-import { demoScoringProfiles } from '../demoScoringData';
 
 // No module-level cache: returning the same object by reference let
 // mutating callers (e.g. demoCreateAction) permanently alter the
@@ -230,46 +229,6 @@ function buildFixtures(): Record<string, unknown> {
   const policyTestResults = { passed: 12, failed: 0 };
   const policyProofReport = { org_id: DEMO_ORG, status: 'valid', verified_at: isoFromNow(0) };
 
-  const evalScorers = [
-    { id: 'scr_01', name: 'Success Regex', scorer_type: 'regex', description: 'Checks if output contains success markers', total_scores: 142, avg_score: 0.92, config: { pattern: 'success|completed|ok' } },
-    { id: 'scr_02', name: 'Risk Auditor', scorer_type: 'numeric_range', description: 'Ensures risk score is within acceptable bounds', total_scores: 85, avg_score: 0.78, config: { min: 0, max: 70, field: 'risk_score' } },
-    { id: 'scr_03', name: 'LLM Quality Judge', scorer_type: 'llm_judge', description: 'AI-based reasoning and quality assessment', total_scores: 24, avg_score: 0.85, config: { model: 'gpt-4o' } },
-  ];
-
-  const evalScores = Array.from({ length: 20 }).map((_, i) => {
-    const action = actions[i % actions.length]!;
-    const scorer = evalScorers[i % evalScorers.length]!;
-    return {
-      id: `evs_${i}`,
-      action_id: action.action_id,
-      scorer_id: scorer.id,
-      scorer_name: scorer.name,
-      score: 0.5 + (lcg(0xABC123 + i)() % 50) / 100,
-      label: i % 5 === 0 ? 'fail' : 'pass',
-      evaluated_by: i % 3 === 0 ? 'system' : 'human',
-      created_at: isoFromNow(i * 4 * MS_HOUR),
-    };
-  });
-
-  const evalRuns = [
-    { id: 'run_01', name: 'Weekly Compliance Audit', scorer_id: 'scr_02', scorer_name: 'Risk Auditor', status: 'completed', scored_count: 50, total_actions: 50, avg_score: 0.82, created_at: isoFromNow(MS_DAY) },
-    { id: 'run_02', name: 'Production Quality Check', scorer_id: 'scr_03', scorer_name: 'LLM Quality Judge', status: 'running', scored_count: 12, total_actions: 45, avg_score: 0.88, created_at: isoFromNow(2 * MS_HOUR) },
-  ];
-
-  const evalStats = {
-    overall: {
-      total_scores: 251,
-      avg_score: 0.84,
-      unique_scorers: 3,
-      today_count: 14,
-    },
-    distribution: [
-      { bucket: 'poor', count: 12 },
-      { bucket: 'acceptable', count: 45 },
-      { bucket: 'excellent', count: 194 },
-    ],
-  };
-
   const feedbackEntries: unknown[] = [];
   const feedbackStats = { total_entries: 0, avg_sentiment: 0 };
 
@@ -328,23 +287,6 @@ function buildFixtures(): Record<string, unknown> {
     { metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01', mean: 95.6, stddev: 12.4, sample_count: 48, period_start: isoFromNow(0) },
   ];
 
-  // Mirror the client-side demoScoringData profiles so a demo-mode API
-  // consumer and the /scoring page (which uses demoScoringData directly)
-  // agree — this used to be an empty array while the page showed two profiles.
-  const scoringProfiles: unknown[] = demoScoringProfiles;
-
-  const riskTemplates = [
-    {
-      id: 'rt_demo001', org_id: DEMO_ORG, name: 'Production Safety', action_type: null, status: 'active',
-      base_risk: 20,
-      rules: [
-        { condition: "metadata.environment == 'production'", add: 20 },
-        { condition: "metadata.modifies_data == true", add: 15 },
-        { condition: "metadata.irreversible == true", add: 25 },
-      ],
-    },
-  ];
-
   return {
     agents,
     actions,
@@ -399,17 +341,11 @@ function buildFixtures(): Record<string, unknown> {
     complianceEvidence,
     policyTestResults,
     policyProofReport,
-    evalScorers,
-    evalScores,
-    evalRuns,
-    evalStats,
     feedbackEntries,
     feedbackStats,
     driftAlerts,
     driftStats,
     driftSnapshots,
-    scoringProfiles,
-    riskTemplates,
   };
 }
 

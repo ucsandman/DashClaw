@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (177 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (149 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -758,12 +758,6 @@ claw.create_calendar_event("Sprint Review", start_time="2025-01-15T10:00:00Z", e
 # Record an idea or inspiration
 claw.record_idea("Use vector DB for context retrieval", category="architecture")
 
-# Report external service connections
-claw.report_connections([
-    {"provider": "openai", "auth_type": "api_key", "status": "active"},
-    {"provider": "slack", "auth_type": "oauth", "plan_name": "pro", "status": "active"},
-])
-
 # Report memory health (knowledge graph stats)
 claw.report_memory_health(health="healthy", entities=42, topics=8)
 ```
@@ -776,7 +770,6 @@ claw.report_memory_health(health="healthy", entities=42, topics=8)
 | `wrap_client(llm_client, provider=None)` | Auto-report tokens from Anthropic/OpenAI clients. See below |
 | `create_calendar_event(summary, start_time, **kwargs)` | Create a calendar event. Optional: end_time, description |
 | `record_idea(title, **kwargs)` | Record an idea/inspiration. Optional: category, body |
-| `report_connections(connections)` | Report external service connections. Each entry: provider, auth_type, status |
 | `report_memory_health(health, entities=None, topics=None)` | Report memory/knowledge graph health |
 
 ### Auto Token Tracking with `wrap_client()`
@@ -1071,9 +1064,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (177 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (149 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **101 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **82 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1089,7 +1082,6 @@ The Node.js v2 SDK exposes a curated subset of **101 methods** focused on agent 
 | Loops | `resolveOpenLoop` | `resolve_open_loop` | Yes |
 | Signals | `getSignals` | `get_signals` | Yes |
 | Lifecycle | `heartbeat` | `heartbeat` | Yes |
-| Lifecycle | `reportConnections` | `report_connections` | Yes |
 | Learning | `getLearningVelocity` | `get_learning_velocity` | Yes |
 | Learning | `getLearningCurves` | `get_learning_curves` | Yes |
 | Messaging | `sendMessage` | `send_message` | Yes |
@@ -1097,7 +1089,6 @@ The Node.js v2 SDK exposes a curated subset of **101 methods** focused on agent 
 | Handoffs | `createHandoff` | `create_handoff` | Yes |
 | Handoffs | `getLatestHandoff` | `get_latest_handoff` | Yes |
 | Security | `scanPromptInjection` | `scan_prompt_injection` | Yes |
-| Scoring | _(17 scoring/risk methods)_ | _(equivalent methods)_ | Yes |
 
 Methods like `createWebhook`, `getActivityLogs`, `mapCompliance`, and `getProofReport` are available in this Python SDK but are **v1 only** in the Node.js SDK. Conversely, a few Node v2 methods have no Python equivalent yet — `getLessons` (consolidated lesson readback) and `recordPurchaseResult` (x402; Python callers post the result snapshot to `POST /api/artifacts` directly). The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
 

@@ -3,23 +3,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Starter-pack seeding runs inside provisionHostedWorkspace. Mock it with a
 // benign default so the existing call-count invariants hold; individual tests
 // swap in the REAL implementation (captured below) or a failure.
-const { mockImportPolicyPack, importPackHolder, mockSeedDefaultData } = vi.hoisted(() => ({
+const { mockImportPolicyPack, importPackHolder } = vi.hoisted(() => ({
   mockImportPolicyPack: vi.fn(),
   importPackHolder: {},
-  mockSeedDefaultData: vi.fn(),
 }));
 vi.mock('../../../app/lib/guardrails/import-pack.js', async (importOriginal) => {
   const actual = await importOriginal();
   importPackHolder.actual = actual.importPolicyPack;
   return { ...actual, importPolicyPack: (...a) => mockImportPolicyPack(...a) };
 });
-// P16: provisioning also seeds starter scoring profiles (lazy-imported).
-// Mocked so the SQL call-count invariants below stay about org+key inserts.
-vi.mock('../../../app/lib/scoringProfiles.js', async (importOriginal) => {
-  const actual = await importOriginal();
-  return { ...actual, seedDefaultData: (...a) => mockSeedDefaultData(...a) };
-});
-
 import {
   provisionHostedWorkspace,
   getHostedWorkspace,
@@ -37,8 +29,6 @@ describe('hosted-workspace repository', () => {
     sql = createSqlMock();
     mockImportPolicyPack.mockReset();
     mockImportPolicyPack.mockResolvedValue({ imported: [], skipped: [], errors: [] });
-    mockSeedDefaultData.mockReset();
-    mockSeedDefaultData.mockResolvedValue(undefined);
   });
 
   it('provisionHostedWorkspace creates org + api_key and returns plaintext key once', async () => {
@@ -54,9 +44,8 @@ describe('hosted-workspace repository', () => {
     expect(res.keyPrefix).toMatch(/^oc_live_/);
     expect(res.expiresAt).toBeTypeOf('string');
     expect(sql.mock.calls.length).toBe(2);
-    // Starter pack + scoring starter content seeded for the new workspace.
+    // Starter policy pack seeded for the new workspace.
     expect(mockImportPolicyPack).toHaveBeenCalledWith(sql, res.orgId, 'claude-code-starter');
-    expect(mockSeedDefaultData).toHaveBeenCalledWith(sql, res.orgId);
   });
 
   it('provisioned trial workspace gets the claude-code-starter policies (count + names match the pack yml)', async () => {

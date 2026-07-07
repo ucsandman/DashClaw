@@ -288,63 +288,6 @@ class TestRecordAssumption(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# heartbeat
-# ---------------------------------------------------------------------------
-
-class TestHeartbeat(unittest.TestCase):
-    def test_posts_with_defaults(self):
-        client = RecordingDashClaw()
-        client.heartbeat()
-
-        call = client.calls[-1]
-        self.assertEqual(call["method"], "POST")
-        self.assertEqual(call["path"], "/api/agents/heartbeat")
-        self.assertEqual(call["body"]["agent_id"], "agent-1")
-        self.assertEqual(call["body"]["status"], "online")
-        self.assertIsNone(call["body"]["current_task_id"])
-        self.assertIsNone(call["body"]["metadata"])
-
-    def test_accepts_custom_status_and_metadata(self):
-        client = RecordingDashClaw()
-        meta = {"cpu": 0.8, "memory": "512MB"}
-        client.heartbeat(status="busy", current_task_id="task_42", metadata=meta)
-
-        call = client.calls[-1]
-        self.assertEqual(call["body"]["status"], "busy")
-        self.assertEqual(call["body"]["current_task_id"], "task_42")
-        self.assertEqual(call["body"]["metadata"], meta)
-
-    def test_includes_agent_name_when_set(self):
-        client = RecordingDashClaw(agent_name="WeatherBot")
-        client.heartbeat()
-
-        self.assertEqual(client.calls[-1]["body"]["agent_name"], "WeatherBot")
-
-
-# ---------------------------------------------------------------------------
-# report_connections
-# ---------------------------------------------------------------------------
-
-class TestReportConnections(unittest.TestCase):
-    def test_posts_formatted_connections(self):
-        client = RecordingDashClaw()
-        connections = [
-            {"provider": "openai", "auth_type": "api_key", "status": "active"},
-            {"provider": "slack", "authType": "oauth", "plan_name": "pro"},
-        ]
-        client.report_connections(connections)
-
-        call = client.calls[-1]
-        self.assertEqual(call["method"], "POST")
-        self.assertEqual(call["path"], "/api/agents/connections")
-        self.assertEqual(call["body"]["agent_id"], "agent-1")
-        self.assertEqual(len(call["body"]["connections"]), 2)
-        self.assertEqual(call["body"]["connections"][0]["provider"], "openai")
-        # authType should be normalized to auth_type
-        self.assertEqual(call["body"]["connections"][1]["auth_type"], "oauth")
-
-
-# ---------------------------------------------------------------------------
 # register_open_loop
 # ---------------------------------------------------------------------------
 

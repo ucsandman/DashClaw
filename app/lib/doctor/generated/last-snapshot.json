@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:ff3244c89fc04c7c2a4d49d6d35a021f7e884fe6",
+  "timestamp": "sha1:cc8b9de048cbbc8097af4d5b55cb8e5c2f829421",
   "routes": [
     {
       "path": "/api/actions",
@@ -929,78 +929,6 @@
       "file_path": "app/api/enforcement-liveness/route.ts"
     },
     {
-      "path": "/api/evaluations",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/evaluations/route.ts"
-    },
-    {
-      "path": "/api/evaluations/runs",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/evaluations/runs/route.ts"
-    },
-    {
-      "path": "/api/evaluations/runs/[runId]",
-      "methods": [
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "runId"
-      ],
-      "archived": false,
-      "file_path": "app/api/evaluations/runs/[runId]/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/evaluations/scorers/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers/[scorerId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "scorerId"
-      ],
-      "archived": false,
-      "file_path": "app/api/evaluations/scorers/[scorerId]/route.ts"
-    },
-    {
-      "path": "/api/evaluations/scorers/preview",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/evaluations/scorers/preview/route.ts"
-    },
-    {
-      "path": "/api/evaluations/stats",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/evaluations/stats/route.ts"
-    },
-    {
       "path": "/api/finops/spend",
       "methods": [
         "GET"
@@ -1676,94 +1604,6 @@
       "file_path": "app/api/reputation/verify/route.ts"
     },
     {
-      "path": "/api/scoring/calibrate",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/scoring/calibrate/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/scoring/profiles/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/[profileId]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "profileId"
-      ],
-      "archived": false,
-      "file_path": "app/api/scoring/profiles/[profileId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/[profileId]/dimensions",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "profileId"
-      ],
-      "archived": false,
-      "file_path": "app/api/scoring/profiles/[profileId]/dimensions/route.ts"
-    },
-    {
-      "path": "/api/scoring/profiles/[profileId]/dimensions/[dimensionId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "profileId",
-        "dimensionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/risk-templates",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/scoring/risk-templates/route.ts"
-    },
-    {
-      "path": "/api/scoring/risk-templates/[templateId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/scoring/risk-templates/[templateId]/route.ts"
-    },
-    {
-      "path": "/api/scoring/score",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/scoring/score/route.ts"
-    },
-    {
       "path": "/api/secrets",
       "methods": [
         "GET",
@@ -2197,7 +2037,6 @@
       "name": "ANTHROPIC_API_KEY",
       "required": false,
       "files": [
-        "app/lib/llm.ts",
         "examples/claude-code-review-agent/index.js",
         "examples/governed-chat-harness/index.js",
         "scripts/upload-skill.mjs"
@@ -2427,8 +2266,6 @@
         "mcp-server/lib/server.js",
         "mcp-server/src/index.ts",
         "mcp-server/src/server.ts",
-        "scripts/branch-finish.mjs",
-        "scripts/seed-branch-finish-loop.mjs",
         "scripts/test-sdk-live.mjs"
       ],
       "in_env_example": false
@@ -2526,7 +2363,6 @@
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "scripts/auto-migrate.mjs",
         "scripts/bench-guard-hotpath.mjs",
-        "scripts/branch-finish.mjs",
         "scripts/collect-platform-convergence-evidence.mjs",
         "scripts/demo-agent.mjs",
         "scripts/drills/hosted-stranger.mjs",
@@ -2538,7 +2374,6 @@
         "scripts/policy-smoke.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-demo-capabilities.mjs",
         "scripts/smoke-hosted.mjs",
         "scripts/startup-smoke.mjs",
@@ -2610,13 +2445,11 @@
         "public/downloads/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        "scripts/branch-finish.mjs",
         "scripts/demo-agent.mjs",
         "scripts/fuzz-api.mjs",
         "scripts/live-canary.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-registry-demo.mjs"
       ],
       "in_env_example": false
@@ -2956,11 +2789,9 @@
         "mcp-server/test/registration.test.ts",
         "middleware.js",
         "packages/openclaw-plugin/src/index.ts",
-        "scripts/branch-finish.mjs",
         "scripts/patch-demo-capability-endpoints.mjs",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-demo-capabilities.mjs",
         "scripts/seed-registry-demo.mjs",
         "scripts/test-sdk-live.mjs",
@@ -3233,14 +3064,6 @@
       "in_env_example": false
     },
     {
-      "name": "GOOGLE_AI_API_KEY",
-      "required": false,
-      "files": [
-        "app/lib/llm.ts"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "GOOGLE_CLIENT_ID",
       "required": false,
       "files": [
@@ -3273,29 +3096,12 @@
       "in_env_example": false
     },
     {
-      "name": "GUARD_LLM_BASE_URL",
-      "required": false,
-      "files": [
-        "app/lib/llm.ts"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "GUARD_LLM_KEY",
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
         "__tests__/unit/guard-engine.test.js",
-        "__tests__/unit/policy-modes-compile.test.ts",
-        "app/lib/llm.ts"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "GUARD_LLM_MODEL",
-      "required": false,
-      "files": [
-        "app/lib/llm.ts"
+        "__tests__/unit/policy-modes-compile.test.ts"
       ],
       "in_env_example": false
     },
@@ -3684,7 +3490,6 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
-        "app/lib/llm.ts",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js"
       ],

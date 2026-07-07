@@ -23,7 +23,6 @@ vi.mock('@/lib/repositories/hosted-workspace.repository', () => ({
   findExpiredWorkspaces: mockFindExpired,
 }));
 vi.mock('@/lib/db', () => ({ getSql: () => ({}) }));
-vi.mock('@/lib/scoringProfiles', () => ({ seedDefaultData: vi.fn() }));
 
 import { GET as wsGET, DELETE as wsDELETE } from '../../app/api/hosted/workspaces/[workspaceId]/route';
 import { POST as cleanupPOST } from '../../app/api/hosted/cleanup/route';

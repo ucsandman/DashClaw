@@ -62,8 +62,6 @@
     "scripts:check-syntax": "node scripts/check-scripts-syntax.mjs",
     "setup": "node --import tsx scripts/setup.mjs",
     "init:self-host-env": "node --import tsx scripts/init-self-host-env.mjs",
-    "seed:branch-finish": "node scripts/_run-with-env.mjs scripts/seed-branch-finish-loop.mjs",
-    "branch-finish": "node scripts/_run-with-env.mjs scripts/branch-finish.mjs",
     "test": "vitest",
     "test:api": "node scripts/test-full-api.mjs",
     "test:fuzz": "node scripts/fuzz-api.mjs",

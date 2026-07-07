@@ -3,8 +3,8 @@ import Link from 'next/link';
 import {
   ArrowRight, ExternalLink, BookOpen,
   Terminal, Zap, CircleDot, Eye, ShieldAlert, BarChart3,
-  ChevronRight, Network, FileCheck, Scale, Radio, Users,
-  MessageSquare, SlidersHorizontal, Shield, History, Activity,
+  ChevronRight, Network, Scale, Radio, Users,
+  MessageSquare, Shield, History,
   ClipboardCheck
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
@@ -152,13 +152,7 @@ const navItems = [
   { href: '#updateOutcome', label: 'updateOutcome', indent: true },
   { href: '#recordAssumption', label: 'recordAssumption', indent: true },
   { href: '#signals', label: 'Signals' },
-  { href: '#agent-lifecycle', label: 'Agent Lifecycle' },
-  { href: '#heartbeat', label: 'heartbeat', indent: true },
-  { href: '#reportConnections', label: 'reportConnections', indent: true },
   { href: '#loops-assumptions', label: 'Loops & Assumptions' },
-  { href: '#evaluation-framework', label: 'Evaluation Framework' },
-  { href: '#previewScorer', label: 'previewScorer', indent: true },
-  { href: '#scoring-profiles', label: 'Scoring Profiles' },
   { href: '#policies', label: 'Policies' },
   { href: '#simulatePolicy', label: 'simulatePolicy', indent: true },
   { href: '#policies-generate', label: 'AI Policy Generator', indent: true },
@@ -895,53 +889,6 @@ if created.get("action", {}).get("status") == "pending_approval":
             />
           </section>
 
-          {/* ── Agent Lifecycle ── */}
-          <section id="agent-lifecycle" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-status-success-subtle flex items-center justify-center">
-                <Activity size={16} className="text-success" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Agent Lifecycle</h2>
-            </div>
-
-            <MethodEntry
-              id="heartbeat"
-              signature="claw.heartbeat(status, metadata) / claw.heartbeat(status=..., metadata=...)"
-              description="Report agent presence and health to the control plane. Call periodically to indicate the agent is alive."
-              params={[
-                { name: 'status', type: 'string', required: false, desc: "Agent status — 'online', 'busy', 'idle'. Defaults to 'online'" },
-                { name: 'metadata', type: 'object', required: false, desc: 'Arbitrary metadata to include with the heartbeat' },
-              ]}
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`await claw.heartbeat('online', { cycle: 42, uptime_ms: 360000 });`}
-                  pythonSnippet={`claw.heartbeat("online", metadata={"cycle": 42, "uptime_ms": 360000})`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="reportConnections"
-              signature="claw.reportConnections(connections) / claw.report_connections(connections)"
-              description="Report active provider connections and their status. Appears in the agent's Fleet profile."
-              params={[
-                { name: 'connections', type: 'Array<Object>', required: true, desc: 'List of { name, type, status } connection objects' },
-              ]}
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`await claw.reportConnections([
-  { name: 'OpenAI', type: 'llm', status: 'connected' },
-  { name: 'Postgres', type: 'database', status: 'connected' },
-]);`}
-                  pythonSnippet={`claw.report_connections([
-    {"name": "OpenAI", "type": "llm", "status": "connected"},
-    {"name": "Postgres", "type": "database", "status": "connected"},
-])`}
-                />
-              }
-            />
-          </section>
-
           {/* ── Loops & Assumptions ── */}
           <section id="loops-assumptions" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="flex items-center gap-3 mb-2">
@@ -1003,100 +950,6 @@ if created.get("action", {}).get("status") == "pending_approval":
                 <DocsCodeTabs 
                   nodeSnippet={`await claw.recordAssumption({ action_id, assumption: 'User is authenticated' });`}
                   pythonSnippet={`claw.record_assumption({'action_id': action_id, 'assumption': 'User is authenticated'})`}
-                />
-              }
-            />
-          </section>
-
-          {/* ── Evaluation Framework ── */}
-          <section id="evaluation-framework" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <FileCheck size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Evaluation Framework</h2>
-            </div>
-
-            <p className="text-sm text-secondary leading-relaxed mb-4">
-              Evaluations grade the <em>quality</em> of what agents produce, where policies gate what agents are
-              <em> allowed</em> to do. The loop has four parts. A <strong>scorer</strong> is a reusable grading rule —
-              <code className="font-mono text-xs"> llm_judge</code> (a model judges the output against a rubric),
-              <code className="font-mono text-xs"> regex</code> (pattern match), or
-              <code className="font-mono text-xs"> range</code> (numeric bounds). A <strong>run</strong> applies scorers
-              to a batch of recent recorded actions. Each graded action lands as a <strong>score</strong> (0–1, with a
-              label and the scorer&apos;s reasoning). The <strong>distributions</strong> — per-scorer histograms and
-              trends — render on the evaluations page, where runs are started and scorer configs can be previewed
-              against a sample before anything persists.
-            </p>
-            <p className="text-sm text-secondary leading-relaxed mb-6">
-              Start on the <a href="/evaluations" className="text-brand hover:underline">evaluations page</a>: define a
-              scorer, test the config against a sample output, then run it over recent actions. Runs never mutate the
-              actions they grade; scores are additive evidence on the ledger.
-            </p>
-
-            <MethodEntry
-              id="createScorer"
-              signature="claw.createScorer(name, type, config) / claw.create_scorer(...)"
-              description="Create a reusable scorer definition for automated evaluation."
-              params={[
-                { name: 'name', type: 'string', required: true, desc: 'Scorer name' },
-                { name: 'scorer_type', type: 'string', required: true, desc: 'Type (llm_judge, regex, range)' },
-                { name: 'config', type: 'object', required: false, desc: 'Scorer configuration' },
-              ]}
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`await claw.createScorer('toxicity', 'regex', { pattern: 'bad-word' });`}
-                  pythonSnippet={`claw.create_scorer('toxicity', 'regex', config={'pattern': 'bad-word'})`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="previewScorer"
-              signature="claw.previewScorer({ scorer_type, config, sample })"
-              description="Dry-run a scorer config against a sample without persisting anything — no eval_scores row is written. Use it to validate a quality gate before wiring the scorer into a profile. Node SDK only."
-              params={[
-                { name: 'scorer_type', type: 'string', required: true, desc: 'Scorer type (llm_judge, regex, range)' },
-                { name: 'config', type: 'object', required: false, desc: 'Scorer configuration to test' },
-                { name: 'sample', type: 'object', required: false, desc: 'Sample input to score' },
-              ]}
-              returns="Promise<{ preview, scorer_type, result: { score, label, reasoning, error } }>"
-              example={
-                <CodeBlock title="Node.js">
-{`const { result } = await claw.previewScorer({
-  scorer_type: 'regex',
-  config: { pattern: 'bad-word' },
-  sample: { output: 'this contains a bad-word' }
-});
-console.log(result.score, result.label);`}
-                </CodeBlock>
-              }
-            />
-          </section>
-
-          {/* ── Scoring Profiles ── */}
-          <section id="scoring-profiles" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <SlidersHorizontal size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Scoring Profiles</h2>
-            </div>
-            
-            <MethodEntry
-              id="createScoringProfile"
-              signature="claw.createScoringProfile(config) / claw.create_scoring_profile(...)"
-              description="Define weighted quality scoring profiles across multiple scorers."
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`await claw.createScoringProfile({ 
-  name: 'prod-quality', 
-  dimensions: [{ scorer: 'toxicity', weight: 0.5 }] 
-});`}
-                  pythonSnippet={`claw.create_scoring_profile(
-    name='prod-quality',
-    dimensions=[{'scorer': 'toxicity', 'weight': 0.5}]
-)`}
                 />
               }
             />
@@ -1581,7 +1434,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 101 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 82 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}

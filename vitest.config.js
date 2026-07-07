@@ -7,10 +7,6 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     globals: true,
-    // Reset the llm.ts module-level provider cache after every test so a
-    // provider key set in one test file can't leak a cached provider into a
-    // later file (root cause of the eval full-suite flake). See the setup file.
-    setupFiles: ['./__tests__/llm-cache-reset.setup.js'],
     // Automatically reset env-var mutations between tests so `vi.stubEnv`
     // or direct `process.env.X = ...` writes in one test do not leak into
     // the next. Many existing tests set env vars without a matching

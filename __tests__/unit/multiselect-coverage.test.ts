@@ -16,7 +16,6 @@ const WIRED_PAGES: Array<[string, string]> = [
   ['identities', 'app/identities/page.tsx'],
   ['audit-log', 'app/audit-log/page.tsx'],
   ['assumptions', 'app/assumptions/page.tsx'],
-  ['evaluations', 'app/evaluations/page.tsx'],
 ];
 
 describe('multi-select coverage — wiring inventory', () => {

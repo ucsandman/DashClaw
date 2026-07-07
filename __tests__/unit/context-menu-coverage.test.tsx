@@ -29,7 +29,6 @@ const TAGGED_FILES: Array<[string, string]> = [
   // Rows extracted to the client ProjectsTable (multi-select, phase 7) — the
   // tagging lives there now; the server page just passes rows in.
   ['code-sessions', 'app/code-sessions/ProjectsTable.tsx'],
-  ['evaluations', 'app/evaluations/page.tsx'],
   ['integrations', 'app/integrations/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
   ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],

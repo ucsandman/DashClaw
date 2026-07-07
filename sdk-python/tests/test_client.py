@@ -818,17 +818,6 @@ class TestPublicWrapperSample(unittest.TestCase):
         self.assertEqual(call["body"]["status"], "failed")
         self.assertEqual(call["body"]["error_message"], "x")
 
-    def test_heartbeat(self):
-        client = RecordingDashClaw(agent_name="Bot")
-        client.heartbeat(status="busy", current_task_id="t1")
-        call = client.calls[-1]
-        self.assertEqual(call["path"], "/api/agents/heartbeat")
-        self.assertEqual(call["method"], "POST")
-        self.assertEqual(call["body"]["agent_id"], "agent-1")
-        self.assertEqual(call["body"]["agent_name"], "Bot")
-        self.assertEqual(call["body"]["status"], "busy")
-        self.assertEqual(call["body"]["current_task_id"], "t1")
-
     def test_get_actions_builds_query(self):
         client = RecordingDashClaw()
         client.get_actions(status="running", limit=5, skip=None)

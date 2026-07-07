@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:ff3244c89fc04c7c2a4d49d6d35a021f7e884fe6`
+**Shape snapshot:** `sha1:cc8b9de048cbbc8097af4d5b55cb8e5c2f829421`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **215** active API routes across **61** categories (215 total including archived)
-- **4** required + **197** optional environment variables
+- **200** active API routes across **59** categories (200 total including archived)
+- **4** required + **194** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -206,16 +206,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET, POST` `/api/enforcement-liveness`
 
-### `evaluations`
-
-- `GET, POST` `/api/evaluations`
-- `GET, POST` `/api/evaluations/runs`
-- `GET, PATCH` `/api/evaluations/runs/[runId]`
-- `GET, POST` `/api/evaluations/scorers`
-- `DELETE, PATCH` `/api/evaluations/scorers/[scorerId]`
-- `POST` `/api/evaluations/scorers/preview`
-- `GET` `/api/evaluations/stats`
-
 ### `finops`
 
 - `GET` `/api/finops/spend`
@@ -351,17 +341,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/reputation/leaderboard`
 - `POST` `/api/reputation/verify`
 
-### `scoring`
-
-- `POST` `/api/scoring/calibrate`
-- `GET, POST` `/api/scoring/profiles`
-- `DELETE, GET, PATCH` `/api/scoring/profiles/[profileId]`
-- `POST` `/api/scoring/profiles/[profileId]/dimensions`
-- `DELETE, PATCH` `/api/scoring/profiles/[profileId]/dimensions/[dimensionId]`
-- `GET, POST` `/api/scoring/risk-templates`
-- `DELETE, PATCH` `/api/scoring/risk-templates/[templateId]`
-- `GET, POST` `/api/scoring/score`
-
 ### `secrets`
 
 - `GET, POST` `/api/secrets`
@@ -454,7 +433,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 83 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
 - **`DATABASE_URL`** - referenced in 89 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
@@ -549,14 +528,11 @@ These have fallbacks or only activate specific features.
 - `GITHUB_SECRET` *(undocumented)*
 - `GITHUB_STEP_SUMMARY` *(undocumented)*
 - `GITHUB_TOKEN` *(undocumented)*
-- `GOOGLE_AI_API_KEY` *(undocumented)*
 - `GOOGLE_CLIENT_ID` *(undocumented)*
 - `GOOGLE_CLIENT_SECRET` *(undocumented)*
 - `GOOGLE_ID` *(undocumented)*
 - `GOOGLE_SECRET` *(undocumented)*
-- `GUARD_LLM_BASE_URL` *(undocumented)*
 - `GUARD_LLM_KEY` *(undocumented)*
-- `GUARD_LLM_MODEL` *(undocumented)*
 - `GUARD_WEBHOOK_SECRET` *(undocumented)*
 - `HOSTED_ADMIN_API_KEY` *(undocumented)*
 - `HOSTED_CLEANUP_SECRET` *(undocumented)*

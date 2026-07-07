@@ -399,7 +399,6 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 
 ### Swarm & Connectivity
 - `heartbeat(status, metadata)` -- Report agent presence and health. **As of DashClaw platform 2.13.0 (server-side change, independent of SDK version), heartbeats are implicit on `createAction()` — you only need this if you want to report presence without recording an action.**
-- `reportConnections(connections)` -- Report active provider connections.
 
 ### Learning & Optimization
 - `getLearningVelocity()` -- Track agent improvement rate.
@@ -449,29 +448,6 @@ lessons.forEach(l => console.log(l.guidance));
 
 - `recordDecision({ decision, context, reasoning, outcome, confidence, agent_id })` -- Record a decision/outcome into the learning ledger. `decision` is required; `agent_id` is auto-injected from the constructor when omitted. Returns `{ decision }`.
 - `getLearningRecommendations({ agent_id, action_type, include_metrics, lookback_days, limit })` -- Read learned recommendations for an agent/action type. `agent_id` defaults to the constructor's agent.
-
-### Scoring Profiles
-- `createScorer(name, type, config)` -- Define automated evaluations.
-- `createScoringProfile(profile)` -- Create a weighted multi-dimensional scoring profile.
-- `listScoringProfiles(filters)` -- List all scoring profiles.
-- `getScoringProfile(profileId)` -- Get a profile with its dimensions.
-- `updateScoringProfile(profileId, updates)` -- Update profile metadata or composite method.
-- `deleteScoringProfile(profileId)` -- Delete a scoring profile.
-- `addScoringDimension(profileId, dimension)` -- Add a dimension to a profile.
-- `updateScoringDimension(profileId, dimensionId, updates)` -- Update a dimension's scale or weight.
-- `deleteScoringDimension(profileId, dimensionId)` -- Remove a dimension from a profile.
-- `scoreWithProfile(profileId, action)` -- Score a single action; returns composite + per-dimension breakdown.
-- `batchScoreWithProfile(profileId, actions)` -- Score multiple actions; returns results + summary stats.
-- `getProfileScores(filters)` -- List stored profile scores (filter by profile_id, agent_id, action_id).
-- `getProfileScoreStats(profileId)` -- Aggregate stats: avg, min, max, stddev for a profile.
-- `createRiskTemplate(template)` -- Define rules for automatic risk score computation.
-- `listRiskTemplates(filters)` -- List all risk templates.
-- `updateRiskTemplate(templateId, updates)` -- Update a risk template's rules or base_risk.
-- `deleteRiskTemplate(templateId)` -- Delete a risk template.
-- `autoCalibrate(options)` -- Analyze historical actions and suggest percentile-based scoring scales.
-
-### Evaluations
-- `previewScorer({ scorer_type, config, sample })` -- Dry-run a scorer config against a sample action to validate a quality gate before creating a scorer or launching a run. `scorer_type` is required; `config` and `sample` are optional. Writes **no** `eval_scores` row (distinct from the scoring-profiles subsystem above). Returns `{ preview, scorer_type, result: { score, label, reasoning, error } }`.
 
 ### Messaging
 - `sendMessage({ to, type, subject, body, threadId, urgent })` -- Send a message to another agent or broadcast.

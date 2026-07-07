@@ -388,40 +388,6 @@ describe('DashClaw v2 SDK', () => {
     });
   });
 
-  // --- createScorer ---
-
-  describe('createScorer', () => {
-    it('POSTs to /api/evaluations/scorers with positional args', async () => {
-      await claw.createScorer('quality', 'contains', { keywords: ['ok'] }, 'A scorer');
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/evaluations/scorers');
-      const body = JSON.parse(opts.body);
-      expect(body.name).toBe('quality');
-      expect(body.scorer_type).toBe('contains');
-      expect(body.config).toEqual({ keywords: ['ok'] });
-      expect(body.description).toBe('A scorer');
-    });
-
-    it('defaults config and description to null', async () => {
-      await claw.createScorer('basic', 'regex');
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.config).toBeNull();
-      expect(body.description).toBeNull();
-    });
-  });
-
-  // --- createScoringProfile ---
-
-  describe('createScoringProfile', () => {
-    it('POSTs to /api/scoring/profiles with profile object', async () => {
-      const profile = { name: 'deploy-quality', composite_method: 'weighted_average', dimensions: [] };
-      await claw.createScoringProfile(profile);
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/scoring/profiles');
-      expect(JSON.parse(opts.body)).toEqual(profile);
-    });
-  });
-
   // --- sendMessage ---
 
   describe('sendMessage', () => {

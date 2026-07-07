@@ -23,7 +23,6 @@ Usage Examples:
 Matrix of SDK Methods Discovered vs Tested:
 | Domain      | Methods Discovered                     | Tested | Skipped |
 |-------------|----------------------------------------|--------|---------|
-| Agent       | heartbeat, report_connections          | Yes    |         |
 | Guard       | guard, get_guard_decisions             | Yes    |         |
 | Action      | create_action, update_outcome          | Yes    |         |
 | Assumptions | record_assumption, register_assumption | Yes    |         |
@@ -108,18 +107,6 @@ def run_tests():
 
     # 1. Actions & Agent Status
     if run_actions:
-        try:
-            claw.heartbeat(status="online")
-            log_result("Agent", "heartbeat", True, "Successfully sent heartbeat")
-        except Exception as e:
-            log_result("Agent", "heartbeat", False, str(e))
-
-        try:
-            claw.report_connections([{"provider": "test-provider", "auth_type": "api_key"}])
-            log_result("Agent", "report_connections", True, "Successfully reported connections")
-        except Exception as e:
-            log_result("Agent", "report_connections", False, str(e))
-
         try:
             decision = claw.guard({"action_type": "test", "risk_score": 10})
             log_result("Guard", "guard", True, "Successfully evaluated guard")

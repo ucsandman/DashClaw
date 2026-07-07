@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `215`
+- Total routes: `200`
 - Stable routes: `52`
 - Beta routes: `20`
-- Experimental routes: `143`
+- Experimental routes: `128`
 
 ## Routes
 
@@ -113,13 +113,6 @@ doc-type: architecture
 | `/api/drift/stats` | `GET` | `experimental` | `(default)` | `app/api/drift/stats/route.ts` |
 | `/api/echo` | `GET, POST` | `experimental` | `(default)` | `app/api/echo/route.ts` |
 | `/api/enforcement-liveness` | `GET, POST` | `experimental` | `(default)` | `app/api/enforcement-liveness/route.ts` |
-| `/api/evaluations` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/route.ts` |
-| `/api/evaluations/runs` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/runs/route.ts` |
-| `/api/evaluations/runs/{runId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/evaluations/runs/[runId]/route.ts` |
-| `/api/evaluations/scorers` | `GET, POST` | `experimental` | `(default)` | `app/api/evaluations/scorers/route.ts` |
-| `/api/evaluations/scorers/preview` | `POST` | `experimental` | `(default)` | `app/api/evaluations/scorers/preview/route.ts` |
-| `/api/evaluations/scorers/{scorerId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/evaluations/scorers/[scorerId]/route.ts` |
-| `/api/evaluations/stats` | `GET` | `experimental` | `(default)` | `app/api/evaluations/stats/route.ts` |
 | `/api/finops/spend` | `GET` | `experimental` | `(default)` | `app/api/finops/spend/route.ts` |
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.ts` |
 | `/api/guard/decisions` | `GET` | `stable` | `/api/guard` | `app/api/guard/decisions/route.ts` |
@@ -189,14 +182,6 @@ doc-type: architecture
 | `/api/reputation/agents/{agentId}/summary` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/summary/route.ts` |
 | `/api/reputation/leaderboard` | `GET` | `experimental` | `(default)` | `app/api/reputation/leaderboard/route.ts` |
 | `/api/reputation/verify` | `POST` | `experimental` | `(default)` | `app/api/reputation/verify/route.ts` |
-| `/api/scoring/calibrate` | `POST` | `experimental` | `(default)` | `app/api/scoring/calibrate/route.ts` |
-| `/api/scoring/profiles` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/profiles/route.ts` |
-| `/api/scoring/profiles/{profileId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/route.ts` |
-| `/api/scoring/profiles/{profileId}/dimensions` | `POST` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/route.ts` |
-| `/api/scoring/profiles/{profileId}/dimensions/{dimensionId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/profiles/[profileId]/dimensions/[dimensionId]/route.ts` |
-| `/api/scoring/risk-templates` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/risk-templates/route.ts` |
-| `/api/scoring/risk-templates/{templateId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/scoring/risk-templates/[templateId]/route.ts` |
-| `/api/scoring/score` | `GET, POST` | `experimental` | `(default)` | `app/api/scoring/score/route.ts` |
 | `/api/secrets` | `GET, POST` | `experimental` | `(default)` | `app/api/secrets/route.ts` |
 | `/api/secrets/env` | `GET` | `experimental` | `(default)` | `app/api/secrets/env/route.ts` |
 | `/api/secrets/rotation-due` | `GET` | `experimental` | `(default)` | `app/api/secrets/rotation-due/route.ts` |

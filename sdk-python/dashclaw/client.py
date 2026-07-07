@@ -695,20 +695,6 @@ class DashClaw:
         payload = {"summary": summary, "agent_id": self.agent_id, **kwargs}
         return self._request("/api/relationships", method="POST", body=payload)
 
-    def report_connections(self, connections):
-        # connections: list of dicts with provider, auth_type, etc.
-        formatted = []
-        for c in connections:
-            formatted.append({
-                "provider": c.get("provider"),
-                "auth_type": c.get("authType") or c.get("auth_type", "api_key"),
-                "plan_name": c.get("planName") or c.get("plan_name"),
-                "status": c.get("status", "active"),
-                "metadata": c.get("metadata")
-            })
-        payload = {"agent_id": self.agent_id, "connections": formatted}
-        return self._request("/api/agents/connections", method="POST", body=payload)
-
     def report_token_usage(self, tokens_in, tokens_out, **kwargs):
         """Report a token usage snapshot."""
         payload = {"tokens_in": tokens_in, "tokens_out": tokens_out, "agent_id": self.agent_id, **kwargs}
@@ -1379,73 +1365,6 @@ class DashClaw:
         path = f"/api/activity?{query}" if query else "/api/activity"
         return self._request(path)
 
-    # ----------------------------------------------
-    # Category: Evaluations
-    # ----------------------------------------------
-
-    def create_score(self, action_id, scorer_name, score, label=None, reasoning=None, evaluated_by=None, metadata=None):
-        """Create an evaluation score for an action."""
-        return self._request("/api/evaluations", "POST", body={
-            "action_id": action_id,
-            "scorer_name": scorer_name,
-            "score": score,
-            "label": label,
-            "reasoning": reasoning,
-            "evaluated_by": evaluated_by,
-            "metadata": metadata,
-        })
-
-    def get_scores(self, **filters):
-        """List evaluation scores with optional filters."""
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        path = f"/api/evaluations?{query}" if query else "/api/evaluations"
-        return self._request(path, "GET")
-
-    def create_scorer(self, name, scorer_type, config=None, description=None):
-        """Create a reusable scorer definition."""
-        return self._request("/api/evaluations/scorers", "POST", body={
-            "name": name,
-            "scorer_type": scorer_type,
-            "config": config,
-            "description": description,
-        })
-
-    def get_scorers(self):
-        """List all scorers for this org."""
-        return self._request("/api/evaluations/scorers", "GET")
-
-    def update_scorer(self, scorer_id, **updates):
-        """Update a scorer."""
-        return self._request(f"/api/evaluations/scorers/{scorer_id}", "PATCH", body=updates)
-
-    def delete_scorer(self, scorer_id):
-        """Delete a scorer."""
-        return self._request(f"/api/evaluations/scorers/{scorer_id}", "DELETE")
-
-    def create_eval_run(self, name, scorer_id, action_filters=None):
-        """Create and start an evaluation run."""
-        return self._request("/api/evaluations/runs", "POST", body={
-            "name": name,
-            "scorer_id": scorer_id,
-            "action_filters": action_filters,
-        })
-
-    def get_eval_runs(self, **filters):
-        """List evaluation runs."""
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        path = f"/api/evaluations/runs?{query}" if query else "/api/evaluations/runs"
-        return self._request(path, "GET")
-
-    def get_eval_run(self, run_id):
-        """Get details of an evaluation run."""
-        return self._request(f"/api/evaluations/runs/{run_id}", "GET")
-
-    def get_eval_stats(self, **filters):
-        """Get aggregate evaluation statistics."""
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        path = f"/api/evaluations/stats?{query}" if query else "/api/evaluations/stats"
-        return self._request(path, "GET")
-
     # -----------------------------------------------
     # Compliance Export
     # -----------------------------------------------
@@ -1555,67 +1474,6 @@ class DashClaw:
     def get_drift_metrics(self) -> dict:
         """List available drift detection metrics."""
         return self._request("/api/drift/metrics")
-
-    # --- Scoring Profiles -----------------------------------
-
-    def create_scoring_profile(self, **kwargs):
-        return self._request("/api/scoring/profiles", method="POST", json=kwargs)
-
-    def list_scoring_profiles(self, **params):
-        return self._request("/api/scoring/profiles", params=params)
-
-    def get_scoring_profile(self, profile_id):
-        return self._request(f"/api/scoring/profiles/{profile_id}")
-
-    def update_scoring_profile(self, profile_id, **kwargs):
-        return self._request(f"/api/scoring/profiles/{profile_id}", method="PATCH", json=kwargs)
-
-    def delete_scoring_profile(self, profile_id):
-        return self._request(f"/api/scoring/profiles/{profile_id}", method="DELETE")
-
-    def add_scoring_dimension(self, profile_id, **kwargs):
-        return self._request(f"/api/scoring/profiles/{profile_id}/dimensions", method="POST", json=kwargs)
-
-    def update_scoring_dimension(self, profile_id, dimension_id, **kwargs):
-        return self._request(f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}", method="PATCH", json=kwargs)
-
-    def delete_scoring_dimension(self, profile_id, dimension_id):
-        return self._request(f"/api/scoring/profiles/{profile_id}/dimensions/{dimension_id}", method="DELETE")
-
-    def score_with_profile(self, profile_id, action):
-        if isinstance(action, list):
-            raise TypeError("use batch_score_with_profile for arrays")
-        return self._request("/api/scoring/score", method="POST", json={"profile_id": profile_id, "action": action})
-
-    def batch_score_with_profile(self, profile_id, actions):
-        if not isinstance(actions, list):
-            raise TypeError("batch_score_with_profile expects a list")
-        return self._request("/api/scoring/score", method="POST", json={"profile_id": profile_id, "actions": actions})
-
-    def get_profile_scores(self, **params):
-        return self._request("/api/scoring/score", params=params)
-
-    def get_profile_score_stats(self, profile_id):
-        return self._request("/api/scoring/score", params={"profile_id": profile_id, "view": "stats"})
-
-    # --- Risk Templates ------------------------------------
-
-    def create_risk_template(self, **kwargs):
-        return self._request("/api/scoring/risk-templates", method="POST", json=kwargs)
-
-    def list_risk_templates(self, **params):
-        return self._request("/api/scoring/risk-templates", params=params)
-
-    def update_risk_template(self, template_id, **kwargs):
-        return self._request(f"/api/scoring/risk-templates/{template_id}", method="PATCH", json=kwargs)
-
-    def delete_risk_template(self, template_id):
-        return self._request(f"/api/scoring/risk-templates/{template_id}", method="DELETE")
-
-    # --- Auto-Calibration ----------------------------------
-
-    def auto_calibrate(self, **options):
-        return self._request("/api/scoring/calibrate", method="POST", json=options)
 
     # --- Session Lifecycle ----------------------------------
 

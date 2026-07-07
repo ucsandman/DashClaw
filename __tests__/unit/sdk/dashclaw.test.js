@@ -66,13 +66,6 @@ describe('sdk/dashclaw.js characterization', () => {
       );
     });
 
-    it('builds exact param order for getProfileScoreStats', async () => {
-      await claw.getProfileScoreStats('prof_1');
-      expect(global.fetch.mock.calls[0][0]).toBe(
-        'http://localhost:3000/api/scoring/score?profile_id=prof_1&view=stats'
-      );
-    });
-
     it('builds exact param order for getLatestHandoff', async () => {
       await claw.getLatestHandoff();
       expect(global.fetch.mock.calls[0][0]).toBe(
@@ -365,34 +358,6 @@ describe('sdk/dashclaw.js characterization', () => {
       ['approveAction without reasoning', (c) => c.approveAction('act_1', 'deny'), 'POST',
         '/api/actions/act_1/approve', { decision: 'deny' }],
       ['getActionGraph', (c) => c.getActionGraph('act_1'), 'GET', '/api/actions/act_1/graph', undefined],
-      // scoring profiles + dimensions
-      ['listScoringProfiles', (c) => c.listScoringProfiles({ status: 'active', limit: 5 }), 'GET',
-        '/api/scoring/profiles?status=active&limit=5', undefined],
-      ['getScoringProfile', (c) => c.getScoringProfile('prof_1'), 'GET', '/api/scoring/profiles/prof_1', undefined],
-      ['updateScoringProfile', (c) => c.updateScoringProfile('prof_1', { name: 'n' }), 'PATCH',
-        '/api/scoring/profiles/prof_1', { name: 'n' }],
-      ['deleteScoringProfile', (c) => c.deleteScoringProfile('prof_1'), 'DELETE', '/api/scoring/profiles/prof_1', undefined],
-      ['addScoringDimension', (c) => c.addScoringDimension('prof_1', { name: 'risk' }), 'POST',
-        '/api/scoring/profiles/prof_1/dimensions', { name: 'risk' }],
-      ['updateScoringDimension', (c) => c.updateScoringDimension('prof_1', 'dim_1', { weight: 2 }), 'PATCH',
-        '/api/scoring/profiles/prof_1/dimensions/dim_1', { weight: 2 }],
-      ['deleteScoringDimension', (c) => c.deleteScoringDimension('prof_1', 'dim_1'), 'DELETE',
-        '/api/scoring/profiles/prof_1/dimensions/dim_1', undefined],
-      ['scoreWithProfile', (c) => c.scoreWithProfile('prof_1', { id: 'a1' }), 'POST',
-        '/api/scoring/score', { profile_id: 'prof_1', action: { id: 'a1' } }],
-      ['batchScoreWithProfile', (c) => c.batchScoreWithProfile('prof_1', [{ id: 'a1' }]), 'POST',
-        '/api/scoring/score', { profile_id: 'prof_1', actions: [{ id: 'a1' }] }],
-      ['getProfileScores', (c) => c.getProfileScores({ profile_id: 'p', limit: 3 }), 'GET',
-        '/api/scoring/score?profile_id=p&limit=3', undefined],
-      // risk templates + calibrate
-      ['createRiskTemplate', (c) => c.createRiskTemplate({ name: 't' }), 'POST', '/api/scoring/risk-templates', { name: 't' }],
-      ['listRiskTemplates', (c) => c.listRiskTemplates({ category: 'ops' }), 'GET',
-        '/api/scoring/risk-templates?category=ops', undefined],
-      ['updateRiskTemplate', (c) => c.updateRiskTemplate('rt_1', { name: 'n' }), 'PATCH',
-        '/api/scoring/risk-templates/rt_1', { name: 'n' }],
-      ['deleteRiskTemplate', (c) => c.deleteRiskTemplate('rt_1'), 'DELETE', '/api/scoring/risk-templates/rt_1', undefined],
-      ['autoCalibrate', (c) => c.autoCalibrate({ days: 14 }), 'POST', '/api/scoring/calibrate', { days: 14 }],
-      // model strategies
       // capabilities (direct methods)
       ['createCapability', (c) => c.createCapability({ name: 'cap' }), 'POST', '/api/capabilities', { name: 'cap' }],
       ['getCapability', (c) => c.getCapability('cap_1'), 'GET', '/api/capabilities/cap_1', undefined],
@@ -409,13 +374,11 @@ describe('sdk/dashclaw.js characterization', () => {
       ['updateSession', (c) => c.updateSession('ses_1', { status: 'done' }), 'PATCH', '/api/sessions/ses_1', { status: 'done' }],
       ['listSessions', (c) => c.listSessions({ agent_id: 'a', limit: 1 }), 'GET', '/api/sessions?agent_id=a&limit=1', undefined],
       ['getSessionEvents', (c) => c.getSessionEvents('ses_1'), 'GET', '/api/sessions/ses_1/events', undefined],
-      // policies + evaluations
+      // policies
       ['simulatePolicy omits days when not given', (c) => c.simulatePolicy({ policy_type: 'cost', rules: { max: 5 } }),
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: { max: 5 } }],
       ['simulatePolicy includes days when given', (c) => c.simulatePolicy({ policy_type: 'cost', rules: {}, days: 7 }),
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: {}, days: 7 }],
-      ['previewScorer', (c) => c.previewScorer({ scorer_type: 'regex', config: { p: '.' } }), 'POST',
-        '/api/evaluations/scorers/preview', { scorer_type: 'regex', config: { p: '.' } }],
       // reputation
       ['getAgentReputation', (c) => c.getAgentReputation('agent-9'), 'GET', '/api/reputation/agents/agent-9', undefined],
       ['listAgentReputationEvents', (c) => c.listAgentReputationEvents('agent-9', { limit: 4 }), 'GET',
@@ -482,16 +445,6 @@ describe('sdk/dashclaw.js characterization', () => {
         }
       });
     }
-
-    it('scoreWithProfile rejects arrays with a TypeError before any request', async () => {
-      await expect(claw.scoreWithProfile('p', [])).rejects.toThrow(TypeError);
-      expect(global.fetch).not.toHaveBeenCalled();
-    });
-
-    it('batchScoreWithProfile rejects non-arrays with a TypeError before any request', async () => {
-      await expect(claw.batchScoreWithProfile('p', {})).rejects.toThrow(TypeError);
-      expect(global.fetch).not.toHaveBeenCalled();
-    });
 
     it('getMessage URL-encodes the message id', async () => {
       await claw.getMessage('msg/odd id');
