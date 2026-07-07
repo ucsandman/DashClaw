@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
@@ -32,32 +31,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const r = demoSecrets();
     expect(r.secrets.length).toBeGreaterThan(0);
     expect(r.secrets[0]!).toMatchObject({ id: expect.any(String), name: expect.any(String), rotation_interval_days: expect.any(Number) });
-  });
-  it('reputation leaderboard (/api/reputation/leaderboard) — snapshotToVector shape', () => {
-    const r = demoReputationLeaderboard(fixtures);
-    expect(r.leaderboard.length).toBeGreaterThan(0);
-    const v = r.leaderboard[0]! as any;
-    // /reputation renders reliability as a 0..1 fraction and risk as a 0-100
-    // integer on a separate axis — the old fixture's 0-100 reputation_score
-    // shape rendered as "100%" reliability for every agent.
-    expect(v).toMatchObject({ agent_id: expect.any(String), reliability_score: expect.any(Number), risk_score: expect.any(Number), total_events: expect.any(Number) });
-    expect(v.reliability_score).toBeGreaterThan(0);
-    expect(v.reliability_score).toBeLessThanOrEqual(1);
-    expect(v.risk_score).toBeGreaterThanOrEqual(0);
-    expect(v.breakdown?.dimensions?.length).toBeGreaterThan(0);
-  });
-  it('reputation summary (/api/reputation/agents/:id/summary)', () => {
-    const r = demoReputationSummary(fixtures, 'a1') as any;
-    expect(r.agent_id).toBe('a1');
-    expect(r.summary).toMatchObject({ reliability_score: expect.any(Number), completion_rate: expect.any(Number), is_active: true });
-    expect(r.summary.breakdown?.normalized_weights).toBeTruthy();
-  });
-  it('reputation events (/api/reputation/agents/:id/events) — paginated, newest first', () => {
-    const r = demoReputationEvents(fixtures, 'a1', url('http://x/api?limit=5')) as any;
-    expect(r.events.length).toBe(5);
-    expect(r.pagination).toMatchObject({ limit: 5, offset: 0, count: 5 });
-    expect(r.events[0]).toMatchObject({ id: expect.any(String), event_type: expect.any(String), occurred_at: expect.any(String) });
-    expect(r.events[0].occurred_at >= r.events[1].occurred_at).toBe(true);
   });
   it('spend (/api/finops/spend) — period-aware fleet lens', () => {
     const r = demoSpend(url('http://x/api/finops/spend')) as any;

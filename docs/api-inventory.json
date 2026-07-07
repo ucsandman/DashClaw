@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 169,
+    "total_routes": 162,
     "stable_routes": 42,
     "beta_routes": 18,
-    "experimental_routes": 109
+    "experimental_routes": 102
   },
   "routes": [
     {
@@ -1216,69 +1216,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/prompts/server-setup/raw/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/{agentId}",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/agents/[agentId]/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/{agentId}/events",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/agents/[agentId]/events/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/{agentId}/receipt",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/agents/[agentId]/receipt/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/{agentId}/recompute",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/agents/[agentId]/recompute/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/{agentId}/summary",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/agents/[agentId]/summary/route.ts"
-    },
-    {
-      "path": "/api/reputation/leaderboard",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/leaderboard/route.ts"
-    },
-    {
-      "path": "/api/reputation/verify",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/reputation/verify/route.ts"
     },
     {
       "path": "/api/secrets",

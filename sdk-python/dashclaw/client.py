@@ -1492,28 +1492,6 @@ class DashClaw:
             params["status"] = status
         return self._request(f"/api/capabilities/{capability_id}/history", "GET", params=params)
 
-    # Agent Reputation -----------------------------------------------------
-
-    def get_agent_reputation(self, agent_id):
-        """Get the current reputation vector for an agent."""
-        return self._request(f"/api/reputation/agents/{agent_id}", "GET")
-
-    def list_agent_reputation_events(self, agent_id, limit=50, offset=0):
-        """List paginated reputation events for an agent."""
-        return self._request(f"/api/reputation/agents/{agent_id}/events", "GET", params={"limit": limit, "offset": offset})
-
-    def recompute_agent_reputation(self, agent_id):
-        """Recompute the reputation vector from evidence and store a signed receipt."""
-        return self._request(f"/api/reputation/agents/{agent_id}/recompute", "POST")
-
-    def get_agent_reputation_receipt(self, agent_id):
-        """Get the signed receipt for an agent's current reputation vector."""
-        return self._request(f"/api/reputation/agents/{agent_id}/receipt", "GET")
-
-    def verify_reputation_receipt(self, receipt):
-        """Verify a reputation receipt against the instance's published signing keys."""
-        return self._request("/api/reputation/verify", "POST", json={"receipt": receipt})
-
     # Managed Secrets --------------------------------------------------------
 
     def get_agent_env(self, agent_id=None):

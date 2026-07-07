@@ -74,7 +74,6 @@ export const OBSERVE_PAGES = [
   { path: '/compliance', label: 'Compliance mapping' },
   { path: '/compliance/exports', label: 'Compliance exports' },
   { path: '/posture', label: 'Posture score' },
-  { path: '/reputation', label: 'Reputation leaderboard' },
   { path: '/scoring', label: 'Scoring profiles' },
   { path: '/evaluations', label: 'Evaluations' },
   { path: '/quality', label: 'Quality' },

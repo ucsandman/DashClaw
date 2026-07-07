@@ -185,7 +185,6 @@ const navItems = [
   { href: '#analytics', label: 'Analytics' },
   { href: '#guard-decisions', label: 'Guard Decisions', indent: true },
   { href: '#agent-profile', label: 'Agent Profile', indent: true },
-  { href: '#agent-reputation', label: 'Agent Reputation' },
   { href: '#agent-registry', label: 'Agent Registry' },
   { href: '#x402-spend-governance', label: 'x402 Spend Governance' },
   { href: '#x402-budget-tiers', label: 'Spend limit tiers', indent: true },
@@ -1425,7 +1424,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 71 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 66 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1684,50 +1683,6 @@ const { agent, trust, signals, assumptions_summary } = await res.json();
 // agent.presence.status, trust.risk_score, signals, assumptions_summary`}
                   </CodeBlock>
                 }
-              />
-            </div>
-          </section>
-
-          {/* ── Code Sessions ── */}
-          <section id="agent-reputation" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="space-y-6">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Agent Reputation</h3>
-              <p className="text-xs text-text-tertiary mb-4">Per-agent trust vectors computed from your own governed decisions (actions, guard outcomes, evaluations, feedback). Time-decayed (90-day half-life) and Bayesian-smoothed; risk_score wraps the existing 0-100 risk numbers. Each vector can be returned with an Ed25519-signed receipt that re-verifies against the instance JWKS. All reads are org-scoped.</p>
-              <MethodEntry
-                id="getAgentReputation"
-                signature="GET /api/reputation/agents/:agentId"
-                description="Current reputation vector (stored snapshot, or computed read-only when none exists yet). Returns 404 for an unknown agent."
-                example={
-                  <CodeBlock title="Fetch the vector">
-{`const { vector } = await claw.getAgentReputation('agent_42');
-// vector: { reliability_score, completion_rate, policy_violation_rate, approval_adherence,
-//           quality_score, risk_score, volume_weight, confidence, total_events, last_event_at, computed_at }`}
-                  </CodeBlock>
-                }
-              />
-              <MethodEntry
-                id="recomputeAgentReputation"
-                signature="POST /api/reputation/agents/:agentId/recompute"
-                description="Recompute the vector from evidence, persist the snapshot, and store a signed receipt."
-                example={<CodeBlock title="Recompute">{`await claw.recomputeAgentReputation('agent_42');`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="listAgentReputationEvents"
-                signature="GET /api/reputation/agents/:agentId/events"
-                description="Paginated reputation events for an agent (org-scoped)."
-                example={<CodeBlock title="List events">{`await claw.listAgentReputationEvents('agent_42', { limit: 50, offset: 0 });`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="getAgentReputationReceipt"
-                signature="GET /api/reputation/agents/:agentId/receipt"
-                description="Signed receipt for the current vector (stored, or built read-only)."
-                example={<CodeBlock title="Receipt">{`const { receipt } = await claw.getAgentReputationReceipt('agent_42');`}</CodeBlock>}
-              />
-              <MethodEntry
-                id="verifyReputationReceipt"
-                signature="POST /api/reputation/verify"
-                description="Verify a reputation receipt against the instance's published signing keys. The vector hash is checked constant-time and the Ed25519 signature is verified. Returns { ok, kid?, reason? }."
-                example={<CodeBlock title="Verify">{`const { ok } = await claw.verifyReputationReceipt(receipt);`}</CodeBlock>}
               />
             </div>
           </section>

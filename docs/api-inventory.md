@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `169`
+- Total routes: `162`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `109`
+- Experimental routes: `102`
 
 ## Routes
 
@@ -146,13 +146,6 @@ doc-type: architecture
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.ts` |
 | `/api/prompts/sdk-coverage/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/sdk-coverage/raw/route.ts` |
 | `/api/prompts/server-setup/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/server-setup/raw/route.ts` |
-| `/api/reputation/agents/{agentId}` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/route.ts` |
-| `/api/reputation/agents/{agentId}/events` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/events/route.ts` |
-| `/api/reputation/agents/{agentId}/receipt` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/receipt/route.ts` |
-| `/api/reputation/agents/{agentId}/recompute` | `POST` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/recompute/route.ts` |
-| `/api/reputation/agents/{agentId}/summary` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/summary/route.ts` |
-| `/api/reputation/leaderboard` | `GET` | `experimental` | `(default)` | `app/api/reputation/leaderboard/route.ts` |
-| `/api/reputation/verify` | `POST` | `experimental` | `(default)` | `app/api/reputation/verify/route.ts` |
 | `/api/secrets` | `GET, POST` | `experimental` | `(default)` | `app/api/secrets/route.ts` |
 | `/api/secrets/env` | `GET` | `experimental` | `(default)` | `app/api/secrets/env/route.ts` |
 | `/api/secrets/rotation-due` | `GET` | `experimental` | `(default)` | `app/api/secrets/rotation-due/route.ts` |

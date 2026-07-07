@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (129 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (124 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1064,9 +1064,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (129 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (124 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **71 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **66 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1201,26 +1201,6 @@ history = claw.get_capability_history("cap_123", action_type="capability_test", 
 | `get_capability_health(capability_id)` | Get derived health and certification data for one capability |
 | `list_capability_health(status=None, certification_status=None, stale_only=None, limit=50, offset=0)` | List capability health rows with operator filters |
 | `get_capability_history(capability_id, action_type=None, status=None, limit=20, offset=0)` | Fetch recent invoke/test history for one capability |
-
-## Agent Reputation
-
-Per-agent trust vectors computed from the org's own governed decisions, with exponential time decay (90-day half-life) and Bayesian smoothing. `risk_score` wraps DashClaw's existing 0-100 risk numbers. Vectors come with an Ed25519-signed receipt that re-verifies against the instance JWKS. All reads are org-scoped.
-
-```python
-vector = claw.get_agent_reputation("agent_42")["vector"]
-claw.recompute_agent_reputation("agent_42")
-events = claw.list_agent_reputation_events("agent_42", limit=50, offset=0)
-receipt = claw.get_agent_reputation_receipt("agent_42")["receipt"]
-verdict = claw.verify_reputation_receipt(receipt)  # { ok, kid?, reason? }
-```
-
-| Method | Description |
-| --- | --- |
-| `get_agent_reputation(agent_id)` | GET the current reputation vector |
-| `list_agent_reputation_events(agent_id, limit=50, offset=0)` | List paginated reputation events |
-| `recompute_agent_reputation(agent_id)` | Recompute from evidence, persist snapshot + signed receipt |
-| `get_agent_reputation_receipt(agent_id)` | Get the signed receipt for the current vector |
-| `verify_reputation_receipt(receipt)` | Verify a receipt against the published signing keys |
 
 ## Managed Secrets
 

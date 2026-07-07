@@ -13,7 +13,6 @@ import {
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
@@ -1273,9 +1272,6 @@ const DEMO_API_ROUTES = [
   ['/api/identities', demoFixtureRoute(demoIdentities)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
   ['/api/secrets', demoPayloadRoute(demoSecrets)],
-  ['/api/reputation/leaderboard', demoFixtureRoute(demoReputationLeaderboard)],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'summary']), ({ request, fixtures, segments }) => demoJson(request, demoReputationSummary(fixtures, segments[3]))],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'events']), ({ request, fixtures, url, segments }) => demoJson(request, demoReputationEvents(fixtures, segments[3], url))],
   ['/api/finops/spend', ({ request, url }) => demoJson(request, demoSpend(url))],
   ['/api/x402/purchases', ({ request, url }) => demoJson(request, demoX402Purchases(url))],
   ['/api/x402/budget', ({ request, url }) => demoJson(request, demoX402Budget(url))],

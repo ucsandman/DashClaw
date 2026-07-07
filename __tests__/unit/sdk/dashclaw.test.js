@@ -372,16 +372,6 @@ describe('sdk/dashclaw.js characterization', () => {
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: { max: 5 } }],
       ['simulatePolicy includes days when given', (c) => c.simulatePolicy({ policy_type: 'cost', rules: {}, days: 7 }),
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: {}, days: 7 }],
-      // reputation
-      ['getAgentReputation', (c) => c.getAgentReputation('agent-9'), 'GET', '/api/reputation/agents/agent-9', undefined],
-      ['listAgentReputationEvents', (c) => c.listAgentReputationEvents('agent-9', { limit: 4 }), 'GET',
-        '/api/reputation/agents/agent-9/events?limit=4', undefined],
-      ['recomputeAgentReputation POSTs with NO body', (c) => c.recomputeAgentReputation('agent-9'), 'POST',
-        '/api/reputation/agents/agent-9/recompute', undefined],
-      ['getAgentReputationReceipt', (c) => c.getAgentReputationReceipt('agent-9'), 'GET',
-        '/api/reputation/agents/agent-9/receipt', undefined],
-      ['verifyReputationReceipt', (c) => c.verifyReputationReceipt({ sig: 'x' }), 'POST',
-        '/api/reputation/verify', { receipt: { sig: 'x' } }],
       // agent registry
       ['registerAgent', (c) => c.registerAgent({ name: 'ext' }), 'POST', '/api/agents/registry', { name: 'ext' }],
       ['listRegisteredAgents', (c) => c.listRegisteredAgents({ status: 'active' }), 'GET',

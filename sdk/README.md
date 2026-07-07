@@ -992,35 +992,6 @@ Health responses now include certification and recency fields such as:
 
 ---
 
-## Agent Reputation
-
-Per-agent trust vectors computed from the org's own governed decisions (actions, guard outcomes, evaluations, feedback). Scores use exponential time decay (90-day half-life) with Bayesian smoothing; `risk_score` wraps DashClaw's existing 0-100 risk numbers rather than inventing a parallel scale. Each vector can be returned with an Ed25519-signed receipt that re-verifies against the instance JWKS. All reads are org-scoped.
-
-```js
-// Current vector (stored snapshot, or computed read-only when none exists yet)
-const { vector } = await claw.getAgentReputation('agent_42');
-// vector: { reliability_score, completion_rate, policy_violation_rate, approval_adherence,
-//           quality_score, risk_score, volume_weight, confidence, total_events, last_event_at, computed_at }
-
-// Recompute from evidence, persist the snapshot, and store a signed receipt
-await claw.recomputeAgentReputation('agent_42');
-
-// Paginated reputation events
-await claw.listAgentReputationEvents('agent_42', { limit: 50, offset: 0 });
-
-// Signed receipt + verification against the instance's published keys
-const { receipt } = await claw.getAgentReputationReceipt('agent_42');
-const { ok } = await claw.verifyReputationReceipt(receipt);
-```
-
-- `claw.getAgentReputation(agentId)` -- GET /api/reputation/agents/:agentId
-- `claw.listAgentReputationEvents(agentId, { limit, offset })` -- GET /api/reputation/agents/:agentId/events
-- `claw.recomputeAgentReputation(agentId)` -- POST /api/reputation/agents/:agentId/recompute
-- `claw.getAgentReputationReceipt(agentId)` -- GET /api/reputation/agents/:agentId/receipt
-- `claw.verifyReputationReceipt(receipt)` -- POST /api/reputation/verify
-
----
-
 ## Agent Registry
 
 Register external, org-owned providers that group existing capabilities and are invoked through governance. An invocation routes through the existing capability runtime (auth, timeout, retry, request/response mapping, SSRF defense), the guard, and the action ledger; the registry never reimplements HTTP. Risk derives from the provider's `risk_class` + budget + the capability's metadata via the existing risk map and predictive risk.

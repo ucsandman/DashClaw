@@ -628,10 +628,6 @@ async function testCronRoutes() {
   // GET /api/cron/learning-recommendations
   const { status: s4 } = await request('GET', '/api/cron/learning-recommendations');
   assert(s4 === 200 || s4 === 401, `GET /api/cron/learning-recommendations returns 200 or 401 (got ${s4})`);
-
-  // POST /api/cron/routing-maintenance
-  const { status: s5 } = await request('POST', '/api/cron/routing-maintenance');
-  assert(s5 === 200 || s5 === 401, `POST /api/cron/routing-maintenance returns 200 or 401 (got ${s5})`);
 }
 
 // ──────────────────────────────────────────────

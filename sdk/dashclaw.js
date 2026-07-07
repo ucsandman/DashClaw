@@ -1030,51 +1030,6 @@ class DashClaw {
   }
 
   // ---------------------------------------------------------------------------
-  // Agent Reputation — per-agent trust vector, events, and signed receipts.
-  // ---------------------------------------------------------------------------
-
-  /**
-   * GET /api/reputation/agents/:agentId — current reputation vector.
-   * @returns {Promise<{ agent_id, vector, source }>}
-   */
-  async getAgentReputation(agentId) {
-    return this._get(`/api/reputation/agents/${agentId}`);
-  }
-
-  /**
-   * GET /api/reputation/agents/:agentId/events — paginated reputation events.
-   * @param {string} agentId
-   * @param {Object} [filters] - { limit?, offset? }
-   */
-  async listAgentReputationEvents(agentId, filters = {}) {
-    return this._get(`/api/reputation/agents/${agentId}/events`, filters);
-  }
-
-  /**
-   * POST /api/reputation/agents/:agentId/recompute — recompute the vector from
-   * evidence, persist the snapshot, and store a signed receipt.
-   */
-  async recomputeAgentReputation(agentId) {
-    return this._post(`/api/reputation/agents/${agentId}/recompute`);
-  }
-
-  /**
-   * GET /api/reputation/agents/:agentId/receipt — signed receipt for the vector.
-   */
-  async getAgentReputationReceipt(agentId) {
-    return this._get(`/api/reputation/agents/${agentId}/receipt`);
-  }
-
-  /**
-   * POST /api/reputation/verify — verify a reputation receipt against the
-   * instance's published signing keys. Returns { ok, kid?, reason? }.
-   * @param {Object} receipt - a signed reputation receipt
-   */
-  async verifyReputationReceipt(receipt) {
-    return this._post('/api/reputation/verify', { receipt });
-  }
-
-  // ---------------------------------------------------------------------------
   // Agent Registry — register external delegatable providers; invocations are
   // governed by the existing capability runtime + guard + action ledger.
   // ---------------------------------------------------------------------------

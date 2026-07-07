@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Dispatch-level pins for the demo handlers added in the P20 gap-closing pass:
-// the session detail trio, reputation summary/events, x402 purchases, and the
+// the session detail trio, x402 purchases, and the
 // period-aware finops spend handler.
 // Mirrors the mocking setup of middleware.test.js (env-forced DASHCLAW_MODE=demo).
 vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
@@ -63,19 +63,6 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     const res = await middleware(req('/api/sessions/sess_does_not_exist'));
     expect(res.status).toBe(404);
     expect((await res.json()).error).toBe('Session not found');
-  });
-
-  it('GET /api/reputation/agents/:id/summary and /events are demo-served', async () => {
-    const sum = await middleware(req('/api/reputation/agents/clawdbot/summary'));
-    expect(sum.status).toBe(200);
-    const sumBody = await sum.json();
-    expect(sumBody.summary.reliability_score).toEqual(expect.any(Number));
-
-    const ev = await middleware(req('/api/reputation/agents/clawdbot/events'));
-    expect(ev.status).toBe(200);
-    const evBody = await ev.json();
-    expect(evBody.events.length).toBeGreaterThan(0);
-    expect(evBody.pagination).toBeTruthy();
   });
 
   it('GET /api/x402/purchases returns provider-joined demo rows (was 403)', async () => {

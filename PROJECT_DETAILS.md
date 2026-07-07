@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-07), generated API inventory reports **169 routes**: **42 stable**, **18 beta**, **109 experimental**.
+As of this verification (2026-07-07), generated API inventory reports **162 routes**: **42 stable**, **18 beta**, **102 experimental**.
 
 ## Product boundary
 
@@ -117,7 +117,6 @@ These modules consume core runtime data and add operator value without changing 
 | Domain | Representative routes or surfaces | Purpose |
 |:---|:---|:---|
 | Capabilities | `/api/capabilities/*` | Governed HTTP capability registry, access rules, health, test, and invoke. |
-| Agent Reputation | `/api/reputation/*` | Per-agent trust vectors (time-decayed Bayesian) computed from governed decisions, with events, Ed25519-signed receipts, verify, and a leaderboard. |
 | Agent Registry | `/api/agents/registry/*`, `/api/agents/invoke` | External, org-owned delegatable providers that group capabilities; invocations route through the existing capability runtime + guard + action ledger. |
 | x402 Spend Governance | `GET/POST /api/x402/providers`, `GET/PATCH /api/x402/providers/[id]`, `GET/POST /api/x402/providers/[id]/endpoints`, `GET/POST /api/x402/purchases` | Agent-side x402 spend governance. Agents execute x402 calls themselves; DashClaw registers providers, governs purchases through the guard loop, and records spend. DashClaw never holds a wallet. |
 | FinOps / Spend | `GET /api/finops/spend` (`?lens=fleet\|claude-code`, `?period=7d\|30d\|90d`) | Aggregation-not-fusion rollup unifying agent LLM cost + x402 capability-purchase spend (fleet lens) and Code Sessions cost (claude-code lens) under one Spend surface. Read-only presentation layer over existing tables via `finops.repository.js` (`getFleetSpend`/`getClaudeCodeSpend`); owns no tables. Experimental. |
@@ -226,7 +225,7 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **71 public methods** in `sdk/dashclaw.js` and the Python SDK **129** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **66 public methods** in `sdk/dashclaw.js` and the Python SDK **124** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`

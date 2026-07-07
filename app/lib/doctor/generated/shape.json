@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:db75bb7a06dcfb0cb45e80740a140a87ce986f27",
+  "timestamp": "sha1:58192da0204feaba8d87e60a6213e75325d77329",
   "routes": [
     {
       "path": "/api/actions",
@@ -1234,79 +1234,6 @@
       "file_path": "app/api/prompts/server-setup/raw/route.ts"
     },
     {
-      "path": "/api/reputation/agents/[agentId]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/reputation/agents/[agentId]/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/[agentId]/events",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/reputation/agents/[agentId]/events/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/[agentId]/receipt",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/reputation/agents/[agentId]/receipt/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/[agentId]/recompute",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/reputation/agents/[agentId]/recompute/route.ts"
-    },
-    {
-      "path": "/api/reputation/agents/[agentId]/summary",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/reputation/agents/[agentId]/summary/route.ts"
-    },
-    {
-      "path": "/api/reputation/leaderboard",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/reputation/leaderboard/route.ts"
-    },
-    {
-      "path": "/api/reputation/verify",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/reputation/verify/route.ts"
-    },
-    {
       "path": "/api/secrets",
       "methods": [
         "GET",
@@ -2416,7 +2343,6 @@
       "name": "DASHCLAW_SIGNING_KEY_JWK",
       "required": false,
       "files": [
-        "__tests__/unit/reputation.repository.test.js",
         "app/lib/integrity/server-key.ts"
       ],
       "in_env_example": false
@@ -2524,7 +2450,6 @@
         "__tests__/unit/policies-tightening.route.test.ts",
         "__tests__/unit/policies.route.test.js",
         "__tests__/unit/prompt-injection-guard.test.js",
-        "__tests__/unit/reputation-routes.test.js",
         "__tests__/unit/security-status.route.test.js",
         "__tests__/unit/webhooks.route.test.js",
         "__tests__/unit/workspace-routes.test.js",
