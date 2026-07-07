@@ -6,7 +6,6 @@ type AnyRecord = Record<string, any>;
 
 export interface DemoFixtures {
   actions: AnyRecord[];
-  loops: AnyRecord[];
   assumptions: AnyRecord[];
   guardDecisions?: AnyRecord[];
   guardReads?: AnyRecord[];
@@ -19,8 +18,6 @@ export interface DemoFixtures {
   tokensCurrent?: AnyRecord;
   tokensToday?: AnyRecord;
   tokenHistory: AnyRecord[];
-  messages: AnyRecord[];
-  messageThreads: AnyRecord[];
   content?: AnyRecord[];
   teamMembers?: AnyRecord[];
   teamInvites?: AnyRecord[];
@@ -31,7 +28,6 @@ export interface DemoFixtures {
   digest?: AnyRecord | null;
   contextPoints?: AnyRecord[];
   contextThreads?: AnyRecord[];
-  handoffs?: AnyRecord[];
   preferences: Record<string, AnyRecord>;
   policyProofReport?: string;
   policyTestResults?: AnyRecord;
@@ -197,9 +193,7 @@ export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyR
   // Check if we dynamically created this action in the current demo session
   const dynamicAction = fixtures.actions.find(a => a.action_id === actionId);
   if (dynamicAction) {
-    const open_loops = fixtures.loops
-      .filter(l => l.action_id === actionId)
-      .map(({ agent_id, agent_name, declared_goal, action_type, ...rest }) => rest);
+    const open_loops: AnyRecord[] = [];
     const assumptions = fixtures.assumptions.filter(a => a.action_id === actionId);
 
     // Attempt to match an evaluation (guard check) for this action
@@ -340,9 +334,7 @@ export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyR
 
   const action = fixtures.actions.find(a => a.action_id === actionId) || null;
   if (!action) return null;
-  const open_loops = fixtures.loops
-    .filter(l => l.action_id === actionId)
-    .map(({ agent_id, agent_name, declared_goal, action_type, ...rest }) => rest);
+  const open_loops: AnyRecord[] = [];
   const assumptions = fixtures.assumptions.filter(a => a.action_id === actionId);
   return { action, open_loops, assumptions };
 }
@@ -699,40 +691,6 @@ export function demoGuardPost(fixtures: DemoFixtures, body: AnyRecord) {
   return evaluation;
 }
 
-export function demoMessages(fixtures: DemoFixtures, url: URL) {
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
-  const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-  const msgs = fixtures.messages.slice();
-  const total = msgs.length;
-  const paged = msgs.slice(offset, offset + limit);
-  const agents = new Set<string>();
-  const threads = new Set<string>();
-  msgs.forEach(m => { if (m.agent_id) agents.add(m.agent_id); if (m.thread_id) threads.add(m.thread_id); });
-  const stats = { total_messages: total, unique_agents: agents.size, active_threads: threads.size };
-  return { messages: paged, total, stats, lastUpdated: new Date().toISOString() };
-}
-
-export function demoMessageThreads(fixtures: DemoFixtures, url: URL) {
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
-  const offset = parseInt(url.searchParams.get('offset') || '0', 10);
-  const threadList = fixtures.messageThreads.slice();
-  const total = threadList.length;
-  const paged = threadList.slice(offset, offset + limit);
-  return { threads: paged, total, lastUpdated: new Date().toISOString() };
-}
-
-export function demoMessageDocs(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const agentId = sp.get('agent_id') || undefined;
-  const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
-  const offset = parseInt(sp.get('offset') || '0', 10);
-
-  let docs = fixtures.messages.filter(m => Array.isArray(m.docs) && m.docs.length > 0).flatMap(m => m.docs);
-  const total = docs.length;
-  const paged = docs.slice(offset, offset + limit);
-  return { docs: paged, total, lastUpdated: new Date().toISOString() };
-}
-
 export function demoContent(fixtures: DemoFixtures, url: URL) {
   const sp = url.searchParams;
   const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
@@ -807,18 +765,6 @@ export function demoContextThreadDetail(fixtures: DemoFixtures, threadId: string
   if (!t) return null;
   const pts = (fixtures.contextPoints || []).filter(p => p.thread_id === threadId);
   return { thread: t, points: pts };
-}
-
-export function demoHandoffs(fixtures: DemoFixtures, url: URL) {
-  const sp = url.searchParams;
-  const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
-  const offset = parseInt(sp.get('offset') || '0', 10);
-
-  const items = (fixtures.handoffs || []).slice();
-  const total = items.length;
-  const paged = items.slice(offset, offset + limit);
-  const pending = items.filter(h => h.status === 'pending').length;
-  return { handoffs: paged, total, stats: { pending }, lastUpdated: new Date().toISOString() };
 }
 
 export function demoSnippets(fixtures: DemoFixtures, url: URL) {

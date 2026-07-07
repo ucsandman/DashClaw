@@ -5,11 +5,11 @@ import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
-  demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
-  demoMessageDocs, demoContent, demoActivity,
+  demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
+  demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
-  demoHandoffs, demoSnippets, demoPreferences, demoActionTrace,
+  demoSnippets, demoPreferences, demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
@@ -918,24 +918,6 @@ function handleDemoSignals({ request, fixtures, url }) {
   });
 }
 
-function handleDemoLoops({ request, fixtures, url }) {
-  const sp = url.searchParams;
-  const agentId = sp.get('agent_id') || undefined;
-  const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
-  const offset = parseInt(sp.get('offset') || '0', 10);
-  let loops = fixtures.loops.slice();
-  if (agentId) loops = loops.filter(l => l.agent_id === agentId);
-  const total = loops.length;
-  const paged = loops.slice(offset, offset + limit);
-  const stats = {
-    open_count: String(loops.length),
-    resolved_count: '0',
-    critical_open: String(loops.filter(l => l.priority === 'critical').length),
-    high_open: String(loops.filter(l => l.priority === 'high').length),
-  };
-  return demoJson(request, { loops: paged, total, stats, lastUpdated: new Date().toISOString() });
-}
-
 function handleDemoActionCosts({ request, url }) {
   // Demo-mode stub so the cost surfaces render without the
   // catch-all /api/actions/[actionId] handler below swallowing this path
@@ -1220,7 +1202,6 @@ const DEMO_API_ROUTES = [
   ['/api/agents/invoke', ({ request }) => demoJson(request, demoRegistryInvoke())],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
-  ['/api/actions/loops', handleDemoLoops],
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
   ['/api/actions/stats', demoFixtureRoute(demoDecisionMetrics)],
   ['/api/actions/costs', handleDemoActionCosts],
@@ -1265,9 +1246,6 @@ const DEMO_API_ROUTES = [
   // Guard + messaging + team + activity
   ['/api/guard', handleDemoGuardRoute],
   ['/api/halt', handleDemoHaltRoute],
-  ['/api/messages', demoFixtureUrlRoute(demoMessages)],
-  ['/api/messages/threads', demoFixtureUrlRoute(demoMessageThreads)],
-  ['/api/messages/docs', demoFixtureUrlRoute(demoMessageDocs)],
   ['/api/content', demoFixtureUrlRoute(demoContent)],
   ['/api/activity', demoFixtureUrlRoute(demoActivity)],
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
@@ -1277,7 +1255,6 @@ const DEMO_API_ROUTES = [
   ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
   ['/api/context/threads', demoFixtureUrlRoute(demoContextThreads)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'context', 'threads', '*']), handleDemoContextThreadDetail],
-  ['/api/handoffs', demoFixtureUrlRoute(demoHandoffs)],
   ['/api/snippets', demoFixtureUrlRoute(demoSnippets)],
   ['/api/preferences', handleDemoPreferences],
   ['/api/memory', ({ request, fixtures }) => demoJson(request, { ...fixtures.memory, lastUpdated: new Date().toISOString() })],
@@ -1902,8 +1879,6 @@ export const config = {
     '/usage/:path*',
     '/webhooks',
     '/webhooks/:path*',
-    '/messages',
-    '/messages/:path*',
     '/policies',
     '/policies/:path*',
     '/routing',

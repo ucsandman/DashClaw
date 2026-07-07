@@ -698,65 +698,20 @@ class DashClaw {
   }
 
   /**
-   * POST /api/actions/loops
-   */
-  async registerOpenLoop(actionId, loopType, description, metadata = null) {
-    return this._post('/api/actions/loops', {
-      action_id: actionId,
-      loop_type: loopType,
-      description,
-      metadata
-    });
-  }
-
-  /**
-   * PATCH /api/actions/loops/:id
-   */
-  async resolveOpenLoop(loopId, status, resolution = null) {
-    return this._patch(`/api/actions/loops/${loopId}`, {
-      status,
-      resolution
-    });
-  }
-
-  /**
    * GET /api/actions/signals
    */
   async getSignals() {
     return this._get('/api/actions/signals');
   }
 
-  // ---------------------------------------------------------------------------
-  // Agent Messaging
-  // ---------------------------------------------------------------------------
-
   /**
-   * POST /api/messages — Send a message to another agent or the dashboard.
-   */
-  async sendMessage({ to, type, subject, body, threadId, urgent, actionId }) {
-    return this._post('/api/messages', {
-      from_agent_id: this.agentId,
-      to_agent_id: to,
-      message_type: type,
-      subject,
-      body,
-      thread_id: threadId,
-      urgent,
-      action_id: actionId,
-    });
-  }
-
-  /**
-   * Create a scoped action context that auto-tags messages and assumptions
-   * with the given action_id.
+   * Create a scoped action context that auto-tags assumptions and outcome
+   * updates with the given action_id.
    * @param {string} actionId - The action_id to attach to all operations
-   * @returns {{ sendMessage, recordAssumption, updateOutcome }}
+   * @returns {{ recordAssumption, updateOutcome }}
    */
   actionContext(actionId) {
     return {
-      sendMessage: ({ to, type, subject, body, threadId, urgent }) => {
-        return this.sendMessage({ to, type, subject, body, threadId, urgent, actionId });
-      },
       recordAssumption: (assumption) => {
         return this.recordAssumption({ ...assumption, action_id: actionId });
       },
@@ -770,10 +725,8 @@ class DashClaw {
    * POST /api/pairings — Enroll this agent's identity: submit a PEM public key
    * for admin approval. Approval (POST /api/pairings/{id}/approve) creates the
    * agent_identities row that makes recorded actions signature-verifiable.
-   * Operator-initiated pairing requests arrive in the inbox as messages whose
-   * body carries a `dashclaw.pairing_request` JSON directive — answer them by
-   * calling this. (Ported from dashclaw/legacy for parity; the private key
-   * stays with the caller and is never sent.)
+   * (Ported from dashclaw/legacy for parity; the private key stays with the
+   * caller and is never sent.)
    * @param {string} publicKeyPem
    * @param {Object} [options]
    * @param {string} [options.algorithm='RSASSA-PKCS1-v1_5']
@@ -810,93 +763,6 @@ class DashClaw {
       await new Promise((r) => setTimeout(r, interval));
     }
     throw new Error('Timed out waiting for pairing approval');
-  }
-
-  /**
-   * GET /api/messages — Fetch this agent's inbox.
-   */
-  async getInbox({ type, unread, limit } = {}) {
-    return this.getMessages({ direction: 'inbox', type, unread, limit });
-  }
-
-  /**
-   * GET /api/messages — Fetch messages this agent has sent.
-   */
-  async getSentMessages({ type, threadId, limit } = {}) {
-    return this.getMessages({ direction: 'sent', type, threadId, limit });
-  }
-
-  /**
-   * GET /api/messages — Fetch this agent's messages with flexible filters.
-   */
-  async getMessages({ direction, type, unread, threadId, limit } = {}) {
-    return this._get('/api/messages', {
-      agent_id: this.agentId,
-      ...(direction && { direction }),
-      ...(type && { type }),
-      ...(unread != null && { unread }),
-      ...(threadId && { thread_id: threadId }),
-      ...(limit != null && { limit }),
-    });
-  }
-
-  /**
-   * GET /api/messages/:messageId — Fetch a single message by id.
-   */
-  async getMessage(messageId) {
-    return this._get(`/api/messages/${encodeURIComponent(messageId)}`);
-  }
-
-  /**
-   * PATCH /api/messages — Mark messages as read for this agent. Direct messages
-   * are marked read only for the target agent (or dashboard); broadcasts update
-   * read_by for this agent.
-   * @param {string[]} messageIds - Message IDs (msg_*) to mark read.
-   * @returns {Promise<{ updated: number }>}
-   */
-  async markRead(messageIds) {
-    return this._patch('/api/messages', {
-      message_ids: messageIds,
-      action: 'read',
-      agent_id: this.agentId,
-    });
-  }
-
-  /**
-   * PATCH /api/messages — Archive messages for this agent.
-   * @param {string[]} messageIds - Message IDs (msg_*) to archive.
-   * @returns {Promise<{ updated: number }>}
-   */
-  async archiveMessages(messageIds) {
-    return this._patch('/api/messages', {
-      message_ids: messageIds,
-      action: 'archive',
-      agent_id: this.agentId,
-    });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Session Handoffs
-  // ---------------------------------------------------------------------------
-
-  /**
-   * POST /api/handoffs — Create a session handoff record.
-   */
-  async createHandoff(handoff) {
-    return this._post('/api/handoffs', {
-      agent_id: this.agentId,
-      ...handoff,
-    });
-  }
-
-  /**
-   * GET /api/handoffs — Fetch the most recent handoff for this agent.
-   */
-  async getLatestHandoff() {
-    return this._get('/api/handoffs', {
-      agent_id: this.agentId,
-      latest: 'true',
-    });
   }
 
   // ---------------------------------------------------------------------------

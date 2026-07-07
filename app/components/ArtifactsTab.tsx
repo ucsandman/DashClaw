@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { FileJson, Package, ChevronDown, ChevronRight, Trash2, Copy, Check } from 'lucide-react';
-import MarkdownBody from '../messages/_components/MarkdownBody';
+import MarkdownBody from './MarkdownBody';
 
 interface CopyButtonProps {
   text: string;

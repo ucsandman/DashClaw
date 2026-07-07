@@ -23,44 +23,9 @@ from dashclaw_common import (  # noqa: E402
     derive_slug,
     emit_noop,
     log_error,
-    post_handoff_create,
     read_cache,
     read_stdin_json,
 )
-
-
-def _utc_iso() -> str:
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-
-
-def _summarize_session(data: dict, state: dict) -> str:
-    """Best-effort 1-2 sentence wrap-up. Falls back to a generic line."""
-    turns = state.get("turns_recorded") or data.get("turn_count") or "?"
-    tools = data.get("tools_used") or []
-    last_tool = (data.get("last_tool_use") or {}).get("name") or "—"
-    tool_str = ", ".join(tools[:5]) if tools else "—"
-    return (
-        f"Wrapped session with {turns} turns; last tool: {last_tool}. "
-        f"Touched: {tool_str}."
-    )
-
-
-def _collect_open_loops(agent_id: str) -> list:
-    try:
-        resp = api_request("GET", f"/api/actions/loops?agent_id={agent_id}&status=open", timeout=3)
-        return ((resp or {}).get("loops") or [])[:10]
-    except Exception as e:
-        log_error("on_session_end", f"_collect_open_loops failed: {type(e).__name__}: {e}")
-        return []
-
-
-def _collect_recent_decisions(agent_id: str) -> list:
-    try:
-        resp = api_request("GET", f"/api/guard/decisions?agent_id={agent_id}&limit=10", timeout=3)
-        return ((resp or {}).get("decisions") or [])[:10]
-    except Exception as e:
-        log_error("on_session_end", f"_collect_recent_decisions failed: {type(e).__name__}: {e}")
-        return []
 
 
 def main() -> int:
@@ -91,25 +56,6 @@ def main() -> int:
             log_error("on_session_end", "ingest-live finalize returned None")
     except Exception as e:
         log_error("on_session_end", f"{type(e).__name__}: {e}")
-
-    # Best-effort handoff for the next session of the same agent.
-    try:
-        bundle = {
-            "summary": _summarize_session(data, state),
-            "open_loops": _collect_open_loops(AGENT_ID),
-            "decisions_made": _collect_recent_decisions(AGENT_ID),
-            "state_snapshot": data.get("state") or {},
-            "generated_at": _utc_iso(),
-        }
-        handoff_id = post_handoff_create(
-            agent_id=AGENT_ID,
-            project_id=data.get("project_id"),
-            bundle=bundle,
-        )
-        if handoff_id:
-            log_error("on_session_end", f"handoff created: {handoff_id}")
-    except Exception as e:
-        log_error("on_session_end", f"handoff_create failed: {type(e).__name__}: {e}")
 
     emit_noop()
     return 0

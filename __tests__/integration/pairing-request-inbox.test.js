@@ -1,10 +1,11 @@
 /**
- * Integration: an operator "Request pairing" message round-trips the messages
- * rails end-to-end — POST /api/messages (real route: validation, redaction,
- * field limits) lands in a shared in-memory store, and the agent's inbox read
- * (GET /api/messages?direction=inbox — the same path the MCP
- * dashclaw_inbox_list tool calls) returns it with the machine-readable
- * directive intact (i.e. PII redaction did not mangle the fenced JSON).
+ * Integration: an operator "Request pairing" message round-trips the slim
+ * messages rail end-to-end — POST /api/messages (real route: validation,
+ * redaction, field limits) lands in a shared in-memory store, and the agent's
+ * inbox read (GET /api/messages?direction=inbox) returns it with the
+ * machine-readable directive intact (i.e. PII redaction did not mangle the
+ * fenced JSON). The agent_messages rail survives the v5 cull as internal
+ * infrastructure for pairing-request delivery + assumption-invalidation acks.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
@@ -73,8 +74,8 @@ describe('pairing request → agent inbox (messages rails)', () => {
     }));
     expect(postRes.status).toBe(201);
 
-    // 2. The agent's next session lists its inbox — the exact read the MCP
-    //    dashclaw_inbox_list tool performs (GET /api/messages, direction=inbox).
+    // 2. The agent's next session lists its inbox (GET /api/messages,
+    //    direction=inbox) and finds the pairing directive.
     const inboxRes = await GET(makeRequest(
       'http://test/api/messages?agent_id=clawdbot&direction=inbox',
       { headers: { 'x-org-id': 'org_int' } },

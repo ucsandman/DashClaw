@@ -3,6 +3,14 @@ type SqlClient = {
   query: (text: string, params?: unknown[]) => Promise<Record<string, unknown>[]>;
 };
 
+// The messaging product (threads, attachments, action-message trail, the
+// /messages page) was removed in the v5 cull. What remains here is the slim
+// agent_messages rail that two governance-core flows depend on:
+//   • assumption-invalidation notifications (createMessage +
+//     getAssumptionNotificationStates + the read/ack helpers), and
+//   • operator-initiated pairing-request delivery (listMessages send/list).
+// agent_messages is RETIRED-in-place (kept in schema), read/written only here.
+
 interface ListMessagesFilters {
   agentId?: string;
   direction?: string;
@@ -102,11 +110,6 @@ export async function getUnreadMessageCount(sql: SqlClient, orgId: string, agent
   return (countResult[0]?.count as number | undefined) || 0;
 }
 
-export async function getMessageThread(sql: SqlClient, orgId: string, threadId: string): Promise<Record<string, unknown> | null> {
-  const rows = await sql`SELECT id, status FROM message_threads WHERE id = ${threadId} AND org_id = ${orgId}`;
-  return rows[0] || null;
-}
-
 interface CreateMessagePayload {
   id: string;
   orgId: string;
@@ -172,34 +175,8 @@ export async function getAssumptionNotificationStates(
   return map;
 }
 
-export async function touchMessageThread(sql: SqlClient, orgId: string, threadId: string, now: string): Promise<void> {
-  await sql`UPDATE message_threads SET updated_at = ${now} WHERE id = ${threadId} AND org_id = ${orgId}`;
-}
-
-export async function getMessageForUpdate(sql: SqlClient, orgId: string, messageId: string): Promise<Record<string, unknown> | null> {
-  const rows = await sql`SELECT id, to_agent_id, read_by FROM agent_messages WHERE id = ${messageId} AND org_id = ${orgId}`;
-  return rows[0] || null;
-}
-
-export async function updateMessageReadBy(sql: SqlClient, orgId: string, messageId: string, readBy: unknown): Promise<void> {
-  await sql`UPDATE agent_messages SET read_by = ${JSON.stringify(readBy)} WHERE id = ${messageId} AND org_id = ${orgId}`;
-}
-
 export async function markBroadcastRead(sql: SqlClient, orgId: string, messageId: string, readBy: unknown): Promise<void> {
   await sql`UPDATE agent_messages SET read_by = ${JSON.stringify(readBy)} WHERE id = ${messageId} AND org_id = ${orgId}`;
-}
-
-export async function markMessageRead(sql: SqlClient, orgId: string, messageId: string, now: string): Promise<void> {
-  await sql`UPDATE agent_messages SET status = 'read', read_at = ${now} WHERE id = ${messageId} AND org_id = ${orgId} AND status = 'sent'`;
-}
-
-export async function archiveMessage(sql: SqlClient, orgId: string, messageId: string, now: string): Promise<boolean> {
-  const rows = await sql`
-    UPDATE agent_messages SET status = 'archived', archived_at = ${now}
-    WHERE id = ${messageId} AND org_id = ${orgId} AND status != 'archived'
-    RETURNING id
-  `;
-  return rows.length > 0;
 }
 
 export async function getMessagesForUpdate(sql: SqlClient, orgId: string, messageIds: unknown[]): Promise<Record<string, unknown>[]> {
@@ -217,197 +194,9 @@ export async function batchMarkMessagesRead(sql: SqlClient, orgId: string, messa
   return rows.length;
 }
 
-export async function batchArchiveMessages(sql: SqlClient, orgId: string, messageIds: unknown[], now: string): Promise<number> {
-  if (!messageIds || messageIds.length === 0) return 0;
-  const rows = await sql`
-    UPDATE agent_messages SET status = 'archived', archived_at = ${now}
-    WHERE id = ANY(${messageIds}) AND org_id = ${orgId} AND status != 'archived'
-    RETURNING id
-  `;
-  return rows.length;
-}
-
-// ── Action Message Trail ─────────────────────────────────────
-
-export async function getMessagesByActionId(sql: SqlClient, orgId: string, actionId: string): Promise<Record<string, unknown>[]> {
-  return sql`
-    SELECT id, from_agent_id, to_agent_id, message_type, subject, body,
-           thread_id, urgent, created_at, action_id
-    FROM agent_messages
-    WHERE org_id = ${orgId} AND action_id = ${actionId}
-    ORDER BY created_at ASC
-  `;
-}
-
-export async function getMessagesInTimeWindow(sql: SqlClient, orgId: string, agentId: string, windowStart: string, windowEnd: string): Promise<Record<string, unknown>[]> {
-  return sql`
-    SELECT id, from_agent_id, to_agent_id, message_type, subject, body,
-           thread_id, urgent, created_at, action_id
-    FROM agent_messages
-    WHERE org_id = ${orgId}
-      AND (from_agent_id = ${agentId} OR to_agent_id = ${agentId})
-      AND created_at::timestamptz >= (${windowStart}::timestamptz - interval '60 seconds')
-      AND created_at::timestamptz <= (${windowEnd}::timestamptz + interval '60 seconds')
-    ORDER BY created_at ASC
-    LIMIT 50
-  `;
-}
-
-export async function getMessageSummaryByActionId(sql: SqlClient, orgId: string, actionId: string): Promise<Record<string, unknown>> {
-  const rows = await sql`
-    SELECT
-      COUNT(*)::int AS total,
-      COALESCE(
-        STRING_AGG(DISTINCT from_agent_id, ',') ||
-        CASE WHEN STRING_AGG(DISTINCT to_agent_id, ',') IS NOT NULL
-          THEN ',' || STRING_AGG(DISTINCT to_agent_id, ',') ELSE '' END,
-        ''
-      ) AS participants,
-      MIN(created_at) AS first_message_at,
-      MAX(created_at) AS last_message_at
-    FROM agent_messages
-    WHERE org_id = ${orgId} AND action_id = ${actionId}
-  `;
-  return rows[0] || { total: 0, participants: '', first_message_at: null, last_message_at: null };
-}
-
-// ── Message Threads (CRUD) ───────────────────────────────────
-
-interface ListThreadsFilters {
-  status?: string;
-  agentId?: string;
-  limit?: number | string;
-}
-
-export async function listThreads(sql: SqlClient, orgId: string, { status, agentId, limit = 20 }: ListThreadsFilters = {}): Promise<Record<string, unknown>[]> {
-  const conditions = ['t.org_id = $1'];
-  const params: unknown[] = [orgId];
-  let idx = 2;
-
-  if (status) {
-    conditions.push(`t.status = $${idx}`);
-    params.push(status);
-    idx++;
-  }
-  if (agentId) {
-    conditions.push(`(t.participants ILIKE $${idx} OR t.created_by = $${idx + 1} OR EXISTS (SELECT 1 FROM agent_messages m WHERE m.thread_id = t.id AND (m.from_agent_id = $${idx + 1} OR m.to_agent_id = $${idx + 1})))`);
-    params.push(`%${agentId}%`, agentId);
-    idx += 2;
-  }
-
-  const where = conditions.join(' AND ');
-  return sql.query(
-    `SELECT t.*,
-      (SELECT COUNT(*)::int FROM agent_messages m WHERE m.thread_id = t.id) as message_count,
-      (SELECT MAX(m.created_at) FROM agent_messages m WHERE m.thread_id = t.id) as last_message_at
-    FROM message_threads t
-    WHERE ${where}
-    ORDER BY COALESCE((SELECT MAX(m.created_at) FROM agent_messages m WHERE m.thread_id = t.id), t.created_at) DESC
-    LIMIT $${idx}`,
-    [...params, limit]
-  );
-}
-
-interface CreateThreadPayload {
-  id: string;
-  name: string;
-  participants?: unknown;
-  created_by: string;
-  now: string;
-}
-
-export async function createThread(sql: SqlClient, orgId: string, { id, name, participants, created_by, now }: CreateThreadPayload): Promise<Record<string, unknown> | null> {
-  const participantsJson = participants ? JSON.stringify(participants) : null;
-  // Idempotent on the client-supplied id so a network-retry with the same
-  // thread id reuses the existing row instead of inserting a duplicate
-  // message_threads record with a new primary key.
-  const rows = await sql`
-    INSERT INTO message_threads (id, org_id, name, participants, status, created_by, created_at, updated_at)
-    VALUES (${id}, ${orgId}, ${name}, ${participantsJson}, 'open', ${created_by}, ${now}, ${now})
-    ON CONFLICT (id) DO NOTHING
-    RETURNING *
-  `;
-  if (rows.length > 0) return rows[0] ?? null;
-
-  const existing = await sql`
-    SELECT * FROM message_threads WHERE id = ${id} AND org_id = ${orgId}
-  `;
-  return existing[0] || null;
-}
-
-export async function getThreadById(sql: SqlClient, orgId: string, threadId: string): Promise<Record<string, unknown> | null> {
-  const rows = await sql`SELECT * FROM message_threads WHERE id = ${threadId} AND org_id = ${orgId}`;
-  return rows[0] || null;
-}
-
-interface UpdateThreadPayload {
-  status?: unknown;
-  summary?: unknown;
-  resolvedAt?: unknown;
-  now?: unknown;
-}
-
-export async function updateThread(sql: SqlClient, orgId: string, threadId: string, { status, summary, resolvedAt, now }: UpdateThreadPayload): Promise<Record<string, unknown> | null> {
-  const rows = await sql`
-    UPDATE message_threads
-    SET status = ${status}, summary = ${summary}, resolved_at = ${resolvedAt}, updated_at = ${now}
-    WHERE id = ${threadId} AND org_id = ${orgId}
-    RETURNING *
-  `;
-  return rows[0] || null;
-}
-
-// ── Attachments ──────────────────────────────────────────────
-
-interface CreateAttachmentPayload {
-  id: string;
-  orgId: string;
-  messageId: string;
-  filename: string;
-  mimeType: string;
-  sizeBytes: number;
-  data: unknown;
-  now: string;
-}
-
-export async function createAttachment(sql: SqlClient, payload: CreateAttachmentPayload): Promise<Record<string, unknown> | null> {
-  const { id, orgId, messageId, filename, mimeType, sizeBytes, data, now } = payload;
-  const rows = await sql`
-    INSERT INTO message_attachments (id, org_id, message_id, filename, mime_type, size_bytes, data, created_at)
-    VALUES (${id}, ${orgId}, ${messageId}, ${filename}, ${mimeType}, ${sizeBytes}, ${data}, ${now})
-    RETURNING id, org_id, message_id, filename, mime_type, size_bytes, created_at
-  `;
-  return rows[0] || null;
-}
-
-export async function getAttachmentsForMessages(sql: SqlClient, orgId: string, messageIds: unknown[]): Promise<Record<string, unknown>[]> {
-  if (!messageIds || messageIds.length === 0) return [];
-  const rows = await sql`
-    SELECT id, org_id, message_id, filename, mime_type, size_bytes, created_at
-    FROM message_attachments
-    WHERE org_id = ${orgId} AND message_id = ANY(${messageIds})
-    ORDER BY created_at ASC
-  `;
-  return rows;
-}
-
-export async function getAttachmentWithData(sql: SqlClient, orgId: string, attachmentId: string): Promise<Record<string, unknown> | null> {
-  const rows = await sql`
-    SELECT * FROM message_attachments WHERE id = ${attachmentId} AND org_id = ${orgId}
-  `;
-  return rows[0] || null;
-}
-
-export async function getOrgAttachmentBytes(sql: SqlClient, orgId: string): Promise<number> {
-  const rows = await sql`
-    SELECT COALESCE(SUM(size_bytes), 0)::bigint AS total
-    FROM message_attachments
-    WHERE org_id = ${orgId}
-  `;
-  return Number(rows[0]?.total || 0);
-}
-
 // ── Context Threads ──────────────────────────────────────────
+// ct_* context threads are a separate concern from the removed mt_* message
+// threads; kept here as the historical home of the agent-context-thread reader.
 
 interface ListContextThreadsFilters {
   agentId?: string;

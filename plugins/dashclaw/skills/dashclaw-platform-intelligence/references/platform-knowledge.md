@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 82 methods across Core Governance, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
+  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 71 methods across Core Governance, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
   - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 149 methods).
+  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 129 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -230,7 +230,7 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**23 tools across 9 groups:**
+**15 tools across 9 groups:**
 - *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
 - *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
 - *Credential hygiene (3):* `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`.

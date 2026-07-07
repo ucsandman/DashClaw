@@ -20,7 +20,7 @@ import { gapToPolicyDraft } from '../lib/compliance/gap-to-policy';
 import { FRAMEWORK_LABELS } from '../lib/compliance/framework-labels';
 import { effortVariant } from '../lib/compliance/effort';
 import ProfileBand from './ProfileBand';
-import MarkdownBody from '../messages/_components/MarkdownBody';
+import MarkdownBody from '../components/MarkdownBody';
 
 const STATUS_VARIANTS: Record<string, string> = {
   covered: 'success',

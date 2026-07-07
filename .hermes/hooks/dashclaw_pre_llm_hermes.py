@@ -36,47 +36,6 @@ from dashclaw_common import (  # noqa: E402
 
 CACHE_TTL_SECONDS = int(os.environ.get("DASHCLAW_PRELLM_REFRESH") or "300")
 MAX_CONTEXT_CHARS = 500
-MAX_HANDOFF_CHARS = 1500
-
-# Module-level set tracks which session_ids have seen the first-turn injection.
-# Hooks are short-lived processes, but Hermes may keep them resident; this is
-# a defensive guard against double-injection within the same Python process.
-_first_turn_seen: set[str] = set()
-
-
-def _is_first_turn(session_id: str) -> bool:
-    if not session_id:
-        return False
-    if session_id in _first_turn_seen:
-        return False
-    _first_turn_seen.add(session_id)
-    return True
-
-
-def _format_handoff(handoff: dict) -> str:
-    bundle = handoff.get("bundle") or {}
-    summary = (bundle.get("summary") or "").strip()
-    loops = bundle.get("open_loops") or []
-    decisions = bundle.get("decisions_made") or []
-    if not summary and not loops and not decisions:
-        return ""
-
-    lines = ["[DashClaw handoff from previous session]"]
-    if summary:
-        lines.append(f"Summary: {summary}")
-    if loops:
-        lines.append("Open loops you committed to:")
-        for loop in loops[:10]:
-            if isinstance(loop, dict):
-                desc = loop.get("description") or loop.get("title") or "(unnamed loop)"
-                lines.append(f"  - {desc}")
-    if decisions:
-        lines.append("Recent decisions:")
-        for d in decisions[:10]:
-            if isinstance(d, dict):
-                desc = d.get("description") or d.get("declared_goal") or "(unnamed decision)"
-                lines.append(f"  - {desc}")
-    return "\n".join(lines)[:MAX_HANDOFF_CHARS]
 
 
 def _refresh_state(session_id: str) -> dict:
@@ -136,15 +95,6 @@ def main() -> int:
             state = state or {}
 
     context = _format_context(state) if state else ""
-
-    # On first turn of this session, prepend the previous-session handoff if
-    # on_session_start cached one. Bounded to MAX_HANDOFF_CHARS so we don't
-    # blow the context budget.
-    if _is_first_turn(session_id):
-        handoff = read_cache(session_id, suffix="handoff")
-        handoff_text = _format_handoff(handoff) if handoff else ""
-        if handoff_text:
-            context = (handoff_text + ("\n\n" + context if context else ""))
 
     if context:
         emit_context(context)

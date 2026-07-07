@@ -5,7 +5,6 @@ import { agents as personaAgents, actions as personaActions } from './fixtures/p
 import { agents as realisticAgents, actions as realisticActions } from './fixtures/realistic-agents';
 import { agents as backgroundAgents, actions as backgroundActions } from './fixtures/background-agents';
 import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumptions';
-import { handoffs as tutorialHandoffs } from './fixtures/tutorial-handoffs';
 import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures';
 import { complianceData } from './fixtures/compliance-fixtures';
 
@@ -36,30 +35,7 @@ function buildFixtures(): Record<string, unknown> {
     ...backgroundActions,
   ];
 
-  // ── Governance Primitives: Loops and Assumptions ──
-  const loops = Array.from({ length: 10 }).map((_, i) => {
-    const action = pick(rnd, actions);
-    const loopType = pick(rnd, ['approval', 'review', 'dependency']);
-    const priority = pick(rnd, ['high', 'critical']);
-    return {
-      org_id: DEMO_ORG,
-      loop_id: stableId('loop_demo', i + 1),
-      action_id: action.action_id,
-      loop_type: loopType,
-      description: `${loopType}: ${pick(rnd, ['get approval', 'validate integrity', 'coordinate rollout', 'review security logs'])}`,
-      status: 'open',
-      priority,
-      owner: null,
-      created_at: isoFromNow(int(rnd, 10, 800) * 60 * 1000),
-      resolved_at: null,
-      resolution: null,
-      agent_id: action.agent_id,
-      agent_name: action.agent_name,
-      declared_goal: action.declared_goal,
-      action_type: action.action_type,
-    };
-  });
-
+  // ── Governance Primitives: Assumptions ──
   const assumptions = tutorialAssumptions;
 
   // ── Governance Decisions ──
@@ -118,9 +94,6 @@ function buildFixtures(): Record<string, unknown> {
   const tokensCurrent = null;
   const tokensToday = { estimatedCost: 0 };
   const content: unknown[] = [];
-  const messageThreads: unknown[] = [];
-  const sharedDocs: unknown[] = [];
-  const messages: unknown[] = [];
   const contextPoints: unknown[] = [];
   const contextThreads: unknown[] = [];
   const contextEntries: unknown[] = [];
@@ -135,7 +108,6 @@ function buildFixtures(): Record<string, unknown> {
   // ── Governance Setup and Infrastructure ──
   const policies = guardPolicies;
   const guardDecisions = guardDecisionsData;
-  const handoffs = tutorialHandoffs;
 
   const teamOrg = {
     id: DEMO_ORG,
@@ -290,7 +262,6 @@ function buildFixtures(): Record<string, unknown> {
   return {
     agents,
     actions,
-    loops,
     assumptions,
     decisions,
     lessons,
@@ -305,13 +276,9 @@ function buildFixtures(): Record<string, unknown> {
     content,
     policies,
     guardDecisions,
-    messages,
-    messageThreads,
-    sharedDocs,
     contextPoints,
     contextThreads,
     contextEntries,
-    handoffs,
     snippets,
     preferences,
     executions,

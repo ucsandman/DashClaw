@@ -89,23 +89,6 @@ describe('context-menu governance routes', () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('loop cancel → PATCH /api/actions/loops/:id {status:cancelled}', async () => {
-    await run('loop', 'loop_1', 'cancel');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/actions/loops/loop_1',
-      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ status: 'cancelled' }) }),
-    );
-  });
-
-  it('loop resolve (with prompt) → PATCH {status:resolved, resolution}', async () => {
-    window.prompt = vi.fn(() => 'done');
-    await run('loop', 'loop_2', 'resolve');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/actions/loops/loop_2',
-      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ status: 'resolved', resolution: 'done' }) }),
-    );
-  });
-
   it('capability delete → DELETE /api/capabilities/:id', async () => {
     await run('capability', 'cap_1', 'delete');
     expect(fetchMock).toHaveBeenCalledWith('/api/capabilities/cap_1', { method: 'DELETE' });
@@ -129,16 +112,4 @@ describe('context-menu governance routes', () => {
   });
 
 
-  it('message mark-read + archive → PATCH /api/messages', async () => {
-    await run('message', 'msg_1', 'mark-read');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/messages',
-      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ message_ids: ['msg_1'], action: 'read' }) }),
-    );
-    await run('message', 'msg_1', 'archive');
-    expect(fetchMock).toHaveBeenCalledWith(
-      '/api/messages',
-      expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ message_ids: ['msg_1'], action: 'archive' }) }),
-    );
-  });
 });

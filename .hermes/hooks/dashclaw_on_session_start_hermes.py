@@ -22,9 +22,7 @@ from dashclaw_common import (  # noqa: E402
     api_request,
     derive_slug,
     emit_noop,
-    get_handoff_latest,
     log_error,
-    post_handoff_consume,
     read_stdin_json,
     write_cache,
 )
@@ -66,22 +64,6 @@ def _bootstrap(session_id: str, platform: str | None) -> None:
     )
 
 
-def _load_handoff(session_id: str, project_id) -> None:
-    """Best-effort: fetch latest handoff for AGENT_ID, cache it, mark consumed."""
-    try:
-        handoff = get_handoff_latest(agent_id=AGENT_ID, project_id=project_id)
-        if not handoff or not isinstance(handoff, dict):
-            return
-        if not handoff.get("bundle"):
-            return
-        write_cache(session_id, handoff, suffix="handoff")
-        handoff_id = handoff.get("id")
-        if handoff_id:
-            post_handoff_consume(handoff_id=handoff_id, session_id=session_id)
-    except Exception as e:
-        log_error("on_session_start", f"handoff_load failed: {type(e).__name__}: {e}")
-
-
 def main() -> int:
     data = read_stdin_json()
     session_id = data.get("session_id") or ""
@@ -93,8 +75,6 @@ def main() -> int:
         _bootstrap(session_id, data.get("platform"))
     except Exception as e:
         log_error("on_session_start", f"{type(e).__name__}: {e}")
-
-    _load_handoff(session_id, data.get("project_id"))
 
     emit_noop()
     return 0

@@ -211,13 +211,6 @@ describe('messages/context repository contract', () => {
     expect(sql.taggedCalls[0].values).toContain('[]');
   });
 
-  it('archiveMessage returns true only when message is updated', async () => {
-    const sql = createSqlMock({ taggedResponses: [[{ id: 'msg_1' }], []] });
-
-    await expect(messagesContextRepository.archiveMessage(sql, 'org_1', 'msg_1', 'now')).resolves.toBe(true);
-    await expect(messagesContextRepository.archiveMessage(sql, 'org_1', 'msg_2', 'now')).resolves.toBe(false);
-  });
-
   it('listContextThreads scopes to org and optional filters', async () => {
     const sql = createSqlMock({ queryResponses: [[{ id: 'thread_1' }]] });
 

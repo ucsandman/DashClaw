@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:58eab9e6a7264ee64c863b454fbbf93ea3b3b4f4",
+  "timestamp": "sha1:db75bb7a06dcfb0cb45e80740a140a87ce986f27",
   "routes": [
     {
       "path": "/api/actions",
@@ -47,17 +47,6 @@
       "file_path": "app/api/actions/[actionId]/graph/route.ts"
     },
     {
-      "path": "/api/actions/[actionId]/messages",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "actionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/actions/[actionId]/messages/route.ts"
-    },
-    {
       "path": "/api/actions/[actionId]/outcome",
       "methods": [
         "GET",
@@ -88,28 +77,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/actions/costs/route.ts"
-    },
-    {
-      "path": "/api/actions/loops",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/actions/loops/route.ts"
-    },
-    {
-      "path": "/api/actions/loops/[loopId]",
-      "methods": [
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "loopId"
-      ],
-      "archived": false,
-      "file_path": "app/api/actions/loops/[loopId]/route.ts"
     },
     {
       "path": "/api/actions/stats",
@@ -775,47 +742,6 @@
       "file_path": "app/api/halt/route.ts"
     },
     {
-      "path": "/api/handoffs",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/handoffs/route.ts"
-    },
-    {
-      "path": "/api/handoffs/[id]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/handoffs/[id]/route.ts"
-    },
-    {
-      "path": "/api/handoffs/[id]/consume",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/handoffs/[id]/consume/route.ts"
-    },
-    {
-      "path": "/api/handoffs/latest",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/handoffs/latest/route.ts"
-    },
-    {
       "path": "/api/health",
       "methods": [
         "GET"
@@ -997,37 +923,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/messages/route.ts"
-    },
-    {
-      "path": "/api/messages/attachments",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/messages/attachments/route.ts"
-    },
-    {
-      "path": "/api/messages/threads",
-      "methods": [
-        "GET",
-        "PATCH",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/messages/threads/route.ts"
-    },
-    {
-      "path": "/api/messages/threads/[threadId]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "threadId"
-      ],
-      "archived": false,
-      "file_path": "app/api/messages/threads/[threadId]/route.ts"
     },
     {
       "path": "/api/oauth/authorize",
@@ -2447,14 +2342,6 @@
       "in_env_example": false
     },
     {
-      "name": "DASHCLAW_MAX_ORG_ATTACHMENT_BYTES",
-      "required": false,
-      "files": [
-        "app/api/messages/route.ts"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "DASHCLAW_MEMORY_MAX_ENTRIES",
       "required": false,
       "files": [
@@ -2599,7 +2486,6 @@
       "files": [
         ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
-        "__tests__/unit/actions-loops.route.test.js",
         "__tests__/unit/actions.route.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/bootstrap-first-user-admin.test.js",

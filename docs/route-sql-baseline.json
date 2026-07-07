@@ -10,26 +10,14 @@
       "label": "sql.query call"
     }
   ],
-  "files_scanned": 180,
-  "files_with_direct_sql": 18,
+  "files_scanned": 170,
+  "files_with_direct_sql": 16,
   "totals": {
-    "tagged_template": 39,
-    "query_call": 9,
-    "total": 48
+    "tagged_template": 33,
+    "query_call": 7,
+    "total": 40
   },
   "files": [
-    {
-      "file": "app/api/actions/loops/[loopId]/route.ts",
-      "tagged_template": 3,
-      "query_call": 0,
-      "total": 3
-    },
-    {
-      "file": "app/api/actions/loops/route.ts",
-      "tagged_template": 3,
-      "query_call": 2,
-      "total": 5
-    },
     {
       "file": "app/api/actions/route.ts",
       "tagged_template": 0,

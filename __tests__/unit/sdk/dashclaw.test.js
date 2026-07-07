@@ -66,13 +66,6 @@ describe('sdk/dashclaw.js characterization', () => {
       );
     });
 
-    it('builds exact param order for getLatestHandoff', async () => {
-      await claw.getLatestHandoff();
-      expect(global.fetch.mock.calls[0][0]).toBe(
-        'http://localhost:3000/api/handoffs?agent_id=test-agent&latest=true'
-      );
-    });
-
     it('omits the query string entirely when params are empty', async () => {
       await claw.listSessions({});
       expect(global.fetch.mock.calls[0][0]).toBe('http://localhost:3000/api/sessions');
@@ -445,11 +438,6 @@ describe('sdk/dashclaw.js characterization', () => {
         }
       });
     }
-
-    it('getMessage URL-encodes the message id', async () => {
-      await claw.getMessage('msg/odd id');
-      expect(global.fetch.mock.calls[0][0]).toBe('http://localhost:3000/api/messages/msg%2Fodd%20id');
-    });
   });
 
   // -------------------------------------------------------------------------

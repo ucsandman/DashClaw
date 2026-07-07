@@ -5,7 +5,7 @@ import { ChevronRight } from 'lucide-react';
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import GuideClient from '../GuideClient';
-import MarkdownBody from '../../messages/_components/MarkdownBody';
+import MarkdownBody from '../../components/MarkdownBody';
 import { getGuideBaseUrl } from '../../lib/guideContent';
 import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../../lib/marketingSeo';

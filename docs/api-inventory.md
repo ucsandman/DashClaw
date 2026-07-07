@@ -13,8 +13,8 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `179`
-- Stable routes: `52`
+- Total routes: `169`
+- Stable routes: `42`
 - Beta routes: `18`
 - Experimental routes: `109`
 
@@ -24,13 +24,10 @@ doc-type: architecture
 |---|---|---|---|---|
 | `/api/actions` | `DELETE, GET, POST` | `stable` | `/api/actions` | `app/api/actions/route.ts` |
 | `/api/actions/costs` | `GET` | `stable` | `/api/actions` | `app/api/actions/costs/route.ts` |
-| `/api/actions/loops` | `GET, POST` | `stable` | `/api/actions` | `app/api/actions/loops/route.ts` |
-| `/api/actions/loops/{loopId}` | `GET, PATCH` | `stable` | `/api/actions` | `app/api/actions/loops/[loopId]/route.ts` |
 | `/api/actions/stats` | `GET` | `stable` | `/api/actions` | `app/api/actions/stats/route.ts` |
 | `/api/actions/{actionId}` | `GET, PATCH` | `stable` | `/api/actions` | `app/api/actions/[actionId]/route.ts` |
 | `/api/actions/{actionId}/artifacts` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/artifacts/route.ts` |
 | `/api/actions/{actionId}/graph` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/graph/route.ts` |
-| `/api/actions/{actionId}/messages` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/messages/route.ts` |
 | `/api/actions/{actionId}/outcome` | `GET, POST` | `stable` | `/api/actions` | `app/api/actions/[actionId]/outcome/route.ts` |
 | `/api/actions/{actionId}/trace` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/trace/route.ts` |
 | `/api/activity` | `GET` | `beta` | `/api/activity` | `app/api/activity/route.ts` |
@@ -98,10 +95,6 @@ doc-type: architecture
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.ts` |
 | `/api/guard/decisions` | `GET` | `stable` | `/api/guard` | `app/api/guard/decisions/route.ts` |
 | `/api/halt` | `GET, POST` | `experimental` | `(default)` | `app/api/halt/route.ts` |
-| `/api/handoffs` | `GET, POST` | `stable` | `/api/handoffs` | `app/api/handoffs/route.ts` |
-| `/api/handoffs/latest` | `GET` | `stable` | `/api/handoffs` | `app/api/handoffs/latest/route.ts` |
-| `/api/handoffs/{id}` | `GET` | `stable` | `/api/handoffs` | `app/api/handoffs/[id]/route.ts` |
-| `/api/handoffs/{id}/consume` | `POST` | `stable` | `/api/handoffs` | `app/api/handoffs/[id]/consume/route.ts` |
 | `/api/health` | `GET` | `stable` | `/api/health` | `app/api/health/route.ts` |
 | `/api/hosted/capacity` | `GET` | `experimental` | `(default)` | `app/api/hosted/capacity/route.ts` |
 | `/api/hosted/cleanup` | `POST` | `experimental` | `(default)` | `app/api/hosted/cleanup/route.ts` |
@@ -121,9 +114,6 @@ doc-type: architecture
 | `/api/marketing/event` | `POST` | `experimental` | `(default)` | `app/api/marketing/event/route.ts` |
 | `/api/mcp` | `POST` | `experimental` | `(default)` | `app/api/mcp/route.ts` |
 | `/api/messages` | `GET, PATCH, POST` | `stable` | `/api/messages` | `app/api/messages/route.ts` |
-| `/api/messages/attachments` | `GET` | `stable` | `/api/messages` | `app/api/messages/attachments/route.ts` |
-| `/api/messages/threads` | `GET, PATCH, POST` | `stable` | `/api/messages` | `app/api/messages/threads/route.ts` |
-| `/api/messages/threads/{threadId}` | `GET` | `stable` | `/api/messages` | `app/api/messages/threads/[threadId]/route.ts` |
 | `/api/oauth/authorize` | `GET, POST` | `experimental` | `(default)` | `app/api/oauth/authorize/route.ts` |
 | `/api/oauth/metadata/authorization-server` | `GET` | `experimental` | `(default)` | `app/api/oauth/metadata/authorization-server/route.ts` |
 | `/api/oauth/metadata/protected-resource` | `GET` | `experimental` | `(default)` | `app/api/oauth/metadata/protected-resource/route.ts` |

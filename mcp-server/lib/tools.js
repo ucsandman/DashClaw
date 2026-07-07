@@ -173,50 +173,6 @@ export const TOOL_DEFINITIONS = [
         },
     },
     {
-        name: 'dashclaw_handoff_create',
-        description: 'Create a session handoff bundle for the next session of this agent to consume on start. ' +
-            'Call this when wrapping up — include a 1-2 sentence summary, any open loops, decisions made, ' +
-            'and freeform state you want the next session to see.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
-                project_id: { type: 'string', description: 'Optional project ID — handoff is project-scoped' },
-                bundle: {
-                    type: 'object',
-                    description: 'Handoff content: { summary, open_loops, decisions_made, state_snapshot, generated_at }',
-                },
-            },
-            required: ['bundle'],
-        },
-    },
-    {
-        name: 'dashclaw_handoff_latest',
-        description: 'Fetch the latest unconsumed session handoff for this agent (+ project, optional). ' +
-            'Call this on session start to pick up where the last session left off. Returns null if ' +
-            'no handoff is waiting.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string' },
-                project_id: { type: 'string' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_handoff_consume',
-        description: 'Mark a handoff as consumed. Call after dashclaw_handoff_latest returns a bundle and you ' +
-            'have processed it. Idempotent.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                id: { type: 'string', description: 'Handoff id (hf_*) from handoff_latest' },
-                session_id: { type: 'string', description: 'Optional current session id for provenance' },
-            },
-            required: ['id'],
-        },
-    },
-    {
         name: 'dashclaw_secret_list',
         description: 'List tracked secrets (metadata only — no values). Returns each entry with name, rotation ' +
             'interval, last_rotated_at, and computed next_rotation_due.',
@@ -247,52 +203,6 @@ export const TOOL_DEFINITIONS = [
             type: 'object',
             properties: {
                 id: { type: 'string', description: 'Secret id (sec_*)' },
-            },
-            required: ['id'],
-        },
-    },
-    {
-        name: 'dashclaw_loop_add',
-        description: 'Register an open loop on a parent action — a commitment made in conversation that needs ' +
-            'follow-up. Use when you say "I will X later" so the loop is tracked outside of context. ' +
-            'Loops are action-scoped; action_id is required.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                action_id: { type: 'string', description: 'Parent action id (act_*) the loop attaches to' },
-                loop_type: { type: 'string', description: 'Category (e.g., follow_up, blocker, decision_pending)' },
-                description: { type: 'string' },
-                priority: { type: 'string', enum: ['low', 'medium', 'high', 'critical'], description: 'Priority (default medium)' },
-                owner: { type: 'string', description: 'Optional owner (agent or human handle)' },
-            },
-            required: ['action_id', 'loop_type', 'description'],
-        },
-    },
-    {
-        name: 'dashclaw_loop_list',
-        description: 'List open (or resolved) loops with optional filters. Use on session start to remember ' +
-            'what you promised to follow up on.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                action_id: { type: 'string', description: 'Filter by parent action' },
-                status: { type: 'string', enum: ['open', 'resolved', 'cancelled'] },
-                priority: { type: 'string', enum: ['low', 'medium', 'high', 'critical'] },
-                agent_id: { type: 'string', description: 'Filter by agent (joined via parent action)' },
-                from: { type: 'string', description: 'ISO timestamp lower bound (reserved)' },
-                to: { type: 'string', description: 'ISO timestamp upper bound (reserved)' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_loop_close',
-        description: 'Resolve an open loop. Call when the followed-up-on item is complete. Requires the loop_id ' +
-            'and a short resolution note.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                id: { type: 'string', description: 'Loop id (loop_*)' },
-                resolution: { type: 'string', description: 'Short note describing how the loop was closed' },
             },
             required: ['id'],
         },
@@ -330,44 +240,12 @@ export const TOOL_DEFINITIONS = [
         },
     },
     {
-        name: 'dashclaw_inbox_list',
-        description: 'List this agent\'s DashClaw inbox messages and unread count. Use at the start of a session, ' +
-            'or when notified, to see governance messages, lessons, questions, and status updates addressed ' +
-            'to you before deciding what to do next. Each message includes an is_read flag; the response also ' +
-            'carries the total unread_count. Pair with dashclaw_messages_mark_read once you have processed them.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string', description: 'Filter to one agent (defaults to the configured agent id)' },
-                direction: { type: 'string', enum: ['inbox', 'sent'], description: 'inbox (received) or sent. Default inbox.' },
-                unread: { type: 'boolean', description: 'When true, return only unread messages.' },
-                type: { type: 'string', description: 'Filter by message type (action, info, lesson, question, status).' },
-                limit: { type: 'integer', description: 'Max messages (default 50).' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_messages_mark_read',
-        description: 'Mark one or more DashClaw inbox messages as read for this agent. Call after processing messages ' +
-            'from dashclaw_inbox_list so they stop reappearing as unread. Direct messages are marked read for ' +
-            'the target agent; broadcasts record this agent in read_by. Returns { updated: <count> }.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                message_ids: { type: 'array', items: { type: 'string' }, description: 'Message IDs (msg_*) to mark read.' },
-                agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
-            },
-            required: ['message_ids'],
-        },
-    },
-    {
         name: 'dashclaw_pair',
-        description: 'Enroll this agent\'s cryptographic identity with DashClaw (operator pairing requests in your inbox ' +
+        description: 'Enroll this agent\'s cryptographic identity with DashClaw (operator pairing requests ' +
             'ask for exactly this). Generates an RSA-2048 keypair locally, stores the PRIVATE key on this machine ' +
             'only (~/.dashclaw/identity/<agent_id>.pem — never logged, never sent), and POSTs the public key to ' +
             '/api/pairings. An admin then approves the pairing, which creates the agent identity and lets your ' +
-            'recorded actions be signature-verified. Set wait:true to poll until approved/expired (max 5 min). ' +
-            'After pairing, mark the request message read via dashclaw_messages_mark_read.',
+            'recorded actions be signature-verified. Set wait:true to poll until approved/expired (max 5 min).',
         inputSchema: {
             type: 'object',
             properties: {
@@ -714,37 +592,6 @@ export function createToolHandlers(client) {
             const result = await client.get(`/api/sessions/${sessionId}/retro`, {}, { timeout: 15000 });
             return JSON.stringify(result);
         },
-        async dashclaw_handoff_create(args) {
-            const res = await client.fetch('/api/handoffs', {
-                method: 'POST',
-                body: JSON.stringify({
-                    agent_id: agentId(args),
-                    project_id: args.project_id,
-                    bundle: args.bundle,
-                }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
-        },
-        async dashclaw_handoff_latest(args) {
-            const params = new URLSearchParams();
-            const aid = agentIdFilter(args);
-            if (aid)
-                params.set('agent_id', aid);
-            if (args.project_id)
-                params.set('project_id', args.project_id);
-            const res = await client.fetch(`/api/handoffs/latest?${params}`);
-            if (res.status === 404)
-                return JSON.stringify(null);
-            const data = await res.json();
-            return JSON.stringify(data);
-        },
-        async dashclaw_handoff_consume(args) {
-            const res = await client.fetch(`/api/handoffs/${encodeURIComponent(args.id)}/consume`, {
-                method: 'POST',
-                body: JSON.stringify({ session_id: args.session_id }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
-        },
         async dashclaw_secret_list(args) {
             const params = new URLSearchParams();
             const aid = agentIdFilter(args);
@@ -769,48 +616,6 @@ export function createToolHandlers(client) {
             const res = await client.fetch(`/api/secrets/${encodeURIComponent(args.id)}`, {
                 method: 'PATCH',
                 body: JSON.stringify({ last_rotated_at: new Date().toISOString() }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
-        },
-        async dashclaw_loop_add(args) {
-            const res = await client.fetch('/api/actions/loops', {
-                method: 'POST',
-                body: JSON.stringify({
-                    action_id: args.action_id,
-                    loop_type: args.loop_type,
-                    description: args.description,
-                    priority: args.priority,
-                    owner: args.owner,
-                }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
-        },
-        async dashclaw_loop_list(args) {
-            const params = new URLSearchParams();
-            if (args.action_id)
-                params.set('action_id', args.action_id);
-            if (args.status)
-                params.set('status', args.status);
-            if (args.priority)
-                params.set('priority', args.priority);
-            const aid = agentIdFilter(args);
-            if (aid)
-                params.set('agent_id', aid);
-            if (args.from)
-                params.set('from', args.from);
-            if (args.to)
-                params.set('to', args.to);
-            const res = await client.fetch(`/api/actions/loops?${params}`);
-            const data = await res.json();
-            return JSON.stringify(data);
-        },
-        async dashclaw_loop_close(args) {
-            const res = await client.fetch(`/api/actions/loops/${encodeURIComponent(args.id)}`, {
-                method: 'PATCH',
-                body: JSON.stringify({
-                    status: 'resolved',
-                    resolution: args.resolution || 'Closed by agent via dashclaw_loop_close',
-                }),
             });
             return JSON.stringify(await jsonOrFailure(res));
         },
@@ -841,28 +646,6 @@ export function createToolHandlers(client) {
             const res = await client.fetch(`/api/guard/decisions?${params}`);
             const data = await res.json();
             return JSON.stringify(data);
-        },
-        async dashclaw_inbox_list(input) {
-            // GET /api/messages — the canonical inbox read. unread is a string flag
-            // server-side (checks === 'true'); undefined params are dropped by client.get.
-            const result = await client.get('/api/messages', {
-                agent_id: agentIdFilter(input),
-                direction: input.direction || 'inbox',
-                unread: input.unread ? 'true' : undefined,
-                type: input.type,
-                limit: input.limit,
-            }, { timeout: 10000 });
-            return JSON.stringify(result);
-        },
-        async dashclaw_messages_mark_read(input) {
-            // PATCH /api/messages with action:'read'. This is the durable mark-read
-            // path for MCP-only agents (no SDK install required). Returns { updated }.
-            const result = await client.patch('/api/messages', {
-                message_ids: input.message_ids,
-                action: 'read',
-                agent_id: agentId(input),
-            }, { timeout: 10000 });
-            return JSON.stringify(result);
         },
         async dashclaw_pair(input) {
             // Generate the keypair locally; the private key NEVER leaves this

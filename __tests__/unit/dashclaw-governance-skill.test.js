@@ -8,22 +8,9 @@ const skill = readFileSync(
 );
 
 describe('dashclaw-governance skill — toolkit-into-runtime sections', () => {
-  it('teaches dashclaw_handoff_create on session end', () => {
-    expect(skill).toMatch(/dashclaw_handoff_create/);
-    expect(skill).toMatch(/concluding a session/i);
-  });
-
-  it('teaches dashclaw_handoff_latest on session start', () => {
-    expect(skill).toMatch(/dashclaw_handoff_latest/);
-  });
-
   it('teaches dashclaw_secret_due before acting on credentials', () => {
     expect(skill).toMatch(/dashclaw_secret_due/);
     expect(skill).toMatch(/before acting on credentials/i);
-  });
-
-  it('teaches dashclaw_loop_add for in-conversation commitments', () => {
-    expect(skill).toMatch(/dashclaw_loop_add/);
   });
 
   it('teaches dashclaw_decisions_recent for in-session retrospection', () => {

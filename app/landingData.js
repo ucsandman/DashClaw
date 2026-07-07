@@ -25,7 +25,7 @@ export const frameworkQuickstarts = [
     }
   }
 }
-// 23 governance tools + 6 resources
+// 15 governance tools + 6 resources
 // No SDK. No code changes.`
   },
   {

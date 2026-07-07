@@ -13,7 +13,7 @@ import { Badge } from '../../components/ui/Badge';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { ListSkeleton } from '../../components/ui/Skeleton';
 import VerifyReceiptPanel from '../../components/VerifyReceiptPanel';
-import MarkdownBody from '../../messages/_components/MarkdownBody';
+import MarkdownBody from '../../components/MarkdownBody';
 import { FRAMEWORK_LABELS } from '../../lib/compliance/framework-labels';
 
 // Derived from the drift-guarded label map so this list can never cite a

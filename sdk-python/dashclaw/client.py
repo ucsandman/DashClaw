@@ -628,26 +628,7 @@ class DashClaw:
             self._record_tracked_failure(action_id, start_time, e)
             raise
 
-    # --- Category 2: Decision Integrity (Loops & Assumptions) ---
-
-    def register_open_loop(self, action_id, loop_type, description, **kwargs):
-        """Register an unresolved dependency for a decision. Open loops track work that must be completed before the decision is fully resolved."""
-        payload = {
-            "action_id": action_id,
-            "loop_type": loop_type,
-            "description": description,
-            **kwargs
-        }
-        return self._request("/api/actions/loops", method="POST", body=payload)
-
-    def resolve_open_loop(self, loop_id, status, resolution=None):
-        payload = {"status": status, "resolution": resolution}
-        return self._request(f"/api/actions/loops/{loop_id}", method="PATCH", body=payload)
-
-    def get_open_loops(self, **filters):
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        path = f"/api/actions/loops?{query}" if query else "/api/actions/loops"
-        return self._request(path)
+    # --- Category 2: Decision Integrity (Assumptions) ---
 
     def register_assumption(self, action_id, assumption=None, **kwargs):
         """Register assumptions underlying a decision."""
@@ -804,20 +785,6 @@ class DashClaw:
             payload = {"health": health, "entities": entities, "topics": topics}
         return self._request("/api/memory", method="POST", body=payload)
 
-    # --- Category 5: Session Handoffs ---
-
-    def create_handoff(self, summary, **kwargs):
-        payload = {"summary": summary, "agent_id": self.agent_id, **kwargs}
-        return self._request("/api/handoffs", method="POST", body=payload)
-
-    def get_handoffs(self, **filters):
-        filters["agent_id"] = self.agent_id
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        return self._request(f"/api/handoffs?{query}")
-
-    def get_latest_handoff(self):
-        return self._request(f"/api/handoffs?agent_id={self.agent_id}&latest=true")
-
     # --- Category 7: Automation Snippets ---
 
     def save_snippet(self, name, code, **kwargs):
@@ -908,37 +875,20 @@ class DashClaw:
             payload["source"] = source
         return self._request("/api/security/prompt-injection", method="POST", body=payload)
 
-    # --- Category 11: Agent Messaging ---
-
-    def send_message(self, body, to=None, message_type="info", attachments=None, **kwargs):
-        payload = {
-            "from_agent_id": self.agent_id,
-            "to_agent_id": to,
-            "message_type": message_type,
-            "body": body,
-            **kwargs
-        }
-        if attachments:
-            payload["attachments"] = attachments
-        return self._request("/api/messages", method="POST", body=payload)
+    # --- Category 11: Action Context ---
 
     @contextmanager
     def action_context(self, action_id):
-        """Context manager that auto-tags messages and assumptions with action_id.
+        """Context manager that auto-tags assumptions and outcome updates with action_id.
 
         Usage:
             with claw.action_context("act_123") as ctx:
-                ctx.send_message("Hello", to="agent-b")
                 ctx.record_assumption({"assumption": "Staging is clear"})
                 ctx.update_outcome(status="completed")
         """
         class _ActionContext:
             def __init__(ctx_self):
                 ctx_self.action_id = action_id
-
-            def send_message(ctx_self, body, to=None, message_type="info", attachments=None, **kwargs):
-                kwargs["action_id"] = action_id
-                return self.send_message(body, to=to, message_type=message_type, attachments=attachments, **kwargs)
 
             def record_assumption(ctx_self, assumption):
                 if isinstance(assumption, dict):
@@ -949,114 +899,6 @@ class DashClaw:
                 return self.update_outcome(action_id, status=status, **kwargs)
 
         yield _ActionContext()
-
-    def get_inbox(self, **filters):
-        filters["agent_id"] = self.agent_id
-        filters["direction"] = "inbox"
-        query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
-        return self._request(f"/api/messages?{query}")
-
-    def get_sent_messages(self, message_type=None, thread_id=None, limit=None):
-        """Get messages sent by this agent."""
-        params = {"agent_id": self.agent_id, "direction": "sent"}
-        if message_type is not None:
-            params["type"] = message_type
-        if thread_id is not None:
-            params["thread_id"] = thread_id
-        if limit is not None:
-            params["limit"] = limit
-        query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
-        return self._request(f"/api/messages?{query}")
-
-    def get_messages(self, direction=None, message_type=None, unread=None, thread_id=None, limit=None):
-        """Get messages with full filter control. direction: 'inbox' | 'sent' | 'all'"""
-        params = {"agent_id": self.agent_id}
-        if direction is not None:
-            params["direction"] = direction
-        if message_type is not None:
-            params["type"] = message_type
-        if unread:
-            params["unread"] = "true"
-        if thread_id is not None:
-            params["thread_id"] = thread_id
-        if limit is not None:
-            params["limit"] = limit
-        query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
-        return self._request(f"/api/messages?{query}")
-
-    def get_message(self, message_id):
-        """Get a single message by ID."""
-        return self._request(f"/api/messages/{urllib.parse.quote(message_id)}")
-
-    def mark_read(self, message_ids):
-        return self._request("/api/messages", method="PATCH", body={
-            "message_ids": message_ids,
-            "action": "read",
-            "agent_id": self.agent_id,
-        })
-
-    def archive_messages(self, message_ids):
-        return self._request("/api/messages", method="PATCH", body={
-            "message_ids": message_ids,
-            "action": "archive",
-            "agent_id": self.agent_id,
-        })
-
-    def broadcast(self, body, message_type="info", subject=None, thread_id=None):
-        return self.send_message(
-            body=body,
-            to=None,
-            message_type=message_type,
-            subject=subject,
-            thread_id=thread_id,
-        )
-
-    def create_message_thread(self, name, participants=None):
-        return self._request("/api/messages/threads", method="POST", body={
-            "name": name,
-            "participants": participants,
-            "created_by": self.agent_id,
-        })
-
-    def get_message_threads(self, status=None, limit=None):
-        params = {"agent_id": self.agent_id}
-        if status is not None:
-            params["status"] = status
-        if limit is not None:
-            params["limit"] = limit
-        query = urllib.parse.urlencode(params)
-        return self._request(f"/api/messages/threads?{query}")
-
-    def resolve_message_thread(self, thread_id, summary=None):
-        return self._request("/api/messages/threads", method="PATCH", body={
-            "thread_id": thread_id,
-            "status": "resolved",
-            "summary": summary,
-        })
-
-    def save_shared_doc(self, name, content):
-        return self._request("/api/messages/docs", method="POST", body={
-            "name": name,
-            "content": content,
-            "agent_id": self.agent_id,
-        })
-
-    def get_attachment_url(self, attachment_id):
-        """Get the URL to download an attachment."""
-        return f"{self.base_url}/api/messages/attachments?id={urllib.parse.quote(attachment_id)}"
-
-    def get_attachment(self, attachment_id):
-        """Download an attachment's binary data."""
-        url = self.get_attachment_url(attachment_id)
-        req = urllib.request.Request(url, headers={"x-api-key": self.api_key})
-        with urllib.request.urlopen(req) as resp:
-            data = resp.read()
-            content_type = resp.headers.get("Content-Type", "application/octet-stream")
-            cd = resp.headers.get("Content-Disposition", "")
-            import re
-            match = re.search(r'filename="(.+?)"', cd)
-            filename = match.group(1) if match else attachment_id
-            return {"data": data, "filename": filename, "mime_type": content_type}
 
     # --- Category 13: Policy Enforcement (Guard) ---
 

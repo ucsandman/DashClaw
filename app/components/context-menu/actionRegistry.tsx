@@ -1,7 +1,6 @@
 import {
   Eye,
   Check,
-  CheckCheck,
   Ban,
   Shield,
   Trash2,
@@ -9,8 +8,6 @@ import {
   Link as LinkIcon,
   ExternalLink,
   RefreshCw,
-  Archive,
-  MailOpen,
   XCircle,
 } from 'lucide-react';
 import type { ActionContext, EntityTarget, MenuItem } from './types';
@@ -129,12 +126,10 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   decision: decisionActions,
   action: decisionActions,
   assumption: assumptionActions,
-  loop: loopActions,
   capability: capabilityActions,
   policy: policyActions,
   webhook: webhookActions,
   apiKey: apiKeyActions,
-  message: messageActions,
   session: sessionActions,
   teamMember: teamMemberActions,
 };
@@ -203,31 +198,6 @@ function assumptionActions(entity: EntityTarget): MenuItem[] {
   ];
 }
 
-function loopActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'resolve',
-      label: 'Resolve…',
-      icon: CheckCheck,
-      run: async (ctx) => {
-        const resolution = promptReason('Resolution note?');
-        if (!resolution) return;
-        await patchJson(`/api/actions/loops/${entity.id}`, { status: 'resolved', resolution });
-        ctx.refresh();
-      },
-    },
-    {
-      id: 'cancel',
-      label: 'Cancel',
-      icon: Ban,
-      run: async (ctx) => {
-        await patchJson(`/api/actions/loops/${entity.id}`, { status: 'cancelled' });
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
 function capabilityActions(entity: EntityTarget): MenuItem[] {
   return [
     { id: 'view', label: 'View capability', icon: Eye, run: (ctx) => ctx.push(`/capabilities/${entity.id}`) },
@@ -285,29 +255,6 @@ function apiKeyActions(entity: EntityTarget): MenuItem[] {
       danger: true,
       run: async (ctx) => {
         await del(`/api/keys?id=${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function messageActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'mark-read',
-      label: 'Mark read',
-      icon: MailOpen,
-      run: async (ctx) => {
-        await patchJson('/api/messages', { message_ids: [entity.id], action: 'read' });
-        ctx.refresh();
-      },
-    },
-    {
-      id: 'archive',
-      label: 'Archive',
-      icon: Archive,
-      run: async (ctx) => {
-        await patchJson('/api/messages', { message_ids: [entity.id], action: 'archive' });
         ctx.refresh();
       },
     },

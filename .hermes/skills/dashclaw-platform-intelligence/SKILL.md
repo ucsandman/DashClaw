@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:58eab9e6a7264ee64c863b454fbbf93ea3b3b4f4`
+**Shape snapshot:** `sha1:db75bb7a06dcfb0cb45e80740a140a87ce986f27`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **179** active API routes across **57** categories (179 total including archived)
-- **4** required + **194** optional environment variables
+- **169** active API routes across **56** categories (169 total including archived)
+- **4** required + **193** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -57,12 +57,9 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET, PATCH` `/api/actions/[actionId]`
 - `GET` `/api/actions/[actionId]/artifacts`
 - `GET` `/api/actions/[actionId]/graph`
-- `GET` `/api/actions/[actionId]/messages`
 - `GET, POST` `/api/actions/[actionId]/outcome`
 - `GET` `/api/actions/[actionId]/trace`
 - `GET` `/api/actions/costs`
-- `GET, POST` `/api/actions/loops`
-- `GET, PATCH` `/api/actions/loops/[loopId]`
 - `GET` `/api/actions/stats`
 
 ### `activity`
@@ -197,13 +194,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET, POST` `/api/halt`
 
-### `handoffs`
-
-- `GET, POST` `/api/handoffs`
-- `GET` `/api/handoffs/[id]`
-- `POST` `/api/handoffs/[id]/consume`
-- `GET` `/api/handoffs/latest`
-
 ### `health`
 
 - `GET` `/api/health`
@@ -255,9 +245,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `messages`
 
 - `GET, PATCH, POST` `/api/messages`
-- `GET` `/api/messages/attachments`
-- `GET, PATCH, POST` `/api/messages/threads`
-- `GET` `/api/messages/threads/[threadId]`
 
 ### `oauth`
 
@@ -407,7 +394,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
-- **`DATABASE_URL`** - referenced in 88 file(s)
+- **`DATABASE_URL`** - referenced in 87 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -472,7 +459,6 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_LOCAL_HOME` *(undocumented)*
 - `DASHCLAW_LOCK_STALE_MS` *(undocumented)*
 - `DASHCLAW_LOG_STARTUP` *(undocumented)*
-- `DASHCLAW_MAX_ORG_ATTACHMENT_BYTES` *(undocumented)*
 - `DASHCLAW_MEMORY_MAX_ENTRIES` *(undocumented)*
 - `DASHCLAW_MODE` *(undocumented)*
 - `DASHCLAW_NEW_CONNECT_WEBHOOK` *(undocumented)*

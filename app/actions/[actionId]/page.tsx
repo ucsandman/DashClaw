@@ -49,7 +49,6 @@ export default function DecisionReplayPage() {
 
   const [activeTab, setActiveTab] = useState('timeline');
   const [action, setAction] = useState<any>(null);
-  const [loops, setLoops] = useState<any[]>([]);
   const [assumptions, setAssumptions] = useState<any[]>([]);
   const [trace, setTrace] = useState<any>(null);
   const [guardDecision, setGuardDecision] = useState<any>(null);
@@ -58,7 +57,6 @@ export default function DecisionReplayPage() {
   const [error, setError] = useState<string | null>(null);
   const [pendingOps, setPendingOps] = useState<Record<string, string>>({});
   const [invalidateReasons, setInvalidateReasons] = useState<Record<string, string>>({});
-  const [resolveTexts, setResolveTexts] = useState<Record<string, string>>({});
 
   const fetchData = useCallback(async () => {
     try {
@@ -69,7 +67,6 @@ export default function DecisionReplayPage() {
       }
       const data = await res.json();
       setAction(data.action);
-      setLoops(data.open_loops || []);
       setAssumptions(data.assumptions || []);
       setDefense(data.agent_defense || null);
       // Exact FK-linked guard decision (action_records.guard_decision_id) —
@@ -175,42 +172,6 @@ export default function DecisionReplayPage() {
       }
     } catch (err) { console.error('Failed to invalidate assumption:', err); }
     setPendingOps(prev => { const n = { ...prev }; delete n[assumptionId]; return n; });
-  };
-
-  // --- Loop actions ---
-  const handleResolveLoop = async (loopId: string) => {
-    const resolution = resolveTexts[loopId]?.trim();
-    if (!resolution) return;
-    setPendingOps(prev => ({ ...prev, [loopId]: 'resolving' }));
-    try {
-      const res = await fetch(`/api/actions/loops/${loopId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'resolved', resolution })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
-        setResolveTexts(prev => { const n = { ...prev }; delete n[loopId]; return n; });
-      }
-    } catch (err) { console.error('Failed to resolve loop:', err); }
-    setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
-  };
-
-  const handleCancelLoop = async (loopId: string) => {
-    setPendingOps(prev => ({ ...prev, [loopId]: 'cancelling' }));
-    try {
-      const res = await fetch(`/api/actions/loops/${loopId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'cancelled' })
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setLoops(prev => prev.map(l => l.loop_id === loopId ? data.loop : l));
-      }
-    } catch (err) { console.error('Failed to cancel loop:', err); }
-    setPendingOps(prev => { const n = { ...prev }; delete n[loopId]; return n; });
   };
 
   if (loading) {
@@ -921,46 +882,6 @@ export default function DecisionReplayPage() {
             </Card>
           )}
 
-          {/* Open Dependency Loop */}
-          {loops.filter(l => l.status === 'open').length > 0 && (
-            <Card hover={false} className="border-l-4 border-l-amber-500">
-              <CardHeader title="Active Interventions" icon={RefreshCw} count={loops.filter(l => l.status === 'open').length} />
-              <CardContent>
-                <div className="space-y-4">
-                  {loops.filter(l => l.status === 'open').map(loop => (
-                    <div key={loop.loop_id} className="bg-white/5 p-3 rounded-lg">
-                      <div className="text-xs text-white font-medium mb-2">{loop.description}</div>
-                      <div className="flex flex-col gap-2">
-                        <input
-                          type="text"
-                          placeholder="Resolution info..."
-                          value={resolveTexts[loop.loop_id] || ''}
-                          onChange={(e) => setResolveTexts(prev => ({ ...prev, [loop.loop_id]: e.target.value }))}
-                          className="px-2 py-1.5 bg-black/40 border border-white/10 rounded text-[10px] text-white focus:outline-none focus:border-success/50"
-                        />
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => handleResolveLoop(loop.loop_id)}
-                            disabled={!resolveTexts[loop.loop_id]?.trim() || !!pendingOps[loop.loop_id]}
-                            className="flex-1 px-2 py-1 bg-status-success text-white hover:bg-emerald-600 disabled:opacity-50 text-[10px] rounded font-bold transition-colors"
-                          >
-                            Resolve
-                          </button>
-                          <button
-                            onClick={() => handleCancelLoop(loop.loop_id)}
-                            disabled={!!pendingOps[loop.loop_id]}
-                            className="px-2 py-1 text-secondary hover:text-white text-[10px] transition-colors"
-                          >
-                            Cancel
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
       </div>
     </PageLayout>

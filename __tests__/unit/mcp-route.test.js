@@ -58,10 +58,9 @@ describe('POST /api/mcp', () => {
     const res = await POST(request);
     const data = await res.json();
 
-    expect(data.result.tools).toHaveLength(23);
+    expect(data.result.tools).toHaveLength(15);
     expect(data.result.tools.map(t => t.name)).toContain('dashclaw_guard');
     expect(data.result.tools.map(t => t.name)).toContain('dashclaw_assumption_record');
-    expect(data.result.tools.map(t => t.name)).toContain('dashclaw_inbox_list');
     expect(data.result.tools[0].inputSchema).toBeDefined();
   });
 

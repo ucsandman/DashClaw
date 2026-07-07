@@ -288,51 +288,6 @@ class TestRecordAssumption(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# register_open_loop
-# ---------------------------------------------------------------------------
-
-class TestRegisterOpenLoop(unittest.TestCase):
-    def test_posts_loop_payload(self):
-        client = RecordingDashClaw()
-        client.register_open_loop("act_1", "dependency", "Waiting for approval")
-
-        call = client.calls[-1]
-        self.assertEqual(call["method"], "POST")
-        self.assertEqual(call["path"], "/api/actions/loops")
-        self.assertEqual(call["body"]["action_id"], "act_1")
-        self.assertEqual(call["body"]["loop_type"], "dependency")
-        self.assertEqual(call["body"]["description"], "Waiting for approval")
-
-    def test_passes_kwargs_through(self):
-        client = RecordingDashClaw()
-        client.register_open_loop("act_1", "dependency", "desc", priority="high")
-
-        self.assertEqual(client.calls[-1]["body"]["priority"], "high")
-
-
-# ---------------------------------------------------------------------------
-# resolve_open_loop
-# ---------------------------------------------------------------------------
-
-class TestResolveOpenLoop(unittest.TestCase):
-    def test_patches_loop_with_status_and_resolution(self):
-        client = RecordingDashClaw()
-        client.resolve_open_loop("loop_1", "resolved", resolution="Approval received")
-
-        call = client.calls[-1]
-        self.assertEqual(call["method"], "PATCH")
-        self.assertEqual(call["path"], "/api/actions/loops/loop_1")
-        self.assertEqual(call["body"]["status"], "resolved")
-        self.assertEqual(call["body"]["resolution"], "Approval received")
-
-    def test_resolution_defaults_to_none(self):
-        client = RecordingDashClaw()
-        client.resolve_open_loop("loop_1", "abandoned")
-
-        self.assertIsNone(client.calls[-1]["body"]["resolution"])
-
-
-# ---------------------------------------------------------------------------
 # get_signals
 # ---------------------------------------------------------------------------
 

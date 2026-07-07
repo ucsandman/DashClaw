@@ -18,19 +18,13 @@ const { createToolHandlers, TOOL_DEFINITIONS } = await import('../../mcp-server/
 import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Tool Definitions', () => {
-  it('exports exactly 23 tool definitions', () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(23);
+  it('exports exactly 15 tool definitions', () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(15);
   });
 
   it('includes the assumption recording tool', () => {
     const names = TOOL_DEFINITIONS.map((d) => d.name);
     expect(names).toContain('dashclaw_assumption_record');
-  });
-
-  it('includes the inbox read tools', () => {
-    const names = TOOL_DEFINITIONS.map((d) => d.name);
-    expect(names).toContain('dashclaw_inbox_list');
-    expect(names).toContain('dashclaw_messages_mark_read');
   });
 
   it('every definition has name, description, and inputSchema', () => {
@@ -372,50 +366,6 @@ describe('Tool Handlers', () => {
 
       expect(JSON.parse(result).error).toMatch(/No session_id given/);
       expect(mockGet).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('dashclaw_inbox_list', () => {
-    it('calls GET /api/messages with the server agent_id and inbox default', async () => {
-      mockGet.mockResolvedValue({ messages: [{ id: 'msg_1' }], total: 1, unread_count: 1 });
-
-      const result = await handlers.dashclaw_inbox_list({ unread: true, limit: 25 });
-
-      expect(mockGet).toHaveBeenCalledWith('/api/messages', {
-        agent_id: 'default-agent',
-        direction: 'inbox',
-        unread: 'true',
-        type: undefined,
-        limit: 25,
-      }, { timeout: 10000 });
-      expect(result).toContain('unread_count');
-    });
-
-    it('drops the unread flag when not requested', async () => {
-      mockGet.mockResolvedValue({ messages: [], total: 0, unread_count: 0 });
-      await handlers.dashclaw_inbox_list({});
-      expect(mockGet).toHaveBeenCalledWith('/api/messages', expect.objectContaining({
-        direction: 'inbox',
-        unread: undefined,
-      }), { timeout: 10000 });
-    });
-  });
-
-  describe('dashclaw_messages_mark_read', () => {
-    it('PATCHes /api/messages with action:read and the server agent_id', async () => {
-      mockPatch.mockResolvedValue({ updated: 2 });
-
-      const result = await handlers.dashclaw_messages_mark_read({
-        message_ids: ['msg_1', 'msg_2'],
-        agent_id: 'spoofed', // must be overridden by the server identity
-      });
-
-      expect(mockPatch).toHaveBeenCalledWith('/api/messages', {
-        message_ids: ['msg_1', 'msg_2'],
-        action: 'read',
-        agent_id: 'default-agent',
-      }, { timeout: 10000 });
-      expect(result).toContain('"updated":2');
     });
   });
 

@@ -41,12 +41,9 @@ afterEach(() => {
 });
 
 const READ_TOOLS: Array<[string, Record<string, unknown>]> = [
-  ["dashclaw_loop_list", {}],
   ["dashclaw_decisions_recent", {}],
-  ["dashclaw_handoff_latest", {}],
   ["dashclaw_secret_list", {}],
   ["dashclaw_secret_due", {}],
-  ["dashclaw_inbox_list", {}],
 ];
 
 describe("read tools: explicit agent_id filter wins over configured id", () => {
@@ -63,14 +60,4 @@ describe("read tools: explicit agent_id filter wins over configured id", () => {
       expect(lastRequestUrl().searchParams.get("agent_id")).toBe("srv-agent");
     });
   }
-});
-
-describe("loop_list forwards the action_id filter", () => {
-  it("sends action_id to /api/actions/loops", async () => {
-    const handlers = makeHandlers("srv-agent") as Record<string, (i: unknown) => Promise<string>>;
-    await handlers.dashclaw_loop_list({ action_id: "act_123" });
-    const url = lastRequestUrl();
-    expect(url.pathname).toBe("/api/actions/loops");
-    expect(url.searchParams.get("action_id")).toBe("act_123");
-  });
 });
