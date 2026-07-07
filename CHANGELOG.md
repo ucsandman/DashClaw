@@ -13,6 +13,90 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.0.0] — 2026-07-07
+
+**The cull. DashClaw becomes exactly one product: the fail-closed approval layer
+for unattended coding agents — and nothing else.**
+
+This is the major break the new canonical product thesis
+([`THESIS.md`](THESIS.md)) demands. DashClaw is now one loop —
+**intercept → decide → approve → prove** — plus the surfaces that directly
+support it (auth/keys, setup, health). Every surface that was not on that loop,
+or scaffolding for a different product wearing the same name (the agent
+platform), was removed. This is also the version at which the deprecated
+`dashclaw/legacy` Node SDK subpath was promised to disappear — and it does.
+
+Nothing is irreversible. Every removed surface is **recoverable by SHA** (git
+history intact, no rewrites) via the kill ledger, and **no destructive database
+migration ships** — retired tables stay physically in place.
+
+### The cull, by the numbers (verified live at the release candidate)
+
+| Surface | Before (4.76.0) | After (5.0.0) |
+|---|---|---|
+| API routes (canonical inventory) | 337 | 116 |
+| App pages | 95 | 46 |
+| MCP tools | 33 | 12 |
+| MCP resources | 6 | 3 |
+| Node SDK methods | 149 | 28 |
+| Python SDK methods | 234 | 51 |
+| CLI commands | 21 | 13 |
+| Guard policy types | 17 | 14 |
+
+221 route files, 49 pages, and ~1,100 tracked files removed across 19 waves.
+
+### Removed (see the kill ledger for the exhaustive per-surface list)
+
+The agent-platform tier: fleet/observability/dashboard/posture, team/RBAC,
+workflows/work-orders/swarm, the prompts library, knowledge/RAG (pgvector),
+learning + behavior learning + policy-coach, model-strategies/BYOK routing,
+scoring + evaluations, code-sessions/optimal-files/skill-scan, messages/threads/
+handoffs/open-loops, reputation/leaderboard + the routing engine, the drift
+engine, the compliance cockpit, x402/FinOps/billing/plan-quota, managed secrets,
+the status-widget PWA, the capability-registry CRUD/UI, the MCP server's absorbed
+provider-tool fork (Stripe/Vercel/Neon/Twilio/Namecheap/Supabase/Sentry/… ~9k
+lines), and the deprecated `dashclaw/legacy` SDK subpath + Python `[langchain]`
+extra. Guard policy types `semantic_check`, `behavioral_anomaly`, and
+`x402_spend_limit` are gone. `app/api/_archive` (48 runtime-dead routes) deleted
+outright.
+
+### Kept, folded, or demoted
+
+- **The loop survives whole:** guard/policy/risk/calibration, the tri-runtime
+  hooks (fail-closed, exit-2 on block), the OpenClaw gateway, `dashclaw_invoke`,
+  action recording, the Approvals inbox, signed Ed25519 receipts + JWKS export,
+  and the enforcement-liveness probe (re-homed onto SessionStart).
+- **Compliance signing folds into Prove:** `/api/artifacts/evidence-bundle` now
+  signs via `app/lib/integrity/bundle`; `/api/integrity/{jwks,verify}` stay.
+- **Calibration ships on** in its constitutional mode (loosening is a human-
+  ratified proposal in `/policies`).
+- **Demoted off the front door:** the hosted trial (now the secondary "see the
+  inbox without deploying" door, graduation/export intact), `/proof` +
+  self-governance, and the `dashclaw_invoke` capability seam (inert-by-default,
+  no in-product create path post-cull).
+
+### The anti-regrowth brake
+
+A mechanical surface-budget gate now ships: `npm run surface:check`
+(`scripts/check-surface-budget.mjs`, `contracts/surface-budget.json`), wired into
+CI. It fails the build if any governed surface exceeds its v5.0.0 ceiling unless
+the same commit amends THESIS.md with a written reason. The 2026-03 purge regrew
+in four months because its promised gate never shipped; this one did.
+
+### Migration
+
+Existing installs keep working against the surviving governance core. Removed SDK
+methods, MCP tools, and route groups map to "out of scope per the thesis" (with
+governance-core replacements where they exist) in the migration notes:
+[`docs/releases/v5-migration.md`](docs/releases/v5-migration.md). The exhaustive
+recoverable-by-SHA record is the kill ledger:
+[`docs/releases/2026-07-07-v5-kill-ledger.md`](docs/releases/2026-07-07-v5-kill-ledger.md).
+
+The `dashclaw` plugin bundle bumps to **3.0.0** (breaking hook changes: the
+session digest is removed, the liveness probe re-homed, the code-session reporter
+deleted — re-install hooks via `dashclaw install`). The `@dashclaw/cli` bumps to
+**0.8.0** (8 commands removed). Platform + both SDKs share **5.0.0**.
+
 ## [4.76.0] — 2026-07-06
 
 Entry-path drills: both doors proven on repeat (roadmap v8.3). Three

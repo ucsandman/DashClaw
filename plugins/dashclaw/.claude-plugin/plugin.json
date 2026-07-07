@@ -1,6 +1,6 @@
 {
   "name": "dashclaw",
-  "version": "2.16.0",
+  "version": "3.0.0",
   "description": "DashClaw governance, integration, troubleshooting, and platform intelligence for Claude Code.",
   "author": {
     "name": "DashClaw",

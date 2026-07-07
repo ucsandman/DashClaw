@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "4.76.0",
-    "next_bump": "none",
-    "reason": "No Node SDK source change in 4.76.0 - the version advances per the unified model but the SDK is NOT republished; npm stays at 4.73.0.",
+    "current_version": "5.0.0",
+    "next_bump": "major",
+    "reason": "v5.0.0 collapses the Node SDK to the governance core (149 -> 28 methods) and deletes the deprecated dashclaw/legacy subpath. SDK source changed substantially - the SDK IS republished to npm at 5.0.0 (credential-gated human tail: npm run release:sdks).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "4.76.0",
-    "next_bump": "none",
-    "reason": "No Python SDK source change in 4.76.0 - the version advances per the unified model but the SDK is NOT republished; PyPI stays at 4.73.0.",
+    "current_version": "5.0.0",
+    "next_bump": "major",
+    "reason": "v5.0.0 collapses the Python SDK to the governance core (234 -> 51 methods) and removes the dashclaw[langchain] extra. SDK source changed substantially - the SDK IS republished to PyPI at 5.0.0 (credential-gated human tail: npm run release:sdks).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v4.76.0 ships entry-path drills (roadmap v8.3): one-command fresh-machine + hosted stranger drills (scripts/drills/) that exercise the distribution path; a hosted drill-mint token (HOSTED_DRILL_TOKEN, timing-safe, force-labeled source=drill, cohort-excluded) as the operator-held Turnstile substitute; and a CLI fix (rootPostgresOptions/createPostgresUser) the Linux root drill caught live. Platform SDKs unchanged; @dashclaw/cli 0.7.5 (source changed) republishes.",
+  "reason": "v5.0.0 is the cull (THESIS.md): DashClaw collapses to the governance loop (intercept -> decide -> approve -> prove). Both SDKs' source changed materially and republish at 5.0.0; @dashclaw/cli republishes at 0.8.0 (8 commands removed); the dashclaw plugin bundle advances to 3.0.0 (breaking hook changes). See docs/releases/2026-07-07-v5-kill-ledger.md.",
   "domains": [
     "platform"
   ]

@@ -12,6 +12,132 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-07 — v5.0.0: the cull — DashClaw becomes one product
+
+This is the largest single change in the project's history, and the hardest to
+justify line by line, so this entry is long on purpose.
+
+**The mandate.** Wes's charge for this session was explicit: *"decide what the
+perfect product is given everything you know, then make the repo be exactly that
+product and nothing else."* Full product authority, including the authority to
+delete. That is a different kind of latitude than a normal roadmap item, and it
+carried a matching obligation — to be sure before cutting, and to make every cut
+recoverable.
+
+**How the thesis was reached.** Before touching code I ran a structured
+convergence, not a hunch. Nine parallel evidence miners went through project
+memory, the maintainer log end to end, roadmaps v1–v8, the RFCs and architecture
+docs, market evidence, a survey of what the code is objectively best at, the
+`_archive` autopsy, session history, and positioning. From that, five candidate
+product definitions were written from genuinely different lenses, put in front of
+fifteen adversarial judges, and handed to two independent cross-candidate
+comparators. Both comparators converged on the same physical product and disagreed
+only on framing. That product is [`THESIS.md`](../THESIS.md): DashClaw is one loop
+— **intercept → decide → approve → prove** — the fail-closed approval layer for
+unattended coding agents, and nothing else. The evidence was one-directional:
+every real catch in the product's history (`rm -rf`, `DROP TABLE`, force-push,
+`.env` exfiltration at risk 100) is this loop firing; everything else was either
+scaffolding for it or a different product (the agent platform) wearing the same
+name — the one that was already tried, archived, regrew, and is why ~250 of ~290
+active routes contradicted the repo's own stated identity.
+
+**The execution.** The cull ran as 19 dependency-ordered waves on the `v5-cull`
+branch, each a squashed commit tagged `v5-w<N>`, each independently green and
+independently revertible. Wave 0 was the whole risk: it severed every surviving
+file from every dying subsystem *first* — the guard hot path, middleware, the demo
+layer, the nav, the `/decisions` pages, the tri-runtime hooks — so every later
+wave was a pure deletion rather than a re-edit of shared surfaces. After that,
+Waves 1–16 deleted subsystems (fossil `_archive`, fleet/observability, workflows,
+prompts, knowledge, learning/behavior, model-strategies, scoring/evals,
+code-sessions, messaging, reputation, drift, compliance, x402/finops, secrets,
+widget, capability registry, the MCP provider fork, the legacy SDK, the CLI
+commands). Wave 17 realigned docs and marketing to the loop and archived (never
+erased) the superseded strategy docs. Wave 18 shipped the anti-regrowth brake.
+This wave (19) is the release itself.
+
+**The numbers** (verified live at the release candidate, not asserted):
+
+| Surface | Before (4.76.0) | After (5.0.0) |
+|---|---|---|
+| API routes (canonical inventory) | 337 | 116 |
+| App pages | 95 | 46 |
+| MCP tools | 33 | 12 |
+| MCP resources | 6 | 3 |
+| Node SDK methods | 149 | 28 |
+| Python SDK methods | 234 | 51 |
+| CLI commands | 21 | 13 |
+| Guard policy types | 17 | 14 |
+
+221 route files, 49 pages, ~1,100 tracked files removed. Every one is recoverable
+by SHA — git history is intact, no rewrites — and the exhaustive per-surface record
+is the [kill ledger](releases/2026-07-07-v5-kill-ledger.md).
+
+**The deviations that mattered** (the parts that don't make the plan look clean):
+
+- **The liveness-probe re-homing catch.** The enforcement-liveness probe — the
+  thing that proves the governor is awake, added *because* it once silently
+  wasn't (v4.72.1) — was wired onto the SessionStart digest that Wave 6 was about
+  to delete. Deleting the digest naively would have silently un-armed the probe:
+  the exact class of failure the probe exists to catch. Wave 6 re-homed the probe
+  onto SessionStart directly (commit `a1bc7465`) before the digest went. This was
+  the highest-stakes near-miss of the cull.
+- **The assumption-ack carve-out (RISK-2).** `/api/messages` was marked KILL, but
+  the KEEP guard/assumptions/pretool path depends on the assumption-alert ack that
+  rode the messaging endpoint. Instead of a clean delete, Wave 9a kept a *slim*
+  `/api/messages` GET/PATCH ack survivor and the `agent_messages` table live. The
+  messaging *product* died; the one governance-load-bearing thread through it
+  stayed.
+- **Quota/finops stripping decision.** `/api/cron/reset-meters` was labeled KEEP
+  in the first pass; on reading its body it purges `usage_meters` and imports the
+  finops period helper — it is a finops mechanism, not a governance one. Reclassed
+  to KILL (Wave 12). The whole "bankrupted"/spend axis moved out of scope per the
+  thesis; it is a separate product (RFC 0002), still gated on Wes.
+- **Seam preservations.** Three enforcement seams were explicitly kept alive while
+  their surrounding products died: `dashclaw_invoke` + the capability access/invoke
+  routes (registry CRUD/UI gone, seam inert-by-default, fed by manual SQL);
+  compliance *signing* folded into `/api/artifacts/evidence-bundle` (the cockpit
+  died, the signed evidence got stronger); and fleet *attribution*
+  (`/api/agents/fanouts`, `action_records.swarmId`) kept while the fleet roster and
+  swarm orchestration went.
+- **No destructive migration.** Constitution-safe: not one table was dropped. ~90
+  retired subsystems' tables stay physically in place; the code stops reading them.
+  `drizzle-kit generate` was never run for a removal. A deliberate export-then-drop
+  path is documented for later, separately.
+- **The anti-regrowth brake is mechanical this time.** The 2026-03 purge (178→5 SDK
+  methods) regrew to full sprawl in four months because its promised "Governance
+  Boundary CI check" never shipped. This time the gate shipped first
+  (`npm run surface:check`, Wave 18): exceeding any v5.0.0 surface ceiling fails CI
+  unless the commit also amends THESIS.md with a reason. Sprawl is now a recorded,
+  deliberate act, not a drift.
+
+**What stays time-gated.** The measurement window survives the cull, demoted from
+steering gate to honesty artifact. `scripts/measurement-read.mjs` and its dates
+hold: the v8.1 cohort read (≥2026-07-19) and the v8.6 exit read (≥2026-07-20)
+still run and still get written against the OLD door, becoming the baseline the
+new falsifiers are judged against. A product built on claims-proven-live does not
+delete its own instrument days before it fires.
+
+**Tail items for Wes** (credential-gated, §4 — prepared to a single action, not
+blocking anything else):
+
+1. `npm run release:sdks` — publish `dashclaw` (npm) + `dashclaw` (PyPI) at 5.0.0.
+2. `npm run release:mcp` — publish the MCP server if its version advanced.
+3. `npm publish` in `cli/` for `@dashclaw/cli@0.8.0` (8 commands removed).
+4. Plugin bundle publish at 3.0.0 if the marketplace pushes it (breaking hook
+   changes: digest removed, probe re-homed, reporter deleted — users re-install via
+   `dashclaw install`).
+5. Live-hosted drill with `HOSTED_DRILL_TOKEN` (`npm run drill:hosted`) against the
+   real hosted instance, and the Windows sandbox ritual if not already run this
+   cycle.
+6. **Ratify (or decline) the MAINTAINER.md thesis amendment** —
+   [`releases/v5-maintainer-amendment-proposal.md`](releases/v5-maintainer-amendment-proposal.md).
+   Per §5 the maintainer prepared it but does not apply it. It only realigns the
+   charter's opening sentence with the shipped product (spend governance out of
+   scope; the signed audit layer is how "blamed unfairly" is answered).
+
+The GitHub Release and the final `v5.0.0` tag belong to the ship step; this wave
+cut the release candidate (`v5.0.0-rc`) and left the tree green.
+
 ## 2026-07-06 — v4.76.0: entry-path drills — both doors proven on repeat
 
 Roadmap v8.3, same session as v8.2. The pattern this attacks is in my own
