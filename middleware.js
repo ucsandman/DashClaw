@@ -13,7 +13,7 @@ import {
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
+  demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
@@ -1252,7 +1252,6 @@ const DEMO_API_ROUTES = [
   ['/api/evaluations/scorers', ({ request, fixtures }) => demoJson(request, { scorers: fixtures.evalScorers, llm_available: false })],
   ['/api/evaluations/runs', ({ request, fixtures }) => demoJson(request, { runs: fixtures.evalRuns })],
   ['/api/evaluations/stats', demoFixturePropRoute('evalStats')],
-  ['/api/settings/llm-status', ({ request }) => demoJson(request, { available: false, provider: null, model: null })],
   // -- Compliance Export demo endpoints --
   ['/api/compliance/exports', handleDemoComplianceExports],
   [(pathname) => /^\/api\/compliance\/exports\/[^/]+$/.test(pathname), handleDemoComplianceExportDetail],
@@ -1306,7 +1305,6 @@ const DEMO_API_ROUTES = [
   ['/api/identities', demoFixtureRoute(demoIdentities)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
   ['/api/secrets', demoPayloadRoute(demoSecrets)],
-  ['/api/model-strategies', demoPayloadRoute(demoModelStrategies)],
   ['/api/reputation/leaderboard', demoFixtureRoute(demoReputationLeaderboard)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'summary']), ({ request, fixtures, segments }) => demoJson(request, demoReputationSummary(fixtures, segments[3]))],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'events']), ({ request, fixtures, url, segments }) => demoJson(request, demoReputationEvents(fixtures, segments[3], url))],
@@ -1946,7 +1944,6 @@ export const config = {
     '/feedback/:path*',
     '/api/feedback/:path*',
     '/api/prompts/:path*',
-    '/api/settings/llm-status',
     '/login',
   ],
 };

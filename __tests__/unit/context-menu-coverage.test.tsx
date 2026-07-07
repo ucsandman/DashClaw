@@ -31,7 +31,6 @@ const TAGGED_FILES: Array<[string, string]> = [
   ['code-sessions', 'app/code-sessions/ProjectsTable.tsx'],
   ['evaluations', 'app/evaluations/page.tsx'],
   ['integrations', 'app/integrations/page.tsx'],
-  ['model-strategies', 'app/workflows/strategies/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
   ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],
 ];
@@ -58,11 +57,6 @@ describe('context-menu coverage — representative menus', () => {
     expect(ids).toContain('open');
   });
 
-  it('modelStrategy menu offers Delete + Open + Copy ID', () => {
-    const ids = getActionsFor(ent('modelStrategy', 'str_1')).map((i) => i.id);
-    expect(ids).toEqual(expect.arrayContaining(['delete', 'open', 'copy-id']));
-  });
-
   it('teamMember menu offers Remove + Copy ID', () => {
     const ids = getActionsFor(ent('teamMember', 'u_1')).map((i) => i.id);
     expect(ids).toEqual(expect.arrayContaining(['remove', 'copy-id']));
@@ -72,12 +66,6 @@ describe('context-menu coverage — representative menus', () => {
     for (const t of ['integration', 'lesson', 'recommendation', 'signal', 'scorer', 'auditEvent', 'evaluation']) {
       expect(getActionsFor(ent(t, `${t}_1`)).map((i) => i.id)).toContain('copy-id');
     }
-  });
-
-  it('modelStrategy delete calls DELETE /api/model-strategies/:id', async () => {
-    const del = getActionsFor(ent('modelStrategy', 'str_9')).find((i) => i.id === 'delete');
-    await del?.run(ctx(ent('modelStrategy', 'str_9')));
-    expect(global.fetch).toHaveBeenCalledWith('/api/model-strategies/str_9', { method: 'DELETE' });
   });
 
   it('teamMember remove calls DELETE /api/team/:id', async () => {

@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (183 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (177 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1071,9 +1071,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (183 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (177 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **107 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **101 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1110,7 +1110,7 @@ Two smaller canonical surfaces, at parity with Node v2:
 
 ## Execution Studio
 
-Governance packaging and discovery — model strategies, a capability registry, and a read-only execution graph. Added in v2.10.0.
+Governance packaging and discovery — a capability registry and a read-only execution graph. Added in v2.10.0.
 
 ### Execution Graph
 
@@ -1158,46 +1158,6 @@ key = DashClaw.derive_idempotency_key({
     "request_id": request_id,
 })
 claw.create_action(action_type="deploy", declared_goal="ship hotfix", idempotency_key=key)
-```
-
-### Model Strategies
-
-Python model strategies are part of the converged execution surface. `complete_with_strategy(...)` is the governed runtime execution path that mirrors the existing model-strategy completion route.
-
-```python
-# Create
-claw.create_model_strategy(
-    name="Balanced Default",
-    description="GPT-4.1 primary, Claude Sonnet 4 fallback",
-    config={
-        "primary": {"provider": "openai", "model": "gpt-4.1"},
-        "fallback": [{"provider": "anthropic", "model": "claude-sonnet-4"}],
-        "costSensitivity": "balanced",      # low | balanced | high-quality
-        "latencySensitivity": "medium",     # low | medium | high
-        "maxBudgetUsd": 0.5,
-        "maxRetries": 2,
-        "allowedProviders": ["openai", "anthropic"],
-    },
-)
-
-# Config patches merge over the existing config
-claw.update_model_strategy(strategy_id, config={"maxBudgetUsd": 1.0})
-
-# Delete nulls the soft reference on linked workflow_templates
-claw.delete_model_strategy(strategy_id)
-
-# Execute a chat completion using the strategy (BYOK, fallback, budget enforcement)
-result = claw.complete_with_strategy(
-    strategy_id,
-    messages=[{"role": "user", "content": "Summarize the deploy plan"}],
-    max_tokens=512,
-    temperature=0.7,
-    task_mode="reasoning",
-)
-print(result["content"])       # LLM response text
-print(result["provider"])      # e.g. 'openai'
-print(result["cost_usd"])      # estimated cost
-print(result["fallback_used"]) # True if primary failed
 ```
 
 ### Capability Registry

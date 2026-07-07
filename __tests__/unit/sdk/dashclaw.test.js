@@ -393,14 +393,6 @@ describe('sdk/dashclaw.js characterization', () => {
       ['deleteRiskTemplate', (c) => c.deleteRiskTemplate('rt_1'), 'DELETE', '/api/scoring/risk-templates/rt_1', undefined],
       ['autoCalibrate', (c) => c.autoCalibrate({ days: 14 }), 'POST', '/api/scoring/calibrate', { days: 14 }],
       // model strategies
-      ['listModelStrategies', (c) => c.listModelStrategies(), 'GET', '/api/model-strategies', undefined],
-      ['createModelStrategy', (c) => c.createModelStrategy({ name: 'ms' }), 'POST', '/api/model-strategies', { name: 'ms' }],
-      ['getModelStrategy', (c) => c.getModelStrategy('ms_1'), 'GET', '/api/model-strategies/ms_1', undefined],
-      ['updateModelStrategy', (c) => c.updateModelStrategy('ms_1', { name: 'n' }), 'PATCH',
-        '/api/model-strategies/ms_1', { name: 'n' }],
-      ['deleteModelStrategy', (c) => c.deleteModelStrategy('ms_1'), 'DELETE', '/api/model-strategies/ms_1', undefined],
-      ['completeWithStrategy', (c) => c.completeWithStrategy('ms_1', [{ role: 'user', content: 'hi' }], { max_tokens: 5 }),
-        'POST', '/api/model-strategies/ms_1/complete', { messages: [{ role: 'user', content: 'hi' }], max_tokens: 5 }],
       // capabilities (direct methods)
       ['createCapability', (c) => c.createCapability({ name: 'cap' }), 'POST', '/api/capabilities', { name: 'cap' }],
       ['getCapability', (c) => c.getCapability('cap_1'), 'GET', '/api/capabilities/cap_1', undefined],

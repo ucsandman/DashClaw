@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:5a1e41fab443f60d2327e2e04ed41700e22485f1 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:ff3244c89fc04c7c2a4d49d6d35a021f7e884fe6 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">220</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">216</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">197</div><div class="k">Optional env vars</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>4</b> env_vars removed, <b>22</b> routes added, <b>110</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>4</b> env_vars removed, <b>22</b> routes added, <b>114</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -307,6 +307,9 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/learning/recommendations/events <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/learning/recommendations/metrics <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/learning/suggestions <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/model-strategies <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/model-strategies/[strategyId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/model-strategies/[strategyId]/complete <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/operations/feed <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/findings <span class="sig">Route removed</span></li>
@@ -320,6 +323,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/prompts/templates/[templateId]/versions <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/prompts/templates/[templateId]/versions/[versionId] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/security/scan <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/settings/llm-status <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/swarm/graph <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/swarm/link <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/team <span class="sig">Route removed</span></li>
@@ -543,9 +547,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/messages/attachments"><td><code>/api/messages/attachments</code></td><td>GET</td><td class="sig">app/api/messages/attachments/route.ts</td></tr>
     <tr data-path="/api/messages/threads"><td><code>/api/messages/threads</code></td><td>GET, PATCH, POST</td><td class="sig">app/api/messages/threads/route.ts</td></tr>
     <tr data-path="/api/messages/threads/[threadId]"><td><code>/api/messages/threads/[threadId]</code></td><td>GET</td><td class="sig">app/api/messages/threads/[threadId]/route.ts</td></tr></tbody></table></details>
-<details><summary>/model-strategies/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/model-strategies"><td><code>/api/model-strategies</code></td><td>GET, POST</td><td class="sig">app/api/model-strategies/route.ts</td></tr>
-    <tr data-path="/api/model-strategies/[strategyId]"><td><code>/api/model-strategies/[strategyId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/model-strategies/[strategyId]/route.ts</td></tr>
-    <tr data-path="/api/model-strategies/[strategyId]/complete"><td><code>/api/model-strategies/[strategyId]/complete</code></td><td>POST</td><td class="sig">app/api/model-strategies/[strategyId]/complete/route.ts</td></tr></tbody></table></details>
 <details><summary>/oauth/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/oauth/authorize"><td><code>/api/oauth/authorize</code></td><td>GET, POST</td><td class="sig">app/api/oauth/authorize/route.ts</td></tr>
     <tr data-path="/api/oauth/metadata/authorization-server"><td><code>/api/oauth/metadata/authorization-server</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/authorization-server/route.ts</td></tr>
     <tr data-path="/api/oauth/metadata/protected-resource"><td><code>/api/oauth/metadata/protected-resource</code></td><td>GET</td><td class="sig">app/api/oauth/metadata/protected-resource/route.ts</td></tr>
@@ -607,8 +608,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/sessions/[sessionId]/actions"><td><code>/api/sessions/[sessionId]/actions</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/actions/route.ts</td></tr>
     <tr data-path="/api/sessions/[sessionId]/events"><td><code>/api/sessions/[sessionId]/events</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/events/route.ts</td></tr>
     <tr data-path="/api/sessions/[sessionId]/retro"><td><code>/api/sessions/[sessionId]/retro</code></td><td>GET</td><td class="sig">app/api/sessions/[sessionId]/retro/route.ts</td></tr></tbody></table></details>
-<details><summary>/settings/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/settings"><td><code>/api/settings</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/settings/route.ts</td></tr>
-    <tr data-path="/api/settings/llm-status"><td><code>/api/settings/llm-status</code></td><td>GET</td><td class="sig">app/api/settings/llm-status/route.ts</td></tr>
+<details><summary>/settings/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/settings"><td><code>/api/settings</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/settings/route.ts</td></tr>
     <tr data-path="/api/settings/test"><td><code>/api/settings/test</code></td><td>POST</td><td class="sig">app/api/settings/test/route.ts</td></tr></tbody></table></details>
 <details><summary>/setup/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/setup/live-proof"><td><code>/api/setup/live-proof</code></td><td>POST</td><td class="sig">app/api/setup/live-proof/route.ts</td></tr>
     <tr data-path="/api/setup/migrate"><td><code>/api/setup/migrate</code></td><td>POST</td><td class="sig">app/api/setup/migrate/route.ts</td></tr>

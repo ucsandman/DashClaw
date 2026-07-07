@@ -3,7 +3,6 @@ import { makeRequest } from '../helpers.js';
 
 const {
   mockSql,
-  mockIsEmbeddingsEnabled,
   mockGetRealtimeHealth,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => [
@@ -14,12 +13,10 @@ const {
     { table_name: 'settings' },
     { table_name: 'guard_policies' },
   ]), { query: vi.fn(async () => []) }),
-  mockIsEmbeddingsEnabled: vi.fn(),
   mockGetRealtimeHealth: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled }));
 vi.mock('@/lib/events.js', () => ({ getRealtimeHealth: mockGetRealtimeHealth }));
 
 // Health route uses createRequire for package.json — mock the module version
@@ -39,7 +36,6 @@ beforeEach(() => {
     { table_name: 'settings' },
     { table_name: 'guard_policies' },
   ]);
-  mockIsEmbeddingsEnabled.mockReturnValue(false);
   mockGetRealtimeHealth.mockResolvedValue({ status: 'healthy', backend: 'redis' });
 });
 
@@ -88,15 +84,6 @@ describe('/api/health GET', () => {
     expect(data.checks.environment.status).toBe('unhealthy');
     // Should not list the actual missing variable names in detail
     expect(data.checks.environment.missing).toBeGreaterThan(0);
-  });
-
-  it('includes behavioral AI check with correct engine', async () => {
-    mockIsEmbeddingsEnabled.mockReturnValue(true);
-
-    const res = await GET(makeRequest('http://localhost/api/health', {}));
-    const data = await res.json();
-    expect(data.checks.behavioral_ai.active).toBe(true);
-    expect(data.checks.behavioral_ai.engine).toContain('text-embedding');
   });
 
   it('includes runtime checks', async () => {

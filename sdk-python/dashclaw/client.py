@@ -1725,37 +1725,6 @@ class DashClaw:
         ordered = "|".join(f"{k}={parts.get(k) if parts.get(k) is not None else ''}" for k in sorted(parts))
         return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
 
-    # --- Execution Studio: Model Strategies ---------------
-
-    def list_model_strategies(self):
-        """List model strategies."""
-        return self._request("/api/model-strategies", "GET")
-
-    def create_model_strategy(self, **kwargs):
-        """Create a model strategy. Required: name, config (with config.primary.provider and config.primary.model)."""
-        return self._request("/api/model-strategies", "POST", json=kwargs)
-
-    def get_model_strategy(self, strategy_id):
-        """Fetch a single model strategy."""
-        return self._request(f"/api/model-strategies/{strategy_id}", "GET")
-
-    def update_model_strategy(self, strategy_id, **kwargs):
-        """Partial update. Config patches merge over existing."""
-        return self._request(f"/api/model-strategies/{strategy_id}", "PATCH", json=kwargs)
-
-    def delete_model_strategy(self, strategy_id):
-        """Delete a model strategy. Nulls soft refs on linked workflow templates."""
-        return self._request(f"/api/model-strategies/{strategy_id}", "DELETE")
-
-    def complete_with_strategy(self, strategy_id, messages, **kwargs):
-        """Execute a chat completion using a model strategy. Resolves BYOK
-        provider credentials, handles fallback chain, enforces budget caps.
-        kwargs: max_tokens, temperature, task_mode."""
-        return self._request(
-            f"/api/model-strategies/{strategy_id}/complete", "POST",
-            json={"messages": messages, **kwargs}
-        )
-
     # --- Execution Studio: Capability Registry ------------
 
     def list_capabilities(self, category=None, risk_level=None, search=None, limit=100, offset=0):

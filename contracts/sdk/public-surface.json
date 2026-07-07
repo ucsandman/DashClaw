@@ -30,17 +30,6 @@
           "add_agent_capability",
           "list_agent_capabilities"
         ]
-      },
-      "model_strategies": {
-        "canonical_root": "model_strategies",
-        "required_methods": [
-          "list_model_strategies",
-          "create_model_strategy",
-          "get_model_strategy",
-          "update_model_strategy",
-          "delete_model_strategy",
-          "complete_with_strategy"
-        ]
       }
     }
   },

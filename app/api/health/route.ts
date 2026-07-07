@@ -3,7 +3,6 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
-import { isEmbeddingsEnabled } from '../../lib/embeddings';
 import { getRealtimeHealth } from '../../lib/events';
 import { checkCoreTables } from '../../lib/schemaCheck';
 import { createRequire } from 'module';
@@ -36,12 +35,6 @@ export async function GET() {
     version,
     mode: isDemo ? 'demo' : 'live',
     checks: {}
-  };
-
-  // ... rest of checks ...
-  health.checks.behavioral_ai = {
-    active: isEmbeddingsEnabled(),
-    engine: 'openai/text-embedding-3-small'
   };
 
   // Check database connection and core table existence

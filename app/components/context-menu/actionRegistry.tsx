@@ -29,7 +29,6 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   // The id may be a free-form policy label, so encode it.
   policy: (id) => `/policies?policy=${encodeURIComponent(id)}`,
   codeSession: (id) => `/code-sessions/${id}`,
-  modelStrategy: (id) => `/workflows/strategies/${id}`,
 };
 
 /** Resolve a detail path from a bare (type, id) — used by EntityLink, which has no DOM target. */
@@ -139,7 +138,6 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   message: messageActions,
   session: sessionActions,
   codeSession: codeSessionActions,
-  modelStrategy: modelStrategyActions,
   teamMember: teamMemberActions,
 };
 
@@ -336,21 +334,6 @@ function codeSessionActions(entity: EntityTarget): MenuItem[] {
       run: async (ctx) => {
         if (typeof window !== 'undefined' && !window.confirm('Delete this project and all its sessions? This cannot be undone.')) return;
         await del(`/api/code-sessions/projects/${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function modelStrategyActions(entity: EntityTarget): MenuItem[] {
-  return [
-    {
-      id: 'delete',
-      label: 'Delete strategy',
-      icon: Trash2,
-      danger: true,
-      run: async (ctx) => {
-        await del(`/api/model-strategies/${enc(entity.id)}`);
         ctx.refresh();
       },
     },

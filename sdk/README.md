@@ -828,7 +828,7 @@ Those wrappers exist to keep older integrations working. New product work should
 
 ## Execution Studio
 
-Governance packaging and discovery — model strategies, a capability registry, and a read-only execution graph. Added in v2.10.0.
+Governance packaging and discovery — a capability registry and a read-only execution graph. Added in v2.10.0.
 
 ### Execution Graph
 
@@ -929,41 +929,6 @@ const bundle = await fetch(`${baseUrl}/api/artifacts/evidence-bundle`, {
   body: JSON.stringify({ action_id: actionId }),
 }).then(r => r.json());
 // bundle.action + bundle.steps + bundle.artifacts
-```
-
-### Model Strategies
-
-```javascript
-// List and create
-const { strategies } = await claw.listModelStrategies();
-const { strategy } = await claw.createModelStrategy({
-  name: 'Balanced Default',
-  description: 'GPT-4.1 primary, Claude Sonnet 4 fallback',
-  config: {
-    primary: { provider: 'openai', model: 'gpt-4.1' },
-    fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4' }],
-    costSensitivity: 'balanced',        // 'low' | 'balanced' | 'high-quality'
-    latencySensitivity: 'medium',       // 'low' | 'medium' | 'high'
-    maxBudgetUsd: 0.5,
-    maxRetries: 2,
-    allowedProviders: ['openai', 'anthropic']
-  }
-});
-
-// Update (config patches merge over existing config)
-await claw.updateModelStrategy(strategyId, { config: { maxBudgetUsd: 1.0 } });
-
-// Delete (soft references on linked workflow_templates are nulled out)
-await claw.deleteModelStrategy(strategyId);
-
-// Execute a chat completion using the strategy (BYOK, fallback, budget enforcement)
-const result = await claw.completeWithStrategy(strategyId, [
-  { role: 'user', content: 'Summarize the deploy plan' }
-], { max_tokens: 512, temperature: 0.7, task_mode: 'reasoning' });
-console.log(result.content);    // LLM response text
-console.log(result.provider);   // e.g. 'openai'
-console.log(result.cost_usd);   // estimated cost
-console.log(result.fallback_used); // true if primary failed
 ```
 
 ### Capability Runtime

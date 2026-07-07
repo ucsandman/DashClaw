@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `219`
-- Stable routes: `53`
+- Total routes: `215`
+- Stable routes: `52`
 - Beta routes: `20`
-- Experimental routes: `146`
+- Experimental routes: `143`
 
 ## Routes
 
@@ -150,9 +150,6 @@ doc-type: architecture
 | `/api/messages/attachments` | `GET` | `stable` | `/api/messages` | `app/api/messages/attachments/route.ts` |
 | `/api/messages/threads` | `GET, PATCH, POST` | `stable` | `/api/messages` | `app/api/messages/threads/route.ts` |
 | `/api/messages/threads/{threadId}` | `GET` | `stable` | `/api/messages` | `app/api/messages/threads/[threadId]/route.ts` |
-| `/api/model-strategies` | `GET, POST` | `experimental` | `(default)` | `app/api/model-strategies/route.ts` |
-| `/api/model-strategies/{strategyId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/model-strategies/[strategyId]/route.ts` |
-| `/api/model-strategies/{strategyId}/complete` | `POST` | `experimental` | `(default)` | `app/api/model-strategies/[strategyId]/complete/route.ts` |
 | `/api/oauth/authorize` | `GET, POST` | `experimental` | `(default)` | `app/api/oauth/authorize/route.ts` |
 | `/api/oauth/metadata/authorization-server` | `GET` | `experimental` | `(default)` | `app/api/oauth/metadata/authorization-server/route.ts` |
 | `/api/oauth/metadata/protected-resource` | `GET` | `experimental` | `(default)` | `app/api/oauth/metadata/protected-resource/route.ts` |
@@ -215,7 +212,6 @@ doc-type: architecture
 | `/api/sessions/{sessionId}/events` | `GET` | `experimental` | `(default)` | `app/api/sessions/[sessionId]/events/route.ts` |
 | `/api/sessions/{sessionId}/retro` | `GET` | `experimental` | `(default)` | `app/api/sessions/[sessionId]/retro/route.ts` |
 | `/api/settings` | `DELETE, GET, POST` | `stable` | `/api/settings` | `app/api/settings/route.ts` |
-| `/api/settings/llm-status` | `GET` | `stable` | `/api/settings` | `app/api/settings/llm-status/route.ts` |
 | `/api/settings/test` | `POST` | `stable` | `/api/settings` | `app/api/settings/test/route.ts` |
 | `/api/setup/live-proof` | `POST` | `beta` | `/api/setup` | `app/api/setup/live-proof/route.ts` |
 | `/api/setup/migrate` | `POST` | `beta` | `/api/setup` | `app/api/setup/migrate/route.ts` |

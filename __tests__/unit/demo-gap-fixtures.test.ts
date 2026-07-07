@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
+  demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
@@ -32,11 +32,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const r = demoSecrets();
     expect(r.secrets.length).toBeGreaterThan(0);
     expect(r.secrets[0]!).toMatchObject({ id: expect.any(String), name: expect.any(String), rotation_interval_days: expect.any(Number) });
-  });
-  it('model strategies (/api/model-strategies)', () => {
-    const r = demoModelStrategies();
-    expect(r.strategies.length).toBeGreaterThan(0);
-    expect(r.strategies[0]!.config.primary).toMatchObject({ provider: expect.any(String), model: expect.any(String) });
   });
   it('reputation leaderboard (/api/reputation/leaderboard) — snapshotToVector shape', () => {
     const r = demoReputationLeaderboard(fixtures);

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:5a1e41fab443f60d2327e2e04ed41700e22485f1",
+  "timestamp": "sha1:ff3244c89fc04c7c2a4d49d6d35a021f7e884fe6",
   "routes": [
     {
       "path": "/api/actions",
@@ -1294,40 +1294,6 @@
       "file_path": "app/api/messages/threads/[threadId]/route.ts"
     },
     {
-      "path": "/api/model-strategies",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/model-strategies/route.ts"
-    },
-    {
-      "path": "/api/model-strategies/[strategyId]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "strategyId"
-      ],
-      "archived": false,
-      "file_path": "app/api/model-strategies/[strategyId]/route.ts"
-    },
-    {
-      "path": "/api/model-strategies/[strategyId]/complete",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "strategyId"
-      ],
-      "archived": false,
-      "file_path": "app/api/model-strategies/[strategyId]/complete/route.ts"
-    },
-    {
       "path": "/api/oauth/authorize",
       "methods": [
         "GET",
@@ -1950,15 +1916,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/settings/route.ts"
-    },
-    {
-      "path": "/api/settings/llm-status",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/settings/llm-status/route.ts"
     },
     {
       "path": "/api/settings/test",
@@ -3081,7 +3038,6 @@
         "scripts/auto-migrate.mjs",
         "scripts/backfill-action-cost-reprice.mjs",
         "scripts/backfill-code-session-cache-cost.mjs",
-        "scripts/backfill-embeddings.mjs",
         "scripts/backfill-null-model-cost.mjs",
         "scripts/backfill-x402-provider-id.mjs",
         "scripts/cleanup-actions.mjs",
@@ -3331,9 +3287,7 @@
         "__tests__/unit/guard-characterization.test.js",
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
-        "app/lib/embeddings.ts",
-        "app/lib/llm.ts",
-        "scripts/test-semantic-guard.mjs"
+        "app/lib/llm.ts"
       ],
       "in_env_example": false
     },
@@ -3730,7 +3684,6 @@
       "required": false,
       "files": [
         "__tests__/unit/guard-characterization.test.js",
-        "app/lib/embeddings.ts",
         "app/lib/llm.ts",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js"

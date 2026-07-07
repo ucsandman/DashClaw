@@ -1042,14 +1042,6 @@ export function demoSecrets() {
   return { secrets, lastUpdated: new Date().toISOString() };
 }
 
-export function demoModelStrategies() {
-  const strategies = [
-    { strategy_id: 'str_demo_1', name: 'Cost-optimized', description: 'Cheap model first, escalate on failure', config: { primary: { provider: 'anthropic', model: 'claude-haiku-4-5' }, fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }] } },
-    { strategy_id: 'str_demo_2', name: 'Quality-first', description: 'Frontier model for heavy reasoning', config: { primary: { provider: 'anthropic', model: 'claude-opus-4-8' }, fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4-6' }] } },
-  ];
-  return { strategies, lastUpdated: new Date().toISOString() };
-}
-
 // ── Reputation (demo) ────────────────────────────────────────────────────────
 // Vectors mirror snapshotToVector (reputation.repository): blend scores are
 // 0..1, risk_score is a SEPARATE 0-100 axis, and the provenance breakdown is a

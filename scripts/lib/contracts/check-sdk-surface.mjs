@@ -33,10 +33,6 @@ function selectPythonMethods(methods, canonicalRoot) {
     return methods.filter((method) => method.includes('workflow') || method.includes('workflows'));
   }
 
-  if (canonicalRoot === 'model_strategies') {
-    return methods.filter((method) => method.includes('model_strateg') || method === 'complete_with_strategy');
-  }
-
   return methods.filter((method) => !method.startsWith('_'));
 }
 

@@ -186,7 +186,6 @@ const navItems = [
   { href: '#execution-studio', label: 'Execution Studio (HTTP)' },
   { href: '#execution-graph', label: 'Execution Graph', indent: true },
   { href: '#action-outcome', label: 'Action Outcome', indent: true },
-  { href: '#model-strategies-http', label: 'Model Strategies', indent: true },
   { href: '#capability-registry', label: 'Capability Registry', indent: true },
   { href: '#capability-runtime', label: 'Capability Runtime', indent: true },
   { href: '#analytics', label: 'Analytics' },
@@ -1582,7 +1581,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: model strategies, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 107 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 101 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1644,79 +1643,6 @@ const { rootActionId, nodes, edges } = await res.json();
 
 // completed → SKIP, failed | lost_confirmation → RETRY,
 // pending → WAIT, partial → CLEANUP_THEN_RETRY`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-
-            {/* Model Strategies */}
-            <div id="model-strategies-http" className="scroll-mt-20 pt-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Model Strategies</h3>
-              <p className="text-xs text-text-tertiary mb-4">Reusable provider/model strategy records (primary + fallback chain, cost/latency sensitivity, budget cap).</p>
-
-              <MethodEntry
-                id="listModelStrategies"
-                signature="GET | POST /api/model-strategies"
-                description="List all strategies or create a new one. Config is validated server-side: primary.provider and primary.model are required; costSensitivity must be one of low | balanced | high-quality; latencySensitivity must be low | medium | high; maxBudgetUsd must be a number; maxRetries must be an integer; fallback, allowedProviders, and disallowedProviders must be arrays if provided."
-                example={
-                  <CodeBlock title="Create strategy">
-{`await fetch(\`\${baseUrl}/api/model-strategies\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'Balanced Default',
-    description: 'GPT-4.1 primary, Claude Sonnet 4 fallback',
-    config: {
-      primary: { provider: 'openai', model: 'gpt-4.1' },
-      fallback: [{ provider: 'anthropic', model: 'claude-sonnet-4' }],
-      costSensitivity: 'balanced',
-      latencySensitivity: 'medium',
-      maxBudgetUsd: 0.5,
-      maxRetries: 2,
-      allowedProviders: ['openai', 'anthropic']
-    }
-  })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="updateModelStrategy"
-                signature="GET | PATCH | DELETE /api/model-strategies/:strategyId"
-                description="Fetch, update, or delete a strategy. PATCH merges config patches over the existing config (primary fields preserved unless overridden). DELETE removes the strategy record."
-                example={
-                  <CodeBlock title="Patch budget only">
-{`await fetch(\`\${baseUrl}/api/model-strategies/\${strategyId}\`, {
-  method: 'PATCH',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ config: { maxBudgetUsd: 1.0 } })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="completeWithStrategy"
-                signature="POST /api/model-strategies/:strategyId/complete"
-                description="Execute a chat completion using this strategy. Resolves BYOK provider credentials from org settings, walks the fallback chain (primary provider first, then each fallback), enforces maxBudgetUsd, and returns a normalized response. Supports task_mode to override primary with the corresponding taskModes entry. Providers supported: openai, anthropic, groq, together, perplexity. Returns 502 with provider_errors array when all providers fail."
-                params={[
-                  { name: 'messages', type: 'Array<{ role, content }>', required: true, desc: 'Chat messages (system, user, assistant)' },
-                  { name: 'max_tokens', type: 'number', required: false, desc: 'Max output tokens (default 1024)' },
-                  { name: 'temperature', type: 'number', required: false, desc: 'Sampling temperature (default 0.7)' },
-                  { name: 'task_mode', type: 'string', required: false, desc: 'Override primary with taskModes[mode] if defined in strategy config' },
-                ]}
-                returns="{ content, provider, model, usage: { input_tokens, output_tokens }, cost_usd, fallback_used, attempts, strategy_id, strategy_name }"
-                example={
-                  <CodeBlock title="Execute completion with fallback">
-{`const result = await claw.completeWithStrategy(strategyId, [
-  { role: 'user', content: 'Summarize the deploy plan' }
-], { max_tokens: 512, task_mode: 'reasoning' });
-
-console.log(result.content);       // LLM response
-console.log(result.provider);      // which provider handled it
-console.log(result.cost_usd);      // estimated cost
-console.log(result.fallback_used); // true if primary failed`}
                   </CodeBlock>
                 }
               />

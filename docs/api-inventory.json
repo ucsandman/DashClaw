@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 219,
-    "stable_routes": 53,
+    "total_routes": 215,
+    "stable_routes": 52,
     "beta_routes": 20,
-    "experimental_routes": 146
+    "experimental_routes": 143
   },
   "routes": [
     {
@@ -1254,36 +1254,6 @@
       "file": "app/api/messages/threads/[threadId]/route.ts"
     },
     {
-      "path": "/api/model-strategies",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/model-strategies/route.ts"
-    },
-    {
-      "path": "/api/model-strategies/{strategyId}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/model-strategies/[strategyId]/route.ts"
-    },
-    {
-      "path": "/api/model-strategies/{strategyId}/complete",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/model-strategies/[strategyId]/complete/route.ts"
-    },
-    {
       "path": "/api/oauth/authorize",
       "methods": [
         "GET",
@@ -1867,15 +1837,6 @@
       "maturity": "stable",
       "matched_prefix": "/api/settings",
       "file": "app/api/settings/route.ts"
-    },
-    {
-      "path": "/api/settings/llm-status",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "stable",
-      "matched_prefix": "/api/settings",
-      "file": "app/api/settings/llm-status/route.ts"
     },
     {
       "path": "/api/settings/test",

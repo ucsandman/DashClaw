@@ -883,23 +883,6 @@ export async function createBlockedActionRecord(
   });
 }
 
-interface InsertActionEmbeddingPayload {
-  orgId: string;
-  agentId: string;
-  actionId: string;
-  embedding: unknown;
-}
-
-export async function insertActionEmbedding(
-  sql: SqlClient,
-  { orgId, agentId, actionId, embedding }: InsertActionEmbeddingPayload,
-): Promise<void> {
-  await sql`
-    INSERT INTO action_embeddings (org_id, agent_id, action_id, embedding)
-    VALUES (${orgId}, ${agentId}, ${actionId}, ${JSON.stringify(embedding)}::vector)
-  `;
-}
-
 interface ActionWithRelations {
   action: Row;
   assumptions: Row[];

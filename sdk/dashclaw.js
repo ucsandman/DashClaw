@@ -1197,61 +1197,6 @@ class DashClaw {
   }
 
   // ---------------------------------------------------------------------------
-  // Execution Studio — Model Strategies
-  // ---------------------------------------------------------------------------
-
-  /**
-   * GET /api/model-strategies — List model strategies.
-   */
-  async listModelStrategies() {
-    return this._get('/api/model-strategies');
-  }
-
-  /**
-   * POST /api/model-strategies — Create a model strategy.
-   * @param {Object} data - { name, description, config: { primary, fallback, costSensitivity, ... } }
-   */
-  async createModelStrategy(data) {
-    return this._post('/api/model-strategies', data);
-  }
-
-  /**
-   * GET /api/model-strategies/:id — Fetch a single strategy.
-   */
-  async getModelStrategy(strategyId) {
-    return this._get(`/api/model-strategies/${strategyId}`);
-  }
-
-  /**
-   * PATCH /api/model-strategies/:id — Partial update. Config patches merge over existing.
-   */
-  async updateModelStrategy(strategyId, patch) {
-    return this._patch(`/api/model-strategies/${strategyId}`, patch);
-  }
-
-  /**
-   * DELETE /api/model-strategies/:id — Delete. Nulls soft refs on linked templates.
-   */
-  async deleteModelStrategy(strategyId) {
-    return this._delete(`/api/model-strategies/${strategyId}`);
-  }
-
-  /**
-   * POST /api/model-strategies/:id/complete — Execute a chat completion using
-   * this strategy. Resolves BYOK provider credentials, handles fallback chain,
-   * enforces budget caps.
-   * @param {string} strategyId
-   * @param {Array<{role: string, content: string}>} messages
-   * @param {Object} [options={}] - { max_tokens, temperature, task_mode }
-   */
-  async completeWithStrategy(strategyId, messages, options = {}) {
-    return this._post(`/api/model-strategies/${strategyId}/complete`, {
-      messages,
-      ...options,
-    });
-  }
-
-  // ---------------------------------------------------------------------------
   // Execution Studio — Capability Registry
   // ---------------------------------------------------------------------------
 
