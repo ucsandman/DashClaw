@@ -1,6 +1,6 @@
 # DashClaw API Surface
 
-**272 active routes** (verified 2026-07-06 against `docs/api-inventory.json`): 57 stable, 24 beta, 208 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
+**252 active routes** (verified 2026-07-06 against `docs/api-inventory.json`): 53 stable, 22 beta, 177 experimental. Node SDK uses camelCase, Python SDK uses snake_case.
 
 > ⚠️ **Authoritative source:** `SKILL.md` (regenerated from the livingcode shape) and `docs/api-inventory.md`. This file is a curated narrative for the most commonly consumed surfaces plus anything new that doesn't yet have an SDK mapping. Some sections below describe legacy v1 endpoints that may not exist in the current build (e.g. `/api/context/*`, `/api/snippets/*`, `/api/decisions`, `/api/feedback/*`) — cross-check against `docs/api-inventory.md` before integrating.
 
@@ -24,7 +24,6 @@
 - [FinOps / Spend](#finops--spend)
 - [Governance Posture](#governance-posture)
 - [Calibrated Interruption Controller](#calibrated-interruption-controller)
-- [Workflows](#workflows)
 - [Context Manager](#context-manager)
 - [Agent Messaging](#agent-messaging)
 - [Automation Snippets](#automation-snippets)
@@ -68,9 +67,9 @@ The CLI (`dashclaw doctor`) invokes these endpoints and merges in operator-machi
 
 | Endpoint | Methods | Purpose |
 |---|---|---|
-| `/api/mcp` | POST | Model Context Protocol Streamable HTTP transport. Same 31 tools / 6 resources exposed by the stdio binary (`@dashclaw/mcp-server`). |
+| `/api/mcp` | POST | Model Context Protocol Streamable HTTP transport. Same 29 tools / 6 resources exposed by the stdio binary (`@dashclaw/mcp-server`). |
 
-**31 tools across 12 groups.** Core governance (9): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`. Optimal files (2): `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`. Session continuity (3): `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`. Credential hygiene (3): `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`. Skill safety (1): `dashclaw_skill_scan`. Open loops (3): `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`. Learning + retrospection (4): `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent inbox (2): `dashclaw_inbox_list`, `dashclaw_messages_mark_read`. Agent identity (1): `dashclaw_pair`. Behavior learning (1): `dashclaw_behavior_suggestions`. Governance posture (2, read-only): `dashclaw_posture`, `dashclaw_posture_next`. Work orders (2): `dashclaw_work_order_submit`, `dashclaw_work_order_status`.
+**29 tools across 11 groups.** Core governance (9): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`. Optimal files (2): `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`. Session continuity (3): `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`. Credential hygiene (3): `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`. Skill safety (1): `dashclaw_skill_scan`. Open loops (3): `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`. Learning + retrospection (4): `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent inbox (2): `dashclaw_inbox_list`, `dashclaw_messages_mark_read`. Agent identity (1): `dashclaw_pair`. Behavior learning (1): `dashclaw_behavior_suggestions`. Governance posture (2, read-only): `dashclaw_posture`, `dashclaw_posture_next`.
 
 **Resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
 
@@ -121,7 +120,7 @@ Multi-agent lineage as persisted evidence, not a client-side guess — see [Acti
 
 | Endpoint | Methods | Purpose |
 |---|---|---|
-| `/api/agents/fanouts` | GET | Recent harness sessions (grouped by `harness_session_id`, synthetic excluded): `{ fanouts: [{ harness_session_id, parent_agent_id, agents, agent_count, spawn_count, action_count, linked_leaf_count, first_at, last_at }], window_hours, lastUpdated }`. `linked_leaf_count` is the read-time join count of leaves whose `subagent_uuid` matches a spawn's `outcome_metadata.spawned_agent_uuid` in the same session. Params: `window_hours` (1-168, default 24), `limit` (1-100, default 20), `?include_synthetic=1` diagnostics-only. Powers the Fan-outs panel on `/agents`, each row deep-linking to `/swarm?swarm_id=<harness_session_id>`. |
+| `/api/agents/fanouts` | GET | Recent harness sessions (grouped by `harness_session_id`, synthetic excluded): `{ fanouts: [{ harness_session_id, parent_agent_id, agents, agent_count, spawn_count, action_count, linked_leaf_count, first_at, last_at }], window_hours, lastUpdated }`. `linked_leaf_count` is the read-time join count of leaves whose `subagent_uuid` matches a spawn's `outcome_metadata.spawned_agent_uuid` in the same session. Params: `window_hours` (1-168, default 24), `limit` (1-100, default 20), `?include_synthetic=1` diagnostics-only. Powers the Fan-outs panel on `/agents`. |
 
 ## Guard Decisions Audit Log
 
@@ -203,23 +202,6 @@ Distribution-free control of the interruption error rate. The operator sets a ta
 
 UI: `/calibration` (Govern nav; mode flip is a click with a two-step confirm on active, alarms reset by button). Settings keys: `CALIBRATION_CONTROLLER_MODE`, `CALIBRATION_TARGET_RATE` (category `general`, read on the guard hot path via the cached settings read). Tables: `guard_calibration_state` (one θ/e-process row per org), `guard_calibration_events` (the labeled adjudication ledger).
 
-## Workflows
-
-| Endpoint | Methods | Purpose |
-|---|---|---|
-| `/api/workflows/draft` | POST | Draft a workflow from a natural-language goal |
-| `/api/workflows/templates` | GET, POST | List / create templates |
-| `/api/workflows/templates/[templateId]` | GET, PATCH, DELETE | CRUD |
-| `/api/workflows/templates/[templateId]/duplicate` | POST | Clone a template |
-| `/api/workflows/templates/[templateId]/execute` | POST | One-shot execution |
-| `/api/workflows/templates/[templateId]/launch` | POST | Long-running launch (returns runActionId) |
-| `/api/workflows/templates/[templateId]/runs` | GET | List runs |
-| `/api/workflows/templates/[templateId]/runs/[runActionId]` | GET | Run detail |
-| `/api/workflows/templates/[templateId]/runs/[runActionId]/cancel` | POST | Cancel |
-| `/api/workflows/templates/[templateId]/runs/[runActionId]/resume` | POST | Resume after pause/approval |
-
-Template variables serialize objects and preserve arrays (`c4164311`); `prompt_template` replaces the old `prompt` field in analyze steps (`58bc63e1`).
-
 ## Action Recording
 
 **Maturity:** Stable
@@ -277,7 +259,7 @@ Template variables serialize objects and preserve arrays (`c4164311`); `prompt_t
 |---|---|---|---|
 | `/api/actions/signals` | GET | `getSignals` | `get_signals` |
 
-**18 signal types:** `agent_silent`, `autonomy_spike`, `high_impact_low_oversight`, `repeated_failures`, `stale_loop`, `assumption_drift`, `drift_alert`, `stale_assumption`, `stale_running_action`, `workflow_stuck`, `approval_backlog`, `integration_mismatch`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`, `approval_flood`, `coverage_drop`
+**17 signal types:** `agent_silent`, `autonomy_spike`, `high_impact_low_oversight`, `repeated_failures`, `stale_loop`, `assumption_drift`, `drift_alert`, `stale_assumption`, `stale_running_action`, `approval_backlog`, `integration_mismatch`, `session_stalled`, `branch_stale`, `mcp_degraded`, `green_insufficient`, `approval_flood`, `coverage_drop`
 
 ## Behavior Guard
 

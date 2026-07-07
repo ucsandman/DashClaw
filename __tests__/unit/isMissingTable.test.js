@@ -7,7 +7,7 @@ import { createSqlMock } from '../helpers.js';
  */
 
 // Import a repository that uses isMissingTable
-import { getSharedActions } from '@/lib/repositories/swarm.repository.js';
+import { listCalibrationEvents } from '@/lib/repositories/calibration-state.repository.js';
 
 describe('isMissingTable graceful degradation', () => {
   it('returns empty array when table does not exist (42P01 code)', async () => {
@@ -18,7 +18,7 @@ describe('isMissingTable graceful degradation', () => {
     };
     sql.query = async () => [];
 
-    const result = await getSharedActions(sql, 'org_1', ['a1'], ['a2']);
+    const result = await listCalibrationEvents(sql, 'org_1');
     expect(result).toEqual([]);
   });
 
@@ -28,7 +28,7 @@ describe('isMissingTable graceful degradation', () => {
     };
     sql.query = async () => [];
 
-    const result = await getSharedActions(sql, 'org_1', ['a1'], ['a2']);
+    const result = await listCalibrationEvents(sql, 'org_1');
     expect(result).toEqual([]);
   });
 
@@ -38,6 +38,6 @@ describe('isMissingTable graceful degradation', () => {
     };
     sql.query = async () => [];
 
-    await expect(getSharedActions(sql, 'org_1', ['a1'], ['a2'])).rejects.toThrow('connection refused');
+    await expect(listCalibrationEvents(sql, 'org_1')).rejects.toThrow('connection refused');
   });
 });

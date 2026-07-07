@@ -270,7 +270,7 @@ hermes dashclaw doctor`}
             icon={Network}
             eyebrow="Model Context Protocol"
             title="MCP server"
-            description="31 governance tools plus 6 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
+            description="29 governance tools plus 6 read-only resources. Ships inside every plugin above as the on-disk path mcp-server/bin/dashclaw-mcp.js. Also reachable as Streamable HTTP at /api/mcp on any DashClaw deployment, no install required."
           />
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
             <div className="rounded-xl border border-border bg-surface-secondary p-5">
@@ -372,7 +372,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Canonical 147-method surface across core governance, durable finality, scoring, learning, messaging, handoffs, scanning, threads, sessions, execution-studio domains, x402 spend governance, work orders, and drift detection.
+                Canonical 133-method surface across core governance, durable finality, scoring, learning, messaging, handoffs, scanning, threads, sessions, execution-studio domains, x402 spend governance, work orders, and drift detection.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_NODE_VERSION})`}>{`npm install dashclaw`}</CommandBlock>
             </div>
@@ -390,7 +390,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Broader Python surface (231 methods) with framework integrations: LangChain callback handler, CrewAI task instrumentation, AutoGen conversation monitoring, and x402 spend governance.
+                Broader Python surface (216 methods) with framework integrations: LangChain callback handler, CrewAI task instrumentation, AutoGen conversation monitoring, and x402 spend governance.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION})`}>{`pip install dashclaw`}</CommandBlock>
             </div>

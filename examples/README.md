@@ -35,7 +35,6 @@ dashclaw approve act_<id shown in Terminal 1>
 | `vercel-ai-governed` | Vercel AI SDK | Node.js | governed() wrapper for tool execute functions |
 | `managed-agent-governed` | Anthropic (Managed Agent) | Python | Cloud-hosted agent with custom governance tools |
 | `managed-agent-mcp` | Anthropic (Managed Agent) | Python | Same, via the MCP server — zero custom tools |
-| `work-order-worker` | Node SDK | Node.js | Work-order worker: claim → execute → complete with a receipt |
 | `kimi_dashclaw_test.py` | Moonshot (OpenAI-compat) | Python | Governing a non-Anthropic model |
 
 ### openai-governed-agent
@@ -72,15 +71,11 @@ A generic `governed()` higher-order function that wraps any Vercel AI SDK tool `
 
 ### Claude Managed Agents (MCP) ⭐ Recommended
 
-`managed-agent-mcp/` — The simplest way to govern a Claude Managed Agent. Uses DashClaw's MCP server — one config line gives the agent 31 governance tools and 6 resources. ~120 lines. Optionally pair with the `dashclaw-governance` skill (`public/downloads/dashclaw-governance/`) to teach the agent the governance protocol and load org-specific policies/capabilities automatically.
+`managed-agent-mcp/` — The simplest way to govern a Claude Managed Agent. Uses DashClaw's MCP server — one config line gives the agent 29 governance tools and 6 resources. ~120 lines. Optionally pair with the `dashclaw-governance` skill (`public/downloads/dashclaw-governance/`) to teach the agent the governance protocol and load org-specific policies/capabilities automatically.
 
 ### managed-agent-governed
 
 A Claude Managed Agent running in Anthropic's cloud infrastructure with DashClaw as the governance layer. The agent has full access to bash, file I/O, and web search, but all external API calls, risky modifications, and significant decisions go through DashClaw custom tools (`dashclaw_guard`, `dashclaw_invoke`, `dashclaw_record`). Requires an Anthropic API key and a running DashClaw instance.
-
-### work-order-worker
-
-`work-order-worker/` — A ~75-line reference worker on the Node SDK that polls for queued work orders, claims the next one, runs a pluggable handler (`research_brief` via the Claude API when `ANTHROPIC_API_KEY` is set, a deterministic mock otherwise), and reports completion — at which point DashClaw builds the self-verifying receipt. The copy-paste onboarding artifact for the Work Orders feature. Needs a `DASHCLAW_API_KEY`; no AI key required for the mock path.
 
 ### Governing non-Anthropic models
 
@@ -88,7 +83,7 @@ A Claude Managed Agent running in Anthropic's cloud infrastructure with DashClaw
 
 ### Market Intelligence Briefing (Full-Stack Demo)
 
-Not an example you run externally — this seeds demo data directly into your DashClaw instance. Run `node scripts/seed-demo-capabilities.mjs` to create a knowledge collection, 5 capabilities, 3 policies, and a 5-step workflow. Then execute "Daily Market Briefing" from the Workflows page. See [DEMO.md](../DEMO.md).
+Not an example you run externally — this seeds demo data directly into your DashClaw instance. Run `node scripts/seed-demo-capabilities.mjs` to create a knowledge collection, 5 capabilities, and 3 policies. See [DEMO.md](../DEMO.md).
 
 ## Prerequisites
 

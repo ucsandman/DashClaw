@@ -12,7 +12,7 @@ describe('studio consolidation redirects', () => {
       { source: '/model-strategies', destination: '/workflows/strategies' },
       { source: '/model-strategies/new', destination: '/workflows/strategies/new' },
       { source: '/model-strategies/:strategyId', destination: '/workflows/strategies/:strategyId' },
-      { source: '/labs/branch-finish', destination: '/workflows' },
+      { source: '/labs/branch-finish', destination: '/decisions' },
     ];
 
     for (const { source, destination } of expected) {

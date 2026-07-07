@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-06), generated API inventory reports **272 routes**: **53 stable**, **23 beta**, **196 experimental**.
+As of this verification (2026-07-06), generated API inventory reports **252 routes**: **53 stable**, **22 beta**, **177 experimental**.
 
 ## Product boundary
 
@@ -38,7 +38,6 @@ As of this verification (2026-07-06), generated API inventory reports **272 rout
 - **Terminal outcomes**: one-shot action outcome finality through `GET/POST /api/actions/:actionId/outcome`.
 - **Operational signals**: stale actions, drift, lost confirmations, degraded integrations, and policy-relevant alerts.
 - **Evidence**: replayable action detail, traces, graphs, artifacts, and evidence bundles.
-- **Work order contracts + receipts**: typed task contracts with budget ceilings, claim/complete lifecycle, and self-verifying SHA-256 receipts — the contract and receipt system of record, while execution stays on external workers.
 
 ### DashClaw does not own
 
@@ -59,7 +58,7 @@ As of this verification (2026-07-06), generated API inventory reports **272 rout
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
 | Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
-| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (parent, agents involved, spawn/action counts, first/last activity) and deep-links each row to `/swarm?swarm_id=<harness_session_id>`, scoped to that fan-out. Backed by `GET /api/agents` + `GET /api/coverage` + `GET /api/agents/fanouts`. |
+| Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (parent, agents involved, spawn/action counts, first/last activity). Backed by `GET /api/agents` + `GET /api/coverage` + `GET /api/agents/fanouts`. |
 | Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
 | Policy Builder | `/policies` | Interruption contract cockpit: plain-English contract of when agents interrupt you (editable spend thresholds, grants, shields as "Add protection"), a review feed of silently-recorded warns with Fine / Always allow / Tighten verdicts, plus policy generation, simulation, and import/proof surfaces. |
 | Policy Coach | `/policy-coach` | Behavior Learning (v1, observe-only): evidence-backed policy suggestions learned from locally-recorded agent behavior, with simulate-before-adopt and dismiss suppression. See `docs/behavior-learning.md`. |
@@ -67,8 +66,6 @@ As of this verification (2026-07-06), generated API inventory reports **272 rout
 | Governance Posture | `/posture` | Gaming-resistant org governance posture score: score hero + 6 dimension cards (what the fleet CAN do vs what it actually GOVERNS), prioritized remediation queue, draft-only resolve modal, and a risk-accepted ledger. The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. A finding fires when a real agent's event coverage drops below 90% (min 20 sampled), deep-linking to `/agents`. Backed by `GET /api/posture`. Experimental. |
 | Analytics | `/analytics` | Cost trends, action volume, agent/type breakdowns, policy enforcement stats, and token efficiency. |
 | Spend | `/spend`, `/spend/x402`, `/spend/code` | FinOps rollup over agent LLM cost, x402 capability-purchase spend, and Code Sessions cost (Fleet vs Your-Claude-Code lenses, 7/30/90d trend). Beta. |
-| Work Orders | `/work-orders` | Task-grade contract ledger: orders table (status, type, cost vs budget, worker, age) with a receipt detail view and a client-side receipt-hash verifier, plus a Contracts tab (type registry with JSON Schema input/output, seeded `research_brief` example). DashClaw is the contract + receipt system of record; execution is external workers via `claim`/`complete`. Backed by `/api/work-orders`. |
-| Workflows | `/workflows` | Workflow template management and governed workflow execution surfaces, with a Model strategies tab (`/workflows/strategies`). |
 | Capabilities | `/capabilities` | Governed HTTP capability registry, health, access rules, testing, and invocation. |
 | Knowledge | `/knowledge` | Knowledge collection metadata, ingestion, chunking, embedding, sync, and search surfaces. |
 | Model Strategies | `/workflows/strategies` | BYOK model/provider strategy configuration, fallback chains, and budget controls. Legacy `/model-strategies` paths permanently redirect here. |
@@ -121,7 +118,6 @@ These modules consume core runtime data and add operator value without changing 
 
 | Domain | Representative routes or surfaces | Purpose |
 |:---|:---|:---|
-| Workflows | `/api/workflows/templates/*` | Governed reusable workflow templates, launch, execute, runs, resume, and cancel. |
 | Capabilities | `/api/capabilities/*` | Governed HTTP capability registry, access rules, health, test, and invoke. |
 | Agent Reputation | `/api/reputation/*` | Per-agent trust vectors (time-decayed Bayesian) computed from governed decisions, with events, Ed25519-signed receipts, verify, and a leaderboard. |
 | Agent Registry | `/api/agents/registry/*`, `/api/agents/invoke` | External, org-owned delegatable providers that group capabilities; invocations route through the existing capability runtime + guard + action ledger. |
@@ -129,7 +125,7 @@ These modules consume core runtime data and add operator value without changing 
 | FinOps / Spend | `GET /api/finops/spend` (`?lens=fleet\|claude-code`, `?period=7d\|30d\|90d`) | Aggregation-not-fusion rollup unifying agent LLM cost + x402 capability-purchase spend (fleet lens) and Code Sessions cost (claude-code lens) under one Spend surface. Read-only presentation layer over existing tables via `finops.repository.js` (`getFleetSpend`/`getClaudeCodeSpend`); owns no tables. Experimental. |
 | Knowledge | `/api/knowledge/collections/*` | Collection metadata, item ingestion, embedding, sync, and semantic search. |
 | Model strategies | `/api/model-strategies/*` | Provider/model routing, fallback chains, BYOK credentials, budgets, and completions. |
-| Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions and workflow steps, plus evidence bundles. |
+| Artifacts | `/api/artifacts/*` | Durable artifacts linked to actions, plus evidence bundles. |
 | Operations | `/api/operations/feed`, `/api/operations/summary` | Mission Control operational feed and runtime metrics. |
 | Status Widget | `GET /api/widget/summary` | One composed, read-only summary (overall posture + active-agents / pending-approvals / signals / recent-spend counts + sanitized recent-action log + top signal) for the `/widget` cockpit. Partial-failure tolerant; composed from existing repositories (no new tables, no direct SQL). Experimental. |
 | Compliance | `/api/compliance/*` | Evidence, mappings, gaps, reports, schedules, and exports. |
@@ -236,7 +232,7 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **147 public methods** in `sdk/dashclaw.js` and the Python SDK **231** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **133 public methods** in `sdk/dashclaw.js` and the Python SDK **216** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`
@@ -244,7 +240,7 @@ The canonical Node SDK currently exposes **147 public methods** in `sdk/dashclaw
 - full Prompt Library management: templates, versions, `activatePromptVersion` (activating one deactivates the others), `getPromptStats`, and `listPromptRuns`
 - learning ledger: `recordDecision` (auto-injects `agent_id`) and `getLearningRecommendations`
 - side-effect-free dry-runs: `simulatePolicy` (replays a proposed policy against recent historical actions) and `previewScorer` (validates a scorer config without writing an `eval_scores` row)
-- workflow templates, model strategies, knowledge collections, and capability registry/runtime methods
+- model strategies, knowledge collections, and capability registry/runtime methods
 - x402 spend governance: `listProviders`, `createProvider`, `getProvider`, `updateProvider`, `listProviderEndpoints`, `createProviderEndpoint`, `recordPurchase`, `listPurchases`, `recordPurchaseResult`
 
 Use `docs/sdk-parity.md` for domain-level parity and consolidation status.
@@ -255,12 +251,12 @@ A dogfooded operating loop — `MoltFire + Claude Code Branch Finish` — that d
 
 | Command | Purpose |
 |:---|:---|
-| `npm run seed:branch-finish` | Idempotently seed the loop's assets: 6 prompt templates (`branch-finish` category), a "Branch Finish — Wes Coding Standards" knowledge collection (item bodies stored in metadata so search works without an embedding key), and a draft workflow template linking them. Requires an admin API key. |
+| `npm run seed:branch-finish` | Idempotently seed the loop's assets: 6 prompt templates (`branch-finish` category), a "Branch Finish — Wes Coding Standards" knowledge collection (item bodies stored in metadata so search works without an embedding key). Requires an admin API key. |
 | `npm run branch-finish -- --dry-run` | Run the loop. `--dry-run` performs zero writes (no learning record, no mark-read) and never touches anything external. |
 
 Each run, in order: renders the branch-finish review prompt (Prompt Library), searches the standards knowledge with a local-substring fallback when no embedding key is configured (Knowledge), guard-gates the push to main (Guard/Policies), simulates a risk-threshold policy against recent history (Policies, side-effect-free), checks capability health (Capabilities), dry-run-scores the outcome via `POST /api/evaluations/scorers/preview` (Evaluations, writes no `eval_scores`), reads prior recommendations and — outside `--dry-run` — records the outcome (Learning) and marks the inbox read (Messages).
 
-Flags `--branch`, `--summary`, `--tests`, `--risks`, `--agent` override the git-derived context; config comes from `DASHCLAW_URL` / `DASHCLAW_API_KEY` (auto-loaded from `.env.local` by the npm scripts). The loop's surfaces live on the real pages (Prompts, Knowledge, Capabilities, Evaluations, Learning), and the seeded workflow template appears on `/workflows`, which also documents the loop in its ops band. The former `/labs/branch-finish` operator page is retired and permanently redirects to `/workflows`. Definitions live in `scripts/lib/branch-finish-defs.mjs`.
+Flags `--branch`, `--summary`, `--tests`, `--risks`, `--agent` override the git-derived context; config comes from `DASHCLAW_URL` / `DASHCLAW_API_KEY` (auto-loaded from `.env.local` by the npm scripts). The loop's surfaces live on the real pages (Prompts, Knowledge, Capabilities, Evaluations, Learning). The former `/labs/branch-finish` operator page is retired and permanently redirects to `/decisions`. Definitions live in `scripts/lib/branch-finish-defs.mjs`.
 
 ## Operations and deployment
 
@@ -317,8 +313,6 @@ Release-readiness passes may additionally run SDK integration checks, startup sm
 | `app/lib/telegramApprovals.ts` | Telegram approval messages and inline callbacks. |
 | `app/lib/discordApprovals.ts` | Discord approval messages and interaction bridge. |
 | `app/lib/capability-invoke.ts` | Governed HTTP capability invocation. |
-| `app/lib/workflow-executor.ts` | Sequential governed workflow execution. |
-| `app/lib/step-handlers.ts` | Workflow step handlers. |
 | `app/lib/template-vars.ts` | Template variable substitution. |
 | `app/lib/usage.ts` | Plan limits, quota enforcement, metering, and cost estimation. |
 | `app/lib/billing.ts` | Token-cost pricing helpers. |

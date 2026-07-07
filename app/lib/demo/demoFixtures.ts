@@ -127,7 +127,6 @@ function buildFixtures(): Record<string, unknown> {
   const contextEntries: unknown[] = [];
   const snippets: unknown[] = [];
   const preferences = { preferences: [], recent_moods: [], top_approaches: [] };
-  const workflows: unknown[] = [];
   const executions: unknown[] = [];
   const schedules: unknown[] = [];
   const webhooks: unknown[] = [];
@@ -404,7 +403,6 @@ function buildFixtures(): Record<string, unknown> {
     handoffs,
     snippets,
     preferences,
-    workflows,
     executions,
     schedules,
     webhooks,

@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 272,
+    "total_routes": 252,
     "stable_routes": 53,
-    "beta_routes": 23,
-    "experimental_routes": 196
+    "beta_routes": 22,
+    "experimental_routes": 177
   },
   "routes": [
     {
@@ -866,15 +866,6 @@
       "maturity": "beta",
       "matched_prefix": "/api/cron",
       "file": "app/api/cron/reset-meters/route.ts"
-    },
-    {
-      "path": "/api/cron/routing-maintenance",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/cron",
-      "file": "app/api/cron/routing-maintenance/route.ts"
     },
     {
       "path": "/api/cron/signals",
@@ -2293,24 +2284,6 @@
       "file": "app/api/stream/route.ts"
     },
     {
-      "path": "/api/swarm/graph",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/swarm",
-      "file": "app/api/swarm/graph/route.ts"
-    },
-    {
-      "path": "/api/swarm/link",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/swarm",
-      "file": "app/api/swarm/link/route.ts"
-    },
-    {
       "path": "/api/telegram/webhook",
       "methods": [
         "POST"
@@ -2383,167 +2356,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/widget/summary/route.ts"
-    },
-    {
-      "path": "/api/work-orders",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/route.ts"
-    },
-    {
-      "path": "/api/work-orders/claim",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/claim/route.ts"
-    },
-    {
-      "path": "/api/work-orders/types",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/types/route.ts"
-    },
-    {
-      "path": "/api/work-orders/types/{type}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PUT"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/types/[type]/route.ts"
-    },
-    {
-      "path": "/api/work-orders/{workOrderId}",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/[workOrderId]/route.ts"
-    },
-    {
-      "path": "/api/work-orders/{workOrderId}/artifacts",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/[workOrderId]/artifacts/route.ts"
-    },
-    {
-      "path": "/api/work-orders/{workOrderId}/complete",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/work-orders/[workOrderId]/complete/route.ts"
-    },
-    {
-      "path": "/api/workflows/draft",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/draft/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/duplicate",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/duplicate/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/execute",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/execute/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/launch",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/launch/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/runs",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/runs/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/runs/{runActionId}",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/runs/{runActionId}/cancel",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/{templateId}/runs/{runActionId}/resume",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/workflows",
-      "file": "app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts"
     },
     {
       "path": "/api/workspace/export",

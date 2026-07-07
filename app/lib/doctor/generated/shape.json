@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:62b5471957101d6b215f48352509d0ac44174dac",
+  "timestamp": "sha1:835f7d689c7f07bb174fd0164c15aa27a44053c7",
   "routes": [
     {
       "path": "/api/actions",
@@ -888,15 +888,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/cron/reset-meters/route.ts"
-    },
-    {
-      "path": "/api/cron/routing-maintenance",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/cron/routing-maintenance/route.ts"
     },
     {
       "path": "/api/cron/signals",
@@ -2393,24 +2384,6 @@
       "file_path": "app/api/stream/route.ts"
     },
     {
-      "path": "/api/swarm/graph",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/swarm/graph/route.ts"
-    },
-    {
-      "path": "/api/swarm/link",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/swarm/link/route.ts"
-    },
-    {
       "path": "/api/telegram/webhook",
       "methods": [
         "POST"
@@ -2487,194 +2460,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/widget/summary/route.ts"
-    },
-    {
-      "path": "/api/work-orders",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/work-orders/route.ts"
-    },
-    {
-      "path": "/api/work-orders/[workOrderId]",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "dynamic_params": [
-        "workOrderId"
-      ],
-      "archived": false,
-      "file_path": "app/api/work-orders/[workOrderId]/route.ts"
-    },
-    {
-      "path": "/api/work-orders/[workOrderId]/artifacts",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "workOrderId"
-      ],
-      "archived": false,
-      "file_path": "app/api/work-orders/[workOrderId]/artifacts/route.ts"
-    },
-    {
-      "path": "/api/work-orders/[workOrderId]/complete",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "workOrderId"
-      ],
-      "archived": false,
-      "file_path": "app/api/work-orders/[workOrderId]/complete/route.ts"
-    },
-    {
-      "path": "/api/work-orders/claim",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/work-orders/claim/route.ts"
-    },
-    {
-      "path": "/api/work-orders/types",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/work-orders/types/route.ts"
-    },
-    {
-      "path": "/api/work-orders/types/[type]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PUT"
-      ],
-      "dynamic_params": [
-        "type"
-      ],
-      "archived": false,
-      "file_path": "app/api/work-orders/types/[type]/route.ts"
-    },
-    {
-      "path": "/api/workflows/draft",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/workflows/draft/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/duplicate",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/duplicate/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/execute",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/execute/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/launch",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/launch/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/runs",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "templateId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/runs/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/runs/[runActionId]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "templateId",
-        "runActionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/runs/[runActionId]/cancel",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "templateId",
-        "runActionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts"
-    },
-    {
-      "path": "/api/workflows/templates/[templateId]/runs/[runActionId]/resume",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "templateId",
-        "runActionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts"
     },
     {
       "path": "/api/workspace/export",
@@ -2789,7 +2574,6 @@
         "app/lib/llm.ts",
         "examples/claude-code-review-agent/index.js",
         "examples/governed-chat-harness/index.js",
-        "examples/work-order-worker/index.js",
         "scripts/upload-skill.mjs"
       ],
       "in_env_example": false
@@ -2923,7 +2707,6 @@
         "__tests__/unit/cron-auth.test.js",
         "__tests__/unit/cron-cache-crater.route.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
-        "__tests__/unit/cron-routing-maintenance.route.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/cron/code-session-cache-crater/route.ts",
@@ -2936,7 +2719,6 @@
         "app/api/cron/outcome-sweep/route.ts",
         "app/api/cron/policy-suggestions/route.ts",
         "app/api/cron/reset-meters/route.ts",
-        "app/api/cron/routing-maintenance/route.ts",
         "app/api/cron/signals/route.ts",
         "app/api/hosted/cleanup/route.ts"
       ],
@@ -3096,9 +2878,7 @@
         "examples/openai-agents-governed/index.js",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
-        "examples/swarm-research-task.js",
         "examples/vercel-ai-governed/index.mjs",
-        "examples/work-order-worker/index.js",
         "mcp-server/lib/dashclaw/client.js",
         "mcp-server/lib/index.js",
         "mcp-server/lib/server.js",
@@ -3198,9 +2978,7 @@
         "examples/openai-agents-governed/index.js",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
-        "examples/swarm-research-task.js",
         "examples/vercel-ai-governed/index.mjs",
-        "examples/work-order-worker/index.js",
         "packages/openclaw-plugin/src/index.ts",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         "plugins/dashclaw/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
@@ -3613,7 +3391,6 @@
         "__tests__/unit/compliance-signed-export.test.js",
         "__tests__/unit/cron-auth.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
-        "__tests__/unit/cron-routing-maintenance.route.test.js",
         "__tests__/unit/guard-agent-attribution.test.js",
         "__tests__/unit/guard-assumption-alerts.test.js",
         "__tests__/unit/guard-characterization.test.js",
@@ -4046,14 +3823,6 @@
       "in_env_example": false
     },
     {
-      "name": "MODEL",
-      "required": false,
-      "files": [
-        "examples/work-order-worker/index.js"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "MOONSHOT_API_KEY",
       "required": false,
       "files": [
@@ -4335,7 +4104,6 @@
       "name": "ORG_ID",
       "required": false,
       "files": [
-        "scripts/seed-fixitforme-workflow.js",
         "scripts/seed-registry-demo.mjs",
         "scripts/seed-research-capability.js",
         "scripts/seed-research-capability.mjs"
@@ -4903,14 +4671,6 @@
         "__tests__/unit/security-status.route.test.js",
         "app/api/security/status/route.ts",
         "app/lib/validate.js"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "WORKER_AGENT_ID",
-      "required": false,
-      "files": [
-        "examples/work-order-worker/index.js"
       ],
       "in_env_example": false
     },

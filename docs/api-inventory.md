@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `272`
+- Total routes: `252`
 - Stable routes: `53`
-- Beta routes: `23`
-- Experimental routes: `196`
+- Beta routes: `22`
+- Experimental routes: `177`
 
 ## Routes
 
@@ -109,7 +109,6 @@ doc-type: architecture
 | `/api/cron/outcome-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/outcome-sweep/route.ts` |
 | `/api/cron/policy-suggestions` | `GET` | `beta` | `/api/cron` | `app/api/cron/policy-suggestions/route.ts` |
 | `/api/cron/reset-meters` | `GET` | `beta` | `/api/cron` | `app/api/cron/reset-meters/route.ts` |
-| `/api/cron/routing-maintenance` | `POST` | `beta` | `/api/cron` | `app/api/cron/routing-maintenance/route.ts` |
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.ts` |
 | `/api/discord/interactions` | `POST` | `experimental` | `(default)` | `app/api/discord/interactions/route.ts` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
@@ -260,8 +259,6 @@ doc-type: architecture
 | `/api/skills/scan` | `POST` | `experimental` | `(default)` | `app/api/skills/scan/route.ts` |
 | `/api/skills/scans/{id}` | `GET` | `experimental` | `(default)` | `app/api/skills/scans/[id]/route.ts` |
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
-| `/api/swarm/graph` | `GET` | `experimental` | `/api/swarm` | `app/api/swarm/graph/route.ts` |
-| `/api/swarm/link` | `GET` | `experimental` | `/api/swarm` | `app/api/swarm/link/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
 | `/api/usage/costs` | `GET` | `stable` | `/api/usage` | `app/api/usage/costs/route.ts` |
@@ -270,23 +267,6 @@ doc-type: architecture
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
 | `/api/widget/summary` | `GET` | `experimental` | `(default)` | `app/api/widget/summary/route.ts` |
-| `/api/work-orders` | `GET, POST` | `experimental` | `(default)` | `app/api/work-orders/route.ts` |
-| `/api/work-orders/claim` | `POST` | `experimental` | `(default)` | `app/api/work-orders/claim/route.ts` |
-| `/api/work-orders/types` | `GET, POST` | `experimental` | `(default)` | `app/api/work-orders/types/route.ts` |
-| `/api/work-orders/types/{type}` | `DELETE, GET, PUT` | `experimental` | `(default)` | `app/api/work-orders/types/[type]/route.ts` |
-| `/api/work-orders/{workOrderId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/route.ts` |
-| `/api/work-orders/{workOrderId}/artifacts` | `GET` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/artifacts/route.ts` |
-| `/api/work-orders/{workOrderId}/complete` | `POST` | `experimental` | `(default)` | `app/api/work-orders/[workOrderId]/complete/route.ts` |
-| `/api/workflows/draft` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/draft/route.ts` |
-| `/api/workflows/templates` | `GET, POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/route.ts` |
-| `/api/workflows/templates/{templateId}` | `DELETE, GET, PATCH` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/route.ts` |
-| `/api/workflows/templates/{templateId}/duplicate` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/duplicate/route.ts` |
-| `/api/workflows/templates/{templateId}/execute` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/execute/route.ts` |
-| `/api/workflows/templates/{templateId}/launch` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/launch/route.ts` |
-| `/api/workflows/templates/{templateId}/runs` | `GET` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/route.ts` |
-| `/api/workflows/templates/{templateId}/runs/{runActionId}` | `GET` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts` |
-| `/api/workflows/templates/{templateId}/runs/{runActionId}/cancel` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts` |
-| `/api/workflows/templates/{templateId}/runs/{runActionId}/resume` | `POST` | `experimental` | `/api/workflows` | `app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts` |
 | `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |
 | `/api/workspace/import` | `POST` | `experimental` | `(default)` | `app/api/workspace/import/route.ts` |
 | `/api/x402/budget` | `GET` | `experimental` | `(default)` | `app/api/x402/budget/route.ts` |

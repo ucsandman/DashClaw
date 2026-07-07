@@ -57,7 +57,7 @@ If the change touches JS contract validation, run targeted Vitest contract tests
 
 ## Good Candidate Files For Workflow Slice
 
-- [workflows-templates.json](../../contracts/api/workflows-templates.json)
+- `contracts/api/workflows-templates.json` (removed in the v5.0.0 cull)
 - [public-surface.json](../../contracts/sdk/public-surface.json)
 - [check-sdk-surface.mjs](../../scripts/lib/contracts/check-sdk-surface.mjs)
 - [client.py](../../sdk-python/dashclaw/client.py)

@@ -737,7 +737,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**31 tools** in 12 groups:
+**29 tools** in 12 groups:
 
 - **Core governance (9):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture).
 - **Optimal files (2):** `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest` — Code Sessions optimizer output (root CLAUDE.md, path-scoped rules, hooks, skill packs).
@@ -750,7 +750,6 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Agent identity (1):** `dashclaw_pair`
 - **Behavior learning (1):** `dashclaw_behavior_suggestions`
 - **Governance posture (2, read-only):** `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score (6 dimensions + findings) and the next prioritized finding; read-only, drafting/remediation stays human-gated.
-- **Work orders (2):** `dashclaw_work_order_submit`, `dashclaw_work_order_status` — submit a typed, budget-capped, guard-gated work order; check its lifecycle status and (when terminal) its self-verifying receipt.
 
 **6 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
 
@@ -829,7 +828,7 @@ Those wrappers exist to keep older integrations working. New product work should
 
 ## Execution Studio
 
-Governance packaging and discovery — workflow templates, model strategies, knowledge collections, a capability registry, and a read-only execution graph. Added in v2.10.0.
+Governance packaging and discovery — model strategies, knowledge collections, a capability registry, and a read-only execution graph. Added in v2.10.0.
 
 ### Execution Graph
 
@@ -901,60 +900,6 @@ const idempotency_key = claw.deriveIdempotencyKey({
   request_id: requestId, // your own attempt discriminator
 });
 await claw.createAction({ /* ... */, idempotency_key });
-```
-
-### Workflow Templates
-
-```javascript
-// List templates
-const { templates } = await claw.listWorkflowTemplates({ status: 'active' });
-
-// Create a template
-const { template } = await claw.createWorkflowTemplate({
-  name: 'Release Hotfix',
-  description: 'Ship urgent production patches safely',
-  objective: 'Deploy with full policy + approval coverage',
-  linked_policy_ids: ['pol_prod_deploy'],
-  linked_capability_tags: ['deploy'],
-  model_strategy_id: 'mst_balanced_default'
-});
-
-// Get / update / duplicate
-const detail = await claw.getWorkflowTemplate(templateId);
-await claw.updateWorkflowTemplate(templateId, {
-  steps: [{ id: 'plan' }, { id: 'test' }, { id: 'deploy' }]
-}); // bumps version when steps change
-await claw.duplicateWorkflowTemplate(templateId);
-
-// Launch — creates a traceable action_records row with workflow metadata.
-// If the template links a model_strategy_id, the resolved config is snapshotted.
-const { launch } = await claw.launchWorkflowTemplate(templateId, { agent_id: 'deploy-bot' });
-console.log(launch.action_id); // act_... — view it in /decisions/<action_id>
-
-// List past runs for a template (HTTP only — no SDK wrapper yet)
-const runs = await fetch(`${baseUrl}/api/workflows/templates/${templateId}/runs?limit=10`, {
-  headers: { 'x-api-key': apiKey },
-}).then(r => r.json());
-
-// Get full run detail with step inputs/outputs
-const run = await fetch(`${baseUrl}/api/workflows/templates/${templateId}/runs/${runActionId}`, {
-  headers: { 'x-api-key': apiKey },
-}).then(r => r.json());
-// run.steps[].input / run.steps[].output contain full JSON (no truncation)
-
-// Resume a failed run from the last completed checkpoint
-const resumed = await fetch(`${baseUrl}/api/workflows/templates/${templateId}/runs/${runActionId}/resume`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({}),
-}).then(r => r.json());
-// resumed.action_id is the new run; reused steps have status='reused'
-
-// Cancel a running workflow
-await fetch(`${baseUrl}/api/workflows/templates/${templateId}/runs/${runActionId}/cancel`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey },
-});
 ```
 
 ### Artifacts
@@ -1295,115 +1240,6 @@ curl -X POST https://hosted.example.com/api/hosted/cleanup \
 ```
 
 These routes return 404 when `DASHCLAW_HOSTED` is unset — self-host deploys are unaffected.
-
----
-
-## Work Orders
-
-Work Orders are task-grade contracts with budget ceilings and self-verifying receipts. An orchestrator submits a typed, guard-gated order against a registered contract; any worker agent claims it, executes the work, and reports completion — at which point DashClaw builds a SHA-256-hashed receipt encoding cost, output hash, and the full governance trail.
-
-### Claim → complete worker loop
-
-```javascript
-import { DashClaw } from 'dashclaw';
-
-const claw = new DashClaw({
-  baseUrl: process.env.DASHCLAW_URL,
-  apiKey: process.env.DASHCLAW_API_KEY,
-  agentId: 'research-worker',
-});
-
-// Worker: poll and process
-async function tick() {
-  const { work_order: order } = await claw.claimWorkOrder({
-    types: ['research_brief'],
-  });
-  if (!order) return; // nothing queued right now
-
-  console.log(`claimed ${order.id} (${order.type})`);
-  try {
-    // ... execute the work ...
-    const output = { title: 'Agent rails', summary: '…', findings: ['…'], sources: [] };
-    const cost = { input_tokens: 4200, output_tokens: 1800, total_usd: 0.11 };
-
-    const { receipt } = await claw.completeWorkOrder(order.id, {
-      status: 'completed',
-      output,
-      cost,
-    });
-    console.log(`completed — receipt hash: ${receipt.receipt_hash}`);
-  } catch (err) {
-    await claw.completeWorkOrder(order.id, {
-      status: 'failed',
-      error: { code: 'worker_error', message: err.message },
-    });
-  }
-}
-
-setInterval(() => tick().catch(console.error), 5000);
-```
-
-### Methods
-
-| Method | Description |
-|---|---|
-| `submitWorkOrder(order)` | Submit a work order against a registered contract. Guard-gated — may be blocked or parked for approval. |
-| `getWorkOrder(workOrderId)` | Fetch a work order and its receipt (populated once terminal). |
-| `listWorkOrders(filters?)` | List work orders. Filters: `status`, `type`, `agent`, `limit`, `offset`. |
-| `cancelWorkOrder(workOrderId)` | Cancel a queued, claimed, or pending-approval work order. |
-| `claimWorkOrder({ types?, agent_id? })` | Atomically claim the next queued order of matching type(s). Returns `null` when queue is empty. |
-| `completeWorkOrder(workOrderId, result)` | Report completion or failure. On success, validates output against the contract and builds a verifiable receipt. |
-| `listWorkOrderTypes()` | List registered work order contracts. |
-| `registerWorkOrderType(definition)` | Register a new work order contract with input/output JSON Schema. |
-
-### Submitting from an orchestrator
-
-```javascript
-// Register a contract (once per org)
-await claw.registerWorkOrderType({
-  type: 'research_brief',
-  display_name: 'Research Brief',
-  input_schema: {
-    type: 'object',
-    required: ['topic'],
-    properties: {
-      topic: { type: 'string', minLength: 3 },
-      depth: { type: 'string', enum: ['quick', 'standard', 'deep'] },
-    },
-  },
-  output_schema: {
-    type: 'object',
-    required: ['title', 'summary', 'findings'],
-    properties: {
-      title: { type: 'string' },
-      summary: { type: 'string' },
-      findings: { type: 'array', items: { type: 'string' } },
-    },
-  },
-  default_max_cost_usd: 0.5,
-  default_timeout_seconds: 600,
-});
-
-// Submit an order (guard-gated)
-const { work_order_id, status, guard } = await claw.submitWorkOrder({
-  type: 'research_brief',
-  input: { topic: 'agent payment rails', depth: 'standard' },
-  budget: { max_cost_usd: 0.25 },
-});
-// status: 'queued' | 'pending_approval' | 'blocked'
-
-// Poll until terminal
-let done = false;
-while (!done) {
-  const { work_order, receipt } = await claw.getWorkOrder(work_order_id);
-  if (['completed', 'failed', 'timed_out', 'cancelled'].includes(work_order.status)) {
-    console.log(work_order.status, receipt?.receipt_hash);
-    done = true;
-  } else {
-    await new Promise(r => setTimeout(r, 3000));
-  }
-}
-```
 
 ---
 

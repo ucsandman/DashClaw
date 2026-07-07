@@ -44,7 +44,7 @@ Out of scope:
 
 ### Existing API route
 
-- [route.js](../../../app/api/workflows/templates/[templateId]/execute/route.ts)
+- `app/api/workflows/templates/[templateId]/execute/route.ts` (removed in the v5.0.0 cull)
 
 Current route behavior:
 

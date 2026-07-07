@@ -31,18 +31,6 @@
           "list_agent_capabilities"
         ]
       },
-      "workflows": {
-        "canonical_root": "workflows",
-        "required_methods": [
-          "list_workflow_templates",
-          "create_workflow_template",
-          "get_workflow_template",
-          "update_workflow_template",
-          "duplicate_workflow_template",
-          "launch_workflow_template",
-          "execute_workflow_template"
-        ]
-      },
       "model_strategies": {
         "canonical_root": "model_strategies",
         "required_methods": [

@@ -25,7 +25,6 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   action: (id) => `/decisions/${id}`,
   session: (id) => `/sessions/${id}`,
   capability: (id) => `/capabilities/${id}`,
-  workflow: (id) => `/workflows/${id}`,
   knowledge: (id) => `/knowledge/${id}`,
   // Policy has no detail route — deep-link to the cockpit and highlight the match.
   // The id may be a free-form policy label, so encode it.
@@ -142,7 +141,6 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   message: messageActions,
   session: sessionActions,
   codeSession: codeSessionActions,
-  workflow: workflowActions,
   modelStrategy: modelStrategyActions,
   teamMember: teamMemberActions,
 };
@@ -361,10 +359,6 @@ function codeSessionActions(entity: EntityTarget): MenuItem[] {
       },
     },
   ];
-}
-
-function workflowActions(entity: EntityTarget): MenuItem[] {
-  return [{ id: 'view', label: 'View workflow', icon: Eye, run: (ctx) => ctx.push(`/workflows/${entity.id}`) }];
 }
 
 function modelStrategyActions(entity: EntityTarget): MenuItem[] {

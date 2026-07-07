@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:62b5471957101d6b215f48352509d0ac44174dac`
+**Shape snapshot:** `sha1:835f7d689c7f07bb174fd0164c15aa27a44053c7`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **272** active API routes across **68** categories (272 total including archived)
-- **4** required + **201** optional environment variables
+- **252** active API routes across **65** categories (252 total including archived)
+- **4** required + **199** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -186,7 +186,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/cron/outcome-sweep`
 - `GET` `/api/cron/policy-suggestions`
 - `GET` `/api/cron/reset-meters`
-- `POST` `/api/cron/routing-maintenance`
 - `GET` `/api/cron/signals`
 
 ### `discord`
@@ -467,11 +466,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET` `/api/stream`
 
-### `swarm`
-
-- `GET` `/api/swarm/graph`
-- `GET` `/api/swarm/link`
-
 ### `telegram`
 
 - `POST` `/api/telegram/webhook`
@@ -492,29 +486,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET` `/api/widget/summary`
 
-### `work-orders`
-
-- `GET, POST` `/api/work-orders`
-- `DELETE, GET` `/api/work-orders/[workOrderId]`
-- `GET` `/api/work-orders/[workOrderId]/artifacts`
-- `POST` `/api/work-orders/[workOrderId]/complete`
-- `POST` `/api/work-orders/claim`
-- `GET, POST` `/api/work-orders/types`
-- `DELETE, GET, PUT` `/api/work-orders/types/[type]`
-
-### `workflows`
-
-- `POST` `/api/workflows/draft`
-- `GET, POST` `/api/workflows/templates`
-- `DELETE, GET, PATCH` `/api/workflows/templates/[templateId]`
-- `POST` `/api/workflows/templates/[templateId]/duplicate`
-- `POST` `/api/workflows/templates/[templateId]/execute`
-- `POST` `/api/workflows/templates/[templateId]/launch`
-- `GET` `/api/workflows/templates/[templateId]/runs`
-- `GET` `/api/workflows/templates/[templateId]/runs/[runActionId]`
-- `POST` `/api/workflows/templates/[templateId]/runs/[runActionId]/cancel`
-- `POST` `/api/workflows/templates/[templateId]/runs/[runActionId]/resume`
-
 ### `workspace`
 
 - `GET` `/api/workspace/export`
@@ -532,8 +503,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 85 file(s)
-- **`DATABASE_URL`** - referenced in 101 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 83 file(s)
+- **`DATABASE_URL`** - referenced in 100 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -650,7 +621,6 @@ These have fallbacks or only activate specific features.
 - `INTEGRATION_DATABASE_URL` *(undocumented)*
 - `LIVE_CANARY_HOSTED_ORIGIN` *(undocumented)*
 - `LIVE_CANARY_MARKETING_ORIGIN` *(undocumented)*
-- `MODEL` *(undocumented)*
 - `MOONSHOT_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_KEY` *(undocumented)*
 - `NAMECHEAP_API_USER` *(undocumented)*
@@ -740,7 +710,6 @@ These have fallbacks or only activate specific features.
 - `VERCEL_TOKEN` *(undocumented)*
 - `VERCEL_URL` *(undocumented)*
 - `WEBHOOK_ALLOWED_DOMAINS` *(undocumented)*
-- `WORKER_AGENT_ID` *(undocumented)*
 - `X` *(undocumented)*
 
 ## Database Tables

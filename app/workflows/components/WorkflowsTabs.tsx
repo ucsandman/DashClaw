@@ -1,13 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { FileText, Cpu, ArrowRight } from 'lucide-react';
+import { Cpu, ArrowRight } from 'lucide-react';
 
-// Sub-route tabs for the consolidated workflows surface. Real routes (not
-// ?tab=) so deep links, the demo matcher (/workflows/:path*), and redirects
-// from the retired /model-strategies page all work.
+// Sub-route tabs for the model-strategies surface. Real routes (not ?tab=) so
+// deep links, the demo matcher (/workflows/:path*), and redirects from the
+// retired /model-strategies page all work.
 const TABS = [
-  { key: 'templates', href: '/workflows', label: 'Templates', icon: FileText },
   { key: 'strategies', href: '/workflows/strategies', label: 'Model strategies', icon: Cpu },
 ] as const;
 

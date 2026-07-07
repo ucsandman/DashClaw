@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 147 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, Work Orders, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
+  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 133 methods across Core Governance, Scoring, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
   - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 231 methods).
+  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 216 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -157,7 +157,7 @@ Client request hits middleware.js
 | `/approvals` | Desktop approval queue |
 | `/decisions` | Visual causal chain ledger with inline message trails in expanded rows |
 | `/decisions/{actionId}` | Chronological decision timeline (guard decisions, messages, assumptions, actions, outcomes, open loops) |
-| `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record + outcome coverage against transcript ground truth, explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions and deep-links to `/swarm?swarm_id=<harness_session_id>` (scoped fan-out graph, `GET /api/agents/fanouts`) |
+| `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record + outcome coverage against transcript ground truth, explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (`GET /api/agents/fanouts`) |
 | `/agents/{agentId}` | Agent governance profile — vitals strip, trust posture, policies, decisions, assumptions, signals |
 | `/policies` | Shields-first policy builder (ActivityTab + CustomTab, AI generator inline, agent-scope picker, risk explainer) |
 | `/policies/generate` | AI policy generator standalone page |
@@ -193,7 +193,7 @@ The left sidebar is organized into five groups (`app/components/Sidebar.js`). **
 | **Observe** | Security, Analytics, Activity, Compliance |
 | **Spend** | Overview, Purchases, Your Claude Code |
 | **Configure** | API Keys, Integrations, Webhooks, Identities, Settings |
-| **Labs** *(collapsible)* | Assumptions, Sessions, Drift, Learning, Quality, Prompts, Workflows, Model Strategies, Knowledge, Capabilities |
+| **Labs** *(collapsible)* | Assumptions, Sessions, Drift, Learning, Quality, Prompts, Model Strategies, Knowledge, Capabilities |
 
 ## CLI and Hooks Layer
 
@@ -230,7 +230,7 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**31 tools across 12 groups:**
+**29 tools across 11 groups:**
 - *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
 - *Optimal files (2):* `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`.
 - *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
@@ -242,7 +242,6 @@ These are optional packages published alongside the core runtime.
 - *Agent identity (1):* `dashclaw_pair` — operator-approved pairing of an unidentified agent to a registered identity.
 - *Behavior learning (1):* `dashclaw_behavior_suggestions` — observe-only Policy Coach suggestions from recorded behavior.
 - *Governance posture (2, read-only):* `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score + 6 dimensions + prioritized findings; read-only (remediation is human-gated).
-- *Work orders (2):* `dashclaw_work_order_submit`, `dashclaw_work_order_status` — submit a typed, budget-capped, guard-gated work order; check its lifecycle status and (when terminal) its self-verifying receipt.
 
 **6 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
 
@@ -256,7 +255,7 @@ Route inventory for tools is emitted from the shape to `mcp-server/lib/routes-in
 
 ## Signal Types
 
-DashClaw computes 18 signal types (`computeSignals` in `app/lib/signals.ts`). All are evaluated server-side without an LLM.
+DashClaw computes 17 signal types (`computeSignals` in `app/lib/signals.ts`). All are evaluated server-side without an LLM.
 
 | Signal Type | Trigger |
 |---|---|
@@ -269,7 +268,6 @@ DashClaw computes 18 signal types (`computeSignals` in `app/lib/signals.ts`). Al
 | `drift_alert` | Behavioral drift z-score exceeded threshold (open warning/critical drift alerts) |
 | `stale_assumption` | Assumption unverified for too long (red past 30 days) |
 | `stale_running_action` | Action stuck in `running` status (red past 24 hours) |
-| `workflow_stuck` | Workflow running without completing (red past 60 minutes) |
 | `approval_backlog` | Approval pending too long (red at 4+ hours) |
 | `integration_mismatch` | Agent reports using a provider whose credentials are missing or broken |
 | `session_stalled` | Session running with no tool activity for 2+ hours |

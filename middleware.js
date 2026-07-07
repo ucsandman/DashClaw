@@ -9,16 +9,15 @@ import {
   demoConsolidatedLessons,
   demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
   demoMessageDocs, demoContent, demoActivity,
-  demoWebhooks, demoWebhookDeliveries, demoWorkflows, demoSchedules,
+  demoWebhooks, demoWebhookDeliveries, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
-  demoHandoffs, demoSnippets, demoPreferences, demoSwarmGraph, demoActionTrace,
+  demoHandoffs, demoSnippets, demoPreferences, demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
-  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
-  demoListWorkOrders, demoGetWorkOrder, demoListWorkOrderTypes
+  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -1366,7 +1365,6 @@ const DEMO_API_ROUTES = [
   ['/api/activity', demoFixtureUrlRoute(demoActivity)],
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
-  ['/api/workflows', demoFixtureUrlRoute(demoWorkflows)],
   ['/api/schedules', demoFixtureRoute(demoSchedules)],
   ['/api/digest', demoFixtureUrlRoute(demoDigest)],
   ['/api/context/points', demoFixtureUrlRoute(demoContextPoints)],
@@ -1378,7 +1376,6 @@ const DEMO_API_ROUTES = [
   ['/api/memory', ({ request, fixtures }) => demoJson(request, { ...fixtures.memory, lastUpdated: new Date().toISOString() })],
   ['/api/tokens', demoFixtureRoute(demoTokens)],
   ['/api/usage', demoFixturePropRoute('usage')],
-  ['/api/swarm/graph', demoFixtureUrlRoute(demoSwarmGraph)],
   ['/api/security/status', demoFixturePropRoute('securityStatus')],
   ['/api/pairings', handleDemoPairings],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'pairings', '*']), handleDemoPairingDetail],
@@ -1403,14 +1400,6 @@ const DEMO_API_ROUTES = [
   ['/api/behavior/recorder', demoPayloadRoute(demoBehaviorRecorder)],
   ['/api/behavior/samples', demoFixtureUrlRoute(demoBehaviorSamples)],
   ['/api/behavior/suggestions', demoFixtureRoute(demoBehaviorSuggestions)],
-  // -- Work Orders demo endpoints (GET only; POST/DELETE fall to write-block) --
-  // /types must precede the /:id prefix match or 'types' would be treated as an id.
-  ['/api/work-orders/types', ({ request }) => demoJson(request, demoListWorkOrderTypes())],
-  ['/api/work-orders', ({ request, url }) => demoJson(request, demoListWorkOrders(url))],
-  [(pathname, segments) => segmentsMatch(segments, ['api', 'work-orders', '*']) && segments[2] !== 'claim', ({ request, segments }) => {
-    const result = demoGetWorkOrder(segments[2]);
-    return demoJson(request, result, result.error ? 404 : 200);
-  }],
 ];
 
 async function dispatchDemoApiRoute(ctx) {
@@ -1989,8 +1978,6 @@ export const config = {
     '/.well-known/oauth-authorization-server',
     '/.well-known/oauth-protected-resource',
     '/demo',
-    '/swarm',
-    '/swarm/:path*',
     '/approvals',
     '/approvals/:path*',
     '/approve',
@@ -2011,7 +1998,6 @@ export const config = {
     '/learning/:path*',
     '/integrations',
     '/integrations/:path*',
-    '/workflows',
     '/workflows/:path*',
     '/pair',
     '/pair/:path*',

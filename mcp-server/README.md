@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 31 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 29 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
 
@@ -72,7 +72,7 @@ in the UI — Claude's connector flow requires OAuth, not headers:
 2. Paste `https://<your-instance>/api/mcp`.
 3. Claude discovers `/.well-known/oauth-protected-resource`, registers via DCR,
    and opens your DashClaw login + a consent screen.
-4. Authorize → the 31 governance tools appear, scoped to your workspace.
+4. Authorize → the 29 governance tools appear, scoped to your workspace.
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 The legacy `x-api-key` path (Managed Agents) is unchanged.
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (31)
+## Tools (29)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -174,13 +174,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 |---|---|
 | `dashclaw_posture` | Read the org governance posture score + 6 dimensions + findings queue |
 | `dashclaw_posture_next` | The next prioritized remediation finding from the posture queue |
-
-**Work orders (2)** — submit a typed, budget-capped work order and check its status + receipt.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_work_order_submit` | Submit a typed, budget-capped, guard-gated work order; returns work_order_id + status + guard decision |
-| `dashclaw_work_order_status` | Check a work order: lifecycle status, worker, guard decision, and (when terminal) the self-verifying receipt |
 
 ## Governed execution (provider + context tools)
 

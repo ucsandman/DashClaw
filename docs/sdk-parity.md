@@ -53,7 +53,6 @@ The canonical Node SDK already includes the core runtime and a meaningful portio
 - the full Prompt Library surface (template CRUD, version CRUD, `activatePromptVersion`, `renderPrompt`, `getPromptStats`, `listPromptRuns`),
 - learning ledger (`recordDecision`, `getLearningRecommendations`),
 - side-effect-free dry-runs (`simulatePolicy`, `previewScorer`),
-- workflow templates,
 - model strategies,
 - knowledge collections,
 - capability registry,
@@ -111,7 +110,6 @@ That is acceptable temporarily, but it should not define future product directio
 | Action outcome (durable execution finality) | Yes — Phase 3 (`reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`/`Failure`/`Partial`) | n/a | Yes — Phase 4 (`report_action_outcome`, `get_action_outcome`, `report_action_success`/`failure`/`partial`) | `POST/GET /api/actions/:id/outcome` (Phase 1) + cron sweep `/api/cron/outcome-sweep` + `lost_confirmation` signal (Phase 2) + Node SDK wrappers (Phase 3) + Python SDK wrappers (Phase 4). Full parity. See `docs/architecture/durable-execution-finality.md`. |
 | Sessions / action graph | Yes | Partial overlap | Yes | Stable, canonical in main SDK |
 | Loops and assumptions | Yes | Yes | Yes | Canonical in main SDK |
-| Workflows | Yes | Historical overlap | Yes | Canonical in main SDK, with Python route-contract parity for template CRUD, launch, and execute. `POST /api/workflows/draft` NL-to-workflow endpoint also exposed |
 | Capabilities | Yes | Yes, as flat compatibility wrappers for current overlap | Yes | Canonical in main SDK, with Python route-contract parity for registry plus runtime methods. Legacy should only shim to the same routes |
 | Model strategies | Yes | Limited overlap | Yes | Canonical in main SDK, with Python route-contract parity and contract-enforced runtime surface |
 | Knowledge collections | Yes | Limited overlap | Yes | Canonical in main SDK, with Python route-contract parity and explicit API/SDK contract coverage |
@@ -134,7 +132,6 @@ That is acceptable temporarily, but it should not define future product directio
 | Webhooks / activity logs | No canonical wrapper yet for full shape | Yes | Yes | Remain compatibility and admin-heavy for now |
 | Preferences / digest / ideas | No | Yes | Yes | Low-priority consolidation |
 | Managed secrets delivery (`GET /api/secrets/env`) | Yes — `getAgentEnv({ agentId })` | No | Yes — `get_agent_env(agent_id=None)` | Canonical in both SDKs at route-contract parity. Returns `{ env, count, delivered }` — the org/agent-merged, delivery-enabled, decrypted secret bundle for one agent. **Values are live secrets: memory-only, never logged, never written to disk.** Secret *metadata* (register/rotate/delete, `/api/secrets`, `/api/secrets/[id]`, `/api/secrets/rotation-due`) stays operator/MCP-only — see Non-SDK Surfaces. CLI: `dashclaw env [--agent <id>] -- <command>` injects the bundle into a child process environment without ever printing values (no `--print`; fail-closed if the fetch fails). |
-| Work Orders (`/api/work-orders`, `/api/work-orders/types`) | Yes — 8 methods: `submitWorkOrder`, `getWorkOrder`, `listWorkOrders`, `cancelWorkOrder`, `claimWorkOrder`, `completeWorkOrder`, `listWorkOrderTypes`, `registerWorkOrderType` | No | Yes — 8 methods: `submit_work_order`, `get_work_order`, `list_work_orders`, `cancel_work_order`, `claim_work_order`, `complete_work_order`, `list_work_order_types`, `register_work_order_type` | Task-grade contracts + self-verifying receipts ledger. Guard-gated submit, atomic lease claim (SKIP LOCKED), output-contract validation, SHA-256 receipt on every terminal order. DashClaw is the system of record only — execution is external workers via claim/complete. |
 
 ## Non-SDK Surfaces (Operational)
 

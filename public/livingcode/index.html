@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:62b5471957101d6b215f48352509d0ac44174dac · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:835f7d689c7f07bb174fd0164c15aa27a44053c7 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">273</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">253</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">201</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">199</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">12</div><div class="k">Signals</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>61</b> env_vars added, <b>2</b> env_vars removed, <b>29</b> routes added, <b>64</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>77</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -222,13 +222,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>routes</b>: /api/policies/tightening <span class="sig">New route: GET, POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/self-governance <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/sessions/[sessionId]/retro <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId] <span class="sig">New route: DELETE, GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId]/artifacts <span class="sig">New route: GET</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/[workOrderId]/complete <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/claim <span class="sig">New route: POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/types <span class="sig">New route: GET, POST</span></li>
-    <li><code>added</code> <b>routes</b>: /api/work-orders/types/[type] <span class="sig">New route: DELETE, GET, PUT</span></li>
     <li><code>added</code> <b>routes</b>: /api/workspace/export <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/workspace/import <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/x402/budget <span class="sig">New route: GET</span></li>
@@ -286,6 +279,7 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/agents/connections <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/heartbeat <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/analytics <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/cron/routing-maintenance <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/invite/[token] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/operations/feed <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture <span class="sig">Route removed</span></li>
@@ -293,9 +287,21 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/posture/findings/[key]/resolve <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/scan <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/security/scan <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/swarm/graph <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/swarm/link <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/team <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/team/[userId] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/team/invite <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/draft <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/duplicate <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/execute <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/launch <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/runs <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/runs/[runActionId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/runs/[runActionId]/cancel <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/workflows/templates/[templateId]/runs/[runActionId]/resume <span class="sig">Route removed</span></li>
     <li><code>added</code> <b>env_vars</b>: API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLERK_SECRET_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: CLOUDFLARE_API_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
@@ -328,7 +334,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: HOSTED_DRILL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: LIVE_CANARY_HOSTED_ORIGIN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: LIVE_CANARY_MARKETING_ORIGIN <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: MODEL <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_KEY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: NAMECHEAP_API_USER <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: NAMECHEAP_CLIENT_IP <span class="sig">New env var (optional, undocumented)</span></li>
@@ -356,7 +361,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: VERCEL_ENV <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_TEAM_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
-    <li><code>added</code> <b>env_vars</b>: WORKER_AGENT_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: AGENT_PRIVATE_KEY_JWK <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
@@ -453,7 +457,7 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.ts</td></tr>
     <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.ts</td></tr></tbody></table></details>
 <details><summary>/coverage/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/coverage"><td><code>/api/coverage</code></td><td>GET, POST</td><td class="sig">app/api/coverage/route.ts</td></tr></tbody></table></details>
-<details><summary>/cron/* (12)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
+<details><summary>/cron/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
     <tr data-path="/api/cron/code-session-weekly-memo"><td><code>/api/cron/code-session-weekly-memo</code></td><td>GET</td><td class="sig">app/api/cron/code-session-weekly-memo/route.ts</td></tr>
     <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>
     <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.ts</td></tr>
@@ -463,7 +467,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/cron/outcome-sweep"><td><code>/api/cron/outcome-sweep</code></td><td>GET</td><td class="sig">app/api/cron/outcome-sweep/route.ts</td></tr>
     <tr data-path="/api/cron/policy-suggestions"><td><code>/api/cron/policy-suggestions</code></td><td>GET</td><td class="sig">app/api/cron/policy-suggestions/route.ts</td></tr>
     <tr data-path="/api/cron/reset-meters"><td><code>/api/cron/reset-meters</code></td><td>GET</td><td class="sig">app/api/cron/reset-meters/route.ts</td></tr>
-    <tr data-path="/api/cron/routing-maintenance"><td><code>/api/cron/routing-maintenance</code></td><td>POST</td><td class="sig">app/api/cron/routing-maintenance/route.ts</td></tr>
     <tr data-path="/api/cron/signals"><td><code>/api/cron/signals</code></td><td>GET</td><td class="sig">app/api/cron/signals/route.ts</td></tr></tbody></table></details>
 <details><summary>/discord/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/discord/interactions"><td><code>/api/discord/interactions</code></td><td>POST</td><td class="sig">app/api/discord/interactions/route.ts</td></tr></tbody></table></details>
 <details><summary>/docs/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/docs/raw"><td><code>/api/docs/raw</code></td><td>GET</td><td class="sig">app/api/docs/raw/route.ts</td></tr></tbody></table></details>
@@ -614,8 +617,6 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/skills/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/skills/scan"><td><code>/api/skills/scan</code></td><td>POST</td><td class="sig">app/api/skills/scan/route.ts</td></tr>
     <tr data-path="/api/skills/scans/[id]"><td><code>/api/skills/scans/[id]</code></td><td>GET</td><td class="sig">app/api/skills/scans/[id]/route.ts</td></tr></tbody></table></details>
 <details><summary>/stream/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/stream"><td><code>/api/stream</code></td><td>GET</td><td class="sig">app/api/stream/route.ts</td></tr></tbody></table></details>
-<details><summary>/swarm/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/swarm/graph"><td><code>/api/swarm/graph</code></td><td>GET</td><td class="sig">app/api/swarm/graph/route.ts</td></tr>
-    <tr data-path="/api/swarm/link"><td><code>/api/swarm/link</code></td><td>GET</td><td class="sig">app/api/swarm/link/route.ts</td></tr></tbody></table></details>
 <details><summary>/telegram/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/telegram/webhook"><td><code>/api/telegram/webhook</code></td><td>POST</td><td class="sig">app/api/telegram/webhook/route.ts</td></tr></tbody></table></details>
 <details><summary>/usage/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/usage"><td><code>/api/usage</code></td><td>GET</td><td class="sig">app/api/usage/route.ts</td></tr>
     <tr data-path="/api/usage/costs"><td><code>/api/usage/costs</code></td><td>GET</td><td class="sig">app/api/usage/costs/route.ts</td></tr></tbody></table></details>
@@ -624,23 +625,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/webhooks/[webhookId]/test"><td><code>/api/webhooks/[webhookId]/test</code></td><td>POST</td><td class="sig">app/api/webhooks/[webhookId]/test/route.ts</td></tr>
     <tr data-path="/api/webhooks/stripe"><td><code>/api/webhooks/stripe</code></td><td>POST</td><td class="sig">app/api/webhooks/stripe/route.ts</td></tr></tbody></table></details>
 <details><summary>/widget/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/widget/summary"><td><code>/api/widget/summary</code></td><td>GET</td><td class="sig">app/api/widget/summary/route.ts</td></tr></tbody></table></details>
-<details><summary>/work-orders/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/work-orders"><td><code>/api/work-orders</code></td><td>GET, POST</td><td class="sig">app/api/work-orders/route.ts</td></tr>
-    <tr data-path="/api/work-orders/[workOrderId]"><td><code>/api/work-orders/[workOrderId]</code></td><td>DELETE, GET</td><td class="sig">app/api/work-orders/[workOrderId]/route.ts</td></tr>
-    <tr data-path="/api/work-orders/[workOrderId]/artifacts"><td><code>/api/work-orders/[workOrderId]/artifacts</code></td><td>GET</td><td class="sig">app/api/work-orders/[workOrderId]/artifacts/route.ts</td></tr>
-    <tr data-path="/api/work-orders/[workOrderId]/complete"><td><code>/api/work-orders/[workOrderId]/complete</code></td><td>POST</td><td class="sig">app/api/work-orders/[workOrderId]/complete/route.ts</td></tr>
-    <tr data-path="/api/work-orders/claim"><td><code>/api/work-orders/claim</code></td><td>POST</td><td class="sig">app/api/work-orders/claim/route.ts</td></tr>
-    <tr data-path="/api/work-orders/types"><td><code>/api/work-orders/types</code></td><td>GET, POST</td><td class="sig">app/api/work-orders/types/route.ts</td></tr>
-    <tr data-path="/api/work-orders/types/[type]"><td><code>/api/work-orders/types/[type]</code></td><td>DELETE, GET, PUT</td><td class="sig">app/api/work-orders/types/[type]/route.ts</td></tr></tbody></table></details>
-<details><summary>/workflows/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workflows/draft"><td><code>/api/workflows/draft</code></td><td>POST</td><td class="sig">app/api/workflows/draft/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates"><td><code>/api/workflows/templates</code></td><td>GET, POST</td><td class="sig">app/api/workflows/templates/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]"><td><code>/api/workflows/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/workflows/templates/[templateId]/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/duplicate"><td><code>/api/workflows/templates/[templateId]/duplicate</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/duplicate/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/execute"><td><code>/api/workflows/templates/[templateId]/execute</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/execute/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/launch"><td><code>/api/workflows/templates/[templateId]/launch</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/launch/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs"><td><code>/api/workflows/templates/[templateId]/runs</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]</code></td><td>GET</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/cancel"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/cancel</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/cancel/route.ts</td></tr>
-    <tr data-path="/api/workflows/templates/[templateId]/runs/[runActionId]/resume"><td><code>/api/workflows/templates/[templateId]/runs/[runActionId]/resume</code></td><td>POST</td><td class="sig">app/api/workflows/templates/[templateId]/runs/[runActionId]/resume/route.ts</td></tr></tbody></table></details>
 <details><summary>/workspace/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/workspace/export"><td><code>/api/workspace/export</code></td><td>GET</td><td class="sig">app/api/workspace/export/route.ts</td></tr>
     <tr data-path="/api/workspace/import"><td><code>/api/workspace/import</code></td><td>POST</td><td class="sig">app/api/workspace/import/route.ts</td></tr></tbody></table></details>
 <details><summary>/x402/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/x402/budget"><td><code>/api/x402/budget</code></td><td>GET</td><td class="sig">app/api/x402/budget/route.ts</td></tr>

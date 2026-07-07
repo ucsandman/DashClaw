@@ -9,7 +9,6 @@
   },
   "api": {
     "capabilities": "contracts/api/capabilities.json",
-    "workflows-templates": "contracts/api/workflows-templates.json",
     "knowledge-collections": "contracts/api/knowledge-collections.json"
   },
   "schema": {

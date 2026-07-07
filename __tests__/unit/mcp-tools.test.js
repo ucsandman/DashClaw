@@ -18,8 +18,8 @@ const { createToolHandlers, TOOL_DEFINITIONS } = await import('../../mcp-server/
 import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Tool Definitions', () => {
-  it('exports exactly 31 tool definitions', () => {
-    expect(TOOL_DEFINITIONS).toHaveLength(31);
+  it('exports exactly 29 tool definitions', () => {
+    expect(TOOL_DEFINITIONS).toHaveLength(29);
   });
 
   it('includes the assumption recording tool', () => {

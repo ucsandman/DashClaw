@@ -127,7 +127,7 @@ const navItems = [
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (31)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (29)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -202,7 +202,6 @@ const navItems = [
   { href: '#execution-studio', label: 'Execution Studio (HTTP)' },
   { href: '#execution-graph', label: 'Execution Graph', indent: true },
   { href: '#action-outcome', label: 'Action Outcome', indent: true },
-  { href: '#workflow-templates', label: 'Workflow Templates', indent: true },
   { href: '#model-strategies-http', label: 'Model Strategies', indent: true },
   { href: '#knowledge-collections', label: 'Knowledge Collections', indent: true },
   { href: '#deleteKnowledgeCollection', label: 'deleteKnowledgeCollection', indent: true },
@@ -226,15 +225,6 @@ const navItems = [
   { href: '#coverage-get', label: 'GET /api/coverage', indent: true },
   { href: '#fanouts', label: 'Fan-outs' },
   { href: '#fanouts-get', label: 'GET /api/agents/fanouts', indent: true },
-  { href: '#work-orders', label: 'Work Orders' },
-  { href: '#submitWorkOrder', label: 'submitWorkOrder', indent: true },
-  { href: '#getWorkOrder', label: 'getWorkOrder', indent: true },
-  { href: '#listWorkOrders', label: 'listWorkOrders', indent: true },
-  { href: '#cancelWorkOrder', label: 'cancelWorkOrder', indent: true },
-  { href: '#claimWorkOrder', label: 'claimWorkOrder', indent: true },
-  { href: '#completeWorkOrder', label: 'completeWorkOrder', indent: true },
-  { href: '#listWorkOrderTypes', label: 'listWorkOrderTypes', indent: true },
-  { href: '#registerWorkOrderType', label: 'registerWorkOrderType', indent: true },
   { href: '#code-sessions', label: 'Code Sessions' },
   { href: '#code-sessions-ingest', label: 'Ingest transcripts', indent: true },
   { href: '#code-sessions-optimal-files', label: 'Optimal Files', indent: true },
@@ -458,12 +448,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 31 governance tools across 12 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders) plus 6 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 29 governance tools across 11 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture) plus 6 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (31)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (29)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -506,8 +496,6 @@ except Exception as e:
                       { group: 'Behavior learning', tool: 'dashclaw_behavior_suggestions', desc: 'Observe-only Policy Coach suggestions from recorded behavior', inputs: 'agent_id' },
                       { group: 'Governance posture', tool: 'dashclaw_posture', desc: 'Read the org governance posture score + 6 dimensions + findings queue (read-only)', inputs: 'dimension' },
                       { tool: 'dashclaw_posture_next', desc: 'The next prioritized remediation finding from the posture queue (read-only)', inputs: '(none)' },
-                      { group: 'Work orders', tool: 'dashclaw_work_order_submit', desc: 'Submit a typed, budget-capped work order; guard-gated then queued for a worker', inputs: 'type, input, max_cost_usd, timeout_seconds' },
-                      { tool: 'dashclaw_work_order_status', desc: 'Check a work order: lifecycle status, worker, guard decision, and (when terminal) the receipt', inputs: 'work_order_id' },
                     ] as Array<{ group?: string; tool: string; desc: string; inputs: string }>).map((row) => (
                       <tr key={row.tool} className="border-b border-border">
                         <td className="py-2 pr-4 font-mono text-xs text-brand">
@@ -1902,7 +1890,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: workflow templates, model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 147 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listWorkflowTemplates</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 133 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1969,143 +1957,10 @@ const { rootActionId, nodes, edges } = await res.json();
               />
             </div>
 
-            {/* Workflow Templates */}
-            <div id="workflow-templates" className="scroll-mt-20 pt-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Workflow Templates</h3>
-              <p className="text-xs text-text-tertiary mb-4">Package a repeatable operational pattern as a reusable, versioned asset linking policies, prompts, knowledge, capabilities, and a model strategy.</p>
-
-              <MethodEntry
-                id="listWorkflowTemplates"
-                signature="GET /api/workflows/templates"
-                description="List all workflow templates for the current org. Supports ?status=draft|active|archived, ?limit, ?offset."
-                example={
-                  <CodeBlock title="List templates">
-{`const { templates } = await fetch(\`\${baseUrl}/api/workflows/templates\`, {
-  headers: { 'x-api-key': apiKey }
-}).then(r => r.json());`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="createWorkflowTemplate"
-                signature="POST /api/workflows/templates"
-                description="Create a workflow template. Slug auto-generated from name if omitted. Starts as v1, status=draft. Body fields: name (required), description, objective, steps, linked_prompt_template_ids, linked_policy_ids, linked_knowledge_collection_ids, linked_capability_ids, linked_capability_tags, model_strategy_id, status."
-                example={
-                  <CodeBlock title="Create template">
-{`await fetch(\`\${baseUrl}/api/workflows/templates\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'Release Hotfix',
-    description: 'Ship urgent production patches safely',
-    objective: 'Deploy with full policy + approval coverage',
-    linked_policy_ids: ['pol_prod_deploy'],
-    linked_capability_tags: ['deploy'],
-    model_strategy_id: 'mst_balanced_default'
-  })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="updateWorkflowTemplate"
-                signature="GET | PATCH /api/workflows/templates/:templateId"
-                description="Fetch or partially update a template. PATCH bumps version by 1 when the steps array changes; all linked arrays and metadata can be updated in the same call."
-                example={
-                  <CodeBlock title="Update steps (bumps version)">
-{`await fetch(\`\${baseUrl}/api/workflows/templates/\${templateId}\`, {
-  method: 'PATCH',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    steps: [{ id: 'plan' }, { id: 'test' }, { id: 'deploy' }]
-  })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="duplicateWorkflowTemplate"
-                signature="POST /api/workflows/templates/:templateId/duplicate"
-                description="Clone a template as a new draft (version resets to 1, status='draft'). Accepts optional name and slug overrides in the body."
-                example={
-                  <CodeBlock title="Duplicate">
-{`const { template } = await fetch(
-  \`\${baseUrl}/api/workflows/templates/\${templateId}/duplicate\`,
-  { method: 'POST', headers: { 'x-api-key': apiKey } }
-).then(r => r.json());`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="launchWorkflowTemplate"
-                signature="POST /api/workflows/templates/:templateId/launch"
-                description="Launch a template. Creates a new row in action_records with trigger='workflow:<templateId>' and reasoning='WORKFLOW_LAUNCH_META=<json>' carrying the full template context. If the template links a model_strategy_id, the resolved config is fetched and snapshotted onto the launched action and the template. No schema columns were added to action_records — Phase 1 piggybacks on existing trace primitives."
-                returns="{ launch: { action_id, template_id, template_version, launched_at, resolved_strategy } }"
-                example={
-                  <CodeBlock title="Launch and link to replay">
-{`const { launch } = await fetch(
-  \`\${baseUrl}/api/workflows/templates/\${templateId}/launch\`,
-  {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ agent_id: 'deploy-bot' })
-  }
-).then(r => r.json());
-
-// The launched action is immediately traceable in decision replay
-console.log(\`\${baseUrl}/decisions/\${launch.action_id}\`);`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="listWorkflowRuns"
-                signature="GET /api/workflows/templates/:templateId/runs"
-                description="List past workflow executions for a template. Each run is a parent action_record with step counts from workflow_step_results. Supports status, agent_id, limit, and offset query params."
-                returns="{ template_id, runs: [{ run_action_id, template_id, status, agent_id, declared_goal, duration_ms, started_at, finished_at, step_count, steps_completed, steps_failed }], total }"
-                example={
-                  <CodeBlock title="List recent runs">
-{`const runs = await fetch(
-  \`\${baseUrl}/api/workflows/templates/\${templateId}/runs?limit=10\`,
-  { headers: { 'x-api-key': apiKey } }
-).then(r => r.json());
-
-runs.runs.forEach(r =>
-  console.log(\`\${r.status} — \${r.steps_completed}/\${r.step_count} steps — \${r.duration_ms}ms\`)
-);`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="getWorkflowRun"
-                signature="GET /api/workflows/templates/:templateId/runs/:runActionId"
-                description="Fetch full run detail including all step results with complete input/output JSON. Powers the run detail page. Each step includes the resolved input after variable interpolation and the full output (no truncation)."
-                returns="{ run_action_id, template_id, template_name, status, agent_id, declared_goal, duration_ms, started_at, finished_at, error_message, steps: [{ step_id, step_index, step_type, step_name, status, input, output, error_message, retry_count, duration_ms }] }"
-                example={
-                  <CodeBlock title="Inspect a failed run">
-{`const run = await fetch(
-  \`\${baseUrl}/api/workflows/templates/\${templateId}/runs/\${runActionId}\`,
-  { headers: { 'x-api-key': apiKey } }
-).then(r => r.json());
-
-const failed = run.steps.filter(s => s.status === 'failed');
-failed.forEach(s =>
-  console.log(\`Step \${s.step_name} failed: \${s.error_message}\`)
-);`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-
             {/* Model Strategies */}
             <div id="model-strategies-http" className="scroll-mt-20 pt-10">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Model Strategies</h3>
-              <p className="text-xs text-text-tertiary mb-4">Reusable provider/model strategy records (primary + fallback chain, cost/latency sensitivity, budget cap). Linked from workflow templates and snapshotted at launch.</p>
+              <p className="text-xs text-text-tertiary mb-4">Reusable provider/model strategy records (primary + fallback chain, cost/latency sensitivity, budget cap).</p>
 
               <MethodEntry
                 id="listModelStrategies"
@@ -2137,7 +1992,7 @@ failed.forEach(s =>
               <MethodEntry
                 id="updateModelStrategy"
                 signature="GET | PATCH | DELETE /api/model-strategies/:strategyId"
-                description="Fetch, update, or delete a strategy. PATCH merges config patches over the existing config (primary fields preserved unless overridden). DELETE nulls out the soft reference on any linked workflow_templates rather than orphaning them."
+                description="Fetch, update, or delete a strategy. PATCH merges config patches over the existing config (primary fields preserved unless overridden). DELETE removes the strategy record."
                 example={
                   <CodeBlock title="Patch budget only">
 {`await fetch(\`\${baseUrl}/api/model-strategies/\${strategyId}\`, {
@@ -2178,7 +2033,7 @@ console.log(result.fallback_used); // true if primary failed`}
             {/* Knowledge Collections */}
             <div id="knowledge-collections" className="scroll-mt-20 pt-10">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Knowledge Collections</h3>
-              <p className="text-xs text-text-tertiary mb-4">Lightweight metadata layer for knowledge sources that workflows and agents can bind to. <strong className="text-text-secondary">No embedding or retrieval in Phase 1</strong> — metadata + tags only.</p>
+              <p className="text-xs text-text-tertiary mb-4">Lightweight metadata layer for knowledge sources that agents can bind to. <strong className="text-text-secondary">No embedding or retrieval in Phase 1</strong> — metadata + tags only.</p>
 
               <MethodEntry
                 id="listKnowledgeCollections"
@@ -3097,191 +2952,6 @@ const { manifest_id, apply_command } = await res.json();
                 </CodeBlock>
               }
             />
-          </section>
-
-          {/* ── Work Orders ── */}
-          <section id="work-orders" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <ClipboardCheck size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Work Orders</h2>
-            </div>
-            <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              Task-grade contracts for agent work: a typed input/output schema, a budget ceiling, and a self-verifying receipt. A caller <strong>submits</strong> an order against a registered type — it&apos;s validated against the contract, guard-gated (may be blocked or parked for human approval), then queued. Any agent with an API key can <strong>claim</strong> the next queued order and <strong>complete</strong> it; the server validates the output against the contract, builds a SHA-256-hashed receipt (cost, lifecycle timestamps, output hash, governance trail), and writes an audit record. <strong>DashClaw stays the control plane — it never runs the work.</strong> Execution is external workers; see <code className="text-brand">examples/work-order-worker/</code> for a ~75-line reference worker.
-            </p>
-
-            <div className="overflow-x-auto mb-8">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left py-2 pr-4 text-text-secondary font-medium">Route</th>
-                    <th className="text-left py-2 text-text-secondary font-medium">Behavior</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { route: 'POST /api/work-orders', desc: 'Validate input against the registered contract, validate the budget, guard-gate, insert. Returns 201 { work_order_id, status, guard }.' },
-                    { route: 'GET /api/work-orders', desc: 'List with ?status=, ?type=, ?agent= filters + pagination. Sweeps expired leases first.' },
-                    { route: 'GET /api/work-orders/:id', desc: 'Order + receipt (when terminal). 404 work_order_not_found.' },
-                    { route: 'DELETE /api/work-orders/:id', desc: 'Cancel a queued/claimed/pending-approval order; 409 not_cancellable for terminal.' },
-                    { route: 'POST /api/work-orders/claim', desc: 'Worker: atomically claim the oldest queued order of a matching type (no double-claim), set the lease. work_order is null when nothing is queued.' },
-                    { route: 'POST /api/work-orders/:id/complete', desc: 'Claim-holder only. Output validated against the contract; builds receipt + artifact, writes audit record. 422 output_contract_violation leaves the order claimed.' },
-                    { route: 'GET /api/work-orders/:id/artifacts', desc: 'Artifacts for the order.' },
-                    { route: 'GET/POST /api/work-orders/types', desc: 'List / register contracts (JSON Schema validated).' },
-                    { route: 'GET/PUT/DELETE /api/work-orders/types/:type', desc: 'Read / update (version bump on schema change) / soft-disable a contract.' },
-                  ].map((row) => (
-                    <tr key={row.route} className="border-b border-border">
-                      <td className="py-2 pr-4 font-mono text-xs text-brand">{row.route}</td>
-                      <td className="py-2 text-xs text-text-secondary">{row.desc}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            <MethodEntry
-              id="submitWorkOrder"
-              signature="claw.submitWorkOrder(order)"
-              description="Submit a work order against a registered contract. The order is validated against the type's input schema, guard-gated, then queued (or parked as pending_approval / blocked depending on policy). Python: claw.submit_work_order(order)."
-              params={[
-                { name: 'order.type', type: 'string', required: true, desc: "Registered work order type (e.g. 'research_brief')." },
-                { name: 'order.input', type: 'object', required: true, desc: 'Input payload matching the contract input schema.' },
-                { name: 'order.budget', type: 'object', required: false, desc: '{ max_cost_usd?, timeout_seconds? } — overrides the type defaults; both must be > 0.' },
-                { name: 'order.requested_by', type: 'string', required: false, desc: 'Submitting agent id (defaults to the client agentId).' },
-              ]}
-              returns="{ work_order_id, status, guard: { decision, decision_id, risk_score, matched_policies, reason } }"
-              example={
-                <CodeBlock title="Submit a research brief">
-{`const { work_order_id, status, guard } = await claw.submitWorkOrder({
-  type: 'research_brief',
-  input: { topic: 'Agent governance market', depth: 'standard' },
-  budget: { max_cost_usd: 2.50, timeout_seconds: 600 },
-});
-// status: 'queued' | 'pending_approval' | 'blocked'`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="getWorkOrder"
-              signature="claw.getWorkOrder(workOrderId)"
-              description="Fetch a work order plus its receipt (present once the order is terminal). Python: claw.get_work_order(work_order_id)."
-              returns="{ work_order, receipt: { receipt, receipt_hash } | null }"
-              example={
-                <CodeBlock title="Poll an order + verify its receipt">
-{`const { work_order, receipt } = await claw.getWorkOrder(workOrderId);
-if (receipt) {
-  // receipt.receipt is the canonical body; receipt.receipt_hash is
-  // SHA-256 over it (stable key order) — recompute to verify.
-  console.log(work_order.status, receipt.receipt_hash);
-}`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="listWorkOrders"
-              signature="claw.listWorkOrders(filters?)"
-              description="List work orders with optional filters. Expired leases are swept to timed_out first. Python: claw.list_work_orders(filters)."
-              params={[
-                { name: 'filters', type: 'object', required: false, desc: '{ status?, type?, agent?, limit?, offset? }' },
-              ]}
-              returns="{ work_orders, total }"
-              example={
-                <CodeBlock title="List queued orders">
-{`const { work_orders, total } = await claw.listWorkOrders({ status: 'queued', limit: 20 });`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="cancelWorkOrder"
-              signature="claw.cancelWorkOrder(workOrderId)"
-              description="Cancel a queued, claimed, or pending-approval order. Terminal orders (completed/failed/timed_out) cannot be cancelled (409 not_cancellable). Python: claw.cancel_work_order(work_order_id)."
-              returns="{ work_order }"
-              example={
-                <CodeBlock title="Cancel an order">
-{`const { work_order } = await claw.cancelWorkOrder(workOrderId);`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="claimWorkOrder"
-              signature="claw.claimWorkOrder({ types?, agent_id? })"
-              description="Worker: atomically claim the next queued order of the given types (oldest-first; no double-claim under concurrency). The lease expires after the order's timeout_seconds. Python: claw.claim_work_order(types, agent_id)."
-              params={[
-                { name: 'types', type: 'string[] | null', required: false, desc: 'Filter by type(s); null = any type.' },
-                { name: 'agent_id', type: 'string', required: false, desc: 'Worker id (defaults to the client agentId).' },
-              ]}
-              returns="{ work_order: object | null }  // null when the queue is empty"
-              example={
-                <CodeBlock title="Worker: claim the next order">
-{`const { work_order } = await claw.claimWorkOrder({ types: ['research_brief'] });
-if (!work_order) return; // queue empty`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="completeWorkOrder"
-              signature="claw.completeWorkOrder(workOrderId, result)"
-              description="Worker: report completion or failure. On success the server validates output against the type's output schema and builds a self-verifying receipt; output-contract violations (422) leave the order claimed so the worker can re-report before the lease expires. Claim-holder only. Python: claw.complete_work_order(work_order_id, result)."
-              params={[
-                { name: 'result.status', type: "'completed' | 'failed'", required: true, desc: 'Completion outcome.' },
-                { name: 'result.output', type: 'object', required: false, desc: 'Required when status=completed; validated against the output contract.' },
-                { name: 'result.cost', type: 'object', required: false, desc: '{ input_tokens?, output_tokens?, total_usd? } as reported by the worker.' },
-                { name: 'result.error', type: 'object', required: false, desc: '{ code?, message? } when status=failed.' },
-                { name: 'result.agent_id', type: 'string', required: false, desc: 'Reporting worker id (defaults to the client agentId).' },
-              ]}
-              returns="{ work_order, receipt: { receipt, receipt_hash } }"
-              example={
-                <CodeBlock title="Worker: complete with a receipt">
-{`const { work_order, receipt } = await claw.completeWorkOrder(work_order.id, {
-  status: 'completed',
-  output: { summary: '...', sources: ['...'] },
-  cost: { input_tokens: 1200, output_tokens: 800, total_usd: 0.42 },
-});
-// receipt.receipt.over_budget flags cost over the ceiling
-// receipt.receipt_hash verifies by recomputation`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="listWorkOrderTypes"
-              signature="claw.listWorkOrderTypes()"
-              description="List the org's registered work order contracts (the seeded research_brief example is created on first access). Python: claw.list_work_order_types()."
-              returns="{ types, total }"
-              example={
-                <CodeBlock title="List contracts">
-{`const { types } = await claw.listWorkOrderTypes();`}
-                </CodeBlock>
-              }
-            />
-            <MethodEntry
-              id="registerWorkOrderType"
-              signature="claw.registerWorkOrderType(definition)"
-              description="Register a new work order contract (input + output JSON Schema, budget/timeout defaults). Python: claw.register_work_order_type(definition)."
-              params={[
-                { name: 'definition.type', type: 'string', required: true, desc: 'snake_case slug, unique per org.' },
-                { name: 'definition.input_schema', type: 'object', required: true, desc: 'JSON Schema (object root) for inputs.' },
-                { name: 'definition.output_schema', type: 'object', required: true, desc: 'JSON Schema (object root) for outputs.' },
-                { name: 'definition.default_max_cost_usd', type: 'number', required: false, desc: 'Default budget ceiling.' },
-                { name: 'definition.default_timeout_seconds', type: 'number', required: false, desc: 'Default lease/SLA seconds.' },
-              ]}
-              returns="{ type }"
-              example={
-                <CodeBlock title="Register a contract">
-{`const { type } = await claw.registerWorkOrderType({
-  type: 'summarize_doc',
-  display_name: 'Summarize Document',
-  input_schema: { type: 'object', properties: { text: { type: 'string' } }, required: ['text'] },
-  output_schema: { type: 'object', properties: { summary: { type: 'string' } }, required: ['summary'] },
-  default_max_cost_usd: 1.0,
-  default_timeout_seconds: 300,
-});`}
-                </CodeBlock>
-              }
-            />
-            <p className="text-sm text-text-secondary mt-2 leading-relaxed">
-              Also exposed over MCP — tools <code className="text-brand">dashclaw_work_order_submit</code> + <code className="text-brand">dashclaw_work_order_status</code> — and as the <code className="text-brand">/work-orders</code> dashboard (ledger + contracts, with a client-side receipt-hash verifier). The 8 SDK methods are identical across the Node (camelCase) and Python (snake_case) clients.
-            </p>
           </section>
 
           {/* ── Error Handling ── */}

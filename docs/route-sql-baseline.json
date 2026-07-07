@@ -10,12 +10,12 @@
       "label": "sql.query call"
     }
   ],
-  "files_scanned": 273,
-  "files_with_direct_sql": 20,
+  "files_scanned": 253,
+  "files_with_direct_sql": 19,
   "totals": {
-    "tagged_template": 43,
+    "tagged_template": 40,
     "query_call": 9,
-    "total": 52
+    "total": 49
   },
   "files": [
     {
@@ -110,12 +110,6 @@
     },
     {
       "file": "app/api/setup/migrate/route.ts",
-      "tagged_template": 3,
-      "query_call": 0,
-      "total": 3
-    },
-    {
-      "file": "app/api/swarm/graph/route.ts",
       "tagged_template": 3,
       "query_call": 0,
       "total": 3

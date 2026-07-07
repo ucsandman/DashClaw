@@ -27,10 +27,11 @@ function pageReq(pathname) {
 const NEWLY_GATED = ['/assumptions', '/scoring', '/policy-coach'];
 // Deleted pages whose stale matcher entries were removed.
 // (/labs retired in the studio consolidation — /labs/branch-finish now
-// permanently redirects to /workflows before middleware runs.)
+// permanently redirects to /decisions before middleware runs.)
 // (mission-control/dashboard/analytics/security/team/activity removed in the v5 cull.)
+// (swarm removed in the v5 cull; /workflows/:path* survives for model strategies.)
 const REMOVED_DEAD = ['/goals', '/content', '/relationships', '/calendar', '/tokens', '/labs',
-  '/mission-control', '/dashboard', '/analytics', '/security', '/team', '/activity'];
+  '/mission-control', '/dashboard', '/analytics', '/security', '/team', '/activity', '/swarm'];
 
 describe('middleware page-route gating', () => {
   beforeEach(() => {

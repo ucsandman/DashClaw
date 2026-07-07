@@ -392,18 +392,6 @@ describe('sdk/dashclaw.js characterization', () => {
         '/api/scoring/risk-templates/rt_1', { name: 'n' }],
       ['deleteRiskTemplate', (c) => c.deleteRiskTemplate('rt_1'), 'DELETE', '/api/scoring/risk-templates/rt_1', undefined],
       ['autoCalibrate', (c) => c.autoCalibrate({ days: 14 }), 'POST', '/api/scoring/calibrate', { days: 14 }],
-      // workflows
-      ['listWorkflowTemplates', (c) => c.listWorkflowTemplates({ status: 'active', limit: 2 }), 'GET',
-        '/api/workflows/templates?status=active&limit=2', undefined],
-      ['createWorkflowTemplate', (c) => c.createWorkflowTemplate({ name: 'wf' }), 'POST',
-        '/api/workflows/templates', { name: 'wf' }],
-      ['getWorkflowTemplate', (c) => c.getWorkflowTemplate('wt_1'), 'GET', '/api/workflows/templates/wt_1', undefined],
-      ['updateWorkflowTemplate', (c) => c.updateWorkflowTemplate('wt_1', { name: 'n' }), 'PATCH',
-        '/api/workflows/templates/wt_1', { name: 'n' }],
-      ['duplicateWorkflowTemplate', (c) => c.duplicateWorkflowTemplate('wt_1', { name: 'copy' }), 'POST',
-        '/api/workflows/templates/wt_1/duplicate', { name: 'copy' }],
-      ['launchWorkflowTemplate', (c) => c.launchWorkflowTemplate('wt_1', { agent_id: 'a' }), 'POST',
-        '/api/workflows/templates/wt_1/launch', { agent_id: 'a' }],
       // model strategies
       ['listModelStrategies', (c) => c.listModelStrategies(), 'GET', '/api/model-strategies', undefined],
       ['createModelStrategy', (c) => c.createModelStrategy({ name: 'ms' }), 'POST', '/api/model-strategies', { name: 'ms' }],

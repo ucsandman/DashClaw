@@ -1631,47 +1631,6 @@ class DashClaw:
         path = f"/api/activity?{query}" if query else "/api/activity"
         return self._request(path)
 
-    # --- Work Orders (task-grade contracts + receipts) ---
-
-    def submit_work_order(self, order):
-        """Submit a work order against a registered contract."""
-        payload = dict(order)
-        payload.setdefault("requested_by", self.agent_id)
-        return self._request("/api/work-orders", "POST", json=payload)
-
-    def get_work_order(self, work_order_id):
-        """Get a work order + its receipt (when terminal)."""
-        return self._request(f"/api/work-orders/{work_order_id}", "GET")
-
-    def list_work_orders(self, filters=None):
-        """List work orders. Filters: status, type, agent, limit, offset."""
-        return self._request("/api/work-orders", "GET", params=filters or {})
-
-    def cancel_work_order(self, work_order_id):
-        """Cancel a queued/claimed/pending-approval work order."""
-        return self._request(f"/api/work-orders/{work_order_id}", "DELETE")
-
-    def claim_work_order(self, types=None, agent_id=None):
-        """Worker: claim the next queued order of the given types."""
-        return self._request("/api/work-orders/claim", "POST", json={
-            "types": types,
-            "agent_id": agent_id or self.agent_id,
-        })
-
-    def complete_work_order(self, work_order_id, result):
-        """Worker: report completion. result = {status, output?, cost?, error?}."""
-        payload = dict(result)
-        payload.setdefault("agent_id", self.agent_id)
-        return self._request(f"/api/work-orders/{work_order_id}/complete", "POST", json=payload)
-
-    def list_work_order_types(self):
-        """List registered work order contracts."""
-        return self._request("/api/work-orders/types", "GET")
-
-    def register_work_order_type(self, definition):
-        """Register a new work order contract (input/output JSON Schema)."""
-        return self._request("/api/work-orders/types", "POST", json=definition)
-
     # -----------------------------------------------
     # Prompt Management
     # -----------------------------------------------
@@ -2129,47 +2088,6 @@ class DashClaw:
             raise TypeError("derive_idempotency_key: parts must be a dict")
         ordered = "|".join(f"{k}={parts.get(k) if parts.get(k) is not None else ''}" for k in sorted(parts))
         return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
-
-    # --- Execution Studio: Workflow Templates -------------
-
-    def list_workflow_templates(self, status=None, limit=50, offset=0):
-        """List workflow templates."""
-        params = {"limit": limit, "offset": offset}
-        if status is not None:
-            params["status"] = status
-        return self._request("/api/workflows/templates", "GET", params=params)
-
-    def create_workflow_template(self, **kwargs):
-        """Create a workflow template. Required: name."""
-        return self._request("/api/workflows/templates", "POST", json=kwargs)
-
-    def get_workflow_template(self, template_id):
-        """Fetch a single workflow template."""
-        return self._request(f"/api/workflows/templates/{template_id}", "GET")
-
-    def update_workflow_template(self, template_id, **kwargs):
-        """Partial update. Bumps version when steps change."""
-        return self._request(f"/api/workflows/templates/{template_id}", "PATCH", json=kwargs)
-
-    def duplicate_workflow_template(self, template_id, **kwargs):
-        """Clone a template as a new draft."""
-        return self._request(f"/api/workflows/templates/{template_id}/duplicate", "POST", json=kwargs)
-
-    def launch_workflow_template(self, template_id, **kwargs):
-        """Launch a template. Creates a traceable action record with workflow metadata.
-        Resolves any linked model strategy into a snapshot at launch time."""
-        return self._request(f"/api/workflows/templates/{template_id}/launch", "POST", json=kwargs)
-
-    def execute_workflow_template(self, template_id, variables=None, agent_id=None, declared_goal=None):
-        """Execute a workflow template through the governed runtime."""
-        body = {}
-        if variables is not None:
-            body["variables"] = variables
-        if agent_id is not None:
-            body["agent_id"] = agent_id
-        if declared_goal is not None:
-            body["declared_goal"] = declared_goal
-        return self._request(f"/api/workflows/templates/{template_id}/execute", "POST", json=body)
 
     # --- Execution Studio: Model Strategies ---------------
 

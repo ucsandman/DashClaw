@@ -62,7 +62,7 @@
 | **Approve** | Pending approvals route to a dashboard queue, the CLI inbox, a mobile PWA, Telegram, or Discord, with one-tap allow or deny. |
 | **Record** | Every action becomes a replayable decision record: declared goal, reasoning, risk score, matched policies, assumptions, evidence. |
 | **Finalize** | Terminal outcomes are one-shot and durable. Lost confirmations are swept and surfaced, so retries do not double-execute. |
-| **Govern external systems** | The capability registry wraps real HTTP APIs with per-agent access rules, rate limits, and audit. Workflows compose these into multi-step governed runs. |
+| **Govern external systems** | The capability registry wraps real HTTP APIs with per-agent access rules, rate limits, and audit. |
 | **Improve** | Code Sessions ingests Claude Code transcripts (Stop-hook live or JSONL backfill), prices the spend, surfaces optimizer signals (stuck loops, cache crater, context gaps), and distills sessions into an Optimal Files bundle — root CLAUDE.md, path-scoped rules, hooks, and skill packs — applied locally via `dashclaw code apply`. |
 
 ---
@@ -148,7 +148,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 ### 2. MCP server (zero code, any MCP host)
 
-[`@dashclaw/mcp-server`](./mcp-server) exposes **31 governance MCP tools** across 12 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
+[`@dashclaw/mcp-server`](./mcp-server) exposes **29 governance MCP tools** across 11 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
 
 As of v2.0.0 the local stdio server also carries **governed execution**: provider tools for GitHub, Vercel, Neon, Stripe and ten more (each registering only when its credential env var is present), and stateful **launch plans** (`create_launch_plan` / `get_launch_status` / `preflight_launch` / `verify_launch`) that track the launch tail with reality-checked, never self-reported completion — every step through the same guard/policy/approval path. See [`mcp-server/README.md`](./mcp-server/README.md) and [`mcp-server/docs/launch-plans.md`](./mcp-server/docs/launch-plans.md).
 
@@ -194,7 +194,7 @@ npm install dashclaw     # Node 18+
 pip install dashclaw     # Python 3.7+
 ```
 
-147-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, work orders, drift detection, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 231 methods including ready-made framework integrations:
+133-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, drift detection, and the execution-studio domains (model strategies, knowledge collections, capability runtime). The Python SDK exposes 216 methods including ready-made framework integrations:
 
 ```python
 # LangChain — auto-log LLM calls, tool use, and costs
@@ -225,13 +225,9 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**272 routes**: 53 stable, 23 beta, 196 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**252 routes**: 53 stable, 22 beta, 177 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
-### 6. Work Orders — task-grade contracts + receipts
-
-Work Orders turn an agent call into a contract: a typed input/output schema, a budget ceiling, and a self-verifying receipt. A caller submits an order against a registered type (validated, guard-gated, queued); any agent with an API key claims and completes it; the server validates the output, builds a SHA-256-hashed receipt (cost, timestamps, output hash, governance trail), and writes an audit record. DashClaw stays the control plane — execution is external workers via `claim`/`complete`, so there's no LLM key and no cron. Page at `/work-orders`, API at `/api/work-orders`, 8 SDK methods each (Node + Python), 2 MCP tools, and a ~75-line reference worker in [`examples/work-order-worker/`](./examples/work-order-worker/).
-
-### 7. Skills — governance protocol + live platform reference
+### 6. Skills — governance protocol + live platform reference
 
 Two drop-in skills, both available as zip bundles or source directories in [`public/downloads/`](./public/downloads/) and auto-bundled into the coding-agent plugins:
 
@@ -410,7 +406,6 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 |---|---|---|
 | Drift detection | Statistical reasoning and metric drift across sessions. | [SDK: Learning Loop](./sdk/README.md#learning-loop) |
 | Capability registry | Wrap real HTTP APIs with per-agent access rules and health monitoring. | [Capability Runtime](./sdk/README.md#capability-runtime) |
-| Workflow engine | Compose governance into multi-step runs with variables, `continue_on_failure`, and resume from checkpoint. | [DEMO.md](./DEMO.md) |
 | Scoring profiles | Multi-dimensional evaluation with weighted composites and auto-calibration. | [SDK: Scoring](./sdk/README.md#scoring-profiles) |
 | Recovery recipes | Six built-in recipes mapping signals to remediations. | [SDK: Learning](./sdk/README.md#learning-loop) |
 | Agent profiles | Per-agent governance dashboard at `/agents/[agentId]`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
@@ -419,7 +414,7 @@ The full architecture map lives in [`PROJECT_DETAILS.md`](./PROJECT_DETAILS.md).
 | Live host canary | `scripts/live-canary.mjs` probes your production hosts hourly as a real unauthenticated client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, MCP handshake) from a GitHub Actions cron and files its verdict to `POST /api/live-canary`. Failures render on `/setup#live-canary` and raise a posture auditability finding. | [.github/workflows/live-canary.yml](./.github/workflows/live-canary.yml) |
 | Enforcement liveness | A healthy decision ledger can hide a dead hook. The probe (`npm run liveness:probe`, auto-spawned by the SessionStart digest at most 1×/12h) drives a synthetic held action through the real pretool hook seam and verdicts by whether the action **executed** — never by reading the ledger. Renders holding / stale / broken on `/setup#enforcement-liveness` and the Mission Control posture scorecard; stale never renders green, and the exact v4.72.1 overflowed-timeout config is a pinned regression test. | [Spec + evidence](./docs/superpowers/specs/2026-07-06-enforcement-liveness-v82.md) |
 | Coverage truth | Every action row records how it closed (`close_source`: real outcome vs Stop-hook auto-close vs created-terminal). The Claude Code Stop hook separately reports per-turn expected-vs-recorded tool-use counts to `POST /api/coverage`, rendered as a Coverage column on `/agents` — with an explicit "no evidence" state so silence never reads as health. A posture finding fires when a real agent's coverage drops below 90%, deep-linking to `/agents`. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
-| Fleet attribution | Every action carries its harness session (`harness_session_id`); subagent leaves carry their instance uuid (`subagent_uuid`); spawn rows carry the spawned agent's uuid (`outcome_metadata.spawned_agent_uuid`) — so a multi-agent fan-out reads as one governed unit with per-leaf attribution, joined from evidence, never guessed. A Fan-outs panel on `/agents` lists recent sessions and deep-links to the matching `/swarm` graph. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
+| Fleet attribution | Every action carries its harness session (`harness_session_id`); subagent leaves carry their instance uuid (`subagent_uuid`); spawn rows carry the spawned agent's uuid (`outcome_metadata.spawned_agent_uuid`) — so a multi-agent fan-out reads as one governed unit with per-leaf attribution, joined from evidence, never guessed. A Fan-outs panel on `/agents` lists recent sessions. | [PROJECT_DETAILS.md](./PROJECT_DETAILS.md) |
 
 ---
 

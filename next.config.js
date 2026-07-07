@@ -70,13 +70,13 @@ const nextConfig = {
         destination: '/docs#mcp-tools',
         permanent: true,
       },
-      // Studio consolidation: model strategies live under /workflows (tab),
-      // and the branch-finish operator page folded into /workflows.
-      // API routes (/api/model-strategies/*) are unchanged.
+      // Model strategies live under /workflows/strategies (retired /model-strategies
+      // path). The retired /labs/branch-finish operator page now points at the
+      // decisions ledger. API routes (/api/model-strategies/*) are unchanged.
       { source: '/model-strategies', destination: '/workflows/strategies', permanent: true },
       { source: '/model-strategies/new', destination: '/workflows/strategies/new', permanent: true },
       { source: '/model-strategies/:strategyId', destination: '/workflows/strategies/:strategyId', permanent: true },
-      { source: '/labs/branch-finish', destination: '/workflows', permanent: true },
+      { source: '/labs/branch-finish', destination: '/decisions', permanent: true },
     ];
   },
   // Incremental TypeScript migration: resolve `.js` import specifiers to

@@ -2,10 +2,10 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
-// Studio consolidation (phase 18): model strategies live under /workflows as a
-// tab. These tests prove (a) a strategy created through the consolidated UI is
-// selectable in the workflow builder, and (b) the sidebar reflects the new IA
-// (Capabilities under Govern; Model Strategies / Branch Finish entries gone).
+// Studio consolidation (phase 18): model strategies live under
+// /workflows/strategies. These tests prove (a) a strategy is created through the
+// consolidated UI, and (b) the sidebar reflects the new IA (Capabilities under
+// Govern; Model Strategies / Branch Finish entries gone).
 
 const push = vi.fn();
 
@@ -39,7 +39,7 @@ vi.mock('@/components/ui/Badge.js', () => ({
   Badge: ({ children }) => <span>{children}</span>,
 }));
 
-describe('studio consolidation — strategy created in the consolidated UI feeds the builder', () => {
+describe('studio consolidation — strategy created in the consolidated UI', () => {
   beforeEach(() => {
     push.mockReset();
   });
@@ -48,8 +48,8 @@ describe('studio consolidation — strategy created in the consolidated UI feeds
     vi.restoreAllMocks();
   });
 
-  it('creates a strategy at /workflows/strategies/new and offers it in the workflow builder strategy select', async () => {
-    // Phase 1: create the strategy through the consolidated UI.
+  it('creates a strategy at /workflows/strategies/new', async () => {
+    // Create the strategy through the consolidated UI.
     global.fetch = vi.fn(async (url, options = {}) => {
       if (String(url) === '/api/model-strategies' && options.method === 'POST') {
         return {
@@ -79,31 +79,6 @@ describe('studio consolidation — strategy created in the consolidated UI feeds
     expect(created.config?.primary?.provider).toBeTruthy();
 
     first.unmount();
-
-    // Phase 2: the builder's resources fetch returns that same strategy —
-    // it must surface as a selectable option in the model strategy select.
-    global.fetch = vi.fn(async (url) => {
-      if (String(url) === '/api/model-strategies') {
-        return {
-          ok: true,
-          json: async () => ({
-            strategies: [
-              { strategy_id: 'mst_consolidated', name: created.name, config: created.config },
-            ],
-          }),
-        };
-      }
-      return { ok: true, json: async () => ({}) };
-    });
-
-    const { default: NewWorkflowTemplatePage } = await import('@/workflows/new/page.jsx');
-    render(<NewWorkflowTemplatePage />);
-
-    const strategySelect = await screen.findByLabelText(/model strategy/i);
-    await screen.findByRole('option', { name: /latency-first research/i });
-
-    fireEvent.change(strategySelect, { target: { value: 'mst_consolidated' } });
-    expect(strategySelect.value).toBe('mst_consolidated');
   });
 });
 

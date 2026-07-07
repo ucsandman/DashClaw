@@ -81,9 +81,6 @@ describe("conditional tool registration", () => {
     expect(tools).toContain("dashclaw_guard");
     expect(tools).toContain("dashclaw_record");
     expect(tools).toContain("dashclaw_wait_for_approval");
-    // Work Orders governance tools register alongside the rest of the governance set.
-    expect(tools).toContain("dashclaw_work_order_submit");
-    expect(tools).toContain("dashclaw_work_order_status");
     // env-config DashClaw tools gate on the same credentials.
     expect(tools).toContain("dashclaw_status");
     expect(resources).toContain("DashClaw Policies");

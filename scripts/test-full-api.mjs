@@ -226,97 +226,6 @@ async function testComplianceEngine() {
 }
 
 // ──────────────────────────────────────────────
-// Phase 3: Task Routing
-// ──────────────────────────────────────────────
-
-async function testTaskRouting() {
-  console.log('\n━━━ Phase 3: Task Routing ━━━');
-
-  // GET /api/routing/health
-  const { status: s1, data: d1 } = await request('GET', '/api/routing/health');
-  assert(s1 === 200, `GET /api/routing/health returns 200 (got ${s1})`);
-  assert(d1.status === 'ok', 'Routing health is ok');
-  assert(d1.service === 'dashclaw-routing', 'Service name matches');
-
-  // POST /api/routing/agents — register agent
-  const { status: s2, data: d2 } = await request('POST', '/api/routing/agents', {
-    name: 'test-routing-agent',
-    capabilities: ['code-review', 'testing'],
-    maxConcurrent: 5,
-  });
-  assert(s2 === 201, `POST /api/routing/agents returns 201 (got ${s2})`);
-  assert(d2.agent, 'Registered agent returned');
-  const routingAgentId = d2.agent?.id;
-
-  // POST — missing name
-  const { status: s2b } = await request('POST', '/api/routing/agents', {});
-  assert(s2b === 400, 'Missing agent name returns 400');
-
-  // GET /api/routing/agents — list
-  const { status: s3, data: d3 } = await request('GET', '/api/routing/agents');
-  assert(s3 === 200, 'GET /api/routing/agents returns 200');
-  assert(Array.isArray(d3.agents), 'Agents returns array');
-
-  // GET /api/routing/agents/:id
-  if (routingAgentId) {
-    const { status: s3b, data: d3b } = await request('GET', `/api/routing/agents/${routingAgentId}`);
-    assert(s3b === 200, `GET /api/routing/agents/${routingAgentId} returns 200`);
-    assert(d3b.agent, 'Agent detail returned');
-  }
-
-  // GET — 404 for missing agent
-  const { status: s3c } = await request('GET', '/api/routing/agents/nonexistent-agent-id');
-  assert(s3c === 404, 'GET missing routing agent returns 404');
-
-  // PATCH /api/routing/agents/:id — update status
-  if (routingAgentId) {
-    const { status: s4, data: d4 } = await request('PATCH', `/api/routing/agents/${routingAgentId}`, {
-      status: 'busy',
-    });
-    assert(s4 === 200, 'PATCH routing agent status returns 200');
-    assert(d4.agent, 'Updated agent returned');
-  }
-
-  // POST /api/routing/tasks — submit task
-  const { status: s5, data: d5 } = await request('POST', '/api/routing/tasks', {
-    title: 'Test routing task',
-    description: 'Integration test task for routing',
-    requiredSkills: ['testing'],
-    urgency: 'medium',
-  });
-  assert(s5 === 201, `POST /api/routing/tasks returns 201 (got ${s5})`);
-  const taskId = d5.task?.id;
-
-  // POST — missing title
-  const { status: s5b } = await request('POST', '/api/routing/tasks', {});
-  assert(s5b === 400, 'Missing task title returns 400');
-
-  // GET /api/routing/tasks — list
-  const { status: s6, data: d6 } = await request('GET', '/api/routing/tasks?limit=10');
-  assert(s6 === 200, 'GET /api/routing/tasks returns 200');
-  assert(Array.isArray(d6.tasks), 'Tasks returns array');
-
-  // POST /api/routing/tasks/:id/complete — complete task
-  if (taskId) {
-    const { status: s7 } = await request('POST', `/api/routing/tasks/${taskId}/complete`, {
-      success: true,
-      result: 'Task completed by test suite',
-    });
-    assert(s7 === 200, `POST /api/routing/tasks/${taskId}/complete returns 200`);
-  }
-
-  // GET /api/routing/stats
-  const { status: s8, data: d8 } = await request('GET', '/api/routing/stats');
-  assert(s8 === 200, `GET /api/routing/stats returns 200 (got ${s8})`);
-
-  // DELETE /api/routing/agents/:id — cleanup
-  if (routingAgentId) {
-    const { status: s9 } = await request('DELETE', `/api/routing/agents/${routingAgentId}`);
-    assert(s9 === 200, 'DELETE routing agent returns 200');
-  }
-}
-
-// ──────────────────────────────────────────────
 // Phase 4: Webhooks
 // ──────────────────────────────────────────────
 
@@ -817,14 +726,6 @@ async function testMiscEndpoints() {
     assert(typeof d2.score === 'number', 'Security status returns score');
     assert(Array.isArray(d2.checks), 'Security status returns checks array');
   }
-
-  // GET /api/swarm/graph
-  const { status: s3, data: d3 } = await request('GET', '/api/swarm/graph');
-  assert(s3 === 200, `GET /api/swarm/graph returns 200 (got ${s3})`);
-
-  // GET /api/workflows
-  const { status: s4, data: d4 } = await request('GET', '/api/workflows');
-  assert(s4 === 200, `GET /api/workflows returns 200 (got ${s4})`);
 
   // GET /api/bounties
   const { status: s5, data: d5 } = await request('GET', '/api/bounties');
@@ -1336,7 +1237,6 @@ async function main() {
   const phases = [
     testGuardAndPolicies,
     testComplianceEngine,
-    testTaskRouting,
     testWebhooks,
     testSettingsAndKeys,
     testIdentityAndPairing,
