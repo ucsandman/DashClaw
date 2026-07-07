@@ -138,6 +138,43 @@ blocking anything else):
 The GitHub Release and the final `v5.0.0` tag belong to the ship step; this wave
 cut the release candidate (`v5.0.0-rc`) and left the tree green.
 
+**Post-RC verification and what it caught (added at ship time).** Between the RC
+and the ship, four independent verification tracks ran, then a final adversarial
+review, then a live re-proof. The unit gates had been green for every wave — and
+still missed things only a rendered page or a fresh pair of eyes could see:
+
+- A security review of the whole diff (guard lattice, grants, hooks, tenancy,
+  the trial cap, the signing fold): no critical/high/medium findings. One real
+  posture note — policy rows of the three retired types no-op silently — is now
+  rendered as a "retired — no longer enforced" state on /policies with the human
+  disable control, per constitution §3.
+- The rendered-proof drive found two regressions no test had seen: the restored
+  agent filter's `/api/agents` endpoint had died in Wave 2 while three surfaces
+  still fetched it (restored as a slim read-only roster route, ceiling amended
+  +1 via the surface-budget's own written-reason path), and the shared nav's
+  signal banner linked the deleted /security page. Both fixed (`fe7ef21b`).
+- The platform guide dataset was still describing the pre-cull platform outside
+  the route areas the drift gate watches — 1,398 entries including 355 Node SDK
+  methods and 152 MCP items. Regenerated to live truth: 411 entries, every one
+  backed by a file, method, tool, command, or page that exists (`89df15d8`).
+  The guide's quickstart also carried the duplicate-key React bug and two dead
+  steps (open loops, posture) — fixed in the same commit.
+- Final battery at `89df15d8`: lint, full vitest (3,322), build, typecheck,
+  doc-counts strict, surface budget, guide drift — all green. Playwright smoke
+  **41/41 pages, zero console errors**. Policy smoke **108/108 live checks**
+  (the earlier 17 "failures" were a stray User-scope `DASHCLAW_API_KEY` on the
+  dev machine shadowing `.env.local` — reproduced, root-caused, and worked
+  around by launching `next` via `node` directly with the var stripped; the
+  same class as the known npx-shim env gotcha). Fresh-machine drills: Linux
+  PASS twice, and the Windows sandbox drill wrote `verdict: pass` with all six
+  steps green — the launcher's 40-minute poll simply expired moments before
+  the sandbox finished writing it.
+
+The lesson this addendum exists to record: **gates prove the code; only a
+rendered page proves the product.** Every regression the verification caught
+lived in the seam between a KEEP surface and a killed one — exactly where
+HUMAN-EXPERIENCE.md clause 6 said to look.
+
 ## 2026-07-06 — v4.76.0: entry-path drills — both doors proven on repeat
 
 Roadmap v8.3, same session as v8.2. The pattern this attacks is in my own
