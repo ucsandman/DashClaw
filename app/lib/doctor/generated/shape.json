@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:09ffa22b96fc366d21cfb0cf276aa936ca086da6",
+  "timestamp": "sha1:f8752977072af13ac99189373ff9ced27075524e",
   "routes": [
     {
       "path": "/api/actions",
@@ -415,115 +415,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/capabilities/health/route.ts"
-    },
-    {
-      "path": "/api/compliance/evidence",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/evidence/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/exports/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports/[exportId]",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "dynamic_params": [
-        "exportId"
-      ],
-      "archived": false,
-      "file_path": "app/api/compliance/exports/[exportId]/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports/[exportId]/download",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "exportId"
-      ],
-      "archived": false,
-      "file_path": "app/api/compliance/exports/[exportId]/download/route.ts"
-    },
-    {
-      "path": "/api/compliance/frameworks",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/frameworks/route.ts"
-    },
-    {
-      "path": "/api/compliance/gaps",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/gaps/route.ts"
-    },
-    {
-      "path": "/api/compliance/map",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/map/route.ts"
-    },
-    {
-      "path": "/api/compliance/report",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/report/route.ts"
-    },
-    {
-      "path": "/api/compliance/schedules",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/schedules/route.ts"
-    },
-    {
-      "path": "/api/compliance/schedules/[scheduleId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "scheduleId"
-      ],
-      "archived": false,
-      "file_path": "app/api/compliance/schedules/[scheduleId]/route.ts"
-    },
-    {
-      "path": "/api/compliance/trends",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/compliance/trends/route.ts"
     },
     {
       "path": "/api/coverage",
@@ -2367,15 +2258,9 @@
         "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/bootstrap-first-user-admin.test.js",
         "__tests__/unit/calibration-proposals.route.test.ts",
-        "__tests__/unit/compliance-evidence.route.test.js",
-        "__tests__/unit/compliance-exports.route.test.js",
-        "__tests__/unit/compliance-gaps.route.test.js",
-        "__tests__/unit/compliance-map-policy-mappings.route.test.js",
-        "__tests__/unit/compliance-map.route.test.js",
-        "__tests__/unit/compliance-report.route.test.js",
-        "__tests__/unit/compliance-signed-export.test.js",
         "__tests__/unit/cron-auth.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
+        "__tests__/unit/evidence-bundle-signed.route.test.js",
         "__tests__/unit/guard-agent-attribution.test.js",
         "__tests__/unit/guard-assumption-alerts.test.js",
         "__tests__/unit/guard-characterization.test.js",
@@ -2429,7 +2314,6 @@
         "scripts/migrate-action-records-compat.mjs",
         "scripts/migrate-agent-pairings.mjs",
         "scripts/migrate-api-keys-compat.mjs",
-        "scripts/migrate-compliance-export.mjs",
         "scripts/migrate-cost-analytics.mjs",
         "scripts/migrate-evaluations.mjs",
         "scripts/migrate-feedback.mjs",

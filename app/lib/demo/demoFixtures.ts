@@ -6,7 +6,6 @@ import { agents as realisticAgents, actions as realisticActions } from './fixtur
 import { agents as backgroundAgents, actions as backgroundActions } from './fixtures/background-agents';
 import { assumptions as tutorialAssumptions } from './fixtures/tutorial-assumptions';
 import { policies as guardPolicies, guardDecisions as guardDecisionsData } from './fixtures/guard-fixtures';
-import { complianceData } from './fixtures/compliance-fixtures';
 
 // No module-level cache: returning the same object by reference let
 // mutating callers (e.g. demoCreateAction) permanently alter the
@@ -193,11 +192,6 @@ function buildFixtures(): Record<string, unknown> {
   const routingAgents: unknown[] = [];
   const routingTasks: unknown[] = [];
 
-  const complianceFrameworks = complianceData.frameworks;
-  const complianceMap = complianceData.map;
-  const complianceGaps = complianceData.gaps;
-  const complianceEvidence = complianceData.evidence;
-
   const policyTestResults = { passed: 12, failed: 0 };
   const policyProofReport = { org_id: DEMO_ORG, status: 'valid', verified_at: isoFromNow(0) };
 
@@ -247,10 +241,6 @@ function buildFixtures(): Record<string, unknown> {
     routingStats,
     routingAgents,
     routingTasks,
-    complianceFrameworks,
-    complianceMap,
-    complianceGaps,
-    complianceEvidence,
     policyTestResults,
     policyProofReport,
     feedbackEntries,

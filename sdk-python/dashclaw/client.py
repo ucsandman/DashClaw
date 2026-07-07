@@ -1046,36 +1046,6 @@ class DashClaw:
             payload["yaml"] = yaml
         return self._request("/api/policies/import", method="POST", body=payload)
 
-    # --- Category 15: Compliance Engine ---
-
-    def map_compliance(self, framework):
-        """Map active policies to a compliance framework's controls."""
-        framework_enc = urllib.parse.quote(str(framework), safe="")
-        return self._request(f"/api/compliance/map?framework={framework_enc}")
-
-    def analyze_gaps(self, framework):
-        """Run gap analysis on a compliance framework mapping."""
-        framework_enc = urllib.parse.quote(str(framework), safe="")
-        return self._request(f"/api/compliance/gaps?framework={framework_enc}")
-
-    def get_compliance_report(self, framework, format="json"):
-        """Generate a full compliance report and save a snapshot."""
-        params = {"framework": framework}
-        if format:
-            params["format"] = format
-        query = urllib.parse.urlencode(params)
-        return self._request(f"/api/compliance/report?{query}")
-
-    def list_frameworks(self):
-        """List available compliance frameworks."""
-        return self._request("/api/compliance/frameworks")
-
-    def get_compliance_evidence(self, window="30d"):
-        """Get live compliance evidence from guard decisions and actions."""
-        params = {"window": window} if window else {}
-        query = urllib.parse.urlencode(params)
-        return self._request(f"/api/compliance/evidence?{query}")
-
     # --- Agent Pairing ---
 
     def create_pairing(self, public_key_pem, algorithm="RSASSA-PKCS1-v1_5", agent_name=None):
@@ -1201,64 +1171,6 @@ class DashClaw:
         query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
         path = f"/api/activity?{query}" if query else "/api/activity"
         return self._request(path)
-
-    # -----------------------------------------------
-    # Compliance Export
-    # -----------------------------------------------
-
-    def create_compliance_export(self, frameworks: list, name: str = "Compliance Export", format: str = "markdown", window_days: int = 30, include_evidence: bool = True, include_remediation: bool = True, include_trends: bool = False) -> dict:
-        """Generate a compliance export for one or more frameworks."""
-        return self._request("/api/compliance/exports", method="POST", body={
-            "name": name, "frameworks": frameworks, "format": format, "window_days": window_days,
-            "include_evidence": include_evidence, "include_remediation": include_remediation, "include_trends": include_trends,
-        })
-
-    def list_compliance_exports(self, limit: int = 20) -> dict:
-        """List compliance export records."""
-        return self._request(f"/api/compliance/exports?limit={limit}")
-
-    def get_compliance_export(self, export_id: str) -> dict:
-        """Get a specific compliance export with full report content."""
-        return self._request(f"/api/compliance/exports/{export_id}")
-
-    def download_compliance_export(self, export_id: str) -> dict:
-        """Download the signed compliance bundle (JSON) for an export.
-
-        Returns the parsed signed bundle dict. The human-readable report is at
-        ``result["payload"]["report"]``; re-verify the whole bundle via
-        ``POST /api/integrity/verify``.
-        """
-        return self._request(f"/api/compliance/exports/{export_id}/download")
-
-    def delete_compliance_export(self, export_id: str) -> dict:
-        """Delete a compliance export."""
-        return self._request(f"/api/compliance/exports/{export_id}", method="DELETE")
-
-    def create_compliance_schedule(self, frameworks: list, cron_expression: str, name: str = "Scheduled Export", **kwargs) -> dict:
-        """Create a recurring compliance export schedule."""
-        return self._request("/api/compliance/schedules", method="POST", body={
-            "name": name, "frameworks": frameworks, "cron_expression": cron_expression, **kwargs,
-        })
-
-    def list_compliance_schedules(self) -> dict:
-        """List compliance export schedules."""
-        return self._request("/api/compliance/schedules")
-
-    def update_compliance_schedule(self, schedule_id: str, **fields) -> dict:
-        """Update a compliance schedule (toggle enabled, rename)."""
-        return self._request(f"/api/compliance/schedules/{schedule_id}", method="PATCH", body=fields)
-
-    def delete_compliance_schedule(self, schedule_id: str) -> dict:
-        """Delete a compliance schedule."""
-        return self._request(f"/api/compliance/schedules/{schedule_id}", method="DELETE")
-
-    def get_compliance_trends(self, framework: str = None, limit: int = 30) -> dict:
-        """Get compliance coverage trend data from snapshots."""
-        params = []
-        if framework: params.append(f"framework={framework}")
-        if limit: params.append(f"limit={limit}")
-        qs = f"?{'&'.join(params)}" if params else ""
-        return self._request(f"/api/compliance/trends{qs}")
 
     # --- Session Lifecycle ----------------------------------
 

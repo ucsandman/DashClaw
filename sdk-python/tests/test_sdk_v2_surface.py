@@ -327,28 +327,6 @@ class TestCreateWebhook(unittest.TestCase):
 
 
 # ---------------------------------------------------------------------------
-# map_compliance
-# ---------------------------------------------------------------------------
-
-class TestMapCompliance(unittest.TestCase):
-    def test_get_with_framework_param(self):
-        client = RecordingDashClaw()
-        client.map_compliance("SOC2")
-
-        call = client.calls[-1]
-        self.assertEqual(call["method"], "GET")
-        self.assertIn("/api/compliance/map", call["path"])
-        self.assertIn("framework=SOC2", call["path"])
-
-    def test_url_encodes_framework(self):
-        client = RecordingDashClaw()
-        client.map_compliance("ISO 27001")
-
-        call = client.calls[-1]
-        self.assertIn("framework=ISO%2027001", call["path"])
-
-
-# ---------------------------------------------------------------------------
 # get_proof_report
 # ---------------------------------------------------------------------------
 

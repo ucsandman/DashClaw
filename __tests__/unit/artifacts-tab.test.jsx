@@ -16,7 +16,8 @@ describe('ArtifactsTab — evidence bundle', () => {
   it('surfaces the returned bundle summary on success', async () => {
     vi.stubGlobal('fetch', vi.fn(async (url, options = {}) => {
       if ((options.method || 'GET') === 'POST') {
-        return { ok: true, status: 200, json: async () => ({ action: { action_id: 'act_1' }, steps: [1, 2], artifacts: [1], generated_at: '2026-06-02T00:00:00Z' }) };
+        // The endpoint returns a signed envelope; bundle content lives under `payload`.
+        return { ok: true, status: 200, json: async () => ({ version: 'dashclaw-compliance-bundle/v1', signature: { kid: 'k1' }, payload: { action: { action_id: 'act_1' }, steps: [1, 2], artifacts: [1], generated_at: '2026-06-02T00:00:00Z' } }) };
       }
       return { ok: true, status: 200, json: async () => ({ artifacts: [] }) };
     }));

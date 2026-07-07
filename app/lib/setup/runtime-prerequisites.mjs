@@ -21,7 +21,6 @@ export const SETUP_MIGRATION_SCRIPTS = [
   'scripts/migrate-scoring-profiles.mjs',
   'scripts/migrate-prompts.mjs',
   'scripts/migrate-feedback.mjs',
-  'scripts/migrate-compliance-export.mjs',
   'scripts/migrate-drift.mjs',
   'scripts/migrate-agent-schedules.mjs',
   'scripts/migrate-message-attachments.mjs',

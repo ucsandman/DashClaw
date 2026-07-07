@@ -176,56 +176,6 @@ async function testGuardAndPolicies() {
 }
 
 // ──────────────────────────────────────────────
-// Phase 2: Compliance Engine
-// ──────────────────────────────────────────────
-
-async function testComplianceEngine() {
-  console.log('\n━━━ Phase 2: Compliance Engine ━━━');
-
-  // GET /api/compliance/frameworks — list frameworks
-  const { status: s1, data: d1 } = await request('GET', '/api/compliance/frameworks');
-  assert(s1 === 200, `GET /api/compliance/frameworks returns 200 (got ${s1})`);
-  assert(Array.isArray(d1.frameworks), 'Frameworks returns array');
-  assert(d1.frameworks.length > 0, `Found ${d1.frameworks.length} frameworks`);
-
-  const frameworkId = d1.frameworks[0]?.id;
-  if (!frameworkId) {
-    skip('No frameworks available — skipping compliance map/gaps/report/evidence');
-    return;
-  }
-
-  // GET /api/compliance/map — missing framework param
-  const { status: s1b } = await request('GET', '/api/compliance/map');
-  assert(s1b === 400, 'Compliance map without framework returns 400');
-
-  // GET /api/compliance/map — valid
-  const { status: s2, data: d2 } = await request('GET', `/api/compliance/map?framework=${frameworkId}`);
-  assert(s2 === 200, `GET /api/compliance/map returns 200 (got ${s2})`);
-  assert(d2.summary !== undefined || d2.controls !== undefined, 'Map returns compliance data');
-
-  // GET /api/compliance/gaps
-  const { status: s3, data: d3 } = await request('GET', `/api/compliance/gaps?framework=${frameworkId}`);
-  assert(s3 === 200, `GET /api/compliance/gaps returns 200 (got ${s3})`);
-  assert(d3.risk_assessment !== undefined || d3.gaps !== undefined, 'Gaps returns analysis');
-
-  // GET /api/compliance/report
-  const { status: s4, data: d4 } = await request('GET', `/api/compliance/report?framework=${frameworkId}&format=json`);
-  assert(s4 === 200, `GET /api/compliance/report returns 200 (got ${s4})`);
-  assert(d4.report !== undefined, 'Report returns content');
-  assert(d4.generated_at, 'Report returns generated_at');
-
-  // GET /api/compliance/evidence
-  const { status: s5, data: d5 } = await request('GET', '/api/compliance/evidence?window=30d');
-  assert(s5 === 200, `GET /api/compliance/evidence returns 200 (got ${s5})`);
-  assert(d5.evidence !== undefined, 'Evidence returns data');
-  assert(typeof d5.evidence.guard_decisions_total === 'number', 'Evidence has guard_decisions_total');
-
-  // GET /api/compliance/map — invalid framework
-  const { status: s6 } = await request('GET', '/api/compliance/map?framework=nonexistent');
-  assert(s6 === 404, 'Invalid framework returns 404');
-}
-
-// ──────────────────────────────────────────────
 // Phase 4: Webhooks
 // ──────────────────────────────────────────────
 
@@ -849,42 +799,7 @@ async function testFeedback() {
   assert(s5 === 200, `DELETE feedback returns 200 (got ${s5})`);
 }
 
-// 
-// Phase: Compliance Exports (Phase 4)
-// 
-
-async function testComplianceExports() {
-  console.log('\n Compliance Exports ');
-
-  // GET /api/compliance/exports  list (empty initially)
-  const { status: s1, data: d1 } = await request('GET', '/api/compliance/exports');
-  assert(s1 === 200, `GET /api/compliance/exports returns 200 (got ${s1})`);
-  assert(Array.isArray(d1.exports), 'Returns exports array');
-
-  // POST /api/compliance/exports  create export
-  const { status: s2, data: d2 } = await request('POST', '/api/compliance/exports', {
-    name: `test-export-${Date.now()}`,
-    frameworks: ['soc2'],
-    window_days: 7,
-  });
-  assert(s2 === 201, `POST /api/compliance/exports returns 201 (got ${s2})`);
-  assert(d2.id, 'Export has an id');
-
-  // POST  validation: missing frameworks
-  const { status: s3 } = await request('POST', '/api/compliance/exports', { name: 'No frameworks' });
-  assert(s3 === 400, `POST without frameworks returns 400 (got ${s3})`);
-
-  // GET /api/compliance/trends
-  const { status: s4 } = await request('GET', '/api/compliance/trends');
-  assert(s4 === 200, `GET /api/compliance/trends returns 200 (got ${s4})`);
-
-  // GET /api/compliance/schedules
-  const { status: s5, data: d5 } = await request('GET', '/api/compliance/schedules');
-  assert(s5 === 200, `GET /api/compliance/schedules returns 200 (got ${s5})`);
-  assert(Array.isArray(d5.schedules), 'Returns schedules array');
-}
-
-// 
+//
 // Phase: Drift Detection (Phase 5)
 // 
 
@@ -1168,7 +1083,6 @@ async function main() {
 
   const phases = [
     testGuardAndPolicies,
-    testComplianceEngine,
     testWebhooks,
     testSettingsAndKeys,
     testIdentityAndPairing,
@@ -1183,7 +1097,6 @@ async function main() {
     testEvaluations,
     testPrompts,
     testFeedback,
-    testComplianceExports,
     testDriftDetection,
     testLearningAnalytics,
     testScoringProfiles,

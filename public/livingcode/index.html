@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:09ffa22b96fc366d21cfb0cf276aa936ca086da6 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:f8752977072af13ac99189373ff9ced27075524e · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">158</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">147</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>8</b> env_vars removed, <b>22</b> routes added, <b>172</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>8</b> env_vars removed, <b>22</b> routes added, <b>183</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -305,6 +305,17 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/sessions/[sessionId]/optimal-files/preview <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/code-sessions/subagent-roi <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/evidence <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/exports <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/exports/[exportId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/exports/[exportId]/download <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/frameworks <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/gaps <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/map <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/report <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/schedules <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/schedules/[scheduleId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/compliance/trends <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/code-session-cache-crater <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/code-session-weekly-memo <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/learning-episodes-backfill <span class="sig">Route removed</span></li>
@@ -520,17 +531,6 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/capabilities/[capabilityId]/invoke"><td><code>/api/capabilities/[capabilityId]/invoke</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/invoke/route.ts</td></tr>
     <tr data-path="/api/capabilities/[capabilityId]/test"><td><code>/api/capabilities/[capabilityId]/test</code></td><td>POST</td><td class="sig">app/api/capabilities/[capabilityId]/test/route.ts</td></tr>
     <tr data-path="/api/capabilities/health"><td><code>/api/capabilities/health</code></td><td>GET</td><td class="sig">app/api/capabilities/health/route.ts</td></tr></tbody></table></details>
-<details><summary>/compliance/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/compliance/evidence"><td><code>/api/compliance/evidence</code></td><td>GET</td><td class="sig">app/api/compliance/evidence/route.ts</td></tr>
-    <tr data-path="/api/compliance/exports"><td><code>/api/compliance/exports</code></td><td>GET, POST</td><td class="sig">app/api/compliance/exports/route.ts</td></tr>
-    <tr data-path="/api/compliance/exports/[exportId]"><td><code>/api/compliance/exports/[exportId]</code></td><td>DELETE, GET</td><td class="sig">app/api/compliance/exports/[exportId]/route.ts</td></tr>
-    <tr data-path="/api/compliance/exports/[exportId]/download"><td><code>/api/compliance/exports/[exportId]/download</code></td><td>GET</td><td class="sig">app/api/compliance/exports/[exportId]/download/route.ts</td></tr>
-    <tr data-path="/api/compliance/frameworks"><td><code>/api/compliance/frameworks</code></td><td>GET</td><td class="sig">app/api/compliance/frameworks/route.ts</td></tr>
-    <tr data-path="/api/compliance/gaps"><td><code>/api/compliance/gaps</code></td><td>GET</td><td class="sig">app/api/compliance/gaps/route.ts</td></tr>
-    <tr data-path="/api/compliance/map"><td><code>/api/compliance/map</code></td><td>GET</td><td class="sig">app/api/compliance/map/route.ts</td></tr>
-    <tr data-path="/api/compliance/report"><td><code>/api/compliance/report</code></td><td>GET</td><td class="sig">app/api/compliance/report/route.ts</td></tr>
-    <tr data-path="/api/compliance/schedules"><td><code>/api/compliance/schedules</code></td><td>GET, POST</td><td class="sig">app/api/compliance/schedules/route.ts</td></tr>
-    <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.ts</td></tr>
-    <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.ts</td></tr></tbody></table></details>
 <details><summary>/coverage/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/coverage"><td><code>/api/coverage</code></td><td>GET, POST</td><td class="sig">app/api/coverage/route.ts</td></tr></tbody></table></details>
 <details><summary>/cron/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>
     <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.ts</td></tr>

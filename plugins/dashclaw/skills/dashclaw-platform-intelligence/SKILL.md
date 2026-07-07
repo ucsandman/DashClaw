@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:09ffa22b96fc366d21cfb0cf276aa936ca086da6`
+**Shape snapshot:** `sha1:f8752977072af13ac99189373ff9ced27075524e`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **157** active API routes across **54** categories (157 total including archived)
+- **146** active API routes across **53** categories (146 total including archived)
 - **4** required + **193** optional environment variables
 - **112** database tables
 
@@ -123,20 +123,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `POST` `/api/capabilities/[capabilityId]/invoke`
 - `POST` `/api/capabilities/[capabilityId]/test`
 - `GET` `/api/capabilities/health`
-
-### `compliance`
-
-- `GET` `/api/compliance/evidence`
-- `GET, POST` `/api/compliance/exports`
-- `DELETE, GET` `/api/compliance/exports/[exportId]`
-- `GET` `/api/compliance/exports/[exportId]/download`
-- `GET` `/api/compliance/frameworks`
-- `GET` `/api/compliance/gaps`
-- `GET` `/api/compliance/map`
-- `GET` `/api/compliance/report`
-- `GET, POST` `/api/compliance/schedules`
-- `DELETE, PATCH` `/api/compliance/schedules/[scheduleId]`
-- `GET` `/api/compliance/trends`
 
 ### `coverage`
 
@@ -376,7 +362,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
-- **`DATABASE_URL`** - referenced in 85 file(s)
+- **`DATABASE_URL`** - referenced in 78 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 

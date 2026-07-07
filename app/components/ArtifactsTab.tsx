@@ -157,10 +157,12 @@ export default function ArtifactsTab({ actionId }: ArtifactsTabProps) {
         return;
       }
       // Surface the assembled bundle the endpoint returns (previously discarded).
+      // The endpoint now returns a signed envelope; the bundle content is under `payload`.
+      const payload = (data.payload || data) as Record<string, any>;
       setBundleSummary({
-        steps: Array.isArray(data.steps) ? data.steps.length : 0,
-        artifacts: Array.isArray(data.artifacts) ? data.artifacts.length : 0,
-        generated_at: data.generated_at,
+        steps: Array.isArray(payload.steps) ? payload.steps.length : 0,
+        artifacts: Array.isArray(payload.artifacts) ? payload.artifacts.length : 0,
+        generated_at: payload.generated_at,
       });
       // Refresh artifacts list to show the new bundle
       const listRes = await fetch(`/api/actions/${actionId}/artifacts`);

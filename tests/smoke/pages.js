@@ -71,8 +71,6 @@ export const OBSERVE_PAGES = [
   { path: '/security', label: 'Security' },
   { path: '/analytics', label: 'Analytics dashboard' },
   { path: '/activity', label: 'Activity log' },
-  { path: '/compliance', label: 'Compliance mapping' },
-  { path: '/compliance/exports', label: 'Compliance exports' },
   { path: '/posture', label: 'Posture score' },
   { path: '/scoring', label: 'Scoring profiles' },
   { path: '/evaluations', label: 'Evaluations' },

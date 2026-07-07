@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `157`
+- Total routes: `146`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `97`
+- Experimental routes: `86`
 
 ## Routes
 
@@ -61,17 +61,6 @@ doc-type: architecture
 | `/api/capabilities/{capabilityId}/history` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/history/route.ts` |
 | `/api/capabilities/{capabilityId}/invoke` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/invoke/route.ts` |
 | `/api/capabilities/{capabilityId}/test` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/test/route.ts` |
-| `/api/compliance/evidence` | `GET` | `experimental` | `(default)` | `app/api/compliance/evidence/route.ts` |
-| `/api/compliance/exports` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/exports/route.ts` |
-| `/api/compliance/exports/{exportId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/route.ts` |
-| `/api/compliance/exports/{exportId}/download` | `GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/download/route.ts` |
-| `/api/compliance/frameworks` | `GET` | `experimental` | `(default)` | `app/api/compliance/frameworks/route.ts` |
-| `/api/compliance/gaps` | `GET` | `experimental` | `(default)` | `app/api/compliance/gaps/route.ts` |
-| `/api/compliance/map` | `GET` | `experimental` | `(default)` | `app/api/compliance/map/route.ts` |
-| `/api/compliance/report` | `GET` | `experimental` | `(default)` | `app/api/compliance/report/route.ts` |
-| `/api/compliance/schedules` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/schedules/route.ts` |
-| `/api/compliance/schedules/{scheduleId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/compliance/schedules/[scheduleId]/route.ts` |
-| `/api/compliance/trends` | `GET` | `experimental` | `(default)` | `app/api/compliance/trends/route.ts` |
 | `/api/coverage` | `GET, POST` | `experimental` | `(default)` | `app/api/coverage/route.ts` |
 | `/api/cron/integration-health` | `GET` | `beta` | `/api/cron` | `app/api/cron/integration-health/route.ts` |
 | `/api/cron/jti-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/jti-sweep/route.ts` |

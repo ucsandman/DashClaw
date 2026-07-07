@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 157,
+    "total_routes": 146,
     "stable_routes": 42,
     "beta_routes": 18,
-    "experimental_routes": 97
+    "experimental_routes": 86
   },
   "routes": [
     {
@@ -419,109 +419,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/capabilities/[capabilityId]/test/route.ts"
-    },
-    {
-      "path": "/api/compliance/evidence",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/evidence/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/exports/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports/{exportId}",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/exports/[exportId]/route.ts"
-    },
-    {
-      "path": "/api/compliance/exports/{exportId}/download",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/exports/[exportId]/download/route.ts"
-    },
-    {
-      "path": "/api/compliance/frameworks",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/frameworks/route.ts"
-    },
-    {
-      "path": "/api/compliance/gaps",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/gaps/route.ts"
-    },
-    {
-      "path": "/api/compliance/map",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/map/route.ts"
-    },
-    {
-      "path": "/api/compliance/report",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/report/route.ts"
-    },
-    {
-      "path": "/api/compliance/schedules",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/schedules/route.ts"
-    },
-    {
-      "path": "/api/compliance/schedules/{scheduleId}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/schedules/[scheduleId]/route.ts"
-    },
-    {
-      "path": "/api/compliance/trends",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/compliance/trends/route.ts"
     },
     {
       "path": "/api/coverage",
