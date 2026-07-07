@@ -49,8 +49,8 @@ const HOOK_FILES = [
 ];
 // Shipped when present in the bundle, skipped otherwise — a newer CLI must
 // keep installing against an older hosted bundle. enforcement_liveness_probe
-// (v8.2) is not wired as a hook here (the CLI does not install the
-// SessionStart digest that auto-spawns it), but travels with the hooks so
+// (v8.2) is not wired as a SessionStart hook by this CLI install path (only
+// Pre/Post/Stop are wired below), but travels with the hooks so
 // `python .claude/hooks/enforcement_liveness_probe.py` works out of the box.
 const OPTIONAL_HOOK_FILES = ['enforcement_liveness_probe.py'];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';

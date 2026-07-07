@@ -17,6 +17,7 @@ import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from tempfile import TemporaryDirectory
+from unittest import mock
 
 PROBE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "enforcement_liveness_probe.py")
 
@@ -238,6 +239,53 @@ class ProbeE2E(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestSessionStartSpawn(unittest.TestCase):
+    """SessionStart entry point (v5, re-homed from the retired session-digest
+    hook): throttle to once/12h via a marker file and run the probe in a
+    DETACHED child so session start is never delayed."""
+
+    def setUp(self):
+        import enforcement_liveness_probe as probe
+        self.probe = probe
+        self._tmp = TemporaryDirectory()
+        self.home = os.path.join(self._tmp.name, "home")
+        for k in ("DASHCLAW_LIVENESS_PROBE_DISABLED", "DASHCLAW_LIVENESS_PROBE_SPAWNED"):
+            os.environ.pop(k, None)
+
+    def tearDown(self):
+        self._tmp.cleanup()
+
+    def _expanduser(self, p):
+        return self.home if p == "~" else p
+
+    def _marker(self):
+        return os.path.join(self.home, ".dashclaw", "liveness-probe", ".last-spawn")
+
+    def test_throttled_by_fresh_marker(self):
+        os.makedirs(os.path.dirname(self._marker()))
+        with open(self._marker(), "w", encoding="utf-8") as f:
+            f.write("now")
+        calls = []
+        with mock.patch.object(os.path, "expanduser", self._expanduser), \
+                mock.patch.object(self.probe.subprocess, "Popen", lambda *a, **k: calls.append(a)):
+            self.probe._throttle_and_detach_session_start()
+        self.assertEqual(calls, [])
+
+    def test_fires_detached_and_writes_marker(self):
+        calls = []
+        with mock.patch.object(os.path, "expanduser", self._expanduser), \
+                mock.patch.object(self.probe.subprocess, "Popen", lambda *a, **k: calls.append((a, k))):
+            self.probe._throttle_and_detach_session_start()
+        self.assertEqual(len(calls), 1)
+        argv = calls[0][0][0]
+        self.assertTrue(argv[1].endswith("enforcement_liveness_probe.py"))
+        self.assertEqual(argv[2:], ["--source", "session-start"])
+        # The detached child carries the SPAWNED flag so it runs the probe body
+        # inline instead of re-spawning (no infinite loop).
+        self.assertEqual(calls[0][1]["env"].get("DASHCLAW_LIVENESS_PROBE_SPAWNED"), "1")
+        self.assertTrue(os.path.exists(self._marker()))
 
 
 class TestProbeIdentityRewrite(unittest.TestCase):

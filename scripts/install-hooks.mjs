@@ -169,15 +169,16 @@ export function hookBlocks(python = 'python') {
         ],
       },
     ],
-    // SessionStart hook: spawns the enforcement-liveness probe (v8.2) detached.
-    // Read-only and fail-silent (see the hook's docstring), so a down API costs
-    // at most its internal ~3s budget. SessionStart entries take no matcher.
+    // SessionStart hook: the enforcement-liveness probe (v8.2), wired directly
+    // (it replaced the retired session-digest hook that used to spawn it). With
+    // `--source session-start` the probe throttles to once/12h and runs
+    // detached, so session start is never delayed. SessionStart takes no matcher.
     SessionStart: [
       {
         hooks: [
           {
             type: 'command',
-            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py" --agent-id claude-code`,
+            command: `${python} "$CLAUDE_PROJECT_DIR/.claude/hooks/enforcement_liveness_probe.py" --source session-start`,
             timeout: 10,
           },
         ],
@@ -189,7 +190,9 @@ export function hookBlocks(python = 'python') {
 // Only these exact filenames are considered managed. We match on
 // path-separator-bounded occurrences so user-authored wrappers with similar
 // names (e.g. `my_dashclaw_pretool.py`, `dashclaw_metrics.py`) are NOT
-// silently removed on re-install.
+// silently removed on re-install. `dashclaw_session_digest.py` is retired (the
+// SessionStart hook is now enforcement_liveness_probe.py) but stays listed so a
+// re-install over a digest-era settings.json cleanly strips the stale entry.
 export const MANAGED_HOOK_FILES = ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py'];
 // Full regex-escape (every metacharacter incl. backslash), not just '.', so the
 // alternation is always well-formed regardless of the filename contents.
@@ -287,7 +290,7 @@ export function globalGovernanceBlocks(repoRoot, python = 'python') {
     PreToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_pretool.py'), timeout: 3660 }] }],
     PostToolUse: [{ matcher, hooks: [{ type: 'command', command: cmd('dashclaw_posttool.py') }] }],
     Stop: [{ hooks: [{ type: 'command', command: cmd('dashclaw_stop.py') }] }],
-    SessionStart: [{ hooks: [{ type: 'command', command: cmd('dashclaw_session_digest.py'), timeout: 10 }] }],
+    SessionStart: [{ hooks: [{ type: 'command', command: `${cmd('enforcement_liveness_probe.py')} --source session-start`, timeout: 10 }] }],
   };
 }
 
@@ -454,9 +457,10 @@ function main() {
   // Copy the Python hook scripts. dashclaw_code_session_reporter.py is copied
   // for backward compatibility with older installs (the hooks no longer import
   // it after the v5 governance-core cull); it is removed with the code-sessions
-  // subsystem. enforcement_liveness_probe.py: spawned detached by the SessionStart
-  // hook (v8.2); copied so the probe travels with the hooks it exercises.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'dashclaw_session_digest.py', 'enforcement_liveness_probe.py']) {
+  // subsystem. enforcement_liveness_probe.py is the SessionStart hook (v8.2):
+  // wired with `--source session-start`, it throttles to once/12h and runs
+  // detached so session start is never delayed.
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'enforcement_liveness_probe.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);
@@ -487,7 +491,7 @@ function main() {
   console.log('  DASHCLAW_API_KEY   (oc_live_...)');
   console.log('  DASHCLAW_AGENT_ID  (optional, default: claude-code)');
   console.log('  DASHCLAW_HOOK_MODE (optional: enforce | observe, default: enforce)');
-  console.log('  DASHCLAW_DIGEST_DISABLED (optional: 1 disables the SessionStart digest)');
+  console.log('  DASHCLAW_LIVENESS_PROBE_DISABLED (optional: 1 disables the SessionStart liveness probe)');
 }
 
 // Only run main() when executed directly via `node install-hooks.mjs`.

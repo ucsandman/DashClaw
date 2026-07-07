@@ -38,7 +38,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/run_hook.cjs\" dashclaw_session_digest.py",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/run_hook.cjs\" enforcement_liveness_probe.py --source session-start",
             "timeout": 10
           }
         ]

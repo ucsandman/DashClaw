@@ -190,23 +190,30 @@ describe('install-hooks python interpreter selection (Linux python3 fix)', () =>
   });
 });
 
-describe('session digest hook', () => {
-  it('hookBlocks includes a SessionStart digest entry', () => {
+describe('SessionStart liveness probe hook', () => {
+  it('hookBlocks wires the enforcement-liveness probe with --source session-start', () => {
     const blocks = hookBlocks('python');
     expect(blocks.SessionStart).toBeDefined();
     const cmd = blocks.SessionStart[0].hooks[0].command;
-    expect(cmd).toContain('dashclaw_session_digest.py');
+    expect(cmd).toContain('enforcement_liveness_probe.py');
+    expect(cmd).toContain('--source session-start');
     expect(cmd).toContain('$CLAUDE_PROJECT_DIR');
+    // The retired digest must not be re-introduced.
+    expect(cmd).not.toContain('dashclaw_session_digest.py');
   });
 
-  it('isManagedHookCommand matches the digest script but not lookalikes', () => {
+  it('still recognises a retired digest command as managed (so re-install strips it)', () => {
+    // dashclaw_session_digest.py stays in MANAGED_HOOK_FILES purely so a
+    // re-install over a digest-era settings.json cleanly removes the stale entry.
     expect(isManagedHookCommand('python "$CLAUDE_PROJECT_DIR/.claude/hooks/dashclaw_session_digest.py"')).toBe(true);
     expect(isManagedHookCommand('python "x/my_dashclaw_session_digest.py"')).toBe(false);
   });
 
-  it('globalGovernanceBlocks includes SessionStart with absolute path', () => {
+  it('globalGovernanceBlocks wires the SessionStart probe with an absolute path', () => {
     const blocks = globalGovernanceBlocks('/repo', 'python3');
-    expect(blocks.SessionStart[0].hooks[0].command).toContain('/repo/hooks/dashclaw_session_digest.py');
+    const cmd = blocks.SessionStart[0].hooks[0].command;
+    expect(cmd).toContain('/repo/hooks/enforcement_liveness_probe.py');
+    expect(cmd).toContain('--source session-start');
   });
 
   it('globalGovernanceBlocks matches the Workflow tool (v4.3)', () => {

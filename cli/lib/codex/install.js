@@ -62,9 +62,10 @@ const HOOK_FILES = [
   // dashclaw_stop.py imports this for Code Sessions ingest; without it the
   // import fails inside a try/except and ingest silently no-ops (v2.7 fix).
   'dashclaw_code_session_reporter.py',
-  // SessionStart digest (v3.7 item 6) — wired once codex-cli 0.139.0's
-  // SessionStart hook event was confirmed to fire (see PLUGIN_PARITY.md).
-  'dashclaw_session_digest.py',
+  // SessionStart enforcement-liveness probe (v8.2) — the SessionStart hook
+  // (wired once codex-cli 0.139.0's SessionStart event was confirmed to fire;
+  // see PLUGIN_PARITY.md). Replaced the retired session-digest hook.
+  'enforcement_liveness_probe.py',
 ];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 
@@ -192,7 +193,7 @@ export function buildConfigTomlBlock({
   const pre = join(hooksDir, 'dashclaw_pretool.py');
   const post = join(hooksDir, 'dashclaw_posttool.py');
   const stop = join(hooksDir, 'dashclaw_stop.py');
-  const sessionStart = join(hooksDir, 'dashclaw_session_digest.py');
+  const sessionStart = join(hooksDir, 'enforcement_liveness_probe.py');
 
   const lines = [
     MANAGED_START,
@@ -244,11 +245,14 @@ export function buildConfigTomlBlock({
     '',
     // Codex CLI 0.139.0's hook-event enum contains SessionStart alongside
     // Pre/Post/Stop; wired once that lifecycle was verified to fire
-    // (roadmap v3.7 item 6 — see PLUGIN_PARITY.md).
+    // (roadmap v3.7 item 6 — see PLUGIN_PARITY.md). Runs the enforcement-
+    // liveness probe (v8.2): `--source session-start` throttles it to once/12h
+    // and detaches, so session start is never delayed. No --agent-id — the
+    // probe forces its own synthetic identity internally.
     '[[hooks.SessionStart]]',
     '[[hooks.SessionStart.hooks]]',
     'type = "command"',
-    `command = ${tomlString(`${py} ${sessionStart} --agent-id codex`)}`,
+    `command = ${tomlString(`${py} ${sessionStart} --source session-start`)}`,
     MANAGED_END,
   );
 

@@ -37,6 +37,14 @@ are excluded from every aggregate, and any pending approval it creates is
 cancelled in teardown. Its verdict is filed to POST /api/enforcement-liveness
 — its own table, never the action/guard ledgers (live-canary precedent).
 
+SessionStart entry point: wired directly as the SessionStart hook (it replaced
+the retired session-digest hook that used to spawn it). Invoked as
+`--source session-start`, the probe throttles itself to at most once per 12h
+(marker file) and runs the actual probe in a DETACHED child, so session start
+is never delayed or broken — the same contract the digest provided. Every
+other `--source` (manual, ci, session-start's own detached child) runs the
+probe inline.
+
 Usage:
   python hooks/enforcement_liveness_probe.py [--settings PATH] [--source S]
       [--witness-dir DIR] [--max-wait SECONDS] [--json]
@@ -294,6 +302,39 @@ def teardown(action_id, witness_dir, checks):
         pass
 
 
+def _throttle_and_detach_session_start():
+    """SessionStart entry point: run the probe at most once per 12h (marker
+    file), in a DETACHED child, so session start is never delayed. Ported from
+    the retired session-digest hook, which owned this spawn before it was
+    culled. The child re-invokes this script with DASHCLAW_LIVENESS_PROBE_SPAWNED
+    so it runs the probe body inline (see main). Fail-silent — a throttle miss
+    or spawn failure never breaks session start."""
+    root = os.path.join(os.path.expanduser("~"), ".dashclaw", "liveness-probe")
+    marker = os.path.join(root, ".last-spawn")
+    try:
+        if time.time() - os.path.getmtime(marker) < 12 * 3600:
+            return  # within the throttle window: nothing to do this session
+    except OSError:
+        pass  # no marker yet: first run
+    try:
+        os.makedirs(root, exist_ok=True)
+        with open(marker, "w", encoding="utf-8") as f:
+            f.write(str(time.time()))
+        env = {**os.environ, "DASHCLAW_LIVENESS_PROBE_SPAWNED": "1"}
+        kwargs = {"env": env}
+        if os.name == "nt":
+            kwargs["creationflags"] = 0x00000008 | 0x00000200  # DETACHED_PROCESS | NEW_PROCESS_GROUP
+        else:
+            kwargs["start_new_session"] = True
+        with open(os.path.join(root, "last-run.log"), "w", encoding="utf-8") as log:
+            subprocess.Popen(
+                [sys.executable, os.path.abspath(__file__), "--source", "session-start"],
+                stdin=subprocess.DEVNULL, stdout=log, stderr=log, **kwargs,
+            )
+    except Exception:
+        pass  # never let the probe break session start
+
+
 def main():
     parser = argparse.ArgumentParser(description="DashClaw enforcement-liveness probe")
     parser.add_argument("--settings", action="append", default=None,
@@ -303,10 +344,20 @@ def main():
     parser.add_argument("--max-wait", type=float, default=90.0,
                         help="probe wait budget for the hook process, seconds")
     parser.add_argument("--json", action="store_true", help="print the full run payload as JSON")
-    args = parser.parse_args()
+    # parse_known_args so the probe tolerates being wired next to the other
+    # hooks (harness installers append flags like `--agent-id`); identity is
+    # forced to PROBE_AGENT_ID internally, so any such flag is a harmless no-op.
+    args, _unknown = parser.parse_known_args()
 
     if os.environ.get("DASHCLAW_LIVENESS_PROBE_DISABLED"):
         print("[liveness-probe] disabled via DASHCLAW_LIVENESS_PROBE_DISABLED")
+        sys.exit(0)
+
+    # SessionStart entry point: throttle to once/12h and run detached so the
+    # session start that fired this hook is never delayed. The detached child
+    # carries DASHCLAW_LIVENESS_PROBE_SPAWNED and falls through to run inline.
+    if args.source == "session-start" and not os.environ.get("DASHCLAW_LIVENESS_PROBE_SPAWNED"):
+        _throttle_and_detach_session_start()
         sys.exit(0)
 
     started_at = utc_now()

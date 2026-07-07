@@ -118,7 +118,7 @@ const PLUGIN_HOOK_SCRIPTS = [
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
   'dashclaw_code_session_reporter.py',
-  'dashclaw_session_digest.py',
+  'enforcement_liveness_probe.py',
 ];
 const MCP_INVENTORY_PATH = resolve(REPO_ROOT, 'mcp-server', 'lib', 'routes-inventory.generated.json');
 const DASHBOARD_PATH = resolve(REPO_ROOT, 'public', 'livingcode', 'index.html');

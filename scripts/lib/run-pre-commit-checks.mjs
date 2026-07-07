@@ -57,7 +57,7 @@ const STEPS = [
       'plugins/dashclaw/hooks/dashclaw_posttool.py',
       'plugins/dashclaw/hooks/dashclaw_stop.py',
       'plugins/dashclaw/hooks/dashclaw_code_session_reporter.py',
-      'plugins/dashclaw/hooks/dashclaw_session_digest.py',
+      'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
       'plugins/dashclaw/hooks/dashclaw_agent_intel',
       // Platform-intelligence skill mirrors written by the refresh outside
       // public/downloads — same orphaning symptom, same fix.
