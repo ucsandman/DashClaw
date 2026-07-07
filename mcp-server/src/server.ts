@@ -17,13 +17,10 @@ import { RESOURCE_DEFINITIONS, createResourceHandlers } from "./resources.js";
 import { registerTools } from "./tools/index.js";
 import {
   DASHCLAW_GATED_TOOLS,
-  enabledProviders,
   governanceEnabled,
   governanceMisconfigured,
-  providerForTool,
 } from "./registration.js";
 import type { Store } from "./storage.js";
-import type { ProviderId } from "./types.js";
 
 const require = createRequire(import.meta.url);
 export const PACKAGE_VERSION: string = (require("../package.json") as { version: string }).version;
@@ -195,14 +192,12 @@ export interface ComposeResult {
   client: DashClawClient;
   /** Whether the governance set was registered (DASHCLAW_URL + DASHCLAW_API_KEY). */
   governance: boolean;
-  /** Providers whose tools were registered (credential env present). */
-  providers: ProviderId[];
 }
 
 /**
- * Conditional composition for the stdio server: governance set iff DashClaw
- * credentials are present in the environment; each provider's tools iff its
- * token env var(s) are set; local context/state tools always.
+ * Conditional composition for the stdio server: the governance set and the
+ * three DashClaw-gated stdio tools register iff DashClaw credentials are
+ * present in the environment.
  */
 export function composeServer(server: McpServer, store: Store): ComposeResult {
   const client = new DashClawClient({
@@ -228,17 +223,12 @@ export function composeServer(server: McpServer, store: Store): ComposeResult {
     }
   }
 
-  const providers = enabledProviders(store);
-  const allowed = (name: string): boolean => {
-    const provider = providerForTool(name);
-    if (provider) return providers.includes(provider);
-    if (DASHCLAW_GATED_TOOLS.has(name)) return governance;
-    return true;
-  };
+  // registerTools registers only the three DASHCLAW_GATED_TOOLS, which require
+  // the DashClaw credentials. A filtering facade keeps registration conditional
+  // without the tool handlers knowing about the gate.
+  const allowed = (name: string): boolean =>
+    DASHCLAW_GATED_TOOLS.has(name) ? governance : true;
 
-  // registerTools only calls server.registerTool — a filtering facade is
-  // enough to make registration conditional without touching the 100+ tool
-  // registrations themselves.
   const filtered = {
     registerTool: (name: string, config: unknown, handler: unknown): unknown => {
       if (!allowed(name)) return undefined;
@@ -247,5 +237,5 @@ export function composeServer(server: McpServer, store: Store): ComposeResult {
   } as unknown as McpServer;
 
   registerTools(filtered, store);
-  return { client, governance, providers };
+  return { client, governance };
 }

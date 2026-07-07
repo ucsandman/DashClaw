@@ -10,7 +10,6 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { DashClawClient } from "./client.js";
 import type { Store } from "./storage.js";
-import type { ProviderId } from "./types.js";
 export declare const PACKAGE_VERSION: string;
 export interface ServerConfig {
     /** DashClaw instance URL (default: http://localhost:3000) */
@@ -38,12 +37,10 @@ export interface ComposeResult {
     client: DashClawClient;
     /** Whether the governance set was registered (DASHCLAW_URL + DASHCLAW_API_KEY). */
     governance: boolean;
-    /** Providers whose tools were registered (credential env present). */
-    providers: ProviderId[];
 }
 /**
- * Conditional composition for the stdio server: governance set iff DashClaw
- * credentials are present in the environment; each provider's tools iff its
- * token env var(s) are set; local context/state tools always.
+ * Conditional composition for the stdio server: the governance set and the
+ * three DashClaw-gated stdio tools register iff DashClaw credentials are
+ * present in the environment.
  */
 export declare function composeServer(server: McpServer, store: Store): ComposeResult;

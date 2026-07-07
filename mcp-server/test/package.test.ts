@@ -40,12 +40,9 @@ describe("npm package contents", () => {
     expect(pkg.scripts.verify).toBe("npm run typecheck && npm run build && npm test && npm audit");
   });
 
-  it("includes docs, NOTICE, and the example config", () => {
+  it("includes NOTICE, LICENSE, the entry bin, and the compiled server", () => {
     expect(packedPaths()).toEqual(
       expect.arrayContaining([
-        "docs/architecture.md",
-        "docs/launch-playbook.md",
-        "docs/config.example.yaml",
         "NOTICE",
         "LICENSE",
         "README.md",

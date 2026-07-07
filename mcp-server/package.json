@@ -2,7 +2,7 @@
   "name": "@dashclaw/mcp-server",
   "version": "2.2.0",
   "mcpName": "io.github.ucsandman/dashclaw",
-  "description": "MCP server for DashClaw governance and governed execution — guard, record, invoke, discover capabilities, and run provider operations (Vercel, Neon, Stripe, GitHub, and more) through the governance loop.",
+  "description": "MCP server for DashClaw governance — guard, record, invoke, discover capabilities, and read the decision ledger through the governance loop.",
   "type": "module",
   "bin": {
     "dashclaw-mcp": "bin/dashclaw-mcp.js"
@@ -17,7 +17,6 @@
   "files": [
     "bin/",
     "lib/",
-    "docs/",
     "NOTICE",
     "LICENSE",
     "README.md"

@@ -9,9 +9,9 @@ import { logEvent } from "./logger.js";
 /**
  * @dashclaw/mcp-server — local stdio MCP server.
  *
- * One server, conditionally composed at startup: governance tools/resources
- * when DASHCLAW_URL + DASHCLAW_API_KEY are set; each provider's tools when
- * its credential env var(s) are present; local context tools always.
+ * One server, conditionally composed at startup: the governance tools/resources
+ * and the three DashClaw-gated stdio tools register when DASHCLAW_URL +
+ * DASHCLAW_API_KEY are set.
  *
  * IMPORTANT: never write to stdout outside the MCP transport — it corrupts the
  * JSON-RPC stream. All logging goes to stderr.
@@ -23,9 +23,6 @@ process.on("unhandledRejection", (reason) => {
 });
 
 const USAGE = `Usage: dashclaw-mcp [options]
-       dashclaw-mcp <subcommand> [...]   (operational CLI: init, project, env,
-                                          connection, map, doctor, simulate,
-                                          audit, snapshot, dashclaw, context)
 
 Options:
   --url <url>          DashClaw instance URL (default: http://localhost:3000)
@@ -75,7 +72,7 @@ async function main(): Promise<void> {
     version: PACKAGE_VERSION,
   });
 
-  const { client, governance, providers } = composeServer(server, store);
+  const { client, governance } = composeServer(server, store);
 
   // Auto-derive agent_id from the MCP `initialize` clientInfo when the user
   // hasn't supplied --agent-id or DASHCLAW_AGENT_ID. Without this, every call
@@ -99,7 +96,6 @@ async function main(): Promise<void> {
     version: PACKAGE_VERSION,
     stateHome: store.paths.home,
     governance,
-    providers,
   });
   console.error("@dashclaw/mcp-server running on stdio");
 }

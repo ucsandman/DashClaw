@@ -56,7 +56,7 @@ A working example lives in [`examples/managed-agent-mcp/`](../../examples/manage
 
 The server exposes **12 governance tools** across 3 groups — core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_wait_for_approval`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, and session lifecycle), retrospection (`dashclaw_assumption_record`, `dashclaw_decisions_recent`), and agent identity (`dashclaw_pair`) — plus 4 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`). The complete tool-by-tool table is [`mcp-server/README.md`](../../mcp-server/README.md).
 
-The **local stdio server** additionally carries governed execution: provider tools for GitHub, Vercel, Neon, Stripe and more (each registers only when its credential env var is present) and stateful launch plans — every step through the same guard/policy/approval path. See [`mcp-server/docs/launch-plans.md`](../../mcp-server/docs/launch-plans.md).
+The **local stdio server** additionally registers three DashClaw-gated tools (`dashclaw_status`, `dashclaw_recent_decisions`, `export_dashclaw_evidence`), which gate on the same `DASHCLAW_URL` + `DASHCLAW_API_KEY` credentials as the governance set. See [`mcp-server/README.md`](../../mcp-server/README.md).
 
 ## Teach the model the protocol
 

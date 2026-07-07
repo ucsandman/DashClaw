@@ -1,8 +1,8 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 12 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
-Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
+The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 
 ## Quick Start
 
@@ -146,69 +146,17 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_posture` | Read the org governance posture score + 6 dimensions + findings queue |
 | `dashclaw_posture_next` | The next prioritized remediation finding from the posture queue |
 
-## Governed execution (provider + context tools)
+### DashClaw-gated stdio tools (3)
 
-Beyond the governance set above, the server registers the governed-execution
-surface from [`src/tools/index.ts`](./src/tools/index.ts):
-
-**Conditional registration** — a provider's tools register at startup **only
-when its credential env var(s) are present** (default names below, or a stored
-connection's custom env var). No token → tools absent, which keeps a
-connecting agent's context lean. The governance set registers only when
-`DASHCLAW_URL` **and** `DASHCLAW_API_KEY` are both set. Project/context tools
-always register (they need no credentials).
-
-**Always registered (project context, policy, approvals, audit):**
-`list_projects`, `create_project`, `select_project`, `get_project_context`,
-`export_context`, `add_environment`, `list_environments`,
-`map_provider_resource`, `list_provider_mappings`, `get_provider_mapping`,
-`list_connections`, `create_connection`, `set_app_env_vars`, `check_policy`,
-`simulate_action`, `list_policy_rules`, `set_policy_rule`,
-`list_pending_approvals`, `approve_action`, `reject_action`, `doctor`,
-`read_project_memory`, `write_project_memory`, `list_audit_log`,
-`export_audit_log`, `explain_action_risk`, `governed_action_summary`,
-`get_app_logs`, `get_latest_deployment_logs`. (`dashclaw_status`,
-`dashclaw_recent_decisions`, `export_dashclaw_evidence` gate on the DashClaw
-credentials like the governance set.)
-
-**Per provider (token env var → tools):**
-
-| Provider | Credential | Tools |
-|---|---|---|
-| GitHub | `GITHUB_TOKEN` | `get_github_repo_context`, `get_github_repo_readme`, `list_github_repo_files`, `list_github_pull_requests`, `list_github_branches`, `get_github_status_checks`, `list_github_workflow_runs`, `list_github_workflow_jobs`, `rerun_github_workflow_run`, `cancel_github_workflow_run` |
-| Vercel | `VERCEL_TOKEN` | `get_vercel_project_context`, `get_vercel_deployments`, `get_vercel_deployment_status`, `get_vercel_deployment_logs`, `get_vercel_logs`, `set_vercel_env_var`, `create_vercel_project`, `add_vercel_domain`, `create_vercel_deployment` |
-| Supabase | `SUPABASE_ACCESS_TOKEN` | `list_supabase_projects`, `get_supabase_project_context`, `query_supabase`, `get_supabase_logs`, `apply_supabase_migration` |
-| Stripe | `STRIPE_TEST_SECRET_KEY` / `STRIPE_LIVE_SECRET_KEY` | `list_stripe_products`, `list_stripe_customers`, `list_stripe_subscriptions`, `list_stripe_invoices`, `create_stripe_product`, `create_stripe_price`, `create_stripe_webhook`, `list_stripe_webhooks` |
-| Railway | `RAILWAY_TOKEN` | `get_railway_project_context`, `discover_railway_resources`, `get_railway_deployments`, `get_railway_logs`, `create_railway_deployment`, `set_railway_env_var` |
-| Namecheap | `NAMECHEAP_API_KEY` | `check_domain_availability`, `list_namecheap_domains`, `purchase_domain`, `get_dns_records`, `set_dns_records` |
-| Neon | `NEON_API_KEY` | `list_neon_projects`, `create_neon_project`, `get_neon_connection_uri` |
-| Upstash | `UPSTASH_API_KEY` | `list_upstash_redis_databases`, `create_upstash_redis_database`, `get_upstash_redis_env`, `get_upstash_qstash_env`, `list_upstash_qstash_schedules`, `create_upstash_qstash_schedule` |
-| Cloudflare R2 | `CLOUDFLARE_API_TOKEN` | `list_cloudflare_r2_buckets`, `create_cloudflare_r2_bucket`, `get_cloudflare_r2_env`, `list_cloudflare_r2_objects` |
-| Sentry | `SENTRY_AUTH_TOKEN` | `list_sentry_projects`, `create_sentry_project`, `list_sentry_client_keys`, `create_sentry_client_key`, `list_sentry_releases`, `create_sentry_release`, `list_sentry_deploys`, `create_sentry_deploy` |
-| PostHog | `POSTHOG_PERSONAL_API_KEY` | `list_posthog_projects`, `create_posthog_project`, `get_posthog_project_env`, `list_posthog_feature_flags`, `create_posthog_feature_flag` |
-| Clerk | `CLERK_SECRET_KEY` | `get_clerk_app_env`, `list_clerk_users`, `list_clerk_domains`, `list_clerk_redirect_urls`, `create_clerk_redirect_url` |
-| Resend | `RESEND_API_KEY` | `list_resend_domains`, `create_resend_domain`, `verify_resend_domain`, `send_resend_email` |
-| Twilio | `TWILIO_AUTH_TOKEN` | `list_twilio_phone_numbers`, `update_twilio_phone_number_webhooks`, `send_twilio_sms`, `create_twilio_call` |
-
-Tokens are read from the environment at call time and **never** written to
-local state, audit, or DashClaw context. Secret-shaped provider responses
-(connection URIs, webhook signing secrets, REST tokens, DSNs) are shown once
-in the tool result and redacted everywhere else.
-
-## Launch plans
-
-Stateful, verified launch tracking through the existing guarded tools — plans
-track the launch tail (domain → DNS → deploy → DB → Stripe → email → env
-wiring); they never execute provider mutations and never bypass
-guard/policy/approvals. Full lifecycle, reality-check table, and examples in
-[`docs/launch-plans.md`](./docs/launch-plans.md).
+Registered by [`src/tools/index.ts`](./src/tools/index.ts) on the local stdio
+server only, gated on the same `DASHCLAW_URL` + `DASHCLAW_API_KEY` credentials
+as the governance set:
 
 | Tool | Description |
 |---|---|
-| `create_launch_plan` | Derive the ordered step checklist for a declared stack from the launch playbook |
-| `get_launch_status` | Evaluated (never self-reported) step status + the single next action; resumable |
-| `preflight_launch` | Tokens present + valid, mappings complete, Stripe mode sanity, Namecheap IP whitelist |
-| `verify_launch` | Domain resolves, deployment READY, env vars present, webhook enabled, email verified |
+| `dashclaw_status` | Check DashClaw gate configuration and reachability |
+| `dashclaw_recent_decisions` | Read recent DashClaw guard decisions |
+| `export_dashclaw_evidence` | Export local audit entries carrying DashClaw guard/evidence metadata |
 
 ## Resources (4)
 
@@ -233,29 +181,13 @@ lives in [`.env.example`](./.env.example).
 | | `DASHCLAW_MODE` | `authoritative` | DashClaw gate mode (only `authoritative` is supported) |
 | | `DASHCLAW_LOCAL_HOME` | `<cwd>/.dashclaw-local` | Where local state lives (see Storage below) |
 | | `DASHCLAW_TIMEOUT_MS` | `30000` | DashClaw API request timeout |
-| | `DASHCLAW_HTTP_TIMEOUT_MS` | `30000` | Provider API request timeout |
-| | `DASHCLAW_HTTP_RETRIES` | `2` | Retries for idempotent provider reads (429/5xx/network) |
-| | `DASHCLAW_HTTP_RETRY_BASE_MS` | `25` | Retry backoff base |
 | | `DASHCLAW_LOCK_STALE_MS` | `30000` | Stale file-lock threshold for local state files |
-| | `DASHCLAW_LOG_STARTUP` | `false` | Structured CLI startup logs to stderr |
-| | `DASHCLAW_MEMORY_MAX_ENTRIES` | (unlimited) | Cap retained project-memory entries |
+| | `DASHCLAW_LOG_STARTUP` | `false` | Structured startup logs to stderr |
 | | `DASHCLAW_AUDIT_MAX_ENTRIES` | (unlimited) | Cap retained audit entries |
-| | provider tokens | (empty) | See the per-provider table above — presence enables that provider's tools |
 
 CLI args take precedence over environment variables.
 
 > **Note:** This server reads `DASHCLAW_URL` (not `DASHCLAW_BASE_URL`); the hooks and CLI in the DashClaw repo read `DASHCLAW_BASE_URL`.
-
-## CLI
-
-The same binary doubles as an operational CLI — `dashclaw-mcp <subcommand>`:
-`init`, `project`, `select`, `env`, `connection`, `map`, `doctor`,
-`simulate`, `audit`, `snapshot`, `dashclaw`, `context`. Bare `dashclaw-mcp`
-(or any `--url`/`--key`/`--agent-id` flags) boots the stdio MCP server.
-`dashclaw-mcp doctor --json` is the fastest way to check credentials and
-mappings; when `DASHCLAW_URL` + `DASHCLAW_API_KEY` are configured, the doctor
-tool also appends a read-only `platform` section from your instance's
-`GET /api/doctor`. `dashclaw-mcp context` prints the production-context summary.
 
 ## Storage
 
@@ -265,11 +197,8 @@ diffable, zero native dependencies:
 
 | File | Holds |
 |---|---|
-| `state.json` | Workspaces, projects, environments, connections, mappings, policy rules, pending approvals |
-| `memory.json` | Project memory entries |
-| `audit.log` | Append-only JSONL audit trail of every guarded action |
-| `config.yaml` | Optional seed config (`dashclaw-mcp init`; template at [`docs/config.example.yaml`](./docs/config.example.yaml)) |
-| `launches/<id>.json` | Launch plans (see [`docs/launch-plans.md`](./docs/launch-plans.md)) |
+| `state.json` | The local default workspace |
+| `audit.log` | Append-only JSONL audit trail read by the DashClaw evidence tools |
 
 Secrets are never written here — tokens stay in the environment, read at call
 time.
