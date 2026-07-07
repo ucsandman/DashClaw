@@ -27,7 +27,7 @@ export default function CodeTabs({ forms, title }: { forms: CodeForm[]; title?: 
           {title && <span className="mr-2 text-xs font-medium text-secondary">{title}</span>}
           {forms.map((f, i) => (
             <button
-              key={f.label}
+              key={`${f.label}-${i}`}
               type="button"
               onClick={() => setActive(i)}
               className={`rounded-full px-2.5 py-1 font-mono text-[11px] transition-colors ${

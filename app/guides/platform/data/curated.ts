@@ -124,18 +124,13 @@ export function buildQuickstart(data: GuideData): QuickstartExample[] {
     },
     {
       title: '3. Read the decision ledger',
-      blurb: 'Every guard verdict is queryable — this feeds /decisions and Mission Control.',
+      blurb: 'Every guard verdict is queryable — this feeds the /decisions ledger.',
       forms: [...httpForms(find(http, 'guard-decisions')), ...mcpForm(find(mcp, 'mcp-decisions-recent'))],
     },
     {
-      title: '4. Track assumptions and loops',
+      title: '4. Record the assumptions behind the action',
       blurb: 'Attach the assumptions an action depended on (requires the action_id from step 2).',
-      forms: [...httpForms(find(http, 'assumption-record')), ...httpForms(find(http, 'loops-list'))],
-    },
-    {
-      title: '5. Check governance posture',
-      blurb: 'The org-wide 0-100 posture score, six dimensions, and the prioritized remediation queue.',
-      forms: [...httpForms(find(http, 'posture')), ...mcpForm(find(mcp, 'mcp-posture'))],
+      forms: httpForms(find(http, 'assumption-record')),
     },
   ];
 }
