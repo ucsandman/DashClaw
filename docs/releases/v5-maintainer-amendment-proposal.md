@@ -1,12 +1,11 @@
 # Proposed MAINTAINER.md amendment — align the thesis paragraph with THESIS.md (v5.0.0)
 
-**Status: PROPOSAL. Not applied.** Per MAINTAINER.md constitution **§5**
-("This file changes only by Wes's explicit direction. The maintainer may
-propose amendments in a commit that touches nothing else."), the maintainer
-does **not** edit `MAINTAINER.md` unilaterally. This document is the prepared
-amendment; it travels with the v5.0.0 release notes and awaits Wes's
-ratification. If ratified, it lands as a commit that touches only
-`MAINTAINER.md`.
+**Status: RATIFIED AND APPLIED.** Wes ratified this amendment on 2026-07-07
+by explicit in-session direction ("I agree with the maintainer.md thesis
+amendment and I want you to apply it, I'm granting you full authority to do
+that for one instance"). Applied as commit `4ba47cc0`, which touches nothing
+but `MAINTAINER.md`, per constitution §5's amendment protocol. The proposal
+text below is preserved unchanged as the record of what was ratified.
 
 ## Why
 

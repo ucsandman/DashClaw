@@ -175,6 +175,14 @@ rendered page proves the product.** Every regression the verification caught
 lived in the seam between a KEEP surface and a killed one — exactly where
 HUMAN-EXPERIENCE.md clause 6 said to look.
 
+**Ratification and closing housekeeping (2026-07-07, post-release).** Wes
+ratified the MAINTAINER.md thesis amendment in-session and granted one-time
+authority to apply it; it landed as `4ba47cc0`, touching only that file. The
+MCP server package took its own-track major bump (2.2.0 → 3.0.0 in
+package.json and server.json — its surface shrank from 151 tools to the
+12-tool governance set, a breaking change for any consumer) so the pending
+republish ships under an honest version. Publishes remain operator-gated.
+
 ## 2026-07-06 — v4.76.0: entry-path drills — both doors proven on repeat
 
 Roadmap v8.3, same session as v8.2. The pattern this attacks is in my own
