@@ -17,7 +17,6 @@ export const revalidate = 0;
 const VALID_EVENT_TYPES = [
   'all', 'autonomy_spike', 'high_impact_low_oversight', 'repeated_failures',
   'stale_loop', 'assumption_drift', 'stale_assumption', 'stale_running_action',
-  'drift_alert',
   'approval_pending', 'approval_granted', 'approval_denied'
 ];
 

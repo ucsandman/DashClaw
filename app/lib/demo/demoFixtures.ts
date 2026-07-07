@@ -204,61 +204,6 @@ function buildFixtures(): Record<string, unknown> {
   const feedbackEntries: unknown[] = [];
   const feedbackStats = { total_entries: 0, avg_sentiment: 0 };
 
-  const driftAlerts = [
-    {
-      id: 'dr_01', severity: 'critical', metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01',
-      description: 'Significant spike in autonomy score detected. Agent is executing high-risk actions without manual intervention.',
-      z_score: 4.2, direction: 'increasing', pct_change: 125,
-      baseline_mean: 42.5, baseline_stddev: 5.2, current_mean: 95.6, current_stddev: 12.4,
-      sample_count: 48, acknowledged: false, created_at: isoFromNow(15 * 60 * 1000)
-    },
-    {
-      id: 'dr_02', severity: 'warning', metric: 'action_frequency', agent_id: 'api_monitor_02',
-      description: 'Higher than normal action frequency. Agent may be in a loop or experiencing unexpected triggers.',
-      z_score: 2.8, direction: 'increasing', pct_change: 64,
-      baseline_mean: 12.0, baseline_stddev: 2.1, current_mean: 19.7, current_stddev: 3.5,
-      sample_count: 120, acknowledged: false, created_at: isoFromNow(3 * 60 * 60 * 1000)
-    },
-    {
-      id: 'dr_03', severity: 'info', metric: 'reasoning_length', agent_id: 'customer_support_03',
-      description: 'Slight increase in reasoning token length. Agent is providing more detailed explanations than historical baseline.',
-      z_score: 1.5, direction: 'increasing', pct_change: 12,
-      baseline_mean: 150.0, baseline_stddev: 25.0, current_mean: 168.0, current_stddev: 30.0,
-      sample_count: 250, acknowledged: true, created_at: isoFromNow(24 * 60 * 60 * 1000)
-    }
-  ];
-
-  const driftStats = {
-    overall: {
-      total_alerts: 3,
-      critical_count: 1,
-      warning_count: 1,
-      info_count: 1,
-      unacknowledged: 2,
-    },
-    recent_baselines: [
-      { agent_id: 'agent_deployment_bot_01', metric: 'autonomy_score', mean: 42.5, stddev: 5.2, sample_count: 500 },
-      { agent_id: 'api_monitor_02', metric: 'action_frequency', mean: 12.0, stddev: 2.1, sample_count: 1200 },
-      { agent_id: 'customer_support_03', metric: 'reasoning_length', mean: 150.0, stddev: 25.0, sample_count: 3500 },
-    ],
-    by_metric: [
-      { metric: 'autonomy_score', count: 1, avg_z_score: 4.2 },
-      { metric: 'action_frequency', count: 1, avg_z_score: 2.8 },
-      { metric: 'reasoning_length', count: 1, avg_z_score: 1.5 },
-    ],
-    by_agent: [
-      { agent_id: 'agent_deployment_bot_01', count: 1, critical: 1, warning: 0 },
-      { agent_id: 'api_monitor_02', count: 1, critical: 0, warning: 1 },
-      { agent_id: 'customer_support_03', count: 1, critical: 0, warning: 0 },
-    ],
-  };
-
-  const driftSnapshots = [
-    { metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01', mean: 42.5, stddev: 5.2, sample_count: 500, period_start: isoFromNow(7 * 24 * 60 * 60 * 1000) },
-    { metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01', mean: 44.2, stddev: 5.5, sample_count: 520, period_start: isoFromNow(6 * 24 * 60 * 60 * 1000) },
-    { metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01', mean: 95.6, stddev: 12.4, sample_count: 48, period_start: isoFromNow(0) },
-  ];
-
   return {
     agents,
     actions,
@@ -310,9 +255,6 @@ function buildFixtures(): Record<string, unknown> {
     policyProofReport,
     feedbackEntries,
     feedbackStats,
-    driftAlerts,
-    driftStats,
-    driftSnapshots,
   };
 }
 

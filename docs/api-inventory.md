@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `162`
+- Total routes: `157`
 - Stable routes: `42`
 - Beta routes: `18`
-- Experimental routes: `102`
+- Experimental routes: `97`
 
 ## Routes
 
@@ -84,11 +84,6 @@ doc-type: architecture
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
 | `/api/doctor` | `GET` | `experimental` | `(default)` | `app/api/doctor/route.ts` |
 | `/api/doctor/fix` | `POST` | `experimental` | `(default)` | `app/api/doctor/fix/route.ts` |
-| `/api/drift/alerts` | `GET, POST` | `experimental` | `(default)` | `app/api/drift/alerts/route.ts` |
-| `/api/drift/alerts/{alertId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/drift/alerts/[alertId]/route.ts` |
-| `/api/drift/metrics` | `GET` | `experimental` | `(default)` | `app/api/drift/metrics/route.ts` |
-| `/api/drift/snapshots` | `GET` | `experimental` | `(default)` | `app/api/drift/snapshots/route.ts` |
-| `/api/drift/stats` | `GET` | `experimental` | `(default)` | `app/api/drift/stats/route.ts` |
 | `/api/echo` | `GET, POST` | `experimental` | `(default)` | `app/api/echo/route.ts` |
 | `/api/enforcement-liveness` | `GET, POST` | `experimental` | `(default)` | `app/api/enforcement-liveness/route.ts` |
 | `/api/finops/spend` | `GET` | `experimental` | `(default)` | `app/api/finops/spend/route.ts` |

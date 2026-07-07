@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:58192da0204feaba8d87e60a6213e75325d77329 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:09ffa22b96fc366d21cfb0cf276aa936ca086da6 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">163</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">158</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">193</div><div class="k">Optional env vars</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>8</b> env_vars removed, <b>22</b> routes added, <b>167</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>8</b> env_vars removed, <b>22</b> routes added, <b>172</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -310,6 +310,11 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/cron/learning-episodes-backfill <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/learning-recommendations <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/routing-maintenance <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/drift/alerts <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/drift/alerts/[alertId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/drift/metrics <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/drift/snapshots <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/drift/stats <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/evaluations <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/evaluations/runs <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/evaluations/runs/[runId] <span class="sig">Route removed</span></li>
@@ -538,11 +543,6 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/docs/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/docs/raw"><td><code>/api/docs/raw</code></td><td>GET</td><td class="sig">app/api/docs/raw/route.ts</td></tr></tbody></table></details>
 <details><summary>/doctor/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/doctor"><td><code>/api/doctor</code></td><td>GET</td><td class="sig">app/api/doctor/route.ts</td></tr>
     <tr data-path="/api/doctor/fix"><td><code>/api/doctor/fix</code></td><td>POST</td><td class="sig">app/api/doctor/fix/route.ts</td></tr></tbody></table></details>
-<details><summary>/drift/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/drift/alerts"><td><code>/api/drift/alerts</code></td><td>GET, POST</td><td class="sig">app/api/drift/alerts/route.ts</td></tr>
-    <tr data-path="/api/drift/alerts/[alertId]"><td><code>/api/drift/alerts/[alertId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/drift/alerts/[alertId]/route.ts</td></tr>
-    <tr data-path="/api/drift/metrics"><td><code>/api/drift/metrics</code></td><td>GET</td><td class="sig">app/api/drift/metrics/route.ts</td></tr>
-    <tr data-path="/api/drift/snapshots"><td><code>/api/drift/snapshots</code></td><td>GET</td><td class="sig">app/api/drift/snapshots/route.ts</td></tr>
-    <tr data-path="/api/drift/stats"><td><code>/api/drift/stats</code></td><td>GET</td><td class="sig">app/api/drift/stats/route.ts</td></tr></tbody></table></details>
 <details><summary>/echo/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/echo"><td><code>/api/echo</code></td><td>GET, POST</td><td class="sig">app/api/echo/route.ts</td></tr></tbody></table></details>
 <details><summary>/enforcement-liveness/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/enforcement-liveness"><td><code>/api/enforcement-liveness</code></td><td>GET, POST</td><td class="sig">app/api/enforcement-liveness/route.ts</td></tr></tbody></table></details>
 <details><summary>/finops/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/finops/spend"><td><code>/api/finops/spend</code></td><td>GET</td><td class="sig">app/api/finops/spend/route.ts</td></tr></tbody></table></details>

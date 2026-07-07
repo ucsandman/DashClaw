@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:58192da0204feaba8d87e60a6213e75325d77329",
+  "timestamp": "sha1:09ffa22b96fc366d21cfb0cf276aa936ca086da6",
   "routes": [
     {
       "path": "/api/actions",
@@ -633,55 +633,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/doctor/fix/route.ts"
-    },
-    {
-      "path": "/api/drift/alerts",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/drift/alerts/route.ts"
-    },
-    {
-      "path": "/api/drift/alerts/[alertId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "alertId"
-      ],
-      "archived": false,
-      "file_path": "app/api/drift/alerts/[alertId]/route.ts"
-    },
-    {
-      "path": "/api/drift/metrics",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/drift/metrics/route.ts"
-    },
-    {
-      "path": "/api/drift/snapshots",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/drift/snapshots/route.ts"
-    },
-    {
-      "path": "/api/drift/stats",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/drift/stats/route.ts"
     },
     {
       "path": "/api/echo",
@@ -2480,7 +2431,6 @@
         "scripts/migrate-api-keys-compat.mjs",
         "scripts/migrate-compliance-export.mjs",
         "scripts/migrate-cost-analytics.mjs",
-        "scripts/migrate-drift.mjs",
         "scripts/migrate-evaluations.mjs",
         "scripts/migrate-feedback.mjs",
         "scripts/migrate-hitl-metadata.mjs",

@@ -62,7 +62,6 @@ const EVENT_TYPES = [
   { value: 'assumption_drift', label: 'Assumption drift' },
   { value: 'stale_assumption', label: 'Stale assumption' },
   { value: 'stale_running_action', label: 'Stale running action' },
-  { value: 'drift_alert', label: 'Behavioral drift alert' },
   { value: 'approval_pending', label: 'Approval pending' },
   { value: 'approval_granted', label: 'Approval granted' },
   { value: 'approval_denied', label: 'Approval denied' },

@@ -96,7 +96,6 @@ export const LABS_PAGES = [
   { path: '/assumptions', label: 'Assumptions' },
   { path: '/sessions', label: 'Sessions lifecycle' },
   { path: '/sessions/sess_demo_1', label: 'Session detail [sess_demo_1]' },
-  { path: '/drift', label: 'Drift detection' },
   { path: '/learning', label: 'Learning loop' },
   { path: '/learning/analytics', label: 'Learning analytics' },
   { path: '/prompts', label: 'Prompt registry' },

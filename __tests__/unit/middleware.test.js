@@ -42,10 +42,10 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
     expect(res.status).toBe(204);
   });
 
-  it('QUIRK: POST /api/drift/alerts hits the write-block BEFORE the drift handler → 403', async () => {
-    // The drift handler has a POST branch, but the demo write-block runs
+  it('QUIRK: POST /api/halt hits the write-block BEFORE the halt handler → 403', async () => {
+    // The halt handler has a POST branch, but the demo write-block runs
     // first and only exempts guard/actions/assumptions simulations.
-    const res = await middleware(req('/api/drift/alerts', { method: 'POST', body: {} }));
+    const res = await middleware(req('/api/halt', { method: 'POST', body: {} }));
     expect(res.status).toBe(403);
     const body = await res.json();
     expect(body.error).toBe('Demo mode: write APIs are disabled.');
