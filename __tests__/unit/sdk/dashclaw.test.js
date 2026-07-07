@@ -417,11 +417,6 @@ describe('sdk/dashclaw.js characterization', () => {
       ['updateSession', (c) => c.updateSession('ses_1', { status: 'done' }), 'PATCH', '/api/sessions/ses_1', { status: 'done' }],
       ['listSessions', (c) => c.listSessions({ agent_id: 'a', limit: 1 }), 'GET', '/api/sessions?agent_id=a&limit=1', undefined],
       ['getSessionEvents', (c) => c.getSessionEvents('ses_1'), 'GET', '/api/sessions/ses_1/events', undefined],
-      // learning
-      ['recordDecision stamps default agent_id', (c) => c.recordDecision({ decision: 'd' }), 'POST',
-        '/api/learning', { decision: 'd', agent_id: 'test-agent' }],
-      ['getLearningRecommendations stamps default agent_id', (c) => c.getLearningRecommendations({ action_type: 'deploy' }),
-        'GET', '/api/learning/recommendations?action_type=deploy&agent_id=test-agent', undefined],
       // policies + evaluations
       ['simulatePolicy omits days when not given', (c) => c.simulatePolicy({ policy_type: 'cost', rules: { max: 5 } }),
         'POST', '/api/policies/simulate', { policy_type: 'cost', rules: { max: 5 } }],

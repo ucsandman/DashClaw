@@ -123,9 +123,6 @@ class DashClaw:
         guard_callback=None,
         hitl_mode="off",
         private_key=None,
-        auto_recommend="off",
-        recommendation_confidence_min=70,
-        recommendation_callback=None,
     ):
         self.base_url = base_url.rstrip("/")
         if not self.base_url.startswith("https://") and "localhost" not in self.base_url and "127.0.0.1" not in self.base_url:
@@ -149,17 +146,9 @@ class DashClaw:
         self.guard_callback = guard_callback
         self.hitl_mode = hitl_mode # "off" | "wait"
         self.private_key = private_key # cryptography.hazmat.primitives.asymmetric.rsa.RSAPrivateKey
-        self.auto_recommend = auto_recommend
-        try:
-            self.recommendation_confidence_min = max(0, min(float(recommendation_confidence_min), 100))
-        except Exception:
-            self.recommendation_confidence_min = 70
-        self.recommendation_callback = recommendation_callback
 
         if guard_mode not in ["off", "warn", "enforce"]:
             raise ValueError("guard_mode must be one of: off, warn, enforce")
-        if auto_recommend not in ["off", "warn", "enforce"]:
-            raise ValueError("auto_recommend must be one of: off, warn, enforce")
 
     def _request(self, path, method="GET", body=None, params=None, json_payload=None, **kwargs):
         # Support 'method' as an explicit keyword arg so callers can write
@@ -233,117 +222,6 @@ class DashClaw:
             "reversible": action_def.get("reversible"),
             "declared_goal": action_def.get("declared_goal"),
             "agent_id": self.agent_id,
-        }
-
-    def _report_recommendation_event(self, event):
-        try:
-            payload = dict(event or {})
-            if "agent_id" not in payload or payload.get("agent_id") is None:
-                payload["agent_id"] = self.agent_id
-            self._request("/api/learning/recommendations/events", method="POST", body=payload)
-        except Exception:
-            # Telemetry should not break action flow.
-            pass
-
-    def _auto_recommend(self, action_def):
-        if self.auto_recommend == "off" or not isinstance(action_def, dict) or not action_def.get("action_type"):
-            return self._recommendation_passthrough(action_def)
-
-        try:
-            result = self.recommend_action(action_def)
-        except Exception as e:
-            print(f"[DashClaw] Recommendation fetch failed (proceeding): {str(e)}")
-            return self._recommendation_passthrough(action_def)
-
-        self._notify_recommendation_callback(result)
-
-        recommendation = result.get("recommendation")
-        if not isinstance(recommendation, dict):
-            return result
-
-        confidence = self._coerce_recommendation_confidence(recommendation.get("confidence"))
-
-        override_reason = self._resolve_recommendation_override(result, action_def, confidence)
-        if override_reason:
-            return self._override_recommendation(result, action_def, recommendation, override_reason)
-
-        return self._apply_auto_recommendation(result, action_def, recommendation, confidence)
-
-    def _resolve_recommendation_override(self, result, action_def, confidence):
-        """Return the override reason that prevents auto-applying, or None to apply."""
-        if confidence < self.recommendation_confidence_min:
-            return f"confidence_below_threshold:{confidence}<{self.recommendation_confidence_min}"
-
-        guard_decision = self._probe_recommendation_guard(result, action_def)
-        if self._is_restrictive_decision(guard_decision):
-            return f"guard_restrictive:{guard_decision.get('decision')}"
-
-        if self.auto_recommend == "warn":
-            return "warn_mode_no_autoadapt"
-
-        return None
-
-    def _recommendation_passthrough(self, action_def):
-        return {"action": action_def, "recommendation": None, "adapted_fields": []}
-
-    def _notify_recommendation_callback(self, result):
-        if not self.recommendation_callback:
-            return
-        try:
-            self.recommendation_callback(result)
-        except Exception:
-            pass
-
-    def _coerce_recommendation_confidence(self, confidence):
-        try:
-            return float(confidence if confidence is not None else 0)
-        except Exception:
-            return 0
-
-    def _probe_recommendation_guard(self, result, action_def):
-        try:
-            return self.guard(self._build_guard_context(result.get("action") or action_def))
-        except Exception as e:
-            print(f"[DashClaw] Recommendation guard probe failed: {str(e)}")
-            return None
-
-    def _override_recommendation(self, result, action_def, recommendation, override_reason):
-        self._report_recommendation_event({
-            "recommendation_id": recommendation.get("id"),
-            "event_type": "overridden",
-            "details": {
-                "action_type": action_def.get("action_type"),
-                "reason": override_reason,
-            },
-        })
-        return {
-            **result,
-            "action": {
-                **action_def,
-                "recommendation_id": recommendation.get("id"),
-                "recommendation_applied": False,
-                "recommendation_override_reason": override_reason,
-            },
-        }
-
-    def _apply_auto_recommendation(self, result, action_def, recommendation, confidence):
-        self._report_recommendation_event({
-            "recommendation_id": recommendation.get("id"),
-            "event_type": "applied",
-            "details": {
-                "action_type": action_def.get("action_type"),
-                "adapted_fields": result.get("adapted_fields", []),
-                "confidence": confidence,
-            },
-        })
-        return {
-            **result,
-            "action": {
-                **(result.get("action") or action_def),
-                "recommendation_id": recommendation.get("id"),
-                "recommendation_applied": True,
-                "recommendation_override_reason": None,
-            },
         }
 
     # --- Category 1: Decision Recording ---
@@ -804,136 +682,6 @@ class DashClaw:
         return self._request("/api/actions/signals")
 
     # --- Category 4: Dashboard Data ---
-
-    def record_decision(self, decision, **kwargs):
-        payload = {"decision": decision, "agent_id": self.agent_id, **kwargs}
-        return self._request("/api/learning", method="POST", body=payload)
-
-    def get_recommendations(
-        self,
-        action_type=None,
-        limit=50,
-        agent_id=None,
-        include_inactive=False,
-        track_events=True,
-        include_metrics=False,
-        lookback_days=None,
-    ):
-        params = {"agent_id": agent_id or self.agent_id, "limit": limit}
-        if action_type is not None:
-            params["action_type"] = action_type
-        if include_inactive:
-            params["include_inactive"] = "true"
-        if track_events:
-            params["track_events"] = "true"
-        if include_metrics:
-            params["include_metrics"] = "true"
-        if lookback_days is not None:
-            params["lookback_days"] = lookback_days
-        query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
-        return self._request(f"/api/learning/recommendations?{query}")
-
-    def get_recommendation_metrics(
-        self,
-        action_type=None,
-        limit=100,
-        agent_id=None,
-        include_inactive=False,
-        lookback_days=30,
-    ):
-        params = {
-            "agent_id": agent_id or self.agent_id,
-            "limit": limit,
-            "lookback_days": lookback_days,
-        }
-        if action_type is not None:
-            params["action_type"] = action_type
-        if include_inactive:
-            params["include_inactive"] = "true"
-        query = urllib.parse.urlencode({k: v for k, v in params.items() if v is not None})
-        return self._request(f"/api/learning/recommendations/metrics?{query}")
-
-    def record_recommendation_events(self, events):
-        if isinstance(events, list):
-            return self._request("/api/learning/recommendations/events", method="POST", body={"events": events})
-        return self._request("/api/learning/recommendations/events", method="POST", body=events or {})
-
-    def set_recommendation_active(self, recommendation_id, active):
-        recommendation_id = urllib.parse.quote(str(recommendation_id), safe="")
-        return self._request(
-            f"/api/learning/recommendations/{recommendation_id}",
-            method="PATCH",
-            body={"active": bool(active)},
-        )
-
-    def rebuild_recommendations(
-        self,
-        action_type=None,
-        lookback_days=30,
-        min_samples=5,
-        episode_limit=5000,
-        action_id=None,
-        agent_id=None,
-    ):
-        payload = {
-            "agent_id": agent_id or self.agent_id,
-            "action_type": action_type,
-            "lookback_days": lookback_days,
-            "min_samples": min_samples,
-            "episode_limit": episode_limit,
-            "action_id": action_id,
-        }
-        return self._request("/api/learning/recommendations", method="POST", body=payload)
-
-    def _fetch_top_recommendation(self, action_type):
-        response = self.get_recommendations(action_type=action_type, limit=1)
-        recommendations = response.get("recommendations", [])
-        return recommendations[0] if recommendations else None
-
-    def _apply_risk_cap_hint(self, adapted, adapted_fields, hints):
-        risk_cap = hints.get("preferred_risk_cap")
-        if not isinstance(risk_cap, (int, float)):
-            return
-        current = adapted.get("risk_score")
-        if current is None or current > risk_cap:
-            adapted["risk_score"] = risk_cap
-            adapted_fields.append("risk_score")
-
-    def _apply_reversible_hint(self, adapted, adapted_fields, hints):
-        if hints.get("prefer_reversible") is True and adapted.get("reversible") is None:
-            adapted["reversible"] = True
-            adapted_fields.append("reversible")
-
-    def _apply_confidence_floor_hint(self, adapted, adapted_fields, hints):
-        confidence_floor = hints.get("confidence_floor")
-        if not isinstance(confidence_floor, (int, float)):
-            return
-        current = adapted.get("confidence")
-        if current is None or current < confidence_floor:
-            adapted["confidence"] = confidence_floor
-            adapted_fields.append("confidence")
-
-    def recommend_action(self, action):
-        if not isinstance(action, dict) or not action.get("action_type"):
-            return {"action": action, "recommendation": None, "adapted_fields": []}
-
-        recommendation = self._fetch_top_recommendation(action.get("action_type"))
-        if not recommendation:
-            return {"action": action, "recommendation": None, "adapted_fields": []}
-
-        adapted = dict(action)
-        adapted_fields = []
-        hints = recommendation.get("hints", {}) if isinstance(recommendation, dict) else {}
-
-        self._apply_risk_cap_hint(adapted, adapted_fields, hints)
-        self._apply_reversible_hint(adapted, adapted_fields, hints)
-        self._apply_confidence_floor_hint(adapted, adapted_fields, hints)
-
-        return {
-            "action": adapted,
-            "recommendation": recommendation,
-            "adapted_fields": adapted_fields,
-        }
 
     def create_goal(self, title, **kwargs):
         payload = {"title": title, "agent_id": self.agent_id, **kwargs}
@@ -1807,44 +1555,6 @@ class DashClaw:
     def get_drift_metrics(self) -> dict:
         """List available drift detection metrics."""
         return self._request("/api/drift/metrics")
-
-    # -----------------------------------------------
-    # Learning Analytics
-    # -----------------------------------------------
-
-    def compute_learning_velocity(self, agent_id: str = None, lookback_days: int = 30, period: str = "daily") -> dict:
-        """Compute learning velocity (rate of score improvement) for agents."""
-        return self._request("/api/learning/analytics/velocity", method="POST", json={"agent_id": agent_id, "lookback_days": lookback_days, "period": period})
-
-    def get_learning_velocity(self, agent_id: str = None, limit: int = 30) -> dict:
-        """Get computed velocity data."""
-        params = []
-        if agent_id: params.append(f"agent_id={agent_id}")
-        if limit: params.append(f"limit={limit}")
-        qs = f"?{'&'.join(params)}" if params else ""
-        return self._request(f"/api/learning/analytics/velocity{qs}")
-
-    def compute_learning_curves(self, agent_id: str = None, lookback_days: int = 60) -> dict:
-        """Compute learning curves per action type."""
-        return self._request("/api/learning/analytics/curves", method="POST", json={"agent_id": agent_id, "lookback_days": lookback_days})
-
-    def get_learning_curves(self, agent_id: str = None, action_type: str = None, limit: int = 50) -> dict:
-        """Get learning curve data."""
-        params = []
-        if agent_id: params.append(f"agent_id={agent_id}")
-        if action_type: params.append(f"action_type={action_type}")
-        if limit: params.append(f"limit={limit}")
-        qs = f"?{'&'.join(params)}" if params else ""
-        return self._request(f"/api/learning/analytics/curves{qs}")
-
-    def get_learning_analytics_summary(self, agent_id: str = None) -> dict:
-        """Get comprehensive learning analytics summary."""
-        params = f"?agent_id={agent_id}" if agent_id else ""
-        return self._request(f"/api/learning/analytics/summary{params}")
-
-    def get_maturity_levels(self) -> dict:
-        """Get the maturity level definitions."""
-        return self._request("/api/learning/analytics/maturity")
 
     # --- Scoring Profiles -----------------------------------
 

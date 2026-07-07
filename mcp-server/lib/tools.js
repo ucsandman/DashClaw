@@ -359,34 +359,6 @@ export const TOOL_DEFINITIONS = [
         },
     },
     {
-        name: 'dashclaw_learning_log',
-        description: 'Log a decision + outcome to the learning database. Use after making a non-obvious decision ' +
-            'so future sessions can recall the reasoning and outcome.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string' },
-                decision: { type: 'string', description: 'What was decided' },
-                context: { type: 'string', description: 'Why this decision was made' },
-                outcome: { type: 'string', description: 'What happened (optional, can be updated later)' },
-            },
-            required: ['decision'],
-        },
-    },
-    {
-        name: 'dashclaw_learning_query',
-        description: 'Query the learning database for prior decisions and lessons. Use BEFORE making a decision ' +
-            'similar to one you might have made before.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string' },
-                query: { type: 'string', description: 'Search text (matches decision/context)' },
-                limit: { type: 'integer', description: 'Max results (default 10)' },
-            },
-        },
-    },
-    {
         name: 'dashclaw_decisions_recent',
         description: 'Query the guardrail decisions ledger for recent governed actions. Filter by agent, action ' +
             'type, decision verdict, or time window. Use for in-session retrospection — "what have I done ' +
@@ -399,21 +371,6 @@ export const TOOL_DEFINITIONS = [
                 decision: { type: 'string', enum: ['allow', 'warn', 'block', 'require_approval'] },
                 since: { type: 'string', description: 'ISO timestamp lower bound' },
                 limit: { type: 'integer', description: 'Max results (default 20)' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_behavior_suggestions',
-        description: 'List DashClaw Policy Coach suggestions — evidence-backed, observe-only policy suggestions ' +
-            'the analyzer learned from this agent\'s locally-recorded behavior (destructive commands, ' +
-            'protected-path writes, repeated reloads, failed loops, model/task mismatches, and the safe ' +
-            'operating envelope). Read-only: each suggestion carries confidence, sample size, evidence, and ' +
-            'expected effect. Review, simulate, and adopt them from the Policy Coach UI — nothing is enforced ' +
-            'automatically.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string', description: 'Override default agent ID (filter to one agent)' },
             },
         },
     },
@@ -931,49 +888,6 @@ export function createToolHandlers(client) {
             });
             return JSON.stringify(await jsonOrFailure(res));
         },
-        async dashclaw_learning_log(args) {
-            const res = await client.fetch('/api/learning', {
-                method: 'POST',
-                body: JSON.stringify({
-                    agent_id: agentId(args),
-                    decision: args.decision,
-                    context: args.context,
-                    outcome: args.outcome,
-                }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
-        },
-        async dashclaw_learning_query(args) {
-            // Query the same store dashclaw_learning_log writes to. POST /api/learning
-            // records decisions into the `decisions` table; GET /api/learning reads
-            // them back. The sibling /api/learning/lessons endpoint is the
-            // recommendations consolidator (a different store with no decision/context
-            // text), so a logged decision could never be queried back through it.
-            //
-            // Search text (`q`) and `limit` are passed server-side so the search
-            // window is the full decision history, not just the most-recent 20. The
-            // client-side filter below is kept as a fallback for older DashClaw
-            // instances that ignore these params (they return the recent window, and
-            // we narrow it here).
-            const params = new URLSearchParams();
-            const aid = agentIdFilter(args);
-            if (aid)
-                params.set('agent_id', aid);
-            if (args.query)
-                params.set('q', String(args.query));
-            if (Number.isInteger(args.limit) && args.limit > 0)
-                params.set('limit', String(args.limit));
-            const res = await client.fetch(`/api/learning?${params}`);
-            const data = await res.json();
-            let decisions = Array.isArray(data?.decisions) ? data.decisions : [];
-            if (args.query) {
-                const needle = String(args.query).toLowerCase();
-                decisions = decisions.filter((d) => `${d?.decision || ''} ${d?.context || ''}`.toLowerCase().includes(needle));
-            }
-            const limit = Number.isInteger(args.limit) && args.limit > 0 ? args.limit : 10;
-            decisions = decisions.slice(0, limit);
-            return JSON.stringify({ ...data, decisions });
-        },
         async dashclaw_decisions_recent(args) {
             const params = new URLSearchParams();
             const aid = agentIdFilter(args);
@@ -990,14 +904,6 @@ export function createToolHandlers(client) {
             const res = await client.fetch(`/api/guard/decisions?${params}`);
             const data = await res.json();
             return JSON.stringify(data);
-        },
-        async dashclaw_behavior_suggestions(input) {
-            // GET /api/behavior/suggestions — analyzes the local behavior-sample log.
-            // Read-only; adopt/dismiss are UI-only in V1 (they require simulation review).
-            const result = await client.get('/api/behavior/suggestions', {
-                agent_id: agentIdFilter(input),
-            }, { timeout: 15000 });
-            return JSON.stringify(result);
         },
         async dashclaw_inbox_list(input) {
             // GET /api/messages — the canonical inbox read. unread is a string flag

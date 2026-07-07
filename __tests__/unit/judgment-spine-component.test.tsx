@@ -1,8 +1,8 @@
 // JudgmentSpine — the unified proposal queue (owner roadmap v4.4).
 // Spec: docs/superpowers/specs/2026-07-04-one-judgment-spine.md
-// One section on /policies subsuming the tuning, tightening, calibration, and
-// behavior queues under one decision grammar; decisions dispatch through each
-// engine's existing client lib.
+// One section on /policies subsuming the tuning, tightening, loosening, and
+// calibration queues under one decision grammar; decisions dispatch through
+// each engine's existing client lib.
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
@@ -22,12 +22,6 @@ const m = vi.hoisted(() => ({
   ratifyProposal: vi.fn(),
   dismissCalibrationProposal: vi.fn(),
   undoCalibrationDecision: vi.fn(),
-  // behavior
-  fetchBehaviorSuggestions: vi.fn(),
-  simulateBehaviorSuggestion: vi.fn(),
-  adoptBehaviorSuggestion: vi.fn(),
-  dismissBehaviorSuggestion: vi.fn(),
-  undoBehaviorSuggestion: vi.fn(),
 }));
 
 vi.mock('@/policies/lib/proposalsClient', () => ({
@@ -47,13 +41,6 @@ vi.mock('@/policies/lib/calibrationClient', () => ({
   ratifyProposal: m.ratifyProposal,
   dismissCalibrationProposal: m.dismissCalibrationProposal,
   undoCalibrationDecision: m.undoCalibrationDecision,
-}));
-vi.mock('@/policies/lib/behaviorClient', () => ({
-  fetchBehaviorSuggestions: m.fetchBehaviorSuggestions,
-  simulateBehaviorSuggestion: m.simulateBehaviorSuggestion,
-  adoptBehaviorSuggestion: m.adoptBehaviorSuggestion,
-  dismissBehaviorSuggestion: m.dismissBehaviorSuggestion,
-  undoBehaviorSuggestion: m.undoBehaviorSuggestion,
 }));
 
 import JudgmentSpine from '@/policies/components/JudgmentSpine';
@@ -139,30 +126,6 @@ function calibrationPayload(proposals: unknown[] = [calibrationProposal()]) {
   };
 }
 
-function behaviorSuggestion(overrides: Record<string, unknown> = {}) {
-  return {
-    id: 'sug_dc_1',
-    type: 'destructive_command_approval',
-    agent_id: 'codex-1',
-    severity: 'high',
-    false_positive_risk: 'low',
-    confidence: 82,
-    expected_effect: 'Require approval before destructive shell commands.',
-    matching_sample_size: 6,
-    sample_size: 40,
-    target: 'bash',
-    advisory: false,
-    enforceable: true,
-    evidence_examples: [],
-    rule: { action: 'require_approval' },
-    ...overrides,
-  };
-}
-
-function behaviorPayload(suggestions: unknown[] = [behaviorSuggestion()]) {
-  return { agents: [], suggestions, dismissed: 0, sample_count: 40, sample_source: 'local' };
-}
-
 beforeEach(() => {
   vi.clearAllMocks();
   m.fetchProposals.mockResolvedValue(tuningPayload());
@@ -177,11 +140,6 @@ beforeEach(() => {
   m.ratifyProposal.mockResolvedValue(undefined);
   m.dismissCalibrationProposal.mockResolvedValue(undefined);
   m.undoCalibrationDecision.mockResolvedValue(undefined);
-  m.fetchBehaviorSuggestions.mockResolvedValue(behaviorPayload());
-  m.simulateBehaviorSuggestion.mockResolvedValue({ total: 40, allow: 34, warn: 0, require_approval: 6, block: 0, likely_false_positives: 0 });
-  m.adoptBehaviorSuggestion.mockResolvedValue({ adopted: true, advisory: false, note: 'Draft policy created (inactive).' });
-  m.dismissBehaviorSuggestion.mockResolvedValue(undefined);
-  m.undoBehaviorSuggestion.mockResolvedValue({ ok: true, suggestion_id: 'sug_dc_1', removed: true, policy_kept: true });
 });
 
 describe('JudgmentSpine', () => {
@@ -190,7 +148,6 @@ describe('JudgmentSpine', () => {
     await waitFor(() => screen.getByText('Loosen deploy approvals'));
     screen.getByText('Govern "deploy" (high-risk allows)');
     screen.getByText('Over-scored benign');
-    screen.getByText('Destructive commands → approval');
   });
 
   it('tightening ratify is an armed two-click that dispatches through the client lib', async () => {
@@ -223,38 +180,13 @@ describe('JudgmentSpine', () => {
     await waitFor(() => screen.getByText('Dismissed.'));
   });
 
-  it('behavior adopt is disabled until a simulation resolves, then enabled', async () => {
-    render(<JudgmentSpine />);
-    const adoptName = 'Adopt as draft: Destructive commands → approval · codex-1';
-    await waitFor(() => screen.getByRole('button', { name: adoptName }));
-    expect((screen.getByRole('button', { name: adoptName }) as HTMLButtonElement).disabled).toBe(true);
-    fireEvent.click(screen.getByRole('button', { name: 'Simulate: Destructive commands → approval · codex-1' }));
-    expect(m.simulateBehaviorSuggestion).toHaveBeenCalledWith('sug_dc_1');
-    await waitFor(() =>
-      expect((screen.getByRole('button', { name: adoptName }) as HTMLButtonElement).disabled).toBe(false),
-    );
-  });
-
-  it('behavior undo dispatches through the client lib (POST action:undo)', async () => {
-    render(<JudgmentSpine />);
-    const title = 'Destructive commands → approval · codex-1';
-    await waitFor(() => screen.getByRole('button', { name: `Dismiss: ${title}` }));
-    fireEvent.click(screen.getByRole('button', { name: `Dismiss: ${title}` }));
-    fireEvent.click(screen.getByRole('button', { name: `Confirm dismiss for ${title}` }));
-    await waitFor(() => screen.getByRole('button', { name: `Undo dismiss for ${title}` }));
-    fireEvent.click(screen.getByRole('button', { name: `Undo dismiss for ${title}` }));
-    expect(m.undoBehaviorSuggestion).toHaveBeenCalledWith('sug_dc_1');
-  });
-
   it('renders a calm empty state per queue', async () => {
     m.fetchProposals.mockResolvedValue(tuningPayload([]));
     m.fetchTighteningProposals.mockResolvedValue(tighteningPayload([]));
     m.fetchCalibrationProposals.mockResolvedValue(calibrationPayload([]));
-    m.fetchBehaviorSuggestions.mockResolvedValue(behaviorPayload([]));
     render(<JudgmentSpine />);
     await waitFor(() => screen.getByText(/No pending tuning/));
     screen.getByText(/No ungoverned high-risk patterns in the last 7 days/);
     screen.getByText(/No pending calibration in the last 30 days/);
-    screen.getByText(/No pending behavior suggestions/);
   });
 });

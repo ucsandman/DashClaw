@@ -150,7 +150,7 @@ For concrete implementation patterns, see [references/governance-patterns.md](re
 ### After concluding a session
 Call `dashclaw_handoff_create` with a bundle containing your 1-2 sentence summary,
 any open loops you opened (action-scoped, via `dashclaw_loop_add`), and decisions
-you made (or references via `dashclaw_learning_log`). The next session of yours
+you made. The next session of yours
 will pick this up automatically via `dashclaw_handoff_latest` in pre_llm_call
 context injection (when running under Hermes Agent — Claude Code and Codex pick
 it up on first turn via the governance protocol).
@@ -215,16 +215,6 @@ ASSUMPTIONS I'M MAKING:
 
 Record the beliefs that would change the decision if they turned out false —
 not certainties or trivia.
-
-## Learning From Prior Sessions
-
-### Before making a non-obvious decision
-Call `dashclaw_learning_query` with a search string. If a prior session made a
-similar decision, surface its outcome before making yours.
-
-### After making a non-obvious decision
-Call `dashclaw_learning_log` with the decision + context (+ outcome if known).
-Future sessions querying for this pattern will see your reasoning.
 
 ## In-Session Retrospection
 

@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:305c788d7cd92a6a61f7525b81d60e929441e905`
+**Shape snapshot:** `sha1:5a1e41fab443f60d2327e2e04ed41700e22485f1`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **240** active API routes across **64** categories (240 total including archived)
-- **4** required + **199** optional environment variables
+- **219** active API routes across **62** categories (219 total including archived)
+- **4** required + **197** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -103,15 +103,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `-` `/api/auth/[...nextauth]`
 - `GET` `/api/auth/config`
 - `DELETE, POST` `/api/auth/local`
-
-### `behavior`
-
-- `GET, POST` `/api/behavior/insights`
-- `GET, POST` `/api/behavior/recorder`
-- `GET` `/api/behavior/samples`
-- `POST` `/api/behavior/samples/ingest`
-- `POST` `/api/behavior/simulate`
-- `GET, POST` `/api/behavior/suggestions`
 
 ### `billing`
 
@@ -180,8 +171,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/cron/code-session-weekly-memo`
 - `GET` `/api/cron/integration-health`
 - `GET` `/api/cron/jti-sweep`
-- `GET` `/api/cron/learning-episodes-backfill`
-- `GET` `/api/cron/learning-recommendations`
 - `GET` `/api/cron/memory-maintenance`
 - `GET` `/api/cron/outcome-sweep`
 - `GET` `/api/cron/policy-suggestions`
@@ -282,22 +271,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `DELETE, GET, POST` `/api/keys`
 - `GET` `/api/keys/reveal`
-
-### `learning`
-
-- `GET, POST` `/api/learning`
-- `GET, POST` `/api/learning/analytics/curves`
-- `GET` `/api/learning/analytics/maturity`
-- `GET` `/api/learning/analytics/summary`
-- `GET, POST` `/api/learning/analytics/velocity`
-- `GET` `/api/learning/code-signals`
-- `GET` `/api/learning/export`
-- `GET` `/api/learning/lessons`
-- `GET, POST` `/api/learning/recommendations`
-- `PATCH` `/api/learning/recommendations/[recommendationId]`
-- `POST` `/api/learning/recommendations/events`
-- `GET` `/api/learning/recommendations/metrics`
-- `GET, POST` `/api/learning/suggestions`
 
 ### `live-canary`
 
@@ -489,7 +462,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 83 file(s)
-- **`DATABASE_URL`** - referenced in 100 file(s)
+- **`DATABASE_URL`** - referenced in 90 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -533,8 +506,6 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_API_KEY_ORG` *(undocumented)*
 - `DASHCLAW_AUDIT_MAX_ENTRIES` *(undocumented)*
 - `DASHCLAW_BASE_URL` *(undocumented)*
-- `DASHCLAW_BEHAVIOR_SAMPLES_DIR` *(undocumented)*
-- `DASHCLAW_BEHAVIOR_SAMPLES_ENABLED` *(undocumented)*
 - `DASHCLAW_CLOSED_ENROLLMENT` *(undocumented)*
 - `DASHCLAW_DB_DRIVER` *(undocumented)*
 - `DASHCLAW_DB_POOL_MAX` *(undocumented)*

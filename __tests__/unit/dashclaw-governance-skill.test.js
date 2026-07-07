@@ -31,11 +31,6 @@ describe('dashclaw-governance skill — toolkit-into-runtime sections', () => {
     expect(skill).toMatch(/dashclaw_loop_add/);
   });
 
-  it('teaches dashclaw_learning_log + dashclaw_learning_query', () => {
-    expect(skill).toMatch(/dashclaw_learning_log/);
-    expect(skill).toMatch(/dashclaw_learning_query/);
-  });
-
   it('teaches dashclaw_decisions_recent for in-session retrospection', () => {
     expect(skill).toMatch(/dashclaw_decisions_recent/);
   });

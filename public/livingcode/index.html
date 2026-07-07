@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:305c788d7cd92a6a61f7525b81d60e929441e905 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:5a1e41fab443f60d2327e2e04ed41700e22485f1 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">241</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">220</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">199</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">197</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">12</div><div class="k">Signals</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>89</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>4</b> env_vars removed, <b>22</b> routes added, <b>110</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -279,6 +279,14 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/agents/connections <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/heartbeat <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/analytics <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/insights <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/recorder <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/samples <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/samples/ingest <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/simulate <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/behavior/suggestions <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/cron/learning-episodes-backfill <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/cron/learning-recommendations <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/routing-maintenance <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/invite/[token] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/knowledge/collections <span class="sig">Route removed</span></li>
@@ -286,6 +294,19 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/items <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/search <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/sync <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/analytics/curves <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/analytics/maturity <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/analytics/summary <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/analytics/velocity <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/code-signals <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/export <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/lessons <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/recommendations <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/recommendations/[recommendationId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/recommendations/events <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/recommendations/metrics <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/learning/suggestions <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/operations/feed <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/findings <span class="sig">Route removed</span></li>
@@ -374,6 +395,8 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: VERCEL_TEAM_ID <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_TOKEN <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: AGENT_PRIVATE_KEY_JWK <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_DIR <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_ENABLED <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: HOSTED_DATABASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>added</code> <b>tables</b>: calibration_proposal_decisions <span class="sig">New table in schema</span></li>
     <li><code>added</code> <b>tables</b>: coverage_reports <span class="sig">New table in schema</span></li>
@@ -420,12 +443,6 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/auth/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/auth/[...nextauth]"><td><code>/api/auth/[...nextauth]</code></td><td></td><td class="sig">app/api/auth/[...nextauth]/route.ts</td></tr>
     <tr data-path="/api/auth/config"><td><code>/api/auth/config</code></td><td>GET</td><td class="sig">app/api/auth/config/route.ts</td></tr>
     <tr data-path="/api/auth/local"><td><code>/api/auth/local</code></td><td>DELETE, POST</td><td class="sig">app/api/auth/local/route.ts</td></tr></tbody></table></details>
-<details><summary>/behavior/* (6)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/behavior/insights"><td><code>/api/behavior/insights</code></td><td>GET, POST</td><td class="sig">app/api/behavior/insights/route.ts</td></tr>
-    <tr data-path="/api/behavior/recorder"><td><code>/api/behavior/recorder</code></td><td>GET, POST</td><td class="sig">app/api/behavior/recorder/route.ts</td></tr>
-    <tr data-path="/api/behavior/samples"><td><code>/api/behavior/samples</code></td><td>GET</td><td class="sig">app/api/behavior/samples/route.ts</td></tr>
-    <tr data-path="/api/behavior/samples/ingest"><td><code>/api/behavior/samples/ingest</code></td><td>POST</td><td class="sig">app/api/behavior/samples/ingest/route.ts</td></tr>
-    <tr data-path="/api/behavior/simulate"><td><code>/api/behavior/simulate</code></td><td>POST</td><td class="sig">app/api/behavior/simulate/route.ts</td></tr>
-    <tr data-path="/api/behavior/suggestions"><td><code>/api/behavior/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/behavior/suggestions/route.ts</td></tr></tbody></table></details>
 <details><summary>/billing/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/billing/checkout"><td><code>/api/billing/checkout</code></td><td>POST</td><td class="sig">app/api/billing/checkout/route.ts</td></tr>
     <tr data-path="/api/billing/portal"><td><code>/api/billing/portal</code></td><td>GET</td><td class="sig">app/api/billing/portal/route.ts</td></tr></tbody></table></details>
 <details><summary>/calibration/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/calibration/controller"><td><code>/api/calibration/controller</code></td><td>GET, POST</td><td class="sig">app/api/calibration/controller/route.ts</td></tr>
@@ -469,12 +486,10 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/compliance/schedules/[scheduleId]"><td><code>/api/compliance/schedules/[scheduleId]</code></td><td>DELETE, PATCH</td><td class="sig">app/api/compliance/schedules/[scheduleId]/route.ts</td></tr>
     <tr data-path="/api/compliance/trends"><td><code>/api/compliance/trends</code></td><td>GET</td><td class="sig">app/api/compliance/trends/route.ts</td></tr></tbody></table></details>
 <details><summary>/coverage/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/coverage"><td><code>/api/coverage</code></td><td>GET, POST</td><td class="sig">app/api/coverage/route.ts</td></tr></tbody></table></details>
-<details><summary>/cron/* (11)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
+<details><summary>/cron/* (9)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/cron/code-session-cache-crater"><td><code>/api/cron/code-session-cache-crater</code></td><td>GET</td><td class="sig">app/api/cron/code-session-cache-crater/route.ts</td></tr>
     <tr data-path="/api/cron/code-session-weekly-memo"><td><code>/api/cron/code-session-weekly-memo</code></td><td>GET</td><td class="sig">app/api/cron/code-session-weekly-memo/route.ts</td></tr>
     <tr data-path="/api/cron/integration-health"><td><code>/api/cron/integration-health</code></td><td>GET</td><td class="sig">app/api/cron/integration-health/route.ts</td></tr>
     <tr data-path="/api/cron/jti-sweep"><td><code>/api/cron/jti-sweep</code></td><td>GET</td><td class="sig">app/api/cron/jti-sweep/route.ts</td></tr>
-    <tr data-path="/api/cron/learning-episodes-backfill"><td><code>/api/cron/learning-episodes-backfill</code></td><td>GET</td><td class="sig">app/api/cron/learning-episodes-backfill/route.ts</td></tr>
-    <tr data-path="/api/cron/learning-recommendations"><td><code>/api/cron/learning-recommendations</code></td><td>GET</td><td class="sig">app/api/cron/learning-recommendations/route.ts</td></tr>
     <tr data-path="/api/cron/memory-maintenance"><td><code>/api/cron/memory-maintenance</code></td><td>GET</td><td class="sig">app/api/cron/memory-maintenance/route.ts</td></tr>
     <tr data-path="/api/cron/outcome-sweep"><td><code>/api/cron/outcome-sweep</code></td><td>GET</td><td class="sig">app/api/cron/outcome-sweep/route.ts</td></tr>
     <tr data-path="/api/cron/policy-suggestions"><td><code>/api/cron/policy-suggestions</code></td><td>GET</td><td class="sig">app/api/cron/policy-suggestions/route.ts</td></tr>
@@ -521,19 +536,6 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/internal/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/internal/resolve-key"><td><code>/api/internal/resolve-key</code></td><td>POST</td><td class="sig">app/api/internal/resolve-key/route.ts</td></tr></tbody></table></details>
 <details><summary>/keys/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/keys"><td><code>/api/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/keys/route.ts</td></tr>
     <tr data-path="/api/keys/reveal"><td><code>/api/keys/reveal</code></td><td>GET</td><td class="sig">app/api/keys/reveal/route.ts</td></tr></tbody></table></details>
-<details><summary>/learning/* (13)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/learning"><td><code>/api/learning</code></td><td>GET, POST</td><td class="sig">app/api/learning/route.ts</td></tr>
-    <tr data-path="/api/learning/analytics/curves"><td><code>/api/learning/analytics/curves</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/curves/route.ts</td></tr>
-    <tr data-path="/api/learning/analytics/maturity"><td><code>/api/learning/analytics/maturity</code></td><td>GET</td><td class="sig">app/api/learning/analytics/maturity/route.ts</td></tr>
-    <tr data-path="/api/learning/analytics/summary"><td><code>/api/learning/analytics/summary</code></td><td>GET</td><td class="sig">app/api/learning/analytics/summary/route.ts</td></tr>
-    <tr data-path="/api/learning/analytics/velocity"><td><code>/api/learning/analytics/velocity</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/velocity/route.ts</td></tr>
-    <tr data-path="/api/learning/code-signals"><td><code>/api/learning/code-signals</code></td><td>GET</td><td class="sig">app/api/learning/code-signals/route.ts</td></tr>
-    <tr data-path="/api/learning/export"><td><code>/api/learning/export</code></td><td>GET</td><td class="sig">app/api/learning/export/route.ts</td></tr>
-    <tr data-path="/api/learning/lessons"><td><code>/api/learning/lessons</code></td><td>GET</td><td class="sig">app/api/learning/lessons/route.ts</td></tr>
-    <tr data-path="/api/learning/recommendations"><td><code>/api/learning/recommendations</code></td><td>GET, POST</td><td class="sig">app/api/learning/recommendations/route.ts</td></tr>
-    <tr data-path="/api/learning/recommendations/[recommendationId]"><td><code>/api/learning/recommendations/[recommendationId]</code></td><td>PATCH</td><td class="sig">app/api/learning/recommendations/[recommendationId]/route.ts</td></tr>
-    <tr data-path="/api/learning/recommendations/events"><td><code>/api/learning/recommendations/events</code></td><td>POST</td><td class="sig">app/api/learning/recommendations/events/route.ts</td></tr>
-    <tr data-path="/api/learning/recommendations/metrics"><td><code>/api/learning/recommendations/metrics</code></td><td>GET</td><td class="sig">app/api/learning/recommendations/metrics/route.ts</td></tr>
-    <tr data-path="/api/learning/suggestions"><td><code>/api/learning/suggestions</code></td><td>GET, POST</td><td class="sig">app/api/learning/suggestions/route.ts</td></tr></tbody></table></details>
 <details><summary>/live-canary/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/live-canary"><td><code>/api/live-canary</code></td><td>GET, POST</td><td class="sig">app/api/live-canary/route.ts</td></tr></tbody></table></details>
 <details><summary>/marketing/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/marketing/event"><td><code>/api/marketing/event</code></td><td>POST</td><td class="sig">app/api/marketing/event/route.ts</td></tr></tbody></table></details>
 <details><summary>/mcp/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/mcp"><td><code>/api/mcp</code></td><td>POST</td><td class="sig">app/api/mcp/route.ts</td></tr></tbody></table></details>

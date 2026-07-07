@@ -18,15 +18,6 @@ import {
   isApprovalOverdue,
   expireOverdueApproval,
 } from '../../../lib/repositories/actions.repository';
-import {
-  maybeRebuildRecommendations,
-  recordLearningRecommendationEvents,
-  scoreAndStoreActionEpisode,
-} from '../../../lib/learningLoop.service';
-
-function isRecommendationApplied(value: unknown): boolean {
-  return value === true || value === 1 || value === '1';
-}
 
 // Fleet attribution (v4.3): the ONE outcome_metadata key the server persists —
 // the spawned subagent instance uuid the posttool extracts from an Agent/Task
@@ -219,36 +210,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ac
     // the HTTP response carries accurate {alert: ...} metadata, but the
     // delivery itself is fire-and-forget inside maybeFireCostAlert.
     const costAlert = await maybeFireCostAlert(sql, orgId, updatedAction);
-
-    // Best-effort: score this action as a learning episode for recommendation synthesis.
-    try {
-      const scoredEpisode = await scoreAndStoreActionEpisode(sql, orgId, actionId);
-      if (updatedAction.recommendation_id && isRecommendationApplied(updatedAction.recommendation_applied)) {
-        await recordLearningRecommendationEvents(sql, orgId, [
-          {
-            recommendation_id: updatedAction.recommendation_id,
-            action_id: actionId,
-            agent_id: updatedAction.agent_id || null,
-            event_type: 'outcome',
-            event_key: `outcome:${actionId}`,
-            details: {
-              status: updatedAction.status,
-              outcome_label: scoredEpisode?.outcome_label || null,
-              score: scoredEpisode?.score ?? null,
-              duration_ms: updatedAction.duration_ms ?? null,
-              cost_estimate: updatedAction.cost_estimate ?? null,
-              action_type: updatedAction.action_type || null,
-            },
-          },
-        ]);
-      }
-      // Auto-rebuild recommendations if enough new episodes have accumulated
-      void maybeRebuildRecommendations(sql, orgId).catch((err) =>
-        console.warn('[LEARNING] Recommendation rebuild failed:', (err as Error)?.message),
-      );
-    } catch (learningError) {
-      console.warn('[LEARNING] Failed to score action episode:', (learningError as Error).message);
-    }
 
     return NextResponse.json({
       action: updatedAction,

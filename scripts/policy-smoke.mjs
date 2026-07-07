@@ -1229,7 +1229,7 @@ async function main() {
   // B is already the claim-id namespace for block_action_type/x402 checks
   // above, so reusing it here would make FAILED output ambiguous. X is the
   // next unused letter in this file's own sequence (…T,U,V,W).
-  console.log('\nJudgment spine (behavior queue + allowlist enforcement)...');
+  console.log('\nJudgment spine (allowlist enforcement)...');
   {
     const agent = agentFor('allowlist');
     const allowedType = `smoke.allowed.${RUN}`;
@@ -1260,37 +1260,6 @@ async function main() {
     // Policy cleanup happens in the centralized loop below (pid is already in
     // createdPolicyIds from createPolicy), matching every other section's
     // convention — no separate try/finally needed here.
-  }
-
-  // Y1: Behavior judgment undo contract (roadmap v4.4, spec verdict 2a).
-  // Undo works purely by signature match against a recorded dismissal/adopted
-  // row — nothing recorded for a run-unique fake signature, so it 404s. This
-  // is the one behavior-queue check that is genuinely live-smokeable without
-  // side effects: it proves the negative (undo never no-ops into a false 200).
-  //
-  // dismiss and adopt are deliberately NOT live-smoked here, and this is not
-  // the same "adopt needs samples" carve-out the spec anticipated for dismiss
-  // too — dismiss re-derives the suggestion from a LIVE analyzeSamples() call
-  // and 404s unless the posted suggestion_id matches a currently-mined
-  // suggestion (app/api/behavior/suggestions/route.ts:106-110); there is no
-  // client-trusted snapshot path the way calibration's ratify has (P1 above).
-  // The only way to make a real suggestion exist is to upload real behavior
-  // samples via POST /api/behavior/samples/ingest, which is refused unless the
-  // org has explicitly flipped the default-OFF BEHAVIOR_UPLOAD_ENABLED setting
-  // (app/api/behavior/samples/ingest/route.ts:169-173) — flipping a real org's
-  // privacy setting from a smoke script is out of scope and not isolated the
-  // way every other check here is. adopt has the same live-sample dependency
-  // plus its own 400-gate when simulation.total===0 (route.ts:141-145). Both
-  // branches are pinned by __tests__/unit/behavior-suggestions.route.test.js
-  // instead.
-  {
-    const fakeSuggestionId = `smoke-fake-suggestion-${RUN}`;
-    const undo = await api('POST', '/api/behavior/suggestions', {
-      action: 'undo', suggestion_id: fakeSuggestionId,
-    });
-    check('Y1', 'behavior undo 404s when nothing is recorded for the signature',
-      undo.status === 404,
-      `status=${undo.status} body=${JSON.stringify(undo.json)}`);
   }
 
   // Z: loosening direction — proposals that relax (roadmap v4.5).

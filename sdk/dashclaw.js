@@ -727,37 +727,6 @@ class DashClaw {
   }
 
   /**
-   * GET /api/learning/analytics/velocity
-   */
-  async getLearningVelocity(lookbackDays = 30) {
-    return this._get('/api/learning/analytics/velocity', {
-      agent_id: this.agentId,
-      lookback_days: lookbackDays
-    });
-  }
-
-  /**
-   * GET /api/learning/analytics/curves
-   */
-  async getLearningCurves(lookbackDays = 60) {
-    return this._get('/api/learning/analytics/curves', {
-      agent_id: this.agentId,
-      lookback_days: lookbackDays
-    });
-  }
-
-  /**
-   * GET /api/learning/lessons — Fetch consolidated lessons from scored outcomes.
-   */
-  async getLessons({ actionType, limit } = {}) {
-    return this._get('/api/learning/lessons', {
-      agent_id: this.agentId,
-      ...(actionType && { action_type: actionType }),
-      ...(limit != null && { limit }),
-    });
-  }
-
-  /**
    * POST /api/evaluations/scorers
    */
   async createScorer(name, scorer_type, config = null, description = null) {
@@ -1361,34 +1330,6 @@ class DashClaw {
    */
   async getCapabilityHistory(capabilityId, filters = {}) {
     return this._get(`/api/capabilities/${capabilityId}/history`, filters);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Learning — record decisions/outcomes and read back recommendations so the
-  // governance loop improves over time.
-  // ---------------------------------------------------------------------------
-
-  /**
-   * POST /api/learning — Record a decision/outcome into the learning ledger.
-   * @param {Object} entry - { decision (required), context?, reasoning?, outcome?, confidence?, agent_id? }
-   * @returns {Promise<{ decision: Object }>}
-   */
-  async recordDecision(entry) {
-    return this._post('/api/learning', {
-      ...entry,
-      agent_id: entry.agent_id || this.agentId,
-    });
-  }
-
-  /**
-   * GET /api/learning/recommendations — Read learned recommendations for an agent/action_type.
-   * @param {Object} [filters={}] - { agent_id, action_type, include_metrics, lookback_days, limit }
-   */
-  async getLearningRecommendations(filters = {}) {
-    return this._get('/api/learning/recommendations', {
-      ...filters,
-      agent_id: filters.agent_id || this.agentId,
-    });
   }
 
   // ---------------------------------------------------------------------------

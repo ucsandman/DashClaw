@@ -328,10 +328,6 @@ function buildFixtures(): Record<string, unknown> {
     { metric: 'autonomy_score', agent_id: 'agent_deployment_bot_01', mean: 95.6, stddev: 12.4, sample_count: 48, period_start: isoFromNow(0) },
   ];
 
-  const learningVelocity: unknown[] = [];
-  const learningCurves: unknown[] = [];
-  const learningAnalyticsSummary = { total_lessons: 10, total_decisions: 18 };
-
   // Mirror the client-side demoScoringData profiles so a demo-mode API
   // consumer and the /scoring page (which uses demoScoringData directly)
   // agree — this used to be an empty array while the page showed two profiles.
@@ -412,9 +408,6 @@ function buildFixtures(): Record<string, unknown> {
     driftAlerts,
     driftStats,
     driftSnapshots,
-    learningVelocity,
-    learningCurves,
-    learningAnalyticsSummary,
     scoringProfiles,
     riskTemplates,
   };

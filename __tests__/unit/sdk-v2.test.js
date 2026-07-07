@@ -388,56 +388,6 @@ describe('DashClaw v2 SDK', () => {
     });
   });
 
-  // --- getLearningVelocity ---
-
-  describe('getLearningVelocity', () => {
-    it('GETs /api/learning/analytics/velocity with query params', async () => {
-      await claw.getLearningVelocity(14);
-      const [url] = fetch.mock.calls[0];
-      expect(url).toContain('/api/learning/analytics/velocity');
-      expect(url).toContain('agent_id=test-agent');
-      expect(url).toContain('lookback_days=14');
-    });
-
-    it('defaults to 30 days', async () => {
-      await claw.getLearningVelocity();
-      const [url] = fetch.mock.calls[0];
-      expect(url).toContain('lookback_days=30');
-    });
-  });
-
-  // --- getLearningCurves ---
-
-  describe('getLearningCurves', () => {
-    it('GETs /api/learning/analytics/curves with query params', async () => {
-      await claw.getLearningCurves(90);
-      const [url] = fetch.mock.calls[0];
-      expect(url).toContain('/api/learning/analytics/curves');
-      expect(url).toContain('agent_id=test-agent');
-      expect(url).toContain('lookback_days=90');
-    });
-
-    it('defaults to 60 days', async () => {
-      await claw.getLearningCurves();
-      const [url] = fetch.mock.calls[0];
-      expect(url).toContain('lookback_days=60');
-    });
-  });
-
-  // --- getLessons ---
-
-  describe('getLessons', () => {
-    it('GETs /api/learning/lessons with agent_id', async () => {
-      await claw.getLessons({ actionType: 'deploy', limit: 5 });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toContain('/api/learning/lessons');
-      expect(url).toContain('agent_id=test-agent');
-      expect(url).toContain('action_type=deploy');
-      expect(url).toContain('limit=5');
-      expect(opts.method).toBe('GET');
-    });
-  });
-
   // --- createScorer ---
 
   describe('createScorer', () => {

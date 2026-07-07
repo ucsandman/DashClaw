@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `240`
+- Total routes: `219`
 - Stable routes: `53`
-- Beta routes: `22`
-- Experimental routes: `165`
+- Beta routes: `20`
+- Experimental routes: `146`
 
 ## Routes
 
@@ -50,12 +50,6 @@ doc-type: architecture
 | `/api/assumptions/{assumptionId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/assumptions/[assumptionId]/route.ts` |
 | `/api/auth/config` | `GET` | `beta` | `/api/auth` | `app/api/auth/config/route.ts` |
 | `/api/auth/local` | `DELETE, POST` | `beta` | `/api/auth` | `app/api/auth/local/route.ts` |
-| `/api/behavior/insights` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/insights/route.ts` |
-| `/api/behavior/recorder` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/recorder/route.ts` |
-| `/api/behavior/samples` | `GET` | `experimental` | `/api/behavior` | `app/api/behavior/samples/route.ts` |
-| `/api/behavior/samples/ingest` | `POST` | `experimental` | `/api/behavior` | `app/api/behavior/samples/ingest/route.ts` |
-| `/api/behavior/simulate` | `POST` | `experimental` | `/api/behavior` | `app/api/behavior/simulate/route.ts` |
-| `/api/behavior/suggestions` | `GET, POST` | `experimental` | `/api/behavior` | `app/api/behavior/suggestions/route.ts` |
 | `/api/billing/checkout` | `POST` | `experimental` | `(default)` | `app/api/billing/checkout/route.ts` |
 | `/api/billing/portal` | `GET` | `experimental` | `(default)` | `app/api/billing/portal/route.ts` |
 | `/api/calibration/controller` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/controller/route.ts` |
@@ -103,8 +97,6 @@ doc-type: architecture
 | `/api/cron/code-session-weekly-memo` | `GET` | `beta` | `/api/cron` | `app/api/cron/code-session-weekly-memo/route.ts` |
 | `/api/cron/integration-health` | `GET` | `beta` | `/api/cron` | `app/api/cron/integration-health/route.ts` |
 | `/api/cron/jti-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/jti-sweep/route.ts` |
-| `/api/cron/learning-episodes-backfill` | `GET` | `beta` | `/api/cron` | `app/api/cron/learning-episodes-backfill/route.ts` |
-| `/api/cron/learning-recommendations` | `GET` | `beta` | `/api/cron` | `app/api/cron/learning-recommendations/route.ts` |
 | `/api/cron/memory-maintenance` | `GET` | `beta` | `/api/cron` | `app/api/cron/memory-maintenance/route.ts` |
 | `/api/cron/outcome-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/outcome-sweep/route.ts` |
 | `/api/cron/policy-suggestions` | `GET` | `beta` | `/api/cron` | `app/api/cron/policy-suggestions/route.ts` |
@@ -151,19 +143,6 @@ doc-type: architecture
 | `/api/internal/resolve-key` | `POST` | `experimental` | `(default)` | `app/api/internal/resolve-key/route.ts` |
 | `/api/keys` | `DELETE, GET, POST` | `stable` | `/api/keys` | `app/api/keys/route.ts` |
 | `/api/keys/reveal` | `GET` | `stable` | `/api/keys` | `app/api/keys/reveal/route.ts` |
-| `/api/learning` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/route.ts` |
-| `/api/learning/analytics/curves` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/curves/route.ts` |
-| `/api/learning/analytics/maturity` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/maturity/route.ts` |
-| `/api/learning/analytics/summary` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/summary/route.ts` |
-| `/api/learning/analytics/velocity` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/velocity/route.ts` |
-| `/api/learning/code-signals` | `GET` | `experimental` | `/api/learning` | `app/api/learning/code-signals/route.ts` |
-| `/api/learning/export` | `GET` | `experimental` | `/api/learning` | `app/api/learning/export/route.ts` |
-| `/api/learning/lessons` | `GET` | `experimental` | `/api/learning` | `app/api/learning/lessons/route.ts` |
-| `/api/learning/recommendations` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/route.ts` |
-| `/api/learning/recommendations/events` | `POST` | `experimental` | `/api/learning` | `app/api/learning/recommendations/events/route.ts` |
-| `/api/learning/recommendations/metrics` | `GET` | `experimental` | `/api/learning` | `app/api/learning/recommendations/metrics/route.ts` |
-| `/api/learning/recommendations/{recommendationId}` | `PATCH` | `experimental` | `/api/learning` | `app/api/learning/recommendations/[recommendationId]/route.ts` |
-| `/api/learning/suggestions` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/suggestions/route.ts` |
 | `/api/live-canary` | `GET, POST` | `experimental` | `(default)` | `app/api/live-canary/route.ts` |
 | `/api/marketing/event` | `POST` | `experimental` | `(default)` | `app/api/marketing/event/route.ts` |
 | `/api/mcp` | `POST` | `experimental` | `(default)` | `app/api/mcp/route.ts` |

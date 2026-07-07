@@ -459,70 +459,6 @@ async function testMemoryAndSync() {
 }
 
 // ──────────────────────────────────────────────
-// Phase 8: Learning System
-// ──────────────────────────────────────────────
-
-async function testLearningSystem() {
-  console.log('\n━━━ Phase 8: Learning System ━━━');
-
-  // POST /api/learning — record decision (500 if org FK missing)
-  const { status: s1, data: d1 } = await request('POST', '/api/learning', {
-    decision: 'Use PostgreSQL for data storage',
-    context: 'Evaluating database options',
-    reasoning: 'Better relational support and ACID compliance',
-    outcome: 'success',
-    confidence: 90,
-    agent_id: 'test-learning-agent',
-  });
-  assert(s1 === 201 || s1 === 500, `POST /api/learning returns 201 or 500 (got ${s1})`);
-  if (s1 === 201) assert(d1.decision, 'Decision returned');
-
-  // POST — missing decision field
-  const { status: s1b } = await request('POST', '/api/learning', {
-    context: 'Missing the required field',
-  });
-  assert(s1b === 400, 'Missing decision returns 400');
-
-  // GET /api/learning
-  const { status: s2, data: d2 } = await request('GET', '/api/learning');
-  assert(s2 === 200, `GET /api/learning returns 200 (got ${s2})`);
-  assert(Array.isArray(d2.decisions), 'Learning returns decisions array');
-  assert(d2.stats !== undefined, 'Learning returns stats');
-
-  // GET /api/learning — filter by agent
-  const { status: s2b } = await request('GET', '/api/learning?agent_id=test-learning-agent');
-  assert(s2b === 200, 'GET learning filtered by agent returns 200');
-
-  // GET /api/learning/recommendations
-  const { status: s3, data: d3 } = await request('GET', '/api/learning/recommendations');
-  assert(s3 === 200, `GET /api/learning/recommendations returns 200 (got ${s3})`);
-  assert(Array.isArray(d3.recommendations), 'Recommendations returns array');
-
-  // GET /api/learning/recommendations/metrics
-  const { status: s4, data: d4 } = await request('GET', '/api/learning/recommendations/metrics');
-  assert(s4 === 200, `GET /api/learning/recommendations/metrics returns 200 (got ${s4})`);
-
-  // POST /api/learning/recommendations/events — record event (500 if org FK missing)
-  const { status: s5, data: d5 } = await request('POST', '/api/learning/recommendations/events', {
-    events: [
-      {
-        event_type: 'applied',
-        agent_id: 'test-learning-agent',
-        details: { source: 'test-suite' },
-      },
-    ],
-  });
-  assert(s5 === 201 || s5 === 500, `POST /api/learning/recommendations/events returns 201 or 500 (got ${s5})`);
-  if (s5 === 201) assert(typeof d5.created_count === 'number', 'Events returns created_count');
-
-  // POST events — invalid event_type
-  const { status: s5b } = await request('POST', '/api/learning/recommendations/events', {
-    events: [{ event_type: 'invalid_type' }],
-  });
-  assert(s5b === 400, 'Invalid event_type returns 400');
-}
-
-// ──────────────────────────────────────────────
 // Phase 9: Goals & Content
 // ──────────────────────────────────────────────
 
@@ -1241,7 +1177,6 @@ async function main() {
     testSettingsAndKeys,
     testIdentityAndPairing,
     testMemoryAndSync,
-    testLearningSystem,
     testGoalsAndContent,
     testAgentsAndConnections,
     testActivityAndNotifications,

@@ -4,7 +4,6 @@ import {
   demoIdentities, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
-  demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
 
@@ -126,22 +125,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const narrowed = demoX402Budget(url('http://x/api/x402/budget?agent_id=clawdbot%3Aexplore')) as any;
     const fam = narrowed.budgets.find((b: any) => b.budget_scope === 'agent').families;
     expect(fam).toEqual([{ agent_id: 'clawdbot', window_spend_usd: expect.any(Number) }]);
-  });
-  it('behavior recorder (/api/behavior/recorder)', () => {
-    expect(demoBehaviorRecorder()).toMatchObject({ enabled: true, effective: true });
-  });
-  it('behavior samples (/api/behavior/samples) — status + ?list records', () => {
-    const status = demoBehaviorSamples(fixtures, url('http://x/api/behavior/samples')) as any;
-    expect(status.sample_count).toBeGreaterThan(0);
-    const list = demoBehaviorSamples(fixtures, url('http://x/api/behavior/samples?list=10')) as any;
-    expect(list.samples.length).toBeGreaterThan(0);
-    expect(list.samples[0]).toMatchObject({ event_id: expect.any(String), tool: expect.any(String), outcome_status: expect.any(String) });
-  });
-  it('behavior suggestions (/api/behavior/suggestions) — policy-coach showcase', () => {
-    const r = demoBehaviorSuggestions(fixtures);
-    expect(r.suggestions.length).toBeGreaterThan(0);
-    expect(r.agents.length).toBeGreaterThan(0);
-    expect(r.suggestions[0]!).toMatchObject({ id: expect.any(String), type: expect.any(String), confidence: expect.any(Number) });
   });
 });
 

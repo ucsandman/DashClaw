@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 29 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 26 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
 
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (29)
+## Tools (26)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -140,13 +140,11 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_loop_list` | List open/resolved loops |
 | `dashclaw_loop_close` | Resolve an open loop |
 
-**Learning + retrospection (4)** — record assumptions; log and query non-obvious decisions; recent governed-action ledger.
+**Retrospection (2)** — record assumptions; recent governed-action ledger.
 
 | Tool | Description |
 |---|---|
 | `dashclaw_assumption_record` | Record an unverified assumption underpinning an action |
-| `dashclaw_learning_log` | Log non-obvious decision + outcome |
-| `dashclaw_learning_query` | Query prior decisions/lessons |
 | `dashclaw_decisions_recent` | Recent governed-action ledger |
 
 **Agent inbox (2)** — read this agent's DashClaw inbox + mark messages read.
@@ -161,12 +159,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | Tool | Description |
 |---|---|
 | `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
-
-**Behavior learning (1)** — observe-only Policy Coach suggestions learned from this agent's recorded behavior.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_behavior_suggestions` | List observe-only Policy Coach suggestions learned from this agent's recorded behavior |
 
 **Governance posture (2)** — read the org governance posture score + remediation queue (read-only).
 

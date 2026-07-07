@@ -20,6 +20,22 @@ export async function listOrgWithActiveKeys(
     `;
 }
 
+/**
+ * List every organization id (optionally excluding org_default). Used by the
+ * fleet-wide cron sweeps (e.g. /api/cron/policy-suggestions) that iterate all
+ * orgs. Relocated here from the retired learningLoop repository in the v5 cull.
+ */
+export async function listOrganizations(
+  sql: SqlTag,
+  options: { includeDefault?: boolean } = {},
+): Promise<Record<string, unknown>[]> {
+  const includeDefault = options.includeDefault !== false;
+  if (includeDefault) {
+    return sql`SELECT id FROM organizations ORDER BY id`;
+  }
+  return sql`SELECT id FROM organizations WHERE id != 'org_default' ORDER BY id`;
+}
+
 /** Insert a new organization, returning the created row. */
 export async function insertOrganization(
   sql: SqlTag,

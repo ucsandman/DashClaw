@@ -15,14 +15,14 @@ pip install dashclaw
 Python agents typically pair the SDK with one or more of these:
 
 - **[`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli)** — `dashclaw approvals`, `dashclaw approve <id>`, `dashclaw deny <id>` for terminal approvals. Also `dashclaw doctor` (report-only diagnosis; `--fix` applies safe repairs) and `dashclaw logout`. Config at env vars or `~/.dashclaw/config.json` (`600`).
-- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **29 tools** across 11 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), optimal files (`dashclaw_optimal_files_preview/manifest`), session continuity (`dashclaw_handoff_create/latest/consume`), credential hygiene (`dashclaw_secret_list/due/mark_rotated`), skill safety (`dashclaw_skill_scan`), open loops (`dashclaw_loop_add/list/close`), learning + retrospection (`dashclaw_learning_log/query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent inbox (`dashclaw_inbox_list`, `dashclaw_messages_mark_read`), agent identity (`dashclaw_pair`), behavior learning (`dashclaw_behavior_suggestions`), governance posture (`dashclaw_posture`, `dashclaw_posture_next` — read-only). Plus 6 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`. stdio or Streamable HTTP at `POST /api/mcp`.
+- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **26 tools** across 11 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), optimal files (`dashclaw_optimal_files_preview/manifest`), session continuity (`dashclaw_handoff_create/latest/consume`), credential hygiene (`dashclaw_secret_list/due/mark_rotated`), skill safety (`dashclaw_skill_scan`), open loops (`dashclaw_loop_add/list/close`), learning + retrospection (`dashclaw_learning_log/query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent inbox (`dashclaw_inbox_list`, `dashclaw_messages_mark_read`), agent identity (`dashclaw_pair`), behavior learning (`dashclaw_behavior_suggestions`), governance posture (`dashclaw_posture`, `dashclaw_posture_next` — read-only). Plus 6 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`. stdio or Streamable HTTP at `POST /api/mcp`.
 - **[`@dashclaw/openclaw-plugin`](https://www.npmjs.com/package/@dashclaw/openclaw-plugin)** — Governance plugin for OpenClaw lifecycle hooks (`PreToolUse` / `PostToolUse`) that calls guard / record / wait-for-approval automatically.
 - **Self-host Doctor** — Operators run `npm run doctor` on the DashClaw host for filesystem-level fixes (env writes, migrations, default policy seed, drift guard).
 - **Claude governance skill** — Anthropic Managed Agents or Claude Code can load the `@dashclaw/governance` skill to teach the agent the MCP usage protocol. Pairs with the MCP server.
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (196 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (183 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1071,9 +1071,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (196 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (183 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **112 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **107 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|

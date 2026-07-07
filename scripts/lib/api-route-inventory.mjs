@@ -34,13 +34,11 @@ export const API_MATURITY_RULES = {
   ],
   experimental: [
     '/api/agents',
-    '/api/behavior',
     '/api/bounties',
     '/api/calendar',
     '/api/content',
     '/api/identities',
     '/api/inspiration',
-    '/api/learning',
     '/api/relationships',
     '/api/schedules',
     '/api/swarm',

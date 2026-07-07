@@ -31,15 +31,6 @@ import {
   undoCalibrationDecision,
   type CalibrationProposal,
 } from '../lib/calibrationClient';
-import {
-  fetchBehaviorSuggestions,
-  simulateBehaviorSuggestion,
-  adoptBehaviorSuggestion,
-  dismissBehaviorSuggestion,
-  undoBehaviorSuggestion,
-  type BehaviorSuggestion,
-  type BehaviorSimulation,
-} from '../lib/behaviorClient';
 
 // One shared button vocabulary across every queue: neutral = no consequence,
 // warning tint marks the consequential primary (it changes a policy/corpus).
@@ -52,7 +43,7 @@ const GROUP_LABEL = 'text-xs font-mono uppercase tracking-wider text-tertiary';
 const INPUT_CLASS =
   'min-w-0 flex-1 rounded-md border border-border bg-surface-secondary px-2.5 py-1 text-xs text-primary placeholder:text-tertiary focus:border-border-active focus:outline-none';
 
-type QueueKey = 'tuning' | 'tightening' | 'loosening' | 'calibration' | 'behavior';
+type QueueKey = 'tuning' | 'tightening' | 'loosening' | 'calibration';
 type Phase = 'pending' | 'accepted' | 'dismissed' | 'terminal';
 
 function RowError({ message }: { message?: string | null }) {
@@ -649,303 +640,7 @@ const calibrationAdapter: ProposalAdapter<CalibrationProposal> = {
 };
 
 // ---------------------------------------------------------------------------
-// Behavior queue — the outlier: simulate-gated adopt, suppress-similar dismiss,
-// and a "Refine in Policy Coach" link instead of an inline edit modal.
-// ---------------------------------------------------------------------------
-
-const BEHAVIOR_TYPE_LABELS: Record<string, string> = {
-  destructive_command_approval: 'Destructive commands → approval',
-  protected_path_approval: 'Protected paths → approval',
-  repeated_reload_warn: 'Repeated file reloads',
-  failed_loop_warn: 'Repeated command failures',
-  model_task_mismatch_warn: 'Cheap model on heavy task',
-  agent_allowlist: 'Safe operating envelope',
-};
-
-function simLine(sim: BehaviorSimulation): string {
-  const parts = [
-    `replay ${sim.total}`,
-    `allow ${sim.allow}`,
-    `warn ${sim.warn}`,
-    `approval ${sim.require_approval}`,
-    `block ${sim.block}`,
-  ];
-  if (sim.likely_false_positives && sim.likely_false_positives > 0) {
-    parts.push(`${sim.likely_false_positives} likely false positive${sim.likely_false_positives === 1 ? '' : 's'}`);
-  }
-  return parts.join(' · ');
-}
-
-interface BehaviorRowProps {
-  s: BehaviorSuggestion;
-  phase: Phase;
-  acceptedNote?: ReactNode;
-  sim?: BehaviorSimulation | null;
-  busy?: boolean;
-  rowError?: string | null;
-  onSimulate: (s: BehaviorSuggestion) => void;
-  onAdopt: (s: BehaviorSuggestion) => void;
-  onDismiss: (s: BehaviorSuggestion, reason: string, suppressSimilar: boolean) => void;
-  onUndo: (s: BehaviorSuggestion) => void;
-}
-
-function BehaviorRow({
-  s, phase, acceptedNote, sim, busy, rowError, onSimulate, onAdopt, onDismiss, onUndo,
-}: BehaviorRowProps) {
-  const [dismissing, setDismissing] = useState(false);
-  const [reason, setReason] = useState('');
-  const [suppress, setSuppress] = useState(false);
-  const label = BEHAVIOR_TYPE_LABELS[s.type] ?? s.type;
-  const title = `${label} · ${s.agent_id}`;
-  const adoptLabel = s.advisory ? 'Accept observation' : 'Adopt as draft';
-
-  return (
-    <li className="py-3 space-y-1.5">
-      <div className="space-y-0.5">
-        <p className="text-sm font-medium text-primary">
-          {label}
-          <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-xs font-normal text-secondary">
-            {s.enforceable ? 'enforceable' : 'advisory'}
-          </span>
-          <span className="ml-2 rounded border border-border px-1.5 py-0.5 text-xs font-normal text-secondary">
-            {s.severity}
-          </span>
-        </p>
-        <p className="text-sm text-secondary font-mono">{s.agent_id}</p>
-        <p className="text-sm text-secondary">{s.expected_effect}</p>
-        <p className="text-xs text-tertiary">
-          {s.matching_sample_size} of {s.sample_size} samples · target {s.target} · confidence {s.confidence}% · FP risk {s.false_positive_risk}
-        </p>
-        {sim && <p className="text-xs text-tertiary">{simLine(sim)}</p>}
-      </div>
-
-      {phase === 'accepted' ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="text-xs text-secondary">{acceptedNote ?? 'Adopted.'}</span>
-          <button
-            type="button"
-            onClick={() => onUndo(s)}
-            aria-label={`Undo adopt for ${title}`}
-            className={BTN_NEUTRAL}
-          >
-            Undo
-          </button>
-        </div>
-      ) : phase === 'dismissed' ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <span className="text-xs text-secondary">Dismissed.</span>
-          <button
-            type="button"
-            onClick={() => onUndo(s)}
-            aria-label={`Undo dismiss for ${title}`}
-            className={BTN_NEUTRAL}
-          >
-            Undo
-          </button>
-        </div>
-      ) : dismissing ? (
-        <div className="space-y-1.5">
-          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <label htmlFor={`spine-behavior-dismiss-${s.id}`} className="sr-only">
-              Reason for dismissing {title}
-            </label>
-            <input
-              id={`spine-behavior-dismiss-${s.id}`}
-              type="text"
-              value={reason}
-              onChange={(e) => setReason(e.target.value)}
-              placeholder="Reason (optional)"
-              aria-label={`Reason for dismissing ${title}`}
-              className={INPUT_CLASS}
-            />
-            <button
-              type="button"
-              onClick={() => {
-                const trimmed = reason.trim();
-                setDismissing(false);
-                setReason('');
-                onDismiss(s, trimmed, suppress);
-                setSuppress(false);
-              }}
-              aria-label={`Confirm dismiss for ${title}`}
-              className={BTN_NEUTRAL}
-            >
-              Confirm
-            </button>
-            <button
-              type="button"
-              onClick={() => { setDismissing(false); setReason(''); setSuppress(false); }}
-              className={BTN_NEUTRAL}
-            >
-              Cancel
-            </button>
-          </div>
-          <label className="flex items-center gap-2 text-xs text-secondary">
-            <input
-              type="checkbox"
-              checked={suppress}
-              onChange={(e) => setSuppress(e.target.checked)}
-              className="accent-brand"
-            />
-            Suppress similar suggestions of this type for this agent
-          </label>
-        </div>
-      ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => onSimulate(s)}
-            aria-label={`${sim ? 'Re-simulate' : 'Simulate'}: ${title}`}
-            className={`${BTN_NEUTRAL} disabled:opacity-50`}
-          >
-            {sim ? 'Re-simulate' : 'Simulate'}
-          </button>
-          <button
-            type="button"
-            disabled={busy || !sim}
-            title={!sim ? 'Simulate first' : undefined}
-            onClick={() => onAdopt(s)}
-            aria-label={`${adoptLabel}: ${title}`}
-            className={`${BTN_WARNING} disabled:opacity-50`}
-          >
-            {adoptLabel}
-          </button>
-          <button
-            type="button"
-            onClick={() => setDismissing(true)}
-            aria-label={`Dismiss: ${title}`}
-            className={BTN_NEUTRAL}
-          >
-            Dismiss&hellip;
-          </button>
-          <Link href="/policy-coach" className="text-xs text-tertiary hover:text-brand hover:underline">
-            Refine in Policy Coach &rarr;
-          </Link>
-        </div>
-      )}
-      <RowError message={rowError} />
-    </li>
-  );
-}
-
-function BehaviorGroup({ onCount }: { onCount: (pending: number) => void }) {
-  const [items, setItems] = useState<BehaviorSuggestion[] | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
-  const [phases, setPhases] = useState<Record<string, { phase: Phase; node?: ReactNode }>>({});
-  const [sims, setSims] = useState<Record<string, BehaviorSimulation | null>>({});
-  const [rowErrors, setRowErrors] = useState<Record<string, string>>({});
-  const [busy, setBusy] = useState<Record<string, boolean>>({});
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const payload = await fetchBehaviorSuggestions();
-      setItems(payload.suggestions);
-      setPhases({});
-      setSims({});
-      setRowErrors({});
-    } catch {
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => { load(); }, [load]);
-
-  const phaseOf = (id: string): Phase => phases[id]?.phase ?? 'pending';
-  const pending = items ? items.filter((s) => phaseOf(s.id) === 'pending').length : 0;
-  useEffect(() => { onCount(pending); }, [pending, onCount]);
-
-  const clearErr = (id: string) =>
-    setRowErrors((prev) => { const next = { ...prev }; delete next[id]; return next; });
-
-  const handleSimulate = useCallback((s: BehaviorSuggestion) => {
-    clearErr(s.id);
-    setBusy((prev) => ({ ...prev, [s.id]: true }));
-    simulateBehaviorSuggestion(s.id)
-      .then((sim) => setSims((prev) => ({ ...prev, [s.id]: sim })))
-      .catch((e: unknown) => setRowErrors((prev) => ({ ...prev, [s.id]: (e as Error).message ?? 'Simulation failed' })))
-      .finally(() => setBusy((prev) => { const next = { ...prev }; delete next[s.id]; return next; }));
-  }, []);
-
-  const handleAdopt = useCallback((s: BehaviorSuggestion) => {
-    clearErr(s.id);
-    setBusy((prev) => ({ ...prev, [s.id]: true }));
-    adoptBehaviorSuggestion(s.id)
-      .then((res) => {
-        const node = res.note || (res.advisory ? 'Observation accepted.' : 'Draft policy created (inactive).');
-        setPhases((prev) => ({ ...prev, [s.id]: { phase: 'accepted', node } }));
-      })
-      .catch((e: unknown) => setRowErrors((prev) => ({ ...prev, [s.id]: (e as Error).message ?? 'Adoption failed' })))
-      .finally(() => setBusy((prev) => { const next = { ...prev }; delete next[s.id]; return next; }));
-  }, []);
-
-  const handleDismiss = useCallback((s: BehaviorSuggestion, reason: string, suppress: boolean) => {
-    clearErr(s.id);
-    setPhases((prev) => ({ ...prev, [s.id]: { phase: 'dismissed' } }));
-    dismissBehaviorSuggestion(s.id, reason || null, suppress).catch((e: unknown) => {
-      setPhases((prev) => { const next = { ...prev }; delete next[s.id]; return next; });
-      setRowErrors((prev) => ({ ...prev, [s.id]: (e as Error).message ?? 'Dismiss failed' }));
-    });
-  }, []);
-
-  const handleUndo = useCallback((s: BehaviorSuggestion) => {
-    clearErr(s.id);
-    undoBehaviorSuggestion(s.id)
-      .then(() => setPhases((prev) => ({ ...prev, [s.id]: { phase: 'pending' } })))
-      .catch((e: unknown) => setRowErrors((prev) => ({ ...prev, [s.id]: (e as Error).message ?? 'Undo failed' })));
-  }, []);
-
-  return (
-    <div id="behavior" className="scroll-mt-20">
-      <span className={GROUP_LABEL}>Behavior</span>
-      <p className="mt-1 text-sm text-tertiary">
-        Evidence-backed suggestions learned from recorded agent behavior — simulate the impact, then adopt as an
-        inactive draft or accept the observation. Nothing is enforced until you activate it.
-      </p>
-
-      {loading ? (
-        <div className="mt-2 space-y-3">
-          <Skeleton className="h-16 w-full rounded-lg" />
-        </div>
-      ) : error ? (
-        <div className="flex items-center justify-between border-t border-border py-4 text-sm">
-          <span className="text-tertiary">Couldn&apos;t load behavior suggestions.</span>
-          <button onClick={load} className="text-brand hover:underline text-xs">Retry &rsaquo;</button>
-        </div>
-      ) : items && items.length > 0 ? (
-        <ul className="mt-2 divide-y divide-border">
-          {items.map((s) => (
-            <BehaviorRow
-              key={s.id}
-              s={s}
-              phase={phaseOf(s.id)}
-              acceptedNote={phases[s.id]?.node}
-              sim={sims[s.id]}
-              busy={busy[s.id] ?? false}
-              rowError={rowErrors[s.id] ?? null}
-              onSimulate={handleSimulate}
-              onAdopt={handleAdopt}
-              onDismiss={handleDismiss}
-              onUndo={handleUndo}
-            />
-          ))}
-        </ul>
-      ) : (
-        <p className="mt-3 text-sm text-tertiary">
-          No pending behavior suggestions — turn on the recorder in Policy Coach to learn new ones.
-        </p>
-      )}
-    </div>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// The spine: one section, five labeled groups, one decision grammar.
+// The spine: one section, four labeled groups, one decision grammar.
 // ---------------------------------------------------------------------------
 
 const QUEUE_LABELS: Record<QueueKey, string> = {
@@ -953,12 +648,11 @@ const QUEUE_LABELS: Record<QueueKey, string> = {
   tightening: 'Tightening',
   loosening: 'Loosening',
   calibration: 'Calibration',
-  behavior: 'Behavior',
 };
 
 export default function JudgmentSpine() {
   const [counts, setCounts] = useState<Record<QueueKey, number | null>>({
-    tuning: null, tightening: null, loosening: null, calibration: null, behavior: null,
+    tuning: null, tightening: null, loosening: null, calibration: null,
   });
 
   const setCount = useCallback((queue: QueueKey, n: number) => {
@@ -969,7 +663,6 @@ export default function JudgmentSpine() {
   const onCountTightening = useCallback((n: number) => setCount('tightening', n), [setCount]);
   const onCountLoosening = useCallback((n: number) => setCount('loosening', n), [setCount]);
   const onCountCalibration = useCallback((n: number) => setCount('calibration', n), [setCount]);
-  const onCountBehavior = useCallback((n: number) => setCount('behavior', n), [setCount]);
 
   const total = (Object.values(counts) as (number | null)[])
     .reduce<number>((sum, n) => sum + (n ?? 0), 0);
@@ -990,7 +683,7 @@ export default function JudgmentSpine() {
           </div>
         </div>
         <p className="mt-1 text-sm text-tertiary">
-          Every pending judgment across tuning, tightening, loosening, calibration, and behavior — one place, one decision grammar.
+          Every pending judgment across tuning, tightening, loosening, and calibration — one place, one decision grammar.
           A human ratifies each one; nothing changes until you click.
         </p>
       </div>
@@ -999,7 +692,6 @@ export default function JudgmentSpine() {
       <ProposalGroup adapter={tighteningAdapter} onCount={onCountTightening} />
       <ProposalGroup adapter={looseningAdapter} onCount={onCountLoosening} />
       <ProposalGroup adapter={calibrationAdapter} onCount={onCountCalibration} />
-      <BehaviorGroup onCount={onCountBehavior} />
     </section>
   );
 }

@@ -42,13 +42,11 @@ afterEach(() => {
 
 const READ_TOOLS: Array<[string, Record<string, unknown>]> = [
   ["dashclaw_loop_list", {}],
-  ["dashclaw_learning_query", {}],
   ["dashclaw_decisions_recent", {}],
   ["dashclaw_handoff_latest", {}],
   ["dashclaw_secret_list", {}],
   ["dashclaw_secret_due", {}],
   ["dashclaw_inbox_list", {}],
-  ["dashclaw_behavior_suggestions", {}],
 ];
 
 describe("read tools: explicit agent_id filter wins over configured id", () => {

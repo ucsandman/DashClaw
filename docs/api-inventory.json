@@ -32,13 +32,11 @@
     ],
     "experimental": [
       "/api/agents",
-      "/api/behavior",
       "/api/bounties",
       "/api/calendar",
       "/api/content",
       "/api/identities",
       "/api/inspiration",
-      "/api/learning",
       "/api/relationships",
       "/api/schedules",
       "/api/swarm",
@@ -47,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 240,
+    "total_routes": 219,
     "stable_routes": 53,
-    "beta_routes": 22,
-    "experimental_routes": 165
+    "beta_routes": 20,
+    "experimental_routes": 146
   },
   "routes": [
     {
@@ -318,63 +316,6 @@
       "maturity": "beta",
       "matched_prefix": "/api/auth",
       "file": "app/api/auth/local/route.ts"
-    },
-    {
-      "path": "/api/behavior/insights",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/insights/route.ts"
-    },
-    {
-      "path": "/api/behavior/recorder",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/recorder/route.ts"
-    },
-    {
-      "path": "/api/behavior/samples",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/samples/route.ts"
-    },
-    {
-      "path": "/api/behavior/samples/ingest",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/samples/ingest/route.ts"
-    },
-    {
-      "path": "/api/behavior/simulate",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/simulate/route.ts"
-    },
-    {
-      "path": "/api/behavior/suggestions",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/behavior",
-      "file": "app/api/behavior/suggestions/route.ts"
     },
     {
       "path": "/api/billing/checkout",
@@ -814,24 +755,6 @@
       "file": "app/api/cron/jti-sweep/route.ts"
     },
     {
-      "path": "/api/cron/learning-episodes-backfill",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/cron",
-      "file": "app/api/cron/learning-episodes-backfill/route.ts"
-    },
-    {
-      "path": "/api/cron/learning-recommendations",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/cron",
-      "file": "app/api/cron/learning-recommendations/route.ts"
-    },
-    {
       "path": "/api/cron/memory-maintenance",
       "methods": [
         "GET"
@@ -1261,128 +1184,6 @@
       "maturity": "stable",
       "matched_prefix": "/api/keys",
       "file": "app/api/keys/reveal/route.ts"
-    },
-    {
-      "path": "/api/learning",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/curves",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/analytics/curves/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/maturity",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/analytics/maturity/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/summary",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/analytics/summary/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/velocity",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/analytics/velocity/route.ts"
-    },
-    {
-      "path": "/api/learning/code-signals",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/code-signals/route.ts"
-    },
-    {
-      "path": "/api/learning/export",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/export/route.ts"
-    },
-    {
-      "path": "/api/learning/lessons",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/lessons/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/recommendations/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/events",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/recommendations/events/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/metrics",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/recommendations/metrics/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/{recommendationId}",
-      "methods": [
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/recommendations/[recommendationId]/route.ts"
-    },
-    {
-      "path": "/api/learning/suggestions",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/learning",
-      "file": "app/api/learning/suggestions/route.ts"
     },
     {
       "path": "/api/live-canary",

@@ -12,14 +12,12 @@ const NEW_TOOLS = [
   'dashclaw_loop_add',
   'dashclaw_loop_list',
   'dashclaw_loop_close',
-  'dashclaw_learning_log',
-  'dashclaw_learning_query',
   'dashclaw_decisions_recent',
   'dashclaw_assumption_record',
 ];
 
 describe('MCP toolkit tools', () => {
-  it('all 14 new toolkit tools are defined', () => {
+  it('all 12 new toolkit tools are defined', () => {
     const names = TOOL_DEFINITIONS.map((t) => t.name);
     for (const tool of NEW_TOOLS) {
       expect(names).toContain(tool);
@@ -84,51 +82,10 @@ describe('MCP toolkit tools', () => {
     expect(captured.body.skill_name).toBe('test');
   });
 
-  it('learning_query GETs /api/learning (the store learning_log feeds), not /api/learning/lessons', async () => {
-    const captured = [];
-    const client = {
-      fetch: async (path) => {
-        captured.push(path);
-        return {
-          ok: true,
-          json: async () => ({
-            decisions: [
-              { decision: 'use neon for db', context: 'serverless', outcome: 'success' },
-              { decision: 'use redis cache', context: 'latency', outcome: 'success' },
-              { decision: 'pick Neon again', context: 'consistency', outcome: 'pending' },
-            ],
-            lessons: [{ id: 'lesson_1' }],
-          }),
-        };
-      },
-    };
-    const handlers = createToolHandlers(client);
-    const out = JSON.parse(await handlers.dashclaw_learning_query({ agent_id: 'hermes', query: 'neon' }));
-
-    expect(captured[0]).toMatch(/\/api\/learning\?/);
-    expect(captured[0]).not.toMatch(/\/api\/learning\/lessons/);
-    expect(captured[0]).toMatch(/agent_id=hermes/);
-    // q matches decision/context case-insensitively: 2 of 3 mention neon
-    expect(out.decisions).toHaveLength(2);
-    expect(out.lessons).toHaveLength(1);
-  });
-
-  it('learning_query honors limit by slicing decisions', async () => {
-    const client = {
-      fetch: async () => ({
-        ok: true,
-        json: async () => ({ decisions: [{ decision: 'a' }, { decision: 'b' }, { decision: 'c' }], lessons: [] }),
-      }),
-    };
-    const handlers = createToolHandlers(client);
-    const out = JSON.parse(await handlers.dashclaw_learning_query({ limit: 2 }));
-    expect(out.decisions).toHaveLength(2);
-  });
-
   it('server-configured agent_id wins on WRITE operations; READ filters respect explicit agent_id', async () => {
     // Identity vs Filter precedence:
     // - WRITE (dashclaw_handoff_create): server-agent wins (governance primitive)
-    // - READ (loop_list/learning_query/etc): explicit filter wins ("show me moltfire's loops")
+    // - READ (loop_list/decisions_recent/etc): explicit filter wins ("show me moltfire's loops")
     const captured = [];
     const client = {
       agentId: 'server-agent',
@@ -141,7 +98,6 @@ describe('MCP toolkit tools', () => {
 
     // READ filters: spoofed agent_id should appear in the request
     await handlers.dashclaw_loop_list({ agent_id: 'spoofed' });
-    await handlers.dashclaw_learning_query({ agent_id: 'spoofed' });
     await handlers.dashclaw_decisions_recent({ agent_id: 'spoofed' });
     await handlers.dashclaw_secret_list({ agent_id: 'spoofed' });
     for (const c of captured) {

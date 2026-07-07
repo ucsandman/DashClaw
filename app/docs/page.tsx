@@ -127,7 +127,7 @@ const navItems = [
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (29)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (26)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -156,10 +156,6 @@ const navItems = [
   { href: '#heartbeat', label: 'heartbeat', indent: true },
   { href: '#reportConnections', label: 'reportConnections', indent: true },
   { href: '#loops-assumptions', label: 'Loops & Assumptions' },
-  { href: '#learning-analytics', label: 'Learning Analytics' },
-  { href: '#getLessons', label: 'getLessons', indent: true },
-  { href: '#recordDecision', label: 'recordDecision', indent: true },
-  { href: '#getLearningRecommendations', label: 'getLearningRecommendations', indent: true },
   { href: '#evaluation-framework', label: 'Evaluation Framework' },
   { href: '#previewScorer', label: 'previewScorer', indent: true },
   { href: '#scoring-profiles', label: 'Scoring Profiles' },
@@ -434,12 +430,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 29 governance tools across 11 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture) plus 6 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 26 governance tools across 11 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture) plus 6 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (29)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (26)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -472,14 +468,11 @@ except Exception as e:
                       { group: 'Open loops', tool: 'dashclaw_loop_add', desc: 'Register action-scoped commitment', inputs: 'action_id, loop_type, description' },
                       { tool: 'dashclaw_loop_list', desc: 'List open/resolved loops', inputs: 'action_id, status, priority' },
                       { tool: 'dashclaw_loop_close', desc: 'Resolve an open loop', inputs: 'id, resolution' },
-                      { group: 'Learning + retrospection', tool: 'dashclaw_assumption_record', desc: 'Record an unverified assumption underpinning an action', inputs: 'action_id, assumption, basis' },
-                      { tool: 'dashclaw_learning_log', desc: 'Log non-obvious decision + outcome', inputs: 'decision, context, outcome' },
-                      { tool: 'dashclaw_learning_query', desc: 'Query prior decisions/lessons', inputs: 'query, agent_id, limit' },
+                      { group: 'Retrospection', tool: 'dashclaw_assumption_record', desc: 'Record an unverified assumption underpinning an action', inputs: 'action_id, assumption, basis' },
                       { tool: 'dashclaw_decisions_recent', desc: 'Recent governed-action ledger', inputs: 'agent_id, action_type, decision, since' },
                       { group: 'Agent inbox', tool: 'dashclaw_inbox_list', desc: 'List inbox messages + unread count', inputs: 'agent_id, direction, unread, type, limit' },
                       { tool: 'dashclaw_messages_mark_read', desc: 'Mark inbox messages as read', inputs: 'message_ids, agent_id' },
                       { group: 'Agent identity', tool: 'dashclaw_pair', desc: 'Enroll identity: generate keypair locally, submit public key for approval', inputs: 'agent_id, agent_name, wait' },
-                      { group: 'Behavior learning', tool: 'dashclaw_behavior_suggestions', desc: 'Observe-only Policy Coach suggestions from recorded behavior', inputs: 'agent_id' },
                       { group: 'Governance posture', tool: 'dashclaw_posture', desc: 'Read the org governance posture score + 6 dimensions + findings queue (read-only)', inputs: 'dimension' },
                       { tool: 'dashclaw_posture_next', desc: 'The next prioritized remediation finding from the posture queue (read-only)', inputs: '(none)' },
                     ] as Array<{ group?: string; tool: string; desc: string; inputs: string }>).map((row) => (
@@ -730,7 +723,7 @@ npm run livingcode:refresh`}</CodeBlock>
             <MethodEntry
               id="guard"
               signature="claw.guard(context)"
-              description="Evaluate guard policies for a proposed action. Call this before risky operations. The guard response includes a `learning` field with historical performance context when available (recent scores, drift status, learned patterns, feedback summary). With a non_fabrication policy active, pass `content` + `sourceOfTruth` to verify outbound text before it goes out — a violation blocks (or routes to approval) and is returned under `non_fabrication` with a signed, re-verifiable receipt."
+              description="Evaluate guard policies for a proposed action. Call this before risky operations. With a non_fabrication policy active, pass `content` + `sourceOfTruth` to verify outbound text before it goes out — a violation blocks (or routes to approval) and is returned under `non_fabrication` with a signed, re-verifiable receipt."
               params={[
                 { name: 'action_type', type: 'string', required: true, desc: 'Proposed action type' },
                 { name: 'risk_score', type: 'number', required: false, desc: '0-100' },
@@ -1012,106 +1005,6 @@ if created.get("action", {}).get("status") == "pending_approval":
                   nodeSnippet={`await claw.recordAssumption({ action_id, assumption: 'User is authenticated' });`}
                   pythonSnippet={`claw.record_assumption({'action_id': action_id, 'assumption': 'User is authenticated'})`}
                 />
-              }
-            />
-          </section>
-
-          {/* ── Learning Analytics ── */}
-          <section id="learning-analytics" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <Zap size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Learning Analytics</h2>
-            </div>
-            
-            <MethodEntry
-              id="getLearningVelocity"
-              signature="claw.getLearningVelocity() / claw.get_learning_velocity()"
-              description="Compute learning velocity (rate of score improvement) for agents."
-              returns="Promise<{ velocity: Array<Object> }>"
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`const { velocity } = await claw.getLearningVelocity();`}
-                  pythonSnippet={`velocity = claw.get_learning_velocity()`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="getLearningCurves"
-              signature="claw.getLearningCurves() / claw.get_learning_curves()"
-              description="Compute learning curves per action type to measure efficiency gains."
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const curves = await claw.getLearningCurves();`}
-                  pythonSnippet={`curves = claw.get_learning_curves()`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="getLessons"
-              signature="claw.getLessons({ actionType, limit }) / claw.get_lessons(action_type=..., limit=...)"
-              description="Fetch consolidated lessons from scored outcomes — what DashClaw has learned about this agent's performance patterns."
-              params={[
-                { name: 'actionType', type: 'string', required: false, desc: 'Filter by action type' },
-                { name: 'limit', type: 'number', required: false, desc: 'Max lessons to return (default 10)' },
-              ]}
-              returns="Promise<{ lessons: Object[], drift_warnings: Object[], agent_id: string }>"
-              example={
-                <DocsCodeTabs
-                  nodeSnippet={`const { lessons, drift_warnings } = await claw.getLessons({ actionType: 'deploy' });\nlessons.forEach(l => console.log(l.guidance));`}
-                  pythonSnippet={`result = claw.get_lessons(action_type="deploy")\nfor lesson in result["lessons"]:\n    print(lesson["guidance"])`}
-                />
-              }
-            />
-
-            <MethodEntry
-              id="recordDecision"
-              signature="claw.recordDecision(entry)"
-              description="Record a decision/outcome into the learning ledger so the governance loop improves over time. agent_id is auto-injected from the constructor's agentId when omitted. Node SDK only."
-              params={[
-                { name: 'decision', type: 'string', required: true, desc: 'The decision that was made' },
-                { name: 'context', type: 'string', required: false, desc: 'Situation the decision was made in' },
-                { name: 'reasoning', type: 'string', required: false, desc: 'Why this decision was chosen' },
-                { name: 'outcome', type: 'string', required: false, desc: 'What happened as a result' },
-                { name: 'confidence', type: 'number', required: false, desc: 'Confidence in the decision' },
-                { name: 'agent_id', type: 'string', required: false, desc: 'Overrides the constructor agentId for attribution' },
-              ]}
-              returns="Promise<{ decision: Object }>"
-              example={
-                <CodeBlock title="Node.js">
-{`const { decision } = await claw.recordDecision({
-  decision: 'Rolled back the auth-service deploy',
-  context: 'The new deploy raised the error rate',
-  reasoning: 'Faster recovery than a forward fix',
-  outcome: 'Error rate returned to baseline',
-  confidence: 0.9
-});`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="getLearningRecommendations"
-              signature="claw.getLearningRecommendations(filters)"
-              description="Read learned recommendations for an agent/action_type from the learning ledger. agent_id defaults to the constructor's agentId when omitted. Node SDK only."
-              params={[
-                { name: 'agent_id', type: 'string', required: false, desc: 'Agent to read recommendations for (defaults to constructor agentId)' },
-                { name: 'action_type', type: 'string', required: false, desc: 'Filter by action type' },
-                { name: 'include_metrics', type: 'boolean', required: false, desc: 'Include supporting metrics in the response' },
-                { name: 'lookback_days', type: 'number', required: false, desc: 'Window of history to consider' },
-                { name: 'limit', type: 'number', required: false, desc: 'Max recommendations to return' },
-              ]}
-              example={
-                <CodeBlock title="Node.js">
-{`const recs = await claw.getLearningRecommendations({
-  action_type: 'deploy',
-  include_metrics: true,
-  lookback_days: 30
-});`}
-                </CodeBlock>
               }
             />
           </section>
@@ -1689,7 +1582,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: model strategies, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 112 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: model strategies, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 107 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -2560,7 +2453,6 @@ const { manifest_id, apply_command } = await res.json();
               <li><code className="text-brand">/api/code-sessions/subagent-roi</code> — keep / trim / drop per subagent by success-rate and cost-per-success.</li>
               <li><code className="text-brand">/api/code-sessions/memos</code> + <code>POST /memos/regenerate</code> — weekly spend memo (7-day vs prior-7-day).</li>
               <li><code className="text-brand">/api/code-sessions/alerts</code> + <code>POST /alerts/read-all</code> — cost-anomaly / cache-crater / stuck-loop alerts.</li>
-              <li><code className="text-brand">/api/learning/code-signals</code> — optimizer findings aggregated into the learning loop.</li>
             </ul>
             <p className="text-sm text-text-secondary mb-2 leading-relaxed">
               Also exposed over MCP — tools <code className="text-brand">dashclaw_optimal_files_preview</code> + <code className="text-brand">dashclaw_optimal_files_manifest</code>, and resources <code className="text-brand">dashclaw://code-sessions/projects</code> + <code className="text-brand">{'dashclaw://code-sessions/sessions/{session_id}'}</code>. The dashboard view is at <code className="text-brand">/code-sessions</code>.

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:305c788d7cd92a6a61f7525b81d60e929441e905",
+  "timestamp": "sha1:5a1e41fab443f60d2327e2e04ed41700e22485f1",
   "routes": [
     {
       "path": "/api/actions",
@@ -299,63 +299,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/auth/local/route.ts"
-    },
-    {
-      "path": "/api/behavior/insights",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/insights/route.ts"
-    },
-    {
-      "path": "/api/behavior/recorder",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/recorder/route.ts"
-    },
-    {
-      "path": "/api/behavior/samples",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/samples/route.ts"
-    },
-    {
-      "path": "/api/behavior/samples/ingest",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/samples/ingest/route.ts"
-    },
-    {
-      "path": "/api/behavior/simulate",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/simulate/route.ts"
-    },
-    {
-      "path": "/api/behavior/suggestions",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/behavior/suggestions/route.ts"
     },
     {
       "path": "/api/billing/checkout",
@@ -836,24 +779,6 @@
       "file_path": "app/api/cron/jti-sweep/route.ts"
     },
     {
-      "path": "/api/cron/learning-episodes-backfill",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/cron/learning-episodes-backfill/route.ts"
-    },
-    {
-      "path": "/api/cron/learning-recommendations",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/cron/learning-recommendations/route.ts"
-    },
-    {
       "path": "/api/cron/memory-maintenance",
       "methods": [
         "GET"
@@ -1297,130 +1222,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/keys/reveal/route.ts"
-    },
-    {
-      "path": "/api/learning",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/curves",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/analytics/curves/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/maturity",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/analytics/maturity/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/summary",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/analytics/summary/route.ts"
-    },
-    {
-      "path": "/api/learning/analytics/velocity",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/analytics/velocity/route.ts"
-    },
-    {
-      "path": "/api/learning/code-signals",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/code-signals/route.ts"
-    },
-    {
-      "path": "/api/learning/export",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/export/route.ts"
-    },
-    {
-      "path": "/api/learning/lessons",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/lessons/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/recommendations/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/[recommendationId]",
-      "methods": [
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "recommendationId"
-      ],
-      "archived": false,
-      "file_path": "app/api/learning/recommendations/[recommendationId]/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/events",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/recommendations/events/route.ts"
-    },
-    {
-      "path": "/api/learning/recommendations/metrics",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/recommendations/metrics/route.ts"
-    },
-    {
-      "path": "/api/learning/suggestions",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/learning/suggestions/route.ts"
     },
     {
       "path": "/api/live-canary",
@@ -2581,8 +2382,6 @@
         "app/api/cron/code-session-weekly-memo/route.ts",
         "app/api/cron/integration-health/route.ts",
         "app/api/cron/jti-sweep/route.ts",
-        "app/api/cron/learning-episodes-backfill/route.ts",
-        "app/api/cron/learning-recommendations/route.ts",
         "app/api/cron/memory-maintenance/route.ts",
         "app/api/cron/outcome-sweep/route.ts",
         "app/api/cron/policy-suggestions/route.ts",
@@ -2862,24 +2661,6 @@
         "scripts/report-tokens.mjs",
         "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-registry-demo.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "DASHCLAW_BEHAVIOR_SAMPLES_DIR",
-      "required": false,
-      "files": [
-        "__tests__/unit/behavior-sample-merge.test.ts",
-        "__tests__/unit/behavior-samples-route-list.test.ts",
-        "app/lib/behavior/sample-store.ts"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "DASHCLAW_BEHAVIOR_SAMPLES_ENABLED",
-      "required": false,
-      "files": [
-        "app/lib/behavior/sample-store.ts"
       ],
       "in_env_example": false
     },
@@ -3274,11 +3055,6 @@
         "__tests__/unit/hosted/workspace-admin.test.js",
         "__tests__/unit/integrity-routes.test.js",
         "__tests__/unit/keys.route.test.js",
-        "__tests__/unit/learning-recommendation-detail.route.test.js",
-        "__tests__/unit/learning-recommendation-events.route.test.js",
-        "__tests__/unit/learning-recommendation-metrics.route.test.js",
-        "__tests__/unit/learning-recommendations.route.test.js",
-        "__tests__/unit/learning.route.test.js",
         "__tests__/unit/policies-contract.route.test.ts",
         "__tests__/unit/policies-import.route.test.js",
         "__tests__/unit/policies-proof.route.test.js",
@@ -3306,7 +3082,6 @@
         "scripts/backfill-action-cost-reprice.mjs",
         "scripts/backfill-code-session-cache-cost.mjs",
         "scripts/backfill-embeddings.mjs",
-        "scripts/backfill-learning-episodes.mjs",
         "scripts/backfill-null-model-cost.mjs",
         "scripts/backfill-x402-provider-id.mjs",
         "scripts/cleanup-actions.mjs",
@@ -3321,7 +3096,6 @@
         "scripts/migrate-action-records-compat.mjs",
         "scripts/migrate-agent-pairings.mjs",
         "scripts/migrate-api-keys-compat.mjs",
-        "scripts/migrate-behavioral-ai.mjs",
         "scripts/migrate-compliance-export.mjs",
         "scripts/migrate-cost-analytics.mjs",
         "scripts/migrate-drift.mjs",
@@ -3329,8 +3103,6 @@
         "scripts/migrate-feedback.mjs",
         "scripts/migrate-hitl-metadata.mjs",
         "scripts/migrate-identity-binding.mjs",
-        "scripts/migrate-learning-analytics.mjs",
-        "scripts/migrate-learning-loop-mvp.mjs",
         "scripts/migrate-multi-tenant.mjs",
         "scripts/migrate-policy-agent-scope.mjs",
         "scripts/migrate-prompts.mjs",
@@ -3338,7 +3110,6 @@
         "scripts/policy-smoke.mjs",
         "scripts/poll-github-traffic.mjs",
         "scripts/promote-founder-to-admin.mjs",
-        "scripts/rebuild-learning-recommendations.mjs",
         "scripts/register-identity.mjs",
         "scripts/repair-stale-running-actions.mjs",
         "scripts/setup.mjs",
@@ -4476,7 +4247,6 @@
       "files": [
         "app/api/hosted/workspaces/route.ts",
         "app/layout.tsx",
-        "app/lib/behavior/sample-store.ts",
         "middleware.js"
       ],
       "in_env_example": false

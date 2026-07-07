@@ -4,7 +4,7 @@ export const revalidate = 0;
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
 import { generatePolicySuggestions } from '../../../lib/policy-suggestions';
-import { listOrganizations } from '../../../lib/repositories/learningLoop.repository';
+import { listOrganizations } from '../../../lib/repositories/orgs.repository';
 import { timingSafeCompare } from '../../../lib/timing-safe';
 
 export async function GET(request: Request) {
