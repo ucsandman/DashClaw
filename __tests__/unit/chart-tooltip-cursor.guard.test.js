@@ -18,7 +18,7 @@ describe('recharts chart hygiene (app/**)', () => {
   const files = rechartsFiles();
 
   it('finds the chart components (sanity)', () => {
-    expect(files.length).toBeGreaterThanOrEqual(4);
+    expect(files.length).toBeGreaterThanOrEqual(2);
   });
 
   // Extract each <Tooltip …/> tag, tolerating nested JSX in props (e.g.

@@ -284,41 +284,6 @@ describe('DashClaw v2 SDK', () => {
     });
   });
 
-  // --- heartbeat ---
-
-  describe('heartbeat', () => {
-    it('POSTs to /api/agents/heartbeat with defaults', async () => {
-      await claw.heartbeat();
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/agents/heartbeat');
-      const body = JSON.parse(opts.body);
-      expect(body.agent_id).toBe('test-agent');
-      expect(body.status).toBe('online');
-      expect(body.metadata).toBeNull();
-    });
-
-    it('accepts custom status and metadata', async () => {
-      await claw.heartbeat('busy', { task: 'indexing' });
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.status).toBe('busy');
-      expect(body.metadata).toEqual({ task: 'indexing' });
-    });
-  });
-
-  // --- reportConnections ---
-
-  describe('reportConnections', () => {
-    it('POSTs to /api/agents/connections', async () => {
-      const connections = [{ type: 'stripe', status: 'active' }];
-      await claw.reportConnections(connections);
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/agents/connections');
-      const body = JSON.parse(opts.body);
-      expect(body.agent_id).toBe('test-agent');
-      expect(body.connections).toEqual(connections);
-    });
-  });
-
   // --- agent messaging read-state ---
 
   describe('agent messaging read-state', () => {

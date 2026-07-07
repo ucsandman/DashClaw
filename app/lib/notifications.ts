@@ -60,7 +60,7 @@ export async function sendSignalAlertEmail(
           ${signalRows}
         </tbody>
       </table>
-      <p style="margin:20px 0 0;"><a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/security" style="color:#f97316;text-decoration:underline;">View in Security Dashboard →</a></p>
+      <p style="margin:20px 0 0;"><a href="${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/decisions" style="color:#f97316;text-decoration:underline;">View in the decisions ledger →</a></p>
       <p style="color:#52525b;font-size:12px;margin:20px 0 0;">You are receiving this because you have email alerts enabled in DashClaw. Manage preferences in Settings → Notifications.</p>
     </div>
   `;

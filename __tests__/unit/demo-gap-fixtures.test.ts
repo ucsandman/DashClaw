@@ -3,7 +3,7 @@ import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
-  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases, demoX402Budget,
+  demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
@@ -69,18 +69,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     expect(r.pagination).toMatchObject({ limit: 5, offset: 0, count: 5 });
     expect(r.events[0]).toMatchObject({ id: expect.any(String), event_type: expect.any(String), occurred_at: expect.any(String) });
     expect(r.events[0].occurred_at >= r.events[1].occurred_at).toBe(true);
-  });
-  it('posture (/api/posture) — full PostureResponse shape', () => {
-    const r = demoPosture();
-    expect(r.dimensions.length).toBe(6);
-    expect(r).toMatchObject({ score: expect.any(Number), status: expect.any(String) });
-    expect(r.snapshots.length).toBeGreaterThan(0);
-    expect(r.summary).toMatchObject({ totalUnits: expect.any(Number), openFindings: expect.any(Number) });
-  });
-  it('posture findings (/api/posture/findings)', () => {
-    const r = demoPostureFindings();
-    expect(r.findings.length).toBeGreaterThan(0);
-    expect(r.findings[0]!).toMatchObject({ key: expect.any(String), dimension: expect.any(String), severity: expect.any(String) });
   });
   it('spend (/api/finops/spend) — period-aware fleet lens', () => {
     const r = demoSpend(url('http://x/api/finops/spend')) as any;

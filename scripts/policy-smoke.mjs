@@ -981,53 +981,6 @@ async function main() {
       `queue=${(gone.json?.proposals || []).length} rows`);
   }
 
-  // ── Presence heartbeat (Q1, drizzle/0041 regression pin) ────────────────
-  // On fresh schemas the presence upsert silently failed for every agent
-  // (missing updated_at column + no unique (org_id, agent_id) behind the
-  // ON CONFLICT) — the write is best-effort, so nothing surfaced it. The
-  // discriminator: an agent known only from action_records reads
-  // reported_status='unknown'; a landed heartbeat reads 'online' with a
-  // last_heartbeat_at stamp.
-  {
-    console.log('\nPresence heartbeat...');
-    const agent = agentFor('presence');
-    await api('POST', '/api/actions', {
-      agent_id: agent, action_type: `smoke.presence.${RUN}`,
-      declared_goal: `presence heartbeat ${RUN}`, risk_score: 5,
-    });
-    let row = null;
-    for (let attempt = 0; attempt < 3 && !row?.last_heartbeat_at; attempt++) {
-      if (attempt) await new Promise((r) => setTimeout(r, 500));
-      const res = await api('GET', '/api/agents');
-      row = (res.json?.agents || []).find((a) => a.agent_id === agent) || null;
-    }
-    check('Q1', 'action submit lands an implicit presence heartbeat (agent_presence upsert works)',
-      !!row && row.reported_status === 'online' && !!row.last_heartbeat_at,
-      `row=${JSON.stringify(row)?.slice(0, 200)}`);
-  }
-
-  // R: posture signal integrity (roadmap v3.1). By this point the run has
-  // minted plenty of synthetic traffic — smoke-* agents, smoke.* action types,
-  // risky decisions. None of it may reach the posture surface: the instrument
-  // must not grade the org down for verifying itself.
-  {
-    console.log('\nPosture signal integrity...');
-    const res = await api('GET', '/api/posture');
-    const posture = res.json || {};
-    const findings = Array.isArray(posture.findings) ? posture.findings : [];
-    const findingsBlob = JSON.stringify(findings);
-    check('R1', 'posture findings reference no synthetic traffic (smoke agents / smoke.* action types)',
-      res.status === 200 && !findingsBlob.includes('smoke.') && !findingsBlob.includes('"smoke-'),
-      `status=${res.status} findings=${findings.length} blob_hit=${['smoke.', '"smoke-'].filter((n) => findingsBlob.includes(n)).join('|')}`);
-    const s = posture.summary || {};
-    check('R2', 'coverage math is sane: 0 <= coveredUnits <= totalUnits (was -22 live pre-v3.1)',
-      Number.isInteger(s.coveredUnits) && s.coveredUnits >= 0 && s.coveredUnits <= s.totalUnits,
-      `coveredUnits=${s.coveredUnits} totalUnits=${s.totalUnits}`);
-    check('R3', 'accepted-risk quiets are surfaced as an attributed summary, not a disappearance',
-      s.acceptedRisk != null && Number.isInteger(s.acceptedRisk.count),
-      `acceptedRisk=${JSON.stringify(s.acceptedRisk)}`);
-  }
-
   // S: findings become proposals — tightening direction (roadmap v3.2).
   // Seed an ungoverned high-risk pattern, prove it mines into the expected
   // proposal (via the smoke-only ?include_synthetic=1 path), prove the default
@@ -1182,17 +1135,12 @@ async function main() {
       `status=${bulk.status} body=${JSON.stringify(bulk.json)}`);
   }
 
-  // V1–V4: coverage truth (roadmap v4.2) — the record knows what it missed.
+  // V1–V3: coverage truth (roadmap v4.2) — the record knows what it missed.
   // A degraded expected-vs-recorded report renders sub-threshold math in the
-  // diagnostic view; the real view and posture never consume synthetic evidence.
+  // diagnostic view; the real view never consumes synthetic evidence.
   {
     const degraded = agentFor('v-degraded');
     const healthy = agentFor('v-healthy');
-
-    // Baseline BEFORE the synthetic reports land: coverage findings must not
-    // move because of them (posture consumes the synthetic-excluded view).
-    const postureBefore = await api('GET', '/api/posture');
-    const covBefore = (postureBefore.json?.findings || []).filter((f) => f?.fix?.type === 'view_coverage').length;
 
     const post = await api('POST', '/api/coverage', {
       agent_id: degraded, harness: 'policy-smoke', harness_session_id: `smoke-${RUN}`,
@@ -1222,12 +1170,6 @@ async function main() {
     const leaked = (real.json?.coverage || []).some((c) => c.agentId === degraded || c.agentId === healthy);
     check('V3', 'real coverage view excludes the synthetic reports (no smoke-minted coverage)',
       real.status === 200 && !leaked, `coverage=${JSON.stringify((real.json?.coverage || []).map((c) => c.agentId))}`);
-
-    const postureAfter = await api('GET', '/api/posture');
-    const covAfter = (postureAfter.json?.findings || []).filter((f) => f?.fix?.type === 'view_coverage').length;
-    check('V4', 'no smoke-minted coverage posture finding (synthetic exclusion holds end-to-end)',
-      postureAfter.status === 200 && covAfter === covBefore,
-      `coverage findings before=${covBefore} after=${covAfter}`);
   }
 
   // W1–W4: fleet attribution (roadmap v4.3) — a fan-out reads as one governed

@@ -38,8 +38,8 @@ describe('/connect hosted trial variant', () => {
     expect(container.querySelector('details')).toBeTruthy();
     expect(text).toMatch(/Advanced/i);
 
-    // A link to Mission Control is present.
-    expect(container.querySelector('a[href="/mission-control"]')).toBeTruthy();
+    // A link to the Approvals inbox is present.
+    expect(container.querySelector('a[href="/approvals"]')).toBeTruthy();
 
     // The hero itself is keyless: no oc_live_ example key in the hero region.
     const hero = container.querySelector('[aria-label="Keyless connector"]');
@@ -60,6 +60,6 @@ describe('/connect hosted trial variant', () => {
     // No hosted-only affordances.
     expect(container.querySelector('details')).toBeNull();
     expect(container.querySelector('[aria-label="Keyless connector"]')).toBeNull();
-    expect(container.querySelector('a[href="/mission-control"]')).toBeNull();
+    expect(container.querySelector('a[href="/approvals"]')).toBeNull();
   });
 });

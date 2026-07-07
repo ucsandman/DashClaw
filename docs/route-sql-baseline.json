@@ -10,12 +10,12 @@
       "label": "sql.query call"
     }
   ],
-  "files_scanned": 285,
-  "files_with_direct_sql": 22,
+  "files_scanned": 273,
+  "files_with_direct_sql": 20,
   "totals": {
-    "tagged_template": 49,
+    "tagged_template": 43,
     "query_call": 9,
-    "total": 58
+    "total": 52
   },
   "files": [
     {
@@ -97,12 +97,6 @@
       "total": 5
     },
     {
-      "file": "app/api/security/scan/route.ts",
-      "tagged_template": 1,
-      "query_call": 0,
-      "total": 1
-    },
-    {
       "file": "app/api/security/status/route.ts",
       "tagged_template": 1,
       "query_call": 0,
@@ -125,12 +119,6 @@
       "tagged_template": 3,
       "query_call": 0,
       "total": 3
-    },
-    {
-      "file": "app/api/team/[userId]/route.ts",
-      "tagged_template": 5,
-      "query_call": 0,
-      "total": 5
     },
     {
       "file": "app/api/usage/costs/route.ts",

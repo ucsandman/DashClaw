@@ -127,7 +127,7 @@ const navItems = [
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (33)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (31)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -458,12 +458,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 33 governance tools across 12 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders) plus 6 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 31 governance tools across 12 groups (core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders) plus 6 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (33)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (31)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -1902,7 +1902,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: workflow templates, model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 149 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listWorkflowTemplates</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: workflow templates, model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 147 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listWorkflowTemplates</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}

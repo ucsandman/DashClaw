@@ -14,7 +14,6 @@ const src = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
 // deferred as out of surgical scope for this phase.
 const WIRED_PAGES: Array<[string, string]> = [
   ['prompts', 'app/prompts/page.tsx'],
-  ['team', 'app/team/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
   ['audit-log', 'app/audit-log/page.tsx'],
   ['assumptions', 'app/assumptions/page.tsx'],
@@ -39,7 +38,6 @@ describe('multi-select coverage — wiring inventory', () => {
 
   it('mutating pages fan out over existing per-item routes via bulkAction', () => {
     expect(src('app/prompts/page.tsx')).toMatch(/bulkAction/);
-    expect(src('app/team/page.tsx')).toMatch(/bulkAction/);
     expect(src('app/identities/page.tsx')).toMatch(/bulkAction/);
   });
 });

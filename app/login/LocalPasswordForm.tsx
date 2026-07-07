@@ -22,8 +22,8 @@ export default function LocalPasswordForm() {
       });
 
       if (res.ok) {
-        // Hard redirect so the browser includes the fresh session cookie on /mission-control — router.push keeps the existing nav context and the cookie is not re-sent. Contributed by Lief (RyanTJoy).
-        window.location.href = '/mission-control';
+        // Hard redirect so the browser includes the fresh session cookie on /approvals — router.push keeps the existing nav context and the cookie is not re-sent. Contributed by Lief (RyanTJoy).
+        window.location.href = '/approvals';
       } else {
         const data = await res.json();
         setError(data.error || 'Login failed.');

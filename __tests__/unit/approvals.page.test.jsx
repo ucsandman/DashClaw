@@ -159,9 +159,11 @@ describe('ApprovalsPage — session resolution', () => {
     const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
     render(<ApprovalsPage />);
 
+    // The agent detail page was removed in the v5 cull; EntityLink renders the
+    // agent as a tagged span (context-menu Copy ID) rather than an anchor.
     const agentLink = await screen.findByText('planner');
-    expect(agentLink.tagName).toBe('A');
-    expect(agentLink.getAttribute('href')).toBe('/agents/agent_aa');
+    expect(agentLink.tagName).toBe('SPAN');
+    expect(agentLink.getAttribute('href')).toBeNull();
     expect(agentLink.getAttribute('data-entity-type')).toBe('agent');
 
     const actionLink = screen.getByText('act_77');

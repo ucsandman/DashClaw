@@ -97,8 +97,9 @@ describe('/spend/x402 purchases page', () => {
     // Null provider entirely: em dash.
     expect(container.textContent).toContain('—');
 
-    // Agent cell links via EntityLink to the agent detail page.
-    const agentLink = container.querySelector('a[data-entity-id="agent-1"]');
+    // Agent cell is tagged via EntityLink; the agent detail page was removed in
+    // the v5 cull, so it renders as a tagged span rather than an anchor.
+    const agentLink = container.querySelector('[data-entity-id="agent-1"]');
     expect(agentLink).toBeTruthy();
     expect(agentLink.getAttribute('data-entity-type')).toBe('agent');
   });

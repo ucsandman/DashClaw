@@ -36,10 +36,10 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
             Try again
           </button>
           <Link
-            href="/mission-control"
+            href="/approvals"
             className="rounded-lg border bg-surface-tertiary px-4 py-2 text-sm text-secondary transition-colors hover:border-hover hover:text-white"
           >
-            Mission Control
+            Approvals
           </Link>
         </div>
       </div>

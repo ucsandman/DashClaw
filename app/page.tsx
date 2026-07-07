@@ -8,7 +8,6 @@ import {
   Radar,
   Scale,
   MessageSquare,
-  Gauge,
   Wallet,
   Stethoscope,
   Crosshair,
@@ -101,12 +100,6 @@ const OPERATE_SURFACES = [
     title: 'Approvals anywhere',
     desc: 'Dashboard inbox, CLI, mobile PWA at /approve, Discord and Telegram with one-tap resolve. A flood guard collapses approval storms into one bulk event.',
     href: '/approve',
-  },
-  {
-    icon: Gauge,
-    title: 'Posture score',
-    desc: 'A gaming-resistant 0 to 100 across six governance dimensions. It rises only from policies proven to fire, never from drafts.',
-    href: '/posture',
   },
   {
     icon: Wallet,
@@ -374,7 +367,7 @@ export default function LandingPage() {
               <p className="mt-3 text-text-secondary leading-relaxed">
                 One command wires Claude Code, Codex, or Hermes. A plugin covers
                 OpenClaw. The MCP server gives any MCP client the same loop
-                through {'33 tools and 6 resources'}, no SDK and no code changes.
+                through {'31 tools and 6 resources'}, no SDK and no code changes.
                 Everything else takes the Node or Python SDK.
               </p>
             </div>

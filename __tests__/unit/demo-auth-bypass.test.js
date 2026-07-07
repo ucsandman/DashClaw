@@ -52,11 +52,11 @@ describe('middleware demo auth bypass', () => {
     expect(res.headers.get('set-cookie') || '').not.toMatch(/dashclaw_demo=1/);
   });
 
-  it('/demo?sandbox=1 mints the demo cookie and forwards into /mission-control', async () => {
+  it('/demo?sandbox=1 mints the demo cookie and forwards into /decisions', async () => {
     getToken.mockResolvedValue(null);
     const res = await middleware(req('/demo?sandbox=1', { demoCookie: false }));
 
-    expect(res.headers.get('location')).toBe('http://localhost:3000/mission-control');
+    expect(res.headers.get('location')).toBe('http://localhost:3000/decisions');
     const setCookie = res.headers.get('set-cookie') || '';
     expect(setCookie).toMatch(/dashclaw_demo=1/);
     expect(setCookie).toMatch(/HttpOnly/i);
@@ -118,7 +118,7 @@ describe('middleware demo auth bypass', () => {
 
   it('authenticated + demo cookie → page route deletes the stale dashclaw_demo cookie', async () => {
     getToken.mockResolvedValue({ orgId: 'org_x', role: 'admin', sub: 'usr_1' });
-    const res = await middleware(req('/mission-control'));
+    const res = await middleware(req('/approvals'));
     // The authenticated page exit clears the stale cookie. NextResponse exposes
     // deletions via Set-Cookie with Max-Age=0 / an empty value.
     const setCookie = res.headers.get('set-cookie') || '';

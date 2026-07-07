@@ -67,8 +67,8 @@ describe('X402BudgetMeters', () => {
     const { container } = render(<X402BudgetMeters />);
     await waitFor(() => expect(container.textContent).toContain('Per-agent budget'));
     expect(container.textContent).toContain('7d · per agent');
-    expect(container.querySelector('a[data-entity-id="clawdbot"]')).toBeTruthy();
-    expect(container.querySelector('a[data-entity-id="deploy-runner"]')).toBeTruthy();
+    expect(container.querySelector('[data-entity-id="clawdbot"]')).toBeTruthy();
+    expect(container.querySelector('[data-entity-id="deploy-runner"]')).toBeTruthy();
     const bars = container.querySelectorAll('[role="progressbar"]');
     expect(bars.length).toBe(2);
     // clawdbot at $9.50 of $10 (≥80%, no approval tier) → warning; deploy-runner stays neutral

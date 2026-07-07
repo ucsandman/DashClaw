@@ -291,10 +291,10 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
                     <span className="text-sm text-success">Authenticated</span>
                   </div>
                   <Link
-                    href="/mission-control"
+                    href="/approvals"
                     className="block rounded-lg border border-brand/20 bg-brand/10 px-4 py-2 text-center text-sm font-medium text-brand transition-colors hover:border-brand/40 hover:bg-brand/15"
                   >
-                    Go to Mission Control
+                    Go to Approvals
                   </Link>
                 </div>
               ) : (

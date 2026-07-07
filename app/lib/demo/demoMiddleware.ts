@@ -181,76 +181,6 @@ export function demoCreateAction(fixtures: DemoFixtures, body: AnyRecord) {
   };
 }
 
-export function demoAgentConnections(fixtures: DemoFixtures, url: URL) {
-  const agentId = url.searchParams.get('agent_id');
-  const now = new Date().toISOString();
-
-  // Default static connections for demo
-  const staticConnections = [
-    { id: 'conn_demo_1', agent_id: 'deploy-bot', type: 'github', status: 'active', updated_at: now },
-    { id: 'conn_demo_2', agent_id: 'deploy-bot', type: 'aws', status: 'active', updated_at: now },
-    { id: 'conn_demo_3', agent_id: 'security-scanner', type: 'snyk', status: 'active', updated_at: now },
-    { id: 'conn_demo_4', agent_id: 'security-scanner', type: 'github', status: 'active', updated_at: now },
-    { id: 'conn_demo_5', agent_id: 'code-reviewer', type: 'github', status: 'active', updated_at: now },
-    { id: 'conn_demo_6', agent_id: 'data-analyst', type: 'snowflake', status: 'active', updated_at: now },
-    { id: 'conn_demo_7', agent_id: 'api-monitor', type: 'datadog', status: 'active', updated_at: now },
-  ];
-
-  let connections = staticConnections;
-  if (agentId) {
-    connections = staticConnections.filter(c => c.agent_id === agentId);
-    // If no specific connections defined for this agent, give them a generic one so the UI isn't empty
-    if (connections.length === 0) {
-      connections = [{ id: `conn_gen_${agentId}`, agent_id: agentId, type: 'api_key', status: 'active', updated_at: now }];
-    }
-  }
-
-  return { connections, total: connections.length, lastUpdated: now };
-}
-
-export function demoAgents(fixtures: DemoFixtures) {
-  const map = new Map<string, AnyRecord>();
-  // Include our synthetic demo test action
-  const allActions = [demoTestAction, ...fixtures.actions];
-  for (const a of allActions) {
-    const prev = map.get(a.agent_id) || { agent_id: a.agent_id, agent_name: a.agent_name, action_count: 0, last_active: null };
-    prev.action_count += 1;
-    const ts = a.timestamp_start || null;
-    if (ts && (!prev.last_active || ts > prev.last_active)) prev.last_active = ts;
-    map.set(a.agent_id, prev);
-  }
-  const agents = Array.from(map.values()).sort((a, b) => (b.last_active || '').localeCompare(a.last_active || ''));
-  return { agents, lastUpdated: new Date().toISOString() };
-}
-
-export function demoAgentDetail(fixtures: DemoFixtures, agentId: string) {
-  const list = demoAgents(fixtures).agents;
-  const agent = list.find(a => a.agent_id === agentId);
-
-  // If not found in the list, but they just created an action, provide a fallback profile
-  const baseAgent = agent || {
-    agent_id: agentId,
-    agent_name: agentId === 'refund-support-agent' ? 'Refund Support Agent' : agentId,
-    action_count: 1,
-    last_active: new Date().toISOString()
-  };
-
-  return {
-    agent: {
-      ...baseAgent,
-      governed: true,
-      verified: true,
-      connections: [
-        { id: 'conn_demo_1', type: 'github', status: 'active', updated_at: new Date().toISOString() },
-        { id: 'conn_demo_2', type: 'aws', status: 'active', updated_at: new Date().toISOString() }
-      ],
-      capabilities: ['deployment', 'research', 'code-review'],
-      risk_profile: 'Standard',
-      enforced_policies_count: fixtures.policies.length,
-    }
-  };
-}
-
 export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyRecord | null {
   // Always return the deterministic demo test action so the replay works flawlessly
   if (actionId === DEMO_TEST_ACTION_ID) {
@@ -900,14 +830,6 @@ export function demoContent(fixtures: DemoFixtures, url: URL) {
   return { items: paged, total, stats, lastUpdated: new Date().toISOString() };
 }
 
-export function demoTeam(fixtures: DemoFixtures) {
-  return { team: fixtures.teamMembers || [], lastUpdated: new Date().toISOString() };
-}
-
-export function demoTeamInvites(fixtures: DemoFixtures) {
-  return { invites: fixtures.teamInvites || [], lastUpdated: new Date().toISOString() };
-}
-
 export function demoActivity(fixtures: DemoFixtures, url: URL) {
   const sp = url.searchParams;
   const limit = Math.min(parseInt(sp.get('limit') || '50', 10), 200);
@@ -1385,54 +1307,6 @@ export function demoReputationEvents(fixtures: DemoFixtures, agentId: string, ur
   }).sort((a, b) => b.occurred_at.localeCompare(a.occurred_at));
   const events = all.slice(offset, offset + limit);
   return { agent_id: agentId, events, pagination: { limit, offset, count: events.length } };
-}
-
-export function demoPosture() {
-  const dimensions = [
-    { dimension: 'identity', score: 88, weight: 0.2 },
-    { dimension: 'enforcement', score: 76, weight: 0.2 },
-    { dimension: 'spend', score: 64, weight: 0.15 },
-    { dimension: 'auditability', score: 95, weight: 0.15 },
-    { dimension: 'approval', score: 82, weight: 0.15 },
-    { dimension: 'data_protection', score: 71, weight: 0.15 },
-  ];
-  const snapshots = [82, 80, 79, 81, 83].map((score, i) => ({ score, createdAt: `2026-06-0${i + 1}T00:00:00.000Z` }));
-  return {
-    score: 81,
-    status: 'needs_attention',
-    cappedBy: null,
-    dimensions,
-    summary: {
-      totalUnits: 6,
-      coveredUnits: 4,
-      openFindings: 2,
-      pointsRecoverable: 14,
-      acceptedRisk: { count: 1, lastActor: 'demo-operator', lastAt: '2026-06-06T00:00:00.000Z' },
-    },
-    snapshots,
-    snapshotTs: '2026-06-07T00:00:00.000Z',
-  };
-}
-
-export function demoPostureFindings() {
-  const findings = [
-    { key: 'spend_no_cap', dimension: 'spend', severity: 'high', title: 'No spend cap on 2 agents', evidence: { observedCount: 2, exampleActionIds: ['act_demo_1', 'act_demo_2'] }, scoreDelta: -8, fix: { type: 'policy', policyType: 'spend_cap', deepLink: '/policies' }, status: 'open' },
-    { key: 'data_protection_paths', dimension: 'data_protection', severity: 'medium', title: 'Protected paths not gated', evidence: { observedCount: 3, exampleActionIds: ['act_demo_3'] }, scoreDelta: -6, fix: { type: 'policy', policyType: 'protected_path_approval', deepLink: '/policies' }, status: 'open' },
-  ];
-  const riskAccepted = [
-    {
-      key: 'noisy_monitor_type',
-      dimension: 'auditability',
-      severity: 'low',
-      title: 'Action type "monitor" is not fully governed',
-      evidence: { observedCount: 41, exampleActionIds: [] },
-      scoreDelta: 1,
-      fix: { type: 'policy', policyType: 'risk_threshold', deepLink: '/policies' },
-      status: 'accepted_risk',
-      statusMeta: { actor: 'demo-operator', note: 'Read-only monitoring; accepted.', updatedAt: '2026-06-06T00:00:00.000Z' },
-    },
-  ];
-  return { findings, riskAccepted, counts: { open: 2, drafted: 0, resolved: 0, snoozed: 0, accepted_risk: 1 } };
 }
 
 // Period-aware spend rollup mirroring GET /api/finops/spend: the 7d/30d/90d

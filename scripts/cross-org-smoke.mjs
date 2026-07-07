@@ -124,16 +124,17 @@ async function main() {
 
     // --- sanity: both keys authenticate at all -----------------------------
     {
-      const a = await A('POST', '/api/agents/heartbeat', { agent_id: agentA });
-      const b = await B('POST', '/api/agents/heartbeat', { agent_id: `iso-b-agent-${RUN}` });
+      const a = await A('POST', '/api/actions', { agent_id: agentA, action_type: `iso.sanity.${RUN}`, declared_goal: `auth sanity ${RUN}` });
+      const b = await B('POST', '/api/actions', { agent_id: `iso-b-agent-${RUN}`, action_type: `iso.sanity.${RUN}`, declared_goal: `auth sanity ${RUN}` });
       if (a.status === 401 || b.status === 401) {
         console.error(`FATAL: seeded DB keys rejected (A=${a.status}, B=${b.status}). ` +
           'Does the server share this DATABASE_URL, and is the operator key set in the server env (self-host key resolution)?');
         process.exitCode = 1;
         return;
       }
-      check('sanity: org A key authenticates (heartbeat)', a.status === 200, `status=${a.status}`);
-      check('sanity: org B key authenticates (heartbeat)', b.status === 200, `status=${b.status}`);
+      const authOk = (s) => s === 200 || s === 201 || s === 202;
+      check('sanity: org A key authenticates (actions)', authOk(a.status), `status=${a.status}`);
+      check('sanity: org B key authenticates (actions)', authOk(b.status), `status=${b.status}`);
     }
 
     // --- actions ------------------------------------------------------------
@@ -204,15 +205,6 @@ async function main() {
       check('handoffs: org B cannot consume org A handoff', consume.status === 404, `status=${consume.status}`);
       const still = await A('GET', `/api/handoffs/${handoffId}`);
       check('handoffs: org A handoff survives org B consume attempt', still.status === 200, `status=${still.status}`);
-    }
-
-    // --- agents / presence -------------------------------------------------------
-    {
-      const list = await B('GET', '/api/agents');
-      const leaked = (list.json?.agents || []).some((a) => a.agent_id === agentA);
-      check('agents: org B fleet list does not include org A agent', list.status === 200 && !leaked, `status=${list.status} leaked=${leaked}`);
-      const read = await B('GET', `/api/agents/${agentA}`);
-      check('agents: org B cannot read org A agent detail', read.status === 404, `status=${read.status}`);
     }
 
     // --- guard decisions -----------------------------------------------------------

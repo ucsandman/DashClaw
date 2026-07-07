@@ -174,7 +174,7 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
           {state.data.session ? (
             <div className="flex flex-wrap items-center gap-3 border-t border-border pt-4">
               <a
-                href="/mission-control"
+                href="/approvals"
                 className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
               >
                 Open your dashboard

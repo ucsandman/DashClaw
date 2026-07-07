@@ -26,7 +26,6 @@ beforeEach(() => {
 // global ContextMenuProvider resolves a right-click on it.
 // ---------------------------------------------------------------------------
 const TAGGED_FILES: Array<[string, string]> = [
-  ['activity', 'app/activity/page.tsx'],
   // Rows extracted to the client ProjectsTable (multi-select, phase 7) — the
   // tagging lives there now; the server page just passes rows in.
   ['code-sessions', 'app/code-sessions/ProjectsTable.tsx'],
@@ -35,11 +34,8 @@ const TAGGED_FILES: Array<[string, string]> = [
   ['learning', 'app/learning/page.tsx'],
   ['model-strategies', 'app/workflows/strategies/page.tsx'],
   ['prompts', 'app/prompts/page.tsx'],
-  ['team', 'app/team/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
-  ['security signals', 'app/security/page.tsx'],
   ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],
-  ['agent policies section', 'app/agents/[agentId]/components/AgentPoliciesSection.tsx'],
 ];
 
 describe('context-menu coverage — tagging inventory', () => {
@@ -49,9 +45,8 @@ describe('context-menu coverage — tagging inventory', () => {
     expect(code).toMatch(/data-entity-id/);
   });
 
-  it('marks policy rows as right-clickable in PolicyCockpit (ContractPanel) and AgentPoliciesSection', () => {
+  it('marks policy rows as right-clickable in PolicyCockpit (ContractPanel)', () => {
     expect(src('app/policies/components/ContractPanel.tsx')).toMatch(/data-entity-type="policy"/);
-    expect(src('app/agents/[agentId]/components/AgentPoliciesSection.tsx')).toMatch(/data-entity-type="policy"/);
   });
 });
 

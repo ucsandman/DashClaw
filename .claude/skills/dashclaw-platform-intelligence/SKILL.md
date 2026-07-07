@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:10b89c68015c0b4879a8055ae26f11ddc6d03a20`
+**Shape snapshot:** `sha1:62b5471957101d6b215f48352509d0ac44174dac`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **289** active API routes across **73** categories (289 total including archived)
+- **272** active API routes across **68** categories (272 total including archived)
 - **4** required + **201** optional environment variables
 - **112** database tables
 
@@ -75,20 +75,11 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ### `agents`
 
-- `GET` `/api/agents`
-- `GET` `/api/agents/[agentId]`
-- `GET` `/api/agents/[agentId]/profile`
-- `GET, POST` `/api/agents/connections`
 - `GET` `/api/agents/fanouts`
-- `POST` `/api/agents/heartbeat`
 - `POST` `/api/agents/invoke`
 - `GET, POST` `/api/agents/registry`
 - `GET, PATCH` `/api/agents/registry/[id]`
 - `GET, POST` `/api/agents/registry/[id]/capabilities`
-
-### `analytics`
-
-- `GET` `/api/analytics`
 
 ### `approvals`
 
@@ -198,10 +189,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `POST` `/api/cron/routing-maintenance`
 - `GET` `/api/cron/signals`
 
-### `digest`
-
-- `GET` `/api/digest/fleet`
-
 ### `discord`
 
 - `POST` `/api/discord/interactions`
@@ -292,10 +279,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `POST` `/api/internal/resolve-key`
 
-### `invite`
-
-- `GET, POST` `/api/invite/[token]`
-
 ### `keys`
 
 - `DELETE, GET, POST` `/api/keys`
@@ -360,7 +343,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ### `operations`
 
-- `GET` `/api/operations/feed`
 - `GET` `/api/operations/summary`
 
 ### `orgs`
@@ -394,13 +376,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/policies/templates`
 - `POST` `/api/policies/test`
 - `GET, POST` `/api/policies/tightening`
-
-### `posture`
-
-- `GET` `/api/posture`
-- `GET` `/api/posture/findings`
-- `POST` `/api/posture/findings/[key]/resolve`
-- `POST` `/api/posture/scan`
 
 ### `prompts`
 
@@ -447,7 +422,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `security`
 
 - `GET, POST` `/api/security/prompt-injection`
-- `POST` `/api/security/scan`
 - `GET` `/api/security/status`
 
 ### `self-governance`
@@ -497,12 +471,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `GET` `/api/swarm/graph`
 - `GET` `/api/swarm/link`
-
-### `team`
-
-- `GET` `/api/team`
-- `DELETE, PATCH` `/api/team/[userId]`
-- `DELETE, GET, POST` `/api/team/invite`
 
 ### `telegram`
 
@@ -564,8 +532,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 86 file(s)
-- **`DATABASE_URL`** - referenced in 103 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 85 file(s)
+- **`DATABASE_URL`** - referenced in 101 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 

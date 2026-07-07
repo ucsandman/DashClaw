@@ -13,7 +13,6 @@ afterEach(() => cleanup());
 // Each type that has a DETAIL_PATH must render a real anchor to the right route.
 const LINK_CASES = [
   ['decision', 'act_1', '/decisions/act_1'],
-  ['agent', 'agent_1', '/agents/agent_1'],
   ['session', 'sess_1', '/sessions/sess_1'],
   ['capability', 'cap_1', '/capabilities/cap_1'],
   ['workflow', 'wf_1', '/workflows/wf_1'],

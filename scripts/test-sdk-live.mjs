@@ -238,9 +238,6 @@ async function testLoopsAndAssumptions(actionId) {
 async function testSignals() {
   console.log('\n--- Category 3: Signals ---');
 
-  // Ensure agent_presence table exists (created lazily by heartbeat)
-  await sdk.heartbeat({ status: 'online' }).catch(() => {});
-
   const res = await sdk.getSignals();
 
   assert(Array.isArray(res.signals),

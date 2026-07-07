@@ -1,7 +1,7 @@
 ---
 source-of-truth: false
 owner: API Governance Lead
-last-verified: 2026-07-06
+last-verified: 2026-07-07
 doc-type: architecture
 ---
 
@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `289`
-- Stable routes: `57`
-- Beta routes: `24`
-- Experimental routes: `208`
+- Total routes: `272`
+- Stable routes: `53`
+- Beta routes: `23`
+- Experimental routes: `196`
 
 ## Routes
 
@@ -35,17 +35,11 @@ doc-type: architecture
 | `/api/actions/{actionId}/trace` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/trace/route.ts` |
 | `/api/activity` | `GET` | `beta` | `/api/activity` | `app/api/activity/route.ts` |
 | `/api/admin/trigger-outcome-sweep` | `POST` | `experimental` | `(default)` | `app/api/admin/trigger-outcome-sweep/route.ts` |
-| `/api/agents` | `GET` | `experimental` | `/api/agents` | `app/api/agents/route.ts` |
-| `/api/agents/connections` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/connections/route.ts` |
 | `/api/agents/fanouts` | `GET` | `experimental` | `/api/agents` | `app/api/agents/fanouts/route.ts` |
-| `/api/agents/heartbeat` | `POST` | `experimental` | `/api/agents` | `app/api/agents/heartbeat/route.ts` |
 | `/api/agents/invoke` | `POST` | `experimental` | `/api/agents` | `app/api/agents/invoke/route.ts` |
 | `/api/agents/registry` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/registry/route.ts` |
 | `/api/agents/registry/{id}` | `GET, PATCH` | `experimental` | `/api/agents` | `app/api/agents/registry/[id]/route.ts` |
 | `/api/agents/registry/{id}/capabilities` | `GET, POST` | `experimental` | `/api/agents` | `app/api/agents/registry/[id]/capabilities/route.ts` |
-| `/api/agents/{agentId}` | `GET` | `experimental` | `/api/agents` | `app/api/agents/[agentId]/route.ts` |
-| `/api/agents/{agentId}/profile` | `GET` | `experimental` | `/api/agents` | `app/api/agents/[agentId]/profile/route.ts` |
-| `/api/analytics` | `GET` | `experimental` | `(default)` | `app/api/analytics/route.ts` |
 | `/api/approvals/bulk` | `POST` | `experimental` | `(default)` | `app/api/approvals/bulk/route.ts` |
 | `/api/approvals/floods` | `GET` | `experimental` | `(default)` | `app/api/approvals/floods/route.ts` |
 | `/api/approvals/{actionId}` | `POST` | `experimental` | `(default)` | `app/api/approvals/[actionId]/route.ts` |
@@ -117,7 +111,6 @@ doc-type: architecture
 | `/api/cron/reset-meters` | `GET` | `beta` | `/api/cron` | `app/api/cron/reset-meters/route.ts` |
 | `/api/cron/routing-maintenance` | `POST` | `beta` | `/api/cron` | `app/api/cron/routing-maintenance/route.ts` |
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.ts` |
-| `/api/digest/fleet` | `GET` | `experimental` | `(default)` | `app/api/digest/fleet/route.ts` |
 | `/api/discord/interactions` | `POST` | `experimental` | `(default)` | `app/api/discord/interactions/route.ts` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
 | `/api/doctor` | `GET` | `experimental` | `(default)` | `app/api/doctor/route.ts` |
@@ -157,7 +150,6 @@ doc-type: architecture
 | `/api/integrity/jwks` | `GET` | `experimental` | `(default)` | `app/api/integrity/jwks/route.ts` |
 | `/api/integrity/verify` | `POST` | `experimental` | `(default)` | `app/api/integrity/verify/route.ts` |
 | `/api/internal/resolve-key` | `POST` | `experimental` | `(default)` | `app/api/internal/resolve-key/route.ts` |
-| `/api/invite/{token}` | `GET, POST` | `stable` | `/api/invite` | `app/api/invite/[token]/route.ts` |
 | `/api/keys` | `DELETE, GET, POST` | `stable` | `/api/keys` | `app/api/keys/route.ts` |
 | `/api/keys/reveal` | `GET` | `stable` | `/api/keys` | `app/api/keys/reveal/route.ts` |
 | `/api/knowledge/collections` | `GET, POST` | `experimental` | `(default)` | `app/api/knowledge/collections/route.ts` |
@@ -193,7 +185,6 @@ doc-type: architecture
 | `/api/oauth/metadata/protected-resource` | `GET` | `experimental` | `(default)` | `app/api/oauth/metadata/protected-resource/route.ts` |
 | `/api/oauth/register` | `POST` | `experimental` | `(default)` | `app/api/oauth/register/route.ts` |
 | `/api/oauth/token` | `POST` | `experimental` | `(default)` | `app/api/oauth/token/route.ts` |
-| `/api/operations/feed` | `GET` | `experimental` | `(default)` | `app/api/operations/feed/route.ts` |
 | `/api/operations/summary` | `GET` | `experimental` | `(default)` | `app/api/operations/summary/route.ts` |
 | `/api/orgs` | `GET, POST` | `stable` | `/api/orgs` | `app/api/orgs/route.ts` |
 | `/api/orgs/{orgId}` | `GET, PATCH` | `stable` | `/api/orgs` | `app/api/orgs/[orgId]/route.ts` |
@@ -218,10 +209,6 @@ doc-type: architecture
 | `/api/policies/templates` | `GET` | `stable` | `/api/policies` | `app/api/policies/templates/route.ts` |
 | `/api/policies/test` | `POST` | `stable` | `/api/policies` | `app/api/policies/test/route.ts` |
 | `/api/policies/tightening` | `GET, POST` | `stable` | `/api/policies` | `app/api/policies/tightening/route.ts` |
-| `/api/posture` | `GET` | `experimental` | `(default)` | `app/api/posture/route.ts` |
-| `/api/posture/findings` | `GET` | `experimental` | `(default)` | `app/api/posture/findings/route.ts` |
-| `/api/posture/findings/{key}/resolve` | `POST` | `experimental` | `(default)` | `app/api/posture/findings/[key]/resolve/route.ts` |
-| `/api/posture/scan` | `POST` | `experimental` | `(default)` | `app/api/posture/scan/route.ts` |
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.ts` |
 | `/api/prompts/render` | `POST` | `experimental` | `(default)` | `app/api/prompts/render/route.ts` |
 | `/api/prompts/runs` | `GET` | `experimental` | `(default)` | `app/api/prompts/runs/route.ts` |
@@ -253,7 +240,6 @@ doc-type: architecture
 | `/api/secrets/{id}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/secrets/[id]/route.ts` |
 | `/api/secrets/{id}/value` | `POST` | `experimental` | `(default)` | `app/api/secrets/[id]/value/route.ts` |
 | `/api/security/prompt-injection` | `GET, POST` | `beta` | `/api/security` | `app/api/security/prompt-injection/route.ts` |
-| `/api/security/scan` | `POST` | `beta` | `/api/security` | `app/api/security/scan/route.ts` |
 | `/api/security/status` | `GET` | `beta` | `/api/security` | `app/api/security/status/route.ts` |
 | `/api/self-governance` | `GET` | `experimental` | `(default)` | `app/api/self-governance/route.ts` |
 | `/api/session/effective` | `GET` | `experimental` | `(default)` | `app/api/session/effective/route.ts` |
@@ -276,9 +262,6 @@ doc-type: architecture
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
 | `/api/swarm/graph` | `GET` | `experimental` | `/api/swarm` | `app/api/swarm/graph/route.ts` |
 | `/api/swarm/link` | `GET` | `experimental` | `/api/swarm` | `app/api/swarm/link/route.ts` |
-| `/api/team` | `GET` | `stable` | `/api/team` | `app/api/team/route.ts` |
-| `/api/team/invite` | `DELETE, GET, POST` | `stable` | `/api/team` | `app/api/team/invite/route.ts` |
-| `/api/team/{userId}` | `DELETE, PATCH` | `stable` | `/api/team` | `app/api/team/[userId]/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
 | `/api/usage/costs` | `GET` | `stable` | `/api/usage` | `app/api/usage/costs/route.ts` |

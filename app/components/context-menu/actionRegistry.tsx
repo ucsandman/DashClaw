@@ -23,7 +23,6 @@ import type { ActionContext, EntityTarget, MenuItem } from './types';
 export const DETAIL_PATH: Record<string, (id: string) => string> = {
   decision: (id) => `/decisions/${id}`,
   action: (id) => `/decisions/${id}`,
-  agent: (id) => `/agents/${id}`,
   session: (id) => `/sessions/${id}`,
   capability: (id) => `/capabilities/${id}`,
   workflow: (id) => `/workflows/${id}`,

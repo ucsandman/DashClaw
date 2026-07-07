@@ -700,14 +700,14 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                 </h2>
               </div>
               <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
-                Once Claude acts, every governed decision shows up in Mission Control — the action,
+                Once Claude acts, every governed decision shows up in the Approvals inbox — the action,
                 the policy that fired, and anything waiting on your approval.
               </p>
               <Link
-                href="/mission-control"
+                href="/approvals"
                 className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-brand text-surface-primary text-sm font-bold hover:bg-brand-hover transition-colors"
               >
-                Open Mission Control <ArrowRight size={14} aria-hidden="true" />
+                Open Approvals <ArrowRight size={14} aria-hidden="true" />
               </Link>
             </div>
 

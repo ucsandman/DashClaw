@@ -99,7 +99,7 @@ describe('trial session — page routes', () => {
   it('deleted/cleaned-up org: redirect to /connect?trial=expired and the cookie is cleared', async () => {
     sqlMock.mockResolvedValue([]); // org gone
     const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
-    const res = await middleware(req('/mission-control', { cookie }));
+    const res = await middleware(req('/approvals', { cookie }));
     expect(res.status).toBe(307);
     expect(res.headers.get('location')).toContain('/connect?trial=expired');
     expect(res.headers.get('set-cookie') || '').toContain('dashclaw-trial-session=;');
@@ -169,12 +169,12 @@ describe('trial session — page routes', () => {
     expect(res.headers.get('location')).toContain('/login');
   });
 
-  it('/login with a live trial session redirects to /mission-control', async () => {
+  it('/login with a live trial session redirects to /approvals', async () => {
     sqlMock.mockResolvedValue([liveTrialOrgRow()]);
     const cookie = `dashclaw-trial-session=${await trialJwt({ orgId: uniqueOrg() })}`;
     const res = await middleware(req('/login', { cookie }));
     expect(res.status).toBe(307);
-    expect(res.headers.get('location')).toContain('/mission-control');
+    expect(res.headers.get('location')).toContain('/approvals');
   });
 
   it('/login with a definitively-dead trial cookie routes to /connect?trial=expired', async () => {

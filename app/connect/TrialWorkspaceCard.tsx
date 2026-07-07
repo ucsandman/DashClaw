@@ -72,11 +72,11 @@ export default function TrialWorkspaceCard({
 
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
-          href="/mission-control"
+          href="/approvals"
           className="inline-flex items-center gap-1.5 rounded-lg bg-brand px-4 py-2 text-sm font-bold text-surface-primary transition-colors hover:bg-brand-hover"
         >
           <ShieldCheck size={14} aria-hidden="true" />
-          Open Mission Control <ArrowRight size={14} aria-hidden="true" />
+          Open Approvals <ArrowRight size={14} aria-hidden="true" />
         </Link>
         <Link
           href="/decisions"

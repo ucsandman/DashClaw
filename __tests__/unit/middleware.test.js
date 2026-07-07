@@ -38,28 +38,8 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
   });
 
   it('OPTIONS preflight short-circuits to 204 before any dispatch', async () => {
-    const res = await middleware(req('/api/agents', { method: 'OPTIONS' }));
+    const res = await middleware(req('/api/actions', { method: 'OPTIONS' }));
     expect(res.status).toBe(204);
-  });
-
-  it('GET /api/agents returns the demo agent list', async () => {
-    const res = await middleware(req('/api/agents'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(Array.isArray(body.agents)).toBe(true);
-    expect(body.agents.length).toBeGreaterThan(0);
-  });
-
-  it('QUIRK: GET /api/agents/connections is shadowed by the agent-detail pattern', async () => {
-    // The tail-pattern (api/agents/:id) matches BEFORE the exact
-    // /api/agents/connections handler further down the cascade, so demo mode
-    // answers with a synthesized agent-detail body for the literal id
-    // "connections". A reordering refactor would silently route this to
-    // demoAgentConnections instead — which would be a behavior change.
-    const res = await middleware(req('/api/agents/connections'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.agent?.agent_id).toBe('connections');
   });
 
   it('QUIRK: POST /api/drift/alerts hits the write-block BEFORE the drift handler → 403', async () => {

@@ -698,30 +698,7 @@ async function testGoalsAndContent() {
 // ──────────────────────────────────────────────
 
 async function testAgentsAndConnections() {
-  console.log('\n━━━ Phase 10: Agents & Connections ━━━');
-
-  // GET /api/agents
-  const { status: s1, data: d1 } = await request('GET', '/api/agents');
-  assert(s1 === 200, `GET /api/agents returns 200 (got ${s1})`);
-  assert(Array.isArray(d1.agents), 'Agents returns array');
-
-  // GET /api/agents?include_connections=true
-  const { status: s1b } = await request('GET', '/api/agents?include_connections=true');
-  assert(s1b === 200, 'GET agents with connections returns 200');
-
-  // POST /api/agents/connections — report (requires connections array)
-  const { status: s2, data: d2 } = await request('POST', '/api/agents/connections', {
-    agent_id: 'test-conn-agent',
-    connections: [
-      { provider: 'github', auth_type: 'oauth', status: 'active' },
-    ],
-  });
-  assert(s2 === 200 || s2 === 201, `POST /api/agents/connections returns 200/201 (got ${s2})`);
-
-  // GET /api/agents/connections
-  const { status: s3, data: d3 } = await request('GET', '/api/agents/connections');
-  assert(s3 === 200, `GET /api/agents/connections returns 200 (got ${s3})`);
-  assert(Array.isArray(d3.connections), 'Connections returns array');
+  console.log('\n━━━ Phase 10: Relationships ━━━');
 
   // POST /api/relationships — record interaction (requires summary)
   const { status: s4, data: d4 } = await request('POST', '/api/relationships', {

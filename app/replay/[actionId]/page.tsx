@@ -453,7 +453,7 @@ export default function PublicReplayPage() {
           <div className="mt-8 flex flex-col items-center gap-6">
             <div className="flex items-center gap-3">
               <Link
-                href="/mission-control"
+                href="/approvals"
                 className="px-6 py-3 bg-white text-black font-black text-xs uppercase tracking-widest rounded-xl hover:bg-zinc-200 transition-all flex items-center gap-2 shadow-lg"
               >
                 Launch Console <ArrowRight size={14} />

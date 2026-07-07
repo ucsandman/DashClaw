@@ -3,20 +3,20 @@ import { getToken } from 'next-auth/jwt';
 import { neon } from '@neondatabase/serverless';
 import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
-  demoListActions, demoCreateAction, demoAgents, demoAgentDetail, demoActionDetail, demoAssumptions,
+  demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoRegistryList, demoRegistryDetail, demoRegistryCapabilities, demoRegistryInvoke,
   demoLearning, demoLearningRecommendations, demoLearningRecommendationMetrics,
   demoConsolidatedLessons,
   demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost, demoMessages, demoMessageThreads,
-  demoMessageDocs, demoContent, demoTeam, demoTeamInvites, demoActivity,
+  demoMessageDocs, demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoWorkflows, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
-  demoHandoffs, demoSnippets, demoPreferences, demoSwarmGraph, demoAgentConnections, demoActionTrace,
+  demoHandoffs, demoSnippets, demoPreferences, demoSwarmGraph, demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
-  demoPosture, demoPostureFindings, demoSpend, demoX402Purchases, demoX402Budget,
+  demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
   demoListWorkOrders, demoGetWorkOrder, demoListWorkOrderTypes
 } from './app/lib/demo/demoMiddleware';
@@ -771,13 +771,13 @@ async function handleWellKnownAlias(request, pathname) {
 // /demo is always a public entrypoint. Plain /demo lands first-time evaluators
 // on the interactive marketing demo (no cookie, no auth-gated routes).
 // /demo?sandbox=1 is the explicit "enter the demo dashboard" path (the navbar/
-// footer Mission Control CTAs): it mints the non-secret dashclaw_demo cookie and
-// forwards into /mission-control, where reads are served from deterministic
+// footer demo CTAs): it mints the non-secret dashclaw_demo cookie and
+// forwards into /decisions, where reads are served from deterministic
 // fixtures and writes are blocked. /demo?leave=1 exits the sandbox.
 function handleDemoEntry(request) {
   const leave = request.nextUrl.searchParams.get('leave') === '1';
   const sandbox = !leave && request.nextUrl.searchParams.get('sandbox') === '1';
-  const target = sandbox ? '/mission-control' : '/#live-demo';
+  const target = sandbox ? '/decisions' : '/#live-demo';
   const response = NextResponse.redirect(new URL(target, request.url));
 
   if (leave) {
@@ -879,14 +879,6 @@ function segmentsMatch(segments, pattern) {
   return pattern.every((part, i) => part === '*' || segments[i] === part);
 }
 
-// Tail-anchored agent-detail pattern, kept exactly as the original cascade
-// expressed it. NOTE: this matches /api/agents/connections too (the literal id
-// "connections"), shadowing the exact entry further down the table — that is
-// long-standing demo behavior and is pinned by middleware.test.js.
-function isDemoAgentDetailPath(pathname, segments) {
-  return segments[segments.length - 3] === 'api' && segments[segments.length - 2] === 'agents';
-}
-
 function demoHealthPayload() {
   return {
     status: 'healthy',
@@ -899,13 +891,6 @@ function demoHealthPayload() {
     mode: 'demo',
     checks: { demo: { status: 'healthy' } },
   };
-}
-
-function handleDemoAgentDetailRoute({ request, fixtures, segments }) {
-  const agentId = segments[segments.length - 1];
-  const detail = demoAgentDetail(fixtures, agentId);
-  if (!detail) return demoJson(request, { error: 'Agent not found' }, 404);
-  return demoJson(request, detail);
 }
 
 async function handleDemoActionsRoute({ request, fixtures, url, method }) {
@@ -956,7 +941,7 @@ function handleDemoLoops({ request, fixtures, url }) {
 }
 
 function handleDemoActionCosts({ request, url }) {
-  // Demo-mode stub so /mission-control and /analytics render without the
+  // Demo-mode stub so the cost surfaces render without the
   // catch-all /api/actions/[actionId] handler below swallowing this path
   // and returning 404.
   return demoJson(request, {
@@ -1269,15 +1254,11 @@ const demoFixturePropRoute = (key) => ({ request, fixtures }) => demoJson(reques
 const DEMO_API_ROUTES = [
   // Health
   ['/api/health', demoPayloadRoute(demoHealthPayload)],
-  // Agents + actions
-  ['/api/agents', demoFixtureRoute(demoAgents)],
-  // Registry — MUST precede isDemoAgentDetailPath, which matches any
-  // /api/agents/<segment> (including /api/agents/registry).
+  // Agent registry (Wave 13 residue) + actions
   ['/api/agents/registry', ({ request, url }) => demoJson(request, demoRegistryList(url))],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*', 'capabilities']), ({ request }) => demoJson(request, demoRegistryCapabilities())],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'agents', 'registry', '*']), ({ request }) => demoJson(request, demoRegistryDetail())],
   ['/api/agents/invoke', ({ request }) => demoJson(request, demoRegistryInvoke())],
-  [isDemoAgentDetailPath, handleDemoAgentDetailRoute],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
   ['/api/actions/loops', handleDemoLoops],
@@ -1382,11 +1363,6 @@ const DEMO_API_ROUTES = [
   ['/api/messages/threads', demoFixtureUrlRoute(demoMessageThreads)],
   ['/api/messages/docs', demoFixtureUrlRoute(demoMessageDocs)],
   ['/api/content', demoFixtureUrlRoute(demoContent)],
-  // NOTE: unreachable in practice — isDemoAgentDetailPath above also matches
-  // /api/agents/connections and wins. Kept to mirror the original cascade.
-  ['/api/agents/connections', demoFixtureUrlRoute(demoAgentConnections)],
-  ['/api/team', demoFixtureRoute(demoTeam)],
-  ['/api/team/invite', demoFixtureRoute(demoTeamInvites)],
   ['/api/activity', demoFixtureUrlRoute(demoActivity)],
   ['/api/webhooks', demoFixtureRoute(demoWebhooks)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'webhooks', '*', 'deliveries']), handleDemoWebhookDeliveries],
@@ -1421,8 +1397,6 @@ const DEMO_API_ROUTES = [
   ['/api/reputation/leaderboard', demoFixtureRoute(demoReputationLeaderboard)],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'summary']), ({ request, fixtures, segments }) => demoJson(request, demoReputationSummary(fixtures, segments[3]))],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'reputation', 'agents', '*', 'events']), ({ request, fixtures, url, segments }) => demoJson(request, demoReputationEvents(fixtures, segments[3], url))],
-  ['/api/posture', demoPayloadRoute(demoPosture)],
-  ['/api/posture/findings', demoPayloadRoute(demoPostureFindings)],
   ['/api/finops/spend', ({ request, url }) => demoJson(request, demoSpend(url))],
   ['/api/x402/purchases', ({ request, url }) => demoJson(request, demoX402Purchases(url))],
   ['/api/x402/budget', ({ request, url }) => demoJson(request, demoX402Budget(url))],
@@ -1611,11 +1585,11 @@ async function authenticateTrialPage(request) {
 async function handlePageRequest(request, pathname, clearStaleDemoCookie) {
   const token = await getToken({ req: request, secret: process.env.NEXTAUTH_SECRET });
 
-  // /login — redirect to dashboard if already logged in
+  // /login — redirect to the hero surface if already logged in
   if (pathname === '/login') {
-    if (token) return NextResponse.redirect(new URL('/mission-control', request.url));
+    if (token) return NextResponse.redirect(new URL('/approvals', request.url));
     const trial = await authenticateTrialPage(request);
-    if (trial.session) return NextResponse.redirect(new URL('/mission-control', request.url));
+    if (trial.session) return NextResponse.redirect(new URL('/approvals', request.url));
     // A visitor who lands on /login carrying a DEFINITIVELY-dead trial cookie
     // gets the same honest trial-ended routing as every protected page —
     // otherwise the behavior is inconsistent by entry point, and on hosted
@@ -2015,10 +1989,6 @@ export const config = {
     '/.well-known/oauth-authorization-server',
     '/.well-known/oauth-protected-resource',
     '/demo',
-    '/dashboard',
-    '/dashboard/:path*',
-    '/mission-control',
-    '/mission-control/:path*',
     '/swarm',
     '/swarm/:path*',
     '/approvals',
@@ -2031,8 +2001,6 @@ export const config = {
     '/actions/:path*',
     '/decisions',
     '/decisions/:path*',
-    '/analytics',
-    '/analytics/:path*',
     '/assumptions',
     '/assumptions/:path*',
     '/scoring',
@@ -2051,20 +2019,14 @@ export const config = {
     '/pairings/:path*',
     '/bug-hunter',
     '/bug-hunter/:path*',
-    '/security',
-    '/security/:path*',
     '/code-sessions',
     '/code-sessions/:path*',
     '/setup',
     '/setup/:path*',
     '/api-keys',
     '/api-keys/:path*',
-    '/team',
-    '/team/:path*',
     '/usage',
     '/usage/:path*',
-    '/activity',
-    '/activity/:path*',
     '/webhooks',
     '/webhooks/:path*',
     '/messages',
@@ -2095,7 +2057,6 @@ export const config = {
     '/prompts/:path*',
     '/api/prompts/:path*',
     '/api/settings/llm-status',
-    '/invite/:path*',
     '/login',
   ],
 };

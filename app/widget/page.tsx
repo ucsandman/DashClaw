@@ -207,7 +207,7 @@ function WidgetPageInner() {
             </>
           )}
           <Link
-            href="/mission-control"
+            href="/approvals"
             target={isPopout || variant === 'pip' ? '_blank' : undefined}
             rel={isPopout || variant === 'pip' ? 'noopener noreferrer' : undefined}
             aria-label="Open the full dashboard"

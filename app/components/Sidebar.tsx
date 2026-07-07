@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { isDemoMode } from '../lib/isDemoMode';
 import {
-  Zap, ShieldAlert, KeyRound, Settings, Clock, PanelLeftClose,
+  Zap, KeyRound, Settings, Clock, PanelLeftClose,
   PanelLeft, Menu, X, Activity, Shield, Microscope, Plug,
   Fingerprint, Bell, FlaskConical, ChevronDown, Stethoscope,
   ClipboardCheck, Crosshair,
@@ -46,7 +46,6 @@ const navGroups: NavGroup[] = [
       { href: '/identities', icon: Fingerprint, label: 'Identities' },
       { href: '/integrations', icon: Plug, label: 'Integrations' },
       { href: '/webhooks', icon: Bell, label: 'Webhooks' },
-      { href: '/security', icon: ShieldAlert, label: 'Security' },
       { href: '/doctor', icon: Stethoscope, label: 'Doctor' },
       { href: '/settings', icon: Settings, label: 'Settings' },
     ],

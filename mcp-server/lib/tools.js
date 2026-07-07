@@ -466,29 +466,6 @@ export const TOOL_DEFINITIONS = [
         },
     },
     {
-        name: 'dashclaw_posture',
-        description: 'Read the org-wide governance posture score (0-100) and its prioritized remediation queue. ' +
-            'Returns the gaming-resistant score, the six dimension breakdowns (identity, enforcement, spend, ' +
-            'auditability, approval, data_protection), and the open findings (each with severity, points ' +
-            'recoverable, evidence, and the prefilled fix). Read-only governance retrospection — "how well ' +
-            'is my fleet actually governed, and what is the highest-leverage gap?" Resolving findings is ' +
-            'operator-driven (UI/CLI); an agent can observe gaps but never activates enforcement.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                dimension: { type: 'string', description: 'Filter the returned findings to one dimension.' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_posture_next',
-        description: 'Return the single highest-priority open governance gap (the top of the posture remediation ' +
-            'queue) with its severity, points recoverable, evidence, and prefilled fix. Use for "what is the ' +
-            'one governance gap I should close next?" Read-only — preparing or activating the fix is ' +
-            'operator-driven, not agent-driven.',
-        inputSchema: { type: 'object', properties: {} },
-    },
-    {
         name: 'dashclaw_work_order_submit',
         description: 'Submit a DashClaw work order: a typed, budget-capped unit of agent work governed by ' +
             'policy. The order is validated against the registered contract for its type, guard-gated ' +
@@ -1136,29 +1113,6 @@ export function createToolHandlers(client) {
                         ? `Status unconfirmed for part of the wait (${pairPollErrors} failed polls; last: ${lastPairPollError}) — check the DashClaw Identities page.`
                         : 'Awaiting admin approval on the DashClaw Identities page.',
             });
-        },
-        async dashclaw_posture(input) {
-            // GET /api/posture (score + dimensions) + /api/posture/findings (queue).
-            // Read-only: agents observe governance posture; resolving is operator-driven.
-            const [posture, findings] = await Promise.all([
-                client.get('/api/posture', {}, { timeout: 15000 }),
-                client.get('/api/posture/findings', { dimension: input.dimension }, { timeout: 15000 }),
-            ]);
-            return JSON.stringify({
-                score: posture.score,
-                status: posture.status,
-                cappedBy: posture.cappedBy,
-                dimensions: posture.dimensions,
-                summary: posture.summary,
-                findings: findings.findings,
-                counts: findings.counts,
-            });
-        },
-        async dashclaw_posture_next(_input) {
-            // GET /api/posture/findings — the top open finding (the `next` gap).
-            const findings = await client.get('/api/posture/findings', {}, { timeout: 15000 });
-            const next = Array.isArray(findings.findings) ? findings.findings[0] || null : null;
-            return JSON.stringify({ next });
         },
         async dashclaw_work_order_submit(args) {
             const { type, input, max_cost_usd, timeout_seconds } = args;

@@ -27,7 +27,7 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
 
   useEffect(() => {
     if (sessionSettled && authenticated) {
-      router.replace('/mission-control');
+      router.replace('/approvals');
     }
   }, [sessionSettled, authenticated, router]);
 
@@ -76,7 +76,7 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
           {providers.map((provider) => (
             <button
               key={provider.id}
-              onClick={() => signIn(provider.id, { callbackUrl: '/mission-control' })}
+              onClick={() => signIn(provider.id, { callbackUrl: '/approvals' })}
               className={`flex w-full items-center justify-center gap-2.5 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors ${
                 provider.id === 'github'
                   ? 'bg-white text-black hover:bg-zinc-200'

@@ -331,22 +331,6 @@ export async function listAgentsForOrg(
   return agents;
 }
 
-/**
- * Retrieve a single agent's detailed profile.
- */
-export async function getAgentDetail(
-  sql: SqlClient,
-  orgId: string,
-  agentId: string
-): Promise<AgentRecord | null> {
-  const agents = await listAgentsForOrg(sql, orgId);
-  const agent = agents.find(a => a.agent_id === agentId);
-  if (!agent) return null;
-
-  await attachAgentConnections(sql, orgId, [agent]);
-  return agent;
-}
-
 interface PresencePayload {
   agent_id: string;
   agent_name?: string | null;
@@ -359,6 +343,11 @@ interface PresencePayload {
 
 /**
  * Update or create an agent's presence record (heartbeat).
+ *
+ * Retained for the Doctor write-canary health check (app/lib/doctor/checks/
+ * write-canary.mjs), which exercises the agent_presence write path. The
+ * fleet-heartbeat route was removed in the v5 cull; the table is retired in
+ * place per the no-destructive-migration rule.
  */
 export async function upsertAgentPresence(
   sql: SqlClient,
@@ -384,134 +373,4 @@ export async function upsertAgentPresence(
       updated_at = EXCLUDED.updated_at
     RETURNING *
   `;
-}
-
-/**
- * Ensure the agent_presence table exists (lazy migration).
- */
-export async function ensureAgentPresenceTable(sql: SqlClient): Promise<Record<string, unknown>[]> {
-  return sql`
-    CREATE TABLE IF NOT EXISTS agent_presence (
-      org_id TEXT NOT NULL,
-      agent_id TEXT NOT NULL,
-      agent_name TEXT,
-      status TEXT DEFAULT 'online',
-      current_task_id TEXT,
-      last_heartbeat_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      metadata TEXT,
-      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (org_id, agent_id)
-    )
-  `;
-}
-
-export async function attachAgentConnections(
-  sql: SqlClient,
-  orgId: string,
-  agents: AgentRecord[]
-): Promise<AgentRecord[]> {
-  if (!Array.isArray(agents) || agents.length === 0) return agents || [];
-
-  try {
-    const connections = await sql.query(
-      `
-        SELECT *
-        FROM agent_connections
-        WHERE org_id = $1
-        ORDER BY updated_at DESC
-      `,
-      [orgId]
-    );
-    const connMap: Record<string, Record<string, unknown>[]> = {};
-    for (const conn of connections || []) {
-      const key = conn.agent_id as string;
-      if (!connMap[key]) connMap[key] = [];
-      connMap[key].push(conn);
-    }
-    for (const agent of agents) {
-      agent.connections = connMap[agent.agent_id] || [];
-    }
-  } catch (err) {
-    if (!isMissingTable(err)) throw err;
-    for (const agent of agents) agent.connections = [];
-  }
-
-  return agents;
-}
-
-/**
- * Aggregate trust posture for a single agent.
- *
- * Runs the five independent lookups in parallel, and collapses the three
- * action_records COUNTs into a single scan with FILTER clauses — previously
- * this function fired 7 serial SQL round-trips on every agent profile view.
- */
-export async function getAgentTrustPosture(
-  sql: SqlClient,
-  orgId: string,
-  agentId: string
-): Promise<Record<string, unknown>> {
-  // Wrap each query so a missing-table failure degrades to a safe default
-  // without bringing down the whole aggregation.
-  const safe = async <T>(runner: () => Promise<T>, fallback: T): Promise<T> => {
-    try { return await runner(); }
-    catch (err) {
-      if (isMissingTable(err)) return fallback;
-      throw err;
-    }
-  };
-
-  // A composed sub-agent id (`<parent>:<type>`) inherits the parent's pairing and
-  // identity when it has none of its own; an exact row for the sub-agent wins.
-  const baseId = baseAgentId(agentId) || agentId;
-  const [pairingRows, identityRows, settingsRows, policyRows, actionCountsRows] = await Promise.all([
-    safe<Record<string, unknown>[]>(() => sql`SELECT permission_level, status FROM agent_pairings WHERE org_id = ${orgId} AND agent_id IN (${agentId}, ${baseId}) AND status = 'approved' ORDER BY (agent_id = ${agentId}) DESC LIMIT 1`, []),
-    safe<Record<string, unknown>[]>(() => sql`SELECT agent_id FROM agent_identities WHERE org_id = ${orgId} AND agent_id IN (${agentId}, ${baseId}) LIMIT 1`, []),
-    safe<Record<string, unknown>[]>(() => sql`SELECT value FROM settings WHERE org_id = ${orgId} AND key = 'ENFORCE_AGENT_SIGNATURES' LIMIT 1`, []),
-    safe<Record<string, unknown>[]>(() => sql`SELECT id, policy_type, description, agent_ids FROM policies WHERE org_id = ${orgId} AND active = true`, []),
-    safe<Record<string, unknown>[]>(() => sql`
-      SELECT
-        COUNT(*) FILTER (WHERE approved_by IS NOT NULL)::int AS approved_count,
-        COUNT(*) FILTER (WHERE status = 'failed' AND error_message LIKE '%Denied by human%')::int AS denied_count,
-        COUNT(*) FILTER (WHERE status = 'blocked' AND timestamp_start::timestamptz > NOW() - INTERVAL '30 days')::int AS blocks_count
-      FROM action_records
-      WHERE org_id = ${orgId} AND agent_id = ${agentId}
-    `, [{ approved_count: 0, denied_count: 0, blocks_count: 0 }]),
-  ]);
-
-  const permissionLevel = (pairingRows[0]?.permission_level as string) || 'unknown';
-  const identityVerified = identityRows.length > 0;
-  const signatureEnforced = settingsRows[0]?.value === 'true';
-
-  const policies = (policyRows || []).filter((p) => {
-    if (!p.agent_ids) return true; // global
-    try {
-      const ids = JSON.parse(p.agent_ids as string);
-      return Array.isArray(ids) && ids.includes(agentId);
-    } catch { return false; }
-  }).map((p) => ({
-    policy_id: p.id,
-    type: p.policy_type,
-    description: p.description,
-    scope: p.agent_ids ? 'agent' : 'global',
-  }));
-
-  const counts = actionCountsRows[0] || { approved_count: 0, denied_count: 0, blocks_count: 0 };
-  const approvalAllowed = (counts.approved_count as number) || 0;
-  const approvalDenied = (counts.denied_count as number) || 0;
-  const blocks30d = (counts.blocks_count as number) || 0;
-
-  return {
-    permission_level: permissionLevel,
-    identity_verified: identityVerified,
-    signature_enforced: signatureEnforced,
-    active_policies_count: policies.length,
-    policies,
-    approval_record: {
-      total: approvalAllowed + approvalDenied,
-      allowed: approvalAllowed,
-      denied: approvalDenied,
-    },
-    blocks_30d: blocks30d,
-  };
 }

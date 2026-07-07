@@ -77,25 +77,6 @@ describe('Phase 4 multi-select — mutating pages fan out per-item DELETEs', () 
     await waitFor(() => expect(fetchCalls('DELETE', '/api/prompts/templates/').length).toBe(3));
   });
 
-  it('team: select-all → Remove fires 3 member DELETEs (self excluded)', async () => {
-    installFetch((u) => {
-      if (u.includes('/api/team/invite')) return { invites: [] };
-      if (u.includes('/api/team')) {
-        return { members: [
-          { id: 'self', is_self: true, role: 'admin', name: 'Me' },
-          { id: 'm1', role: 'member', name: 'A' },
-          { id: 'm2', role: 'member', name: 'B' },
-          { id: 'm3', role: 'member', name: 'C' },
-        ] };
-      }
-      return {};
-    });
-    const { default: TeamPage } = await import('@/team/page');
-    const { actions } = await selectAll(<TeamPage />, 'Select all members');
-    fireEvent.click(within(actions).getByText('Remove'));
-    await waitFor(() => expect(fetchCalls('DELETE', '/api/team/').length).toBe(3));
-  });
-
   it('identities: select-all → Revoke fires 3 identity DELETEs', async () => {
     installFetch((u) => {
       if (u.includes('/api/identities')) return { identities: THREE };

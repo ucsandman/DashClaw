@@ -26,7 +26,7 @@ Read these for depth instead of duplicating them here:
 
 ## Essential surfaces
 
-- `/mission-control` - fleet posture, interventions, live decision stream.
+- `/approvals` - THE hero surface: the live stream of what your agent just tried and the items waiting on your one-click approval.
 - `/decisions` - causal-chain ledger of every governed action.
 - `/setup` - readiness verification and instance health.
 - `/connect` - onboarding to the first governed action.

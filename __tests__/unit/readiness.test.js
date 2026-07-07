@@ -58,7 +58,7 @@ describe('readiness projections', () => {
 
     expect(step.state).toBe('create_workspace');
     expect(step.primaryCta.label).toBe('Create workspace');
-    expect(step.primaryCta.href).toBe('/mission-control');
+    expect(step.primaryCta.href).toBe('/approvals');
   });
 
   it('projects an API key handoff when a workspace exists but no key is available', () => {
@@ -130,7 +130,7 @@ describe('readiness projections', () => {
 
     expect(step.state).toBe('connected');
     expect(step.primaryCta.label).toBe('Open dashboard');
-    expect(step.primaryCta.href).toBe('/mission-control');
+    expect(step.primaryCta.href).toBe('/approvals');
     expect(step.secondaryCtas.map((cta) => cta.href)).toEqual(
       expect.arrayContaining(['/identities', '/policies'])
     );

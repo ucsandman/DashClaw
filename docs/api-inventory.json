@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 289,
-    "stable_routes": 57,
-    "beta_routes": 24,
-    "experimental_routes": 208
+    "total_routes": 272,
+    "stable_routes": 53,
+    "beta_routes": 23,
+    "experimental_routes": 196
   },
   "routes": [
     {
@@ -177,25 +177,6 @@
       "file": "app/api/admin/trigger-outcome-sweep/route.ts"
     },
     {
-      "path": "/api/agents",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/route.ts"
-    },
-    {
-      "path": "/api/agents/connections",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/connections/route.ts"
-    },
-    {
       "path": "/api/agents/fanouts",
       "methods": [
         "GET"
@@ -203,15 +184,6 @@
       "maturity": "experimental",
       "matched_prefix": "/api/agents",
       "file": "app/api/agents/fanouts/route.ts"
-    },
-    {
-      "path": "/api/agents/heartbeat",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/heartbeat/route.ts"
     },
     {
       "path": "/api/agents/invoke",
@@ -251,33 +223,6 @@
       "maturity": "experimental",
       "matched_prefix": "/api/agents",
       "file": "app/api/agents/registry/[id]/capabilities/route.ts"
-    },
-    {
-      "path": "/api/agents/{agentId}",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/[agentId]/route.ts"
-    },
-    {
-      "path": "/api/agents/{agentId}/profile",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "/api/agents",
-      "file": "app/api/agents/[agentId]/profile/route.ts"
-    },
-    {
-      "path": "/api/analytics",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/analytics/route.ts"
     },
     {
       "path": "/api/approvals/bulk",
@@ -941,15 +886,6 @@
       "file": "app/api/cron/signals/route.ts"
     },
     {
-      "path": "/api/digest/fleet",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/digest/fleet/route.ts"
-    },
-    {
       "path": "/api/discord/interactions",
       "methods": [
         "POST"
@@ -1316,16 +1252,6 @@
       "file": "app/api/internal/resolve-key/route.ts"
     },
     {
-      "path": "/api/invite/{token}",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "stable",
-      "matched_prefix": "/api/invite",
-      "file": "app/api/invite/[token]/route.ts"
-    },
-    {
       "path": "/api/keys",
       "methods": [
         "DELETE",
@@ -1661,15 +1587,6 @@
       "file": "app/api/oauth/token/route.ts"
     },
     {
-      "path": "/api/operations/feed",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/operations/feed/route.ts"
-    },
-    {
       "path": "/api/operations/summary",
       "methods": [
         "GET"
@@ -1896,42 +1813,6 @@
       "maturity": "stable",
       "matched_prefix": "/api/policies",
       "file": "app/api/policies/tightening/route.ts"
-    },
-    {
-      "path": "/api/posture",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/posture/route.ts"
-    },
-    {
-      "path": "/api/posture/findings",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/posture/findings/route.ts"
-    },
-    {
-      "path": "/api/posture/findings/{key}/resolve",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/posture/findings/[key]/resolve/route.ts"
-    },
-    {
-      "path": "/api/posture/scan",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/posture/scan/route.ts"
     },
     {
       "path": "/api/prompts/agent-connect/raw",
@@ -2228,15 +2109,6 @@
       "file": "app/api/security/prompt-injection/route.ts"
     },
     {
-      "path": "/api/security/scan",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/security",
-      "file": "app/api/security/scan/route.ts"
-    },
-    {
       "path": "/api/security/status",
       "methods": [
         "GET"
@@ -2437,36 +2309,6 @@
       "maturity": "experimental",
       "matched_prefix": "/api/swarm",
       "file": "app/api/swarm/link/route.ts"
-    },
-    {
-      "path": "/api/team",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "stable",
-      "matched_prefix": "/api/team",
-      "file": "app/api/team/route.ts"
-    },
-    {
-      "path": "/api/team/invite",
-      "methods": [
-        "DELETE",
-        "GET",
-        "POST"
-      ],
-      "maturity": "stable",
-      "matched_prefix": "/api/team",
-      "file": "app/api/team/invite/route.ts"
-    },
-    {
-      "path": "/api/team/{userId}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "stable",
-      "matched_prefix": "/api/team",
-      "file": "app/api/team/[userId]/route.ts"
     },
     {
       "path": "/api/telegram/webhook",

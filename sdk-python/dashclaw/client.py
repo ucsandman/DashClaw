@@ -703,43 +703,6 @@ class DashClaw:
             payload["timestamp_end"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
         return self._request(f"/api/actions/{action_id}", method="PATCH", body=payload)
 
-    def heartbeat(self, status="online", current_task_id=None, metadata=None):
-        """Report agent presence and health."""
-        payload = {
-            "agent_id": self.agent_id,
-            "agent_name": self.agent_name,
-            "status": status,
-            "current_task_id": current_task_id,
-            "metadata": metadata,
-        }
-        return self._request("/api/agents/heartbeat", method="POST", body=payload)
-
-    def start_heartbeat(self, interval=60, **kwargs):
-        """Start an automatic heartbeat timer in a background thread."""
-        if hasattr(self, "_heartbeat_thread") and self._heartbeat_thread and self._heartbeat_thread.is_alive():
-            return
-
-        import threading
-        self._heartbeat_stop_event = threading.Event()
-
-        def _heartbeat_loop():
-            while not self._heartbeat_stop_event.is_set():
-                try:
-                    self.heartbeat(**kwargs)
-                except Exception:
-                    pass
-                self._heartbeat_stop_event.wait(interval)
-
-        self._heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
-        self._heartbeat_thread.start()
-
-    def stop_heartbeat(self):
-        """Stop the automatic heartbeat timer."""
-        if hasattr(self, "_heartbeat_stop_event"):
-            self._heartbeat_stop_event.set()
-            self._heartbeat_thread.join(timeout=1)
-            self._heartbeat_thread = None
-
     def get_actions(self, **filters):
         query = urllib.parse.urlencode({k: v for k, v in filters.items() if v is not None})
         path = f"/api/actions?{query}" if query else "/api/actions"

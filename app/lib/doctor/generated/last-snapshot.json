@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:10b89c68015c0b4879a8055ae26f11ddc6d03a20",
+  "timestamp": "sha1:62b5471957101d6b215f48352509d0ac44174dac",
   "routes": [
     {
       "path": "/api/actions",
@@ -139,47 +139,6 @@
       "file_path": "app/api/admin/trigger-outcome-sweep/route.ts"
     },
     {
-      "path": "/api/agents",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/agents/route.ts"
-    },
-    {
-      "path": "/api/agents/[agentId]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/agents/[agentId]/route.ts"
-    },
-    {
-      "path": "/api/agents/[agentId]/profile",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "agentId"
-      ],
-      "archived": false,
-      "file_path": "app/api/agents/[agentId]/profile/route.ts"
-    },
-    {
-      "path": "/api/agents/connections",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/agents/connections/route.ts"
-    },
-    {
       "path": "/api/agents/fanouts",
       "methods": [
         "GET"
@@ -187,15 +146,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/agents/fanouts/route.ts"
-    },
-    {
-      "path": "/api/agents/heartbeat",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/agents/heartbeat/route.ts"
     },
     {
       "path": "/api/agents/invoke",
@@ -239,15 +189,6 @@
       ],
       "archived": false,
       "file_path": "app/api/agents/registry/[id]/capabilities/route.ts"
-    },
-    {
-      "path": "/api/analytics",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/analytics/route.ts"
     },
     {
       "path": "/api/approvals/[actionId]",
@@ -967,15 +908,6 @@
       "file_path": "app/api/cron/signals/route.ts"
     },
     {
-      "path": "/api/digest/fleet",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/digest/fleet/route.ts"
-    },
-    {
       "path": "/api/discord/interactions",
       "methods": [
         "POST"
@@ -1356,18 +1288,6 @@
       "file_path": "app/api/internal/resolve-key/route.ts"
     },
     {
-      "path": "/api/invite/[token]",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [
-        "token"
-      ],
-      "archived": false,
-      "file_path": "app/api/invite/[token]/route.ts"
-    },
-    {
       "path": "/api/keys",
       "methods": [
         "DELETE",
@@ -1719,15 +1639,6 @@
       "file_path": "app/api/oauth/token/route.ts"
     },
     {
-      "path": "/api/operations/feed",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/operations/feed/route.ts"
-    },
-    {
       "path": "/api/operations/summary",
       "methods": [
         "GET"
@@ -1962,44 +1873,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/policies/tightening/route.ts"
-    },
-    {
-      "path": "/api/posture",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/posture/route.ts"
-    },
-    {
-      "path": "/api/posture/findings",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/posture/findings/route.ts"
-    },
-    {
-      "path": "/api/posture/findings/[key]/resolve",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "key"
-      ],
-      "archived": false,
-      "file_path": "app/api/posture/findings/[key]/resolve/route.ts"
-    },
-    {
-      "path": "/api/posture/scan",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/posture/scan/route.ts"
     },
     {
       "path": "/api/prompts/agent-connect/raw",
@@ -2326,15 +2199,6 @@
       "file_path": "app/api/security/prompt-injection/route.ts"
     },
     {
-      "path": "/api/security/scan",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/security/scan/route.ts"
-    },
-    {
       "path": "/api/security/status",
       "methods": [
         "GET"
@@ -2545,38 +2409,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/swarm/link/route.ts"
-    },
-    {
-      "path": "/api/team",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/team/route.ts"
-    },
-    {
-      "path": "/api/team/[userId]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "userId"
-      ],
-      "archived": false,
-      "file_path": "app/api/team/[userId]/route.ts"
-    },
-    {
-      "path": "/api/team/invite",
-      "methods": [
-        "DELETE",
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/team/invite/route.ts"
     },
     {
       "path": "/api/telegram/webhook",
@@ -2922,7 +2754,6 @@
       "required": false,
       "files": [
         "__tests__/unit/agents.repository.test.js",
-        "app/api/agents/route.ts",
         "app/lib/repositories/agents.repository.ts"
       ],
       "in_env_example": false
@@ -3311,7 +3142,6 @@
         "scripts/telegram-verify-loop.mjs",
         "scripts/test-actions.mjs",
         "scripts/test-full-api.mjs",
-        "scripts/test-presence.mjs",
         "scripts/test-realtime.mjs",
         "scripts/test-sdk-live.mjs"
       ],
@@ -3749,7 +3579,6 @@
         "scripts/seed-branch-finish-loop.mjs",
         "scripts/seed-demo-capabilities.mjs",
         "scripts/seed-registry-demo.mjs",
-        "scripts/test-presence.mjs",
         "scripts/test-sdk-live.mjs",
         "scripts/verify-demo-e2e.mjs"
       ],
@@ -3772,8 +3601,6 @@
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions-loops.route.test.js",
         "__tests__/unit/actions.route.test.js",
-        "__tests__/unit/agents-heartbeat.route.test.js",
-        "__tests__/unit/agents.route.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/bootstrap-first-user-admin.test.js",
         "__tests__/unit/calibration-proposals.route.test.ts",
@@ -4302,14 +4129,12 @@
       "files": [
         "__tests__/unit/webhooks.approval.test.js",
         "app/api/auth/local/route.ts",
-        "app/api/team/invite/route.ts",
         "app/lib/next-config-headers.cjs",
         "app/lib/notifications.ts",
         "app/lib/webhooks.ts",
         "middleware.js",
         "scripts/patch-demo-capability-endpoints.mjs",
-        "scripts/seed-demo-capabilities.mjs",
-        "scripts/test-presence.mjs"
+        "scripts/seed-demo-capabilities.mjs"
       ],
       "in_env_example": true
     },

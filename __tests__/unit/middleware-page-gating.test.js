@@ -24,11 +24,13 @@ function pageReq(pathname) {
 }
 
 // Real authenticated dashboards that were missing from the matcher.
-const NEWLY_GATED = ['/analytics', '/assumptions', '/scoring', '/policy-coach'];
+const NEWLY_GATED = ['/assumptions', '/scoring', '/policy-coach'];
 // Deleted pages whose stale matcher entries were removed.
 // (/labs retired in the studio consolidation — /labs/branch-finish now
 // permanently redirects to /workflows before middleware runs.)
-const REMOVED_DEAD = ['/goals', '/content', '/relationships', '/calendar', '/tokens', '/labs'];
+// (mission-control/dashboard/analytics/security/team/activity removed in the v5 cull.)
+const REMOVED_DEAD = ['/goals', '/content', '/relationships', '/calendar', '/tokens', '/labs',
+  '/mission-control', '/dashboard', '/analytics', '/security', '/team', '/activity'];
 
 describe('middleware page-route gating', () => {
   beforeEach(() => {

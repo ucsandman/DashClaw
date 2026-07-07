@@ -362,7 +362,7 @@ export default async function SetupPage() {
             <span className="text-lg font-semibold text-primary">DashClaw</span>
           </Link>
           <nav aria-label="Instance" className="flex flex-wrap items-center gap-5 text-sm text-secondary">
-            <Link href="/mission-control" className="transition-colors hover:text-primary">Mission Control</Link>
+            <Link href="/approvals" className="transition-colors hover:text-primary">Approvals</Link>
             <Link href="/decisions" className="transition-colors hover:text-primary">Decisions</Link>
             <Link href="/connect" className="transition-colors hover:text-primary">Connect</Link>
             <Link href="/settings" className="transition-colors hover:text-primary">Settings</Link>
@@ -385,10 +385,10 @@ export default async function SetupPage() {
           </div>
           <div className="flex flex-wrap items-center gap-3 pt-1">
             <Link
-              href="/mission-control"
+              href="/approvals"
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-surface-primary transition-colors hover:bg-brand-hover"
             >
-              Open Mission Control
+              Open Approvals
             </Link>
             <Link
               href="/connect"

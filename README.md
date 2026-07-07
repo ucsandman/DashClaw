@@ -148,7 +148,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 ### 2. MCP server (zero code, any MCP host)
 
-[`@dashclaw/mcp-server`](./mcp-server) exposes **33 governance MCP tools** across 12 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
+[`@dashclaw/mcp-server`](./mcp-server) exposes **31 governance MCP tools** across 12 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture, work orders — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
 
 As of v2.0.0 the local stdio server also carries **governed execution**: provider tools for GitHub, Vercel, Neon, Stripe and ten more (each registering only when its credential env var is present), and stateful **launch plans** (`create_launch_plan` / `get_launch_status` / `preflight_launch` / `verify_launch`) that track the launch tail with reality-checked, never self-reported completion — every step through the same guard/policy/approval path. See [`mcp-server/README.md`](./mcp-server/README.md) and [`mcp-server/docs/launch-plans.md`](./mcp-server/docs/launch-plans.md).
 
@@ -194,7 +194,7 @@ npm install dashclaw     # Node 18+
 pip install dashclaw     # Python 3.7+
 ```
 
-149-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, work orders, drift detection, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 234 methods including ready-made framework integrations:
+147-method canonical Node surface: core governance, durable execution finality, scoring profiles, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, x402 spend governance, work orders, drift detection, and the execution-studio domains (workflow templates, model strategies, knowledge collections, capability runtime). The Python SDK exposes 231 methods including ready-made framework integrations:
 
 ```python
 # LangChain — auto-log LLM calls, tool use, and costs
@@ -225,7 +225,7 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**289 routes**: 57 stable, 24 beta, 208 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**272 routes**: 53 stable, 23 beta, 196 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Work Orders — task-grade contracts + receipts
 

@@ -698,27 +698,6 @@ class DashClaw {
   }
 
   /**
-   * POST /api/agents/heartbeat
-   */
-  async heartbeat(status = 'online', metadata = null) {
-    return this._post('/api/agents/heartbeat', {
-      agent_id: this.agentId,
-      status,
-      metadata
-    });
-  }
-
-  /**
-   * POST /api/agents/connections
-   */
-  async reportConnections(connections) {
-    return this._post('/api/agents/connections', {
-      agent_id: this.agentId,
-      connections
-    });
-  }
-
-  /**
    * POST /api/actions/loops
    */
   async registerOpenLoop(actionId, loopType, description, metadata = null) {
