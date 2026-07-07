@@ -27,8 +27,11 @@
  *   HOSTED_ADMIN_API_KEY      optional — admin key on the hosted instance
  *                             for teardown DELETE (else trial auto-expires)
  *
- * Exit code: 0 all steps green; 1 otherwise. Runs on bare Node 20+.
+ * Exit code: 0 all steps green; 1 otherwise. Runs on bare Node 20+
+ * (the env loader below is stdlib-only and no-ops when .env.local is absent).
  */
+
+import '../_load-env.mjs';
 
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
