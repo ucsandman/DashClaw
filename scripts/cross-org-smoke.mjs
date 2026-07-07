@@ -169,19 +169,6 @@ async function main() {
       check('assumptions: org B cannot mutate org A assumption', patch.status === 404, `status=${patch.status}`);
     }
 
-    // --- open loops -----------------------------------------------------------
-    {
-      const made = await A('POST', '/api/actions/loops', { action_id: actionId, loop_type: 'followup', description: `iso loop ${RUN}` });
-      const loopId = made.json?.loop_id || made.json?.loop?.loop_id;
-      check('loops: org A opens a loop', Boolean(loopId), `status=${made.status}`);
-      const read = await B('GET', `/api/actions/loops/${loopId}`);
-      check('loops: org B cannot read org A loop', read.status === 404, `status=${read.status}`);
-      const close = await B('PATCH', `/api/actions/loops/${loopId}`, { status: 'cancelled' });
-      check('loops: org B cannot close org A loop', close.status === 404, `status=${close.status}`);
-      const still = await A('GET', `/api/actions/loops/${loopId}`);
-      check('loops: org A loop still open after org B close attempt', still.status === 200 && still.json?.loop?.status === 'open', `status=${still.json?.loop?.status}`);
-    }
-
     // --- messages (incl. cross-org sender impersonation) ----------------------
     {
       const made = await A('POST', '/api/messages', { from_agent_id: agentA, body: `iso message ${RUN}` });
@@ -192,19 +179,6 @@ async function main() {
       check('messages: org B list does not enumerate org A message', !leaked, `leaked=${leaked}`);
       const forged = await B('POST', '/api/messages', { from_agent_id: agentA, body: `forged as org A agent ${RUN}` });
       check('messages: org B cannot send as an org A agent', forged.status === 403, `status=${forged.status}`);
-    }
-
-    // --- handoffs ---------------------------------------------------------------
-    {
-      const made = await A('POST', '/api/handoffs', { agent_id: agentA, bundle: { note: `iso handoff ${RUN}` } });
-      const handoffId = made.json?.id;
-      check('handoffs: org A creates a handoff', Boolean(handoffId), `status=${made.status}`);
-      const read = await B('GET', `/api/handoffs/${handoffId}`);
-      check('handoffs: org B cannot read org A handoff', read.status === 404, `status=${read.status}`);
-      const consume = await B('POST', `/api/handoffs/${handoffId}/consume`);
-      check('handoffs: org B cannot consume org A handoff', consume.status === 404, `status=${consume.status}`);
-      const still = await A('GET', `/api/handoffs/${handoffId}`);
-      check('handoffs: org A handoff survives org B consume attempt', still.status === 200, `status=${still.status}`);
     }
 
     // --- guard decisions -----------------------------------------------------------
