@@ -48,11 +48,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionByIdempotencyKey: mockGetActionByKey,
 }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
-vi.mock('@/lib/usage.js', () => ({
-  checkQuotaFast: vi.fn(async () => ({ allowed: true })),
-  getOrgPlan: vi.fn(async () => 'free'),
-  incrementMeter: vi.fn(async () => undefined),
-}));
 vi.mock('@/lib/events.js', () => ({ EVENTS: { ACTION_CREATED: 'action.created', GUARD_DECISION_CREATED: 'guard.decision' }, publishOrgEvent: vi.fn() }));
 vi.mock('@/lib/repositories/jti-replay.repository.js', () => ({
   checkAndRecord: vi.fn(async () => 'unique'),

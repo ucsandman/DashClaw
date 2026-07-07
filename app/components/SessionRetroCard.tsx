@@ -26,7 +26,6 @@ const kindLabel: Record<string, string> = {
   non_fabrication: 'Fabrication',
   goal_drift: 'Goal drift',
   risk_spike: 'Risk spike',
-  spend: 'Spend',
   intervention: 'Interventions',
   assumption: 'Invalidated assumptions',
 };
@@ -121,12 +120,6 @@ export default function SessionRetroCard({ retro }: { retro: SessionRetro | null
                 </ul>
               </div>
             ))
-          )}
-
-          {retro.spend && (
-            <p className="text-xs text-secondary">
-              Session spend: ${Number(retro.spend.total).toFixed(2)} across {retro.spend.purchases} purchase{retro.spend.purchases === 1 ? '' : 's'}.
-            </p>
           )}
         </div>
       </CardContent>

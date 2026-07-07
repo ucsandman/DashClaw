@@ -283,14 +283,6 @@ async function testSettingsAndKeys() {
     assert(Array.isArray(d4.keys), 'Keys returns array');
   }
 
-  // GET /api/usage (404 if org not in organizations table)
-  const { status: s5, data: d5 } = await request('GET', '/api/usage');
-  assert([200, 403, 404].includes(s5), `GET /api/usage returns 200, 403, or 404 (got ${s5})`);
-  if (s5 === 200) {
-    assert(d5.plan !== undefined, 'Usage returns plan');
-    assert(d5.limits !== undefined, 'Usage returns limits');
-  }
-
   // POST /api/settings/test — test integration (generic)
   const { status: s6, data: d6 } = await request('POST', '/api/settings/test', {
     integration: 'unknown-integration',

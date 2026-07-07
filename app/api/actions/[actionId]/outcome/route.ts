@@ -12,7 +12,6 @@ import {
   setActionOutcome,
   getActionStatus,
 } from '../../../../lib/repositories/actions.repository';
-import { getPurchase, setPurchaseOutcome } from '../../../../lib/repositories/x402.repository';
 
 // Terminal states an agent is allowed to report. `lost_confirmation` is
 // reserved for the system sweep (Phase 2) and rejected from this endpoint.
@@ -24,10 +23,6 @@ const AGENT_TERMINAL_STATES = new Set(['completed', 'partial', 'failed']);
 // one-shot `outcome_status='pending'` guard alone let an agent stamp a
 // 'completed' outcome onto a blocked or denied action.
 const OUTCOME_FORBIDDEN_STATUSES = new Set(['blocked', 'pending_approval', 'cancelled', 'failed']);
-
-// (R8) Map an agent-reported action outcome to the x402 purchase execution_status
-// so the purchase lifecycle stays consistent with the action lifecycle.
-const PURCHASE_EXECUTION_STATUS: Record<string, string> = { completed: 'succeeded', partial: 'partial', failed: 'failed' };
 
 const MAX_SUMMARY_LEN = 4000;
 const MAX_ERROR_LEN = 4000;
@@ -157,28 +152,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ act
         );
       }
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
-    }
-
-    // (R8) Keep the x402 purchase lifecycle in sync with the action lifecycle.
-    // setPurchaseOutcome previously had zero callers, so a governed purchase's
-    // execution_status was stuck at pending/approved forever. Only fires for
-    // actions that actually have a purchase detail row. Awaited but non-fatal:
-    // the action outcome is the primary governance record; a failure to mirror
-    // it to the purchase row is logged, not surfaced as a request failure.
-    const mappedExecStatus = PURCHASE_EXECUTION_STATUS[status];
-    if (mappedExecStatus) {
-      try {
-        const purchase = await getPurchase(sql, orgId, actionId);
-        if (purchase) {
-          await setPurchaseOutcome(sql, orgId, actionId, {
-            execution_status: mappedExecStatus,
-            result_summary: summary,
-            failure_reason: status === 'failed' ? errorMessage : null,
-          });
-        }
-      } catch (syncErr) {
-        console.warn('[ACTION_OUTCOME] x402 purchase outcome sync failed:', (syncErr as { message?: string })?.message || syncErr);
-      }
     }
 
     // Emit the same { orgId, action } envelope the PATCH route uses so the SSE

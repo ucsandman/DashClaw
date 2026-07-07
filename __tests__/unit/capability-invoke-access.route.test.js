@@ -33,11 +33,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   createActionRecord: m.createActionRecord,
   createBlockedActionRecord: m.createBlockedActionRecord,
 }));
-vi.mock('@/lib/usage.js', () => ({
-  checkQuotaFast: vi.fn(async () => ({ allowed: true })),
-  getOrgPlan: vi.fn(async () => 'free'),
-  incrementMeter: vi.fn(async () => undefined),
-}));
 vi.mock('@/lib/capability-health.js', () => ({ checkCircuitBreaker: m.checkCircuitBreaker }));
 vi.mock('@/lib/repositories/capabilities.repository.js', () => ({ updateCapability: m.updateCapability }));
 vi.mock('@/lib/repositories/capability-access.repository.js', () => ({ evaluateAccess: m.evaluateAccess }));

@@ -32,7 +32,6 @@ describe('getSessionRetroData', () => {
       ]],
       ['FROM guard_decisions', [{ id: 'act_gd_1', decision: 'allow' }]],
       ['FROM assumptions', [{ assumption_id: 'asm_1', action_id: 'act_1', invalidated: 0 }]],
-      ['FROM x402_purchases', []],
       ['FROM agent_sessions', [{ id: 'sess_1', org_id: 'org_1', agent_id: 'a', status: 'completed' }]],
     ]);
     const data = await getSessionRetroData(sql, 'sess_1', 'org_1');
@@ -41,6 +40,5 @@ describe('getSessionRetroData', () => {
     expect(data.actions).toHaveLength(2);
     expect(data.decisions).toHaveLength(1);
     expect(data.assumptions).toHaveLength(1);
-    expect(data.purchases).toEqual([]);
   });
 });

@@ -1,11 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
-const { mockGetSql, mockListActions, mockGetCostAggregation, mockListAgentsForOrg, mockComputeSignals } =
+const { mockGetSql, mockListActions, mockListAgentsForOrg, mockComputeSignals } =
   vi.hoisted(() => ({
     mockGetSql: vi.fn(() => ({})),
     mockListActions: vi.fn(),
-    mockGetCostAggregation: vi.fn(),
     mockListAgentsForOrg: vi.fn(),
     mockComputeSignals: vi.fn(),
   }));
@@ -13,7 +12,6 @@ const { mockGetSql, mockListActions, mockGetCostAggregation, mockListAgentsForOr
 vi.mock('@/lib/db.js', () => ({ getSql: mockGetSql }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   listActions: mockListActions,
-  getCostAggregation: mockGetCostAggregation,
 }));
 vi.mock('@/lib/repositories/agents.repository.js', () => ({ listAgentsForOrg: mockListAgentsForOrg }));
 vi.mock('@/lib/signals.js', () => ({ computeSignals: mockComputeSignals }));
@@ -79,7 +77,6 @@ beforeEach(() => {
   mockComputeSignals.mockResolvedValue([
     { severity: 'red', label: 'High risk action', detail: 'risk 95', agent_id: 'a1', detected_at: 't' },
   ]);
-  mockGetCostAggregation.mockResolvedValue({ total_cost_usd: 4.25 });
   mockListAgentsForOrg.mockResolvedValue([{ last_active: new Date().toISOString() }]);
 });
 
@@ -107,7 +104,7 @@ describe('GET /api/widget/summary', () => {
     expect(body.pendingApprovals[0]).not.toHaveProperty('reasoning');
     expect(body.status).toBe('elevated'); // red signal present
     expect(body.metrics.pendingApprovals).toBe(3);
-    expect(body.metrics.spend).toBe(4.25);
+    expect(body.metrics.spend).toBe(null);
     expect(body.signals).toEqual({ red: 1, amber: 0, total: 1 });
     expect(body.recentActions).toHaveLength(1);
     expect(body.recentActions.length).toBeLessThanOrEqual(10);

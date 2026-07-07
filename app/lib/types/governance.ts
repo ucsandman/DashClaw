@@ -30,8 +30,7 @@ export type GuardPolicyType =
   | 'permission_escalation'
   | 'green_contract'
   | 'branch_freshness'
-  | 'require_evidence'
-  | 'x402_spend_limit';
+  | 'require_evidence';
 
 export type GreenLevel = 'targeted' | 'package' | 'workspace' | 'merge_ready';
 
@@ -54,21 +53,7 @@ export type GuardPolicy =
     }
   | { policy_type: 'permission_escalation'; rules: { enforce: boolean; action?: DecisionType } }
   | { policy_type: 'green_contract'; rules: { action_types: string[]; required_level: GreenLevel; action?: DecisionType } }
-  | { policy_type: 'branch_freshness'; rules: { action_types: string[]; freshness?: string[]; max_commits_behind?: number; action?: DecisionType } }
-  | {
-      policy_type: 'x402_spend_limit';
-      rules: {
-        max_spend_usd?: number;
-        approval_threshold?: number;
-        allowed_providers?: string[];
-        blocked_providers?: string[];
-        budget_usd?: number;
-        budget_approval_threshold?: number;
-        budget_window_days?: number;
-        budget_scope?: 'org' | 'agent';
-        on_failure?: 'allow' | 'block' | 'require_approval';
-      };
-    };
+  | { policy_type: 'branch_freshness'; rules: { action_types: string[]; freshness?: string[]; max_commits_behind?: number; action?: DecisionType } };
 
 /** Raw guard_policies row (rules + agent_ids are JSON text). */
 export interface GuardPolicyRow {

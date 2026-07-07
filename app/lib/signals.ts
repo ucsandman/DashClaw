@@ -589,22 +589,6 @@ export async function computeSignals(
     }
   } catch (e) { warnNull('approval_flood')(e); }
 
-  // ── W3: attribution coverage drop (amber) ──
-  try {
-    const { getCostAggregation } = await import('./repositories/actions.repository');
-    const cost = await getCostAggregation(sql as never, orgId, { period: '7d' });
-    const cov = cost.attribution;
-    if (cov && cov.total_count >= 50 && cov.coverage_pct !== null && cov.coverage_pct < 90) {
-      signals.push({
-        type: 'coverage_drop',
-        severity: 'amber',
-        label: `Token attribution coverage at ${cov.coverage_pct}%`,
-        detail: `${cov.attributed_count} of ${cov.total_count} actions in the last 7d carry token usage — cost reporting is undercounting.`,
-        help: 'Check that runtime plugins emit usage (see /spend). A disabled plugin or unsupported runtime drops attribution.',
-      });
-    }
-  } catch (e) { warnNull('coverage_drop')(e); }
-
   // Post-filter by agent_id if requested
   const filteredSignals = filterAgentId
     ? signals.filter((s) => s.agent_id === filterAgentId)

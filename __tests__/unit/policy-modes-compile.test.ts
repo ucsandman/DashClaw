@@ -53,7 +53,6 @@ describe('compileMode', () => {
     }, {});
     expect(counts).toEqual({
       risk_threshold: 2,
-      x402_spend_limit: 1,
       warn_action_type: 1,
       require_approval: 2,
       protected_path: 1,
@@ -61,10 +60,6 @@ describe('compileMode', () => {
     });
     // eslint-disable-next-line no-console
     console.log('compileMode("claude-code") types:', policies.map((p) => p.policy_type).join(', '));
-
-    const x402 = policies.find((p) => p.policy_type === 'x402_spend_limit');
-    expect(x402?.rules.approval_threshold).toBe(5.0);
-    expect(x402?.rules.max_spend_usd).toBe(25.0);
 
     const thresholds = policies
       .filter((p) => p.policy_type === 'risk_threshold')
@@ -192,21 +187,6 @@ describe('Claude Code Mode behavioral proof (real evaluateGuard)', () => {
       guardSql('claude-code'),
     );
     expect(res.decision).toBe('require_approval');
-  });
-
-  it('gates paid x402 spend: >= $5.00 require_approval, > $25.00 block', async () => {
-    const small = await evaluateGuard(
-      'org_1',
-      { action_type: 'x402_purchase', cost_estimate: 6.0 },
-      guardSql('claude-code'),
-    );
-    expect(small.decision).toBe('require_approval');
-    const big = await evaluateGuard(
-      'org_1',
-      { action_type: 'x402_purchase', cost_estimate: 30.0 },
-      guardSql('claude-code'),
-    );
-    expect(big.decision).toBe('block');
   });
 
   it('blocks extreme-risk actions (risk score >= 100)', async () => {

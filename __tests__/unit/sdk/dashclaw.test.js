@@ -384,35 +384,6 @@ describe('sdk/dashclaw.js characterization', () => {
       ['listAgentCapabilities', (c) => c.listAgentCapabilities('ra_1'), 'GET', '/api/agents/registry/ra_1/capabilities', undefined],
       ['invokeRegisteredAgent drops undefined fields', (c) => c.invokeRegisteredAgent({ registered_agent_id: 'ra_1', capability_id: 'cap_1' }),
         'POST', '/api/agents/invoke', { registered_agent_id: 'ra_1', capability_id: 'cap_1' }],
-      // x402
-      ['listProviders', (c) => c.listProviders({ status: 'active' }), 'GET', '/api/x402/providers?status=active', undefined],
-      ['createProvider', (c) => c.createProvider({ name: 'p' }), 'POST', '/api/x402/providers', { name: 'p' }],
-      ['getProvider', (c) => c.getProvider('prov_1'), 'GET', '/api/x402/providers/prov_1', undefined],
-      ['updateProvider', (c) => c.updateProvider('prov_1', { name: 'n' }), 'PATCH', '/api/x402/providers/prov_1', { name: 'n' }],
-      ['listProviderEndpoints', (c) => c.listProviderEndpoints('prov_1'), 'GET', '/api/x402/providers/prov_1/endpoints', undefined],
-      ['createProviderEndpoint', (c) => c.createProviderEndpoint('prov_1', { path: '/v1' }), 'POST',
-        '/api/x402/providers/prov_1/endpoints', { path: '/v1' }],
-      ['recordPurchase', (c) => c.recordPurchase({ agent_id: 'a', provider: 'p' }), 'POST',
-        '/api/x402/purchases', { agent_id: 'a', provider: 'p' }],
-      ['listPurchases', (c) => c.listPurchases({ agent_id: 'a' }), 'GET', '/api/x402/purchases?agent_id=a', undefined],
-      ['recordPurchaseResult maps artifact fields', (c) => c.recordPurchaseResult('act_1', { summary: 's', data: { a: 1 }, url: 'http://u' }),
-        'POST', '/api/artifacts', {
-          artifact_type: 'x402_purchase_result',
-          name: 'x402 result act_1',
-          description: 's',
-          content_json: { a: 1 },
-          content_url: 'http://u',
-          source_action_id: 'act_1',
-        }],
-      ['recordPurchaseResult defaults', (c) => c.recordPurchaseResult('act_1'),
-        'POST', '/api/artifacts', {
-          artifact_type: 'x402_purchase_result',
-          name: 'x402 result act_1',
-          description: null,
-          content_json: {},
-          content_url: null,
-          source_action_id: 'act_1',
-        }],
     ];
 
     for (const [name, call, method, path, body] of CASES) {
@@ -430,72 +401,4 @@ describe('sdk/dashclaw.js characterization', () => {
     }
   });
 
-  // -------------------------------------------------------------------------
-  // recordX402Purchase — composite flow (purchase → outcome → artifact)
-  // -------------------------------------------------------------------------
-
-  describe('recordX402Purchase', () => {
-    it('records purchase, reports success, and attaches the receipt artifact', async () => {
-      global.fetch = vi.fn()
-        .mockResolvedValueOnce(mockJSON({
-          action: { action_id: 'act_9' },
-          purchase: { id: 'pur_1' },
-          decision: { decision: 'allow' },
-        }))
-        .mockResolvedValueOnce(mockJSON({ outcome: { status: 'completed' } }))
-        .mockResolvedValueOnce(mockJSON({ artifact: { id: 'art_1' } }));
-
-      const res = await claw.recordX402Purchase({
-        agent_id: 'a1',
-        provider: 'stableenrich.dev',
-        spend: 0.05,
-        transaction_hash: '0xabc',
-      });
-
-      // 1) governed purchase with derived defaults
-      const [purchaseUrl, purchaseOpts] = global.fetch.mock.calls[0];
-      expect(purchaseUrl).toBe('http://localhost:3000/api/x402/purchases');
-      expect(JSON.parse(purchaseOpts.body)).toEqual({
-        agent_id: 'a1',
-        provider: 'stableenrich.dev',
-        declared_goal: 'x402 capability call to stableenrich.dev',
-        purchase_reason: 'Paid x402 capability call to stableenrich.dev',
-        context_gap: 'Capability gated behind payment at stableenrich.dev',
-        expected_value: 'Paid result from stableenrich.dev',
-        spend_amount: 0.05,
-        cost_estimate: 0.05,
-        currency: 'USDC',
-        payment_method: 'x402',
-      });
-
-      // 2) terminal outcome
-      const [outcomeUrl, outcomeOpts] = global.fetch.mock.calls[1];
-      expect(outcomeUrl).toBe('http://localhost:3000/api/actions/act_9/outcome');
-      expect(JSON.parse(outcomeOpts.body)).toEqual({
-        status: 'completed',
-        summary: 'x402 settled: $0.05 USDC at stableenrich.dev',
-      });
-
-      // 3) artifact with the tx hash
-      const [artifactUrl, artifactOpts] = global.fetch.mock.calls[2];
-      expect(artifactUrl).toBe('http://localhost:3000/api/artifacts');
-      const artifactBody = JSON.parse(artifactOpts.body);
-      expect(artifactBody.source_action_id).toBe('act_9');
-      expect(artifactBody.content_json).toEqual({ origin: 'stableenrich.dev', transactionHash: '0xabc' });
-
-      expect(res).toEqual({
-        action: { action_id: 'act_9' },
-        purchase: { id: 'pur_1' },
-        decision: { decision: 'allow' },
-        outcome: { outcome: { status: 'completed' } },
-      });
-    });
-
-    it('skips outcome + artifact when no action id comes back', async () => {
-      global.fetch = vi.fn().mockResolvedValueOnce(mockJSON({}));
-      const res = await claw.recordX402Purchase({ agent_id: 'a1', provider: 'p.dev', spend: 1 });
-      expect(global.fetch).toHaveBeenCalledTimes(1);
-      expect(res.outcome).toBeNull();
-    });
-  });
 });

@@ -13,17 +13,16 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `146`
-- Stable routes: `42`
-- Beta routes: `18`
-- Experimental routes: `86`
+- Total routes: `133`
+- Stable routes: `38`
+- Beta routes: `17`
+- Experimental routes: `78`
 
 ## Routes
 
 | Path | Methods | Maturity | Rule Prefix | File |
 |---|---|---|---|---|
 | `/api/actions` | `DELETE, GET, POST` | `stable` | `/api/actions` | `app/api/actions/route.ts` |
-| `/api/actions/costs` | `GET` | `stable` | `/api/actions` | `app/api/actions/costs/route.ts` |
 | `/api/actions/stats` | `GET` | `stable` | `/api/actions` | `app/api/actions/stats/route.ts` |
 | `/api/actions/{actionId}` | `GET, PATCH` | `stable` | `/api/actions` | `app/api/actions/[actionId]/route.ts` |
 | `/api/actions/{actionId}/artifacts` | `GET` | `stable` | `/api/actions` | `app/api/actions/[actionId]/artifacts/route.ts` |
@@ -47,8 +46,6 @@ doc-type: architecture
 | `/api/assumptions/{assumptionId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/assumptions/[assumptionId]/route.ts` |
 | `/api/auth/config` | `GET` | `beta` | `/api/auth` | `app/api/auth/config/route.ts` |
 | `/api/auth/local` | `DELETE, POST` | `beta` | `/api/auth` | `app/api/auth/local/route.ts` |
-| `/api/billing/checkout` | `POST` | `experimental` | `(default)` | `app/api/billing/checkout/route.ts` |
-| `/api/billing/portal` | `GET` | `experimental` | `(default)` | `app/api/billing/portal/route.ts` |
 | `/api/calibration/controller` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/controller/route.ts` |
 | `/api/calibration/proposals` | `GET, POST` | `experimental` | `(default)` | `app/api/calibration/proposals/route.ts` |
 | `/api/capabilities` | `GET, POST` | `experimental` | `(default)` | `app/api/capabilities/route.ts` |
@@ -67,7 +64,6 @@ doc-type: architecture
 | `/api/cron/memory-maintenance` | `GET` | `beta` | `/api/cron` | `app/api/cron/memory-maintenance/route.ts` |
 | `/api/cron/outcome-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/outcome-sweep/route.ts` |
 | `/api/cron/policy-suggestions` | `GET` | `beta` | `/api/cron` | `app/api/cron/policy-suggestions/route.ts` |
-| `/api/cron/reset-meters` | `GET` | `beta` | `/api/cron` | `app/api/cron/reset-meters/route.ts` |
 | `/api/cron/signals` | `GET` | `beta` | `/api/cron` | `app/api/cron/signals/route.ts` |
 | `/api/discord/interactions` | `POST` | `experimental` | `(default)` | `app/api/discord/interactions/route.ts` |
 | `/api/docs/raw` | `GET` | `beta` | `/api/docs` | `app/api/docs/raw/route.ts` |
@@ -75,7 +71,6 @@ doc-type: architecture
 | `/api/doctor/fix` | `POST` | `experimental` | `(default)` | `app/api/doctor/fix/route.ts` |
 | `/api/echo` | `GET, POST` | `experimental` | `(default)` | `app/api/echo/route.ts` |
 | `/api/enforcement-liveness` | `GET, POST` | `experimental` | `(default)` | `app/api/enforcement-liveness/route.ts` |
-| `/api/finops/spend` | `GET` | `experimental` | `(default)` | `app/api/finops/spend/route.ts` |
 | `/api/guard` | `GET, POST` | `stable` | `/api/guard` | `app/api/guard/route.ts` |
 | `/api/guard/decisions` | `GET` | `stable` | `/api/guard` | `app/api/guard/decisions/route.ts` |
 | `/api/halt` | `GET, POST` | `experimental` | `(default)` | `app/api/halt/route.ts` |
@@ -154,18 +149,10 @@ doc-type: architecture
 | `/api/signals` | `GET` | `experimental` | `(default)` | `app/api/signals/route.ts` |
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
-| `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |
-| `/api/usage/costs` | `GET` | `stable` | `/api/usage` | `app/api/usage/costs/route.ts` |
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |
-| `/api/webhooks/stripe` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/stripe/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
 | `/api/widget/summary` | `GET` | `experimental` | `(default)` | `app/api/widget/summary/route.ts` |
 | `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |
 | `/api/workspace/import` | `POST` | `experimental` | `(default)` | `app/api/workspace/import/route.ts` |
-| `/api/x402/budget` | `GET` | `experimental` | `(default)` | `app/api/x402/budget/route.ts` |
-| `/api/x402/providers` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/providers/route.ts` |
-| `/api/x402/providers/{id}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/x402/providers/[id]/route.ts` |
-| `/api/x402/providers/{id}/endpoints` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/providers/[id]/endpoints/route.ts` |
-| `/api/x402/purchases` | `GET, POST` | `experimental` | `(default)` | `app/api/x402/purchases/route.ts` |
 

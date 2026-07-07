@@ -97,7 +97,6 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
   const quickLinks = [
     { href: '/integrations', label: 'Integrations', hint: 'Configure services' },
     { href: '/webhooks', label: 'Webhooks', hint: 'Event notifications' },
-    { href: '/usage', label: 'Usage & billing', hint: 'Token spend' },
     { href: '/api-keys', label: 'API keys', hint: 'Manage keys' },
     { href: '/docs', label: 'API documentation', hint: 'Reference' },
     { href: '/self-host', label: 'Deployment guide', hint: 'Self-host docs' },

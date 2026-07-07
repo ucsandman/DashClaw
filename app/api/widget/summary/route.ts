@@ -2,7 +2,7 @@ export const dynamic = 'force-dynamic';
 
 import { NextResponse } from 'next/server';
 import { getSql } from '../../../lib/db';
-import { listActions, getCostAggregation } from '../../../lib/repositories/actions.repository';
+import { listActions } from '../../../lib/repositories/actions.repository';
 import { listAgentsForOrg } from '../../../lib/repositories/agents.repository';
 import { computeSignals } from '../../../lib/signals';
 import { buildWidgetSummary } from '../../../lib/widget/summary';
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
       degraded = true;
     };
 
-    const [recent, pending, signals, cost, agents] = await Promise.all([
+    const [recent, pending, signals, agents] = await Promise.all([
       listActions(sql, orgId, { limit: 10 }).catch(() => {
         mark();
         return { actions: [], total: 0, stats: {} };
@@ -44,10 +44,6 @@ export async function GET(request: Request) {
         mark();
         return [];
       }),
-      getCostAggregation(sql, orgId, { period: '1d' }).catch(() => {
-        mark();
-        return null;
-      }),
       listAgentsForOrg(sql, orgId).catch(() => {
         mark();
         return [];
@@ -59,7 +55,7 @@ export async function GET(request: Request) {
       pendingApprovals: pending?.total ?? 0,
       pendingActions: pending?.actions ?? [],
       signals,
-      spendUsd: cost ? Number(cost.total_cost_usd) : null,
+      spendUsd: null,
       agents,
       now: Date.now(),
     });

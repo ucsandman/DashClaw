@@ -122,21 +122,6 @@ describe('evaluatePolicy dispatch', () => {
     expect(await evalPolicy('branch_freshness', rules, { action_type: 'deploy', intel: { branch: { freshness: 'fresh', commits_behind: 9 } } })).toBeNull();
   });
 
-  it('x402_spend_limit: blocked provider / not-allowed / over max / approval threshold', async () => {
-    const base = { action_type: 'x402_purchase' };
-    expect(await evalPolicy('x402_spend_limit', { blocked_providers: ['evil'] }, { ...base, provider: 'evil' }))
-      .toEqual({ action: 'block', reason: 'Provider "evil" is blocked by policy' });
-    expect(await evalPolicy('x402_spend_limit', { allowed_providers: ['good'] }, { ...base, provider: 'other' }))
-      .toEqual({ action: 'block', reason: 'Provider "other" not in approved list' });
-    expect(await evalPolicy('x402_spend_limit', { max_spend_usd: 1 }, { ...base, provider: 'good', cost_estimate: 5 }))
-      .toEqual({ action: 'block', reason: 'Spend $5.0000 exceeds max $1' });
-    expect(await evalPolicy('x402_spend_limit', { approval_threshold: 2 }, { ...base, provider: 'good', cost_estimate: 3 }))
-      .toEqual({ action: 'require_approval', reason: 'Spend $3.0000 >= approval threshold $2' });
-    expect(await evalPolicy('x402_spend_limit', {}, { ...base, provider: 'good', cost_estimate: 0.5 })).toBeNull();
-    // Non-purchase action ignored
-    expect(await evalPolicy('x402_spend_limit', { max_spend_usd: 1 }, { action_type: 'deploy' })).toBeNull();
-  });
-
   it('permission_escalation: blocks when tool permission outranks agent pairing level', async () => {
     const sql = createSqlMock({ taggedResponses: [[{ permission_level: 'readonly' }]] });
     const res = await evalPolicy('permission_escalation', { enforce: true }, { agent_id: 'agt_1', tool: { required_permission: 'danger' } }, { sql });

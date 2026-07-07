@@ -5,11 +5,10 @@ import { makeRequest } from '../helpers.js';
 // action rows carry secrets, prompts, reasoning, scopes, artifacts, and env,
 // NONE of it may appear anywhere in the serialized API response.
 
-const { mockGetSql, mockListActions, mockGetCostAggregation, mockListAgentsForOrg, mockComputeSignals } =
+const { mockGetSql, mockListActions, mockListAgentsForOrg, mockComputeSignals } =
   vi.hoisted(() => ({
     mockGetSql: vi.fn(() => ({})),
     mockListActions: vi.fn(),
-    mockGetCostAggregation: vi.fn(),
     mockListAgentsForOrg: vi.fn(),
     mockComputeSignals: vi.fn(),
   }));
@@ -17,7 +16,6 @@ const { mockGetSql, mockListActions, mockGetCostAggregation, mockListAgentsForOr
 vi.mock('@/lib/db.js', () => ({ getSql: mockGetSql }));
 vi.mock('@/lib/repositories/actions.repository.js', () => ({
   listActions: mockListActions,
-  getCostAggregation: mockGetCostAggregation,
 }));
 vi.mock('@/lib/repositories/agents.repository.js', () => ({ listAgentsForOrg: mockListAgentsForOrg }));
 vi.mock('@/lib/signals.js', () => ({ computeSignals: mockComputeSignals }));
@@ -81,7 +79,6 @@ beforeEach(() => {
     });
   });
   mockComputeSignals.mockResolvedValue([{ severity: 'amber', label: 'Minor', detail: 'small note' }]);
-  mockGetCostAggregation.mockResolvedValue({ total_cost_usd: 1.0 });
   mockListAgentsForOrg.mockResolvedValue([]);
 });
 

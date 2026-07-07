@@ -31,15 +31,6 @@ const DEFAULT_FORM_STATE = {
   allowedActionTypes: [],
   // require_evidence
   enforcement: 'require_approval',
-  // x402_spend_limit (x402 spend governance)
-  maxSpendUsd: '',
-  approvalThreshold: '',
-  allowedProviders: [],
-  blockedProviders: [],
-  budgetUsd: '',
-  budgetApprovalThreshold: '',
-  budgetWindowDays: '',
-  budgetScope: 'org',
   agentIds: [],
   // allow_grant
   actionType: '',
@@ -67,7 +58,6 @@ export const POLICY_TYPE_OPTIONS = [
   { value: 'protected_path', label: 'Protected Path', desc: 'Warn or require approval when an action touches sensitive paths (auth, secrets, billing, middleware, …)' },
   { value: 'agent_allowlist', label: 'Agent Allowlist', desc: 'Warn (or escalate) when an agent uses an action type outside its observed safe envelope' },
   { value: 'require_evidence', label: 'Evidence Required', desc: 'Escalate guard calls that declare intent without attaching the actual act (command, request, statement, or file write)' },
-  { value: 'x402_spend_limit', label: 'x402 Spend Limit', desc: 'Govern x402 purchases: cap per-purchase spend, enforce a rolling-window budget, and allow/block providers' },
 ];
 
 function cleanString(value) {
@@ -125,17 +115,6 @@ const cleanList = (value) => (Array.isArray(value) ? value.filter(Boolean) : [])
 const cleanStringList = (value) =>
   (Array.isArray(value) ? value.map((entry) => cleanString(entry)).filter(Boolean) : []);
 
-// Returns the cleaned provider list when the raw input has entries, else null so
-// the caller can omit the key entirely (preserves the original "set even when the
-// cleaned list is empty, but only when raw length > 0" behavior).
-function providerList(value) {
-  return Array.isArray(value) && value.length > 0
-    ? value.map((entry) => cleanString(entry)).filter(Boolean)
-    : null;
-}
-
-const pluralProviders = (count) => `${count} provider${count === 1 ? '' : 's'}`;
-
 // Capitalized leading verb shared by most summaries ("Block" / "Warn on" /
 // "Require approval for"). rate_limit uses a "when"-suffixed variant inline.
 function actionVerb(action) {
@@ -146,20 +125,6 @@ function actionVerb(action) {
 
 function serializeAgentIds(agentIds) {
   return Array.isArray(agentIds) && agentIds.length > 0 ? JSON.stringify(agentIds) : null;
-}
-
-function x402SummaryParts(form) {
-  const parts = [];
-  if (hasValue(form.maxSpendUsd)) parts.push(`block purchases over $${Number(form.maxSpendUsd)}`);
-  if (hasValue(form.approvalThreshold)) parts.push(`require approval at $${Number(form.approvalThreshold)}`);
-  const windowLabel = `${hasValue(form.budgetWindowDays) ? Number(form.budgetWindowDays) : 30}d ${form.budgetScope === 'agent' ? 'per-agent' : 'org'} spend`;
-  if (hasValue(form.budgetUsd)) parts.push(`block when ${windowLabel} exceeds $${Number(form.budgetUsd)}`);
-  if (hasValue(form.budgetApprovalThreshold)) parts.push(`require approval when ${windowLabel} reaches $${Number(form.budgetApprovalThreshold)}`);
-  const allowed = cleanList(form.allowedProviders);
-  const blocked = cleanList(form.blockedProviders);
-  if (allowed.length) parts.push(`only allow ${pluralProviders(allowed.length)}`);
-  if (blocked.length) parts.push(`block ${pluralProviders(blocked.length)}`);
-  return parts;
 }
 
 // --- Per-type handlers --------------------------------------------------------
@@ -302,27 +267,6 @@ const POLICY_TYPE_HANDLERS = {
       return `${verb} ${actionListText(form.actionTypes)} guard calls that declare intent without attaching the actual act${scoped}.`;
     },
   },
-  x402_spend_limit: {
-    compile: (form) => {
-      const rules = {};
-      if (hasValue(form.maxSpendUsd)) rules.max_spend_usd = Number(form.maxSpendUsd);
-      if (hasValue(form.approvalThreshold)) rules.approval_threshold = Number(form.approvalThreshold);
-      if (hasValue(form.budgetUsd)) rules.budget_usd = Number(form.budgetUsd);
-      if (hasValue(form.budgetApprovalThreshold)) rules.budget_approval_threshold = Number(form.budgetApprovalThreshold);
-      if (hasValue(form.budgetWindowDays)) rules.budget_window_days = parseInt(String(form.budgetWindowDays), 10) || 30;
-      // 'org' is the engine default — only persist the non-default scope.
-      if (form.budgetScope === 'agent') rules.budget_scope = 'agent';
-      const allowed = providerList(form.allowedProviders);
-      const blocked = providerList(form.blockedProviders);
-      if (allowed) rules.allowed_providers = allowed;
-      if (blocked) rules.blocked_providers = blocked;
-      return rules;
-    },
-    summary: (form, scoped) => {
-      const parts = x402SummaryParts(form);
-      return `Govern x402 purchases: ${parts.length ? parts.join(', ') : 'record and govern spend'}${scoped}.`;
-    },
-  },
 };
 
 // --- Form state -> stored policy payload (compile) ---
@@ -391,14 +335,6 @@ export function decompilePolicyForm(policy) {
     targetPrefix: orVal(rules.target_prefix, ''),
     protectedPaths: arrOr(rules.paths, DEFAULT_FORM_STATE.protectedPaths),
     allowedActionTypes: arrOr(rules.allowed_action_types, DEFAULT_FORM_STATE.allowedActionTypes),
-    maxSpendUsd: coalesce(rules.max_spend_usd, DEFAULT_FORM_STATE.maxSpendUsd),
-    approvalThreshold: coalesce(rules.approval_threshold, DEFAULT_FORM_STATE.approvalThreshold),
-    allowedProviders: arrOr(rules.allowed_providers, DEFAULT_FORM_STATE.allowedProviders),
-    blockedProviders: arrOr(rules.blocked_providers, DEFAULT_FORM_STATE.blockedProviders),
-    budgetUsd: coalesce(rules.budget_usd, DEFAULT_FORM_STATE.budgetUsd),
-    budgetApprovalThreshold: coalesce(rules.budget_approval_threshold, DEFAULT_FORM_STATE.budgetApprovalThreshold),
-    budgetWindowDays: coalesce(rules.budget_window_days, DEFAULT_FORM_STATE.budgetWindowDays),
-    budgetScope: rules.budget_scope === 'agent' ? 'agent' : DEFAULT_FORM_STATE.budgetScope,
     tests: arrOr(rules.tests, []),
     agentIds: parseAgentIds(policy),
   };

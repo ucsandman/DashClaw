@@ -13,7 +13,6 @@ import {
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoSpend, demoX402Purchases, demoX402Budget
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -50,7 +49,6 @@ const PUBLIC_ROUTES = [
   '/api/cron',
   '/api/telegram/webhook',  // auth: x-telegram-bot-api-secret-token + chat-id allowlist (in route)
   '/api/discord/interactions',  // auth: Ed25519 signature + user_id allowlist (in route)
-  '/api/webhooks/stripe',  // auth: Stripe signature verification on raw body (in route); Stripe POSTs carry no API key
   // Public read-only content endpoints
   '/api/docs/raw',
   // Integrity re-verification surfaces — must be reachable without an API key so
@@ -917,21 +915,6 @@ function handleDemoSignals({ request, fixtures, url }) {
   });
 }
 
-function handleDemoActionCosts({ request, url }) {
-  // Demo-mode stub so the cost surfaces render without the
-  // catch-all /api/actions/[actionId] handler below swallowing this path
-  // and returning 404.
-  return demoJson(request, {
-    period: url.searchParams.get('period') || '30d',
-    total_cost_usd: 0,
-    total_tokens: 0,
-    total_actions: 0,
-    by_model: [],
-    by_agent: [],
-    by_day: [],
-  });
-}
-
 function handleDemoActionTrace({ request, fixtures, segments }) {
   const actionId = segments[2];
   const trace = demoActionTrace(fixtures, actionId);
@@ -1110,7 +1093,6 @@ const DEMO_API_ROUTES = [
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
   ['/api/actions/stats', demoFixtureRoute(demoDecisionMetrics)],
-  ['/api/actions/costs', handleDemoActionCosts],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*', 'trace']), handleDemoActionTrace],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'actions', '*']), handleDemoActionDetail],
   // Dashboard widgets
@@ -1148,7 +1130,6 @@ const DEMO_API_ROUTES = [
   ['/api/preferences', handleDemoPreferences],
   ['/api/memory', ({ request, fixtures }) => demoJson(request, { ...fixtures.memory, lastUpdated: new Date().toISOString() })],
   ['/api/tokens', demoFixtureRoute(demoTokens)],
-  ['/api/usage', demoFixturePropRoute('usage')],
   ['/api/security/status', demoFixturePropRoute('securityStatus')],
   ['/api/pairings', handleDemoPairings],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'pairings', '*']), handleDemoPairingDetail],
@@ -1162,9 +1143,6 @@ const DEMO_API_ROUTES = [
   ['/api/identities', demoFixtureRoute(demoIdentities)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
   ['/api/secrets', demoPayloadRoute(demoSecrets)],
-  ['/api/finops/spend', ({ request, url }) => demoJson(request, demoSpend(url))],
-  ['/api/x402/purchases', ({ request, url }) => demoJson(request, demoX402Purchases(url))],
-  ['/api/x402/budget', ({ request, url }) => demoJson(request, demoX402Budget(url))],
 ];
 
 async function dispatchDemoApiRoute(ctx) {
@@ -1761,8 +1739,6 @@ export const config = {
     '/setup/:path*',
     '/api-keys',
     '/api-keys/:path*',
-    '/usage',
-    '/usage/:path*',
     '/webhooks',
     '/webhooks/:path*',
     '/policies',

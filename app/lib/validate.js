@@ -383,7 +383,7 @@ function validateActField(act, addError) {
   }
 }
 
-const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'x402_spend_limit', 'require_evidence'];
+const POLICY_TYPES = ['risk_threshold', 'require_approval', 'block_action_type', 'warn_action_type', 'allow_grant', 'rate_limit', 'webhook_check', 'permission_escalation', 'green_contract', 'branch_freshness', 'non_fabrication', 'protected_path', 'agent_allowlist', 'require_evidence'];
 const GUARD_ACTIONS = ['allow', 'warn', 'block', 'require_approval'];
 
 const POLICY_SCHEMA = {
@@ -572,44 +572,6 @@ const POLICY_TYPE_VALIDATORS = {
       addError('permission_escalation policy rules.enforce must be a boolean when present');
     }
   },
-  x402_spend_limit: (rules, addError) => {
-    // x402 spend governance. All fields optional (the engine treats absent
-    // max_spend_usd / approval_threshold as Infinity and absent lists as
-    // empty), but when present they must be well-typed. Without this case the
-    // policy could not be authored through the validated /api/policies route
-    // even though the guard engine enforces it (audit B5).
-    if (rules.max_spend_usd !== undefined && !isFiniteNonNegative(rules.max_spend_usd)) {
-      addError('x402_spend_limit policy rules.max_spend_usd must be a finite, non-negative number when present');
-    }
-    if (rules.approval_threshold !== undefined && !isFiniteNonNegative(rules.approval_threshold)) {
-      addError('x402_spend_limit policy rules.approval_threshold must be a finite, non-negative number when present');
-    }
-    if (rules.allowed_providers !== undefined && !Array.isArray(rules.allowed_providers)) {
-      addError('x402_spend_limit policy rules.allowed_providers must be an array when present');
-    }
-    if (rules.blocked_providers !== undefined && !Array.isArray(rules.blocked_providers)) {
-      addError('x402_spend_limit policy rules.blocked_providers must be an array when present');
-    }
-    // Cumulative budget tier (owner roadmap item 2). All optional; 0 is a
-    // valid hard freeze for budget_usd, so non-negative — not positive.
-    if (rules.budget_usd !== undefined && !isFiniteNonNegative(rules.budget_usd)) {
-      addError('x402_spend_limit policy rules.budget_usd must be a finite, non-negative number when present');
-    }
-    if (rules.budget_approval_threshold !== undefined && !isFiniteNonNegative(rules.budget_approval_threshold)) {
-      addError('x402_spend_limit policy rules.budget_approval_threshold must be a finite, non-negative number when present');
-    }
-    if (rules.budget_window_days !== undefined && (!Number.isInteger(rules.budget_window_days) || rules.budget_window_days < 1 || rules.budget_window_days > 365)) {
-      addError('x402_spend_limit policy rules.budget_window_days must be an integer between 1 and 365 when present');
-    }
-    if (rules.budget_scope !== undefined && !['org', 'agent'].includes(rules.budget_scope)) {
-      addError('x402_spend_limit policy rules.budget_scope must be "org" or "agent" when present');
-    }
-    // Must match DEGRADED_ACTIONS in guard.ts (resolveDegradedAction) — 'warn'
-    // is a valid guard action but not a valid degradation target.
-    if (rules.on_failure !== undefined && !['allow', 'block', 'require_approval'].includes(rules.on_failure)) {
-      addError('x402_spend_limit policy rules.on_failure must be one of allow, block, require_approval when present');
-    }
-  },
   require_evidence: (rules, addError) => {
     // Evidence-first (17th type). action_types scopes it (empty/absent = all);
     // enforcement is the escalation applied when a matching call was graded
@@ -682,127 +644,6 @@ export function validatePolicy(body) {
   }
 
   return result;
-}
-
-// ── x402 purchase validation (R4) ──
-// The x402 purchase route previously did only a presence check on required
-// fields, letting Number(x)||0 admit negative/Infinity spend, arbitrary
-// currency strings, and unbounded free text. This schema rejects those at the
-// boundary so a malformed/hostile purchase never reaches the spend-limit guard
-// or the ledger.
-const X402_MAX_SPEND_USD = 1_000_000;
-const X402_REQUIRED = ['agent_id', 'provider', 'declared_goal', 'purchase_reason', 'context_gap', 'expected_value'];
-const X402_TEXT_LIMITS = {
-  agent_id: 128, agent_name: 256, provider: 256, provider_id: 128, endpoint_id: 128,
-  declared_goal: 2000, purchase_reason: 2000, context_gap: 2000, expected_value: 2000,
-  alternatives_considered: 4000, payment_method: 64, currency: 16,
-  wallet_reference: 512, payment_reference: 512,
-  // End-to-end idempotency (v3.7 5d): mirrors action_records.idempotency_key's
-  // maxLength (ACTION_RECORD_SCHEMA above) — x402 purchases, the money route,
-  // was the one sibling of /api/actions and /api/guard without duplicate-
-  // submission protection.
-  idempotency_key: 256,
-};
-
-// Closed currency allow-list (v3.7 5b). The spend aggregation sums
-// spend_amount with NO currency partition — every row counts 1:1 against USD
-// budget ceilings, so a fabricated currency corrupts budget-limit bookkeeping.
-// DASHCLAW_X402_CURRENCIES is a comma-separated env override; default is just
-// USDC (the only currency DashClaw's x402 flows currently settle in).
-const X402_DEFAULT_CURRENCIES = ['USDC'];
-
-function getAllowedX402Currencies() {
-  const raw = process.env.DASHCLAW_X402_CURRENCIES;
-  if (!raw) return X402_DEFAULT_CURRENCIES;
-  const list = raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean);
-  return list.length ? list : X402_DEFAULT_CURRENCIES;
-}
-
-function collectX402Required(src, errors) {
-  const missing = X402_REQUIRED.filter((k) => src[k] == null || src[k] === '');
-  if (missing.length) errors.push(`Missing required fields: ${missing.join(', ')}`);
-}
-
-function collectX402TextFields(src, errors, data) {
-  for (const [k, max] of Object.entries(X402_TEXT_LIMITS)) {
-    if (src[k] == null) continue;
-    if (typeof src[k] !== 'string') { errors.push(`${k} must be a string`); continue; }
-    if (src[k].length > max) { errors.push(`${k} exceeds max length of ${max}`); continue; }
-    data[k] = src[k];
-  }
-}
-
-// Spend amount: accept cost_estimate (preferred) or spend_amount; must be a
-// finite, non-negative number within a sane ceiling. Number(x)||0 is NOT used
-// because it silently turns Infinity into Infinity and -5 into -5.
-function collectX402Spend(src, errors, data) {
-  data.spend_amount = 0;
-  const rawSpend = src.cost_estimate ?? src.spend_amount;
-  if (rawSpend == null || rawSpend === '') return;
-
-  const n = typeof rawSpend === 'number' ? rawSpend : Number(rawSpend);
-  if (!Number.isFinite(n)) {
-    errors.push('spend amount (cost_estimate/spend_amount) must be a finite number');
-  } else if (n < 0) {
-    errors.push('spend amount must be non-negative');
-  } else if (n > X402_MAX_SPEND_USD) {
-    errors.push(`spend amount exceeds maximum of ${X402_MAX_SPEND_USD}`);
-  } else {
-    data.spend_amount = n;
-  }
-}
-
-function collectX402Currency(src, errors, data) {
-  // Currency: closed allow-list (env-configurable via DASHCLAW_X402_CURRENCIES,
-  // default USDC); defaulted downstream when absent. Format-only validation
-  // used to let any junk currency through unpartitioned budget sums.
-  if (src.currency == null || src.currency === '') return;
-  if (typeof src.currency !== 'string') {
-    errors.push('currency must be a string');
-    return;
-  }
-  const normalized = src.currency.toUpperCase();
-  const allowed = getAllowedX402Currencies();
-  if (!allowed.includes(normalized)) {
-    errors.push(`currency must be one of: ${allowed.join(', ')}`);
-  } else {
-    data.currency = normalized;
-  }
-}
-
-function collectX402Scores(src, errors, data) {
-  // Client risk_score (optional): may only raise the authoritative score later.
-  if (src.risk_score != null) {
-    const r = Number(src.risk_score);
-    if (!Number.isFinite(r) || r < 0 || r > 100) errors.push('risk_score must be a number between 0 and 100');
-    else data.risk_score = r;
-  }
-  if (src.confidence_score != null) {
-    const c = Number(src.confidence_score);
-    if (!Number.isFinite(c)) errors.push('confidence_score must be a finite number');
-    else data.confidence_score = c;
-  }
-  // Approvals lifecycle (drizzle/0039): declared approval poll window so a
-  // pending x402 purchase gets a truthful approval_expires_at stamp.
-  if (src.approval_wait_seconds != null) {
-    const w = Number(src.approval_wait_seconds);
-    if (!Number.isInteger(w) || w < 5 || w > 86400) errors.push('approval_wait_seconds must be an integer between 5 and 86400');
-    else data.approval_wait_seconds = w;
-  }
-}
-
-export function validateX402Purchase(body) {
-  const src = (body && typeof body === 'object' && !Array.isArray(body)) ? body : {};
-  const errors = [];
-  const data = {};
-
-  collectX402Required(src, errors);
-  collectX402TextFields(src, errors, data);
-  collectX402Spend(src, errors, data);
-  collectX402Currency(src, errors, data);
-  collectX402Scores(src, errors, data);
-
-  return { valid: errors.length === 0, data, errors };
 }
 
 // Extract the embedded IPv4 from an IPv4-mapped IPv6 address in either the

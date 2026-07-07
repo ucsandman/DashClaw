@@ -161,47 +161,6 @@
         "x-api-maturity": "stable"
       }
     },
-    "/api/actions/costs": {
-      "get": {
-        "operationId": "get_api_actions_costs",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "400": {
-            "description": "Validation or request error"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "summary": "GET /api/actions/costs",
-        "tags": [
-          "actions"
-        ],
-        "x-api-maturity": "stable"
-      }
-    },
     "/api/actions/stats": {
       "get": {
         "operationId": "get_api_actions_stats",
@@ -2824,88 +2783,6 @@
         "x-api-maturity": "stable"
       }
     },
-    "/api/usage": {
-      "get": {
-        "operationId": "get_api_usage",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "400": {
-            "description": "Validation or request error"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "summary": "GET /api/usage",
-        "tags": [
-          "usage"
-        ],
-        "x-api-maturity": "stable"
-      }
-    },
-    "/api/usage/costs": {
-      "get": {
-        "operationId": "get_api_usage_costs",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "400": {
-            "description": "Validation or request error"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "summary": "GET /api/usage/costs",
-        "tags": [
-          "usage"
-        ],
-        "x-api-maturity": "stable"
-      }
-    },
     "/api/webhooks": {
       "delete": {
         "operationId": "delete_api_webhooks",
@@ -3036,64 +2913,6 @@
           }
         ],
         "summary": "POST /api/webhooks",
-        "tags": [
-          "webhooks"
-        ],
-        "x-api-maturity": "stable"
-      }
-    },
-    "/api/webhooks/stripe": {
-      "post": {
-        "operationId": "post_api_webhooks_stripe",
-        "parameters": [],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object"
-                }
-              }
-            },
-            "description": "Successful response"
-          },
-          "201": {
-            "description": "Created"
-          },
-          "202": {
-            "description": "Accepted"
-          },
-          "400": {
-            "description": "Validation or request error"
-          },
-          "401": {
-            "description": "Authentication required"
-          },
-          "403": {
-            "description": "Forbidden"
-          },
-          "500": {
-            "description": "Internal server error"
-          }
-        },
-        "security": [
-          {
-            "ApiKeyAuth": []
-          }
-        ],
-        "summary": "POST /api/webhooks/stripe",
         "tags": [
           "webhooks"
         ],

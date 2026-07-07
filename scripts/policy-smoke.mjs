@@ -170,105 +170,10 @@ async function main() {
       `decision=${below.json?.decision} matched=${JSON.stringify(below.json?.matched_policies)}`);
   }
 
-  // B2: x402 spend cap — the real one (x402_purchase only)
-  {
-    const agent = agentFor('b2');
-    await createPolicy('spend-cap', 'x402_spend_limit',
-      { approval_threshold: 5, max_spend_usd: 25 }, [agent]);
-    const purchase = (goal, cost) => api('POST', '/api/x402/purchases', {
-      agent_id: agent, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
-      purchase_reason: 'policy smoke check', context_gap: 'verifying spend gates live', expected_value: 'proof the cap works',
-    });
-    const under = await purchase(`tiny paid call ${RUN}`, 3);
-    const mid = await purchase(`medium paid call ${RUN}`, 10);
-    const over = await purchase(`huge paid call ${RUN}`, 100);
-    const decisionOf = (r) => {
-      for (const g of [r.json?.guard, r.json?.decision, r.json?.guard_decision]) {
-        if (typeof g === 'string') return g;
-        if (g && typeof g.decision === 'string') return g.decision;
-      }
-      // fall back to the recorded action's status as decision evidence
-      const st = r.json?.action?.status;
-      return st === 'pending_approval' ? 'require_approval' : st === 'blocked' ? 'block' : undefined;
-    };
-    check('B2', 'x402 spend $3 under $5 threshold → not gated',
-      under.status < 400 && decisionOf(under) !== 'require_approval' && decisionOf(under) !== 'block',
-      `status=${under.status} decision=${decisionOf(under)} body=${JSON.stringify(under.json)?.slice(0, 200)}`);
-    check('B2', 'x402 spend $10 ≥ $5 threshold → require_approval',
-      decisionOf(mid) === 'require_approval',
-      `status=${mid.status} decision=${decisionOf(mid)} body=${JSON.stringify(mid.json)?.slice(0, 200)}`);
-    check('B2', 'x402 spend $100 > $25 cap → block',
-      decisionOf(over) === 'block' || over.status === 403,
-      `status=${over.status} decision=${decisionOf(over)} body=${JSON.stringify(over.json)?.slice(0, 200)}`);
-
-    // B2-NEG: the /explain playground overpromise probe — a generic payment
-    // action with a cost_estimate is NOT gated by the spend policy.
-    const generic = await api('POST', '/api/guard', {
-      action_type: 'payment.create', declared_goal: `pay a generic vendor invoice ${RUN}`,
-      agent_id: agent, cost_estimate: 10000,
-    });
-    check('B2-NEG', 'generic payment.create with cost_estimate is NOT spend-gated (documents the x402-only scope)',
-      generic.json?.decision !== undefined &&
-      !(generic.json?.matched_policies || []).some((id) => createdPolicyIds.includes(id)),
-      `decision=${generic.json?.decision} matched=${JSON.stringify(generic.json?.matched_policies)}`);
-  }
-
-  // B6: cumulative x402 budget — spend accrues across purchases until the
-  // window budget interrupts (owner roadmap item 2). Agent-scoped with a
-  // per-run agent so prior runs' purchases in the shared smoke org are
-  // invisible to the sum and the sequence is deterministic from $0.
-  {
-    const agent = agentFor('b6');
-    const budgetPid = await createPolicy('spend-budget', 'x402_spend_limit',
-      { budget_approval_threshold: 10, budget_usd: 20, budget_scope: 'agent' }, [agent]);
-    const purchase = (goal, cost) => api('POST', '/api/x402/purchases', {
-      agent_id: agent, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
-      purchase_reason: 'policy smoke check', context_gap: 'verifying the cumulative budget live', expected_value: 'proof the budget gate works',
-    });
-    const decisionOf = (r) => {
-      for (const g of [r.json?.guard, r.json?.decision, r.json?.guard_decision]) {
-        if (typeof g === 'string') return g;
-        if (g && typeof g.decision === 'string') return g.decision;
-      }
-      const st = r.json?.action?.status;
-      return st === 'pending_approval' ? 'require_approval' : st === 'blocked' ? 'block' : undefined;
-    };
-    const p1 = await purchase(`budget purchase 1 ${RUN}`, 4);   // window sum 4
-    const p2 = await purchase(`budget purchase 2 ${RUN}`, 4);   // window sum 8
-    const p3 = await purchase(`budget purchase 3 ${RUN}`, 4);   // 8 + 4 = 12 ≥ 10 → approval
-    const p4 = await purchase(`budget purchase 4 ${RUN}`, 10);  // 12 + 10 = 22 > 20 → block
-    check('B6', 'purchases under the window budget are not gated ($4, then $8 cumulative)',
-      p1.status < 400 && decisionOf(p1) !== 'require_approval' && decisionOf(p1) !== 'block' &&
-      p2.status < 400 && decisionOf(p2) !== 'require_approval' && decisionOf(p2) !== 'block',
-      `p1=${p1.status}/${decisionOf(p1)} p2=${p2.status}/${decisionOf(p2)} body=${JSON.stringify(p2.json)?.slice(0, 200)}`);
-    check('B6', 'cumulative spend $12 ≥ $10 budget approval threshold → require_approval (each purchase alone is only $4)',
-      decisionOf(p3) === 'require_approval',
-      `status=${p3.status} decision=${decisionOf(p3)} body=${JSON.stringify(p3.json)?.slice(0, 200)}`);
-    check('B6', 'cumulative spend $22 > $20 window budget → block',
-      decisionOf(p4) === 'block' || p4.status === 403,
-      `status=${p4.status} decision=${decisionOf(p4)} body=${JSON.stringify(p4.json)?.slice(0, 200)}`);
-    check('B6', 'budget block carries the cumulative-spend evidence in its reason',
-      JSON.stringify(p4.json || {}).includes('Cumulative x402 spend'),
-      `body=${JSON.stringify(p4.json)?.slice(0, 300)}`);
-
-    // B7: budget consumption READ path (roadmap v2.6c) — the meter renders the
-    // same window sum the gate just evaluated: $12 = two allowed $4 purchases
-    // + the $4 pending approval (reserved spend counts); the blocked $10 never
-    // produced a purchase row.
-    const meter = await api('GET', `/api/x402/budget?agent_id=${encodeURIComponent(agent)}`);
-    const entry = (meter.json?.budgets || []).find((b) => b.policy_id === budgetPid);
-    const fam = (entry?.families || []).find((f) => f.agent_id === agent);
-    check('B7', 'GET /api/x402/budget shows the gate\'s window sum for the agent family ($12 of $20)',
-      meter.status === 200 && entry?.budget_scope === 'agent' && entry?.budget_usd === 20 &&
-      Math.abs(Number(fam?.window_spend_usd) - 12) < 0.001,
-      `status=${meter.status} entry=${JSON.stringify(entry)?.slice(0, 300)}`);
-  }
-
-  // L1–L3: agent identity family (roadmap v2.2). Composed sub-agent ids
+  // L1–L2: agent identity family (roadmap v2.2). Composed sub-agent ids
   // (<parent>:<type>, DASHCLAW_SUBAGENT_IDENTITY=distinct — the default since
-  // v2.2) inherit the parent's targeted policies, and agent-scoped x402
-  // budgets bind the whole identity family, so a sub-agent can neither dodge
-  // its parent's rules nor escape the family budget.
+  // v2.2) inherit the parent's targeted policies, so a sub-agent cannot dodge
+  // its parent's rules.
   {
     const parent = agentFor('fam');
     const child = `${parent}:explore`;
@@ -288,38 +193,6 @@ async function main() {
       !(unrelated.json?.matched_policies || []).includes(pid),
       `matched=${JSON.stringify(unrelated.json?.matched_policies)}`);
 
-    // L3: family budget — the parent's agent-scoped budget counts sub-agent
-    // spend. Parent spends $4 (allowed), then the CHILD's $4 purchase breaches
-    // the $7 family budget even though the child alone has spent nothing.
-    // Purchases stay under $5 so the shared smoke org's org-wide per-purchase
-    // gates (same reason B6 uses $4) never shadow the family-budget signal.
-    const famAgent = agentFor('fam-budget');
-    const famChild = `${famAgent}:worker`;
-    await createPolicy('family-budget', 'x402_spend_limit',
-      { budget_usd: 7, budget_scope: 'agent' }, [famAgent]);
-    const famPurchase = (agentId, goal, cost) => api('POST', '/api/x402/purchases', {
-      agent_id: agentId, provider: 'smoke-provider', declared_goal: goal, cost_estimate: cost,
-      purchase_reason: 'policy smoke check', context_gap: 'verifying the family budget live', expected_value: 'proof sub-agents cannot escape the family budget',
-    });
-    const famDecision = (r) => {
-      for (const g of [r.json?.guard, r.json?.decision, r.json?.guard_decision]) {
-        if (typeof g === 'string') return g;
-        if (g && typeof g.decision === 'string') return g.decision;
-      }
-      const st = r.json?.action?.status;
-      return st === 'pending_approval' ? 'require_approval' : st === 'blocked' ? 'block' : undefined;
-    };
-    const f1 = await famPurchase(famAgent, `family budget purchase by parent ${RUN}`, 4);  // family sum 4
-    const f2 = await famPurchase(famChild, `family budget purchase by sub-agent ${RUN}`, 4); // 4 + 4 = 8 > 7 → block
-    check('L3', 'parent purchase under the family budget is not gated',
-      f1.status < 400 && famDecision(f1) !== 'block' && famDecision(f1) !== 'require_approval',
-      `status=${f1.status} decision=${famDecision(f1)} body=${JSON.stringify(f1.json)?.slice(0, 200)}`);
-    check('L3', "sub-agent purchase breaching the family budget is blocked (composed id counted into the parent's window)",
-      famDecision(f2) === 'block' || f2.status === 403,
-      `status=${f2.status} decision=${famDecision(f2)} body=${JSON.stringify(f2.json)?.slice(0, 200)}`);
-    check('L3', 'the family-budget block names the family base agent in its reason',
-      JSON.stringify(f2.json || {}).includes(`agent ${famAgent}`),
-      `body=${JSON.stringify(f2.json)?.slice(0, 300)}`);
   }
 
   // C1 + C2: /api/actions runs guard internally
@@ -773,33 +646,11 @@ async function main() {
       const still = await api('GET', `/api/actions/${actionId}`);
       check('M3', 'expired record stays expired after the approval attempt',
         still.json?.action?.status === 'expired', `status=${still.json?.action?.status}`);
-
-      // x402 ride-along: an expired purchase approval must release its
-      // reserved budget row (execution_status pending → expired).
-      const purchase = await api('POST', '/api/x402/purchases', {
-        agent_id: agent, provider: 'smoke-provider', declared_goal: `expiring purchase ${RUN}`,
-        cost_estimate: 3, risk_score: 75, approval_wait_seconds: 30,
-        purchase_reason: 'lifecycle smoke', context_gap: 'expiry ride-along',
-        expected_value: 'proof that an expired purchase approval releases its reserved budget',
-      });
-      const pActionId = purchase.json?.action?.action_id || purchase.json?.action_id;
-      if (pActionId && purchase.json?.action?.status === 'pending_approval') {
-        await seedSql`UPDATE action_records SET approval_expires_at = NOW() - interval '2 minutes' WHERE action_id = ${pActionId}`;
-        await api('GET', `/api/actions?status=pending_approval&agent_id=${encodeURIComponent(agent)}&limit=5`);
-        const plist = await api('GET', `/api/x402/purchases?agent_id=${encodeURIComponent(agent)}`);
-        const prow = (plist.json?.purchases || []).find((p) => p.action_id === pActionId);
-        check('M4', "expired x402 approval reconciles the purchase to execution_status='expired'",
-          prow?.execution_status === 'expired', `purchase=${JSON.stringify(prow)?.slice(0, 200)}`);
-      } else {
-        check('M4', 'x402 expiry ride-along', false,
-          `purchase not pending: status=${purchase.json?.action?.status} body=${JSON.stringify(purchase.json)?.slice(0, 200)}`);
-      }
     } else {
       const why = actionId ? 'DATABASE_URL unavailable for the seeded backdate' : 'no action_id from guard?record=true';
       check('M2', 'expiry flip on queue read', false, why);
       check('M3', 'truthful 410 on expired', false, why);
       check('M3', 'expired stays expired', false, why);
-      check('M4', 'x402 expiry ride-along', false, why);
     }
     // postgres.js keeps a live TCP pool that would hold the process open;
     // Neon's HTTP driver has no end() — hence the guarded call.

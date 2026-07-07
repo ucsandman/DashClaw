@@ -7,7 +7,7 @@
  *   - guard/risk.ts         — server risk scoring + RiskBreakdown
  *   - guard/policy.ts       — evaluatePolicy / evaluateWebhookPolicy + degradation contract
  *   - guard/persistence.ts  — persistGuardDecision (audit row)
- *   - guard/evaluate.ts     — evaluateGuard orchestration + verifyX402BudgetAfterInsert
+ *   - guard/evaluate.ts     — evaluateGuard orchestration
  */
 
 export { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, KNOWN_POLICY_TYPES, isKnownPolicyType } from './guard/policy';
@@ -21,5 +21,5 @@ export {
   __resetGuardCaches,
 } from './guard/caches';
 export { persistGuardDecision } from './guard/persistence';
-export { evaluateGuard, verifyX402BudgetAfterInsert } from './guard/evaluate';
+export { evaluateGuard } from './guard/evaluate';
 export type { PromptInjectionShieldStatus } from './guard/evaluate';

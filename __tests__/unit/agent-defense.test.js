@@ -59,7 +59,6 @@ describe('buildAgentDefense', () => {
     });
     expect(d.shields.prompt_injection.status).toBe('clean');
     expect(d.shields.non_fabrication).toEqual({ evaluated: false });
-    expect(d.shields.spend).toEqual({ evaluated: false });
   });
 
   it('legacy decision without _shields → prompt_injection not_recorded', () => {
@@ -74,7 +73,6 @@ describe('buildAgentDefense', () => {
     expect(d.decision).toEqual({ linked: false });
     expect(d.shields.prompt_injection.status).toBe('not_recorded');
     expect(d.shields.non_fabrication).toEqual({ evaluated: false });
-    expect(d.shields.spend).toEqual({ evaluated: false });
   });
 
   it('non-fabrication evidence rolls up verdict, violation count, and receipt presence', () => {
@@ -93,20 +91,6 @@ describe('buildAgentDefense', () => {
     });
   });
 
-  it('x402 purchase → spend evaluated with the decision outcome', () => {
-    const base = action({ action_type: 'x402_purchase' });
-    expect(buildAgentDefense(base, decision({ action_type: 'x402_purchase' }), []).shields.spend)
-      .toEqual({ evaluated: true, outcome: 'within_limits' });
-    expect(buildAgentDefense(base, decision({ action_type: 'x402_purchase', decision: 'require_approval' }), []).shields.spend)
-      .toEqual({ evaluated: true, outcome: 'required_approval' });
-    expect(buildAgentDefense(base, decision({ action_type: 'x402_purchase', decision: 'block' }), []).shields.spend)
-      .toEqual({ evaluated: true, outcome: 'blocked' });
-  });
-
-  it('non-x402 action never claims spend protection', () => {
-    const d = buildAgentDefense(action(), decision({ decision: 'block' }), []);
-    expect(d.shields.spend).toEqual({ evaluated: false });
-  });
 
   it('malformed context/evidence/matched_policies JSON degrades, never throws', () => {
     const broken = decision({

@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Dispatch-level pins for the demo handlers added in the P20 gap-closing pass:
-// the session detail trio, x402 purchases, and the
-// period-aware finops spend handler.
+// the session detail trio and the policies contract handler.
 // Mirrors the mocking setup of middleware.test.js (env-forced DASHCLAW_MODE=demo).
 vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
 const sqlMock = vi.fn(async () => []);
@@ -65,30 +64,6 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     expect((await res.json()).error).toBe('Session not found');
   });
 
-  it('GET /api/x402/purchases returns provider-joined demo rows (was 403)', async () => {
-    const res = await middleware(req('/api/x402/purchases'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.purchases.length).toBeGreaterThan(0);
-    expect(body.purchases[0].provider_name).toEqual(expect.any(String));
-  });
-
-  it('GET /api/finops/spend honors ?period= (7d/30d/90d buttons live in demo)', async () => {
-    const seven = await (await middleware(req('/api/finops/spend?period=7d'))).json();
-    const ninety = await (await middleware(req('/api/finops/spend?period=90d'))).json();
-    expect(seven.agent.by_day.length).toBe(7);
-    expect(ninety.agent.by_day.length).toBe(90);
-    expect(ninety.fleet_total_usd).toBeGreaterThan(seven.fleet_total_usd);
-  });
-
-  it('GET /api/finops/spend?lens=claude-code returns the code-sessions shape', async () => {
-    const res = await middleware(req('/api/finops/spend?lens=claude-code&period=7d'));
-    expect(res.status).toBe(200);
-    const body = await res.json();
-    expect(body.lens).toBe('claude_code');
-    expect(body.code_sessions.by_day.length).toBe(7);
-  });
-
   it('PATCH /api/sessions/:id stays an allowed simulation? No — sessions PATCH is write-blocked', async () => {
     // isDemoSimulationRequest only exempts /api/guard, /api/actions(+subpaths),
     // /api/assumptions. Sessions PATCH falls to the write block, and the detail
@@ -104,38 +79,25 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     const body = await res.json();
     expect(body.governed).toBe(true);
     expect(body.mode_id).toBe('claude-code');
-    expect(body.interrupts.length).toBe(5);
+    expect(body.interrupts.length).toBe(4);
     expect(body.silent.length).toBe(3);
-    expect(body.blocks.length).toBe(2);
+    expect(body.blocks.length).toBe(1);
     expect(body.grants.length).toBeGreaterThanOrEqual(1);
-    // x402 interrupt carries editable + rules
-    expect(body.interrupts[0]).toMatchObject({
-      policy_id: expect.any(String),
-      text: 'paid spend reaches $5.00',
-      fired_7d: expect.any(Number),
-      editable: { param: 'approval_threshold', value: 5 },
-    });
-    expect(body.interrupts[0].rules).toBeDefined();
     // require_approval sentences use real claude-code action_types
-    expect(body.interrupts[1].text).toBe('action is one of: deploy, migrate, workflow_execute');
-    expect(body.interrupts[2].text).toBe('action is one of: delete, reset, destroy, drop');
-    // protected_path and runaway rate_limit (policies 7 and 9 in compile.ts)
-    expect(body.interrupts[3].text).toBe('protected paths change (governance, auth, secrets)');
-    expect(body.interrupts[4].text).toBe('runaway loop: more than 650 actions in 60 minutes');
-    // silent: risk-85 warn (policy 2) first, then comms warn (policy 4), then burst (policy 8)
+    expect(body.interrupts[0].text).toBe('action is one of: deploy, migrate, workflow_execute');
+    expect(body.interrupts[1].text).toBe('action is one of: delete, reset, destroy, drop');
+    // protected_path and runaway rate_limit
+    expect(body.interrupts[2].text).toBe('protected paths change (governance, auth, secrets)');
+    expect(body.interrupts[3].text).toBe('runaway loop: more than 650 actions in 60 minutes');
+    // silent: risk-85 warn first, then comms warn, then burst
     expect(body.silent[0].text).toBe('risk score reaches 85');
     expect(body.silent[1].text).toBe('message, post, email, calendar, sync, api calls (recorded for review)');
     expect(body.silent[2].text).toBe('burst: more than 250 actions in 30 minutes');
-    // blocks: risk-100 + x402 max
+    // blocks: risk-100
     expect(body.blocks[0].text).toBe('risk score reaches 100');
-    expect(body.blocks[1]).toMatchObject({
-      text: 'paid spend exceeds $25.00',
-      editable: { param: 'max_spend_usd', value: 25 },
-    });
-    expect(body.blocks[1].rules).toBeDefined();
-    // friction: sum of interrupt fired_7d (2+7+3+1+0=13) × 20s
-    expect(body.friction.interrupts_7d).toBe(13);
-    expect(body.friction.est_seconds).toBe(260);
+    // friction: sum of interrupt fired_7d (7+3+1+0=11) × 20s
+    expect(body.friction.interrupts_7d).toBe(11);
+    expect(body.friction.est_seconds).toBe(220);
   });
 
   it('GET /api/policies/review returns warn groups and recent interrupts', async () => {

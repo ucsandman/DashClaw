@@ -6,13 +6,6 @@
  *      `createAction()` to open a governance record.
  *   2. `after_tool_call`  → `updateOutcome()` to close that record.
  *
- * x402 capability payments (e.g. an `agentcash fetch`) take a dedicated path:
- * `before_tool_call` gates them with `action_type:'x402_purchase'` (so an
- * `x402_spend_limit` policy can block an over-budget payment before it runs),
- * and `after_tool_call` records the settled spend via `recordPurchase()` +
- * `recordPurchaseResult()`. The agent still executes the payment itself
- * (govern-not-do); DashClaw only guards and records it.
- *
  * Type accuracy notes (verified against `openclaw` plugin SDK types):
  *   - `PluginHookBeforeToolCallResult` uses `blockReason`, not `reason`.
  *   - `PluginKind` is `"memory" | "context-engine"` — neither applies to this

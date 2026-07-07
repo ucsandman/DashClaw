@@ -22,7 +22,6 @@ const SIMULATED_TYPES = new Set<string>([
   'block_action_type',
   'warn_action_type',
   'protected_path',
-  'x402_spend_limit',
 ]);
 
 const SEVERITY: Record<string, number> = { allow: 0, warn: 1, require_approval: 2, block: 3 };

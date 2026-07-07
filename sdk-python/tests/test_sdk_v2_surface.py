@@ -514,51 +514,6 @@ class TestPhase2BearerHeader(unittest.TestCase):
         self.assertEqual(headers["X-api-key"], "key-1")
 
 
-# ---------------------------------------------------------------------------
-# x402 — record_x402_purchase convenience (parity with Node recordX402Purchase)
-# ---------------------------------------------------------------------------
-
-class TestRecordX402Purchase(unittest.TestCase):
-    def _claw(self):
-        class _Rec(RecordingDashClaw):
-            def _request(self, path, method="GET", body=None, json=None, **kwargs):
-                self.calls.append({"path": path, "method": method, "body": json or body})
-                if path == "/api/x402/purchases":
-                    return {
-                        "action": {"action_id": "act_x402"},
-                        "purchase": {"provider_id": "prov_1"},
-                        "decision": {"decision": "allow"},
-                    }
-                return {"ok": True}
-
-        return _Rec()
-
-    def test_records_purchase_then_outcome_then_receipt(self):
-        claw = self._claw()
-        out = claw.record_x402_purchase(
-            agent_id="a1", provider="stableenrich.dev", spend=0.007,
-            transaction_hash="0xabc", request_id="req1",
-        )
-        paths = [c["path"] for c in claw.calls]
-        self.assertEqual(paths, ["/api/x402/purchases", "/api/actions/act_x402/outcome", "/api/artifacts"])
-        purchase = claw.calls[0]["body"]
-        self.assertEqual(purchase["provider"], "stableenrich.dev")
-        self.assertEqual(purchase["spend_amount"], 0.007)
-        self.assertEqual(purchase["payment_method"], "x402")
-        artifact = claw.calls[2]["body"]
-        self.assertEqual(artifact["artifact_type"], "x402_purchase_result")
-        self.assertEqual(artifact["source_action_id"], "act_x402")
-        self.assertEqual(artifact["content_json"]["transactionHash"], "0xabc")
-        self.assertEqual(out["action"]["action_id"], "act_x402")
-
-    def test_skips_receipt_without_tx_or_request_id(self):
-        claw = self._claw()
-        claw.record_x402_purchase(agent_id="a1", provider="exa.dev", spend=0.01)
-        paths = [c["path"] for c in claw.calls]
-        self.assertEqual(paths, ["/api/x402/purchases", "/api/actions/act_x402/outcome"])
-
-
-
 
 if __name__ == "__main__":
     unittest.main()

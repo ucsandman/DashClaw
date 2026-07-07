@@ -217,117 +217,7 @@ async function evaluatePermissionEscalationPolicy({ rules, context, sql, orgId }
   return null;
 }
 
-// ── x402_spend_limit evaluation ──
-
 const GREEN_RANK: Record<string, number> = { targeted: 0, package: 1, workspace: 2, merge_ready: 3 };
-
-const asArr = (v: unknown): string[] => (Array.isArray(v) ? v : []);
-
-function resolveX402Provider(context: GuardEvalContext): { provider: string; providerId: string | null } {
-  return { provider: context.provider || context.vendor || 'unknown', providerId: context.provider_id || null };
-}
-
-function x402Spend(context: GuardEvalContext): number {
-  return Number(context.cost_estimate ?? context.cost ?? 0) || 0;
-}
-
-function x402ProviderDecision(rules: PolicyRules, provider: string, providerId: string | null): PolicyResult | null {
-  const inList = (list: string[]): boolean => list.includes(provider) || (providerId != null && list.includes(providerId));
-  if (inList(asArr(rules.blocked_providers))) return { action: 'block', reason: `Provider "${provider}" is blocked by policy` };
-  const allowed = asArr(rules.allowed_providers);
-  if (allowed.length > 0 && !inList(allowed)) return { action: 'block', reason: `Provider "${provider}" not in approved list` };
-  return null;
-}
-
-function x402SpendDecision(rules: PolicyRules, spend: number): PolicyResult | null {
-  const maxSpend = rules.max_spend_usd ?? Infinity;
-  const approvalThreshold = rules.approval_threshold ?? Infinity;
-  if (spend > maxSpend) return { action: 'block', reason: `Spend $${spend.toFixed(4)} exceeds max $${maxSpend}` };
-  if (spend >= approvalThreshold) return { action: 'require_approval', reason: `Spend $${spend.toFixed(4)} >= approval threshold $${approvalThreshold}` };
-  return null;
-}
-
-const moreSevereResult = (a: PolicyResult | null, b: PolicyResult | null): PolicyResult | null => {
-  if (!a) return b;
-  if (!b) return a;
-  return sevOf(b.action) > sevOf(a.action) ? b : a;
-};
-
-/**
- * Cumulative budget tier: window spend sum + the incoming amount vs
- * budget_approval_threshold (>= require_approval) / budget_usd (> block),
- * mirroring the per-purchase pair's operators. Runs ONLY when a budget field
- * is present, so per-purchase-only policies gain zero DB queries.
- */
-export function x402BudgetWindow(rules: PolicyRules): { windowDays: number; scope: 'org' | 'agent' } {
-  return {
-    windowDays: Math.max(1, Math.min(365, parseInt(String(rules.budget_window_days), 10) || 30)),
-    scope: rules.budget_scope === 'agent' ? 'agent' : 'org',
-  };
-}
-
-async function x402BudgetDecision(rules: PolicyRules, context: GuardEvalContext, sql: GuardSql, orgId: string, spend: number): Promise<PolicyResult | null> {
-  const budgetMax = rules.budget_usd ?? Infinity;
-  const budgetApproval = rules.budget_approval_threshold ?? Infinity;
-  if (budgetMax === Infinity && budgetApproval === Infinity) return null;
-
-  const { windowDays, scope } = x402BudgetWindow(rules);
-  const agentId = typeof context.agent_id === 'string' && context.agent_id ? context.agent_id : null;
-
-  // Fail closed on unattributable spend: skipping (the rate_limit convention)
-  // would make "omit agent_id" a budget bypass — tolerable for rate limiting,
-  // not for money.
-  if (scope === 'agent' && !agentId) {
-    return { action: 'require_approval', reason: 'Agent-scoped x402 budget cannot attribute this purchase (no agent_id)' };
-  }
-
-  // Agent-scoped budgets bind the identity FAMILY: a composed sub-agent id
-  // (<parent>:<type>) is normalized to its base so the parent's budget
-  // captures delegated spend, and sumWindowSpend counts the whole family.
-  const budgetAgentId = agentId ? (baseAgentId(agentId) ?? agentId) : null;
-
-  let windowSpend: number;
-  try {
-    const { sumWindowSpend } = await import('../repositories/x402.repository');
-    const sinceIso = new Date(Date.now() - windowDays * 86400000).toISOString();
-    windowSpend = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? budgetAgentId : null });
-  } catch (err) {
-    // Degradation contract: per-policy on_failure → DASHCLAW_GUARD_FALLBACK →
-    // fail-closed default (require_approval). 'allow' is the explicit escape hatch.
-    const degraded = resolveDegradedAction(rules.on_failure);
-    console.warn('[Guard] x402 budget sum failed:', { org_id: orgId, agent_id: agentId, degraded, error: (err as Error)?.message || err });
-    if (degraded === 'allow') {
-      // Pass through, but leave the skipped check visible in the decision
-      // ledger (not just the server log) — parity with the deadline path.
-      const note = 'x402 budget check failed — skipped (on_failure: allow)';
-      return { action: 'allow', reason: note, extraWarnings: [note] };
-    }
-    return { action: degraded, reason: `x402 budget check failed — degraded decision (${degraded})` };
-  }
-
-  const total = windowSpend + spend;
-  const scopeLabel = scope === 'agent' ? `agent ${budgetAgentId}` : 'org';
-  if (total > budgetMax) {
-    return { action: 'block', reason: `Cumulative x402 spend $${total.toFixed(2)} over ${windowDays}d (incl. this $${spend.toFixed(2)} purchase, ${scopeLabel}) exceeds budget $${budgetMax}` };
-  }
-  if (total >= budgetApproval) {
-    return { action: 'require_approval', reason: `Cumulative x402 spend $${total.toFixed(2)} over ${windowDays}d (incl. this $${spend.toFixed(2)} purchase, ${scopeLabel}) >= budget approval threshold $${budgetApproval}` };
-  }
-  return null;
-}
-
-async function evaluateX402SpendLimitPolicy({ rules, context, sql, orgId }: PolicyEvalArgs): Promise<PolicyResult | null> {
-  if (context.action_type !== 'x402_purchase') return null;
-  const { provider, providerId } = resolveX402Provider(context);
-  const providerDecision = x402ProviderDecision(rules, provider, providerId);
-  if (providerDecision) return providerDecision; // block-only — already maximal
-  const spend = x402Spend(context);
-  const spendDecision = x402SpendDecision(rules, spend);
-  if (spendDecision?.action === 'block') return spendDecision; // already maximal — skip the budget query
-  // Return the more severe of the two tiers so a budget block is never
-  // shadowed by a per-purchase require_approval.
-  return moreSevereResult(spendDecision, await x402BudgetDecision(rules, context, sql, orgId, spend));
-}
 
 // ── require_evidence evaluation ──
 // Demands that a matching call was graded from an attached act (evidence),
@@ -444,7 +334,6 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
     }
     return null;
   },
-  x402_spend_limit: evaluateX402SpendLimitPolicy,
   require_evidence: evaluateRequireEvidencePolicy,
 };
 

@@ -428,7 +428,7 @@ const RETRO_ACTION_LIMIT = 1000;
 /**
  * Batch-fetch everything the session retro composes (roadmap v2.5): the
  * session, its actions (chronological — drift detection depends on order),
- * their FK-linked guard decisions, assumptions, and x402 purchases. One
+ * their FK-linked guard decisions and assumptions. One
  * fetch, pure shaping downstream (app/lib/session-retro.ts).
  */
 export async function getSessionRetroData(
@@ -485,20 +485,11 @@ export async function getSessionRetroData(
       `
     : [];
 
-  const purchases = actionIds.length
-    ? await sql`
-        SELECT action_id, spend_amount, currency, execution_status, provider_id, created_at
-        FROM x402_purchases
-        WHERE org_id = ${orgId} AND action_id = ANY(${actionIds})
-      `
-    : [];
-
   return {
     session,
     actions,
     actionsTotal: Number(countRows[0]?.total) || 0,
     decisions,
     assumptions,
-    purchases,
   };
 }

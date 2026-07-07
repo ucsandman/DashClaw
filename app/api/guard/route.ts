@@ -14,7 +14,6 @@ import { getSettings } from '../../lib/repositories/settings.repository';
 import { listGuardDecisions, getGuardDecisionByIdempotencyKey } from '../../lib/repositories/guard.repository';
 import { createActionRecord, getActionByIdempotencyKey } from '../../lib/repositories/actions.repository';
 import { incrementTrialActionCount } from '../../lib/repositories/hosted-workspace.repository';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/guard-identity';
 import { getAssumptionAlerts } from '../../lib/assumption-notify';
@@ -31,28 +30,19 @@ type GuardResult = { decision: string; risk_score?: number; decision_id?: string
  * response without the param is unchanged.
  */
 /**
- * The record path's three gate reads (idempotency row, org plan, quota meter)
- * depend only on the request payload — never on the guard decision — so the
- * route starts them concurrently with the evaluation and passes the settled
- * result in. The reads themselves, and the order their results are applied,
- * are identical to the previous inline sequence; only the wall-clock overlap
- * changed. Quota was already eventually-consistent (meters increment in
- * after()), so reading it a few tens of ms earlier weakens nothing.
+ * The record path's idempotency read depends only on the request payload —
+ * never on the guard decision — so the route starts it concurrently with the
+ * evaluation and passes the settled result in.
  */
 interface PreparedRecordReads {
   existing: Record<string, unknown> | null;
-  quotaAllowed: boolean;
 }
 
 async function prepareRecordReads(sql: GuardSql, orgId: string, data: GuardData): Promise<PreparedRecordReads> {
-  const [existing, plan] = await Promise.all([
-    typeof data.idempotency_key === 'string' && data.idempotency_key
-      ? getActionByIdempotencyKey(sql, orgId, data.idempotency_key)
-      : Promise.resolve(null),
-    getOrgPlan(orgId, sql),
-  ]);
-  const quota = await checkQuotaFast(orgId, 'actions_per_month', plan, sql);
-  return { existing: existing as Record<string, unknown> | null, quotaAllowed: quota.allowed };
+  const existing = typeof data.idempotency_key === 'string' && data.idempotency_key
+    ? await getActionByIdempotencyKey(sql, orgId, data.idempotency_key)
+    : null;
+  return { existing: existing as Record<string, unknown> | null };
 }
 
 async function recordRunningAction(
@@ -77,10 +67,6 @@ async function recordRunningAction(
   if (reads.existing) {
     return { recorded: true, action_id: String(reads.existing.action_id ?? reads.existing.id) };
   }
-
-  // Same quota gate POST /api/actions applies — record=true must not bypass
-  // plan or hosted-trial caps.
-  if (!reads.quotaAllowed) return { recorded: false, reason: 'Monthly action limit exceeded' };
 
   // Same redaction POST /api/actions applies before persisting.
   const record: Record<string, unknown> = { ...data };
@@ -111,16 +97,12 @@ async function recordRunningAction(
   });
 
   // Same post-response side effects as POST /api/actions (event for the live
-  // decision stream, meters). after() — not a bare fire-and-forget promise —
-  // because on Vercel the function can freeze the moment the response returns,
-  // dropping the meter increment (a quota/billing undercount that never
-  // self-heals).
+  // decision stream, hosted-trial action count). after() — not a bare
+  // fire-and-forget promise — because on Vercel the function can freeze the
+  // moment the response returns, dropping the increment.
   after(() => {
     void publishOrgEvent(EVENTS.ACTION_CREATED, { orgId, action: createdAction });
-    return Promise.all([
-      incrementMeter(orgId, 'actions_per_month', sql),
-      incrementTrialActionCount(sql, orgId).catch((err: unknown) => console.warn('[GUARD] trial action count increment failed:', err instanceof Error ? err.message : String(err))),
-    ]).catch((err: unknown) => {
+    return incrementTrialActionCount(sql, orgId).catch((err: unknown) => {
       console.warn('[Guard] record=true background updates failed:', (err as Error).message);
     });
   });

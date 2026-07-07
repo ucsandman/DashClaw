@@ -14,7 +14,7 @@ import { makeRequest } from '../helpers.js';
 const {
   mockSql, mockValidateGuardInput, mockEvaluateGuard, mockListGuardDecisions,
   mockGetPriorDecision, mockCreateActionRecord, mockGetActionByKey, mockGetOrgHalt,
-  mockIncrementMeter, mockPublishOrgEvent, afterCalls,
+  mockPublishOrgEvent, afterCalls,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockValidateGuardInput: vi.fn(),
@@ -24,7 +24,6 @@ const {
   mockCreateActionRecord: vi.fn(),
   mockGetActionByKey: vi.fn(),
   mockGetOrgHalt: vi.fn(),
-  mockIncrementMeter: vi.fn(async () => undefined),
   mockPublishOrgEvent: vi.fn(),
   afterCalls: [],
 }));
@@ -48,11 +47,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionByIdempotencyKey: mockGetActionByKey,
 }));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({ incrementTrialActionCount: vi.fn(async () => undefined) }));
-vi.mock('@/lib/usage.js', () => ({
-  checkQuotaFast: vi.fn(async () => ({ allowed: true })),
-  getOrgPlan: vi.fn(async () => 'free'),
-  incrementMeter: mockIncrementMeter,
-}));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { ACTION_CREATED: 'action.created', GUARD_DECISION_CREATED: 'guard.decision' },
   publishOrgEvent: mockPublishOrgEvent,
@@ -94,12 +88,10 @@ describe('/api/guard?record=true side-effect scheduling', () => {
 
     // The side effects must be scheduled post-response, not already fired.
     expect(afterCalls.length).toBeGreaterThan(0);
-    expect(mockIncrementMeter).not.toHaveBeenCalled();
     expect(mockPublishOrgEvent).not.toHaveBeenCalled();
 
     for (const cb of afterCalls) await cb();
 
-    expect(mockIncrementMeter).toHaveBeenCalledWith('org_1', 'actions_per_month', mockSql);
     expect(mockPublishOrgEvent).toHaveBeenCalledWith('action.created', expect.objectContaining({ orgId: 'org_1' }));
   });
 });

@@ -15,20 +15,15 @@ function asRows(modeId: string) {
 
 describe('buildContract', () => {
   it('renders the claude-code pack into interrupt/silent/block sentences', () => {
-    const c = buildContract(asRows('claude-code'), { gp_2: 3 });
+    const c = buildContract(asRows('claude-code'), {});
     expect(c.governed).toBe(true);
     expect(c.mode_id).toBe('claude-code');
-    // x402 approval threshold is an editable interrupt sentence
-    const spend = c.interrupts.find((s) => s.editable?.param === 'approval_threshold');
-    if (!spend) throw new Error('x402 interrupt sentence not found');
-    expect(spend.text).toContain('$5.00');
-    expect(spend.fired_7d).toBe(3);
     // deploy/migrate + destructive + protected paths + runaway loop are interrupts
     expect(c.interrupts.length).toBeGreaterThanOrEqual(4);
     // warn_action_type + risk-warn + burst are silent
     expect(c.silent.some((s) => s.text.toLowerCase().includes('api'))).toBe(true);
-    // block tier carries risk-100 and max-spend
-    expect(c.blocks.some((s) => s.editable?.param === 'max_spend_usd')).toBe(true);
+    // block tier carries the extreme-risk threshold
+    expect(c.blocks.some((s) => s.text.includes('risk score reaches 100'))).toBe(true);
   });
 
   it('separates grants and custom rules', () => {
@@ -57,17 +52,6 @@ describe('buildContract', () => {
     expect(c.blocks.some((s) => s.text.includes('(blocked)'))).toBe(true);
     expect(c.interrupts.some((s) => s.text.includes('protected paths'))).toBe(false);
     expect(c.silent.some((s) => s.text.includes('protected paths'))).toBe(false);
-  });
-
-  it('x402 with garbage approval_threshold renders $0.00 not $NaN', () => {
-    const rows = [
-      { id: 'gp_x', name: 'Spend limit', policy_type: 'x402_spend_limit', rules: JSON.stringify({ approval_threshold: 'garbage', max_spend_usd: 50 }), active: 1 as const },
-    ];
-    const c = buildContract(rows, {});
-    const interrupt = c.interrupts.find((s) => s.editable?.param === 'approval_threshold');
-    if (!interrupt) throw new Error('x402 interrupt sentence not found');
-    expect(interrupt.text).not.toContain('NaN');
-    expect(interrupt.text).toContain('$0.00');
   });
 
   it('require_approval with missing action_types lands in custom', () => {

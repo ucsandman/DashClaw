@@ -229,7 +229,7 @@ describe('ApprovalsPage — session resolution', () => {
   it('renders expired approvals in a distinct non-approvable section (roadmap v2.3)', async () => {
     const EXPIRED = {
       action_id: 'act_exp', agent_id: 'agent_bb', agent_name: 'researcher',
-      declared_goal: 'Buy dataset access', action_type: 'x402_purchase', risk_score: 60,
+      declared_goal: 'Deploy release', action_type: 'deploy', risk_score: 60,
       status: 'expired', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
     };
     global.fetch = vi.fn(async (url) => {
@@ -245,7 +245,7 @@ describe('ApprovalsPage — session resolution', () => {
     const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
     render(<ApprovalsPage />);
 
-    await screen.findByText('Buy dataset access');
+    await screen.findByText('Deploy release');
     // Section is explanatory and non-approvable: badge + copy, no buttons.
     // Both the section header and the row badge say "Expired".
     expect(screen.getAllByText('Expired').length).toBeGreaterThanOrEqual(1);

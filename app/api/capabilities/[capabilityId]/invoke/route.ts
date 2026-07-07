@@ -18,7 +18,6 @@ import {
   executeCapabilityInvocation,
   prepareCapabilityInvocation,
 } from '../../../../lib/capability-runtime';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../../../lib/usage';
 import { checkCircuitBreaker } from '../../../../lib/capability-health';
 import { updateCapability } from '../../../../lib/repositories/capabilities.repository';
 import { evaluateAccess } from '../../../../lib/repositories/capability-access.repository';
@@ -87,9 +86,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
     const action_id = `act_${crypto.randomUUID()}`;
     const timestamp_start = new Date().toISOString();
 
-    // Shared identity contract (same as /api/guard, /api/actions,
-    // /api/x402/purchases): a JWKS-verified JWT's sub overrides the body
-    // agent_id; otherwise identity is explicitly self-asserted (unverified).
+    // Shared identity contract (same as /api/guard, /api/actions):
+    // a JWKS-verified JWT's sub overrides the body agent_id; otherwise identity
+    // is explicitly self-asserted (unverified).
     // The verification result gates per-agent access rules below (D1,
     // docs/architecture/trust-and-failure-model.md).
     const identity = await resolveAgentIdentity(request, { agentId: body.agent_id || null, agentName: body.agent_name || null });
@@ -180,25 +179,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
           message: `Invocation requires human approval. Poll GET /api/actions/${action_id} for status.`,
         },
         { status: 202 },
-      );
-    }
-
-    // Quota check
-    const plan = await getOrgPlan(orgId, sql);
-    const capQuota = await checkQuotaFast(orgId, 'capability_invocations', plan, sql);
-    if (!capQuota.allowed) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'quota_exceeded',
-          code: 'QUOTA_EXCEEDED',
-          resource: 'capability_invocations',
-          usage: capQuota.usage,
-          limit: capQuota.limit,
-          message: 'Monthly capability invocation limit exceeded. Upgrade your plan to continue.',
-          upgrade_url: '/usage',
-        },
-        { status: 402 },
       );
     }
 
@@ -331,12 +311,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       );
     }
 
-    // Meter increment (fire-and-forget)
-    void Promise.all([
-      incrementMeter(orgId, 'capability_invocations', sql),
-      incrementMeter(orgId, 'governed_actions', sql),
-    ]).catch((err) => console.warn('[API] Meter increment failed:', err.message));
-
     return NextResponse.json({
       success: true,
       action_id,
@@ -344,7 +318,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ cap
       elapsed_ms: result.elapsed_ms,
       governed: true,
       retry_metadata: result.retry_metadata || undefined,
-      quota_warning: capQuota.warning || undefined,
       security: {
         clean: dlpFindings.length === 0,
         findings_count: dlpFindings.length,

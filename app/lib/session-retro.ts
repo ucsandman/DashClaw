@@ -3,7 +3,7 @@
  *
  * Pure shaping — no IO. Rolls the per-action agent_defense rollup up across
  * every action attributed to a session and adds the session-level detectors
- * (goal drift, risk spike, spend anomalies) that no single action can see.
+ * (goal drift, risk spike) that no single action can see.
  * Spec: docs/superpowers/specs/2026-07-02-session-retro-design.md — the
  * detector table there is the contract; thresholds are copied verbatim.
  *
@@ -20,7 +20,7 @@ export type RetroSeverity = 'low' | 'medium' | 'high';
 export type RetroPosture = 'clean' | 'review' | 'flagged';
 
 export interface RetroFinding {
-  kind: 'injection' | 'non_fabrication' | 'goal_drift' | 'risk_spike' | 'spend' | 'intervention' | 'assumption';
+  kind: 'injection' | 'non_fabrication' | 'goal_drift' | 'risk_spike' | 'intervention' | 'assumption';
   severity: RetroSeverity;
   action_id: string | null;
   guard_decision_id: string | null;
@@ -34,7 +34,6 @@ export interface SessionRetroData {
   actionsTotal: number;
   decisions: Row[];
   assumptions: Row[];
-  purchases: Row[];
 }
 
 export interface SessionRetro {
@@ -50,7 +49,6 @@ export interface SessionRetro {
   };
   goal_timeline: Array<{ goal: string; first_action_id: string | null; action_count: number }>;
   findings: RetroFinding[];
-  spend: { total: number; currency: string | null; purchases: number } | null;
 }
 
 // Mirrors TERMINAL_STATUSES in app/lib/sessions.ts (not imported to keep this
@@ -61,11 +59,6 @@ const DRIFT_RISK_FLOOR = 40;
 const SPIKE_RISK_FLOOR = 70;
 const SPIKE_MEDIAN_MULTIPLE = 2;
 const LATE_NOVEL_MIN_PRIOR = 5;
-const OUTLIER_MEDIAN_MULTIPLE = 5;
-const OUTLIER_MIN_PURCHASES = 3;
-// Canonical "spend that counted" predicate — matches sumWindowSpend in
-// app/lib/repositories/x402.repository.ts.
-const SPEND_EXCLUDED = new Set(['failed', 'denied', 'expired']);
 
 function normalizeGoal(value: unknown): string | null {
   if (typeof value !== 'string') return null;
@@ -91,7 +84,7 @@ function riskOf(action: Row): number | null {
 }
 
 export function buildSessionRetro(data: SessionRetroData): SessionRetro {
-  const { session, actions, actionsTotal, decisions, assumptions, purchases } = data;
+  const { session, actions, actionsTotal, decisions, assumptions } = data;
 
   const decisionsById = new Map<string, Row>();
   for (const d of decisions) if (d?.id) decisionsById.set(String(d.id), d);
@@ -182,7 +175,7 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
     const type = typeof action.action_type === 'string' ? action.action_type : '';
     if (type && !seenTypes.has(type)) {
       seenTypes.add(type);
-      const escalates = (risk != null && risk >= SPIKE_RISK_FLOOR) || type === 'x402_purchase';
+      const escalates = risk != null && risk >= SPIKE_RISK_FLOOR;
       if (index >= LATE_NOVEL_MIN_PRIOR && escalates) {
         add({
           kind: 'goal_drift', severity: 'medium',
@@ -217,34 +210,6 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
     }
   });
 
-  // 5a / 5b — spend anomalies
-  const amounts = purchases.map((p) => Number(p.spend_amount)).filter((n) => Number.isFinite(n));
-  const medianPurchase = median(amounts);
-  for (const p of purchases) {
-    const amount = Number(p.spend_amount);
-    const status = typeof p.execution_status === 'string' ? p.execution_status : null;
-    const actionId = typeof p.action_id === 'string' ? p.action_id : null;
-    if (status === 'denied' || status === 'expired') {
-      add({
-        kind: 'spend', severity: 'medium',
-        action_id: actionId, guard_decision_id: null,
-        summary: `purchase ${status} (${Number.isFinite(amount) ? amount : '?'} ${p.currency ?? ''})`.trim(),
-        evidence: { rule: 'purchase_denied_or_expired', execution_status: status, amount: Number.isFinite(amount) ? amount : null },
-      });
-    }
-    if (
-      purchases.length >= OUTLIER_MIN_PURCHASES && medianPurchase != null && medianPurchase > 0 &&
-      Number.isFinite(amount) && amount >= OUTLIER_MEDIAN_MULTIPLE * medianPurchase
-    ) {
-      add({
-        kind: 'spend', severity: 'medium',
-        action_id: actionId, guard_decision_id: null,
-        summary: `purchase of ${amount} is ≥${OUTLIER_MEDIAN_MULTIPLE}× the session median (${medianPurchase})`,
-        evidence: { rule: 'outlier_amount', amount, session_median: medianPurchase },
-      });
-    }
-  }
-
   // 7 — assumptions later invalidated (the alibi angle: the agent acted on
   // then-valid information; record when the ground truth shifted).
   for (const a of assumptions) {
@@ -265,9 +230,6 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
   for (const f of findings) counts[f.severity] += 1;
   const posture: RetroPosture = counts.high > 0 ? 'flagged' : findings.length > 0 ? 'review' : 'clean';
 
-  const countedSpend = purchases.filter((p) => !SPEND_EXCLUDED.has(String(p.execution_status)));
-  const spendTotal = countedSpend.reduce((sum, p) => sum + (Number(p.spend_amount) || 0), 0);
-
   return {
     session: {
       id: String(session.id ?? ''),
@@ -287,8 +249,5 @@ export function buildSessionRetro(data: SessionRetroData): SessionRetro {
     },
     goal_timeline: timeline,
     findings,
-    spend: purchases.length > 0
-      ? { total: Math.round(spendTotal * 100) / 100, currency: (countedSpend[0]?.currency ?? purchases[0]?.currency ?? null) as string | null, purchases: purchases.length }
-      : null,
   };
 }

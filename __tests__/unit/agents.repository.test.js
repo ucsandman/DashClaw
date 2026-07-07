@@ -24,7 +24,6 @@ describe('agents.repository.js', () => {
         .mockResolvedValueOnce([]) // action_records
         .mockResolvedValueOnce([]) // goals
         .mockResolvedValueOnce([]) // decisions
-        .mockResolvedValueOnce([]) // token_snapshots
         .mockResolvedValueOnce([   // agent_presence
           { agent_id: 'agent_online', last_heartbeat_at: fiveMinsAgo, status: 'online' },
           { agent_id: 'agent_stale', last_heartbeat_at: twentyMinsAgo, status: 'online' },
@@ -56,7 +55,6 @@ describe('agents.repository.js', () => {
         .mockResolvedValueOnce([]) // action_records
         .mockResolvedValueOnce([]) // goals
         .mockResolvedValueOnce([]) // decisions
-        .mockResolvedValueOnce([]) // token_snapshots
         .mockResolvedValueOnce([   // agent_presence
           { agent_id: 'agent_fast_stale', last_heartbeat_at: twoMinsAgo, status: 'online' },
         ]);
@@ -77,7 +75,6 @@ describe('agents.repository.js', () => {
         .mockResolvedValueOnce([{ agent_id: 'agent_action_only', last_active: recent }]) // action_records returns aliased last_active
         .mockResolvedValueOnce([]) // goals
         .mockResolvedValueOnce([]) // decisions
-        .mockResolvedValueOnce([]) // token_snapshots
         .mockResolvedValueOnce([]); // agent_presence returns nothing
 
       const agents = await listAgentsForOrg(mockSql, orgId);
@@ -96,7 +93,6 @@ describe('agents.repository.js', () => {
         .mockResolvedValueOnce([]) // action_records
         .mockResolvedValueOnce([]) // goals
         .mockResolvedValueOnce([]) // decisions
-        .mockResolvedValueOnce([]) // token_snapshots
         .mockResolvedValueOnce([   // agent_presence
           { agent_id: 'heartbeat_only', last_heartbeat_at: recent, status: 'online' }
         ]);

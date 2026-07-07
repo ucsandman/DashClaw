@@ -6,7 +6,6 @@ import { getSql } from '../../lib/db';
 import { validateActionRecord, boundedIdField } from '../../lib/validate.js';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
 import { logActivityStrict } from '../../lib/audit';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { verifyAgentSignature } from '../../lib/identity';
 import { resolveAgentIdentity } from '../../lib/identity-resolution';
@@ -166,18 +165,15 @@ export async function POST(request: Request) {
     }
 
     // Independent gate reads, batched (hot-path latency): guard-decision
-    // validation, org plan + actions quota, the agent-known probe, and the
-    // signature-enforcement setting all depend only on the request payload.
-    // Running them concurrently collapses four serial round trips into one
-    // wait; the results are applied below in the exact order the serial code
-    // checked them, so every early-return status and response body is
-    // unchanged.
+    // validation, the agent-known probe, and the signature-enforcement setting
+    // all depend only on the request payload. Running them concurrently
+    // collapses serial round trips into one wait; the results are applied below
+    // in the exact order the serial code checked them.
     const gdidRaw = data.guard_decision_id != null ? String(data.guard_decision_id) : null;
-    const [gdValid, planAndQuota, agentKnown, enforcementSettings] = await Promise.all([
+    const [gdValid, agentKnown, enforcementSettings] = await Promise.all([
       gdidRaw
         ? (GUARD_DECISION_ID_RE.test(gdidRaw) ? guardDecisionExists(sql, orgId, gdidRaw) : Promise.resolve(false))
         : Promise.resolve(true),
-      getOrgPlan(orgId, sql).then(async (plan) => ({ plan, quota: await checkQuotaFast(orgId, 'actions_per_month', plan, sql) })),
       data.agent_id ? hasAgentAction(sql, orgId, data.agent_id) : Promise.resolve(false),
       getSettings(sql, orgId, { key: 'ENFORCE_AGENT_SIGNATURES' }).catch(() => null),
     ]);
@@ -226,20 +222,10 @@ export async function POST(request: Request) {
     if (data.side_effects != null) data.side_effects = redactAny(data.side_effects, dlpFindings);
     if (data.artifacts_created != null) data.artifacts_created = redactAny(data.artifacts_created, dlpFindings);
 
-    // Quota check: actions per month (fast meter path, read in the batch above)
-    const { plan, quota: actionsQuota } = planAndQuota;
-    if (!actionsQuota.allowed) {
-      return NextResponse.json(
-        { error: 'Monthly action limit exceeded. Upgrade your plan.', code: 'QUOTA_EXCEEDED', usage: actionsQuota.usage, limit: actionsQuota.limit },
-        { status: 402 }
-      );
-    }
-
-    // Quota check: agents (only block new agent_ids)
+    // Agent enrollment check: closed-enrollment mode rejects unknown agent_ids.
     let isNewAgent = false;
     if (data.agent_id) {
-      const existing = agentKnown;
-      isNewAgent = !existing;
+      isNewAgent = !agentKnown;
 
       // SECURITY: Closed enrollment mode — reject unknown agent_ids
       if (isNewAgent && process.env.DASHCLAW_CLOSED_ENROLLMENT === 'true') {
@@ -247,16 +233,6 @@ export async function POST(request: Request) {
           { error: 'Agent not registered. Enable open enrollment or pre-register this agent.', code: 'AGENT_NOT_REGISTERED' },
           { status: 403 }
         );
-      }
-
-      if (!existing) {
-        const agentsQuota = await checkQuotaFast(orgId, 'agents', plan, sql);
-        if (!agentsQuota.allowed) {
-          return NextResponse.json(
-            { error: 'Agent limit reached. Upgrade your plan.', code: 'QUOTA_EXCEEDED', usage: agentsQuota.usage, limit: agentsQuota.limit },
-            { status: 402 }
-          );
-        }
       }
     }
 
@@ -388,22 +364,11 @@ export async function POST(request: Request) {
       createdBy: getUserId(request) || null,
     });
 
-    // Fire-and-forget meter increments (don't block response)
-    const meterUpdates = [incrementMeter(orgId, 'actions_per_month', sql)];
-    if (isNewAgent) {
-      meterUpdates.push(incrementMeter(orgId, 'agents', sql));
-    }
-    // Hosted-trial counter: no-ops silently for non-hosted orgs via WHERE hosted_mode = TRUE
-    meterUpdates.push(
-      incrementTrialActionCount(sql, orgId).catch((err: unknown) => {
-        console.error('[HOSTED] trial counter increment failed:', (err as Error).message);
-      }),
-    );
-
-    // after() keeps the lambda alive until the returned promise settles —
-    // un-awaited writes get killed when the response ends on Vercel.
-    after(() => Promise.all([...meterUpdates]).catch((err: unknown) => {
-      console.warn('[API] Background meter update failed:', (err as Error).message);
+    // Hosted-trial counter: no-ops silently for non-hosted orgs via WHERE hosted_mode = TRUE.
+    // after() keeps the lambda alive until the write settles — un-awaited writes
+    // get killed when the response ends on Vercel.
+    after(() => incrementTrialActionCount(sql, orgId).catch((err: unknown) => {
+      console.warn('[HOSTED] trial counter increment failed:', (err as Error).message);
     }));
 
     const response = NextResponse.json({
@@ -451,9 +416,6 @@ export async function POST(request: Request) {
       });
     }
 
-    if (actionsQuota.warning) {
-      response.headers.set('x-quota-warning', `actions_per_month at ${actionsQuota.percent}%`);
-    }
     return response;
   } catch (error) {
     if ((error as Error).message?.includes('unique') || (error as Error).message?.includes('duplicate')) {

@@ -23,7 +23,7 @@ export const AREA_BLURBS: Record<string, string> = {
   'api-actions':
     'The decision ledger. Record what agents did (POST /api/actions), track outcomes, open loops, costs, and replay causal chains. Every governed action lands here and feeds /decisions and Mission Control.',
   'api-policies':
-    'CRUD for guard policies plus policy modes (pre-built packs like claude-code, openclaw, research). Policy types observed live: risk_threshold, require_approval, block_action_type, rate_limit, protected_path, permission_escalation, x402_spend_limit, behavioral_anomaly, non_fabrication, allow_grant, warn_action_type.',
+    'CRUD for guard policies plus policy modes (pre-built packs like claude-code, openclaw, research). Policy types observed live: risk_threshold, require_approval, block_action_type, rate_limit, protected_path, permission_escalation, non_fabrication, allow_grant, warn_action_type.',
   'api-approvals':
     'The human half of require_approval: list pending approvals, approve or deny with a reason. Approvals bind to the exact act content hash the agent presented (approve-X-do-Y is closed).',
   'api-assumptions':

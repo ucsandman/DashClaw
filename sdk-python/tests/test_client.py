@@ -2,7 +2,7 @@
 Characterization tests for the structural hot paths of dashclaw/client.py.
 
 Pins the observable behavior of _request (URL/header/error handling),
-_connect_sse (SSE parsing), wait_for_approval, record_x402_purchase,
+_connect_sse (SSE parsing), wait_for_approval,
 wrap_client, track, and report_memory_health BEFORE/AFTER the in-file
 structural refactor.
 
@@ -480,128 +480,6 @@ class TestEvaluateWaitForApprovalAction(unittest.TestCase):
                 "a1", {"action": {"status": "failed"}}, False
             )
         self.assertEqual(str(ctx.exception), "Operator denied the action.")
-
-
-# ---------------------------------------------------------------------------
-# record_x402_purchase
-# ---------------------------------------------------------------------------
-
-class TestRecordX402Purchase(unittest.TestCase):
-    def _client(self, purchase_response):
-        return RecordingDashClaw(
-            responses={("POST", "/api/x402/purchases"): purchase_response}
-        )
-
-    def test_full_settled_flow_with_receipt(self):
-        purchase_response = {
-            "action": {"action_id": "act-9"},
-            "purchase": {"id": "p1"},
-            "decision": {"decision": "allow"},
-        }
-        client = self._client(purchase_response)
-        out = client.record_x402_purchase(
-            "agent-1",
-            "https://api.example",
-            0.25,
-            transaction_hash="0xabc",
-            request_id="req-1",
-        )
-
-        purchase_call = client.calls[0]
-        self.assertEqual(purchase_call["path"], "/api/x402/purchases")
-        self.assertEqual(purchase_call["method"], "POST")
-        body = purchase_call["body"]
-        self.assertEqual(body["agent_id"], "agent-1")
-        self.assertEqual(body["provider"], "https://api.example")
-        self.assertEqual(body["spend_amount"], 0.25)
-        self.assertEqual(body["cost_estimate"], 0.25)
-        self.assertEqual(body["currency"], "USDC")
-        self.assertEqual(body["payment_method"], "x402")
-        self.assertEqual(
-            body["declared_goal"], "x402 capability call to https://api.example"
-        )
-        self.assertEqual(
-            body["purchase_reason"],
-            "Paid x402 capability call to https://api.example",
-        )
-        self.assertEqual(
-            body["context_gap"],
-            "Capability gated behind payment at https://api.example",
-        )
-        self.assertEqual(
-            body["expected_value"], "Paid result from https://api.example"
-        )
-
-        outcome_call = client.calls[1]
-        self.assertEqual(outcome_call["path"], "/api/actions/act-9/outcome")
-        self.assertEqual(outcome_call["body"]["status"], "completed")
-        self.assertEqual(
-            outcome_call["body"]["summary"],
-            "x402 settled: $0.25 USDC at https://api.example",
-        )
-
-        artifact_call = client.calls[2]
-        self.assertEqual(artifact_call["path"], "/api/artifacts")
-        self.assertEqual(
-            artifact_call["body"]["artifact_type"], "x402_purchase_result"
-        )
-        self.assertEqual(
-            artifact_call["body"]["content_json"]["transactionHash"], "0xabc"
-        )
-        self.assertEqual(artifact_call["body"]["content_json"]["requestId"], "req-1")
-        self.assertEqual(artifact_call["body"]["source_action_id"], "act-9")
-
-        self.assertEqual(out["action"], {"action_id": "act-9"})
-        self.assertEqual(out["purchase"], {"id": "p1"})
-        self.assertEqual(out["decision"], {"decision": "allow"})
-        self.assertIsNotNone(out["outcome"])
-
-    def test_custom_fields_passed_through(self):
-        client = self._client({"action": {"action_id": "act-1"}})
-        client.record_x402_purchase(
-            "agent-1",
-            "prov",
-            1.5,
-            declared_goal="custom goal",
-            purchase_reason="custom reason",
-            context_gap="custom gap",
-            expected_value="custom value",
-            currency="USD",
-            payment_method="card",
-        )
-        body = client.calls[0]["body"]
-        self.assertEqual(body["declared_goal"], "custom goal")
-        self.assertEqual(body["purchase_reason"], "custom reason")
-        self.assertEqual(body["context_gap"], "custom gap")
-        self.assertEqual(body["expected_value"], "custom value")
-        self.assertEqual(body["currency"], "USD")
-        self.assertEqual(body["payment_method"], "card")
-
-    def test_no_action_id_skips_outcome_and_artifact(self):
-        client = self._client({"purchase": {"id": "p1"}})
-        out = client.record_x402_purchase("agent-1", "prov", 1.0)
-        self.assertEqual(len(client.calls), 1)
-        self.assertIsNone(out["action"])
-        self.assertIsNone(out["outcome"])
-        self.assertEqual(out["purchase"], {"id": "p1"})
-
-    def test_action_id_fallback_to_id(self):
-        client = self._client({"action": {"id": "alt-7"}})
-        client.record_x402_purchase("agent-1", "prov", 1.0)
-        self.assertEqual(client.calls[1]["path"], "/api/actions/alt-7/outcome")
-
-    def test_no_receipt_skips_artifact(self):
-        client = self._client({"action": {"action_id": "act-1"}})
-        client.record_x402_purchase("agent-1", "prov", 1.0)
-        paths = [c["path"] for c in client.calls]
-        self.assertNotIn("/api/artifacts", paths)
-
-    def test_non_dict_response_returns_none_fields(self):
-        client = self._client("weird")
-        out = client.record_x402_purchase("agent-1", "prov", 1.0)
-        self.assertEqual(
-            out, {"action": None, "purchase": None, "decision": None, "outcome": None}
-        )
 
 
 # ---------------------------------------------------------------------------

@@ -31,7 +31,7 @@ const decision = (overrides = {}) => ({
 
 const data = (overrides = {}) => ({
   session: session(), actions: [], actionsTotal: 0,
-  decisions: [], assumptions: [], purchases: [],
+  decisions: [], assumptions: [],
   ...overrides,
 });
 
@@ -45,7 +45,6 @@ describe('buildSessionRetro', () => {
       actions_with_guard_decision: 0, actions_with_shields_recorded: 0,
     });
     expect(r.goal_timeline).toEqual([]);
-    expect(r.spend).toBeNull();
   });
 
   it('injection warned → medium → review; blocked → high → flagged', () => {
@@ -102,14 +101,14 @@ describe('buildSessionRetro', () => {
     expect(r.posture).toBe('review');
   });
 
-  it('goal drift 3c: late novel type needs ≥5 prior actions AND (risk ≥70 or x402)', () => {
+  it('goal drift 3c: late novel type needs ≥5 prior actions AND risk ≥70', () => {
     const five = Array.from({ length: 5 }, () => action());
     const late = buildSessionRetro(data({
-      actions: [...five, action({ action_type: 'x402_purchase', risk_score: 10 })], actionsTotal: 6,
+      actions: [...five, action({ action_type: 'deploy', risk_score: 80 })], actionsTotal: 6,
     }));
     expect(late.findings.some((f) => f.kind === 'goal_drift' && f.evidence.rule === 'late_novel_type')).toBe(true);
     const early = buildSessionRetro(data({
-      actions: [action(), action({ action_type: 'x402_purchase', risk_score: 10 })], actionsTotal: 2,
+      actions: [action(), action({ action_type: 'deploy', risk_score: 80 })], actionsTotal: 2,
     }));
     expect(early.findings.some((f) => f.evidence?.rule === 'late_novel_type')).toBe(false);
   });
@@ -136,30 +135,6 @@ describe('buildSessionRetro', () => {
       actionsTotal: 4,
     }));
     expect(withNulls.findings.some((f) => f.kind === 'risk_spike')).toBe(false);
-  });
-
-  it('spend: denied/expired purchases flag; outlier needs ≥3 purchases and ≥5× median', () => {
-    const a1 = action(); const a2 = action(); const a3 = action();
-    const r = buildSessionRetro(data({
-      actions: [a1, a2, a3], actionsTotal: 3,
-      purchases: [
-        { action_id: a1.action_id, spend_amount: '0.10', currency: 'USD', execution_status: 'succeeded' },
-        { action_id: a2.action_id, spend_amount: '0.10', currency: 'USD', execution_status: 'denied' },
-        { action_id: a3.action_id, spend_amount: '0.60', currency: 'USD', execution_status: 'succeeded' },
-      ],
-    }));
-    const spend = r.findings.filter((f) => f.kind === 'spend');
-    expect(spend.some((f) => f.evidence.rule === 'purchase_denied_or_expired')).toBe(true);
-    expect(spend.some((f) => f.evidence.rule === 'outlier_amount')).toBe(true); // 0.60 ≥ 5×0.10 median
-    expect(r.spend).toEqual({ total: 0.7, currency: 'USD', purchases: 3 }); // denied excluded from total
-    const two = buildSessionRetro(data({
-      actions: [a1, a3], actionsTotal: 2,
-      purchases: [
-        { action_id: a1.action_id, spend_amount: '0.10', currency: 'USD', execution_status: 'succeeded' },
-        { action_id: a3.action_id, spend_amount: '9.99', currency: 'USD', execution_status: 'succeeded' },
-      ],
-    })); // <3 purchases → no outlier check
-    expect(two.findings.some((f) => f.evidence?.rule === 'outlier_amount')).toBe(false);
   });
 
   it('intervention: linked block decision → medium with matched policies', () => {

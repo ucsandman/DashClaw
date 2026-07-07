@@ -42,8 +42,6 @@
     "sdk:count": "node scripts/count-sdk-methods.mjs",
     "hooks:install": "node scripts/install-hooks.mjs",
     "hooks:diagnose": "node scripts/diagnose-hooks.mjs",
-    "diagnose:cost": "node scripts/diagnose-cost-attribution.mjs",
-    "backfill:null-model-cost": "node scripts/backfill-null-model-cost.mjs",
     "telegram:setup": "node scripts/telegram-setup-wizard.mjs",
     "telegram:register": "node scripts/telegram-register-webhook.mjs",
     "telegram:verify": "node scripts/telegram-verify-loop.mjs",

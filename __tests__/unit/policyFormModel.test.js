@@ -254,50 +254,11 @@ describe('policyFormModel — full-type characterization', () => {
       .toEqual({ paths: ['x'], action: 'require_approval' });
   });
 
-  it('compiles x402_spend_limit (omits empty fields, key order preserved)', () => {
-    expect(rulesOf({ type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['p1'], blockedProviders: ['p2'], agentIds: [] }))
-      .toEqual({ max_spend_usd: 10, approval_threshold: 5, allowed_providers: ['p1'], blocked_providers: ['p2'] });
-    expect(rulesOf({ type: 'x402_spend_limit', maxSpendUsd: '', approvalThreshold: '', allowedProviders: [], blockedProviders: [], agentIds: [] }))
-      .toEqual({});
-  });
-
-  it('compiles x402_spend_limit budget fields (org scope stays implicit, agent scope persists)', () => {
-    expect(rulesOf({ type: 'x402_spend_limit', budgetUsd: 50, budgetApprovalThreshold: 25, budgetWindowDays: 7, budgetScope: 'org', agentIds: [] }))
-      .toEqual({ budget_usd: 50, budget_approval_threshold: 25, budget_window_days: 7 });
-    expect(rulesOf({ type: 'x402_spend_limit', budgetUsd: 50, budgetScope: 'agent', agentIds: [] }))
-      .toEqual({ budget_usd: 50, budget_scope: 'agent' });
-    expect(rulesOf({ type: 'x402_spend_limit', budgetUsd: 0, agentIds: [] }))
-      .toEqual({ budget_usd: 0 });
-  });
-
   it('carries inline test recipes through as the last rules key', () => {
     const payload = compilePolicyPayload({ type: 'risk_threshold', threshold: 50, action: 'warn', tests: [{ name: 't' }], agentIds: [] });
     const parsed = JSON.parse(payload.rules);
     expect(parsed.tests).toEqual([{ name: 't' }]);
     expect(Object.keys(parsed)).toEqual(['threshold', 'action', 'tests']);
-  });
-
-  it('round-trips x402_spend_limit through decompile', () => {
-    const x402 = decompilePolicyForm({
-      policy_type: 'x402_spend_limit',
-      rules: JSON.stringify({ max_spend_usd: 25, approval_threshold: 10, allowed_providers: ['a'], blocked_providers: ['b'] }),
-      agent_ids: null,
-    });
-    expect(x402.type).toBe('x402_spend_limit');
-    expect(x402.maxSpendUsd).toBe(25);
-    expect(x402.approvalThreshold).toBe(10);
-    expect(x402.allowedProviders).toEqual(['a']);
-    expect(x402.blockedProviders).toEqual(['b']);
-
-    const budget = decompilePolicyForm({
-      policy_type: 'x402_spend_limit',
-      rules: JSON.stringify({ budget_usd: 50, budget_approval_threshold: 25, budget_window_days: 7, budget_scope: 'agent' }),
-      agent_ids: null,
-    });
-    expect(budget.budgetUsd).toBe(50);
-    expect(budget.budgetApprovalThreshold).toBe(25);
-    expect(budget.budgetWindowDays).toBe(7);
-    expect(budget.budgetScope).toBe('agent');
   });
 
   it('summarizes every type with the correct action verb and scope', () => {
@@ -311,12 +272,6 @@ describe('policyFormModel — full-type characterization', () => {
       .toBe('Require approval for deploy actions when the branch is stale or diverged and more than 2 commits behind.');
     expect(buildPolicySummary({ type: 'protected_path', protectedPaths: ['auth/', 'x'], action: 'block', agentIds: [] }))
       .toBe('Block actions that touch 2 protected path patterns.');
-    expect(buildPolicySummary({ type: 'x402_spend_limit', maxSpendUsd: 10, approvalThreshold: 5, allowedProviders: ['a'], blockedProviders: [], agentIds: [] }))
-      .toBe('Govern x402 purchases: block purchases over $10, require approval at $5, only allow 1 provider.');
-    expect(buildPolicySummary({ type: 'x402_spend_limit', budgetUsd: 50, budgetApprovalThreshold: 25, budgetWindowDays: 7, budgetScope: 'agent', agentIds: [] }))
-      .toBe('Govern x402 purchases: block when 7d per-agent spend exceeds $50, require approval when 7d per-agent spend reaches $25.');
-    expect(buildPolicySummary({ type: 'x402_spend_limit', agentIds: [] }))
-      .toBe('Govern x402 purchases: record and govern spend.');
     expect(buildPolicySummary({ type: 'unknown_type', agentIds: [] })).toBe('Configure a policy rule.');
   });
 });

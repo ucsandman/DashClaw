@@ -6,8 +6,6 @@ const {
   mockGetActionOutcome,
   mockSetActionOutcome,
   mockGetActionStatus,
-  mockGetPurchase,
-  mockSetPurchaseOutcome,
   mockPublishOrgEvent,
   mockScanSensitiveData,
 } = vi.hoisted(() => ({
@@ -15,8 +13,6 @@ const {
   mockGetActionOutcome: vi.fn(),
   mockSetActionOutcome: vi.fn(),
   mockGetActionStatus: vi.fn(),
-  mockGetPurchase: vi.fn(),
-  mockSetPurchaseOutcome: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
 }));
@@ -32,10 +28,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionOutcome: mockGetActionOutcome,
   setActionOutcome: mockSetActionOutcome,
   getActionStatus: mockGetActionStatus,
-}));
-vi.mock('@/lib/repositories/x402.repository.js', () => ({
-  getPurchase: mockGetPurchase,
-  setPurchaseOutcome: mockSetPurchaseOutcome,
 }));
 
 import { GET, POST } from '@/api/actions/[actionId]/outcome/route.js';
@@ -53,10 +45,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mockScanSensitiveData.mockReturnValue({ clean: true, redacted: undefined, findings: [] });
   mockPublishOrgEvent.mockResolvedValue(undefined);
-  // Default: a legitimately-running action with no x402 purchase attached.
+  // Default: a legitimately-running action.
   mockGetActionStatus.mockResolvedValue({ status: 'running', agent_id: 'a1' });
-  mockGetPurchase.mockResolvedValue(null);
-  mockSetPurchaseOutcome.mockResolvedValue({});
 });
 
 describe('/api/actions/[actionId]/outcome GET', () => {
@@ -151,19 +141,6 @@ describe('/api/actions/[actionId]/outcome POST', () => {
     const res = await POST(req({ status: 'completed' }), routeCtx);
     expect(res.status).toBe(404);
     expect(mockSetActionOutcome).not.toHaveBeenCalled();
-  });
-
-  it('syncs the x402 purchase execution_status when the action is a governed purchase (R8)', async () => {
-    mockGetActionStatus.mockResolvedValue({ status: 'running', agent_id: 'a1' });
-    mockGetPurchase.mockResolvedValue({ action_id: 'act_1', execution_status: 'approved' });
-    mockSetActionOutcome.mockResolvedValue({ ok: true, outcome: outcomeRow });
-
-    const res = await POST(req({ status: 'completed', summary: 'bought' }), routeCtx);
-    expect(res.status).toBe(200);
-    expect(mockSetPurchaseOutcome).toHaveBeenCalledWith(
-      mockSql, 'org_test', 'act_1',
-      expect.objectContaining({ execution_status: 'succeeded' }),
-    );
   });
 
   it('returns 400 for invalid status', async () => {

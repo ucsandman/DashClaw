@@ -5,7 +5,6 @@
 
 import { NextResponse } from 'next/server';
 import { getSql } from './db';
-import { getOrgPlan } from './usage';
 
 export function getOrgId(request: Request): string {
   return request.headers.get('x-org-id') || 'org_default';

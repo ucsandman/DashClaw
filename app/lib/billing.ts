@@ -2,7 +2,16 @@
  * Billing & Cost Calculation Library
  */
 
-import type { BillingPricingEntry } from './types/pricing-finops';
+/** billing DEFAULT_PRICING row — matched by ordered substring `pattern`.
+ * USD-per-million-tokens rates; cache columns optional. */
+export interface BillingPricingEntry {
+  pattern: string;
+  label?: string;
+  input: number;
+  output: number;
+  cache_write?: number;
+  cache_read?: number;
+}
 
 /**
  * Default model pricing (USD per million tokens).

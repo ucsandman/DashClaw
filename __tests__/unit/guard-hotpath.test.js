@@ -131,26 +131,16 @@ vi.mock('@/lib/repositories/jti-replay.repository.js', () => ({
   checkAndRecord: vi.fn(async () => 'unique'),
   sweep: vi.fn(async () => 0),
 }));
-vi.mock('@/lib/usage.js', () => ({
-  getOrgPlan: vi.fn(async () => 'free'),
-  checkQuotaFast: vi.fn(async () => ({ allowed: true })),
-  incrementMeter: vi.fn(async () => {}),
-}));
 vi.mock('@/lib/repositories/hosted-workspace.repository.js', () => ({
   incrementTrialActionCount: vi.fn(async () => {}),
 }));
 
 import { POST as guardPost } from '@/api/guard/route.js';
-import { checkQuotaFast as mockedCheckQuota } from '@/lib/usage.js';
 
 describe('POST /api/guard?record=true', () => {
   beforeEach(() => {
     process.env.DATABASE_URL = 'postgres://unit-test';
     routeSqlHolder.sql = createSqlMock({ taggedResponses: [[]] });
-  });
-
-  afterEach(() => {
-    vi.mocked(mockedCheckQuota).mockResolvedValue({ allowed: true });
   });
 
   const BODY = { action_type: 'other', agent_id: 'a1', agent_name: 'Bot', declared_goal: 'do a thing' };
@@ -222,16 +212,4 @@ describe('POST /api/guard?record=true', () => {
     expect(insert.values).toContain('pending_approval');
   });
 
-  it('quota exhausted → guard decision still returned, recorded:false with reason, no insert', async () => {
-    vi.mocked(mockedCheckQuota).mockResolvedValue({ allowed: false, usage: 100, limit: 100 });
-    const res = await guardPost(makeRequest('http://localhost/api/guard?record=true', {
-      headers: { 'x-org-id': freshOrg() }, body: BODY,
-    }));
-    const data = await res.json();
-    expect(data.decision).toBe('allow');
-    expect(data.recorded).toBe(false);
-    expect(data.recorded_error).toContain('limit');
-    const inserts = routeSqlHolder.sql.taggedCalls.filter((c) => c.text.includes('INSERT INTO action_records'));
-    expect(inserts.length).toBe(0);
-  });
 });

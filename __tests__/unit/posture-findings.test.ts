@@ -19,7 +19,7 @@ describe('deriveFindings', () => {
     const f = deriveFindings([unit({ key: 'a', dimension: 'spend' })], { a: 0 }, noAdj);
     expect(f).toHaveLength(1);
     expect(f[0]!.fix.type).toBe('create_policy_draft');
-    expect(f[0]!.fix).toMatchObject({ policyType: 'x402_spend_limit' });
+    expect(f[0]!.fix).toMatchObject({ policyType: 'risk_threshold' });
     expect(f[0]!.status).toBe('open');
     expect(f[0]!.dimension).toBe('spend');
   });

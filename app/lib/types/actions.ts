@@ -10,7 +10,7 @@ import type { OrganizationId } from './identity';
 export type ActionId = Brand<string, 'ActionId'>; // ar_ prefix
 export type IdempotencyKey = Brand<string, 'IdempotencyKey'>;
 
-/** Open vocabulary (deploy, security, api, x402_purchase, …). */
+/** Open vocabulary (deploy, security, api, …). */
 export type ActionType = string;
 
 /** Free-form lifecycle status text column (nullable). */

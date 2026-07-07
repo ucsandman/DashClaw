@@ -49,11 +49,6 @@ const TEMPLATES: Array<{ type: string; label: string; rules: string }> = [
     label: 'Permission escalation',
     rules: '{\n  "action": "require_approval",\n  "patterns": ["sudo", "rm -rf", "git reset --hard"]\n}',
   },
-  {
-    type: 'x402_spend_limit',
-    label: 'x402 spend limit',
-    rules: '{\n  "approval_threshold": 5,\n  "max_spend_usd": 25\n}',
-  },
 ];
 
 interface SimSummary {

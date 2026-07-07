@@ -4,7 +4,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { baseAgentId } from '../agent-identity-resolve';
 import { scanSensitiveData } from '../security';
 import { scanForPromptInjection } from '../promptInjection';
 import { EVENTS, publishOrgEvent } from '../events';
@@ -14,7 +13,7 @@ import { getJtiReplayMode } from '../replay-protection';
 import { grantMatches } from '../policy-shapes';
 import { DECISION_SEVERITY, sevOf } from './internal';
 import type { GuardSql, GuardEvalContext, PolicyRow, PolicyRules, PolicyResult, Preliminary, GuardDecisionInsert } from './types';
-import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, x402BudgetWindow, isKnownPolicyType } from './policy';
+import { resolveDegradedAction, evaluatePolicy, evaluateWebhookPolicy, isKnownPolicyType } from './policy';
 import { getOrgHaltState, loadApplicablePolicies, getPredictiveSettings, getCalibrationRuntime } from './caches';
 import { assessCalibration, CALIBRATION_POLICY_ID } from './calibration';
 import type { CalibrationAssessment } from './calibration';
@@ -941,50 +940,4 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   await persistGuardDecision(sql, buildGuardDecisionRow(input));
   publishGuardDecisionEvent(input);
   return buildGuardResult(input);
-}
-
-/**
- * Post-insert budget re-verification (TOCTOU close-out; security review
- * 2026-07-02, MEDIUM). The pre-insert budget check reads the window sum
- * before the purchase row exists, so N concurrent purchases can each pass
- * against the same pre-insert sum. The x402 purchases route calls this AFTER
- * the row commits: the sum now includes the caller's own row and any
- * concurrent winners, so a breached hard budget (budget_usd) surfaces while
- * the response — and the agent's payment execution — can still be stopped.
- * Only the block tier is re-verified: the approval tier already produced its
- * interruption and pending rows count toward future sums. Best-effort by
- * design: a failure here returns null (the pre-insert gate already ran
- * fail-closed); failing every allowed purchase on a transient re-check error
- * would be a new outage mode.
- */
-export async function verifyX402BudgetAfterInsert(orgId: string, context: GuardEvalContext, sql: GuardSql): Promise<{ policyId: string; reason: string } | null> {
-  try {
-    const agentId = typeof context.agent_id === 'string' && context.agent_id ? context.agent_id : null;
-    const policies = await loadApplicablePolicies(sql, orgId, agentId);
-    for (const policy of policies) {
-      if (policy.policy_type !== 'x402_spend_limit') continue;
-      let rules: PolicyRules;
-      try { rules = JSON.parse(policy.rules); } catch { continue; }
-      const budgetMax = rules.budget_usd ?? Infinity;
-      if (budgetMax === Infinity) continue;
-      const { windowDays, scope } = x402BudgetWindow(rules);
-      if (scope === 'agent' && !agentId) continue; // the pre-insert gate already interrupted this shape
-      // Same identity-family normalization as the pre-insert gate.
-      const budgetAgentId = agentId ? (baseAgentId(agentId) ?? agentId) : null;
-      const { sumWindowSpend } = await import('../repositories/x402.repository');
-      const sinceIso = new Date(Date.now() - windowDays * 86400000).toISOString();
-      const committed = await sumWindowSpend(sql, orgId, { sinceIso, agentId: scope === 'agent' ? budgetAgentId : null });
-      if (committed > budgetMax) {
-        const scopeLabel = scope === 'agent' ? `agent ${budgetAgentId}` : 'org';
-        return {
-          policyId: policy.id,
-          reason: `Cumulative x402 spend $${committed.toFixed(2)} over ${windowDays}d (${scopeLabel}) exceeds budget $${budgetMax} — post-insert re-verification`,
-        };
-      }
-    }
-    return null;
-  } catch (err) {
-    console.warn('[Guard] x402 post-insert budget re-verification failed:', { org_id: orgId, error: (err as Error)?.message || err });
-    return null;
-  }
 }

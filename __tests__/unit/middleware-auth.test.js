@@ -284,14 +284,6 @@ describe('middleware API-key auth', () => {
     expect(res.status).toBe(200);
   });
 
-  it('stripe webhook is reachable without an api key (Stripe signs, route verifies)', async () => {
-    // Regression: /api/webhooks/stripe was missing from PUBLIC_ROUTES, so
-    // Stripe's unauthenticated POST got 401'd by default-deny middleware
-    // before the handler's signature verification ever ran. Dormant until
-    // STRIPE_SECRET_KEY is set, then billing desyncs silently.
-    const res = await middleware(req('/api/webhooks/stripe', { method: 'POST' }));
-    expect(res.status).toBe(200);
-  });
 
   it('other webhook subpaths stay default-deny: /api/webhooks/whatever is 401', async () => {
     const res = await middleware(req('/api/webhooks/whatever', {

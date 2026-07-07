@@ -50,38 +50,6 @@
         "items": { "type": "string" },
         "default": [],
         "description": "Tool names that should always get risk_score 80+ (e.g. bash, exec, deploy)"
-      },
-      "x402Enabled": {
-        "type": "boolean",
-        "default": true,
-        "description": "Detect x402 capability payments (e.g. agentcash) and govern + record them as DashClaw x402 purchases so they appear on the Spend surfaces. Gate runs before the payment; settled spend is recorded after."
-      },
-      "x402CommandPatterns": {
-        "type": "array",
-        "items": { "type": "string" },
-        "default": ["agentcash[\\s\\S]*?fetch"],
-        "description": "Case-insensitive regexes matched against any tool's command (bash/exec, Codex shell_command, or a wrapper script) to identify an x402 PAYMENT. The default matches both the agentcash `fetch` CLI and wrappers like .../agentcash/fetch-json.mjs. Free quote commands like `agentcash check` are not matched."
-      },
-      "x402ToolNames": {
-        "type": "array",
-        "items": { "type": "string" },
-        "default": [],
-        "description": "Dedicated tool names (e.g. an agentcash MCP tool) that are themselves x402 payments. Matched in addition to x402CommandPatterns; the URL/amount are read from the tool params."
-      },
-      "x402EstimatedCostUsd": {
-        "type": "number",
-        "default": 0.01,
-        "description": "Fallback per-purchase USD estimate used for the pre-payment guard when neither --max-amount nor an amount param is present. Lets x402_spend_limit policies evaluate before the payment runs."
-      },
-      "x402AutoRegisterProviders": {
-        "type": "boolean",
-        "default": true,
-        "description": "Look up or create an x402 provider by the endpoint origin (best-effort) so /spend/x402 groups purchases by provider. Falls back to a free-text provider when lookup fails; never blocks recording."
-      },
-      "x402Debug": {
-        "type": "boolean",
-        "default": false,
-        "description": "Log x402 detection + recording breadcrumbs to the gateway console (gate, record, receipt parse). Also enabled by env DASHCLAW_X402_DEBUG=1. Use to confirm whether the plugin sees and parses a payment's tool result."
       }
     }
   },
@@ -94,12 +62,6 @@
     "defaultModel": { "label": "Default model (for cost pricing)", "placeholder": "openai-codex/gpt-5.4", "advanced": true },
     "failClosed": { "label": "Fail-closed when DashClaw unreachable", "advanced": true },
     "riskScoreDefault": { "label": "Default risk score", "advanced": true },
-    "highRiskTools": { "label": "High-risk tool names", "advanced": true },
-    "x402Enabled": { "label": "Govern + record x402 payments" },
-    "x402CommandPatterns": { "label": "x402 command patterns", "advanced": true },
-    "x402ToolNames": { "label": "x402 tool names", "advanced": true },
-    "x402EstimatedCostUsd": { "label": "x402 pre-payment estimate (USD)", "advanced": true },
-    "x402AutoRegisterProviders": { "label": "Auto-register x402 providers", "advanced": true },
-    "x402Debug": { "label": "x402 debug logging", "advanced": true }
+    "highRiskTools": { "label": "High-risk tool names", "advanced": true }
   }
 }

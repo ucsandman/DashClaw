@@ -18,7 +18,7 @@ doc-type: pointer
 
 | Looking for | Canonical location |
 |---|---|
-| Full v2 method catalogue (56 methods) + canonical HITL flow + error handling + Execution Studio usage | **[`sdk/README.md`](../sdk/README.md)** |
+| Full v2 method catalogue (46 methods) + canonical HITL flow + error handling + Execution Studio usage | **[`sdk/README.md`](../sdk/README.md)** |
 | Domain-level parity between Node v2 / Node legacy / Python | **[`docs/sdk-parity.md`](./sdk-parity.md)** |
 | Per-domain method inventory and system architecture | **[`PROJECT_DETAILS.md`](../PROJECT_DETAILS.md)** |
 | Runtime governance loop (HTTP API shape) | **[`docs/architecture/runtime-api.md`](./architecture/runtime-api.md)** |
@@ -61,7 +61,7 @@ counts. Query it directly over HTTP.
 
 ## Governance Posture (no SDK wrapper)
 
-`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 56 Node / 99 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
+`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 46 Node / 90 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
 
 ## Why this moved
 

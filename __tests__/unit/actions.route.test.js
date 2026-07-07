@@ -14,9 +14,6 @@ const {
   mockMaybeSweepLostOutcomes,
   mockGetActionByIdempotencyKey,
   mockEvaluateGuard,
-  mockCheckQuotaFast,
-  mockGetOrgPlan,
-  mockIncrementMeter,
   mockVerifyAgentSignature,
   mockPublishOrgEvent,
   mockScanSensitiveData,
@@ -39,9 +36,6 @@ const {
   mockMaybeSweepLostOutcomes: vi.fn(async () => []),
   mockGetActionByIdempotencyKey: vi.fn(),
   mockEvaluateGuard: vi.fn(),
-  mockCheckQuotaFast: vi.fn(),
-  mockGetOrgPlan: vi.fn(),
-  mockIncrementMeter: vi.fn(),
   mockVerifyAgentSignature: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
@@ -75,11 +69,6 @@ vi.mock('@/lib/repositories/actions.repository.js', () => ({
   getActionByIdempotencyKey: mockGetActionByIdempotencyKey,
 }));
 vi.mock('@/lib/guard.js', () => ({ evaluateGuard: mockEvaluateGuard }));
-vi.mock('@/lib/usage.js', () => ({
-  checkQuotaFast: mockCheckQuotaFast,
-  getOrgPlan: mockGetOrgPlan,
-  incrementMeter: mockIncrementMeter,
-}));
 vi.mock('@/lib/identity.js', () => ({ verifyAgentSignature: mockVerifyAgentSignature }));
 vi.mock('@/lib/identity-resolution.js', () => ({ resolveAgentIdentity: mockResolveAgentIdentity }));
 vi.mock('@/lib/events.js', () => ({
@@ -113,7 +102,6 @@ vi.mock('@/lib/repositories/guard.repository.js', () => ({ guardDecisionExists: 
 import { GET, POST, DELETE } from '@/api/actions/route.js';
 
 const defaultGuardDecision = { decision: 'allow', reasons: [], warnings: [], matched_policies: [] };
-const defaultQuota = { allowed: true, usage: 0, limit: 1000, percent: 0 };
 const defaultAction = { action_id: 'act_test', agent_id: 'agent_1', action_type: 'build', declared_goal: 'Test' };
 
 beforeEach(() => {
@@ -127,9 +115,6 @@ beforeEach(() => {
   mockSql.mockImplementation(async () => []);
   mockSql.query.mockImplementation(async () => []);
   mockEvaluateGuard.mockResolvedValue(defaultGuardDecision);
-  mockCheckQuotaFast.mockResolvedValue(defaultQuota);
-  mockGetOrgPlan.mockResolvedValue('free');
-  mockIncrementMeter.mockResolvedValue(undefined);
   mockHasAgentAction.mockResolvedValue(true);
   mockScanSensitiveData.mockReturnValue({ clean: true, redacted: undefined, findings: [] });
   mockIsEmbeddingsEnabled.mockReturnValue(false);
@@ -377,18 +362,6 @@ describe('/api/actions POST', () => {
     expect(data.details).toContain('agent_id is required');
   });
 
-  it('returns 402 when actions quota is exceeded', async () => {
-    mockCheckQuotaFast.mockResolvedValue({ allowed: false, usage: 1000, limit: 1000, percent: 100 });
-
-    const res = await POST(makeRequest('http://localhost/api/actions', {
-      headers: { 'x-org-id': 'org_1' },
-      body: validBody,
-    }));
-
-    expect(res.status).toBe(402);
-    const data = await res.json();
-    expect(data.code).toBe('QUOTA_EXCEEDED');
-  });
 
   it('returns 403 when guard blocks the action and creates blocked action record', async () => {
     mockEvaluateGuard.mockResolvedValue({
@@ -443,19 +416,6 @@ describe('/api/actions POST', () => {
     expect(data.code).toBe('AGENT_NOT_REGISTERED');
   });
 
-  it('returns 402 when agent quota is exceeded for a new agent', async () => {
-    mockHasAgentAction.mockResolvedValue(false);
-    mockCheckQuotaFast
-      .mockResolvedValueOnce(defaultQuota) // actions quota passes
-      .mockResolvedValueOnce({ allowed: false, usage: 5, limit: 5, percent: 100 }); // agents quota fails
-
-    const res = await POST(makeRequest('http://localhost/api/actions', {
-      headers: { 'x-org-id': 'org_1' },
-      body: validBody,
-    }));
-
-    expect(res.status).toBe(402);
-  });
 
   it('returns 401 when signature enforcement is opted in but signature is missing', async () => {
     process.env.ENFORCE_AGENT_SIGNATURES = 'true';
@@ -487,16 +447,6 @@ describe('/api/actions POST', () => {
     expect(data.security.critical_count).toBe(1);
   });
 
-  it('sets quota warning header when near limit', async () => {
-    mockCheckQuotaFast.mockResolvedValue({ allowed: true, usage: 900, limit: 1000, percent: 90, warning: true });
-
-    const res = await POST(makeRequest('http://localhost/api/actions', {
-      headers: { 'x-org-id': 'org_1' },
-      body: validBody,
-    }));
-
-    expect(res.headers.get('x-quota-warning')).toContain('actions_per_month');
-  });
 
   it('schedules meter background work via after(), not as an un-awaited promise (Vercel free tier)', async () => {
     // Capture after() callbacks instead of invoking them, so we can prove the
@@ -573,9 +523,8 @@ describe('/api/actions POST', () => {
       // reading response.action_id broke only on the replay path without it.
       expect(data.action_id).toBe('act_prev');
 
-      // Critical: nothing downstream runs on a replay — no quota, no guard,
+      // Critical: nothing downstream runs on a replay — no guard,
       // no create, no signature verification.
-      expect(mockCheckQuotaFast).not.toHaveBeenCalled();
       expect(mockEvaluateGuard).not.toHaveBeenCalled();
       expect(mockCreateActionRecord).not.toHaveBeenCalled();
     });

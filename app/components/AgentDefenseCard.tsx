@@ -72,23 +72,12 @@ function defenseRows(defense: AgentDefense) {
       : { value: `${shields.non_fabrication.violations} violation${shields.non_fabrication.violations === 1 ? '' : 's'} blocked`, tone: 'attn' as const }
     : { value: 'Not evaluated', tone: 'muted' as const };
 
-  const spend = shields.spend.evaluated
-    ? {
-        value: shields.spend.outcome === 'within_limits'
-          ? 'Purchase within spend limits'
-          : shields.spend.outcome === 'required_approval'
-            ? 'Purchase held for approval'
-            : 'Purchase blocked at the gate',
-        tone: shields.spend.outcome === 'within_limits' ? ('ok' as const) : ('attn' as const),
-      }
-    : null;
-
-  return { alibi, decisionRow, injection, nonFab, spend };
+  return { alibi, decisionRow, injection, nonFab };
 }
 
 export default function AgentDefenseCard({ defense }: { defense: AgentDefense | null | undefined }) {
   if (!defense) return null;
-  const { alibi, decisionRow, injection, nonFab, spend } = defenseRows(defense);
+  const { alibi, decisionRow, injection, nonFab } = defenseRows(defense);
 
   return (
     <Card hover={false}>
@@ -99,7 +88,6 @@ export default function AgentDefenseCard({ defense }: { defense: AgentDefense | 
           <DefenseRow icon={Landmark} label="Governance decision" value={decisionRow.value} tone={decisionRow.tone} />
           <DefenseRow icon={injection.tone === 'muted' ? ShieldOff : injection.tone === 'ok' ? ShieldCheck : ShieldAlert} label="Prompt-injection shield" value={injection.label} tone={injection.tone} />
           <DefenseRow icon={FileCheck2} label="Non-fabrication" value={nonFab.value} tone={nonFab.tone} />
-          {spend && <DefenseRow icon={Shield} label="Spend gate (x402)" value={spend.value} tone={spend.tone} />}
         </div>
       </CardContent>
     </Card>
@@ -113,14 +101,13 @@ export default function AgentDefenseCard({ defense }: { defense: AgentDefense | 
  */
 export function AgentDefenseBadges({ defense }: { defense: AgentDefense | null | undefined }) {
   if (!defense) return null;
-  const { alibi, injection, nonFab, spend } = defenseRows(defense);
+  const { alibi, injection, nonFab } = defenseRows(defense);
 
   const badges: Array<{ key: string; text: string; tone: 'ok' | 'attn' | 'muted' }> = [
     { key: 'alibi', text: defense.assumed.total === 0 ? 'No assumptions declared' : `${defense.assumed.total} assumption${defense.assumed.total === 1 ? '' : 's'} on record`, tone: alibi.tone },
     { key: 'injection', text: injection.label, tone: injection.tone },
   ];
   if (defense.shields.non_fabrication.evaluated) badges.push({ key: 'nonfab', text: nonFab.value, tone: nonFab.tone });
-  if (spend) badges.push({ key: 'spend', text: spend.value, tone: spend.tone });
 
   return (
     <div className="flex flex-wrap items-center gap-2">

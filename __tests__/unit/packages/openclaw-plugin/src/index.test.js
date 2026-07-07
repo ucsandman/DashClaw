@@ -88,12 +88,6 @@ function defaultFetchHandler(request) {
   if (request.path.startsWith('/api/sessions/') && request.method === 'PATCH') {
     return { ok: true };
   }
-  if (request.path === '/api/x402/providers') {
-    return { providers: [{ name: 'stableenrich.dev', provider_id: 'prov_1' }] };
-  }
-  if (request.path === '/api/x402/purchases') {
-    return { action: { action_id: 'x402_act_1' } };
-  }
   if (request.path === '/api/artifacts') {
     return { ok: true };
   }
@@ -249,75 +243,6 @@ describe('@dashclaw/openclaw-plugin', () => {
     assert.equal(result, undefined);
     assert.ok(findCall(calls, '/api/stream'));
     assert.equal(findCall(calls, '/api/actions/act_approval', 'GET').body, undefined);
-  });
-
-  it('gates x402 payments separately and records the settled receipt', async () => {
-    const calls = installFetchMock();
-    const { api } = await registerPlugin({
-      pluginConfig: { x402EstimatedCostUsd: 0.03 },
-    });
-
-    const beforeResult = await api.emit('before_tool_call', {
-      toolName: 'bash',
-      params: {
-        command:
-          'npx agentcash fetch https://stableenrich.dev/v1/search --max-amount 0.25',
-      },
-      toolCallId: 'call_x402',
-      runId: 'run_x402',
-    });
-    await api.emit('after_tool_call', {
-      toolName: 'bash',
-      toolCallId: 'call_x402',
-      runId: 'run_x402',
-      result: JSON.stringify({
-        data: {
-          requestId: 'req_1',
-          costDollars: { total: 0.12 },
-        },
-        metadata: {
-          payment: { transactionHash: 'tx_1' },
-        },
-      }),
-    });
-
-    assert.equal(beforeResult, undefined);
-    assert.equal(findCall(calls, '/api/actions', 'POST'), undefined);
-    assert.deepEqual(findCall(calls, '/api/guard', 'POST').body, {
-      action_type: 'x402_purchase',
-      provider: 'stableenrich.dev',
-      cost_estimate: 0.25,
-      risk_score: 40,
-      declared_goal: 'x402 purchase: stableenrich.dev',
-      reversible: false,
-      systems_touched: ['x402', 'stableenrich.dev'],
-      agent_id: 'openclaw-test',
-    });
-    assert.deepEqual(findCall(calls, '/api/x402/purchases', 'POST').body, {
-      agent_id: 'openclaw-test',
-      provider: 'stableenrich.dev',
-      declared_goal: 'x402 purchase: stableenrich.dev',
-      purchase_reason: 'Paid x402 capability call to stableenrich.dev',
-      context_gap: 'Capability gated behind payment at stableenrich.dev',
-      expected_value: 'Paid result from stableenrich.dev',
-      spend_amount: 0.12,
-      cost_estimate: 0.12,
-      currency: 'USDC',
-      payment_method: 'x402',
-      provider_id: 'prov_1',
-    });
-    assert.deepEqual(findCall(calls, '/api/artifacts', 'POST').body, {
-      artifact_type: 'x402_purchase_result',
-      name: 'x402 result x402_act_1',
-      description: 'x402 settled: $0.12 USDC at stableenrich.dev',
-      content_json: {
-        origin: 'stableenrich.dev',
-        transactionHash: 'tx_1',
-        requestId: 'req_1',
-      },
-      content_url: null,
-      source_action_id: 'x402_act_1',
-    });
   });
 
   it('flushes pending token usage and closes the DashClaw session at run end', async () => {

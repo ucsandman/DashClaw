@@ -39,9 +39,6 @@ export interface AgentDefense {
     non_fabrication:
       | { evaluated: true; verdict: 'pass' | 'block'; violations: number; receipt: boolean }
       | { evaluated: false };
-    spend:
-      | { evaluated: true; outcome: 'within_limits' | 'required_approval' | 'blocked' }
-      | { evaluated: false };
   };
 }
 
@@ -107,7 +104,6 @@ export function buildAgentDefense(
   let shields: AgentDefense['shields'] = {
     prompt_injection: { status: 'not_recorded' },
     non_fabrication: { evaluated: false },
-    spend: { evaluated: false },
   };
 
   if (guardDecision && linkedId) {
@@ -124,21 +120,9 @@ export function buildAgentDefense(
       risk_breakdown: (context as Row | null)?._risk_breakdown ?? null,
     };
 
-    // The x402 evaluator runs on every x402_purchase guard call; the linked
-    // decision therefore IS the spend verdict for those actions. Deliberately
-    // narrow (claims-audit B2): no generic-spend claim for other action types.
-    const isX402 = action.action_type === 'x402_purchase' || guardDecision.action_type === 'x402_purchase';
-    const spendOutcome =
-      guardDecision.decision === 'block'
-        ? 'blocked'
-        : guardDecision.decision === 'require_approval'
-          ? 'required_approval'
-          : 'within_limits';
-
     shields = {
       prompt_injection: { status: shieldStatus(context) },
       non_fabrication: nonFabRollup(guardDecision.evidence),
-      spend: isX402 ? { evaluated: true, outcome: spendOutcome } : { evaluated: false },
     };
   }
 

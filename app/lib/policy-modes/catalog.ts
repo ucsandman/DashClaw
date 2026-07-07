@@ -42,8 +42,8 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
   'claude-code': {
     id: 'claude-code',
     name: 'Claude Code Mode',
-    description: 'Fast local coding and building. Interrupts only for money, destruction, and secrets.',
-    purpose: 'Let a coding agent read, edit, run bash, test, lint, and build without interruption — pausing only for paid spend, deploys, migrations, destructive ops, and protected paths. Everything else is recorded for review on /policies.',
+    description: 'Fast local coding and building. Interrupts only for destruction and secrets.',
+    purpose: 'Let a coding agent read, edit, run bash, test, lint, and build without interruption — pausing only for deploys, migrations, destructive ops, and protected paths. Everything else is recorded for review on /policies.',
     interruptionLevel: 'low',
     uxPromise: "Won't interrupt normal coding.",
     allows: [
@@ -61,7 +61,6 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
       'Bursts over 250 actions in 30 minutes',
     ],
     requiresApproval: [
-      'Paid (x402) spend at or above $5.00',
       'Deploys, migrations, workflow execution',
       'Explicit destructive ops (delete / reset / destroy / drop)',
       'Edits to governance, auth, secrets, and policy paths',
@@ -69,7 +68,6 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     ],
     blocks: [
       'Extreme-risk actions (risk score ≥ 100)',
-      'Paid (x402) spend above $25.00',
     ],
     toolVisibilityNotes: [
       'DashClaw governs only the actions your agent reports through the SDK or hooks. Routine reads, edits, and bash that are not reported are neither recorded nor gated.',
@@ -81,7 +79,7 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
   'openclaw': {
     id: 'openclaw',
     name: 'OpenClaw Mode',
-    description: 'A broad personal agent that pauses before touching messages, money, or local config.',
+    description: 'A broad personal agent that pauses before touching messages or local config.',
     purpose: 'A personal agent operating across files, tools, messages, and local configuration.',
     interruptionLevel: 'medium',
     uxPromise: 'Can help broadly, pauses before touching your life.',
@@ -95,7 +93,6 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     ],
     requiresApproval: [
       'Telegram, Discord, email, and calendar actions',
-      'Any paid spend at or above $0.01',
       'Writes to local configuration and gateway actions',
       'Reads/writes to secrets and personal-data paths',
       'Explicit destructive ops (delete / reset / destroy / drop)',
@@ -126,7 +123,6 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     requiresApproval: [
       'File writes and apply/sync actions',
       'Outbound API and network calls',
-      'Any paid spend (≥ $0.00)',
       'External messages, posts, and email',
       'Deploys, migrations, and workflow execution',
       'Memory writes',
@@ -145,7 +141,7 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     id: 'enterprise-strict',
     name: 'Enterprise Strict Mode',
     description: 'Company/team posture where everything sensitive is reviewed and auditable.',
-    purpose: 'A company or team environment where production data, customer data, and money must be reviewed.',
+    purpose: 'A company or team environment where production data and customer data must be reviewed.',
     interruptionLevel: 'high',
     uxPromise: 'Everything sensitive is reviewed and auditable.',
     allows: [
@@ -204,27 +200,24 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
   'research': {
     id: 'research',
     name: 'Research Mode',
-    description: 'Explore freely within a spend and privacy budget.',
-    purpose: 'Web and API information gathering, kept inside a spend and privacy budget.',
+    description: 'Explore freely within a privacy budget.',
+    purpose: 'Web and API information gathering, kept inside a privacy budget.',
     interruptionLevel: 'low',
-    uxPromise: 'Explore freely within a spend and privacy budget.',
+    uxPromise: 'Explore freely within a privacy budget.',
     allows: [
       'Read-only browsing and API lookups',
       'Reading files',
     ],
     warns: [
       'High-risk actions (risk score ≥ 85)',
-      'Paid (x402) spend at or above $0.10 (budget warning)',
     ],
     requiresApproval: [
-      'Paid (x402) spend above the $5.00 budget',
       'Storing data to external writes, posts, messages, or email',
       'Edits to secrets and personal-data paths',
     ],
     blocks: [],
     toolVisibilityNotes: [
       'Login walls and "scraping sensitive data" cannot be detected by DashClaw directly — they are surfaced as cautions, not enforced gates.',
-      'Spend is gated only for paid calls the agent reports as `x402_purchase`; free browsing is not metered.',
     ],
   },
 
@@ -232,7 +225,7 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     id: 'autonomous-overnight',
     name: 'Autonomous Overnight Mode',
     description: 'Can work while you sleep, but cannot run away.',
-    purpose: 'Unattended, long-running work that must not drift in scope or spend.',
+    purpose: 'Unattended, long-running work that must not drift in scope.',
     interruptionLevel: 'medium',
     uxPromise: 'Can work while you sleep, but cannot run away.',
     allows: [
@@ -245,13 +238,11 @@ export const POLICY_MODE_CATALOG: Record<string, PolicyMode> = {
     ],
     requiresApproval: [
       'Runaway loops (800+ actions in 60 minutes)',
-      'Paid (x402) spend at or above $0.05',
       'External messages, posts, email, deploys, and migrations',
       'Edits to production, deploy, and secrets paths',
     ],
     blocks: [
       'Extreme-risk actions (risk score ≥ 95)',
-      'Paid (x402) spend above $1.00',
     ],
     toolVisibilityNotes: [
       '"Scope drift" and "periodic task summaries" are not natively enforceable — they are surfaced as cautions. Pair this mode with action records so progress is observable.',

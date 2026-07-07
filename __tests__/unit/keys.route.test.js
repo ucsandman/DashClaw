@@ -1,34 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeRequest } from '../helpers.js';
 
-const { mockSql, mockGetOrgPlan, mockCheckQuotaFast, mockIncrementMeter, mockLogActivity } = vi.hoisted(() => ({
+const { mockSql, mockLogActivity } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
-  mockGetOrgPlan: vi.fn(),
-  mockCheckQuotaFast: vi.fn(),
-  mockIncrementMeter: vi.fn(),
   mockLogActivity: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/usage.js', () => ({
-  getOrgPlan: mockGetOrgPlan,
-  checkQuotaFast: mockCheckQuotaFast,
-  incrementMeter: mockIncrementMeter,
-}));
 vi.mock('@/lib/audit.js', () => ({ logActivity: mockLogActivity }));
 
 import { GET, POST, DELETE } from '@/api/keys/route.js';
-
-const defaultQuota = { allowed: true, usage: 1, limit: 10, percent: 10 };
 
 beforeEach(() => {
   vi.clearAllMocks();
   process.env.DATABASE_URL = 'postgres://unit-test';
   mockSql.mockImplementation(async () => []);
   mockSql.query.mockImplementation(async () => []);
-  mockGetOrgPlan.mockResolvedValue('free');
-  mockCheckQuotaFast.mockResolvedValue(defaultQuota);
-  mockIncrementMeter.mockResolvedValue(undefined);
   mockLogActivity.mockResolvedValue(undefined);
 });
 
@@ -93,19 +80,6 @@ describe('/api/keys POST', () => {
     }));
 
     expect(res.status).toBe(400);
-  });
-
-  it('returns 402 when key quota is exceeded', async () => {
-    mockCheckQuotaFast.mockResolvedValue({ allowed: false, usage: 10, limit: 10, percent: 100 });
-
-    const res = await POST(makeRequest('http://localhost/api/keys', {
-      headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
-      body: { label: 'Key' },
-    }));
-
-    expect(res.status).toBe(402);
-    const data = await res.json();
-    expect(data.code).toBe('QUOTA_EXCEEDED');
   });
 
   it('uses default label when none provided', async () => {

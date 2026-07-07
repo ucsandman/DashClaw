@@ -16,7 +16,7 @@ describe('trial action counter integration', () => {
     );
     const src = await fs.readFile(routePath, 'utf8');
     expect(src).toMatch(/incrementTrialActionCount/);
-    expect(src).toMatch(/meterUpdates\.push\([\s\S]*incrementTrialActionCount/);
+    expect(src).toMatch(/after\([\s\S]*incrementTrialActionCount/);
   });
 
   it('incrementTrialActionCount silently no-ops for non-hosted orgs', async () => {

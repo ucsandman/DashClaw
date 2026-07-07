@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys, demoSecrets,
-  demoSpend, demoX402Purchases, demoX402Budget,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
 
@@ -31,68 +30,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const r = demoSecrets();
     expect(r.secrets.length).toBeGreaterThan(0);
     expect(r.secrets[0]!).toMatchObject({ id: expect.any(String), name: expect.any(String), rotation_interval_days: expect.any(Number) });
-  });
-  it('spend (/api/finops/spend) — period-aware fleet lens', () => {
-    const r = demoSpend(url('http://x/api/finops/spend')) as any;
-    expect(r.period).toBe('30d');
-    expect(r.fleet_total_usd).toBeGreaterThan(0);
-    expect(r.agent.by_day.length).toBe(30);
-    expect(r.x402.by_day[0]!).toMatchObject({ date: expect.any(String), spend_usd: expect.any(Number) });
-    // Totals always equal the sum of the rendered series (chart and headline agree).
-    const agentSum = r.agent.by_day.reduce((s: number, d: any) => s + d.cost_usd, 0);
-    expect(r.agent.total_cost_usd).toBeCloseTo(agentSum, 2);
-
-    const seven = demoSpend(url('http://x/api/finops/spend?period=7d')) as any;
-    expect(seven.period).toBe('7d');
-    expect(seven.agent.by_day.length).toBe(7);
-    expect(seven.fleet_total_usd).toBeLessThan(r.fleet_total_usd);
-
-    const ninety = demoSpend(url('http://x/api/finops/spend?period=90d')) as any;
-    expect(ninety.agent.by_day.length).toBe(90);
-
-    // Invalid periods fall back to 30d like the real route.
-    expect((demoSpend(url('http://x/api/finops/spend?period=1y')) as any).period).toBe('30d');
-
-    // Agent-filtered view is a slice of fleet spend, not the full totals.
-    const filtered = demoSpend(url('http://x/api/finops/spend?period=30d&agent_id=a1')) as any;
-    expect(filtered.fleet_total_usd).toBeLessThan(r.fleet_total_usd);
-  });
-  it('spend (/api/finops/spend?lens=claude-code) — code-sessions shape for /spend/code', () => {
-    const r = demoSpend(url('http://x/api/finops/spend?lens=claude-code&period=7d')) as any;
-    expect(r.lens).toBe('claude_code');
-    expect(r.code_total_usd).toBeGreaterThan(0);
-    expect(r.code_sessions.by_day.length).toBe(7);
-    expect(r.code_sessions.by_day[0]).toMatchObject({ date: expect.any(String), cost_usd: expect.any(Number), session_count: expect.any(Number) });
-    expect(r.code_sessions.by_project[0]).toMatchObject({ project_id: expect.any(String), project_name: expect.any(String), cost_usd: expect.any(Number) });
-    expect(r.code_sessions.total_cache_savings_usd).toBeGreaterThan(0);
-  });
-  it('x402 purchases (/api/x402/purchases) — provider_name join + agent filter', () => {
-    const all = demoX402Purchases(url('http://x/api/x402/purchases'));
-    expect(all.purchases.length).toBeGreaterThan(0);
-    expect(all.purchases[0]!).toMatchObject({
-      action_id: expect.any(String), provider_name: expect.any(String),
-      spend_amount: expect.any(Number), currency: expect.any(String),
-      execution_status: expect.any(String), created_at: expect.any(String),
-    });
-    // ?agent_id= excludes other agents AND unattributed (agent_id null) rows,
-    // mirroring listPurchases' documented behavior.
-    const filtered = demoX402Purchases(url('http://x/api/x402/purchases?agent_id=clawdbot'));
-    expect(filtered.purchases.length).toBeGreaterThan(0);
-    expect(filtered.purchases.every((p: any) => p.agent_id === 'clawdbot')).toBe(true);
-  });
-  it('x402 budget (/api/x402/budget) — meter shape, hot org meter, family rollup', () => {
-    const all = demoX402Budget(url('http://x/api/x402/budget')) as any;
-    expect(all.budgets.length).toBe(2);
-    const org = all.budgets.find((b: any) => b.budget_scope === 'org');
-    // demo org meter sits in the warning band: over approval, under the hard budget
-    expect(org.window_spend_usd).toBeGreaterThanOrEqual(org.budget_approval_threshold);
-    expect(org.window_spend_usd).toBeLessThan(org.budget_usd);
-    const agent = all.budgets.find((b: any) => b.budget_scope === 'agent');
-    expect(agent.families.length).toBeGreaterThan(1);
-    // ?agent_id narrows to the identity family and rolls composed ids to the base
-    const narrowed = demoX402Budget(url('http://x/api/x402/budget?agent_id=clawdbot%3Aexplore')) as any;
-    const fam = narrowed.budgets.find((b: any) => b.budget_scope === 'agent').families;
-    expect(fam).toEqual([{ agent_id: 'clawdbot', window_spend_usd: expect.any(Number) }]);
   });
 });
 

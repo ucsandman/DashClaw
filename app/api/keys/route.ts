@@ -3,7 +3,6 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getOrgId, getOrgRole, getUserId } from '../../lib/org';
-import { checkQuotaFast, getOrgPlan, incrementMeter } from '../../lib/usage';
 import { logActivity } from '../../lib/audit';
 import { getSql } from '../../lib/db';
 import crypto from 'crypto';
@@ -76,16 +75,6 @@ export async function POST(request: Request) {
 
     const sql = getSql();
 
-    // Quota check: API keys (fast meter path)
-    const plan = await getOrgPlan(orgId, sql);
-    const keysQuota = await checkQuotaFast(orgId, 'api_keys', plan, sql);
-    if (!keysQuota.allowed) {
-      return NextResponse.json(
-        { error: 'API key limit reached. Upgrade your plan.', code: 'QUOTA_EXCEEDED', usage: keysQuota.usage, limit: keysQuota.limit },
-        { status: 402 }
-      );
-    }
-
     const rawKey = generateApiKey();
     const keyHash = hashKey(rawKey);
     const keyPrefix = rawKey.substring(0, KEY_PREFIX_LENGTH);
@@ -95,11 +84,6 @@ export async function POST(request: Request) {
       INSERT INTO api_keys (id, org_id, key_hash, key_prefix, label, role)
       VALUES (${keyId}, ${orgId}, ${keyHash}, ${keyPrefix}, ${label}, ${role})
     `;
-
-    // Fire-and-forget meter increment
-    incrementMeter(orgId, 'api_keys', sql).catch(() => {
-      console.warn('[Keys] Failed to increment api_keys meter');
-    });
 
     logActivity({
       orgId, actorId: getUserId(request) || 'unknown', action: 'key.created',
@@ -162,11 +146,6 @@ export async function DELETE(request: Request) {
     // runtime), so this propagation window is a known, bounded tradeoff — revocation
     // is immediate in the DB; only the in-memory cache lags. Same accepted staleness
     // as the trial-counter cache.
-
-    // Fire-and-forget meter decrement
-    incrementMeter(orgId, 'api_keys', sql, -1).catch(() => {
-      console.warn('[Keys] Failed to decrement api_keys meter');
-    });
 
     logActivity({
       orgId, actorId: getUserId(request) || 'unknown', action: 'key.revoked',

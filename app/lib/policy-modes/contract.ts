@@ -44,7 +44,6 @@ interface PolicyRowLike {
 
 const SECONDS_PER_INTERRUPT = 20;
 
-const usd = (n: number) => `$${Number.isFinite(n) ? n.toFixed(2) : '0.00'}`;
 const listTypes = (ts: unknown) => (Array.isArray(ts) ? ts.join(', ') : '');
 
 export function buildContract(
@@ -81,24 +80,6 @@ export function buildContract(
     });
 
     switch (row.policy_type) {
-      case 'x402_spend_limit': {
-        const approve = Number(rules.approval_threshold ?? 0);
-        const max = Number(rules.max_spend_usd ?? 0);
-        view.interrupts.push({ ...s(`paid spend reaches ${usd(approve)}`, { param: 'approval_threshold', value: approve }), rules });
-        view.blocks.push({ ...s(`paid spend exceeds ${usd(max)}`, { param: 'max_spend_usd', value: max }), rules });
-        // Cumulative window budget: a budget-gated policy must read as one on
-        // the contract page, not as a per-purchase cap only.
-        const win = `${Number(rules.budget_window_days ?? 30)}-day ${rules.budget_scope === 'agent' ? 'per-agent' : 'org'}`;
-        if (rules.budget_approval_threshold != null) {
-          const t = Number(rules.budget_approval_threshold);
-          view.interrupts.push({ ...s(`${win} paid spend reaches ${usd(t)}`, { param: 'budget_approval_threshold', value: t }), rules });
-        }
-        if (rules.budget_usd != null) {
-          const b = Number(rules.budget_usd);
-          view.blocks.push({ ...s(`${win} paid spend exceeds ${usd(b)}`, { param: 'budget_usd', value: b }), rules });
-        }
-        break;
-      }
       case 'require_approval':
         if (!Array.isArray(rules.action_types) || rules.action_types.length === 0) {
           view.custom.push({ policy_id: row.id, name: row.name, policy_type: row.policy_type });

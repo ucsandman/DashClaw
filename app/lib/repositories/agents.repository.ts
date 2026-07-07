@@ -183,24 +183,6 @@ export async function listAgentsForOrg(
     if (!isMissingTable(err)) throw err;
   }
 
-  // Fallback: token_snapshots without actions.
-  try {
-    const rows = await sql.query(
-      `
-        SELECT agent_id, COUNT(*) as snapshot_count, MAX(timestamp) as last_snapshot
-        FROM token_snapshots
-        WHERE org_id = $1 AND agent_id IS NOT NULL
-        GROUP BY agent_id
-      `,
-      [orgId]
-    );
-    for (const r of rows || []) {
-      mergeAgent(r.agent_id, { snapshot_count: Number(r.snapshot_count || 0), last_snapshot: r.last_snapshot || null });
-    }
-  } catch (err) {
-    if (!isMissingTable(err)) throw err;
-  }
-
   const agents: AgentRecord[] = [...byId.values()].map((a) => {
     const last_active = maxIso(a.last_active, maxIso(a.last_goal, maxIso(a.last_decision, a.last_snapshot)));
     return {

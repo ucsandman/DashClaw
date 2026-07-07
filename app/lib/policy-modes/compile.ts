@@ -2,7 +2,7 @@
 // policies (the exact shape `validatePolicy` accepts and `insertPolicy` stores).
 //
 // Every compiled policy:
-//   - has policy_type ∈ the 15 live GuardPolicyType values (nothing fabricated),
+//   - has policy_type ∈ the live GuardPolicyType values (nothing fabricated),
 //   - carries `_mode: <id>` inside its rules JSON (mirrors the existing `_shield`
 //     tag so mode-generated policies are recognizable without a schema change),
 //   - is `active: 1` so applying a mode takes effect immediately.
@@ -40,8 +40,6 @@ const GOVERNANCE_PROTECTED_PATHS = [
   'app/api/policies/**',
   'app/api/approvals/**',
   'app/api/actions/**',
-  '**/x402/**',
-  'app/api/x402/**',
   '**/*.key',
   '**/*.pem',
   '**/.env*',
@@ -114,7 +112,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     return [
       mk(m, 'Block extreme-risk actions', 'risk_threshold', { threshold: 100, action: 'block' }),
       mk(m, 'Warn on high-risk actions', 'risk_threshold', { threshold: 85, action: 'warn' }),
-      mk(m, 'Gate paid (x402) spend', 'x402_spend_limit', { approval_threshold: 5.0, max_spend_usd: 25.0 }),
       mk(m, 'Record external comms / sync / API calls', 'warn_action_type', {
         action_types: ['message', 'post', 'email', 'calendar', 'sync', 'api'],
       }),
@@ -143,7 +140,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     return [
       mk(m, 'Block extreme-risk actions', 'risk_threshold', { threshold: 100, action: 'block' }),
       mk(m, 'Warn on high-risk actions', 'risk_threshold', { threshold: 85, action: 'warn' }),
-      mk(m, 'Gate any paid spend', 'x402_spend_limit', { approval_threshold: 0.01, max_spend_usd: 1.0 }),
       mk(m, 'Pause before messaging / calendar', 'require_approval', {
         action_types: ['message', 'post', 'email', 'calendar', 'telegram', 'discord'],
       }),
@@ -166,7 +162,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     return [
       mk(m, 'Block high-risk actions', 'risk_threshold', { threshold: 90, action: 'block' }),
       mk(m, 'Warn on moderate-risk actions', 'risk_threshold', { threshold: 60, action: 'warn' }),
-      mk(m, 'Gate any paid spend', 'x402_spend_limit', { approval_threshold: 0, max_spend_usd: 0.1 }),
       mk(m, 'Pause before writes / network / elevation', 'require_approval', {
         action_types: ['write', 'apply', 'sync', 'api', 'deploy', 'migrate', 'workflow_execute', 'memory_write'],
       }),
@@ -195,7 +190,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     return [
       mk(m, 'Block high-risk actions', 'risk_threshold', { threshold: 90, action: 'block' }),
       mk(m, 'Warn on elevated-risk actions', 'risk_threshold', { threshold: 70, action: 'warn' }),
-      mk(m, 'Gate paid spend', 'x402_spend_limit', { approval_threshold: 0.01, max_spend_usd: 1.0 }),
       mk(m, 'Pause before deploy / migrate', 'require_approval', {
         action_types: ['deploy', 'migrate', 'workflow_execute'],
       }),
@@ -236,7 +230,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     const m = 'research';
     return [
       mk(m, 'Warn on high-risk actions', 'risk_threshold', { threshold: 85, action: 'warn' }),
-      mk(m, 'Keep spend within budget', 'x402_spend_limit', { approval_threshold: 0.1, max_spend_usd: 5.0 }),
       mk(m, 'Pause before external writes / posts / messages', 'require_approval', {
         action_types: ['post', 'message', 'email', 'write', 'apply', 'deploy', 'sync'],
       }),
@@ -253,7 +246,6 @@ const MODE_BUILDERS: Record<string, ModeBuilder> = {
     return [
       mk(m, 'Block extreme-risk actions', 'risk_threshold', { threshold: 95, action: 'block' }),
       mk(m, 'Warn on elevated-risk actions', 'risk_threshold', { threshold: 80, action: 'warn' }),
-      mk(m, 'Gate paid spend', 'x402_spend_limit', { approval_threshold: 0.05, max_spend_usd: 1.0 }),
       mk(m, 'Warn on action bursts', 'rate_limit', { max_actions: 300, window_minutes: 30, action: 'warn' }),
       mk(m, 'Pause on runaway loops', 'rate_limit', {
         max_actions: 800,
@@ -312,9 +304,8 @@ export function compileMode(modeId: string): CompiledModePolicy[] {
 
 /**
  * The primary decision a compiled policy yields when it fires — used for the
- * preview summary. Approximation: x402 gates (and blocks above its max);
- * non_fabrication uses its on_violation; the rest use `rules.action` with the
- * guard engine's per-type defaults.
+ * preview summary. Approximation: non_fabrication uses its on_violation;
+ * the rest use `rules.action` with the guard engine's per-type defaults.
  */
 export function nominalDecision(policy: CompiledModePolicy): DecisionType {
   const r = policy.rules as Record<string, unknown>;
@@ -327,8 +318,6 @@ export function nominalDecision(policy: CompiledModePolicy): DecisionType {
       return 'warn';
     case 'allow_grant':
       return 'allow';
-    case 'x402_spend_limit':
-      return 'require_approval';
     case 'non_fabrication':
       return r.on_violation === 'require_approval' ? 'require_approval' : 'block';
     case 'rate_limit':

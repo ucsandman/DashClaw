@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:f8752977072af13ac99189373ff9ced27075524e`
+**Shape snapshot:** `sha1:6385ba96a0300d28ae65300b5a8c807de3daf7c5`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,8 +45,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **146** active API routes across **53** categories (146 total including archived)
-- **4** required + **193** optional environment variables
+- **133** active API routes across **49** categories (133 total including archived)
+- **4** required + **187** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -59,7 +59,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/actions/[actionId]/graph`
 - `GET, POST` `/api/actions/[actionId]/outcome`
 - `GET` `/api/actions/[actionId]/trace`
-- `GET` `/api/actions/costs`
 - `GET` `/api/actions/stats`
 
 ### `activity`
@@ -101,11 +100,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/auth/config`
 - `DELETE, POST` `/api/auth/local`
 
-### `billing`
-
-- `POST` `/api/billing/checkout`
-- `GET` `/api/billing/portal`
-
 ### `calibration`
 
 - `GET, POST` `/api/calibration/controller`
@@ -135,7 +129,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/cron/memory-maintenance`
 - `GET` `/api/cron/outcome-sweep`
 - `GET` `/api/cron/policy-suggestions`
-- `GET` `/api/cron/reset-meters`
 - `GET` `/api/cron/signals`
 
 ### `discord`
@@ -158,10 +151,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `enforcement-liveness`
 
 - `GET, POST` `/api/enforcement-liveness`
-
-### `finops`
-
-- `GET` `/api/finops/spend`
 
 ### `guard`
 
@@ -328,17 +317,11 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 - `POST` `/api/telegram/webhook`
 
-### `usage`
-
-- `GET` `/api/usage`
-- `GET` `/api/usage/costs`
-
 ### `webhooks`
 
 - `DELETE, GET, POST` `/api/webhooks`
 - `GET` `/api/webhooks/[webhookId]/deliveries`
 - `POST` `/api/webhooks/[webhookId]/test`
-- `POST` `/api/webhooks/stripe`
 
 ### `widget`
 
@@ -349,20 +332,12 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/workspace/export`
 - `POST` `/api/workspace/import`
 
-### `x402`
-
-- `GET` `/api/x402/budget`
-- `GET, POST` `/api/x402/providers`
-- `GET, PATCH` `/api/x402/providers/[id]`
-- `GET, POST` `/api/x402/providers/[id]/endpoints`
-- `GET, POST` `/api/x402/purchases`
-
 ## Required Environment Variables
 
 These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
-- **`DATABASE_URL`** - referenced in 78 file(s)
+- **`DATABASE_URL`** - referenced in 75 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 8 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -438,7 +413,6 @@ These have fallbacks or only activate specific features.
 - `DASHCLAW_SUPPRESS_LEGACY_WARNING` *(undocumented)*
 - `DASHCLAW_TIMEOUT_MS` *(undocumented)*
 - `DASHCLAW_URL` *(undocumented)*
-- `DASHCLAW_X402_CURRENCIES` *(undocumented)*
 - `DISABLE_PROMPT_INJECTION_SCAN` *(undocumented)*
 - `DISCORD_APPROVER_ORG_ID` *(undocumented)*
 - `DISCORD_APPROVER_USER_ID` *(undocumented)*
@@ -481,7 +455,6 @@ These have fallbacks or only activate specific features.
 - `NEON_API_KEY` *(undocumented)*
 - `NEXTAUTH_URL`
 - `NEXT_PUBLIC_` *(undocumented)*
-- `NEXT_PUBLIC_APP_URL` *(undocumented)*
 - `NEXT_PUBLIC_DASHCLAW_MODE` *(undocumented)*
 - `NEXT_PUBLIC_DASHCLAW_VERSION` *(undocumented)*
 - `NEXT_PUBLIC_ENABLE_VERCEL_ANALYTICS` *(undocumented)*
@@ -535,11 +508,7 @@ These have fallbacks or only activate specific features.
 - `STARTUP_SMOKE_SKIP_POLICY` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
 - `STRIPE_LIVE_SECRET_KEY` *(undocumented)*
-- `STRIPE_PRICE_BUSINESS` *(undocumented)*
-- `STRIPE_PRICE_PRO` *(undocumented)*
-- `STRIPE_SECRET_KEY` *(undocumented)*
 - `STRIPE_TEST_SECRET_KEY` *(undocumented)*
-- `STRIPE_WEBHOOK_SECRET` *(undocumented)*
 - `STUB_FAIL_CREATES` *(undocumented)*
 - `SUPABASE_ACCESS_TOKEN` *(undocumented)*
 - `TARGET_ENV` *(undocumented)*
@@ -688,7 +657,6 @@ These are the `type` strings emitted through `fireWebhooksForOrg` and `deliverNa
 - `approval_flood`
 - `autonomy_spike`
 - `cost_exceeded`
-- `coverage_drop`
 - `green_insufficient`
 - `integration_health_changed`
 - `integration_mismatch`

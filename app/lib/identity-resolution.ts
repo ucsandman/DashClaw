@@ -3,8 +3,8 @@
  *
  * One source of truth for "who is this agent, and is that claim verified?" used
  * by every governed-action-creating route (/api/guard, /api/actions,
- * /api/x402/purchases, integration routes). Before this helper, only /api/guard
- * ran JWKS verification; /api/actions and /api/x402/purchases trusted the
+ * integration routes). Before this helper, only /api/guard
+ * ran JWKS verification; /api/actions trusted the
  * self-asserted body `agent_id` and never recorded whether identity was verified.
  *
  * Contract:

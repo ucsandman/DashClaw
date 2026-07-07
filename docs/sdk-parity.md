@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: SDK Lead
-last-verified: 2026-07-02
+last-verified: 2026-07-07
 doc-type: architecture
 ---
 

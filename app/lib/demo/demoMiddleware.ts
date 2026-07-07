@@ -407,9 +407,7 @@ export function demoPolicies(fixtures: DemoFixtures) {
  *  iterating policies in compile.ts order:
  *  policy 1: risk_threshold/block  → block "risk score reaches 100"
  *  policy 2: risk_threshold/warn   → silent "risk score reaches 85"
- *  policy 3: x402_spend_limit      → interrupt "paid spend reaches $5.00" (editable)
- *                                  + block "paid spend exceeds $25.00" (editable)
- *  policy 4: warn_action_type      → silent "message, post, email, calendar, sync, api calls (recorded for review)"
+ *  policy 3: warn_action_type      → silent "message, post, email, calendar, sync, api calls (recorded for review)"
  *  policy 5: require_approval      → interrupt "action is one of: deploy, migrate, workflow_execute"
  *  policy 6: require_approval      → interrupt "action is one of: delete, reset, destroy, drop"
  *  policy 7: protected_path        → interrupt "protected paths change (governance, auth, secrets)"
@@ -417,18 +415,10 @@ export function demoPolicies(fixtures: DemoFixtures) {
  *  policy 9: rate_limit/require_approval → interrupt "runaway loop: more than 650 actions in 60 minutes"
  */
 export function demoContract(): import('../policy-modes/contract').ContractView {
-  const x402Rules = { approval_threshold: 5.0, max_spend_usd: 25.0, _mode: 'claude-code' };
   return {
     governed: true,
     mode_id: 'claude-code',
     interrupts: [
-      {
-        policy_id: 'gp_demo_interrupt_1',
-        text: 'paid spend reaches $5.00',
-        fired_7d: 2,
-        editable: { param: 'approval_threshold', value: 5.0 },
-        rules: x402Rules,
-      },
       { policy_id: 'gp_demo_interrupt_2', text: 'action is one of: deploy, migrate, workflow_execute', fired_7d: 7 },
       { policy_id: 'gp_demo_interrupt_3', text: 'action is one of: delete, reset, destroy, drop', fired_7d: 3 },
       { policy_id: 'gp_demo_interrupt_4', text: 'protected paths change (governance, auth, secrets)', fired_7d: 1 },
@@ -441,19 +431,12 @@ export function demoContract(): import('../policy-modes/contract').ContractView 
     ],
     blocks: [
       { policy_id: 'gp_demo_block_1', text: 'risk score reaches 100', fired_7d: 0 },
-      {
-        policy_id: 'gp_demo_block_2',
-        text: 'paid spend exceeds $25.00',
-        fired_7d: 0,
-        editable: { param: 'max_spend_usd', value: 25.0 },
-        rules: x402Rules,
-      },
     ],
     grants: [
       { policy_id: 'gp_demo_grant_1', label: 'read_file → /workspace/', shape_key: 'read_file::/workspace/', created_at: null },
     ],
     custom: [],
-    friction: { interrupts_7d: 13, est_seconds: 260 },
+    friction: { interrupts_7d: 11, est_seconds: 220 },
   };
 }
 
@@ -986,120 +969,6 @@ export function demoSecrets() {
     { id: 'sec_demo_3', name: 'GITHUB_TOKEN', next_rotation_due: null, rotation_interval_days: 180, last_rotated_at: null },
   ];
   return { secrets, lastUpdated: new Date().toISOString() };
-}
-
-// Period-aware spend rollup mirroring GET /api/finops/spend: the 7d/30d/90d
-// buttons resize the by_day series (and totals follow), and ?lens=claude-code
-// returns the code-sessions shape /spend/code renders. Dates are anchored to a
-// fixed day so the payload stays deterministic.
-const DEMO_SPEND_PERIOD_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90 };
-const DEMO_SPEND_ANCHOR_MS = Date.parse('2026-06-07T00:00:00.000Z');
-
-function demoSpendDates(days: number): string[] {
-  return Array.from({ length: days }, (_, i) =>
-    new Date(DEMO_SPEND_ANCHOR_MS - (days - 1 - i) * 86_400_000).toISOString().slice(0, 10));
-}
-
-export function demoSpend(url: URL) {
-  const sp = url.searchParams;
-  const rawPeriod = sp.get('period') || '30d';
-  const period = DEMO_SPEND_PERIOD_DAYS[rawPeriod] ? rawPeriod : '30d';
-  const dates = demoSpendDates(DEMO_SPEND_PERIOD_DAYS[period] ?? 30);
-
-  if ((sp.get('lens') || 'fleet') === 'claude-code') {
-    const by_day = dates.map((date, i) => ({
-      date,
-      cost_usd: Number((1.2 + (i % 5) * 0.6).toFixed(2)),
-      session_count: 1 + (i % 3),
-    }));
-    const total_cost_usd = Number(by_day.reduce((s, d) => s + d.cost_usd, 0).toFixed(2));
-    const session_count = by_day.reduce((s, d) => s + d.session_count, 0);
-    return {
-      lens: 'claude_code',
-      period,
-      code_total_usd: total_cost_usd,
-      code_sessions: {
-        period,
-        total_cost_usd,
-        total_cache_savings_usd: Number((total_cost_usd * 0.55).toFixed(2)),
-        session_count,
-        by_day,
-        by_project: [
-          { project_id: 'cp_demo_dashclaw', project_name: 'dashclaw', cost_usd: Number((total_cost_usd * 0.7).toFixed(2)), session_count: Math.ceil(session_count * 0.7) },
-          { project_id: 'cp_demo_docs', project_name: 'docs-site', cost_usd: Number((total_cost_usd * 0.3).toFixed(2)), session_count: Math.floor(session_count * 0.3) },
-        ],
-      },
-    };
-  }
-
-  // The fleet lens supports ?agent_id= — a filtered view shows a slice of
-  // fleet spend, never the full totals under an agent label.
-  const scale = sp.get('agent_id') ? 0.4 : 1;
-  const by_day = dates.map((date, i) => ({ date, cost_usd: Number(((3.1 + (i % 7) * 0.8) * scale).toFixed(2)) }));
-  const x402_by_day = dates.map((date, i) => ({ date, spend_usd: Number(((0.4 + (i % 5) * 0.2) * scale).toFixed(2)) }));
-  const total_cost_usd = Number(by_day.reduce((s, d) => s + d.cost_usd, 0).toFixed(2));
-  const total_spend_usd = Number(x402_by_day.reduce((s, d) => s + d.spend_usd, 0).toFixed(2));
-  return {
-    lens: 'fleet',
-    period,
-    fleet_total_usd: Number((total_cost_usd + total_spend_usd).toFixed(2)),
-    agent: { total_cost_usd, by_day },
-    x402: { total_spend_usd, by_day: x402_by_day },
-    unpriced: { action_count: 0 },
-  };
-}
-
-// ── x402 purchases (demo) ────────────────────────────────────────────────────
-// Shape of GET /api/x402/purchases (listPurchases): purchase rows with the
-// provider_name join the /spend/x402 table renders. One row is deliberately
-// unattributed (agent_id null) to demo the documented filtering caveat.
-const DEMO_X402_PURCHASES: AnyRecord[] = [
-  { action_id: 'act_demo_x402_001', agent_id: 'clawdbot', provider_id: 'xp_demo_search', provider_name: 'Exa Search', endpoint_id: 'xe_demo_search_v1', spend_amount: 0.05, currency: 'USDC', payment_method: 'x402', execution_status: 'succeeded', purchase_reason: 'Needed fresh market data beyond the training cutoff for the weekly briefing.', created_at: '2026-06-07T09:12:00.000Z' },
-  { action_id: 'act_demo_x402_002', agent_id: 'deploy-runner', provider_id: 'xp_demo_enrich', provider_name: 'Acme Enrichment API', endpoint_id: 'xe_demo_enrich_v1', spend_amount: 0.25, currency: 'USDC', payment_method: 'x402', execution_status: 'pending', purchase_reason: 'Enrich the new signup cohort before routing to sales.', created_at: '2026-06-06T16:40:00.000Z' },
-  { action_id: 'act_demo_x402_003', agent_id: 'clawdbot', provider_id: 'xp_demo_scrape', provider_name: 'Firecrawl Scrape', endpoint_id: 'xe_demo_scrape_v1', spend_amount: 0.1, currency: 'USDC', payment_method: 'x402', execution_status: 'failed', failure_reason: 'Provider returned 502; payment not settled.', purchase_reason: 'Capture competitor pricing page for the weekly diff.', created_at: '2026-06-05T11:05:00.000Z' },
-  { action_id: 'act_demo_x402_004', agent_id: null, provider_id: 'xp_demo_search', provider_name: 'Exa Search', endpoint_id: 'xe_demo_search_v1', spend_amount: 0.05, currency: 'USDC', payment_method: 'x402', execution_status: 'succeeded', purchase_reason: 'Recorded before agent attribution was enabled.', created_at: '2026-06-04T10:00:00.000Z' },
-];
-
-export function demoX402Purchases(url: URL) {
-  const sp = url.searchParams;
-  const agentId = sp.get('agent_id');
-  const providerId = sp.get('provider_id');
-  let purchases = DEMO_X402_PURCHASES;
-  if (agentId) purchases = purchases.filter((p) => p.agent_id === agentId);
-  if (providerId) purchases = purchases.filter((p) => p.provider_id === providerId);
-  return { purchases };
-}
-
-// Shape of GET /api/x402/budget: one entry per active x402_spend_limit policy
-// with a budget tier. The org meter sits deliberately in the warning band
-// (over the approval threshold, under the hard budget) so the demo shows a
-// hot meter; the agent-scoped entry demos per-family bars.
-const DEMO_X402_BUDGET_FAMILIES: AnyRecord[] = [
-  { agent_id: 'clawdbot', window_spend_usd: 7.2 },
-  { agent_id: 'deploy-runner', window_spend_usd: 2.4 },
-];
-
-export function demoX402Budget(url: URL) {
-  const rawAgent = url.searchParams.get('agent_id');
-  const family = rawAgent ? rawAgent.split(':')[0] : null;
-  const families = family
-    ? [{ agent_id: family, window_spend_usd: Number(DEMO_X402_BUDGET_FAMILIES.find((f) => f.agent_id === family)?.window_spend_usd ?? 0) }]
-    : DEMO_X402_BUDGET_FAMILIES;
-  const windowStart = new Date(Date.now() - 30 * 86400000).toISOString();
-  return {
-    budgets: [
-      {
-        policy_id: 'pol_demo_x402_budget_org', policy_name: 'Paid capability spend (org)', agent_ids: [],
-        budget_usd: 25, budget_approval_threshold: 20, budget_window_days: 30, budget_scope: 'org',
-        window_start: windowStart, window_spend_usd: 21.4,
-      },
-      {
-        policy_id: 'pol_demo_x402_budget_agent', policy_name: 'Per-agent x402 budget', agent_ids: [],
-        budget_usd: 10, budget_approval_threshold: 8, budget_window_days: 30, budget_scope: 'agent',
-        window_start: windowStart, families,
-      },
-    ],
-  };
 }
 
 // ── Agent Registry (demo) ────────────────────────────────────────────────────
