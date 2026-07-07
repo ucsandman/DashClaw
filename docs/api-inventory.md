@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `252`
+- Total routes: `245`
 - Stable routes: `53`
 - Beta routes: `22`
-- Experimental routes: `177`
+- Experimental routes: `170`
 
 ## Routes
 
@@ -209,15 +209,8 @@ doc-type: architecture
 | `/api/policies/test` | `POST` | `stable` | `/api/policies` | `app/api/policies/test/route.ts` |
 | `/api/policies/tightening` | `GET, POST` | `stable` | `/api/policies` | `app/api/policies/tightening/route.ts` |
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.ts` |
-| `/api/prompts/render` | `POST` | `experimental` | `(default)` | `app/api/prompts/render/route.ts` |
-| `/api/prompts/runs` | `GET` | `experimental` | `(default)` | `app/api/prompts/runs/route.ts` |
 | `/api/prompts/sdk-coverage/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/sdk-coverage/raw/route.ts` |
 | `/api/prompts/server-setup/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/server-setup/raw/route.ts` |
-| `/api/prompts/stats` | `GET` | `experimental` | `(default)` | `app/api/prompts/stats/route.ts` |
-| `/api/prompts/templates` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/route.ts` |
-| `/api/prompts/templates/{templateId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/route.ts` |
-| `/api/prompts/templates/{templateId}/versions` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/route.ts` |
-| `/api/prompts/templates/{templateId}/versions/{versionId}` | `GET, POST` | `experimental` | `(default)` | `app/api/prompts/templates/[templateId]/versions/[versionId]/route.ts` |
 | `/api/reputation/agents/{agentId}` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/route.ts` |
 | `/api/reputation/agents/{agentId}/events` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/events/route.ts` |
 | `/api/reputation/agents/{agentId}/receipt` | `GET` | `experimental` | `(default)` | `app/api/reputation/agents/[agentId]/receipt/route.ts` |

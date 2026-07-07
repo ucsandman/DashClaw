@@ -24,7 +24,6 @@ export const HELP_TIPS: Record<string, string> = {
   'token-budget': 'Token budget tracks how many tokens your agents have used today and over time, with cost estimates.',
   'activity-timeline': 'The activity timeline shows recent events across your workspace — actions, logins, config changes, and more.',
   'eval-scores': 'Evaluation scores rate the quality of your agents\' work based on configurable scoring criteria.',
-  'prompt-stats': 'Prompt stats show usage, latency, and token costs for your managed prompt templates.',
   drift: 'Drift detection statistically compares each agent\'s recent behavior (risk, cost, duration, tokens, confidence) against its 30-day baseline and alerts when a metric shifts significantly.',
   velocity: 'Learning velocity measures how quickly your agents are improving at their tasks.',
   scoring: 'Scoring profiles define how agent performance is measured — combining speed, cost, and reliability.',

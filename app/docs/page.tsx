@@ -4,7 +4,7 @@ import {
   ArrowRight, ExternalLink, BookOpen,
   Terminal, Zap, CircleDot, Eye, ShieldAlert, BarChart3,
   ChevronRight, Network, FileCheck, Scale, Radio, Users,
-  Newspaper, MessageSquare, SlidersHorizontal, Shield, History, Activity,
+  MessageSquare, SlidersHorizontal, Shield, History, Activity,
   ClipboardCheck
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
@@ -20,7 +20,7 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw SDK Documentation',
   description:
-    'Canonical, up-to-date reference for the DashClaw SDK. Install, configure, and govern your AI agents across action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, prompt management, feedback loops, behavioral drift, compliance exports, and more.',
+    'Canonical, up-to-date reference for the DashClaw SDK. Install, configure, and govern your AI agents across action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, feedback loops, behavioral drift, compliance exports, and more.',
   path: '/docs',
 });
 
@@ -160,18 +160,6 @@ const navItems = [
   { href: '#getLessons', label: 'getLessons', indent: true },
   { href: '#recordDecision', label: 'recordDecision', indent: true },
   { href: '#getLearningRecommendations', label: 'getLearningRecommendations', indent: true },
-  { href: '#prompt-management', label: 'Prompt Management' },
-  { href: '#listPromptTemplates', label: 'listPromptTemplates', indent: true },
-  { href: '#getPromptTemplate', label: 'getPromptTemplate', indent: true },
-  { href: '#createPromptTemplate', label: 'createPromptTemplate', indent: true },
-  { href: '#updatePromptTemplate', label: 'updatePromptTemplate', indent: true },
-  { href: '#deletePromptTemplate', label: 'deletePromptTemplate', indent: true },
-  { href: '#listPromptVersions', label: 'listPromptVersions', indent: true },
-  { href: '#createPromptVersion', label: 'createPromptVersion', indent: true },
-  { href: '#getPromptVersion', label: 'getPromptVersion', indent: true },
-  { href: '#activatePromptVersion', label: 'activatePromptVersion', indent: true },
-  { href: '#getPromptStats', label: 'getPromptStats', indent: true },
-  { href: '#listPromptRuns', label: 'listPromptRuns', indent: true },
   { href: '#evaluation-framework', label: 'Evaluation Framework' },
   { href: '#previewScorer', label: 'previewScorer', indent: true },
   { href: '#scoring-profiles', label: 'Scoring Profiles' },
@@ -1130,193 +1118,6 @@ if created.get("action", {}).get("status") == "pending_approval":
             />
           </section>
 
-          {/* ── Prompt Management ── */}
-          <section id="prompt-management" className="scroll-mt-20 pt-12 border-t border-border">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 rounded-lg bg-brand-subtle flex items-center justify-center">
-                <Newspaper size={16} className="text-brand" />
-              </div>
-              <h2 className="text-2xl font-bold tracking-tight">Prompt Management</h2>
-            </div>
-            <MethodEntry 
-              id="renderPrompt" 
-              signature="claw.renderPrompt() / claw.render_prompt()" 
-              description="Fetch rendered prompt from DashClaw."
-              example={
-                <DocsCodeTabs 
-                  nodeSnippet={`const { rendered } = await claw.renderPrompt({
-  template_id: 'marketing',
-  variables: { company: 'Apple' }
-});`}
-                  pythonSnippet={`res = claw.render_prompt(
-    template_id="marketing",
-    variables={"company": "Apple"}
-)
-rendered = res["rendered"]`}
-                />
-              }
-            />
-
-            <p className="mt-8 text-xs text-text-tertiary leading-relaxed">
-              <strong className="text-text-secondary">Prompt Library</strong> — versioned template management on top of <code className="font-mono text-text-secondary">renderPrompt</code>. Templates hold metadata; each template has one or more versions and exactly one active version, which is what <code className="font-mono text-text-secondary">renderPrompt</code> resolves. Create/update/delete and version mutations require an admin key. <strong className="text-text-secondary">Node SDK only</strong> (no Python equivalent yet).
-            </p>
-
-            <MethodEntry
-              id="listPromptTemplates"
-              signature="claw.listPromptTemplates(filters)"
-              description="List prompt templates. Node SDK only."
-              params={[
-                { name: 'category', type: 'string', required: false, desc: 'Filter templates by category' },
-              ]}
-              returns="Promise<{ templates: Object[] }>"
-              example={
-                <CodeBlock title="Node.js">
-{`const { templates } = await claw.listPromptTemplates({ category: 'marketing' });`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="getPromptTemplate"
-              signature="claw.getPromptTemplate(templateId)"
-              description="Fetch a single template by id. Node SDK only."
-              example={
-                <CodeBlock title="Node.js">
-{`const template = await claw.getPromptTemplate('marketing');`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="createPromptTemplate"
-              signature="claw.createPromptTemplate({ name, description, category })"
-              description="Create a template (admin). Node SDK only."
-              params={[
-                { name: 'name', type: 'string', required: true, desc: 'Template name' },
-                { name: 'description', type: 'string', required: false, desc: 'Human-readable description' },
-                { name: 'category', type: 'string', required: false, desc: 'Grouping category' },
-              ]}
-              returns="Promise<{ id, name, description, category }>"
-              example={
-                <CodeBlock title="Node.js">
-{`const tpl = await claw.createPromptTemplate({
-  name: 'Cold outreach',
-  description: 'First-touch sales email',
-  category: 'sales'
-});`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="updatePromptTemplate"
-              signature="claw.updatePromptTemplate(templateId, patch)"
-              description="Update a template's name, description, or category (admin). Node SDK only."
-              example={
-                <CodeBlock title="Node.js">
-{`await claw.updatePromptTemplate('marketing', { category: 'growth' });`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="deletePromptTemplate"
-              signature="claw.deletePromptTemplate(templateId)"
-              description="Delete a template along with its versions and runs (admin). Node SDK only."
-              returns="Promise<{ deleted: true }>"
-              example={
-                <CodeBlock title="Node.js">
-{`await claw.deletePromptTemplate('marketing');`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="listPromptVersions"
-              signature="claw.listPromptVersions(templateId)"
-              description="List a template's versions, newest first. Node SDK only."
-              returns="Promise<{ versions: Object[] }>"
-              example={
-                <CodeBlock title="Node.js">
-{`const { versions } = await claw.listPromptVersions('marketing');`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="createPromptVersion"
-              signature="claw.createPromptVersion(templateId, { content, model_hint, parameters, changelog })"
-              description="Create a new version for a template (admin). Node SDK only."
-              params={[
-                { name: 'content', type: 'string', required: true, desc: 'The prompt body (may contain variables)' },
-                { name: 'model_hint', type: 'string', required: false, desc: 'Suggested model for this version' },
-                { name: 'parameters', type: 'object', required: false, desc: 'Default render parameters' },
-                { name: 'changelog', type: 'string', required: false, desc: 'What changed in this version' },
-              ]}
-              example={
-                <CodeBlock title="Node.js">
-{`await claw.createPromptVersion('marketing', {
-  content: 'Write a launch post for {{company}}.',
-  model_hint: 'claude-sonnet',
-  changelog: 'Initial draft'
-});`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="getPromptVersion"
-              signature="claw.getPromptVersion(templateId, versionId)"
-              description="Fetch a single version of a template. Node SDK only."
-              example={
-                <CodeBlock title="Node.js">
-{`const version = await claw.getPromptVersion('marketing', 'v3');`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="activatePromptVersion"
-              signature="claw.activatePromptVersion(templateId, versionId)"
-              description="Activate a version (admin). Activating one version deactivates the others for that template, so it becomes the version renderPrompt resolves. Node SDK only."
-              example={
-                <CodeBlock title="Node.js">
-{`await claw.activatePromptVersion('marketing', 'v3');`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="getPromptStats"
-              signature="claw.getPromptStats(filters)"
-              description="Prompt usage analytics. Node SDK only."
-              params={[
-                { name: 'template_id', type: 'string', required: false, desc: 'Scope stats to a single template' },
-              ]}
-              example={
-                <CodeBlock title="Node.js">
-{`const stats = await claw.getPromptStats({ template_id: 'marketing' });`}
-                </CodeBlock>
-              }
-            />
-
-            <MethodEntry
-              id="listPromptRuns"
-              signature="claw.listPromptRuns(filters)"
-              description="List recorded prompt runs. Node SDK only."
-              params={[
-                { name: 'template_id', type: 'string', required: false, desc: 'Filter by template' },
-                { name: 'version_id', type: 'string', required: false, desc: 'Filter by version' },
-                { name: 'limit', type: 'number', required: false, desc: 'Max runs to return' },
-              ]}
-              example={
-                <CodeBlock title="Node.js">
-{`const runs = await claw.listPromptRuns({ template_id: 'marketing', limit: 20 });`}
-                </CodeBlock>
-              }
-            />
-          </section>
-
           {/* ── Evaluation Framework ── */}
           <section id="evaluation-framework" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="flex items-center gap-3 mb-2">
@@ -1890,7 +1691,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 133 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 121 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}

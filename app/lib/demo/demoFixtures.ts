@@ -270,33 +270,6 @@ function buildFixtures(): Record<string, unknown> {
     ],
   };
 
-  const promptTemplates = [
-    { id: 'pt_demo_001', org_id: DEMO_ORG, name: 'Agent Quality Auditor', slug: 'agent-quality-auditor', description: 'Evaluates agent decisions based on goal alignment and risk.', current_version: 3, total_runs: 124, created_at: isoFromNow(30 * MS_DAY) },
-    { id: 'pt_demo_002', org_id: DEMO_ORG, name: 'Security Signal Analyzer', slug: 'security-signal-analyzer', description: 'Analyzes security signals for potential false positives.', current_version: 1, total_runs: 45, created_at: isoFromNow(15 * MS_DAY) },
-  ];
-
-  const promptVersions = {
-    pt_demo_001: [
-      { id: 'pv_demo_001_3', template_id: 'pt_demo_001', version: 3, content: 'Analyze decision quality...', created_at: isoFromNow(5 * MS_DAY) },
-      { id: 'pv_demo_001_2', template_id: 'pt_demo_001', version: 2, content: 'Analyze decision...', created_at: isoFromNow(10 * MS_DAY) },
-    ],
-  };
-
-  const promptRuns = [
-    { id: 'prun_demo_001', template_id: 'pt_demo_001', version_id: 'pv_demo_001_3', agent_id: 'agent_01', score: 85, status: 'completed', created_at: isoFromNow(MS_HOUR) },
-    { id: 'prun_demo_002', template_id: 'pt_demo_001', version_id: 'pv_demo_001_3', agent_id: 'agent_02', score: 92, status: 'completed', created_at: isoFromNow(2 * MS_HOUR) },
-  ];
-
-  const promptStats = {
-    available: true,
-    overall: {
-      total_runs: 169,
-      avg_tokens: 1240,
-      today_count: 12,
-    },
-    total_templates: 2,
-  };
-
   const feedbackEntries: unknown[] = [];
   const feedbackStats = { total_entries: 0, avg_sentiment: 0 };
 
@@ -434,10 +407,6 @@ function buildFixtures(): Record<string, unknown> {
     evalScores,
     evalRuns,
     evalStats,
-    promptTemplates,
-    promptVersions,
-    promptRuns,
-    promptStats,
     feedbackEntries,
     feedbackStats,
     driftAlerts,

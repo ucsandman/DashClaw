@@ -65,18 +65,6 @@ const THREE = [1, 2, 3].map((n) => ({
 }));
 
 describe('Phase 4 multi-select — mutating pages fan out per-item DELETEs', () => {
-  it('prompts: select-all → Delete fires 3 template DELETEs', async () => {
-    installFetch((u) => {
-      if (u.includes('/api/prompts/templates')) return { templates: THREE };
-      if (u.includes('/api/prompts/runs')) return { runs: [] };
-      return {};
-    });
-    const { default: PromptsPage } = await import('@/prompts/page');
-    const { actions } = await selectAll(<PromptsPage />);
-    fireEvent.click(within(actions).getByText('Delete'));
-    await waitFor(() => expect(fetchCalls('DELETE', '/api/prompts/templates/').length).toBe(3));
-  });
-
   it('identities: select-all → Revoke fires 3 identity DELETEs', async () => {
     installFetch((u) => {
       if (u.includes('/api/identities')) return { identities: THREE };
@@ -92,15 +80,15 @@ describe('Phase 4 multi-select — mutating pages fan out per-item DELETEs', () 
   it('declining the confirm fires no DELETE (destructive bulk is gated)', async () => {
     window.confirm.mockReturnValue(false);
     installFetch((u) => {
-      if (u.includes('/api/prompts/templates')) return { templates: THREE };
-      if (u.includes('/api/prompts/runs')) return { runs: [] };
+      if (u.includes('/api/identities')) return { identities: THREE };
+      if (u.includes('/api/pairings')) return { pairings: [] };
       return {};
     });
-    const { default: PromptsPage } = await import('@/prompts/page');
-    const { actions } = await selectAll(<PromptsPage />);
-    fireEvent.click(within(actions).getByText('Delete'));
+    const { default: IdentitiesPage } = await import('@/identities/page');
+    const { actions } = await selectAll(<IdentitiesPage />);
+    fireEvent.click(within(actions).getByText('Revoke'));
     await new Promise((r) => setTimeout(r, 50));
-    expect(fetchCalls('DELETE', '/api/prompts/templates/').length).toBe(0);
+    expect(fetchCalls('DELETE', '/api/identities/').length).toBe(0);
     expect(window.confirm).toHaveBeenCalled();
   });
 });

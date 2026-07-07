@@ -758,19 +758,6 @@ class DashClaw {
   }
 
   /**
-   * POST /api/prompts/render
-   */
-  async renderPrompt({ template_id, version_id, variables, record = false }) {
-    return this._post('/api/prompts/render', {
-      template_id,
-      version_id,
-      variables,
-      agent_id: this.agentId,
-      record
-    });
-  }
-
-  /**
    * POST /api/evaluations/scorers
    */
   async createScorer(name, scorer_type, config = null, description = null) {
@@ -1453,96 +1440,6 @@ class DashClaw {
    */
   async getCapabilityHistory(capabilityId, filters = {}) {
     return this._get(`/api/capabilities/${capabilityId}/history`, filters);
-  }
-
-  // ---------------------------------------------------------------------------
-  // Prompt Library — reusable prompt templates, versions, render + analytics.
-  // renderPrompt() already lives in the rendering section above; these add the
-  // template/version management surface so the library is first-class in the SDK.
-  // Mutations (create/update/delete/version/activate) require an admin org role.
-  // ---------------------------------------------------------------------------
-
-  /**
-   * GET /api/prompts/templates — List prompt templates (each with version_count + active_version).
-   * @param {Object} [filters={}] - { category }
-   */
-  async listPromptTemplates(filters = {}) {
-    return this._get('/api/prompts/templates', filters);
-  }
-
-  /**
-   * GET /api/prompts/templates/:id — Fetch a single template.
-   */
-  async getPromptTemplate(templateId) {
-    return this._get(`/api/prompts/templates/${templateId}`);
-  }
-
-  /**
-   * POST /api/prompts/templates — Create a template (admin). { name, description?, category? }
-   */
-  async createPromptTemplate(data) {
-    return this._post('/api/prompts/templates', data);
-  }
-
-  /**
-   * PATCH /api/prompts/templates/:id — Update a template (admin). { name?, description?, category? }
-   */
-  async updatePromptTemplate(templateId, patch) {
-    return this._patch(`/api/prompts/templates/${templateId}`, patch);
-  }
-
-  /**
-   * DELETE /api/prompts/templates/:id — Delete a template + its versions/runs (admin).
-   */
-  async deletePromptTemplate(templateId) {
-    return this._delete(`/api/prompts/templates/${templateId}`);
-  }
-
-  /**
-   * GET /api/prompts/templates/:id/versions — List versions (newest first).
-   */
-  async listPromptVersions(templateId) {
-    return this._get(`/api/prompts/templates/${templateId}/versions`);
-  }
-
-  /**
-   * POST /api/prompts/templates/:id/versions — Create a version (admin).
-   * @param {string} templateId
-   * @param {Object} data - { content, model_hint?, parameters?, changelog? }
-   */
-  async createPromptVersion(templateId, data) {
-    return this._post(`/api/prompts/templates/${templateId}/versions`, data);
-  }
-
-  /**
-   * GET /api/prompts/templates/:id/versions/:versionId — Fetch a single version.
-   */
-  async getPromptVersion(templateId, versionId) {
-    return this._get(`/api/prompts/templates/${templateId}/versions/${versionId}`);
-  }
-
-  /**
-   * POST /api/prompts/templates/:id/versions/:versionId — Activate a version (admin).
-   * Activating one version deactivates the others for that template.
-   */
-  async activatePromptVersion(templateId, versionId) {
-    return this._post(`/api/prompts/templates/${templateId}/versions/${versionId}`);
-  }
-
-  /**
-   * GET /api/prompts/stats — Prompt usage analytics.
-   * @param {Object} [filters={}] - { template_id }
-   */
-  async getPromptStats(filters = {}) {
-    return this._get('/api/prompts/stats', filters);
-  }
-
-  /**
-   * GET /api/prompts/runs — List recorded prompt runs.
-   * @param {Object} [filters={}] - { template_id, version_id, limit }
-   */
-  async listPromptRuns(filters = {}) {
-    return this._get('/api/prompts/runs', filters);
   }
 
   // ---------------------------------------------------------------------------

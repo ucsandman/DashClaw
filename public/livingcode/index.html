@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:835f7d689c7f07bb174fd0164c15aa27a44053c7 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:1e1810f7141248d04afc1d9eb200f823b43eeb5b · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">253</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">246</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">199</div><div class="k">Optional env vars</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>77</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>84</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -286,6 +286,13 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/posture/findings <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/findings/[key]/resolve <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/scan <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/render <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/runs <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/stats <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/templates <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/templates/[templateId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/templates/[templateId]/versions <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/prompts/templates/[templateId]/versions/[versionId] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/security/scan <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/swarm/graph <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/swarm/link <span class="sig">Route removed</span></li>
@@ -566,16 +573,9 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/policies/templates"><td><code>/api/policies/templates</code></td><td>GET</td><td class="sig">app/api/policies/templates/route.ts</td></tr>
     <tr data-path="/api/policies/test"><td><code>/api/policies/test</code></td><td>POST</td><td class="sig">app/api/policies/test/route.ts</td></tr>
     <tr data-path="/api/policies/tightening"><td><code>/api/policies/tightening</code></td><td>GET, POST</td><td class="sig">app/api/policies/tightening/route.ts</td></tr></tbody></table></details>
-<details><summary>/prompts/* (10)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/prompts/agent-connect/raw"><td><code>/api/prompts/agent-connect/raw</code></td><td>GET</td><td class="sig">app/api/prompts/agent-connect/raw/route.ts</td></tr>
-    <tr data-path="/api/prompts/render"><td><code>/api/prompts/render</code></td><td>POST</td><td class="sig">app/api/prompts/render/route.ts</td></tr>
-    <tr data-path="/api/prompts/runs"><td><code>/api/prompts/runs</code></td><td>GET</td><td class="sig">app/api/prompts/runs/route.ts</td></tr>
+<details><summary>/prompts/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/prompts/agent-connect/raw"><td><code>/api/prompts/agent-connect/raw</code></td><td>GET</td><td class="sig">app/api/prompts/agent-connect/raw/route.ts</td></tr>
     <tr data-path="/api/prompts/sdk-coverage/raw"><td><code>/api/prompts/sdk-coverage/raw</code></td><td>GET</td><td class="sig">app/api/prompts/sdk-coverage/raw/route.ts</td></tr>
-    <tr data-path="/api/prompts/server-setup/raw"><td><code>/api/prompts/server-setup/raw</code></td><td>GET</td><td class="sig">app/api/prompts/server-setup/raw/route.ts</td></tr>
-    <tr data-path="/api/prompts/stats"><td><code>/api/prompts/stats</code></td><td>GET</td><td class="sig">app/api/prompts/stats/route.ts</td></tr>
-    <tr data-path="/api/prompts/templates"><td><code>/api/prompts/templates</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/route.ts</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]"><td><code>/api/prompts/templates/[templateId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/prompts/templates/[templateId]/route.ts</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]/versions"><td><code>/api/prompts/templates/[templateId]/versions</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/route.ts</td></tr>
-    <tr data-path="/api/prompts/templates/[templateId]/versions/[versionId]"><td><code>/api/prompts/templates/[templateId]/versions/[versionId]</code></td><td>GET, POST</td><td class="sig">app/api/prompts/templates/[templateId]/versions/[versionId]/route.ts</td></tr></tbody></table></details>
+    <tr data-path="/api/prompts/server-setup/raw"><td><code>/api/prompts/server-setup/raw</code></td><td>GET</td><td class="sig">app/api/prompts/server-setup/raw/route.ts</td></tr></tbody></table></details>
 <details><summary>/reputation/* (7)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/reputation/agents/[agentId]"><td><code>/api/reputation/agents/[agentId]</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/route.ts</td></tr>
     <tr data-path="/api/reputation/agents/[agentId]/events"><td><code>/api/reputation/agents/[agentId]/events</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/events/route.ts</td></tr>
     <tr data-path="/api/reputation/agents/[agentId]/receipt"><td><code>/api/reputation/agents/[agentId]/receipt</code></td><td>GET</td><td class="sig">app/api/reputation/agents/[agentId]/receipt/route.ts</td></tr>

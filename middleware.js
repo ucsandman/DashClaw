@@ -1066,22 +1066,6 @@ function demoComplianceTrendsPayload() {
   ] };
 }
 
-function handleDemoPromptTemplateDetail({ request, fixtures, pathname }) {
-  const id = pathname.split('/').pop();
-  const tmpl = fixtures.promptTemplates.find(t => t.id === id);
-  return tmpl ? demoJson(request, tmpl) : demoJson(request, { error: 'Not found' }, 404);
-}
-
-function handleDemoPromptVersions({ request, fixtures, pathname }) {
-  const templateId = pathname.split('/')[4];
-  const versions = fixtures.promptVersions[templateId] || [];
-  return demoJson(request, { versions });
-}
-
-function demoPromptRenderPayload() {
-  return { rendered: 'Analyze the following agent decision and rate quality 1-10.\n\nAgent: ClawdBot\nAction: deploy\nGoal: Deploy latest build\nOutcome: Success\n\nCriteria:\n- Goal alignment\n- Risk awareness\n- Efficiency\n\nProvide a structured assessment.', version_id: 'pv_demo_001_3', template_id: 'pt_demo_001', version: 3, parameters: ['agent_name', 'action_type', 'declared_goal', 'outcome'] };
-}
-
 function handleDemoFeedback({ request, fixtures, url }) {
   if (request.method === 'GET') {
     let entries = fixtures.feedbackEntries;
@@ -1329,13 +1313,6 @@ const DEMO_API_ROUTES = [
   [(pathname) => /^\/api\/compliance\/exports\/[^/]+$/.test(pathname), handleDemoComplianceExportDetail],
   ['/api/compliance/schedules', handleDemoComplianceSchedules],
   ['/api/compliance/trends', demoPayloadRoute(demoComplianceTrendsPayload)],
-  // -- Prompt Management demo endpoints --
-  ['/api/prompts/templates', ({ request, fixtures }) => demoJson(request, { templates: fixtures.promptTemplates })],
-  [(pathname) => /^\/api\/prompts\/templates\/[^/]+$/.test(pathname), handleDemoPromptTemplateDetail],
-  [(pathname) => /^\/api\/prompts\/templates\/[^/]+\/versions$/.test(pathname), handleDemoPromptVersions],
-  ['/api/prompts/render', demoPayloadRoute(demoPromptRenderPayload)],
-  ['/api/prompts/runs', ({ request, fixtures }) => demoJson(request, { runs: fixtures.promptRuns })],
-  ['/api/prompts/stats', demoFixturePropRoute('promptStats')],
   // -- Feedback demo endpoints --
   ['/api/feedback', handleDemoFeedback],
   [(pathname) => /^\/api\/feedback\/stats$/.test(pathname), demoFixturePropRoute('feedbackStats')],
@@ -2039,8 +2016,6 @@ export const config = {
     '/feedback',
     '/feedback/:path*',
     '/api/feedback/:path*',
-    '/prompts',
-    '/prompts/:path*',
     '/api/prompts/:path*',
     '/api/settings/llm-status',
     '/login',

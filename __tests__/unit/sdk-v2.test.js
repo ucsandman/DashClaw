@@ -438,33 +438,6 @@ describe('DashClaw v2 SDK', () => {
     });
   });
 
-  // --- renderPrompt ---
-
-  describe('renderPrompt', () => {
-    it('POSTs to /api/prompts/render with template and variables', async () => {
-      await claw.renderPrompt({
-        template_id: 'tmpl_1',
-        version_id: 'pv_1',
-        variables: { name: 'Alice' },
-        record: true,
-      });
-      const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/prompts/render');
-      const body = JSON.parse(opts.body);
-      expect(body.template_id).toBe('tmpl_1');
-      expect(body.version_id).toBe('pv_1');
-      expect(body.variables).toEqual({ name: 'Alice' });
-      expect(body.agent_id).toBe('test-agent');
-      expect(body.record).toBe(true);
-    });
-
-    it('defaults record to false', async () => {
-      await claw.renderPrompt({ template_id: 't', variables: {} });
-      const body = JSON.parse(fetch.mock.calls[0][1].body);
-      expect(body.record).toBe(false);
-    });
-  });
-
   // --- createScorer ---
 
   describe('createScorer', () => {
