@@ -274,4 +274,4 @@ Prefer these names:
 
 - [Agent Operating Layer Program Brief](../planning/2026-04-07-agent-operating-layer-program-brief.md)
 - [Agent Operating Layer Roadmap](../planning/2026-04-07-agent-operating-layer-roadmap.md)
-- [SDK Consolidation RFC](../rfcs/2026-04-07-sdk-consolidation.md)
+- [SDK Consolidation RFC](../plans/archive/2026-04-07-sdk-consolidation.md)

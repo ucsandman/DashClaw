@@ -1,5 +1,7 @@
 # RFC 0002: CostClaw + DashClaw Integration (Shared Engine, In-Product Preview, Open-Core License Unlock)
 
+> **Superseded 2026-07-06 by [`THESIS.md`](../../../THESIS.md).** Archived as presuming a different product (an open-core paid add-on). The CostClaw / x402 spend-governance money gate is unchanged and stays gated on Wes, out of this repo's front door. Retained for history.
+
 - Title: Integrating CostClaw with DashClaw as a sibling product (shared analytics engine, free in-product preview, paid local unlock)
 - Status: Draft
 - Date: 2026-06-04

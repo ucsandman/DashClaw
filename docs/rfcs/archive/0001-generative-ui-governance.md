@@ -1,5 +1,7 @@
 # RFC 0001: Generative UI Governance for DashClaw and Practical Systems
 
+> **Superseded 2026-07-06 by [`THESIS.md`](../../../THESIS.md).** Archived: this RFC presumed a three-product company, a different product from the enforcement runtime the thesis commits to. Retained for history.
+
 - Title: Generative UI Governance for the DashClaw + Practical Systems Stack
 - Status: Draft
 - Date: 2026-06-04 (drafted; revised same day after design review)

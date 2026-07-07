@@ -68,7 +68,7 @@ Compliance evidence bundles are produced from real action records — signed, ha
 
 ## The cadence that works
 
-1. **Morning:** Mission Control — posture delta, intervention queue, anything `lost_confirmation`.
+1. **Morning:** the Approvals inbox — anything waiting on you, plus anything `lost_confirmation` in the decisions ledger.
 2. **When pinged:** approve/deny from the nearest surface; if a policy pings too often, tune the policy (or let flood control tell you it's too chatty).
-3. **Weekly:** `/posture` remediation queue top-to-bottom; [fleet digest](./fleet-digest.md) to Slack/Discord if you'd rather it come to you.
+3. **Weekly:** skim `/decisions` for the week's blocks and approvals, and review any calibration proposals in `/policies`.
 4. **After any incident:** `/replay/:actionId` first, then policy changes — evidence before remediation.

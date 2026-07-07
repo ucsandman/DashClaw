@@ -171,7 +171,7 @@ If DashClaw is reachable, the hook evaluates the command against your guard poli
 
 `dashclaw_stop.py` runs at the end of every assistant turn. It reads the session transcript, sums LLM token usage across that turn's assistant messages (with cache-read tokens weighted at 0.1× to match real Anthropic billing), and PATCHes `tokens_in`, `tokens_out`, and `model` onto each action_id the pretool opened during the turn. Cost is derived server-side from the configured pricing table.
 
-The Stop hook also auto-closes any action still in `status='running'` at turn end (PostToolUse safety net) — terminal statuses written by PostToolUse are preserved, never overwritten. See [`docs/ANALYTICS-ROLLOUT.md`](../docs/ANALYTICS-ROLLOUT.md) for the full data flow.
+The Stop hook also auto-closes any action still in `status='running'` at turn end (PostToolUse safety net) — terminal statuses written by PostToolUse are preserved, never overwritten.
 
 ### Enforcement-liveness probe (SessionStart hook)
 

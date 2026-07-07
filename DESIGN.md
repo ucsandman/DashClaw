@@ -77,7 +77,7 @@ components:
 
 # Design System: DashClaw
 
-> **Canonical source:** [`.impeccable.md`](.impeccable.md) is DashClaw's source-of-truth design context. This `DESIGN.md` is a derived, Stitch-format capture of the **visual** system for the impeccable skill and other DESIGN.md-aware tooling. The live token values are defined as CSS custom properties in [`app/globals.css`](app/globals.css) and aliased in `tailwind.config.js` — **those files win** over the hex mirrored in the frontmatter above. Strategy, users, and brand voice live in [`PRODUCT.md`](PRODUCT.md).
+> **Canonical source:** [`.impeccable.md`](.impeccable.md) is DashClaw's source-of-truth design context. This `DESIGN.md` is a derived, Stitch-format capture of the **visual** system for the impeccable skill and other DESIGN.md-aware tooling. The live token values are defined as CSS custom properties in [`app/globals.css`](app/globals.css) and aliased in `tailwind.config.js` — **those files win** over the hex mirrored in the frontmatter above. Users and brand voice live in [`.impeccable.md`](.impeccable.md); product strategy and scope live in [`THESIS.md`](THESIS.md).
 
 ## 1. Overview
 

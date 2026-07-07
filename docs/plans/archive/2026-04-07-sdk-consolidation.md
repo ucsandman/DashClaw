@@ -154,10 +154,10 @@ Do not treat Python breadth as permission to continue product design drift.
 
 The following documents must remain aligned:
 
-- [README](../../README.md)
-- [SDK README](../../sdk/README.md)
-- [SDK Parity Matrix](../sdk-parity.md)
-- [SDK Migration Matrix](../planning/2026-04-07-sdk-migration-matrix.md)
+- [README](../../../README.md)
+- [SDK README](../../../sdk/README.md)
+- [SDK Parity Matrix](../../sdk-parity.md)
+- [SDK Migration Matrix](../../planning/2026-04-07-sdk-migration-matrix.md)
 
 If the SDK policy changes, update these docs in the same change.
 

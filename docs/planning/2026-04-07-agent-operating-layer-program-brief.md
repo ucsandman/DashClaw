@@ -146,6 +146,6 @@ This brief sets the product direction.
 The execution sequence is defined in:
 
 - [Agent Operating Layer Roadmap](./2026-04-07-agent-operating-layer-roadmap.md)
-- [SDK Consolidation RFC](../rfcs/2026-04-07-sdk-consolidation.md)
+- [SDK Consolidation RFC](../plans/archive/2026-04-07-sdk-consolidation.md)
 - [SDK Migration Matrix](./2026-04-07-sdk-migration-matrix.md)
 - [Platform Object Model](../architecture/platform-object-model.md)
