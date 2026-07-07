@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:50ceb610985c8781a2167d748ecf79b58040b059",
+  "timestamp": "sha1:7aca44916fc10fc3ef60013629f3382ef4cf5bf3",
   "routes": [
     {
       "path": "/api/actions",
@@ -95,6 +95,15 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/admin/trigger-outcome-sweep/route.ts"
+    },
+    {
+      "path": "/api/agents",
+      "methods": [
+        "GET"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/agents/route.ts"
     },
     {
       "path": "/api/agents/fanouts",
@@ -1354,7 +1363,6 @@
         "examples/governed-chat-harness/index.js",
         "examples/guard-and-act.js",
         "examples/kimi_dashclaw_test.js",
-        "examples/loop-monitoring.js",
         "examples/openai-agents-governed/index.js",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",
@@ -1443,7 +1451,6 @@
         "examples/governed-chat-harness/index.js",
         "examples/guard-and-act.js",
         "examples/kimi_dashclaw_test.js",
-        "examples/loop-monitoring.js",
         "examples/openai-agents-governed/index.js",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js",

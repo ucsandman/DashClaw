@@ -17,8 +17,6 @@ const {
   mockVerifyAgentSignature,
   mockPublishOrgEvent,
   mockScanSensitiveData,
-  mockIsEmbeddingsEnabled,
-  mockGenerateActionEmbedding,
   mockEstimateCost,
   mockResolveAgentIdentity,
   mockGuardDecisionExists,
@@ -39,8 +37,6 @@ const {
   mockVerifyAgentSignature: vi.fn(),
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn(),
-  mockIsEmbeddingsEnabled: vi.fn(),
-  mockGenerateActionEmbedding: vi.fn(),
   mockEstimateCost: vi.fn(),
   mockResolveAgentIdentity: vi.fn(),
   mockGuardDecisionExists: vi.fn(),
@@ -92,10 +88,6 @@ vi.mock('@/lib/security.js', () => ({
     return value;
   },
 }));
-vi.mock('@/lib/embeddings.js', () => ({
-  isEmbeddingsEnabled: mockIsEmbeddingsEnabled,
-  generateActionEmbedding: mockGenerateActionEmbedding,
-}));
 vi.mock('@/lib/billing.js', () => ({ estimateCost: mockEstimateCost }));
 vi.mock('@/lib/repositories/guard.repository.js', () => ({ guardDecisionExists: mockGuardDecisionExists }));
 
@@ -117,7 +109,6 @@ beforeEach(() => {
   mockEvaluateGuard.mockResolvedValue(defaultGuardDecision);
   mockHasAgentAction.mockResolvedValue(true);
   mockScanSensitiveData.mockReturnValue({ clean: true, redacted: undefined, findings: [] });
-  mockIsEmbeddingsEnabled.mockReturnValue(false);
   mockPublishOrgEvent.mockResolvedValue(undefined);
   mockEstimateCost.mockReturnValue(0);
   // Default: no bearer token → self-asserted identity echoed back, unverified.

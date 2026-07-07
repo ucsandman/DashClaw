@@ -28,6 +28,15 @@ const ACTION_OPTIONS = [
   'monitor', 'alert', 'cleanup', 'sync', 'migrate', 'other',
 ];
 
+// The guard only evaluates the policy types in POLICY_TYPE_OPTIONS (a client-safe
+// mirror of KNOWN_POLICY_TYPES in app/lib/guard/policy.ts). A row whose type is
+// not in this set — e.g. semantic_check / behavioral_anomaly / x402_spend_limit,
+// retired in the v5 cull — is silently a no-op in the engine. The cull does NOT
+// auto-disable these (constitution §3), so we surface them here with a clear
+// "retired" badge; the existing active/inactive toggle is the human's disable
+// control.
+const KNOWN_POLICY_TYPE_SET = new Set(POLICY_TYPES.map((t: { value: string }) => t.value));
+
 function formatRules(policy: any): string {
   const type = policy.policy_type;
   let rules: any;
@@ -813,6 +822,11 @@ export default function CustomTab() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="truncate text-sm font-medium text-white">{p.name}</span>
                       <Badge size="xs">{p.policy_type}</Badge>
+                      {!KNOWN_POLICY_TYPE_SET.has(p.policy_type) && (
+                        <span title="Retired in v5.0.0 — the guard no longer evaluates this policy type, so it has no effect. Review and disable it.">
+                          <Badge variant="warning" size="xs">retired — no longer enforced</Badge>
+                        </span>
+                      )}
                       <Badge variant={isActive ? 'success' : 'default'} size="xs">
                         {isActive ? 'active' : 'inactive'}
                       </Badge>

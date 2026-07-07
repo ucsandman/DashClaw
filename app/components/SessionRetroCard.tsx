@@ -110,7 +110,7 @@ export default function SessionRetroCard({ retro }: { retro: SessionRetro | null
                       <span className="text-secondary">
                         {f.summary}
                         {f.action_id && (
-                          <Link href={`/actions/${f.action_id}`} className="ml-1.5 text-xs text-info hover:underline">
+                          <Link href={`/decisions/${f.action_id}`} className="ml-1.5 text-xs text-info hover:underline">
                             view action →
                           </Link>
                         )}

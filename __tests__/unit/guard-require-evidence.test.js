@@ -7,7 +7,6 @@ import { createSqlMock } from '../helpers.js';
 
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn() }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: vi.fn(() => false), generateActionEmbedding: vi.fn() }));
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
 
 import { evaluateGuard, evaluatePolicy, __resetGuardCaches } from '@/lib/guard.js';

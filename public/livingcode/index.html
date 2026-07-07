@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:50ceb610985c8781a2167d748ecf79b58040b059 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:7aca44916fc10fc3ef60013629f3382ef4cf5bf3 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">117</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">118</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
@@ -202,7 +202,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>27</b> env_vars added, <b>27</b> env_vars removed, <b>21</b> routes added, <b>1</b> routes changed, <b>212</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>27</b> env_vars added, <b>27</b> env_vars removed, <b>21</b> routes added, <b>1</b> routes changed, <b>211</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -275,7 +275,6 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/actions/costs <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/actions/loops <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/actions/loops/[loopId] <span class="sig">Route removed</span></li>
-    <li><code>removed</code> <b>routes</b>: /api/agents <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/[agentId] <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/[agentId]/profile <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/agents/connections <span class="sig">Route removed</span></li>
@@ -515,7 +514,8 @@ p.kicker b{color:var(--accent-deep)}
     <tr data-path="/api/actions/stats"><td><code>/api/actions/stats</code></td><td>GET</td><td class="sig">app/api/actions/stats/route.ts</td></tr></tbody></table></details>
 <details><summary>/activity/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/activity"><td><code>/api/activity</code></td><td>GET</td><td class="sig">app/api/activity/route.ts</td></tr></tbody></table></details>
 <details><summary>/admin/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/admin/trigger-outcome-sweep"><td><code>/api/admin/trigger-outcome-sweep</code></td><td>POST</td><td class="sig">app/api/admin/trigger-outcome-sweep/route.ts</td></tr></tbody></table></details>
-<details><summary>/agents/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents/fanouts"><td><code>/api/agents/fanouts</code></td><td>GET</td><td class="sig">app/api/agents/fanouts/route.ts</td></tr></tbody></table></details>
+<details><summary>/agents/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/agents"><td><code>/api/agents</code></td><td>GET</td><td class="sig">app/api/agents/route.ts</td></tr>
+    <tr data-path="/api/agents/fanouts"><td><code>/api/agents/fanouts</code></td><td>GET</td><td class="sig">app/api/agents/fanouts/route.ts</td></tr></tbody></table></details>
 <details><summary>/approvals/* (3)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/approvals/[actionId]"><td><code>/api/approvals/[actionId]</code></td><td>POST</td><td class="sig">app/api/approvals/[actionId]/route.ts</td></tr>
     <tr data-path="/api/approvals/bulk"><td><code>/api/approvals/bulk</code></td><td>POST</td><td class="sig">app/api/approvals/bulk/route.ts</td></tr>
     <tr data-path="/api/approvals/floods"><td><code>/api/approvals/floods</code></td><td>GET</td><td class="sig">app/api/approvals/floods/route.ts</td></tr></tbody></table></details>

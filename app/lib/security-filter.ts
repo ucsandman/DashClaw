@@ -2,15 +2,16 @@
  * Canonical severity → route map. The SystemStatusBar ticker and any signal
  * deep-link use these so the mapping lives in exactly one place.
  *
- *   red   → /security?severity=red    (critical signals)
- *   amber → /security?severity=amber  (elevated signals)
+ *   red   → /decisions    (critical signals)
+ *   amber → /decisions    (elevated signals)
  *
- * The matching risk filter for decisions is `/decisions?risk_min=<n>` (handled
- * by the decisions page + /api/actions). Severity tiers map to signals only.
+ * The dedicated /security dashboard was removed in the v5 cull; governance
+ * signals now live on the decisions ledger, so both tiers deep-link there
+ * (matching the SystemStatusBar total-count link).
  */
 export const SEVERITY_ROUTE = {
-  red: '/security?severity=red',
-  amber: '/security?severity=amber',
+  red: '/decisions',
+  amber: '/decisions',
 } as const;
 
 export type SignalSeverity = keyof typeof SEVERITY_ROUTE;

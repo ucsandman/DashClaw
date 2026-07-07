@@ -221,7 +221,7 @@ export default function AssumptionsPage() {
                       <span className="font-mono text-secondary">{a.agent_id}</span>
                       {a.action_id && (
                         <Link
-                          href={`/actions/${a.action_id}`}
+                          href={`/decisions/${a.action_id}`}
                           className="font-mono text-brand transition-colors hover:text-brand-hover"
                         >
                           {a.action_id.slice(0, 16)}…

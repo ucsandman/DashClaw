@@ -14,14 +14,12 @@ const {
   mockPublishOrgEvent,
   mockScanSensitiveData,
   mockScanForPromptInjection,
-  mockIsEmbeddingsEnabled,
   mockDeliverGuardWebhook,
   mockCheckSemantic,
 } = vi.hoisted(() => ({
   mockPublishOrgEvent: vi.fn(),
   mockScanSensitiveData: vi.fn((text) => ({ findings: [], redacted: text, clean: true })),
   mockScanForPromptInjection: vi.fn(() => ({ clean: true, recommendation: 'allow', matches: [], categories: [] })),
-  mockIsEmbeddingsEnabled: vi.fn(() => false),
   mockDeliverGuardWebhook: vi.fn(),
   mockCheckSemantic: vi.fn(),
 }));
@@ -32,7 +30,6 @@ vi.mock('@/lib/events.js', () => ({
 }));
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }));
 vi.mock('@/lib/promptInjection.js', () => ({ scanForPromptInjection: mockScanForPromptInjection }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: vi.fn() }));
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
 

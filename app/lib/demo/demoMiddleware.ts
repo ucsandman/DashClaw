@@ -65,6 +65,24 @@ const demoTestEval: AnyRecord = {
   signals: []
 };
 
+// Slim demo agent roster, derived from the demo action fixtures (mirrors the
+// real GET /api/agents, which lists distinct agents from action_records). The
+// shared agent-filter picker fetches this on every demo page; without it the
+// demo dispatch 403s and every sandbox page logs a console error.
+export function demoAgents(fixtures: DemoFixtures) {
+  const map = new Map<string, AnyRecord>();
+  const allActions = [demoTestAction, ...fixtures.actions];
+  for (const a of allActions) {
+    const prev = map.get(a.agent_id) || { agent_id: a.agent_id, agent_name: a.agent_name, action_count: 0, last_active: null };
+    prev.action_count += 1;
+    const ts = a.timestamp_start || null;
+    if (ts && (!prev.last_active || ts > prev.last_active)) prev.last_active = ts;
+    map.set(a.agent_id, prev);
+  }
+  const agents = Array.from(map.values()).sort((a, b) => (b.last_active || '').localeCompare(a.last_active || ''));
+  return { agents, lastUpdated: new Date().toISOString() };
+}
+
 export function demoListActions(fixtures: DemoFixtures, url: URL) {
   const sp = url.searchParams;
   const agentId = sp.get('agent_id') || undefined;

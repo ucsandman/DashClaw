@@ -332,10 +332,6 @@ class DashClaw {
     return this._request(path, 'PATCH', body);
   }
 
-  /** @private DELETE shorthand for thin endpoint wrappers. */
-  async _delete(path) {
-    return this._request(path, 'DELETE');
-  }
 
   /**
    * POST /api/guard — "Can I do X?"

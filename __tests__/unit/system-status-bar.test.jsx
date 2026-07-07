@@ -34,12 +34,15 @@ describe('SystemStatusBar ticker', () => {
     ]);
     const { container } = render(<SystemStatusBar />);
 
-    await waitFor(() => expect(container.querySelector('a[href="/security?severity=red"]')).toBeTruthy());
-    const red = container.querySelector('a[href="/security?severity=red"]');
-    expect(red.textContent).toContain('Critical');
-    const amber = container.querySelector('a[href="/security?severity=amber"]');
+    // The dedicated /security dashboard was removed in the v5 cull; both severity
+    // tiers now deep-link to the decisions ledger, so the links are distinguished
+    // by their label rather than a per-severity href.
+    await waitFor(() => expect(container.querySelector('a[href="/decisions"]')).toBeTruthy());
+    const links = Array.from(container.querySelectorAll('a[href="/decisions"]'));
+    const red = links.find((a) => a.textContent.includes('Critical'));
+    expect(red).toBeTruthy();
+    const amber = links.find((a) => a.textContent.includes('Elevated'));
     expect(amber).toBeTruthy();
-    expect(amber.textContent).toContain('Elevated');
   });
 
   it('shows the All clear state with no severity links when there are no signals', async () => {
@@ -47,7 +50,8 @@ describe('SystemStatusBar ticker', () => {
     const { container } = render(<SystemStatusBar />);
 
     await waitFor(() => expect(screen.getByText('All clear')).toBeTruthy());
-    expect(container.querySelector('a[href="/security?severity=red"]')).toBeNull();
-    expect(container.querySelector('a[href="/security?severity=amber"]')).toBeNull();
+    const links = Array.from(container.querySelectorAll('a[href="/decisions"]'));
+    expect(links.some((a) => a.textContent.includes('Critical'))).toBe(false);
+    expect(links.some((a) => a.textContent.includes('Elevated'))).toBe(false);
   });
 });

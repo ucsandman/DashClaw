@@ -166,8 +166,8 @@ export async function getAssumption(
   orgId: string,
   assumptionId: string
 ): Promise<Record<string, unknown> | null> {
-  // ar.org_id = a.org_id mirrors listAssumptions/getAssumptionsSummary — without
-  // it an action_id collision across orgs could leak another org's agent fields.
+  // ar.org_id = a.org_id mirrors listAssumptions — without it an action_id
+  // collision across orgs could leak another org's agent fields.
   const assumptions = await sql`
     SELECT a.*, ar.agent_id, ar.agent_name, ar.declared_goal, ar.action_type, ar.status as action_status
     FROM assumptions a
@@ -230,29 +230,4 @@ export async function updateAssumption(
     RETURNING *
   `;
   return result[0] || null;
-}
-
-export async function getAssumptionsSummary(
-  sql: SqlClient,
-  orgId: string,
-  agentId: string
-): Promise<{ total: number; validated: number; invalidated: number; unverified: number }> {
-  const result = await sql.query(
-    `SELECT
-      COUNT(*)::int AS total,
-      COUNT(*) FILTER (WHERE a.validated = 1)::int AS validated,
-      COUNT(*) FILTER (WHERE a.invalidated = 1)::int AS invalidated,
-      COUNT(*) FILTER (WHERE a.validated = 0 AND a.invalidated = 0)::int AS unverified
-    FROM assumptions a
-    JOIN action_records ar ON a.action_id = ar.action_id AND ar.org_id = a.org_id
-    WHERE a.org_id = $1 AND ar.agent_id = $2`,
-    [orgId, agentId]
-  );
-  const row = result[0] || {};
-  return {
-    total: parseInt((row.total as string | undefined) || '0', 10),
-    validated: parseInt((row.validated as string | undefined) || '0', 10),
-    invalidated: parseInt((row.invalidated as string | undefined) || '0', 10),
-    unverified: parseInt((row.unverified as string | undefined) || '0', 10),
-  };
 }

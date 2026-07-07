@@ -2,21 +2,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mirror the guard-allow-grant.test.ts mock setup so evaluateGuard runs
 // without external services.
-const { mockDeliverGuardWebhook, mockCheckSemantic, mockIsEmbeddingsEnabled, mockGenerateEmbedding, mockScanSensitiveData } =
+const { mockDeliverGuardWebhook, mockCheckSemantic, mockScanSensitiveData } =
   vi.hoisted(() => ({
     mockDeliverGuardWebhook: vi.fn(),
     mockCheckSemantic: vi.fn(),
-    mockIsEmbeddingsEnabled: vi.fn(() => false),
-    mockGenerateEmbedding: vi.fn(),
     mockScanSensitiveData: vi.fn((text: string) => ({ findings: [], redacted: text, clean: true })),
   }));
 
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
-vi.mock('@/lib/embeddings.js', () => ({
-  isEmbeddingsEnabled: mockIsEmbeddingsEnabled,
-  generateActionEmbedding: mockGenerateEmbedding,
-}));
 vi.mock('@/lib/security.js', () => ({ scanSensitiveData: mockScanSensitiveData }));
 vi.mock('@/lib/predictive-risk.js', () => ({
   getPredictiveRisk: vi.fn(async () => ({ statistical: null, llm: null, total_adjustment: 0 })),

@@ -378,28 +378,3 @@ export async function reactivateModePolicy(
   invalidateGuardPolicyCache(orgId);
   return result[0] ?? null;
 }
-
-/** Guard decision counts by type for the current window vs the prior window of equal length. */
-export async function getGuardDecisionMix(
-  sql: SqlClient,
-  orgId: string,
-  hours = 24,
-): Promise<{ current: Record<string, number>; prior: Record<string, number> }> {
-  const rows = await sql.query(
-    `SELECT decision,
-            COUNT(*) FILTER (WHERE created_at::timestamptz > NOW() - make_interval(hours => $2::int))::int AS current_cnt,
-            COUNT(*) FILTER (WHERE created_at::timestamptz <= NOW() - make_interval(hours => $2::int))::int AS prior_cnt
-     FROM guard_decisions
-     WHERE org_id = $1
-       AND created_at::timestamptz > NOW() - make_interval(hours => ($2::int) * 2)
-     GROUP BY decision`,
-    [orgId, hours],
-  );
-  const current: Record<string, number> = {};
-  const prior: Record<string, number> = {};
-  for (const r of rows as Array<{ decision: string; current_cnt: number; prior_cnt: number }>) {
-    current[r.decision] = Number(r.current_cnt) || 0;
-    prior[r.decision] = Number(r.prior_cnt) || 0;
-  }
-  return { current, prior };
-}

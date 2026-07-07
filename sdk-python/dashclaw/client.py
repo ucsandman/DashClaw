@@ -643,13 +643,13 @@ class DashClaw:
         return self._request("/api/assumptions", "POST", json=payload)
 
     def get_assumption(self, assumption_id):
-        return self._request(f"/api/actions/assumptions/{assumption_id}")
+        return self._request(f"/api/assumptions/{assumption_id}")
 
     def validate_assumption(self, assumption_id, validated, invalidated_reason=None):
         payload = {"validated": validated}
         if invalidated_reason:
             payload["invalidated_reason"] = invalidated_reason
-        return self._request(f"/api/actions/assumptions/{assumption_id}", method="PATCH", body=payload)
+        return self._request(f"/api/assumptions/{assumption_id}", method="PATCH", body=payload)
 
     # --- Category 3: Decision Integrity Signals ---
 

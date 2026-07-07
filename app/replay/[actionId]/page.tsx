@@ -318,7 +318,7 @@ export default function PublicReplayPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-xs text-tertiary font-medium">Agent:</span>
                     <Link
-                      href={`/agents/${action.agent_id}`}
+                      href={`/decisions?agent=${action.agent_id}`}
                       target={isEmbed ? "_blank" : "_self"}
                       className="px-1.5 py-0.5 rounded bg-tertiary text-[10px] font-bold text-secondary uppercase tracking-wider hover:bg-elevated hover:text-white transition-colors cursor-pointer"
                     >

@@ -3,6 +3,7 @@ import { getToken } from 'next-auth/jwt';
 import { neon } from '@neondatabase/serverless';
 import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
+  demoAgents,
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoContent, demoActivity,
@@ -849,8 +850,13 @@ function isDemoSimulationRequest(pathname, method) {
 // marketing host: every hosted route self-guards with isHostedMode() (404 when
 // DASHCLAW_HOSTED is unset), so this is inert until the operator flips that env.
 // Without it, demo mode 403s /api/hosted/capacity and the trial CTA never renders.
+// /api/session/effective returns ONLY the caller's own cookie-derived state
+// ({authenticated:false} for an anonymous demo visitor — never org data), so
+// it is safe to forward in demo mode. Without it the demo dispatch 403s the
+// probe useEffectiveRole fires on every page, and every sandbox page logs a
+// console error.
 const DEMO_PASSTHROUGH_PREFIXES = ['/api/auth', '/api/docs/raw', '/api/hosted'];
-const DEMO_PASSTHROUGH_EXACT = ['/api/prompts/server-setup/raw', '/api/prompts/agent-connect/raw'];
+const DEMO_PASSTHROUGH_EXACT = ['/api/prompts/server-setup/raw', '/api/prompts/agent-connect/raw', '/api/session/effective'];
 
 function isDemoPassthroughPath(pathname) {
   return DEMO_PASSTHROUGH_PREFIXES.some(prefix => pathname.startsWith(prefix)) ||
@@ -1083,6 +1089,7 @@ const demoFixturePropRoute = (key) => ({ request, fixtures }) => demoJson(reques
 const DEMO_API_ROUTES = [
   // Health
   ['/api/health', demoPayloadRoute(demoHealthPayload)],
+  ['/api/agents', demoFixtureRoute(demoAgents)],
   ['/api/actions', handleDemoActionsRoute],
   [(pathname) => pathname === '/api/actions/signals' || pathname === '/api/signals', handleDemoSignals],
   [(pathname) => pathname === '/api/actions/assumptions' || pathname === '/api/assumptions', demoFixtureUrlRoute(demoAssumptions)],
@@ -1711,8 +1718,6 @@ export const config = {
     '/approvals/:path*',
     '/approve',
     '/approve/:path*',
-    '/actions',
-    '/actions/:path*',
     '/decisions',
     '/decisions/:path*',
     '/assumptions',

@@ -49,10 +49,11 @@ authored `hooks.json` is not generated.
 The **Codex** manifest does not bundle hooks — Codex hooks are filesystem
 artifacts in `~/.codex/config.toml`. Use `dashclaw install codex`, which wires
 PreToolUse / PostToolUse / Stop / SessionStart with an explicit `--agent-id
-codex` and ships the same hook scripts, including
-`dashclaw_code_session_reporter.py` for Code Sessions ingest and
-`dashclaw_session_digest.py` for the SessionStart digest. The SessionStart
-digest hook was wired in v3.7 item 6 once the lifecycle was verified: the
+codex` and ships four hook scripts: `dashclaw_pretool.py`,
+`dashclaw_posttool.py`, `dashclaw_stop.py`, and `enforcement_liveness_probe.py`
+for the SessionStart enforcement-liveness probe (which replaced the retired
+Code-Sessions reporter and SessionStart-digest hooks in the v5 cull). The
+SessionStart hook was verified live once the lifecycle was confirmed: the
 installed codex-cli 0.139.0 binary's hook-event enum contains `SessionStart`
 (PascalCase in `config.toml`, same convention as the other three), and a live,
 trusted `session_start` hook registered by an unrelated tool was observed
@@ -67,14 +68,14 @@ server-side outcome-coverage dimension (`action_records.close_source`)
 covers Codex regardless.
 
 The **Hermes Agent** surface ships under `.hermes-plugin/` with a
-`plugin.yaml`, installer README, config snippet, and eight shell-hook adapters:
-pre/post tool, pre/post LLM, session start/end, transform tool result, and
+`plugin.yaml`, installer README, config snippet, and six shell-hook adapters:
+pre/post tool, pre-LLM, session start, transform tool result, and
 subagent stop. Hermes shares the same `skills/` directory and MCP server as the
 Codex and Claude Code surfaces; the installer wires the hook block from
 `hermes_config_snippet.yaml` into `~/.hermes/config.yaml`. Identity comes from
 `DASHCLAW_HERMES_AGENT_ID` (default `hermes`), which beats the machine-ambient
 `DASHCLAW_AGENT_ID`. Hermes-only capabilities (secret redaction of tool output,
-per-turn pre-LLM context injection, live per-turn session ingest) exist because
+per-turn pre-LLM context injection) exist because
 Hermes exposes lifecycle events the other harnesses don't — see the "How it
 differs" table in `.hermes-plugin/README.md`.
 

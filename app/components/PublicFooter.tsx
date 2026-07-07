@@ -42,7 +42,7 @@ export default function PublicFooter() {
           </Link>
           <Link href="/demo?sandbox=1" className="flex items-center gap-1.5 hover:text-text-primary transition-colors">
             <ExternalLink size={14} />
-            Mission Control
+            Live Demo
           </Link>
           <Link href="/self-host" className="hover:text-text-primary transition-colors">
             Get Started

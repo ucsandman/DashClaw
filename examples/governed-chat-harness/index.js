@@ -37,9 +37,6 @@ const agent = new GovernedAgent({
   guardUnavailablePolicy: GUARD_UNAVAILABLE,
 });
 
-// Announce presence in the Fleet (best effort).
-claw.heartbeat('online').catch(() => {});
-
 const messages = [];
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 

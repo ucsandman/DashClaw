@@ -30,7 +30,6 @@ export async function sendSignalAlertEmail(
 
   const fromEmail = process.env.ALERT_FROM_EMAIL || 'wes@practicalsystems.io';
   const redCount = signals.filter(s => s.severity === 'red').length;
-  const amberCount = signals.filter(s => s.severity === 'amber').length;
 
   const severityLabel = redCount > 0 ? 'critical' : 'warning';
   const subject = `[DashClaw] ${signals.length} ${severityLabel} signal(s) detected — ${orgName}`;
@@ -65,7 +64,7 @@ export async function sendSignalAlertEmail(
     </div>
   `;
 
-  const text = `DashClaw Signal Alert\n\n${signals.length} new signal(s) detected for ${orgName}:\n\n${signals.map(s => `[${s.severity.toUpperCase()}] ${s.type}: ${s.label}`).join('\n')}\n\nView: ${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/security`;
+  const text = `DashClaw Signal Alert\n\n${signals.length} new signal(s) detected for ${orgName}:\n\n${signals.map(s => `[${s.severity.toUpperCase()}] ${s.type}: ${s.label}`).join('\n')}\n\nView: ${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/decisions`;
 
   try {
     // Dynamic ESM import — `require` is not defined under the ESM

@@ -119,6 +119,14 @@ The retired-table list is in the [kill ledger](2026-07-07-v5-kill-ledger.md#reti
 Note that `agent_messages` is retained **and still read/written** by the slim
 assumption-ack survivor — do not drop it.
 
+**Retired policy-type rows are not auto-disabled.** If your `guard_policies`
+table carries rows of a retired type (`semantic_check`, `behavioral_anomaly`,
+`x402_spend_limit`), they remain in place but the guard no longer evaluates
+them — they are silent no-ops. The cull does not disable them for you
+(constitution §3: the operator owns policy state). `/policies` now flags each
+such row with a **"retired — no longer enforced"** badge; review them and use
+the active/inactive toggle to disable the ones you no longer want.
+
 ## Versions
 
 | Package | 4.76.0 | 5.0.0 |

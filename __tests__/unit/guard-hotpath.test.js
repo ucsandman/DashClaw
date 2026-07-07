@@ -7,15 +7,13 @@ import { makeRequest, createSqlMock } from '../helpers.js';
 // Complements guard-characterization.test.js (which pins decision outputs).
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { mockDeliverGuardWebhook, mockCheckSemantic, mockIsEmbeddingsEnabled } = vi.hoisted(() => ({
+const { mockDeliverGuardWebhook, mockCheckSemantic } = vi.hoisted(() => ({
   mockDeliverGuardWebhook: vi.fn(),
   mockCheckSemantic: vi.fn(),
-  mockIsEmbeddingsEnabled: vi.fn(() => false),
 }));
 
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: vi.fn() }));
 
 import { evaluateGuard, invalidateGuardPolicyCache, __resetGuardCaches } from '@/lib/guard.js';
 

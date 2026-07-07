@@ -17,7 +17,7 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 export const metadata: Metadata = marketingPageMetadata({
   title: 'DashClaw SDK Documentation',
   description:
-    'Canonical, up-to-date reference for the DashClaw SDK. Install, configure, and govern your AI agents across action recording, behavior guard, evaluation framework, scoring profiles, learning analytics, feedback loops, behavioral drift, compliance exports, and more.',
+    'Canonical, up-to-date reference for the DashClaw SDK. Install, configure, and govern your AI agents across guard/policy evaluation, action recording, human approvals, durable outcomes, agent identity, and risk signals.',
   path: '/docs',
 });
 
@@ -436,7 +436,7 @@ except Exception as e:
 
             {/* Resources */}
             <div id="mcp-resources" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Resources (4)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Resources (3)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -448,7 +448,6 @@ except Exception as e:
                   <tbody>
                     {[
                       { uri: 'dashclaw://policies', desc: 'Active policy set' },
-                      { uri: 'dashclaw://capabilities', desc: 'Available capabilities and health' },
                       { uri: 'dashclaw://agent/{agent_id}/history', desc: 'Recent action history (last 50)' },
                       { uri: 'dashclaw://status', desc: 'Instance health + operational metrics' },
                     ].map((row) => (

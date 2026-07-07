@@ -48,8 +48,8 @@ def _bootstrap(session_id: str, platform: str | None) -> None:
         suffix="prellm",
     )
 
-    # Initialise the session-state cache that on_session_end uses to
-    # decide whether to fire the optimizer pass.
+    # Initialise the session-state cache (session slug / workspace / start
+    # time) for any later hook in this session that needs session context.
     write_cache(
         session_id,
         {

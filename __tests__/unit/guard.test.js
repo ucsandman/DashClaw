@@ -3,15 +3,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 // Defensive mocks for the externally-effectful imports so a direct evaluatePolicy
 // unit test never reaches the network/LLM. evaluateGuard's full pipeline is
 // covered separately by guard-engine.test.js / guard-pipeline integration.
-const { mockIsEmbeddingsEnabled } = vi.hoisted(() => ({
-  mockIsEmbeddingsEnabled: vi.fn(() => false),
-}));
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: vi.fn() }));
 vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: vi.fn(async () => null) }));
-vi.mock('@/lib/embeddings.js', () => ({
-  isEmbeddingsEnabled: mockIsEmbeddingsEnabled,
-  generateActionEmbedding: vi.fn(async () => null),
-}));
 
 import { computeRiskScore, evaluatePolicy } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
@@ -137,11 +130,6 @@ describe('evaluatePolicy dispatch', () => {
     expect(res?.nonFabrication).toMatchObject({ verdict: 'block' });
     // No content → policy does not apply
     expect(await evalPolicy('non_fabrication', {}, {})).toBeNull();
-  });
-
-  it('behavioral_anomaly: skipped (null) when embeddings disabled', async () => {
-    mockIsEmbeddingsEnabled.mockReturnValue(false);
-    expect(await evalPolicy('behavioral_anomaly', { similarity_threshold: 0.75 }, { agent_id: 'agt_1' })).toBeNull();
   });
 
   it('unknown policy type → null', async () => {

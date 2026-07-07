@@ -264,7 +264,8 @@ dashclaw doctor`}</pre>
 
           <p className="text-sm text-text-tertiary mt-6">
             All features are free, self-hosted, and work without any external AI provider.
-            The only optional LLM feature is the <code>llm_judge</code> scorer type in the Evaluation Framework.
+            The governance core — guard, policies, approvals, and action recording — is pure
+            runtime logic with no LLM dependency.
           </p>
         </div>
 
@@ -291,10 +292,10 @@ dashclaw doctor`}</pre>
               <ul className="text-sm text-text-secondary space-y-1.5">
                 <li>Instruments any agent with DashClaw SDKs (Node.js or Python)</li>
                 <li>Designs guard policies for cost ceilings, risk thresholds, and action allowlists</li>
-                <li>Configures evaluation scorers to track output quality (5 built-in types)</li>
-                <li>Sets up prompt template registries with version control and rollback</li>
-                <li>Configures behavioral drift detection with statistical baselines</li>
-                <li>Sets up learning analytics to track agent velocity and maturity</li>
+                <li>Wires human approvals (HITL) so risky actions block until a person clicks approve</li>
+                <li>Tunes the calibrated interruption controller to cut false approvals</li>
+                <li>Verifies enforcement liveness so a governed agent can prove the guard is awake</li>
+                <li>Sets up durable action outcomes and the tamper-evident decision ledger</li>
                 <li>Troubleshoots 401, 403, 429, and 503 errors with guided diagnostics</li>
               </ul>
             </div>

@@ -23,10 +23,8 @@ HOOKS_ROOT = REPO_ROOT / ".hermes" / "hooks"
 REQUIRED_HOOKS = (
     "dashclaw_pretool_hermes.py",
     "dashclaw_posttool_hermes.py",
-    "dashclaw_postllm_hermes.py",
     "dashclaw_pre_llm_hermes.py",
     "dashclaw_on_session_start_hermes.py",
-    "dashclaw_on_session_end_hermes.py",
     "dashclaw_transform_tool_result_hermes.py",
     "dashclaw_subagent_stop_hermes.py",
 )

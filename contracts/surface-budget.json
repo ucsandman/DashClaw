@@ -1,8 +1,8 @@
 {
   "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
   "ceilings": {
-    "apiRoutes": { "ceiling": 117, "source": "app/api/**/route.{js,ts,tsx}" },
-    "appPages": { "ceiling": 46, "source": "app/**/page.{js,jsx,ts,tsx}" },
+    "apiRoutes": { "ceiling": 118, "source": "app/api/**/route.{js,ts,tsx}", "reason": "v5.0.0-rc final-fix: +1 for the restored slim GET /api/agents. The cull deleted the full agent-roster route but left three live callers (the shared AgentFilterContext picker, the identities fleet view, and the policy CustomTab agent dropdown) plus the MCP evidence probe fetching it, so every authenticated page shipped a 404. The restored route is read-only and org-scoped, listing distinct agents from action_records via the surviving repository — not a regrowth of the fleet-observability surface." },
+    "appPages": { "ceiling": 45, "source": "app/**/page.{js,jsx,ts,tsx}", "reason": "v5.0.0-rc final-fix: -1. The cull's own inventory marked app/actions/[actionId]/page.tsx KILL (duplicate of the canonical /decisions/[actionId] replay) but never deleted it; the final-fix completed the removal and repointed its two inbound links. The ratchet tightens down on deletion so regrowth back to the old page is caught." },
     "mcpTools": { "ceiling": 12, "source": "mcp-server/src/tools.ts (dashclaw_* tool names)" },
     "mcpResources": { "ceiling": 3, "source": "mcp-server/src/resources.ts (uri entries)" },
     "sdkNodeMethods": { "ceiling": 28, "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs" },

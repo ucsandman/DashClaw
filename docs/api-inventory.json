@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 116,
+    "total_routes": 117,
     "stable_routes": 38,
     "beta_routes": 17,
-    "experimental_routes": 61
+    "experimental_routes": 62
   },
   "routes": [
     {
@@ -135,6 +135,15 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/admin/trigger-outcome-sweep/route.ts"
+    },
+    {
+      "path": "/api/agents",
+      "methods": [
+        "GET"
+      ],
+      "maturity": "experimental",
+      "matched_prefix": "/api/agents",
+      "file": "app/api/agents/route.ts"
     },
     {
       "path": "/api/agents/fanouts",

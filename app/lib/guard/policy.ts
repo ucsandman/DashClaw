@@ -6,7 +6,7 @@
 import { baseAgentId } from '../agent-identity-resolve';
 import { deliverGuardWebhook } from '../webhooks';
 import { matchesProtectedPath } from './protected-path';
-import { grantMatches, targetPrefixMatches } from '../policy-shapes';
+import { targetPrefixMatches } from '../policy-shapes';
 import { verify } from '../integrity/verify';
 import type { SourceOfTruth } from '../integrity/verify';
 import { issueReceipt } from '../integrity/receipt';

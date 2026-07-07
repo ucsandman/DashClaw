@@ -3,16 +3,13 @@ import { makeRequest } from '../helpers.js';
 
 const {
   mockSql,
-  mockIsEmbeddingsEnabled,
   mockGetRealtimeHealth,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
-  mockIsEmbeddingsEnabled: vi.fn(),
   mockGetRealtimeHealth: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled }));
 vi.mock('@/lib/events.js', () => ({ getRealtimeHealth: mockGetRealtimeHealth }));
 vi.mock('../../package.json', () => ({ version: '1.0.0-test' }), { virtual: true });
 
@@ -22,7 +19,6 @@ beforeEach(() => {
   vi.clearAllMocks();
   process.env.DATABASE_URL = 'postgres://unit-test';
   process.env.NEXTAUTH_SECRET = 'test-secret';
-  mockIsEmbeddingsEnabled.mockReturnValue(false);
   mockGetRealtimeHealth.mockResolvedValue({ status: 'healthy', backend: 'memory' });
 });
 

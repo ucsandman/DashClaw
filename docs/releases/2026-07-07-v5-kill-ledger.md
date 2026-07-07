@@ -194,7 +194,7 @@ Aggregate effect (verified live at the release candidate):
   `/api/skills/scans/[id]`, `/api/cron/code-session-cache-crater`, `/api/cron/code-session-weekly-memo`.
 - **Pages (3):** `code-sessions`, `code-sessions/[projectId]`, `code-sessions/[projectId]/[sessionId]`.
 - **Libs:** `app/lib/claude-code/**` (incl. `pricing.ts` — importer-free after Waves 6 + 12),
-  `app/lib/optimal-files/**`, `skill-scanner.ts`, repository `skill-scan-results`.
+  `app/lib/claude-code/optimal-files/**`, `skill-scanner.ts`, repository `skill-scan-results`.
 - **Hooks:** `dashclaw_code_session_reporter.py` deleted (pretool skill-scan + stop-hook reporter
   already stripped in Wave 0C).
 - **MCP tools removed:** `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`,

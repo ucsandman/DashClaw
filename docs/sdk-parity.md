@@ -37,7 +37,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 - **Actions / record**: `createAction`, `updateOutcome`, `getAction`, `getActionGraph`.
 - **Durable finality**: `reportActionOutcome`, `getActionOutcome`,
   `reportActionSuccess` / `Failure` / `Partial`, `deriveIdempotencyKey`.
-- **Assumptions**: `recordAssumption`, `getAssumption`, `validateAssumption`.
+- **Assumptions**: `recordAssumption`.
 - **Approvals (HITL)**: `waitForApproval`, `approveAction`, `getPendingApprovals`.
 - **Signals**: `getSignals`.
 - **Sessions**: `createSession`, `getSession`, `updateSession`, `listSessions`,
@@ -55,6 +55,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | `get_activity_logs` | Python only | Audit/activity reads |
 | `test_policies` / `import_policies` / `get_proof_report` | Python only | Policy testing + proof report |
 | `register_identity` / `get_identities` / `get_pairing` | Python only | Admin identity reads/writes (Node calls the REST endpoints directly) |
+| `get_assumption` / `validate_assumption` | Python only | Read/validate a recorded assumption (Node records via `recordAssumption`, then reads over HTTP). Both hit `GET`/`PATCH /api/assumptions/{id}` — the paths were corrected from a stale `/api/actions/assumptions/{id}` in the v5 final-fix. |
 
 ## Domain Status Matrix
 
@@ -63,7 +64,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Guard / actions / approvals | Yes | Yes | Canonical. Phase 2 JWKS attribution (`authToken` / `auth_token`) at parity; server returns `verification_status`. Non-fabrication (`content` + `sourceOfTruth` / `source_of_truth`) verified server-side with a signed Ed25519 receipt; re-verify at `POST /api/integrity/verify` (`/.well-known/jwks.json`). |
 | Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
 | Sessions / action graph | Yes | Yes | Canonical. |
-| Assumptions | Yes | Yes | Canonical. Invalidated assumptions surface as the `assumption_drift` signal. |
+| Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |
 | Pairing / identities | Enrollment (`createPairing` + `waitForPairing`) | Enrollment + admin reads | Node enrollment is canonical; admin identity reads are Python-only (or HTTP). |

@@ -52,7 +52,6 @@ export const GOVERN_PAGES = [
   { path: '/approvals', label: 'Approvals inbox' },
   { path: '/decisions', label: 'Decisions ledger' },
   { path: '/decisions/ar_demo_deploy_block_001', label: 'Decision detail [demo action]' },
-  { path: '/actions/ar_demo_deploy_block_001', label: 'Action detail [demo action]' },
   { path: '/replay/ar_demo_deploy_block_001', label: 'Replay [demo action]' },
   { path: '/policies', label: 'Policy builder' },
   { path: '/policies/rules', label: 'Policy rules' },

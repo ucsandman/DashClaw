@@ -609,7 +609,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Retrospection (2):** `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on.
 - **Agent identity (1):** `dashclaw_pair`
 
-**4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
+**3 resources:** `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
 ### Agent runtime endpoints (server-side, no SDK wrapper)
 

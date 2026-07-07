@@ -19,11 +19,9 @@ import { makeRequest, createSqlMock } from '../helpers.js';
 // leak state between cases — that is what keeps these refactor-proof.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const { mockDeliverGuardWebhook, mockCheckSemantic, mockIsEmbeddingsEnabled, mockGenerateEmbedding } = vi.hoisted(() => ({
+const { mockDeliverGuardWebhook, mockCheckSemantic } = vi.hoisted(() => ({
   mockDeliverGuardWebhook: vi.fn(),
   mockCheckSemantic: vi.fn(),
-  mockIsEmbeddingsEnabled: vi.fn(() => false),
-  mockGenerateEmbedding: vi.fn(),
 }));
 
 vi.mock('@/lib/webhooks.js', () => ({ deliverGuardWebhook: mockDeliverGuardWebhook }));
@@ -32,7 +30,6 @@ vi.mock('@/lib/llm.js', () => ({ checkSemanticGuardrail: mockCheckSemantic }));
 // (Organ 3 Phase 4); without this mock the REAL getSettings would consume the
 // first taggedResponse meant for the policy loader (mock calls are ordered).
 vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn(async () => []) }));
-vi.mock('@/lib/embeddings.js', () => ({ isEmbeddingsEnabled: mockIsEmbeddingsEnabled, generateActionEmbedding: mockGenerateEmbedding }));
 
 import { evaluateGuard } from '@/lib/guard.js';
 

@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 
@@ -72,7 +72,7 @@ in the UI — Claude's connector flow requires OAuth, not headers:
 2. Paste `https://<your-instance>/api/mcp`.
 3. Claude discovers `/.well-known/oauth-protected-resource`, registers via DCR,
    and opens your DashClaw login + a consent screen.
-4. Authorize → the 29 governance tools appear, scoped to your workspace.
+4. Authorize → the 12 governance tools appear, scoped to your workspace.
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 The legacy `x-api-key` path (Managed Agents) is unchanged.
@@ -103,22 +103,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 
 > **Session linkage:** after `dashclaw_session_start`, the server auto-stamps that session's id onto every `dashclaw_record` in the same connection (stdio). Pass `session_id` on `dashclaw_record` to override, or to attribute explicitly on the HTTP transport (`POST /api/mcp`), where each request is stateless.
 
-**Session continuity (3)** — agent-runtime handoff bundle for the next session.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_handoff_create` | Write handoff bundle for next session |
-| `dashclaw_handoff_latest` | Fetch latest unconsumed handoff |
-| `dashclaw_handoff_consume` | Mark handoff consumed (idempotent) |
-
-**Open loops (3)** — action-scoped commitments ("I will X later" tracker).
-
-| Tool | Description |
-|---|---|
-| `dashclaw_loop_add` | Register action-scoped commitment |
-| `dashclaw_loop_list` | List open/resolved loops |
-| `dashclaw_loop_close` | Resolve an open loop |
-
 **Retrospection (2)** — record assumptions; recent governed-action ledger.
 
 | Tool | Description |
@@ -126,25 +110,11 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_assumption_record` | Record an unverified assumption underpinning an action |
 | `dashclaw_decisions_recent` | Recent governed-action ledger |
 
-**Agent inbox (2)** — read this agent's DashClaw inbox + mark messages read.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_inbox_list` | List inbox messages + unread count |
-| `dashclaw_messages_mark_read` | Mark inbox messages read |
-
 **Agent identity (1)** — operator-approved pairing of an unidentified agent to a registered identity.
 
 | Tool | Description |
 |---|---|
 | `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
-
-**Governance posture (2)** — read the org governance posture score + remediation queue (read-only).
-
-| Tool | Description |
-|---|---|
-| `dashclaw_posture` | Read the org governance posture score + 6 dimensions + findings queue |
-| `dashclaw_posture_next` | The next prioritized remediation finding from the posture queue |
 
 ### DashClaw-gated stdio tools (3)
 
@@ -158,12 +128,11 @@ as the governance set:
 | `dashclaw_recent_decisions` | Read recent DashClaw guard decisions |
 | `export_dashclaw_evidence` | Export local audit entries carrying DashClaw guard/evidence metadata |
 
-## Resources (4)
+## Resources (3)
 
 | URI | Description |
 |---|---|
 | `dashclaw://policies` | Active policy set |
-| `dashclaw://capabilities` | Available capabilities and health |
 | `dashclaw://agent/{agent_id}/history` | Recent action history (last 50) |
 | `dashclaw://status` | Instance health + operational metrics |
 

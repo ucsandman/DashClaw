@@ -241,8 +241,8 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 117 | `app/api/**/route.{js,ts,tsx}` |
-| App pages | 46 | `app/**/page.{js,jsx,ts,tsx}` |
+| Active API routes | 118 | `app/api/**/route.{js,ts,tsx}` |
+| App pages | 45 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 12 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -253,6 +253,21 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 Raising any ceiling requires amending this section **and**
 `contracts/surface-budget.json` in the same commit with a written reason — the
 recorded, deliberate act that falsifier #3 (Regrowth) watches for.
+
+**Amendment log:**
+- **v5.0.0-rc final-fix — Active API routes 117 → 118.** Restored a slim,
+  read-only, org-scoped `GET /api/agents`. The cull removed the full
+  agent-roster route but three live UI callers (the shared agent-filter
+  picker, the identities fleet view, the policy CustomTab agent dropdown) plus
+  the MCP evidence probe still fetched it, so every authenticated page shipped a
+  console 404. The restored route lists distinct agents from `action_records`
+  via the surviving repository; it does not revive the fleet-observability
+  surface the cull deleted.
+- **v5.0.0-rc final-fix — App pages 46 → 45 (ratchet down).** Deleted
+  `app/actions/[actionId]/page.tsx`, a duplicate replay view the cull's own
+  inventory marked KILL but never removed; its two inbound links were repointed
+  to the canonical `/decisions/[actionId]`. The ceiling ratchets down so
+  regrowth back to the deleted page trips the brake.
 
 ## Version story
 
