@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import {
   BookOpen, Terminal, Zap, ShieldAlert,
-  ChevronRight, Network, Scale, Shield, History,
+  ChevronRight, Network, Scale, Shield,
 } from 'lucide-react';
 import DashClawLogo from '../components/DashClawLogo';
 import CopyDocsButton from '../components/CopyDocsButton';
@@ -178,27 +178,15 @@ const navItems = [
   { href: '#hosted-workspaces-delete', label: 'DELETE /workspaces/:id', indent: true },
   { href: '#hosted-cleanup', label: 'POST /cleanup', indent: true },
   { href: '#error-handling', label: 'Error Handling' },
-  { href: '#legacy-v1', label: 'Legacy API (v1)', legacy: true },
-  { href: '#real-time-events', label: 'Real-Time Events', indent: true, legacy: true },
-  { href: '#dashboard-data', label: 'Dashboard Data', indent: true, legacy: true },
-  { href: '#automation-snippets', label: 'Automation Snippets', indent: true, legacy: true },
-  { href: '#user-preferences', label: 'User Preferences', indent: true, legacy: true },
-  { href: '#activity-logs', label: 'Activity Logs', indent: true, legacy: true },
-  { href: '#getActivityLogs', label: 'getActivityLogs', indent: true, legacy: true },
-  { href: '#webhooks', label: 'Webhooks', indent: true, legacy: true },
-  { href: '#createWebhook', label: 'createWebhook', indent: true, legacy: true },
 ];
 
 /* ─── page ─── */
 
-interface DocsPageProps {
-  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
-}
+// Rendered per-request (a client child uses useSearchParams; static prerender
+// would need a Suspense boundary for no reader benefit on this page).
+export const dynamic = 'force-dynamic';
 
-export default async function DocsPage({ searchParams }: DocsPageProps) {
-  const params = await searchParams;
-  const showLegacy = params?.legacy === 'true';
-
+export default async function DocsPage() {
   return (
     <div className="min-h-screen bg-surface-primary text-text-primary">
       {/* Navbar */}
@@ -570,11 +558,7 @@ npm run hooks:install`}</CodeBlock>
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
 
 # Optional: opt in to legacy notify config for turn-complete records
-node cli/bin/dashclaw.js install codex --project /path/to/your/project --include-notify
-
-# Backfill existing rollouts for analytics
-node cli/bin/dashclaw.js code ingest-codex --dry-run
-node cli/bin/dashclaw.js code ingest-codex`}</CodeBlock>
+node cli/bin/dashclaw.js install codex --project /path/to/your/project --include-notify`}</CodeBlock>
             </div>
 
             <div id="hermes-plugin" className="scroll-mt-20 mb-10">
@@ -1058,9 +1042,9 @@ const { decision, verification_status } = await claw.guard({
               <li><strong>Fleet grouping</strong> — composed ids nest under their parent, so a harness&apos;s sub-agent swarm reads as one family (the fan-outs view), not fleet noise.</li>
             </ul>
 
-            <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Legacy (v1): public-key pairing</h3>
+            <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Public-key pairing</h3>
             <p className="text-sm text-text-secondary mb-6 leading-relaxed">
-              Predates JWKS verification and is retained for older integrations. Enroll agents via public-key pairing and manage approved identities. Pairing requests are created by agents; approval is an admin action. Once approved, the agent&apos;s public key is registered as a trusted identity for signature verification.
+              Enroll agents via public-key pairing and manage approved identities. Pairing requests are created by agents; approval is an operator action (one click on the /identities page). Once approved, the agent&apos;s public key is registered as a trusted identity for signature verification.
             </p>
 
             <MethodEntry
@@ -1107,9 +1091,9 @@ const { pairings } = await res.json();`}
               returns="{ pairing: { id, status, agent_name, created_at, approved_at } }"
               example={
                 <CodeBlock title="Poll pairing status">
-{`// Node SDK (v1 legacy)
-const status = await claw.getPairing(pairingId);
-console.log(status.pairing.status); // pending | approved | expired`}
+{`// Node SDK: block until the operator approves (or poll the route directly)
+const paired = await claw.waitForPairing(pairingId);
+// HTTP: GET /api/pairings/:id -> { pairing: { status: 'pending' | 'approved' | 'expired' } }`}
                 </CodeBlock>
               }
             />
@@ -1141,8 +1125,12 @@ console.log(status.pairing.status); // pending | approved | expired`}
               returns="{ identity: { agent_id, algorithm, created_at } }"
               example={
                 <CodeBlock title="Register identity (admin)">
-{`// Node SDK (v1 legacy)
-await claw.registerIdentity('agent-007', publicKeyPem, 'RSASSA-PKCS1-v1_5');`}
+{`// HTTP (admin key)
+await fetch(baseUrl + '/api/identities', {
+  method: 'POST',
+  headers: { 'x-api-key': adminKey, 'content-type': 'application/json' },
+  body: JSON.stringify({ agent_id: 'agent-007', public_key: publicKeyPem, algorithm: 'RSASSA-PKCS1-v1_5' }),
+});`}
                 </CodeBlock>
               }
             />
@@ -1154,8 +1142,9 @@ await claw.registerIdentity('agent-007', publicKeyPem, 'RSASSA-PKCS1-v1_5');`}
               returns="{ identities: Array<{ agent_id, algorithm, created_at }> }"
               example={
                 <CodeBlock title="List identities (admin)">
-{`// Node SDK (v1 legacy)
-const { identities } = await claw.getIdentities();`}
+{`// HTTP (admin key)
+const res = await fetch(baseUrl + '/api/identities', { headers: { 'x-api-key': adminKey } });
+const { identities } = await res.json();`}
                 </CodeBlock>
               }
             />
@@ -1389,243 +1378,6 @@ const { fanouts } = await res.json();`}
             <CodeBlock title="Error shape">{`{ message: "Validation failed", status: 400 }`}</CodeBlock>
           </section>
 
-          {/* ── Legacy Section ── */}
-          {showLegacy && (
-            <div id="legacy-v1" className="mt-20 pt-12 border-t-2 border-dashed border-border-hover">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-lg bg-surface-tertiary border border-border-hover flex items-center justify-center text-text-tertiary">
-                  <History size={20} />
-                </div>
-                <div>
-                  <h2 className="text-3xl font-bold tracking-tight">Legacy Reference</h2>
-                  <p className="text-text-tertiary text-sm">Background v1 utilities and technical helper methods.</p>
-                </div>
-              </div>
-
-              {/* Real-Time Events */}
-              <section id="real-time-events" className="scroll-mt-20 pt-12">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Real-Time Events</h3>
-                <MethodEntry 
-                  id="events" 
-                  signature="claw.events(options?)" 
-                  description="Subscribe to real-time SSE events from the DashClaw server. Uses fetch-based SSE parsing for Node 18+ compatibility (no native EventSource required)."
-                  params={[
-                    { name: 'reconnect', type: 'boolean', required: false, desc: 'Auto-reconnect on disconnect (resumes from last event ID). Default: true.' },
-                    { name: 'maxRetries', type: 'number', required: false, desc: 'Max reconnection attempts.' },
-                    { name: 'retryInterval', type: 'number', required: false, desc: 'Milliseconds between reconnection attempts. Default: 3000.' },
-                  ]}
-                  example={
-                    <CodeBlock title="Subscribing to updates">
-{`const stream = client.events();
-stream
-  .on('action.created', (data) => console.log('New action:', data))
-  .on('action.updated', (data) => console.log('Action updated:', data))
-  .on('goal.created', (data) => console.log('New goal:', data))
-  .on('policy.updated', (data) => console.log('Policy changed:', data))
-  .on('error', (err) => console.error('Stream error:', err));`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* Dashboard Data */}
-              <section id="dashboard-data" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Dashboard Data</h3>
-                <MethodEntry 
-                  id="reportTokenUsage" 
-                  signature="claw.reportTokenUsage(usage)" 
-                  description="Record a point-in-time token usage snapshot for this agent."
-                  params={[
-                    { name: 'tokens_in', type: 'number', required: true, desc: 'Input/Prompt tokens' },
-                    { name: 'tokens_out', type: 'number', required: true, desc: 'Output/Completion tokens' },
-                    { name: 'model', type: 'string', required: false, desc: 'LLM model used' },
-                  ]}
-                  example={
-                    <CodeBlock>
-{`await claw.reportTokenUsage({
-  tokens_in: 850,
-  tokens_out: 215,
-  model: 'claude-sonnet-4-6'
-});`}
-                    </CodeBlock>
-                  }
-                />
-                <MethodEntry 
-                  id="createGoal" 
-                  signature="claw.createGoal(goal)" 
-                  description="Register a high-level goal in the Mission Control UI."
-                  params={[
-                    { name: 'title', type: 'string', required: true, desc: 'Short name for the goal' },
-                    { name: 'status', type: 'string', required: false, desc: 'active|completed|paused' },
-                    { name: 'progress', type: 'number', required: false, desc: '0-100 percentage' },
-                  ]}
-                  example={
-                    <CodeBlock>
-{`await claw.createGoal({
-  title: 'Refactor Auth Layer',
-  progress: 75,
-  status: 'active'
-});`}
-                    </CodeBlock>
-                  }
-                />
-                <MethodEntry 
-                  id="wrapClient" 
-                  signature="claw.wrapClient(llmClient, options?)" 
-                  description="Wrap an Anthropic or OpenAI client to automatically report token usage after each API call."
-                  example={
-                    <CodeBlock title="Auto-telemetry wrapping">
-{`const anthropic = claw.wrapClient(new Anthropic());
-// usage is auto-reported after this call:
-const msg = await anthropic.messages.create({ 
-  model: 'claude-sonnet-4-6', 
-  max_tokens: 1024, 
-  messages: [{ role: 'user', content: 'Hello' }] 
-});`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* Behavior Guard (v1) */}
-              <section id="legacy-guard" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Behavior Guard (v1)</h3>
-                <MethodEntry 
-                  id="guard" 
-                  signature="claw.guard(context)" 
-                  description="Intercept intent and check it against current safety and governance policies."
-                  params={[
-                    { name: 'action_type', type: 'string', required: true, desc: 'Intent category (deploy, post, build, etc)' },
-                    { name: 'risk_score', type: 'number', required: false, desc: '0-100 estimate' },
-                    { name: 'declared_goal', type: 'string', required: false, desc: 'Human-readable justification' },
-                  ]}
-                  example={
-                    <CodeBlock title="Checking a dangerous intent">
-{`const decision = await claw.guard({
-  action_type: 'production_deployment',
-  risk_score: 95,
-  declared_goal: 'Updating API endpoints for new feature'
-});
-
-if (decision.decision === 'block') {
-  console.error('Safety policy blocked action:', decision.reasons);
-}`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* User Preferences */}
-              <section id="user-preferences" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">User Preferences</h3>
-                <MethodEntry 
-                  id="logObservation" 
-                  signature="claw.logObservation(obs)" 
-                  description="Log a behavioral observation about the user to improve future interactions."
-                  example={
-                    <CodeBlock>
-{`await claw.logObservation({
-  observation: 'User prefers concise, bulleted summaries over long paragraphs.',
-  importance: 8,
-  category: 'communication_style'
-});`}
-                    </CodeBlock>
-                  }
-                />
-                <MethodEntry 
-                  id="setPreference" 
-                  signature="claw.setPreference(pref)" 
-                  description="Explicitly set a learned user preference."
-                  example={
-                    <CodeBlock>
-{`await claw.setPreference({
-  preference: 'Always use tabs for indentation in generated Python code.',
-  confidence: 100
-});`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* Security Scanning (legacy) */}
-              <section id="legacy-security-scanning" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Security Scanning (Legacy)</h3>
-                <MethodEntry
-                  id="scanContent"
-                  signature="claw.scanContent(text, destination?)"
-                  description="Scan text for sensitive data (API keys, tokens, PII) before it leaves the secure environment."
-                  returns="Promise<{clean: boolean, findings: Object[], redacted_text: string}>"
-                  example={
-                    <CodeBlock title="Safe-guarding outbound data">
-{`const { clean, redacted_text } = await claw.scanContent(userOutput, 'slack-webhook');
-if (!clean) {
-  console.warn('Sensitive data detected and redacted.');
-}
-await sendToSlack(redacted_text);`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* Automation Snippets */}
-              <section id="automation-snippets" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Automation Snippets</h3>
-                <MethodEntry 
-                  id="saveSnippet" 
-                  signature="claw.saveSnippet(snippet)" 
-                  description="Save or update a reusable code snippet or automation script."
-                  example={
-                    <CodeBlock>
-{`await claw.saveSnippet({
-  name: 'backup-config',
-  code: 'cp /etc/app/config.json /backup/config.json',
-  language: 'bash',
-  tags: ['utility', 'backup']
-});`}
-                    </CodeBlock>
-                  }
-                />
-                <MethodEntry 
-                  id="useSnippet" 
-                  signature="claw.useSnippet(snippetId)" 
-                  description="Mark a snippet as used (increments telemetry use_count)."
-                  returns="Promise<{snippet: Object}>"
-                />
-              </section>
-
-              {/* Compliance Engine (moved from v2) */}
-
-              {/* Activity Logs (moved from v2) */}
-              <section id="activity-logs" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Activity Logs</h3>
-                <MethodEntry
-                  id="getActivityLogs"
-                  signature="claw.getActivityLogs(filters) / claw.get_activity_logs(**filters)"
-                  description="Query the immutable audit trail of all workspace changes and administrative events."
-                  example={
-                    <CodeBlock>
-{`const logs = await claw.getActivityLogs({ limit: 10 });`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-
-              {/* Webhooks (moved from v2) */}
-              <section id="webhooks" className="scroll-mt-20 pt-12 border-t border-border">
-                <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono underline decoration-border-hover underline-offset-8">Webhooks</h3>
-                <MethodEntry
-                  id="createWebhook"
-                  signature="claw.createWebhook(url, events) / claw.create_webhook(url, events)"
-                  description="Register an HMAC-signed webhook for real-time exfiltration of governance events."
-                  example={
-                    <CodeBlock>
-{`await claw.createWebhook('https://api.myapp.com/hooks', ['approval_pending']);`}
-                    </CodeBlock>
-                  }
-                />
-              </section>
-            </div>
-          )}
         </div>
       </div>
 
