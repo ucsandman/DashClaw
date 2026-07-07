@@ -145,15 +145,6 @@ Include a `summary` in `dashclaw_session_end` describing what was accomplished.
 
 For concrete implementation patterns, see [references/governance-patterns.md](references/governance-patterns.md).
 
-## Credential Hygiene
-
-### Before acting on credentials
-Call `dashclaw_secret_due` to surface any tracked credentials overdue for
-rotation. If an action would use an overdue credential, record the action with
-status='pending_approval' and flag it to the operator. Registering new
-credentials for tracking is an operator task — agents don't add secrets
-themselves (that would be an authorization-creep risk).
-
 ## Assumption Tracking
 
 ### Before acting on an unverified premise

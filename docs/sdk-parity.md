@@ -130,7 +130,6 @@ That is acceptable temporarily, but it should not define future product directio
 | Compliance | No canonical wrapper yet for full shape | Yes | Yes | Remain compatibility and admin-heavy for now |
 | Webhooks / activity logs | No canonical wrapper yet for full shape | Yes | Yes | Remain compatibility and admin-heavy for now |
 | Preferences / digest / ideas | No | Yes | Yes | Low-priority consolidation |
-| Managed secrets delivery (`GET /api/secrets/env`) | Yes — `getAgentEnv({ agentId })` | No | Yes — `get_agent_env(agent_id=None)` | Canonical in both SDKs at route-contract parity. Returns `{ env, count, delivered }` — the org/agent-merged, delivery-enabled, decrypted secret bundle for one agent. **Values are live secrets: memory-only, never logged, never written to disk.** Secret *metadata* (register/rotate/delete, `/api/secrets`, `/api/secrets/[id]`, `/api/secrets/rotation-due`) stays operator/MCP-only — see Non-SDK Surfaces. CLI: `dashclaw env [--agent <id>] -- <command>` injects the bundle into a child process environment without ever printing values (no `--print`; fail-closed if the fetch fails). |
 
 ## Non-SDK Surfaces (Operational)
 
@@ -144,7 +143,6 @@ These are reachable via HTTP but are not intended as SDK methods. Documented her
 | Guard decisions audit log | `GET /api/guard/decisions` | Policy Builder ActivityTab; no SDK wrapper yet |
 | Agent governance profile | `GET /api/agents/[agentId]/profile` | `/agents/[agentId]` dashboard page aggregator |
 | Session handoffs (agent runtime) | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/[id]`, `POST /api/handoffs/[id]/consume` | Hermes hooks (`.hermes/hooks/dashclaw_on_session_{start,end}_hermes.py`) + MCP server (`dashclaw_handoff_create/latest/consume`). Agents pick up the previous session's bundle on first turn; not an SDK developer method. |
-| Operator-tracked secrets (metadata) | `GET/POST /api/secrets`, `PATCH/DELETE /api/secrets/[id]`, `GET /api/secrets/rotation-due` | Operator surface + MCP server (`dashclaw_secret_list/due/mark_rotated`). Registration/rotation/deletion is an operator task; agents only check rotation due-dates via MCP. **Exception:** opt-in *value delivery* via `GET /api/secrets/env` IS SDK-exposed — `getAgentEnv` / `get_agent_env` + the `dashclaw env` CLI command (see the Managed secrets delivery row in the matrix above). |
 | Skill safety scan | `POST /api/skills/scan`, `GET /api/skills/scans/[id]` | MCP server (`dashclaw_skill_scan`). Agents scan untrusted skill files before loading; results cached by content hash. |
 | Governance posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | Operator `/posture` page + MCP (`dashclaw_posture`, `dashclaw_posture_next`, read-only); remediation is human-gated, no SDK wrapper. |
 | Session actions ledger | `GET /api/sessions/[sessionId]/actions` | `/sessions/[sessionId]` dashboard page (paginated actions list sharing the action_count predicate). Read-only display aggregation; promote alongside `getSessionEvents` if sessions get first-class SDK exposure. |

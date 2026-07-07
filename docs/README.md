@@ -54,7 +54,6 @@ You connected an agent. Now you are the operator.
 | [Operating DashClaw](./operations.md) | The operator's day: policies, approvals across five surfaces, the decisions ledger, posture, the emergency halt, and doctor. |
 | [Policy modes](./policy-modes.md) | Named policy packs (Claude Code starter, SOC 2 alignment, Enterprise Strict…) that compile to guard policies. |
 | [Behavior learning](./behavior-learning.md) | Local-only observation of agent behavior that drafts evidence-backed policy suggestions. |
-| [Widget (PWA cockpit)](./widget.md) | The installable mini-cockpit for approvals on the go. |
 | [Telegram approvals](./telegram-setup.md) | Inline Approve/Reject buttons in an admin chat. |
 | [Fleet digest](./fleet-digest.md) | Scheduled fleet summaries to Slack/Discord/email. |
 | [Troubleshooting](./troubleshooting.md) | The errors you will actually see (`503 SCHEMA_NOT_INITIALIZED`, `410 APPROVAL_EXPIRED`, the two-action-id footgun) and their fixes. |
@@ -75,12 +74,12 @@ You connected an agent. Now you are the operator.
 | Surface | Canonical reference |
 |---|---|
 | HTTP API — the core loop | [Runtime API contract](./architecture/runtime-api.md) |
-| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **133 routes**: 38 stable, 17 beta, 78 experimental) |
+| HTTP API — all routes with maturity tier | [API inventory](./api-inventory.md) (generated; **127 routes**: 38 stable, 17 beta, 72 experimental) |
 | HTTP API — pinned stable contract | [OpenAPI spec](./openapi/critical-stable.openapi.json) ([about](./openapi/README.md)) — covers the stable tier only; beta/experimental routes have no OpenAPI coverage by design |
 | Node SDK (`dashclaw` on npm) | [`sdk/README.md`](../sdk/README.md) — the canonical method catalogue |
 | Python SDK (`dashclaw` on PyPI) | [`sdk-python/README.md`](../sdk-python/README.md) — broader surface, snake_case, framework integrations |
 | Node ↔ Python parity | [SDK parity matrix](./sdk-parity.md) (maintainer-grade detail) |
-| MCP server (`@dashclaw/mcp-server`) | [`mcp-server/README.md`](../mcp-server/README.md) — all **15 governance MCP tools**, 6 resources, config |
+| MCP server (`@dashclaw/mcp-server`) | [`mcp-server/README.md`](../mcp-server/README.md) — all **12 governance MCP tools**, 4 resources, config |
 | CLI (`@dashclaw/cli`) | [`cli/README.md`](../cli/README.md) — every command, incl. `up`, `install claude`, approvals, `halt`, doctor |
 | Durable outcomes | [Durable execution finality](./architecture/durable-execution-finality.md) — the five-state machine and the sweep |
 | Object glossary | [Platform object model](./architecture/platform-object-model.md) |

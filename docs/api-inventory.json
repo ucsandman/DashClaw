@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 133,
+    "total_routes": 127,
     "stable_routes": 38,
     "beta_routes": 17,
-    "experimental_routes": 78
+    "experimental_routes": 72
   },
   "routes": [
     {
@@ -1023,53 +1023,6 @@
       "file": "app/api/prompts/server-setup/raw/route.ts"
     },
     {
-      "path": "/api/secrets",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/secrets/route.ts"
-    },
-    {
-      "path": "/api/secrets/env",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/secrets/env/route.ts"
-    },
-    {
-      "path": "/api/secrets/rotation-due",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/secrets/rotation-due/route.ts"
-    },
-    {
-      "path": "/api/secrets/{id}",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/secrets/[id]/route.ts"
-    },
-    {
-      "path": "/api/secrets/{id}/value",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/secrets/[id]/value/route.ts"
-    },
-    {
       "path": "/api/security/prompt-injection",
       "methods": [
         "GET",
@@ -1273,15 +1226,6 @@
       "maturity": "stable",
       "matched_prefix": "/api/webhooks",
       "file": "app/api/webhooks/[webhookId]/test/route.ts"
-    },
-    {
-      "path": "/api/widget/summary",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/widget/summary/route.ts"
     },
     {
       "path": "/api/workspace/export",

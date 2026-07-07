@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 46 methods across Core Governance, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
+  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 45 methods across Core Governance, Execution Studio, Messaging, Sessions, Drift Detection, and Capability Runtime). This is the SDK that ships as the `dashclaw` package.
   - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 90 methods).
+  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 89 methods).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -230,16 +230,10 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**15 tools across 9 groups:**
+**12 tools across 3 groups:**
 - *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
-- *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
-- *Credential hygiene (3):* `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`.
-- *Open loops (3):* `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`.
-- *Learning + retrospection (4):* `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — record an assumption an action rests on (validate/refute later).
-- *Agent inbox (2):* `dashclaw_inbox_list`, `dashclaw_messages_mark_read`.
+- *Retrospection (2):* `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on (validate/refute later).
 - *Agent identity (1):* `dashclaw_pair` — operator-approved pairing of an unidentified agent to a registered identity.
-- *Behavior learning (1):* `dashclaw_behavior_suggestions` — observe-only Policy Coach suggestions from recorded behavior.
-- *Governance posture (2, read-only):* `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score + 6 dimensions + prioritized findings; read-only (remediation is human-gated).
 
 **4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 

@@ -3,7 +3,7 @@
  *
  * When an approval message is sent to an external channel (Discord/Telegram) we
  * record its provider message id. When the action is later resolved through ANY
- * surface (dashboard, widget, Discord button, Telegram button), we edit the
+ * surface (the Approvals inbox, /approve, Discord button, Telegram button), we edit the
  * message in every OTHER channel to a resolved state and stamp it cleared, so a
  * stale "approve me" message never lingers in a channel you didn't act in.
  *

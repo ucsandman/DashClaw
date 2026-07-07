@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
-  demoIdentities, demoApiKeys, demoSecrets,
+  demoIdentities, demoApiKeys,
 } from '@/lib/demo/demoMiddleware';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
 
@@ -25,11 +25,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const r = demoApiKeys();
     expect(r.keys.length).toBeGreaterThan(0);
     expect(r.keys[0]!).toMatchObject({ id: expect.any(String), name: expect.any(String), prefix: expect.any(String) });
-  });
-  it('secrets (/api/secrets)', () => {
-    const r = demoSecrets();
-    expect(r.secrets.length).toBeGreaterThan(0);
-    expect(r.secrets[0]!).toMatchObject({ id: expect.any(String), name: expect.any(String), rotation_interval_days: expect.any(Number) });
   });
 });
 

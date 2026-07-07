@@ -23,7 +23,6 @@ const APP_DIR = path.resolve(__dirname, '../../app');
 const ALLOWLIST = new Set([
   'approve/page.tsx',           // navigator.setAppBadge/clearAppBadge — best-effort, must not throw into UI
   'components/SetupBanner.tsx',  // marketing-site reachability ping — silently ignored by design
-  'widget/page.tsx',             // navigator.serviceWorker.register — best-effort PWA registration
 ]);
 
 // Empty `catch {}` / `catch (e) {}` (whitespace/newlines only between braces).

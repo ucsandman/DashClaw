@@ -89,7 +89,7 @@ export default function ApprovalsPage() {
   }, [fetchPending]);
 
   // Realtime: clear instantly when an approval is resolved anywhere (another
-  // channel, the widget, /approve) rather than waiting up to 10s for the poll.
+  // channel, /approve) rather than waiting up to 10s for the poll.
   useRealtime((event) => {
     if (event === 'action.created' || event === 'action.updated' || event === 'guard.decision.created') {
       fetchPending({ silent: true });

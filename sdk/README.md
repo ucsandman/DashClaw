@@ -526,9 +526,6 @@ if (result.recommendation === 'block') {
 }
 ```
 
-### Managed Secrets
-- `getAgentEnv({ agentId })` -- Fetch the delivery-enabled managed-secret bundle for an agent (`GET /api/secrets/env`; org-level + agent-level merged, decrypted server-side; `agentId` defaults to the client's own). Returns `{ env, count, delivered }`. **The `env` map contains live secret values — keep it memory-only: never log it, never write it to disk or a cache, never echo values to a model or a user.** Secret *metadata* management (register, rotate, delete) stays operator/MCP-only. Python parity: `get_agent_env(agent_id=None)`. CLI: `dashclaw env [--agent <id>] -- <command>` injects the bundle into a child process without ever printing it.
-
 ---
 
 ## Agent Identity
@@ -713,28 +710,21 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**15 tools** in 9 groups:
+**12 tools** in 3 groups:
 
 - **Core governance (9):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture).
-- **Session continuity (3):** `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume` — agent-runtime handoff bundle for the next session.
-- **Credential hygiene (3):** `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated` — check rotation due-dates before acting on tracked credentials.
-- **Open loops (3):** `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close` — action-scoped commitments (the "I will X later" tracker).
-- **Learning + retrospection (4):** `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — log + query non-obvious decisions; recent governed-action ledger; record an assumption an action rests on.
-- **Agent inbox (2):** `dashclaw_inbox_list`, `dashclaw_messages_mark_read`
+- **Retrospection (2):** `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on.
 - **Agent identity (1):** `dashclaw_pair`
-- **Behavior learning (1):** `dashclaw_behavior_suggestions`
-- **Governance posture (2, read-only):** `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score (6 dimensions + findings) and the next prioritized finding; read-only, drafting/remediation stays human-gated.
 
 **4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
 ### Agent runtime endpoints (server-side, no SDK wrapper)
 
-DashClaw 2.17 (platform) added three route families that are **agent-runtime infrastructure, not developer SDK methods**. They are called by the MCP server (the tools listed above), by Hermes Agent hooks, and by other governance plumbing — never directly from agent code. By design, they are not exposed on `claw.*`:
+DashClaw 2.17 (platform) added route families that are **agent-runtime infrastructure, not developer SDK methods**. They are called by the MCP server (the tools listed above), by Hermes Agent hooks, and by other governance plumbing — never directly from agent code. By design, they are not exposed on `claw.*`:
 
 | Family | Endpoints | Where called from |
 |---|---|---|
 | Session handoffs | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/{id}`, `POST /api/handoffs/{id}/consume` | Hermes `on_session_end` / `on_session_start` / `pre_llm_call` hooks; MCP `dashclaw_handoff_*` tools |
-| Operator-tracked secrets | `GET/POST /api/secrets`, `PATCH/DELETE /api/secrets/{id}`, `GET /api/secrets/rotation-due` | MCP `dashclaw_secret_*` tools; operator UI |
 | Governance posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | MCP `dashclaw_posture` / `dashclaw_posture_next` tools (read-only); operator `/posture` UI. Experimental; remediation is human-gated (draft-only) |
 
 If you're building a custom integration that needs these without MCP, call them as plain HTTP — see `docs/api-inventory.md` and the OpenAPI spec at `docs/openapi/critical-stable.openapi.json`.

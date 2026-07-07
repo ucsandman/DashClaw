@@ -173,41 +173,6 @@ export const TOOL_DEFINITIONS = [
         },
     },
     {
-        name: 'dashclaw_secret_list',
-        description: 'List tracked secrets (metadata only — no values). Returns each entry with name, rotation ' +
-            'interval, last_rotated_at, and computed next_rotation_due.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                agent_id: { type: 'string', description: 'Optional — scope to this agent' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_secret_due',
-        description: 'List secrets coming due for rotation. Call this BEFORE acting on credentials. If a ' +
-            'credential you would use is in the result, flag the operator rather than proceeding.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                within_days: { type: 'integer', description: 'Lookahead window in days (default 14)' },
-                agent_id: { type: 'string' },
-            },
-        },
-    },
-    {
-        name: 'dashclaw_secret_mark_rotated',
-        description: 'Mark a tracked secret as rotated (sets last_rotated_at = now). Agents only call this if ' +
-            'the operator instructs; secret registration is an operator task.',
-        inputSchema: {
-            type: 'object',
-            properties: {
-                id: { type: 'string', description: 'Secret id (sec_*)' },
-            },
-            required: ['id'],
-        },
-    },
-    {
         name: 'dashclaw_assumption_record',
         description: 'Record an assumption you are acting on — something you treat as true but have not verified ' +
             '(e.g. "staging tests passed", "no active legal hold on this record"). Attach it to the action ' +
@@ -591,33 +556,6 @@ export function createToolHandlers(client) {
             }
             const result = await client.get(`/api/sessions/${sessionId}/retro`, {}, { timeout: 15000 });
             return JSON.stringify(result);
-        },
-        async dashclaw_secret_list(args) {
-            const params = new URLSearchParams();
-            const aid = agentIdFilter(args);
-            if (aid)
-                params.set('agent_id', aid);
-            const res = await client.fetch(`/api/secrets?${params}`);
-            const data = await res.json();
-            return JSON.stringify(data);
-        },
-        async dashclaw_secret_due(args) {
-            const params = new URLSearchParams();
-            if (args.within_days != null)
-                params.set('within_days', String(args.within_days));
-            const aid = agentIdFilter(args);
-            if (aid)
-                params.set('agent_id', aid);
-            const res = await client.fetch(`/api/secrets/rotation-due?${params}`);
-            const data = await res.json();
-            return JSON.stringify(data);
-        },
-        async dashclaw_secret_mark_rotated(args) {
-            const res = await client.fetch(`/api/secrets/${encodeURIComponent(args.id)}`, {
-                method: 'PATCH',
-                body: JSON.stringify({ last_rotated_at: new Date().toISOString() }),
-            });
-            return JSON.stringify(await jsonOrFailure(res));
         },
         async dashclaw_assumption_record(args) {
             const res = await client.fetch('/api/assumptions', {

@@ -26,7 +26,6 @@ vi.mock('@/capabilities/components/CapabilityRegistryFilters', () => ({ default:
 
 import ApiKeysPage from '@/api-keys/page';
 import WebhooksPage from '@/webhooks/page';
-import SecretsPage from '@/secrets/page';
 import CapabilitiesPage from '@/capabilities/page';
 
 const NOW = '2026-06-01T00:00:00.000Z';
@@ -35,9 +34,6 @@ const KEYS = [1, 2, 3].map((n) => ({
 }));
 const WEBHOOKS = [1, 2, 3].map((n) => ({
   id: `wh_${n}`, url: 'https://example.com/hook', active: true, events: '["signal.detected"]', created_at: NOW,
-}));
-const SECRETS = [1, 2, 3].map((n) => ({
-  id: `sec_${n}`, name: `Secret ${n}`, next_rotation_due: null, rotation_interval_days: 90, last_rotated_at: null,
 }));
 const CAPS = [1, 2, 3].map((n) => ({
   capability_id: `cap_${n}`, name: `Capability ${n}`, risk_level: 'low', health_status: 'healthy', status: 'active',
@@ -60,7 +56,6 @@ beforeEach(() => {
     else if (u.startsWith('/api/webhooks') && method === 'GET') body = { webhooks: WEBHOOKS };
     else if (u.includes('/api/capabilities/health')) body = { capabilities: [] };
     else if (u.startsWith('/api/capabilities') && method === 'GET') body = { capabilities: CAPS };
-    else if (u.startsWith('/api/secrets') && method === 'GET') body = { secrets: SECRETS };
     return Promise.resolve({ ok: true, json: async () => body });
   });
 });
@@ -90,12 +85,6 @@ describe('multi-select wiring across list pages', () => {
     const { actions } = await selectAllThenAssertCount(<WebhooksPage />);
     fireEvent.click(within(actions).getByText('Delete'));
     await waitFor(() => expect(fetchCalls('DELETE', '/api/webhooks?id=').length).toBe(3));
-  });
-
-  it('secrets: select-all → count → bulk delete fires 3 secret DELETEs', async () => {
-    const { actions } = await selectAllThenAssertCount(<SecretsPage />);
-    fireEvent.click(within(actions).getByText('Delete'));
-    await waitFor(() => expect(fetchCalls('DELETE', '/api/secrets/').length).toBe(3));
   });
 
   it('capabilities: select-all → count → bulk delete fires 3 capability DELETEs', async () => {

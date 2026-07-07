@@ -12,7 +12,7 @@ import {
   demoSnippets, demoPreferences, demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
-  demoIdentities, demoApiKeys, demoSecrets,
+  demoIdentities, demoApiKeys,
 } from './app/lib/demo/demoMiddleware';
 import { getViewerContextFromCookieHeader, resolveTrialSession, hasTrialSessionCookie, TRIAL_SESSION_COOKIE } from './app/lib/sessionViewer.mjs';
 import { isSelfHostModeEnabled } from './app/lib/selfHost';
@@ -1142,7 +1142,6 @@ const DEMO_API_ROUTES = [
   [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*']), handleDemoSessionDetail],
   ['/api/identities', demoFixtureRoute(demoIdentities)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
-  ['/api/secrets', demoPayloadRoute(demoSecrets)],
 ];
 
 async function dispatchDemoApiRoute(ctx) {
@@ -1718,8 +1717,6 @@ export const config = {
     '/approvals/:path*',
     '/approve',
     '/approve/:path*',
-    '/widget',
-    '/widget/:path*',
     '/actions',
     '/actions/:path*',
     '/decisions',

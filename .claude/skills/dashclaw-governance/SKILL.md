@@ -152,15 +152,6 @@ On your first turn, call `dashclaw_handoff_latest` with your agent_id. If a
 bundle is returned, summarize it for the operator, then call
 `dashclaw_handoff_consume` to mark it claimed so it isn't read twice.
 
-## Credential Hygiene
-
-### Before acting on credentials
-Call `dashclaw_secret_due` to surface any tracked credentials overdue for
-rotation. If an action would use an overdue credential, record the action with
-status='pending_approval' and flag it to the operator. Registering new
-credentials for tracking is an operator task — agents don't add secrets
-themselves (that would be an authorization-creep risk).
-
 ## Commitment Tracking
 
 ### When you say "I will X later"

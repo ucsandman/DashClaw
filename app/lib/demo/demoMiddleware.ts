@@ -962,15 +962,6 @@ export function demoApiKeys() {
   return { keys, lastUpdated: new Date().toISOString() };
 }
 
-export function demoSecrets() {
-  const secrets = [
-    { id: 'sec_demo_1', name: 'STRIPE_API_KEY', next_rotation_due: '2026-07-01T00:00:00.000Z', rotation_interval_days: 90, last_rotated_at: '2026-04-02T00:00:00.000Z' },
-    { id: 'sec_demo_2', name: 'OPENAI_API_KEY', next_rotation_due: '2026-06-15T00:00:00.000Z', rotation_interval_days: 30, last_rotated_at: '2026-05-16T00:00:00.000Z' },
-    { id: 'sec_demo_3', name: 'GITHUB_TOKEN', next_rotation_due: null, rotation_interval_days: 180, last_rotated_at: null },
-  ];
-  return { secrets, lastUpdated: new Date().toISOString() };
-}
-
 // ── Agent Registry (demo) ────────────────────────────────────────────────────
 // Canned registry so the hosted demo shows the page populated instead of the
 // 403-fallback empty state. One realistic provider + capability + history.

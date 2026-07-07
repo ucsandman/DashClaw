@@ -127,7 +127,7 @@ const navItems = [
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (15)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (12)', indent: true },
   { href: '#mcp-resources', label: 'Resources (6)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -418,12 +418,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 15 governance tools across 9 groups (core governance, session continuity, credential hygiene, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture) plus 4 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 12 governance tools across 3 groups (core governance, retrospection, agent identity) plus 4 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (15)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (12)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
@@ -444,22 +444,9 @@ except Exception as e:
                       { tool: 'dashclaw_session_start', desc: 'Register agent session', inputs: 'agent_id, workspace' },
                       { tool: 'dashclaw_session_end', desc: 'Close session', inputs: 'session_id, status, summary' },
                       { tool: 'dashclaw_session_retro', desc: 'Read the session\'s own defensibility retro (posture + evidenced findings)', inputs: 'session_id' },
-                      { group: 'Session continuity', tool: 'dashclaw_handoff_create', desc: 'Write handoff bundle for next session', inputs: 'bundle, agent_id, project_id' },
-                      { tool: 'dashclaw_handoff_latest', desc: 'Fetch latest unconsumed handoff', inputs: 'agent_id, project_id' },
-                      { tool: 'dashclaw_handoff_consume', desc: 'Mark handoff consumed (idempotent)', inputs: 'id, session_id' },
-                      { group: 'Credential hygiene', tool: 'dashclaw_secret_list', desc: 'List tracked secrets (metadata only)', inputs: 'agent_id' },
-                      { tool: 'dashclaw_secret_due', desc: 'Secrets coming due for rotation', inputs: 'within_days, agent_id' },
-                      { tool: 'dashclaw_secret_mark_rotated', desc: 'Mark secret rotated (operator-confirmed)', inputs: 'id' },
-                      { group: 'Open loops', tool: 'dashclaw_loop_add', desc: 'Register action-scoped commitment', inputs: 'action_id, loop_type, description' },
-                      { tool: 'dashclaw_loop_list', desc: 'List open/resolved loops', inputs: 'action_id, status, priority' },
-                      { tool: 'dashclaw_loop_close', desc: 'Resolve an open loop', inputs: 'id, resolution' },
                       { group: 'Retrospection', tool: 'dashclaw_assumption_record', desc: 'Record an unverified assumption underpinning an action', inputs: 'action_id, assumption, basis' },
                       { tool: 'dashclaw_decisions_recent', desc: 'Recent governed-action ledger', inputs: 'agent_id, action_type, decision, since' },
-                      { group: 'Agent inbox', tool: 'dashclaw_inbox_list', desc: 'List inbox messages + unread count', inputs: 'agent_id, direction, unread, type, limit' },
-                      { tool: 'dashclaw_messages_mark_read', desc: 'Mark inbox messages as read', inputs: 'message_ids, agent_id' },
                       { group: 'Agent identity', tool: 'dashclaw_pair', desc: 'Enroll identity: generate keypair locally, submit public key for approval', inputs: 'agent_id, agent_name, wait' },
-                      { group: 'Governance posture', tool: 'dashclaw_posture', desc: 'Read the org governance posture score + 6 dimensions + findings queue (read-only)', inputs: 'dimension' },
-                      { tool: 'dashclaw_posture_next', desc: 'The next prioritized remediation finding from the posture queue (read-only)', inputs: '(none)' },
                     ] as Array<{ group?: string; tool: string; desc: string; inputs: string }>).map((row) => (
                       <tr key={row.tool} className="border-b border-border">
                         <td className="py-2 pr-4 font-mono text-xs text-brand">
@@ -1424,7 +1411,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 46 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a capability registry and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 45 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}

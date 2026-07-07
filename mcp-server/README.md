@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 15 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 12 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
 
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (15)
+## Tools (12)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -110,14 +110,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_handoff_create` | Write handoff bundle for next session |
 | `dashclaw_handoff_latest` | Fetch latest unconsumed handoff |
 | `dashclaw_handoff_consume` | Mark handoff consumed (idempotent) |
-
-**Credential hygiene (3)** — check rotation due-dates before acting on tracked credentials.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_secret_list` | List tracked secrets (metadata only) |
-| `dashclaw_secret_due` | Secrets coming due for rotation |
-| `dashclaw_secret_mark_rotated` | Mark secret rotated (operator-confirmed) |
 
 **Open loops (3)** — action-scoped commitments ("I will X later" tracker).
 

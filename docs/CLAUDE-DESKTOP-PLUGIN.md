@@ -1,6 +1,6 @@
 # DashClaw in the Claude app — connect guide
 
-Get the **15 governance tools** (`dashclaw_guard`, `dashclaw_record`, …) into the Claude consumer app (web chat / Claude Desktop / Cowork) as a **custom connector**. You paste one URL and authorize once — **no API key in the UI, no env var, no ZIP, no plugin upload.** Claude's connector flow requires OAuth, and your deployed DashClaw instance is now its own OAuth server.
+Get the **12 governance tools** (`dashclaw_guard`, `dashclaw_record`, …) into the Claude consumer app (web chat / Claude Desktop / Cowork) as a **custom connector**. You paste one URL and authorize once — **no API key in the UI, no env var, no ZIP, no plugin upload.** Claude's connector flow requires OAuth, and your deployed DashClaw instance is now its own OAuth server.
 
 ## TL;DR
 1. Deploy your DashClaw instance and make sure you can log in to it.

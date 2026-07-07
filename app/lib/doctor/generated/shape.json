@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:6385ba96a0300d28ae65300b5a8c807de3daf7c5",
+  "timestamp": "sha1:32e820934f2900177101def9a4a09f580b26a287",
   "routes": [
     {
       "path": "/api/actions",
@@ -1031,57 +1031,6 @@
       "file_path": "app/api/prompts/server-setup/raw/route.ts"
     },
     {
-      "path": "/api/secrets",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/secrets/route.ts"
-    },
-    {
-      "path": "/api/secrets/[id]",
-      "methods": [
-        "DELETE",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/secrets/[id]/route.ts"
-    },
-    {
-      "path": "/api/secrets/[id]/value",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/secrets/[id]/value/route.ts"
-    },
-    {
-      "path": "/api/secrets/env",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/secrets/env/route.ts"
-    },
-    {
-      "path": "/api/secrets/rotation-due",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/secrets/rotation-due/route.ts"
-    },
-    {
       "path": "/api/security/prompt-injection",
       "methods": [
         "GET",
@@ -1297,15 +1246,6 @@
       ],
       "archived": false,
       "file_path": "app/api/webhooks/[webhookId]/test/route.ts"
-    },
-    {
-      "path": "/api/widget/summary",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/widget/summary/route.ts"
     },
     {
       "path": "/api/workspace/export",
@@ -2266,11 +2206,7 @@
       "name": "ENCRYPTION_KEY",
       "required": true,
       "files": [
-        "__tests__/unit/governed-secrets-values.repository.test.js",
-        "__tests__/unit/secrets-env.route.test.js",
         "__tests__/unit/security-status.route.test.js",
-        "app/api/secrets/[id]/value/route.ts",
-        "app/api/secrets/env/route.ts",
         "app/api/security/status/route.ts",
         "app/api/settings/route.ts",
         "app/lib/encryption.ts"
@@ -2687,8 +2623,6 @@
         "app/api/auth/config/route.ts",
         "app/api/health/route.ts",
         "app/api/oauth/register/route.ts",
-        "app/api/secrets/[id]/value/route.ts",
-        "app/api/secrets/env/route.ts",
         "app/api/settings/route.ts",
         "app/lib/apiErrors.ts",
         "app/lib/auth.ts",

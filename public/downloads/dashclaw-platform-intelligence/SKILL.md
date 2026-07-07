@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:6385ba96a0300d28ae65300b5a8c807de3daf7c5`
+**Shape snapshot:** `sha1:32e820934f2900177101def9a4a09f580b26a287`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **133** active API routes across **49** categories (133 total including archived)
+- **127** active API routes across **47** categories (127 total including archived)
 - **4** required + **187** optional environment variables
 - **112** database tables
 
@@ -263,14 +263,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/prompts/sdk-coverage/raw`
 - `GET` `/api/prompts/server-setup/raw`
 
-### `secrets`
-
-- `GET, POST` `/api/secrets`
-- `DELETE, PATCH` `/api/secrets/[id]`
-- `POST` `/api/secrets/[id]/value`
-- `GET` `/api/secrets/env`
-- `GET` `/api/secrets/rotation-due`
-
 ### `security`
 
 - `GET, POST` `/api/security/prompt-injection`
@@ -323,10 +315,6 @@ neither exists. When you cannot run the queries above, fall back **in this order
 - `GET` `/api/webhooks/[webhookId]/deliveries`
 - `POST` `/api/webhooks/[webhookId]/test`
 
-### `widget`
-
-- `GET` `/api/widget/summary`
-
 ### `workspace`
 
 - `GET` `/api/workspace/export`
@@ -338,7 +326,7 @@ These must be set — DashClaw will fail to start without them.
 
 - **`DASHCLAW_API_KEY`** - referenced in 81 file(s)
 - **`DATABASE_URL`** - referenced in 75 file(s)
-- **`ENCRYPTION_KEY`** - referenced in 8 file(s)
+- **`ENCRYPTION_KEY`** - referenced in 4 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
 ## Optional Environment Variables

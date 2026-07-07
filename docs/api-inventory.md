@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `133`
+- Total routes: `127`
 - Stable routes: `38`
 - Beta routes: `17`
-- Experimental routes: `78`
+- Experimental routes: `72`
 
 ## Routes
 
@@ -125,11 +125,6 @@ doc-type: architecture
 | `/api/prompts/agent-connect/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/agent-connect/raw/route.ts` |
 | `/api/prompts/sdk-coverage/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/sdk-coverage/raw/route.ts` |
 | `/api/prompts/server-setup/raw` | `GET` | `experimental` | `(default)` | `app/api/prompts/server-setup/raw/route.ts` |
-| `/api/secrets` | `GET, POST` | `experimental` | `(default)` | `app/api/secrets/route.ts` |
-| `/api/secrets/env` | `GET` | `experimental` | `(default)` | `app/api/secrets/env/route.ts` |
-| `/api/secrets/rotation-due` | `GET` | `experimental` | `(default)` | `app/api/secrets/rotation-due/route.ts` |
-| `/api/secrets/{id}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/secrets/[id]/route.ts` |
-| `/api/secrets/{id}/value` | `POST` | `experimental` | `(default)` | `app/api/secrets/[id]/value/route.ts` |
 | `/api/security/prompt-injection` | `GET, POST` | `beta` | `/api/security` | `app/api/security/prompt-injection/route.ts` |
 | `/api/security/status` | `GET` | `beta` | `/api/security` | `app/api/security/status/route.ts` |
 | `/api/self-governance` | `GET` | `experimental` | `(default)` | `app/api/self-governance/route.ts` |
@@ -152,7 +147,6 @@ doc-type: architecture
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
 | `/api/webhooks/{webhookId}/test` | `POST` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/test/route.ts` |
-| `/api/widget/summary` | `GET` | `experimental` | `(default)` | `app/api/widget/summary/route.ts` |
 | `/api/workspace/export` | `GET` | `experimental` | `(default)` | `app/api/workspace/export/route.ts` |
 | `/api/workspace/import` | `POST` | `experimental` | `(default)` | `app/api/workspace/import/route.ts` |
 

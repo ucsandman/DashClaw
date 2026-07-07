@@ -3,7 +3,7 @@ Claude Managed Agent + DashClaw MCP Governance
 
 The simplest way to govern a Claude Managed Agent with DashClaw.
 Instead of custom tools and HTTP boilerplate, the agent connects
-to DashClaw's MCP server and gets 15 governance tools automatically.
+to DashClaw's MCP server and gets 12 governance tools automatically.
 
 Optionally attach the DashClaw governance skill for even better behavior —
 the skill teaches the agent the governance protocol so you don't need

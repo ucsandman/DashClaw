@@ -32,7 +32,7 @@ function lastRequestUrl(): URL {
 }
 
 beforeEach(() => {
-  fetchMock = vi.fn(async () => mockOk({ loops: [], decisions: [], messages: [], secrets: [] }));
+  fetchMock = vi.fn(async () => mockOk({ loops: [], decisions: [], messages: [] }));
   vi.stubGlobal("fetch", fetchMock);
 });
 
@@ -42,8 +42,6 @@ afterEach(() => {
 
 const READ_TOOLS: Array<[string, Record<string, unknown>]> = [
   ["dashclaw_decisions_recent", {}],
-  ["dashclaw_secret_list", {}],
-  ["dashclaw_secret_due", {}],
 ];
 
 describe("read tools: explicit agent_id filter wins over configured id", () => {

@@ -25,7 +25,7 @@ Generated inventories remain authoritative for generated facts:
 | SDK parity by domain | `docs/sdk-parity.md` |
 | Durable execution finality spec | `docs/architecture/durable-execution-finality.md` |
 
-As of this verification (2026-07-07), generated API inventory reports **133 routes**: **38 stable**, **17 beta**, **78 experimental**.
+As of this verification (2026-07-07), generated API inventory reports **127 routes**: **38 stable**, **17 beta**, **72 experimental**.
 
 ## Product boundary
 
@@ -56,7 +56,6 @@ As of this verification (2026-07-07), generated API inventory reports **133 rout
 | Replay | `/replay/[actionId]` | Action-level evidence view for a single governed decision. |
 | Setup | `/setup` | Readiness verification, instance health, setup proof, migration helper entry points, write-path health (live doctor canary verdicts proving the heartbeat/action-ledger/guard-audit write paths land), the live host canary — hourly external probes of the production hosts as a real client (marketing, docs, demo entry, trial-mint fail-closed, OAuth discovery, hosted MCP handshake) reported via `POST /api/live-canary`, with fresh failures also raised as a posture auditability finding — and enforcement liveness: the probe verdict card (`#enforcement-liveness`, holding/stale/broken) proving the pretool hook seam actually holds held actions, where a probe that has silently stopped running renders stale, never green. |
 | Doctor | `/doctor` | In-app diagnostics from `GET /api/doctor`, grouped by category, with one-click fixes (admin keys) via `POST /api/doctor/fix`. |
-| Secrets | `/secrets` | Secret-rotation tracking over `governed_secrets` (`/api/secrets`): list, track, mark-rotated, delete, plus an org-wide rotation-due banner. Stores rotation metadata only — never secret values. |
 | Connect | `/connect` | Path to first governed action, including hosted trial provisioning when `DASHCLAW_HOSTED=true`. |
 | Agent Roster | `/agents` | Fleet roster (presence, health, recent actions) with a per-agent Coverage column — record coverage (transcript-verified expected-vs-recorded tool use) and outcome coverage (`close_source` provenance), with an explicit "no evidence" state when an agent has no reports. A Fan-outs panel below the roster lists recent multi-agent harness sessions (parent, agents involved, spawn/action counts, first/last activity). Backed by `GET /api/agents` + `GET /api/coverage` + `GET /api/agents/fanouts`. |
 | Agent Profiles | `/agents/[agentId]` | Governance-focused agent profile with trust posture, decision history, assumptions, signals, and policies. |
@@ -132,7 +131,6 @@ These modules consume core runtime data and add operator value without changing 
 | Prompts | `/api/prompts/*` | Prompt templates, versions, rendering, stats, and raw setup/connect prompts. |
 | Billing and usage | `/api/billing/*`, `/api/usage/*`, `/api/cron/reset-meters` | Stripe checkout/portal, usage readout, and meter reset. |
 | Session handoffs | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/{id}`, `POST /api/handoffs/{id}/consume` | Bridges agent sessions of the same agent: prior session writes a `{summary, open_loops, decisions_made, state_snapshot}` bundle on `on_session_end`; next session reads it via `on_session_start` and injects on first `pre_llm_call`. Hermes hooks wire this automatically; agents on Claude Code / Codex pick up via MCP (`dashclaw_handoff_create/latest/consume`). Table: `code_session_handoffs`. |
-| Operator-tracked secrets | `GET/POST /api/secrets`, `PATCH/DELETE /api/secrets/{id}`, `GET /api/secrets/rotation-due` | Operator-owned credential rotation tracker. Stores metadata only — no values. Agents call `dashclaw_secret_due` before acting on credentials and `dashclaw_secret_mark_rotated` only when an operator confirms a rotation. Table: `governed_secrets`. |
 | Governance Posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | Govern-the-governance meta layer: a gaming-resistant org governance score over 6 dimensions measuring what the fleet CAN do vs what it actually GOVERNS, with a prioritized findings queue and a human-gated, DRAFT-ONLY remediation loop (`resolve` does `create_draft \| snooze \| accept_risk` — never auto-activates a policy). The score rises only from ACTIVE, proven-to-fire policies; drafting never raises it. `scan` recomputes and persists a trend snapshot. Tables: `posture_findings_state`, `posture_snapshots`. UI: `/posture`. MCP (read-only): `dashclaw_posture`, `dashclaw_posture_next`. CLI: `dashclaw posture`, `dashclaw next`, `dashclaw posture resolve <key>`. Experimental. |
 
 ### Tier 3: Archived platform-era routes
@@ -225,7 +223,7 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **46 public methods** in `sdk/dashclaw.js` and the Python SDK **90** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **45 public methods** in `sdk/dashclaw.js` and the Python SDK **89** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`

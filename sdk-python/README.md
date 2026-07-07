@@ -15,14 +15,14 @@ pip install dashclaw
 Python agents typically pair the SDK with one or more of these:
 
 - **[`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli)** — `dashclaw approvals`, `dashclaw approve <id>`, `dashclaw deny <id>` for terminal approvals. Also `dashclaw doctor` (report-only diagnosis; `--fix` applies safe repairs) and `dashclaw logout`. Config at env vars or `~/.dashclaw/config.json` (`600`).
-- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **15 tools** across 9 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), session continuity (`dashclaw_handoff_create/latest/consume`), credential hygiene (`dashclaw_secret_list/due/mark_rotated`), open loops (`dashclaw_loop_add/list/close`), learning + retrospection (`dashclaw_learning_log/query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent inbox (`dashclaw_inbox_list`, `dashclaw_messages_mark_read`), agent identity (`dashclaw_pair`), behavior learning (`dashclaw_behavior_suggestions`), governance posture (`dashclaw_posture`, `dashclaw_posture_next` — read-only). Plus 4 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
+- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **12 tools** across 3 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), retrospection (`dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent identity (`dashclaw_pair`). Plus 4 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
 - **[`@dashclaw/openclaw-plugin`](https://www.npmjs.com/package/@dashclaw/openclaw-plugin)** — Governance plugin for OpenClaw lifecycle hooks (`PreToolUse` / `PostToolUse`) that calls guard / record / wait-for-approval automatically.
 - **Self-host Doctor** — Operators run `npm run doctor` on the DashClaw host for filesystem-level fixes (env writes, migrations, default policy seed, drift guard).
 - **Claude governance skill** — Anthropic Managed Agents or Claude Code can load the `@dashclaw/governance` skill to teach the agent the MCP usage protocol. Pairs with the MCP server.
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (90 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (89 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1064,9 +1064,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (90 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (89 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **46 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **45 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1201,20 +1201,6 @@ history = claw.get_capability_history("cap_123", action_type="capability_test", 
 | `get_capability_health(capability_id)` | Get derived health and certification data for one capability |
 | `list_capability_health(status=None, certification_status=None, stale_only=None, limit=50, offset=0)` | List capability health rows with operator filters |
 | `get_capability_history(capability_id, action_type=None, status=None, limit=20, offset=0)` | Fetch recent invoke/test history for one capability |
-
-## Managed Secrets
-
-Opt-in delivery of decrypted managed-secret values to agents. `get_agent_env` fetches the delivery-enabled bundle for an agent (org-level + agent-level merged, decrypted server-side). **The returned `env` dict contains live secret values — keep it memory-only: never log it, never write it to disk or a cache, never echo values to a model or a user.** Secret *metadata* management (register, rotate, delete) stays operator/MCP-only. Node parity: `getAgentEnv({ agentId })`. CLI: `dashclaw env [--agent <id>] -- <command>`.
-
-```python
-bundle = claw.get_agent_env()                    # this client's agent
-bundle = claw.get_agent_env(agent_id="worker-1") # explicit agent
-os.environ.update(bundle["env"])                  # inject, then let it fall out of scope
-```
-
-| Method | Description |
-| --- | --- |
-| `get_agent_env(agent_id=None)` | GET `/api/secrets/env` — delivery-enabled secret bundle `{env, count, delivered}` (memory-only; never log values) |
 
 ## Agent Registry
 

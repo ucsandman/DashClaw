@@ -2,15 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { TOOL_DEFINITIONS, createToolHandlers } from '../../mcp-server/lib/tools.js';
 
 const NEW_TOOLS = [
-  'dashclaw_secret_list',
-  'dashclaw_secret_due',
-  'dashclaw_secret_mark_rotated',
   'dashclaw_decisions_recent',
   'dashclaw_assumption_record',
 ];
 
 describe('MCP toolkit tools', () => {
-  it('all 5 new toolkit tools are defined', () => {
+  it('all 2 new toolkit tools are defined', () => {
     const names = TOOL_DEFINITIONS.map((t) => t.name);
     for (const tool of NEW_TOOLS) {
       expect(names).toContain(tool);
@@ -49,7 +46,6 @@ describe('MCP toolkit tools', () => {
     const handlers = createToolHandlers(client);
 
     await handlers.dashclaw_decisions_recent({ agent_id: 'spoofed' });
-    await handlers.dashclaw_secret_list({ agent_id: 'spoofed' });
     for (const c of captured) {
       expect(c.path).toMatch(/agent_id=spoofed/);
     }

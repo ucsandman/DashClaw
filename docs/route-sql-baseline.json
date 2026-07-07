@@ -10,7 +10,7 @@
       "label": "sql.query call"
     }
   ],
-  "files_scanned": 134,
+  "files_scanned": 128,
   "files_with_direct_sql": 11,
   "totals": {
     "tagged_template": 21,

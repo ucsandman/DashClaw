@@ -85,8 +85,6 @@ export const CONFIGURE_PAGES = [
   { path: '/identities', label: 'Agent identities' },
   { path: '/settings', label: 'Settings' },
   { path: '/team', label: 'Team' },
-  { path: '/secrets', label: 'Managed secrets' },
-  { path: '/widget', label: 'Widget / PiP' },
   { path: '/invite/demo-token', label: 'Invite accept [demo-token]' },
 ];
 
