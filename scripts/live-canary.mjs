@@ -78,8 +78,8 @@ const PROBES = [
   },
   {
     id: 'demo-cookie',
-    title: 'Demo cookie renders mission control (the v4.36.3 class)',
-    target: `${MARKETING}/mission-control`,
+    title: 'Demo cookie renders the Approvals inbox (the v4.36.3 class)',
+    target: `${MARKETING}/approvals`,
     request: { redirect: 'manual', headers: { cookie: 'dashclaw_demo=1' } },
     assert: ({ status }) => (status === 200 ? null : `expected 200 with the demo cookie, got ${status}`),
   },
