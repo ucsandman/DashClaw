@@ -194,13 +194,9 @@ npm install dashclaw     # Node 18+
 pip install dashclaw     # Python 3.7+
 ```
 
-28-method canonical Node surface: core governance, durable execution finality, learning analytics, messaging, handoffs, security scanning, sessions, agent reputation, agent registry, drift detection, and the execution-studio capability runtime. The Python SDK exposes 73 methods including ready-made framework integrations:
+28-method canonical Node surface: core governance (guard, record, assumptions, approvals), durable execution finality, security scanning, sessions and action graph, agent pairing, risk signals, and policy simulation. The Python SDK exposes 51 methods, plus ready-made CrewAI and AutoGen framework integrations:
 
 ```python
-# LangChain — auto-log LLM calls, tool use, and costs
-from dashclaw.integrations.langchain import DashClawCallbackHandler
-agent.run("Hello world", callbacks=[DashClawCallbackHandler(claw)])
-
 # CrewAI — per-task callback or agent-level instrumentation
 from dashclaw.integrations.crewai import DashClawCrewIntegration
 integration = DashClawCrewIntegration(claw)

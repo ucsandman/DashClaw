@@ -61,7 +61,7 @@ counts. Query it directly over HTTP.
 
 ## Governance Posture (no SDK wrapper)
 
-`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 28 Node / 73 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
+`GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/:key/resolve`, and `POST /api/posture/scan` are read-only/operator-gated governance-posture routes — a gaming-resistant org score (6 dimensions) plus a human-gated remediation loop. They have **no SDK method** (and do not change the 28 Node / 51 Python counts); query them directly over HTTP, or use the `dashclaw_posture` / `dashclaw_posture_next` MCP tools or the `dashclaw posture` CLI command.
 
 ## Why this moved
 

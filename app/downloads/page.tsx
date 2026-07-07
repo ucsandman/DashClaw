@@ -390,7 +390,7 @@ hermes dashclaw doctor`}
                 </a>
               </div>
               <p className="text-xs text-text-secondary leading-relaxed mb-3">
-                Broader Python surface (73 methods) with framework integrations: LangChain callback handler, CrewAI task instrumentation, and AutoGen conversation monitoring.
+                Broader Python surface (51 methods) with framework integrations: CrewAI task instrumentation and AutoGen conversation monitoring.
               </p>
               <CommandBlock label={`Install (v${process.env.NEXT_PUBLIC_SDK_PYTHON_VERSION})`}>{`pip install dashclaw`}</CommandBlock>
             </div>

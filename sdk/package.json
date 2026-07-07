@@ -12,10 +12,6 @@
     ".": {
       "import": "./dashclaw.js",
       "require": "./index.cjs"
-    },
-    "./legacy": {
-      "import": "./legacy/dashclaw-v1.js",
-      "require": "./legacy/index-v1.cjs"
     }
   },
   "bin": {
@@ -26,7 +22,6 @@
     "index.cjs",
     "LICENSE",
     "README.md",
-    "legacy/",
     "bin/"
   ],
   "keywords": [

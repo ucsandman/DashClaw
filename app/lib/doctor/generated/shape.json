@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:7b34dfb4d6befbb625ea607474226f4c76dbf2df",
+  "timestamp": "sha1:100a17dfedc0d3715052b3c83b06792ddc3e2b64",
   "routes": [
     {
       "path": "/api/actions",
@@ -1779,14 +1779,6 @@
       "required": false,
       "files": [
         "app/lib/integrity/server-key.ts"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "DASHCLAW_SUPPRESS_LEGACY_WARNING",
-      "required": false,
-      "files": [
-        "sdk/legacy/dashclaw-v1.js"
       ],
       "in_env_example": false
     },

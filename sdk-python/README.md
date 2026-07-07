@@ -1,8 +1,8 @@
 # DashClaw Python SDK: Agent Decision Infrastructure
 
-Full-featured decision governance toolkit for the [DashClaw](https://github.com/ucsandman/DashClaw) platform. Broad, evolving surface area across action recording, guard enforcement, compliance, messaging, and more. Zero dependencies, requires Python 3.7+.
+Governance-core toolkit for the [DashClaw](https://github.com/ucsandman/DashClaw) runtime: guard enforcement, action recording, assumption tracking, approvals, sessions, and security scanning. Zero dependencies, requires Python 3.7+.
 
-DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, assumption tracking, and compliance mapping.
+DashClaw treats every agent action as a governed decision. The SDK provides decision recording, policy enforcement, assumption tracking, and human-in-the-loop approvals.
 
 ## Install
 
@@ -15,14 +15,14 @@ pip install dashclaw
 Python agents typically pair the SDK with one or more of these:
 
 - **[`@dashclaw/cli`](https://www.npmjs.com/package/@dashclaw/cli)** — `dashclaw approvals`, `dashclaw approve <id>`, `dashclaw deny <id>` for terminal approvals. Also `dashclaw doctor` (report-only diagnosis; `--fix` applies safe repairs) and `dashclaw logout`. Config at env vars or `~/.dashclaw/config.json` (`600`).
-- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **12 tools** across 3 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), retrospection (`dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent identity (`dashclaw_pair`). Plus 4 resources: `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
+- **[`@dashclaw/mcp-server`](https://www.npmjs.com/package/@dashclaw/mcp-server)** — Model Context Protocol server exposing governance as **12 tools** across 3 groups: core governance (`dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`), retrospection (`dashclaw_decisions_recent`, `dashclaw_assumption_record`), agent identity (`dashclaw_pair`). Plus 3 resources: `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`. stdio or Streamable HTTP at `POST /api/mcp`.
 - **[`@dashclaw/openclaw-plugin`](https://www.npmjs.com/package/@dashclaw/openclaw-plugin)** — Governance plugin for OpenClaw lifecycle hooks (`PreToolUse` / `PostToolUse`) that calls guard / record / wait-for-approval automatically.
 - **Self-host Doctor** — Operators run `npm run doctor` on the DashClaw host for filesystem-level fixes (env writes, migrations, default policy seed, drift guard).
 - **Claude governance skill** — Anthropic Managed Agents or Claude Code can load the `@dashclaw/governance` skill to teach the agent the MCP usage protocol. Pairs with the MCP server.
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (73 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK exposes the governance-core surface (51 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -117,123 +117,35 @@ signals = claw.get_signals()
 
 ## Action Context (Auto-Tagging)
 
-Use `action_context()` to automatically tag messages and assumptions with an action_id:
+Use `action_context()` to automatically tag assumptions and outcome updates with an action_id:
 
 ```python
 action = claw.create_action(action_type="deploy", declared_goal="Deploy v2")
 
 with claw.action_context(action["action_id"]) as ctx:
-    ctx.send_message("Starting deploy", to="ops-agent")
     ctx.record_assumption({"assumption": "Staging tests passed"})
     ctx.update_outcome(status="completed", output_summary="Deployed")
 ```
 
-The context manager auto-cleans up on exceptions. Messages and assumptions sent through the context are automatically correlated with the action in the decisions ledger and timeline.
+The context manager auto-cleans up on exceptions. Assumptions and outcome updates made through the context are automatically correlated with the action in the decisions ledger and timeline.
 
-## Agent Presence & Health
+## Assumptions
 
-Monitor agent uptime and status in real-time. Use heartbeats to detect when an agent crashes or loses network connectivity.
-
-> **As of DashClaw 2.13.0, heartbeats are implicit on `create_action()`.** Agents that actively submit actions will automatically show as "online" without needing to call `heartbeat()`. Use the methods below only when you want to report presence without recording an action (e.g., idle polling, background threads).
+Decision integrity primitives: register the assumptions a decision relies on and invalidate them when they no longer hold. Invalidated assumptions surface as an `assumption_drift` signal on `get_signals()`.
 
 ```python
-# Report presence manually
-claw.heartbeat(status="busy", current_task_id="task_123")
-
-# Start reporting presence automatically in a background thread
-claw.start_heartbeat(interval=60)
-
-# Stop reporting
-claw.stop_heartbeat()
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `heartbeat(status="online", current_task_id=None, metadata=None)` | Report agent presence and health |
-| `start_heartbeat(interval=60, **kwargs)` | Start an automatic heartbeat timer in a background thread |
-| `stop_heartbeat()` | Stop the automatic heartbeat timer |
-
-## Loops & Assumptions
-
-Decision integrity primitives: track open loops, register assumptions, and detect drift.
-
-```python
-# Register an open loop
-loop = claw.register_open_loop(action_id, "dependency", "Waiting for DB migration")
-claw.resolve_open_loop(loop["loop"]["id"], status="resolved", resolution="Migration complete")
-loops = claw.get_open_loops(status="open")
-
 # Register and validate assumptions
 assumption = claw.register_assumption(action_id, "API rate limit is 1000 req/min")
 claw.validate_assumption(assumption["assumption"]["id"], validated=True)
-
-# Get drift report (invalidated assumptions)
-drift = claw.get_drift_report(agent_id="my-agent")
 ```
 
 **Methods:**
 
 | Method | Description |
 |--------|-------------|
-| `register_open_loop(action_id, loop_type, description, **kwargs)` | Register an open loop for an action |
-| `resolve_open_loop(loop_id, status, resolution=None)` | Resolve an open loop |
-| `get_open_loops(**filters)` | Query open loops. Filters: status, agent_id |
 | `register_assumption(action_id, assumption, **kwargs)` | Register an assumption tied to an action |
 | `get_assumption(assumption_id)` | Get a single assumption by ID |
 | `validate_assumption(assumption_id, validated, invalidated_reason=None)` | Validate or invalidate an assumption |
-| `get_drift_report(**filters)` | Get invalidated assumptions (drift report) |
-
-## Dashboard Data (Decisions, Goals, Content, Interactions)
-
-Record learning decisions, goals, content, and interaction logs:
-
-```python
-# Record a learning decision
-claw.record_decision("Chose retry strategy over circuit breaker", reasoning="Lower latency impact")
-
-# Create a goal
-claw.create_goal("Reduce p99 latency to <200ms", priority="high")
-
-# Record content produced
-claw.record_content("Weekly Report", content_type="report", body="...")
-
-# Record an interaction
-claw.record_interaction("Collaborated with QA agent on test plan")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `record_decision(decision, **kwargs)` | Record a learning/decision entry. Optional: reasoning, confidence |
-| `create_goal(title, **kwargs)` | Create a goal. Optional: priority, deadline |
-| `record_content(title, **kwargs)` | Record content produced. Optional: content_type, body |
-| `record_interaction(summary, **kwargs)` | Record an interaction/relationship event |
-
-## Session Handoffs
-
-Capture session context for seamless handoffs between sessions or agents:
-
-```python
-# Create a handoff
-claw.create_handoff("Finished data pipeline setup. Next: add signal checks.", context={"pipeline_id": "p_123"})
-
-# Get handoffs
-handoffs = claw.get_handoffs(limit=5)
-
-# Get the latest handoff
-latest = claw.get_latest_handoff()
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `create_handoff(summary, **kwargs)` | Create a session handoff. Optional: context, tags |
-| `get_handoffs(**filters)` | Get handoffs for this agent. Filters: limit, offset |
-| `get_latest_handoff()` | Get the most recent handoff for this agent |
 
 ## Identity Binding (Security)
 
@@ -511,153 +423,6 @@ claw.delete_webhook(created["webhook"]["id"])
 | `test_webhook(webhook_id)` | Send a test delivery to a webhook |
 | `get_webhook_deliveries(webhook_id)` | Get delivery history for a webhook |
 
-## Adaptive Recommendations
-
-Build and consume action recommendations based on prior outcomes:
-
-```python
-claw.rebuild_recommendations(lookback_days=30, min_samples=5)
-recs = claw.get_recommendations(
-    action_type="deploy",
-    limit=5,
-    include_metrics=True,
-)
-metrics = claw.get_recommendation_metrics(action_type="deploy", lookback_days=30)
-
-candidate = {
-    "action_type": "deploy",
-    "declared_goal": "Ship v1.6",
-    "risk_score": 85
-}
-adapted = claw.recommend_action(candidate)
-print(adapted["action"])
-
-# Admin/service controls
-claw.set_recommendation_active("lrec_123", active=False)
-claw.record_recommendation_events({
-    "recommendation_id": "lrec_123",
-    "event_type": "fetched",
-    "details": {"source": "python-sdk"},
-})
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `get_recommendations(action_type=None, limit=50, **kwargs)` | Get recommendations. Optional: agent_id, include_inactive, include_metrics, lookback_days |
-| `get_recommendation_metrics(action_type=None, limit=100, **kwargs)` | Get recommendation performance metrics |
-| `record_recommendation_events(events)` | Record recommendation lifecycle events (fetched, applied, overridden) |
-| `set_recommendation_active(recommendation_id, active)` | Enable/disable a recommendation |
-| `rebuild_recommendations(action_type=None, **kwargs)` | Rebuild recommendations from action history |
-| `recommend_action(action)` | Get adapted action with recommendation hints applied |
-
-## Automation Snippets
-
-Save, search, fetch, and reuse code snippets across agent sessions:
-
-```python
-# Save a snippet (upserts by name)
-claw.save_snippet("fetch-with-retry", code="async def fetch_retry(url, n=3): ...", language="python")
-
-# Fetch a single snippet by ID
-snippet = claw.get_snippet("sn_abc123")
-
-# Search snippets
-results = claw.get_snippets(language="python", search="retry")
-
-# Mark as used (increments use_count)
-claw.use_snippet("sn_abc123")
-
-# Delete
-claw.delete_snippet("sn_abc123")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `save_snippet(name, code, **kwargs)` | Save a snippet (upserts by name). Optional: language, description |
-| `get_snippets(**filters)` | Search snippets. Filters: language, search, limit |
-| `get_snippet(snippet_id)` | Get a single snippet by ID |
-| `use_snippet(snippet_id)` | Mark a snippet as used (increments use_count) |
-| `delete_snippet(snippet_id)` | Delete a snippet |
-
-## Agent Messaging
-
-Send messages, manage inboxes, message threads, and shared documents:
-
-```python
-# Send a message
-claw.send_message("Deploy complete", to="ops-agent", message_type="status")
-
-# Broadcast to all agents
-claw.broadcast(body="Maintenance window starts in 5 minutes", message_type="status")
-
-# Inbox management
-inbox = claw.get_inbox(unread=True)
-claw.mark_read([msg["id"] for msg in inbox["messages"][:2]])
-claw.archive_messages(["msg_abc", "msg_def"])
-
-# Message threads
-msg_thread = claw.create_message_thread("Ops Coordination", participants=["agent-a", "agent-b"])
-threads = claw.get_message_threads(status="active")
-claw.resolve_message_thread(msg_thread["thread"]["id"], summary="Issue resolved")
-
-# Shared docs
-claw.save_shared_doc(name="Ops Runbook", content="Updated checklist")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `send_message(body, to=None, message_type="info", **kwargs)` | Send a message. Optional: subject, thread_id, attachments (`[{filename, mime_type, data}]`, base64, max 3) |
-| `get_inbox(**filters)` | Get inbox messages. Filters: unread, limit |
-| `get_sent_messages(message_type=None, thread_id=None, limit=None)` | Get messages sent by this agent |
-| `get_messages(direction=None, message_type=None, unread=None, thread_id=None, limit=None)` | Flexible query: direction is 'inbox', 'sent', or 'all' |
-| `get_message(message_id)` | Fetch a single message by ID |
-| `mark_read(message_ids)` | Mark messages as read |
-| `archive_messages(message_ids)` | Archive messages |
-| `broadcast(body, message_type="info", subject=None, thread_id=None)` | Broadcast to all agents |
-| `create_message_thread(name, participants=None)` | Create a message thread |
-| `get_message_threads(status=None, limit=None)` | List message threads |
-| `resolve_message_thread(thread_id, summary=None)` | Resolve a message thread |
-| `save_shared_doc(name, content)` | Save a shared document |
-| `get_attachment_url(attachment_id)` | Get a URL to download an attachment (`att_*`) |
-| `get_attachment(attachment_id)` | Download an attachment's binary data |
-
-### `claw.get_attachment_url(attachment_id)`
-
-Get a URL to download an attachment.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `attachment_id` | `str` | Attachment ID (`att_*`) |
-
-**Returns:** `str`: URL to fetch the attachment
-
----
-
-### `claw.get_attachment(attachment_id)`
-
-Download an attachment's binary data.
-
-| Parameter | Type | Description |
-|---|---|---|
-| `attachment_id` | `str` | Attachment ID (`att_*`) |
-
-**Returns:** `dict` with keys `data` (bytes), `filename` (str), `mime_type` (str)
-
-```python
-inbox = claw.get_inbox()
-for msg in inbox["messages"]:
-    for att in msg.get("attachments", []):
-        result = claw.get_attachment(att["id"])
-        with open(result["filename"], "wb") as f:
-            f.write(result["data"])
-```
-
 ## Policy Testing
 
 Run guardrails tests, generate compliance proof reports, and import policy packs.
@@ -687,199 +452,14 @@ claw.import_policies(yaml="policies:\n  - name: block-deploys\n    ...")
 | `get_proof_report(format="json")` | Generate compliance proof report. Format: "json" or "md" |
 | `import_policies(pack=None, yaml=None)` | Import a policy pack or raw YAML. Packs: enterprise-strict, smb-safe, startup-growth, development |
 
-## Compliance Engine
-
-Map policies to regulatory frameworks, run gap analysis, and generate compliance reports.
-
-```python
-# Map policies to SOC 2 controls
-mapping = claw.map_compliance("soc2")
-print(f"SOC 2 coverage: {mapping['coverage_pct']}%")
-for ctrl in [c for c in mapping["controls"] if not c["covered"]]:
-    print(f"Gap: {ctrl['id']}: {ctrl['name']}")
-
-# Run gap analysis with remediation plan
-gaps = claw.analyze_gaps("soc2")
-
-# Generate full compliance report
-report = claw.get_compliance_report("iso27001", format="md")
-
-# List available frameworks
-frameworks = claw.list_frameworks()
-
-# Get live guard decision evidence for audits
-evidence = claw.get_compliance_evidence(window="30d")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `map_compliance(framework)` | Map policies to framework controls. Frameworks: soc2, iso27001, gdpr, nist-ai-rmf, imda-agentic |
-| `analyze_gaps(framework)` | Run gap analysis with remediation plan |
-| `get_compliance_report(framework, format="json")` | Generate full report (json or md) and save snapshot |
-| `list_frameworks()` | List available compliance frameworks |
-| `get_compliance_evidence(window="7d")` | Get live guard decision evidence. Windows: 7d, 30d, 90d |
-
-## Compliance Schedules
-
-Define cron-based schedules that auto-export compliance evidence (e.g. SOC 2, HIPAA, GDPR) to your S3 bucket or webhook target:
-
-```python
-# Create a recurring export
-schedule = claw.create_compliance_schedule(
-    frameworks=["soc2"],
-    cron_expression="0 0 * * 1",        # Mondays at 00:00 UTC
-    name="Weekly SOC2 evidence export",
-)
-
-# List existing schedules
-schedules = claw.list_compliance_schedules()
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `create_compliance_schedule(frameworks, cron_expression, name="Scheduled Export", **kwargs)` | Create a recurring export schedule. Optional: enabled, target_uri, format |
-| `list_compliance_schedules()` | List all configured compliance schedules |
-
-## Token Usage & Dashboard Data
-
-Report token consumption, calendar events, ideas, connections, and memory health:
-
-```python
-# Report token usage
-claw.report_token_usage(tokens_in=1200, tokens_out=350, model="gpt-4o", session_id="sess_abc")
-
-# Create a calendar event
-claw.create_calendar_event("Sprint Review", start_time="2025-01-15T10:00:00Z", end_time="2025-01-15T11:00:00Z")
-
-# Record an idea or inspiration
-claw.record_idea("Use vector DB for context retrieval", category="architecture")
-
-# Report memory health (knowledge graph stats)
-claw.report_memory_health(health="healthy", entities=42, topics=8)
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `report_token_usage(tokens_in, tokens_out, **kwargs)` | Report a token usage snapshot. Optional: model, session_id |
-| `wrap_client(llm_client, provider=None)` | Auto-report tokens from Anthropic/OpenAI clients. See below |
-| `create_calendar_event(summary, start_time, **kwargs)` | Create a calendar event. Optional: end_time, description |
-| `record_idea(title, **kwargs)` | Record an idea/inspiration. Optional: category, body |
-| `report_memory_health(health, entities=None, topics=None)` | Report memory/knowledge graph health |
-
-### Auto Token Tracking with `wrap_client()`
-
-Wrap your Anthropic or OpenAI client so token usage is automatically reported after every call:
-
-```python
-from anthropic import Anthropic
-from dashclaw import DashClaw
-
-claw = DashClaw(base_url="http://localhost:3000", agent_id="my-agent", api_key="...")
-anthropic = claw.wrap_client(Anthropic())
-
-msg = anthropic.messages.create(
-    model="claude-sonnet-4-20250514",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello"}],
-)
-# Token usage auto-reported to DashClaw
-```
-
-**OpenAI:**
-```python
-from openai import OpenAI
-
-openai_client = claw.wrap_client(OpenAI())
-
-chat = openai_client.chat.completions.create(
-    model="gpt-4o",
-    messages=[{"role": "user", "content": "Hello"}],
-)
-# Token usage auto-reported to DashClaw
-```
-
-Streaming calls (where the response lacks `.usage`) are safely ignored — no errors, just no reporting.
-
-## User Preferences
-
-Track observations, preferences, moods, and approaches to learn user patterns over time:
-
-```python
-# Log an observation about the user
-claw.log_observation("User prefers concise answers over detailed explanations")
-
-# Set a learned preference
-claw.set_preference("code_style: functional over OOP")
-
-# Log user mood/energy for this session
-claw.log_mood("focused", energy="high", context="morning standup")
-
-# Track an approach and whether it worked
-claw.track_approach("Break large PRs into stacked diffs", succeeded=True)
-
-# Get a summary of all preference data
-summary = claw.get_preference_summary()
-
-# Get tracked approaches with success/fail counts
-approaches = claw.get_approaches(limit=10)
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `log_observation(observation, **kwargs)` | Log a user observation |
-| `set_preference(preference, **kwargs)` | Set a learned user preference |
-| `log_mood(mood, **kwargs)` | Log user mood/energy for a session. Optional: energy, context |
-| `track_approach(approach, **kwargs)` | Track an approach and whether it succeeded or failed |
-| `get_preference_summary()` | Get a summary of all user preference data |
-| `get_approaches(limit=None)` | Get tracked approaches with success/fail counts |
-
-## Daily Digest
-
-Get a daily activity digest aggregated from all data sources:
-
-```python
-# Get today's digest
-digest = claw.get_daily_digest()
-print(f"Actions: {digest.get('actions_count')}, Decisions: {digest.get('decisions_count')}")
-
-# Get digest for a specific date
-digest = claw.get_daily_digest(date="2025-01-15")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `get_daily_digest(date=None)` | Get daily activity digest. Defaults to today |
-
 ## Security Scanning
 
-Scan text for sensitive data before sending it externally:
-
-```python
-# Scan content without storing (dry run)
-result = claw.scan_content("My API key is sk-abc123 and SSN is 123-45-6789", destination="slack")
-print(result["redacted"])   # Text with secrets masked
-print(result["findings"])   # List of detected patterns
-
-# Scan and store finding metadata for audit trails
-result = claw.report_security_finding("Email from user: john@example.com, card 4111-1111-1111-1111")
-```
+Scan untrusted text for prompt-injection attacks on the decide step:
 
 **Methods:**
 
 | Method | Description |
 |--------|-------------|
-| `scan_content(text, destination=None)` | Scan text for sensitive data. Returns findings and redacted text |
-| `report_security_finding(text, destination=None)` | Scan text and store finding metadata for audit trails |
 | `scan_prompt_injection(text, source=None)` | Scan text for prompt injection attacks. Returns risk level + recommendation |
 
 **Prompt Injection Example:**
@@ -1016,19 +596,6 @@ logs = claw.get_activity_logs(agent_id="my-agent", type="action", limit=100)
 
 ## Integrations
 
-### LangChain
-
-Automatically log LLM calls, tool usage, and costs with one line of code.
-
-```python
-from dashclaw.integrations.langchain import DashClawCallbackHandler
-
-handler = DashClawCallbackHandler(claw)
-
-# Pass to your agent or chain
-agent.run("Hello world", callbacks=[handler])
-```
-
 ### CrewAI
 
 Instrument CrewAI tasks and agents to track research and decision-making.
@@ -1064,44 +631,43 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (73 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK exposes the governance surface (51 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js v2 SDK exposes a curated subset of **28 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **28 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
-| Category | Node v2 method | Python equivalent | In v2? |
-|----------|---------------|-------------------|:------:|
-| Guard | `guard` | `guard` | Yes |
-| Guard | `runGoverned` | `run_governed` | Yes |
-| Actions | `createAction` | `create_action` | Yes |
-| Actions | `updateOutcome` | `update_outcome` | Yes |
-| Assumptions | `recordAssumption` | `record_assumption` | Yes |
-| HITL | `waitForApproval` | `wait_for_approval` | Yes |
-| HITL | `approveAction` | `approve_action` | Yes |
-| HITL | `getPendingApprovals` | `get_pending_approvals` | Yes |
-| Loops | `registerOpenLoop` | `register_open_loop` | Yes |
-| Loops | `resolveOpenLoop` | `resolve_open_loop` | Yes |
-| Signals | `getSignals` | `get_signals` | Yes |
-| Lifecycle | `heartbeat` | `heartbeat` | Yes |
-| Learning | `getLearningVelocity` | `get_learning_velocity` | Yes |
-| Learning | `getLearningCurves` | `get_learning_curves` | Yes |
-| Messaging | `sendMessage` | `send_message` | Yes |
-| Messaging | `getInbox` | `get_inbox` | Yes |
-| Handoffs | `createHandoff` | `create_handoff` | Yes |
-| Handoffs | `getLatestHandoff` | `get_latest_handoff` | Yes |
-| Security | `scanPromptInjection` | `scan_prompt_injection` | Yes |
+| Category | Node method | Python equivalent |
+|----------|-------------|-------------------|
+| Guard | `guard` | `guard` |
+| Guard | `runGoverned` | `run_governed` |
+| Actions | `createAction` | `create_action` |
+| Actions | `updateOutcome` | `update_outcome` |
+| Actions | `getAction` | `get_action` |
+| Actions | `getActionGraph` | `get_action_graph` |
+| Finality | `reportActionOutcome` | `report_action_outcome` |
+| Finality | `getActionOutcome` | `get_action_outcome` |
+| Assumptions | `recordAssumption` | `record_assumption` |
+| HITL | `waitForApproval` | `wait_for_approval` |
+| HITL | `approveAction` | `approve_action` |
+| HITL | `getPendingApprovals` | `get_pending_approvals` |
+| Signals | `getSignals` | `get_signals` |
+| Sessions | `createSession` | `create_session` |
+| Sessions | `getSessionEvents` | `get_session_events` |
+| Pairing | `createPairing` | `create_pairing` |
+| Pairing | `waitForPairing` | `wait_for_pairing` |
+| Security | `scanPromptInjection` | `scan_prompt_injection` |
+| Idempotency | `deriveIdempotencyKey` | `derive_idempotency_key` |
 
-Methods like `createWebhook`, `getActivityLogs`, `mapCompliance`, and `getProofReport` are available in this Python SDK but are **v1 only** in the Node.js SDK. Conversely, a few Node v2 methods have no Python equivalent yet — `getLessons` (consolidated lesson readback) and `recordPurchaseResult` (x402; Python callers post the result snapshot to `POST /api/artifacts` directly). The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
+A few methods are surface-specific: `simulatePolicy` and `guardedFetch` are Node-only; `create_webhook`/`get_activity_logs`/`get_org`/`test_policies`/`import_policies`/`get_proof_report` are read/admin conveniences present in Python. The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
 
-## Sessions & Drift Detection
+## Sessions
 
-Two smaller canonical surfaces, at parity with Node v2:
+Track agent work sessions and their event timeline, at parity with the Node SDK:
 
-- **Sessions** — track agent work sessions: `create_session(workspace=None, branch=None)` (agent id comes from the client), `get_session(session_id)`, `update_session(session_id, **updates)`, `list_sessions(agent_id=None, status=None, limit=50)`, `get_session_events(session_id)`.
-- **Drift detection** — statistical drift over agent behavior: `detect_drift(agent_id=None, window_days=7)`, `compute_drift_baselines(agent_id=None, lookback_days=30)`, `record_drift_snapshots()`, `list_drift_alerts(...)`, `acknowledge_drift_alert(alert_id)`, `delete_drift_alert(alert_id)`, `get_drift_stats(agent_id=None)`, `get_drift_snapshots(...)`, `get_drift_metrics()`, `get_drift_report(**filters)`.
+- `create_session(workspace=None, branch=None)` (agent id comes from the client), `get_session(session_id)`, `update_session(session_id, **updates)`, `list_sessions(agent_id=None, status=None, limit=50)`, `get_session_events(session_id)`.
 
-## Execution Studio
+## Execution Graph & Finality
 
-Governance packaging and discovery — a capability registry and a read-only execution graph. Added in v2.10.0.
+A read-only execution graph plus durable-execution finality helpers.
 
 ### Execution Graph
 
@@ -1150,143 +716,6 @@ key = DashClaw.derive_idempotency_key({
 })
 claw.create_action(action_type="deploy", declared_goal="ship hotfix", idempotency_key=key)
 ```
-
-### Capability Registry
-
-```python
-# Searchable registry — category, risk_level, and search combine freely
-caps = claw.list_capabilities(risk_level="medium", search="slack")["capabilities"]
-
-# Register a capability
-claw.create_capability(
-    name="Send Slack Message",
-    description="Posts to a configured Slack channel",
-    category="messaging",
-    source_type="http_api",    # internal_sdk | http_api | webhook | human_approval | external_marketplace
-    auth_type="oauth",
-    risk_level="medium",       # low | medium | high | critical
-    requires_approval=False,
-    tags=["notify", "slack"],
-    health_status="healthy",
-    docs_url="https://docs.example.com/slack",
-)
-
-# Governed runtime execution
-claw.invoke_capability(
-    "cap_123",
-    payload={"channel": "#ops", "text": "Deploy complete"},
-    actor="ops-agent",
-    reason="post-deploy notification",
-)
-
-# Non-production test run
-claw.test_capability("cap_123", payload={"channel": "#sandbox"})
-
-# Operator health surfaces
-health = claw.get_capability_health("cap_123")
-health_list = claw.list_capability_health(status="failing", certification_status="uncertified")
-history = claw.get_capability_history("cap_123", action_type="capability_test", status="failed")
-```
-
-**Methods:**
-
-| Method | Description |
-|--------|-------------|
-| `list_capabilities(category=None, risk_level=None, search=None, limit=100, offset=0)` | Search the capability registry |
-| `create_capability(**kwargs)` | Register a capability |
-| `get_capability(capability_id)` | Fetch a single capability |
-| `update_capability(capability_id, **kwargs)` | Update a capability |
-| `invoke_capability(capability_id, payload=None, actor=None, reason=None)` | Execute a governed capability invocation |
-| `test_capability(capability_id, payload=None)` | Run a non-production capability test |
-| `get_capability_health(capability_id)` | Get derived health and certification data for one capability |
-| `list_capability_health(status=None, certification_status=None, stale_only=None, limit=50, offset=0)` | List capability health rows with operator filters |
-| `get_capability_history(capability_id, action_type=None, status=None, limit=20, offset=0)` | Fetch recent invoke/test history for one capability |
-
-## Agent Registry
-
-Register external, org-owned providers that group existing capabilities and are invoked through governance. Invocations route through the existing capability runtime + guard + action ledger; the registry never reimplements HTTP. Risk derives from `risk_class` + budget + capability metadata via the existing risk map and predictive risk.
-
-```python
-agent = claw.register_agent("Pricing API", endpoint="https://pricing.example.com", auth_type="bearer", risk_class="high", default_budget_usd=5)["registered_agent"]
-claw.add_agent_capability(agent["entry_id"], "cap_123")
-result = claw.invoke_registered_agent(agent["entry_id"], "cap_123", agent_id="agent-1", payload={"q": "sku-9"})
-```
-
-| Method | Description |
-| --- | --- |
-| `register_agent(name, **kwargs)` | Register an external provider |
-| `list_registered_agents(status=None)` | List registered agents |
-| `get_registered_agent(registered_agent_id)` | Registered agent detail (capabilities + invocations) |
-| `update_registered_agent(registered_agent_id, **patch)` | Update a registered agent |
-| `add_agent_capability(registered_agent_id, capability_id)` | Group a capability under the agent |
-| `list_agent_capabilities(registered_agent_id)` | List grouped capabilities |
-| `invoke_registered_agent(registered_agent_id, capability_id, agent_id=None, payload=None, declared_goal=None)` | Governed invocation through the capability runtime |
-
-## x402 Spend Governance
-
-Register x402 providers, govern individual purchases through the guard loop, and record spend for audit. The agent executes the actual x402 call itself — DashClaw records the provider, governs the purchase intent, and keeps a tamper-evident ledger of agent spend. DashClaw never holds a wallet.
-
-```python
-# Register a paid provider
-provider = claw.create_provider(
-    "Exa Search",
-    category="research",
-    base_url="https://api.exa.ai",
-)["provider"]
-
-# Add an endpoint
-claw.create_provider_endpoint(
-    provider["provider_id"],
-    "Search",
-    endpoint_url="https://api.exa.ai/search",
-    default_price=0.01,
-    sensitivity_level="low",
-)
-
-# Govern + record a purchase
-result = claw.record_purchase(
-    agent_id="research-agent",
-    provider=provider["provider_id"],
-    declared_goal="Find recent papers on quantum computing",
-    purchase_reason="Context gap: no local data for 2025-01-01..2026-01-01",
-    context_gap="No papers in knowledge base for the requested window",
-    expected_value="Retrieve 10+ relevant citations",
-)
-action = result["action"]
-if action["status"] == "pending_approval":
-    claw.wait_for_approval(action["id"])
-
-# Agent executes the x402 call, then posts the result directly to /api/artifacts
-# (Python has no record_purchase_result wrapper — post directly to the artifacts endpoint)
-
-# Or self-report a SETTLED payment in ONE call — when you pay OUTSIDE a
-# governance hook (e.g. a native-shell agentcash wrapper) and just need the
-# spend on Spend -> x402. The server resolves/auto-registers the provider from
-# `provider`, so you don't register one first.
-settled = claw.record_x402_purchase(
-    agent_id="research-agent",
-    provider="stableenrich.dev",   # name/origin
-    spend=0.007,                   # settled USD
-    transaction_hash="0xabc...",
-    request_id="req_123",
-)
-```
-
-| Method | Description |
-| --- | --- |
-| `list_providers(status=None)` | List registered x402 providers (org-scoped) |
-| `create_provider(name, **kwargs)` | Register a paid x402 provider |
-| `get_provider(provider_id)` | Provider detail |
-| `update_provider(provider_id, **patch)` | Update a provider |
-| `list_provider_endpoints(provider_id)` | List a provider's endpoints |
-| `create_provider_endpoint(provider_id, name, **kwargs)` | Add an endpoint to a provider |
-| `record_purchase(agent_id, provider, declared_goal, purchase_reason, context_gap, expected_value, **kwargs)` | Govern + record a paid acquisition; branch on `action['status']` |
-| `list_purchases(provider_id=None)` | List governed purchases (org-scoped) |
-| `record_x402_purchase(agent_id, provider, spend, transaction_hash=None, request_id=None, **kwargs)` | One call: govern + record the purchase, mark it succeeded, and attach the receipt. The **pay-outside-a-hook** self-report path; the server resolves the provider from `provider`. Node parity: `recordX402Purchase`. |
-
-> **Note:** There is no `record_purchase_result` in the Python SDK. To attach an x402 result snapshot to a purchase action, post directly to `POST /api/artifacts` with `artifact_type='x402_purchase_result'` and `source_action_id` set to the `act_` id from `record_purchase`. The Node SDK ships a convenience wrapper for this; Python callers use the artifacts endpoint directly. (`record_x402_purchase` handles the receipt internally, so most self-report callers don't need the raw artifact POST.)
-
-> **Operator surface (no SDK wrapper):** The platform also exposes `GET /api/finops/spend?lens=fleet|claude-code` — a read-only operator rollup that aggregates agent LLM cost + x402 purchases (Fleet lens) or Code Sessions cost (Claude-Code lens). It is a presentation layer backed by repository functions (`getFleetSpend` / `getClaudeCodeSpend`), **not** an SDK method, so it does not appear in the method count. Query it directly over HTTP.
 
 ## Hosted provisioning (operator surface — not an SDK method)
 

@@ -223,16 +223,14 @@ DashClaw ships two Node SDK entry points and a Python SDK.
 | Legacy Node SDK | `import { DashClaw } from 'dashclaw/legacy'` from `sdk/legacy/dashclaw-v1.js` | DEPRECATED compatibility layer for older integrations; removed in v5.0.0. |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.js` and the Python SDK **73** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.js` and the Python SDK **51** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
-- core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `waitForApproval`, `recordAssumption`
+- core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `getPendingApprovals`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`
-- action graph, loops, signals, learning, scoring, messaging, handoffs, security scan, threads, sync, sessions
-- full Prompt Library management: templates, versions, `activatePromptVersion` (activating one deactivates the others), `getPromptStats`, and `listPromptRuns`
-- learning ledger: `recordDecision` (auto-injects `agent_id`) and `getLearningRecommendations`
-- side-effect-free dry-runs: `simulatePolicy` (replays a proposed policy against recent historical actions) and `previewScorer` (validates a scorer config without writing an `eval_scores` row)
-- capability registry/runtime methods
-- x402 spend governance: `listProviders`, `createProvider`, `getProvider`, `updateProvider`, `listProviderEndpoints`, `createProviderEndpoint`, `recordPurchase`, `listPurchases`, `recordPurchaseResult`
+- action graph (`getActionGraph`), risk signals (`getSignals`), security scanning (`scanPromptInjection`), sessions (`createSession`/`getSession`/`updateSession`/`listSessions`/`getSessionEvents`)
+- agent pairing/identity enrollment: `createPairing`, `waitForPairing`
+- governed execution wrappers: `runGoverned`, `guardedFetch`, `actionContext`
+- side-effect-free dry-run: `simulatePolicy` (replays a proposed policy against recent historical actions)
 
 Use `docs/sdk-parity.md` for domain-level parity and consolidation status.
 

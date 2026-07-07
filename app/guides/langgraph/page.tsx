@@ -149,7 +149,7 @@ DASHCLAW_API_KEY=oc_live_...`,
 cd DashClaw/examples/langgraph-governed
 pip install -r requirements.txt
 python main.py`,
-      note: 'For production LangChain integrations, the Python SDK also includes a DashClawCallbackHandler (sdk-python/dashclaw/integrations/langchain.py) that automatically governs all LLM calls.',
+      note: 'The example governs the graph with the core SDK methods (guard, create_action, wait_for_approval, update_outcome) — the same intercept → decide → approve → prove loop shown above.',
     },
   ];
 

@@ -338,29 +338,23 @@ rejected, so no fallback or retry-without-`act` is needed.
 
 ## SDK Tiers
 
-DashClaw currently exposes a canonical Node SDK surface plus a legacy compatibility layer:
+Both SDKs expose the governance core (intercept → decide → approve → prove). The Python SDK is slightly broader, adding a few read/admin conveniences and framework integrations:
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Canonical product surface for new work | Broader current surface |
-| **Methods** | Core runtime + execution surfaces | Broad platform surface |
-| **Core governance** | ✅ | ✅ |
-| **Scoring profiles** | ✅ | ✅ |
-| **Learning loop** | ✅ | ✅ |
-| **Framework integrations** | — | LangChain, CrewAI, AutoGen, Claude Managed Agents |
-| **Compliance engine** | — | ✅ |
-| **Execution graphs** | — | ✅ |
-| **Webhooks management** | — | ✅ |
+| **Focus** | Governance-core surface (28 methods) | Governance core + conveniences (51 methods) |
+| **Guard / actions / approvals** | ✅ | ✅ |
+| **Assumptions / signals** | ✅ | ✅ |
+| **Sessions / action graph** | ✅ | ✅ |
+| **Durable execution finality** | ✅ | ✅ |
+| **Security (prompt-injection)** | ✅ | ✅ |
+| **Agent pairing** | ✅ | ✅ |
+| **Framework integrations** | — | CrewAI, AutoGen |
+| **Webhooks / org / activity reads** | — | ✅ |
 
-**Node** is designed for most agents — fast, minimal, covers the governance loop and common workflows. **Python** is the enterprise/power-user surface with compliance reporting, execution graph traversal, and framework-native integrations.
+**Node** is designed for most agents — fast, minimal, the full governance loop. **Python** adds webhook/org/activity reads and framework-native integrations. The legacy `dashclaw/legacy` compatibility layer was **removed in v5.0.0**.
 
-**Policy:** new product work should target the main `dashclaw` client first. `dashclaw/legacy` is DEPRECATED (removed in v5.0.0); it exists only for compatibility with older integrations and older method shapes — do not target it for new work.
-
-See:
-
-- [SDK Consolidation RFC](../docs/rfcs/2026-04-07-sdk-consolidation.md)
-- [SDK Migration Matrix](../docs/planning/2026-04-07-sdk-migration-matrix.md)
-- [SDK Parity Matrix](../docs/sdk-parity.md)
+See the [SDK Parity Matrix](../docs/sdk-parity.md) for the domain-by-domain surface.
 
 ---
 
@@ -393,102 +387,7 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `deriveIdempotencyKey(parts)` -- SHA-256 hex digest of intent-fields for the `idempotency_key` field on `createAction`. Order-independent. Derive from intent (agent, action_type, scope, request_id), not timestamps.
 
 ### Decision Integrity
-- `registerOpenLoop(actionId, type, desc)` -- Register unresolved dependencies.
-- `resolveOpenLoop(loopId, status, res)` -- Resolve pending loops.
 - `getSignals()` -- Get current risk signals across all agents.
-
-### Swarm & Connectivity
-- `heartbeat(status, metadata)` -- Report agent presence and health. **As of DashClaw platform 2.13.0 (server-side change, independent of SDK version), heartbeats are implicit on `createAction()` — you only need this if you want to report presence without recording an action.**
-
-### Learning & Optimization
-- `getLearningVelocity()` -- Track agent improvement rate.
-- `getLearningCurves()` -- Measure efficiency gains per action type.
-- `getLessons({ actionType, limit })` -- Fetch consolidated lessons from scored outcomes.
-- `renderPrompt({ template_id, version_id, variables, record })` -- Fetch a rendered prompt template from DashClaw. `template_id` is required; `version_id` defaults to the active version; `variables` is an object of mustache values; `record: true` persists the render as a governance event.
-
-### Prompt Library
-
-Manage reusable prompt templates, their versions, and usage analytics. `renderPrompt` (above) fetches a rendered version; these manage the library itself. Mutations (`create*`, `update*`, `delete*`, version creation, and `activate*`) require an admin org role.
-
-- `listPromptTemplates({ category })` -- List prompt templates (each with `version_count` + `active_version`). Returns `{ templates }`.
-- `getPromptTemplate(templateId)` -- Fetch a single template.
-- `createPromptTemplate({ name, description, category })` -- Create a template (admin). `name` is required; `description` and `category` are optional. Returns `{ id, name, description, category }`.
-- `updatePromptTemplate(templateId, patch)` -- Update a template (admin). `patch` accepts `name`, `description`, `category`.
-- `deletePromptTemplate(templateId)` -- Delete a template plus its versions and runs (admin). Returns `{ deleted: true }`.
-- `listPromptVersions(templateId)` -- List versions for a template (newest first). Returns `{ versions }`.
-- `createPromptVersion(templateId, { content, model_hint, parameters, changelog })` -- Create a version (admin). `content` is required; `model_hint`, `parameters`, `changelog` are optional.
-- `getPromptVersion(templateId, versionId)` -- Fetch a single version.
-- `activatePromptVersion(templateId, versionId)` -- Activate a version (admin). Activating one version deactivates the others for that template.
-- `getPromptStats({ template_id })` -- Prompt usage analytics, optionally scoped to one template.
-- `listPromptRuns({ template_id, version_id, limit })` -- List recorded prompt runs.
-
-### Learning Loop
-
-The guard response now includes a `learning` field when DashClaw has historical data for the agent and action type. This creates a closed learning loop: outcomes feed back into guard decisions automatically.
-
-```javascript
-// Guard response includes learning context
-const res = await claw.guard({ action_type: 'deploy' });
-console.log(res.learning);
-// {
-//   recent_score_avg: 82,
-//   baseline_score_avg: 75,
-//   drift_status: 'stable',
-//   patterns: ['Deploys after 5pm have 3x higher failure rate'],
-//   feedback_summary: { positive: 12, negative: 2 }
-// }
-
-// Fetch consolidated lessons for an action type
-const { lessons, drift_warnings } = await claw.getLessons({ actionType: 'deploy' });
-lessons.forEach(l => console.log(l.guidance));
-// Each lesson includes: action_type, confidence, success_rate,
-// hints (risk_cap, prefer_reversible, confidence_floor, expected_duration, expected_cost),
-// guidance, sample_size
-```
-
-- `recordDecision({ decision, context, reasoning, outcome, confidence, agent_id })` -- Record a decision/outcome into the learning ledger. `decision` is required; `agent_id` is auto-injected from the constructor when omitted. Returns `{ decision }`.
-- `getLearningRecommendations({ agent_id, action_type, include_metrics, lookback_days, limit })` -- Read learned recommendations for an agent/action type. `agent_id` defaults to the constructor's agent.
-
-### Messaging
-- `sendMessage({ to, type, subject, body, threadId, urgent })` -- Send a message to another agent or broadcast.
-- `createPairing(publicKeyPem, { algorithm, agentName })` -- Enroll this agent's identity: submit a PEM public key for admin approval (answers operator pairing-request inbox messages).
-- `waitForPairing(pairingId, { timeout, interval })` -- Poll until the pairing is approved (resolves) or expired/timed out (throws).
-- `getInbox({ type, unread, limit })` -- Retrieve inbox messages with optional filters.
-- `getSentMessages({ type, threadId, limit })` -- Retrieve messages this agent has sent.
-- `getMessages({ direction, type, unread, threadId, limit })` -- Retrieve messages with flexible filters.
-- `getMessage(messageId)` -- Fetch a single message by id.
-- `markRead(messageIds)` -- Mark messages as read for this agent (`PATCH /api/messages`, `action: 'read'`).
-- `archiveMessages(messageIds)` -- Archive messages for this agent (`PATCH /api/messages`, `action: 'archive'`).
-
-```javascript
-// Send a message to another agent
-await claw.sendMessage({
-  to: 'ops-agent',
-  type: 'status',
-  subject: 'Deploy complete',
-  body: 'v2.4.0 shipped to production',
-  urgent: false
-});
-
-// Get unread inbox messages
-const inbox = await claw.getInbox({ unread: true, limit: 20 });
-```
-
-### Handoffs
-- `createHandoff(handoff)` -- Create a session handoff with context for the next agent or session.
-- `getLatestHandoff()` -- Retrieve the most recent handoff for this agent.
-
-```javascript
-// Create a handoff
-await claw.createHandoff({
-  summary: 'Finished data pipeline setup. Next: add signal checks.',
-  context: { pipeline_id: 'p_123' },
-  tags: ['infra']
-});
-
-// Get the latest handoff
-const latest = await claw.getLatestHandoff();
-```
 
 ### Sessions
 - `createSession(agentId, workspace, branch = null)` -- Start a tracked agent session (`POST /api/sessions`). `agentId` defaults to the constructor's agent.
@@ -496,20 +395,6 @@ const latest = await claw.getLatestHandoff();
 - `updateSession(sessionId, updates)` -- Update session state (`status`, `green_level`, `branch_freshness`, `commits_behind`, `blocked_reason`).
 - `listSessions(filters)` -- List sessions (`agent_id`, `status`, `limit`).
 - `getSessionEvents(sessionId)` -- Fetch the event stream for a session.
-
-### Drift Detection
-Statistical drift detection over agent behavior: compute baselines from history, detect deviations in a recent window, and manage the resulting alerts.
-
-- `detectDrift({ agentId, windowDays = 7 })` -- Run drift detection for an agent (or all agents) against computed baselines.
-- `computeDriftBaselines({ agentId, lookbackDays = 30 })` -- Compute statistical baselines from historical data.
-- `recordDriftSnapshots()` -- Record daily metric snapshots for trend visualization.
-- `listDriftAlerts({ agentId, severity, acknowledged, limit = 50 })` -- List drift alerts with filters.
-- `acknowledgeDriftAlert(alertId)` -- Acknowledge an alert.
-- `deleteDriftAlert(alertId)` -- Delete an alert.
-- `getDriftStats({ agentId })` -- Aggregate drift-detection statistics.
-- `getDriftSnapshots({ agentId, metric, limit = 30 })` -- Metric trend snapshots.
-- `getDriftMetrics()` -- List available drift metrics.
-- `getDriftReport(filters)` -- Assumption-drift report (the assumption ledger filtered to drift-relevant rows).
 
 ### Security Scanning
 - `scanPromptInjection(text, { source })` -- Scan text for prompt injection attacks.
@@ -530,7 +415,7 @@ if (result.recommendation === 'block') {
 
 ## Agent Identity
 
-Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing enrollment (`createPairing` + `waitForPairing`) is **canonical** — it was promoted from the legacy SDK and lives on the main `dashclaw` client. Only the admin-side identity reads (`getPairing`, `registerIdentity`, `getIdentities`) remain legacy/Python-only; the REST endpoints for those are callable directly from any HTTP client.
+Enroll agents via public-key pairing and manage approved identities for signature verification. Pairing enrollment (`createPairing` + `waitForPairing`) is **canonical** — it lives on the main `dashclaw` client. The admin-side identity reads/writes (`getPairing`, `registerIdentity`, `getIdentities`) are not on the canonical Node surface; call their REST endpoints directly over HTTP, or use the Python SDK.
 
 ### Create Pairing
 
@@ -554,9 +439,12 @@ const approved = await claw.waitForPairing(pairing.id, { timeout: 300 });
 ### Get Pairing
 
 ```javascript
-// dashclaw/legacy or Python SDK only — or GET /api/pairings/:id over HTTP
-const status = await claw.getPairing(pairingId);
-console.log(status.pairing.status); // pending | approved | expired
+// Python SDK, or GET /api/pairings/:id over HTTP
+const res = await fetch(`${baseUrl}/api/pairings/${pairingId}`, {
+  headers: { 'x-api-key': apiKey }
+});
+const { pairing } = await res.json();
+console.log(pairing.status); // pending | approved | expired
 ```
 
 ### Approve Pairing (Admin)
@@ -581,14 +469,21 @@ const { pairings } = await res.json();
 ### Register Identity (Admin)
 
 ```javascript
-// Node SDK (v1 legacy)
-await claw.registerIdentity('agent-007', publicKeyPem, 'RSASSA-PKCS1-v1_5');
+// Python SDK, or POST /api/identities over HTTP
+await fetch(`${baseUrl}/api/identities`, {
+  method: 'POST',
+  headers: { 'x-api-key': adminApiKey, 'Content-Type': 'application/json' },
+  body: JSON.stringify({ agent_id: 'agent-007', public_key: publicKeyPem, algorithm: 'RSASSA-PKCS1-v1_5' })
+});
 ```
 
 ### List Identities (Admin)
 
 ```javascript
-const { identities } = await claw.getIdentities();
+// Python SDK, or GET /api/identities over HTTP
+const { identities } = await fetch(`${baseUrl}/api/identities`, {
+  headers: { 'x-api-key': adminApiKey }
+}).then(r => r.json());
 ```
 
 ### Revoke Identity (Admin)
@@ -605,14 +500,13 @@ const res = await fetch(`${baseUrl}/api/identities/${agentId}`, {
 
 ## Action Context (Auto-Tagging)
 
-When sending messages or recording assumptions during an action, use `actionContext()` to automatically tag them with the action_id:
+When recording assumptions or outcome updates during an action, use `actionContext()` to automatically tag them with the action_id:
 
 ### Node.js
 ```javascript
 const action = await claw.createAction({ action_type: 'deploy', declared_goal: 'Deploy v2' });
 
 const ctx = claw.actionContext(action.action_id);
-await ctx.sendMessage({ to: 'ops-agent', type: 'status', body: 'Starting deploy' });
 await ctx.recordAssumption({ assumption: 'Staging tests passed' });
 await ctx.updateOutcome({ status: 'completed', output_summary: 'Deployed' });
 ```
@@ -622,12 +516,11 @@ await ctx.updateOutcome({ status: 'completed', output_summary: 'Deployed' });
 action = claw.create_action(action_type="deploy", declared_goal="Deploy v2")
 
 with claw.action_context(action["action_id"]) as ctx:
-    ctx.send_message("Starting deploy", to="ops-agent")
     ctx.record_assumption({"assumption": "Staging tests passed"})
     ctx.update_outcome(status="completed", output_summary="Deployed")
 ```
 
-Messages sent through the context are automatically correlated with the action in the decisions ledger and timeline.
+Assumptions and outcome updates made through the context are automatically correlated with the action in the decisions ledger and timeline.
 
 ---
 
@@ -761,45 +654,21 @@ Set `DASHCLAW_BASE_URL`, `DASHCLAW_API_KEY`, and optionally `DASHCLAW_HOOK_MODE=
 
 ## Legacy SDK (v1)
 
-> **DEPRECATED — removed in v5.0.0.** Do not target `dashclaw/legacy` for new work; migrate to the canonical `dashclaw` client.
-
-`dashclaw/legacy` is a deprecated compatibility layer for older integrations, slated for removal in v5.0.0. It is not the preferred target for new feature design.
-
-Use it only when you need methods that have not yet been promoted into the canonical SDK surface.
-
-```javascript
-// v1 legacy import
-import { DashClaw } from 'dashclaw/legacy';
-```
-
-Methods moved to v1 only: `createWebhook`, `getActivityLogs`, `mapCompliance`, `getProofReport`.
-
-Legacy also exposes flat compatibility wrappers for the capability runtime routes:
-
-- `claw.listCapabilities(...)`
-- `claw.createCapability(...)`
-- `claw.getCapability(...)`
-- `claw.updateCapability(...)`
-- `claw.invokeCapability(...)`
-- `claw.testCapability(...)`
-- `claw.getCapabilityHealth(...)`
-- `claw.listCapabilityHealth(...)`
-
-Those wrappers exist to keep older integrations working. New product work should still target `claw.execution.capabilities.*` on the main SDK first.
+> **Removed in v5.0.0.** The `dashclaw/legacy` compatibility subpath (`import { DashClaw } from 'dashclaw/legacy'`) has been deleted. Its removal was announced with the v4.4.x deprecation notice; v5.0.0 is the SemVer major that honors it. Migrate to the canonical `dashclaw` client — the governance-core surface documented above.
 
 ---
 
 ## Execution Studio
 
-Governance packaging and discovery — a capability registry and a read-only execution graph. Added in v2.10.0.
+A read-only execution graph plus durable-execution finality helpers.
 
 ### Execution Graph
 
 ```javascript
 // Fetch the execution graph for any action (reuses existing trace data)
 const { rootActionId, nodes, edges } = await claw.getActionGraph(actionId);
-// nodes: action:<id>, assumption:<id>, loop:<id>
-// edges: parent_child | related | assumption_of | loop_from
+// nodes: action:<id>, assumption:<id>
+// edges: parent_child | related | assumption_of
 ```
 
 ### Action Outcome (durable execution finality)
@@ -893,185 +762,6 @@ const bundle = await fetch(`${baseUrl}/api/artifacts/evidence-bundle`, {
 }).then(r => r.json());
 // bundle.action + bundle.steps + bundle.artifacts
 ```
-
-### Capability Runtime
-
-```javascript
-// Canonical namespace for capability work
-const caps = claw.execution.capabilities;
-
-// Search the registry (category, risk_level, and search are combinable)
-const { capabilities } = await caps.list({ risk_level: 'medium', search: 'slack' });
-
-// Register a capability
-await caps.create({
-  name: 'Send Slack Message',
-  description: 'Posts to a configured Slack channel',
-  category: 'messaging',
-  source_type: 'http_api',        // 'internal_sdk' | 'http_api' | 'webhook' | 'human_approval' | 'external_marketplace'
-  auth_type: 'oauth',
-  risk_level: 'medium',           // 'low' | 'medium' | 'high' | 'critical'
-  requires_approval: false,
-  tags: ['notify', 'slack'],
-  health_status: 'healthy',
-  docs_url: 'https://docs.example.com/slack'
-});
-
-// Invoke a governed capability
-const result = await caps.invoke('cap_123', {
-  query: 'What is x402?'
-});
-console.log(result.governed, result.action_id);
-// When retry_policy is configured on the capability, the response includes retry_metadata:
-// result.retry_metadata → { total_attempts, retried, attempts: [...] }
-
-// Run a non-production validation call (bypasses circuit breaker)
-const testRun = await caps.test('cap_123', {
-  query: 'What is x402?'
-});
-console.log(testRun.tested, testRun.health_status, testRun.certification_status);
-// testRun.retry_metadata is also present when the capability has retry_policy configured
-
-// Fetch derived capability health
-const health = await caps.getHealth('cap_123');
-console.log(health.status, health.certification_status, health.last_test_status);
-
-// List derived health for matching capabilities
-const { capabilities: healthRows } = await caps.listHealth({
-  risk_level: 'medium',
-  certification_status: 'certified',
-  stale_only: false,
-  limit: 10,
-});
-console.log(healthRows.map((cap) => `${cap.slug}:${cap.status}:${cap.certification_status}`));
-
-// Fetch recent invoke/test events for one capability
-const history = await caps.getHistory('cap_123', {
-  action_type: 'capability_test',
-  status: 'failed',
-  limit: 5,
-});
-console.log(history.events.map((event) => `${event.action_type}:${event.status}`));
-```
-
-The existing flat registry methods remain available for compatibility:
-
-- `claw.listCapabilities(...)`
-- `claw.createCapability(...)`
-- `claw.getCapability(...)`
-- `claw.updateCapability(...)`
-- `claw.deleteCapability(capabilityId)` -- DELETE /api/capabilities/:id; removes a capability from the registry.
-
-Use the canonical capability runtime paths:
-
-- `claw.execution.capabilities.invoke(...)`
-- `claw.execution.capabilities.test(...)`
-- `claw.execution.capabilities.getHealth(...)`
-- `claw.execution.capabilities.listHealth(...)`
-- `claw.execution.capabilities.getHistory(...)`
-
-Health responses now include certification and recency fields such as:
-
-- `certification_status`
-- `last_tested_at`
-- `last_test_status`
-- `stale_check`
-- `success_rate_1d`
-- `success_rate_7d`
-- `p95_latency_ms`
-
----
-
-## Agent Registry
-
-Register external, org-owned providers that group existing capabilities and are invoked through governance. An invocation routes through the existing capability runtime (auth, timeout, retry, request/response mapping, SSRF defense), the guard, and the action ledger; the registry never reimplements HTTP. Risk derives from the provider's `risk_class` + budget + the capability's metadata via the existing risk map and predictive risk.
-
-```js
-const { registered_agent } = await claw.registerAgent({ name: 'Pricing API', endpoint: 'https://pricing.example.com', auth_type: 'bearer', risk_class: 'high', default_budget_usd: 5 });
-await claw.addAgentCapability(registered_agent.entry_id, 'cap_123');
-await claw.listAgentCapabilities(registered_agent.entry_id);
-const result = await claw.invokeRegisteredAgent({ registered_agent_id: registered_agent.entry_id, capability_id: 'cap_123', agent_id: 'agent-1', payload: { q: 'sku-9' } });
-```
-
-- `claw.registerAgent(data)` -- POST /api/agents/registry
-- `claw.listRegisteredAgents(filters)` -- GET /api/agents/registry
-- `claw.getRegisteredAgent(id)` -- GET /api/agents/registry/:id
-- `claw.updateRegisteredAgent(id, patch)` -- PATCH /api/agents/registry/:id
-- `claw.addAgentCapability(id, capabilityId)` -- POST /api/agents/registry/:id/capabilities
-- `claw.listAgentCapabilities(id)` -- GET /api/agents/registry/:id/capabilities
-- `claw.invokeRegisteredAgent({ registered_agent_id, capability_id, agent_id?, payload?, declared_goal? })` -- POST /api/agents/invoke
-
-x402 and auth metadata are recorded on the provider (`auth_metadata`); no payment settlement is performed.
-
----
-
-## x402 Spend Governance
-
-Register x402 providers, govern individual purchases through the guard loop, and record spend for audit. The agent executes the actual x402 call itself — DashClaw records the provider, governs the purchase intent, and keeps a tamper-evident ledger of agent spend. DashClaw never holds a wallet.
-
-```js
-// Register a paid provider
-const { provider } = await claw.createProvider({
-  name: 'Exa Search',
-  category: 'research',
-  base_url: 'https://api.exa.ai',
-});
-
-// Add an endpoint to the provider
-await claw.createProviderEndpoint(provider.provider_id, {
-  name: 'Search',
-  endpoint_url: 'https://api.exa.ai/search',
-  default_price: 0.01,
-  sensitivity_level: 'low',
-});
-
-// Govern + record a purchase (call guard, then agent executes x402)
-const { action, purchase, decision } = await claw.recordPurchase({
-  agent_id: 'research-agent',
-  provider: provider.provider_id,
-  declared_goal: 'Find recent papers on quantum computing',
-  purchase_reason: 'Context gap: no local data for period 2025-01-01..2026-01-01',
-  context_gap: 'No papers in knowledge base for the requested window',
-  expected_value: 'Retrieve 10+ relevant citations',
-});
-
-if (action.status === 'pending_approval') {
-  await claw.waitForApproval(action.id);
-}
-
-// Agent executes the x402 call, then records the result
-const x402Result = { summary: 'Found 14 papers', data: { count: 14 }, url: 'https://...' };
-await claw.recordPurchaseResult(action.id, x402Result);
-
-// Or self-report a SETTLED payment in ONE call — when you pay OUTSIDE a
-// governance hook (e.g. a native-shell agentcash wrapper) and just need the
-// spend on Spend → x402. The server resolves/auto-registers the provider from
-// `provider`, so you don't register one first.
-const settled = await claw.recordX402Purchase({
-  agent_id: 'research-agent',
-  provider: 'stableenrich.dev',   // name/origin
-  spend: 0.007,                   // settled USD
-  transaction_hash: '0xabc…',
-  request_id: 'req_123',
-});
-```
-
-- `claw.listProviders(filters?)` -- GET /api/x402/providers
-- `claw.createProvider(data)` -- POST /api/x402/providers
-- `claw.getProvider(id)` -- GET /api/x402/providers/:id
-- `claw.updateProvider(id, patch)` -- PATCH /api/x402/providers/:id
-- `claw.listProviderEndpoints(id)` -- GET /api/x402/providers/:id/endpoints
-- `claw.createProviderEndpoint(id, data)` -- POST /api/x402/providers/:id/endpoints
-- `claw.recordPurchase(data)` -- POST /api/x402/purchases (guard-gated; returns `{ action, purchase, decision }`)
-- `claw.listPurchases(filters?)` -- GET /api/x402/purchases
-- `claw.recordPurchaseResult(actionId, result)` -- POST /api/artifacts (attaches the x402 result snapshot to the purchase action via `source_action_id`)
-- `claw.recordX402Purchase({ agent_id, provider, spend, transaction_hash?, request_id?, ... })` -- one call: govern + record the purchase, mark it succeeded, and attach the receipt. Use for the **pay-outside-a-hook** self-report pattern. Python parity: `record_x402_purchase(...)`.
-
-> **Note:** `recordPurchaseResult` is Node-only. It is a convenience wrapper over `POST /api/artifacts` — Python callers post directly to that endpoint with `artifact_type: 'x402_purchase_result'` and `source_action_id` set to the `act_` id from `record_purchase`. (`recordX402Purchase` / `record_x402_purchase` exist in both SDKs and handle the receipt internally.)
-
-> **Operator surface (no SDK wrapper):** The platform also exposes `GET /api/finops/spend?lens=fleet|claude-code` — a read-only operator rollup that aggregates agent LLM cost + x402 purchases (Fleet lens) or Code Sessions cost (Claude-Code lens). It is a presentation layer backed by repository functions (`getFleetSpend` / `getClaudeCodeSpend`), **not** an SDK method, so it does not appear in the method count. Query it directly over HTTP — or from the terminal via `dashclaw cost [--lens fleet|claude-code] [--period 7d|30d|90d]` (`@dashclaw/cli`).
-
----
 
 ## Hosted provisioning (operator surface — not an SDK method)
 

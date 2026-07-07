@@ -1301,11 +1301,11 @@ const { decision, verification_status } = await claw.guard({
               returns="{ pairing: { id, status, agent_name, created_at } }"
               example={
                 <CodeBlock title="Create pairing request">
-{`// Node SDK — pairing is on the deprecated dashclaw/legacy subpath
-import { DashClaw } from 'dashclaw/legacy';
+{`// Node SDK — pairing enrollment is canonical
+import { DashClaw } from 'dashclaw';
 const claw = new DashClaw({ baseUrl, apiKey, agentId });
 
-const { pairing } = await claw.createPairing(publicKeyPem, 'RSASSA-PKCS1-v1_5', 'my-agent');
+const { pairing } = await claw.createPairing(publicKeyPem, { algorithm: 'RSASSA-PKCS1-v1_5', agentName: 'my-agent' });
 console.log(pairing.id); // pair_...`}
                 </CodeBlock>
               }

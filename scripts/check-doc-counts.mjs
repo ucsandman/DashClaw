@@ -122,8 +122,8 @@ const COUNT_CHECKS = [
   // gated so the next tool/method addition fails the build here, not review.
   { file: 'sdk/README.md', label: 'MCP tool count', re: /\*\*(\d+) tools\*\* in \d+ groups/, expected: [S.mcpTools] },
   { file: 'sdk-python/README.md', label: 'MCP tool count', re: /\*\*(\d+) tools\*\* across \d+ groups/, expected: [S.mcpTools] },
-  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (intro)', re: /full platform SDK \((\d+) methods\)/, expected: [S.sdk.python] },
-  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (parity)', re: /platform surface \((\d+) methods\)/, expected: [S.sdk.python] },
+  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (intro)', re: /governance-core surface \((\d+) methods\)/, expected: [S.sdk.python] },
+  S.sdk && { file: 'sdk-python/README.md', label: 'Python SDK methods (parity)', re: /governance surface \((\d+) methods\)/, expected: [S.sdk.python] },
   { file: '.claude/CODEBASE_MAP.md', label: 'MCP tool count', re: /(\d+) governance tools \+ \d+ resources/, expected: [S.mcpTools] },
   { file: 'app/docs/page.tsx', label: 'MCP tool count (nav)', re: /label: 'Tools \((\d+)\)'/, expected: [S.mcpTools] },
   { file: 'app/downloads/page.tsx', label: 'MCP tool count', re: /(\d+) governance tools plus \d+ read-only resources/, expected: [S.mcpTools] },

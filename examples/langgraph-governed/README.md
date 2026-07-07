@@ -43,9 +43,9 @@ The governance node runs first, checks policy, then the research node executes i
 
 ## Note
 
-This example uses the DashClaw Python SDK directly (`from dashclaw import DashClaw`).
-For production LangChain integrations, see `sdk-python/dashclaw/integrations/langchain.py`
-which provides a `DashClawCallbackHandler` for automatic governance of all LLM calls.
+This example uses the DashClaw Python SDK directly (`from dashclaw import DashClaw`),
+governing the graph with the core methods (`guard`, `create_action`,
+`wait_for_approval`, `update_outcome`) — the intercept → decide → approve → prove loop.
 
 ## What's Governed
 

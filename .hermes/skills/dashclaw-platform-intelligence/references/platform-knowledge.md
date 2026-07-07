@@ -40,9 +40,9 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node v2 — governance runtime** (`sdk/dashclaw.js`, 28 methods across Core Governance, Sessions, Policies, and the Capability enforcement seam). This is the SDK that ships as the `dashclaw` package.
-  - **Node v1 — DEPRECATED full platform legacy** (`sdk/legacy/dashclaw-v1.js`), re-exported as `dashclaw/legacy` for older integrations; removed in v5.0.0 (see `docs/sdk-parity.md`).
-  - **Python — full platform** (`sdk-python/dashclaw/client.py`, 73 methods).
+  - **Node — governance core** (`sdk/dashclaw.js`, 28 methods across Core Governance, Sessions, Assumptions, Signals, Security, Pairing, and durable finality). This is the SDK that ships as the `dashclaw` package.
+  - **Python — governance core + conveniences** (`sdk-python/dashclaw/client.py`, 51 methods).
+  - The deprecated `dashclaw/legacy` Node subpath was **removed in v5.0.0** (see `docs/sdk-parity.md`).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.
 
 ## Auth Chain
@@ -318,8 +318,7 @@ When you need current data from the codebase, read these:
 | OpenAPI spec (stable) | `docs/openapi/critical-stable.openapi.json` |
 | SDK parity matrix | `docs/sdk-parity.md` |
 | SDK README (copy-as-markdown source) | `sdk/README.md` |
-| Node v2 SDK source | `sdk/dashclaw.js` |
-| Node v1 legacy SDK source (DEPRECATED) | `sdk/legacy/dashclaw-v1.js` |
+| Node SDK source | `sdk/dashclaw.js` |
 | Python SDK source | `sdk-python/dashclaw/client.py` |
 | Middleware (auth chain) | `middleware.js` |
 | Sidebar navigation | `app/components/Sidebar.js` |
