@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `200`
+- Total routes: `179`
 - Stable routes: `52`
-- Beta routes: `20`
-- Experimental routes: `128`
+- Beta routes: `18`
+- Experimental routes: `109`
 
 ## Routes
 
@@ -64,23 +64,6 @@ doc-type: architecture
 | `/api/capabilities/{capabilityId}/history` | `GET` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/history/route.ts` |
 | `/api/capabilities/{capabilityId}/invoke` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/invoke/route.ts` |
 | `/api/capabilities/{capabilityId}/test` | `POST` | `experimental` | `(default)` | `app/api/capabilities/[capabilityId]/test/route.ts` |
-| `/api/code-sessions/alerts` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/alerts/route.ts` |
-| `/api/code-sessions/alerts/read-all` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/alerts/read-all/route.ts` |
-| `/api/code-sessions/ingest-jsonl` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/ingest-jsonl/route.ts` |
-| `/api/code-sessions/ingest-live` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/ingest-live/route.ts` |
-| `/api/code-sessions/manifests/{manifestId}` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/manifests/[manifestId]/route.ts` |
-| `/api/code-sessions/memos` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/memos/route.ts` |
-| `/api/code-sessions/memos/regenerate` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/memos/regenerate/route.ts` |
-| `/api/code-sessions/projects` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/route.ts` |
-| `/api/code-sessions/projects/{projectId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/[projectId]/route.ts` |
-| `/api/code-sessions/projects/{projectId}/sessions` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/projects/[projectId]/sessions/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}/autopsy` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}/insights` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/insights/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}/optimal-files/manifest` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}/optimal-files/merge-preview` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview/route.ts` |
-| `/api/code-sessions/sessions/{sessionId}/optimal-files/preview` | `POST` | `experimental` | `(default)` | `app/api/code-sessions/sessions/[sessionId]/optimal-files/preview/route.ts` |
-| `/api/code-sessions/subagent-roi` | `GET` | `experimental` | `(default)` | `app/api/code-sessions/subagent-roi/route.ts` |
 | `/api/compliance/evidence` | `GET` | `experimental` | `(default)` | `app/api/compliance/evidence/route.ts` |
 | `/api/compliance/exports` | `GET, POST` | `experimental` | `(default)` | `app/api/compliance/exports/route.ts` |
 | `/api/compliance/exports/{exportId}` | `DELETE, GET` | `experimental` | `(default)` | `app/api/compliance/exports/[exportId]/route.ts` |
@@ -93,8 +76,6 @@ doc-type: architecture
 | `/api/compliance/schedules/{scheduleId}` | `DELETE, PATCH` | `experimental` | `(default)` | `app/api/compliance/schedules/[scheduleId]/route.ts` |
 | `/api/compliance/trends` | `GET` | `experimental` | `(default)` | `app/api/compliance/trends/route.ts` |
 | `/api/coverage` | `GET, POST` | `experimental` | `(default)` | `app/api/coverage/route.ts` |
-| `/api/cron/code-session-cache-crater` | `GET` | `beta` | `/api/cron` | `app/api/cron/code-session-cache-crater/route.ts` |
-| `/api/cron/code-session-weekly-memo` | `GET` | `beta` | `/api/cron` | `app/api/cron/code-session-weekly-memo/route.ts` |
 | `/api/cron/integration-health` | `GET` | `beta` | `/api/cron` | `app/api/cron/integration-health/route.ts` |
 | `/api/cron/jti-sweep` | `GET` | `beta` | `/api/cron` | `app/api/cron/jti-sweep/route.ts` |
 | `/api/cron/memory-maintenance` | `GET` | `beta` | `/api/cron` | `app/api/cron/memory-maintenance/route.ts` |
@@ -204,8 +185,6 @@ doc-type: architecture
 | `/api/setup/proof` | `GET` | `beta` | `/api/setup` | `app/api/setup/proof/route.ts` |
 | `/api/setup/status` | `GET` | `beta` | `/api/setup` | `app/api/setup/status/route.ts` |
 | `/api/signals` | `GET` | `experimental` | `(default)` | `app/api/signals/route.ts` |
-| `/api/skills/scan` | `POST` | `experimental` | `(default)` | `app/api/skills/scan/route.ts` |
-| `/api/skills/scans/{id}` | `GET` | `experimental` | `(default)` | `app/api/skills/scans/[id]/route.ts` |
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/usage` | `GET` | `stable` | `/api/usage` | `app/api/usage/route.ts` |

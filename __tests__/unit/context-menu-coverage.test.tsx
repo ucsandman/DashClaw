@@ -26,9 +26,6 @@ beforeEach(() => {
 // global ContextMenuProvider resolves a right-click on it.
 // ---------------------------------------------------------------------------
 const TAGGED_FILES: Array<[string, string]> = [
-  // Rows extracted to the client ProjectsTable (multi-select, phase 7) — the
-  // tagging lives there now; the server page just passes rows in.
-  ['code-sessions', 'app/code-sessions/ProjectsTable.tsx'],
   ['integrations', 'app/integrations/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
   ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],
@@ -50,12 +47,6 @@ describe('context-menu coverage — tagging inventory', () => {
 // Representative menus for newly covered types.
 // ---------------------------------------------------------------------------
 describe('context-menu coverage — representative menus', () => {
-  it('codeSession menu offers Open (detail route) + Copy ID', () => {
-    const ids = getActionsFor(ent('codeSession', 'proj_1')).map((i) => i.id);
-    expect(ids).toContain('copy-id');
-    expect(ids).toContain('open');
-  });
-
   it('teamMember menu offers Remove + Copy ID', () => {
     const ids = getActionsFor(ent('teamMember', 'u_1')).map((i) => i.id);
     expect(ids).toEqual(expect.arrayContaining(['remove', 'copy-id']));

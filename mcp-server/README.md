@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 26 governance tools and 6 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance **and governed execution**. Exposes 23 governance tools and 4 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/), plus governed provider-execution tools (GitHub, Vercel, Neon, Stripe, and ten more — each provider's tools register only when its credential is present), project/policy context tools, and stateful [launch plans](./docs/launch-plans.md). Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 Every provider action runs through one guarded path: local policy × the DashClaw gate × human approvals × an audit trail. Reads are allowed by default and audited; writes, deploys, env changes, live-mode and destructive actions are policy-gated and fail closed when DashClaw is configured but unreachable.
 
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (26)
+## Tools (23)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -103,13 +103,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 
 > **Session linkage:** after `dashclaw_session_start`, the server auto-stamps that session's id onto every `dashclaw_record` in the same connection (stdio). Pass `session_id` on `dashclaw_record` to override, or to attribute explicitly on the HTTP transport (`POST /api/mcp`), where each request is stateless.
 
-**Optimal files (2)** — Code Sessions optimizer output (root CLAUDE.md, path-scoped rules, hooks, skill packs).
-
-| Tool | Description |
-|---|---|
-| `dashclaw_optimal_files_preview` | Preview optimizer output for a session |
-| `dashclaw_optimal_files_manifest` | Generate optimal-files manifest |
-
 **Session continuity (3)** — agent-runtime handoff bundle for the next session.
 
 | Tool | Description |
@@ -125,12 +118,6 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | `dashclaw_secret_list` | List tracked secrets (metadata only) |
 | `dashclaw_secret_due` | Secrets coming due for rotation |
 | `dashclaw_secret_mark_rotated` | Mark secret rotated (operator-confirmed) |
-
-**Skill safety (1)** — static safety scan of untrusted skill files; results cached by content hash.
-
-| Tool | Description |
-|---|---|
-| `dashclaw_skill_scan` | Scan skill files for unsafe patterns |
 
 **Open loops (3)** — action-scoped commitments ("I will X later" tracker).
 
@@ -231,7 +218,7 @@ guard/policy/approvals. Full lifecycle, reality-check table, and examples in
 | `preflight_launch` | Tokens present + valid, mappings complete, Stripe mode sanity, Namecheap IP whitelist |
 | `verify_launch` | Domain resolves, deployment READY, env vars present, webhook enabled, email verified |
 
-## Resources (6)
+## Resources (4)
 
 | URI | Description |
 |---|---|
@@ -239,8 +226,6 @@ guard/policy/approvals. Full lifecycle, reality-check table, and examples in
 | `dashclaw://capabilities` | Available capabilities and health |
 | `dashclaw://agent/{agent_id}/history` | Recent action history (last 50) |
 | `dashclaw://status` | Instance health + operational metrics |
-| `dashclaw://code-sessions/projects` | Claude Code projects with ingested session data and per-project rollups |
-| `dashclaw://code-sessions/sessions/{session_id}` | Full detail for one ingested Code Session (session, messages, tool uses) |
 
 ## Configuration
 

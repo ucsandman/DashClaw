@@ -8,7 +8,6 @@ const NEW_TOOLS = [
   'dashclaw_secret_list',
   'dashclaw_secret_due',
   'dashclaw_secret_mark_rotated',
-  'dashclaw_skill_scan',
   'dashclaw_loop_add',
   'dashclaw_loop_list',
   'dashclaw_loop_close',
@@ -17,7 +16,7 @@ const NEW_TOOLS = [
 ];
 
 describe('MCP toolkit tools', () => {
-  it('all 12 new toolkit tools are defined', () => {
+  it('all 11 new toolkit tools are defined', () => {
     const names = TOOL_DEFINITIONS.map((t) => t.name);
     for (const tool of NEW_TOOLS) {
       expect(names).toContain(tool);
@@ -66,20 +65,6 @@ describe('MCP toolkit tools', () => {
     const handlers = createToolHandlers(client);
     await handlers.dashclaw_handoff_latest({ agent_id: 'hermes' });
     expect(captured).toMatch(/\/api\/handoffs\/latest/);
-  });
-
-  it('skill_scan handler POSTs /api/skills/scan with skill_name + files', async () => {
-    let captured = null;
-    const client = {
-      fetch: async (path, opts) => {
-        captured = { path, body: JSON.parse(opts.body) };
-        return { ok: true, json: async () => ({ id: 'scn_1', passed: true }) };
-      },
-    };
-    const handlers = createToolHandlers(client);
-    await handlers.dashclaw_skill_scan({ skill_name: 'test', files: { 'a.py': 'print(1)' } });
-    expect(captured.path).toMatch(/\/api\/skills\/scan/);
-    expect(captured.body.skill_name).toBe('test');
   });
 
   it('server-configured agent_id wins on WRITE operations; READ filters respect explicit agent_id', async () => {

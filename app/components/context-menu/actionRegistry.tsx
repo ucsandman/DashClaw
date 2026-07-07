@@ -28,7 +28,6 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   // Policy has no detail route — deep-link to the cockpit and highlight the match.
   // The id may be a free-form policy label, so encode it.
   policy: (id) => `/policies?policy=${encodeURIComponent(id)}`,
-  codeSession: (id) => `/code-sessions/${id}`,
 };
 
 /** Resolve a detail path from a bare (type, id) — used by EntityLink, which has no DOM target. */
@@ -137,7 +136,6 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   apiKey: apiKeyActions,
   message: messageActions,
   session: sessionActions,
-  codeSession: codeSessionActions,
   teamMember: teamMemberActions,
 };
 
@@ -318,26 +316,6 @@ function messageActions(entity: EntityTarget): MenuItem[] {
 
 function sessionActions(entity: EntityTarget): MenuItem[] {
   return [{ id: 'view', label: 'View session', icon: Eye, run: (ctx) => ctx.push(`/sessions/${entity.id}`) }];
-}
-
-// codeSession entity ids on /code-sessions rows are project ids (cp_…) — the
-// delete removes the project and all its sessions via the projects route.
-function codeSessionActions(entity: EntityTarget): MenuItem[] {
-  return [
-    { id: 'view', label: 'View project', icon: Eye, run: (ctx) => ctx.push(`/code-sessions/${entity.id}`) },
-    {
-      id: 'delete',
-      label: 'Delete project',
-      icon: Trash2,
-      danger: true,
-      separatorBefore: true,
-      run: async (ctx) => {
-        if (typeof window !== 'undefined' && !window.confirm('Delete this project and all its sessions? This cannot be undone.')) return;
-        await del(`/api/code-sessions/projects/${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
 }
 
 function teamMemberActions(entity: EntityTarget): MenuItem[] {

@@ -15,7 +15,7 @@ import { DashClawClient } from '../../mcp-server/lib/client.js';
 
 describe('Resource Definitions', () => {
   it('exports exactly 4 resource definitions', () => {
-    expect(RESOURCE_DEFINITIONS).toHaveLength(6);
+    expect(RESOURCE_DEFINITIONS).toHaveLength(4);
   });
 
   it('every definition has uri, name, and description', () => {

@@ -454,13 +454,10 @@ function main() {
 
   ensureDir(hooksDest);
 
-  // Copy the Python hook scripts. dashclaw_code_session_reporter.py is copied
-  // for backward compatibility with older installs (the hooks no longer import
-  // it after the v5 governance-core cull); it is removed with the code-sessions
-  // subsystem. enforcement_liveness_probe.py is the SessionStart hook (v8.2):
-  // wired with `--source session-start`, it throttles to once/12h and runs
-  // detached so session start is never delayed.
-  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'dashclaw_code_session_reporter.py', 'enforcement_liveness_probe.py']) {
+  // Copy the Python hook scripts. enforcement_liveness_probe.py is the
+  // SessionStart hook (v8.2): wired with `--source session-start`, it throttles
+  // to once/12h and runs detached so session start is never delayed.
+  for (const name of ['dashclaw_pretool.py', 'dashclaw_posttool.py', 'dashclaw_stop.py', 'enforcement_liveness_probe.py']) {
     const src = join(HOOKS_SRC, name);
     if (!existsSync(src)) {
       console.error(`✗ Missing hook script: ${src}`);

@@ -17,11 +17,6 @@ describe('dashclaw-governance skill — toolkit-into-runtime sections', () => {
     expect(skill).toMatch(/dashclaw_handoff_latest/);
   });
 
-  it('teaches dashclaw_skill_scan before loading unknown skill', () => {
-    expect(skill).toMatch(/dashclaw_skill_scan/);
-    expect(skill).toMatch(/before loading an unknown skill/i);
-  });
-
   it('teaches dashclaw_secret_due before acting on credentials', () => {
     expect(skill).toMatch(/dashclaw_secret_due/);
     expect(skill).toMatch(/before acting on credentials/i);

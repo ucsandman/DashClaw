@@ -36,7 +36,6 @@ describe('runPreCommitChecks', () => {
       'plugins/dashclaw/hooks/dashclaw_pretool.py',
       'plugins/dashclaw/hooks/dashclaw_posttool.py',
       'plugins/dashclaw/hooks/dashclaw_stop.py',
-      'plugins/dashclaw/hooks/dashclaw_code_session_reporter.py',
       'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
       'plugins/dashclaw/hooks/dashclaw_agent_intel',
       '.agents/skills/dashclaw-platform-intelligence',

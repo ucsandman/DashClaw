@@ -67,7 +67,6 @@ export const GENERATED_PATTERNS: readonly string[] = [
   'plugins/dashclaw/hooks/dashclaw_pretool.py',
   'plugins/dashclaw/hooks/dashclaw_posttool.py',
   'plugins/dashclaw/hooks/dashclaw_stop.py',
-  'plugins/dashclaw/hooks/dashclaw_code_session_reporter.py',
   'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
   'plugins/dashclaw/hooks/dashclaw_agent_intel/**',
   // ── docs projections (generate-api-inventory.mjs + generate-openapi.mjs) ────

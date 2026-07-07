@@ -45,10 +45,10 @@
     ]
   },
   "summary": {
-    "total_routes": 200,
+    "total_routes": 179,
     "stable_routes": 52,
-    "beta_routes": 20,
-    "experimental_routes": 128
+    "beta_routes": 18,
+    "experimental_routes": 109
   },
   "routes": [
     {
@@ -450,162 +450,6 @@
       "file": "app/api/capabilities/[capabilityId]/test/route.ts"
     },
     {
-      "path": "/api/code-sessions/alerts",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/alerts/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/alerts/read-all",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/alerts/read-all/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/ingest-jsonl",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/ingest-jsonl/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/ingest-live",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/ingest-live/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/manifests/{manifestId}",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/manifests/[manifestId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/memos",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/memos/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/memos/regenerate",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/memos/regenerate/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/projects/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects/{projectId}",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/projects/[projectId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects/{projectId}/sessions",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/projects/[projectId]/sessions/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}/autopsy",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}/insights",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/insights/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}/optimal-files/manifest",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}/optimal-files/merge-preview",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/{sessionId}/optimal-files/preview",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/sessions/[sessionId]/optimal-files/preview/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/subagent-roi",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/code-sessions/subagent-roi/route.ts"
-    },
-    {
       "path": "/api/compliance/evidence",
       "methods": [
         "GET"
@@ -717,24 +561,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/coverage/route.ts"
-    },
-    {
-      "path": "/api/cron/code-session-cache-crater",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/cron",
-      "file": "app/api/cron/code-session-cache-crater/route.ts"
-    },
-    {
-      "path": "/api/cron/code-session-weekly-memo",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "beta",
-      "matched_prefix": "/api/cron",
-      "file": "app/api/cron/code-session-weekly-memo/route.ts"
     },
     {
       "path": "/api/cron/integration-health",
@@ -1753,24 +1579,6 @@
       "maturity": "experimental",
       "matched_prefix": "(default)",
       "file": "app/api/signals/route.ts"
-    },
-    {
-      "path": "/api/skills/scan",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/skills/scan/route.ts"
-    },
-    {
-      "path": "/api/skills/scans/{id}",
-      "methods": [
-        "GET"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/skills/scans/[id]/route.ts"
     },
     {
       "path": "/api/stream",

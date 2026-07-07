@@ -148,7 +148,7 @@ echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t
 
 ### 2. MCP server (zero code, any MCP host)
 
-[`@dashclaw/mcp-server`](./mcp-server) exposes **26 governance MCP tools** across 11 groups — core governance, optimal files, session continuity, credential hygiene, skill safety, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture — plus 6 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`).
+[`@dashclaw/mcp-server`](./mcp-server) exposes **23 governance MCP tools** across 9 groups — core governance, session continuity, credential hygiene, open loops, learning + retrospection, agent inbox, agent identity, behavior learning, governance posture — plus 4 read-only resources (`dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`).
 
 As of v2.0.0 the local stdio server also carries **governed execution**: provider tools for GitHub, Vercel, Neon, Stripe and ten more (each registering only when its credential env var is present), and stateful **launch plans** (`create_launch_plan` / `get_launch_status` / `preflight_launch` / `verify_launch`) that track the launch tail with reality-checked, never self-reported completion — every step through the same guard/policy/approval path. See [`mcp-server/README.md`](./mcp-server/README.md) and [`mcp-server/docs/launch-plans.md`](./mcp-server/docs/launch-plans.md).
 
@@ -225,13 +225,13 @@ It intercepts every tool-use call (`before_tool_call`, `llm_output`, `after_tool
 
 ### 5. Direct REST API and webhooks
 
-Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**200 routes**: 52 stable, 20 beta, 128 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
+Every governance primitive is reachable as HTTP. The stable contract is pinned in [`docs/openapi/critical-stable.openapi.json`](./docs/openapi/critical-stable.openapi.json); the full inventory (**179 routes**: 52 stable, 18 beta, 109 experimental) is at [`docs/api-inventory.md`](./docs/api-inventory.md). Webhook events include `signal.detected`, `decision.created`, `action.created`, `lost_confirmation`, and the rest of the catalog — configurable per org.
 
 ### 6. Skills — governance protocol + live platform reference
 
 Two drop-in skills, both available as zip bundles or source directories in [`public/downloads/`](./public/downloads/) and auto-bundled into the coding-agent plugins:
 
-- [`dashclaw-governance`](./public/downloads/dashclaw-governance/) — governance protocol skill. Teaches agents the decision tree (allow / warn / block / require_approval), action recording, approval-wait protocol, session lifecycle, plus six new sections for handoffs, secret hygiene, skill safety, action-scoped open loops, learning, and in-session retrospection.
+- [`dashclaw-governance`](./public/downloads/dashclaw-governance/) — governance protocol skill. Teaches agents the decision tree (allow / warn / block / require_approval), action recording, approval-wait protocol, session lifecycle, plus five new sections for handoffs, secret hygiene, action-scoped open loops, learning, and in-session retrospection.
 - [`dashclaw-platform-intelligence`](./public/downloads/dashclaw-platform-intelligence/) — live API reference, env var contract, and troubleshooting playbook with progressive disclosure. Regenerated from the codebase on every release so it never drifts from the running runtime.
 
 ```bash

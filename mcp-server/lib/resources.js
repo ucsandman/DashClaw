@@ -28,19 +28,6 @@ export const RESOURCE_DEFINITIONS = [
         description: "Instance health and operational summary metrics.",
         mimeType: "application/json",
     },
-    {
-        uri: "dashclaw://code-sessions/projects",
-        name: "Code Sessions Projects",
-        description: "All Claude Code projects with ingested session data plus per-project rollups.",
-        mimeType: "application/json",
-    },
-    {
-        uri: "dashclaw://code-sessions/sessions/{session_id}",
-        name: "Code Session Detail",
-        description: "Full detail for one ingested Code Session: session row, messages, tool uses.",
-        mimeType: "application/json",
-        isTemplate: true,
-    },
 ];
 /**
  * Create resource handler functions bound to a DashClawClient instance.
@@ -69,14 +56,6 @@ export function createResourceHandlers(client) {
                 client.get("/api/operations/summary", {}, { timeout: 10000 }),
             ]);
             return JSON.stringify({ health, operations });
-        },
-        "dashclaw://code-sessions/projects": async () => {
-            const result = await client.get("/api/code-sessions/projects", {}, { timeout: 15000 });
-            return JSON.stringify(result);
-        },
-        "dashclaw://code-sessions/sessions/{session_id}": async ({ session_id }) => {
-            const result = await client.get(`/api/code-sessions/sessions/${encodeURIComponent(session_id)}`, {}, { timeout: 15000 });
-            return JSON.stringify(result);
         },
     };
 }

@@ -29,10 +29,6 @@ describe('actionRegistry coverage', () => {
     expect(detailPathFor('policy', 'pol_1')).toBe('/policies?policy=pol_1');
   });
 
-  it('maps codeSession to its detail route', () => {
-    expect(detailPathFor('codeSession', 'proj_1')).toBe('/code-sessions/proj_1');
-  });
-
   it('returns null for a known type that has no detail route', () => {
     expect(detailPathFor('signal', 'sig_1')).toBeNull();
   });

@@ -1540,18 +1540,11 @@ function stripUntrustedApiHeaders(request) {
 // SECURITY: Reject oversized request bodies to prevent DoS.
 // Applies to all write methods (POST, PUT, PATCH) on API routes.
 //
-// The default 2 MB cap is enough for every governance API. Code-session
-// JSONL backfill is the one exception: real Claude Code transcripts compress
-// ~2x (less repetitive than typical JSON since they include tool outputs and
-// code), so a 10 MB raw file ends up ~3 MB gzipped + base64. Raise the cap
-// for that endpoint to just under Vercel's 4.5 MB edge limit so legitimately
-// big sessions can still come through. Anything bigger requires chunked POST.
+// The default 2 MB cap is enough for every governance API.
 const DEFAULT_MAX_BODY_BYTES = 2 * 1024 * 1024;
-const INGEST_MAX_BODY_BYTES = 4_400_000; // 4.4 MB, sits just under Vercel's 4.5 MB ceiling
 
-function enforceBodySizeCap(request, pathname) {
-  const isLargeIngestRoute = pathname === '/api/code-sessions/ingest-jsonl';
-  const maxBodyBytes = isLargeIngestRoute ? INGEST_MAX_BODY_BYTES : DEFAULT_MAX_BODY_BYTES;
+function enforceBodySizeCap(request) {
+  const maxBodyBytes = DEFAULT_MAX_BODY_BYTES;
   const writeMethod = ['POST', 'PUT', 'PATCH'].includes(request.method);
   if (!writeMethod) return null;
   const contentLength = parseInt(request.headers.get('content-length') || '0', 10);
@@ -1829,7 +1822,7 @@ async function handleApiRequest(request, pathname) {
     );
   }
 
-  const oversizedBody = enforceBodySizeCap(request, pathname);
+  const oversizedBody = enforceBodySizeCap(request);
   if (oversizedBody) return oversizedBody;
 
   // Allow public routes without auth. Boundary-aware: an entry matches itself
@@ -1901,8 +1894,6 @@ export const config = {
     '/pairings/:path*',
     '/bug-hunter',
     '/bug-hunter/:path*',
-    '/code-sessions',
-    '/code-sessions/:path*',
     '/setup',
     '/setup/:path*',
     '/api-keys',

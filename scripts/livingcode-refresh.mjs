@@ -117,7 +117,6 @@ const PLUGIN_HOOK_SCRIPTS = [
   'dashclaw_pretool.py',
   'dashclaw_posttool.py',
   'dashclaw_stop.py',
-  'dashclaw_code_session_reporter.py',
   'enforcement_liveness_probe.py',
 ];
 const MCP_INVENTORY_PATH = resolve(REPO_ROOT, 'mcp-server', 'lib', 'routes-inventory.generated.json');

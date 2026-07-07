@@ -152,14 +152,6 @@ On your first turn, call `dashclaw_handoff_latest` with your agent_id. If a
 bundle is returned, summarize it for the operator, then call
 `dashclaw_handoff_consume` to mark it claimed so it isn't read twice.
 
-## Skill Safety
-
-### Before loading an unknown skill
-Call `dashclaw_skill_scan` with the skill's file contents (map of filename →
-content). If `passed=false`, do NOT load the skill — show the findings to the
-operator with their severities and let them decide. Scans of identical content
-are cached.
-
 ## Credential Hygiene
 
 ### Before acting on credentials

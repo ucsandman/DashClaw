@@ -205,36 +205,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       },
     },
   },
-  // --- Code Sessions: Optimal Files (Phase 6) ------------------------------
-  {
-    name: 'dashclaw_optimal_files_preview',
-    description:
-      'Preview the Optimal Files bundle DashClaw Code Sessions would generate for a given session. Returns the per-file plan with confidence, secret-scan, and overwrite-risk flags. Read-only — does NOT write to disk; pair with dashclaw_optimal_files_manifest to persist a chosen subset.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: { type: 'string', description: 'Code session id (cs_*) from /api/code-sessions/sessions/...' },
-      },
-      required: ['session_id'],
-    },
-  },
-  {
-    name: 'dashclaw_optimal_files_manifest',
-    description:
-      'Persist a write plan for selected Optimal Files entries. Returns { manifest_id, expires_at, apply_command }. The local CLI invokes `dashclaw code apply <manifest_id>` to apply the plan to disk. Manifest expires after 24h.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        session_id: { type: 'string', description: 'Code session id (cs_*)' },
-        selections: {
-          type: 'array',
-          description: 'Subset of paths from the preview to write. Each item: { path, mode?: "skip"|"side_by_side"|"merge"|"overwrite", overwrite?, acceptedHeadings?, acceptedBullets? }',
-          items: { type: 'object' },
-        },
-      },
-      required: ['session_id', 'selections'],
-    },
-  },
   {
     name: 'dashclaw_handoff_create',
     description:
@@ -318,24 +288,6 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         id: { type: 'string', description: 'Secret id (sec_*)' },
       },
       required: ['id'],
-    },
-  },
-  {
-    name: 'dashclaw_skill_scan',
-    description:
-      'Run a static safety scan against the contents of an untrusted skill before loading it. ' +
-      'Returns findings (severity, file, line) and a passed boolean. If passed=false, do NOT load ' +
-      'the skill — show the findings to the operator.',
-    inputSchema: {
-      type: 'object',
-      properties: {
-        skill_name: { type: 'string' },
-        files: {
-          type: 'object',
-          description: 'Map of filename -> file content (string)',
-        },
-      },
-      required: ['skill_name', 'files'],
     },
   },
   {
@@ -568,17 +520,6 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
   let activeSessionId: string | null = null;
 
   return {
-    async dashclaw_optimal_files_preview(input: any) {
-      const result = await client.post(`/api/code-sessions/sessions/${encodeURIComponent(input.session_id)}/optimal-files/preview`, {}, { timeout: 20000 });
-      return JSON.stringify(result);
-    },
-
-    async dashclaw_optimal_files_manifest(input: any) {
-      const result = await client.post(`/api/code-sessions/sessions/${encodeURIComponent(input.session_id)}/optimal-files/manifest`,
-        { selections: input.selections || [] }, { timeout: 20000 });
-      return JSON.stringify(result);
-    },
-
     // Record semantics: deliberately NOT ?record=true (the hook's single-call
     // path). The hook records a "running" action at pretool and patches it at
     // posttool; MCP's dashclaw_record is a separate tool carrying outcome data
@@ -898,17 +839,6 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
       const res = await client.fetch(`/api/secrets/${encodeURIComponent(args.id)}`, {
         method: 'PATCH',
         body: JSON.stringify({ last_rotated_at: new Date().toISOString() }),
-      });
-      return JSON.stringify(await jsonOrFailure(res));
-    },
-
-    async dashclaw_skill_scan(args: any) {
-      const res = await client.fetch('/api/skills/scan', {
-        method: 'POST',
-        body: JSON.stringify({
-          skill_name: args.skill_name,
-          files: args.files,
-        }),
       });
       return JSON.stringify(await jsonOrFailure(res));
     },

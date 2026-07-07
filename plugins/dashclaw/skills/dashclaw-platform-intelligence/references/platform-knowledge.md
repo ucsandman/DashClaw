@@ -230,12 +230,10 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**26 tools across 11 groups:**
+**23 tools across 9 groups:**
 - *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
-- *Optimal files (2):* `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest`.
 - *Session continuity (3):* `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume`.
 - *Credential hygiene (3):* `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated`.
-- *Skill safety (1):* `dashclaw_skill_scan`.
 - *Open loops (3):* `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close`.
 - *Learning + retrospection (4):* `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — record an assumption an action rests on (validate/refute later).
 - *Agent inbox (2):* `dashclaw_inbox_list`, `dashclaw_messages_mark_read`.
@@ -243,7 +241,7 @@ These are optional packages published alongside the core runtime.
 - *Behavior learning (1):* `dashclaw_behavior_suggestions` — observe-only Policy Coach suggestions from recorded behavior.
 - *Governance posture (2, read-only):* `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score + 6 dimensions + prioritized findings; read-only (remediation is human-gated).
 
-**6 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
+**4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
 Route inventory for tools is emitted from the shape to `mcp-server/lib/routes-inventory.generated.json` — keep tools and routes in sync.
 

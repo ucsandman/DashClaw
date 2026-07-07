@@ -713,13 +713,11 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**26 tools** in 12 groups:
+**23 tools** in 9 groups:
 
 - **Core governance (9):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture).
-- **Optimal files (2):** `dashclaw_optimal_files_preview`, `dashclaw_optimal_files_manifest` — Code Sessions optimizer output (root CLAUDE.md, path-scoped rules, hooks, skill packs).
 - **Session continuity (3):** `dashclaw_handoff_create`, `dashclaw_handoff_latest`, `dashclaw_handoff_consume` — agent-runtime handoff bundle for the next session.
 - **Credential hygiene (3):** `dashclaw_secret_list`, `dashclaw_secret_due`, `dashclaw_secret_mark_rotated` — check rotation due-dates before acting on tracked credentials.
-- **Skill safety (1):** `dashclaw_skill_scan` — static safety scan of untrusted skill files; results cached by content hash.
 - **Open loops (3):** `dashclaw_loop_add`, `dashclaw_loop_list`, `dashclaw_loop_close` — action-scoped commitments (the "I will X later" tracker).
 - **Learning + retrospection (4):** `dashclaw_learning_log`, `dashclaw_learning_query`, `dashclaw_decisions_recent`, `dashclaw_assumption_record` — log + query non-obvious decisions; recent governed-action ledger; record an assumption an action rests on.
 - **Agent inbox (2):** `dashclaw_inbox_list`, `dashclaw_messages_mark_read`
@@ -727,7 +725,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Behavior learning (1):** `dashclaw_behavior_suggestions`
 - **Governance posture (2, read-only):** `dashclaw_posture`, `dashclaw_posture_next` — org governance posture score (6 dimensions + findings) and the next prioritized finding; read-only, drafting/remediation stays human-gated.
 
-**6 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`, `dashclaw://code-sessions/projects`, `dashclaw://code-sessions/sessions/{session_id}`.
+**4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
 ### Agent runtime endpoints (server-side, no SDK wrapper)
 
@@ -737,7 +735,6 @@ DashClaw 2.17 (platform) added three route families that are **agent-runtime inf
 |---|---|---|
 | Session handoffs | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/{id}`, `POST /api/handoffs/{id}/consume` | Hermes `on_session_end` / `on_session_start` / `pre_llm_call` hooks; MCP `dashclaw_handoff_*` tools |
 | Operator-tracked secrets | `GET/POST /api/secrets`, `PATCH/DELETE /api/secrets/{id}`, `GET /api/secrets/rotation-due` | MCP `dashclaw_secret_*` tools; operator UI |
-| Skill safety scan | `POST /api/skills/scan`, `GET /api/skills/scans/{id}` | MCP `dashclaw_skill_scan` tool; agents before loading an untrusted skill |
 | Governance posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | MCP `dashclaw_posture` / `dashclaw_posture_next` tools (read-only); operator `/posture` UI. Experimental; remediation is human-gated (draft-only) |
 
 If you're building a custom integration that needs these without MCP, call them as plain HTTP — see `docs/api-inventory.md` and the OpenAPI spec at `docs/openapi/critical-stable.openapi.json`.

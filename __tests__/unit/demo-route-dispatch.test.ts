@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Dispatch-level pins for the demo handlers added in the P20 gap-closing pass:
-// the session detail trio, reputation summary/events, x402 purchases, the
-// period-aware finops spend handler, and the code-sessions DELETE write-block.
+// the session detail trio, reputation summary/events, x402 purchases, and the
+// period-aware finops spend handler.
 // Mirrors the mocking setup of middleware.test.js (env-forced DASHCLAW_MODE=demo).
 vi.mock('next-auth/jwt', () => ({ getToken: vi.fn() }));
 const sqlMock = vi.fn(async () => []);
@@ -100,18 +100,6 @@ describe('demo-mode dispatch — P20 gap handlers', () => {
     const body = await res.json();
     expect(body.lens).toBe('claude_code');
     expect(body.code_sessions.by_day.length).toBe(7);
-  });
-
-  it('code-sessions DELETEs hit the write-block with the friendly demo message', async () => {
-    for (const path of [
-      '/api/code-sessions/projects?confirm=all',
-      '/api/code-sessions/projects/cp_demo_1',
-      '/api/code-sessions/sessions/cs_demo_1',
-    ]) {
-      const res = await middleware(req(path, { method: 'DELETE' }));
-      expect(res.status).toBe(403);
-      expect((await res.json()).error).toBe('Demo mode: write APIs are disabled.');
-    }
   });
 
   it('PATCH /api/sessions/:id stays an allowed simulation? No — sessions PATCH is write-blocked', async () => {

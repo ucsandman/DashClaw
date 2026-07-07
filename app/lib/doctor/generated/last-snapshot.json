@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:cc8b9de048cbbc8097af4d5b55cb8e5c2f829421",
+  "timestamp": "sha1:58eab9e6a7264ee64c863b454fbbf93ea3b3b4f4",
   "routes": [
     {
       "path": "/api/actions",
@@ -450,180 +450,6 @@
       "file_path": "app/api/capabilities/health/route.ts"
     },
     {
-      "path": "/api/code-sessions/alerts",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/alerts/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/alerts/read-all",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/alerts/read-all/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/ingest-jsonl",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/ingest-jsonl/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/ingest-live",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/ingest-live/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/manifests/[manifestId]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "manifestId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/manifests/[manifestId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/memos",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/memos/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/memos/regenerate",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/memos/regenerate/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/projects/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects/[projectId]",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "dynamic_params": [
-        "projectId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/projects/[projectId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/projects/[projectId]/sessions",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "projectId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/projects/[projectId]/sessions/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]",
-      "methods": [
-        "DELETE",
-        "GET"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]/autopsy",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/autopsy/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]/insights",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/insights/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]/optimal-files/manifest",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/optimal-files/manifest/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/optimal-files/merge-preview/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/sessions/[sessionId]/optimal-files/preview",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "sessionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/code-sessions/sessions/[sessionId]/optimal-files/preview/route.ts"
-    },
-    {
-      "path": "/api/code-sessions/subagent-roi",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/code-sessions/subagent-roi/route.ts"
-    },
-    {
       "path": "/api/compliance/evidence",
       "methods": [
         "GET"
@@ -741,24 +567,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/coverage/route.ts"
-    },
-    {
-      "path": "/api/cron/code-session-cache-crater",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/cron/code-session-cache-crater/route.ts"
-    },
-    {
-      "path": "/api/cron/code-session-weekly-memo",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/cron/code-session-weekly-memo/route.ts"
     },
     {
       "path": "/api/cron/integration-health",
@@ -1821,26 +1629,6 @@
       "file_path": "app/api/signals/route.ts"
     },
     {
-      "path": "/api/skills/scan",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/skills/scan/route.ts"
-    },
-    {
-      "path": "/api/skills/scans/[id]",
-      "methods": [
-        "GET"
-      ],
-      "dynamic_params": [
-        "id"
-      ],
-      "archived": false,
-      "file_path": "app/api/skills/scans/[id]/route.ts"
-    },
-    {
       "path": "/api/stream",
       "methods": [
         "GET"
@@ -2170,12 +1958,9 @@
       "required": false,
       "files": [
         "__tests__/unit/cron-auth.test.js",
-        "__tests__/unit/cron-cache-crater.route.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
-        "app/api/cron/code-session-cache-crater/route.ts",
-        "app/api/cron/code-session-weekly-memo/route.ts",
         "app/api/cron/integration-health/route.ts",
         "app/api/cron/jti-sweep/route.ts",
         "app/api/cron/memory-maintenance/route.ts",
@@ -2868,7 +2653,6 @@
         "scripts/_db.mjs",
         "scripts/auto-migrate.mjs",
         "scripts/backfill-action-cost-reprice.mjs",
-        "scripts/backfill-code-session-cache-cost.mjs",
         "scripts/backfill-null-model-cost.mjs",
         "scripts/backfill-x402-provider-id.mjs",
         "scripts/cleanup-actions.mjs",

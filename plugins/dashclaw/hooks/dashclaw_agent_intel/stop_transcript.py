@@ -148,8 +148,8 @@ def is_governed_tool_name(name):
 def collect_turn_tool_uses(entries, start):
     """(tool_use_id, tool_name) pairs from tool_use blocks in entries[start:].
 
-    Mirrors how dashclaw_code_session_reporter._collect_tool_use_action_map
-    walks assistant message content — same slice, same block shape."""
+    Walks assistant message content one block at a time — same slice, same
+    block shape the coverage counter relies on."""
     out = []
     for e in entries[start:]:
         msg = e.get("message") if isinstance(e, dict) else None
