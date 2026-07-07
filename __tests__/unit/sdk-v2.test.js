@@ -277,10 +277,10 @@ describe('DashClaw v2 SDK', () => {
   // --- getSignals ---
 
   describe('getSignals', () => {
-    it('GETs /api/actions/signals', async () => {
+    it('GETs /api/signals', async () => {
       await claw.getSignals();
       const [url, opts] = fetch.mock.calls[0];
-      expect(url).toBe('http://localhost:3000/api/actions/signals');
+      expect(url).toBe('http://localhost:3000/api/signals');
       expect(opts.method).toBe('GET');
       expect(opts.body).toBeUndefined();
     });

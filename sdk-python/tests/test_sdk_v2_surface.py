@@ -298,7 +298,7 @@ class TestGetSignals(unittest.TestCase):
 
         call = client.calls[-1]
         self.assertEqual(call["method"], "GET")
-        self.assertEqual(call["path"], "/api/actions/signals")
+        self.assertEqual(call["path"], "/api/signals")
         self.assertIsNone(call["body"])
 
 

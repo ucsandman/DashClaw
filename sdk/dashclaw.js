@@ -684,10 +684,10 @@ class DashClaw {
   }
 
   /**
-   * GET /api/actions/signals
+   * GET /api/signals
    */
   async getSignals() {
-    return this._get('/api/actions/signals');
+    return this._get('/api/signals');
   }
 
   /**

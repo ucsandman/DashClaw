@@ -48,12 +48,12 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:100a17dfedc0d3715052b3c83b06792ddc3e2b64 · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:50ceb610985c8781a2167d748ecf79b58040b059 · signature-stable</div>
 <div class="grid">
       <div class="cell"><div class="n">117</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
-      <div class="cell"><div class="n">152</div><div class="k">Optional env vars</div></div>
+      <div class="cell"><div class="n">142</div><div class="k">Optional env vars</div></div>
       <div class="cell"><div class="n">112</div><div class="k">Tables</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Events</div></div>
       <div class="cell"><div class="n">11</div><div class="k">Signals</div></div>
@@ -202,7 +202,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>27</b> env_vars added, <b>17</b> env_vars removed, <b>21</b> routes added, <b>1</b> routes changed, <b>212</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>27</b> env_vars added, <b>27</b> env_vars removed, <b>21</b> routes added, <b>1</b> routes changed, <b>212</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -464,10 +464,20 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>added</code> <b>env_vars</b>: STARTUP_SMOKE_SKIP_POLICY <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>added</code> <b>env_vars</b>: VERCEL_ENV <span class="sig">New env var (optional, undocumented)</span></li>
     <li><code>removed</code> <b>env_vars</b>: AGENT_PRIVATE_KEY_JWK <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_BENCH_CONCURRENCY <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_BENCH_ITERATIONS <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_REPLAY_CONNECT_TIMEOUT_MS <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_RETRY_429_MAX <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_RETRY_429_WAIT_MS <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_SSE_SEND_COUNT <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: CONVERGENCE_VERBOSE <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_DIR <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: DASHCLAW_BEHAVIOR_SAMPLES_ENABLED <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: DASHCLAW_MAX_ORG_ATTACHMENT_BYTES <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: DASHCLAW_SUPPRESS_LEGACY_WARNING <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: GITHUB_REPO_NAME <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: GITHUB_REPO_OWNER <span class="sig">Env var no longer referenced</span></li>
+    <li><code>removed</code> <b>env_vars</b>: GITHUB_TOKEN <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: GOOGLE_AI_API_KEY <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: GUARD_LLM_BASE_URL <span class="sig">Env var no longer referenced</span></li>
     <li><code>removed</code> <b>env_vars</b>: GUARD_LLM_MODEL <span class="sig">Env var no longer referenced</span></li>

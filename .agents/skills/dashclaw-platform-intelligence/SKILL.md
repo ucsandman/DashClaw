@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:100a17dfedc0d3715052b3c83b06792ddc3e2b64`
+**Shape snapshot:** `sha1:50ceb610985c8781a2167d748ecf79b58040b059`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **116** active API routes across **47** categories (116 total including archived)
-- **4** required + **152** optional environment variables
+- **4** required + **142** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -313,8 +313,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 73 file(s)
-- **`DATABASE_URL`** - referenced in 75 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 72 file(s)
+- **`DATABASE_URL`** - referenced in 74 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 4 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -333,13 +333,6 @@ These have fallbacks or only activate specific features.
 - `API_SECRET` *(undocumented)*
 - `BASE_URL` *(undocumented)*
 - `CI` *(undocumented)*
-- `CONVERGENCE_BENCH_CONCURRENCY` *(undocumented)*
-- `CONVERGENCE_BENCH_ITERATIONS` *(undocumented)*
-- `CONVERGENCE_REPLAY_CONNECT_TIMEOUT_MS` *(undocumented)*
-- `CONVERGENCE_RETRY_429_MAX` *(undocumented)*
-- `CONVERGENCE_RETRY_429_WAIT_MS` *(undocumented)*
-- `CONVERGENCE_SSE_SEND_COUNT` *(undocumented)*
-- `CONVERGENCE_VERBOSE` *(undocumented)*
 - `CRON_SECRET` *(undocumented)*
 - `DASHCLAW_ACT_BINDING` *(undocumented)*
 - `DASHCLAW_ACT_BINDING_TYP` *(undocumented)*
@@ -390,11 +383,8 @@ These have fallbacks or only activate specific features.
 - `GITHUB_CLIENT_ID` *(undocumented)*
 - `GITHUB_CLIENT_SECRET` *(undocumented)*
 - `GITHUB_ID` *(undocumented)*
-- `GITHUB_REPO_NAME` *(undocumented)*
-- `GITHUB_REPO_OWNER` *(undocumented)*
 - `GITHUB_SECRET` *(undocumented)*
 - `GITHUB_STEP_SUMMARY` *(undocumented)*
-- `GITHUB_TOKEN` *(undocumented)*
 - `GOOGLE_CLIENT_ID` *(undocumented)*
 - `GOOGLE_CLIENT_SECRET` *(undocumented)*
 - `GOOGLE_ID` *(undocumented)*

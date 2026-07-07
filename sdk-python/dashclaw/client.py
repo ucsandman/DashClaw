@@ -655,7 +655,7 @@ class DashClaw:
 
     def get_signals(self):
         """Get current decision integrity signals. Returns autonomy breaches, logic drift, and governance violations."""
-        return self._request("/api/actions/signals")
+        return self._request("/api/signals")
 
     # --- Security Scanning ---
 

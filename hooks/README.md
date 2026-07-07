@@ -154,10 +154,7 @@ cp hooks/settings.json .claude/settings.json
 export DASHCLAW_BASE_URL=https://your-dashclaw-instance.vercel.app
 export DASHCLAW_API_KEY=your_api_key_here
 export DASHCLAW_AGENT_ID=claude-code              # optional, defaults to "claude-code"; a --agent-id flag on the hook command (installer-written) beats this
-export DASHCLAW_BEHAVIOR_SAMPLES_ENABLED=1        # optional: enable Behavior Learning samples (local-only)
 ```
-
-`DASHCLAW_BEHAVIOR_SAMPLES_ENABLED=1` opt-in turns on the **Behavior Learning** recorder (`dashclaw_agent_intel/behavior_recorder.py`). For each governed tool call, `dashclaw_pretool.py` stashes a redacted pre-execution sample (tool, command *shape*, risk, paths, guard decision) and `dashclaw_posttool.py` finalizes it with the outcome, appending one JSONL line to `.dashclaw/behavior-samples/<date>.jsonl` (override the dir with `DASHCLAW_BEHAVIOR_SAMPLES_DIR`). An enforce-mode block is recorded immediately (PostToolUse won't fire). Secrets, env values, and full paths are scrubbed before write; nothing is uploaded. The DashClaw **Policy Coach** (`/policy-coach`) analyzes these local samples into evidence-backed policy suggestions. Fail-silent: a recorder error never blocks or slows a tool call. Off by default. See [docs/behavior-learning.md](../docs/behavior-learning.md).
 
 ### Smoke test
 

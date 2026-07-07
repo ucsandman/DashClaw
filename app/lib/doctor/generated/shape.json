@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:100a17dfedc0d3715052b3c83b06792ddc3e2b64",
+  "timestamp": "sha1:50ceb610985c8781a2167d748ecf79b58040b059",
   "routes": [
     {
       "path": "/api/actions",
@@ -1237,62 +1237,6 @@
       "in_env_example": false
     },
     {
-      "name": "CONVERGENCE_BENCH_CONCURRENCY",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_BENCH_ITERATIONS",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_REPLAY_CONNECT_TIMEOUT_MS",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_RETRY_429_MAX",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_RETRY_429_WAIT_MS",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_SSE_SEND_COUNT",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "CONVERGENCE_VERBOSE",
-      "required": false,
-      "files": [
-        "scripts/collect-platform-convergence-evidence.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "CRON_SECRET",
       "required": false,
       "files": [
@@ -1432,7 +1376,6 @@
         "public/downloads/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         "scripts/auto-migrate.mjs",
         "scripts/bench-guard-hotpath.mjs",
-        "scripts/collect-platform-convergence-evidence.mjs",
         "scripts/demo-agent.mjs",
         "scripts/drills/hosted-stranger.mjs",
         "scripts/fuzz-api.mjs",
@@ -1810,8 +1753,7 @@
         "packages/openclaw-plugin/src/index.ts",
         "scripts/report-action.mjs",
         "scripts/report-tokens.mjs",
-        "scripts/test-sdk-live.mjs",
-        "scripts/verify-demo-e2e.mjs"
+        "scripts/test-sdk-live.mjs"
       ],
       "in_env_example": false
     },
@@ -1888,7 +1830,6 @@
         "scripts/migrate-prompts.mjs",
         "scripts/migrate-token-budgets.mjs",
         "scripts/policy-smoke.mjs",
-        "scripts/poll-github-traffic.mjs",
         "scripts/promote-founder-to-admin.mjs",
         "scripts/register-identity.mjs",
         "scripts/repair-stale-running-actions.mjs",
@@ -2010,22 +1951,6 @@
       "in_env_example": false
     },
     {
-      "name": "GITHUB_REPO_NAME",
-      "required": false,
-      "files": [
-        "scripts/poll-github-traffic.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "GITHUB_REPO_OWNER",
-      "required": false,
-      "files": [
-        "scripts/poll-github-traffic.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "GITHUB_SECRET",
       "required": false,
       "files": [
@@ -2038,14 +1963,6 @@
       "required": false,
       "files": [
         "scripts/live-canary.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "GITHUB_TOKEN",
-      "required": false,
-      "files": [
-        "scripts/poll-github-traffic.mjs"
       ],
       "in_env_example": false
     },
