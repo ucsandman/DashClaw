@@ -41,19 +41,6 @@
           "delete_model_strategy",
           "complete_with_strategy"
         ]
-      },
-      "knowledge": {
-        "canonical_root": "knowledge",
-        "required_methods": [
-          "list_knowledge_collections",
-          "create_knowledge_collection",
-          "get_knowledge_collection",
-          "update_knowledge_collection",
-          "list_knowledge_collection_items",
-          "add_knowledge_collection_item",
-          "sync_knowledge_collection",
-          "search_knowledge_collection"
-        ]
       }
     }
   },

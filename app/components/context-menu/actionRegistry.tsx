@@ -25,7 +25,6 @@ export const DETAIL_PATH: Record<string, (id: string) => string> = {
   action: (id) => `/decisions/${id}`,
   session: (id) => `/sessions/${id}`,
   capability: (id) => `/capabilities/${id}`,
-  knowledge: (id) => `/knowledge/${id}`,
   // Policy has no detail route — deep-link to the cockpit and highlight the match.
   // The id may be a free-form policy label, so encode it.
   policy: (id) => `/policies?policy=${encodeURIComponent(id)}`,
@@ -137,7 +136,6 @@ const ENTITY_ACTIONS: Record<string, (entity: EntityTarget) => MenuItem[]> = {
   policy: policyActions,
   webhook: webhookActions,
   apiKey: apiKeyActions,
-  knowledge: knowledgeActions,
   message: messageActions,
   session: sessionActions,
   codeSession: codeSessionActions,
@@ -291,23 +289,6 @@ function apiKeyActions(entity: EntityTarget): MenuItem[] {
       danger: true,
       run: async (ctx) => {
         await del(`/api/keys?id=${enc(entity.id)}`);
-        ctx.refresh();
-      },
-    },
-  ];
-}
-
-function knowledgeActions(entity: EntityTarget): MenuItem[] {
-  return [
-    { id: 'view', label: 'View collection', icon: Eye, run: (ctx) => ctx.push(`/knowledge/${entity.id}`) },
-    {
-      id: 'delete',
-      label: 'Delete',
-      icon: Trash2,
-      danger: true,
-      separatorBefore: true,
-      run: async (ctx) => {
-        await del(`/api/knowledge/collections/${entity.id}`);
         ctx.refresh();
       },
     },

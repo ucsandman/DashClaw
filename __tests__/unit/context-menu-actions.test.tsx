@@ -128,10 +128,6 @@ describe('context-menu governance routes', () => {
     expect(revoked.map((i) => i.id)).not.toContain('revoke');
   });
 
-  it('knowledge delete → DELETE /api/knowledge/collections/:id', async () => {
-    await run('knowledge', 'col_1', 'delete');
-    expect(fetchMock).toHaveBeenCalledWith('/api/knowledge/collections/col_1', { method: 'DELETE' });
-  });
 
   it('message mark-read + archive → PATCH /api/messages', async () => {
     await run('message', 'msg_1', 'mark-read');

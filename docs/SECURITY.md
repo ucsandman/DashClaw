@@ -52,7 +52,6 @@ User- or tenant-controlled outbound URLs use the safe URL pattern:
 | --- | --- |
 | Webhook delivery and notification webhook adapters | `safeUrlWithIps` plus `buildPinnedDispatcher` pins the resolved public IPs before `fetch`. |
 | Capability invocation endpoints | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
-| Knowledge ingestion source URIs | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
 | Integration health checks and routing callbacks/agent endpoints | `safeUrlWithIps` plus `buildPinnedDispatcher`. |
 | Settings connection tests, including custom webhook/Supabase origins | `assertSafeFetchUrl` / `safeFetch` with private-IP rejection and redirect handling. |
 | Remote JWKS verification | `assertSafeFetchUrl` before fetch; unsafe URLs are treated as verification failure. |
@@ -203,10 +202,6 @@ now exported and used by every outbound fetch that takes a
 user-configured URL. The DNS-rebinding window is closed across the full
 surface:
 
-- `app/lib/knowledge-ingest.js` `fetchSourceContent` — member-reachable
-  via `POST /api/knowledge/collections/[id]/items`, previously a
-  bare `fetch(sourceUri)` that would follow any URL including
-  `http://169.254.169.254/...` (AWS IMDS) or RFC1918 ranges.
 - `app/lib/routing/router.js` `dispatchToAgent` + `fireCallback` —
   had duplicate SSRF validation logic with no DNS pinning; ~50 lines
   of helper code deleted in favor of the shared module.

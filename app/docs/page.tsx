@@ -191,8 +191,6 @@ const navItems = [
   { href: '#execution-graph', label: 'Execution Graph', indent: true },
   { href: '#action-outcome', label: 'Action Outcome', indent: true },
   { href: '#model-strategies-http', label: 'Model Strategies', indent: true },
-  { href: '#knowledge-collections', label: 'Knowledge Collections', indent: true },
-  { href: '#deleteKnowledgeCollection', label: 'deleteKnowledgeCollection', indent: true },
   { href: '#capability-registry', label: 'Capability Registry', indent: true },
   { href: '#capability-runtime', label: 'Capability Runtime', indent: true },
   { href: '#analytics', label: 'Analytics' },
@@ -1691,7 +1689,7 @@ const { identities } = await claw.getIdentities();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: model strategies, knowledge collections, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 121 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: model strategies, a capability registry, and a read-only execution graph on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the v2 Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 112 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls (<code className="font-mono text-brand">claw.listModelStrategies</code>, <code className="font-mono text-brand">claw.execution.capabilities.invoke</code>, etc.) are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md#execution-studio" className="text-brand underline">sdk/README.md → Execution Studio</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}
@@ -1826,115 +1824,6 @@ console.log(result.content);       // LLM response
 console.log(result.provider);      // which provider handled it
 console.log(result.cost_usd);      // estimated cost
 console.log(result.fallback_used); // true if primary failed`}
-                  </CodeBlock>
-                }
-              />
-            </div>
-
-            {/* Knowledge Collections */}
-            <div id="knowledge-collections" className="scroll-mt-20 pt-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Knowledge Collections</h3>
-              <p className="text-xs text-text-tertiary mb-4">Lightweight metadata layer for knowledge sources that agents can bind to. <strong className="text-text-secondary">No embedding or retrieval in Phase 1</strong> — metadata + tags only.</p>
-
-              <MethodEntry
-                id="listKnowledgeCollections"
-                signature="GET | POST /api/knowledge/collections"
-                description="List collections (filter by ?source_type) or create a new one. source_type must be one of files | urls | external | notes. New collections start with ingestion_status='empty' and doc_count=0."
-                example={
-                  <CodeBlock title="Create collection">
-{`await fetch(\`\${baseUrl}/api/knowledge/collections\`, {
-  method: 'POST',
-  headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    name: 'Runbook Library',
-    description: 'Incident response runbooks',
-    source_type: 'files',
-    tags: ['ops', 'oncall']
-  })
-});`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="getKnowledgeCollection"
-                signature="GET | PATCH /api/knowledge/collections/:collectionId"
-                description="Fetch or update a collection's metadata (name, description, source_type, tags, ingestion_status)."
-                example={
-                  <CodeBlock title="Fetch">
-{`const { collection } = await fetch(
-  \`\${baseUrl}/api/knowledge/collections/\${collectionId}\`,
-  { headers: { 'x-api-key': apiKey } }
-).then(r => r.json());`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="knowledgeCollectionItems"
-                signature="GET | POST /api/knowledge/collections/:collectionId/items"
-                description="List or add items in a collection. Adding an item increments the parent collection's doc_count atomically and transitions ingestion_status from 'empty' to 'pending' on the first item. Items carry source_uri (required), title, mime_type, status, and a metadata object."
-                example={
-                  <CodeBlock title="Add an item">
-{`await fetch(
-  \`\${baseUrl}/api/knowledge/collections/\${collectionId}/items\`,
-  {
-    method: 'POST',
-    headers: { 'x-api-key': apiKey, 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      source_uri: 'https://docs.example.com/runbook.md',
-      title: 'Deploy runbook',
-      mime_type: 'text/markdown'
-    })
-  }
-);`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="syncKnowledgeCollection"
-                signature="POST /api/knowledge/collections/:collectionId/sync"
-                description="Caller-invoked ingestion: fetches source_uri content for each pending item, chunks text (~500 tokens with overlap), generates embeddings via BYOK OpenAI key (text-embedding-3-small, 1536 dims), and stores in the knowledge_chunks table (pgvector). Updates item status (pending → indexed/failed) and collection ingestion_status. Bounded to 50 items per call — designed for Vercel free tier (no cron required)."
-                returns="{ sync: { ingested, failed, chunks_created, errors } }"
-                example={
-                  <CodeBlock title="Sync a collection">
-{`// SDK
-const { sync } = await claw.syncKnowledgeCollection(collectionId);
-console.log(sync.ingested, sync.chunks_created);`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="searchKnowledgeCollection"
-                signature="POST /api/knowledge/collections/:collectionId/search"
-                description="Semantic search over chunked + embedded content. Embeds the query via BYOK OpenAI key, then uses pgvector cosine distance to find the most relevant chunks. Returns top-k results with similarity scores, chunk content, and source item metadata."
-                params={[
-                  { name: 'query', type: 'string', required: true, desc: 'Natural language search query' },
-                  { name: 'limit', type: 'number', required: false, desc: 'Max results (default 5, max 20)' },
-                ]}
-                returns="{ query, collection_id, results: Array<{ chunk_id, item_id, content, score, position, token_count, title, source_uri }>, count }"
-                example={
-                  <CodeBlock title="Search a collection">
-{`const { results } = await claw.searchKnowledgeCollection(
-  collectionId,
-  'How do I roll back a deploy?',
-  { limit: 5 }
-);
-results.forEach(r => console.log(\`\${(r.score * 100).toFixed(1)}%: \${r.content.slice(0, 80)}\`));`}
-                  </CodeBlock>
-                }
-              />
-
-              <MethodEntry
-                id="deleteKnowledgeCollection"
-                signature="claw.deleteKnowledgeCollection(collectionId)"
-                description="Delete a collection (and its items/chunks). Node SDK only."
-                returns="Promise<{ deleted, collection_id }>"
-                example={
-                  <CodeBlock title="Node.js">
-{`const { deleted, collection_id } = await claw.deleteKnowledgeCollection(collectionId);`}
                   </CodeBlock>
                 }
               />

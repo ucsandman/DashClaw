@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `245`
+- Total routes: `240`
 - Stable routes: `53`
 - Beta routes: `22`
-- Experimental routes: `170`
+- Experimental routes: `165`
 
 ## Routes
 
@@ -151,11 +151,6 @@ doc-type: architecture
 | `/api/internal/resolve-key` | `POST` | `experimental` | `(default)` | `app/api/internal/resolve-key/route.ts` |
 | `/api/keys` | `DELETE, GET, POST` | `stable` | `/api/keys` | `app/api/keys/route.ts` |
 | `/api/keys/reveal` | `GET` | `stable` | `/api/keys` | `app/api/keys/reveal/route.ts` |
-| `/api/knowledge/collections` | `GET, POST` | `experimental` | `(default)` | `app/api/knowledge/collections/route.ts` |
-| `/api/knowledge/collections/{collectionId}` | `DELETE, GET, PATCH` | `experimental` | `(default)` | `app/api/knowledge/collections/[collectionId]/route.ts` |
-| `/api/knowledge/collections/{collectionId}/items` | `GET, POST` | `experimental` | `(default)` | `app/api/knowledge/collections/[collectionId]/items/route.ts` |
-| `/api/knowledge/collections/{collectionId}/search` | `POST` | `experimental` | `(default)` | `app/api/knowledge/collections/[collectionId]/search/route.ts` |
-| `/api/knowledge/collections/{collectionId}/sync` | `POST` | `experimental` | `(default)` | `app/api/knowledge/collections/[collectionId]/sync/route.ts` |
 | `/api/learning` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/route.ts` |
 | `/api/learning/analytics/curves` | `GET, POST` | `experimental` | `/api/learning` | `app/api/learning/analytics/curves/route.ts` |
 | `/api/learning/analytics/maturity` | `GET` | `experimental` | `/api/learning` | `app/api/learning/analytics/maturity/route.ts` |

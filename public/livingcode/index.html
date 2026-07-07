@@ -48,9 +48,9 @@ p.kicker{background:var(--accent-bg);border:1px solid var(--accent-border);borde
 p.kicker b{color:var(--accent-deep)}
 </style></head><body>
 <h1>DashClaw Livingcode Dashboard</h1>
-<div class="sig" id="sig">Shape signature: sha1:1e1810f7141248d04afc1d9eb200f823b43eeb5b · signature-stable</div>
+<div class="sig" id="sig">Shape signature: sha1:305c788d7cd92a6a61f7525b81d60e929441e905 · signature-stable</div>
 <div class="grid">
-      <div class="cell"><div class="n">246</div><div class="k">Active routes</div></div>
+      <div class="cell"><div class="n">241</div><div class="k">Active routes</div></div>
       <div class="cell"><div class="n">0</div><div class="k">Archived routes</div></div>
       <div class="cell"><div class="n">4</div><div class="k">Required env vars</div></div>
       <div class="cell"><div class="n">199</div><div class="k">Optional env vars</div></div>
@@ -203,7 +203,7 @@ p.kicker b{color:var(--accent-deep)}
       <div class="cell"><div class="n">1</div><div class="k">TODOs</div></div>
       <div class="cell"><div class="n">128</div><div class="k">Files &gt;300 lines</div></div></div></section>
 
-<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>84</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
+<section><h2>Changed since last snapshot</h2><p class="kicker"><b>59</b> env_vars added, <b>2</b> env_vars removed, <b>22</b> routes added, <b>89</b> routes removed, <b>15</b> tables added since last snapshot.</p><ul class="diff">    <li><code>added</code> <b>routes</b>: /api/agents/fanouts <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/bulk <span class="sig">New route: POST</span></li>
     <li><code>added</code> <b>routes</b>: /api/approvals/floods <span class="sig">New route: GET</span></li>
     <li><code>added</code> <b>routes</b>: /api/calibration/controller <span class="sig">New route: GET, POST</span></li>
@@ -281,6 +281,11 @@ p.kicker b{color:var(--accent-deep)}
     <li><code>removed</code> <b>routes</b>: /api/analytics <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/cron/routing-maintenance <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/invite/[token] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/knowledge/collections <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId] <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/items <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/search <span class="sig">Route removed</span></li>
+    <li><code>removed</code> <b>routes</b>: /api/knowledge/collections/[collectionId]/sync <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/operations/feed <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture <span class="sig">Route removed</span></li>
     <li><code>removed</code> <b>routes</b>: /api/posture/findings <span class="sig">Route removed</span></li>
@@ -516,11 +521,6 @@ p.kicker b{color:var(--accent-deep)}
 <details><summary>/internal/* (1)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/internal/resolve-key"><td><code>/api/internal/resolve-key</code></td><td>POST</td><td class="sig">app/api/internal/resolve-key/route.ts</td></tr></tbody></table></details>
 <details><summary>/keys/* (2)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/keys"><td><code>/api/keys</code></td><td>DELETE, GET, POST</td><td class="sig">app/api/keys/route.ts</td></tr>
     <tr data-path="/api/keys/reveal"><td><code>/api/keys/reveal</code></td><td>GET</td><td class="sig">app/api/keys/reveal/route.ts</td></tr></tbody></table></details>
-<details><summary>/knowledge/* (5)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/knowledge/collections"><td><code>/api/knowledge/collections</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/route.ts</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]"><td><code>/api/knowledge/collections/[collectionId]</code></td><td>DELETE, GET, PATCH</td><td class="sig">app/api/knowledge/collections/[collectionId]/route.ts</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/items"><td><code>/api/knowledge/collections/[collectionId]/items</code></td><td>GET, POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/items/route.ts</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/search"><td><code>/api/knowledge/collections/[collectionId]/search</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/search/route.ts</td></tr>
-    <tr data-path="/api/knowledge/collections/[collectionId]/sync"><td><code>/api/knowledge/collections/[collectionId]/sync</code></td><td>POST</td><td class="sig">app/api/knowledge/collections/[collectionId]/sync/route.ts</td></tr></tbody></table></details>
 <details><summary>/learning/* (13)</summary><table><thead><tr><th>Path</th><th>Methods</th><th>File</th></tr></thead><tbody>    <tr data-path="/api/learning"><td><code>/api/learning</code></td><td>GET, POST</td><td class="sig">app/api/learning/route.ts</td></tr>
     <tr data-path="/api/learning/analytics/curves"><td><code>/api/learning/analytics/curves</code></td><td>GET, POST</td><td class="sig">app/api/learning/analytics/curves/route.ts</td></tr>
     <tr data-path="/api/learning/analytics/maturity"><td><code>/api/learning/analytics/maturity</code></td><td>GET</td><td class="sig">app/api/learning/analytics/maturity/route.ts</td></tr>

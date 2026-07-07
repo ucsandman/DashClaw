@@ -828,7 +828,7 @@ Those wrappers exist to keep older integrations working. New product work should
 
 ## Execution Studio
 
-Governance packaging and discovery — model strategies, knowledge collections, a capability registry, and a read-only execution graph. Added in v2.10.0.
+Governance packaging and discovery — model strategies, a capability registry, and a read-only execution graph. Added in v2.10.0.
 
 ### Execution Graph
 
@@ -964,45 +964,6 @@ console.log(result.content);    // LLM response text
 console.log(result.provider);   // e.g. 'openai'
 console.log(result.cost_usd);   // estimated cost
 console.log(result.fallback_used); // true if primary failed
-```
-
-### Knowledge Collections
-
-Metadata-only layer — no embedding or retrieval yet. Ingestion execution is planned for Phase 2b.
-
-```javascript
-// Create a collection
-const { collection } = await claw.createKnowledgeCollection({
-  name: 'Runbook Library',
-  description: 'Incident response runbooks',
-  source_type: 'files',  // 'files' | 'urls' | 'external' | 'notes'
-  tags: ['ops', 'oncall']
-});
-
-// Add items (bumps parent doc_count; transitions ingestion_status from empty → pending)
-await claw.addKnowledgeCollectionItem(collection.collection_id, {
-  source_uri: 'https://docs.example.com/runbook.md',
-  title: 'Deploy runbook',
-  mime_type: 'text/markdown'
-});
-
-// List items
-const { items } = await claw.listKnowledgeCollectionItems(collection.collection_id);
-
-// Sync — ingest pending items (fetch, chunk, embed via BYOK OpenAI key)
-const { sync } = await claw.syncKnowledgeCollection(collection.collection_id);
-console.log(sync.ingested, sync.chunks_created); // e.g. 3 ingested, 42 chunks
-
-// Search — semantic similarity over embedded chunks
-const { results } = await claw.searchKnowledgeCollection(
-  collection.collection_id,
-  'How do I roll back a deploy?',
-  { limit: 5 }
-);
-results.forEach(r => console.log(`${(r.score * 100).toFixed(1)}%: ${r.content.slice(0, 80)}...`));
-
-// Delete a collection (cascades its items + chunks)
-const { deleted, collection_id } = await claw.deleteKnowledgeCollection(collection.collection_id);
 ```
 
 ### Capability Runtime

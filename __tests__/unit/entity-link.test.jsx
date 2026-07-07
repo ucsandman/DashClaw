@@ -15,7 +15,6 @@ const LINK_CASES = [
   ['decision', 'act_1', '/decisions/act_1'],
   ['session', 'sess_1', '/sessions/sess_1'],
   ['capability', 'cap_1', '/capabilities/cap_1'],
-  ['knowledge', 'col_1', '/knowledge/col_1'],
   ['policy', 'pol_1', '/policies?policy=pol_1'],
 ];
 

@@ -2046,46 +2046,6 @@ class DashClaw:
             json={"messages": messages, **kwargs}
         )
 
-    # --- Execution Studio: Knowledge Collections ----------
-
-    def list_knowledge_collections(self, source_type=None, limit=50, offset=0):
-        """List knowledge collections."""
-        params = {"limit": limit, "offset": offset}
-        if source_type is not None:
-            params["source_type"] = source_type
-        return self._request("/api/knowledge/collections", "GET", params=params)
-
-    def create_knowledge_collection(self, **kwargs):
-        """Create a knowledge collection. Required: name."""
-        return self._request("/api/knowledge/collections", "POST", json=kwargs)
-
-    def get_knowledge_collection(self, collection_id):
-        """Fetch a single knowledge collection."""
-        return self._request(f"/api/knowledge/collections/{collection_id}", "GET")
-
-    def update_knowledge_collection(self, collection_id, **kwargs):
-        """Update collection metadata."""
-        return self._request(f"/api/knowledge/collections/{collection_id}", "PATCH", json=kwargs)
-
-    def list_knowledge_collection_items(self, collection_id, limit=100, offset=0):
-        """List items in a knowledge collection."""
-        return self._request(f"/api/knowledge/collections/{collection_id}/items", "GET", params={"limit": limit, "offset": offset})
-
-    def add_knowledge_collection_item(self, collection_id, **kwargs):
-        """Add an item to a collection. Required: source_uri. Bumps parent doc_count."""
-        return self._request(f"/api/knowledge/collections/{collection_id}/items", "POST", json=kwargs)
-
-    def sync_knowledge_collection(self, collection_id):
-        """Ingest pending items: fetch, chunk, embed, store. Caller-invoked."""
-        return self._request(f"/api/knowledge/collections/{collection_id}/sync", "POST", json={})
-
-    def search_knowledge_collection(self, collection_id, query, limit=5):
-        """Semantic search over chunked + embedded collection content."""
-        return self._request(
-            f"/api/knowledge/collections/{collection_id}/search", "POST",
-            json={"query": query, "limit": limit}
-        )
-
     # --- Execution Studio: Capability Registry ------------
 
     def list_capabilities(self, category=None, risk_level=None, search=None, limit=100, offset=0):

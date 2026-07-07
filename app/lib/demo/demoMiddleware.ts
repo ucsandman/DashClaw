@@ -1104,23 +1104,6 @@ export function demoIdentities(fixtures: DemoFixtures) {
   return { identities, lastUpdated: new Date().toISOString() };
 }
 
-export function demoKnowledgeCollections() {
-  const names = ['Governance Playbook', 'Security Runbooks', 'API Contracts', 'Incident Postmortems'];
-  const sources = ['manual', 'github', 'manual', 'url'];
-  const docCounts = [12, 34, 8, 19];
-  const collections = [1, 2, 3, 4].map((n) => ({
-    collection_id: `col_demo_${n}`,
-    name: names[n - 1],
-    ingestion_status: 'ready',
-    source_type: sources[n - 1],
-    doc_count: docCounts[n - 1],
-    created_at: `2026-05-1${n}T12:00:00.000Z`,
-    last_synced_at: `2026-06-0${n}T12:00:00.000Z`,
-    tags: ['governance'],
-  }));
-  return { collections, lastUpdated: new Date().toISOString() };
-}
-
 export function demoApiKeys() {
   const keys = [
     { id: 'key_demo_1', name: 'CI Pipeline', prefix: 'dk_live_', revoked_at: null, created_at: '2026-04-01T00:00:00.000Z', last_used_at: '2026-06-07T08:00:00.000Z' },

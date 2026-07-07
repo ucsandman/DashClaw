@@ -22,7 +22,7 @@ Python agents typically pair the SDK with one or more of these:
 
 ## Quick Start
 
-The Python SDK is the full platform SDK (204 methods). The constructor accepts both v2-compatible and v1-extended parameters.
+The Python SDK is the full platform SDK (196 methods). The constructor accepts both v2-compatible and v1-extended parameters.
 
 ### v2-compatible constructor (recommended for new agents)
 
@@ -1071,9 +1071,9 @@ integration.instrument_agent(assistant)
 
 ## API Parity
 
-This SDK provides the full DashClaw platform surface (204 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
+This SDK provides the full DashClaw platform surface (196 methods), which is parity with the (now DEPRECATED, removed in v5.0.0) [Node.js v1 legacy SDK](https://github.com/ucsandman/DashClaw/tree/main/sdk/legacy).
 
-The Node.js v2 SDK exposes a curated subset of **121 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
+The Node.js v2 SDK exposes a curated subset of **112 methods** focused on agent governance. The following Python methods are available in both the Node.js v2 SDK and this Python SDK:
 
 | Category | Node v2 method | Python equivalent | In v2? |
 |----------|---------------|-------------------|:------:|
@@ -1110,7 +1110,7 @@ Two smaller canonical surfaces, at parity with Node v2:
 
 ## Execution Studio
 
-Governance packaging and discovery — model strategies, knowledge collections, a capability registry, and a read-only execution graph. Added in v2.10.0.
+Governance packaging and discovery — model strategies, a capability registry, and a read-only execution graph. Added in v2.10.0.
 
 ### Execution Graph
 
@@ -1199,47 +1199,6 @@ print(result["provider"])      # e.g. 'openai'
 print(result["cost_usd"])      # estimated cost
 print(result["fallback_used"]) # True if primary failed
 ```
-
-### Knowledge Collections
-
-Metadata-only layer — no embedding or retrieval yet. Ingestion execution planned for Phase 2b.
-
-```python
-# Create a collection
-result = claw.create_knowledge_collection(
-    name="Runbook Library",
-    description="Incident response runbooks",
-    source_type="files",   # files | urls | external | notes
-    tags=["ops", "oncall"],
-)
-collection = result["collection"]
-
-# Add items — bumps doc_count and transitions ingestion_status empty → pending
-claw.add_knowledge_collection_item(
-    collection["collection_id"],
-    source_uri="https://docs.example.com/runbook.md",
-    title="Deploy runbook",
-    mime_type="text/markdown",
-)
-
-# List items
-claw.list_knowledge_collection_items(collection["collection_id"])
-
-# Sync — ingest pending items (fetch, chunk, embed via BYOK OpenAI key)
-sync = claw.sync_knowledge_collection(collection["collection_id"])["sync"]
-print(sync["ingested"], sync["chunks_created"])  # e.g. 3 ingested, 42 chunks
-
-# Search — semantic similarity over embedded chunks
-results = claw.search_knowledge_collection(
-    collection["collection_id"],
-    "How do I roll back a deploy?",
-    limit=5,
-)["results"]
-for r in results:
-    print(f"{r['score']*100:.1f}%: {r['content'][:80]}...")
-```
-
-Python knowledge collections are now part of the contract-enforced execution-studio surface, alongside capabilities and model strategies.
 
 ### Capability Registry
 

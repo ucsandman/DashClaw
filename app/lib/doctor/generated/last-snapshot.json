@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:1e1810f7141248d04afc1d9eb200f823b43eeb5b",
+  "timestamp": "sha1:305c788d7cd92a6a61f7525b81d60e929441e905",
   "routes": [
     {
       "path": "/api/actions",
@@ -1297,63 +1297,6 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/keys/reveal/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [],
-      "archived": false,
-      "file_path": "app/api/knowledge/collections/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/[collectionId]",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "dynamic_params": [
-        "collectionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/knowledge/collections/[collectionId]/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/[collectionId]/items",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "dynamic_params": [
-        "collectionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/knowledge/collections/[collectionId]/items/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/[collectionId]/search",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "collectionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/knowledge/collections/[collectionId]/search/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/[collectionId]/sync",
-      "methods": [
-        "POST"
-      ],
-      "dynamic_params": [
-        "collectionId"
-      ],
-      "archived": false,
-      "file_path": "app/api/knowledge/collections/[collectionId]/sync/route.ts"
     },
     {
       "path": "/api/learning",
@@ -3618,7 +3561,6 @@
         "__tests__/unit/guard-engine.test.js",
         "__tests__/unit/policy-modes-compile.test.ts",
         "app/lib/embeddings.ts",
-        "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "scripts/test-semantic-guard.mjs"
       ],
@@ -4018,7 +3960,6 @@
       "files": [
         "__tests__/unit/guard-characterization.test.js",
         "app/lib/embeddings.ts",
-        "app/lib/knowledge-ingest.ts",
         "app/lib/llm.ts",
         "examples/openai-deploy-pipeline/index.js",
         "examples/openai-governed-agent/index.js"

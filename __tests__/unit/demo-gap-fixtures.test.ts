@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
-  demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
+  demoIdentities, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions,
@@ -23,11 +23,6 @@ describe('demo gap-page fixtures — non-empty + correctly shaped', () => {
     const r = demoIdentities(fixtures);
     expect(r.identities.length).toBeGreaterThan(0);
     expect(r.identities[0]!).toMatchObject({ agent_id: expect.any(String), permission_level: expect.any(String) });
-  });
-  it('knowledge collections (/api/knowledge/collections)', () => {
-    const r = demoKnowledgeCollections();
-    expect(r.collections.length).toBeGreaterThan(0);
-    expect(r.collections[0]!).toMatchObject({ collection_id: expect.any(String), name: expect.any(String), ingestion_status: expect.any(String), doc_count: expect.any(Number) });
   });
   it('api keys (/api/keys)', () => {
     const r = demoApiKeys();

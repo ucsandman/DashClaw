@@ -13,7 +13,6 @@
 //   capabilityId → cap_demo_enrich            (DEMO_REGISTRY_CAPABILITIES[0].capability_id)
 //   sessionId    → sess_demo_1                (buildDemoSessionList: id = `sess_demo_${n}`)
 //   projectId    → cp_demo_dashclaw           (demoSpend by_project[0].project_id)
-//   collectionId → col_demo_1                 (demoKnowledgeCollections: n=1)
 //   strategyId   → str_demo_1                 (demoModelStrategies strategies[0].strategy_id)
 //   templateId   → demo-template              (workflows array is empty in fixtures; renders empty-state = valid pass)
 //   runActionId  → ar_demo_deploy_block_001   (same demo action)
@@ -109,9 +108,6 @@ export const LABS_PAGES = [
   { path: '/workflows/strategies', label: 'Model strategies' },  // was /model-strategies
   { path: '/workflows/strategies/new', label: 'New model strategy' },
   { path: '/workflows/strategies/str_demo_1', label: 'Model strategy detail [str_demo_1]' },
-  { path: '/knowledge', label: 'Knowledge collections' },
-  { path: '/knowledge/new', label: 'New knowledge collection' },
-  { path: '/knowledge/col_demo_1', label: 'Knowledge collection detail [col_demo_1]' },
   { path: '/capabilities', label: 'Capability registry' },
   { path: '/capabilities/new', label: 'New capability' },
   { path: '/capabilities/cap_demo_enrich', label: 'Capability detail [cap_demo_enrich]' },

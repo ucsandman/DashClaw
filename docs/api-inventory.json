@@ -47,10 +47,10 @@
     ]
   },
   "summary": {
-    "total_routes": 245,
+    "total_routes": 240,
     "stable_routes": 53,
     "beta_routes": 22,
-    "experimental_routes": 170
+    "experimental_routes": 165
   },
   "routes": [
     {
@@ -1261,55 +1261,6 @@
       "maturity": "stable",
       "matched_prefix": "/api/keys",
       "file": "app/api/keys/reveal/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/knowledge/collections/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/{collectionId}",
-      "methods": [
-        "DELETE",
-        "GET",
-        "PATCH"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/knowledge/collections/[collectionId]/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/{collectionId}/items",
-      "methods": [
-        "GET",
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/knowledge/collections/[collectionId]/items/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/{collectionId}/search",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/knowledge/collections/[collectionId]/search/route.ts"
-    },
-    {
-      "path": "/api/knowledge/collections/{collectionId}/sync",
-      "methods": [
-        "POST"
-      ],
-      "maturity": "experimental",
-      "matched_prefix": "(default)",
-      "file": "app/api/knowledge/collections/[collectionId]/sync/route.ts"
     },
     {
       "path": "/api/learning",

@@ -14,7 +14,7 @@ import {
   demoHandoffs, demoSnippets, demoPreferences, demoActionTrace,
   demoDecisionMetrics,
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
-  demoIdentities, demoKnowledgeCollections, demoApiKeys, demoSecrets,
+  demoIdentities, demoApiKeys, demoSecrets,
   demoModelStrategies, demoReputationLeaderboard, demoReputationSummary, demoReputationEvents,
   demoSpend, demoX402Purchases, demoX402Budget,
   demoBehaviorRecorder, demoBehaviorSamples, demoBehaviorSuggestions
@@ -1364,7 +1364,6 @@ const DEMO_API_ROUTES = [
   [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*', 'actions']), handleDemoSessionActions],
   [(pathname, segments) => segmentsMatch(segments, ['api', 'sessions', '*']), handleDemoSessionDetail],
   ['/api/identities', demoFixtureRoute(demoIdentities)],
-  ['/api/knowledge/collections', demoPayloadRoute(demoKnowledgeCollections)],
   ['/api/keys', demoPayloadRoute(demoApiKeys)],
   ['/api/secrets', demoPayloadRoute(demoSecrets)],
   ['/api/model-strategies', demoPayloadRoute(demoModelStrategies)],

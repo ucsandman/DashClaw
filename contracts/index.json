@@ -8,8 +8,7 @@
     "setup_env_prerequisites": true
   },
   "api": {
-    "capabilities": "contracts/api/capabilities.json",
-    "knowledge-collections": "contracts/api/knowledge-collections.json"
+    "capabilities": "contracts/api/capabilities.json"
   },
   "schema": {
     "action-records": "contracts/schema/action-records.json"

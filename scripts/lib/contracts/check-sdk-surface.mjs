@@ -37,10 +37,6 @@ function selectPythonMethods(methods, canonicalRoot) {
     return methods.filter((method) => method.includes('model_strateg') || method === 'complete_with_strategy');
   }
 
-  if (canonicalRoot === 'knowledge') {
-    return methods.filter((method) => method.includes('knowledge_collection'));
-  }
-
   return methods.filter((method) => !method.startsWith('_'));
 }
 

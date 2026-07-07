@@ -24,17 +24,12 @@ vi.mock('@/capabilities/components/CapabilityRegistryCard', () => ({
 vi.mock('@/capabilities/components/CapabilityRegistrySummary', () => ({ default: () => <div /> }));
 vi.mock('@/capabilities/components/CapabilityRegistryFilters', () => ({ default: () => <div /> }));
 
-import KnowledgePage from '@/knowledge/page';
 import ApiKeysPage from '@/api-keys/page';
 import WebhooksPage from '@/webhooks/page';
 import SecretsPage from '@/secrets/page';
 import CapabilitiesPage from '@/capabilities/page';
 
 const NOW = '2026-06-01T00:00:00.000Z';
-const KNOWLEDGE = [1, 2, 3].map((n) => ({
-  collection_id: `col_${n}`, name: `Collection ${n}`, ingestion_status: 'ready',
-  source_type: 'manual', doc_count: 1, created_at: NOW, last_synced_at: NOW, tags: [],
-}));
 const KEYS = [1, 2, 3].map((n) => ({
   id: `key_${n}`, name: `Key ${n}`, prefix: 'dk_live_', revoked_at: null, created_at: NOW, last_used_at: null,
 }));
@@ -61,8 +56,7 @@ beforeEach(() => {
     const method = (opts && opts.method) || 'GET';
     calls.push({ u, method });
     let body = {};
-    if (u.includes('/api/knowledge/collections') && method === 'GET') body = { collections: KNOWLEDGE };
-    else if (u.startsWith('/api/keys') && method === 'GET') body = { keys: KEYS };
+    if (u.startsWith('/api/keys') && method === 'GET') body = { keys: KEYS };
     else if (u.startsWith('/api/webhooks') && method === 'GET') body = { webhooks: WEBHOOKS };
     else if (u.includes('/api/capabilities/health')) body = { capabilities: [] };
     else if (u.startsWith('/api/capabilities') && method === 'GET') body = { capabilities: CAPS };
@@ -86,12 +80,6 @@ async function selectAllThenAssertCount(page) {
 }
 
 describe('multi-select wiring across list pages', () => {
-  it('knowledge: select-all → BulkActionBar count → bulk delete fires 3 DELETEs', async () => {
-    const { actions } = await selectAllThenAssertCount(<KnowledgePage />);
-    fireEvent.click(within(actions).getByText('Delete'));
-    await waitFor(() => expect(fetchCalls('DELETE', '/api/knowledge/collections/').length).toBe(3));
-  });
-
   it('api-keys: select-all → count → bulk revoke fires 3 key DELETEs', async () => {
     const { actions } = await selectAllThenAssertCount(<ApiKeysPage />);
     fireEvent.click(within(actions).getByText('Revoke'));
@@ -116,13 +104,13 @@ describe('multi-select wiring across list pages', () => {
     await waitFor(() => expect(fetchCalls('DELETE', '/api/capabilities/').length).toBe(3));
   });
 
-  it('destructive bulk delete is gated on confirm — declining fires no DELETE', async () => {
+  it('destructive bulk action is gated on confirm — declining fires no request', async () => {
     window.confirm.mockReturnValue(false);
-    const { actions } = await selectAllThenAssertCount(<KnowledgePage />);
-    fireEvent.click(within(actions).getByText('Delete'));
+    const { actions } = await selectAllThenAssertCount(<ApiKeysPage />);
+    fireEvent.click(within(actions).getByText('Revoke'));
     // give any (incorrectly un-gated) request a tick to fire
     await new Promise((r) => setTimeout(r, 50));
-    expect(fetchCalls('DELETE', '/api/knowledge/collections/').length).toBe(0);
+    expect(fetchCalls('DELETE', '/api/keys?id=').length).toBe(0);
     expect(window.confirm).toHaveBeenCalled();
   });
 });
