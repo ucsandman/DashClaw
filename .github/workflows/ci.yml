@@ -56,6 +56,9 @@ jobs:
       - name: Check route-level SQL guardrail
         run: npm run route-sql:check
 
+      - name: Check surface budget (anti-regrowth brake)
+        run: npm run surface:check
+
       - name: Check version-string drift in user-facing code
         run: npm run version:check
 

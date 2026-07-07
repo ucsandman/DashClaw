@@ -227,11 +227,32 @@ becomes the baseline the new falsifiers are judged against.
 
 The 2026-03 purge (178→5 SDK methods, 142 routes archived) regrew to full
 sprawl within four months, and the "Governance Boundary CI check" it promised
-never shipped. This time the brake is mechanical: a **surface-budget gate in
-CI** — counted ceilings for active API routes, pages, MCP tools, SDK methods,
-and CLI commands. Exceeding a ceiling fails the build unless the commit also
-amends this document with a written reason. Sprawl becomes a deliberate,
-recorded act instead of a drift.
+never shipped. This time the brake is mechanical and shipped: a **surface-budget
+gate in CI** (`scripts/check-surface-budget.mjs`, `npm run surface:check`, wired
+into `.github/workflows/ci.yml` alongside the other contract gates). It counts
+every governed surface each run — active API routes, pages, MCP tools, MCP
+resources, Node + Python SDK methods, CLI commands, guard policy types — and
+fails the build when any exceeds its v5.0.0 ceiling. Exceeding a ceiling fails
+the build unless the commit also amends this document with a written reason.
+Sprawl becomes a deliberate, recorded act instead of a drift.
+
+The adopted ceilings — set to the exact live count at v5.0.0, and the machine
+source of truth for the gate, live in `contracts/surface-budget.json`:
+
+| Surface | Ceiling | Counted from |
+|---|---|---|
+| Active API routes | 117 | `app/api/**/route.{js,ts,tsx}` |
+| App pages | 46 | `app/**/page.{js,jsx,ts,tsx}` |
+| MCP tools | 12 | `mcp-server/src/tools.ts` |
+| MCP resources | 3 | `mcp-server/src/resources.ts` |
+| Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Python SDK methods | 51 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
+| CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
+| Guard policy types | 14 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
+
+Raising any ceiling requires amending this section **and**
+`contracts/surface-budget.json` in the same commit with a written reason — the
+recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 
 ## Version story
 

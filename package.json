@@ -36,6 +36,7 @@
     "api:inventory:check": "node scripts/check-api-inventory-diff.mjs",
     "route-sql:baseline:generate": "node scripts/generate-route-sql-baseline.mjs",
     "route-sql:check": "node scripts/check-route-sql-guard.mjs",
+    "surface:check": "node scripts/check-surface-budget.mjs",
     "version:check": "node scripts/check-version-hardcodes.mjs",
     "version:sync:check": "node scripts/check-version-sync.mjs",
     "version:set": "node scripts/set-version.mjs",

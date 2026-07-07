@@ -1,0 +1,13 @@
+{
+  "_note": "Anti-regrowth surface budget. See THESIS.md, section 'The anti-regrowth brake'. Each ceiling is the exact live count of a governed surface at v5.0.0. The gate (scripts/check-surface-budget.mjs, npm run surface:check) fails the build when any live count exceeds its ceiling. Raising a ceiling requires amending THESIS.md (anti-regrowth section) AND this file in the same commit with a written reason. Sprawl is a deliberate, recorded act, not a drift.",
+  "ceilings": {
+    "apiRoutes": { "ceiling": 117, "source": "app/api/**/route.{js,ts,tsx}" },
+    "appPages": { "ceiling": 46, "source": "app/**/page.{js,jsx,ts,tsx}" },
+    "mcpTools": { "ceiling": 12, "source": "mcp-server/src/tools.ts (dashclaw_* tool names)" },
+    "mcpResources": { "ceiling": 3, "source": "mcp-server/src/resources.ts (uri entries)" },
+    "sdkNodeMethods": { "ceiling": 28, "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs" },
+    "sdkPythonMethods": { "ceiling": 51, "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs" },
+    "cliCommands": { "ceiling": 13, "source": "cli/bin/dashclaw.js COMMAND_HANDLERS (flag aliases excluded)" },
+    "guardPolicyTypes": { "ceiling": 14, "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)" }
+  }
+}
