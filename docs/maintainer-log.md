@@ -53,8 +53,23 @@ The rest of the night was the prove-the-cull plan
 - **Rendered sweep.** All 45 surviving pages (41 static + 4 dynamic with real
   IDs) render clean — zero console errors, zero failed `/api/*` calls, all 13
   sidebar links resolve. The cull left no rendered casualties.
-- **Hero loop.** Live remote-approval proof on the deployed instance — result
-  recorded below when the run completes.
+- **Hero loop.** Proven live on my-dashclaw (the deployed instance). A governed
+  drill agent attempted an external `DELETE …/deployments/prod-main`; the guard
+  graded the act at risk 95 on its own evidence and returned **require_approval**
+  (the out-of-box "Require Approval for Network Calls" starter policy); the
+  action froze as `pending_approval` and the work did **not** run. Wes approved
+  from his **phone** 244s later. The record then went `running` → outcome
+  `completed` (`elapsed_ms 244304`). The load-bearing proof is the principals:
+  `created_by=operator` (the drill's key) vs `resolved_by=usr_7ad6e7ee…` (Wes's
+  phone session) — two distinct identities, so separation of duties held; the
+  agent could not have released its own action. Receipt:
+  `/decisions/act_c816b382-31d3-4f64-a340-b2bbab5eadeb`.
+
+  Honesty caveat: those decision rows are durable and replayable but
+  `verification_status=unverified` (unsigned). Ed25519 receipts are gated on a
+  configured JWT issuer, and the drill used API-key auth (no token) — the
+  fail-soft path. The audit trail is real; the *cryptographic signature* is a
+  separate, config-on capability that this API-key drill didn't exercise.
 
 Honesty note: 0.8.1 was published before the drill surfaced the Python break,
 so 0.8.1 spent about an hour as `latest` with a tail that dies on Python-less
