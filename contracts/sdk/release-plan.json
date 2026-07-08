@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.0.1",
+    "current_version": "5.0.2",
     "next_bump": "none",
-    "reason": "5.0.1 carries a small real Node SDK source change (fe7ef21b: dead-code purge in sdk/dashclaw.js after the v5 cull) - the SDK IS republished to npm at 5.0.1 (credential-gated human tail: npm run release:sdks).",
+    "reason": "5.0.2 is platform-only (workspace-import idempotency fix) - no Node SDK source change; the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release.",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.0.1",
+    "current_version": "5.0.2",
     "next_bump": "none",
-    "reason": "5.0.1 carries a small real Python SDK source change (fe7ef21b: client.py cleanup after the v5 cull) - the SDK IS republished to PyPI at 5.0.1 (credential-gated human tail: npm run release:sdks).",
+    "reason": "5.0.2 is platform-only (workspace-import idempotency fix) - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.0.1 is the first-run sign-in ship: `dashclaw up` prints the admin password (previously swallowed with the piped setup stderr) and opens the browser already signed in via a single-use 15-minute DASHCLAW_LOGIN_OTT consumed by /api/auth/local; a failed Claude Code hooks install (fresh machine, no Python) is now non-fatal to the sign-in tail. @dashclaw/cli republishes at 0.8.2 (0.8.1 shipped the feature, 0.8.2 the non-fatal connect). Both SDKs republish at 5.0.1 for the small fe7ef21b source deltas.",
+  "reason": "5.0.2 fixes the workspace-import 23505: a bundle guard policy arriving under a foreign id but a name the target org already has (the trial default pack case) now skips via an org-scoped (org_id, name) NOT EXISTS alongside ON CONFLICT (id). Found live by drill:hosted the night it shipped v5.0.1.",
   "domains": [
     "platform"
   ]

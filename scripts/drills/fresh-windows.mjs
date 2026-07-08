@@ -90,7 +90,9 @@ async function main() {
   while (Date.now() < deadline) {
     if (existsSync(resultPath)) {
       try {
-        result = JSON.parse(readFileSync(resultPath, 'utf8'));
+        // PowerShell writes the file with a UTF-8 BOM; JSON.parse rejects it,
+        // which used to masquerade as "mid-write" and poll to the timeout.
+        result = JSON.parse(readFileSync(resultPath, 'utf8').replace(/^\uFEFF/, ''));
         break;
       } catch {
         // file may be mid-write; retry on next poll

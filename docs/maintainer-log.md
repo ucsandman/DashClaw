@@ -37,6 +37,19 @@ The rest of the night was the prove-the-cull plan
   failure is loud but non-fatal, checkpoint skipped so the next run retries.
   A drill finding a distribution break the same night it was instrumented is
   the v8.3 bet paying out.
+- **The instrument itself.** Bug four, in the drill launcher: PowerShell
+  writes `drill-result.json` with a UTF-8 BOM, the launcher's `JSON.parse`
+  threw, and the "mid-write, retry" catch ate the error — so a sandbox run
+  that PASSED at 21:53 reported "timed out" at 22:19. The launcher now strips
+  the BOM. An instrument that can't read its own verdict is worse than no
+  instrument; also v5.0.2.
+- **Hosted door.** `drill:hosted` caught bug three (shipped as **v5.0.2**):
+  workspace import 500s whenever the bundle carries a guard policy whose
+  *name* the target org already has under a different id —
+  `guard_policies_org_name_unique`, the exact collision every trial
+  graduation hits because both sides carry the default pack. Import now
+  guards on the org-scoped natural key alongside `ON CONFLICT (id)`;
+  re-drill 6/6 green (mint → key → first action → export → import).
 - **Rendered sweep.** All 45 surviving pages (41 static + 4 dynamic with real
   IDs) render clean — zero console errors, zero failed `/api/*` calls, all 13
   sidebar links resolve. The cull left no rendered casualties.

@@ -13,6 +13,25 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.0.2] — 2026-07-07
+
+### Fixed
+
+- **Workspace import is idempotent against same-name policies again.** A
+  bundle's guard policy arrives under a foreign id, so `ON CONFLICT (id)`
+  never fired when the target org already had that policy under its own id —
+  the insert died on `guard_policies_org_name_unique` (500, `23505`). The
+  exact case every hosted-trial graduation hits: both orgs carry the default
+  policy pack. The insert now also guards on the org-scoped natural key
+  (`org_id, name`) and skips such rows. Found live by `drill:hosted` the same
+  evening v5.0.1 shipped; proven fixed by a 6/6 re-run. Platform-only —
+  SDKs are not republished.
+- **The fresh-Windows drill launcher can now read its own verdict.**
+  PowerShell writes `drill-result.json` with a UTF-8 BOM; the launcher's
+  `JSON.parse` rejected it, the mid-write retry loop swallowed the error, and
+  a drill whose sandbox side *passed* still "timed out" after 40 minutes. The
+  launcher strips the BOM before parsing. (`scripts/drills/fresh-windows.mjs`)
+
 ## [5.0.1] — 2026-07-07
 
 **First-run sign-in: `npx dashclaw up` now ends with a browser that is already

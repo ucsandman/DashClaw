@@ -39,6 +39,15 @@ export type BundleTableSpec = {
    * org-scoped WHERE NOT EXISTS.
    */
   conflictTarget?: string;
+  /**
+   * Secondary org-scoped natural key backed by a per-org unique constraint
+   * (e.g. guard_policies (org_id, name)). A bundle row carries a foreign id,
+   * so ON CONFLICT (id) never fires when the target org already has the same
+   * row under a different id — the insert then dies on the org-scoped
+   * constraint instead. Rows whose value already exists in the org are
+   * skipped.
+   */
+  orgUniqueKey?: string;
   /** Table-specific columns that never leave the instance. */
   deny: string[];
 };
@@ -48,7 +57,7 @@ export type BundleTableSpec = {
 const BASE_DENY = ['org_id'];
 
 export const BUNDLE_TABLES: BundleTableSpec[] = [
-  { name: 'guard_policies', table: guardPolicies, dedupeKey: 'id', conflictTarget: '(id)', deny: [] },
+  { name: 'guard_policies', table: guardPolicies, dedupeKey: 'id', conflictTarget: '(id)', orgUniqueKey: 'name', deny: [] },
   // jti is a replay nonce, forensic to the source instance.
   { name: 'guard_decisions', table: guardDecisions, dedupeKey: 'id', conflictTarget: '(id)', deny: ['jti'] },
   // signature/verified attest to the SOURCE instance's signing key — on the
@@ -196,13 +205,20 @@ export async function importWorkspaceBundle(
       let insertSql: string;
       let params: unknown[];
       if (spec.conflictTarget) {
-        // $1 = org, values start at $2.
+        // $1 = org, values start at $2; the orgUniqueKey param (if any) rides
+        // last. ON CONFLICT covers a same-id re-import; the NOT EXISTS covers
+        // the same org-scoped identity arriving under a foreign id.
         const valueExprs = ['$1', ...present.map((c, i) => `$${i + 2}::${c.sqlType}`)].join(', ');
+        const orgKeyGuard = spec.orgUniqueKey
+          ? ` WHERE NOT EXISTS (
+             SELECT 1 FROM ${spec.name} WHERE org_id = $1 AND "${spec.orgUniqueKey}" = $${present.length + 2}
+           )`
+          : '';
         insertSql = `INSERT INTO ${spec.name} (${insertCols})
-           VALUES (${valueExprs})
+           SELECT ${valueExprs}${orgKeyGuard}
            ON CONFLICT ${spec.conflictTarget} DO NOTHING
            RETURNING 1`;
-        params = [orgId, ...values];
+        params = spec.orgUniqueKey ? [orgId, ...values, row[spec.orgUniqueKey]] : [orgId, ...values];
       } else {
         // $1 = org, $2 = dedupe key, values start at $3.
         const valueExprs = ['$1', ...present.map((c, i) => `$${i + 3}::${c.sqlType}`)].join(', ');

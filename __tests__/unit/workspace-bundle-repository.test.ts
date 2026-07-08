@@ -154,6 +154,22 @@ describe('importWorkspaceBundle inserts', () => {
     expect(calls[0]!.params?.[0]).toBe('org_t'); // re-scoped to the TARGET org
   });
 
+  it('guard_policies also guards on the org-scoped name — a same-name policy under a foreign id is skipped, not a 23505', async () => {
+    // Regression (2026-07-07 hosted drill): the trial's default pack rides the
+    // bundle with fresh UUIDs but the SAME names the target org already has;
+    // ON CONFLICT (id) never fires and the insert died on
+    // guard_policies_org_name_unique. The insert must carry a NOT EXISTS on
+    // (org_id, name) alongside the id conflict target.
+    const { sql, calls } = makeSql(() => []); // no row returned = skipped by NOT EXISTS
+    const { counts } = await importWorkspaceBundle(sql, 'org_t', emptyBundle({
+      guard_policies: [{ id: 'gp_foreign', name: 'Block Mass-Destructive Operations', policy_type: 't', rules: '{}' }],
+    }));
+    expect(counts.guard_policies).toEqual({ imported: 0, skipped: 1 });
+    expect(calls[0]!.text).toContain('ON CONFLICT (id) DO NOTHING');
+    expect(calls[0]!.text).toMatch(/WHERE NOT EXISTS[\s\S]*org_id = \$1 AND "name" = \$\d+/);
+    expect(calls[0]!.params?.at(-1)).toBe('Block Mass-Destructive Operations');
+  });
+
   it('serial-PK tables fall back to org-scoped WHERE NOT EXISTS on the dedupe key', async () => {
     const { sql, calls } = makeSql(() => [1]);
     const { counts } = await importWorkspaceBundle(sql, 'org_t', emptyBundle({
