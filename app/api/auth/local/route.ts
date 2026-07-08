@@ -43,6 +43,31 @@ async function noteSuccessSafe() {
 // LAN self-host fix: cookie Secure flag follows scheme, not NODE_ENV. Contributed by Lief (RyanTJoy).
 const isHTTPS = (process.env.NEXTAUTH_URL || '').startsWith('https');
 
+async function timingSafeMatch(submitted: string, actual: string) {
+  const encoder = new TextEncoder();
+  const submittedBuf = encoder.encode(submitted);
+  const actualBuf = encoder.encode(actual);
+  if (submittedBuf.length !== actualBuf.length) return false;
+  const nodeCrypto = await import('node:crypto');
+  return nodeCrypto.timingSafeEqual(submittedBuf, actualBuf);
+}
+
+// `npx dashclaw up` mints DASHCLAW_LOGIN_OTT (<token>.<expiryEpochMs>) into
+// .env.local before starting the server, then opens /login?ott=<token> so the
+// browser lands signed in without the operator hunting for the admin password.
+// Single-use is enforced per server process (the env entry is deleted on first
+// success); the 15-minute expiry bounds replay across restarts.
+async function consumeLoginOtt(submitted: string): Promise<boolean> {
+  const raw = process.env.DASHCLAW_LOGIN_OTT || '';
+  const dot = raw.lastIndexOf('.');
+  if (dot <= 0) return false;
+  const expiresAt = Number(raw.slice(dot + 1));
+  if (!Number.isFinite(expiresAt) || expiresAt < Date.now()) return false;
+  const match = await timingSafeMatch(submitted, raw.slice(0, dot));
+  if (match) delete process.env.DASHCLAW_LOGIN_OTT;
+  return match;
+}
+
 export async function POST(request: Request) {
   const password = process.env.DASHCLAW_LOCAL_ADMIN_PASSWORD;
   if (!password) {
@@ -50,9 +75,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { password: submittedPassword } = await request.json();
+    const { password: submittedPassword, ott } = await request.json();
 
-    if (!submittedPassword) {
+    if (!submittedPassword && !ott) {
       return NextResponse.json({ error: 'Password is required.' }, { status: 401 });
     }
 
@@ -64,21 +89,15 @@ export async function POST(request: Request) {
       );
     }
 
-    const encoder = new TextEncoder();
-    const submittedBuf = encoder.encode(submittedPassword);
-    const actualBuf = encoder.encode(password);
+    const authorized = ott
+      ? await consumeLoginOtt(String(ott))
+      : await timingSafeMatch(String(submittedPassword), password);
 
-    if (submittedBuf.length !== actualBuf.length) {
+    if (!authorized) {
       await noteFailureSafe();
       await new Promise((r) => setTimeout(r, 500));
-      return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });
-    }
-
-    const nodeCrypto = await import('node:crypto');
-    if (!nodeCrypto.timingSafeEqual(submittedBuf, actualBuf)) {
-      await noteFailureSafe();
-      await new Promise((r) => setTimeout(r, 500));
-      return NextResponse.json({ error: 'Incorrect password.' }, { status: 401 });
+      const error = ott ? 'Sign-in link is invalid or expired.' : 'Incorrect password.';
+      return NextResponse.json({ error }, { status: 401 });
     }
 
     await noteSuccessSafe();

@@ -23,6 +23,9 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
   const [isProd, setIsProd] = useState(true);
   const [authMessage, setAuthMessage] = useState('');
   const [localPasswordEnabled, setLocalPasswordEnabled] = useState(localAuthEnabled);
+  // 'idle' | 'exchanging' | 'failed' — `npx dashclaw up` opens /login?ott=<one-time
+  // token>; we exchange it for a session here so the browser lands signed in.
+  const [ottStatus, setOttStatus] = useState<'idle' | 'exchanging' | 'failed'>('idle');
   const router = useRouter();
 
   useEffect(() => {
@@ -30,6 +33,36 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
       router.replace('/approvals');
     }
   }, [sessionSettled, authenticated, router]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const ott = params.get('ott');
+    if (!ott) return;
+    // Only same-origin paths (single leading slash) — never a protocol-relative
+    // or absolute URL — so the link can't be abused as an open redirect.
+    const next = params.get('next');
+    const dest = next && /^\/(?!\/)/.test(next) ? next : '/approvals';
+    // Strip the token from the address bar (and history) before exchanging.
+    window.history.replaceState(null, '', '/login');
+    setOttStatus('exchanging');
+    (async () => {
+      try {
+        const res = await fetch('/api/auth/local', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ott }),
+        });
+        if (res.ok) {
+          // Hard redirect so the fresh session cookie rides the next request.
+          window.location.replace(dest);
+        } else {
+          setOttStatus('failed');
+        }
+      } catch {
+        setOttStatus('failed');
+      }
+    })();
+  }, []);
 
   useEffect(() => {
     async function fetchProviders() {
@@ -49,7 +82,7 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
     fetchProviders();
   }, [localAuthEnabled]);
 
-  if (!sessionSettled || authenticated) {
+  if (!sessionSettled || authenticated || ottStatus === 'exchanging') {
     return (
       <div className="flex min-h-screen items-center justify-center bg-surface-primary">
         <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand border-t-transparent" aria-label="Loading" />
@@ -73,6 +106,12 @@ export default function LoginClient({ localAuthEnabled }: LoginClientProps) {
         </div>
 
         <div className="space-y-3">
+          {ottStatus === 'failed' && (
+            <p role="alert" className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-center text-xs text-warning">
+              That sign-in link has expired. Use the admin password from your setup output
+              (also saved in the app&apos;s .env.local), or re-run <code className="font-mono">npx dashclaw up</code> for a fresh link.
+            </p>
+          )}
           {providers.map((provider) => (
             <button
               key={provider.id}

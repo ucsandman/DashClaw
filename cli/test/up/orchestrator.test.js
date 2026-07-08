@@ -5,11 +5,11 @@
 
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { runUp, runDown } from '../../lib/up/index.js';
+import { runUp, runDown, mintLoginToken } from '../../lib/up/index.js';
 import { loadInstance, saveInstance, checkpoint, STEPS } from '../../lib/up/instance.js';
 
 function tempBase() {
@@ -50,6 +50,7 @@ function makeDeps(overrides = {}) {
     startServer: () => { calls.startServer++; return { pid: 4242, on: () => {} }; },
     waitForHealth: async () => {},
     installClaude: async () => { calls.installClaude++; },
+    mintLoginToken: () => null,
     openBrowser: () => { calls.openBrowser++; },
     promptFn: async () => '',
     logger: { error() {}, log() {} },
@@ -273,6 +274,89 @@ describe('runUp — bug#9: live pid skips duplicate startServer', () => {
 
     assert.strictEqual(calls.startServer, 1, 'startServer must be called when health check fails');
     assert.strictEqual(result.reusedServer, false);
+  });
+});
+
+describe('runUp — one-time browser sign-in', () => {
+  test('fresh start opens /login?ott=<token> so the browser lands signed in', async () => {
+    const baseDir = tempBase();
+    const opened = [];
+    const { deps } = makeDeps({
+      mintLoginToken: () => 'tok123',
+      openBrowser: (url) => { opened.push(url); },
+    });
+
+    await runUp({ args: { yes: true, db: 'embedded', noBrowser: false }, baseDir, deps });
+
+    assert.deepStrictEqual(opened, ['http://localhost:3000/login?ott=tok123&next=%2Fsetup']);
+  });
+
+  test('no token minted → falls back to opening /setup', async () => {
+    const baseDir = tempBase();
+    const opened = [];
+    const { deps } = makeDeps({
+      openBrowser: (url) => { opened.push(url); },
+    });
+
+    await runUp({ args: { yes: true, db: 'embedded', noBrowser: false }, baseDir, deps });
+
+    assert.deepStrictEqual(opened, ['http://localhost:3000/setup']);
+  });
+
+  test('reused server never mints a token (env is read at boot, not live)', async () => {
+    const baseDir = tempBase();
+    saveInstance(baseDir, {
+      version: '9.9.9', port: 3000, dbMode: 'embedded',
+      appDir: join(baseDir, 'app', '9.9.9'), apiKey: 'oc_live_test',
+      pid: 4242,
+      completed: [...STEPS],
+    });
+    const opened = [];
+    let mintCalls = 0;
+    const { deps } = makeDeps({
+      processAlive: (pid) => pid === 4242,
+      mintLoginToken: () => { mintCalls++; return 'tok123'; },
+      openBrowser: (url) => { opened.push(url); },
+    });
+
+    await runUp({ args: { yes: true, noBrowser: false }, baseDir, deps });
+
+    assert.strictEqual(mintCalls, 0, 'mintLoginToken must not be called for a reused server');
+    assert.deepStrictEqual(opened, ['http://localhost:3000/setup']);
+  });
+});
+
+describe('mintLoginToken', () => {
+  test('appends DASHCLAW_LOGIN_OTT=<token>.<expiry> to an existing .env.local', () => {
+    const appDir = tempBase();
+    writeFileSync(join(appDir, '.env.local'), 'DATABASE_URL=postgresql://x\n');
+
+    const token = mintLoginToken(appDir, { error() {} });
+
+    assert.ok(token, 'must return the minted token');
+    const env = readFileSync(join(appDir, '.env.local'), 'utf8');
+    const m = env.match(/^DASHCLAW_LOGIN_OTT=([^.\n]+)\.(\d+)$/m);
+    assert.ok(m, `.env.local must gain the OTT line, got:\n${env}`);
+    assert.strictEqual(m[1], token);
+    assert.ok(Number(m[2]) > Date.now(), 'expiry must be in the future');
+    assert.match(env, /^DATABASE_URL=postgresql:\/\/x$/m, 'existing lines must survive');
+  });
+
+  test('replaces a stale OTT line instead of stacking a second one', () => {
+    const appDir = tempBase();
+    writeFileSync(join(appDir, '.env.local'), 'DASHCLAW_LOGIN_OTT=old.123\n');
+
+    const token = mintLoginToken(appDir, { error() {} });
+
+    const env = readFileSync(join(appDir, '.env.local'), 'utf8');
+    const lines = env.split('\n').filter((l) => l.startsWith('DASHCLAW_LOGIN_OTT='));
+    assert.strictEqual(lines.length, 1);
+    assert.ok(lines[0].includes(token));
+  });
+
+  test('missing .env.local → returns null (fall back to the password flow)', () => {
+    const appDir = join(tempBase(), 'does-not-exist');
+    assert.strictEqual(mintLoginToken(appDir, { error() {} }), null);
   });
 });
 

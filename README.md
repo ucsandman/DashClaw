@@ -215,7 +215,7 @@ Two drop-in skills, available as zip bundles or source in [`public/downloads/`](
 npx dashclaw up
 ```
 
-Installs the app, provisions Postgres (Docker or embedded), generates secrets, mints your API key, applies migrations, starts on :3000, and offers to wire Claude Code hooks. One command, no accounts required.
+Installs the app, provisions Postgres (Docker or embedded), generates secrets, mints your API key, applies migrations, starts on :3000, offers to wire Claude Code hooks, and opens your browser already signed in (one-time sign-in link; the admin password is printed once as the fallback). One command, no accounts required.
 
 Coming from the hosted trial? Click **Export workspace** on your trial's `/connect` card, then run `dashclaw import <bundle.json>` against your new instance — policies, decisions, action history, agents, and assumptions carry over. API keys and secret values never ride a bundle; mint fresh ones here.
 

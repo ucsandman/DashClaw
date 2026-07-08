@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:7aca44916fc10fc3ef60013629f3382ef4cf5bf3",
+  "timestamp": "sha1:8661937dd4bf18d786203dbdd84b2c347b6a0aed",
   "routes": [
     {
       "path": "/api/actions",
@@ -1641,6 +1641,15 @@
         "mcp-server/lib/storage.js",
         "mcp-server/src/storage.ts",
         "mcp-server/test/storage.test.ts"
+      ],
+      "in_env_example": false
+    },
+    {
+      "name": "DASHCLAW_LOGIN_OTT",
+      "required": false,
+      "files": [
+        "__tests__/unit/auth-local-ott.test.js",
+        "app/api/auth/local/route.ts"
       ],
       "in_env_example": false
     },

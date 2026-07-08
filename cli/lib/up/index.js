@@ -13,6 +13,7 @@
 // without touching the network, Docker, or a real Next server.
 
 import { spawnSync } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -111,6 +112,32 @@ export function rewriteEnvDatabaseUrl(appDir, databaseUrl, logger = console) {
   }
 }
 
+/**
+ * Mint a one-time browser sign-in token into the app's .env.local, BEFORE the
+ * server starts (Next reads .env.local at boot). The server consumes it on
+ * first use (app/api/auth/local); the 15-minute expiry bounds replay. This is
+ * what lets `dashclaw up` open a browser that lands already signed in instead
+ * of a login form asking for a password the user never saw.
+ * Best-effort: returns null (→ fall back to /setup) when .env.local is absent.
+ */
+export function mintLoginToken(appDir, logger = console) {
+  try {
+    const envPath = join(appDir, '.env.local');
+    if (!existsSync(envPath)) return null;
+    const token = randomBytes(24).toString('base64url');
+    const line = `DASHCLAW_LOGIN_OTT=${token}.${Date.now() + 15 * 60_000}`;
+    const src = readFileSync(envPath, 'utf8');
+    const out = /^DASHCLAW_LOGIN_OTT=.*$/m.test(src)
+      ? src.replace(/^DASHCLAW_LOGIN_OTT=.*$/m, line)
+      : `${src}${src.endsWith('\n') || src === '' ? '' : '\n'}${line}\n`;
+    writeFileSync(envPath, out);
+    return token;
+  } catch (e) {
+    logger.error(`[warn] Could not mint a browser sign-in link: ${e.message} — sign in with the admin password instead.`);
+    return null;
+  }
+}
+
 /** Default process-liveness probe: signal 0 succeeds iff the pid exists. */
 export function defaultProcessAlive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
@@ -125,6 +152,7 @@ export function realDeps() {
     chooseDbMode,
     provisionDatabase,
     runSetupScript: runSetupScriptReal,
+    mintLoginToken,
     buildApp,
     startServer,
     waitForHealth,
@@ -210,10 +238,11 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
     if (out.ok === false) throw new Error(out.error || 'Setup failed.');
     apiKey = out.apiKey;
     inst = saveInstance(baseDir, { apiKey });
-    // setup.mjs already prints the password once (to stderr) and writes it to
-    // .env.local; we deliberately do NOT echo it again here — no secrets twice.
+    // setup.mjs prints the password to ITS stderr, but runSetupScript pipes
+    // (and on success discards) that stream — so this line is the one place
+    // the operator ever sees it. It is also saved to <appDir>/.env.local.
     if (out.adminPassword) {
-      logger.error('[ok] First admin created — credentials written to .env.local (printed once).');
+      logger.log(`[ok] Dashboard admin password: ${out.adminPassword}   (also saved to ${join(appDir, '.env.local')})`);
     }
     inst = checkpoint(baseDir, 'setup_done');
   }
@@ -242,7 +271,11 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
       // Pid alive but health check failed — fall through to a fresh start.
     }
   }
+  // One-time browser sign-in: only mintable for a server WE are about to start
+  // (Next reads .env.local at boot; a reused server would never see the token).
+  let loginToken = null;
   if (!reusedServer) {
+    loginToken = deps.mintLoginToken?.(appDir, logger) ?? null;
     child = deps.startServer({ appDir, port, logger });
     inst = saveInstance(baseDir, { pid: child.pid });
     try {
@@ -271,8 +304,16 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
   }
 
   // 8. open -----------------------------------------------------------------
+  // With a fresh token the browser opens /login?ott=... and lands signed in
+  // (redirecting on to /setup); otherwise it opens /setup directly and any
+  // protected page will ask for the admin password.
+  const signInUrl = loginToken
+    ? `${baseUrl}/login?ott=${loginToken}&next=${encodeURIComponent('/setup')}`
+    : `${baseUrl}/setup`;
   if (!args.noBrowser) {
-    deps.openBrowser(`${baseUrl}/setup`, logger);
+    deps.openBrowser(signInUrl, logger);
+  } else if (loginToken) {
+    logger.log(`Sign in (link valid ~15 min, single use): ${signInUrl}`);
   }
   logger.log(`Done. First steps: ${baseUrl}/connect`);
 
