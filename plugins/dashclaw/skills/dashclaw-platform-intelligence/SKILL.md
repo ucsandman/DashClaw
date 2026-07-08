@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:8661937dd4bf18d786203dbdd84b2c347b6a0aed`
+**Shape snapshot:** `sha1:a9f283b2092e9db4265126be957e3a4e95b24ab2`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -46,7 +46,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ## At a Glance
 
 - **117** active API routes across **47** categories (117 total including archived)
-- **4** required + **143** optional environment variables
+- **4** required + **141** optional environment variables
 - **112** database tables
 
 ## API Surface
@@ -314,8 +314,8 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 These must be set — DashClaw will fail to start without them.
 
-- **`DASHCLAW_API_KEY`** - referenced in 71 file(s)
-- **`DATABASE_URL`** - referenced in 74 file(s)
+- **`DASHCLAW_API_KEY`** - referenced in 70 file(s)
+- **`DATABASE_URL`** - referenced in 73 file(s)
 - **`ENCRYPTION_KEY`** - referenced in 4 file(s)
 - **`NEXTAUTH_SECRET`** - referenced in 6 file(s)
 
@@ -442,14 +442,12 @@ These have fallbacks or only activate specific features.
 - `S` *(undocumented)*
 - `SELF_GOVERNANCE_SOURCE_URL` *(undocumented)*
 - `SERVICE_NAME` *(undocumented)*
-- `SQL_CAPTURE_FILE` *(undocumented)*
 - `STARTUP_SMOKE_BASE_URL` *(undocumented)*
 - `STARTUP_SMOKE_INTERVAL_MS` *(undocumented)*
 - `STARTUP_SMOKE_SKIP_CANARY` *(undocumented)*
 - `STARTUP_SMOKE_SKIP_CROSS_ORG` *(undocumented)*
 - `STARTUP_SMOKE_SKIP_POLICY` *(undocumented)*
 - `STARTUP_SMOKE_TIMEOUT_MS` *(undocumented)*
-- `STUB_FAIL_CREATES` *(undocumented)*
 - `TARGET_ENV` *(undocumented)*
 - `TELEGRAM_ADMIN_CHAT_ID` *(undocumented)*
 - `TELEGRAM_APPROVER_ORG_ID` *(undocumented)*

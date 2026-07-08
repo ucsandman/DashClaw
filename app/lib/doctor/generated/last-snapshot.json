@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:8661937dd4bf18d786203dbdd84b2c347b6a0aed",
+  "timestamp": "sha1:a9f283b2092e9db4265126be957e3a4e95b24ab2",
   "routes": [
     {
       "path": "/api/actions",
@@ -1336,7 +1336,6 @@
         ".hermes/skills/dashclaw-platform-intelligence/scripts/bootstrap-agent-quick.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/diagnose.mjs",
         ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
-        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
         "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
@@ -1408,7 +1407,6 @@
       "name": "DASHCLAW_API_KEY_ORG",
       "required": false,
       "files": [
-        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "app/api/auth/local/route.ts",
         "app/api/setup/migrate/route.ts",
         "middleware.js",
@@ -1777,7 +1775,6 @@
       "name": "DATABASE_URL",
       "required": true,
       "files": [
-        ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/integration/hosted/end-to-end.test.js",
         "__tests__/unit/actions.route.test.js",
         "__tests__/unit/auth-hosted-signin.test.js",
@@ -2499,15 +2496,6 @@
       "in_env_example": false
     },
     {
-      "name": "SQL_CAPTURE_FILE",
-      "required": false,
-      "files": [
-        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
-        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "STARTUP_SMOKE_BASE_URL",
       "required": false,
       "files": [
@@ -2552,15 +2540,6 @@
       "required": false,
       "files": [
         "scripts/startup-smoke.mjs"
-      ],
-      "in_env_example": false
-    },
-    {
-      "name": "STUB_FAIL_CREATES",
-      "required": false,
-      "files": [
-        ".supergoal-archive-2026-06-10-sweep/phase9-stub-db.mjs",
-        ".supergoal-archive-2026-06-10-sweep/tmp/_db.mjs"
       ],
       "in_env_example": false
     },
