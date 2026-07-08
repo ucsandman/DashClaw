@@ -12,18 +12,6 @@ export const metadata: Metadata = marketingPageMetadata({
   path: '/explain',
 });
 
-const TOC = [
-  { href: '#problem', label: 'The problem' },
-  { href: '#loop', label: 'The loop' },
-  { href: '#advocate', label: "The agent's advocate" },
-  { href: '#retro', label: 'The session retro' },
-  { href: '#simulator', label: 'Guard simulator' },
-  { href: '#policies', label: 'Policy playground' },
-  { href: '#integrate', label: 'Integrate' },
-  { href: '#practices', label: 'Best practices' },
-  { href: '#architecture', label: 'Architecture' },
-];
-
 const metaLabel = 'font-mono text-[11px] uppercase tracking-[0.14em] text-text-tertiary';
 const card = 'rounded-xl border border-border bg-surface-secondary transition-colors hover:border-hover';
 
@@ -46,22 +34,7 @@ export default function ExplainPage() {
       <MarketingPageView event="marketing_explain_visited" />
       <PublicNavbar />
 
-      {/* Section nav: this page's table of contents, one quiet row under the header */}
-      <nav
-        aria-label="Sections on this page"
-        className="sticky top-0 z-40 mt-14 border-b border-border bg-surface-primary/90 backdrop-blur-sm"
-      >
-        <div className="mx-auto flex h-11 max-w-5xl items-center gap-5 overflow-x-auto px-6 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-          <span className="whitespace-nowrap font-mono text-[11px] uppercase tracking-[0.14em] text-text-disabled">On this page</span>
-          {TOC.map((t) => (
-            <a key={t.href} href={t.href} className="whitespace-nowrap text-[13px] text-text-tertiary transition-colors hover:text-text-primary">
-              {t.label}
-            </a>
-          ))}
-        </div>
-      </nav>
-
-      <header className="px-6 pb-16 pt-24">
+      <header className="px-6 pb-16 pt-28">
         <div className="mx-auto max-w-5xl">
           <div className={metaLabel}>Interactive explainer</div>
           <h1 className="mb-4 mt-2 text-4xl font-bold leading-tight tracking-tight">The approval layer for unattended&nbsp;agents.</h1>
