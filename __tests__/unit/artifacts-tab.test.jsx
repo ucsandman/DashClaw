@@ -25,7 +25,7 @@ describe('ArtifactsTab — evidence bundle', () => {
     render(<ArtifactsTab actionId="act_1" />);
     fireEvent.click(await screen.findByRole('button', { name: /generate evidence bundle/i }));
 
-    expect(await screen.findByText(/Evidence bundle generated — 2 steps, 1 artifact/)).toBeTruthy();
+    expect(await screen.findByText(/Evidence bundle generated: 2 steps, 1 artifact/)).toBeTruthy();
   });
 
   it('surfaces an error instead of silently swallowing it', async () => {

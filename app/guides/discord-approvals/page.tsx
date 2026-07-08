@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight, ShieldCheck, AlertTriangle, ArrowRight } from 'lucide-react';
+import { ChevronRight, ShieldCheck, AlertTriangle, ArrowRight, MessageSquare } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -274,7 +274,7 @@ policies:
 
           <GuideClient
             frameworkName="Discord approvals"
-            frameworkIcon="💬"
+            frameworkIcon={<MessageSquare size={28} />}
             eyebrow="Approval Surface Guide"
             subhead={subhead}
             steps={steps}

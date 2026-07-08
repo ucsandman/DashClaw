@@ -138,7 +138,7 @@ export default function PolicyPlayground() {
       <p className="font-mono text-[10px] uppercase tracking-wider text-brand">Policy playground</p>
       <p className="mt-1 text-sm leading-relaxed text-secondary">
         Draft a policy and replay it against your instance&apos;s recent action history
-        (<code className="font-mono text-xs">POST /api/policies/simulate</code>). Read-only — nothing is
+        (<code className="font-mono text-xs">POST /api/policies/simulate</code>). Read-only: nothing is
         created or activated; you see exactly what the policy <em>would have</em> done.
       </p>
 
@@ -255,7 +255,7 @@ export default function PolicyPlayground() {
                 <div key={m.action_id ? String(m.action_id) : i} className="border-t border-border px-3 py-2 first:border-t-0">
                   <p className="truncate font-mono text-xs text-secondary">
                     <span className="text-brand">{String(m.result || '')}</span>{' '}
-                    {String(m.action_type || '')} — {String(m.declared_goal || '')}
+                    {String(m.action_type || '')}: {String(m.declared_goal || '')}
                   </p>
                 </div>
               ))}

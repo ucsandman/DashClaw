@@ -123,7 +123,7 @@ export default function AssumptionsPage() {
   return (
     <PageLayout
       title="Assumptions"
-      subtitle="Decision basis tracking — what agents believe while acting"
+      subtitle="Decision basis tracking: what agents believe while acting"
       breadcrumbs={['Governance', 'Assumptions']}
       actions={<BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />}
     >

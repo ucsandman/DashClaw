@@ -36,7 +36,7 @@ export default function CausalTimeline({ action, guardDecision, assumptions, tra
 
           {/* 2. Policy Evaluation */}
           <div className="relative flex gap-4 pl-1">
-            <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_rgba(255,255,255,0.1)] ${
+            <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_var(--color-border)] ${
               guardDecision?.decision === 'allow' ? 'bg-status-success' :
               guardDecision?.decision === 'block' ? 'bg-status-error' :
               guardDecision?.decision === 'require_approval' ? 'bg-status-warning' : 'bg-zinc-500'
@@ -70,7 +70,7 @@ export default function CausalTimeline({ action, guardDecision, assumptions, tra
           {/* 3. Assumption Check */}
           {assumptions.length > 0 && (
             <div className="relative flex gap-4 pl-1">
-              <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_rgba(255,255,255,0.1)] ${
+              <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_var(--color-border)] ${
                 assumptions.every(a => a.validated) ? 'bg-status-success' :
                 assumptions.some(a => a.invalidated) ? 'bg-status-error' : 'bg-status-warning'
               }`} />
@@ -110,7 +110,7 @@ export default function CausalTimeline({ action, guardDecision, assumptions, tra
 
           {/* 5. Final Decision */}
           <div className="relative flex gap-4 pl-1">
-            <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_rgba(255,255,255,0.1)] ${getStatusVariant(action.status) === 'success' ? 'bg-status-success' : 'bg-status-error'}`} />
+            <div className={`z-10 mt-1 h-4 w-4 rounded-full border-4 border-surface-secondary shadow-[0_0_0_1px_var(--color-border)] ${getStatusVariant(action.status) === 'success' ? 'bg-status-success' : 'bg-status-error'}`} />
             <div>
               <div className="text-[10px] font-semibold text-disabled uppercase tracking-widest mb-1">Final Outcome</div>
               <div className="flex items-center gap-2">

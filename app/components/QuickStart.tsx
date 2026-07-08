@@ -88,7 +88,7 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
       <Card className="border-brand/20 bg-brand/5 overflow-visible" hover={false}>
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-xl bg-brand/20 flex items-center justify-center text-brand shadow-[0_0_20px_rgba(244,63,94,0.1)]">
+            <div className="w-10 h-10 rounded-xl bg-brand/20 flex items-center justify-center text-brand shadow-[0_0_20px_rgba(249,115,22,0.1)]">
               <Rocket size={20} />
             </div>
             <div>
@@ -233,7 +233,7 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
                   </>
                 ) : (
                   <>
-                    Your API key starts with <code className="text-tertiary">oc_live_</code> — find your key at{' '}
+                    Your API key starts with <code className="text-tertiary">oc_live_</code>. Find your key at{' '}
                     <a href="/api-keys" className="text-brand hover:text-brand-hover underline">/api-keys</a>.
                   </>
                 )}
@@ -249,7 +249,7 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
               <p className="text-xs text-tertiary leading-relaxed">
                 Set <code className="text-secondary font-mono text-[10px]">baseUrl</code> to your deployed DashClaw instance URL.
                 {isDemoMode() ? (
-                  <> DashClaw is self-hosted — there is no shared cloud. After deploying via the Vercel button, your URL will look like <code className="text-secondary font-mono text-[10px]">https://your-app.vercel.app</code>.</>
+                  <> DashClaw is self-hosted: there is no shared cloud. After deploying via the Vercel button, your URL will look like <code className="text-secondary font-mono text-[10px]">https://your-app.vercel.app</code>.</>
                 ) : (
                   <> For this instance, use <code className="text-secondary font-mono text-[10px]">{baseUrl}</code>.</>
                 )}

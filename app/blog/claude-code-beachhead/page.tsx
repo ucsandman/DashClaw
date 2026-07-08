@@ -26,7 +26,7 @@ import JsonLd from '../../components/JsonLd';
 const VIDEO_URL = 'https://www.loom.com/embed/PLACEHOLDER_VIDEO_ID';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Govern Claude Code before it surprises you — DashClaw',
+  title: 'Govern Claude Code before it surprises you: DashClaw',
   description:
     'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
   path: '/blog/claude-code-beachhead',
@@ -40,7 +40,7 @@ export default function BlogPostPage() {
         data={{
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
-          headline: 'Govern Claude Code before it surprises you — DashClaw',
+          headline: 'Govern Claude Code before it surprises you: DashClaw',
           description: 'DashClaw is a PreToolUse hook for Claude Code. Intercept destructive commands, approve from your phone in Discord, keep a signed audit ledger of every decision.',
           url: 'https://www.dashclaw.io/blog/claude-code-beachhead',
           datePublished: '2026-04-22',
@@ -78,7 +78,7 @@ export default function BlogPostPage() {
           None of these are the agent&apos;s fault. The agent did what I
           told it to do, and sometimes what I told it to do was too
           broad. The question is not &quot;how do I make the agent
-          smarter&quot; — the question is &quot;how do I keep a small
+          smarter&quot;; the question is &quot;how do I keep a small
           number of specific actions from running without me
           knowing.&quot;
         </p>
@@ -133,7 +133,7 @@ export default function BlogPostPage() {
             laptop.
           </li>
           <li>
-            Configure Discord — pick a server, pick a channel, drop in a
+            Configure Discord: pick a server, pick a channel, drop in a
             bot token. I use my own account; you use yours.
           </li>
         </ol>
@@ -168,8 +168,8 @@ export default function BlogPostPage() {
             ledger with signed approvals and denials.
           </li>
           <li>
-            · The semantic guard, using your own OpenAI or Anthropic key
-            — so the governance loop costs me about a cent per approval.
+            · The semantic guard, using your own OpenAI or Anthropic key,
+            so the governance loop costs me about a cent per approval.
           </li>
           <li>
             · The{' '}
@@ -231,7 +231,7 @@ export default function BlogPostPage() {
         <p className="mt-3 text-base text-text-secondary">
           I&apos;m building the rest of DashClaw&apos;s growth loop
           under DashClaw-governed agents. Research, content drafts,
-          monitoring — each one is a Claude Code session with policies
+          monitoring: each one is a Claude Code session with policies
           the public can read. If the flywheel works, every piece of
           marketing I publish also proves the product. If it breaks, the
           audit ledger shows exactly where.

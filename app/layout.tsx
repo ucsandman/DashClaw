@@ -12,7 +12,10 @@ const inter = Inter({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.dashclaw.io'),
-  title: 'DashClaw, the governance runtime for AI agents',
+  title: {
+    default: 'DashClaw, the governance runtime for AI agents',
+    template: '%s - DashClaw',
+  },
   description: 'DashClaw intercepts agent actions before they reach the real world. Enforce policies, require human approval, and record verifiable evidence.',
   icons: {
     icon: [
@@ -48,7 +51,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  themeColor: '#0a0a0a',
+  themeColor: '#0e1014',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -62,7 +65,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={inter.variable}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="theme-color" content="#0a0a0a" />
+        <meta name="theme-color" content="#0e1014" />
       </head>
       <body className="font-sans antialiased">
         <SessionWrapper>{children}</SessionWrapper>

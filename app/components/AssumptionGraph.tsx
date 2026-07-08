@@ -5,15 +5,18 @@ import {
   CheckCircle2, XCircle, HelpCircle, RefreshCw, Zap, GitBranch,
 } from 'lucide-react';
 
-// SVG stroke colours for connector lines.  These mirror the CSS token values
-// from app/globals.css so that a single token update propagates to both the
-// Tailwind class layer and these canvas/SVG surfaces.
-const SVG_COLOR_SUCCESS  = '#22c55e'; // --color-success
-const SVG_COLOR_ERROR    = '#ef4444'; // --color-error
-const SVG_COLOR_WARNING  = '#f59e0b'; // --color-warning (amber-500)
-const SVG_COLOR_ZINC     = '#71717a'; // text-disabled / zinc-500 (muted/cancelled)
+// SVG stroke colours for connector lines. These are SVG DOM attribute values
+// (stroke=/fill=), not canvas 2D context colors, so they resolve CSS custom
+// properties fine — token references here propagate from app/globals.css.
+const SVG_COLOR_SUCCESS  = 'var(--color-success)';
+const SVG_COLOR_ERROR    = 'var(--color-error)';
+const SVG_COLOR_WARNING  = 'var(--color-warning)';
+const SVG_COLOR_ZINC     = 'var(--color-text-disabled)'; // muted/cancelled
+// No token exists for this solid zinc-700 connector stroke (--color-border is a
+// translucent white at 8% opacity — swapping in that value would make these
+// connector lines nearly invisible). Left as a hardcoded hex; not converted.
 const SVG_COLOR_BORDER   = '#3f3f46'; // zinc-700, close to --color-border elevated
-const SVG_COLOR_INFO     = '#3b82f6'; // --color-info (blue-500)
+const SVG_COLOR_INFO     = 'var(--color-info)';
 
 interface AssumptionGraphProps {
   trace: any;

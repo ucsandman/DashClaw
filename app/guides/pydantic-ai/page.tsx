@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Hexagon } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -162,7 +162,7 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 5,
       title: 'Register the governed tool on your Pydantic AI agent',
       summary:
-        'Pass the governed function in the tools list — Pydantic AI builds the tool schema from the signature and docstring; the governance loop runs on every model-initiated call.',
+        'Pass the governed function in the tools list: Pydantic AI builds the tool schema from the signature and docstring; the governance loop runs on every model-initiated call.',
       codeTitle: 'agent.py',
       codeBody: registerToolCode,
     },
@@ -173,7 +173,7 @@ DASHCLAW_API_KEY=oc_live_...`,
         'Execute the example and watch the governance flow: a staging migration (allowed) and a production migration (may require approval).',
       codeTitle: 'Terminal',
       codeBody: 'python main.py',
-      note: 'No LLM API key needed — the example runs the governance flow directly. Only the DashClaw SDK calls are real.',
+      note: 'No LLM API key needed: the example runs the governance flow directly. Only the DashClaw SDK calls are real.',
     },
     {
       number: 7,
@@ -188,7 +188,7 @@ python main.py`,
   ];
 
   const proofMoment =
-    "Go to /decisions — you should see two actions in the ledger with action_type 'database_migration', agent_id 'pydantic-ai-db-agent': the staging migration completed, and the production migration either completed (after approval) or pending.";
+    "Go to /decisions: you should see two actions in the ledger with action_type 'database_migration', agent_id 'pydantic-ai-db-agent': the staging migration completed, and the production migration either completed (after approval) or pending.";
 
   return (
     <div className="min-h-screen text-white">
@@ -219,7 +219,7 @@ python main.py`,
 
           <GuideClient
             frameworkName="Pydantic AI"
-            frameworkIcon="🔷"
+            frameworkIcon={<Hexagon size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

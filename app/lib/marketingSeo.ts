@@ -65,7 +65,11 @@ export function marketingPageMetadata({
 }: MarketingPageMeta): Metadata {
   const url = `${MARKETING_ORIGIN}${path === '/' ? '' : path}`;
   return {
-    title,
+    // Marketing titles already carry their full branded form; absolute opts
+    // out of the root layout's '%s - DashClaw' template (which would
+    // double-suffix them). OG/twitter titles below are plain strings and
+    // never templated.
+    title: { absolute: title },
     description,
     alternates: { canonical: url },
     openGraph: {

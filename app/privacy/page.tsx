@@ -6,9 +6,9 @@ import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../lib/marketingSeo';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Privacy Policy — DashClaw',
+  title: 'Privacy Policy: DashClaw',
   description:
-    'What DashClaw stores, where it lives, and who can see it — for self-hosted instances and the hosted trial.',
+    'What DashClaw stores, where it lives, and who can see it, for self-hosted instances and the hosted trial.',
   path: '/privacy',
 });
 
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
               <li>
                 <span className="text-text-primary font-medium">Self-hosted (the default).</span>{' '}
                 You deploy DashClaw on your own infrastructure with your own database. Everything
-                your agents record — actions, decisions, sessions, approvals — is stored in the
+                your agents record (actions, decisions, sessions, approvals) is stored in the
                 database you control. The software does not send telemetry, usage data, or any
                 other information to us. We never see it.
               </li>
@@ -104,10 +104,10 @@ export default function PrivacyPage() {
           <Section id="subprocessors" title="Hosted-trial subprocessors">
             <p>The hosted instance runs on a small set of infrastructure providers:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Vercel — application hosting</li>
-              <li>Neon — Postgres database</li>
-              <li>Google — sign-in (OAuth)</li>
-              <li>Cloudflare Turnstile — bot protection on signup</li>
+              <li>Vercel: application hosting</li>
+              <li>Neon: Postgres database</li>
+              <li>Google: sign-in (OAuth)</li>
+              <li>Cloudflare Turnstile: bot protection on signup</li>
             </ul>
             <p>
               Self-hosted instances use whatever infrastructure you choose; none of the above
@@ -121,7 +121,7 @@ export default function PrivacyPage() {
               <li>We do not train models on your data.</li>
               <li>We do not share workspace contents with anyone outside your workspace.</li>
               <li>
-                DashClaw never requires an LLM API key — the governance runtime does not call
+                DashClaw never requires an LLM API key: the governance runtime does not call
                 language models on your behalf.
               </li>
             </ul>
@@ -129,7 +129,7 @@ export default function PrivacyPage() {
 
           <Section id="retention" title="Retention and deletion">
             <p>
-              Hosted-trial workspaces and everything in them are deleted on request — email us
+              Hosted-trial workspaces and everything in them are deleted on request: email us
               from the address you signed up with. Self-hosted data lives in your database;
               deleting it is a query you run, not a request you make.
             </p>

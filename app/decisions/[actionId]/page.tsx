@@ -306,7 +306,7 @@ export default function DecisionReplayPage() {
                 <>Applied recommendation <span className="font-mono text-success">{action.recommendation_id}</span></>
               ) : (
                 <>Overrode recommendation <span className="font-mono text-warning">{action.recommendation_id}</span>
-                  {action.recommendation_override_reason ? <> — <span className="text-secondary">{action.recommendation_override_reason}</span></> : null}</>
+                  {action.recommendation_override_reason ? <>: <span className="text-secondary">{action.recommendation_override_reason}</span></> : null}</>
               )}
             </span>
           )}

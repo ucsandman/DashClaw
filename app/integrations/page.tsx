@@ -315,7 +315,7 @@ export default function IntegrationsPage() {
     return (
       <PageLayout agentFilter={false}
         title="Integrations"
-        subtitle="Org-wide service connections — override per agent from Fleet → Agent → Integrations"
+        subtitle="Org-wide service connections, override per agent from Fleet → Agent → Integrations"
         breadcrumbs={['Dashboard', 'Integrations']}
       >
         <div className="space-y-4">
@@ -343,7 +343,7 @@ export default function IntegrationsPage() {
   return (
     <PageLayout agentFilter={false}
       title="Integrations"
-      subtitle="Org-wide service connections — override per agent from Fleet → Agent → Integrations"
+      subtitle="Org-wide service connections, override per agent from Fleet → Agent → Integrations"
       breadcrumbs={['Dashboard', 'Integrations']}
       maturity="stable"
     >

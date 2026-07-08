@@ -186,7 +186,7 @@ export default function IdentitiesPage() {
         setError(data.error || 'Failed to approve pairing');
         return;
       }
-      showSuccess('Pairing approved — identity created.');
+      showSuccess('Pairing approved, identity created.');
       await fetchAll();
     } catch (err) {
       setError('Failed to approve pairing');
@@ -247,7 +247,7 @@ export default function IdentitiesPage() {
 
   const handleRequestPairing = async (agentId: string) => {
     if (await requestPairing(agentId)) {
-      showSuccess(`Pairing requested — ${agentId} sees it next time it runs with DashClaw attached.`);
+      showSuccess(`Pairing requested. ${agentId} sees it next time it runs with DashClaw attached.`);
     }
   };
 
@@ -258,7 +258,7 @@ export default function IdentitiesPage() {
     const ids = unidentifiedSelection.selectedIds.filter((id) => !requestedIds.has(id));
     const results = await Promise.all(ids.map((id) => requestPairing(id)));
     const ok = results.filter(Boolean).length;
-    if (ok > 0) showSuccess(`Pairing requested for ${ok} agent${ok === 1 ? '' : 's'} — delivered at their next governed session.`);
+    if (ok > 0) showSuccess(`Pairing requested for ${ok} agent${ok === 1 ? '' : 's'}, delivered at their next governed session.`);
     unidentifiedSelection.clear();
   };
 
@@ -428,7 +428,7 @@ export default function IdentitiesPage() {
             </div>
           </Card>
           <p className="mt-2 text-[11px] text-tertiary">
-            Requests ride the agent inbox — each agent sees its request the next time it runs with DashClaw attached
+            Requests ride the agent inbox: each agent sees its request the next time it runs with DashClaw attached
             (MCP <code className="font-mono">dashclaw_pair</code>, Node <code className="font-mono">claw.createPairing()</code>, Python <code className="font-mono">claw.create_pairing()</code>).
           </p>
         </div>

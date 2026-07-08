@@ -49,7 +49,7 @@ export default function CodeTabs({ forms, title }: { forms: CodeForm[]; title?: 
         <div className="border-t border-border">
           <div className="flex items-center justify-between px-4 pt-2">
             <p className="font-mono text-[10px] uppercase tracking-wider text-text-tertiary">
-              Response{form.verified ? ` — captured ${form.verified}` : ''}
+              Response{form.verified ? ` (captured ${form.verified})` : ''}
             </p>
             <CopyButton value={form.response} compact />
           </div>

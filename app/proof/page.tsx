@@ -16,7 +16,7 @@ export const revalidate = 300;
 export const metadata: Metadata = marketingPageMetadata({
   title: 'Proof: DashClaw governs its own maintainer',
   description:
-    'Live, aggregate evidence that DashClaw is maintained under its own governance — every change guarded, recorded, and auditable on a real DashClaw instance.',
+    'Live, aggregate evidence that DashClaw is maintained under its own governance: every change guarded, recorded, and auditable on a real DashClaw instance.',
   path: '/proof',
 });
 
@@ -85,7 +85,7 @@ const TRAIL_LINKS = [
     external: true,
     icon: ScrollText,
     title: 'Maintainer log',
-    desc: 'The running, human-readable record of every maintainer session — what shipped, what was decided, what was declined.',
+    desc: 'The running, human-readable record of every maintainer session: what shipped, what was decided, what was declined.',
   },
   {
     href: 'https://github.com/ucsandman/DashClaw/blob/main/MAINTAINER.md',
@@ -99,14 +99,14 @@ const TRAIL_LINKS = [
     external: true,
     icon: GitBranch,
     title: 'GitHub releases',
-    desc: 'Every governed ship, versioned and published — the CHANGELOG entry rides each release.',
+    desc: 'Every governed ship, versioned and published; the CHANGELOG entry rides each release.',
   },
   {
     href: '/livingcode/index.html',
     external: false,
     icon: Activity,
     title: 'Livingcode dashboard',
-    desc: 'A generated, always-current map of the codebase the maintainer works in — derived from the code, not written about it.',
+    desc: 'A generated, always-current map of the codebase the maintainer works in, derived from the code, not written about it.',
   },
 ];
 
@@ -139,7 +139,7 @@ export default async function ProofPage() {
               <p className="mt-2 text-text-secondary max-w-2xl leading-relaxed">
                 This project&apos;s maintainer is an AI agent, and every change it makes runs through a live
                 DashClaw instance: intent declared, risk evaluated, the action recorded, risky acts held for
-                human approval. The numbers below are live aggregates from that instance — not marketing copy.
+                human approval. The numbers below are live aggregates from that instance, not marketing copy.
               </p>
             </div>
           </div>

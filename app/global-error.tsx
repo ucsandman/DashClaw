@@ -23,7 +23,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
             </div>
             <h1 className="text-lg font-semibold text-primary">DashClaw hit an unexpected error</h1>
             <p className="mt-2 text-sm leading-relaxed text-secondary">
-              The application failed to render. Try again — if it persists, check the deployment logs.
+              The application failed to render. Try again; if it persists, check the deployment logs.
             </p>
             {error?.digest && (
               <p className="mt-3 font-mono text-xs text-tertiary">Reference: {error.digest}</p>

@@ -66,7 +66,7 @@ export default function HostedTrialCTA({ variant = 'primary' }: { variant?: 'pri
         aria-disabled="true"
         className="px-8 py-3 rounded-lg bg-surface-tertiary border border-border-hover text-text-tertiary text-sm font-medium cursor-not-allowed inline-flex items-center gap-2"
       >
-        Trials are full — check back soon
+        Trials are full, check back soon
       </span>
     );
   }

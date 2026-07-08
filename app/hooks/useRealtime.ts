@@ -150,7 +150,7 @@ function ensureEventSource(): EventSource | null {
   };
 
   es.onerror = () => {
-    try { es.close(); } catch {}
+    try { es.close(); } catch {} // defensive: close() should never throw
     sharedEs = null;
 
     // Lightweight reconnect if there are still active subscribers.
@@ -173,7 +173,7 @@ function maybeCloseEventSource() {
     sharedReconnectTimer = null;
   }
   if (sharedEs) {
-    try { sharedEs.close(); } catch {}
+    try { sharedEs.close(); } catch {} // defensive: close() should never throw
     sharedEs = null;
   }
 }

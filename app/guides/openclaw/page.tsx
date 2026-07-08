@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Waypoints } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -163,7 +163,7 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
           </div>
 
           <p className="mb-6 text-sm text-secondary leading-relaxed">
-            OpenClaw is where DashClaw&apos;s &ldquo;Claw&rdquo; comes from — it was the first
+            OpenClaw is where DashClaw&apos;s &ldquo;Claw&rdquo; comes from: it was the first
             agent runtime we governed, and this plugin remains one of the deepest integrations:
             the full guard &rarr; record &rarr; approval &rarr; outcome loop on every tool call,
             with x402 spend gating and token-cost attribution built in.
@@ -171,7 +171,7 @@ DASHCLAW_AGENT_ID=my-openclaw-agent`,
 
           <GuideClient
             frameworkName="OpenClaw"
-            frameworkIcon="🦞"
+            frameworkIcon={<Waypoints size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

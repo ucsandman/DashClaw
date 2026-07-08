@@ -40,7 +40,7 @@ export function SessionRetroChip({ retro }: { retro: SessionRetro | null }) {
   return (
     <a
       href="#session-retro"
-      title="Session retro — was I manipulated?"
+      title="Session retro: was I manipulated?"
       className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${posture.chip}`}
     >
       <Icon size={14} />
@@ -62,7 +62,7 @@ export default function SessionRetroCard({ retro }: { retro: SessionRetro | null
   return (
     <Card hover={false} className="mt-6" id="session-retro">
       <CardHeader
-        title="Session retro — was I manipulated?"
+        title="Session retro: was I manipulated?"
         action={
           <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${posture.chip}`}>
             <Icon size={14} />
@@ -75,7 +75,7 @@ export default function SessionRetroCard({ retro }: { retro: SessionRetro | null
           {/* Honesty line: a mostly-ungoverned session must not read as exonerated. */}
           <p className="text-xs text-secondary">
             {cov.actions_with_guard_decision} of {cov.actions_analyzed} actions had a linked guard
-            decision{ungoverned > 0 ? ` — ${ungoverned} ungoverned (posture applies to observed data only)` : ''}.
+            decision{ungoverned > 0 ? ` (${ungoverned} ungoverned; posture applies to observed data only)` : ''}.
             {cov.actions_total > cov.actions_analyzed
               ? ` Analyzed the first ${cov.actions_analyzed} of ${cov.actions_total} actions.` : ''}
           </p>

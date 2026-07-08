@@ -15,7 +15,7 @@ import { marketingPageMetadata } from '../../lib/marketingSeo';
 import JsonLd from '../../components/JsonLd';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'DashClaw now ships a Hermes plugin — per-turn governance, live ingest, subagent ROI',
+  title: 'DashClaw now ships a Hermes plugin: per-turn governance, live ingest, subagent ROI',
   description:
     "Eight Hermes lifecycle hooks, per-turn context injection, secret redaction in tool output, and live session ingest. One install script.",
   path: '/blog/hermes-plugin',
@@ -29,7 +29,7 @@ export default function BlogPostPage() {
         data={{
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
-          headline: 'DashClaw now ships a Hermes plugin — per-turn governance, live ingest, subagent ROI',
+          headline: 'DashClaw now ships a Hermes plugin: per-turn governance, live ingest, subagent ROI',
           description: "Eight Hermes lifecycle hooks, per-turn context injection, secret redaction in tool output, and live session ingest. One install script.",
           url: 'https://www.dashclaw.io/blog/hermes-plugin',
           datePublished: '2026-05-14',
@@ -92,7 +92,7 @@ export default function BlogPostPage() {
           </code>{' '}
           (record every delegate_task child for ROI tracking). The
           existing Claude Code Python hooks still run unchanged for the
-          pre/post tool path — Hermes shares the same stdin JSON shape.
+          pre/post tool path; Hermes shares the same stdin JSON shape.
         </p>
       </section>
 
@@ -124,7 +124,7 @@ export default function BlogPostPage() {
               /api/code-sessions/ingest-live
             </code>{' '}
             every turn. No more waiting for a Stop hook to flush a
-            transcript — token costs and tool calls land in{' '}
+            transcript: token costs and tool calls land in{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               /code-sessions
             </code>{' '}
@@ -138,7 +138,7 @@ export default function BlogPostPage() {
             substitutes Anthropic / OpenAI / AWS / GitHub / Slack /
             Stripe API keys, JWTs, PEM private-key blocks, and DashClaw
             keys themselves in tool output before the model sees them.
-            Never blocks; just substitutes — the model gets a redacted
+            Never blocks; just substitutes. The model gets a redacted
             string with a token-shaped placeholder.
           </li>
           <li>
@@ -156,7 +156,7 @@ export default function BlogPostPage() {
               action_type=subagent
             </code>{' '}
             and the child&apos;s outcome. Powers the subagent-ROI
-            dashboard — which delegated tasks paid off vs. burned tokens
+            dashboard: which delegated tasks paid off vs. burned tokens
             without making progress.
           </li>
         </ol>
@@ -185,7 +185,7 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_wait_for_approval
             </code>{' '}
-            MCP tool — Hermes blocks on it the same way Claude Code and
+            MCP tool: Hermes blocks on it the same way Claude Code and
             Codex do.
           </li>
           <li>· Same policy packs. No Hermes-specific policies to write.</li>
@@ -196,7 +196,7 @@ export default function BlogPostPage() {
             </code>{' '}
             skill is mirrored into the Hermes plugin from the same
             livingcode-derived canonical source the Claude Code and
-            global skill installs use — never edited by hand, never
+            global skill installs use, never edited by hand, never
             drifts.
           </li>
         </ul>

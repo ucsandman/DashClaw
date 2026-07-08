@@ -9,9 +9,9 @@ import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../lib/marketingSeo';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Downloads — DashClaw',
+  title: 'Downloads: DashClaw',
   description:
-    'Skills, plugins, hooks, and the MCP server — every DashClaw governance artifact in one place, with install commands for Claude Code, Codex, and Hermes Agent.',
+    'Skills, plugins, hooks, and the MCP server: every DashClaw governance artifact in one place, with install commands for Claude Code, Codex, and Hermes Agent.',
   path: '/downloads',
 });
 
@@ -159,7 +159,7 @@ export default function DownloadsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             <DownloadCard
               name="dashclaw-governance"
-              role="Teaches an agent how to use DashClaw correctly — risk thresholds, decision handling (allow / warn / block / require_approval), action recording, session lifecycle, plus six new sections for handoffs, secret hygiene, skill safety, open loops, learning, and in-session retrospection."
+              role="Teaches an agent how to use DashClaw correctly: risk thresholds, decision handling (allow / warn / block / require_approval), action recording, session lifecycle, plus six new sections for handoffs, secret hygiene, skill safety, open loops, learning, and in-session retrospection."
               sizeLabel="SKILL.md + references"
               primaryHref="/downloads/dashclaw-governance.zip"
               primaryLabel="dashclaw-governance.zip"
@@ -173,7 +173,7 @@ export default function DownloadsPage() {
             />
             <DownloadCard
               name="dashclaw-platform-intelligence"
-              role="Live reference to DashClaw's API surface, governance vocabulary, integration patterns, and troubleshooting playbooks. Regenerated from the codebase on every livingcode refresh — no manual maintenance, no drift from the runtime."
+              role="Live reference to DashClaw's API surface, governance vocabulary, integration patterns, and troubleshooting playbooks. Regenerated from the codebase on every livingcode refresh: no manual maintenance, no drift from the runtime."
               sizeLabel="SKILL.md + references + scripts"
               primaryHref="/downloads/dashclaw-platform-intelligence.zip"
               primaryLabel="dashclaw-platform-intelligence.zip"
@@ -206,7 +206,7 @@ export default function DownloadsPage() {
           <div className="mb-6">
             <DownloadCard
               name="dashclaw-governance-plugin"
-              role={`Full plugin bundle in one zip — the three plugin manifests (Claude Code / Codex / Hermes), MCP configs, both skills, assets, and PLUGIN_PARITY.md. Drop into your agent's plugin directory or extract for inspection. Manifest version v${process.env.NEXT_PUBLIC_PLUGIN_MANIFEST_VERSION}.`}
+              role={`Full plugin bundle in one zip: the three plugin manifests (Claude Code / Codex / Hermes), MCP configs, both skills, assets, and PLUGIN_PARITY.md. Drop into your agent's plugin directory or extract for inspection. Manifest version v${process.env.NEXT_PUBLIC_PLUGIN_MANIFEST_VERSION}.`}
               sizeLabel="manifests + skills + MCP configs"
               primaryHref="/downloads/dashclaw-governance-plugin.zip"
               primaryLabel="dashclaw-governance-plugin.zip"
@@ -239,7 +239,7 @@ npm run hooks:install`}
               ecosystem="Codex"
               manifest="plugins/dashclaw/.codex-plugin/plugin.json"
               agentId="codex"
-              description="Same governance surface DashClaw ships for Claude Code, wired into Codex's ~/.codex/config.toml — MCP server config, PreToolUse / PostToolUse / Stop hooks, governance protocol in AGENTS.md. Idempotent; re-run after every git pull."
+              description="Same governance surface DashClaw ships for Claude Code, wired into Codex's ~/.codex/config.toml: MCP server config, PreToolUse / PostToolUse / Stop hooks, governance protocol in AGENTS.md. Idempotent; re-run after every git pull."
               installCommand={`node cli/bin/dashclaw.js install codex \\
   --project /path/to/your/project
 
@@ -313,7 +313,7 @@ hermes dashclaw doctor`}
             icon={Terminal}
             eyebrow="Claude Code hooks"
             title="Hooks"
-            description="Govern Claude Code tool calls without per-call SDK code. Installs four hooks (PreToolUse, PostToolUse, Stop, and a SessionStart memory digest) plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent — re-run after every git pull to upgrade."
+            description="Govern Claude Code tool calls without per-call SDK code. Installs four hooks (PreToolUse, PostToolUse, Stop, and a SessionStart memory digest) plus the tool-classification module into .claude/hooks/, then merges the relevant blocks into .claude/settings.json. Idempotent; re-run after every git pull to upgrade."
           />
 
           {/* Hooks bundle download */}
@@ -342,7 +342,7 @@ hermes dashclaw doctor`}
             <CommandBlock label="Install from any other project pointing at a DashClaw checkout">{`node /path/to/DashClaw/scripts/install-hooks.mjs --target=.`}</CommandBlock>
           </div>
           <p className="mt-4 text-xs text-text-tertiary">
-            The Stop hook captures per-turn LLM token usage from the session transcript and PATCHes it onto the action records the pretool opened during the turn — cost analytics light up without per-agent instrumentation. Required env:{' '}
+            The Stop hook captures per-turn LLM token usage from the session transcript and PATCHes it onto the action records the pretool opened during the turn; cost analytics light up without per-agent instrumentation. Required env:{' '}
             <code className="font-mono">DASHCLAW_BASE_URL</code>,{' '}
             <code className="font-mono">DASHCLAW_API_KEY</code>, optional{' '}
             <code className="font-mono">DASHCLAW_HOOK_MODE=enforce</code>.

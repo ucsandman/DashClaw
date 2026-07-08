@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Users } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -132,13 +132,13 @@ DASHCLAW_API_KEY=oc_live_...`,
       summary: 'Execute the example and watch the governance flow.',
       codeTitle: 'Terminal',
       codeBody: 'python main.py',
-      note: 'No LLM API key needed — the example calls the tool directly. Only the DashClaw SDK calls are real.',
+      note: 'No LLM API key needed: the example calls the tool directly. Only the DashClaw SDK calls are real.',
     },
     {
       number: 6,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded.',
-      note: "Go to /decisions — you should see your action in the ledger with action_type 'data_analysis', agent_id 'crewai-analyst-agent', and status 'completed'.",
+      note: "Go to /decisions: you should see your action in the ledger with action_type 'data_analysis', agent_id 'crewai-analyst-agent', and status 'completed'.",
     },
     {
       number: 7,
@@ -154,7 +154,7 @@ python main.py`,
   ];
 
   const proofMoment =
-    "Go to /decisions — you should see your action in the ledger with action_type 'data_analysis', agent_id 'crewai-analyst-agent', and status 'completed'.";
+    "Go to /decisions: you should see your action in the ledger with action_type 'data_analysis', agent_id 'crewai-analyst-agent', and status 'completed'.";
 
   return (
     <div className="min-h-screen text-white">
@@ -185,7 +185,7 @@ python main.py`,
 
           <GuideClient
             frameworkName="CrewAI"
-            frameworkIcon="👥"
+            frameworkIcon={<Users size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

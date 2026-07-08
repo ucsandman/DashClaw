@@ -38,7 +38,7 @@ export default function RiskBreakdownPanel({ breakdown }: { breakdown: any }) {
   if (breakdown.predictive) {
     const p = breakdown.predictive;
     const basis = p.basis === 'no_history'
-      ? 'no history yet — fixed prior; improves as more actions are recorded'
+      ? 'no history yet: fixed prior; improves as more actions are recorded'
       : p.total_actions != null
         ? `${p.total_actions} actions, failure rate ${p.failure_rate ?? 0}${p.velocity != null ? `, ${p.velocity}/hr` : ''}`
         : undefined;
@@ -55,7 +55,7 @@ export default function RiskBreakdownPanel({ breakdown }: { breakdown: any }) {
       if (p.llm) {
         rows.push({
           label: 'LLM assessment',
-          detail: [p.llm.model, p.llm.reasoning].filter(Boolean).join(' — '),
+          detail: [p.llm.model, p.llm.reasoning].filter(Boolean).join(': '),
           delta: signed(p.llm.adjustment),
         });
       }

@@ -225,7 +225,7 @@ export default async function DocsPage() {
           <div className="mb-10 rounded-xl border border-brand/25 bg-surface-secondary p-5">
             <p className="font-mono text-[11px] uppercase tracking-wider text-brand">New</p>
             <p className="mt-1 text-sm text-text-secondary leading-relaxed">
-              Looking for the whole surface — every page, endpoint, SDK method, CLI command, MCP tool, and hook,
+              Looking for the whole surface: every page, endpoint, SDK method, CLI command, MCP tool, and hook,
               with live-captured examples and a stable/experimental mark on each?
             </p>
             <Link href="/guides/platform" className="mt-2 inline-block text-sm font-medium text-brand hover:text-brand-hover">
@@ -454,7 +454,7 @@ except Exception as e:
               <h3 className="text-lg font-semibold text-text-primary mb-4">Configuration</h3>
               <p className="text-xs text-text-tertiary mb-3">Config resolution: CLI args &gt; env vars &gt; defaults. Three config values: <code className="font-mono text-text-secondary">url</code> (<code className="font-mono text-text-secondary">DASHCLAW_URL</code>, default <code className="font-mono text-text-secondary">localhost:3000</code>), <code className="font-mono text-text-secondary">apiKey</code> (<code className="font-mono text-text-secondary">DASHCLAW_API_KEY</code>), <code className="font-mono text-text-secondary">agentId</code> (<code className="font-mono text-text-secondary">DASHCLAW_AGENT_ID</code>).</p>
               <div className="space-y-4">
-                <CodeBlock title="stdio — Claude Code / Cowork (.mcp.json; Desktop chat uses the OAuth connector below)">{`{
+                <CodeBlock title="stdio: Claude Code / Cowork (.mcp.json; Desktop chat uses the OAuth connector below)">{`{
   "mcpServers": {
     "dashclaw": {
       "command": "npx",
@@ -466,20 +466,20 @@ except Exception as e:
     }
   }
 }`}</CodeBlock>
-                <CodeBlock title="Streamable HTTP — Managed Agents (Python)">{`mcp_servers=[{
+                <CodeBlock title="Streamable HTTP: Managed Agents (Python)">{`mcp_servers=[{
     "type": "url",
     "url": "https://your-instance.vercel.app/api/mcp",
     "headers": {"x-api-key": "oc_live_..."},
     "name": "dashclaw"
 }]`}</CodeBlock>
-                <CodeBlock title="Custom connector — Claude app (web / Desktop / Cowork), OAuth, no key">{`Settings → Connectors → Add custom connector
+                <CodeBlock title="Custom connector: Claude app (web / Desktop / Cowork), OAuth, no key">{`Settings → Connectors → Add custom connector
 
   https://your-instance.vercel.app/api/mcp
 
 Connect → log in to DashClaw → Authorize. No API key in the UI: the
 instance runs its own OAuth (DCR + PKCE). Guide: docs/CLAUDE-DESKTOP-PLUGIN.md`}</CodeBlock>
                 <p className="text-xs text-text-tertiary leading-relaxed">
-                  In chat clients the connector governs <span className="text-text-secondary">cooperatively</span>: the agent, guided by the governance skill, calls <code className="font-mono text-text-secondary">dashclaw_guard</code> / <code className="font-mono text-text-secondary">dashclaw_invoke</code> and records its decisions — it is not a kernel-level block, so a non-compliant model could still call a native tool without consulting guard. Hard <code className="font-mono text-text-secondary">PreToolUse</code> blocking (fail-closed deny) is a property of the CLI hook path (Claude Code / Codex / Hermes); Cowork hard-gating is not yet verified.
+                  In chat clients the connector governs <span className="text-text-secondary">cooperatively</span>: the agent, guided by the governance skill, calls <code className="font-mono text-text-secondary">dashclaw_guard</code> / <code className="font-mono text-text-secondary">dashclaw_invoke</code> and records its decisions; it is not a kernel-level block, so a non-compliant model could still call a native tool without consulting guard. Hard <code className="font-mono text-text-secondary">PreToolUse</code> blocking (fail-closed deny) is a property of the CLI hook path (Claude Code / Codex / Hermes); Cowork hard-gating is not yet verified.
                 </p>
               </div>
             </div>
@@ -500,7 +500,7 @@ instance runs its own OAuth (DCR + PKCE). Guide: docs/CLAUDE-DESKTOP-PLUGIN.md`}
             <div id="dashclaw-doctor" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">dashclaw doctor</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, livingcode shape drift, write-path canaries — synthetic self-cleaning writes that prove heartbeat, action-ledger, and guard-audit inserts land) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
+                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, livingcode shape drift, write-path canaries (synthetic self-cleaning writes that prove heartbeat, action-ledger, and guard-audit inserts land) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
               </p>
               <CodeBlock title="dashclaw doctor">{`npm install -g @dashclaw/cli
 
@@ -519,7 +519,7 @@ npm run doctor -- --fix`}</CodeBlock>
             <div id="live-host-canary" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Live host canary</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                The doctor proves your instance works from the inside; the live host canary proves your deployment works from the outside. <code className="font-mono text-text-secondary">scripts/live-canary.mjs</code> probes your production hosts hourly as a real unauthenticated client — marketing page, docs, demo entry, trial-mint fail-closed (it passes on the Turnstile rejection, so it never mints junk trials), OAuth discovery, and the MCP handshake&apos;s 401 challenge — and files the verdict to <code className="font-mono text-text-secondary">POST /api/live-canary</code>. Verdicts render on <code className="font-mono text-text-secondary">/setup#live-canary</code>; a fresh failure also raises a posture auditability finding. Canary traffic is stored in its own table and never touches the action or guard ledgers.
+                The doctor proves your instance works from the inside; the live host canary proves your deployment works from the outside. <code className="font-mono text-text-secondary">scripts/live-canary.mjs</code> probes your production hosts hourly as a real unauthenticated client: marketing page, docs, demo entry, trial-mint fail-closed (it passes on the Turnstile rejection, so it never mints junk trials), OAuth discovery, and the MCP handshake&apos;s 401 challenge; it files the verdict to <code className="font-mono text-text-secondary">POST /api/live-canary</code>. Verdicts render on <code className="font-mono text-text-secondary">/setup#live-canary</code>; a fresh failure also raises a posture auditability finding. Canary traffic is stored in its own table and never touches the action or guard ledgers.
               </p>
               <CodeBlock title="Enable (GitHub Actions)">{`# One-off run against your hosts:
 LIVE_CANARY_MARKETING_ORIGIN=https://your-site \\
@@ -552,7 +552,7 @@ npm run hooks:install`}</CodeBlock>
             <div id="codex-plugin" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Codex Plugin</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">dashclaw install codex</code> wires the same governance surface DashClaw ships for Claude Code into Codex&apos;s <code className="font-mono text-text-secondary">~/.codex/config.toml</code> — MCP server config, PreToolUse / PostToolUse / Stop hooks, and the governance protocol in <code className="font-mono text-text-secondary">AGENTS.md</code>. Idempotent; re-run after every <code className="font-mono text-text-secondary">git pull</code>. Full step-by-step at <Link href="/guides/codex" className="text-brand hover:text-brand-hover">/guides/codex</Link>.
+                <code className="font-mono text-text-secondary">dashclaw install codex</code> wires the same governance surface DashClaw ships for Claude Code into Codex&apos;s <code className="font-mono text-text-secondary">~/.codex/config.toml</code>: MCP server config, PreToolUse / PostToolUse / Stop hooks, and the governance protocol in <code className="font-mono text-text-secondary">AGENTS.md</code>. Idempotent; re-run after every <code className="font-mono text-text-secondary">git pull</code>. Full step-by-step at <Link href="/guides/codex" className="text-brand hover:text-brand-hover">/guides/codex</Link>.
               </p>
               <CodeBlock title="Install">{`# One command from the DashClaw repo root:
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
@@ -587,7 +587,7 @@ hermes dashclaw doctor`}</CodeBlock>
             <div id="governance-skill" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Governance Skill</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">dashclaw-governance</code> teaches governed agents how to use DashClaw correctly — risk thresholds, decision handling (allow / warn / block / require_approval), action recording, approval-wait protocol, and session lifecycle. Pairs with <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code>. Auto-installed by the Claude Code, Codex, and Hermes plugins; also downloadable as a standalone zip.
+                <code className="font-mono text-text-secondary">dashclaw-governance</code> teaches governed agents how to use DashClaw correctly: risk thresholds, decision handling (allow / warn / block / require_approval), action recording, approval-wait protocol, and session lifecycle. Pairs with <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code>. Auto-installed by the Claude Code, Codex, and Hermes plugins; also downloadable as a standalone zip.
               </p>
               <CodeBlock title="Download">{`# Zip download from this instance:
 curl -O ${'`'}https://${'<'}your-deployment${'>'}/downloads/dashclaw-governance.zip${'`'}
@@ -630,7 +630,7 @@ npm run livingcode:refresh`}</CodeBlock>
                 { name: 'apiKey / api_key', type: 'string', required: true, desc: 'API Key' },
                 { name: 'agentId / agent_id', type: 'string', required: true, desc: 'Unique Agent ID' },
                 { name: 'agentName / agent_name', type: 'string', required: false, desc: 'Human-readable agent label stored in audit trail for attribution. Automatically included on guard() calls if not overridden.' },
-                { name: 'authToken / auth_token', type: 'string', required: false, desc: 'Phase 2 — JWT bearer token from your OIDC provider. When set, the server verifies the signature via JWKS and returns verification_status on every guard response; the JWT sub claim overrides agent_id in the audit record. See docs/agent-identity.md.' },
+                { name: 'authToken / auth_token', type: 'string', required: false, desc: 'Phase 2: JWT bearer token from your OIDC provider. When set, the server verifies the signature via JWKS and returns verification_status on every guard response; the JWT sub claim overrides agent_id in the audit record. See docs/agent-identity.md.' },
               ]} />
             </div>
           </section>
@@ -646,7 +646,7 @@ npm run livingcode:refresh`}</CodeBlock>
             <MethodEntry
               id="guard"
               signature="claw.guard(context)"
-              description="Evaluate guard policies for a proposed action. Call this before risky operations. With a non_fabrication policy active, pass `content` + `sourceOfTruth` to verify outbound text before it goes out — a violation blocks (or routes to approval) and is returned under `non_fabrication` with a signed, re-verifiable receipt."
+              description="Evaluate guard policies for a proposed action. Call this before risky operations. With a non_fabrication policy active, pass `content` + `sourceOfTruth` to verify outbound text before it goes out: a violation blocks (or routes to approval) and is returned under `non_fabrication` with a signed, re-verifiable receipt."
               params={[
                 { name: 'action_type', type: 'string', required: true, desc: 'Proposed action type' },
                 { name: 'risk_score', type: 'number', required: false, desc: '0-100' },
@@ -665,14 +665,14 @@ npm run livingcode:refresh`}</CodeBlock>
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">Risk composition (risk_breakdown)</h3>
               <p className="text-sm text-text-secondary leading-relaxed">
                 Every guard response carries a <code className="text-xs">risk_breakdown</code> sibling next to{' '}
-                <code className="text-xs">risk_score</code> — an itemized ledger of how the score was composed, so
+                <code className="text-xs">risk_score</code>: an itemized ledger of how the score was composed, so
                 no decision ever rests on an unexplained number:{' '}
                 <code className="text-xs">base</code> (the action type&apos;s base score) →{' '}
                 <code className="text-xs">modifiers</code> (server risk factors, each named with its points) →{' '}
                 <code className="text-xs">server_total</code> →{' '}
                 <code className="text-xs">template</code> (a matching risk template, if any) →{' '}
                 <code className="text-xs">client_reported</code> (the risk_score you passed) →{' '}
-                <code className="text-xs">effective</code> (the max of those — the server never lets a client
+                <code className="text-xs">effective</code> (the max of those; the server never lets a client
                 under-report below its own floor) → <code className="text-xs">predictive</code> (history-based
                 adjustment from the agent&apos;s failure rate and velocity) → <code className="text-xs">final</code>.
                 The breakdown is persisted with the decision and rendered as the <em>Risk composition</em> panel on
@@ -685,7 +685,7 @@ npm run livingcode:refresh`}</CodeBlock>
                 The score behind <code className="text-xs">guard</code> is pinned by a golden-vector corpus. DashClaw
                 mines your own decision ledger for shapes where the scorer looks miscalibrated (over-scored benign
                 actions, under-scored dangers, repeatedly approved shapes) and renders them as evidence cards on{' '}
-                <code className="text-xs">/policies → Calibration proposals</code> — ratify and dismiss are buttons.
+                <code className="text-xs">/policies → Calibration proposals</code>; ratify and dismiss are buttons.
                 The same proposals are available at <code className="text-xs">GET /api/calibration/proposals</code>;
                 a ratified proposal is a recorded judgment (<code className="text-xs">?status=ratified</code> is the
                 maintainer&apos;s forge queue). Nothing changes scoring until the vector is forged and committed.
@@ -696,23 +696,23 @@ npm run livingcode:refresh`}</CodeBlock>
               <p className="text-sm text-text-secondary leading-relaxed">
                 Policy-tuning proposals only ever <em>loosen</em> (raise thresholds that over-interrupt).
                 Tightening proposals own the other direction: when the same high-risk action type repeatedly
-                reaches <code className="text-xs">allow</code> with no policy in its way, the pattern — mirrored
-                one-to-one from the posture finding — is rendered as an evidence card on{' '}
+                reaches <code className="text-xs">allow</code> with no policy in its way, the pattern (mirrored
+                one-to-one from the posture finding) is rendered as an evidence card on{' '}
                 <code className="text-xs">/policies → Tightening proposals</code>. Ratify creates an active{' '}
                 <code className="text-xs">require_approval</code> policy for that action type in the same click
                 and resolves the posture finding; dismiss records why and stops the re-proposal. The same queue
                 is available at <code className="text-xs">GET /api/policies/tightening</code>. Nothing
-                auto-applies — every policy exists because a human ratified it.
+                auto-applies: every policy exists because a human ratified it.
               </p>
             </div>
             <div id="loosening-proposals" className="scroll-mt-20 mt-6 p-4 rounded-xl bg-surface-secondary border border-border">
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">Loosening proposals</h3>
               <p className="text-sm text-text-secondary leading-relaxed">
-                The tightening mirror. When a policy&apos;s interruptions are approved ~100% of the time —
-                a wrong interrupt by definition — the pattern renders as an evidence card in the{' '}
+                The tightening mirror. When a policy&apos;s interruptions are approved ~100% of the time
+                (a wrong interrupt by definition), the pattern renders as an evidence card in the{' '}
                 <code className="text-xs">/policies</code> judgment queue. Ratify relaxes the policy in the
                 same click: carve the always-approved action type out of its envelope (the rest stays
-                governed) or, when no surgical fix exists, deactivate it. Undo keeps the change — the policy
+                governed) or, when no surgical fix exists, deactivate it. Undo keeps the change; the policy
                 is a first-class row at <code className="text-xs">/policies</code>. The same queue is
                 available at <code className="text-xs">GET /api/policies/loosening</code>. Harness traffic
                 never counts as evidence, and risk-threshold policies stay with tuning.
@@ -731,7 +731,7 @@ npm run livingcode:refresh`}</CodeBlock>
             <MethodEntry
               id="createAction"
               signature="claw.createAction(action) / claw.create_action(**kwargs)"
-              description="Create a governance action record. The server re-evaluates policy at this point, so this call is the authoritative source for HITL gating: if policy requires human review, the response is HTTP 202 with action.status='pending_approval'. Always check action.status before assuming the action is clear to execute. Non-fabrication (optional): pass content + sourceOfTruth (Node) / content + source_of_truth (Python) to have a non_fabrication policy verify the outbound content before the action proceeds — a violation blocks or routes to approval and is recorded with a signed receipt. Session linkage (optional): pass session_id (the sess_… id from a started agent session) to attribute this action to that session, so /sessions can aggregate per-session action count, cost, and risk."
+              description="Create a governance action record. The server re-evaluates policy at this point, so this call is the authoritative source for HITL gating: if policy requires human review, the response is HTTP 202 with action.status='pending_approval'. Always check action.status before assuming the action is clear to execute. Non-fabrication (optional): pass content + sourceOfTruth (Node) / content + source_of_truth (Python) to have a non_fabrication policy verify the outbound content before the action proceeds: a violation blocks or routes to approval and is recorded with a signed receipt. Session linkage (optional): pass session_id (the sess_… id from a started agent session) to attribute this action to that session, so /sessions can aggregate per-session action count, cost, and risk."
               returns="Promise<{ action: { action_id, status, ... }, action_id, decision, security }>"
               example={
                 <DocsCodeTabs
@@ -748,7 +748,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="waitForApproval"
               signature="claw.waitForApproval(actionId, { timeout?, interval? }) / claw.wait_for_approval(action_id, timeout=300, interval=5)"
-              description="Wait for a human operator to approve or deny an action. Opens an SSE stream on /api/stream and falls back to polling /api/actions/:id every 5 seconds. Resolves when action.approved_by is set; throws ApprovalDeniedError when the operator denies AND when the approval expires server-side before a decision (a distinct third outcome — check err.status === 'expired' to tell a lapsed window from an operator 'no'; expired approvals render in their own section on /approvals and can no longer release anything); throws on timeout. IMPORTANT: pass the action_id returned by createAction() — NOT the action_id returned by guard(). They refer to different database tables and waiting on a guard decision ID will never resolve. Approvals can be resolved from the dashboard (/approvals), the CLI (dashclaw approve <id>), the mobile PWA (/approve), or — if the instance has Telegram configured (TELEGRAM_BOT_TOKEN) — via an inline Approve/Reject button pushed to the admin Telegram chat. All four surfaces call the same /api/approvals/:id endpoint, so waitForApproval unblocks the agent within ~1 second regardless of which surface was used."
+              description="Wait for a human operator to approve or deny an action. Opens an SSE stream on /api/stream and falls back to polling /api/actions/:id every 5 seconds. Resolves when action.approved_by is set; throws ApprovalDeniedError when the operator denies AND when the approval expires server-side before a decision (a distinct third outcome: check err.status === 'expired' to tell a lapsed window from an operator 'no'; expired approvals render in their own section on /approvals and can no longer release anything); throws on timeout. IMPORTANT: pass the action_id returned by createAction(), NOT the action_id returned by guard(). They refer to different database tables and waiting on a guard decision ID will never resolve. Approvals can be resolved from the dashboard (/approvals), the CLI (dashclaw approve <id>), the mobile PWA (/approve), or, if the instance has Telegram configured (TELEGRAM_BOT_TOKEN), via an inline Approve/Reject button pushed to the admin Telegram chat. All four surfaces call the same /api/approvals/:id endpoint, so waitForApproval unblocks the agent within ~1 second regardless of which surface was used."
               example={
                 <DocsCodeTabs
                   nodeSnippet={`// Correct — wait on createAction's action_id
@@ -832,7 +832,7 @@ if created.get("action", {}).get("status") == "pending_approval":
             <MethodEntry
               id="simulatePolicy"
               signature="claw.simulatePolicy({ policy_type, rules, days })"
-              description="Side-effect-free dry-run of a single proposed policy against recent historical actions — nothing is persisted. Use it to preview how a policy would have decided before committing it; pairs with guard() for live enforcement. Node SDK only."
+              description="Side-effect-free dry-run of a single proposed policy against recent historical actions: nothing is persisted. Use it to preview how a policy would have decided before committing it; pairs with guard() for live enforcement. Node SDK only."
               params={[
                 { name: 'policy_type', type: 'string', required: true, desc: 'The policy type to simulate' },
                 { name: 'rules', type: 'object', required: true, desc: 'The proposed policy rules' },
@@ -855,7 +855,7 @@ console.log(sim.summary.block, 'of', sim.summary.total, 'would block');`}
             <div id="policies-generate" className="scroll-mt-20 pt-10">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">AI Policy Generator</h3>
               <p className="text-xs text-text-tertiary mb-4">
-                Turns a plain-English request into guard-policy drafts. The flow is iterative and never dead-ends: a clear request returns drafts; a vague one returns a best-effort draft plus suggested clarifications; an underspecified one returns clarifications only — never an empty &quot;be more specific&quot; rejection. Send the answered clarifications back in <code className="font-mono text-text-secondary">answers</code> to refine. Authored from <strong className="text-text-secondary">Policies → Custom → AI generator</strong> in the dashboard. Requires an LLM provider key in Settings; without one the endpoint returns <code className="font-mono text-text-secondary">422</code> with <code className="font-mono text-text-secondary">&quot;No LLM provider configured.&quot;</code>
+                Turns a plain-English request into guard-policy drafts. The flow is iterative and never dead-ends: a clear request returns drafts; a vague one returns a best-effort draft plus suggested clarifications; an underspecified one returns clarifications only, never an empty &quot;be more specific&quot; rejection. Send the answered clarifications back in <code className="font-mono text-text-secondary">answers</code> to refine. Authored from <strong className="text-text-secondary">Policies → Custom → AI generator</strong> in the dashboard. Requires an LLM provider key in Settings; without one the endpoint returns <code className="font-mono text-text-secondary">422</code> with <code className="font-mono text-text-secondary">&quot;No LLM provider configured.&quot;</code>
               </p>
 
               <MethodEntry
@@ -920,8 +920,8 @@ await fetch(\`\${baseUrl}/api/policies/generate\`, {
             <div id="policy-tuning" className="scroll-mt-20 mt-10 p-4 rounded-xl bg-surface-secondary border border-border">
               <h3 className="text-sm font-semibold text-text-primary mb-1.5">Policy tuning proposals</h3>
               <p className="text-sm text-text-secondary leading-relaxed">
-                DashClaw mines your own decision outcomes for policies whose thresholds look wrong in practice — a
-                gate every human rubber-stamps, a cap that never fires — and renders each as an evidence-backed
+                DashClaw mines your own decision outcomes for policies whose thresholds look wrong in practice (a
+                gate every human rubber-stamps, a cap that never fires) and renders each as an evidence-backed
                 proposal on <code className="text-xs">/policies</code>, where <em>Apply</em> and <em>Dismiss</em> are
                 buttons (apply is a two-step confirm with an inline reason). The same feed is available at{' '}
                 <code className="text-xs">GET /api/policies/proposals</code>, which returns{' '}
@@ -936,19 +936,19 @@ await fetch(\`\${baseUrl}/api/policies/generate\`, {
               <p className="text-sm text-text-secondary leading-relaxed mb-2">
                 Guard evaluation runs under a deadline (<code className="text-xs">DASHCLAW_GUARD_DEADLINE_MS</code>,
                 default 3500&nbsp;ms). When the deadline fires or an evaluation phase fails (for example a policy
-                webhook), the guard does not silently allow: it falls back — per-policy{' '}
+                webhook), the guard does not silently allow: it falls back, using the per-policy{' '}
                 <code className="text-xs">on_failure</code> override first, then the instance-wide{' '}
                 <code className="text-xs">DASHCLAW_GUARD_FALLBACK</code>, then fail-closed{' '}
-                <code className="text-xs">require_approval</code> — and marks the decision <em>degraded</em>.
+                <code className="text-xs">require_approval</code>, and marks the decision <em>degraded</em>.
               </p>
               <p className="text-sm text-text-secondary leading-relaxed">
                 Degradations are observable, not just recorded:{' '}
                 <code className="text-xs">GET /api/policies/proposals?days=30</code> returns a{' '}
-                <code className="text-xs">degradation</code> rollup —{' '}
-                <code className="text-xs">{'{ window_days, total, degraded, rate, last_degraded_at, by_day }'}</code>{' '}
-                — and <code className="text-xs">/policies</code> renders it as a strip
+                <code className="text-xs">degradation</code> rollup:{' '}
+                <code className="text-xs">{'{ window_days, total, degraded, rate, last_degraded_at, by_day }'}</code>.{' '}
+                <code className="text-xs">/policies</code> renders it as a strip
                 (&quot;N of M decisions were deadline degradations&quot;) whenever the count is non-zero. A rising
-                rate means your policies are being decided by fallback, not evaluation — tune the deadline or the
+                rate means your policies are being decided by fallback, not evaluation; tune the deadline or the
                 failing phase.
               </p>
             </div>
@@ -1002,7 +1002,7 @@ if not result["clean"]:
 
             <h3 className="text-lg font-semibold tracking-tight mt-8 mb-2">JWKS verification (Phase 2 / 2b / 2c)</h3>
             <p className="text-sm text-text-secondary mb-4 leading-relaxed">
-              Attach an OIDC bearer token (or pass <code className="text-brand">authToken</code> to the SDK constructor). DashClaw fetches the issuer&apos;s keys from its <code className="text-brand">/.well-known/jwks.json</code>, verifies the signature (EdDSA, RS256&ndash;512, ES256&ndash;512), and on success overrides any body-supplied <code className="text-brand">agent_id</code> with the token&apos;s <code className="text-brand">sub</code> — proof beats self-assertion. A downed issuer fails soft to <code className="text-brand">unverified</code> and never blocks a decision.
+              Attach an OIDC bearer token (or pass <code className="text-brand">authToken</code> to the SDK constructor). DashClaw fetches the issuer&apos;s keys from its <code className="text-brand">/.well-known/jwks.json</code>, verifies the signature (EdDSA, RS256&ndash;512, ES256&ndash;512), and on success overrides any body-supplied <code className="text-brand">agent_id</code> with the token&apos;s <code className="text-brand">sub</code>: proof beats self-assertion. A downed issuer fails soft to <code className="text-brand">unverified</code> and never blocks a decision.
             </p>
             <CodeBlock title="Guard with a verified identity">
 {`import { DashClaw } from 'dashclaw';
@@ -1023,23 +1023,23 @@ const { decision, verification_status } = await claw.guard({
               Three independent axes travel back on the response, each in its own field so a downed issuer or absent claim degrades gracefully instead of hard-failing:
             </p>
             <ul className="text-sm text-text-secondary mb-4 leading-relaxed list-disc pl-5 space-y-1">
-              <li><strong>Phase 2 — <code className="text-brand">verification_status</code></strong>: who signed the token. Configure trust with <code className="text-brand">DASHCLAW_ALLOWED_ISSUER</code> and <code className="text-brand">DASHCLAW_JWT_AUDIENCE</code>.</li>
-              <li><strong>Phase 2b — <code className="text-brand">replay_status</code></strong>: whether the token was reused. <code className="text-brand">DASHCLAW_JTI_REPLAY_PROTECTION</code> (<code>off</code> / <code>best_effort</code> / <code>required</code>, default <code>required</code>) blocks a replayed <code className="text-brand">jti</code> — verified-JWT traffic only; API-key callers are never touched by it.</li>
-              <li><strong>Phase 2c — <code className="text-brand">act_status</code></strong>: whether the token is bound to <em>this</em> call. <code className="text-brand">DASHCLAW_ACT_BINDING</code> (default <code>best_effort</code> — blocks only a positive <code>mismatch</code>) compares the request against the token&apos;s <code className="text-brand">urn:dashclaw:act-binding</code> claim.</li>
+              <li><strong>Phase 2: <code className="text-brand">verification_status</code></strong>: who signed the token. Configure trust with <code className="text-brand">DASHCLAW_ALLOWED_ISSUER</code> and <code className="text-brand">DASHCLAW_JWT_AUDIENCE</code>.</li>
+              <li><strong>Phase 2b: <code className="text-brand">replay_status</code></strong>: whether the token was reused. <code className="text-brand">DASHCLAW_JTI_REPLAY_PROTECTION</code> (<code>off</code> / <code>best_effort</code> / <code>required</code>, default <code>required</code>) blocks a replayed <code className="text-brand">jti</code>, for verified-JWT traffic only; API-key callers are never touched by it.</li>
+              <li><strong>Phase 2c: <code className="text-brand">act_status</code></strong>: whether the token is bound to <em>this</em> call. <code className="text-brand">DASHCLAW_ACT_BINDING</code> (default <code>best_effort</code>, blocks only a positive <code>mismatch</code>) compares the request against the token&apos;s <code className="text-brand">urn:dashclaw:act-binding</code> claim.</li>
             </ul>
 
             <h3 id="composed-identities" className="scroll-mt-20 text-lg font-semibold tracking-tight mt-10 mb-2">Composed identities (per-harness families)</h3>
             <p className="text-sm text-text-secondary mb-4 leading-relaxed">
               One operator runs the same logical agent across several harnesses, and each harness spawns sub-agents.
               DashClaw encodes this as composed ids: <code className="text-brand">&lt;parent&gt;:&lt;sub&gt;</code>{' '}
-              — e.g. <code className="text-brand">claude-code:explore</code> is the explore sub-agent of the{' '}
-              <code className="text-brand">claude-code</code> parent. The base id before the first{' '}
-              <code className="text-brand">:</code> is the <em>family</em>. No registration step is needed — the
+              (e.g. <code className="text-brand">claude-code:explore</code> is the explore sub-agent of the{' '}
+              <code className="text-brand">claude-code</code> parent). The base id before the first{' '}
+              <code className="text-brand">:</code> is the <em>family</em>. No registration step is needed: the
               convention alone activates the behavior:
             </p>
             <ul className="text-sm text-text-secondary mb-6 leading-relaxed list-disc pl-5 space-y-1">
-              <li><strong>Governance inheritance</strong> — pairing and permission lookups for a composed id fall back to the parent&apos;s row when no exact row exists; an exact row always wins. Sub-agents are governed from day one without per-sub setup.</li>
-              <li><strong>Fleet grouping</strong> — composed ids nest under their parent, so a harness&apos;s sub-agent swarm reads as one family (the fan-outs view), not fleet noise.</li>
+              <li><strong>Governance inheritance</strong>: pairing and permission lookups for a composed id fall back to the parent&apos;s row when no exact row exists; an exact row always wins. Sub-agents are governed from day one without per-sub setup.</li>
+              <li><strong>Fleet grouping</strong>: composed ids nest under their parent, so a harness&apos;s sub-agent swarm reads as one family (the fan-outs view), not fleet noise.</li>
             </ul>
 
             <h3 className="text-lg font-semibold tracking-tight mt-10 mb-2">Public-key pairing</h3>
@@ -1183,7 +1183,7 @@ const { identities } = await res.json();`}
               <MethodEntry
                 id="getActionGraph"
                 signature="GET /api/actions/:actionId/graph"
-                description="Read-only execution graph (nodes + edges) for any action. Reuses the existing trace data plus correlated assumptions and open loops — zero schema change. Powers the Graph tab on decision replay."
+                description="Read-only execution graph (nodes + edges) for any action. Reuses the existing trace data plus correlated assumptions and open loops, zero schema change. Powers the Graph tab on decision replay."
                 returns="{ rootActionId, nodes: Array<{ id, type, status, riskScore, ... }>, edges: Array<{ source, target, type, label }> }"
                 example={
                   <CodeBlock title="Fetch graph">
@@ -1201,7 +1201,7 @@ const { rootActionId, nodes, edges } = await res.json();
             {/* Action Outcome (durable execution finality) */}
             <div id="action-outcome" className="scroll-mt-20 pt-10">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Action Outcome</h3>
-              <p className="text-xs text-text-tertiary mb-4">Five-state terminal outcome on every action — closes the audit-trail gap between &quot;what was approved&quot; and &quot;what actually completed.&quot; See <a href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/durable-execution-finality.md" className="text-brand underline">durable-execution-finality.md</a>.</p>
+              <p className="text-xs text-text-tertiary mb-4">Five-state terminal outcome on every action: closes the audit-trail gap between &quot;what was approved&quot; and &quot;what actually completed.&quot; See <a href="https://github.com/ucsandman/DashClaw/blob/main/docs/architecture/durable-execution-finality.md" className="text-brand underline">durable-execution-finality.md</a>.</p>
 
               <MethodEntry
                 id="reportActionOutcome"
@@ -1247,14 +1247,14 @@ const { rootActionId, nodes, edges } = await res.json();
           <section id="coverage" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Coverage</h3>
-              <p className="text-xs text-text-tertiary mb-4">Event coverage — orthogonal to posture&apos;s policy coverage (&quot;is it governed&quot;). Answers &quot;did the ledger actually see everything that happened.&quot; The Claude Code Stop hook POSTs one fail-silent per-turn report comparing transcript <code className="text-brand">tool_use</code> ground truth against the session&apos;s recorded action map; every closed action also carries a <code className="text-brand">close_source</code> (outcome | stop_autoclose | direct) so outcome coverage is computable from durable data. Operator surface only; no SDK wrapper. Powers the Coverage column on the <code className="text-brand">/agents</code> page and a posture finding when either figure drops below 90% (min 20 sampled).</p>
+              <p className="text-xs text-text-tertiary mb-4">Event coverage, orthogonal to posture&apos;s policy coverage (&quot;is it governed&quot;). Answers &quot;did the ledger actually see everything that happened.&quot; The Claude Code Stop hook POSTs one fail-silent per-turn report comparing transcript <code className="text-brand">tool_use</code> ground truth against the session&apos;s recorded action map; every closed action also carries a <code className="text-brand">close_source</code> (outcome | stop_autoclose | direct) so outcome coverage is computable from durable data. Operator surface only; no SDK wrapper. Powers the Coverage column on the <code className="text-brand">/agents</code> page and a posture finding when either figure drops below 90% (min 20 sampled).</p>
               <MethodEntry
                 id="coverage-get"
                 signature="GET /api/coverage"
                 description="Per-agent record coverage (sum(recorded)/sum(expected) over a 24h window) and outcome coverage (share of hook-recorded actions closed with a real outcome vs Stop-hook auto-close). An agent with no reports renders an explicit no-evidence state rather than 100%."
                 params={[
                   { name: 'window_hours', type: 'number', required: false, desc: '1-168, default 24' },
-                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents — diagnostics only; real views and posture always exclude them' },
+                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents; diagnostics only, real views and posture always exclude them' },
                 ]}
                 returns="{ coverage: [{ agentId, expected, recorded, recordPct, outcomePct, outcomeSample }], window_hours, lastUpdated }"
                 example={
@@ -1272,7 +1272,7 @@ const { coverage } = await res.json();`}
           <section id="fanouts" className="scroll-mt-20 pt-12 border-t border-border">
             <div className="space-y-6">
               <h3 className="text-lg font-semibold text-text-primary mb-2 font-mono">Fan-outs</h3>
-              <p className="text-xs text-text-tertiary mb-4">Multi-agent lineage as persisted evidence, not a client-side guess. Every recorded action carries its harness session (<code className="text-brand">harness_session_id</code>); subagent leaf actions carry the subagent instance uuid (<code className="text-brand">subagent_uuid</code>); spawn rows carry the spawned agent&apos;s uuid via <code className="text-brand">outcome_metadata.spawned_agent_uuid</code> on the outcome PATCH — the one <code className="text-brand">outcome_metadata</code> key the server persists. A fan-out reads as one governed unit with per-leaf attribution, joined at read time. Powers the Fan-outs panel on the <code className="text-brand">/agents</code> page, deep-linking to <code className="text-brand">/swarm?swarm_id=&lt;harness_session_id&gt;</code>.</p>
+              <p className="text-xs text-text-tertiary mb-4">Multi-agent lineage as persisted evidence, not a client-side guess. Every recorded action carries its harness session (<code className="text-brand">harness_session_id</code>); subagent leaf actions carry the subagent instance uuid (<code className="text-brand">subagent_uuid</code>); spawn rows carry the spawned agent&apos;s uuid via <code className="text-brand">outcome_metadata.spawned_agent_uuid</code> on the outcome PATCH, the one <code className="text-brand">outcome_metadata</code> key the server persists. A fan-out reads as one governed unit with per-leaf attribution, joined at read time. Powers the Fan-outs panel on the <code className="text-brand">/agents</code> page, deep-linking to <code className="text-brand">/swarm?swarm_id=&lt;harness_session_id&gt;</code>.</p>
               <MethodEntry
                 id="fanouts-get"
                 signature="GET /api/agents/fanouts"
@@ -1280,7 +1280,7 @@ const { coverage } = await res.json();`}
                 params={[
                   { name: 'window_hours', type: 'number', required: false, desc: '1-168, default 24' },
                   { name: 'limit', type: 'number', required: false, desc: '1-100, default 20' },
-                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents — diagnostics only; the /agents panel never sets it' },
+                  { name: 'include_synthetic', type: 'string', required: false, desc: '"1" includes synthetic/loadtest agents; diagnostics only, the /agents panel never sets it' },
                 ]}
                 returns="{ fanouts: [{ harness_session_id, parent_agent_id, agents, agent_count, spawn_count, action_count, linked_leaf_count, first_at, last_at }], window_hours, lastUpdated }"
                 example={
@@ -1304,7 +1304,7 @@ const { fanouts } = await res.json();`}
               <h2 className="text-2xl font-bold tracking-tight">Hosted Provisioning (operator)</h2>
             </div>
             <p className="text-sm text-text-secondary mb-6">
-              Operator-facing routes exposed only when <code className="font-mono text-text-secondary">DASHCLAW_HOSTED=true</code>. These are not SDK methods — they produce the API key that downstream SDKs consume. Self-host deploys are unaffected; all routes return 404 when the flag is unset.
+              Operator-facing routes exposed only when <code className="font-mono text-text-secondary">DASHCLAW_HOSTED=true</code>. These are not SDK methods; they produce the API key that downstream SDKs consume. Self-host deploys are unaffected; all routes return 404 when the flag is unset.
             </p>
             <MethodEntry
               id="hosted-workspaces-post"
@@ -1358,7 +1358,7 @@ const { fanouts } = await res.json();`}
             <MethodEntry
               id="hosted-cleanup"
               signature="POST /api/hosted/cleanup"
-              description="Cron-safe sweeper for expired trial workspaces. Accepts admin-role API key OR X-Cleanup-Secret header. Safe to run repeatedly — idempotent."
+              description="Cron-safe sweeper for expired trial workspaces. Accepts admin-role API key OR X-Cleanup-Secret header. Safe to run repeatedly: idempotent."
               params={[
                 { name: 'X-Cleanup-Secret', type: 'header', required: false, desc: 'Shared secret set via HOSTED_CLEANUP_SECRET env var. Alternative to admin API key.' },
               ]}

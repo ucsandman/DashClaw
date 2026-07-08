@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import DashClawLogo from '../components/DashClawLogo';
 import PageLayout from '../components/PageLayout';
@@ -217,6 +218,10 @@ function relativeAgo(iso: string | null | undefined): string {
   return `${Math.floor(hours / 24)}d`;
 }
 
+export const metadata: Metadata = {
+  title: 'Setup',
+};
+
 export default async function SetupPage() {
   // Dual-shell: a signed-in operator clicking "Setup" in the sidebar stays
   // inside the app shell like every other tab; anonymous visitors (pre-
@@ -342,7 +347,7 @@ export default async function SetupPage() {
       ...row,
       weakened,
       meaning: weakened
-        ? 'Set below the hardened default. The value is withheld on this public page — verify it on the authenticated Doctor panel (/doctor) or in your deployment env.'
+        ? 'Set below the hardened default. The value is withheld on this public page; verify it on the authenticated Doctor panel (/doctor) or in your deployment env.'
         : ENFORCEMENT_MEANINGS[row.env]?.[row.value] ?? '',
     };
   });
@@ -358,7 +363,7 @@ export default async function SetupPage() {
     weakened: false,
     meaning: issuerConfigured
       ? 'An issuer allow-list is configured; only its signed JWTs can reach verified status. The issuer URL is withheld on this public page.'
-      : 'No issuer configured — bearer tokens never reach verified status (fail-closed). Set this to your IdP to enable verified identity.',
+      : 'No issuer configured. Bearer tokens never reach verified status (fail-closed). Set this to your IdP to enable verified identity.',
   });
 
   const body = (
@@ -466,7 +471,7 @@ export default async function SetupPage() {
                   </p>
                 ) : canaryChecks.length === 0 ? (
                   <p className="text-sm text-secondary">
-                    Skipped — no database configured yet. The canary runs once DATABASE_URL is set.
+                    Skipped: no database configured yet. The canary runs once DATABASE_URL is set.
                   </p>
                 ) : (
                   <CheckList checks={canaryChecks} />
@@ -478,8 +483,8 @@ export default async function SetupPage() {
                 <div>
                   <h2 className="text-xl font-semibold text-primary">Live host canary</h2>
                   <p className="mt-1 text-sm text-secondary">
-                    A scheduled canary probes the production hosts as a real client — marketing,
-                    docs, demo entry, trial mint, OAuth discovery, and the hosted MCP handshake —
+                    A scheduled canary probes the production hosts as a real client: marketing,
+                    docs, demo entry, trial mint, OAuth discovery, and the hosted MCP handshake,
                     and files its verdict here.
                   </p>
                 </div>
@@ -507,7 +512,7 @@ export default async function SetupPage() {
                     {liveRunStale ? (
                       <p className="mb-3 rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
                         The canary has not reported since {liveReportedAt}. Treat the verdicts below as
-                        historical until the next run lands — a silent canary is itself a finding.
+                        historical until the next run lands; a silent canary is itself a finding.
                       </p>
                     ) : (
                       <p className="mb-3 text-xs text-tertiary">Last reported {liveReportedAt}.</p>
@@ -524,7 +529,7 @@ export default async function SetupPage() {
                   <p className="mt-1 text-sm text-secondary">
                     A synthetic held action is driven through the real pretool hook seam, and this
                     checks that it did not execute. A healthy decision ledger can still hide a dead
-                    hook (v4.72.1) — this is the probe that catches that. // version-hardcode-allowed
+                    hook (v4.72.1); this is the probe that catches that. // version-hardcode-allowed
                   </p>
                 </div>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${checkTone(livenessStatus)}`}>
@@ -550,7 +555,7 @@ export default async function SetupPage() {
                   <>
                     {livenessState === 'stale' ? (
                       <p className="mb-3 rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
-                        No probe run in the last 24h &mdash; a silent probe is the v4.72.1 failure shape. // version-hardcode-allowed
+                        No probe run in the last 24h: a silent probe is the v4.72.1 failure shape. // version-hardcode-allowed
                         Run: <code>npm run liveness:probe</code>
                       </p>
                     ) : livenessState === 'broken' ? (
@@ -615,7 +620,7 @@ export default async function SetupPage() {
                     </div>
                     <p className="mt-2 text-sm text-secondary">{row.meaning}</p>
                     <p className="mt-1 text-xs text-tertiary">
-                      <code>{row.env}</code> — change it in your deployment env and redeploy.
+                      <code>{row.env}</code>: change it in your deployment env and redeploy.
                     </p>
                   </div>
                 ))}
@@ -671,7 +676,7 @@ export default async function SetupPage() {
                       {trialFunnel.funnel.week1Pending > 0 ? (
                         <p>
                           {trialFunnel.funnel.week1Pending} workspace{trialFunnel.funnel.week1Pending === 1 ? '' : 's'} minted
-                          less than 7 days ago — too young to judge retention.
+                          less than 7 days ago, too young to judge retention.
                         </p>
                       ) : null}
                       {trialFunnel.medianHoursToFirstAction !== null ? (
@@ -682,7 +687,7 @@ export default async function SetupPage() {
                         {trialFunnel.annotations.returned} returned after the mint sitting (seen again
                         &gt;1h after mint); {trialFunnel.annotations.returnedNeverConnected} of those never
                         used the key or acted. Visits are stamped only since this instance began stamping
-                        them — older mints read as never returned.
+                        them; older mints read as never returned.
                       </p>
                       {trialFunnel.annotations.medianHoursToFirstKeyUse !== null ? (
                         <p>Median time to first key use: {trialFunnel.annotations.medianHoursToFirstKeyUse}h.</p>
@@ -700,7 +705,7 @@ export default async function SetupPage() {
                       <p>
                         {trialFunnel.annotations.graduated} graduated (exported the workspace record to
                         take it to an owned instance). Exports are stamped only since this instance began
-                        stamping them — older workspaces read as never exported.
+                        stamping them; older workspaces read as never exported.
                       </p>
                     </div>
                     {trialFunnel.cohorts.length > 0 ? (

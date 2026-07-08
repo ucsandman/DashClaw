@@ -15,7 +15,7 @@ export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = marketingPageMetadata({
   title: 'Hermes Agent Integration Guide - DashClaw',
-  description: 'Govern Hermes Agent with DashClaw — per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
+  description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
   path: '/guides/hermes',
 });
 
@@ -118,7 +118,7 @@ DISCORD_APPROVER_ORG_ID=<your-org-id>
       number: 2,
       title: 'Install the Hermes plugin',
       summary:
-        'One script symlinks the plugin into ~/.hermes/, appends the eight DashClaw hook entries to ~/.hermes/config.yaml (idempotent — sentinel markers prevent duplication on re-run), substitutes ${DASHCLAW_REPO} for the absolute repo path, and prints an env-var checklist. Re-run after every git pull to upgrade.',
+        'One script symlinks the plugin into ~/.hermes/, appends the eight DashClaw hook entries to ~/.hermes/config.yaml (idempotent: sentinel markers prevent duplication on re-run), substitutes ${DASHCLAW_REPO} for the absolute repo path, and prints an env-var checklist. Re-run after every git pull to upgrade.',
       codeTitle: 'Terminal',
       codeBody: `# macOS / Linux
 bash scripts/install-hermes-plugin.sh
@@ -180,13 +180,13 @@ hooks_auto_accept: true`,
         'Ask Hermes to do anything that uses Bash, terminal, str_replace_editor, Edit, Write, or MultiEdit. The pre_tool_call hook fires automatically. For policies that require approval, your phone DMs you and Hermes pauses on the dashclaw_wait_for_approval MCP tool until you resolve.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal — you should see [DashClaw] messages as each hook evaluates the action. The pre_llm_call hook also injects pending approvals and active policies into every turn.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as each hook evaluates the action. The pre_llm_call hook also injects pending approvals and active policies into every turn.',
     },
     {
       number: 8,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded under the hermes agent id and that the live-ingest session shows turn-by-turn token counts.',
-      note: "Go to /decisions — you should see your tool call with agent_id 'hermes'. Go to /code-sessions — the live session shows per-turn message counts, populated by post_llm_call as the session runs.",
+      note: "Go to /decisions: you should see your tool call with agent_id 'hermes'. Go to /code-sessions: the live session shows per-turn message counts, populated by post_llm_call as the session runs.",
     },
   ];
 
@@ -222,14 +222,14 @@ hooks_auto_accept: true`,
 Hermes exposes a richer lifecycle than Claude Code or Codex. Beyond
 pre/post_tool_call and on_session_{start,end}, DashClaw also wires:
 
-- pre_llm_call  — every turn injects active policies + pending approvals
+- pre_llm_call: every turn injects active policies + pending approvals
                   + today's action count via Hermes's context-injection
                   contract (5-minute cached)
-- post_llm_call — per-turn live ingest to /api/code-sessions/ingest-live
-- transform_tool_result — redacts 10 secret-pattern families (Anthropic /
+- post_llm_call: per-turn live ingest to /api/code-sessions/ingest-live
+- transform_tool_result: redacts 10 secret-pattern families (Anthropic /
                   OpenAI / AWS / GitHub / Slack / Stripe / JWT / PEM /
                   DashClaw keys) before the model sees tool output
-- subagent_stop — records every delegate_task child exit as a DashClaw
+- subagent_stop: records every delegate_task child exit as a DashClaw
                   action with action_type=subagent for the subagent-ROI
                   dashboard
 
@@ -238,16 +238,16 @@ post_llm_call pushes turn structure (model, usage, tool calls, assistant
 preview, timestamp) to /api/code-sessions/ingest-live every turn. On
 session close, on_session_end fires the finalize: true variant which
 runs the optimizer + alerts pass on the completed session. Turn-level
-attribution is visible immediately in /code-sessions — no waiting for a
+attribution is visible immediately in /code-sessions, no waiting for a
 Stop hook to flush.
 
 ### Secret redaction
 transform_tool_result runs every tool output through the same redaction
-patterns DashClaw uses in incident reports — Anthropic / OpenAI / AWS /
+patterns DashClaw uses in incident reports: Anthropic / OpenAI / AWS /
 GitHub / Slack / Stripe API keys, JWTs, PEM private-key blocks, and
 DashClaw keys themselves. Never blocks; just substitutes. CodeQL flags
 the sys.stdout.write here as clear-text logging because it does not model
-the redactor as a sanitizer — confirmed false positive.
+the redactor as a sanitizer; confirmed false positive.
 
 ### Backing out
 Delete the managed block between the # >>> dashclaw start / # <<<
@@ -255,7 +255,7 @@ dashclaw end markers in ~/.hermes/config.yaml. A .dashclaw-bak file is
 left next to the config on first install for full restore.`;
 
   const proofMoment =
-    "Go to /decisions — you should see your Hermes tool call with agent_id 'hermes'. Go to /code-sessions — the live session shows per-turn token counts and tool calls as they happen.";
+    "Go to /decisions: you should see your Hermes tool call with agent_id 'hermes'. Go to /code-sessions: the live session shows per-turn token counts and tool calls as they happen.";
 
   return (
     <div className="min-h-screen text-white">
@@ -264,7 +264,7 @@ left next to the config on first install for full restore.`;
           '@context': 'https://schema.org',
           '@type': 'TechArticle',
           headline: 'Hermes Agent Integration Guide - DashClaw',
-          description: 'Govern Hermes Agent with DashClaw — per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
+          description: 'Govern Hermes Agent with DashClaw: per-turn context injection, secret redaction, subagent ROI, and live session ingest in under 20 minutes.',
           url: 'https://www.dashclaw.io/guides/hermes',
         }}
       />

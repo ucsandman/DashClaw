@@ -392,9 +392,9 @@ function tuningEvidence(proposal: TuningProposal): ReactNode | null {
 
 function tuningApplyLabel(proposal: TuningProposal): string {
   if (proposal.rule === 'raise_risk_threshold' && proposal.patch) {
-    return `Confirm — raise to ${proposal.patch.rules.threshold}`;
+    return `Confirm: raise to ${proposal.patch.rules.threshold}`;
   }
-  return 'Confirm — apply';
+  return 'Confirm: apply';
 }
 
 function degradationNote(degradation: Awaited<ReturnType<typeof fetchProposals>>['degradation']): ReactNode {
@@ -405,8 +405,8 @@ function degradationNote(degradation: Awaited<ReturnType<typeof fetchProposals>>
         <span className="font-medium text-status-warning">
           {degradation.degraded} of {degradation.total} decisions
         </span>{' '}
-        in the last {degradation.window_days} days were deadline degradations ({(degradation.rate * 100).toFixed(1)}%)
-        &mdash; the evaluation ran over budget, not a policy match. Excluded from the evidence below.
+        in the last {degradation.window_days} days were deadline degradations ({(degradation.rate * 100).toFixed(1)}%):
+        the evaluation ran over budget, not a policy match. Excluded from the evidence below.
         {degradation.last_degraded_at && (
           <span className="text-tertiary"> Latest: {new Date(degradation.last_degraded_at).toLocaleString()}.</span>
         )}
@@ -419,15 +419,15 @@ const tuningAdapter: ProposalAdapter<TuningProposal> = {
   queue: 'tuning',
   anchorId: 'tuning',
   label: 'Tuning',
-  description: "Evidence-backed suggestions from how you've actually been approving — nothing changes until you accept.",
+  description: "Evidence-backed suggestions from how you've actually been approving: nothing changes until you accept.",
   errorText: "Couldn't load tuning proposals.",
-  emptyText: () => "No pending tuning — policies match how you're actually approving.",
+  emptyText: () => "No pending tuning: policies match how you're actually approving.",
   reasonRequired: true,
   primaryVerb: 'Apply',
   hasPrimary: (p) => !!p.patch,
   primaryArmed: (p) => <>Applies now to &ldquo;{p.policy_name}&rdquo;.</>,
   primaryConfirm: (p) => tuningApplyLabel(p),
-  accepted: (p) => <>Applied &mdash; &ldquo;{p.policy_name}&rdquo; updated.</>,
+  accepted: (p) => <>Applied: &ldquo;{p.policy_name}&rdquo; updated.</>,
   dismissedText: 'Dismissed.',
   undoAfterAccepted: false,
   fetch: async () => {
@@ -448,7 +448,7 @@ const tuningAdapter: ProposalAdapter<TuningProposal> = {
 };
 
 const TIGHTENING_RULE_HELP =
-  'High-risk action patterns that reached allow with nothing in their way — mirrored from your posture findings. Ratifying creates the require_approval policy in one click; dismissing records why and stops the re-proposal.';
+  'High-risk action patterns that reached allow with nothing in their way, mirrored from your posture findings. Ratifying creates the require_approval policy in one click; dismissing records why and stops the re-proposal.';
 
 const tighteningAdapter: ProposalAdapter<TighteningProposal> = {
   queue: 'tightening',
@@ -456,27 +456,27 @@ const tighteningAdapter: ProposalAdapter<TighteningProposal> = {
   label: 'Tightening',
   description: TIGHTENING_RULE_HELP,
   errorText: "Couldn't load tightening proposals.",
-  emptyText: (wd) => `No ungoverned high-risk patterns in the last ${wd ?? 7} days — every risky action met a policy.`,
+  emptyText: (wd) => `No ungoverned high-risk patterns in the last ${wd ?? 7} days; every risky action met a policy.`,
   reasonRequired: true,
   primaryVerb: 'Ratify',
   hasPrimary: () => true,
   primaryArmed: (p) => (
     <>
-      Creates an ACTIVE policy: &ldquo;{p.patch.name}&rdquo; &mdash; every &ldquo;{p.action_type}&rdquo; action
+      Creates an ACTIVE policy: &ldquo;{p.patch.name}&rdquo;; every &ldquo;{p.action_type}&rdquo; action
       will require approval from now on.
     </>
   ),
-  primaryConfirm: () => 'Confirm — create policy',
+  primaryConfirm: () => 'Confirm: create policy',
   accepted: (p, result) => {
     const pid = (result as { policy_id?: string | null } | undefined)?.policy_id ?? p.decision?.policy_id ?? null;
     return (
       <>
-        Policy created{pid ? <> &mdash; <span className="font-mono">{pid}</span></> : null}.
+        Policy created{pid ? <>: <span className="font-mono">{pid}</span></> : null}.
         This action type now requires approval; the posture finding is resolved.
       </>
     );
   },
-  dismissedText: 'Dismissed — this pattern stops re-proposing.',
+  dismissedText: 'Dismissed. This pattern stops re-proposing.',
   undoAfterAccepted: true,
   fetch: async () => {
     const payload = await fetchTighteningProposals();
@@ -505,7 +505,7 @@ const tighteningAdapter: ProposalAdapter<TighteningProposal> = {
 };
 
 const LOOSENING_RULE_HELP =
-  'Policies you override yourself — interrupts approved ~100% of the time, mined from the same ledger tightening reads, pointed the other way. Ratifying relaxes the policy in one click; dismissing records why and stops the re-proposal.';
+  'Policies you override yourself: interrupts approved ~100% of the time, mined from the same ledger tightening reads, pointed the other way. Ratifying relaxes the policy in one click; dismissing records why and stops the re-proposal.';
 
 function looseningMono(p: LooseningProposal): ReactNode {
   return p.rule === 'relax_policy_scope'
@@ -519,31 +519,31 @@ const looseningAdapter: ProposalAdapter<LooseningProposal> = {
   label: 'Loosening',
   description: LOOSENING_RULE_HELP,
   errorText: "Couldn't load loosening proposals.",
-  emptyText: (wd) => `No over-interrupting patterns in the last ${wd ?? 30} days — every interrupt is earning its click.`,
+  emptyText: (wd) => `No over-interrupting patterns in the last ${wd ?? 30} days; every interrupt is earning its click.`,
   reasonRequired: true,
   primaryVerb: 'Ratify',
   hasPrimary: () => true,
   primaryArmed: (p) =>
     p.rule === 'relax_policy_scope' ? (
       <>
-        Relaxes &ldquo;{p.policy_name}&rdquo; now &mdash; &ldquo;{p.action_type}&rdquo; actions stop
+        Relaxes &ldquo;{p.policy_name}&rdquo; now: &ldquo;{p.action_type}&rdquo; actions stop
         requiring approval; the rest of the policy stays governed.
       </>
     ) : (
       <>
-        Deactivates &ldquo;{p.policy_name}&rdquo; now &mdash; it stops interrupting entirely.
+        Deactivates &ldquo;{p.policy_name}&rdquo; now; it stops interrupting entirely.
         Reactivate any time at /policies.
       </>
     ),
   primaryConfirm: (p) =>
-    p.rule === 'relax_policy_scope' ? 'Confirm — relax policy' : 'Confirm — deactivate policy',
+    p.rule === 'relax_policy_scope' ? 'Confirm: relax policy' : 'Confirm: deactivate policy',
   accepted: (p) =>
     p.rule === 'relax_policy_scope' ? (
-      <>Relaxed &mdash; &ldquo;{p.action_type}&rdquo; no longer interrupts; the policy keeps its other action types.</>
+      <>Relaxed: &ldquo;{p.action_type}&rdquo; no longer interrupts; the policy keeps its other action types.</>
     ) : (
-      <>Deactivated &mdash; &ldquo;{p.policy_name}&rdquo; no longer interrupts. It remains at /policies, toggleable.</>
+      <>Deactivated: &ldquo;{p.policy_name}&rdquo; no longer interrupts. It remains at /policies, toggleable.</>
     ),
-  dismissedText: 'Dismissed — this pattern stops re-proposing.',
+  dismissedText: 'Dismissed. This pattern stops re-proposing.',
   undoAfterAccepted: true,
   fetch: async () => {
     const payload = await fetchLooseningProposals();
@@ -597,17 +597,17 @@ const calibrationAdapter: ProposalAdapter<CalibrationProposal> = {
   queue: 'calibration',
   anchorId: 'calibration',
   label: 'Calibration',
-  description: "Shapes mined from your own ledger where the risk scorer looks miscalibrated — ratifying queues a golden vector for the maintainer; nothing changes until it's forged and committed.",
+  description: "Shapes mined from your own ledger where the risk scorer looks miscalibrated: ratifying queues a golden vector for the maintainer; nothing changes until it's forged and committed.",
   errorText: "Couldn't load calibration proposals.",
-  emptyText: (wd) => `No pending calibration in the last ${wd ?? 30} days — the scorer and your approvals agree.`,
+  emptyText: (wd) => `No pending calibration in the last ${wd ?? 30} days; the scorer and your approvals agree.`,
   reasonRequired: true,
   primaryVerb: 'Ratify',
   hasPrimary: () => true,
   primaryArmed: () => (
-    <>Records your ratification &mdash; the maintainer forges it into the corpus and commits; nothing changes until then.</>
+    <>Records your ratification: the maintainer forges it into the corpus and commits; nothing changes until then.</>
   ),
-  primaryConfirm: () => 'Confirm — ratify',
-  accepted: () => <>Ratified &mdash; queued for the maintainer forge.</>,
+  primaryConfirm: () => 'Confirm: ratify',
+  accepted: () => <>Ratified: queued for the maintainer forge.</>,
   dismissedText: 'Dismissed.',
   undoAfterAccepted: true,
   terminal: (p) => <>In corpus as <span className="font-mono">{p.decision?.vector_name}</span>.</>,
@@ -629,7 +629,7 @@ const calibrationAdapter: ProposalAdapter<CalibrationProposal> = {
       evidence: calibrationEvidence(p) ? [calibrationEvidence(p)] : [],
       provenance: p.provenance || undefined,
       note: p.needs_manual_context
-        ? 'Redacted shape — the maintainer supplies the runnable command at forge time.'
+        ? 'Redacted shape: the maintainer supplies the runnable command at forge time.'
         : undefined,
       phase: status,
     };
@@ -683,7 +683,7 @@ export default function JudgmentSpine() {
           </div>
         </div>
         <p className="mt-1 text-sm text-tertiary">
-          Every pending judgment across tuning, tightening, loosening, and calibration — one place, one decision grammar.
+          Every pending judgment across tuning, tightening, loosening, and calibration: one place, one decision grammar.
           A human ratifies each one; nothing changes until you click.
         </p>
       </div>

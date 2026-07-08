@@ -117,7 +117,7 @@ function ActionTypePicker({ selected, options, onChange, label, hint }: ActionTy
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder="Add a custom action type (e.g. marketplace_publish) — press Enter"
+          placeholder="Add a custom action type (e.g. marketplace_publish), press Enter"
           aria-label="Custom action type"
           className={inputClass}
         />
@@ -296,7 +296,7 @@ export default function PolicyRuleBuilderSection({
           </p>
           <ActionTypePicker
             label="Action Types"
-            hint="(optional — leave empty to apply to all)"
+            hint="(optional, leave empty to apply to all)"
             options={actionOptions}
             selected={form.actionTypes}
             onChange={(next) => onChange('actionTypes', next)}
@@ -550,7 +550,7 @@ export default function PolicyRuleBuilderSection({
       {form.type === 'agent_allowlist' && (
         <div className="space-y-4">
           <p className="text-xs text-tertiary">
-            Warns (or escalates) when the agent uses an action type outside this list — its observed
+            Warns (or escalates) when the agent uses an action type outside this list: its observed
             safe envelope. The Policy Coach pre-fills the list from the agent&apos;s recorded behavior;
             the policy fires only on novel action types.
           </p>

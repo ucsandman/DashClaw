@@ -122,20 +122,20 @@ function OAuthConnectorCard({ hero = false }: OAuthConnectorCardProps) {
         <div className="flex items-center gap-2 mb-3">
           <KeyRound size={20} className="text-brand" aria-hidden="true" />
           <h2 className="text-xl sm:text-2xl font-semibold tracking-tight text-text-primary">
-            Add DashClaw to Claude — no API key
+            Add DashClaw to Claude, no API key needed
           </h2>
         </div>
         <p className="text-sm sm:text-base text-text-secondary max-w-2xl leading-relaxed">
           Paste your DashClaw instance&apos;s <code className="rounded border border-border bg-surface-primary px-1 py-0.5 font-mono text-[12px] text-text-secondary">/api/mcp</code> URL into Claude&apos;s{' '}
           <span className="text-text-primary">Add custom connector</span>, log in, and
-          authorize. No API key needed — the OAuth handshake handles authentication.
+          authorize. No API key needed: the OAuth handshake handles authentication.
         </p>
         <div className="mt-5">
           <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
           <p className="mt-3 text-xs text-text-tertiary leading-relaxed max-w-2xl">
             In Claude, open <span className="text-text-secondary">Add custom connector</span>,
             paste the URL, click Connect, log in, and Authorize. On plain chat, governance is
-            advisory — it records actions and prompts for approval, not a hard block.
+            advisory: it records actions and prompts for approval, not a hard block.
           </p>
         </div>
       </section>
@@ -146,10 +146,10 @@ function OAuthConnectorCard({ hero = false }: OAuthConnectorCardProps) {
     <div className="rounded-xl border border-border bg-surface-tertiary p-5 flex flex-col">
       <div className="flex items-center gap-2 mb-3">
         <KeyRound size={16} className="text-brand" aria-hidden="true" />
-        <h3 className="text-base font-semibold text-text-primary">Custom connector (Claude app — web / Desktop), OAuth, no key</h3>
+        <h3 className="text-base font-semibold text-text-primary">Custom connector (Claude app, web / Desktop), OAuth, no key</h3>
       </div>
       <p className="text-sm text-text-secondary leading-relaxed mb-4">
-        No API key. Paste your instance URL into Claude&apos;s Add custom connector, then log in and authorize. Free tier allows one connector. On plain chat, governance is advisory — it records actions and prompts for approval, not a hard block.
+        No API key. Paste your instance URL into Claude&apos;s Add custom connector, then log in and authorize. Free tier allows one connector. On plain chat, governance is advisory: it records actions and prompts for approval, not a hard block.
       </p>
       <div className="mt-auto">
         <CodeBlock>{`https://YOUR-INSTANCE.vercel.app/api/mcp`}</CodeBlock>
@@ -352,7 +352,7 @@ pip install dashclaw`}</CodeBlock>
             <StepHeader n={3}>Pick an approval surface</StepHeader>
             <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
               When guard returns{' '}
-              <code className="font-mono text-text-primary">require_approval</code>, the action pauses until a human resolves it — or the approval expires. An expired approval is a distinct third outcome (<code className="font-mono text-text-primary">err.status === &apos;expired&apos;</code> from <code className="font-mono text-text-primary">waitForApproval</code>) and can never release held work. Pick where humans should see and resolve those approvals. Dashboard is on by default. The other four are optional and additive.
+              <code className="font-mono text-text-primary">require_approval</code>, the action pauses until a human resolves it, or the approval expires. An expired approval is a distinct third outcome (<code className="font-mono text-text-primary">err.status === &apos;expired&apos;</code> from <code className="font-mono text-text-primary">waitForApproval</code>) and can never release held work. Pick where humans should see and resolve those approvals. Dashboard is on by default. The other four are optional and additive.
             </p>
 
             <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -500,19 +500,19 @@ dashclaw doctor`}</CodeBlock>
                   · The MCP server reads{' '}
                   <code className="font-mono text-text-primary">DASHCLAW_URL</code>{' '}
                   while the hooks read{' '}
-                  <code className="font-mono text-text-primary">DASHCLAW_BASE_URL</code>{' '}
-                  — set both to your instance URL. The SDK takes the URL as a constructor
+                  <code className="font-mono text-text-primary">DASHCLAW_BASE_URL</code>.
+                  Set both to your instance URL. The SDK takes the URL as a constructor
                   option (<code className="font-mono text-text-primary">baseUrl</code>), as in the snippets above.
                 </li>
                 <li>
                   · <code className="font-mono text-text-primary">401 Invalid or missing API key</code>{' '}
-                  right after a deploy or update usually means the DB schema is behind — run{' '}
+                  right after a deploy or update usually means the DB schema is behind; run{' '}
                   <code className="font-mono text-text-primary">npm run db:migrate</code>{' '}
                   on the host.
                 </li>
                 <li>
                   · Never point an agent at the demo deployment (e.g.{' '}
-                  <code className="font-mono text-text-primary">dashclaw.io</code>) — it rejects writes. Use your own instance.
+                  <code className="font-mono text-text-primary">dashclaw.io</code>): it rejects writes. Use your own instance.
                 </li>
                 <li>
                   · Hook not firing? Re-run{' '}
@@ -540,7 +540,7 @@ dashclaw doctor`}</CodeBlock>
                 {
                   href: '/guides/platform',
                   title: 'Complete Platform Guide',
-                  desc: 'Every page, endpoint, SDK method, CLI command, MCP tool, and hook — with live-captured examples and a stable/experimental mark on each of 1,400+ entries.',
+                  desc: 'Every page, endpoint, SDK method, CLI command, MCP tool, and hook, with live-captured examples and a stable/experimental mark on each of 1,400+ entries.',
                 },
                 {
                   href: '/guides/claude-code',
@@ -683,7 +683,7 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                 Connect Claude in two minutes.
               </h1>
               <p className="mt-4 text-lg text-text-secondary max-w-2xl leading-relaxed">
-                One keyless step gets your agent governed. No install, no key to manage — just
+                One keyless step gets your agent governed. No install, no key to manage: just
                 authorize the connector and watch governed actions land.
               </p>
             </header>
@@ -700,7 +700,7 @@ export default async function ConnectPage({ searchParams }: ConnectPageProps = {
                 </h2>
               </div>
               <p className="text-sm text-text-secondary max-w-2xl leading-relaxed">
-                Once Claude acts, every governed decision shows up in the Approvals inbox — the action,
+                Once Claude acts, every governed decision shows up in the Approvals inbox: the action,
                 the policy that fired, and anything waiting on your approval.
               </p>
               <Link

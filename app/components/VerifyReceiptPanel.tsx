@@ -58,7 +58,7 @@ export default function VerifyReceiptPanel() {
       <CardContent className="space-y-3">
         <p className="text-xs text-tertiary">
           Paste a downloaded proof receipt or signed compliance bundle to confirm its signature against this
-          instance&apos;s published keys. Stateless — the original record is never read.
+          instance&apos;s published keys. Stateless: the original record is never read.
         </p>
         <div role="tablist" aria-label="Artifact type" className="flex items-center gap-1.5">
           {TYPES.map((t) => (

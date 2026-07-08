@@ -104,7 +104,7 @@ DISCORD_APPROVER_ORG_ID=<your-org-id>
       number: 2,
       title: 'Install Codex governance',
       summary:
-        'One command writes the DashClaw MCP server config + PreToolUse / PostToolUse / Stop hooks into ~/.codex/config.toml, copies the Python governance scripts into ~/.codex/hooks/dashclaw/, and drops the governance protocol into your project\'s AGENTS.md. Idempotent — re-run after each `git pull` to upgrade.',
+        'One command writes the DashClaw MCP server config + PreToolUse / PostToolUse / Stop hooks into ~/.codex/config.toml, copies the Python governance scripts into ~/.codex/hooks/dashclaw/, and drops the governance protocol into your project\'s AGENTS.md. Idempotent; re-run after each `git pull` to upgrade.',
       codeTitle: 'Terminal',
       codeBody: `# From the DashClaw repo root:
 node cli/bin/dashclaw.js install codex --project /path/to/your/project
@@ -133,7 +133,7 @@ DASHCLAW_GUARD_TIMEOUT=5`,
       number: 4,
       title: 'Trust the hooks',
       summary:
-        'Codex marks new hooks as untrusted on first encounter so you can review them before they fire. The hooks live in ~/.codex/hooks/dashclaw/ and are pinned by content hash — Codex re-prompts if the hash changes.',
+        'Codex marks new hooks as untrusted on first encounter so you can review them before they fire. The hooks live in ~/.codex/hooks/dashclaw/ and are pinned by content hash: Codex re-prompts if the hash changes.',
       codeTitle: 'In Codex',
       codeBody: `codex hooks list
 # Find the three DashClaw hooks (trustStatus: untrusted)
@@ -169,13 +169,13 @@ codex hooks trust ~/.codex/config.toml:stop:0:0
         'Ask Codex to do anything that uses local_shell, Bash, Edit, Write, or MultiEdit. The hook fires automatically. For policies that require approval, your phone DMs you and Codex pauses on the dashclaw_wait_for_approval MCP tool until you resolve.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal — you should see [DashClaw] messages as the hook evaluates the action. Codex shows hook output above each tool call.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action. Codex shows hook output above each tool call.',
     },
     {
       number: 8,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded under the codex agent id.',
-      note: "Go to /decisions — you should see your tool call in the ledger with agent_id 'codex' and status 'completed'. Approvals that ran through Discord show approved_by starting with 'discord:'.",
+      note: "Go to /decisions: you should see your tool call in the ledger with agent_id 'codex' and status 'completed'. Approvals that ran through Discord show approved_by starting with 'discord:'.",
     },
   ];
 
@@ -209,7 +209,7 @@ codex hooks trust ~/.codex/config.toml:stop:0:0
 
 ### Tool surface
 Codex's main shell tool is local_shell (not Bash). DashClaw governs both names
-identically — the matcher in the managed config.toml block is
+identically: the matcher in the managed config.toml block is
 "Bash|Edit|Write|MultiEdit" and applies to local_shell automatically because
 Codex's hook schema treats local_shell as a Bash-class tool.
 
@@ -232,7 +232,7 @@ markers in ~/.codex/config.toml. A .dashclaw-bak file is left next to the
 config on first install for full restore.`;
 
   const proofMoment =
-    "Go to /decisions — you should see your Codex tool call in the ledger. Look for agent_id 'codex' and status 'completed'.";
+    "Go to /decisions: you should see your Codex tool call in the ledger. Look for agent_id 'codex' and status 'completed'.";
 
   return (
     <div className="min-h-screen text-white">

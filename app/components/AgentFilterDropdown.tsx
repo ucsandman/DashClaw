@@ -24,7 +24,7 @@ export default function AgentFilterDropdown({ pageScoped = true }: AgentFilterDr
       {!pageScoped && agentId && (
         <span
           className="rounded border border-border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-disabled"
-          title="This page shows org-level data — the agent filter does not apply here."
+          title="This page shows org-level data; the agent filter does not apply here."
         >
           Org-wide page
         </span>

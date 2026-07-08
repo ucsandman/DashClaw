@@ -21,8 +21,8 @@ interface DashClawLogoProps {
 // Shared components for the replay story
 const DashClawLogo = ({ size = 20, className = "" }: DashClawLogoProps) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    <path d="M12 2L4 5V11C4 16.55 7.41 21.74 12 23C16.59 21.74 20 16.55 20 11V5L12 2Z" fill="#F43F5E" fillOpacity="0.2" stroke="#F43F5E" strokeWidth="2" />
-    <path d="M9 12L11 14L15 10" stroke="#F43F5E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    <path d="M12 2L4 5V11C4 16.55 7.41 21.74 12 23C16.59 21.74 20 16.55 20 11V5L12 2Z" fill="var(--color-error)" fillOpacity="0.2" stroke="var(--color-error)" strokeWidth="2" />
+    <path d="M9 12L11 14L15 10" stroke="var(--color-error)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
   </svg>
 );
 
@@ -390,7 +390,7 @@ export default function PublicReplayPage() {
                         )}
                         {guardDecision.risk_breakdown?.evidence_derived?.mismatch && (
                           <div className="mt-1 text-warning">
-                            Declared <span className="font-mono">{action.action_type}</span> — evidence classified this as{' '}
+                            Declared <span className="font-mono">{action.action_type}</span>; evidence classified this as{' '}
                             <span className="font-mono">{guardDecision.risk_breakdown.evidence_derived.derived_action_type}</span>
                           </div>
                         )}

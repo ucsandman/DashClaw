@@ -125,7 +125,7 @@ function GroupRow({ group, onVerdict, verdictError, created, onUndo }: GroupRowP
           <button
             type="button"
             onClick={() => onVerdict(group, 'fine')}
-            title="Dismiss — creates no rule"
+            title="Dismiss: creates no rule"
             aria-label={`Mark ${label} as fine`}
             className={BTN_NEUTRAL}
           >
@@ -134,7 +134,7 @@ function GroupRow({ group, onVerdict, verdictError, created, onUndo }: GroupRowP
           <button
             type="button"
             onClick={() => onVerdict(group, 'always_allow')}
-            title="Creates a standing allow grant — this shape never warns again"
+            title="Creates a standing allow grant: this shape never warns again"
             aria-label={`Always allow ${label}`}
             className={BTN_NEUTRAL}
           >
@@ -143,7 +143,7 @@ function GroupRow({ group, onVerdict, verdictError, created, onUndo }: GroupRowP
           <button
             type="button"
             onClick={() => setConfirming(true)}
-            title="Creates a require-approval rule — asks you to confirm first"
+            title="Creates a require-approval rule: asks you to confirm first"
             aria-label={`Tighten ${label}`}
             className={BTN_WARNING}
           >
@@ -325,7 +325,7 @@ export default function ReviewFeed({ onPolicyChange }: ReviewFeedProps = {}) {
         </ul>
       ) : (
         <p className="mt-3 text-sm text-tertiary">
-          Nothing to review — your agents stayed inside the contract.
+          Nothing to review. Your agents stayed inside the contract.
         </p>
       )}
 

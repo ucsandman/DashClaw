@@ -3,25 +3,32 @@
 import Link from 'next/link';
 import { useMemo } from 'react';
 
-// SVG fill/stroke colours for node tones and connector lines.
-// Values mirror app/globals.css tokens; update the token variable to propagate
-// changes to both the Tailwind class layer and these canvas/SVG surfaces.
-const SVG_TONE_ERROR_FILL        = 'rgba(239,68,68,0.18)';   // --color-error-subtle
-const SVG_TONE_ERROR_STROKE      = '#ef4444';                 // --color-error
-const SVG_TONE_SUCCESS_FILL      = 'rgba(16,185,129,0.12)';  // --color-success-subtle (emerald)
-const SVG_TONE_SUCCESS_STROKE_60 = 'rgba(16,185,129,0.6)';   // --color-success @ 60%
-const SVG_TONE_SUCCESS_STROKE_55 = 'rgba(16,185,129,0.55)';  // --color-success @ 55%
-const SVG_TONE_PURPLE_FILL       = 'rgba(168,85,247,0.14)';  // purple-500 @ 14% (unresolved assumption)
-const SVG_TONE_PURPLE_STROKE     = 'rgba(168,85,247,0.6)';   // purple-500 @ 60%
-const SVG_TONE_APPROVAL_STROKE   = '#a855f7';                 // purple-500 (approval state)
-const SVG_TONE_APPROVAL_FILL     = 'rgba(168,85,247,0.18)';  // purple-500 @ 18%
-const SVG_TONE_WARNING_FILL      = 'rgba(245,158,11,0.16)';  // --color-warning @ 16%
-const SVG_TONE_WARNING_STROKE    = 'rgba(245,158,11,0.7)';   // --color-warning @ 70%
-const SVG_TONE_INFO_FILL         = 'rgba(14,165,233,0.14)';  // sky-500 @ 14% (running)
-const SVG_TONE_INFO_STROKE       = 'rgba(14,165,233,0.65)';  // sky-500 @ 65%
-const SVG_TONE_ZINC_FILL         = 'rgba(113,113,122,0.14)'; // zinc-500 @ 14% (default)
-const SVG_TONE_ZINC_STROKE       = 'rgba(113,113,122,0.55)'; // zinc-500 @ 55%
-const SVG_EDGE_STROKE            = 'rgba(255,255,255,0.18)';  // --color-border at a slightly higher opacity for edges
+// SVG fill/stroke colours for node tones and connector lines. These are SVG
+// DOM attribute values (fill=/stroke=) and inline styles, not canvas 2D
+// context colors, so CSS custom properties resolve fine here.
+// Converted to token vars where a real token exists and its own value is the
+// intended role (solid tokens for solid strokes, "-subtle" tokens for fill
+// washes). Left as hardcoded hex/rgba where the constant encodes a bespoke
+// opacity blend (no matching token at that alpha) or names a color family
+// with no corresponding token (purple, sky, zinc) — forcing those would
+// either wash out the visual or require CSS color-mix() beyond a plain var()
+// swap.
+const SVG_TONE_ERROR_FILL        = 'var(--color-error-subtle)';
+const SVG_TONE_ERROR_STROKE      = 'var(--color-error)';
+const SVG_TONE_SUCCESS_FILL      = 'var(--color-success-subtle)';
+const SVG_TONE_SUCCESS_STROKE_60 = 'rgba(16,185,129,0.6)';   // --color-success @ 60% (no matching token alpha; not converted)
+const SVG_TONE_SUCCESS_STROKE_55 = 'rgba(16,185,129,0.55)';  // --color-success @ 55% (no matching token alpha; not converted)
+const SVG_TONE_PURPLE_FILL       = 'rgba(168,85,247,0.14)';  // purple-500 @ 14% (unresolved assumption) — no token
+const SVG_TONE_PURPLE_STROKE     = 'rgba(168,85,247,0.6)';   // purple-500 @ 60% — no token
+const SVG_TONE_APPROVAL_STROKE   = '#a855f7';                 // purple-500 (approval state) — no token
+const SVG_TONE_APPROVAL_FILL     = 'rgba(168,85,247,0.18)';  // purple-500 @ 18% — no token
+const SVG_TONE_WARNING_FILL      = 'var(--color-warning-subtle)';
+const SVG_TONE_WARNING_STROKE    = 'rgba(245,158,11,0.7)';   // --color-warning @ 70% (no matching token alpha; not converted)
+const SVG_TONE_INFO_FILL         = 'rgba(14,165,233,0.14)';  // sky-500 @ 14% (running) — no token (--color-info is blue, not sky)
+const SVG_TONE_INFO_STROKE       = 'rgba(14,165,233,0.65)';  // sky-500 @ 65% — no token
+const SVG_TONE_ZINC_FILL         = 'rgba(113,113,122,0.14)'; // zinc-500 @ 14% (default) — no token
+const SVG_TONE_ZINC_STROKE       = 'rgba(113,113,122,0.55)'; // zinc-500 @ 55% — no token
+const SVG_EDGE_STROKE            = 'rgba(255,255,255,0.18)';  // --color-border at a slightly higher opacity for edges (deliberately boosted; converting to var(--color-border) would dim edges below intent)
 
 const NODE_WIDTH = 220;
 const NODE_HEIGHT = 60;

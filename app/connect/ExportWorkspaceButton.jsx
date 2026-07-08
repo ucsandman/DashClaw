@@ -49,7 +49,7 @@ export default function ExportWorkspaceButton() {
       </button>
       {state === 'error' ? (
         <span className="mt-1 text-xs text-status-error">
-          Export failed — retry, or check the session is still active.
+          Export failed. Retry, or check the session is still active.
         </span>
       ) : null}
     </span>

@@ -76,8 +76,8 @@ export default function PolicyCockpit() {
             </div>
             <h2 className="mt-5 text-base font-semibold text-primary">No mode applied</h2>
             <p className="mt-2 text-sm text-secondary">
-              Your agents are running unchecked. A mode gates the actions that matter —
-              paid spend, deploys, destructive ops, and protected paths — in one decision.
+              Your agents are running unchecked. A mode gates the actions that matter:
+              paid spend, deploys, destructive ops, and protected paths, in one decision.
             </p>
             <button
               type="button"

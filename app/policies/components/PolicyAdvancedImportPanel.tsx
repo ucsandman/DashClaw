@@ -178,7 +178,7 @@ export default function PolicyAdvancedImportPanel({
                         {selectedTemplate.policies.map((p: any, i: number) => (
                           <li key={i} className="text-[10px] text-secondary">
                             <span className="text-white">{p.name}</span>
-                            <span className="text-tertiary"> — {p.rules_summary}</span>
+                            <span className="text-tertiary">: {p.rules_summary}</span>
                           </li>
                         ))}
                       </ul>
@@ -253,7 +253,7 @@ export default function PolicyAdvancedImportPanel({
                       {importPreview.policies.map((p: any, i: number) => (
                         <li key={i} className="flex items-center justify-between gap-2 text-[11px]">
                           <span className="truncate text-secondary">
-                            <span className="text-white">{p.name}</span> — {p.policy_type}
+                            <span className="text-white">{p.name}</span>: {p.policy_type}
                           </span>
                           {p.conflict
                             ? <Badge variant="warning" size="xs">conflict</Badge>

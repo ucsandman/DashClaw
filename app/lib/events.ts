@@ -228,10 +228,14 @@ class RedisRealtimeBackend {
     return async () => {
       try {
         await subscriber.unsubscribe(channel);
-      } catch {}
+      } catch (err) {
+        console.warn('[REALTIME] Redis unsubscribe failed during teardown:', (err as any)?.message || err);
+      }
       try {
         await subscriber.quit();
-      } catch {}
+      } catch (err) {
+        console.warn('[REALTIME] Redis quit failed during teardown:', (err as any)?.message || err);
+      }
     };
   }
 

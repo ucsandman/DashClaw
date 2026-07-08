@@ -1,6 +1,11 @@
 import { Suspense } from 'react';
+import type { Metadata } from 'next';
 import PageLayout from '../components/PageLayout';
 import PolicyCockpit from './components/PolicyCockpit';
+
+export const metadata: Metadata = {
+  title: 'Policies',
+};
 
 export default function PoliciesPage() {
   return (

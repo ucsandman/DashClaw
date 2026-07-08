@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Zap } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -113,7 +113,7 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 4,
       title: 'Add the governance loop to your agent',
       summary:
-        "Wrap your agent's tool execution in DashClaw's guard-record-outcome pattern. This annotated walkthrough shows the complete governance loop inline — each comment explains the purpose of that SDK call.",
+        "Wrap your agent's tool execution in DashClaw's guard-record-outcome pattern. This annotated walkthrough shows the complete governance loop inline: each comment explains the purpose of that SDK call.",
       codeTitle: 'governed-agent.js',
       codeBody: governanceLoopSnippet,
       note: 'This inline walkthrough covers the complete guard-record-outcome governance loop. For a full example with OpenAI Agents SDK tools, scan, and delete operations, see examples/openai-agents-governed/ in the repo.',
@@ -129,12 +129,12 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 6,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded.',
-      note: "Go to /decisions — you should see your action in the ledger with action_type 'data_export', status 'completed', and the output summary you provided.",
+      note: "Go to /decisions: you should see your action in the ledger with action_type 'data_export', status 'completed', and the output summary you provided.",
     },
   ];
 
   const proofMoment =
-    "Go to /decisions — you should see your action in the ledger with action_type 'data_export', agent_id 'my-openai-agent', and status 'completed'.";
+    "Go to /decisions: you should see your action in the ledger with action_type 'data_export', agent_id 'my-openai-agent', and status 'completed'.";
 
   return (
     <div className="min-h-screen text-white">
@@ -165,7 +165,7 @@ DASHCLAW_API_KEY=oc_live_...`,
 
           <GuideClient
             frameworkName="OpenAI Agents SDK"
-            frameworkIcon="⚡"
+            frameworkIcon={<Zap size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

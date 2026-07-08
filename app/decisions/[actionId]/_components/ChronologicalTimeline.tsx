@@ -60,7 +60,7 @@ export default function ChronologicalTimeline({
                       <span className="text-tertiary uppercase font-medium">Action Started</span>
                     </div>
                     <div className="text-sm text-secondary">
-                      {event.data.action_type} — {event.data.declared_goal}
+                      {event.data.action_type}: {event.data.declared_goal}
                     </div>
                     {event.data.reasoning && (
                       <div className="text-xs text-tertiary mt-1">{event.data.reasoning}</div>

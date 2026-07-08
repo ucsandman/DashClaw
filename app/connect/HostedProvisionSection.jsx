@@ -29,7 +29,7 @@ export default function HostedProvisionSection() {
           Pick your stack, get a pre-configured workspace
         </h2>
         <p className="mt-2 max-w-2xl text-sm text-text-secondary">
-          We mint a time-boxed DashClaw workspace and hand back a drop-in config for your agent stack. No account, no credit card — the trial runs for 30 days or 10,000 governed actions.
+          We mint a time-boxed DashClaw workspace and hand back a drop-in config for your agent stack. No account, no credit card: the trial runs for 30 days or 10,000 governed actions.
         </p>
         <div className="mt-6">
           <HostedProvisionClient turnstileSiteKey={turnstileSiteKey} />

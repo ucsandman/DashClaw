@@ -83,7 +83,7 @@ export default function GovernancePanel() {
       ]);
       setStatus(results.every(Boolean)
         ? { type: 'success', message: 'Governance settings saved.' }
-        : { type: 'error', message: 'Some settings failed to save — admin access is required to modify settings.' });
+        : { type: 'error', message: 'Some settings failed to save: admin access is required to modify settings.' });
     } catch {
       setStatus({ type: 'error', message: 'Network error. Could not save.' });
     }
@@ -99,7 +99,7 @@ export default function GovernancePanel() {
       setStatus({ type: 'success', message: `Removed ${label}.` });
       load();
     } else {
-      setStatus({ type: 'error', message: `Failed to remove ${label} — admin access is required.` });
+      setStatus({ type: 'error', message: `Failed to remove ${label}: admin access is required.` });
     }
   };
 

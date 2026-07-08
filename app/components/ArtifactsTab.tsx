@@ -237,7 +237,7 @@ export default function ArtifactsTab({ actionId }: ArtifactsTabProps) {
 
       {bundleSummary && (
         <div role="status" className="rounded-lg border border-success/20 bg-success-subtle px-3 py-2 text-xs text-success">
-          Evidence bundle generated — {bundleSummary.steps} step{bundleSummary.steps === 1 ? '' : 's'}, {bundleSummary.artifacts} artifact{bundleSummary.artifacts === 1 ? '' : 's'}
+          Evidence bundle generated: {bundleSummary.steps} step{bundleSummary.steps === 1 ? '' : 's'}, {bundleSummary.artifacts} artifact{bundleSummary.artifacts === 1 ? '' : 's'}
           {bundleSummary.generated_at ? ` · ${new Date(bundleSummary.generated_at).toLocaleString()}` : ''}.
         </div>
       )}

@@ -94,8 +94,8 @@ export default function FirstGovernedActionCard() {
         Send a governed action from this page.
       </h2>
       <p className="mt-2 max-w-2xl text-sm text-text-secondary leading-relaxed">
-        No install needed. This sends one real request through the guard — the
-        same call your agents make — records it against your workspace, and the
+        No install needed. This sends one real request through the guard (the
+        same call your agents make), records it against your workspace, and the
         decision lands in your ledger.
       </p>
 
@@ -152,7 +152,7 @@ export default function FirstGovernedActionCard() {
             <span>
               {state.error}
               {state.httpStatus === 403
-                ? ' — the trial write envelope refused this request (the trial may have expired or reached its action cap).'
+                ? '. The trial write envelope refused this request (the trial may have expired or reached its action cap).'
                 : null}
             </span>
           </div>
@@ -184,7 +184,7 @@ export default function FirstGovernedActionCard() {
 
           {result.decision === 'block' ? (
             <p className="text-sm text-text-secondary leading-relaxed">
-              Blocked actions never reach the action ledger — the guard refused
+              Blocked actions never reach the action ledger: the guard refused
               this before it could run. That is the product working.
             </p>
           ) : null}

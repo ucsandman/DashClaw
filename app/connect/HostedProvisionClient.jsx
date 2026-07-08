@@ -136,7 +136,7 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
               </p>
             </div>
             <span className="rounded-full border border-brand/30 bg-brand/10 px-2.5 py-0.5 text-[11px] font-medium text-brand">
-              Save this API key now — it won&rsquo;t be shown again
+              Save this API key now, it won&rsquo;t be shown again
             </span>
           </div>
 
@@ -187,10 +187,10 @@ export default function HostedProvisionClient({ turnstileSiteKey }) {
                 href="/connect#first-action"
                 className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface-tertiary px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:border-border-hover hover:text-text-primary"
               >
-                Send your first governed action — no install
+                Send your first governed action, no install
               </a>
               <p className="max-w-md text-xs leading-relaxed text-text-tertiary">
-                Your browser now holds a session for this workspace — come back
+                Your browser now holds a session for this workspace. Come back
                 to your dashboard anytime until the trial ends. The key above is
                 shown once; your dashboard is not.
               </p>

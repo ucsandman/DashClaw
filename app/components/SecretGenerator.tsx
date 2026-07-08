@@ -47,7 +47,7 @@ const SECRET_LABELS: Record<string, string> = {
   [ENV_KEYS.ENCRYPTION]: 'Encrypts sensitive settings in the database',
   [ENV_KEYS.NEXTAUTH]: 'Encrypts login sessions',
   [ENV_KEYS.NEXTAUTH_URL]: 'Your Vercel app URL (update after deploy)',
-  [ENV_KEYS.ADMIN_PASSWORD]: 'Quick-start admin password — change this before going live',
+  [ENV_KEYS.ADMIN_PASSWORD]: 'Quick-start admin password, change this before going live',
 };
 
 interface SecretRowProps {

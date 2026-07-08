@@ -15,7 +15,7 @@ type Tone = 'ok' | 'attn' | 'muted';
 
 const NOT_RECORDED: { label: string; tone: Tone } = { label: 'Not recorded', tone: 'muted' };
 const INJECTION_COPY: Record<string, { label: string; tone: Tone }> = {
-  clean: { label: 'Scanned — no injection found', tone: 'ok' },
+  clean: { label: 'Scanned, no injection found', tone: 'ok' },
   warned: { label: 'Injection pattern flagged (warn)', tone: 'attn' },
   blocked: { label: 'Injection blocked before execution', tone: 'attn' },
   disabled: { label: 'Scan disabled by operator', tone: 'muted' },

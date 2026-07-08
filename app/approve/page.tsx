@@ -359,7 +359,7 @@ export default function ApprovePage() {
           {isDemo && (
             <div className="mb-3 flex items-start gap-2 rounded-lg border border-border-hover bg-white/[0.02] p-3 text-xs text-secondary">
               <Info size={14} className="mt-0.5 shrink-0 text-tertiary" />
-              <span>Demo mode — approvals are read-only. Self-host to decide for real agents.</span>
+              <span>Demo mode, approvals are read-only. Self-host to decide for real agents.</span>
             </div>
           )}
           {!isDemo && !isAdmin && (
@@ -375,7 +375,7 @@ export default function ApprovePage() {
           ) : pendingCount === 0 ? (
             <div className="flex items-center gap-2 text-sm text-success">
               <CheckCircle2 size={16} />
-              All clear — no actions pending
+              All clear, no actions pending
             </div>
           ) : (
             <div className="text-sm text-secondary">

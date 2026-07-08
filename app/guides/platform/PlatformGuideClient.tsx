@@ -273,7 +273,7 @@ function GuideBody({ data }: { data: GuideData }) {
           <section id="quickstart" className="scroll-mt-28 space-y-4">
             <AreaHeader
               title="The governed-action loop (live examples)"
-              subtitle="Every request and response below was captured from a real running instance — HTTP and SDK examples against a local build, MCP examples against a live hosted instance. Keys and org ids are replaced with placeholders; nothing else is edited."
+              subtitle="Every request and response below was captured from a real running instance: HTTP and SDK examples against a local build, MCP examples against a live hosted instance. Keys and org ids are replaced with placeholders; nothing else is edited."
               reviewed={reviewed.has('quickstart')}
               onToggle={() => toggleReviewed('quickstart')}
             />

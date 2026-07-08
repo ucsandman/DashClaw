@@ -178,7 +178,7 @@ DASHCLAW_API_KEY=oc_live_...`,
       number: 5,
       title: 'Define tools with governed execute functions',
       summary:
-        'Wrap each tool at definition time, then hand the tools to generateText or streamText as usual — governance rides every model-initiated call.',
+        'Wrap each tool at definition time, then hand the tools to generateText or streamText as usual: governance rides every model-initiated call.',
       codeTitle: 'agent.mjs',
       codeBody: toolsCode,
     },
@@ -189,7 +189,7 @@ DASHCLAW_API_KEY=oc_live_...`,
         'Execute the example and watch the governance flow: a low-risk lookup (allowed) and a high-risk refund (may require approval).',
       codeTitle: 'Terminal',
       codeBody: 'npm start',
-      note: 'No LLM API key needed — the example invokes the governed tools directly, exactly the way the model-driven tool-call step would. Only the DashClaw SDK calls are real.',
+      note: 'No LLM API key needed: the example invokes the governed tools directly, exactly the way the model-driven tool-call step would. Only the DashClaw SDK calls are real.',
     },
     {
       number: 7,
@@ -204,7 +204,7 @@ npm start`,
   ];
 
   const proofMoment =
-    "Go to /decisions — you should see two actions in the ledger for agent_id 'vercel-ai-support-agent': the read lookup completed, and the financial refund either completed (after approval) or pending.";
+    "Go to /decisions: you should see two actions in the ledger for agent_id 'vercel-ai-support-agent': the read lookup completed, and the financial refund either completed (after approval) or pending.";
 
   return (
     <div className="min-h-screen text-white">

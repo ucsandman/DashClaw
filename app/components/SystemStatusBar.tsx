@@ -113,7 +113,7 @@ export default function SystemStatusBar() {
           brand orange appears only as the focus ring (a "needs you" signal). */}
       <Link
         href="/decisions"
-        title="View the governance signals breakdown — type, severity, agent, and related action"
+        title="View the governance signals breakdown: type, severity, agent, and related action"
         className="rounded-sm text-[11px] font-semibold uppercase tracking-[0.14em] tabular-nums text-tertiary transition-colors hover:text-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
       >
         {totalCount} active governance signal{totalCount !== 1 ? 's' : ''}

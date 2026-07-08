@@ -367,7 +367,7 @@ export default function CustomTab() {
       // requests (and clarify the rest). If it returns more anyway, surface it
       // instead of silently dropping drafts 2..N — the editor only shows the first.
       if (drafts.length > 1) {
-        warnings.push(`Generated ${drafts.length} policies from one request — showing the first ("${drafts[0]?.name || 'draft'}"). Save it, then refine to author the others one at a time.`);
+        warnings.push(`Generated ${drafts.length} policies from one request, showing the first ("${drafts[0]?.name || 'draft'}"). Save it, then refine to author the others one at a time.`);
       }
       setGenDrafts(drafts);
       setGenAssumptions(data.assumptions || []);
@@ -528,7 +528,7 @@ export default function CustomTab() {
                               ? <Check size={11} className="text-success" aria-hidden="true" />
                               : <X size={11} className="text-error" aria-hidden="true" />}
                             <span className="text-secondary">{t.name}</span>
-                            {!t.passed && t.reason && <span className="text-tertiary">— {t.reason}</span>}
+                            {!t.passed && t.reason && <span className="text-tertiary">: {t.reason}</span>}
                           </div>
                         ))}
                       </div>
@@ -548,7 +548,7 @@ export default function CustomTab() {
             <div className="flex items-center gap-2">
               <Play size={14} className="text-brand" aria-hidden="true" />
               <span className="text-sm font-semibold text-white">
-                Simulation impact (7 days){simulatePolicyName ? ` — ${simulatePolicyName}` : ''}
+                Simulation impact (7 days){simulatePolicyName ? ` (${simulatePolicyName})` : ''}
               </span>
             </div>
             <button
@@ -612,7 +612,7 @@ export default function CustomTab() {
               <X size={16} />
             </button>
           </div>
-          <p className="text-xs text-secondary">Describe what you want DashClaw to prevent or enforce in plain English. DashClaw drafts a policy and asks follow-ups to pin it down — it never just says no.</p>
+          <p className="text-xs text-secondary">Describe what you want DashClaw to prevent or enforce in plain English. DashClaw drafts a policy and asks follow-ups to pin it down: it never just says no.</p>
           {genSuccess && <div className="rounded-lg border border-success/30 bg-success-subtle px-3 py-2 text-xs text-success">{genSuccess}</div>}
           {genError && <div className="rounded-lg border border-error/30 bg-error-subtle px-3 py-2 text-xs text-error">{genError}</div>}
           <textarea
@@ -823,8 +823,8 @@ export default function CustomTab() {
                       <span className="truncate text-sm font-medium text-white">{p.name}</span>
                       <Badge size="xs">{p.policy_type}</Badge>
                       {!KNOWN_POLICY_TYPE_SET.has(p.policy_type) && (
-                        <span title="Retired in v5.0.0 — the guard no longer evaluates this policy type, so it has no effect. Review and disable it."> {/* version-hardcode-allowed */}
-                          <Badge variant="warning" size="xs">retired — no longer enforced</Badge>
+                        <span title="Retired in v5.0.0: the guard no longer evaluates this policy type, so it has no effect. Review and disable it."> {/* version-hardcode-allowed */}
+                          <Badge variant="warning" size="xs">retired, no longer enforced</Badge>
                         </span>
                       )}
                       <Badge variant={isActive ? 'success' : 'default'} size="xs">

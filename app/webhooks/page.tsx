@@ -33,7 +33,7 @@ const WEBHOOK_TEMPLATES = [
   },
   {
     name: 'PagerDuty',
-    description: 'Trigger PagerDuty incidents (Events v2) — append ?routing_key=YOUR_KEY',
+    description: 'Trigger PagerDuty incidents (Events v2), append ?routing_key=YOUR_KEY',
     urlPlaceholder: 'https://events.pagerduty.com/v2/enqueue?routing_key=YOUR_ROUTING_KEY',
     defaultEvents: ['autonomy_spike', 'high_impact_low_oversight', 'repeated_failures'],
   },
@@ -352,7 +352,7 @@ export default function WebhooksPage() {
           <div className="mb-2 flex items-start gap-3">
             <Check size={16} className="mt-0.5 shrink-0 text-success" aria-hidden="true" />
             <div className="text-sm font-medium text-success">
-              Webhook created successfully. Save your signing secret now — it will not be shown again.
+              Webhook created successfully. Save your signing secret now, it will not be shown again.
             </div>
           </div>
           <div className="mt-3 flex items-center gap-2">

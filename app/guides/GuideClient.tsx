@@ -92,7 +92,7 @@ interface GuideStep {
  */
 interface GuideClientProps {
   frameworkName?: string;
-  frameworkIcon?: string;
+  frameworkIcon?: React.ReactNode;
   steps?: GuideStep[];
   proofMoment?: React.ReactNode;
   guardrailsYaml?: string;
@@ -116,9 +116,9 @@ export default function GuideClient({
       {/* Hero */}
       <section className="rounded-xl border border-brand/25 bg-surface-secondary p-6 sm:p-8">
         {frameworkIcon && (
-          <p className="text-2xl" aria-hidden="true">
+          <div className="text-2xl text-brand" aria-hidden="true">
             {frameworkIcon}
-          </p>
+          </div>
         )}
         <p className="mt-2 text-xs uppercase tracking-[0.32em] text-brand">{eyebrow}</p>
         <h1 className="mt-3 text-3xl font-bold tracking-tight text-white sm:text-4xl">

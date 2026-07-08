@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, GitBranch } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -132,13 +132,13 @@ DASHCLAW_API_KEY=oc_live_...`,
       summary: 'Execute the example and watch the governance flow.',
       codeTitle: 'Terminal',
       codeBody: 'python main.py',
-      note: 'No OPENAI_API_KEY needed — the example simulates LLM output. Only the DashClaw SDK calls are real.',
+      note: 'No OPENAI_API_KEY needed: the example simulates LLM output. Only the DashClaw SDK calls are real.',
     },
     {
       number: 6,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded.',
-      note: "Go to /decisions — you should see your action in the ledger with action_type 'research', agent_id 'langgraph-research-agent', and status 'completed'.",
+      note: "Go to /decisions: you should see your action in the ledger with action_type 'research', agent_id 'langgraph-research-agent', and status 'completed'.",
     },
     {
       number: 7,
@@ -149,12 +149,12 @@ DASHCLAW_API_KEY=oc_live_...`,
 cd DashClaw/examples/langgraph-governed
 pip install -r requirements.txt
 python main.py`,
-      note: 'The example governs the graph with the core SDK methods (guard, create_action, wait_for_approval, update_outcome) — the same intercept → decide → approve → prove loop shown above.',
+      note: 'The example governs the graph with the core SDK methods (guard, create_action, wait_for_approval, update_outcome): the same intercept → decide → approve → prove loop shown above.',
     },
   ];
 
   const proofMoment =
-    "Go to /decisions — you should see your action in the ledger with action_type 'research', agent_id 'langgraph-research-agent', and status 'completed'.";
+    "Go to /decisions: you should see your action in the ledger with action_type 'research', agent_id 'langgraph-research-agent', and status 'completed'.";
 
   return (
     <div className="min-h-screen text-white">
@@ -185,7 +185,7 @@ python main.py`,
 
           <GuideClient
             frameworkName="LangGraph"
-            frameworkIcon="🦜"
+            frameworkIcon={<GitBranch size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

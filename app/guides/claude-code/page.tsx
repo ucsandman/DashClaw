@@ -1,6 +1,6 @@
 import { headers } from 'next/headers';
 import Link from 'next/link';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Terminal } from 'lucide-react';
 
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
@@ -110,7 +110,7 @@ DISCORD_APPROVER_ORG_ID=<your-org-id>
     {
       number: 2,
       title: 'Install the hook scripts',
-      summary: 'Already running the DashClaw plugin (claude plugin install dashclaw@dashclaw)? The Pre/Post/Stop hooks are bundled — they fire as soon as the plugin is enabled (no trust gate), so you can skip straight to Step 3 (env vars). Otherwise, one command copies all three governance hooks plus the vendored intel module and merges the matching settings.json blocks. Re-run after each git pull to upgrade.',
+      summary: 'Already running the DashClaw plugin (claude plugin install dashclaw@dashclaw)? The Pre/Post/Stop hooks are bundled: they fire as soon as the plugin is enabled (no trust gate), so you can skip straight to Step 3 (env vars). Otherwise, one command copies all three governance hooks plus the vendored intel module and merges the matching settings.json blocks. Re-run after each git pull to upgrade.',
       codeTitle: 'Terminal',
       codeBody: `# From the DashClaw repo root:
 npm run hooks:install
@@ -133,7 +133,7 @@ cp -r hooks/dashclaw_agent_intel .claude/hooks/`,
     {
       number: 3,
       title: 'Set environment variables',
-      summary: 'Claude Code reads these from the shell or a .env file in the project root. The hooks accept DASHCLAW_URL as a fallback for DASHCLAW_BASE_URL (the MCP server uses DASHCLAW_URL) — set either. If only one of the URL/key is present, PreToolUse prints a one-line "half-configured" warning instead of failing silently. DASHCLAW_GUARD_UNAVAILABLE_POLICY defaults to block, which fails closed if the guard is unreachable after three retry attempts. Set it to warn for development if you would rather proceed with a stderr warning when the guard is down.',
+      summary: 'Claude Code reads these from the shell or a .env file in the project root. The hooks accept DASHCLAW_URL as a fallback for DASHCLAW_BASE_URL (the MCP server uses DASHCLAW_URL); set either. If only one of the URL/key is present, PreToolUse prints a one-line "half-configured" warning instead of failing silently. DASHCLAW_GUARD_UNAVAILABLE_POLICY defaults to block, which fails closed if the guard is unreachable after three retry attempts. Set it to warn for development if you would rather proceed with a stderr warning when the guard is down.',
       codeTitle: '.env',
       codeBody: `DASHCLAW_BASE_URL=${baseUrl}
 DASHCLAW_API_KEY=oc_live_...
@@ -149,7 +149,7 @@ DASHCLAW_GUARD_TIMEOUT=5`,
       codeTitle: '.claude/settings.json',
       codeBody: hookSettingsJson,
       note:
-        'Heads-up: a PROJECT .claude/settings.json only loads after you accept Claude Code\'s "trust this folder?" prompt. In a fresh clone, a Docker container, or a headless run, project hooks silently won\'t fire (a global ~/.claude Stop hook still will — the classic "Stop ran but Pre/PostToolUse didn\'t"). Put the hooks in ~/.claude/settings.json (or run `install-hooks.mjs --global --governance`) to fire out of the box with no trust step.',
+        'Heads-up: a PROJECT .claude/settings.json only loads after you accept Claude Code\'s "trust this folder?" prompt. In a fresh clone, a Docker container, or a headless run, project hooks silently won\'t fire (a global ~/.claude Stop hook still will: the classic "Stop ran but Pre/PostToolUse didn\'t"). Put the hooks in ~/.claude/settings.json (or run `install-hooks.mjs --global --governance`) to fire out of the box with no trust step.',
     },
     {
       number: 5,
@@ -168,13 +168,13 @@ DASHCLAW_GUARD_TIMEOUT=5`,
         'Ask Claude Code to do anything that uses Bash, Edit, Write, or MultiEdit, or an MCP tool (e.g. a connected Gmail/Stripe send). The hook fires automatically. For policies that require approval, your phone will DM you.',
       codeTitle: 'Example prompt',
       codeBody: 'Create a file called hello.txt with the contents "Hello from a governed agent"',
-      note: 'Watch the terminal — you should see [DashClaw] messages as the hook evaluates the action.',
+      note: 'Watch the terminal: you should see [DashClaw] messages as the hook evaluates the action.',
     },
     {
       number: 7,
       title: 'See the result in DashClaw',
       summary: 'Open your DashClaw dashboard to confirm the action was recorded.',
-      note: "Go to /decisions — you should see your tool call in the ledger with action_type 'other' (for a simple file write) or 'security' (for sensitive files), status 'completed'. Approvals that ran through Discord show approved_by starting with 'discord:'.",
+      note: "Go to /decisions: you should see your tool call in the ledger with action_type 'other' (for a simple file write) or 'security' (for sensitive files), status 'completed'. Approvals that ran through Discord show approved_by starting with 'discord:'.",
     },
   ];
 
@@ -205,7 +205,7 @@ DASHCLAW_GUARD_TIMEOUT=5`,
 - The DM edits in place to show APPROVED or DENIED with timestamp`;
 
   const proofMoment =
-    "Go to /decisions — you should see your Claude Code tool call in the ledger. Look for action_type 'other' or 'security' with agent_id 'claude-code' and status 'completed'.";
+    "Go to /decisions: you should see your Claude Code tool call in the ledger. Look for action_type 'other' or 'security' with agent_id 'claude-code' and status 'completed'.";
 
   return (
     <div className="min-h-screen text-white">
@@ -236,7 +236,7 @@ DASHCLAW_GUARD_TIMEOUT=5`,
 
           <GuideClient
             frameworkName="Claude Code"
-            frameworkIcon="🤖"
+            frameworkIcon={<Terminal size={28} />}
             steps={steps}
             proofMoment={proofMoment}
             guardrailsYaml={guardrailsYaml}

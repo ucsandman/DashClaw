@@ -48,7 +48,7 @@ export default function SetupTabs() {
           Switch to Team Setup when you&apos;re ready to invite teammates.
           Coming from the hosted trial? Click <strong>Export workspace</strong> on your trial&apos;s{' '}
           <code className="font-mono text-xs">/connect</code> card, then run{' '}
-          <code className="font-mono text-xs">dashclaw import &lt;file&gt;</code> once your instance is up —
+          <code className="font-mono text-xs">dashclaw import &lt;file&gt;</code> once your instance is up:
           policies, decisions, and action history carry over (API keys never do).
         </p>
       </div>
@@ -82,13 +82,13 @@ export default function SetupTabs() {
         <StepCard
           n="1"
           title="Create a free Neon database"
-          desc="Neon gives you a serverless Postgres database on their free tier — no credit card required."
+          desc="Neon gives you a serverless Postgres database on their free tier, no credit card required."
           icon={Database}
         >
           <ol className="list-decimal list-inside text-sm text-secondary space-y-1.5 mb-4">
             <li>Sign up at <a href="https://neon.tech" target="_blank" rel="noopener noreferrer" className="text-brand hover:text-brand-hover transition-colors">neon.tech</a></li>
             <li>Create a new project (any name, e.g. &quot;dashclaw&quot;)</li>
-            <li>Copy the connection string — it looks like <code className="text-secondary font-mono text-xs">postgresql://user:pass@ep-xyz.neon.tech/neondb</code></li>
+            <li>Copy the connection string: it looks like <code className="text-secondary font-mono text-xs">postgresql://user:pass@ep-xyz.neon.tech/neondb</code></li>
           </ol>
           <p className="text-xs text-tertiary">
             You&apos;ll paste this as <code className="font-mono text-secondary">DATABASE_URL</code> in the next step.
@@ -109,7 +109,7 @@ export default function SetupTabs() {
           </ol>
           <SecretGenerator />
           <div className="mt-3 rounded-lg bg-brand-subtle/20 border border-brand/20 px-4 py-3 text-xs text-secondary">
-            <strong className="text-secondary">About the API key:</strong> <code className="font-mono text-secondary">DASHCLAW_API_KEY</code> is your bootstrap admin key — it authenticates agents and seeds your first organization. After you sign in, you can create and manage additional API keys from the dashboard at <code className="font-mono text-secondary">/api-keys</code>.
+            <strong className="text-secondary">About the API key:</strong> <code className="font-mono text-secondary">DASHCLAW_API_KEY</code> is your bootstrap admin key: it authenticates agents and seeds your first organization. After you sign in, you can create and manage additional API keys from the dashboard at <code className="font-mono text-secondary">/api-keys</code>.
           </div>
           <p className="mt-2 text-xs text-tertiary">Tables are created automatically on first request.</p>
         </StepCard>

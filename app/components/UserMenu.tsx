@@ -93,7 +93,7 @@ export default function UserMenu() {
                   Env-based demo (NEXT_PUBLIC_DASHCLAW_MODE=demo): no real mode exists. */}
               {process.env.NEXT_PUBLIC_DASHCLAW_MODE === 'demo' ? (
                 <div className="px-3 py-2 text-xs text-tertiary">
-                  Demo mode — read-only with sample data.
+                  Demo mode, read-only with sample data.
                 </div>
               ) : (
                 <button

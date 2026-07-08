@@ -17,7 +17,7 @@ import { marketingPageMetadata } from '../../lib/marketingSeo';
 import JsonLd from '../../components/JsonLd';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'DashClaw now governs Codex — same surface, same audit ledger',
+  title: 'DashClaw now governs Codex: same surface, same audit ledger',
   description:
     "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
   path: '/blog/codex-parity',
@@ -31,7 +31,7 @@ export default function BlogPostPage() {
         data={{
           '@context': 'https://schema.org',
           '@type': 'BlogPosting',
-          headline: 'DashClaw now governs Codex — same surface, same audit ledger',
+          headline: 'DashClaw now governs Codex: same surface, same audit ledger',
           description: "Codex's hook schema is field-compatible with Claude Code's. One `dashclaw install codex` and every Codex tool call is governed.",
           url: 'https://www.dashclaw.io/blog/codex-parity',
           datePublished: '2026-05-14',
@@ -64,7 +64,7 @@ export default function BlogPostPage() {
           Codex&apos;s hook event schema (PreToolUse, PostToolUse,
           SessionStart, UserPromptSubmit, Stop, PermissionRequest) is
           field-compatible with Claude Code&apos;s. Same JSON shape on
-          stdin —{' '}
+          stdin:{' '}
           <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
             tool_name
           </code>
@@ -132,7 +132,7 @@ export default function BlogPostPage() {
           </li>
           <li>
             <strong className="text-text-primary">Merges config.toml.</strong>{' '}
-            A managed block — bracketed by{' '}
+            A managed block, bracketed by{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               # &gt;&gt;&gt; dashclaw start
             </code>{' '}
@@ -140,7 +140,7 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               # &lt;&lt;&lt; dashclaw end
             </code>{' '}
-            — registers the DashClaw MCP server, the three hook events,
+            , registers the DashClaw MCP server, the three hook events,
             and sets{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               approval_policy = &quot;on-request&quot;
@@ -158,7 +158,7 @@ export default function BlogPostPage() {
           </li>
           <li>
             <strong className="text-text-primary">Drops the protocol into AGENTS.md.</strong>{' '}
-            The governance protocol — when to call{' '}
+            The governance protocol: when to call{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_guard
             </code>
@@ -166,7 +166,7 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_record
             </code>{' '}
-            — gets merged into your project&apos;s{' '}
+            , gets merged into your project&apos;s{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               AGENTS.md
             </code>
@@ -188,8 +188,8 @@ export default function BlogPostPage() {
           <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
             dashclaw code ingest-codex
           </code>{' '}
-          subcommand parses them — including reasoning tokens and cached
-          input tokens, which Codex tracks separately from Claude — and
+          subcommand parses them, including reasoning tokens and cached
+          input tokens, which Codex tracks separately from Claude, and
           writes normalized session JSON to{' '}
           <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
             ~/.dashclaw/codex-sessions/
@@ -224,12 +224,12 @@ export default function BlogPostPage() {
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
               dashclaw_wait_for_approval
             </code>{' '}
-            MCP tool — Codex blocks on it the same way Claude Code does.
+            MCP tool: Codex blocks on it the same way Claude Code does.
           </li>
           <li>· Same policy packs. No Codex-specific policies to write.</li>
           <li>
             · Free for everyone, no tier gating. DashClaw is an
-            open-source project — there is no pricing surface and no
+            open-source project: there is no pricing surface and no
             Pro plan.
           </li>
         </ul>

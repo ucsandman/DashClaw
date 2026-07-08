@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { getSql } from '../lib/db';
 import { getReadinessReport, projectConnectNextStep, projectReadinessReport } from '../lib/readiness.mjs';
@@ -23,8 +24,9 @@ import { LogIn } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: 'Settings - DashClaw',
+export const metadata: Metadata = {
+  // Bare title: the root layout's '%s - DashClaw' template adds the suffix.
+  title: 'Settings',
 };
 
 function getMaskedApiKey(env: any) {

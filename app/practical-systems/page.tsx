@@ -10,7 +10,7 @@ import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../lib/marketingSeo';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'Practical Systems — The Team Behind DashClaw',
+  title: 'Practical Systems: The Team Behind DashClaw',
   description: 'Practical Systems builds AI-powered sales and operations infrastructure for growing companies. DashClaw is what we built to run our own agent fleet. Now you can use it too.',
   path: '/practical-systems',
 });
@@ -58,7 +58,7 @@ export default function PracticalSystemsPage() {
                   Practical Systems is an AI integration consultancy and platform company focused on SMB and mid-market businesses (50 to 500 employees).
                 </p>
                 <p>
-                  Founded by Wes, who led AI adoption at a mid-market company — building 40+ custom AI tools, driving adoption across 50+ users, and leading AI strategy conversations with executive leadership.
+                  Founded by Wes, who led AI adoption at a mid-market company: building 40+ custom AI tools, driving adoption across 50+ users, and leading AI strategy conversations with executive leadership.
                 </p>
                 <p>
                   The firm&apos;s approach: strategic advisory combined with hands-on implementation. We do not just recommend. We build and run what we sell.
@@ -167,7 +167,7 @@ export default function PracticalSystemsPage() {
           </h2>
           <p className="text-xl text-text-secondary mb-10 leading-relaxed">
             Whether you need help designing your agent architecture, governing an existing fleet,
-            or integrating AI into a specific workflow — we can help.
+            or integrating AI into a specific workflow, we can help.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <a

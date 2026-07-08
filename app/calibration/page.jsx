@@ -167,7 +167,7 @@ export default function CalibrationPage() {
   return (
     <PageLayout
       title="Calibration"
-      subtitle="Distribution-free control of the interruption error rate — shadow first, tighten-only when active"
+      subtitle="Distribution-free control of the interruption error rate: shadow first, tighten-only when active"
       agentFilter={false}
     >
       <div className="px-4 sm:px-6 py-5 space-y-4 max-w-6xl">
@@ -236,7 +236,7 @@ export default function CalibrationPage() {
                 <p className="text-[12px] leading-relaxed text-tertiary max-w-3xl">
                   {MODES.find((m) => m.id === settings.mode)?.hint}
                   {' '}Feedback comes from your approve/deny verdicts on interruptions; expired approvals teach nothing.
-                  Activation is a human decision made here — the controller may only add interruptions, never remove them.
+                  Activation is a human decision made here: the controller may only add interruptions, never remove them.
                 </p>
                 {notice && (
                   <div role="status" className={`rounded-md px-3 py-2 text-sm ${notice.isError ? 'bg-error-subtle text-error' : 'bg-success-subtle text-success'}`}>
@@ -297,7 +297,7 @@ export default function CalibrationPage() {
               <div className="rounded-xl border border-border bg-surface-secondary px-4 py-3 flex items-start gap-3">
                 <ShieldQuestion size={16} className="mt-0.5 shrink-0 text-info" />
                 <div className="text-sm text-secondary">
-                  The calibrated threshold ({fmtTheta(state.theta)}) sits above your policy threshold ({lowestPolicy.threshold}) —
+                  The calibrated threshold ({fmtTheta(state.theta)}) sits above your policy threshold ({lowestPolicy.threshold});
                   your feedback says the current policy over-interrupts. Loosening enforcement is a human decision:
                   review the tuning proposals on the policies page.
                   <Link href="/policies" className="ml-2 inline-flex items-center gap-1 text-info hover:underline">
@@ -314,7 +314,7 @@ export default function CalibrationPage() {
                 {alarms.length === 0 ? (
                   <p className="text-sm text-tertiary">
                     No standing alarms. An alarm fires the moment an agent&apos;s denial evidence (e-process) crosses
-                    the anytime-valid threshold — false-alarm probability stays below 5% no matter how often you look.
+                    the anytime-valid threshold; false-alarm probability stays below 5% no matter how often you look.
                     {watchlist.length > 0 && ' Highest current e-values:'}
                   </p>
                 ) : (
@@ -377,7 +377,7 @@ export default function CalibrationPage() {
                 {events.length === 0 ? (
                   <p className="text-sm text-tertiary">
                     No labeled feedback yet. Every approve/deny you make on a pending interruption becomes a
-                    calibration label here — the controller learns from your verdicts, whatever the mode.
+                    calibration label here: the controller learns from your verdicts, whatever the mode.
                   </p>
                 ) : (
                   <div className="overflow-x-auto">

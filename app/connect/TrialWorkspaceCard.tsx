@@ -63,10 +63,10 @@ export default function TrialWorkspaceCard({
 
       <p className="mt-4 max-w-2xl text-sm text-text-secondary leading-relaxed">
         Your browser holds the session for this workspace until the trial
-        ends. Lost your API key? Mint a new one from API keys — the value is
+        ends. Lost your API key? Mint a new one from API keys, the value is
         shown once at creation. The record is yours: export it any time and
         import it into a self-hosted instance with{' '}
-        <code className="font-mono text-xs">dashclaw import</code> — the trial
+        <code className="font-mono text-xs">dashclaw import</code>. The trial
         cap is a door, not a wall.
       </p>
 

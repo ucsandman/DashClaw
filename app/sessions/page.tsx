@@ -181,7 +181,7 @@ export default function SessionsPage() {
         ))}
         {lastUpdated && (
           <span className={`ml-auto text-[10px] ${stale ? 'text-warning' : 'text-disabled'}`}>
-            {stale ? `Stale — last updated ${lastUpdated}` : `Updated ${lastUpdated}`}
+            {stale ? `Stale, last updated ${lastUpdated}` : `Updated ${lastUpdated}`}
           </span>
         )}
       </div>

@@ -72,7 +72,7 @@ export default function TryItPanel({
     <div className="mt-3 rounded-xl border border-brand/25 bg-surface-tertiary p-4">
       <div className="mb-3 flex items-center justify-between">
         <p className="font-mono text-[10px] uppercase tracking-wider text-brand">
-          Try it — {method} {path}
+          Try it: {method} {path}
         </p>
         <button
           type="button"

@@ -118,10 +118,10 @@ export default function SelfHostPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-text-tertiary">Verify</p>
           <h2 className="mt-3 text-2xl font-bold tracking-tight text-text-primary">Confirm your deployment is healthy</h2>
           <p className="mt-2 text-text-secondary">
-            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, shape drift, and write-path health — live canary writes that prove heartbeats, action records, and guard audit rows actually land (synthetic, isolated, self-cleaning). It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
+            Doctor diagnoses database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, shape drift, and write-path health (live canary writes that prove heartbeats, action records, and guard audit rows actually land: synthetic, isolated, self-cleaning). It reports by default; pass --fix to apply safe repairs. Run it as the first thing after your instance comes up.
           </p>
           <p className="mt-2 text-text-secondary">
-            The live host canary covers the outside-in half: an hourly GitHub Actions cron probes your deployed hosts as a real unauthenticated client (pages render, trial mint stays fail-closed, OAuth discovery and the MCP handshake answer their contracts) and files its verdict to your instance — failures render on <code className="font-mono text-text-primary">/setup#live-canary</code> and raise a posture finding.
+            The live host canary covers the outside-in half: an hourly GitHub Actions cron probes your deployed hosts as a real unauthenticated client (pages render, trial mint stays fail-closed, OAuth discovery and the MCP handshake answer their contracts) and files its verdict to your instance; failures render on <code className="font-mono text-text-primary">/setup#live-canary</code> and raise a posture finding.
           </p>
 
           <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -264,13 +264,13 @@ dashclaw doctor`}</pre>
 
           <p className="text-sm text-text-tertiary mt-6">
             All features are free, self-hosted, and work without any external AI provider.
-            The governance core — guard, policies, approvals, and action recording — is pure
+            The governance core (guard, policies, approvals, and action recording) is pure
             runtime logic with no LLM dependency.
           </p>
         </div>
 
         {/* DashClaw Platform Skill */}
-        <div className="max-w-5xl mx-auto rounded-2xl bg-gradient-to-b from-[rgba(249,115,22,0.06)] to-transparent p-6 sm:p-8 border border-brand-subtle">
+        <div className="max-w-5xl mx-auto rounded-2xl p-6 sm:p-8 border border-brand-subtle">
           <div className="flex items-start gap-3 mb-5">
             <div className="w-10 h-10 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
               <Sparkles size={20} className="text-brand" />

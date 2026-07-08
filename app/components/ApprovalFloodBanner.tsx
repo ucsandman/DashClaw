@@ -79,7 +79,7 @@ export default function ApprovalFloodBanner({ onResolved }: { onResolved?: () =>
             <span className="text-sm text-primary">
               Approval flood: <span className="font-medium">{flood.name}</span>
               <span className="ml-1.5 tabular-nums text-xs text-secondary">
-                {flood.count} interrupts in {budget?.windowMin ?? 15}m — per-action pings paused
+                {flood.count} interrupts in {budget?.windowMin ?? 15}m, per-action pings paused
               </span>
             </span>
             {confirming ? (
