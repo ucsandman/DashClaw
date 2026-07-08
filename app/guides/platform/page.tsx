@@ -1,7 +1,8 @@
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 import PublicNavbar from '../../components/PublicNavbar';
 import PublicFooter from '../../components/PublicFooter';
 import PlatformGuideClient from './PlatformGuideClient';
-import guideMeta from './data/guide-meta.json';
 import type { Metadata } from 'next';
 import { marketingPageMetadata } from '../../lib/marketingSeo';
 
@@ -13,7 +14,12 @@ export const metadata: Metadata = marketingPageMetadata({
 });
 
 export default function PlatformGuidePage() {
-  const { counts } = guideMeta.meta as { counts: Record<string, number> };
+  // Hero stats come from the same generated dataset the client fetches, so they
+  // can never drift from the guide body (a separate meta snapshot did exactly that).
+  const guideData = JSON.parse(
+    readFileSync(resolve(process.cwd(), 'public', 'guides', 'platform-guide-data.json'), 'utf8')
+  ) as { meta: { generatedAt: string; counts: Record<string, number> } };
+  const { counts, generatedAt } = guideData.meta;
 
   return (
     <div className="min-h-screen bg-primary">
@@ -40,7 +46,7 @@ export default function PlatformGuidePage() {
               <span className="tabular-nums">{counts.experimental || 0} experimental</span>
               <span className="tabular-nums">{counts.deprecated || 0} deprecated</span>
               <span className="tabular-nums">{counts.archived || 0} archived</span>
-              <span>generated {guideMeta.meta.generatedAt}</span>
+              <span>generated {generatedAt}</span>
             </div>
           </div>
         </section>
