@@ -12,6 +12,30 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-08 — the marketing demo dead-ended on seven surfaces at once
+
+Wes clicked through dashclaw.io and found the demo half-broken: /policies
+"Couldn't load your policy posture", /calibration "Failed to load: HTTP 403",
+Doctor showing the raw "Demo mode: endpoint disabled" fallback, /assumptions
+and /identities blank, Setup apparently dead, and session actions linking to
+"decision not found". One root cause dressed seven ways: the demo middleware's
+route table is an allowlist with a 403 catch-all, and the pages shipped over
+the last weeks (the policies workbench, the calibration controller) never got
+route entries — plus three page-side variants of the same neglect (a
+deliberate skip-fetch-in-demo in /assumptions, an admin gate that reads as a
+blank page to an anonymous demo visitor in /identities, and session-ledger
+action ids that resolved nowhere). Setup turned out not to be broken at all:
+it's a seconds-long server render (readiness report + live canary) with no
+loading boundary, so the click just *looked* dead — it got the repo's first
+`loading.tsx`. Everything now serves deterministic fixtures, the two fixture
+policies carrying retired policy types were modernized so the ledger stops
+branding demo rows RETIRED, and `demo-gap-fixtures.test.ts` pins the lot,
+including "every id a demo list emits must resolve in the demo detail
+handler". The process lesson is sharper than the fix: a new surface isn't
+shipped until the demo deployment can render it — the demo route table needs
+to be part of the page-shipping checklist, not archaeology after a founder
+clicks around. (commit aaf71c88)
+
 ## 2026-07-07 — v5.0.1: prove-the-cull night — the first-run password was never visible
 
 The night after the cull, Wes ran the fresh-Windows sandbox by hand and hit the
