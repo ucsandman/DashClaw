@@ -1,5 +1,8 @@
 import Link from 'next/link';
+import { headers } from 'next/headers';
 import DashClawLogo from '../components/DashClawLogo';
+import PageLayout from '../components/PageLayout';
+import { getViewerContextFromCookieHeader } from '../lib/sessionViewer.mjs';
 import { projectReadinessReport, getReadinessReport } from '../lib/readiness.mjs';
 import { runDoctor } from '../lib/doctor/engine.mjs';
 import { getSql } from '../lib/db';
@@ -215,6 +218,14 @@ function relativeAgo(iso: string | null | undefined): string {
 }
 
 export default async function SetupPage() {
+  // Dual-shell: a signed-in operator clicking "Setup" in the sidebar stays
+  // inside the app shell like every other tab; anonymous visitors (pre-
+  // onboarding, broken instance, hosted stranger) keep the standalone public
+  // rendering with its own header — and all its disclosure guarantees.
+  const cookieHeader = (await headers()).get('cookie') ?? '';
+  const viewer = await getViewerContextFromCookieHeader(cookieHeader);
+  const signedIn = viewer.isAuthenticated;
+
   // The canary runs alongside the readiness report: real writes under the
   // isolated canary org, so a dead write path fails HERE before an agent
   // ever hits it. An engine error is rendered, never swallowed.
@@ -350,12 +361,14 @@ export default async function SetupPage() {
       : 'No issuer configured — bearer tokens never reach verified status (fail-closed). Set this to your IdP to enable verified identity.',
   });
 
-  return (
-    <main className="min-h-screen bg-primary px-6 py-10 text-primary">
+  const body = (
       <div className="mx-auto max-w-6xl space-y-8">
-        {/* This page is the post-install landing surface (`dashclaw up` opens
-            it) and renders pre-auth — it must still hand the operator a way
-            INTO the instance, not dead-end them on a status report. */}
+        {/* Anonymous visitors get the standalone header: this page is the
+            post-install landing surface (`dashclaw up` opens it) and renders
+            pre-auth — it must still hand the operator a way INTO the
+            instance, not dead-end them on a status report. Signed-in
+            operators are inside the app shell, which already carries nav. */}
+        {!signedIn && (
         <header className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <DashClawLogo size={20} />
@@ -369,18 +382,27 @@ export default async function SetupPage() {
             <Link href="/docs" className="transition-colors hover:text-primary">Docs</Link>
           </nav>
         </header>
+        )}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
+            {!signedIn && (
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
               Setup
             </span>
+            )}
             <span className={`rounded-full border px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] ${statusTone(overall.overall)}`}>
               {overall.label}
             </span>
           </div>
           <div className="space-y-2">
-            <h1 className="text-4xl font-semibold text-primary">Deployment truth surface</h1>
-            <p className="max-w-3xl text-base text-secondary">{overall.summary}</p>
+            {/* In-shell, the PageLayout header already carries the title and
+                summary — repeating them here would double the heading. */}
+            {!signedIn && (
+              <>
+                <h1 className="text-4xl font-semibold text-primary">Deployment truth surface</h1>
+                <p className="max-w-3xl text-base text-secondary">{overall.summary}</p>
+              </>
+            )}
             <p className="text-sm text-tertiary">Checked at {new Date(view.checkedAt).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 pt-1">
@@ -783,6 +805,24 @@ export default async function SetupPage() {
           </div>
         </section>
       </div>
+  );
+
+  if (signedIn) {
+    return (
+      <PageLayout
+        agentFilter={false}
+        title="Deployment truth surface"
+        subtitle={overall.summary}
+        breadcrumbs={['Configure', 'Setup']}
+      >
+        {body}
+      </PageLayout>
+    );
+  }
+
+  return (
+    <main className="min-h-screen bg-primary px-6 py-10 text-primary">
+      {body}
     </main>
   );
 }

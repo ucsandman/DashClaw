@@ -8,12 +8,13 @@ import { render, screen, cleanup } from '@testing-library/react';
  * same as the live-host canary card it sits next to).
  */
 const {
-  mockGetReadinessReport, mockProjectReadinessReport, mockGetLatestRun, mockDeriveState,
+  mockGetReadinessReport, mockProjectReadinessReport, mockGetLatestRun, mockDeriveState, mockHeaders,
 } = vi.hoisted(() => ({
   mockGetReadinessReport: vi.fn(),
   mockProjectReadinessReport: vi.fn(),
   mockGetLatestRun: vi.fn(),
   mockDeriveState: vi.fn(),
+  mockHeaders: vi.fn(),
 }));
 
 vi.mock('@/lib/readiness.mjs', () => ({
@@ -25,6 +26,10 @@ vi.mock('@/lib/repositories/enforcement-liveness.repository', () => ({
   getLatestEnforcementLivenessRunForOrg: mockGetLatestRun,
   deriveEnforcementLivenessState: mockDeriveState,
   ENFORCEMENT_LIVENESS_STALE_MS: 24 * 60 * 60 * 1000,
+}));
+
+vi.mock('next/headers', () => ({
+  headers: mockHeaders,
 }));
 
 import SetupPage from '@/setup/page.jsx';
@@ -66,6 +71,7 @@ function baseRun(overrides = {}) {
 
 describe('/setup enforcement-liveness card (v8.2)', () => {
   beforeEach(() => {
+    mockHeaders.mockResolvedValue(new Map([['cookie', '']]));
     mockGetReadinessReport.mockResolvedValue({ checkedAt: READINESS.checkedAt });
     mockProjectReadinessReport.mockReturnValue(READINESS);
   });

@@ -1,9 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-const { mockGetReadinessReport, mockProjectReadinessReport } = vi.hoisted(() => ({
+const { mockGetReadinessReport, mockProjectReadinessReport, mockHeaders } = vi.hoisted(() => ({
   mockGetReadinessReport: vi.fn(),
   mockProjectReadinessReport: vi.fn(),
+  mockHeaders: vi.fn(),
 }));
 
 vi.mock('@/lib/readiness.mjs', () => ({
@@ -11,10 +12,15 @@ vi.mock('@/lib/readiness.mjs', () => ({
   projectReadinessReport: mockProjectReadinessReport,
 }));
 
+vi.mock('next/headers', () => ({
+  headers: mockHeaders,
+}));
+
 import SetupPage from '@/setup/page.jsx';
 
 describe('/setup page', () => {
   it('renders the operator truth surface instead of redirecting', async () => {
+    mockHeaders.mockResolvedValue(new Map([['cookie', '']]));
     mockGetReadinessReport.mockResolvedValue({ checkedAt: '2026-04-18T22:00:00.000Z' });
     mockProjectReadinessReport.mockReturnValue({
       checkedAt: '2026-04-18T22:00:00.000Z',
