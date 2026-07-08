@@ -55,8 +55,6 @@ const nextConfig = {
       { source: '/.well-known/jwks.json', destination: '/api/integrity/jwks' },
       { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/metadata/authorization-server' },
       { source: '/.well-known/oauth-protected-resource', destination: '/api/oauth/metadata/protected-resource' },
-      // Bare /explain serves the static explainer (public/ dirs don't index-resolve on `next dev`).
-      { source: '/explain', destination: '/explain/index.html' },
     ];
   },
   // Permanent redirects for retired surfaces.

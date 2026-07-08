@@ -242,7 +242,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | Surface | Ceiling | Counted from |
 |---|---|---|
 | Active API routes | 118 | `app/api/**/route.{js,ts,tsx}` |
-| App pages | 45 | `app/**/page.{js,jsx,ts,tsx}` |
+| App pages | 46 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 12 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -268,6 +268,13 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   inventory marked KILL but never removed; its two inbound links were repointed
   to the canonical `/decisions/[actionId]`. The ceiling ratchets down so
   regrowth back to the deleted page trips the brake.
+- **2026-07-08 — App pages 45 → 46 (port, not sprawl).** The `/explain`
+  marketing explainer already existed as a hand-authored static file
+  (`public/explain/index.html`) carrying its own drift-prone mirror of the site
+  navbar — invisible to this counter. It was ported to `app/explain/page.tsx`
+  sharing `PublicNavbar`/`PublicFooter`, and the static file plus its
+  `next.config.js` rewrite were deleted. The count rises because an existing
+  surface became countable, not because a surface was added.
 
 ## Version story
 
