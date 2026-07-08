@@ -2,16 +2,17 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
+// "One Ledger, Many Lenses" redesign: CustomTab (which owned the import
+// overlay inline) was deleted. Import now lives in the standalone ImportPanel,
+// which wraps the unchanged PolicyAdvancedImportPanel and owns the same
+// preview-before-commit endpoints/state CustomTab used to.
 vi.mock('@/components/ui/Badge.js', () => ({ Badge: ({ children }) => <span>{children}</span> }));
 vi.mock('@/components/ui/Card.js', () => ({
   Card: ({ children }) => <div>{children}</div>,
-  CardHeader: ({ title }) => <div>{title}</div>,
   CardContent: ({ children }) => <div>{children}</div>,
 }));
-vi.mock('@/components/ui/EmptyState.js', () => ({ EmptyState: ({ title, description }) => <div>{title}{description}</div> }));
-vi.mock('@/policies/components/PolicyGeneratedDraftEditor.jsx', () => ({ default: () => <div /> }));
 
-const { default: CustomTab } = await import('@/policies/components/CustomTab.jsx');
+const { default: ImportPanel } = await import('@/policies/components/ImportPanel.jsx');
 
 const PREVIEW = {
   preview: true,
@@ -27,13 +28,12 @@ function ok(body) { return { ok: true, status: 200, json: async () => body }; }
 
 afterEach(() => { vi.unstubAllGlobals(); });
 
-describe('CustomTab — import preview before commit (A2)', () => {
+describe('ImportPanel — import preview before commit (A2)', () => {
   it('previews would_create/would_skip/conflict and only commits after an explicit confirm', async () => {
+    const onImported = vi.fn();
     const fetchMock = vi.fn(async (url, options = {}) => {
       const method = options.method || 'GET';
       if (url.startsWith('/api/policies/templates')) return ok({ templates: [] });
-      if (method === 'GET' && url.startsWith('/api/agents')) return ok({ agents: [] });
-      if (method === 'GET' && url.startsWith('/api/policies')) return ok({ policies: [] });
       if (method === 'POST' && url.startsWith('/api/policies/import')) {
         if (url.includes('preview=true')) return ok(PREVIEW);
         return ok({ imported: 2, skipped: 1, errors: [], policies: [] });
@@ -42,11 +42,7 @@ describe('CustomTab — import preview before commit (A2)', () => {
     });
     vi.stubGlobal('fetch', fetchMock);
 
-    render(<CustomTab />);
-    await screen.findByPlaceholderText(/search policies/i);
-
-    // Open the import overlay.
-    fireEvent.click(screen.getByRole('button', { name: /^import$/i }));
+    render(<ImportPanel open onClose={() => {}} onImported={onImported} />);
 
     // Preview first.
     fireEvent.click(await screen.findByRole('button', { name: /^preview$/i }));
@@ -65,5 +61,6 @@ describe('CustomTab — import preview before commit (A2)', () => {
     // Confirm commits exactly one import.
     fireEvent.click(screen.getByRole('button', { name: /confirm import/i }));
     await waitFor(() => expect(commitCalls()).toHaveLength(1));
+    expect(onImported).toHaveBeenCalled();
   });
 });

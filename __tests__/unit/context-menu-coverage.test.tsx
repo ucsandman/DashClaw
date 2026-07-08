@@ -28,7 +28,6 @@ beforeEach(() => {
 const TAGGED_FILES: Array<[string, string]> = [
   ['integrations', 'app/integrations/page.tsx'],
   ['identities', 'app/identities/page.tsx'],
-  ['policies cockpit (ContractPanel)', 'app/policies/components/ContractPanel.tsx'],
 ];
 
 describe('context-menu coverage — tagging inventory', () => {
@@ -38,8 +37,14 @@ describe('context-menu coverage — tagging inventory', () => {
     expect(code).toMatch(/data-entity-id/);
   });
 
-  it('marks policy rows as right-clickable in PolicyCockpit (ContractPanel)', () => {
-    expect(src('app/policies/components/ContractPanel.tsx')).toMatch(/data-entity-type="policy"/);
+  // The "One Ledger, Many Lenses" /policies redesign (2026-07-08) replaced
+  // ContractPanel with Ledger.tsx as the owner of policy rows. Ledger tags each
+  // table row with data-entity-type="policy" + data-entity-id so the global
+  // ContextMenuProvider still resolves a right-click (Delete policy, Copy ID, …).
+  it('tags policy rows in the Ledger for the right-click context menu', () => {
+    const code = src('app/policies/components/Ledger.tsx');
+    expect(code).toMatch(/data-entity-type="policy"/);
+    expect(code).toMatch(/data-entity-id=/);
   });
 });
 

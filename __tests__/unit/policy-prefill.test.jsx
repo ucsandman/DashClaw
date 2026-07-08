@@ -2,26 +2,16 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
-// A6: a /policies/rules?prefill=<encoded draft> deep-link opens the authoring
-// form prefilled. CustomTab is mounted ONLY at /policies/rules — /policies
-// renders PolicyCockpit, which drops ?prefill=, so any prefilled draft link
-// MUST point at /policies/rules (P13 bridge fix).
-vi.mock('@/components/ui/Badge.js', () => ({ Badge: ({ children }) => <span>{children}</span> }));
-vi.mock('@/components/ui/Card.js', () => ({
-  Card: ({ children }) => <div>{children}</div>,
-  CardHeader: ({ title }) => <div>{title}</div>,
-  CardContent: ({ children }) => <div>{children}</div>,
-}));
-vi.mock('@/components/ui/EmptyState.js', () => ({ EmptyState: ({ title, description }) => <div>{title}{description}</div> }));
-vi.mock('@/policies/components/PolicyGeneratedDraftEditor.jsx', () => ({ default: () => <div /> }));
-
-const { default: CustomTab } = await import('@/policies/components/CustomTab.jsx');
+// "One Ledger, Many Lenses" redesign: CustomTab (mounted only at
+// /policies/rules, reading ?prefill= itself) was deleted. Prefill now flows
+// in as a `prefill` prop on Ledger — PolicyWorkbench is responsible for
+// parsing the deep-link and handing Ledger the parsed draft.
+const { default: Ledger } = await import('@/policies/components/Ledger.jsx');
 
 function mockFetch() {
   const routes = {
     'GET /api/policies': () => ({ policies: [] }),
     'GET /api/agents': () => ({ agents: [] }),
-    'GET /api/policies/templates': () => ({ templates: [] }),
   };
   return vi.fn(async (url, options = {}) => {
     const method = options.method || 'GET';
@@ -31,30 +21,35 @@ function mockFetch() {
   });
 }
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-  window.history.replaceState({}, '', '/policies/rules');
-});
+const noop = () => {};
+const baseProps = {
+  summary: null,
+  contract: null,
+  highlightPolicy: null,
+  refreshSignal: 0,
+  onChanged: noop,
+};
 
-describe('CustomTab — prefill from deep-link (A6)', () => {
-  it('opens the authoring form when ?prefill= carries a valid draft', async () => {
+afterEach(() => { vi.unstubAllGlobals(); });
+
+describe('Ledger — prefill from deep-link (A6)', () => {
+  it('opens the rule editor pre-populated when a prefill draft is passed', async () => {
     vi.stubGlobal('fetch', mockFetch());
     const draft = { name: 'CC6.1: block action type', policy_type: 'block_action_type', rules: { action_types: ['exec'], action: 'block' } };
-    window.history.replaceState({}, '', '/policies/rules?prefill=' + encodeURIComponent(JSON.stringify(draft)));
 
-    render(<CustomTab />);
+    render(<Ledger {...baseProps} prefill={draft} />);
 
-    // The authoring panel is only mounted when showAuthoring is true; its Cancel
-    // button is unique to that panel, so finding it proves the prefill opened it.
+    // The rule editor is only mounted when showEditor is true; its Cancel
+    // button is unique to that modal, so finding it proves the prefill opened it.
     expect(await screen.findByRole('button', { name: 'Cancel' })).toBeTruthy();
     // The prefilled policy name lands in the form.
     expect(screen.getByDisplayValue('CC6.1: block action type')).toBeTruthy();
   });
 
-  it('does not open the authoring form without a prefill param', async () => {
+  it('does not open the rule editor without a prefill draft', async () => {
     vi.stubGlobal('fetch', mockFetch());
-    render(<CustomTab />);
-    await screen.findByPlaceholderText(/search policies/i);
+    render(<Ledger {...baseProps} prefill={null} />);
+    await screen.findByText(/no rules yet/i);
     expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
   });
 });
