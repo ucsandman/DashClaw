@@ -222,6 +222,7 @@ describe('Tool Handlers', () => {
         category: 'external_api',
         risk_level: undefined,
         search: undefined,
+        limit: 50,
       }, { timeout: 10000 });
       expect(result).toContain('Slack');
     });
@@ -233,7 +234,7 @@ describe('Tool Handlers', () => {
 
       const result = await handlers.dashclaw_policies_list({ agent_id: 'bot1' });
 
-      expect(mockGet).toHaveBeenCalledWith('/api/policies', { agent_id: 'bot1' }, { timeout: 10000 });
+      expect(mockGet).toHaveBeenCalledWith('/api/policies', { agent_id: 'bot1', limit: 50 }, { timeout: 10000 });
       expect(result).toContain('No prod deploys');
     });
   });

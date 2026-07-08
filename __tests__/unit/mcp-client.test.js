@@ -33,7 +33,7 @@ describe('DashClawClient', () => {
     it('sends POST with JSON body and x-api-key header', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ decision: 'allow' }),
+        text: async () => JSON.stringify({ decision: 'allow' }),
       });
 
       const result = await client.post('/api/guard', { action_type: 'deploy' });
@@ -56,7 +56,7 @@ describe('DashClawClient', () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 403,
-        json: async () => ({ error: 'Forbidden' }),
+        text: async () => JSON.stringify({ error: 'Forbidden' }),
       });
 
       const result = await client.post('/api/guard', {});
@@ -67,7 +67,7 @@ describe('DashClawClient', () => {
       mockFetch.mockRejectedValue(new Error('Connection refused'));
 
       const result = await client.post('/api/guard', {});
-      expect(result).toEqual({ error: 'Connection refused', _status: 0 });
+      expect(result).toEqual({ error: 'Network error calling DashClaw: Connection refused', _status: 0 });
     });
   });
 
@@ -75,7 +75,7 @@ describe('DashClawClient', () => {
     it('sends GET with query params and x-api-key header', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ policies: [] }),
+        text: async () => JSON.stringify({ policies: [] }),
       });
 
       const result = await client.get('/api/policies', { agent_id: 'bot1' });
@@ -93,7 +93,7 @@ describe('DashClawClient', () => {
     it('omits query string when params are empty', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ capabilities: [] }),
+        text: async () => JSON.stringify({ capabilities: [] }),
       });
 
       await client.get('/api/capabilities', {});
@@ -108,7 +108,7 @@ describe('DashClawClient', () => {
     it('sends PATCH with JSON body and x-api-key header', async () => {
       mockFetch.mockResolvedValue({
         ok: true,
-        json: async () => ({ updated: true }),
+        text: async () => JSON.stringify({ updated: true }),
       });
 
       const result = await client.patch('/api/policies/pol_123', { status: 'inactive' });
@@ -131,7 +131,7 @@ describe('DashClawClient', () => {
       mockFetch.mockResolvedValue({
         ok: false,
         status: 404,
-        json: async () => ({ error: 'Not Found' }),
+        text: async () => JSON.stringify({ error: 'Not Found' }),
       });
 
       const result = await client.patch('/api/policies/pol_missing', {});
@@ -142,7 +142,7 @@ describe('DashClawClient', () => {
       mockFetch.mockRejectedValue(new Error('Connection refused'));
 
       const result = await client.patch('/api/policies/pol_123', {});
-      expect(result).toEqual({ error: 'Connection refused', _status: 0 });
+      expect(result).toEqual({ error: 'Network error calling DashClaw: Connection refused', _status: 0 });
     });
   });
 });
