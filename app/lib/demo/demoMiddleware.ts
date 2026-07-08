@@ -1127,6 +1127,34 @@ export function demoApiKeys() {
   return { keys, lastUpdated: new Date().toISOString() };
 }
 
+// Triage-inbox proposal queues (/policies "Needs your call"). Empty-but-
+// COMPLETE payloads: every field the typed clients declare must be present —
+// TriageInbox dereferences e.g. `payload.policies.length` synchronously after
+// Promise.allSettled, so a missing field throws mid-load and leaves the
+// section on skeletons forever (2026-07-08 live bug).
+export function demoTuningProposals() {
+  return { window_days: 14, policies: [], proposals: [], dismissed_count: 0 };
+}
+export function demoTighteningProposals() {
+  return {
+    window_days: 14, min_observed: 12, synthetic_included: false,
+    inputs: { decisions: 35 }, proposals: [], counts: { pending: 0, ratified: 0, dismissed: 0 },
+  };
+}
+export function demoLooseningProposals() {
+  return {
+    window_days: 14, min_fired: 3, min_resolved: 3, synthetic_included: false,
+    inputs: { outcome_rows: 35 }, proposals: [], counts: { pending: 0, ratified: 0, dismissed: 0 },
+  };
+}
+export function demoCalibrationProposals() {
+  return {
+    window_days: 14,
+    inputs: { decisions: 35, decisions_truncated_at_limit: false, uploaded_samples: 0, synthetic_excluded: 0 },
+    proposals: [],
+  };
+}
+
 /** GET /api/calibration/controller — a shadow-mode controller snapshot with a
  *  believable adjudication history: θ easing down from its 80 start as
  *  approvals accumulate, a handful of denials, one standing agent alarm.

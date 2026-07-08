@@ -7,6 +7,7 @@ import {
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
   demoTokens, demoPolicies, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
   demoCalibrationController, demoDoctor,
+  demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
   demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
@@ -1108,12 +1109,12 @@ const DEMO_API_ROUTES = [
   ['/api/policies/contract', ({ request }) => demoJson(request, demoContract())],
   ['/api/policies/review', ({ request }) => demoJson(request, demoReview())],
   ['/api/policies/proof', handleDemoPoliciesProof],
-  // Triage-inbox proposal queues: empty-but-valid so the workbench renders its
-  // clean state instead of flagging failed queues.
-  ['/api/policies/proposals', ({ request }) => demoJson(request, { proposals: [] })],
-  ['/api/policies/tightening', ({ request }) => demoJson(request, { proposals: [] })],
-  ['/api/policies/loosening', ({ request }) => demoJson(request, { proposals: [] })],
-  ['/api/calibration/proposals', ({ request }) => demoJson(request, { proposals: [] })],
+  // Triage-inbox proposal queues: empty-but-COMPLETE payloads (see the
+  // builders' doc comment — a missing field wedges the inbox on skeletons).
+  ['/api/policies/proposals', demoPayloadRoute(demoTuningProposals)],
+  ['/api/policies/tightening', demoPayloadRoute(demoTighteningProposals)],
+  ['/api/policies/loosening', demoPayloadRoute(demoLooseningProposals)],
+  ['/api/calibration/proposals', demoPayloadRoute(demoCalibrationProposals)],
   ['/api/calibration/controller', demoFixtureRoute(demoCalibrationController)],
   ['/api/doctor', demoPayloadRoute(demoDoctor)],
   // ── Routing demo endpoints ──

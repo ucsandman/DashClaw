@@ -39,6 +39,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
   render (readiness + canary) shows progress instead of a dead click.
   Regression-pinned in `demo-gap-fixtures.test.ts`. Demo-only — no live
   API behavior changed; SDKs are not republished.
+- **Demo /setup renders inside the app shell, and the policies inbox no longer
+  wedges on skeletons.** Follow-ups from the sweep above: demo visitors are
+  anonymous, so /setup fell into its standalone public shell — sidebar gone;
+  it now mirrors the middleware's demo rule (explicit `DASHCLAW_MODE=demo`,
+  or the demo cookie on a marketing host) and renders in the app shell.
+  And the "Needs your call" inbox dereferences queue-payload fields
+  synchronously after `Promise.allSettled` (`payload.policies.length`), so
+  the sweep's minimal `{ proposals: [] }` fixtures threw mid-load and left
+  the section loading forever — the queue fixtures now carry every field the
+  typed clients declare, pinned by a payload-shape regression test.
 
 ## [5.0.2] — 2026-07-07
 

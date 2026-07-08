@@ -3,6 +3,7 @@ import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
   demoActionDetail, demoPolicies, demoPolicySummary, demoCalibrationController, demoDoctor,
+  demoTuningProposals, demoTighteningProposals, demoLooseningProposals, demoCalibrationProposals,
 } from '@/lib/demo/demoMiddleware';
 import { getDemoFixtures } from '@/lib/demo/demoFixtures';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
@@ -139,6 +140,25 @@ describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
     expect(c.alarms.some((a) => a.alarmed_at)).toBe(true);
     expect(c.risk_threshold_policies.length).toBeGreaterThan(0);
     expect(c.risk_threshold_policies[0]).toMatchObject({ threshold: expect.any(Number), action: expect.any(String) });
+  });
+
+  it('triage-queue payloads carry every field TriageInbox dereferences synchronously', () => {
+    // A missing field here throws inside TriageInbox.load() AFTER
+    // Promise.allSettled resolves, so setLoading(false) never runs and the
+    // "Needs your call" section wedges on skeletons (2026-07-08 live bug:
+    // `tun.value.policies.length` on a payload without `policies`).
+    const tun = demoTuningProposals();
+    expect(Array.isArray(tun.policies)).toBe(true);
+    expect(Array.isArray(tun.proposals)).toBe(true);
+    const tig = demoTighteningProposals();
+    expect(Array.isArray(tig.proposals)).toBe(true);
+    expect(tig.counts).toMatchObject({ pending: expect.any(Number) });
+    const loo = demoLooseningProposals();
+    expect(Array.isArray(loo.proposals)).toBe(true);
+    expect(loo.counts).toMatchObject({ pending: expect.any(Number) });
+    const cal = demoCalibrationProposals();
+    expect(Array.isArray(cal.proposals)).toBe(true);
+    expect(cal.inputs).toMatchObject({ decisions: expect.any(Number) });
   });
 
   it('doctor (/api/doctor) reports pass/warn checks and an honest demo warn', () => {

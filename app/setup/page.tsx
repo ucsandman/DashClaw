@@ -227,9 +227,22 @@ export default async function SetupPage() {
   // inside the app shell like every other tab; anonymous visitors (pre-
   // onboarding, broken instance, hosted stranger) keep the standalone public
   // rendering with its own header — and all its disclosure guarantees.
-  const cookieHeader = (await headers()).get('cookie') ?? '';
+  const requestHeaders = await headers();
+  const cookieHeader = requestHeaders.get('cookie') ?? '';
   const viewer = await getViewerContextFromCookieHeader(cookieHeader);
   const signedIn = viewer.isAuthenticated;
+
+  // Demo sandbox visitors browse every other page inside the app shell (demo
+  // pages are public), so /setup rendering standalone reads as "the sidebar
+  // vanished". Mirror the middleware's demo rule: explicit demo deployments,
+  // or the demo cookie on a marketing host. Self-host anonymous visitors keep
+  // the standalone public shell and its disclosure guarantees.
+  const host = requestHeaders.get('host') ?? '';
+  const isMarketingHost = host === 'dashclaw.io' || host.endsWith('.dashclaw.io');
+  const demoShell =
+    process.env.DASHCLAW_MODE === 'demo' ||
+    (isMarketingHost && /(?:^|;\s*)dashclaw_demo=1(?:;|$)/.test(cookieHeader));
+  const inShell = signedIn || demoShell;
 
   // The canary runs alongside the readiness report: real writes under the
   // isolated canary org, so a dead write path fails HERE before an agent
@@ -373,7 +386,7 @@ export default async function SetupPage() {
             pre-auth — it must still hand the operator a way INTO the
             instance, not dead-end them on a status report. Signed-in
             operators are inside the app shell, which already carries nav. */}
-        {!signedIn && (
+        {!inShell && (
         <header className="flex flex-wrap items-center justify-between gap-4">
           <Link href="/" className="flex items-center gap-2.5 transition-opacity hover:opacity-90">
             <DashClawLogo size={20} />
@@ -390,7 +403,7 @@ export default async function SetupPage() {
         )}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center gap-3">
-            {!signedIn && (
+            {!inShell && (
             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-secondary">
               Setup
             </span>
@@ -402,7 +415,7 @@ export default async function SetupPage() {
           <div className="space-y-2">
             {/* In-shell, the PageLayout header already carries the title and
                 summary — repeating them here would double the heading. */}
-            {!signedIn && (
+            {!inShell && (
               <>
                 <h1 className="text-4xl font-semibold text-primary">Deployment truth surface</h1>
                 <p className="max-w-3xl text-base text-secondary">{overall.summary}</p>
@@ -812,7 +825,7 @@ export default async function SetupPage() {
       </div>
   );
 
-  if (signedIn) {
+  if (inShell) {
     return (
       <PageLayout
         agentFilter={false}
