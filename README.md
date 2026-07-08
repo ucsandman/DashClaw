@@ -32,7 +32,7 @@
 </div>
 
 ```bash
-npx dashclaw up      # local, one command, no account, first caught action in minutes
+npx dashclaw up      # no account, first caught action in minutes
 ```
 
 <div align="center">
