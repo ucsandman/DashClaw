@@ -7,8 +7,8 @@ import { marketingPageMetadata } from '../lib/marketingSeo';
 import { GovernanceFeed, GuardSimulator, IntegrationTabs, LoopWalkthrough, PolicyPlayground } from './sections';
 
 export const metadata: Metadata = marketingPageMetadata({
-  title: 'DashClaw, explained: decision infrastructure for AI agents',
-  description: 'An interactive explainer: how DashClaw intercepts, enforces, records, and verifies AI-agent actions.',
+  title: 'DashClaw, explained: the approval layer for unattended agents',
+  description: 'An interactive explainer: how DashClaw intercepts a destructive tool call before it runs, freezes it for one-click human approval, and writes a replayable audit row.',
   path: '/explain',
 });
 
@@ -64,18 +64,17 @@ export default function ExplainPage() {
       <header className="px-6 pb-16 pt-24">
         <div className="mx-auto max-w-5xl">
           <div className={metaLabel}>Interactive explainer</div>
-          <h1 className="mb-4 mt-2 text-4xl font-bold leading-tight tracking-tight">Decision infrastructure for AI&nbsp;agents.</h1>
+          <h1 className="mb-4 mt-2 text-4xl font-bold leading-tight tracking-tight">The approval layer for unattended&nbsp;agents.</h1>
           <p className="max-w-[62ch] text-lg text-text-secondary">
-            DashClaw is a governance runtime. It sits between an agent&apos;s intent and the real world: every consequential action is
-            checked against policy before it happens, recorded while it happens, and verified after it happens. This page explains the
-            model, then lets you play with it.
+            When your AI coding agent tries something destructive, DashClaw catches it before it runs and asks you first, even when you
+            are not at the keyboard. It sits between an agent <em>deciding</em> to call a tool and the tool <em>actually running</em>.
+            This page explains the model, then lets you play with it.
           </p>
           <p className="mt-4 max-w-[62ch] text-lg text-text-secondary">
-            Four things, and only four: <strong className="text-text-primary">policy enforcement</strong>,{' '}
-            <strong className="text-text-primary">decision recording</strong>,{' '}
-            <strong className="text-text-primary">assumption tracking</strong>, and{' '}
-            <strong className="text-text-primary">risk signals</strong>. It does not give agents tools to achieve goals. It governs the
-            goals they already have.
+            The whole product is one loop: <strong className="text-text-primary">intercept</strong>,{' '}
+            <strong className="text-text-primary">decide</strong>, <strong className="text-text-primary">approve</strong>,{' '}
+            <strong className="text-text-primary">prove</strong>. It does not give agents tools to achieve goals. It governs the goals
+            they already have.
           </p>
           <p className="mt-6">
             <a
@@ -91,9 +90,10 @@ export default function ExplainPage() {
       <section id="problem" className="scroll-mt-28 border-t border-border px-6 py-16">
         <div className="mx-auto max-w-5xl">
           <div className={metaLabel}>Why governance</div>
-          <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">An agent&apos;s afternoon, twice</h2>
+          <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">An unattended run, twice</h2>
           <p className="max-w-[62ch] text-lg text-text-secondary">
-            Same agent, same tasks. The only difference is whether a governance runtime sits between intent and execution.
+            Same agent, same overnight run, and you are asleep either way. The only difference is whether an approval layer sits
+            between intent and execution.
           </p>
           <GovernanceFeed />
         </div>
@@ -116,7 +116,7 @@ export default function ExplainPage() {
           <h2 className="mb-2 mt-1 text-2xl font-semibold tracking-tight">The agent&apos;s advocate</h2>
           <p className="max-w-[62ch] text-lg text-text-secondary">
             Governance is usually framed as protecting the world from agents. The same ledger protects the agent: from unfair blame,
-            from being weaponized, and from bankrupting itself. Every governed action carries an{' '}
+            from being weaponized, and from runaway mistakes. Every governed action carries an{' '}
             <code className="font-mono text-[13px]">agent_defense</code> rollup on its detail record: what the agent declared, what it
             assumed, and which shields stood in front of it.
           </p>
@@ -143,12 +143,13 @@ export default function ExplainPage() {
               </p>
             </div>
             <div className={`${card} p-5`}>
-              <div className={metaLabel}>Protection from bankrupting mistakes</div>
-              <h3 className="mb-2 mt-1.5 text-lg font-semibold">Spend gates on x402 purchases</h3>
+              <div className={metaLabel}>Protection from runaway loops</div>
+              <h3 className="mb-2 mt-1.5 text-lg font-semibold">Rate limits that page a human</h3>
               <p className="text-text-secondary">
-                For agents that spend real money over x402, per-purchase caps and cumulative window budgets interrupt a runaway
-                purchase <em>before</em> the money moves: a block or an approval pause, recorded like any other decision. An agent
-                under a spend gate cannot quietly drain a wallet; it gets stopped, and the stop is its proof of restraint.
+                An agent stuck in a retry loop does not get to dig its own hole. A <span className="font-mono text-[12.5px]">rate_limit</span>{' '}
+                policy counts actions in a rolling window and pauses the run for a human before the four-hundredth identical call,
+                recorded like any other decision. The interruption is the agent&apos;s proof of restraint: it was stopped, and the stop
+                is on the record.
               </p>
             </div>
           </div>
@@ -267,9 +268,9 @@ export default function ExplainPage() {
             <ArchitectureDiagram />
           </div>
           <p className="mt-3 text-[13px] text-text-tertiary">
-            The dashboard surfaces are Mission Control (fleet posture and live decisions), Decisions (the causal-chain ledger), and
-            Policies (the interruption contract). Note the direction of the human edge: people <em>observe and decide</em>; they are
-            not in the data path of every action.
+            The dashboard surfaces are the Approvals inbox (what your agent just tried and what waits on you), Decisions (the
+            causal-chain ledger), and Policies (the interruption contract). Note the direction of the human edge: people{' '}
+            <em>observe and decide</em>; they are not in the data path of every action.
           </p>
         </div>
       </section>
@@ -283,9 +284,9 @@ export default function ExplainPage() {
               <div className="font-semibold text-text-primary">Wire up your first agent</div>
               <div className="mt-1 text-[13px] text-text-tertiary">/connect: onboarding to the first governed action</div>
             </Link>
-            <Link href="/mission-control" className={`${card} block px-5 py-4`}>
-              <div className="font-semibold text-text-primary">Watch a fleet live</div>
-              <div className="mt-1 text-[13px] text-text-tertiary">/mission-control: posture, interventions, decision stream</div>
+            <Link href="/approvals" className={`${card} block px-5 py-4`}>
+              <div className="font-semibold text-text-primary">Watch the inbox live</div>
+              <div className="mt-1 text-[13px] text-text-tertiary">/approvals: what your agent just tried, two buttons per item</div>
             </Link>
             <Link href="/decisions" className={`${card} block px-5 py-4`}>
               <div className="font-semibold text-text-primary">Read a real ledger</div>

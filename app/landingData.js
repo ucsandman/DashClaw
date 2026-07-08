@@ -40,11 +40,13 @@ claw = DashClaw(
     agent_id="my-agent"
 )
 
-# Intercept tool execution
-decision = claw.guard(
-    action_type="deploy",
-    risk_score=82
-)
+# Attach the real act: the server classifies
+# from evidence, which can only raise risk.
+decision = claw.guard({
+    "action_type": "shell",
+    "act": {"kind": "shell",
+            "command": "git push --force origin main"},
+})
 
 if decision["decision"] == "allow":
     run_agent_tool()`
@@ -54,11 +56,11 @@ if decision["decision"] == "allow":
     name: 'CrewAI',
     label: 'Agent task guard',
     code: `# Wrap sensitive agent tasks
-decision = claw.guard(
-    action_type="external_api_call",
-    provider="stripe",
-    risk_score=88
-)
+decision = claw.guard({
+    "action_type": "external_api_call",
+    "declared_goal": "Charge the customer via Stripe",
+    "systems_touched": ["stripe"],
+})
 
 if decision["decision"] == "allow":
     crew.kickoff()`
@@ -74,10 +76,11 @@ const claw = new DashClaw({
   agentId: 'my-agent'
 })
 
-// Guard before calling the tool
+// Guard with the real act attached: risk is
+// classified server-side from the evidence
 const { decision } = await claw.guard({
-  actionType: "deploy",
-  riskScore: 90
+  action_type: 'sql',
+  act: { kind: 'sql', statement: 'DROP TABLE users' },
 })
 
 if (decision === 'allow') {
@@ -124,22 +127,20 @@ command = "python ~/.codex/hooks/dashclaw/dashclaw_pretool.py"
   {
     id: 'hermes',
     name: 'Hermes Agent',
-    label: '8 lifecycle hooks + live ingest',
-    code: `# One install script wires 8 hooks into ~/.hermes/config.yaml
+    label: '6 lifecycle hooks + redaction',
+    code: `# One install script wires 6 hooks into ~/.hermes/config.yaml
 $ bash scripts/install-hermes-plugin.sh
 
 # Managed block written to ~/.hermes/config.yaml:
 hooks:
-  pre_tool_call:  [...]  # guard / block / require_approval
+  pre_tool_call:  [...]  # guard: block / require_approval
   post_tool_call: [...]  # outcome recording
-  pre_llm_call:   [...]  # per-turn policy + approval context injection
-  post_llm_call:  [...]  # live ingest to /api/code-sessions/ingest-live
-  on_session_start: [...] # cache warm
-  on_session_end:   [...] # finalize: true -> optimizer + alerts pass
+  pre_llm_call:   [...]  # policy + pending-approval context injection
+  on_session_start: [...] # policy cache warm
   transform_tool_result: [...] # redact API keys, JWTs, PEM blocks
-  subagent_stop:    [...] # delegate_task ROI tracking
+  subagent_stop:  [...]  # delegate_task exits recorded as actions
 
-# Per-turn cost attribution. agent_id = hermes.`
+# Same hooks. Same audit ledger. agent_id = hermes.`
   },
   {
     id: 'openclaw',

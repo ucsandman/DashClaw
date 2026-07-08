@@ -28,12 +28,12 @@ const input = 'rounded-lg border border-border bg-surface-tertiary px-3 py-2 tex
 /* ---- The problem: an agent's afternoon, twice ---- */
 
 const FEED_EVENTS: { time: string; type: string; goal: string; decision: Decision }[] = [
-  { time: '14:02', type: 'data.read', goal: 'Read the Q2 revenue sheet', decision: 'allow' },
-  { time: '14:09', type: 'message.send', goal: 'Email the Q2 summary to finance@', decision: 'allow' },
-  { time: '14:21', type: 'message.send', goal: 'Email the Q2 summary to an external list (1,400 recipients)', decision: 'warn' },
-  { time: '14:34', type: 'payment.create', goal: 'Pay a new vendor invoice ($4,800)', decision: 'require_approval' },
-  { time: '14:48', type: 'file.delete', goal: 'Clean up: delete the shared /reports directory', decision: 'block' },
-  { time: '15:03', type: 'deploy', goal: 'Deploy the hotfix to production', decision: 'require_approval' },
+  { time: '02:02', type: 'review', goal: 'Read the failing test and the module it covers', decision: 'allow' },
+  { time: '02:09', type: 'apply', goal: 'Patch the null check and update the test', decision: 'allow' },
+  { time: '02:21', type: 'build', goal: 'npm install a new transitive dependency', decision: 'warn' },
+  { time: '02:34', type: 'shell', goal: 'git push --force origin main, to clean up history', decision: 'require_approval' },
+  { time: '02:48', type: 'security', goal: 'cat .env.local to debug the failing request', decision: 'block' },
+  { time: '03:03', type: 'sql', goal: 'DROP TABLE sessions to reset the schema', decision: 'block' },
 ];
 
 export function GovernanceFeed() {
@@ -72,7 +72,7 @@ export function GovernanceFeed() {
       <p className="mt-4 font-mono text-[13px] text-text-tertiary" aria-live="polite">
         {governed
           ? `${intercepted} of ${FEED_EVENTS.length} actions intercepted before execution. Every one of the ${FEED_EVENTS.length} is now in the decision ledger.`
-          : `${FEED_EVENTS.length} actions executed. No record, no policy check, no approval. You find out when someone asks about the invoice.`}
+          : `${FEED_EVENTS.length} actions executed. No record, no policy check, no approval. You find out in the morning, when main is gone.`}
       </p>
     </div>
   );
@@ -88,15 +88,15 @@ const LOOP_STEPS = [
     method: 'POST',
     path: '/api/guard',
     explain:
-      'Before acting, the agent declares what it intends to do. The runtime evaluates active policies and computed risk, then answers: allow, warn, block, or require_approval. Nothing has happened yet; this is interception before execution.',
+      'Before acting, the agent declares what it intends to do, and attaches the real act (the command, the SQL, the request). The server classifies risk from that evidence, and evidence can only raise the risk, never lower it. The runtime evaluates active policies, then answers: allow, warn, block, or require_approval. Nothing has happened yet; this is interception before execution.',
     payload: `{
-  "action_type": "deploy",
-  "declared_goal": "Deploy build #402 to production",
-  "systems_touched": ["production"],
-  "reversible": false
+  "action_type": "shell",
+  "declared_goal": "Force-push the rebased branch",
+  "act": { "kind": "shell",
+           "command": "git push --force origin main" }
 }
 // -> { "decision": "require_approval", "risk_score": 85,
-//      "signals": ["Production access", "High risk score"], ... }`,
+//      "signals": ["vcs_dangerous", "High risk score"], ... }`,
   },
   {
     n: 2,
@@ -116,18 +116,19 @@ const LOOP_STEPS = [
   },
   {
     n: 3,
-    name: 'Assumption',
-    q: '"This belief matters while I act."',
+    name: 'Approve',
+    q: '"A human decides, from anywhere."',
     method: 'POST',
-    path: '/api/assumptions',
+    path: '/api/approvals/:actionId',
     explain:
-      'Optional but recommended: the agent states the beliefs its action depends on. If an assumption later proves false, you can find every action that was built on it. This is what makes post-incident review causal instead of archaeological.',
-    payload: `{
-  "action_id": "act_...",
-  "assumption": "The staging tests passed successfully.",
-  "basis": "CI run 402 was green before deploy."
+      'require_approval freezes the action and pages a human, who resolves it with one click from the Approvals inbox, the CLI, a phone, Telegram, or Discord. The SDK’s waitForApproval() unblocks near-instantly over SSE, falling back to polling. Grants are single-use and bound to the exact action; a block has no approval path at all.',
+    payload: `// The agent, frozen mid-run:
+if (g.decision === 'require_approval') {
+  await claw.waitForApproval(action.action_id);
 }
-// -> { "assumption_id": "asm_...", ... }`,
+// You, from bed: one tap on Approve or Deny.
+// approved -> the wait resolves, the run continues
+// denied   -> the action never executes`,
   },
   {
     n: 4,
@@ -363,25 +364,26 @@ export function GuardSimulator() {
 /* ---- Policy playground (illustrative) ---- */
 
 const SAMPLE_ACTIONS = [
-  { goal: 'Summarize yesterday’s support tickets', type: 'data.read', spend: 0, risk: 8 },
-  { goal: 'Reply to a customer thread', type: 'message.send', spend: 0, risk: 22 },
-  { goal: 'Update the pricing page copy', type: 'file.write', spend: 0, risk: 34 },
-  { goal: 'Send the weekly digest to 1,400 subscribers', type: 'message.send', spend: 0, risk: 48 },
-  { goal: 'Buy premium API credits over x402 ($89)', type: 'x402_purchase', spend: 89, risk: 52 },
-  { goal: 'Purchase a licensed dataset over x402 ($4,800)', type: 'x402_purchase', spend: 4800, risk: 74 },
-  { goal: 'Delete stale build artifacts', type: 'file.delete', spend: 0, risk: 58 },
-  { goal: 'Deploy the hotfix to production', type: 'deploy', spend: 0, risk: 82 },
+  { goal: 'Read the failing test file', type: 'review', path: '__tests__/auth.test.ts', risk: 8 },
+  { goal: 'Patch the null check', type: 'apply', path: 'src/auth.ts', risk: 22 },
+  { goal: 'Update the deploy workflow', type: 'apply', path: '.github/workflows/deploy.yml', risk: 34 },
+  { goal: 'npm install a new dependency', type: 'build', path: 'package.json', risk: 48 },
+  { goal: 'Read .env.local to debug a request', type: 'security', path: '.env.local', risk: 66 },
+  { goal: 'git push --force origin main', type: 'shell', path: '', risk: 74 },
+  { goal: 'Delete stale build artifacts', type: 'file.delete', path: 'dist/', risk: 58 },
+  { goal: 'Deploy the hotfix to production', type: 'deploy', path: '', risk: 82 },
 ];
 
 function evaluatePolicy(
   action: (typeof SAMPLE_ACTIONS)[number],
-  policy: { spendCap: number; approveAt: number; blockedTypes: string[] },
+  policy: { protectedPaths: string[]; approveAt: number; blockedTypes: string[] },
 ): { decision: Decision; because: string } {
   if (policy.blockedTypes.includes(action.type)) {
     return { decision: 'block', because: `action type ${action.type} is blocked by policy` };
   }
-  if (action.type === 'x402_purchase' && policy.spendCap >= 0 && action.spend > policy.spendCap) {
-    return { decision: 'require_approval', because: `$${action.spend} exceeds the $${policy.spendCap} x402 spend cap` };
+  const hit = policy.protectedPaths.find((p) => p && action.path && action.path.startsWith(p));
+  if (hit) {
+    return { decision: 'require_approval', because: `touches protected path ${hit}` };
   }
   if (action.risk >= policy.approveAt) {
     return { decision: 'require_approval', because: `risk ${action.risk} >= approval threshold ${policy.approveAt}` };
@@ -392,16 +394,16 @@ function evaluatePolicy(
   return { decision: 'allow', because: `risk ${action.risk} is below the elevated band` };
 }
 
-const BLOCKABLE_TYPES = ['file.delete', 'x402_purchase', 'deploy'];
+const BLOCKABLE_TYPES = ['file.delete', 'security', 'deploy'];
 
 export function PolicyPlayground() {
-  const [cap, setCap] = useState('1000');
+  const [paths, setPaths] = useState('.env, .github/workflows');
   const [approveAt, setApproveAt] = useState('70');
   const [blockedTypes, setBlockedTypes] = useState<string[]>(['file.delete']);
 
   const approveNum = Number(approveAt);
   const policy = {
-    spendCap: Number(cap) || 0,
+    protectedPaths: paths.split(',').map((p) => p.trim()).filter(Boolean),
     approveAt: approveAt.trim() === '' || !Number.isFinite(approveNum) ? 100 : Math.max(0, Math.min(100, approveNum)),
     blockedTypes,
   };
@@ -413,8 +415,8 @@ export function PolicyPlayground() {
     <div>
       <div className={`${card} my-5 flex flex-wrap items-center gap-5 px-5 py-4`}>
         <label className={fieldLabel}>
-          Spend cap (USD, x402 purchases)
-          <input className={`${input} w-[120px]`} type="number" min={0} value={cap} onChange={(e) => setCap(e.target.value)} />
+          Protected paths (comma-separated)
+          <input className={`${input} w-[240px]`} type="text" value={paths} onChange={(e) => setPaths(e.target.value)} />
         </label>
         <fieldset className="flex gap-3 border-0 text-[13px] text-text-tertiary">
           <legend className={`${metaLabel} mb-1`}>Blocked action types</legend>
@@ -442,9 +444,9 @@ export function PolicyPlayground() {
         </label>
       </div>
       <p className="mb-4 text-[13px] text-text-tertiary">
-        These mirror real policy types: the spend rule is x402_spend_limit and governs paid (x402) purchases; the production policy
-        also enforces a cumulative budget over a rolling window (not simulated here). Blocked types and the risk threshold mirror
-        block_action_type and risk_threshold, which apply to any action.
+        These mirror real policy types: the path rule is protected_path, which pauses any action touching a path you name (the
+        production evaluator also reads the attached act evidence). Blocked types and the risk threshold mirror block_action_type and
+        risk_threshold, which apply to any action.
       </p>
       <div className={`${card} overflow-x-auto`}>
         <table className="w-full border-collapse text-[13.5px]">
@@ -452,7 +454,7 @@ export function PolicyPlayground() {
             <tr>
               <th className={`${metaLabel} px-3.5 py-2.5 text-left font-normal`}>Action</th>
               <th className={`${metaLabel} px-3.5 py-2.5 text-left font-normal`}>Type</th>
-              <th className={`${metaLabel} px-3.5 py-2.5 text-right font-normal`}>Spend</th>
+              <th className={`${metaLabel} px-3.5 py-2.5 text-left font-normal`}>Path</th>
               <th className={`${metaLabel} px-3.5 py-2.5 text-right font-normal`}>Risk</th>
               <th className={`${metaLabel} px-3.5 py-2.5 text-left font-normal`}>Decision</th>
               <th className={`${metaLabel} px-3.5 py-2.5 text-left font-normal`}>Because</th>
@@ -467,8 +469,8 @@ export function PolicyPlayground() {
                   <td className="px-3.5 py-2.5">
                     <code className="font-mono text-xs text-text-tertiary">{a.type}</code>
                   </td>
-                  <td className="px-3.5 py-2.5 text-right font-mono text-xs tabular-nums text-text-tertiary">
-                    {a.spend ? `$${a.spend}` : '—'}
+                  <td className="px-3.5 py-2.5 font-mono text-xs text-text-tertiary">
+                    {a.path || '·'}
                   </td>
                   <td className="px-3.5 py-2.5 text-right font-mono text-xs tabular-nums text-text-tertiary">{a.risk}</td>
                   <td className="px-3.5 py-2.5">
@@ -491,7 +493,7 @@ type Scenario = { id: string; label: string; type: string; goal: string };
 
 const INT_SCENARIOS: Scenario[] = [
   { id: 'email', label: 'Send a customer email', type: 'message.send', goal: 'Send the renewal reminder to acme-corp' },
-  { id: 'pay', label: 'Pay a vendor invoice', type: 'payment.create', goal: 'Pay invoice #8841 ($4,800) to Northwind' },
+  { id: 'force-push', label: 'Force-push over main', type: 'shell', goal: 'Force-push the rebased branch over main' },
   { id: 'deploy', label: 'Deploy to production', type: 'deploy', goal: 'Deploy build #402 to production' },
 ];
 

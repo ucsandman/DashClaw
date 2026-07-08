@@ -30,8 +30,10 @@ export const runtime = 'nodejs';
 
 const ALLOWED_EVENTS = new Set([
   'marketing_hero_cta_clicked',
+  'marketing_hero_plugin_clicked',
   'marketing_github_clicked',
   'marketing_demo_evaluated',
+  'marketing_explain_visited',
   'marketing_self_host_visited',
   'marketing_proof_visited',
   'marketing_vs_section_viewed',

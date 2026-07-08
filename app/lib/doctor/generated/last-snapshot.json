@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:8661937dd4bf18d786203dbdd84b2c347b6a0aed",
+  "timestamp": "sha1:390872671fcbc37f2f3156968e7bde78f802b1e2",
   "routes": [
     {
       "path": "/api/actions",
@@ -1684,6 +1684,7 @@
         "app/api/setup/ping/route.ts",
         "app/lib/selfHost.ts",
         "app/settings/page.tsx",
+        "app/setup/page.tsx",
         "mcp-server/lib/dashclaw/client.js",
         "mcp-server/src/dashclaw/client.ts",
         "mcp-server/test/dashclaw.test.ts",

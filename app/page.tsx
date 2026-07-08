@@ -52,12 +52,16 @@ const action = await claw.createAction({
 
 // 3. waitForApproval: freeze until a human resolves it
 if (g.decision === 'require_approval') {
-  await claw.waitForApproval(action.id);
+  await claw.waitForApproval(action.action_id);
 }
 
-// 4. updateOutcome: close the record, one-shot
-await run();
-await claw.updateOutcome(action.id, { status: 'success' });`;
+// 4. close the record: one-shot, durable, retry-safe
+try {
+  await run();
+  await claw.reportActionSuccess(action.action_id, 'Pushed');
+} catch (err) {
+  await claw.reportActionFailure(action.action_id, err.message);
+}`;
 
 const LOOP_STEPS = [
   {
