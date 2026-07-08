@@ -13,6 +13,39 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.0.1] — 2026-07-07
+
+**First-run sign-in: `npx dashclaw up` now ends with a browser that is already
+signed in — and the admin password is actually printed.**
+
+### Fixed
+
+- **The invisible admin password.** `setup.mjs` prints the first admin password
+  once to stderr, but the `up` orchestrator pipes (and on success discards)
+  that stream — so on every fresh install the password was written to
+  `.env.local` and *never shown*. The CLI now prints it itself:
+  `[ok] Dashboard admin password: …   (also saved to <appDir>/.env.local)`.
+  (@dashclaw/cli 0.8.1)
+- **A failed Claude Code hooks install no longer kills the sign-in tail.**
+  Found by tonight's baseline fresh-Windows drill: a factory-fresh machine has
+  no Python, `installClaude` threw, and `up` died after the server was healthy
+  but *before* opening the browser or printing `Done.` The connect step now
+  fails loudly but non-fatally, skips its checkpoint so the next `dashclaw up`
+  retries it, and the run continues to the sign-in step. (@dashclaw/cli 0.8.2)
+
+### Added
+
+- **One-time browser sign-in (OTT).** Before starting the server, the CLI
+  mints a single-use `DASHCLAW_LOGIN_OTT` (15-minute expiry) into the app's
+  `.env.local`; the opened browser hits `/login?ott=…` and lands signed in,
+  redirecting on to `/setup`. Consumed server-side by `POST /api/auth/local`;
+  with `--no-browser` the sign-in link is printed instead. Falls back cleanly
+  to `/setup` + password entry when minting fails or the platform predates the
+  route. (`app/api/auth/local`, `app/login`, @dashclaw/cli 0.8.1)
+
+Both SDKs republish at 5.0.1 (small real source deltas from the post-cull
+cleanup `fe7ef21b`); the plugin bundle stays at 3.0.0.
+
 ## [5.0.0] — 2026-07-07
 
 **The cull. DashClaw becomes exactly one product: the fail-closed approval layer

@@ -823,7 +823,7 @@ export default function CustomTab() {
                       <span className="truncate text-sm font-medium text-white">{p.name}</span>
                       <Badge size="xs">{p.policy_type}</Badge>
                       {!KNOWN_POLICY_TYPE_SET.has(p.policy_type) && (
-                        <span title="Retired in v5.0.0 — the guard no longer evaluates this policy type, so it has no effect. Review and disable it.">
+                        <span title="Retired in v5.0.0 — the guard no longer evaluates this policy type, so it has no effect. Review and disable it."> {/* version-hardcode-allowed */}
                           <Badge variant="warning" size="xs">retired — no longer enforced</Badge>
                         </span>
                       )}

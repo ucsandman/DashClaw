@@ -1,21 +1,21 @@
 {
   "node": {
-    "current_version": "5.0.0",
-    "next_bump": "major",
-    "reason": "v5.0.0 collapses the Node SDK to the governance core (149 -> 28 methods) and deletes the deprecated dashclaw/legacy subpath. SDK source changed substantially - the SDK IS republished to npm at 5.0.0 (credential-gated human tail: npm run release:sdks).",
+    "current_version": "5.0.1",
+    "next_bump": "none",
+    "reason": "5.0.1 carries a small real Node SDK source change (fe7ef21b: dead-code purge in sdk/dashclaw.js after the v5 cull) - the SDK IS republished to npm at 5.0.1 (credential-gated human tail: npm run release:sdks).",
     "domains": [
       "platform"
     ]
   },
   "python": {
-    "current_version": "5.0.0",
-    "next_bump": "major",
-    "reason": "v5.0.0 collapses the Python SDK to the governance core (234 -> 51 methods) and removes the dashclaw[langchain] extra. SDK source changed substantially - the SDK IS republished to PyPI at 5.0.0 (credential-gated human tail: npm run release:sdks).",
+    "current_version": "5.0.1",
+    "next_bump": "none",
+    "reason": "5.0.1 carries a small real Python SDK source change (fe7ef21b: client.py cleanup after the v5 cull) - the SDK IS republished to PyPI at 5.0.1 (credential-gated human tail: npm run release:sdks).",
     "domains": [
       "platform"
     ]
   },
-  "reason": "v5.0.0 is the cull (THESIS.md): DashClaw collapses to the governance loop (intercept -> decide -> approve -> prove). Both SDKs' source changed materially and republish at 5.0.0; @dashclaw/cli republishes at 0.8.0 (8 commands removed); the dashclaw plugin bundle advances to 3.0.0 (breaking hook changes). See docs/releases/2026-07-07-v5-kill-ledger.md.",
+  "reason": "5.0.1 is the first-run sign-in ship: `dashclaw up` prints the admin password (previously swallowed with the piped setup stderr) and opens the browser already signed in via a single-use 15-minute DASHCLAW_LOGIN_OTT consumed by /api/auth/local; a failed Claude Code hooks install (fresh machine, no Python) is now non-fatal to the sign-in tail. @dashclaw/cli republishes at 0.8.2 (0.8.1 shipped the feature, 0.8.2 the non-fatal connect). Both SDKs republish at 5.0.1 for the small fe7ef21b source deltas.",
   "domains": [
     "platform"
   ]

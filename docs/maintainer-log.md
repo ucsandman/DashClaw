@@ -12,7 +12,40 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
-## 2026-07-07 — v5.0.0: the cull — DashClaw becomes one product
+## 2026-07-07 — v5.0.1: prove-the-cull night — the first-run password was never visible
+
+The night after the cull, Wes ran the fresh-Windows sandbox by hand and hit the
+kind of bug no unit test sees: `npx dashclaw up` never shows a password. Root
+cause: `setup.mjs` prints the first admin password once — to stderr — and the
+`up` orchestrator pipes and discards that stream on success. Every fresh
+install since the orchestrator landed wrote the password to `.env.local` and
+showed it to no one. The fix that was sitting uncommitted in the tree shipped
+tonight as **@dashclaw/cli 0.8.1 + platform 5.0.1**: the CLI prints the
+password itself, and goes one better — it mints a single-use, 15-minute
+`DASHCLAW_LOGIN_OTT` into `.env.local` before boot, so the browser `up` opens
+lands **already signed in** (`/login?ott=…` → `/api/auth/local` consumes it →
+`/setup`). Fallback on any failure: plain `/setup` + the now-visible password.
+
+The rest of the night was the prove-the-cull plan
+([spec](../docs/superpowers/specs/2026-07-07-prove-the-cull-design.md)):
+
+- **Entry door.** Baseline `drill:fresh-windows` PASS (health 200, key read,
+  first action 201) — and the drill's own log caught a second real break:
+  on a factory-fresh machine (no Python), the Claude-hooks install threw and
+  killed `up` *after* the server was healthy but before the browser-open step
+  — the exact moment 0.8.1 exists to deliver. Fixed as **0.8.2**: connect
+  failure is loud but non-fatal, checkpoint skipped so the next run retries.
+  A drill finding a distribution break the same night it was instrumented is
+  the v8.3 bet paying out.
+- **Rendered sweep.** All 45 surviving pages (41 static + 4 dynamic with real
+  IDs) render clean — zero console errors, zero failed `/api/*` calls, all 13
+  sidebar links resolve. The cull left no rendered casualties.
+- **Hero loop.** Live remote-approval proof on the deployed instance — result
+  recorded below when the run completes.
+
+Honesty note: 0.8.1 was published before the drill surfaced the Python break,
+so 0.8.1 spent about an hour as `latest` with a tail that dies on Python-less
+machines; 0.8.2 supersedes it in the same evening.
 
 This is the largest single change in the project's history, and the hardest to
 justify line by line, so this entry is long on purpose.
