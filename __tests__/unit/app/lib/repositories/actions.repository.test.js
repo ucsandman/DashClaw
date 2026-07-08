@@ -43,4 +43,24 @@ describe('actions.repository paired coverage', () => {
     expect(result.stats.avg_risk).toBe(42.5);
     expect(result.stats.total_cost).toBe(3.14);
   });
+
+  it('scopes the expired list to approval_expires_at after the cleared cursor', async () => {
+    const sql = makeQuerySqlMock([[], [{ total: '0' }], [{}]]);
+    const cursor = '2026-07-08T06:00:00.000Z';
+
+    await listActions(sql, 'org_1', { status: 'expired', expired_after: cursor });
+
+    const [listText, listParams] = sql.queryCalls[0];
+    expect(listText).toContain('approval_expires_at::timestamptz >');
+    expect(listParams).toContain(cursor);
+  });
+
+  it('ignores an unparseable expired_after cursor', async () => {
+    const sql = makeQuerySqlMock([[], [{ total: '0' }], [{}]]);
+
+    await listActions(sql, 'org_1', { status: 'expired', expired_after: 'not-a-date' });
+
+    const [listText] = sql.queryCalls[0];
+    expect(listText).not.toContain('approval_expires_at');
+  });
 });

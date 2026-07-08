@@ -93,6 +93,21 @@ export async function GET(request: Request) {
       }
     }
 
+    // Expired-section cursor ("Clear expired" on /approvals): hide rows whose
+    // wait window ended at/before the org's cleared-at watermark. View state
+    // only — the ledger rows are untouched. Best-effort: no setting, or a
+    // failed read, means no filter.
+    let expired_after: string | undefined;
+    if (status === 'expired') {
+      const cursor = await getSettings(sql, orgId, { key: 'approvals_expired_cleared_at' })
+        .catch((err: unknown) => {
+          console.warn('[ACTIONS GET] expired-cleared cursor read failed:', (err as Error)?.message);
+          return [];
+        });
+      const value = cursor[0]?.value;
+      if (typeof value === 'string' && value) expired_after = value;
+    }
+
     const result = await listActions(sql, orgId, {
       agent_id,
       swarm_id,
@@ -102,6 +117,7 @@ export async function GET(request: Request) {
       risk_min,
       outcome_status,
       days,
+      expired_after,
       limit,
       offset,
     });

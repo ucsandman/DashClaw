@@ -57,6 +57,7 @@ export default function ApprovalsPage() {
   const [expiredActions, setExpiredActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [clearingExpired, setClearingExpired] = useState(false);
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
 
   const fetchPending = useCallback(async (opts?: { silent?: boolean }) => {
@@ -116,6 +117,31 @@ export default function ApprovalsPage() {
       alert(`Decision failed: ${err.message}`);
     } finally {
       setProcessingId(null);
+    }
+  };
+
+  // "Clear expired" advances the org-level cleared-at cursor (a settings key,
+  // same shape as the policy-review cursor) — the ledger rows stay untouched;
+  // the expired lister just stops returning anything at/before the stamp.
+  const handleClearExpired = async () => {
+    try {
+      setClearingExpired(true);
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          key: 'approvals_expired_cleared_at',
+          value: new Date().toISOString(),
+          category: 'system',
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to clear expired approvals');
+      setExpiredActions([]);
+      await fetchPending({ silent: true });
+    } catch (err: any) {
+      alert(`Clear failed: ${err.message}`);
+    } finally {
+      setClearingExpired(false);
     }
   };
 
@@ -234,7 +260,7 @@ export default function ApprovalsPage() {
                             <div className="mb-2 flex flex-wrap items-center gap-2">
                               <Badge variant="warning">Awaiting Approval</Badge>
                               {action.act_content_hash && (
-                                <span title="This approval is bound to the exact recorded act — an agent retry presenting a different command or request re-queues for approval instead of reusing the grant.">
+                                <span title="This approval is bound to the exact recorded act: an agent retry presenting a different command or request re-queues for approval instead of reusing the grant.">
                                   <Badge variant="info" size="xs">Act-bound</Badge>
                                 </span>
                               )}
@@ -343,9 +369,20 @@ export default function ApprovalsPage() {
           <div className="mt-10">
             <div className="mb-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-tertiary">
               <Hourglass size={12} /> Expired
+              {canDecide && (
+                <button
+                  type="button"
+                  onClick={handleClearExpired}
+                  disabled={clearingExpired}
+                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-border px-2 py-0.5 text-[11px] font-medium normal-case tracking-normal text-tertiary transition-colors hover:border-border-hover hover:text-secondary disabled:opacity-50"
+                  aria-label="Clear expired approvals from this list"
+                >
+                  {clearingExpired ? 'Clearing…' : 'Clear expired'}
+                </button>
+              )}
             </div>
             <p className="mb-3 text-xs text-tertiary">
-              These approvals outlived the requesting agent&rsquo;s wait window — approving them
+              These approvals outlived the requesting agent&rsquo;s wait window; approving them
               would release nothing. If the action is still wanted, have the agent retry it.
             </p>
             <div className="space-y-2">

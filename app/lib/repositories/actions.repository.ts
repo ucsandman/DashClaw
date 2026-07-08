@@ -278,6 +278,13 @@ interface ListActionsFilters {
   outcome_status?: string;
   /** Optional rolling window (1-365 days): scopes the list AND total/stats. */
   days?: number | string;
+  /**
+   * ISO cutoff for the expired-approvals view: only rows whose
+   * approval_expires_at is strictly after this instant are listed. Backs the
+   * /approvals "Clear expired" cursor; rows with a NULL expiry (legacy TTL
+   * sweeps) are hidden once any cutoff is set.
+   */
+  expired_after?: string;
   limit?: number | string;
   offset?: number | string;
 }
@@ -292,6 +299,8 @@ interface ParsedListActionsFilters {
   parsedRiskMin: number | null;
   /** ISO cutoff derived from `days` (null = no window). */
   sinceIso: string | null;
+  /** Validated ISO cutoff from `expired_after` (null = no cursor). */
+  expiredAfterIso: string | null;
   parsedLimit: number;
   parsedOffset: number;
 }
@@ -305,6 +314,7 @@ interface ListActionSqlFragments {
   riskMin: ReturnType<SqlClient>;
   outcome: ReturnType<SqlClient>;
   since: ReturnType<SqlClient>;
+  expiredAfter: ReturnType<SqlClient>;
 }
 
 // Neon returns numeric aggregates (AVG/SUM) as strings; coerce the two stats
@@ -329,6 +339,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     risk_min,
     outcome_status,
     days,
+    expired_after,
     limit = 50,
     offset = 0,
   } = filters;
@@ -338,6 +349,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
   // the activity narrative truthful — it is NOT a buffer length).
   const parsedDays = parseInt(days as string, 10);
   const clampedDays = Number.isFinite(parsedDays) ? Math.min(Math.max(parsedDays, 1), 365) : null;
+  const expiredAfterMs = expired_after ? Date.parse(expired_after) : NaN;
   return {
     agent_id,
     swarm_id,
@@ -347,6 +359,7 @@ function parseListActionsFilters(filters: ListActionsFilters): ParsedListActions
     outcomeFilter: validOutcomes.has(outcome_status as string) ? (outcome_status as string) : null,
     parsedRiskMin: Number.isFinite(Number(risk_min)) ? Number(risk_min) : null,
     sinceIso: clampedDays != null ? new Date(Date.now() - clampedDays * 86_400_000).toISOString() : null,
+    expiredAfterIso: Number.isFinite(expiredAfterMs) ? new Date(expiredAfterMs).toISOString() : null,
     parsedLimit: Math.min(parseInt(limit as string, 10) || 50, 200),
     parsedOffset: parseInt(offset as string, 10) || 0,
   };
@@ -387,6 +400,7 @@ function listActionQuerySpecs(filters: ParsedListActionsFilters): QueryCondition
     { active: filters.parsedRiskMin != null, condition: 'risk_score >=', value: filters.parsedRiskMin },
     { active: !!filters.outcomeFilter, condition: 'outcome_status =', value: filters.outcomeFilter },
     { active: filters.sinceIso != null, condition: 'created_at::timestamptz >=', value: filters.sinceIso },
+    { active: filters.expiredAfterIso != null, condition: 'approval_expires_at::timestamptz >', value: filters.expiredAfterIso },
   ];
 }
 
@@ -438,6 +452,7 @@ function listActionSqlFragments(
     riskMin: sqlFragment(sql, filters.parsedRiskMin != null, () => sql`AND risk_score >= ${filters.parsedRiskMin}`),
     outcome: sqlFragment(sql, !!filters.outcomeFilter, () => sql`AND outcome_status = ${filters.outcomeFilter}`),
     since: sqlFragment(sql, filters.sinceIso != null, () => sql`AND created_at::timestamptz >= ${filters.sinceIso}`),
+    expiredAfter: sqlFragment(sql, filters.expiredAfterIso != null, () => sql`AND approval_expires_at::timestamptz > ${filters.expiredAfterIso}`),
   };
 }
 
@@ -508,6 +523,7 @@ function listActionsWhere(
         ${fragments.riskMin}
         ${fragments.outcome}
         ${fragments.since}
+        ${fragments.expiredAfter}
     `;
 }
 

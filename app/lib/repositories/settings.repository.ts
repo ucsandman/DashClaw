@@ -80,6 +80,11 @@ export const VALID_SETTING_KEYS = [
   //                          of per-shape dismissals ("fine" verdict).
   'policy_review_cursor',
   'policy_review_dismissed',
+  // Approvals expired-section cursor — ISO timestamp; expired approvals whose
+  // wait window ended at/before this time are hidden from the /approvals
+  // Expired list ("Clear expired"). View state only — the action_records rows
+  // are untouched. Written by the admin-gated settings API from /approvals.
+  'approvals_expired_cleared_at',
   // Policy-tuning proposal loop — JSON object keyed by proposal fingerprint
   // ("ptp_<16hex>") holding { reason, by, at } dismissal records. Written by
   // POST /api/policies/proposals; pruned on write (newest 200 entries, then

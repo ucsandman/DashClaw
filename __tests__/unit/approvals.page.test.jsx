@@ -1,6 +1,6 @@
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 
 // BUG-03b regression: /approvals treats the response of /api/session/effective
 // (which unifies NextAuth + local-session auth) as the source of truth for
@@ -252,5 +252,39 @@ describe('ApprovalsPage — session resolution', () => {
     expect(screen.getByText(/approving them\s+would release nothing/i)).toBeTruthy();
     expect(screen.queryByRole('button', { name: /allow/i })).toBeNull();
     expect(screen.queryByRole('button', { name: /deny/i })).toBeNull();
+  });
+
+  it('Clear expired advances the org cleared-at cursor and empties the section', async () => {
+    const EXPIRED = {
+      action_id: 'act_exp2', agent_id: 'agent_bb', agent_name: 'researcher',
+      declared_goal: 'Deploy release', action_type: 'deploy', risk_score: 60,
+      status: 'expired', timestamp_start: '2026-06-01T00:00:00.000Z', systems_touched: '[]',
+    };
+    let cursorPost = null;
+    global.fetch = vi.fn(async (url, init) => {
+      const u = String(url);
+      if (u.includes('status=pending_approval')) return { ok: true, json: async () => ({ actions: [] }) };
+      // Once the cursor is written the server-side filter hides the row.
+      if (u.includes('status=expired')) return { ok: true, json: async () => ({ actions: cursorPost ? [] : [EXPIRED] }) };
+      if (u === '/api/settings') {
+        cursorPost = JSON.parse(init.body);
+        return { ok: true, json: async () => ({ success: true }) };
+      }
+      if (u === '/api/session/effective') {
+        return { ok: true, json: async () => ({ authenticated: true, authType: 'local', role: 'admin', isAdmin: true }) };
+      }
+      return { ok: true, json: async () => ({}) };
+    });
+
+    const { default: ApprovalsPage } = await import('@/approvals/page.jsx');
+    render(<ApprovalsPage />);
+
+    await screen.findByText('Deploy release');
+    fireEvent.click(screen.getByRole('button', { name: /clear expired/i }));
+
+    await waitFor(() => expect(cursorPost).toBeTruthy());
+    expect(cursorPost.key).toBe('approvals_expired_cleared_at');
+    expect(Number.isFinite(Date.parse(cursorPost.value))).toBe(true);
+    await waitFor(() => expect(screen.queryByText('Deploy release')).toBeNull());
   });
 });
