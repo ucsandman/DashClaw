@@ -30,9 +30,9 @@ function inputSchema(tool: string): RegisteredTool["config"]["inputSchema"] {
 }
 
 describe("DashClaw-gated MCP tools", () => {
-  it("registers exactly the three DashClaw-gated tools", () => {
+  it("registers exactly the two DashClaw-gated tools", () => {
     const names = [...registeredTools().keys()].sort();
-    expect(names).toEqual(["dashclaw_recent_decisions", "dashclaw_status", "export_dashclaw_evidence"]);
+    expect(names).toEqual(["dashclaw_status", "export_dashclaw_evidence"]);
   });
 
   it("does not register any absorbed provider/launch/local-scaffolding tools", () => {
@@ -50,16 +50,15 @@ describe("DashClaw-gated MCP tools", () => {
       "create_launch_plan",
       "map_provider_resource",
       "approve_action",
+      "dashclaw_recent_decisions",
     ]) {
       expect(tools.has(gone)).toBe(false);
     }
   });
 
   it("validates numeric and provider options before handlers run", () => {
-    expect(inputSchema("dashclaw_recent_decisions").limit.safeParse(0).success).toBe(false);
-    expect(inputSchema("dashclaw_recent_decisions").limit.safeParse(1.5).success).toBe(false);
-    expect(inputSchema("dashclaw_recent_decisions").limit.safeParse(5).success).toBe(true);
     expect(inputSchema("export_dashclaw_evidence").limit.safeParse(-1).success).toBe(false);
+    expect(inputSchema("export_dashclaw_evidence").limit.safeParse(5).success).toBe(true);
     expect(inputSchema("export_dashclaw_evidence").provider.safeParse("vercel").success).toBe(true);
     expect(inputSchema("export_dashclaw_evidence").provider.safeParse("not-a-provider").success).toBe(false);
     expect(inputSchema("export_dashclaw_evidence").project.safeParse("  ").success).toBe(false);

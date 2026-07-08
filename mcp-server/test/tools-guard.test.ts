@@ -15,6 +15,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DashClawClient } from "../src/client.js";
+import { registerGovernance } from "../src/server.js";
 import { createToolHandlers } from "../src/tools.js";
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -41,6 +42,23 @@ function makeHandlers(agentId = "srv-agent") {
 function lastRequestBody(): any {
   const call = fetchMock.mock.calls.at(-1);
   return JSON.parse((call?.[1] as RequestInit).body as string);
+}
+
+function lastRequestUrl(): URL {
+  const call = fetchMock.mock.calls.at(-1);
+  return new URL(String(call?.[0]));
+}
+
+function registeredGovernanceHandlers() {
+  const tools = new Map<string, (args: any) => Promise<any>>();
+  const server = {
+    registerTool(name: string, _config: unknown, handler: (args: any) => Promise<any>) {
+      tools.set(name, handler);
+    },
+    registerResource() {},
+  };
+  registerGovernance(server as never, new DashClawClient({ url: "http://dashclaw.test", apiKey: "oc_live_test", agentId: "srv-agent" }));
+  return tools;
 }
 
 const GUARD_INPUT = { action_type: "deploy", declared_goal: "ship it", risk_score: 70 };
@@ -245,5 +263,52 @@ describe("dashclaw_record fails loud", () => {
     const out = JSON.parse(await makeHandlers().dashclaw_record(RECORD_INPUT));
     expect(out.action.action_id).toBe("act_1");
     expect(out.recorded).toBeUndefined();
+  });
+});
+
+describe("non-guard governance tools fail loud on transport errors", () => {
+  it.each([
+    ["dashclaw_invoke", { capability_id: "cap_1", declared_goal: "call capability" }],
+    ["dashclaw_capabilities_list", {}],
+    ["dashclaw_policies_list", {}],
+  ])("%s returns an MCP isError result with a redacted transport message", async (tool, input) => {
+    fetchMock.mockRejectedValue(new Error("connect ETIMEDOUT oc_live_test"));
+    const handlers = registeredGovernanceHandlers();
+
+    const result = await handlers.get(tool)!({ ...input });
+    const body = JSON.parse(result.content[0].text);
+
+    expect(result.isError).toBe(true);
+    expect(body.error).toContain("DashClaw API unreachable");
+    expect(body.error).toContain("***REDACTED***");
+    expect(body.error).not.toContain("oc_live_test");
+  });
+});
+
+describe("capabilities and policies list limits", () => {
+  it("passes a requested capabilities limit and slices ignored server results", async () => {
+    fetchMock.mockResolvedValue(mockOk({ capabilities: [{ id: 1 }, { id: 2 }, { id: 3 }] }));
+
+    const out = JSON.parse(await makeHandlers().dashclaw_capabilities_list({ limit: 2 }));
+
+    expect(lastRequestUrl().searchParams.get("limit")).toBe("2");
+    expect(out.capabilities).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it("passes a requested policies limit and slices ignored server results", async () => {
+    fetchMock.mockResolvedValue(mockOk({ policies: [{ id: 1 }, { id: 2 }, { id: 3 }] }));
+
+    const out = JSON.parse(await makeHandlers().dashclaw_policies_list({ limit: 2 }));
+
+    expect(lastRequestUrl().searchParams.get("limit")).toBe("2");
+    expect(out.policies).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it("uses 50 as the default list limit", async () => {
+    fetchMock.mockResolvedValue(mockOk({ capabilities: [] }));
+
+    await makeHandlers().dashclaw_capabilities_list({});
+
+    expect(lastRequestUrl().searchParams.get("limit")).toBe("50");
   });
 });

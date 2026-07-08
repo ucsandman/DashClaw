@@ -5,9 +5,9 @@ import * as svc from "../service.js";
 import { PROVIDER_IDS } from "../types.js";
 
 /**
- * Registers the DashClaw-gated stdio tools on the MCP server. These three tools
- * read from the DashClaw HTTP API (status, recent guard decisions, local
- * evidence export) and gate on the same DASHCLAW_URL/DASHCLAW_API_KEY
+ * Registers the DashClaw-gated stdio tools on the MCP server. These two tools
+ * read DashClaw status and export local evidence, gated on the same
+ * DASHCLAW_URL/DASHCLAW_API_KEY
  * credentials as the governance set (see registration.ts / server.ts). Handlers
  * are thin: validate args (via Zod), call the service layer, and return the
  * result as a JSON text block. Failures are returned with isError:true and an
@@ -77,20 +77,6 @@ export function registerTools(server: McpServer, store: Store): void {
       inputSchema: {},
     },
     guard(async () => ({ status: "ok", dashclaw: await svc.dashclawStatus() })),
-  );
-
-  server.registerTool(
-    "dashclaw_recent_decisions",
-    {
-      title: "DashClaw recent decisions",
-      description: "Read recent DashClaw guard decisions scoped to project/environment when supported by DashClaw.",
-      inputSchema: {
-        project: optionalNonEmptyString(),
-        environment: optionalNonEmptyString(),
-        limit: positiveInt().optional(),
-      },
-    },
-    guard((a: { project?: string; environment?: string; limit?: number }) => svc.dashclawRecentDecisions(store, a)),
   );
 
   server.registerTool(

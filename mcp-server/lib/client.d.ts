@@ -2,6 +2,7 @@
  * HTTP client for DashClaw REST API.
  * Used by MCP tool and resource handlers.
  */
+import { type DashclawRequestConfig } from "./dashclaw/client.js";
 export interface DashClawClientOptions {
     /** DashClaw instance URL */
     url?: string;
@@ -31,6 +32,8 @@ export declare class DashClawClient {
     authHeader: string;
     constructor({ url, apiKey, agentId, authHeader }?: DashClawClientOptions);
     _authHeaders(): Record<string, string>;
+    _requestConfig(timeout: number): DashclawRequestConfig;
+    _failureBody(data: unknown, status: number): any;
     post(path: string, body: unknown, { timeout }?: {
         timeout?: number;
     }): Promise<any>;

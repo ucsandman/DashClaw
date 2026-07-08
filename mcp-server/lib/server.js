@@ -150,7 +150,7 @@ export function createServer(config = {}) {
 }
 /**
  * Conditional composition for the stdio server: the governance set and the
- * three DashClaw-gated stdio tools register iff DashClaw credentials are
+ * two DashClaw-gated stdio tools register iff DashClaw credentials are
  * present in the environment.
  */
 export function composeServer(server, store) {
@@ -174,7 +174,7 @@ export function composeServer(server, store) {
                 `Set ${missing} to restore governance.`);
         }
     }
-    // registerTools registers only the three DASHCLAW_GATED_TOOLS, which require
+    // registerTools registers only the DASHCLAW_GATED_TOOLS, which require
     // the DashClaw credentials. A filtering facade keeps registration conditional
     // without the tool handlers knowing about the gate.
     const allowed = (name) => DASHCLAW_GATED_TOOLS.has(name) ? governance : true;

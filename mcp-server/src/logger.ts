@@ -11,7 +11,3 @@ export function logEvent(
   };
   console.error(JSON.stringify(entry));
 }
-
-export function startupLoggingEnabled(): boolean {
-  return process.env.DASHCLAW_LOG_STARTUP === "true";
-}

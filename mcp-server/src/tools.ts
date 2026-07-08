@@ -125,6 +125,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         category: { type: 'string', description: 'Filter by category: external_api, webhook, function' },
         risk_level: { type: 'string', description: 'Filter: low, medium, high, critical' },
         search: { type: 'string', description: 'Search by name or description' },
+        limit: { type: 'integer', description: 'Max results (default 50)' },
       },
     },
   },
@@ -138,6 +139,7 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
       type: 'object',
       properties: {
         agent_id: { type: 'string', description: 'Filter to policies applying to a specific agent' },
+        limit: { type: 'integer', description: 'Max results (default 50)' },
       },
     },
   },
@@ -286,6 +288,31 @@ function transportDetail(result: any): string {
   if (result.error) return String(result.error);
   if (result._status != null && result._status !== 0) return `HTTP ${result._status}`;
   return 'no decision in response';
+}
+
+function throwOnTransportFailure(toolName: string, result: any): void {
+  if (result && typeof result === 'object' && result._status === 0) {
+    throw new Error(`${toolName} failed: DashClaw API unreachable — ${transportDetail(result)}`);
+  }
+}
+
+function readLimit(input: any): number {
+  if (input.limit === undefined || input.limit === null || input.limit === '') return 50;
+  if (!Number.isSafeInteger(input.limit) || input.limit <= 0) {
+    throw new Error('limit must be a positive integer.');
+  }
+  return input.limit;
+}
+
+function sliceResultArray(result: any, keys: string[], limit: number): any {
+  if (Array.isArray(result)) return result.slice(0, limit);
+  if (!result || typeof result !== 'object') return result;
+  for (const key of keys) {
+    if (Array.isArray(result[key]) && result[key].length > limit) {
+      return { ...result, [key]: result[key].slice(0, limit) };
+    }
+  }
+  return result;
 }
 
 // Parse a client.fetch() response and make failure STRUCTURAL: on non-2xx (or
@@ -472,23 +499,30 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         declared_goal: input.declared_goal,
         payload: input.payload,
       }, { timeout: 30000 });
+      throwOnTransportFailure('dashclaw_invoke', result);
       return JSON.stringify(result);
     },
 
     async dashclaw_capabilities_list(input: any) {
+      const limit = readLimit(input);
       const result = await client.get('/api/capabilities', {
         category: input.category,
         risk_level: input.risk_level,
         search: input.search,
+        limit,
       }, { timeout: 10000 });
-      return JSON.stringify(result);
+      throwOnTransportFailure('dashclaw_capabilities_list', result);
+      return JSON.stringify(sliceResultArray(result, ['capabilities', 'items'], limit));
     },
 
     async dashclaw_policies_list(input: any) {
+      const limit = readLimit(input);
       const result = await client.get('/api/policies', {
         agent_id: input.agent_id,
+        limit,
       }, { timeout: 10000 });
-      return JSON.stringify(result);
+      throwOnTransportFailure('dashclaw_policies_list', result);
+      return JSON.stringify(sliceResultArray(result, ['policies', 'items'], limit));
     },
 
     async dashclaw_wait_for_approval(input: any) {

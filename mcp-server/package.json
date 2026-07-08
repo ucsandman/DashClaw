@@ -52,10 +52,11 @@
     "dev": "tsx src/index.ts",
     "cli": "tsx src/cli.ts",
     "start": "node lib/index.js",
+    "route-drift": "vitest run test/route-drift.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "verify": "npm run typecheck && npm run build && npm test && npm audit",
+    "verify": "npm run test -- test/route-drift.test.ts && npm run typecheck && npm run build && npm test && npm audit",
     "prepublishOnly": "npm run verify"
   },
   "dependencies": {

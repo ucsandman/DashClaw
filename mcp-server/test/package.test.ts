@@ -32,12 +32,12 @@ describe("npm package contents", () => {
     expect(pkg.bin).toEqual({ "dashclaw-mcp": "bin/dashclaw-mcp.js" });
   });
 
-  it("builds before running tests in the shared verify gate", () => {
+  it("checks route drift and builds before running tests in the shared verify gate", () => {
     const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
       scripts: Record<string, string>;
     };
 
-    expect(pkg.scripts.verify).toBe("npm run typecheck && npm run build && npm test && npm audit");
+    expect(pkg.scripts.verify).toBe("npm run test -- test/route-drift.test.ts && npm run typecheck && npm run build && npm test && npm audit");
   });
 
   it("includes NOTICE, LICENSE, the entry bin, and the compiled server", () => {

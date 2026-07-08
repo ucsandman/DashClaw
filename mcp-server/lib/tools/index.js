@@ -52,15 +52,6 @@ export function registerTools(server, store) {
         description: "Check DashClaw authoritative gate configuration and reachability.",
         inputSchema: {},
     }, guard(async () => ({ status: "ok", dashclaw: await svc.dashclawStatus() })));
-    server.registerTool("dashclaw_recent_decisions", {
-        title: "DashClaw recent decisions",
-        description: "Read recent DashClaw guard decisions scoped to project/environment when supported by DashClaw.",
-        inputSchema: {
-            project: optionalNonEmptyString(),
-            environment: optionalNonEmptyString(),
-            limit: positiveInt().optional(),
-        },
-    }, guard((a) => svc.dashclawRecentDecisions(store, a)));
     server.registerTool("export_dashclaw_evidence", {
         title: "Export DashClaw evidence",
         description: "Export local audit entries that include DashClaw guard/evidence metadata.",

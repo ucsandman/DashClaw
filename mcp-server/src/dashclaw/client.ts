@@ -3,12 +3,31 @@ import type { DashclawConfig } from "./types.js";
 
 const DEFAULT_DASHCLAW_TIMEOUT_MS = 30_000;
 
-function redact(text: string, apiKey?: string): string {
+type QueryValue = string | number | boolean | null | undefined;
+
+export interface DashclawRequestConfig extends DashclawConfig {
+  authHeader?: string;
+}
+
+export interface DashclawRequestOptions {
+  method?: string;
+  body?: unknown;
+  query?: Record<string, QueryValue>;
+  headers?: Record<string, string>;
+  timeoutMs?: number;
+}
+
+export function redactDashclawMessage(text: string, configOrApiKey?: DashclawRequestConfig | string): string {
   let out = text.replace(
     /\b([A-Z0-9_]*(?:TOKEN|SECRET|PASSWORD|API_?KEY|ACCESS_TOKEN)[A-Z0-9_]*)\s*[=:]\s*("?)[^\s",}]+\2/gi,
     "$1=***REDACTED***",
   );
-  if (apiKey) out = out.split(apiKey).join("***REDACTED***");
+  const secrets = typeof configOrApiKey === "string"
+    ? [configOrApiKey]
+    : [configOrApiKey?.apiKey, configOrApiKey?.authHeader];
+  for (const secret of secrets) {
+    if (secret) out = out.split(secret).join("***REDACTED***");
+  }
   return out;
 }
 
@@ -59,45 +78,66 @@ export function dashclawConfigFromEnv(): DashclawConfig {
   return { baseUrl: baseUrl.replace(/\/+$/, ""), apiKey, timeoutMs: readTimeout(), mode };
 }
 
-export async function dashclawFetch<T = unknown>(
+function authHeaders(config: DashclawRequestConfig): Record<string, string> {
+  return config.authHeader ? { Authorization: config.authHeader } : { "x-api-key": config.apiKey };
+}
+
+export async function dashclawRequest(
   path: string,
-  opts: { method?: string; body?: unknown; query?: Record<string, string | undefined> } = {},
-): Promise<T> {
-  const config = dashclawConfigFromEnv();
+  opts: DashclawRequestOptions = {},
+  config: DashclawRequestConfig = dashclawConfigFromEnv(),
+): Promise<Response> {
   const url = new URL(path, `${config.baseUrl}/`);
   for (const [key, value] of Object.entries(opts.query ?? {})) {
-    if (value !== undefined && value !== "") url.searchParams.set(key, value);
+    if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, String(value));
   }
 
+  const timeoutMs = opts.timeoutMs ?? config.timeoutMs;
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), config.timeoutMs);
-  let response: Response;
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    response = await fetch(url.toString(), {
+    return await fetch(url.toString(), {
       method: opts.method ?? "GET",
       headers: {
-        "Content-Type": "application/json",
-        "x-api-key": config.apiKey,
+        ...(opts.body === undefined ? {} : { "Content-Type": "application/json" }),
+        ...authHeaders(config),
+        ...(opts.headers ?? {}),
       },
-      body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
+      body: opts.body === undefined
+        ? undefined
+        : (typeof opts.body === "string" ? opts.body : JSON.stringify(opts.body)),
       signal: controller.signal,
     });
   } catch (err) {
-    clearTimeout(timeout);
     const message = controller.signal.aborted
-      ? `Timed out after ${config.timeoutMs}ms calling DashClaw.`
+      ? `Timed out after ${timeoutMs}ms calling DashClaw.`
       : `Network error calling DashClaw: ${err instanceof Error ? err.message : String(err)}`;
-    throw new DashclawError(redact(message, config.apiKey));
+    throw new DashclawError(redactDashclawMessage(message, config));
+  } finally {
+    clearTimeout(timeout);
   }
-  clearTimeout(timeout);
+}
 
-  const text = await response.text();
-  const parsed = text ? safeJson(text) : undefined;
+export async function dashclawFetch<T = unknown>(
+  path: string,
+  opts: DashclawRequestOptions = {},
+): Promise<T> {
+  const config = dashclawConfigFromEnv();
+  const response = await dashclawRequest(path, opts, config);
+
+  const parsed = await parseDashclawResponseBody(response);
   if (!response.ok) {
     const detail = typeof parsed === "string" ? parsed : JSON.stringify(parsed ?? {});
-    throw new DashclawError(redact(`${response.status} ${response.statusText} from DashClaw: ${detail}`, config.apiKey));
+    throw new DashclawError(
+      redactDashclawMessage(`${response.status} ${response.statusText} from DashClaw: ${detail}`, config),
+    );
   }
   return parsed as T;
+}
+
+export async function parseDashclawResponseBody(response: Response): Promise<unknown> {
+  const text = await response.text();
+  return text ? safeJson(text) : undefined;
 }
 
 function safeJson(text: string): unknown {

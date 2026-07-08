@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { DashClawClient } from "../src/client.js";
 import { __resetInsecureUrlWarning, dashclawConfigFromEnv, dashclawFetch } from "../src/dashclaw/client.js";
 
 afterEach(() => {
@@ -27,6 +28,17 @@ describe("DashClaw client", () => {
 
   it("fails clearly when required env vars are missing", () => {
     expect(() => dashclawConfigFromEnv()).toThrow(/DASHCLAW_URL/i);
+  });
+
+  it("accepts both DASHCLAW_TIMEOUT_MS and DASHCLAW_HTTP_TIMEOUT_MS", () => {
+    process.env.DASHCLAW_URL = "https://dashclaw.example";
+    process.env.DASHCLAW_API_KEY = "dc_secret";
+
+    process.env.DASHCLAW_HTTP_TIMEOUT_MS = "1234";
+    expect(dashclawConfigFromEnv().timeoutMs).toBe(1234);
+
+    process.env.DASHCLAW_TIMEOUT_MS = "4321";
+    expect(dashclawConfigFromEnv().timeoutMs).toBe(4321);
   });
 
   it("warns once when DASHCLAW_URL is plaintext http to a non-local host", () => {
@@ -77,5 +89,25 @@ describe("DashClaw client", () => {
         headers: expect.objectContaining({ "x-api-key": "dc_secret" }),
       }),
     );
+  });
+
+  it("lets DashClawClient prefer an OAuth Authorization header over x-api-key", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const client = new DashClawClient({
+      url: "https://dashclaw.example",
+      apiKey: "dc_secret",
+      authHeader: "Bearer oauth_token",
+    });
+    await client.get("/api/policies");
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://dashclaw.example/api/policies",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer oauth_token" }),
+      }),
+    );
+    expect((fetchMock.mock.calls[0][1] as RequestInit).headers).not.toHaveProperty("x-api-key");
   });
 });

@@ -196,7 +196,7 @@ export interface ComposeResult {
 
 /**
  * Conditional composition for the stdio server: the governance set and the
- * three DashClaw-gated stdio tools register iff DashClaw credentials are
+ * two DashClaw-gated stdio tools register iff DashClaw credentials are
  * present in the environment.
  */
 export function composeServer(server: McpServer, store: Store): ComposeResult {
@@ -223,7 +223,7 @@ export function composeServer(server: McpServer, store: Store): ComposeResult {
     }
   }
 
-  // registerTools registers only the three DASHCLAW_GATED_TOOLS, which require
+  // registerTools registers only the DASHCLAW_GATED_TOOLS, which require
   // the DashClaw credentials. A filtering facade keeps registration conditional
   // without the tool handlers knowing about the gate.
   const allowed = (name: string): boolean =>

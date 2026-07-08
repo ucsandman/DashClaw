@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (12)
+## Tools (12 governance + 2 stdio support)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -116,7 +116,7 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 |---|---|
 | `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
 
-### DashClaw-gated stdio tools (3)
+### DashClaw-gated stdio tools (2)
 
 Registered by [`src/tools/index.ts`](./src/tools/index.ts) on the local stdio
 server only, gated on the same `DASHCLAW_URL` + `DASHCLAW_API_KEY` credentials
@@ -125,7 +125,6 @@ as the governance set:
 | Tool | Description |
 |---|---|
 | `dashclaw_status` | Check DashClaw gate configuration and reachability |
-| `dashclaw_recent_decisions` | Read recent DashClaw guard decisions |
 | `export_dashclaw_evidence` | Export local audit entries carrying DashClaw guard/evidence metadata |
 
 ## Resources (3)
@@ -151,7 +150,6 @@ lives in [`.env.example`](./.env.example).
 | | `DASHCLAW_LOCAL_HOME` | `<cwd>/.dashclaw-local` | Where local state lives (see Storage below) |
 | | `DASHCLAW_TIMEOUT_MS` | `30000` | DashClaw API request timeout |
 | | `DASHCLAW_LOCK_STALE_MS` | `30000` | Stale file-lock threshold for local state files |
-| | `DASHCLAW_LOG_STARTUP` | `false` | Structured startup logs to stderr |
 | | `DASHCLAW_AUDIT_MAX_ENTRIES` | (unlimited) | Cap retained audit entries |
 
 CLI args take precedence over environment variables.

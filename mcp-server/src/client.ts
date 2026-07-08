@@ -3,6 +3,8 @@
  * Used by MCP tool and resource handlers.
  */
 
+import { dashclawRequest, parseDashclawResponseBody, type DashclawRequestConfig } from "./dashclaw/client.js";
+
 export interface DashClawClientOptions {
   /** DashClaw instance URL */
   url?: string;
@@ -46,19 +48,31 @@ export class DashClawClient {
     return this.authHeader ? { Authorization: this.authHeader } : { "x-api-key": this.apiKey };
   }
 
+  _requestConfig(timeout: number): DashclawRequestConfig {
+    return {
+      baseUrl: this.baseUrl,
+      apiKey: this.apiKey,
+      authHeader: this.authHeader,
+      timeoutMs: timeout,
+      mode: "authoritative",
+    };
+  }
+
+  _failureBody(data: unknown, status: number): any {
+    const body = data && typeof data === "object" && !Array.isArray(data)
+      ? data
+      : { error: typeof data === "string" ? data : `HTTP ${status}` };
+    return { ...body, _status: status };
+  }
+
   async post(path: string, body: unknown, { timeout = 10000 }: { timeout?: number } = {}): Promise<any> {
     try {
-      const res = await fetch(`${this.baseUrl}${path}`, {
+      const res = await dashclawRequest(path, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...this._authHeaders(),
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeout),
-      });
-      const data: any = await res.json();
-      if (!res.ok) return { ...data, _status: res.status };
+        body,
+      }, this._requestConfig(timeout));
+      const data: any = await parseDashclawResponseBody(res);
+      if (!res.ok) return this._failureBody(data, res.status);
       return data;
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err), _status: 0 };
@@ -72,13 +86,11 @@ export class DashClawClient {
     const qs = new URLSearchParams(filtered).toString();
     const url = qs ? `${this.baseUrl}${path}?${qs}` : `${this.baseUrl}${path}`;
     try {
-      const res = await fetch(url, {
+      const res = await dashclawRequest(url, {
         method: "GET",
-        headers: { ...this._authHeaders() },
-        signal: AbortSignal.timeout(timeout),
-      });
-      const data: any = await res.json();
-      if (!res.ok) return { ...data, _status: res.status };
+      }, this._requestConfig(timeout));
+      const data: any = await parseDashclawResponseBody(res);
+      if (!res.ok) return this._failureBody(data, res.status);
       return data;
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err), _status: 0 };
@@ -87,17 +99,12 @@ export class DashClawClient {
 
   async patch(path: string, body: unknown, { timeout = 10000 }: { timeout?: number } = {}): Promise<any> {
     try {
-      const res = await fetch(`${this.baseUrl}${path}`, {
+      const res = await dashclawRequest(path, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          ...this._authHeaders(),
-        },
-        body: JSON.stringify(body),
-        signal: AbortSignal.timeout(timeout),
-      });
-      const data: any = await res.json();
-      if (!res.ok) return { ...data, _status: res.status };
+        body,
+      }, this._requestConfig(timeout));
+      const data: any = await parseDashclawResponseBody(res);
+      if (!res.ok) return this._failureBody(data, res.status);
       return data;
     } catch (err) {
       return { error: err instanceof Error ? err.message : String(err), _status: 0 };
@@ -115,12 +122,11 @@ export class DashClawClient {
     if (opts.body && !headers["Content-Type"]) headers["Content-Type"] = "application/json";
     const timeout = opts.timeout ?? 10000;
     try {
-      const res = await fetch(`${this.baseUrl}${path}`, {
+      const res = await dashclawRequest(path, {
         method,
         headers,
         body: opts.body,
-        signal: AbortSignal.timeout(timeout),
-      });
+      }, this._requestConfig(timeout));
       return res;
     } catch (err) {
       return {

@@ -40,7 +40,7 @@ export interface ComposeResult {
 }
 /**
  * Conditional composition for the stdio server: the governance set and the
- * three DashClaw-gated stdio tools register iff DashClaw credentials are
+ * two DashClaw-gated stdio tools register iff DashClaw credentials are
  * present in the environment.
  */
 export declare function composeServer(server: McpServer, store: Store): ComposeResult;

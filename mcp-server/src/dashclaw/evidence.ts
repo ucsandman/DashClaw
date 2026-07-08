@@ -32,16 +32,6 @@ export async function dashclawStatusReport(): Promise<DashclawStatusReport> {
   }
 }
 
-export function dashclawRecentDecisionsFetch(query: { project?: string; environment?: string; limit?: number }) {
-  return dashclawFetch("/api/guard/decisions", {
-    query: {
-      project: query.project,
-      environment: query.environment,
-      limit: query.limit === undefined ? undefined : String(query.limit),
-    },
-  });
-}
-
 // The platform's outcome endpoint accepts only its terminal states
 // (completed | partial | failed) and rejects outcomes for actions that were
 // never dispatched (blocked / pending approval) — see

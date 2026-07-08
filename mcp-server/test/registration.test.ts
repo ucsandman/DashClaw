@@ -33,7 +33,7 @@ describe("conditional tool registration", () => {
     const result = composeServer(server, freshStore());
 
     expect(result.governance).toBe(false);
-    // The three DashClaw-gated tools gate on the same credentials as the
+    // The DashClaw-gated tools gate on the same credentials as the
     // governance set, so with no credentials nothing registers.
     expect(tools).toEqual([]);
     expect(resources).toHaveLength(0);
@@ -50,9 +50,9 @@ describe("conditional tool registration", () => {
     expect(tools).toContain("dashclaw_guard");
     expect(tools).toContain("dashclaw_record");
     expect(tools).toContain("dashclaw_wait_for_approval");
-    // The three env-config DashClaw tools gate on the same credentials.
+    // The env-config DashClaw tools gate on the same credentials.
     expect(tools).toContain("dashclaw_status");
-    expect(tools).toContain("dashclaw_recent_decisions");
+    expect(tools).not.toContain("dashclaw_recent_decisions");
     expect(tools).toContain("export_dashclaw_evidence");
     expect([...DASHCLAW_GATED_TOOLS].every((name) => tools.includes(name))).toBe(true);
     expect(resources).toContain("DashClaw Policies");

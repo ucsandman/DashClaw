@@ -4,7 +4,7 @@
  *
  * - Governance tools/resources (dashclaw_* from src/tools.ts) register only
  *   when DASHCLAW_URL and DASHCLAW_API_KEY are both set.
- * - The three DashClaw-gated stdio tools (src/tools/index.ts) talk to the
+ * - The two DashClaw-gated stdio tools (src/tools/index.ts) talk to the
  *   DashClaw API via env config and gate on the same credentials.
  */
 /**

@@ -1,4 +1,4 @@
-import { dashclawRecentDecisionsFetch, dashclawStatusReport } from "./dashclaw/evidence.js";
+import { dashclawStatusReport } from "./dashclaw/evidence.js";
 import { resolveProject } from "./resolve.js";
 import { PROVIDER_IDS } from "./types.js";
 import { newId, nowIso, DashclawError } from "./util.js";
@@ -9,9 +9,8 @@ import { newId, nowIso, DashclawError } from "./util.js";
  *
  * The absorbed provider-execution fork (providers, launch plans, local
  * scaffolding, and the duplicate local governance store) was removed in the v5
- * cull; what remains is the local-state bootstrap plus the three DashClaw
- * evidence/status reads that back dashclaw_status / dashclaw_recent_decisions /
- * export_dashclaw_evidence.
+ * cull; what remains is the local-state bootstrap plus the DashClaw
+ * evidence/status reads that back dashclaw_status / export_dashclaw_evidence.
  */
 export function ensureDefaultWorkspace(store) {
     const existing = store.data.workspaces.find((w) => w.id === store.data.defaultWorkspaceId)
@@ -66,14 +65,5 @@ export function exportDashclawEvidence(store, input = {}) {
         exportedAt: nowIso(),
         entries,
     };
-}
-export async function dashclawRecentDecisions(store, input = {}) {
-    assertPositiveInteger(input.limit, "limit");
-    const project = input.project ? resolveProject(store, input.project).slug : undefined;
-    return dashclawRecentDecisionsFetch({
-        project,
-        environment: input.environment,
-        limit: input.limit ?? 20,
-    });
 }
 //# sourceMappingURL=service.js.map
