@@ -251,6 +251,52 @@
 }
 .verbFoot b { color: var(--color-text-secondary); font-weight: 500; }
 
+/* collapsible / capped inbox sections (one per kind) */
+.inboxSection {
+  margin-bottom: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--color-bg-secondary);
+}
+.sectionHead { display: flex; align-items: center; gap: 8px; padding: 10px 14px; }
+.headBtn {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.headBtn:focus-visible { outline: 2px solid var(--color-brand); outline-offset: 2px; border-radius: 4px; }
+.chev { color: var(--color-text-tertiary); flex: none; transition: transform 0.15s; }
+.chev.collapsed { transform: rotate(-90deg); }
+.sLabel { font-size: 13px; font-weight: 600; color: var(--color-text-primary); }
+.sCount { font-family: var(--mono); font-size: 11px; color: var(--color-text-tertiary); }
+.sectionRows { border-top: 1px solid var(--color-border); }
+.sectionRows > .card { border: none; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+.sectionRows > .card:first-child { border-top: none; }
+.showMoreRow { display: flex; justify-content: center; padding: 8px; border-top: 1px solid var(--color-border); }
+.bulkReason { display: flex; align-items: center; gap: 8px; padding: 0 14px 10px; }
+.bulkReason input {
+  flex: 1;
+  min-width: 140px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xs);
+  padding: 6px 10px;
+  color: var(--color-text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+}
+.bulkReason input:focus { border-color: var(--color-border-active); }
+
 /* ---------- presets & shields ---------- */
 .presets { display: grid; grid-template-columns: 300px 1fr; gap: 12px; margin-bottom: 14px; }
 .presetCard { padding: 14px 16px; }
@@ -604,5 +650,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .btn, .toggle, .toggle::after, .miniToggle::after, .chip, .card, .shield { transition: none; }
+  .btn, .toggle, .toggle::after, .miniToggle::after, .chip, .card, .shield, .chev { transition: none; }
 }

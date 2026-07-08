@@ -484,6 +484,173 @@ function InboxRow({
 }
 
 // ---------------------------------------------------------------------------
+// Section — groups one kind into a collapsible, capped, bulk-clearable block.
+// On a live instance a single queue can be dozens of items; grouping + a cap
+// keeps the page short, and "Dismiss all" / "Mark all fine" clears the noise.
+// ---------------------------------------------------------------------------
+
+const SECTION_META: Array<{
+  kind: InboxItem['kind'];
+  label: string;
+  Icon: typeof TriangleAlert;
+  tagClass: string | undefined;
+}> = [
+  { kind: 'warn', label: 'Warn groups', Icon: TriangleAlert, tagClass: styles.ktWarn },
+  { kind: 'tuning', label: 'Tuning', Icon: SlidersHorizontal, tagClass: styles.ktTune },
+  { kind: 'tighten', label: 'Tighten', Icon: ShieldPlus, tagClass: styles.ktTight },
+  { kind: 'loosen', label: 'Loosen', Icon: ShieldMinus, tagClass: styles.ktLoose },
+  { kind: 'calibration', label: 'Calibration', Icon: Gauge, tagClass: styles.ktCal },
+];
+
+const SECTION_CAP = 4;
+
+type RowHandlers = Pick<RowProps, 'onFine' | 'onWarnPrimary' | 'onPrimary' | 'onDismiss' | 'onUndo'>;
+
+interface SectionProps {
+  meta: (typeof SECTION_META)[number];
+  items: InboxItem[];
+  pendingCount: number;
+  resolutions: Record<string, Resolution>;
+  busy: Record<string, boolean>;
+  errors: Record<string, string>;
+  handlers: RowHandlers;
+  onFineAll: (items: InboxItem[]) => void;
+  onDismissAll: (items: InboxItem[], reason: string) => void;
+}
+
+function InboxSection({
+  meta,
+  items,
+  pendingCount,
+  resolutions,
+  busy,
+  errors,
+  handlers,
+  onFineAll,
+  onDismissAll,
+}: SectionProps) {
+  const [collapsed, setCollapsed] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const [bulkReason, setBulkReason] = useState<string | null>(null); // null = idle
+  const [confirmFine, setConfirmFine] = useState(false);
+
+  const { Icon, label, tagClass } = meta;
+  const isWarn = meta.kind === 'warn';
+  const unresolved = items.filter((i) => !resolutions[i.key]);
+  const shown = showAll ? items : items.slice(0, SECTION_CAP);
+  const hiddenCount = items.length - shown.length;
+
+  return (
+    <div className={styles.inboxSection}>
+      <div className={styles.sectionHead}>
+        <button
+          type="button"
+          className={styles.headBtn}
+          onClick={() => setCollapsed((v) => !v)}
+          aria-expanded={!collapsed}
+          aria-label={`${collapsed ? 'Expand' : 'Collapse'} ${label} (${pendingCount})`}
+        >
+          <ChevronDown size={15} className={`${styles.chev} ${collapsed ? styles.collapsed : ''}`} aria-hidden="true" />
+          <span className={`${styles.kindTag} ${tagClass}`}>
+            <Icon size={12} aria-hidden="true" />
+            {label}
+          </span>
+          <span className={styles.sCount}>{pendingCount}</span>
+        </button>
+
+        {unresolved.length > 0 &&
+          (isWarn ? (
+            confirmFine ? (
+              <>
+                <button type="button" className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`} onClick={() => setConfirmFine(false)}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.btn} ${styles.btnSm}`}
+                  onClick={() => {
+                    setConfirmFine(false);
+                    onFineAll(unresolved);
+                  }}
+                >
+                  Confirm: mark {unresolved.length} fine
+                </button>
+              </>
+            ) : (
+              <button type="button" className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`} onClick={() => setConfirmFine(true)}>
+                Mark all fine
+              </button>
+            )
+          ) : (
+            <button
+              type="button"
+              className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost} ${styles.btnDanger}`}
+              onClick={() => setBulkReason((r) => (r == null ? '' : null))}
+            >
+              Dismiss all {unresolved.length}
+            </button>
+          ))}
+      </div>
+
+      {!collapsed && !isWarn && bulkReason != null && unresolved.length > 0 && (
+        <div className={styles.bulkReason}>
+          <input
+            type="text"
+            value={bulkReason}
+            onChange={(e) => setBulkReason(e.target.value)}
+            placeholder={`Reason to dismiss all ${unresolved.length} (required)`}
+            aria-label={`Reason to dismiss all ${label}`}
+          />
+          <button type="button" className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`} onClick={() => setBulkReason(null)}>
+            Cancel
+          </button>
+          <button
+            type="button"
+            disabled={!bulkReason.trim()}
+            className={`${styles.btn} ${styles.btnSm} ${styles.btnPrimary}`}
+            onClick={() => {
+              const r = bulkReason.trim();
+              setBulkReason(null);
+              onDismissAll(unresolved, r);
+            }}
+          >
+            Dismiss {unresolved.length}
+          </button>
+        </div>
+      )}
+
+      {!collapsed && (
+        <div className={styles.sectionRows}>
+          {shown.map((item) => (
+            <InboxRow
+              key={item.key}
+              item={item}
+              resolution={resolutions[item.key]}
+              busy={busy[item.key] ?? false}
+              error={errors[item.key] ?? null}
+              {...handlers}
+            />
+          ))}
+          {hiddenCount > 0 ? (
+            <div className={styles.showMoreRow}>
+              <button type="button" className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`} onClick={() => setShowAll(true)}>
+                Show {hiddenCount} more
+              </button>
+            </div>
+          ) : showAll && items.length > SECTION_CAP ? (
+            <div className={styles.showMoreRow}>
+              <button type="button" className={`${styles.btn} ${styles.btnSm} ${styles.btnGhost}`} onClick={() => setShowAll(false)}>
+                Show less
+              </button>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // The inbox.
 // ---------------------------------------------------------------------------
 
@@ -734,6 +901,15 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
     [onChanged],
   );
 
+  // Bulk clear a whole section — reuses the per-item paths so optimism + undo
+  // still work on each row.
+  const handleFineAll = useCallback((its: InboxItem[]) => {
+    its.forEach((it) => handleFine(it));
+  }, [handleFine]);
+  const handleDismissAll = useCallback((its: InboxItem[], reason: string) => {
+    its.forEach((it) => handleDismiss(it, reason));
+  }, [handleDismiss]);
+
   const handleMarkAll = useCallback(async () => {
     setMarkAllError(null);
     try {
@@ -798,21 +974,32 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
         />
       ) : (
         <>
-          <div className={styles.inbox}>
-            {visibleItems.map((item) => (
-              <InboxRow
-                key={item.key}
-                item={item}
-                resolution={resolutions[item.key]}
-                busy={busy[item.key] ?? false}
-                error={errors[item.key] ?? null}
-                onFine={handleFine}
-                onWarnPrimary={handleWarnPrimary}
-                onPrimary={handlePrimary}
-                onDismiss={handleDismiss}
-                onUndo={handleUndo}
-              />
-            ))}
+          <div>
+            {SECTION_META.map((meta) => {
+              const kindItems = visibleItems.filter((it) => it.kind === meta.kind);
+              if (kindItems.length === 0) return null;
+              const pendingCount = kindItems.filter((it) => !resolutions[it.key]).length;
+              return (
+                <InboxSection
+                  key={meta.kind}
+                  meta={meta}
+                  items={kindItems}
+                  pendingCount={pendingCount}
+                  resolutions={resolutions}
+                  busy={busy}
+                  errors={errors}
+                  handlers={{
+                    onFine: handleFine,
+                    onWarnPrimary: handleWarnPrimary,
+                    onPrimary: handlePrimary,
+                    onDismiss: handleDismiss,
+                    onUndo: handleUndo,
+                  }}
+                  onFineAll={handleFineAll}
+                  onDismissAll={handleDismissAll}
+                />
+              );
+            })}
           </div>
           <div className={styles.verbFoot}>
             <RotateCcw size={12} aria-hidden="true" />
