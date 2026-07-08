@@ -18,6 +18,7 @@ import type { FC } from 'react';
 import {
   Table, AlignLeft, LayoutGrid, Search, Upload, Plus, Layers, Shield, Star,
   BrainCircuit, Play, Download, Copy, Check, Pencil, Trash2, X, FlaskConical, FileText,
+  ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import styles from '../policies.module.css';
 import { EmptyState } from '../../components/ui/EmptyState';
@@ -500,13 +501,6 @@ export default function Ledger({
     return () => window.removeEventListener('keydown', onKey);
   }, [showEditor, simulate, closeOwnModals]);
 
-  // Scroll a deep-linked row into view once the rows are present.
-  useEffect(() => {
-    if (highlightPolicy && lens === 'table' && highlightRef.current) {
-      highlightRef.current.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    }
-  }, [highlightPolicy, lens, policies]);
-
   // ---- classification + filtering (shared across lenses) ----
   const classified = useMemo(
     () => policies.map((row) => classify(row, summary?.rules)),
@@ -554,6 +548,31 @@ export default function Ledger({
     () => filtered.reduce((m, c) => Math.max(m, c.fired30d), 0),
     [filtered],
   );
+
+  // ---- pagination (Table lens): bound the scroll on large rule sets ----
+  const PAGE_SIZE = 25;
+  const [page, setPage] = useState(0);
+  useEffect(() => { setPage(0); }, [search, sourceFilter, bucketFilter, status]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageStart = safePage * PAGE_SIZE;
+  const pageRows = useMemo(() => filtered.slice(pageStart, pageStart + PAGE_SIZE), [filtered, pageStart]);
+
+  // Jump to (and scroll to) the page holding a deep-linked row.
+  useEffect(() => {
+    if (!highlightPolicy || lens !== 'table') return;
+    const idx = filtered.findIndex((c) => isHighlighted(c.row));
+    if (idx < 0) return;
+    const target = Math.floor(idx / PAGE_SIZE);
+    if (target !== safePage) {
+      setPage(target);
+      return;
+    }
+    const raf = requestAnimationFrame(() =>
+      highlightRef.current?.scrollIntoView({ block: 'center', behavior: 'smooth' }),
+    );
+    return () => cancelAnimationFrame(raf);
+  }, [highlightPolicy, lens, filtered, isHighlighted, safePage]);
 
   const filterText = useMemo(() => {
     const parts: string[] = [];
@@ -730,7 +749,7 @@ export default function Ledger({
           </tr>
         </thead>
         <tbody>
-          {filtered.map((c) => {
+          {pageRows.map((c) => {
             const row = c.row;
             const hi = isHighlighted(row);
             const isLearned = c.source === 'learned';
@@ -1018,11 +1037,38 @@ export default function Ledger({
       {/* Footer */}
       <div className={styles.footerActions}>
         <span className="left">
-          {lens === 'sentences'
-            ? 'Plain-English view of the same rules.'
-            : <>Showing <b>{filtered.length}</b> of <b>{policies.length}</b> rules &middot; filtered to <b>{filterText}</b></>}
+          {lens === 'sentences' ? (
+            'Plain-English view of the same rules.'
+          ) : lens === 'groups' ? (
+            <><b>{filtered.length}</b> of <b>{policies.length}</b> rules, grouped by source</>
+          ) : filtered.length === 0 ? (
+            <>No rules match &middot; <b>{filterText}</b></>
+          ) : (
+            <>Showing <b>{pageStart + 1}&ndash;{Math.min(pageStart + PAGE_SIZE, filtered.length)}</b> of <b>{filtered.length}</b> rules &middot; <b>{filterText}</b></>
+          )}
         </span>
-        <div style={{ display: 'flex', gap: 8 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {lens === 'table' && pageCount > 1 && (
+            <div className={styles.pager}>
+              <button
+                className={`${styles.btn} ${styles.btnSm} ${styles.btnIcon}`}
+                disabled={safePage === 0}
+                onClick={() => setPage(safePage - 1)}
+                aria-label="Previous page"
+              >
+                <ChevronLeft size={14} aria-hidden="true" />
+              </button>
+              <span className={styles.pagerLabel}>Page {safePage + 1} / {pageCount}</span>
+              <button
+                className={`${styles.btn} ${styles.btnSm} ${styles.btnIcon}`}
+                disabled={safePage >= pageCount - 1}
+                onClick={() => setPage(safePage + 1)}
+                aria-label="Next page"
+              >
+                <ChevronRight size={14} aria-hidden="true" />
+              </button>
+            </div>
+          )}
           <button className={`${styles.btn} ${styles.btnSm}`} onClick={runTests}>
             <FlaskConical size={13} aria-hidden="true" />Run guardrail tests
           </button>
