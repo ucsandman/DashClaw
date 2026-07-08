@@ -11,7 +11,6 @@ import { Badge } from '../components/ui/Badge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ListSkeleton } from '../components/ui/Skeleton';
 import { useAgentFilter } from '../lib/AgentFilterContext';
-import { isDemoMode } from '../lib/isDemoMode';
 import { deriveAssumptionStatus, ASSUMPTION_FILTER_OPTIONS as FILTER_OPTIONS } from '../lib/assumptions-status';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
@@ -37,7 +36,6 @@ export default function AssumptionsPage() {
   const [invalidateReason, setInvalidateReason] = useState('');
   const [invalidateError, setInvalidateError] = useState<string | null>(null);
   const [invalidateBusy, setInvalidateBusy] = useState(false);
-  const demo = isDemoMode();
 
   // Fetch the full (agent-scoped) set once; the route filters on integer
   // `validated`/`stale` columns and has no `status` param, so the four display
@@ -65,10 +63,11 @@ export default function AssumptionsPage() {
     }
   }, [selectedAgentId]);
 
+  // Fetch in demo mode too — the demo middleware serves assumption fixtures
+  // for /api/actions/assumptions, so skipping here just blanked the page.
   useEffect(() => {
-    if (!demo) fetchAssumptions();
-    else setLoading(false);
-  }, [demo, fetchAssumptions]);
+    fetchAssumptions();
+  }, [fetchAssumptions]);
 
   const visibleAssumptions = filter === 'all'
     ? assumptions

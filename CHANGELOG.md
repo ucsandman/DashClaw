@@ -13,6 +13,33 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+
+- **The marketing demo no longer dead-ends on six surfaces.** The demo
+  middleware's route table never learned the endpoints newer pages call, so
+  on dashclaw.io: /policies died on `/api/policies/summary` (403 → "Couldn't
+  load your policy posture"), /calibration showed "Failed to load: HTTP 403"
+  (`/api/calibration/controller`), Doctor rendered the raw "Demo mode:
+  endpoint disabled" fallback, the /policies triage queues
+  (`proposals`/`tightening`/`loosening`/`calibration/proposals`) flagged as
+  failed, /assumptions deliberately skipped fetching in demo (blank page even
+  though fixtures existed), /identities locked anonymous demo visitors out
+  behind "Admin access required", and clicking a session action landed on
+  "decision not found" (`ar_demo_sess_*` ids existed only in the session
+  ledger, never in the action-detail handler). All seven now serve
+  deterministic fixtures: a posture summary consistent with the demo policy
+  set, a shadow-mode calibration controller with a 40-event adjudication
+  history, a read-only doctor snapshot with an honest "demo instance" warn,
+  session actions that resolve as decision replays, and a read-only
+  identities view. Demo policies now answer in guard_policies column shape
+  (`policy_type`/`rules`), and the two fixture policies carrying retired
+  types (`semantic_content`, `cost_ceiling`) became real ones
+  (`non_fabrication`, `protected_path`) so the ledger stops branding demo
+  rows RETIRED. /setup gained a `loading.tsx` so its seconds-long server
+  render (readiness + canary) shows progress instead of a dead click.
+  Regression-pinned in `demo-gap-fixtures.test.ts`. Demo-only — no live
+  API behavior changed; SDKs are not republished.
+
 ## [5.0.2] — 2026-07-07
 
 ### Fixed

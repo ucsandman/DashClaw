@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest';
 import {
   demoSessions, demoSessionDetail, demoSessionEvents, demoSessionActions,
   demoIdentities, demoApiKeys,
+  demoActionDetail, demoPolicies, demoPolicySummary, demoCalibrationController, demoDoctor,
 } from '@/lib/demo/demoMiddleware';
+import { getDemoFixtures } from '@/lib/demo/demoFixtures';
 import { actions as personaActions } from '@/lib/demo/fixtures/persona-agents';
 
 // Minimal fixtures stub — the gap handlers derive agent ids from fixtures.actions
@@ -76,6 +78,75 @@ describe('demo session detail trio — /api/sessions/:id{,/events,/actions}', ()
     expect(demoSessionDetail(fixtures, 'sess_nope')).toBeNull();
     expect(demoSessionEvents(fixtures, 'sess_nope')).toBeNull();
     expect(demoSessionActions(fixtures, 'sess_nope', url())).toBeNull();
+  });
+});
+
+describe('session actions resolve as decisions — /api/actions/:id for ar_demo_sess_* ids', () => {
+  // The reported bug: clicking a session action navigated to
+  // /decisions/ar_demo_sess_* and got "decision not found" because the ids
+  // existed only in the session ledger, never in the action-detail handler.
+  it('every id the session-actions handler returns resolves to a detail', () => {
+    const list = demoSessions(fixtures, url('http://x/api/sessions?limit=100'));
+    for (const s of list.sessions) {
+      const page = demoSessionActions(fixtures, s.id, url('http://x/api?limit=200')) as any;
+      for (const a of page.actions) {
+        const detail = demoActionDetail(fixtures, a.action_id) as any;
+        expect(detail, `detail for ${a.action_id}`).toBeTruthy();
+        expect(detail.action).toMatchObject({ action_id: a.action_id, agent_id: s.agent_id });
+        expect(['allow', 'require_approval']).toContain(detail.decision);
+      }
+    }
+  });
+  it('malformed session-action ids return null → 404, not a crash', () => {
+    expect(demoActionDetail(fixtures, 'ar_demo_sess_bogus')).toBeNull();
+    expect(demoActionDetail(fixtures, 'ar_demo_sess_9999_1')).toBeNull();
+  });
+});
+
+describe('demo workbench fixtures — /policies, /calibration, /doctor', () => {
+  const real = getDemoFixtures() as any;
+
+  it('policy summary (/api/policies/summary) is governed and shaped for PostureHero', () => {
+    const s = demoPolicySummary(real);
+    expect(s.governed).toBe(true);
+    expect(s.primaryMode).toMatchObject({ id: expect.any(String), name: expect.any(String) });
+    expect(s.enforcement.total).toBeGreaterThan(0);
+    expect(s.enforcement.total).toBe(s.rules.length);
+    expect(s.rules[0]).toMatchObject({ id: expect.any(String), name: expect.any(String), bucket: expect.any(String), fired30d: expect.any(Number) });
+    expect(s.shields.length).toBeGreaterThan(0);
+    expect(s.shields.some((sh) => sh.on)).toBe(true);
+    expect(s.decisions30d.total).toBeGreaterThan(0);
+    expect(s.agents.total).toBeGreaterThan(0);
+  });
+
+  it('policies (/api/policies) answer in guard_policies column shape for the Ledger', () => {
+    const { policies } = demoPolicies(real) as any;
+    expect(policies.length).toBeGreaterThan(0);
+    for (const p of policies) {
+      expect(p.policy_type, `policy ${p.name}`).toEqual(expect.any(String));
+      expect(p.rules).toBeDefined();
+      expect([0, 1]).toContain(p.active);
+    }
+  });
+
+  it('calibration controller (/api/calibration/controller) matches the page contract', () => {
+    const c = demoCalibrationController(real);
+    expect(['off', 'shadow', 'active']).toContain(c.settings.mode);
+    expect(c.state.labeled_total).toBe(c.events.length);
+    expect(c.state.loss_sum).toBe(c.events.filter((e) => e.loss).length);
+    expect(c.state.theta).toBe(c.events[0]!.theta_after);
+    expect(c.events[0]).toMatchObject({ agent_id: expect.any(String), risk_score: expect.any(Number), label: expect.any(String), created_at: expect.any(String) });
+    expect(c.alarms.some((a) => a.alarmed_at)).toBe(true);
+    expect(c.risk_threshold_policies.length).toBeGreaterThan(0);
+    expect(c.risk_threshold_policies[0]).toMatchObject({ threshold: expect.any(Number), action: expect.any(String) });
+  });
+
+  it('doctor (/api/doctor) reports pass/warn checks and an honest demo warn', () => {
+    const d = demoDoctor();
+    expect(d.checks.length).toBeGreaterThan(0);
+    expect(d.summary.pass).toBe(d.checks.filter((c) => c.status === 'pass').length);
+    expect(d.summary.warn).toBeGreaterThan(0);
+    expect(d.checks.some((c) => c.id === 'demo_mode' && c.status === 'warn')).toBe(true);
   });
 });
 

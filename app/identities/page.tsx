@@ -8,6 +8,7 @@ import { Badge } from '../components/ui/Badge';
 import { StatCompact } from '../components/ui/Stat';
 import { EmptyState } from '../components/ui/EmptyState';
 import { useEffectiveRole } from '../hooks/useEffectiveRole';
+import { isDemoMode } from '../lib/isDemoMode';
 import { useSelection } from '../lib/useSelection';
 import { useSelectAllHotkey } from '../lib/useSelectAllHotkey';
 import { SelectCheckbox } from '../components/selection/SelectCheckbox';
@@ -69,6 +70,9 @@ function timeLeft(expiresAt?: string | null): string | null {
 
 export default function IdentitiesPage() {
   const { isAdmin, settled: sessionSettled } = useEffectiveRole();
+  // Demo visitors are anonymous (never admin) but should still SEE the surface:
+  // the demo middleware serves identity/pairing fixtures and blocks writes.
+  const demo = isDemoMode();
 
   const [pendingPairings, setPendingPairings] = useState<Pairing[]>([]);
   const [identities, setIdentities] = useState<Identity[]>([]);
@@ -291,7 +295,7 @@ export default function IdentitiesPage() {
     );
   }
 
-  if (!isAdmin) {
+  if (!isAdmin && !demo) {
     return (
       <PageLayout agentFilter={false}
         title="Agent Identities"
@@ -320,6 +324,13 @@ export default function IdentitiesPage() {
       maturity="stable"
       actions={<BulkActionBar count={selection.count} actions={BULK_ACTIONS} onClear={selection.clear} />}
     >
+      {/* Demo mode: fixtures are visible, writes are middleware-blocked */}
+      {demo && !isAdmin && (
+        <div className="mb-4 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-sm text-tertiary">
+          Demo mode &middot; identities are read-only.
+        </div>
+      )}
+
       {/* Error banner */}
       {error && (
         <div className="mb-4 p-3 bg-error-subtle border border-error/20 rounded-lg text-sm text-error flex items-center justify-between">

@@ -5,7 +5,8 @@ import { getDemoFixtures } from './app/lib/demo/demoFixtures';
 import {
   demoAgents,
   demoListActions, demoCreateAction, demoActionDetail, demoAssumptions,
-  demoTokens, demoPolicies, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
+  demoTokens, demoPolicies, demoPolicySummary, demoContract, demoReview, demoPolicySimulate, demoPolicyProof, demoPolicyTest, demoGuard, demoGuardPost,
+  demoCalibrationController, demoDoctor,
   demoContent, demoActivity,
   demoWebhooks, demoWebhookDeliveries, demoSchedules,
   demoDigest, demoContextPoints, demoContextThreads, demoContextThreadDetail,
@@ -1103,9 +1104,18 @@ const DEMO_API_ROUTES = [
   ['/api/inspiration', ({ request, fixtures }) => demoJson(request, { ideas: fixtures.ideas, stats: { totalIdeas: fixtures.ideas.length }, lastUpdated: new Date().toISOString() })],
   ['/api/settings', ({ request, fixtures }) => demoJson(request, { settings: fixtures.settings })],
   ['/api/policies', demoFixtureRoute(demoPolicies)],
+  ['/api/policies/summary', demoFixtureRoute(demoPolicySummary)],
   ['/api/policies/contract', ({ request }) => demoJson(request, demoContract())],
   ['/api/policies/review', ({ request }) => demoJson(request, demoReview())],
   ['/api/policies/proof', handleDemoPoliciesProof],
+  // Triage-inbox proposal queues: empty-but-valid so the workbench renders its
+  // clean state instead of flagging failed queues.
+  ['/api/policies/proposals', ({ request }) => demoJson(request, { proposals: [] })],
+  ['/api/policies/tightening', ({ request }) => demoJson(request, { proposals: [] })],
+  ['/api/policies/loosening', ({ request }) => demoJson(request, { proposals: [] })],
+  ['/api/calibration/proposals', ({ request }) => demoJson(request, { proposals: [] })],
+  ['/api/calibration/controller', demoFixtureRoute(demoCalibrationController)],
+  ['/api/doctor', demoPayloadRoute(demoDoctor)],
   // ── Routing demo endpoints ──
   ['/api/routing/health', demoFixturePropRoute('routingHealth')],
   ['/api/routing/stats', demoFixturePropRoute('routingStats')],

@@ -350,6 +350,47 @@ export function demoActionDetail(fixtures: DemoFixtures, actionId: string): AnyR
     };
   }
 
+  // Session-ledger rows: buildDemoSessionActions mints `ar_demo_sess_{n}_{i}`
+  // ids for /api/sessions/:id/actions. Rebuild the same deterministic row here
+  // so clicking a session action through to /decisions/<id> resolves instead
+  // of 404ing (the ids exist nowhere else in the fixtures).
+  if (actionId.startsWith('ar_demo_sess_')) {
+    const m = actionId.match(/^ar_demo_sess_(\d+)_(\d+)$/);
+    if (!m) return null;
+    const session = buildDemoSessionList(fixtures).find((s) => s.id === `sess_demo_${m[1]}`);
+    if (!session) return null;
+    const row = buildDemoSessionActions(session).find((a) => a.action_id === actionId);
+    if (!row) return null;
+    const blocked = row.status === 'blocked';
+    const failed = row.status === 'failed';
+    return {
+      action: {
+        ...row,
+        org_id: 'org_demo',
+        agent_name: session.agent_name,
+        reasoning: `Step in governed session ${session.id} (${session.workspace}, ${session.branch}).`,
+        systems_touched: '[]',
+        reversible: 1,
+        confidence: 90,
+        timestamp_start: row.created_at,
+        timestamp_end: row.created_at,
+        duration_ms: 2400,
+        output_summary: blocked
+          ? 'Held for approval: deploy touches production configuration.'
+          : failed
+            ? 'Command exited non-zero twice; session halted for operator review.'
+            : 'Completed within policy; recorded to the decision ledger.',
+        verified: true,
+      },
+      open_loops: [],
+      assumptions: [],
+      decision: blocked ? 'require_approval' : 'allow',
+      decision_reason: blocked
+        ? (session.blocked_reason || 'Guard requires approval: deploy touches production configuration.')
+        : 'Action permitted under the active demo policy set.',
+    };
+  }
+
   const action = fixtures.actions.find(a => a.action_id === actionId) || null;
   if (!action) return null;
   const open_loops: AnyRecord[] = [];
@@ -416,8 +457,114 @@ export function demoTokens(fixtures: DemoFixtures) {
   };
 }
 
+// The guard fixtures keep policies in their seed shape (`type`, `config`,
+// boolean `active`); the live API answers in guard_policies column shape
+// (`policy_type`, `rules` JSON text, integer `active`). Map here so the
+// /policies ledger classifies demo rows exactly like real ones.
+function toApiPolicyShape(p: AnyRecord): AnyRecord {
+  const { type, config, active, ...rest } = p;
+  return {
+    ...rest,
+    policy_type: p.policy_type ?? type,
+    rules: p.rules ?? config ?? '{}',
+    active: active === true || active === 1 ? 1 : 0,
+    agent_ids: p.agent_ids ?? null,
+  };
+}
+
 export function demoPolicies(fixtures: DemoFixtures) {
-  return { policies: fixtures.policies, lastUpdated: new Date().toISOString() };
+  return { policies: fixtures.policies.map(toApiPolicyShape), lastUpdated: new Date().toISOString() };
+}
+
+/** GET /api/policies/summary — the posture-hero fixture for the /policies
+ *  workbench. Hand-crafted (buildPolicySummary pulls the server-only compiler,
+ *  which can't ship in the edge middleware bundle) but derived from the same
+ *  guard fixtures as /api/policies, so counts and rule names agree with the
+ *  ledger below it and with demoContract's claude-code story. */
+export function demoPolicySummary(fixtures: DemoFixtures) {
+  const active = fixtures.policies
+    .map(toApiPolicyShape)
+    .filter((p) => p.active === 1);
+
+  // Nominal decision per fixture policy_type — mirrors what the compiler's
+  // nominalDecision would answer for these rules.
+  const bucketByType: Record<string, 'warn' | 'require_approval' | 'block'> = {
+    risk_threshold: 'block',
+    require_approval: 'require_approval',
+    rate_limit: 'warn',
+    block_action_type: 'block',
+    non_fabrication: 'require_approval',
+    protected_path: 'require_approval',
+  };
+
+  // 30d fire counts from the guard-decision fixtures, keyed by policy id.
+  const counts = new Map<string, { fired: number; lastFiredAt: string | null }>();
+  for (const gd of fixtures.guardDecisions || []) {
+    if (!gd.policy_id) continue;
+    const c = counts.get(gd.policy_id) || { fired: 0, lastFiredAt: null };
+    c.fired += 1;
+    if (!c.lastFiredAt || String(gd.created_at) > c.lastFiredAt) c.lastFiredAt = String(gd.created_at);
+    counts.set(gd.policy_id, c);
+  }
+
+  const enforcement = { total: active.length, warn: 0, require_approval: 0, block: 0 };
+  const rules = active.map((p) => {
+    const bucket = bucketByType[p.policy_type] || 'warn';
+    enforcement[bucket] += 1;
+    const c = counts.get(p.id);
+    return { id: p.id, name: p.name, bucket, fired30d: c?.fired ?? 0, lastFiredAt: c?.lastFiredAt ?? null };
+  });
+  const order = { block: 0, require_approval: 1, warn: 2 } as const;
+  rules.sort((a, b) => order[a.bucket] - order[b.bucket]);
+
+  // Decision outcomes over the window, straight from the fixtures.
+  const decisions30d = { total: 0, allow: 0, warn: 0, require_approval: 0, block: 0 };
+  for (const gd of fixtures.guardDecisions || []) {
+    decisions30d.total += 1;
+    const d = gd.decision as keyof typeof decisions30d;
+    if (d in decisions30d) decisions30d[d] += 1;
+  }
+
+  // Shield states consistent with demoContract: deploys and destructive ops
+  // interrupt, high-risk blocks, bursts warn — the rest are available but off.
+  const on: Record<string, { fired30d: number; lastFiredAt: string | null }> = {
+    deploy_gate: { fired30d: 7, lastFiredAt: new Date(Date.now() - 3_600_000).toISOString() },
+    risk_critical: { fired30d: 2, lastFiredAt: new Date(Date.now() - 26_000_000).toISOString() },
+    rate_limiter: { fired30d: 0, lastFiredAt: null },
+  };
+  const shieldCatalog: Array<{ id: string; name: string; description: string }> = [
+    { id: 'deploy_gate', name: 'Deploy Gate', description: 'Require approval before any deploy or migration' },
+    { id: 'risk_high', name: 'High Risk Review', description: 'Require approval for actions with risk score 70+' },
+    { id: 'risk_critical', name: 'Critical Risk Block', description: 'Block actions with risk score 90 or above' },
+    { id: 'destructive_block', name: 'Destructive Ops Block', description: 'Block apply, migrate, and sync operations' },
+    { id: 'rate_limiter', name: 'Rate Limiter', description: 'Warn when an agent exceeds 30 actions per hour' },
+    { id: 'api_review', name: 'API Call Review', description: 'Require approval for all API actions' },
+    { id: 'outbound_gate', name: 'Outbound Message Gate', description: 'Require approval before sending messages or posts' },
+    { id: 'non_fabrication_guard', name: 'No Fabricated Facts', description: 'Require approval for outbound content that states a fact not traceable to its source-of-truth' },
+    { id: 'evidence_required', name: 'Evidence Required', description: 'Require approval when a call is graded from a self-declared intent instead of server-classified evidence' },
+  ];
+  const shields = shieldCatalog.map((s) => ({
+    ...s,
+    on: s.id in on,
+    fired30d: on[s.id]?.fired30d ?? 0,
+    lastFiredAt: on[s.id]?.lastFiredAt ?? null,
+  }));
+
+  const mode = { id: 'claude-code', name: 'Claude Code Mode', interruptionLevel: 'low' };
+  const pendingApprovals = (fixtures.actions || []).filter((a) => a.status === 'pending_approval').length;
+
+  return {
+    governed: true,
+    modes: [mode],
+    primaryMode: mode,
+    enforcement,
+    rules,
+    shields,
+    decisions30d,
+    scope: { allAgents: true },
+    agents: { total: demoAgents(fixtures).agents.length },
+    pendingApprovals,
+  };
 }
 
 /** GET /api/policies/contract — governed claude-code contract fixture.
@@ -978,5 +1125,102 @@ export function demoApiKeys() {
     { id: 'key_demo_3', name: 'Retired Key', prefix: 'dk_live_', revoked_at: '2026-05-20T00:00:00.000Z', created_at: '2026-03-01T00:00:00.000Z', last_used_at: '2026-05-19T00:00:00.000Z' },
   ];
   return { keys, lastUpdated: new Date().toISOString() };
+}
+
+/** GET /api/calibration/controller — a shadow-mode controller snapshot with a
+ *  believable adjudication history: θ easing down from its 80 start as
+ *  approvals accumulate, a handful of denials, one standing agent alarm.
+ *  Numbers mirror CALIBRATION_DEFAULTS (gamma 2, p0 0.25, alarm at e ≥ 20,
+ *  θ floor 20) without importing the server-side calibration module. */
+export function demoCalibrationController(fixtures: DemoFixtures) {
+  const agentIds = demoAgentIdList(fixtures);
+  const now = Date.now();
+  const iso = (hoursAgo: number) => new Date(now - hoursAgo * 3_600_000).toISOString();
+
+  // 40 deterministic adjudications, oldest last (route returns newest-first).
+  // Pattern: mostly approved (benign), every 9th denied, two false
+  // interruptions (approved actions the guard had interrupted → loss).
+  const events: AnyRecord[] = [];
+  let theta = 80;
+  for (let i = 39; i >= 0; i--) {
+    const denied = i % 9 === 4;
+    const loss = !denied && (i === 31 || i === 12);
+    const thetaBefore = theta;
+    theta = Math.max(20, Math.min(102, theta + (loss ? 2 : denied ? 0 : -0.4)));
+    events.unshift({
+      action_id: `act_cal_demo_${i + 1}`,
+      agent_id: agentIds[i % agentIds.length],
+      risk_score: 45 + ((i * 13) % 50),
+      label: denied ? 'denied' : 'benign',
+      loss: loss ? 1 : 0,
+      theta_before: thetaBefore,
+      theta_after: theta,
+      created_at: iso(i * 5 + 2),
+    });
+  }
+
+  const denied = events.filter((e) => e.label === 'denied').length;
+  const lossSum = events.reduce((s, e) => s + e.loss, 0);
+
+  return {
+    settings: { mode: 'shadow', target_rate: 0.1 },
+    state: {
+      theta,
+      labeled_total: events.length,
+      labeled_benign: events.length - denied,
+      labeled_denied: denied,
+      loss_sum: lossSum,
+      observed_rate: lossSum / events.length,
+      observed_window_rate: lossSum / events.length,
+      observed_window: events.length,
+    },
+    defaults: { gamma: 2, alarm_at: 20, p0: 0.25, theta_floor: 20 },
+    alarms: [
+      { agent_id: agentIds[0] ?? 'clawdbot', e: 24.6, n: 12, denied: 7, alarmed_at: iso(6) },
+      { agent_id: agentIds[1 % agentIds.length] ?? 'deploy-runner', e: 3.4, n: 9, denied: 3, alarmed_at: null },
+      { agent_id: agentIds[2 % agentIds.length] ?? 'data-pipeline', e: 1.1, n: 14, denied: 3, alarmed_at: null },
+    ],
+    events,
+    risk_threshold_policies: fixtures.policies
+      .filter((p) => (p.policy_type ?? p.type) === 'risk_threshold' && (p.active === true || p.active === 1))
+      .map((p) => {
+        let rules: AnyRecord = {};
+        try { rules = JSON.parse(String(p.rules ?? p.config ?? '{}')); } catch { /* fixture always parses */ }
+        return { id: p.id, name: p.name, threshold: Number(rules.threshold) || 80, action: typeof rules.action === 'string' ? rules.action : 'block' };
+      })
+      .sort((a, b) => a.threshold - b.threshold),
+  };
+}
+
+/** GET /api/doctor — read-only diagnostics snapshot. All green plus one
+ *  honest warn explaining that these are fixture diagnostics; auto-fixes stay
+ *  demo-blocked (POST /api/doctor/fix is a write). */
+export function demoDoctor() {
+  const pass = (id: string, category: string, title: string, message: string) => (
+    { id, category, status: 'pass', title, message, fix: null }
+  );
+  const checks = [
+    pass('db_reachable', 'database', 'Database reachable', 'Connected and answering queries.'),
+    pass('schema_current', 'database', 'Schema up to date', 'All migrations applied.'),
+    pass('api_keys', 'auth', 'API keys configured', '2 active keys; last used 1h ago.'),
+    pass('guard_policies', 'governance', 'Guard policies active', '6 active policies governing all agents.'),
+    pass('approvals_flow', 'governance', 'Approval loop healthy', 'Pending interruptions resolve in under 4 minutes on average.'),
+    pass('webhooks', 'integrations', 'Webhook deliveries healthy', 'Last 50 deliveries succeeded.'),
+    pass('mcp_server', 'integrations', 'MCP server reachable', 'Tool calls answering within 120ms.'),
+    {
+      id: 'demo_mode',
+      category: 'runtime',
+      status: 'warn',
+      title: 'Demo instance',
+      message: 'These diagnostics describe the simulated demo workspace, not a real deployment. Deploy your own DashClaw instance to run live checks and one-click fixes.',
+      fix: null,
+    },
+  ];
+  const summary = {
+    pass: checks.filter((c) => c.status === 'pass').length,
+    warn: checks.filter((c) => c.status === 'warn').length,
+    fail: 0,
+  };
+  return { status: 'healthy', mode: 'demo', summary, checks, lastUpdated: new Date().toISOString() };
 }
 
