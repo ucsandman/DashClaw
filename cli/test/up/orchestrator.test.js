@@ -130,6 +130,32 @@ describe('runUp — declining connect', () => {
   });
 });
 
+describe('runUp — connect failure is non-fatal', () => {
+  test('installClaude throwing (e.g. no Python) still reaches the open step; no connected checkpoint; retried next run', async () => {
+    const baseDir = tempBase();
+    const warnings = [];
+    const { deps, calls } = makeDeps({
+      installClaude: async () => { throw new Error('No python3 or python found on PATH. Install Python 3.10+ and re-run.'); },
+      logger: { error: (m) => warnings.push(m), log() {} },
+    });
+
+    await runUp({ args: { yes: true, db: 'embedded', noBrowser: false }, baseDir, deps });
+
+    assert.strictEqual(calls.openBrowser, 1); // step 8 still runs
+    assert.ok(warnings.some((m) => /Claude Code not connected: No python3/.test(m)));
+    let inst = loadInstance(baseDir);
+    assert.ok(!inst.completed.includes('connected')); // failure ≠ completed decision
+
+    // Next `dashclaw up` retries the install; success checkpoints it.
+    deps.installClaude = async () => { calls.installClaude++; };
+    deps.processAlive = () => false;
+    await runUp({ args: { yes: true, db: 'embedded', noBrowser: true }, baseDir, deps });
+    assert.strictEqual(calls.installClaude, 1);
+    inst = loadInstance(baseDir);
+    assert.ok(inst.completed.includes('connected'));
+  });
+});
+
 describe('runUp — setup failure', () => {
   test('rejects on ok:false and does not checkpoint setup_done', async () => {
     const baseDir = tempBase();

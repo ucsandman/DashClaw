@@ -298,9 +298,19 @@ export async function runUp({ args, baseDir = join(homedir(), '.dashclaw'), deps
       connect = answer !== 'n' && answer !== 'no';
     }
     if (connect) {
-      await deps.installClaude({ endpoint: baseUrl, apiKey });
+      // Hooks install is auxiliary to `up` (the dashboard is already running);
+      // a missing Python must not kill steps 8+ — the browser sign-in moment.
+      // No checkpoint on failure, so the next `dashclaw up` retries the install.
+      try {
+        await deps.installClaude({ endpoint: baseUrl, apiKey });
+        inst = checkpoint(baseDir, 'connected');
+      } catch (e) {
+        logger.error(`[warn] Claude Code not connected: ${e.message}`);
+        logger.error('       The dashboard still works; re-run `dashclaw up` after fixing this to retry.');
+      }
+    } else {
+      inst = checkpoint(baseDir, 'connected'); // declining is still a completed decision
     }
-    inst = checkpoint(baseDir, 'connected'); // declining is still a completed decision
   }
 
   // 8. open -----------------------------------------------------------------
