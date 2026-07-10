@@ -124,7 +124,7 @@ const navItems = [
   { href: '/guides/platform', label: 'Complete Platform Guide' },
   { href: '#quick-start', label: 'Quick Start' },
   { href: '#mcp-server', label: 'MCP Server' },
-  { href: '#mcp-tools', label: 'Tools (12)', indent: true },
+  { href: '#mcp-tools', label: 'Tools (15)', indent: true },
   { href: '#mcp-resources', label: 'Resources (3)', indent: true },
   { href: '#mcp-config', label: 'Configuration', indent: true },
   { href: '#cli-and-doctor', label: 'CLI & Doctor' },
@@ -376,12 +376,12 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 12 governance tools across 3 groups (core governance, retrospection, agent identity) plus 3 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 15 governance tools across 3 groups (core governance, retrospection, agent identity) plus 3 read-only resources.
             </p>
 
             {/* Tools */}
             <div id="mcp-tools" className="scroll-mt-20 mb-10">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (12)</h3>
+              <h3 className="text-lg font-semibold text-text-primary mb-4">Tools (15)</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>

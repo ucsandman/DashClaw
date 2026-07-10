@@ -1,6 +1,6 @@
 # @dashclaw/mcp-server
 
-MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 12 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
+MCP server for [DashClaw](https://github.com/ucsandman/DashClaw) governance. Exposes 15 governance tools, 2 stdio-only support tools, and 3 read-only resources over [Model Context Protocol](https://modelcontextprotocol.io/) — guard, record, invoke governed capabilities, wait for approvals, and read the decision ledger, all through the DashClaw governance loop. Works with Claude Code, Claude Desktop, Claude Managed Agents, and any MCP-compatible client.
 
 The governance tools register only when `DASHCLAW_URL` and `DASHCLAW_API_KEY` are both set; without them the server registers nothing and warns on stderr if exactly one is present.
 

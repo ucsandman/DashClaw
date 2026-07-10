@@ -77,7 +77,7 @@ You connected an agent. Now you are the operator.
 | Node SDK (`dashclaw` on npm) | [`sdk/README.md`](../sdk/README.md) — the canonical method catalogue |
 | Python SDK (`dashclaw` on PyPI) | [`sdk-python/README.md`](../sdk-python/README.md) — broader surface, snake_case, framework integrations |
 | Node ↔ Python parity | [SDK parity matrix](./sdk-parity.md) (maintainer-grade detail) |
-| MCP server (`@dashclaw/mcp-server`) | [`mcp-server/README.md`](../mcp-server/README.md) — all **12 governance MCP tools**, 4 resources, config |
+| MCP server (`@dashclaw/mcp-server`) | [`mcp-server/README.md`](../mcp-server/README.md) — all **15 governance MCP tools**, 4 resources, config |
 | CLI (`@dashclaw/cli`) | [`cli/README.md`](../cli/README.md) — every command, incl. `up`, `install claude`, approvals, `halt`, doctor |
 | Durable outcomes | [Durable execution finality](./architecture/durable-execution-finality.md) — the five-state machine and the sweep |
 | Object glossary | [Platform object model](./architecture/platform-object-model.md) |

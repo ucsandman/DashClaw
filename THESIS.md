@@ -264,7 +264,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 |---|---|---|
 | Active API routes | 121 | `app/api/**/route.{js,ts,tsx}` |
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
-| MCP tools | 12 | `mcp-server/src/tools.ts` |
+| MCP tools | 15 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
 | Python SDK methods | 51 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
@@ -304,6 +304,9 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 - **2026-07-10 — App pages 46 → 47 (fleets-and-teams amendment).** Added
   `/team-tasks`: the live multi-agent task timeline in the Govern group.
   One page; its timeline component lives under `_components/`.
+- **2026-07-10 — MCP tools 12 → 15 (fleets-and-teams amendment).** Three
+  `dashclaw_task_*` tools so both team agents write the Team Tasks timeline
+  through governed, authenticated API calls.
 
 ## Version story
 

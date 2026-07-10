@@ -208,6 +208,63 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
     },
   },
   {
+    name: 'dashclaw_task_create',
+    description:
+      'Create a Team Task — one record per multi-agent /team run. Groups the inter-agent ' +
+      'event timeline (delegations, replies, approvals) for governance visibility on the ' +
+      'Team Tasks page. Call once per task, from the receiving agent.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Ledger task id, e.g. team-20260710-0912-slug (required)' },
+        instruction: { type: 'string', description: 'The full task instruction (required)' },
+        origin: { type: 'string', description: 'Origin surface: telegram | claude-code (required)' },
+        lead_agent: { type: 'string', description: 'Lead agent: claude | openclaw (required)' },
+        status: { type: 'string', description: 'Initial status (default open)' },
+        stop_condition: { type: 'string', description: 'When the task is considered complete' },
+        max_exchanges: { type: 'integer', description: 'Round-trip cap (default 10)' },
+      },
+      required: ['task_id', 'instruction', 'origin', 'lead_agent'],
+    },
+  },
+  {
+    name: 'dashclaw_task_event',
+    description:
+      'Append one event to a Team Task timeline (delegation, reply, status, approval_needed, ' +
+      'result, error, done, lead_assigned). Log from your OWN identity only; never include ' +
+      'secrets in summary or body.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Team task id (required)' },
+        from_agent: { type: 'string', description: 'claude | openclaw (required)' },
+        to_agent: { type: 'string', description: 'claude | openclaw | wes (required)' },
+        type: { type: 'string', description: 'Event type (required)' },
+        summary: { type: 'string', description: 'One-line summary (required)' },
+        ts: { type: 'string', description: 'ISO 8601 timestamp (defaults to server time)' },
+        body: { type: 'string', description: 'Optional detail' },
+        action_id: { type: 'string', description: 'DashClaw action id this event corresponds to' },
+      },
+      required: ['task_id', 'from_agent', 'to_agent', 'type', 'summary'],
+    },
+  },
+  {
+    name: 'dashclaw_task_update',
+    description:
+      'Update a Team Task: status transitions (open → in_progress → awaiting_approval → ' +
+      'done | failed | abandoned) and stored transport session ids.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        task_id: { type: 'string', description: 'Team task id (required)' },
+        status: { type: 'string', description: 'New status' },
+        claude_session_id: { type: 'string', description: 'claude -p session id for --resume' },
+        openclaw_session_key: { type: 'string', description: 'OpenClaw session key' },
+      },
+      required: ['task_id'],
+    },
+  },
+  {
     name: 'dashclaw_assumption_record',
     description:
       'Record an assumption you are acting on — something you treat as true but have not verified ' +
@@ -648,6 +705,41 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
         });
       }
       const result = await client.get(`/api/sessions/${sessionId}/retro`, {}, { timeout: 15000 });
+      return JSON.stringify(result);
+    },
+
+    async dashclaw_task_create(input: any) {
+      const result = await client.post('/api/team-tasks', {
+        id: input.task_id,
+        instruction: input.instruction,
+        origin: input.origin,
+        lead_agent: input.lead_agent,
+        status: input.status,
+        stop_condition: input.stop_condition,
+        max_exchanges: input.max_exchanges,
+      }, { timeout: 10000 });
+      return JSON.stringify(result);
+    },
+
+    async dashclaw_task_event(input: any) {
+      const result = await client.post(`/api/team-tasks/${encodeURIComponent(input.task_id)}/events`, {
+        ts: input.ts,
+        from_agent: input.from_agent,
+        to_agent: input.to_agent,
+        type: input.type,
+        summary: input.summary,
+        body: input.body,
+        action_id: input.action_id,
+      }, { timeout: 10000 });
+      return JSON.stringify(result);
+    },
+
+    async dashclaw_task_update(input: any) {
+      const result = await client.patch(`/api/team-tasks/${encodeURIComponent(input.task_id)}`, {
+        status: input.status,
+        claude_session_id: input.claude_session_id,
+        openclaw_session_key: input.openclaw_session_key,
+      }, { timeout: 10000 });
       return JSON.stringify(result);
     },
 

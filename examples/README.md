@@ -71,7 +71,7 @@ A generic `governed()` higher-order function that wraps any Vercel AI SDK tool `
 
 ### Claude Managed Agents (MCP) ⭐ Recommended
 
-`managed-agent-mcp/` — The simplest way to govern a Claude Managed Agent. Uses DashClaw's MCP server — one config line gives the agent 12 governance tools and 4 resources. ~120 lines. Optionally pair with the `dashclaw-governance` skill (`public/downloads/dashclaw-governance/`) to teach the agent the governance protocol and load org-specific policies/capabilities automatically.
+`managed-agent-mcp/` — The simplest way to govern a Claude Managed Agent. Uses DashClaw's MCP server — one config line gives the agent 15 governance tools and 4 resources. ~120 lines. Optionally pair with the `dashclaw-governance` skill (`public/downloads/dashclaw-governance/`) to teach the agent the governance protocol and load org-specific policies/capabilities automatically.
 
 ### managed-agent-governed
 
