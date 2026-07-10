@@ -13,6 +13,109 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.2.0] — 2026-07-10
+
+The production-readiness pass: an external review (ChatGPT "work" mode) audited
+the repo for production launch and every confirmed finding was fixed in one
+overnight run. CI on main was red for 4 consecutive pushes when the night
+started; it ends with a single authoritative release gate and the THESIS
+first-run promise actually true.
+
+### Added
+
+- **The catastrophe pack seeds itself.** Every newly created self-hosted org
+  gets the three-policy catastrophe-only pack (block mass-destructive
+  operations at risk 100, hold secret-file writes for approval, warn-only
+  runaway rate limit) at first migrate — the org-birth gate (`INSERT …
+  RETURNING id`) means re-runs never duplicate and operator deletions are
+  never resurrected. Existing orgs are untouched; the pack is one click away
+  at /policies → Import. Proven live: fresh-DB seed, idempotent re-run,
+  deletion-respect, and the rendered /policies ledger.
+- **`dashclaw install claude` now installs protection, not observation**
+  (CLI 0.9.0): fresh installs default to `DASHCLAW_HOOK_MODE=enforce`
+  (`--observe` opts out), re-installs preserve the operator's chosen mode —
+  fixing a long-standing clobber-to-observe bug — the SessionStart
+  enforcement-liveness probe is wired automatically (closing the v8.2 scope
+  cut), fresh installs get a 120s approval window so a human can actually
+  click approve, and an honesty preflight warns when the target instance has
+  zero policies instead of claiming protection.
+- **One authoritative release gate.** `npm run release:check` (alias:
+  `production:check`) now runs all 19 static gates CI runs — including the six
+  it previously skipped (doc-counts --strict, surface, guide-drift,
+  security-scan, both SDK integration suites) — plus a `--live` flag for the
+  server suite, and writes a machine-readable `release-check-report.json`.
+- **policy-smoke proves held → approved → resumed live** (RS1): a
+  protected-path Write is held with an action id, approved via the API, and
+  verified resumable — running first, against the pristine pack-only state.
+- up-smoke runs on every push to main and every `v*` tag, extends its health
+  budget to 20 minutes, and captures the backgrounded `up` output as a
+  redacted failure artifact (previously: zero diagnostics, 5/5 failures blind).
+
+### Fixed
+
+- **The silent cross-platform `dashclaw up` hang, root-caused.** The vendored
+  embedded-postgres `start()` drains stderr but never stdout; once Postgres
+  wrote ~64KB the kernel blocked the server mid-write and every setup
+  migration hung forever. One-line stdout drain on the POSIX path (CLI 0.9.0).
+- **Main was red for 4 pushes** — two independent v5.1.0 release misses:
+  `contracts/sdk/release-plan.json` still said 5.0.2, and the platform guide
+  never learned the six Team Tasks routes. Both fixed; this release also
+  backfills the missing v5.1.0 changelog entry, tag, and GitHub Release.
+- Scheduled ops can no longer hang or skip silently: the five curl-based cron
+  workflows get `--max-time 30 --connect-timeout 10`, job-level
+  `timeout-minutes: 5`, and a `::warning::` annotation when secrets are
+  missing (the July 9 live-canary/jti-sweep 15-minute hangs were this class);
+  live-canary's report call aborts after 15s and fails loudly.
+- `check-hosted-ready.mjs` hard-fails on missing `NEXTAUTH_SECRET`,
+  `NEXTAUTH_URL`, `ENCRYPTION_KEY` (exact 32-byte validation), and a sign-in
+  provider — previously a hosted deploy could "pass readiness" and boot with
+  no way to sign in and a crashing secrets subsystem. Redis stays a loud
+  warning (the runtime genuinely degrades gracefully).
+- docker-compose.yml is database-only: the `app` service hardcoded placeholder
+  secrets that overrode `.env.local`, omitted `ENCRYPTION_KEY`, and silently
+  built the demo-mode image. Every doc already used `docker compose up -d db`.
+- The Mission Control ghost is fully retired (96 files): the PWA webmanifest
+  shortcut pointed at the dead `/mission-control` route, docs claimed `/login`
+  redirects there, MCP tool descriptions shipped the dead name to every
+  client (mcp-server 3.0.1), and 40+ docs/UI/example references now say
+  Approvals (`/approvals`).
+- `docs/ops/production-readiness.md` regenerated (it still described the
+  pre-v5 254-route repo); stale SDK counts (28 → 31) and the fictional
+  `dashclaw://capabilities` MCP resource corrected at their sources.
+- Assumptions page: demo fixtures key on `assumption_id`; Card keys and
+  multi-select now use the canonical entity id (was a fatal duplicate-key
+  warning caught by the new smoke gate).
+- `/setup` no longer renders a lint-suppression marker in the enforcement
+  liveness copy.
+
+### Security
+
+- Node SDK `_request()` gains a default 30s timeout (`timeoutMs` constructor
+  option, `ETIMEDOUT` error code) — a hung server can no longer hang every
+  SDK consumer. Ships to npm with this release.
+- up-smoke failure artifacts redact the per-run admin password and single-use
+  login URL before upload (security-review finding; public repo).
+- `main` is protected by a repository ruleset: force-pushes and branch
+  deletion are blocked (no bypass actors). Direct pushes remain allowed by
+  design — local gates + CI stay the merge discipline.
+
+### Changed
+
+- Repo hygiene: 10 permanently-stale bot PRs closed (7 conflicting livingcode
+  refreshes, 3 outdated weekly digests).
+
+## [5.1.0] — 2026-07-09
+
+Backfilled entry — this release shipped without a changelog entry, tag, or
+GitHub Release (repaired in 5.2.0).
+
+### Added
+
+- **Team Tasks surface**: `/tasks` page, `dashclaw_task_create` /
+  `dashclaw_task_update` / `dashclaw_task_event` MCP tools (+3, now 15), Node
+  SDK `createTeamTask` / `appendTeamTaskEvent` / `updateTeamTask` (+3, now
+  31), and six `/api/team-tasks` routes (now 120 routes).
+
 ### Fixed
 
 - **The marketing demo no longer dead-ends on six surfaces.** The demo

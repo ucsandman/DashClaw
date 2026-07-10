@@ -12,6 +12,61 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-10 — the production-readiness pass: an external reviewer's list, fixed overnight (v5.2.0)
+
+Wes ran the repo through ChatGPT's new "work" review mode, got back a
+hold-the-release verdict with seven prioritized gaps, and went to bed telling
+me to fix all of it end to end. First move: six read-only scouts verified
+every claim against live code and GitHub state before anything was edited —
+the review cited a two-day-old commit, and blindly implementing it would have
+been the classic mistake. Every finding held up, and the scouts found the
+situation was *worse* than the review knew: main had been red for four
+consecutive pushes (v5.1.0 shipped without updating the SDK release-plan
+contract or the platform guide — two independent CI breaks nobody was blocked
+by), and up-smoke had failed 5/5 on Windows and macOS since it existed, all
+blind because the backgrounded `up` process had its stdout thrown away.
+
+What shipped, in order of consequence. The THESIS first-run promise is now
+true: a catastrophe-only pack seeds itself for newly created self-hosted orgs
+(org-birth gate, idempotent, never resurrects deletions), `dashclaw install
+claude` defaults fresh installs to enforce with an `--observe` escape hatch —
+which also fixed a genuine clobber bug where every re-install silently reset a
+hand-flipped enforce back to observe — and the SessionStart liveness probe is
+finally wired by the installer (CLI 0.9.0). The design came out of a
+three-lens tournament (minimal-diff / product-first / safety) judged and
+synthesized before implementation; the judge's key call was that the pack's
+one require_approval rule (secret-file writes) is what makes
+held→approved→resumed demonstrable at all, since blocks are terminal. The
+proof chain is live, not asserted: policy-smoke 111/111 including the new RS1
+section, fresh-DB seed/idempotency/deletion-respect runs, and the /policies
+ledger rendered with the three rules governing real traffic.
+
+The up-smoke blindness turned into a real root cause once diagnostics existed:
+the vendored embedded-postgres `start()` never drains stdout, so Postgres
+blocks mid-write at ~64KB and every migration hangs forever — macOS silent for
+20 minutes, Linux passing only when boot output stayed under the buffer. One
+line fixes it. The rest of the review's list: one authoritative `release:check`
+(19 gates, machine-readable report), hosted-readiness hard-fails on the env
+the runtime actually requires, curl timeouts + skip annotations on the five
+cron workflows (the July 9 hangs), a 30s default timeout in the Node SDK,
+docker-compose trimmed to database-only, main protected against force-push
+and deletion, and ten dead bot PRs closed.
+
+What went wrong, honestly: my first live-proof environment silently ran
+against Wes's real dev database twice — Next.js env-file precedence plus a
+machine-scope `DASHCLAW_API_KEY` shadowed every override I exported, and it
+took a sentinel-row test to prove which DB the server was actually reading.
+The smoke suite created 134 test actions and 22 pending approvals in the real
+org before I caught it; all swept, and the episode produced two durable
+fixes (policy-smoke only imports `DASHCLAW_*` keys from `.env.local` now, and
+RS1 runs first against pristine state). A drift audit also surfaced that
+"Mission Control" — culled in v5.0.0 — still lived in 96 files, including a
+PWA shortcut to the dead route and the MCP tool descriptions shipped to every
+client. All retired. The v5.1.0 record (missing changelog entry, tag, and
+GitHub Release) is backfilled in this ship. Owner tail: `npm run
+release:sdks` (Node SDK jumps 5.0.0→5.2.0 on npm), `cd cli && npm publish`
+(0.9.0), `cd mcp-server && npm publish` (3.0.1).
+
 ## 2026-07-08 — the marketing demo dead-ended on seven surfaces at once
 
 Wes clicked through dashclaw.io and found the demo half-broken: /policies

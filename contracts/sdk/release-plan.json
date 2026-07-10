@@ -1,22 +1,22 @@
 {
   "node": {
-    "current_version": "5.1.0",
+    "current_version": "5.2.0",
     "next_bump": "none",
-    "reason": "5.1.0 adds the Team Tasks surface to the Node SDK (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods in sdk/dashclaw.js) - a real SDK source change, so the Node SDK IS republished to npm at 5.1.0. A default 30s request timeout (new timeoutMs constructor option, ETIMEDOUT on expiry) also ships in sdk/dashclaw.js and is included in the next Node SDK publish.",
+    "reason": "5.2.0 republishes the Node SDK, carrying everything since the last npm release (5.0.0): the Team Tasks surface (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods, landed in 5.1.0 but never published) and the new default 30s request timeout (timeoutMs constructor option, ETIMEDOUT on expiry). 5.1.0 never reached npm; the registry jumps 5.0.0 -> 5.2.0.",
     "domains": [
       "platform",
       "tasks"
     ]
   },
   "python": {
-    "current_version": "5.1.0",
+    "current_version": "5.2.0",
     "next_bump": "none",
-    "reason": "5.1.0 is platform-only for Python (README + version stamp; Team Tasks methods are Node-first) - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
+    "reason": "5.2.0 is platform-only for Python - no Python SDK source change since the last release; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.1.0 ships the Team Tasks surface: dashclaw_task_* MCP tools (+3), Node SDK team task methods (+3), and the /tasks page. Release-plan realigned after v5.1.0 shipped without updating this contract, which held CI red on main for 4 consecutive pushes.",
+  "reason": "5.2.0 is the production-readiness pass: catastrophe pack auto-seeds for new self-hosted orgs, dashclaw install claude defaults fresh installs to enforce (CLI 0.9.0), SessionStart liveness probe wired, embedded-postgres stdout-drain hang fixed, one authoritative release:check gate, scheduled-ops timeouts, db-only compose, and the Mission Control -> Approvals sweep. Also repairs the v5.1.0 release record (contract drift, missing changelog/tag).",
   "domains": [
     "platform",
     "tasks"
