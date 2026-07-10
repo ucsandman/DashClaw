@@ -40,6 +40,8 @@ npx dashclaw up      # no account, first caught action in minutes
   <img src="public/media/marketing/readme-demo.gif" alt="The Approvals inbox holding a risk-scored deploy action; one click on Allow releases it and the decision is recorded" width="760" />
   <br />
   <sub>An agent tries a destructive tool call. DashClaw freezes it before it runs, routes it to the Approvals inbox, and writes a replayable decision record when you resolve it.</sub>
+  <br />
+  <sub><a href="https://www.dashclaw.io/media/marketing/launch.mp4">▶ Watch the 55-second launch film</a> (with the full walkthrough) or see it on <a href="https://www.dashclaw.io">dashclaw.io</a>.</sub>
 </div>
 
 ## What you get

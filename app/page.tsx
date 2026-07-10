@@ -232,6 +232,33 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* ── 1b. The whole loop, on film ── */}
+        <section aria-labelledby="film-heading" className="pb-16 px-6">
+          <div className="max-w-4xl mx-auto">
+            <h2
+              id="film-heading"
+              className="mb-4 text-[10px] font-mono uppercase tracking-[0.18em] text-text-tertiary font-semibold"
+            >
+              The whole loop, on film &middot; 55 seconds
+            </h2>
+            <div className="rounded-xl border border-border bg-surface-secondary overflow-hidden shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_30px_90px_rgba(0,0,0,0.55)]">
+              <video
+                controls
+                preload="none"
+                poster="/media/marketing/launch-poster.jpg"
+                className="w-full block aspect-video"
+                aria-label="DashClaw launch video: an agent action intercepted, held for a one-click approval, and recorded in the decision ledger"
+              >
+                <source src="/media/marketing/launch.mp4" type="video/mp4" />
+              </video>
+            </div>
+            <p className="mt-3 text-xs text-text-tertiary">
+              Sound on. An agent action intercepted, held for a one-click
+              approval, and recorded in the ledger.
+            </p>
+          </div>
+        </section>
+
         {/* ── 2. Live demo: run a real guard call against a live instance ── */}
         <LiveDemo />
 
