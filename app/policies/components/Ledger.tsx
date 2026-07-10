@@ -17,7 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { FC } from 'react';
 import {
   Table, AlignLeft, LayoutGrid, Search, Upload, Plus, Layers, Shield, Star,
-  BrainCircuit, Play, Download, Copy, Check, Pencil, Trash2, X, FlaskConical, FileText,
+  BrainCircuit, Play, Download, Check, Pencil, Trash2, X, FlaskConical, FileText,
   ChevronLeft, ChevronRight,
 } from 'lucide-react';
 import styles from '../policies.module.css';
