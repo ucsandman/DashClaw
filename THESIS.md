@@ -262,8 +262,8 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 
 | Surface | Ceiling | Counted from |
 |---|---|---|
-| Active API routes | 118 | `app/api/**/route.{js,ts,tsx}` |
-| App pages | 46 | `app/**/page.{js,jsx,ts,tsx}` |
+| Active API routes | 121 | `app/api/**/route.{js,ts,tsx}` |
+| App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 12 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
 | Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
@@ -301,6 +301,9 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   `/[taskId]/events`) adopted by the 2026-07-09 owner amendment: the
   multi-agent task timeline as approval context. Fresh, org-scoped,
   repository-backed; no culled surface revived.
+- **2026-07-10 — App pages 46 → 47 (fleets-and-teams amendment).** Added
+  `/team-tasks`: the live multi-agent task timeline in the Govern group.
+  One page; its timeline component lives under `_components/`.
 
 ## Version story
 

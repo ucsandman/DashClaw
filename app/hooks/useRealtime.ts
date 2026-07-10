@@ -120,6 +120,22 @@ function attachListeners(es: EventSource) {
     }
   });
 
+  es.addEventListener('team_task.created', (e) => {
+    try {
+      broadcast('team_task.created', JSON.parse((e as MessageEvent).data));
+    } catch (err) {
+      console.error('SSE Parse Error:', err);
+    }
+  });
+
+  es.addEventListener('team_task.event', (e) => {
+    try {
+      broadcast('team_task.event', JSON.parse((e as MessageEvent).data));
+    } catch (err) {
+      console.error('SSE Parse Error:', err);
+    }
+  });
+
   es.addEventListener('signal.detected', (e) => {
     try {
       broadcast('signal.detected', JSON.parse((e as MessageEvent).data));

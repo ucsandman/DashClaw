@@ -8,7 +8,7 @@ import {
   Zap, KeyRound, Settings, Clock, PanelLeftClose,
   PanelLeft, Menu, X, Activity, Shield, Microscope, Plug,
   Fingerprint, Bell, FlaskConical, ChevronDown, Stethoscope,
-  ClipboardCheck, Crosshair,
+  ClipboardCheck, Crosshair, Users,
 } from 'lucide-react';
 import DashClawLogo from './DashClawLogo';
 
@@ -36,6 +36,7 @@ const navGroups: NavGroup[] = [
       { href: '/decisions', icon: Zap, label: 'Decisions' },
       { href: '/policies', icon: Shield, label: 'Policies' },
       { href: '/calibration', icon: Crosshair, label: 'Calibration' },
+      { href: '/team-tasks', icon: Users, label: 'Team Tasks' },
     ],
   },
   {
