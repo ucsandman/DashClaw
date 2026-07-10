@@ -275,8 +275,11 @@ class DashClaw {
    *   When set, DashClaw server verifies the token via JWKS and returns `verification_status`
    *   in every guard response. The JWT `sub` claim overrides agentId in the audit record
    *   when verification succeeds — cryptographic proof beats self-assertion.
+   * @param {number} [options.timeoutMs=30000] - Per-request timeout in milliseconds. A slow or
+   *   hung server aborts the request instead of hanging the caller forever; throws an Error with
+   *   `code: 'ETIMEDOUT'`.
    */
-  constructor({ baseUrl, apiKey, agentId, agentName, authToken }) {
+  constructor({ baseUrl, apiKey, agentId, agentName, authToken, timeoutMs }) {
     if (!baseUrl) throw new Error('baseUrl is required');
     if (!apiKey) throw new Error('apiKey is required');
     if (!agentId) throw new Error('agentId is required');
@@ -286,6 +289,7 @@ class DashClaw {
     this.agentId = agentId;
     this.agentName = agentName || null;
     this.authToken = authToken || null;
+    this.timeoutMs = timeoutMs || 30_000;
   }
 
   /** @private Authentication headers shared by JSON requests and the SSE stream. */
@@ -303,14 +307,25 @@ class DashClaw {
   }
 
   async _request(path, method = 'GET', body = null, params = null) {
-    const res = await fetch(this._buildUrl(path, params), {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...this._authHeaders(),
-      },
-      body: body ? JSON.stringify(body) : undefined
-    });
+    let res;
+    try {
+      res = await fetch(this._buildUrl(path, params), {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...this._authHeaders(),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal: AbortSignal.timeout(this.timeoutMs),
+      });
+    } catch (err) {
+      if (err.name === 'TimeoutError' || err.name === 'AbortError') {
+        const timeoutErr = new Error(`Request to ${path} timed out after ${this.timeoutMs}ms`);
+        timeoutErr.code = 'ETIMEDOUT';
+        throw timeoutErr;
+      }
+      throw err;
+    }
 
     const data = await parseJsonSafe(res);
     if (!res.ok) throwRequestError(res, data);

@@ -38,6 +38,7 @@ const claw = new DashClaw({
   // attribution. When set, the server verifies the signature via JWKS and the
   // JWT sub claim overrides agentId in the audit record.
   // authToken: process.env.MY_AGENT_JWT,
+  // timeoutMs: 30000,  // optional — per-request timeout (default 30000ms)
 });
 
 // 1. Ask permission
@@ -536,6 +537,7 @@ DashClaw uses standard HTTP status codes and custom error classes:
 - `GuardBlockedError` -- Thrown by **any** SDK call when the server returns HTTP 403 with `{ decision: { decision: 'block' } }`. Note that a successful `guard()` call returning `{ decision: 'block' }` in a **200** body does **not** throw — it just returns the decision object. Always check `decision.decision === 'block'` after `guard()` and throw `new GuardBlockedError(decision)` yourself if you want to abort early, as shown in the governance loop above.
 - `ApprovalDeniedError` -- Thrown by `waitForApproval()` when an operator denies the action (server sets `status` to `failed` or `cancelled`) or when the approval expires server-side (`status` becomes `expired`; check `err.status`).
 - `ApprovalPendingError` -- Thrown by `runGoverned(..., { wait: false })` when the decision is `require_approval`: the governed `fn()` is **never** executed while the approval is pending (`err.actionId` carries the action to poll). Call `waitForApproval(err.actionId)` and re-run once approved.
+- Request timeout -- Every SDK call aborts and throws a plain `Error` (`err.code === 'ETIMEDOUT'`) if the server doesn't respond within `timeoutMs` (default 30000ms, configurable in the constructor). Distinguish it from other request failures via `err.code` rather than `err.status`, which is unset for a timeout.
 
 ---
 

@@ -20,6 +20,7 @@ on:
 jobs:
   sweep:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: POST /api/hosted/cleanup
         env:
@@ -27,10 +28,10 @@ jobs:
           CLEANUP_SECRET: ${{ secrets.HOSTED_CLEANUP_SECRET }}
         run: |
           if [ -z "$BASE_URL" ] || [ -z "$CLEANUP_SECRET" ]; then
-            echo "DASHCLAW_BASE_URL or HOSTED_CLEANUP_SECRET not set — skipping."
+            echo "::warning::Hosted cleanup: required secrets not configured — run skipped."
             exit 0
           fi
-          status=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+          status=$(curl -sS --max-time 30 --connect-timeout 10 -o /tmp/resp.json -w '%{http_code}' \
             -X POST \
             -H "X-Cleanup-Secret: $CLEANUP_SECRET" \
             "$BASE_URL/api/hosted/cleanup")

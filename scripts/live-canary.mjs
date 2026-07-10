@@ -214,11 +214,22 @@ async function report(run) {
     console.log('\n[live-canary] DASHCLAW_BASE_URL / DASHCLAW_API_KEY not set — verdict not reported.');
     return true;
   }
-  const res = await fetch(`${base}/api/live-canary`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', 'x-api-key': key },
-    body: JSON.stringify(run),
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${base}/api/live-canary`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': key },
+      body: JSON.stringify(run),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    console.error(`\n[live-canary] report FAILED: ${err.message || err}`);
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
   if (res.status !== 201) {
     console.error(`\n[live-canary] report FAILED: ${res.status} ${(await res.text()).slice(0, 200)}`);
     return false;

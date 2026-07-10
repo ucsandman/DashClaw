@@ -2,7 +2,7 @@
   "node": {
     "current_version": "5.1.0",
     "next_bump": "none",
-    "reason": "5.1.0 adds the Team Tasks surface to the Node SDK (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods in sdk/dashclaw.js) - a real SDK source change, so the Node SDK IS republished to npm at 5.1.0.",
+    "reason": "5.1.0 adds the Team Tasks surface to the Node SDK (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods in sdk/dashclaw.js) - a real SDK source change, so the Node SDK IS republished to npm at 5.1.0. A default 30s request timeout (new timeoutMs constructor option, ETIMEDOUT on expiry) also ships in sdk/dashclaw.js and is included in the next Node SDK publish.",
     "domains": [
       "platform",
       "tasks"

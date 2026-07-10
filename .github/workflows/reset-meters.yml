@@ -22,6 +22,7 @@ on:
 jobs:
   reset:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Hit /api/cron/reset-meters
         env:
@@ -29,10 +30,10 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           if [ -z "$BASE_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "DASHCLAW_BASE_URL or CRON_SECRET not set — skipping."
+            echo "::warning::Reset meters: required secrets not configured — run skipped."
             exit 0
           fi
-          status=$(curl -sS -o /tmp/resp.json -w '%{http_code}' \
+          status=$(curl -sS --max-time 30 --connect-timeout 10 -o /tmp/resp.json -w '%{http_code}' \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$BASE_URL/api/cron/reset-meters")
           echo "HTTP $status"
