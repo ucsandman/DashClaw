@@ -25,7 +25,7 @@ The action enters `pending_approval` status and the agent waits.
 
 ### 1. Dashboard (Web UI)
 
-Navigate to the DashClaw dashboard → Mission Control or Decisions view. Pending approvals show with:
+Navigate to the DashClaw dashboard → Approvals or Decisions view. Pending approvals show with:
 - Action type and declared goal
 - Agent ID
 - Risk score (color-coded)

@@ -21,7 +21,7 @@ export const AREA_BLURBS: Record<string, string> = {
   'api-guard':
     'The heart of DashClaw: POST /api/guard evaluates an intended action against org policies BEFORE it happens and returns allow, warn, block, or require_approval. Evidence-first: attach the actual act (shell command, HTTP request, SQL, file write) and the server classifies it independently of what the agent claims.',
   'api-actions':
-    'The decision ledger. Record what agents did (POST /api/actions), track outcomes, open loops, costs, and replay causal chains. Every governed action lands here and feeds /decisions and Mission Control.',
+    'The decision ledger. Record what agents did (POST /api/actions), track outcomes, open loops, costs, and replay causal chains. Every governed action lands here and feeds /decisions and Approvals.',
   'api-policies':
     'CRUD for guard policies plus policy modes (pre-built packs like claude-code, openclaw, research). Policy types observed live: risk_threshold, require_approval, block_action_type, rate_limit, protected_path, permission_escalation, non_fabrication, allow_grant, warn_action_type.',
   'api-approvals':

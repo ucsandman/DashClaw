@@ -255,7 +255,7 @@ Then continue with the post-deploy flip checks in [`HOSTED_TRIAL_RUNBOOK.md`](./
 | `HOSTED_PROVISION_MAX_PER_IP_PER_DAY` | `5` | Anonymous mints per IP per day |
 | `HOSTED_MAX_ACTIVE_TRIALS` | `500` | Global concurrent-trial cap — the cost circuit breaker. **Cannot be set to 0** (the parser only accepts positive integers and falls back to 500); to pause trials, take the deployment down instead |
 | `DASHCLAW_LOCAL_ADMIN_PASSWORD` | unset (route 404s) | Password login for the operator if Google isn't configured |
-| `REDIS_URL` + `REALTIME_BACKEND=redis` | in-memory | Makes the Mission Control live stream survive cold starts |
+| `REDIS_URL` + `REALTIME_BACKEND=redis` | in-memory | Makes the Approvals live stream survive cold starts |
 
 ---
 

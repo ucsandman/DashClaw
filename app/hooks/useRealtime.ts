@@ -197,7 +197,7 @@ function maybeCloseEventSource() {
 export function useRealtime(onEvent: RealtimeCallback) {
   // BUG-03b: previously gated the SSE subscription on `session?.user?.id`
   // from useSession(), which always returned null for local-password admins
-  // — they got no realtime updates on mission-control, decisions, etc.
+  // — they got no realtime updates on approvals, decisions, etc.
   // useEffectiveRole resolves both auth paths via /api/session/effective.
   const { authenticated } = useEffectiveRole();
   const onEventRef = useRef(onEvent);

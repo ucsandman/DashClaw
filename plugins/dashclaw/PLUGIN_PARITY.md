@@ -23,7 +23,7 @@ The three manifests reference the same shared content:
 
 The MCP configs differ only by the `--agent-id` passed to the bundled
 `@dashclaw/mcp-server`. Keeping the agent identity distinct per ecosystem
-gives DashClaw's analytics (`/agents`, Mission Control posture, decision
+gives DashClaw's analytics (`/agents`, Approvals posture, decision
 ledger) clean separation between Codex, Claude Code, Hermes, and Desktop
 sessions.
 

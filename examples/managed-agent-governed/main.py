@@ -8,7 +8,7 @@ and every significant action is governed through DashClaw's control plane:
   1. Agent calls `dashclaw_guard` before risky actions -> DashClaw evaluates policies
   2. Agent calls `dashclaw_invoke` to execute capabilities -> DashClaw guards + executes + records
   3. Agent calls `dashclaw_record` to log decisions -> DashClaw creates auditable action records
-  4. Everything shows up in DashClaw's Mission Control operations feed
+  4. Everything shows up in DashClaw's Approvals operations feed
 
 The agent gets full autonomy for safe actions (file I/O, search, code execution)
 via the built-in agent toolset, but must go through DashClaw for governed operations.

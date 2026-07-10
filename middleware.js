@@ -802,7 +802,7 @@ function handleDemoEntry(request) {
 function isCookieDemoRequest(request, mode) {
   // A hosted-trial instance is a REAL runtime, never a marketing sandbox —
   // even though it lives under *.dashclaw.io. Without this guard, a visitor
-  // who clicked Mission Control (which mints dashclaw_demo on whatever host
+  // who clicked Live Demo (which mints dashclaw_demo on whatever host
   // they're on) gets every write on hosted.dashclaw.io demo-blocked,
   // including the trial mint itself.
   if (process.env.DASHCLAW_HOSTED === 'true') return false;
@@ -993,7 +993,7 @@ async function handleDemoGuardRoute({ request, fixtures, url, method }) {
   return demoJson(request, demoGuard(fixtures, url));
 }
 
-// Demo org kill switch: module-scope state so the Mission Control HALT
+// Demo org kill switch: module-scope state so the org HALT
 // control is fully clickable in the demo (halting "blocks" nothing real;
 // state resets on cold start). GET mirrors /api/halt's { halt } shape.
 let demoHaltState = { halted: false, actor: null, reason: null, at: null };

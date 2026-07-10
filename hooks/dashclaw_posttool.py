@@ -280,7 +280,7 @@ def _patch_action(action_id, body):
     Retries up to three times with 0.4s then 0.8s backoff between
     attempts so a Vercel or Neon cold start does not drop the action's
     terminal status, which would otherwise leave the row stuck in
-    `running` and pollute Mission Control as a zombie. A final failure is
+    `running` and pollute Approvals as a zombie. A final failure is
     appended to dashclaw_hook_errors.log unconditionally (not debug-gated):
     a silently dropped outcome is an audit-trail gap, not a breadcrumb.
     """

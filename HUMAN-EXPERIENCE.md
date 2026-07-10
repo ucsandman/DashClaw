@@ -43,7 +43,7 @@ one**. When only one interface gets built first, it is the human one.
    judgment is exercised through a **button, toggle, or form in the
    product**. "Copy this command," "open GitHub," "edit this file," or
    "run this script" is never the primary human path. The existing golden
-   patterns are the model: Approvals resolve in Mission Control with one
+   patterns are the model: approvals resolve in the Approvals inbox with one
    click; policy-tuning proposals accept/dismiss in the /policies review
    feed. New judgment loops follow them.
 

@@ -112,9 +112,9 @@ export default function PracticalSystemsPage() {
               <div className="w-12 h-12 rounded-xl bg-brand-subtle flex items-center justify-center mb-6">
                 <Zap size={24} className="text-brand" />
               </div>
-              <h3 className="text-xl font-bold mb-4">Mission Control</h3>
+              <h3 className="text-xl font-bold mb-4">Approvals</h3>
               <p className="text-text-secondary text-sm leading-relaxed">
-                A unified dashboard where humans and AI agents work together with full visibility and zero black boxes.
+                A unified inbox where humans and AI agents work together with full visibility and zero black boxes.
               </p>
             </div>
             <div className="p-8 rounded-2xl bg-surface-secondary border border-border hover:border-border-active transition-all">

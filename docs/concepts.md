@@ -90,7 +90,7 @@ Note the distinction from [OIDC login](./OIDC_SETUP.md), which signs *humans* in
 
 ## The org, the fleet, and the ledger
 
-Everything is org-scoped. Agents appear in the fleet (`/agents`) as they report; every governed action lands in the decisions ledger (`/decisions`) with its risk breakdown, matched policies, assumptions, and outcome — each one replayable (`/replay/:actionId`). Mission Control (`/mission-control`) is the live view; **posture** (`/posture`) is the score — a gaming-resistant 0–100 where a policy only counts once replaying real traffic proves it fires.
+Everything is org-scoped. Agents appear in the fleet (`/agents`) as they report; every governed action lands in the decisions ledger (`/decisions`) with its risk breakdown, matched policies, assumptions, and outcome — each one replayable (`/replay/:actionId`). Approvals (`/approvals`) is the live view; **posture** (`/posture`) is the score — a gaming-resistant 0–100 where a policy only counts once replaying real traffic proves it fires.
 
 ## Where to go next
 

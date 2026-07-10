@@ -29,7 +29,7 @@ At the start of every session, do these three things:
    levels. You will use `dashclaw_invoke` (not direct HTTP) for these.
 
 3. **Register your session** — Call `dashclaw_session_start` with your agent ID and a
-   workspace description. This groups all your actions for tracking in Mission Control.
+   workspace description. This groups all your actions for tracking in Approvals.
 
 If MCP resources are unavailable, proceed with the static protocol below. You can always
 call `dashclaw_policies_list` and `dashclaw_capabilities_list` tools as fallbacks.
@@ -59,9 +59,9 @@ warning context in your action record (`dashclaw_record`).
 through another path or tool. Report the block reason to the user. The policy exists for
 a reason.
 
-**`require_approval`** — A human must approve this action in DashClaw Mission Control.
+**`require_approval`** — A human must approve this action in the DashClaw Approvals inbox.
 1. Record the pending action: `dashclaw_record` with `status: 'pending_approval'`
-2. Inform the user: "This action requires human approval in Mission Control."
+2. Inform the user: "This action requires human approval in Approvals."
 3. Wait: call `dashclaw_wait_for_approval` with the action ID
 4. Inspect the response — `approved` is true only when the action reaches `status: 'completed'` AND has an `approved_by` operator. Anything else (denied, cancelled, failed, or `timed_out: true`) means do not proceed:
    - `approved: true` → proceed and PATCH the outcome.
@@ -80,7 +80,7 @@ exists and check its health status.
 ## Recording Rules
 
 Record all significant actions with `dashclaw_record`. This powers the audit trail visible
-in Mission Control and the Decisions ledger.
+in Approvals and the Decisions ledger.
 
 **Always record:**
 - Long-running actions (status: `running`) when you record up front; PATCH later with the final outcome

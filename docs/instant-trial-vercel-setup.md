@@ -104,7 +104,7 @@ so the new env only takes effect on a fresh build. In Vercel → **Deployments �
    (`/connect?hosted=…`) with the keyless connector.
 3. In Claude, **Add custom connector** → paste `https://dashclaw.io/api/mcp` → Connect →
    log in with the **same Google account** → Authorize.
-4. Take a governed action; it appears in **your** Mission Control. Sign in with a second
+4. Take a governed action; it appears in **your** Approvals. Sign in with a second
    Google account to confirm the two workspaces are isolated.
 
 If the CTA doesn't appear: confirm `DASHCLAW_HOSTED=true` is set for **Production** and that

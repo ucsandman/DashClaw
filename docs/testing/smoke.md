@@ -29,7 +29,7 @@ npm run test:smoke
 npm run test:smoke -- --headed
 
 # Run one test
-npm run test:smoke -- --grep "Mission Control"
+npm run test:smoke -- --grep "Approvals"
 
 # Point at an already-running target (staging, prod, etc.)
 PW_BASE_URL=https://stage.example.com npm run test:smoke

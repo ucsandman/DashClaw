@@ -110,7 +110,7 @@ describe('middleware demo-mode dispatch order (characterization)', () => {
   });
 
   it('non-API page routes in demo mode pass through without auth redirect', async () => {
-    const res = await middleware(req('/mission-control'));
+    const res = await middleware(req('/approvals'));
     expect(res.headers.get('location')).toBeNull();
   });
 

@@ -282,7 +282,7 @@ export function buildAgentsMdBlock({ baseUrl } = {}) {
     '',
     '1. Call `dashclaw_session_start` via the `dashclaw` MCP server with your',
     '   agent id (`codex`) and a one-sentence workspace description. This',
-    '   groups all your actions for tracking in Mission Control.',
+    '   groups all your actions for tracking in Approvals.',
     '2. Read the `dashclaw://policies` and `dashclaw://capabilities` MCP',
     '   resources to learn what rules govern you and what capabilities are',
     '   registered. Treat unknown action types as high-risk by default.',

@@ -67,10 +67,13 @@ migration: Phase 2.)*
 
 ## D4 — Emergency halt is a click, and the button is honest
 
-The org kill switch renders in Mission Control (HaltControl in the
-CommandStrip: two-step confirm to halt with optional reason; full-width banner
-with actor/reason/time and two-step Resume while halted; hidden for
-non-admins). Because a HALT button that other warm lambdas ignore for 30
+The org kill switch is backed by `/api/halt` (two-step confirm to halt with
+optional reason; full-width banner with actor/reason/time and two-step Resume
+while halted; hidden for non-admins). **Note (2026-07-10):** the HaltControl
+UI that rendered this in the CommandStrip lived on the Mission Control
+dashboard, which was retired in the v5.0.0 cull — no current page renders
+this control; verify before citing this section as a live human-operable
+surface. Because a HALT button that other warm lambdas ignore for 30
 seconds would be a lie, the halt read uses a dedicated 3-second cache instead
 of the 30-second settings cache: cross-instance propagation is bounded at
 ~3s, eager invalidation keeps the serving instance at 0s, and the guard hot

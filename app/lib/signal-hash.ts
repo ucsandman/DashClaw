@@ -8,8 +8,8 @@
  * dismissals) still showed it CRITICAL. With the timestamp, a new occurrence produces a new key
  * and re-fires, and the feed can hide the exact instances the user dismissed.
  *
- * Used by every dismissal site: the security-page write, the SystemStatusBar / Mission Control
- * posture / RiskSignalsCard reads, and attached to operations-feed signal items as `dismiss_key`.
+ * Used by every dismissal site: the security-page write, the SystemStatusBar
+ * posture reads, and attached to operations-feed signal items as `dismiss_key`.
  * All sites MUST use this one function or the keys won't match.
  */
 export function signalDismissKey(s: {

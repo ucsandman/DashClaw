@@ -54,7 +54,7 @@ Then open `/decisions` on your instance: the evaluation should be the newest row
 
 ## What identity your sessions get
 
-- **Per-harness identity.** The installer writes an explicit agent id onto each hook command, so Claude Code, Codex, and Hermes on one machine report as three distinct agents in Mission Control.
+- **Per-harness identity.** The installer writes an explicit agent id onto each hook command, so Claude Code, Codex, and Hermes on one machine report as three distinct agents in Approvals.
 - **Sub-agents are first-class.** Spawned sub-agents appear as their own fleet identities (e.g. `claude-code:explore`) grouped under their parent in `/agents`, inheriting its permissions, targeted policies, and spend budgets.
 - **Sessions are joined from evidence.** Every action carries its harness session id; a multi-agent fan-out reads as one governed unit with per-leaf attribution on the `/agents` Fan-outs panel.
 

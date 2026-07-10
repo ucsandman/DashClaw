@@ -15,7 +15,7 @@ import { persistGuardDecision, evaluateGuard, invalidateGuardPolicyCache } from 
 
 // The canary org satisfies the org_id foreign keys and isolates every canary
 // row from real org-scoped surfaces (posture, mining, rate_limit windows,
-// Mission Control). Global org iterators (e.g. the learning loop) do see the
+// Approvals). Global org iterators (e.g. the learning loop) do see the
 // canary org itself; it is deliberately left in place — deleting it would
 // race concurrent canary runs into FK failures — and it is empty outside a
 // run's insert→delete window, so iterating it is a no-op.

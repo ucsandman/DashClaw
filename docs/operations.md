@@ -1,6 +1,6 @@
 # Operating DashClaw
 
-You connected an agent. This page is the operator's side of the product: what to set up on day one, and what to check when you sit down at Mission Control.
+You connected an agent. This page is the operator's side of the product: what to set up on day one, and what to check when you sit down at Approvals.
 
 ## Day one: give guard something to enforce
 
@@ -36,7 +36,7 @@ What keeps the queue honest:
 
 ## The ledger: decisions, replay, signals
 
-Every governed action lands in `/decisions` with its risk breakdown, matched policies, assumptions, signature state, and terminal outcome. Click through to `/replay/:actionId` for the full causal chain — this is the artifact you hand an auditor. Risk signals (stuck loops, lost confirmations, drift) surface in Mission Control's intervention queue; repeated occurrences collapse into one row, and dismissing it clears them all.
+Every governed action lands in `/decisions` with its risk breakdown, matched policies, assumptions, signature state, and terminal outcome. Click through to `/replay/:actionId` for the full causal chain — this is the artifact you hand an auditor. Risk signals (stuck loops, lost confirmations, drift) surface in Approvals' intervention queue; repeated occurrences collapse into one row, and dismissing it clears them all.
 
 Watch the **outcome** column, not just the decision: `lost_confirmation` rows mean an agent went silent after approval — the sweep caught it, and something should investigate before anyone retries.
 

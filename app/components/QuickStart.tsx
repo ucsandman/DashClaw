@@ -174,7 +174,7 @@ export default function QuickStart({ onDismiss }: QuickStartProps) {
                 <p className="text-xs text-tertiary leading-relaxed">
                   {isDemoMode()
                     ? 'Self-host to connect real agents. In demo mode, use the simulator to see governance.'
-                    : 'Mission Control will light up the moment your agent acts.'}
+                    : 'Approvals will light up the moment your agent acts.'}
                 </p>
 
                 {/* Visual Hint - Re-anchored to the text for clarity */}

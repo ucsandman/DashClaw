@@ -1,6 +1,6 @@
 # Claude Managed Agent + DashClaw Governance
 
-Run a Claude Managed Agent with DashClaw as the governance and observability layer. Every significant action is guarded, recorded, and visible in Mission Control.
+Run a Claude Managed Agent with DashClaw as the governance and observability layer. Every significant action is guarded, recorded, and visible in Approvals.
 
 ## How It Works
 
@@ -12,7 +12,7 @@ Agent wants to call external API
     -> DashClaw evaluates policies
       -> allow: agent proceeds
       -> block: agent stops
-      -> require_approval: operator decides in Mission Control
+      -> require_approval: operator decides in Approvals
   -> calls dashclaw_invoke (custom tool)
     -> DashClaw executes the capability through its governance loop
     -> Guard, execute, record, return result
@@ -52,7 +52,6 @@ python main.py "Analyze our API performance data and generate a report. Check go
 
 While the agent runs, open your DashClaw instance:
 
-- **Mission Control** (`/mission-control`) — see governed actions in the operations feed
 - **Decisions** (`/decisions`) — full audit trail of every governed action
 - **Capabilities** (`/capabilities`) — if you registered external APIs as capabilities, see invocation history
 - **Approvals** (`/approvals`) — if a guard decision requires approval, it shows up here
@@ -73,4 +72,4 @@ Logs a significant action to DashClaw's audit trail. Used for decisions, complet
 - Register your external APIs as DashClaw capabilities at `/capabilities/new`
 - Create policies at `/policies` to control which agents can do what
 - Set up capability access rules to restrict which agents can invoke which APIs
-- Watch the operations feed in Mission Control for real-time governance visibility
+- Watch the operations feed in Approvals for real-time governance visibility

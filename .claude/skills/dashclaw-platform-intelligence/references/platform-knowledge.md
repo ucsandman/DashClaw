@@ -149,7 +149,6 @@ Client request hits middleware.js
 | `/demo` | Demo sandbox (fake data, read-only, no login) |
 | `/connect` | 8-minute "first governed action" onboarding (MCP + agent bootstrap paths) |
 | `/setup` | Readiness verification and instance health |
-| `/mission-control` | Strategic fleet overview (reactive timeline + live log) |
 | `/widget` | Installable PWA status widget — chrome-free glanceable cockpit: overall posture, key counts, top signal, live recent-action log, and inline Approve/Deny for pending approvals (resolves via `/api/approvals`, clears across all channels; always-on-top-ready; backed by `GET /api/widget/summary`) |
 | `/dashboard` | Draggable widget dashboard (real-time reactive cards) |
 | `/workspace` | Per-agent workspace (digest, context, handoffs, snippets, preferences, memory) |
@@ -189,7 +188,7 @@ The left sidebar is organized into five groups (`app/components/Sidebar.js`). **
 
 | Group | Items |
 |---|---|
-| **Govern** | Mission Control, Decisions, Approvals, Policies, Posture, Fleet |
+| **Govern** | Decisions, Approvals, Policies, Posture, Fleet |
 | **Observe** | Security, Analytics, Activity, Compliance |
 | **Spend** | Overview, Purchases, Your Claude Code |
 | **Configure** | API Keys, Integrations, Webhooks, Identities, Settings |
@@ -236,7 +235,7 @@ These are optional packages published alongside the core runtime.
 - *Agent identity (1):* `dashclaw_pair` — operator-approved pairing of an unidentified agent to a registered identity.
 - *Team Tasks (3):* `dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update` — create a Team Task, append an inter-agent timeline event, update task status.
 
-**4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
+**3 resources:** `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
 Route inventory for tools is emitted from the shape to `mcp-server/lib/routes-inventory.generated.json` — keep tools and routes in sync.
 

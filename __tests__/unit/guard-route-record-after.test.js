@@ -4,7 +4,7 @@
  *
  * On Vercel the function can freeze the moment the response returns; a bare
  * `void promise` / un-awaited Promise.all drops the meter increment (a
- * billing/quota undercount that never self-heals) and the Mission Control
+ * billing/quota undercount that never self-heals) and the Approvals
  * event. POST /api/actions already wraps the identical side effects in
  * after() — this pins the guard route's record path to the same contract.
  */

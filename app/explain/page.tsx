@@ -323,7 +323,7 @@ function ArchitectureDiagram() {
     <svg
       viewBox="0 0 920 300"
       role="img"
-      aria-label="Diagram: agents connect via SDK, MCP, or HTTP to the DashClaw governance runtime backed by Postgres; the dashboard surfaces Mission Control, Decisions, and Policies for humans."
+      aria-label="Diagram: agents connect via SDK, MCP, or HTTP to the DashClaw governance runtime backed by Postgres; the dashboard surfaces Approvals, Decisions, and Policies for humans."
       className="w-full min-w-[720px] font-mono text-[13px]"
     >
       <defs>

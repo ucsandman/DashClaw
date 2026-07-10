@@ -1,6 +1,6 @@
 # DashClaw + Anthropic Claude SDK: Deployment Agent
 
-A governed AI agent that analyzes deployment readiness, checks service health, and deploys to production — but only after a human operator approves the action in DashClaw Mission Control.
+A governed AI agent that analyzes deployment readiness, checks service health, and deploys to production — but only after a human operator approves the action in DashClaw Approvals.
 
 ## What This Demonstrates
 

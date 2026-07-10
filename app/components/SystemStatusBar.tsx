@@ -46,7 +46,7 @@ export default function SystemStatusBar() {
     }
   }, [fetchSignals]));
 
-  // APPLY DISMISSAL FILTER (Consistency with Mission Control + live feed)
+  // APPLY DISMISSAL FILTER (Consistency with Approvals + live feed)
   const activeSignals = useMemo(() => {
     if (!signals) return [];
     try {

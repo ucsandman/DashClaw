@@ -38,7 +38,7 @@ node index.js
 ## Expected Outcome
 - **Allowed**: The agent completes the flow and prints a Replay URL.
 - **Blocked**: If you create a policy in DashClaw to block `email_customer` actions with high risk, the agent will stop.
-- **Approval**: If a policy matches with `require_approval`, the agent will poll until you approve it in the **Mission Control** dashboard.
+- **Approval**: If a policy matches with `require_approval`, the agent will poll until you approve it in the **Approvals** dashboard.
 
 ## Dashboard View
 Open DashClaw at `http://localhost:3000` to see:

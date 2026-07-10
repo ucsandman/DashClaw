@@ -34,7 +34,7 @@ vi.mock('@/components/SystemStatusBar', () => ({
 describe('PageLayout shell', () => {
   it('pins dashboard chrome to the viewport and keeps scrolling inside main', () => {
     const { container } = render(
-      <PageLayout title="Mission Control" breadcrumbs={['Mission Control']}>
+      <PageLayout title="Approvals" breadcrumbs={['Approvals']}>
         <div>Governed events</div>
       </PageLayout>,
     );

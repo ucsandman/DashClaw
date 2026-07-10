@@ -1,6 +1,6 @@
 # DashClaw + OpenAI Agents SDK: PII Cleanup Agent
 
-A governed AI agent that scans a database for personally identifiable information and deletes it — but only after a human operator approves the action in DashClaw Mission Control.
+A governed AI agent that scans a database for personally identifiable information and deletes it — but only after a human operator approves the action in DashClaw Approvals.
 
 ## What This Demonstrates
 

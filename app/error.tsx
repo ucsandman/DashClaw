@@ -22,7 +22,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
         </div>
         <h1 className="text-lg font-semibold text-primary">Something went wrong</h1>
         <p className="mt-2 text-sm leading-relaxed text-secondary">
-          This view hit an unexpected error. Try again, or head back to Mission Control.
+          This view hit an unexpected error. Try again, or head back to Approvals.
         </p>
         {error?.digest && (
           <p className="mt-3 font-mono text-xs text-tertiary">Reference: {error.digest}</p>

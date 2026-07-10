@@ -41,7 +41,7 @@ def run():
     print(f"🔗 View decision replay: {claw.base_url}/decisions/{action['action_id']}")
 
     if decision == "require_approval" or action.get("status") == "pending_approval":
-        print("⏳ Action paused. Awaiting human operator approval in Mission Control.")
+        print("⏳ Action paused. Awaiting human operator approval in Approvals.")
     else:
         print("✅ Action permitted. Proceeding with deployment.")
 

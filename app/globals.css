@@ -83,7 +83,7 @@ body {
   }
 }
 
-/* Mission Control live-ledger row enter animation. A new governed event slides
+/* Approvals live-ledger row enter animation. A new governed event slides
    in gently from the top — calm, one direction, one speed. The platform
    prefers-reduced-motion block above neutralizes it for users who ask. */
 @keyframes fadeSlideIn {

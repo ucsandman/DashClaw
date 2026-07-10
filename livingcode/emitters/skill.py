@@ -174,7 +174,7 @@ def emit_skill(shape: ShapeModel) -> str:
     if getattr(shape, "events", []):
         lines += ["## Realtime & Webhook Events", ""]
         lines += [
-            "Every mutation that Mission Control reflects and every webhook "
+            "Every mutation that Approvals reflects and every webhook "
             "delivery is keyed on these event strings. Subscribe via "
             "`GET /api/events` (SSE) or register a webhook with the matching "
             "`events: [...]` array.",

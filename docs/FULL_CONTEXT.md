@@ -17,7 +17,7 @@ DashClaw mirrors the lifecycle of a governed decision:
 4. **Decision Evidence** — Verifiable proof of the governance process is recorded.
 
 ### Core Capabilities
-- **Mission Control** — High-level fleet posture, active interventions, and live decision stream.
+- **Approvals** — Human-in-the-loop approval queue, active interventions, and live decision stream.
 - **Decision Replay** — Visual causal chain visualization of single agent decisions.
 - **Agent Governance Profile** — Dedicated dossiers for every agent (posture, active policies, permissions).
 - **Behavior Guard** — Policy enforcement before agents act (allow / warn / block / require_approval).
@@ -61,12 +61,11 @@ DashClaw ships as one codebase serving two roles via `DASHCLAW_MODE`:
 
 DashClaw is organized into a lean governance runtime with modular extensions.
 
-> **Note (accuracy):** The `(core)` / `(extensions)` / `(archive)` grouping below is a *conceptual* tiering, not the on-disk layout — the real `app/` directories are flat (`app/mission-control`, `app/drift`, …), there are no Next.js route-group folders. In the UI, the "extensions" surfaces (drift, learning, routing, swarm, prompts) live under a collapsible sidebar group labeled **Labs**; there is no "AI Safety Research" section in the product.
+> **Note (accuracy):** The `(core)` / `(extensions)` / `(archive)` grouping below is a *conceptual* tiering, not the on-disk layout — the real `app/` directories are flat (`app/approvals`, `app/drift`, …), there are no Next.js route-group folders. In the UI, the "extensions" surfaces (drift, learning, routing, swarm, prompts) live under a collapsible sidebar group labeled **Labs**; there is no "AI Safety Research" section in the product.
 
 ```
 app/
 ├── (core)/                    # Tier 1 — Governance Runtime UI
-│   ├── mission-control/       # Control Tower (posture, interventions, live stream)
 │   ├── decisions/             # Decisions Ledger & Replay (Visual causal chain)
 │   ├── policies/              # Guard Policies — Full lifecycle (CRUD, simulation, testing)
 │   ├── approvals/             # Human-in-the-loop approval queue
@@ -103,7 +102,7 @@ app/
 
 ### Key Invariants
 
-1. **Mission Control as Landing Page**: Post-login, users are always sent to `/mission-control` for immediate operational posture.
+1. **Approvals as Landing Page**: Post-login, users are always sent to `/approvals` for immediate operational posture.
 2. **Decision Lineage Everywhere**: The product emphasizes the causal chain (Intent → Policy → Outcome) rather than isolated logs.
 3. **Minimal Runtime API**: The entire platform maps to five idempotent primitives (Guard, Actions, Outcomes, Assumptions, Approvals).
 4. **No direct SQL in route files.** All queries go in `app/lib/repositories/*.repository.js`.
@@ -117,7 +116,7 @@ app/
 ### Auth Flow (Browser)
 1. `/login` → GitHub or Google OAuth (or Admin Password)
 2. OAuth callback → NextAuth JWT cookie
-3. Redirect to `/mission-control`
+3. Redirect to `/approvals`
 4. Every page route: `middleware.js` calls `getToken()` (Edge-compatible)
 5. Session includes `user.role` (`admin` | `member`)
 
@@ -162,7 +161,7 @@ Before acting, agents call `claw.guard()`. DashClaw evaluates:
 
 ### 3. Outcome
 The decision is finalized and recorded in the **Decisions Ledger**. 
-Failed or blocked decisions are surfaced in **Mission Control** for immediate operator intervention.
+Failed or blocked decisions are surfaced in **Approvals** for immediate operator intervention.
 
 ### 4. Evidence
 Every step is preserved in the **Decision Replay** view, providing a cryptographically signed audit trail for compliance and debugging.

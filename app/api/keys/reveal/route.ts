@@ -10,7 +10,7 @@ import { denyTrialPrincipal } from '../../../lib/hosted/trial-principal';
  *
  * Returns the bootstrap API key (`process.env.DASHCLAW_API_KEY`) so the
  * signed-in admin does not have to hunt for it in `.env.local` or the
- * Vercel deploy output. Used by Mission Control QuickStart (to pre-fill
+ * Vercel deploy output. Used by the Approvals QuickStart (to pre-fill
  * the starter `.env` snippet) and the /settings Environment panel (to
  * power a reveal/copy button on the masked key display).
  *

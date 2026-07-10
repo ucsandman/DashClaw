@@ -2,7 +2,7 @@
 
 DashClaw provides real-time visibility into your agent fleet's status and health via the **Fleet Presence** card on the dashboard.
 
-> For a full legend of every Mission Control badge, counter, and status, see the [Mission Control Reference](./mission-control-reference.md).
+> For a full legend of every status-bar badge, counter, and status, see the [Global Status Bar Reference](./mission-control-reference.md).
 
 ## Fleet Presence Logic
 

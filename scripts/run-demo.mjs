@@ -118,7 +118,7 @@ async function main() {
       
       // Extract the replay URL from the agent's output
       const urlMatch = agentOutput.match(new RegExp(`${DASHCLAW_BASE_URL}/replay/[a-zA-Z0-9_]+`));
-      const replayUrl = urlMatch ? urlMatch[0] : `${DASHCLAW_BASE_URL}/mission-control`;
+      const replayUrl = urlMatch ? urlMatch[0] : `${DASHCLAW_BASE_URL}/approvals`;
 
       console.log(`   Opening Decision Replay...`);
       console.log(`   Replay: ${replayUrl}`);

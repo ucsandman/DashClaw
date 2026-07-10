@@ -19,7 +19,7 @@ export const TOOL_DEFINITIONS = [
         description: 'Evaluate DashClaw governance policies before taking a risky action. Call this BEFORE ' +
             'any action that modifies external systems, deploys code, sends messages, or touches ' +
             'production data. Returns a decision: "allow" (proceed), "warn" (proceed with caution), ' +
-            '"block" (stop), or "require_approval" (wait for human in Mission Control). If the ' +
+            '"block" (stop), or "require_approval" (wait for human in the Approvals inbox). If the ' +
             'decision is "block", do NOT proceed with the action.',
         inputSchema: {
             type: 'object',
@@ -44,7 +44,7 @@ export const TOOL_DEFINITIONS = [
         name: 'dashclaw_record',
         description: 'Record a governed action in DashClaw\'s audit trail. Use this to log significant ' +
             'decisions, completed tasks, or notable outcomes. Every important action the agent takes ' +
-            'should be recorded for governance visibility in Mission Control and the Decisions ledger.',
+            'should be recorded for governance visibility in the Approvals inbox and the Decisions ledger.',
         inputSchema: {
             type: 'object',
             properties: {
@@ -116,7 +116,7 @@ export const TOOL_DEFINITIONS = [
     },
     {
         name: 'dashclaw_wait_for_approval',
-        description: 'Wait for a human to approve or deny a pending action in DashClaw Mission Control. ' +
+        description: 'Wait for a human to approve or deny a pending action in the DashClaw Approvals inbox. ' +
             'Call this after a guard decision returns "require_approval" or after recording an ' +
             'action with status "pending_approval". Polls the action status until it changes. ' +
             'Default timeout is 300 seconds (5 minutes).',
@@ -149,7 +149,7 @@ export const TOOL_DEFINITIONS = [
         name: 'dashclaw_session_end',
         description: 'Close a DashClaw session and update its status. Call this when the task is complete ' +
             'or if the session needs to be marked as failed. Provides a clean lifecycle boundary ' +
-            'for governance reporting in Mission Control.',
+            'for governance reporting in the Approvals inbox.',
         inputSchema: {
             type: 'object',
             properties: {

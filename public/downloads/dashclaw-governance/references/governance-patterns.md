@@ -45,7 +45,7 @@ Step 2: Record the pending action
 
 Step 3: Inform the user
   "This deployment requires human approval. An operator can approve or deny
-   this action in DashClaw Mission Control."
+   this action in DashClaw Approvals."
 
 Step 4: Wait for the decision
   dashclaw_wait_for_approval(action_id="act_xxx")

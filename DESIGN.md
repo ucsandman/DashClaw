@@ -185,7 +185,7 @@ DashClaw is **flat by default**. Depth is conveyed almost entirely through 1px t
 - **lucide-react only.** 14–20px inline, 24–28px for hero moments. Never mix icon libraries.
 
 ### Signature — the live decision stream
-Mission Control's live stream is the one surface where motion is sanctioned. New decisions animate in; brand orange marks the items that need attention. Everything else stays still — the motion *is* the signal.
+Approvals' live stream is the one surface where motion is sanctioned. New decisions animate in; brand orange marks the items that need attention. Everything else stays still — the motion *is* the signal.
 
 ## 6. Do's and Don'ts
 

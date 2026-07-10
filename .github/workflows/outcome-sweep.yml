@@ -2,7 +2,7 @@ name: Outcome sweep
 
 # Scheduler for `/api/cron/outcome-sweep`. Marks action_records that exceeded
 # their outcome timeout window as `lost_confirmation`. Without this, orphan
-# `status='running'` rows accumulate and clutter the Mission Control
+# `status='running'` rows accumulate and clutter the Approvals
 # operations feed (see drizzle/0005_orphan_action_backfill.sql for the
 # one-shot cleanup of pre-existing zombies).
 #

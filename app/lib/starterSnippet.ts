@@ -3,11 +3,11 @@
  *
  * This is the single source of truth for the
  * `guard -> createAction -> recordAssumption -> updateOutcome` loop shown on
- * every "connect your first agent" surface (/connect, Mission Control
+ * every "connect your first agent" surface (/connect, Approvals
  * QuickStart, /settings SDK panel).
  *
  * Why this matters: a snippet that calls `claw.guard()` alone does NOT create
- * a row in `action_records`, so Mission Control stays empty and the user
+ * a row in `action_records`, so Approvals stays empty and the user
  * concludes the product is broken. Every starter snippet MUST run the full
  * 4-step loop so the first action becomes visible evidence.
  *

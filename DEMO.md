@@ -42,9 +42,9 @@ curl -X POST http://localhost:3000/api/workflows/templates/<TEMPLATE_ID>/execute
   -d '{"agent_id": "demo-agent"}'
 ```
 
-### Step 3: Watch Mission Control
+### Step 3: Watch Approvals
 
-Open `/mission-control` and watch the operations feed in real-time as the five steps run:
+Open `/approvals` and watch the operations feed in real-time as the five steps run:
 
 1. **Knowledge Search** — Searches your strategy docs (internal, no governance)
 2. **HN News Fetch** — Calls the real Hacker News API
@@ -102,7 +102,7 @@ Open **Decisions** to see the full audit trail: the workflow-level guard evaluat
 | Artifacts | Each step output auto-captured |
 | Policies | 3 threshold policies at different levels |
 | continue_on_failure | Workflow completes even if publish denied |
-| Mission Control | Real-time operations feed |
+| Approvals | Real-time operations feed |
 | Decisions Ledger | Full audit trail |
 
 ## Troubleshooting

@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:72875f6354decf0027708bab99f46777ee68c5b8",
+  "timestamp": "sha1:f68542b38f07b641ab228fdce83e9b22ed5cb4bf",
   "routes": [
     {
       "path": "/api/actions",
@@ -1285,7 +1285,6 @@
       "files": [
         "__tests__/unit/cron-auth.test.js",
         "__tests__/unit/cron-outcome-sweep.route.test.js",
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/cron/integration-health/route.ts",
         "app/api/cron/jti-sweep/route.ts",
@@ -1372,7 +1371,6 @@
         ".hermes/skills/dashclaw-platform-intelligence/scripts/validate-integration.mjs",
         ".supergoal-archive-2026-06-10-sweep/tmp/migrate-under-test.mjs",
         "__tests__/unit/connect-complete-discord-alert.test.js",
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
         "app/api/internal/resolve-key/route.ts",
         "app/api/keys/reveal/route.ts",
@@ -1593,7 +1591,6 @@
         "__tests__/unit/auth-hosted-signin.test.js",
         "__tests__/unit/first-governed-action.test.jsx",
         "__tests__/unit/hosted/capacity.route.test.js",
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/flag.test.js",
         "__tests__/unit/hosted/publicConfig.test.js",
         "__tests__/unit/hosted/workspace-admin.test.js",
@@ -1822,7 +1819,6 @@
         "__tests__/unit/guard.route.test.js",
         "__tests__/unit/health-tables.test.js",
         "__tests__/unit/health.route.test.js",
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/middleware-trial-enforcement.test.js",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "__tests__/unit/integrity-routes.test.js",
@@ -1851,6 +1847,7 @@
         "scripts/_db.mjs",
         "scripts/auto-migrate.mjs",
         "scripts/backfill-action-cost-reprice.mjs",
+        "scripts/check-production-ready.mjs",
         "scripts/cleanup-actions.mjs",
         "scripts/cleanup-org-default.mjs",
         "scripts/create-org.mjs",
@@ -2071,7 +2068,6 @@
       "name": "HOSTED_CLEANUP_SECRET",
       "required": false,
       "files": [
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/workspace-admin.test.js",
         "app/api/hosted/cleanup/route.ts"
       ],
@@ -2275,7 +2271,6 @@
       "name": "NEXT_PUBLIC_TURNSTILE_SITE_KEY",
       "required": false,
       "files": [
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/publicConfig.test.js",
         "app/lib/hosted/publicConfig.ts"
       ],
@@ -2665,7 +2660,6 @@
       "name": "TURNSTILE_SECRET_KEY",
       "required": false,
       "files": [
-        "__tests__/unit/hosted/check-hosted-ready.test.mjs",
         "__tests__/unit/hosted/publicConfig.test.js",
         "__tests__/unit/hosted/turnstile.test.js",
         "__tests__/unit/hosted/workspace-provision.test.js",

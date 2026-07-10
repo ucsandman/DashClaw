@@ -189,7 +189,7 @@ def _patch_action(action_id, body):
     Retries up to three times with 0.4s then 0.8s backoff between
     attempts so a Vercel or Neon cold start does not drop the action's
     terminal status, which would otherwise leave the row stuck in
-    `running` and pollute Mission Control as a zombie.
+    `running` and pollute Approvals as a zombie.
     """
     url = BASE_URL + "/api/actions/" + action_id
     data = json.dumps(body).encode("utf-8")

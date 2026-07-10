@@ -135,7 +135,7 @@ This layer must remain modular and scalable.
 
 ---
 
-## Mission Control UI
+## Approvals UI
 
 The web interface for governing agent fleets.
 

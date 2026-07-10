@@ -68,7 +68,7 @@ Expected: the browser opens `<hosted-host>/connect`; after signup, the key you p
 1. Start a Claude Code session and run any governed tool call (e.g. a Bash command).
 2. End the turn — the Stop hook prints `[DashClaw] Governed N action(s) this session — $X.XX … · <hosted-host>/decisions`.
 3. `dashclaw cost` prints the session's spend (it calls `/api/finops/spend`).
-4. The action appears in the trial workspace's Mission Control.
+4. The action appears in the trial workspace's Approvals.
 
 Once the hosted host is final, consider baking it in as the CLI's default trial URL so users don't need `DASHCLAW_HOSTED_URL` — today the CLI resolves the URL from flag → `DASHCLAW_BASE_URL` → `DASHCLAW_HOSTED_URL` → an interactive prompt, with no built-in default (`cli/lib/claude/install.js:287`).
 

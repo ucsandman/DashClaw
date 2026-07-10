@@ -333,7 +333,7 @@ export async function POST(request: Request) {
         riskScore: authoritativeRisk,
       });
 
-      // Emit real-time event so Mission Control feed shows the blocked decision
+      // Emit real-time event so the Approvals feed shows the blocked decision
       void publishOrgEvent(EVENTS.ACTION_CREATED, {
         orgId,
         action: blockedAction,

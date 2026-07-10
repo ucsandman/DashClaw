@@ -1429,7 +1429,7 @@ export async function sweepLostOutcomesForOrg(
 // self-host instance with no scheduler would never run it — zombies would
 // only ever be *flagged* (signals, doctor), never healed. Piggyback on the
 // actions list (the page that would otherwise display the lie), throttled
-// per org so Mission Control polling doesn't turn into a write per request.
+// per org so Approvals polling doesn't turn into a write per request.
 const LOST_OUTCOME_SWEEP_THROTTLE_MS = 10 * 60 * 1000;
 const lostOutcomeSweepLastRun = new Map<string, number>();
 

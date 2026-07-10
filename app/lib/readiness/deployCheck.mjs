@@ -55,7 +55,7 @@ function checkRealtimeBackend(env) {
       label: 'Live stream requires Redis on serverless',
       status: 'warn',
       detail:
-        'Running in-memory mode. Each serverless invocation has a fresh event bus — Mission Control will not show live decisions.',
+        'Running in-memory mode. Each serverless invocation has a fresh event bus — Approvals will not show live decisions.',
       likelyCause: 'The deployment is running on Vercel without Redis or Upstash configured for shared realtime state.',
       nextAction:
         'Create a free Upstash Redis instance at upstash.com and add UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN to Vercel environment variables.',
@@ -67,7 +67,7 @@ function checkRealtimeBackend(env) {
       id: 'realtime_backend',
       label: 'Realtime backend: Redis',
       status: 'pass',
-      detail: 'Mission Control live stream is active.',
+      detail: 'Approvals live stream is active.',
     });
   }
 

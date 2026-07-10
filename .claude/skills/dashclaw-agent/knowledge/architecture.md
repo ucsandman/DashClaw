@@ -62,7 +62,7 @@ Agent → PATCH /api/actions/:id (record outcome)
   ↓
 DashClaw → Signal computation (cron, every 5 min)
   ↓
-Dashboard → Mission Control (live decision feed)
+Dashboard → Approvals (live decision feed)
 ```
 
 ## Database Schema (Key Tables)
@@ -145,7 +145,7 @@ app/
 │   ├── prompt.js           ← Prompt version control
 │   └── repositories/       ← Data access layer
 ├── components/             ← React UI
-├── mission-control/        ← Live decision dashboard
+├── approvals/              ← Live approval queue
 ├── decisions/              ← Visual causal chain ledger
 ├── policies/               ← Guard policy editor
 ├── compliance/             ← Audit evidence viewer

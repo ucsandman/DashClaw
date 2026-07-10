@@ -40,7 +40,7 @@ async function run() {
   console.log(`🔗 View decision replay: ${claw.baseUrl}/decisions/${action.action_id}`);
 
   if (decision === "require_approval" || action.status === "pending_approval") {
-    console.log("⏳ Action paused. Awaiting human operator approval in Mission Control.");
+    console.log("⏳ Action paused. Awaiting human operator approval in Approvals.");
   } else {
     console.log("✅ Action permitted. Proceeding with deployment.");
   }
