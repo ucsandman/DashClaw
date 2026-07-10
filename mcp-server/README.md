@@ -72,7 +72,7 @@ in the UI — Claude's connector flow requires OAuth, not headers:
 2. Paste `https://<your-instance>/api/mcp`.
 3. Claude discovers `/.well-known/oauth-protected-resource`, registers via DCR,
    and opens your DashClaw login + a consent screen.
-4. Authorize → the 12 governance tools appear, scoped to your workspace.
+4. Authorize → the 15 governance tools appear, scoped to your workspace.
 
 Works on Free/Pro/Max/Team/Enterprise (Free is capped at one custom connector).
 The legacy `x-api-key` path (Managed Agents) is unchanged.
@@ -83,7 +83,7 @@ To also load the DashClaw **skills** (governance protocol + platform intelligenc
 in the Claude app: Customize → Plugins → "+" → Add marketplace →
 `github: ucsandman/DashClaw`, then install the `dashclaw` plugin.
 
-## Tools (12 governance + 2 stdio support)
+## Tools (15 governance + 2 stdio support)
 
 Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical definitions.
 
@@ -115,6 +115,14 @@ Grouped by domain. See [`src/tools.ts`](./src/tools.ts) for the canonical defini
 | Tool | Description |
 |---|---|
 | `dashclaw_pair` | Enroll agent identity: keypair locally, public key to /api/pairings |
+
+**Team Tasks (3)** — create a Team Task, append an inter-agent timeline event, update task status.
+
+| Tool | Description |
+|---|---|
+| `dashclaw_task_create` | Create a Team Task — one record per multi-agent /team run |
+| `dashclaw_task_event` | Append one event to a Team Task timeline (delegation, reply, status, approval_needed, result, error, done) |
+| `dashclaw_task_update` | Update a Team Task: status transitions and stored transport session ids |
 
 ### DashClaw-gated stdio tools (2)
 

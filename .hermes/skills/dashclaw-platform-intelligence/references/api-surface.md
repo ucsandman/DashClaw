@@ -69,7 +69,7 @@ The CLI (`dashclaw doctor`) invokes these endpoints and merges in operator-machi
 |---|---|---|
 | `/api/mcp` | POST | Model Context Protocol Streamable HTTP transport. Same 29 tools / 6 resources exposed by the stdio binary (`@dashclaw/mcp-server`). |
 
-**15 tools across 3 groups.** Core governance (9): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`. Retrospection (2): `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent identity (1): `dashclaw_pair`.
+**15 tools across 4 groups.** Core governance (9): `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro`. Retrospection (2): `dashclaw_decisions_recent`, `dashclaw_assumption_record`. Agent identity (1): `dashclaw_pair`. Team Tasks (3): `dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update`.
 
 **Resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 

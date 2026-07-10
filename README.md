@@ -204,7 +204,7 @@ Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and eve
 echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t1","session_id":"smoke"}' | python .claude/hooks/dashclaw_pretool.py
 ```
 
-**MCP server (zero code).** [`@dashclaw/mcp-server`](mcp-server) exposes **15 governance MCP tools** across core governance, retrospection, and identity, plus 3 read-only resources (`dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`).
+**MCP server (zero code).** [`@dashclaw/mcp-server`](mcp-server) exposes **15 governance MCP tools** across core governance, retrospection, identity, and team tasks, plus 3 read-only resources (`dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`).
 
 ```json
 { "mcpServers": { "dashclaw": { "command": "npx", "args": ["@dashclaw/mcp-server"],

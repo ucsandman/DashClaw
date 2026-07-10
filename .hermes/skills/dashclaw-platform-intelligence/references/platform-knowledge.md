@@ -230,10 +230,11 @@ These are optional packages published alongside the core runtime.
 - **stdio binary** — `npx @dashclaw/mcp-server --url ... --key ...` (Claude Desktop, Claude Code, MCP Inspector)
 - **Streamable HTTP** — `POST /api/mcp` on the DashClaw instance itself
 
-**15 tools across 3 groups:**
+**15 tools across 4 groups:**
 - *Core governance (9):* `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture over injection flags, goal drift, spend anomalies, invalidated assumptions).
 - *Retrospection (2):* `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on (validate/refute later).
 - *Agent identity (1):* `dashclaw_pair` — operator-approved pairing of an unidentified agent to a registered identity.
+- *Team Tasks (3):* `dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update` — create a Team Task, append an inter-agent timeline event, update task status.
 
 **4 resources:** `dashclaw://policies`, `dashclaw://capabilities`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 

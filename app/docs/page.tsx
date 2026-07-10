@@ -376,7 +376,7 @@ except Exception as e:
               <h2 className="text-2xl font-bold tracking-tight">MCP Server</h2>
             </div>
             <p className="mt-2 mb-8 text-sm text-text-secondary leading-relaxed">
-              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 15 governance tools across 3 groups (core governance, retrospection, agent identity) plus 3 read-only resources.
+              <code className="font-mono text-text-secondary">@dashclaw/mcp-server</code> exposes DashClaw governance over Model Context Protocol. Any MCP-compatible client gets 15 governance tools across 4 groups (core governance, retrospection, agent identity, team tasks) plus 3 read-only resources.
             </p>
 
             {/* Tools */}
@@ -405,6 +405,9 @@ except Exception as e:
                       { group: 'Retrospection', tool: 'dashclaw_assumption_record', desc: 'Record an unverified assumption underpinning an action', inputs: 'action_id, assumption, basis' },
                       { tool: 'dashclaw_decisions_recent', desc: 'Recent governed-action ledger', inputs: 'agent_id, action_type, decision, since' },
                       { group: 'Agent identity', tool: 'dashclaw_pair', desc: 'Enroll identity: generate keypair locally, submit public key for approval', inputs: 'agent_id, agent_name, wait' },
+                      { group: 'Team Tasks', tool: 'dashclaw_task_create', desc: 'Create a Team Task — one record per multi-agent /team run', inputs: 'task_id, instruction, origin, lead_agent' },
+                      { tool: 'dashclaw_task_event', desc: 'Append one event to a Team Task timeline', inputs: 'task_id, from_agent, to_agent, type, summary' },
+                      { tool: 'dashclaw_task_update', desc: 'Update a Team Task: status transitions and stored transport session ids', inputs: 'task_id, status' },
                     ] as Array<{ group?: string; tool: string; desc: string; inputs: string }>).map((row) => (
                       <tr key={row.tool} className="border-b border-border">
                         <td className="py-2 pr-4 font-mono text-xs text-brand">

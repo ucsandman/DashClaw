@@ -603,11 +603,12 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **Streamable HTTP transport** (same surface, served by your DashClaw instance at `POST /api/mcp`).
 
-**15 tools** in 3 groups:
+**15 tools** in 4 groups:
 
 - **Core governance (9):** `dashclaw_guard`, `dashclaw_record`, `dashclaw_invoke`, `dashclaw_capabilities_list`, `dashclaw_policies_list`, `dashclaw_wait_for_approval`, `dashclaw_session_start`, `dashclaw_session_end`, `dashclaw_session_retro` — per-session defensibility retro (clean/review/flagged posture).
 - **Retrospection (2):** `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on.
 - **Agent identity (1):** `dashclaw_pair`
+- **Team Tasks (3):** `dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update` — create a Team Task, append an inter-agent timeline event, update task status.
 
 **3 resources:** `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
