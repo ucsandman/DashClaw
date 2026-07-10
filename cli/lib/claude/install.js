@@ -305,8 +305,8 @@ export function readExistingHookEnv(hookEnvPath) {
   } catch {
     return { hookMode: null, approvalTimeout: null };
   }
-  const modeMatch = text.match(/DASHCLAW_HOOK_MODE=(\w+)/);
-  const timeoutMatch = text.match(/DASHCLAW_APPROVAL_TIMEOUT=(\d+)/);
+  const modeMatch = text.match(/^DASHCLAW_HOOK_MODE=(\w+)/m);
+  const timeoutMatch = text.match(/^DASHCLAW_APPROVAL_TIMEOUT=(\d+)/m);
   return {
     hookMode: modeMatch ? modeMatch[1] : null,
     approvalTimeout: timeoutMatch ? Number(timeoutMatch[1]) : null,
@@ -424,7 +424,7 @@ export async function installClaude({
   const hookEnvPath = join(hooksDir, '.env');
   const prior = readExistingHookEnv(hookEnvPath);
   const hookMode = observe ? 'observe' : (prior.hookMode || 'enforce');
-  const approvalTimeout = prior.approvalTimeout || 120;
+  const approvalTimeout = prior.approvalTimeout ?? 120;
   writeFileSync(hookEnvPath, buildHookEnv({ endpoint, apiKey, agentId, hookMode, approvalTimeout }), { mode: 0o600 });
   const existing = readConfigForHome(homeDir);
   writeConfigForHome(homeDir, { ...existing, baseUrl: endpoint, apiKey, agentId });
@@ -436,7 +436,7 @@ export async function installClaude({
     if (policyCount === 0) {
       logger.log('');
       logger.log('  Note: this instance has no policies yet — enforce mode currently holds nothing.');
-      logger.log(`  Run \`npm run db:migrate\` on the instance, or click Import at ${endpoint}/policies.`);
+      logger.log(`  Click Import at ${endpoint}/policies to add the Catastrophe Pack in one click.`);
     }
   }
 

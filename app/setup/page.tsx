@@ -563,7 +563,8 @@ export default async function SetupPage() {
                   <div className="text-sm text-secondary">
                     <p>
                       No probe run yet — it runs automatically at the start of your next Claude Code
-                      session (installed by <code>dashclaw install claude</code>).
+                      session once <code>dashclaw install claude</code> has wired it (older installs
+                      need a one-time re-run of that command).
                     </p>
                     <p className="mt-2 text-xs text-tertiary">
                       Or run it manually now: <code>npm run liveness:probe</code>

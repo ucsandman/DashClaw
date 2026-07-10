@@ -15,8 +15,8 @@ This document defines the DashClaw product taxonomy. DashClaw is organized into 
 | **Action Recording** | `createAction()` | `/api/actions` | Decisions |
 | **Approval Gating** | `waitForApproval()` | `/api/approvals` | Approvals |
 | **Assumption Ledger** | `recordAssumption()` | `/api/assumptions` | Decisions |
-| **Risk Signals** | `getSignals()` | `/api/signals` | Mission Control |
-| **Fleet Health** | -- | `/api/health` | Mission Control |
+| **Risk Signals** | `getSignals()` | `/api/signals` | Approvals |
+| **Fleet Health** | -- | `/api/health` | Approvals |
 
 ---
 

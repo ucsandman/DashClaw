@@ -1,6 +1,6 @@
 # Provisions local Postgres only: `docker compose up -d db`.
-# The app itself runs via `npm run dev` or `npx dashclaw up` (which manages its own
-# containers) — this file is not a production deployment path.
+# The app itself runs via `npm run dev` or `npx dashclaw up` (which provisions its
+# own embedded Postgres) — this file is not a production deployment path.
 services:
   db:
     image: postgres:16-alpine
