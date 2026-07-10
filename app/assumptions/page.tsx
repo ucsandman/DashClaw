@@ -73,7 +73,7 @@ export default function AssumptionsPage() {
     ? assumptions
     : assumptions.filter(a => deriveAssumptionStatus(a) === filter);
 
-  const selection = useSelection<any>(visibleAssumptions, (a) => a.id);
+  const selection = useSelection<any>(visibleAssumptions, (a) => a.assumption_id || a.id);
   useSelectAllHotkey(selection.toggleAll);
 
   const handleInvalidate = async (assumptionId: string) => {
@@ -201,12 +201,12 @@ export default function AssumptionsPage() {
             const entityId = a.assumption_id || a.id;
             const armed = invalidatingId === entityId;
             return (
-              <Card key={a.id} data-entity-type="assumption" data-entity-id={entityId} data-entity-status={status} hover={false}>
+              <Card key={entityId} data-entity-type="assumption" data-entity-id={entityId} data-entity-status={status} hover={false}>
                 <div className="flex items-start gap-4 p-4">
                   <SelectCheckbox
-                    checked={selection.isSelected(a.id)}
-                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(a.id, e.shiftKey); }}
-                    label={`Select ${a.assumption ?? a.id}`}
+                    checked={selection.isSelected(entityId)}
+                    onToggle={(e) => { e.stopPropagation(); selection.selectClick(entityId, e.shiftKey); }}
+                    label={`Select ${a.assumption ?? entityId}`}
                   />
                   <div className={`mt-0.5 shrink-0 ${cfg.color}`}>
                     <StatusIcon size={18} aria-hidden="true" />

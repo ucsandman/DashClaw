@@ -1,69 +1,118 @@
-# Production Readiness Baseline
+# Production Readiness
 
-**Last measured:** 2026-06-08 20:47 America/New_York
-**Run evidence:** `.supergoal/take-this-codebase-and-make-it-productio-EYkzo5/evidence/phase-1/`
-**Baseline commit:** `39d4aab70e54dfb3a84aaacf12d74a62a096300c`
+**Last regenerated:** 2026-07-10 · **Commit:** `eb9e6ecc`
 
-## Gate Summary
+This doc owns three things and nothing else: the **release gate** (`npm run release:check`),
+the **deployment preflight profiles** (self-hosted vs hosted), and the **entry-path
+drill layer**. It deliberately carries **no hardcoded counts** — route totals, SDK
+method counts, MCP tool/resource counts, and table counts drift every ship, so the
+single sources of truth are:
 
-| Gate | Command | Exit | Evidence |
-|---|---|---:|---|
-| Git state | `git status --short --branch` | 0 | `01-git-status.log` |
-| Shape summary | `python -m livingcode query summary` | 0 | `02-livingcode-summary.log` |
-| Env inventory | `python -m livingcode query env` | 0 | `03-livingcode-env.log` |
-| Route inventory | `python -m livingcode query routes` | 0 | `04-livingcode-routes.log` |
-| Lint | `npm run lint` | 0 | `05-npm-lint.log` |
-| Typecheck | `npm run typecheck` | 0 | `06-npm-typecheck.log` |
-| Full unit suite | `npx vitest run` | 0 | `07-vitest-full.log` |
-| Production build | `npm run build` | 0 | `08-npm-build.log` |
-| Contracts | `npm run contracts:check` | 0 | `09-contracts-check.log` |
-| Docs | `npm run docs:check` | 0 | `10-docs-check.log` |
-| OpenAPI drift | `npm run openapi:check` | 0 | `11-openapi-check.log` |
-| API inventory drift | `npm run api:inventory:check` | 0 | `12-api-inventory-check.log` |
-| Route SQL guard | `npm run route-sql:check` | 0 | `13-route-sql-check.log` |
-| Version hardcodes | `npm run version:check` | 0 | `14-version-check.log` |
-| Version sync | `npm run version:sync:check` | 0 | `15-version-sync-check.log` |
-| Script syntax | `npm run scripts:check-syntax` | 0 | `16-scripts-check-syntax.log` |
-| Playwright smoke | `npm run test:smoke` | 0 | `17-test-smoke.log` |
-| Production dependency audit | `npm audit --omit=dev --audit-level=moderate` | 0 | `18-npm-audit-prod.log` |
-| Aggregate launch gate | `npm run production:check` | 0 | `19-production-check.log` |
+- **`PROJECT_DETAILS.md`** — canonical system map (route inventory, SDK/MCP surface).
+- **`docs/api-inventory.json`** — generated route inventory (`npm run api:inventory:generate`).
+- `scripts/check-doc-counts.mjs --strict` — the gate that reconciles every cited
+  count in the docs that *do* own counts against those sources. If you need a number,
+  read it there, do not copy it here.
 
-`npm run production:check` now aggregates the launch gate that excludes read-only reconnaissance commands. It fails on the first red gate and preserves each underlying command's output.
+## The release gate — `npm run release:check`
 
-## Current Shape
+`npm run release:check` (alias: `npm run production:check`) is the one authoritative
+gate. A green **static** run means CI's `build-and-test` job will be green: the script
+runs every static check CI runs, with the same flags. It writes a machine-readable
+`release-check-report.json` (gitignored) with per-gate pass/fail, duration, and the
+commit SHA, and prints its path.
 
-| Area | Baseline |
+### Static gates (always run)
+
+| Gate | Command |
 |---|---|
-| Routes | 254 active, 48 archived |
-| Env vars | 4 required, 140 optional, 139 marked undocumented by live scanner |
-| Tables | 93 |
-| API inventory | 301 documented entries in planning recon: 51 stable, 24 beta, 226 experimental |
-| Smoke coverage | Playwright smoke passed against the configured public/dashboard page set |
-| Production audit | `npm audit --omit=dev --audit-level=moderate` passed |
+| lint | `npm run lint` |
+| typecheck | `npm run typecheck` |
+| docs | `npm run docs:check` |
+| openapi | `npm run openapi:check` |
+| api-inventory | `npm run api:inventory:check` |
+| doc-counts | `node scripts/check-doc-counts.mjs --strict` |
+| route-sql | `npm run route-sql:check` |
+| surface | `npm run surface:check` |
+| version-hardcodes | `npm run version:check` |
+| version-sync | `npm run version:sync:check` |
+| contracts | `npm run contracts:check` |
+| guide-drift | `npm run guide:drift:check` |
+| security-scan | `node scripts/security-scan.js` |
+| vitest | `npx vitest run` (full suite) |
+| sdk-integration | `npm run sdk:integration` |
+| sdk-integration-python | `npm run sdk:integration:python` |
+| build | `npm run build` |
+| script-syntax | `npm run scripts:check-syntax` |
+| smoke | `npm run test:smoke` (Playwright) |
+| prod-audit | `npm audit --omit=dev --audit-level=moderate` |
 
-## Readiness Matrix
+### Live gates (`npm run release:check -- --live`)
 
-| Status | Finding | Owner phase | Evidence command | Launch blocker |
-|---|---|---|---|---|
-| Green | Core engineering gate is clean: lint, typecheck, full vitest, build, contracts, docs, OpenAPI, API inventory, route SQL, version checks, script syntax, smoke, and production audit all pass. | Phase 8 | Phase 1 command summary; re-run `npm run production:check` before launch | No |
-| Yellow | Working tree started dirty with pre-existing changes across agent skills, MCP config, startup smoke, doctor CLI, package scripts, smoke pages, generated skill directories, and media artifacts. Do not revert unrelated changes; final launch review must separate run changes from pre-existing work. | Phase 8 | `git status --short --branch` | No, if scope is reviewed before handoff |
-| Yellow | Live env scanner reports 139 optional vars as undocumented even though many appear in `.env.example`; this is source-of-truth classification drift. | Phase 3 | `python -m livingcode query env` | Yes for self-host trust if not reconciled |
-| Yellow | API surface is large and mostly experimental, with 254 active routes and 226 experimental inventory entries in planning recon. Stable/beta/public claims need careful route and contract review. | Phases 4-5 | `python -m livingcode query routes`; `npm run api:inventory:check`; `npm run openapi:check` | No if public claims stay scoped |
-| Yellow | GitNexus MCP tools are unavailable in this Codex tool set; CLI was restored through an artifact-local no-scripts install, LadybugDB repair, and absent-language parser stubs for languages not present in the repo. | Phase 1 / Phase 8 | GitNexus `status` and `impact` sample | No for this run, but document setup before commit handoff |
-| Yellow | Production dependency drift exists: `dashclaw` package is behind wanted/latest 4.7.2; `postcss` has a patch update; React 19, Tailwind 4, ESLint 10, Redis 6, TypeScript 6, and React type majors are out of scope unless a later gate fails. | Phase 5 / Phase 8 | `.supergoal/.../npm-outdated.json` | No unless contract or security review requires update |
-| Yellow | Playwright smoke passes, but Next.js emits a `metadataBase` fallback warning for social image URL resolution during smoke. | Phase 7 | `npm run test:smoke`; `npm run production:check` | No, but polish before public launch |
+The live suite mirrors CI's separate `startup-smoke` job: it boots a real server
+against a real Postgres and runs the behavioral proofs. It is **opt-in** so a
+laptop run does not require a database. Without `--live`, `release:check` prints one
+explicit line noting the live suite was skipped and that CI still covers it — a
+visible decision, not a silent gap.
 
-## GitNexus Gate
+`--live` requires `DATABASE_URL`. The `startup:smoke` gate self-spawns its own
+server; `policy-smoke` and `cross-org-smoke` need a server **already running** at
+`--base-url` (default `http://127.0.0.1:3000`, e.g. `npm run start`), or the gate
+fails with that instruction.
 
-The required impact-analysis path is available through the artifact-local GitNexus CLI:
+| Gate | Command |
+|---|---|
+| live-auto-migrate | `node scripts/auto-migrate.mjs` |
+| live-startup-smoke | `npm run startup:smoke` |
+| live-policy-smoke | `node scripts/policy-smoke.mjs <base-url>` |
+| live-cross-org-smoke | `node scripts/cross-org-smoke.mjs <base-url>` |
 
-- `status`: indexed `C:\Projects\DashClaw`, commit `39d4aab`, up to date.
-- Sample impact: `parseArgs` in `scripts/startup-smoke.mjs`, upstream, `LOW` risk, 1 direct dependent, 4 impacted symbols, no affected processes.
-- Before editing any existing function, class, or method, run the same CLI impact command with the concrete symbol and file path, and report direct callers, affected processes, and risk.
+## Deployment preflight profiles
 
-## Out Of Scope For This Sweep
+Run the profile that matches the target **before** deploying.
 
-- Major framework migrations: React 19, Tailwind 4, ESLint 10, Redis 6, TypeScript 6, and equivalent major dependency tracks.
-- SDK publication, deployment, or production infrastructure changes.
-- Reverting pre-existing dirty worktree changes unrelated to this run.
-- Treating every experimental route as launch-critical; public claims should lead with stable governed-agent workflows and documented setup/demo proof.
+### Self-hosted
+
+The self-host path needs only a workspace token and a Postgres URL (no LLM key).
+Verify the instance is ready with the doctor:
+
+```bash
+npm run doctor            # or GET {baseUrl}/api/doctor on a running instance
+npm run db:migrate        # after any pull that touches schema/schema.js or drizzle/*.sql
+```
+
+### Hosted (multi-tenant, `DASHCLAW_HOSTED=true`)
+
+Hosted deployments have a stricter preflight — `npm run hosted:check-ready`
+(`scripts/check-hosted-ready.mjs`) **hard-fails** on every secret the runtime needs
+to boot and let anyone sign in:
+
+- `DATABASE_URL` — all persistence.
+- `NEXTAUTH_SECRET` — middleware `getToken` cannot verify any session without it.
+- `NEXTAUTH_URL` — seeds the middleware host allowlist and OAuth callback URLs.
+- `ENCRYPTION_KEY` — must be **exactly 32 bytes**; `app/lib/encryption.ts` throws otherwise.
+- a sign-in **provider pair** — Google, GitHub, or OIDC (or `DASHCLAW_LOCAL_ADMIN_PASSWORD`
+  for solo self-host); zero providers means nobody can sign in.
+- `TURNSTILE_SECRET_KEY` — public trial mint is abuse-open without it.
+- `DASHCLAW_API_KEY` — seeded admin key, format `oc_live_<32 hex>`.
+
+Redis (`REDIS_URL` / `UPSTASH_REDIS_REST_URL`) is a **loud warning, not a blocker**:
+rate limiting (`app/lib/hosted/rate-limit.ts`) and the realtime bus
+(`app/lib/events.ts`) fall back to in-memory, which is only lossy across serverless
+cold starts. `HOSTED_CLEANUP_SECRET`/`CRON_SECRET` and `NEXT_PUBLIC_TURNSTILE_SITE_KEY`
+are warnings with explicit "what breaks" text. Full runbook:
+`docs/hosted-deployment-runbook.md`.
+
+## Entry-path drills
+
+CI's `build-and-test` and `startup-smoke` jobs exercise the app from source on
+dev-imaged runners; they do **not** cover the distribution path on a factory-fresh
+machine. The drills do (`scripts/drills/README.md`):
+
+- `npm run drill:fresh-windows` / `npm run drill:fresh-linux` — a release touching
+  `cli/**`, `scripts/setup.mjs`, or the `up` path must run the matching fresh-machine
+  drill first.
+- `npm run drill:hosted` — a release touching hosted mint/export/import must run the
+  hosted-stranger drill.
+
+A drill failure is a broken ship: fix on the spot and log it in the maintainer log.

@@ -23,6 +23,7 @@
     "doctor": "node --import tsx scripts/doctor.mjs",
     "db:migrate": "node scripts/auto-migrate.mjs",
     "liveness:probe": "python hooks/enforcement_liveness_probe.py",
+    "release:check": "node scripts/check-production-ready.mjs",
     "production:check": "node scripts/check-production-ready.mjs",
     "hosted:check-ready": "node scripts/check-hosted-ready.mjs",
     "hosted:smoke": "node scripts/smoke-hosted.mjs",

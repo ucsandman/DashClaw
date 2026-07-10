@@ -134,7 +134,7 @@ node -e "console.log('NEXTAUTH_SECRET=' + require('crypto').randomBytes(32).toSt
 node -e "console.log('ENCRYPTION_KEY=' + require('crypto').randomBytes(32).toString('base64url').slice(0,32))"
 ```
 
-What each is for (and what breaks without it) is in the env table below. Formats that matter: `DASHCLAW_API_KEY` must be `oc_live_` + 32 lowercase hex characters (`scripts/check-hosted-ready.mjs:31` rejects anything else); `ENCRYPTION_KEY` must be exactly 32 characters (`app/lib/encryption.ts:12`).
+What each is for (and what breaks without it) is in the env table below. `npm run hosted:check-ready` (step B7) hard-fails on every secret the runtime genuinely needs to boot and let anyone sign in: `DATABASE_URL`, `NEXTAUTH_SECRET`, `NEXTAUTH_URL`, `ENCRYPTION_KEY`, a sign-in provider pair, `TURNSTILE_SECRET_KEY`, and `DASHCLAW_API_KEY`. Formats that matter: `DASHCLAW_API_KEY` must be `oc_live_` + 32 lowercase hex characters (the checker rejects anything else); `ENCRYPTION_KEY` must be exactly 32 bytes (`app/lib/encryption.ts` throws otherwise). Redis (`REDIS_URL`/`UPSTASH_REDIS_REST_URL`) is a loud warning, not a blocker — rate limiting and SSE fall back to in-memory, which is only lossy across serverless cold starts.
 
 ### B3. Vercel project + env vars
 
@@ -193,11 +193,17 @@ gh run list --workflow "Hosted cleanup" --limit 1   # confirm it went green
 ### B7. Validate everything
 
 ```bash
-# 1. Readiness (run locally with the same env values that are on Vercel):
-DASHCLAW_HOSTED=true DATABASE_URL=<neon-url> TURNSTILE_SECRET_KEY=<secret> \
-  DASHCLAW_API_KEY=<admin-key> NEXT_PUBLIC_TURNSTILE_SITE_KEY=<site-key> \
-  HOSTED_CLEANUP_SECRET=<cleanup> npm run hosted:check-ready
+# 1. Readiness (run locally with the same env values that are on Vercel).
+#    Every var below is a HARD requirement — the checker fails without it:
+DASHCLAW_HOSTED=true DATABASE_URL=<neon-url> \
+  NEXTAUTH_SECRET=<nextauth-secret> NEXTAUTH_URL=https://hosted.dashclaw.io \
+  ENCRYPTION_KEY=<32-byte-key> GOOGLE_ID=<google-id> GOOGLE_SECRET=<google-secret> \
+  TURNSTILE_SECRET_KEY=<secret> DASHCLAW_API_KEY=<admin-key> \
+  NEXT_PUBLIC_TURNSTILE_SITE_KEY=<site-key> HOSTED_CLEANUP_SECRET=<cleanup> \
+  REDIS_URL=<redis-url> npm run hosted:check-ready
 # expect: [hosted:check-ready] status=pass   (warn = OK with NEXT: hints; fail = blocking)
+# (any complete OAuth pair works in place of GOOGLE_* — GITHUB_ID/GITHUB_SECRET or the OIDC trio.
+#  Omitting REDIS_URL downgrades to status=warn, not fail.)
 
 # 2. Smoke test against the live deployment (mints a real trial, checks /api/health with its key, then deletes it):
 HOSTED_SMOKE_BASE_URL=https://hosted.dashclaw.io DASHCLAW_API_KEY=<admin-key> npm run hosted:smoke

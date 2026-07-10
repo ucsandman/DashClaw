@@ -154,6 +154,9 @@ secrets/
 # Full audit evidence log (untracked working artifact)
 .audit-findings-full.md
 
+# release:check machine-readable gate report (regenerated every run)
+release-check-report.json
+
 # TypeScript migration (Phase 1) — generated, never committed
 next-env.d.ts
 *.tsbuildinfo
