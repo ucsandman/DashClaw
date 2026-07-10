@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dashclaw"
-version = "5.0.2"
+version = "5.1.0"
 description = "Python SDK for the DashClaw AI agent decision infrastructure platform"
 readme = "README.md"
 license = { text = "MIT" }
