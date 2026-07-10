@@ -81,7 +81,6 @@
     "@modelcontextprotocol/server": "^2.0.0-alpha.2",
     "@neondatabase/serverless": "^1.1.0",
     "@vercel/analytics": "2.0.1",
-    "better-sqlite3": "^12.11.1",
     "d3-force": "^3.0.0",
     "dashclaw": "^4.21.0",
     "docx": "^9.7.1",

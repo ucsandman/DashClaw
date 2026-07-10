@@ -8,7 +8,7 @@ Every claim cites a file that was read during the investigation. No findings are
 
 These matter for Phase 2 and are stated up front so nothing downstream inherits a wrong premise.
 
-1. There is no dual `better-sqlite3` plus Postgres mode. `better-sqlite3` is a declared dependency (`package.json:82`) but is never imported anywhere in the codebase. The real dual mode is Neon serverless versus `postgres.js` (direct TCP), both Postgres, selected by `app/lib/db.js:61-66` and `scripts/_db.mjs:30-34`. Migrations are single-dialect Postgres DDL.
+1. There is no dual `better-sqlite3` plus Postgres mode. `better-sqlite3` was a declared dependency that was never imported anywhere in the codebase (removed 2026-07-10 after it broke Windows up-smoke installs). The real dual mode is Neon serverless versus `postgres.js` (direct TCP), both Postgres, selected by `app/lib/db.js:61-66` and `scripts/_db.mjs:30-34`. Migrations are single-dialect Postgres DDL.
 2. The signer is Ed25519 via Node's built-in `node:crypto`, not tweetnacl. `app/lib/integrity/sign.js:9` imports `sign`/`verify` from `node:crypto`; `app/lib/integrity/keys.js:15-18` generates Ed25519 keys with `SIGNING_ALG = 'EdDSA'`. There is no tweetnacl in the signing path. "Add no new crypto dependency" is satisfied because `node:crypto` is built in.
 3. Signature verification does not use `timing-safe.js`. A grep across `app/lib/integrity/` returns no `timing-safe` usage; verification is `verifyCanonical` calling `node:crypto` verify (`app/lib/integrity/sign.js:30-42`). `app/lib/timing-safe.js:7-17` is used for secret and API-key comparison elsewhere, not for signatures.
 

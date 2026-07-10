@@ -14,6 +14,22 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 ## [Unreleased]
 
 ### Fixed
+- **up-smoke Windows: fresh installs no longer compile better-sqlite3.** The
+  platform declared `better-sqlite3` as a dependency since the initial commit
+  but never imported it anywhere (documented in `docs/absorbed-projects.md`).
+  On the Windows CI runner no prebuilt binary matched and node-gyp could not
+  recognize Visual Studio 18, so every `dashclaw up` died at `npm install`.
+  Removed the dependency and its stale lockfile node — `npm ci` now installs
+  zero native-compile packages.
+- **`dashclaw up` streams setup progress and kills a hung setup after 10
+  minutes.** `runSetupScriptReal` previously ran the setup child via
+  `spawnSync`, buffering all output until exit — a hung migration (the
+  standing macOS CI failure) showed "Running setup" and then nothing for 20
+  minutes. Setup stderr now streams through to the operator (and CI's up.log)
+  line by line with API keys/passwords scrubbed, and a watchdog kills the
+  child after 10 minutes reporting the last activity, e.g. the exact
+  migration spinner frame that wedged. The up-smoke workflow redaction also
+  drops any `oc_live_` line as a second layer.
 - **/policies "Always allow" no longer dead-ends on a leftover inactive rule.**
   When an org already had a policy with the same generated name (e.g. a
   `[Grant] api` deactivated in an earlier cleanup), re-granting from the

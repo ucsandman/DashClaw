@@ -12,7 +12,7 @@
 // Every effect is injectable via `deps` so the orchestrator is unit-testable
 // without touching the network, Docker, or a real Next server.
 
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { randomBytes } from 'node:crypto';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -21,7 +21,7 @@ import { join } from 'node:path';
 import { STEPS, loadInstance, saveInstance, checkpoint } from './instance.js';
 import { resolveAppVersion, downloadAndExtract } from './fetch-app.js';
 import { dockerAvailableSync, chooseDbMode, provisionDatabase } from './db.js';
-import { installDeps, buildApp, startServer, waitForHealth, openBrowser, winSafeSpawnSync } from './run.js';
+import { installDeps, buildApp, startServer, waitForHealth, openBrowser, winSafeSpawnArgs } from './run.js';
 import { installClaude } from '../claude/install.js';
 import { parseUpArgs } from './args.js';
 import { ask } from '../config.js';
@@ -47,51 +47,138 @@ export function resolveBaseDir(args) {
   return args.dir ?? join(homedir(), '.dashclaw');
 }
 
+// Watchdog for the setup child. The child only runs migrations + a status
+// check here (install and build are the orchestrator's steps), so 10 minutes
+// is far beyond any healthy run.
+export const SETUP_TIMEOUT_MS = 10 * 60_000;
+
 /**
- * Run the app's setup script in-process via spawnSync, contract:
- *   node --import tsx scripts/setup.mjs --yes --json --database-url <url>
- * prints EXACTLY ONE JSON line: {ok:true, apiKey, adminPassword} or
- * {ok:false, error} with a non-zero exit. We parse the LAST stdout line.
- *
- * @param {object} opts
- * @param {string} opts.appDir
- * @param {string} opts.databaseUrl
- * @param {object} [opts.logger]
- * @param {Function} [opts.spawn]  injectable spawnSync for testing (default: spawnSync)
+ * Mask secrets the setup child prints for interactive users before its lines
+ * reach any log — CI uploads up.log as an artifact on failure, and operators
+ * paste `dashclaw up` scrollback into issues.
  */
-export function runSetupScriptReal({ appDir, databaseUrl, logger = console, spawn: spawnFn = winSafeSpawnSync }) {
-  logger.error('-> Running setup (migrations + first admin) ...');
-  const res = spawnFn(
-    'node',
-    [
-      '--import', 'tsx', 'scripts/setup.mjs',
-      '--yes', '--json', '--database-url', databaseUrl,
-      // The orchestrator owns install (step 2) and build (step 5); skip them
-      // inside setup.mjs to avoid doing both twice on a fresh install.
-      '--skip-install', '--skip-build',
-    ],
-    // stdin MUST be 'ignore': the default open pipe makes any stray readline
-    // prompt in the child hang forever (observed: 12-minute silent hang).
-    // Windows shell handling (npm-style .cmd resolution + DEP0190 avoidance)
-    // lives in winSafeSpawnSync.
-    { cwd: appDir, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] },
-  );
-  const stdout = res.stdout || '';
-  const lines = stdout.split('\n').map((l) => l.trim()).filter(Boolean);
+export function scrubSetupLine(line) {
+  return String(line)
+    .replace(/oc_live_[A-Za-z0-9]+/g, 'oc_live_***')
+    .replace(/(password[^:\n]*:\s*)\S+/gi, '$1***');
+}
+
+/** Shared success/failure interpretation of the finished setup child. */
+function parseSetupResult({ status, stdout, stderrTail }) {
+  const lines = String(stdout).split('\n').map((l) => l.trim()).filter(Boolean);
   let parsed = null;
   if (lines.length) {
     try { parsed = JSON.parse(lines[lines.length - 1]); } catch {
       throw new Error(`Setup output was not parseable JSON. Last line: ${lines[lines.length - 1]}`);
     }
   }
-  if (res.status !== 0 || parsed?.ok === false) {
+  if (status !== 0 || parsed?.ok === false) {
     const detail = parsed?.error
-      || (res.stderr || '').slice(-2000).trim()
-      || `setup exited ${res.status}`;
+      || scrubSetupLine(String(stderrTail || '').slice(-2000).trim())
+      || `setup exited ${status}`;
     throw new Error(`Setup failed: ${detail}`);
   }
   if (!parsed) throw new Error('Setup produced no parseable JSON output.');
   return parsed;
+}
+
+/**
+ * Run the app's setup script as a streamed async child, contract:
+ *   node --import tsx scripts/setup.mjs --yes --json --database-url <url>
+ * prints EXACTLY ONE JSON line on stdout: {ok:true, apiKey, adminPassword} or
+ * {ok:false, error} with a non-zero exit. We parse the LAST stdout line.
+ *
+ * The child's stderr (its progress output) streams through to the logger as
+ * it happens. The spawnSync predecessor buffered it until exit, which turned
+ * a hung migration into a silent 20-minute mystery (observed live on macOS
+ * CI: up.log ended at "Running setup" with zero evidence of which step hung).
+ * A watchdog kills the child after timeoutMs and reports the last activity —
+ * a stuck spinner frame names the exact migration that wedged.
+ *
+ * @param {object} opts
+ * @param {string} opts.appDir
+ * @param {string} opts.databaseUrl
+ * @param {object} [opts.logger]
+ * @param {Function} [opts.spawn]     injectable async spawn for testing (default: spawn)
+ * @param {number}   [opts.timeoutMs] watchdog (default SETUP_TIMEOUT_MS)
+ * @param {Function} [opts.kill]      injectable process killer (default killTree)
+ * @returns {Promise<object>} the parsed JSON result
+ */
+export function runSetupScriptReal({
+  appDir, databaseUrl, logger = console,
+  spawn: spawnFn = spawn, timeoutMs = SETUP_TIMEOUT_MS, kill = killTree,
+}) {
+  logger.error('-> Running setup (migrations + first admin) ...');
+  // Windows shell handling (npm-style .cmd resolution + DEP0190 avoidance)
+  // lives in winSafeSpawnArgs.
+  const safe = winSafeSpawnArgs('node', [
+    '--import', 'tsx', 'scripts/setup.mjs',
+    '--yes', '--json', '--database-url', databaseUrl,
+    // The orchestrator owns install (step 2) and build (step 5); skip them
+    // inside setup.mjs to avoid doing both twice on a fresh install.
+    '--skip-install', '--skip-build',
+  ]);
+  return new Promise((resolve, reject) => {
+    let child;
+    try {
+      // stdin MUST be 'ignore': the default open pipe makes any stray readline
+      // prompt in the child hang forever (observed: 12-minute silent hang).
+      child = spawnFn(safe.cmd, safe.args, {
+        cwd: appDir, stdio: ['ignore', 'pipe', 'pipe'], ...safe.opts,
+      });
+    } catch (e) {
+      reject(e);
+      return;
+    }
+
+    let stdout = '';
+    let stderrTail = '';
+    let pending = '';
+    const logStderr = (data) => {
+      stderrTail = (stderrTail + data).slice(-4000);
+      pending += data;
+      const lines = pending.split('\n');
+      pending = lines.pop();
+      for (const raw of lines) {
+        // A carriage return without a newline is a spinner frame updating in
+        // place; only the part after the last \r is what a terminal shows.
+        const line = raw.slice(raw.lastIndexOf('\r') + 1).trimEnd();
+        if (line) logger.error(`   ${scrubSetupLine(line)}`);
+      }
+    };
+    child.stdout?.on('data', (d) => { stdout += d; });
+    child.stderr?.on('data', (d) => logStderr(String(d)));
+
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      // The pending fragment is the evidence: a stuck spinner frame names the
+      // migration that hung (e.g. "/ Running auto-migrate... (600s)").
+      const lastFrame = pending.slice(pending.lastIndexOf('\r') + 1).trim();
+      try { kill(child.pid); } catch { /* already gone */ }
+      reject(new Error(
+        `Setup did not finish within ${Math.round(timeoutMs / 60_000)} minutes — killed. `
+        + (lastFrame
+          ? `Last activity: ${scrubSetupLine(lastFrame)}`
+          : 'It produced no output at the moment it was killed.'),
+      ));
+    }, timeoutMs);
+
+    child.on('error', (e) => {
+      clearTimeout(timer);
+      if (!timedOut) reject(e);
+    });
+    child.on('close', (status) => {
+      clearTimeout(timer);
+      if (timedOut) return; // already rejected by the watchdog
+      if (pending) logStderr('\n'); // flush the final unterminated line
+      try {
+        resolve(parseSetupResult({ status, stdout, stderrTail }));
+      } catch (e) {
+        reject(e);
+      }
+    });
+  });
 }
 
 /**

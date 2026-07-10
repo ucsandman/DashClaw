@@ -57,7 +57,7 @@ jobs:
         # leaves the runner — this is a public repo and artifacts are downloadable.
         run: |
           if [ -f up.log ]; then
-            grep -viE 'admin password|login\?ott=' up.log > up.redacted.log || true
+            grep -viE 'admin password|login\?ott=|oc_live_' up.log > up.redacted.log || true
             tail -n 200 up.redacted.log
           else
             echo "up.log not found"
