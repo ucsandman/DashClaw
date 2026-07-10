@@ -1177,7 +1177,7 @@ const { identities } = await res.json();`}
               <h2 className="text-2xl font-bold tracking-tight">Execution Studio (HTTP API)</h2>
             </div>
             <p className="text-sm text-text-secondary leading-relaxed mb-6">
-              Governance packaging: a read-only execution graph and durable action outcomes on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 28 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md" className="text-brand underline">sdk/README.md</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
+              Governance packaging: a read-only execution graph and durable action outcomes on actions. <strong className="text-text-secondary">Every surface here has a canonical SDK wrapper method in the Node SDK (see <code className="font-mono text-brand">sdk/dashclaw.js</code>, 31 methods total).</strong> The HTTP examples below are shown first because they&apos;re language-agnostic; the equivalent SDK calls are in <a href="https://github.com/ucsandman/DashClaw/blob/main/sdk/README.md" className="text-brand underline">sdk/README.md</a>. Full OpenAPI definitions are at <code className="font-mono text-text-tertiary">docs/openapi/critical-stable.openapi.json</code>.
             </p>
 
             {/* Execution Graph */}

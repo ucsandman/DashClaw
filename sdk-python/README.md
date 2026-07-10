@@ -633,7 +633,7 @@ integration.instrument_agent(assistant)
 
 This SDK exposes the governance surface (51 methods) — the same intercept → decide → approve → prove core as the Node SDK, plus a handful of read/admin conveniences (webhooks, org management, activity logs).
 
-The Node.js SDK exposes a curated subset of **28 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
+The Node.js SDK exposes a curated subset of **31 methods** focused on agent governance. The following core methods are available in both the Node.js SDK and this Python SDK:
 
 | Category | Node method | Python equivalent |
 |----------|-------------|-------------------|
@@ -657,7 +657,7 @@ The Node.js SDK exposes a curated subset of **28 methods** focused on agent gove
 | Security | `scanPromptInjection` | `scan_prompt_injection` |
 | Idempotency | `deriveIdempotencyKey` | `derive_idempotency_key` |
 
-A few methods are surface-specific: `simulatePolicy` and `guardedFetch` are Node-only; `create_webhook`/`get_activity_logs`/`get_org`/`test_policies`/`import_policies`/`get_proof_report` are read/admin conveniences present in Python. The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
+A few methods are surface-specific: `simulatePolicy`, `guardedFetch`, and the Team Tasks trio (`createTeamTask`, `appendTeamTaskEvent`, `updateTeamTask`) are Node-only; `create_webhook`/`get_activity_logs`/`get_org`/`test_policies`/`import_policies`/`get_proof_report` are read/admin conveniences present in Python. The authoritative domain-by-domain matrix is [`docs/sdk-parity.md`](https://github.com/ucsandman/DashClaw/blob/main/docs/sdk-parity.md).
 
 ## Sessions
 

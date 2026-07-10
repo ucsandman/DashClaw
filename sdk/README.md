@@ -342,7 +342,7 @@ Both SDKs expose the governance core (intercept → decide → approve → prove
 
 | | Node SDK | Python SDK |
 |---|---|---|
-| **Focus** | Governance-core surface (28 methods) | Governance core + conveniences (51 methods) |
+| **Focus** | Governance-core surface (31 methods) | Governance core + conveniences (51 methods) |
 | **Guard / actions / approvals** | ✅ | ✅ |
 | **Assumptions / signals** | ✅ | ✅ |
 | **Sessions / action graph** | ✅ | ✅ |
@@ -395,6 +395,11 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `updateSession(sessionId, updates)` -- Update session state (`status`, `green_level`, `branch_freshness`, `commits_behind`, `blocked_reason`).
 - `listSessions(filters)` -- List sessions (`agent_id`, `status`, `limit`).
 - `getSessionEvents(sessionId)` -- Fetch the event stream for a session.
+
+### Team Tasks (fleets-and-teams amendment)
+- `createTeamTask(task)` -- Create a Team Task (one per multi-agent `/team` run). `task`: `{ id, instruction, origin, lead_agent, status?, stop_condition?, max_exchanges? }`.
+- `appendTeamTaskEvent(taskId, event)` -- Append one timeline event. `event`: `{ from_agent, to_agent, type, summary, ts?, body?, action_id? }`.
+- `updateTeamTask(taskId, patch)` -- Update status or stored session ids. `patch`: `{ status?, claude_session_id?, openclaw_session_key? }`.
 
 ### Security Scanning
 - `scanPromptInjection(text, { source })` -- Scan text for prompt injection attacks.

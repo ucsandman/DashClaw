@@ -5,7 +5,7 @@
     "appPages": { "ceiling": 47, "source": "app/**/page.{js,jsx,ts,tsx}", "reason": "2026-07-10: +1 for app/team-tasks/page.tsx — the Team Tasks timeline adopted by the 2026-07-09 owner amendment (fleets and teams). One page, list + live timeline; components under _components/ don't count. (Prior: 2026-07-08 /explain port; v5.0.0-rc ratchet-down.)" },
     "mcpTools": { "ceiling": 15, "source": "mcp-server/src/tools.ts (dashclaw_* tool names)", "reason": "2026-07-10: +3 (dashclaw_task_create, dashclaw_task_event, dashclaw_task_update) — the Team Tasks surface adopted by the 2026-07-09 owner amendment (fleets and teams). The tools are thin wrappers over the three /api/team-tasks routes." },
     "mcpResources": { "ceiling": 3, "source": "mcp-server/src/resources.ts (uri entries)" },
-    "sdkNodeMethods": { "ceiling": 28, "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs" },
+    "sdkNodeMethods": { "ceiling": 31, "source": "sdk/dashclaw.js via scripts/count-sdk-methods.mjs", "reason": "2026-07-10: +3 (createTeamTask, appendTeamTaskEvent, updateTeamTask) — the Team Tasks surface adopted by the 2026-07-09 owner amendment (fleets and teams). Node-only by decision: the team agents write via MCP/HTTP; the Python SDK is deliberately not extended." },
     "sdkPythonMethods": { "ceiling": 51, "source": "sdk-python/dashclaw/client.py via scripts/count-sdk-methods.mjs" },
     "cliCommands": { "ceiling": 13, "source": "cli/bin/dashclaw.js COMMAND_HANDLERS (flag aliases excluded)" },
     "guardPolicyTypes": { "ceiling": 14, "source": "app/lib/guard/policy.ts KNOWN_POLICY_TYPES (POLICY_EVALUATORS keys)" }

@@ -266,7 +266,7 @@ source of truth for the gate, live in `contracts/surface-budget.json`:
 | App pages | 47 | `app/**/page.{js,jsx,ts,tsx}` |
 | MCP tools | 15 | `mcp-server/src/tools.ts` |
 | MCP resources | 3 | `mcp-server/src/resources.ts` |
-| Node SDK methods | 28 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
+| Node SDK methods | 31 | `sdk/dashclaw.js` (`scripts/count-sdk-methods.mjs`) |
 | Python SDK methods | 51 | `sdk-python/dashclaw/client.py` (`scripts/count-sdk-methods.mjs`) |
 | CLI commands | 13 | `cli/bin/dashclaw.js` (`COMMAND_HANDLERS`) |
 | Guard policy types | 14 | `app/lib/guard/policy.ts` (`KNOWN_POLICY_TYPES`) |
@@ -307,6 +307,9 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
 - **2026-07-10 — MCP tools 12 → 15 (fleets-and-teams amendment).** Three
   `dashclaw_task_*` tools so both team agents write the Team Tasks timeline
   through governed, authenticated API calls.
+- **2026-07-10 — Node SDK methods 28 → 31 (fleets-and-teams amendment).**
+  Thin wrappers for the three Team Tasks routes. Python SDK deliberately
+  not extended (team agents write via MCP/HTTP).
 
 ## Version story
 

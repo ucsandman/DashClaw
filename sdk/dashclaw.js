@@ -930,6 +930,36 @@ class DashClaw {
     });
   }
 
+  // ---------------------------------------------------------------------------
+  // Team Tasks — multi-agent /team run tracking (fleets-and-teams amendment)
+  // ---------------------------------------------------------------------------
+
+  /**
+   * POST /api/team-tasks — Create a Team Task (one per multi-agent /team run).
+   * @param {object} task - { id, instruction, origin, lead_agent, status?, stop_condition?, max_exchanges? }
+   */
+  async createTeamTask(task) {
+    return this._post('/api/team-tasks', task);
+  }
+
+  /**
+   * POST /api/team-tasks/:taskId/events — Append one timeline event.
+   * @param {string} taskId - Team task id
+   * @param {object} event - { from_agent, to_agent, type, summary, ts?, body?, action_id? }
+   */
+  async appendTeamTaskEvent(taskId, event) {
+    return this._post(`/api/team-tasks/${encodeURIComponent(taskId)}/events`, event);
+  }
+
+  /**
+   * PATCH /api/team-tasks/:taskId — Update status or stored session ids.
+   * @param {string} taskId - Team task id
+   * @param {object} patch - { status?, claude_session_id?, openclaw_session_key? }
+   */
+  async updateTeamTask(taskId, patch) {
+    return this._patch(`/api/team-tasks/${encodeURIComponent(taskId)}`, patch);
+  }
+
 }
 
 export { DashClaw, ApprovalDeniedError, GuardBlockedError, ApprovalPendingError, scrubAct };

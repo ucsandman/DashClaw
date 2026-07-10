@@ -40,7 +40,7 @@ Both modes serve the same landing page. `/demo` sets a cookie and redirects to `
 - Auth: NextAuth v4 for UI (GitHub, Google, or OIDC), `x-api-key` header for agents/tools
 - **Version:** the platform and both SDKs share one version (Node + Python; see `CHANGELOG.md` / `package.json`).
 - SDKs:
-  - **Node — governance core** (`sdk/dashclaw.js`, 28 methods across Core Governance, Sessions, Assumptions, Signals, Security, Pairing, and durable finality). This is the SDK that ships as the `dashclaw` package.
+  - **Node — governance core** (`sdk/dashclaw.js`, 31 methods across Core Governance, Sessions, Assumptions, Signals, Security, Pairing, Team Tasks, and durable finality). This is the SDK that ships as the `dashclaw` package.
   - **Python — governance core + conveniences** (`sdk-python/dashclaw/client.py`, 51 methods).
   - The deprecated `dashclaw/legacy` Node subpath was **removed in v5.0.0** (see `docs/sdk-parity.md`).
 - Node SDK naming: camelCase. Python SDK naming: snake_case.

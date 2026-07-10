@@ -1,7 +1,7 @@
 ---
 source-of-truth: true
 owner: API Governance Lead
-last-verified: 2026-07-07
+last-verified: 2026-07-10
 doc-type: architecture
 ---
 
@@ -196,7 +196,7 @@ DashClaw ships a Node SDK and a Python SDK. The DEPRECATED `dashclaw/legacy` sub
 | Canonical Node SDK | `import { DashClaw } from 'dashclaw'` from `sdk/dashclaw.js` | npm package `dashclaw`; the SDK for all work (version tracked in `sdk/package.json`). |
 | Python SDK | `sdk-python/dashclaw/client.py` | Broad Python surface with route-contract parity for critical domains. |
 
-The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.js` and the Python SDK **51** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
+The canonical Node SDK currently exposes **31 public methods** in `sdk/dashclaw.js` and the Python SDK **51** in `sdk-python/dashclaw/client.py` (both reproducible via `npm run sdk:count` — excludes the constructor and `_`-private methods). The Node surface includes:
 
 - core governance: `guard`, `createAction`, `updateOutcome`, `getAction`, `approveAction`, `getPendingApprovals`, `waitForApproval`, `recordAssumption`
 - durable finality: `reportActionOutcome`, `getActionOutcome`, `reportActionSuccess`, `reportActionFailure`, `reportActionPartial`, `deriveIdempotencyKey`
@@ -204,6 +204,7 @@ The canonical Node SDK currently exposes **28 public methods** in `sdk/dashclaw.
 - agent pairing/identity enrollment: `createPairing`, `waitForPairing`
 - governed execution wrappers: `runGoverned`, `guardedFetch`, `actionContext`
 - side-effect-free dry-run: `simulatePolicy` (replays a proposed policy against recent historical actions)
+- team tasks (Node-only, fleets-and-teams amendment): `createTeamTask`, `appendTeamTaskEvent`, `updateTeamTask`
 
 Use `docs/sdk-parity.md` for domain-level parity and consolidation status.
 
