@@ -11,6 +11,10 @@ export type GuardSql = {
 
 export interface GuardEvalContext {
   action_type?: string;
+  // Set only by the evidence mismatch swap (evaluate.ts): the caller's original
+  // declared type, preserved so restrictive action-type policies still match it
+  // after action_type is replaced by the derived type.
+  declared_action_type?: string;
   agent_id?: string | null;
   agent_name?: string | null;
   risk_score?: number | string | null;

@@ -113,6 +113,48 @@ describe('evaluateGuard', () => {
     expect(result.decision).toBe('allow');
   });
 
+  // --- require_approval vs the evidence mismatch swap ---
+
+  it('still requires approval when act evidence swaps the declared type to a lower-information derived type', async () => {
+    // Regression: declared social_post + a shell act the classifier grades as
+    // "other" (base 30 > declared-unknown base 20) triggers the mismatch swap.
+    // Before the declared_action_type fix, the swap erased social_post and the
+    // policy silently stopped matching.
+    const sql = makeSql([makePolicy('require_approval', { action_types: ['social_post'] })]);
+    const result = await evaluateGuard('org_1', {
+      action_type: 'social_post',
+      agent_id: 'a1',
+      act: { kind: 'shell', command: 'node tools/post-to-x/post-to-x.mjs post --text "hi" --live' },
+    }, sql);
+    expect(result.evidence_mismatch).toBe(true); // the swap really happened
+    expect(result.decision).toBe('require_approval');
+    expect(result.reasons.some((r) => r.includes('"social_post" requires approval'))).toBe(true);
+  });
+
+  it('still requires approval on the DERIVED type when an agent under-declares', async () => {
+    // The swap's original purpose is preserved: declared "read" with a
+    // destructive act must match a policy written against the derived type.
+    const sql = makeSql([makePolicy('require_approval', { action_types: ['security'] })]);
+    const result = await evaluateGuard('org_1', {
+      action_type: 'read',
+      agent_id: 'a1',
+      act: { kind: 'shell', command: 'rm -rf /prod-data' },
+    }, sql);
+    expect(result.evidence_mismatch).toBe(true);
+    expect(result.decision).toBe('require_approval');
+    expect(result.reasons.some((r) => r.includes('"security" requires approval'))).toBe(true);
+  });
+
+  it('does not fire when neither declared nor derived type matches', async () => {
+    const sql = makeSql([makePolicy('require_approval', { action_types: ['social_post'] })]);
+    const result = await evaluateGuard('org_1', {
+      action_type: 'research',
+      agent_id: 'a1',
+      act: { kind: 'shell', command: 'ls -la' },
+    }, sql);
+    expect(result.decision).toBe('allow');
+  });
+
   // --- require_approval narrowed by target_prefix (review-feed "tighten") ---
 
   it('require_approval with target_prefix fires when the target matches', async () => {

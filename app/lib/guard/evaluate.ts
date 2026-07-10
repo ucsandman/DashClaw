@@ -661,6 +661,10 @@ function foldEvidenceIntoContext(context: GuardEvalContext): EvidenceDerivedBrea
   if (evidence.derived_action_type !== declaredType && evidence.base_risk > declaredBase) {
     mismatch = true;
     modifiers.push({ reason: `declared/derived mismatch (declared ${declaredType ?? 'none'} → derived ${evidence.derived_action_type})`, delta: 10 });
+    // Keep the declared type visible to restrictive policy matching: swapping
+    // to a lower-information derived type (e.g. social_post → other) must not
+    // let the action dodge a rule written against the declared type.
+    if (declaredType !== undefined) context.declared_action_type = declaredType;
     context.action_type = evidence.derived_action_type;
   }
   const total = Math.max(0, Math.min(evidence.base_risk + modifiers.reduce((s, m) => s + m.delta, 0), 100));

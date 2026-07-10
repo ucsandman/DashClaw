@@ -54,6 +54,21 @@ interface PolicyEvalArgs {
 
 type PolicyEvaluator = (args: PolicyEvalArgs) => PolicyResult | null | Promise<PolicyResult | null>;
 
+// Restrictive policies match the effective action_type AND the caller's
+// declared type when the evidence mismatch swap replaced it (evaluate.ts):
+// declaring social_post while the classifier derives "other" must not dodge a
+// social_post rule. Permissive surfaces (allow grants, approval reuse binding)
+// intentionally stay on the effective type only, so a declaration can never
+// widen a grant.
+function contextActionTypes(context: GuardEvalContext): string[] {
+  const types: string[] = [];
+  if (typeof context.action_type === 'string') types.push(context.action_type);
+  if (typeof context.declared_action_type === 'string' && !types.includes(context.declared_action_type)) {
+    types.push(context.declared_action_type);
+  }
+  return types;
+}
+
 // require_approval / block_action_type share action_type matching; only the
 // decision and reason wording differ.
 function matchActionType(
@@ -63,7 +78,8 @@ function matchActionType(
   reason: (type: string) => string,
 ): PolicyResult | null {
   const actionTypes = rules.action_types || [];
-  if (context.action_type === undefined || !actionTypes.includes(context.action_type)) {
+  const matchedType = contextActionTypes(context).find((t) => actionTypes.includes(t));
+  if (matchedType === undefined) {
     return null;
   }
   // Optional narrowing: a rule born from a targeted shape (review-feed
@@ -73,7 +89,7 @@ function matchActionType(
       !targetPrefixMatches(rules.target_prefix, context)) {
     return null;
   }
-  return { action, reason: reason(context.action_type) };
+  return { action, reason: reason(matchedType) };
 }
 
 // ── non_fabrication evaluation (decomposed) ──
@@ -81,7 +97,7 @@ function matchActionType(
 function nonFabAppliesTo(rules: PolicyRules, context: GuardEvalContext): boolean {
   const actionTypes = Array.isArray(rules.action_types) ? rules.action_types : null;
   if (!actionTypes || actionTypes.length === 0) return true;
-  return context.action_type !== undefined && actionTypes.includes(context.action_type);
+  return contextActionTypes(context).some((t) => actionTypes.includes(t));
 }
 
 function nonFabConfig(rules: PolicyRules) {
@@ -312,7 +328,7 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   permission_escalation: evaluatePermissionEscalationPolicy,
   green_contract: ({ rules, context }) => {
     const actionTypes = rules.action_types || [];
-    if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
+    if (!contextActionTypes(context).some((t) => actionTypes.includes(t))) return null;
     const observedLevel = context.intel?.green?.observed_level;
     const requiredLevel = rules.required_level;
     if (!observedLevel) {
@@ -325,7 +341,7 @@ const POLICY_EVALUATORS: Record<string, PolicyEvaluator> = {
   },
   branch_freshness: ({ rules, context }) => {
     const actionTypes = rules.action_types || [];
-    if (context.action_type === undefined || !actionTypes.includes(context.action_type)) return null;
+    if (!contextActionTypes(context).some((t) => actionTypes.includes(t))) return null;
     const branch = context.intel?.branch;
     if (!branch) return null;
     const triggerFreshness = rules.freshness || ['stale', 'diverged'];
