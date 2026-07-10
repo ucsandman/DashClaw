@@ -41,6 +41,13 @@ DashClaw governs only the actions an agent **reports** through the SDK or hooks.
 | **Autonomous Overnight** | Medium | Can work while you sleep, but cannot run away. | runaway limits (warn 300/30m, approval 800/60m); paid-spend gate; approval on external actions + production changes; protected production/deploy/secrets; warn ≥80, block ≥95 | "scope drift" and "periodic summaries" are not natively enforceable — surfaced as cautions |
 | **Deploy** | High | Shipping is deliberate. | **block** deploys from stale/diverged branches (branch-freshness) and below merge-ready test level (green-contract); approval on deploy/migrate/env-change; protected `.env`/migration paths; warn ≥80, block ≥90 | branch-freshness + green gates require the agent to report branch/test intel; "dirty branch", "backup", "explicit goal" are partly advisory |
 
+## Policy packs (import-and-go)
+
+Packs are plain YAML bundles of ordinary guard policies you import from `/policies` (or that are seeded for you). Unlike modes, a pack does not compile — its policies land as-is and you edit or delete them individually.
+
+- **Catastrophe Only** — the **self-hosted default**, seeded automatically for every new org at its first migrate. Three catastrophe-only policies: **block** mass-destructive operations (`rm -rf`, `DROP TABLE`, force-push — server risk clamps to 100), **hold** secret-file writes (`.env`, `*.pem`, `*.key`, `secrets/**`) for one-click approval, and a **warn-only** rate limit (200 actions / 10 min) that nets runaways without interrupting. Everything else runs. It holds writes to secret files, not reads (the Read tool is not hooked today). Import it at `/policies` to retrofit an org that predates the seed.
+- **Claude Code Starter** — the opt-in broader baseline: everything the catastrophe pack does, plus approval gates on network calls and package installs. Stack `layered-intelligence` on top once the baseline is in place.
+
 ## Notes
 
 - **Honest language.** Compliance-oriented modes (SOC 2, Enterprise) describe what they *help enforce*; they never claim certification or guarantees.

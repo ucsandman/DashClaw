@@ -4,9 +4,9 @@ You connected an agent. This page is the operator's side of the product: what to
 
 ## Day one: give guard something to enforce
 
-A fresh instance has **no policies** — every guard call returns `allow`. Do one of these first:
+A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate: mass-destructive operations are blocked, secret-file writes are held for approval, and a warn-only rate limit nets runaways. Everything else runs, so the next thing to do is decide how much more you want to gate:
 
-- **Adopt a policy mode.** `/policies` → import a named pack. `claude-code-starter` is the day-one baseline for coding agents; [policy modes](./policy-modes.md) lists the rest (SOC 2 alignment, Enterprise Strict, …). Hosted trial workspaces come with the starter pre-seeded.
+- **Adopt a policy mode.** `/policies` → import a named pack. `claude-code-starter` layers approval gates on network calls and package installs on top of the catastrophe baseline; [policy modes](./policy-modes.md) lists the rest (SOC 2 alignment, Enterprise Strict, …). Hosted trial workspaces come with the starter pre-seeded.
 - **Build your own.** The policy builder ships ten pre-built safety switches (Deploy Gate, Risk Threshold, Rate Limiter, Evidence Required, and others), an AI generator, and YAML import.
 
 Then prove it fires: `/policies` has per-policy **simulate** (replay a hypothetical action against the rule set), and your [posture score](#posture-the-score-that-cannot-be-gamed) only credits policies that demonstrably fire on real traffic.

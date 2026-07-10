@@ -28,6 +28,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postgres from 'postgres';
 import { splitSqlStatements } from '../app/lib/setup/sql-statements.mjs';
+import { seedCatastrophePack } from '../app/lib/setup/catastrophe-pack.mjs';
 
 // Load .env / .env.local if present (no-op in Vercel where vars are injected).
 import './_load-env.mjs';
@@ -254,12 +255,27 @@ log(`Column sync complete: ${columnsAdded} ALTER statements executed (no-op if a
 log('Checking for org_default seed...');
 
 try {
-  await sql`
+  const created = await sql`
     INSERT INTO organizations (id, name, slug, plan)
     VALUES ('org_default', 'Default Organization', 'default', 'pro')
     ON CONFLICT (id) DO NOTHING
+    RETURNING id
   `;
-  log('org_default is present (inserted or already existed).');
+  if (created.length > 0) {
+    // Only THIS run created the row (the inserting transaction is the only one
+    // that gets it back) — seed the default pack once, at org birth. An org
+    // that already existed is left alone so an operator's deletions in /policies
+    // are never resurrected on the next deploy.
+    log('org_default created — seeding catastrophe-only pack...');
+    try {
+      const { imported } = await seedCatastrophePack(sql, 'org_default');
+      log(`Seeded catastrophe-only pack for org_default: ${imported} imported`);
+    } catch (seedErr) {
+      log(`Warning: Could not seed catastrophe-only pack — ${seedErr.message}`);
+    }
+  } else {
+    log('org_default already existed — policies left as-is.');
+  }
 } catch (err) {
   // Non-fatal: log and continue. The app can still boot; setup page will guide user.
   log(`Warning: Could not seed org_default — ${err.message}`);
@@ -280,11 +296,23 @@ if (configuredKey && configuredKey.startsWith('oc_live_')) {
   try {
     // Ensure the target org exists before inserting the key (FK constraint).
     if (configuredOrgId !== 'org_default') {
-      await sql`
+      const created = await sql`
         INSERT INTO organizations (id, name, slug, plan)
         VALUES (${configuredOrgId}, ${configuredOrgId}, ${configuredOrgId}, 'pro')
         ON CONFLICT (id) DO NOTHING
+        RETURNING id
       `;
+      if (created.length > 0) {
+        // Seed the default pack once, at org birth (same gate as org_default).
+        try {
+          const { imported } = await seedCatastrophePack(sql, configuredOrgId);
+          log(`Seeded catastrophe-only pack for ${configuredOrgId}: ${imported} imported`);
+        } catch (seedErr) {
+          log(`Warning: Could not seed catastrophe-only pack — ${seedErr.message}`);
+        }
+      } else {
+        log(`${configuredOrgId} already existed — policies left as-is.`);
+      }
     }
 
     await sql`

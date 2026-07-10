@@ -1422,6 +1422,43 @@ async function main() {
     createdPolicyIds.push(policyId); // ride the standard cleanup
   }
 
+  // RS1: held -> approved -> resumed (the catastrophe pack's flagship loop).
+  // Pins the SERVER side of the resume contract the pretool poll consumes: a
+  // protected_path Write to `.env` is held for approval; approving it flips the
+  // action out of pending_approval (approved_by set / status running) so the
+  // paused tool call is released. Scoped to the smoke agent so the section is
+  // self-contained regardless of which packs the target instance has seeded.
+  {
+    const agent = agentFor('rs1');
+    const pid = await createPolicy('hold-secret-writes', 'protected_path',
+      { action: 'require_approval', paths: ['**/.env', '**/*.key', '**/secrets/**'] }, [agent]);
+
+    const guarded = await api('POST', '/api/guard?record=true', {
+      action_type: 'security', declared_goal: `Write: .env ${RUN}`,
+      target: '.env', agent_id: agent,
+    });
+    const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+    check('RS1', 'secret-file Write is held for approval with an action_id',
+      guarded.json?.decision === 'require_approval' &&
+      (guarded.json?.matched_policies || []).includes(pid) && Boolean(actionId),
+      `decision=${guarded.json?.decision} matched=${JSON.stringify(guarded.json?.matched_policies)} action_id=${actionId}`);
+
+    if (actionId) {
+      const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow' });
+      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)',
+        approved.status >= 200 && approved.status < 300, `status=${approved.status}`);
+
+      const after = await api('GET', `/api/actions/${actionId}`);
+      const st = after.json?.action?.status;
+      check('RS1', 'action left pending_approval (approved_by set / status running) so the paused tool call resumes',
+        st !== 'pending_approval' && (Boolean(after.json?.action?.approved_by) || st === 'running' || st === 'approved'),
+        `status=${st} approved_by=${after.json?.action?.approved_by}`);
+    } else {
+      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)', false, 'no action_id to approve');
+      check('RS1', 'action left pending_approval so the paused tool call resumes', false, 'no action_id to poll');
+    }
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {

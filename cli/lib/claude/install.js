@@ -17,10 +17,11 @@
 //      entries into ~/.claude/settings.json (managed entries, replaced on
 //      re-install; backup created once).
 //   5. Write hook credentials to <hooksDir>/.env (mode 600 — the hooks load
-//      .env beside the script, so no secret lands in ~/.claude/settings.json)
-//      with HOOK_MODE=observe by default, and save ~/.dashclaw/config.json
-//      for the CLI itself.
-//   6. Print next steps (flip to enforce, dashboard URL).
+//      .env beside the script, so no secret lands in ~/.claude/settings.json).
+//      A genuinely-fresh install defaults to HOOK_MODE=enforce (--observe opts
+//      out); a re-install ALWAYS preserves the existing mode + approval timeout
+//      (never clobbers an operator's choice). Also save ~/.dashclaw/config.json.
+//   6. Print next steps (governed loop demo, dashboard URLs).
 
 import { spawnSync } from 'node:child_process';
 import {
@@ -48,9 +49,10 @@ const HOOK_FILES = [
 ];
 // Shipped when present in the bundle, skipped otherwise — a newer CLI must
 // keep installing against an older hosted bundle. enforcement_liveness_probe
-// (v8.2) is not wired as a SessionStart hook by this CLI install path (only
-// Pre/Post/Stop are wired below), but travels with the hooks so
-// `python .claude/hooks/enforcement_liveness_probe.py` works out of the box.
+// (v8.2) IS wired as a SessionStart hook below when the script is present in
+// the hooks dir (older bundles that lack it are skipped, never registered as
+// a dangling command), so the enforcement-liveness verdict lands on /setup
+// automatically after the first governed session.
 const OPTIONAL_HOOK_FILES = ['enforcement_liveness_probe.py'];
 const HOOK_INTEL_DIR = 'dashclaw_agent_intel';
 const HOOKS_BUNDLE_PATH = '/downloads/dashclaw-claude-code-hooks.zip';
@@ -202,22 +204,43 @@ const HOOK_EVENTS = {
   PreToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|Skill|mcp__.*', script: 'dashclaw_pretool.py', timeout: 3660 },
   PostToolUse: { matcher: 'Agent|Task|Workflow|Bash|Edit|Write|MultiEdit|mcp__.*', script: 'dashclaw_posttool.py' },
   Stop: { script: 'dashclaw_stop.py' },
+  // Enforcement-liveness probe (v8.2): runs once at session start, self-throttles
+  // to once/12h, detaches, and files a verdict at /setup. `optional` means the
+  // event is skipped when the script is absent from the hooks dir (older hosted
+  // bundles). The probe reads --source via parse_known_args, so the appended
+  // --agent-id is harmless.
+  SessionStart: { script: 'enforcement_liveness_probe.py', timeout: 10, args: ['--source', 'session-start'], optional: true },
 };
 
 export function isManagedHookEntry(entry) {
-  return (entry?.hooks || []).some((h) => typeof h?.command === 'string' && h.command.includes('dashclaw_'));
+  return (entry?.hooks || []).some(
+    (h) =>
+      typeof h?.command === 'string' &&
+      (h.command.includes('dashclaw_') || h.command.includes('enforcement_liveness_probe')),
+  );
 }
 
 /** Build the managed hook entries pointing at <hooksDir> via <python>. */
 export function buildHookEntries(hooksDir, python, agentId = DEFAULT_AGENT_ID) {
   const entries = {};
   for (const [event, spec] of Object.entries(HOOK_EVENTS)) {
+    // Optional events (the SessionStart probe) are skipped when the script is
+    // not present in the hooks dir — never register a hook pointing at a
+    // missing file (older hosted bundles predate the probe).
+    if (spec.optional && !existsSync(join(hooksDir, spec.script))) continue;
     const hook = {
       type: 'command',
       // --agent-id is the per-harness identity declaration (roadmap v2.2):
       // argv beats the machine-ambient DASHCLAW_AGENT_ID env var, so this
       // install keeps its identity even when another harness exports one.
-      command: `${python} "${join(hooksDir, spec.script)}" --agent-id "${agentId}"`,
+      // spec.args (e.g. the probe's --source session-start) follow the id.
+      command: [
+        python,
+        `"${join(hooksDir, spec.script)}"`,
+        '--agent-id',
+        `"${agentId}"`,
+        ...(spec.args || []),
+      ].join(' '),
       ...(spec.timeout ? { timeout: spec.timeout } : {}),
     };
     entries[event] = [{ ...(spec.matcher ? { matcher: spec.matcher } : {}), hooks: [hook] }];
@@ -255,7 +278,7 @@ export function mergeClaudeSettings(settingsPath, hooksDir, python, agentId = DE
 // Hook credentials (.env beside the scripts — never in settings.json)
 // ---------------------------------------------------------------------------
 
-export function buildHookEnv({ endpoint, apiKey, agentId, hookMode = 'observe' }) {
+export function buildHookEnv({ endpoint, apiKey, agentId, hookMode = 'observe', approvalTimeout = 120 }) {
   return [
     '# Written by `dashclaw install claude` — credentials for the governance hooks.',
     '# The hooks load this file from beside their scripts; env vars override it.',
@@ -263,8 +286,51 @@ export function buildHookEnv({ endpoint, apiKey, agentId, hookMode = 'observe' }
     `DASHCLAW_API_KEY=${apiKey}`,
     `DASHCLAW_AGENT_ID=${agentId}`,
     `DASHCLAW_HOOK_MODE=${hookMode}`,
+    '# approval hold window in seconds; the hook polls and resumes on approve',
+    `DASHCLAW_APPROVAL_TIMEOUT=${approvalTimeout}`,
     '',
   ].join('\n');
+}
+
+/**
+ * Read an existing hook .env so a re-install can PRESERVE the operator's chosen
+ * mode + approval timeout instead of clobbering them back to defaults. Returns
+ * nulls when the file or a key is absent.
+ */
+export function readExistingHookEnv(hookEnvPath) {
+  if (!existsSync(hookEnvPath)) return { hookMode: null, approvalTimeout: null };
+  let text;
+  try {
+    text = readFileSync(hookEnvPath, 'utf8');
+  } catch {
+    return { hookMode: null, approvalTimeout: null };
+  }
+  const modeMatch = text.match(/DASHCLAW_HOOK_MODE=(\w+)/);
+  const timeoutMatch = text.match(/DASHCLAW_APPROVAL_TIMEOUT=(\d+)/);
+  return {
+    hookMode: modeMatch ? modeMatch[1] : null,
+    approvalTimeout: timeoutMatch ? Number(timeoutMatch[1]) : null,
+  };
+}
+
+/**
+ * Best-effort count of the org's policies (honesty preflight). Returns null on
+ * any error — an enforce install against an unreachable/empty policy list still
+ * succeeds; this only decides whether to print the "no policies yet" note.
+ */
+async function countPolicies(endpoint, apiKey, fetchImpl = fetch) {
+  try {
+    const res = await fetchImpl(`${endpoint}/api/policies`, {
+      headers: { 'x-api-key': apiKey },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    const list = Array.isArray(body) ? body : (body?.policies || []);
+    return Array.isArray(list) ? list.length : null;
+  } catch {
+    return null;
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -277,6 +343,7 @@ export function buildHookEnv({ endpoint, apiKey, agentId, hookMode = 'observe' }
  * @param {string} [opts.apiKey]
  * @param {string} [opts.agentId]
  * @param {boolean} [opts.trial]
+ * @param {boolean} [opts.observe]  Fresh installs default to enforce; pass true to start in observe mode
  * @param {string} [opts.homeDir]   Injectable for tests
  * @param {Function} [opts.fetchImpl]
  * @param {Function} [opts.pythonProbe]   Injected probe for resolvePythonCommand
@@ -290,6 +357,7 @@ export async function installClaude({
   apiKey,
   agentId = DEFAULT_AGENT_ID,
   trial = false,
+  observe = false,
   homeDir = homedir(),
   env = process.env,
   fetchImpl = fetch,
@@ -350,26 +418,57 @@ export async function installClaude({
   mergeClaudeSettings(settingsPath, hooksDir, python, agentId);
 
   // 5. Credentials -------------------------------------------------------------
+  // Re-install ALWAYS preserves the operator's existing mode + approval timeout
+  // (never clobber their choice). Only a genuinely-fresh install picks a
+  // default: enforce, unless --observe was passed.
   const hookEnvPath = join(hooksDir, '.env');
-  writeFileSync(hookEnvPath, buildHookEnv({ endpoint, apiKey, agentId }), { mode: 0o600 });
+  const prior = readExistingHookEnv(hookEnvPath);
+  const hookMode = observe ? 'observe' : (prior.hookMode || 'enforce');
+  const approvalTimeout = prior.approvalTimeout || 120;
+  writeFileSync(hookEnvPath, buildHookEnv({ endpoint, apiKey, agentId, hookMode, approvalTimeout }), { mode: 0o600 });
   const existing = readConfigForHome(homeDir);
   writeConfigForHome(homeDir, { ...existing, baseUrl: endpoint, apiKey, agentId });
 
+  // Honesty preflight: enforce mode against an instance with zero policies holds
+  // nothing. Best-effort — never fails the install.
+  if (hookMode === 'enforce') {
+    const policyCount = await countPolicies(endpoint, apiKey, fetchImpl);
+    if (policyCount === 0) {
+      logger.log('');
+      logger.log('  Note: this instance has no policies yet — enforce mode currently holds nothing.');
+      logger.log(`  Run \`npm run db:migrate\` on the instance, or click Import at ${endpoint}/policies.`);
+    }
+  }
+
   // 6. Next steps ---------------------------------------------------------------
   logger.log('');
-  logger.log('  Done. Claude Code is governed by DashClaw (observe mode).');
   logger.log(`  Hooks:     ${hooksDir}`);
   logger.log(`  Settings:  ${settingsPath}`);
   logger.log(`  Config:    ${join(homeDir, '.dashclaw', 'config.json')}`);
   logger.log('');
-  logger.log('  Next steps:');
-  logger.log('  1. Restart Claude Code (hooks load at session start).');
-  logger.log('  2. Run any tool call and watch it appear in your dashboard:');
-  logger.log(`     ${endpoint}/mission-control`);
-  logger.log(`  3. Observe mode logs decisions without blocking. To enforce, set`);
-  logger.log(`     DASHCLAW_HOOK_MODE=enforce in ${hookEnvPath}`);
+  if (hookMode === 'enforce') {
+    logger.log('  Done. Claude Code is governed by DashClaw (enforce mode).');
+    logger.log('');
+    logger.log('  See the loop fire:');
+    logger.log('  1. Restart Claude Code (hooks load at session start).');
+    logger.log('  2. Ask the agent to do something risky — append a line to `.env`,');
+    logger.log('     or try a force-push. DashClaw holds it for your approval.');
+    logger.log(`  3. Approve or deny at ${endpoint}/approvals — the paused tool call`);
+    logger.log('     resumes in the session the moment you approve.');
+    logger.log(`  4. See the full held -> approved -> executed record at ${endpoint}/decisions.`);
+    logger.log(`  The enforcement-liveness verdict appears at ${endpoint}/setup after your first session.`);
+    logger.log('  To step back down: re-install with --observe, or edit DASHCLAW_HOOK_MODE=observe in the .env.');
+  } else {
+    logger.log('  Done. Claude Code is governed by DashClaw (observe mode).');
+    logger.log('');
+    logger.log('  Next steps:');
+    logger.log('  1. Restart Claude Code (hooks load at session start).');
+    logger.log(`  2. Run any tool call and watch it appear at ${endpoint}/approvals.`);
+    logger.log('  3. Observe mode logs decisions without blocking. To enforce, set');
+    logger.log(`     DASHCLAW_HOOK_MODE=enforce in ${hookEnvPath}.`);
+  }
 
-  return { hooksDir, settingsPath, hookEnvPath, python, endpoint, agentId, hookMode: 'observe' };
+  return { hooksDir, settingsPath, hookEnvPath, python, endpoint, agentId, hookMode };
 }
 
 async function mustPrompt(promptFn, question) {

@@ -155,6 +155,93 @@ try {
         throw
     }
 
+    # --- Step: catastrophe_policies (M1: default pack seeded at org birth) ---
+    # `up` ran auto-migrate, which seeds the catastrophe-only pack for the new
+    # org. Assert the three policies exist. ASCII substrings only — the live
+    # names carry an em dash the PS host may mis-decode from source.
+    try {
+        $polResp = Invoke-WebRequest -Uri 'http://localhost:3000/api/policies' `
+            -Headers @{ 'x-api-key' = $apiKey } -UseBasicParsing
+        $names = @(($polResp.Content | ConvertFrom-Json).policies | ForEach-Object { $_.name })
+        $fragments = @(
+            'Block Mass-Destructive Operations',
+            'Hold Secret-File Writes for Approval',
+            'Rate-Limit Runaway Agents'
+        )
+        $missing = @()
+        foreach ($frag in $fragments) {
+            if (-not ($names | Where-Object { $_ -like "*$frag*" })) { $missing += $frag }
+        }
+        if ($missing.Count -eq 0) {
+            Add-Step -Id 'catastrophe_policies' -Status 'pass' -Detail 'all three catastrophe-only policies seeded at org birth'
+        }
+        else {
+            $failedStep = 'catastrophe_policies'
+            Add-Step -Id 'catastrophe_policies' -Status 'fail' -Detail "missing seeded policies: $($missing -join '; ')"
+            throw 'catastrophe-only pack not seeded'
+        }
+    }
+    catch {
+        if (-not $failedStep) { $failedStep = 'catastrophe_policies' }
+        Add-Step -Id 'catastrophe_policies' -Status 'fail' -Detail "$_"
+        throw
+    }
+
+    # --- Step: python_install (hooks need python; fresh Windows has none) ------
+    try {
+        $pyExe = Join-Path $env:TEMP 'python-installer.exe'
+        Invoke-WebRequest 'https://www.python.org/ftp/python/3.12.7/python-3.12.7-amd64.exe' -OutFile $pyExe
+        Start-Process $pyExe -ArgumentList '/quiet InstallAllUsers=1 PrependPath=1 Include_launcher=1' -Wait
+        $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' +
+                    [Environment]::GetEnvironmentVariable('Path', 'User')
+        Add-Step -Id 'python_install' -Status 'pass' -Detail "python=$(python --version 2>&1)"
+    }
+    catch {
+        $failedStep = 'python_install'
+        Add-Step -Id 'python_install' -Status 'fail' -Detail "$_"
+        throw
+    }
+
+    # --- Step: install_claude ----------------------------------------------
+    # Fresh install must default to enforce (M1). Uses the same cliSpec as `up`
+    # so `--cli` local tarballs (unpublished changes) are honored.
+    try {
+        $installLog = 'C:\Shared\install-claude.log'
+        $installArgs = "/c npm exec --yes --package=$script:cliSpec -- dashclaw install claude " +
+                       "--endpoint http://localhost:3000 --key $apiKey > `"$installLog`" 2>&1"
+        $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList $installArgs -WindowStyle Hidden -Wait -PassThru
+        if ($proc.ExitCode -ne 0) {
+            $tail = ''
+            if (Test-Path $installLog) { $tail = (Get-Content $installLog -Tail 20 -ErrorAction SilentlyContinue) -join "`n" }
+            throw "install claude exited $($proc.ExitCode). log tail: $tail"
+        }
+        Add-Step -Id 'install_claude' -Status 'pass' -Detail 'dashclaw install claude succeeded'
+    }
+    catch {
+        $failedStep = 'install_claude'
+        Add-Step -Id 'install_claude' -Status 'fail' -Detail "$_"
+        throw
+    }
+
+    # --- Step: hook_mode_enforce (M1: fresh install defaults to enforce) ------
+    try {
+        $hookEnvPath = Join-Path $env:USERPROFILE '.dashclaw\claude-hooks\.env'
+        $hookEnv = Get-Content -Raw -Path $hookEnvPath
+        if ($hookEnv -match 'DASHCLAW_HOOK_MODE=enforce') {
+            Add-Step -Id 'hook_mode_enforce' -Status 'pass' -Detail 'hook .env is DASHCLAW_HOOK_MODE=enforce'
+        }
+        else {
+            $failedStep = 'hook_mode_enforce'
+            Add-Step -Id 'hook_mode_enforce' -Status 'fail' -Detail "hook .env is not enforce: $hookEnv"
+            throw 'fresh install did not default to enforce'
+        }
+    }
+    catch {
+        if (-not $failedStep) { $failedStep = 'hook_mode_enforce' }
+        Add-Step -Id 'hook_mode_enforce' -Status 'fail' -Detail "$_"
+        throw
+    }
+
     Write-Result -Verdict 'pass' -FailedStep $null
 }
 catch {

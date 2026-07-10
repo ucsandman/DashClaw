@@ -83,7 +83,7 @@ describe('preflight', () => {
 });
 
 describe('installClaude', () => {
-  it('happy path: config + hook .env + settings written, observe default, python resolved', async () => {
+  it('happy path: config + hook .env + settings written, enforce default, python resolved', async () => {
     const home = makeTempHome();
     const result = await installClaude({ ...BASE_OPTS, homeDir: home, agentId: 'my-agent' });
 
@@ -93,12 +93,14 @@ describe('installClaude', () => {
     assert.equal(config.apiKey, 'oc_live_testkey');
     assert.equal(config.agentId, 'my-agent');
 
-    // Hook credentials in .env beside the scripts — observe by default.
+    // Hook credentials in .env beside the scripts — enforce by default on a
+    // fresh install, with a per-install 120s approval hold window.
     const envText = fs.readFileSync(result.hookEnvPath, 'utf8');
     assert.match(envText, /DASHCLAW_BASE_URL=http:\/\/localhost:9999/);
     assert.match(envText, /DASHCLAW_API_KEY=oc_live_testkey/);
-    assert.match(envText, /DASHCLAW_HOOK_MODE=observe/);
-    assert.equal(result.hookMode, 'observe');
+    assert.match(envText, /DASHCLAW_HOOK_MODE=enforce/);
+    assert.match(envText, /DASHCLAW_APPROVAL_TIMEOUT=120/);
+    assert.equal(result.hookMode, 'enforce');
 
     // Hook scripts copied (repo-checkout source in this test environment).
     assert.ok(fs.existsSync(path.join(result.hooksDir, 'dashclaw_pretool.py')));
@@ -113,6 +115,48 @@ describe('installClaude', () => {
     // install threads the id chosen at install time (BASE_OPTS: my-agent).
     assert.match(pre.hooks[0].command, /^python3 .*dashclaw_pretool\.py" --agent-id "my-agent"$/);
     assert.ok(settings.hooks.Stop.some(isManagedHookEntry));
+    // SessionStart enforcement-liveness probe wired (repo bundle ships it).
+    const session = settings.hooks.SessionStart.find(isManagedHookEntry);
+    assert.ok(session, 'managed SessionStart probe entry present');
+    assert.match(session.hooks[0].command, /enforcement_liveness_probe\.py" --agent-id "my-agent" --source session-start$/);
+  });
+
+  it('fresh install writes enforce + 120s timeout; --observe opts back to observe', async () => {
+    const home = makeTempHome();
+    const observed = await installClaude({ ...BASE_OPTS, homeDir: home, observe: true });
+    assert.equal(observed.hookMode, 'observe');
+    const envText = fs.readFileSync(observed.hookEnvPath, 'utf8');
+    assert.match(envText, /DASHCLAW_HOOK_MODE=observe/);
+    // The per-install approval timeout is still written in observe mode.
+    assert.match(envText, /DASHCLAW_APPROVAL_TIMEOUT=120/);
+  });
+
+  it('re-install PRESERVES an operator-chosen observe mode (never clobbers it back)', async () => {
+    const home = makeTempHome();
+    // First install fresh → enforce. Operator then steps down to observe.
+    const first = await installClaude({ ...BASE_OPTS, homeDir: home });
+    fs.writeFileSync(
+      first.hookEnvPath,
+      'DASHCLAW_BASE_URL=http://localhost:9999\nDASHCLAW_HOOK_MODE=observe\nDASHCLAW_APPROVAL_TIMEOUT=45\n',
+    );
+    // Re-install (no --observe) must keep observe + the custom 45s timeout.
+    const again = await installClaude({ ...BASE_OPTS, homeDir: home });
+    assert.equal(again.hookMode, 'observe');
+    const envText = fs.readFileSync(again.hookEnvPath, 'utf8');
+    assert.match(envText, /DASHCLAW_HOOK_MODE=observe/);
+    assert.match(envText, /DASHCLAW_APPROVAL_TIMEOUT=45/);
+  });
+
+  it('re-install PRESERVES an operator-chosen enforce mode and a custom timeout', async () => {
+    const home = makeTempHome();
+    const first = await installClaude({ ...BASE_OPTS, homeDir: home });
+    fs.writeFileSync(
+      first.hookEnvPath,
+      'DASHCLAW_BASE_URL=http://localhost:9999\nDASHCLAW_HOOK_MODE=enforce\nDASHCLAW_APPROVAL_TIMEOUT=300\n',
+    );
+    const again = await installClaude({ ...BASE_OPTS, homeDir: home });
+    assert.equal(again.hookMode, 'enforce');
+    assert.match(fs.readFileSync(again.hookEnvPath, 'utf8'), /DASHCLAW_APPROVAL_TIMEOUT=300/);
   });
 
   it('preflight failure (unreachable) exits non-zero path: rejects and leaves NO config/hooks behind', async () => {
@@ -211,6 +255,8 @@ describe('installClaude', () => {
     const settings = JSON.parse(fs.readFileSync(again.settingsPath, 'utf8'));
     assert.equal(settings.hooks.PreToolUse.filter(isManagedHookEntry).length, 1);
     assert.equal(settings.hooks.Stop.filter(isManagedHookEntry).length, 1);
+    // The SessionStart probe entry is also deduped, not duplicated.
+    assert.equal(settings.hooks.SessionStart.filter(isManagedHookEntry).length, 1);
   });
 
   it('preserves user-authored hook entries and other settings keys', async () => {
@@ -254,9 +300,37 @@ describe('buildHookEntries / buildHookEnv', () => {
     assert.match(entries.PostToolUse[0].matcher, /Workflow/);
   });
 
-  it('hook env defaults to observe mode', () => {
+  it('hook env keeps the observe param default (backward compat for direct callers) and writes a 120s timeout', () => {
     const env = buildHookEnv({ endpoint: 'http://x', apiKey: 'k', agentId: 'a' });
     assert.match(env, /DASHCLAW_HOOK_MODE=observe/);
+    assert.match(env, /DASHCLAW_APPROVAL_TIMEOUT=120/);
+  });
+
+  it('hook env passes through an explicit enforce mode + timeout', () => {
+    const env = buildHookEnv({ endpoint: 'http://x', apiKey: 'k', agentId: 'a', hookMode: 'enforce', approvalTimeout: 300 });
+    assert.match(env, /DASHCLAW_HOOK_MODE=enforce/);
+    assert.match(env, /DASHCLAW_APPROVAL_TIMEOUT=300/);
+  });
+
+  it('wires the SessionStart probe when enforcement_liveness_probe.py is present, omits it when absent', () => {
+    const home = makeTempHome();
+    // Absent: a bare hooks dir has no probe script → no SessionStart entry.
+    const bareDir = path.join(home, 'bare-hooks');
+    fs.mkdirSync(bareDir, { recursive: true });
+    const withoutProbe = buildHookEntries(bareDir, 'python3');
+    assert.equal(withoutProbe.SessionStart, undefined);
+
+    // Present: dropping the script in makes the SessionStart entry appear, and
+    // its command ends with --source session-start.
+    const probeDir = path.join(home, 'probe-hooks');
+    fs.mkdirSync(probeDir, { recursive: true });
+    fs.writeFileSync(path.join(probeDir, 'enforcement_liveness_probe.py'), '# probe');
+    const withProbe = buildHookEntries(probeDir, 'python3', 'my-claude');
+    assert.ok(withProbe.SessionStart, 'SessionStart entry present when the probe script exists');
+    assert.match(withProbe.SessionStart[0].hooks[0].command, / --agent-id "my-claude" --source session-start$/);
+    assert.equal(withProbe.SessionStart[0].hooks[0].timeout, 10);
+    // mergeClaudeSettings recognizes the probe entry as managed.
+    assert.ok(isManagedHookEntry(withProbe.SessionStart[0]));
   });
 });
 

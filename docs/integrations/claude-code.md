@@ -8,7 +8,8 @@ This is a **mechanical** enforcement surface: in enforce mode, a `block` decisio
 
 ```bash
 npm i -g @dashclaw/cli
-dashclaw install claude            # prompts for endpoint + API key
+dashclaw install claude            # prompts for endpoint + API key; fresh installs default to enforce
+dashclaw install claude --observe  # start in observe mode instead (log, never hold)
 dashclaw install claude --trial    # no instance yet? browser signup on hosted.dashclaw.io, paste the key
 ```
 
@@ -16,26 +17,30 @@ What the installer does, in order:
 
 1. **Preflights** the instance (`/api/health` plus an authenticated read) — nothing is written until that passes.
 2. Downloads the hooks bundle from your instance, resolves `python3`/`python` automatically.
-3. Merges managed hook entries into `~/.claude/settings.json` (with a `.dashclaw-bak` backup; reinstall replaces cleanly).
-4. Writes credentials to `~/.dashclaw/claude-hooks/.env` (mode 600) — no secret lands in `settings.json`.
+3. Merges managed hook entries into `~/.claude/settings.json` (with a `.dashclaw-bak` backup; reinstall replaces cleanly) — including a `SessionStart` enforcement-liveness probe when the bundle ships one.
+4. Writes credentials to `~/.dashclaw/claude-hooks/.env` (mode 600) — no secret lands in `settings.json`. A genuinely fresh install sets `DASHCLAW_HOOK_MODE=enforce` and `DASHCLAW_APPROVAL_TIMEOUT=120`.
 
 Working from a repo checkout instead, `npm run hooks:install` does the same wiring. Full hook internals: [`hooks/README.md`](../../hooks/README.md).
 
-## Observe first, then enforce
+## Enforce by default; observe is the opt-out
 
-The installer starts in **observe mode**: every tool call is guarded, scored, and logged to your decisions ledger, but nothing is blocked. Run like this for a day and look at `/decisions` — you will know exactly what enforcing will interrupt before it interrupts anything.
+A **fresh** install starts in **enforce mode** with the catastrophe pack live: `block` halts the tool mechanically and `require_approval` holds it until you approve (dashboard, CLI, phone, or Telegram — see [Operating DashClaw](../operations.md#approvals)), then the paused tool call resumes the moment you approve. A **re-install always preserves the existing mode** and approval timeout — it never clobbers a choice you made.
 
-Flip to enforce by editing `~/.dashclaw/claude-hooks/.env`:
+Two ways to step down to observe (log everything, hold nothing): pass `--observe` at install, or edit `~/.dashclaw/claude-hooks/.env` after:
 
 ```bash
-DASHCLAW_HOOK_MODE=enforce
+DASHCLAW_HOOK_MODE=observe
 ```
 
-In enforce mode, `block` halts the tool mechanically and `require_approval` holds it until you approve (dashboard, CLI, phone, or Telegram — see [Operating DashClaw](../operations.md#approvals)). The hook's approval wait window is configurable via `DASHCLAW_APPROVAL_TIMEOUT` (seconds, default 30).
+The hook's approval wait window is `DASHCLAW_APPROVAL_TIMEOUT` (seconds). The global default is 30, but fresh installs write **120** so a first-time human has time to find `/approvals` before the hold times out.
 
-## Seed the starter policies
+### Enforcement-liveness probe
 
-A fresh self-hosted instance has no policies, so observe mode logs everything and enforce mode blocks nothing. Import the `claude-code-starter` pack from `/policies` on your instance (or run `node scripts/seed-claude-code-starter.mjs` from a checkout). Hosted trial workspaces come with the pack pre-seeded. What's in it and why: [policy modes](../policy-modes.md).
+The installed `SessionStart` hook runs a probe at the start of each Claude Code session (self-throttled to once every 12 hours, detached). It drives one synthetic held action through the same hook path a live agent uses and confirms it was not executed — the verdict renders on `/setup`. It never touches your action or guard ledgers.
+
+## Policies: the catastrophe pack is seeded for you
+
+A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate (`npm run db:migrate`, `npx dashclaw up`, or the Vercel deploy build): mass-destructive operations are blocked, secret-file writes are held for approval, and a warn-only rate limit nets runaways. Enforce mode holds from action one. Want broader gates (network calls, package installs)? Click **Import** on the `claude-code-starter` pack at `/policies` — that also retrofits any pre-M1 instance whose org predates the seed. Hosted trial workspaces come with `claude-code-starter` pre-seeded. What's in each pack and why: [policy modes](../policy-modes.md).
 
 ## Verify it fires
 

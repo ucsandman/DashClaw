@@ -88,6 +88,7 @@ ${bold('Usage:')}
                                          --trial defaults to https://hosted.dashclaw.io)
     --key <key>                          API key (or DASHCLAW_API_KEY; --trial prompts via browser signup)
     --agent-id <id>                      Agent id for governed actions (default: claude-code)
+    --observe                            Start in observe mode (fresh installs default to enforce)
   dashclaw install codex                 Provision DashClaw governance into Codex CLI
     --project <path>                     Project to receive AGENTS.md (default: cwd)
     --approval-policy <p>                Codex approval_policy (default: on-request)
@@ -458,6 +459,7 @@ async function cmdInstallClaude() {
       apiKey: getFlag('--key') || apiKey,
       agentId: getFlag('--agent-id') || undefined,
       trial: args.includes('--trial'),
+      observe: args.includes('--observe'),
       prompt: ask,
       promptSecret: askSecret,
       logger: console,

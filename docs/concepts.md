@@ -77,7 +77,7 @@ Approved is not the same as done. Every action carries a terminal outcome — `p
 
 Policies are declarative rules evaluated on every guard call: risk thresholds, deploy gates, rate limiters, evidence requirements, capability access rules, semantic checks, and a `non_fabrication` verifier that blocks outbound content stating facts not traceable to a source of truth. You can build them in the dashboard's policy builder (ten pre-built safety switches), generate them with AI, import YAML, or adopt a [policy mode](./policy-modes.md) — a named pack like the Claude Code starter that compiles to guard policies.
 
-A fresh self-hosted instance starts with **no policies**, so everything is allowed until you seed some. That is the first thing to fix on day one — see [Operating DashClaw](./operations.md).
+A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate, so the irreversible class (mass-destructive operations, secret-file writes) is governed from day one; layer more on when you are ready — see [Operating DashClaw](./operations.md).
 
 ## Identity: who is this agent, really?
 

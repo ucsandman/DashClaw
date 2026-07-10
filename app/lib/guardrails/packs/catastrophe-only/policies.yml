@@ -1,0 +1,86 @@
+version: 1
+project: catastrophe-only
+description: >
+  The default pack for every new self-hosted org. Interrupts are reserved for
+  the irreversible class: mass-destructive filesystem/database/git operations
+  are blocked outright, writes to secret files are held for one-click approval,
+  and a warn-only rate limit nets runaway loops. Everything else runs. Broader
+  gates (network calls, package installs) live in the opt-in
+  claude-code-starter pack.
+
+policies:
+  # Fires when the server-computed risk score hits the 100 clamp: rm -rf on
+  # non-regenerable paths, DROP TABLE / TRUNCATE / DELETE FROM, mkfs, wipe,
+  # and git push --force (security base 80 + irreversible 15 + push 10 = 105
+  # -> clamped 100). Bounded/regenerable rm re-maps to cleanup and passes.
+  - id: block_mass_destructive
+    description: "Catastrophe Pack — Block Mass-Destructive Operations"
+    policy_type: risk_threshold
+    rules:
+      threshold: 100
+      action: block
+    tests:
+      - name: blocks_rm_rf
+        input:
+          action_type: security
+          declared_goal: "Bash: rm -rf /tmp/build"
+        expect:
+          decision: block
+      - name: allows_normal_file_edit
+        input:
+          action_type: apply
+          declared_goal: "Write: src/app.js"
+        expect:
+          decision: allow
+
+  # The resumable demonstrator: held -> approved -> resumed runs through the
+  # REAL hook seam (pretool forwards `target` for file tools; the approval
+  # poll releases the paused tool call on approve). Also exactly what the
+  # SessionStart liveness probe needs to verdict "held" (its synthetic Write
+  # targets a file literally named .env). Deliberately excludes .env.example
+  # / .env.sample — the hook itself exempts placeholder files as routine.
+  - id: hold_secret_file_writes
+    description: "Catastrophe Pack — Hold Secret-File Writes for Approval"
+    policy_type: protected_path
+    rules:
+      action: require_approval
+      paths:
+        - "**/.env"
+        - "**/.env.local"
+        - "**/.env.production"
+        - "**/secrets/**"
+        - "**/*.pem"
+        - "**/id_rsa*"
+        - "**/*.key"
+    tests:
+      - name: holds_env_write
+        input:
+          action_type: security
+          declared_goal: "Write: .env"
+          target: ".env"
+        expect:
+          decision: require_approval
+      - name: allows_normal_write
+        input:
+          action_type: apply
+          declared_goal: "Write: src/app.js"
+          target: "src/app.js"
+        expect:
+          decision: allow
+
+  # Warn-only safety net — never interrupts (handle_warn exits 0).
+  - id: rate_limit_runaway_safety
+    description: "Catastrophe Pack — Rate-Limit Runaway Agents"
+    policy_type: rate_limit
+    rules:
+      max_actions: 200
+      window_minutes: 10
+      action: warn
+    tests:
+      - name: warns_on_200_plus_actions
+        input:
+          agent_id: claude-code
+          action_count: 250
+          window_minutes: 10
+        expect:
+          decision: warn

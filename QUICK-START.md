@@ -31,7 +31,7 @@ npm i -g @dashclaw/cli
 dashclaw install claude --trial
 ```
 
-The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **observe mode** (decisions logged, nothing blocked). Trial workspaces come with the `claude-code-starter` policy pack pre-seeded, so your next Claude Code session is governed from the first tool call. When a risky action is held, it lands in your Approvals inbox at `/approvals`. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
+The installer opens the trial's `/connect` page, takes the API key you minted, preflights the instance, and wires the Claude Code hooks in **enforce mode** by default (pass `--observe` to log without holding). Trial workspaces come with the `claude-code-starter` policy pack pre-seeded, so your next Claude Code session is governed from the first tool call. When a risky action is held, it lands in your Approvals inbox at `/approvals` and the paused tool call resumes the moment you approve. Full guide: [docs/integrations/claude-code.md](./docs/integrations/claude-code.md).
 
 ## Door B: the 1-minute local demo
 
@@ -98,7 +98,7 @@ The agent runs the full governance loop (`guard` → `createAction` → `recordA
 
 ### See the approval gate fire
 
-A fresh self-hosted instance starts with **no policies**, so `guard` returns `allow` by default. Import the `claude-code-starter` pack from `/policies` (or run `node scripts/seed-claude-code-starter.mjs`) to get the day-one baseline — its `require_approval` policies will hold the agent at the network/install steps until you approve at `/approvals`. `node scripts/seed-demo-capabilities.mjs` adds a deploy-gating demo policy on top.
+A fresh self-hosted instance seeds the **catastrophe-only** pack at its first migrate, so the promise holds from action one: mass-destructive operations (`rm -rf`, `DROP TABLE`, force-push) are blocked outright, and secret-file writes are held for one-click approval at `/approvals`. Ask your agent to append a line to `.env` to see a hold fire, approve it, and watch the paused tool call resume — the full record lands at `/decisions`. Need broader gates (network calls, package installs)? The `claude-code-starter` pack stays available as a click-import at `/policies`. `node scripts/seed-demo-capabilities.mjs` adds a deploy-gating demo policy on top.
 
 ### Connect your own agent
 

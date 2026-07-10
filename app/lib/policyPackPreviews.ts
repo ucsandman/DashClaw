@@ -35,6 +35,11 @@ export const PACK_PREVIEWS: Record<string, PackPreview> = {
     description: 'Day-one baseline for coding agents — blocks mass-destructive ops, gates network calls and package installs, rate-limits runaways. Install first; stack layered-intelligence on top.',
     recommended_for: 'Any coding agent (Claude Code, Cursor, Aider) on a fresh DashClaw instance',
   },
+  'catastrophe-only': {
+    name: 'Catastrophe Only',
+    description: 'The self-hosted default — blocks mass-destructive operations, holds secret-file writes for approval, rate-limits runaways. Everything else runs.',
+    recommended_for: 'Every org. Seeded automatically for new self-hosted instances; import here to retrofit an existing one.',
+  },
 };
 
 export const AVAILABLE_PACKS = Object.keys(PACK_PREVIEWS);

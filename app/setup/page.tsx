@@ -560,10 +560,15 @@ export default async function SetupPage() {
                     The full error is logged server-side.
                   </p>
                 ) : !livenessRun ? (
-                  <p className="text-sm text-secondary">
-                    No probe run yet. Run <code>npm run liveness:probe</code> to drive the first synthetic
-                    held action through the hook seam and file a verdict here.
-                  </p>
+                  <div className="text-sm text-secondary">
+                    <p>
+                      No probe run yet — it runs automatically at the start of your next Claude Code
+                      session (installed by <code>dashclaw install claude</code>).
+                    </p>
+                    <p className="mt-2 text-xs text-tertiary">
+                      Or run it manually now: <code>npm run liveness:probe</code>
+                    </p>
+                  </div>
                 ) : (
                   <>
                     {livenessState === 'stale' ? (
