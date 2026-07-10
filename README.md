@@ -37,7 +37,7 @@ npx dashclaw up      # no account, first caught action in minutes
 
 <div align="center">
   <br />
-  <img src="docs/media/governance-loop.gif" alt="The governance loop: an agent tries a tool call, guard scores it against policy, a human approves from anywhere, and a replayable decision record is written" width="760" />
+  <img src="public/media/marketing/readme-demo.gif" alt="The Approvals inbox holding a risk-scored deploy action; one click on Allow releases it and the decision is recorded" width="760" />
   <br />
   <sub>An agent tries a destructive tool call. DashClaw freezes it before it runs, routes it to the Approvals inbox, and writes a replayable decision record when you resolve it.</sub>
 </div>

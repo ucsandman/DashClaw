@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>DashClaw marketing suite — contact sheet</title>
+<style>
+  :root { --bg:#0e1014; --surface:#15171c; --line:#272b32; --ink:#fafafa; --ink2:#c2c2cc; --ink3:#9b9ba8; --brand:#f97316; }
+  * { box-sizing:border-box; margin:0; }
+  body { background:var(--bg); color:var(--ink); font:15px/1.55 Inter,system-ui,sans-serif; padding:48px 24px 96px; }
+  .wrap { max-width:1180px; margin:0 auto; }
+  h1 { font-size:26px; letter-spacing:-.01em; }
+  .sub { color:var(--ink3); margin:6px 0 40px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px; letter-spacing:.08em; text-transform:uppercase; }
+  .sub b { color:var(--brand); font-weight:600; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:28px; }
+  .card { background:var(--surface); border:1px solid var(--line); border-radius:10px; overflow:hidden; }
+  .card.wide { grid-column:1 / -1; }
+  .card video, .card img { width:100%; display:block; background:#000; }
+  .card.vertical video { max-height:640px; width:auto; margin:0 auto; }
+  .meta { padding:14px 16px 16px; border-top:1px solid var(--line); }
+  .meta h2 { font-size:15px; font-weight:600; }
+  .meta p { color:var(--ink2); font-size:13px; margin-top:3px; }
+  .meta code { color:var(--ink3); font-size:11.5px; font-family:ui-monospace,Consolas,monospace; display:block; margin-top:8px; word-break:break-all; }
+  .tag { display:inline-block; margin-top:8px; margin-right:6px; padding:2px 8px; border:1px solid var(--line); border-radius:999px; color:var(--ink3); font-size:11px; font-family:ui-monospace,Consolas,monospace; }
+  .tag.orange { color:var(--brand); border-color:color-mix(in srgb, var(--brand) 40%, transparent); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>DashClaw marketing suite</h1>
+  <p class="sub">8 assets · generated 2026-07-10 · brand-sweep clean · audio -16 LUFS · <b>dashclaw.io</b></p>
+  <div class="grid">
+
+    <div class="card wide">
+      <video src="launch.mp4" controls preload="metadata"></video>
+      <div class="meta">
+        <h2>Launch video (hero)</h2>
+        <p>55s, 1920x1080@30, music + voiceover. Logo → hook → scored demo → two feature acts → CTA end card.</p>
+        <code>public/media/marketing/launch.mp4</code>
+        <span class="tag orange">site hero</span><span class="tag">youtube</span><span class="tag">launch post</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <video src="logo-reveal.mp4" controls preload="metadata" loop></video>
+      <div class="meta">
+        <h2>Logo reveal</h2>
+        <p>5s shield draw-on + wordmark + tagline. Re-rendered after the brand sweep (kicker now primary orange).</p>
+        <code>public/media/marketing/logo-reveal.mp4</code>
+        <span class="tag">intros/outros</span><span class="tag">slides</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <video src="demo.mp4" controls preload="metadata"></video>
+      <div class="meta">
+        <h2>Product demo (silent)</h2>
+        <p>28s, 5 beats: approvals queue, risk-82 card, one-click Allow resolve, decisions ledger, policies workbench.</p>
+        <code>public/media/marketing/demo.mp4</code>
+        <span class="tag">docs embeds</span><span class="tag">source footage</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <video src="social-x.mp4" controls preload="metadata"></video>
+      <div class="meta">
+        <h2>Social — X</h2>
+        <p>10s, approvals framing, muted-autoplay safe, sting resolves under the end card.</p>
+        <code>public/media/marketing/social-x.mp4</code>
+        <span class="tag">x/twitter</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <video src="social-linkedin.mp4" controls preload="metadata"></video>
+      <div class="meta">
+        <h2>Social — LinkedIn</h2>
+        <p>10s, decisions-ledger framing ("intercepted, recorded, and verified").</p>
+        <code>public/media/marketing/social-linkedin.mp4</code>
+        <span class="tag">linkedin</span>
+      </div>
+    </div>
+
+    <div class="card vertical">
+      <video src="social-vertical.mp4" controls preload="metadata"></video>
+      <div class="meta">
+        <h2>Social — vertical 9:16</h2>
+        <p>10s, 1080x1920, text held in the middle safe band clear of platform chrome.</p>
+        <code>public/media/marketing/social-vertical.mp4</code>
+        <span class="tag">tiktok</span><span class="tag">shorts</span><span class="tag">reels</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="readme-demo.gif" alt="README demo GIF" />
+      <div class="meta">
+        <h2>README GIF (money moment)</h2>
+        <p>3.3s loop: risk-82 deploy card → click Allow → queue resolves. 678KB. Wired into the root README hero.</p>
+        <code>public/media/marketing/readme-demo.gif</code>
+        <span class="tag orange">github readme</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="og-loop.gif" alt="Animated OG loop" />
+      <div class="meta">
+        <h2>Animated OG loop</h2>
+        <p>8s lockup loop, 1200x630. mp4 twin alongside for platforms that take video cards.</p>
+        <code>public/media/marketing/og-loop.gif · og-loop.mp4</code>
+        <span class="tag">animated cards</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <img src="../../social/og-image.png" alt="OG image" />
+      <div class="meta">
+        <h2>OG image (live)</h2>
+        <p>1200x630. Overwrote the previous card; twitter-card.png (1200x600) and github-social-preview.png (1280x640) regenerated in the same pass.</p>
+        <code>public/social/og-image.png · twitter-card.png · github-social-preview.png</code>
+        <span class="tag orange">link previews</span>
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
