@@ -5,7 +5,7 @@ description: DashClaw platform expert for integration, troubleshooting, and gove
 
 # DashClaw Platform Intelligence
 
-**Shape snapshot:** `sha1:73bc35d260c4340cf5046dcc1914fd0a23646907`
+**Shape snapshot:** `sha1:72875f6354decf0027708bab99f46777ee68c5b8`
 **This file is auto-generated.** Do not edit by hand — regenerate with:
 
 ```bash
@@ -45,7 +45,7 @@ neither exists. When you cannot run the queries above, fall back **in this order
 
 ## At a Glance
 
-- **117** active API routes across **47** categories (117 total including archived)
+- **120** active API routes across **48** categories (120 total including archived)
 - **4** required + **142** optional environment variables
 - **114** database tables
 
@@ -294,6 +294,12 @@ neither exists. When you cannot run the queries above, fall back **in this order
 ### `stream`
 
 - `GET` `/api/stream`
+
+### `team-tasks`
+
+- `GET, POST` `/api/team-tasks`
+- `GET, PATCH` `/api/team-tasks/[taskId]`
+- `GET, POST` `/api/team-tasks/[taskId]/events`
 
 ### `telegram`
 

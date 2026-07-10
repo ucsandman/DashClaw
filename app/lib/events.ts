@@ -17,6 +17,8 @@ export const EVENTS = {
   LOOP_UPDATED: 'loop.updated',
   GOAL_CREATED: 'goal.created',
   GOAL_UPDATED: 'goal.updated',
+  TEAM_TASK_CREATED: 'team_task.created',
+  TEAM_TASK_EVENT: 'team_task.event',
 };
 
 interface EventEnvelope {

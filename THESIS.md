@@ -296,6 +296,11 @@ recorded, deliberate act that falsifier #3 (Regrowth) watches for.
   sharing `PublicNavbar`/`PublicFooter`, and the static file plus its
   `next.config.js` rewrite were deleted. The count rises because an existing
   surface became countable, not because a surface was added.
+- **2026-07-10 — Active API routes 118 → 121 (fleets-and-teams amendment).**
+  Three routes for the Team Tasks surface (`/api/team-tasks`, `/[taskId]`,
+  `/[taskId]/events`) adopted by the 2026-07-09 owner amendment: the
+  multi-agent task timeline as approval context. Fresh, org-scoped,
+  repository-backed; no culled surface revived.
 
 ## Version story
 

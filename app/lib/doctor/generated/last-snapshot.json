@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:73bc35d260c4340cf5046dcc1914fd0a23646907",
+  "timestamp": "sha1:72875f6354decf0027708bab99f46777ee68c5b8",
   "routes": [
     {
       "path": "/api/actions",
@@ -1090,6 +1090,40 @@
       "dynamic_params": [],
       "archived": false,
       "file_path": "app/api/stream/route.ts"
+    },
+    {
+      "path": "/api/team-tasks",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [],
+      "archived": false,
+      "file_path": "app/api/team-tasks/route.ts"
+    },
+    {
+      "path": "/api/team-tasks/[taskId]",
+      "methods": [
+        "GET",
+        "PATCH"
+      ],
+      "dynamic_params": [
+        "taskId"
+      ],
+      "archived": false,
+      "file_path": "app/api/team-tasks/[taskId]/route.ts"
+    },
+    {
+      "path": "/api/team-tasks/[taskId]/events",
+      "methods": [
+        "GET",
+        "POST"
+      ],
+      "dynamic_params": [
+        "taskId"
+      ],
+      "archived": false,
+      "file_path": "app/api/team-tasks/[taskId]/events/route.ts"
     },
     {
       "path": "/api/telegram/webhook",

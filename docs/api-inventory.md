@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `117`
+- Total routes: `120`
 - Stable routes: `38`
 - Beta routes: `17`
-- Experimental routes: `62`
+- Experimental routes: `65`
 
 ## Routes
 
@@ -133,6 +133,9 @@ doc-type: architecture
 | `/api/setup/status` | `GET` | `beta` | `/api/setup` | `app/api/setup/status/route.ts` |
 | `/api/signals` | `GET` | `experimental` | `(default)` | `app/api/signals/route.ts` |
 | `/api/stream` | `GET` | `experimental` | `(default)` | `app/api/stream/route.ts` |
+| `/api/team-tasks` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/route.ts` |
+| `/api/team-tasks/{taskId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/route.ts` |
+| `/api/team-tasks/{taskId}/events` | `GET, POST` | `experimental` | `(default)` | `app/api/team-tasks/[taskId]/events/route.ts` |
 | `/api/telegram/webhook` | `POST` | `experimental` | `(default)` | `app/api/telegram/webhook/route.ts` |
 | `/api/webhooks` | `DELETE, GET, POST` | `stable` | `/api/webhooks` | `app/api/webhooks/route.ts` |
 | `/api/webhooks/{webhookId}/deliveries` | `GET` | `stable` | `/api/webhooks` | `app/api/webhooks/[webhookId]/deliveries/route.ts` |
