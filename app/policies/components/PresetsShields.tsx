@@ -143,7 +143,7 @@ export default function PresetsShields({ summary, onChanged }: PresetsShieldsPro
           <div className={styles.shieldsHead}>
             <span className={styles.metaLabel}>
               <Shield size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: 5 }} aria-hidden="true" />
-              Shields &mdash; {activeCount} of {shields.length} active
+              Shields &middot; {activeCount} of {shields.length} active
             </span>
             <span className={`${styles.secHelp} ${styles.mono}`} style={{ fontSize: 11 }}>toggle = create / patch a rule</span>
           </div>
@@ -159,7 +159,7 @@ export default function PresetsShields({ summary, onChanged }: PresetsShieldsPro
                   onClick={() => toggleShield(s.id, s.on)}
                   role="switch"
                   aria-checked={s.on}
-                  aria-label={`${s.name} — ${s.on ? 'on' : 'off'}. ${s.description}`}
+                  aria-label={`${s.name}: ${s.on ? 'on' : 'off'}. ${s.description}`}
                   title={s.description}
                   disabled={isBusy}
                 >

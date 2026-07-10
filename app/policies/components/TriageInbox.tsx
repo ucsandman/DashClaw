@@ -788,7 +788,7 @@ export default function TriageInbox({ onChanged, onCount }: TriageInboxProps) {
       postVerdict(verdict, warnShape(item.group))
         .then((res) => {
           const pid = res.policy?.id ?? null;
-          const node = verdict === 'always_allow' ? `Allowed — ${label}` : `Approval rule created — ${label}`;
+          const node = verdict === 'always_allow' ? `Allowed: ${label}` : `Approval rule created: ${label}`;
           resolve(key, { type: 'strip', node, undo: pid ? () => deletePolicy(pid) : undefined });
           onChanged();
         })

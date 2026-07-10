@@ -32,13 +32,13 @@ export default function GlossaryStrip() {
         <div>
           <span className={styles.metaLabel}>Grant</span>
           <span className={styles.gdef}>
-            A standing &ldquo;don&rsquo;t ask me about this&rdquo; suppression &mdash; removable, never edited.
+            A standing &ldquo;don&rsquo;t ask me about this&rdquo; suppression, removable, never edited.
           </span>
         </div>
         <div>
           <span className={styles.metaLabel}>Ratify / Tighten / Loosen</span>
           <span className={styles.gdef}>
-            Accept a suggestion, make a rule stricter, or make it more permissive &mdash; each from the inbox, each undoable.
+            Accept a suggestion, make a rule stricter, or make it more permissive. Each from the inbox, each undoable.
           </span>
         </div>
       </div>

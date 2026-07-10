@@ -131,7 +131,7 @@ export default function PolicyWorkbench() {
           <h2>The ledger</h2>
           <span className={`${styles.countPill} ${styles.tnum}`}>{summary.enforcement.total} rules</span>
           <span className={styles.secHelp}>
-            Every rule &mdash; whatever its source &mdash; in one place. Switch the lens to read it as a table, sentences, or grouped.
+            Every rule, whatever its source, in one place. Switch the lens to read it as a table, sentences, or grouped.
           </span>
         </div>
       </div>

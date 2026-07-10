@@ -846,7 +846,7 @@ export default function Ledger({
         <div className={styles.cgroup}>
           <div className={styles.cgroupHead}>
             <span className={`${styles.gi} ${styles.giBlock}`}><X size={14} aria-hidden="true" /></span>
-            <h3>Hard stops &mdash; never allowed</h3>
+            <h3>Hard stops: never allowed</h3>
             <span className={styles.tagline}>Blocked outright, no matter who asks.</span>
           </div>
           {contract.blocks.map((s) => (
@@ -858,7 +858,7 @@ export default function Ledger({
         <div className={styles.cgroup}>
           <div className={styles.cgroupHead}>
             <span className={`${styles.gi} ${styles.giSilent}`}><FileText size={14} aria-hidden="true" /></span>
-            <h3>Recorded silently &mdash; logged, not gated</h3>
+            <h3>Recorded silently: logged, not gated</h3>
             <span className={styles.tagline}>Written to the ledger, never interrupts you.</span>
           </div>
           {contract.silent.map((s) => (
@@ -881,7 +881,7 @@ export default function Ledger({
                   <div key={r.shape_key} className={styles.sentence}>
                     <span className={styles.bull} aria-hidden="true">&mdash;</span>
                     <span>
-                      <Code>{r.actionType}</Code>{r.target ? <> &mdash; <b>{t.display}</b></> : null}
+                      <Code>{r.actionType}</Code>{r.target ? <> &middot; <b>{t.display}</b></> : null}
                       {r.policy_ids.length > 1 && <span className={styles.fired}>&times;{r.policy_ids.length}</span>}
                     </span>
                     <button
@@ -1113,7 +1113,7 @@ export default function Ledger({
         <div className={styles.modalBackdrop} onClick={() => setSimulate(null)} role="presentation">
           <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Simulation impact" onClick={(e) => e.stopPropagation()}>
             <div className={styles.modalHead}>
-              <h3>Simulation impact (7 days){simulate.name ? ` — ${simulate.name}` : ''}</h3>
+              <h3>Simulation impact (7 days){simulate.name ? `: ${simulate.name}` : ''}</h3>
               <button className={`${styles.btn} ${styles.btnIcon} ${styles.btnGhost}`} aria-label="Close" onClick={() => setSimulate(null)}><X size={16} aria-hidden="true" /></button>
             </div>
             <div className={styles.modalBody}>

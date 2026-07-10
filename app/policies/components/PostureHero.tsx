@@ -39,7 +39,7 @@ export default function PostureHero({ summary, friction, inboxCount }: PostureHe
       <div className={styles.posture}>
         {/* Enforcement — active rules */}
         <div className={`${styles.card} ${styles.cardHover} ${styles.stat}`}>
-          <span className={styles.metaLabel}>Enforcement &mdash; active rules</span>
+          <span className={styles.metaLabel}>Enforcement &middot; active rules</span>
           <div className={styles.enfRow}>
             <span className={`${styles.enfTotal} ${styles.tnum}`}>{enf.total.toLocaleString()}</span>
             <span className={styles.statSub} style={{ margin: 0 }}>
@@ -102,7 +102,7 @@ export default function PostureHero({ summary, friction, inboxCount }: PostureHe
         {friction && friction.interrupts_7d > 0 ? (
           <span>
             This policy set interrupted your agents <b>{friction.interrupts_7d}</b> time{friction.interrupts_7d === 1 ? '' : 's'} in the last 7 days
-            {mins > 0 ? <> &mdash; roughly <b>{mins} min</b> of human attention</> : null}.
+            {mins > 0 ? <>, roughly <b>{mins} min</b> of human attention</> : null}.
             {inboxCount > 0 ? <> The inbox below has <b>{inboxCount}</b> suggestion{inboxCount === 1 ? '' : 's'} that would cut that.</> : null}
           </span>
         ) : (
