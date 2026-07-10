@@ -2,6 +2,12 @@ name: up-smoke
 on:
   pull_request:
     paths: ['cli/**', 'scripts/setup.mjs', 'scripts/lib/**', '.github/workflows/up-smoke.yml']
+  push:
+    # No paths filter here: GitHub compares a tag push against its already-pushed commit, so a
+    # paths filter would see zero changed files and silently skip most tag runs. Run on every
+    # main push and every v* tag instead of trying to filter both cleanly in one block.
+    branches: [main]
+    tags: ['v*']
   workflow_dispatch:
 
 jobs:
@@ -25,12 +31,12 @@ jobs:
         working-directory: cli
 
       - name: Run up (embedded DB, non-interactive, no browser)
-        run: node cli/bin/dashclaw.js up --yes --db embedded --no-browser --source-dir . &
+        run: node cli/bin/dashclaw.js up --yes --db embedded --no-browser --source-dir . > up.log 2>&1 &
         shell: bash
 
       - name: Wait for health
         run: |
-          for i in $(seq 1 120); do
+          for i in $(seq 1 240); do
             if curl -fsS http://localhost:3000/api/health > /dev/null 2>&1; then exit 0; fi
             sleep 5
           done
@@ -44,6 +50,19 @@ jobs:
             -H "x-api-key: $KEY" -H "content-type: application/json" \
             -d '{"agent_id":"ci-smoke","action_type":"test","declared_goal":"up-smoke verification"}'
         shell: bash
+
+      - name: Show up.log tail on failure
+        if: failure()
+        run: tail -n 200 up.log || echo "up.log not found"
+        shell: bash
+
+      - name: Upload up.log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: up-log-${{ matrix.os }}
+          path: up.log
+          if-no-files-found: ignore
 
       - name: Down
         run: node cli/bin/dashclaw.js down

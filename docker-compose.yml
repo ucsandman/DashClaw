@@ -1,21 +1,7 @@
+# Provisions local Postgres only: `docker compose up -d db`.
+# The app itself runs via `npm run dev` or `npx dashclaw up` (which manages its own
+# containers) — this file is not a production deployment path.
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - NODE_ENV=production
-    ports:
-      - "3000:3000"
-    env_file: .env.local
-    environment:
-      - DATABASE_URL=postgresql://dashclaw:dashclaw@db:5432/dashclaw
-      - NEXTAUTH_URL=http://localhost:3000
-      - NEXTAUTH_SECRET=replace-this-with-a-random-secret-at-runtime
-      - DASHCLAW_API_KEY=replace-this-with-an-admin-api-key
-    depends_on:
-      - db
-
   db:
     image: postgres:16-alpine
     restart: always
