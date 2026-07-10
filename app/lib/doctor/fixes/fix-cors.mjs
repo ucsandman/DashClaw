@@ -1,8 +1,7 @@
 // app/lib/doctor/fixes/fix-cors.mjs
-import { getEnvVar } from '../shape.mjs';
 import { writeEnvUpdates } from './env-writer.mjs';
 
-const ALLOWED_ORIGIN_VAR = getEnvVar('ALLOWED_ORIGIN')?.name || 'ALLOWED_ORIGIN';
+const ALLOWED_ORIGIN_VAR = 'ALLOWED_ORIGIN';
 
 /**
  * @param {{ origin?: string }} params

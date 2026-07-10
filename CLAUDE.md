@@ -83,7 +83,7 @@ CLAUDE.md is advisory; CI is not. A push is its own step - run these and READ th
 - For any changed `.ts` file (even outside `app/`), run `npm run typecheck` before pushing - vitest transpiles without type-checking and will pass; the build runs `tsc` and will not.
 - **Entry-path drills (v8.3, `scripts/drills/README.md`)**: a release touching `cli/**`, `scripts/setup.mjs`, or the `up` path runs `npm run drill:fresh-windows` (and/or `drill:fresh-linux`) first; one touching hosted mint/export/import runs `npm run drill:hosted`. A drill failure is a broken ship - fix on the spot, log it in the maintainer log. These test the DISTRIBUTION path on factory-fresh machines; CI's `up-smoke.yml` (from-source, dev-imaged runners) does not cover that class.
 
-CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook regenerates the doc/contract/livingcode artifacts for you (see "Generated artifacts").
+CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `version:check`. The pre-commit hook regenerates the doc/contract/bundle artifacts for you (see "Generated artifacts").
 
 ## Gotchas (what you can't infer from the code)
 
@@ -94,7 +94,7 @@ CI also gates `openapi:check`, `api:inventory:check`, `route-sql:check`, and `ve
 
 ## Generated artifacts - never edit by hand
 
-`app/lib/doctor/generated/`, `public/livingcode/index.html`, and `public/downloads/dashclaw-platform-intelligence/` (plus its `.zip`/`.manifest`) are produced by `npm run livingcode:refresh`. The pre-commit hook runs it automatically when staged changes touch `app/api/`, `app/lib/`, `schema/schema.js`, `middleware.js`, or `livingcode/`, and stages the result. **Editing these by hand is pointless - the next refresh overwrites it.** Regenerate instead. (`python -m livingcode start` does a one-shot refresh and opens the `/livingcode/` dashboard.)
+`public/downloads/*.zip` bundles and the `plugins/dashclaw/` skill/hook mirrors are produced by `npm run bundles:refresh` (`scripts/refresh-bundles.mjs`), which mirrors the hand-authored `public/downloads/dashclaw-governance/` skill and canonical `hooks/` scripts into `plugins/dashclaw/` and rebuilds the three download zips. The pre-commit hook runs it automatically when staged changes touch `hooks/`, `plugins/dashclaw/`, or `public/downloads/dashclaw-governance/`, and stages the result. **Editing the mirrors/zips by hand is pointless - the next refresh overwrites it.** Regenerate instead.
 
 ## Design changes
 

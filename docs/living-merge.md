@@ -61,7 +61,7 @@ post-merge / post-rewrite hook immediately re-derives it from the merged source.
 | File | Role |
 | --- | --- |
 | `scripts/living-merge/manifest.ts` | **Single source of truth** — the exact set of generated paths + `isGenerated()`. Everything else reads this. |
-| `scripts/living-merge/regenerate-all.mjs` | The "regenerate everything from source" entry point = `generate-api-inventory` + `generate-openapi` + `livingcode:refresh`. Idempotent. |
+| `scripts/living-merge/regenerate-all.mjs` | The "regenerate everything from source" entry point = `generate-api-inventory` + `generate-openapi` + `bundles:refresh`. Idempotent. |
 | `scripts/living-merge/merge-driver.mjs` | The `merge=regenerate` driver: keeps the target side, exit 0 → never writes conflict markers. |
 | `.husky/post-merge`, `.husky/post-rewrite` | Re-derive projections after any merge (incl. fast-forward / `pull`) or rebase / amend. |
 | `scripts/living-merge/rebase-onto-main.ts` | Rebase the current branch onto main + regenerate + stage (start-of-work and pre-landing). |
@@ -72,9 +72,8 @@ post-merge / post-rewrite hook immediately re-derives it from the merged source.
 
 ## Generated vs authored (the boundary)
 
-The merge=regenerate set is **only** true projections (doctor shape, MCP
-inventory, living dashboard, the platform-intelligence `SKILL.md` + bundle zips +
-plugin skill/hook **mirrors**, and the `docs/` api-inventory + openapi). It
+The merge=regenerate set is **only** true projections (the download bundle
+zips + plugin skill/hook **mirrors**, and the `docs/` api-inventory + openapi). It
 deliberately **excludes** everything hand-written — SDKs, the CLI, plugin
 manifests, the canonical `hooks/` source, the authored `references/`+`scripts/`
 under each skill, lockfiles, and `.claude/CODEBASE_MAP.md`. Marking any of those
@@ -96,9 +95,9 @@ list; `__tests__/unit/living-merge-manifest.test.ts` guards the boundary.
   other modifies it) resolve at git's tree level *before* the merge driver runs,
   so they surface as a normal conflict needing human resolution. This is rare
   (it means a generator was removed on one side) and is intentionally left to you.
-- If a regenerate **fails** inside a hook (e.g. Python/livingcode not on PATH),
-  the hook exits non-zero and prints the error. The merge already happened, so
-  fix the toolchain and re-run `regenerate-all` to refresh the projections.
+- If a regenerate **fails** inside a hook, the hook exits non-zero and prints
+  the error. The merge already happened, so fix the toolchain and re-run
+  `regenerate-all` to refresh the projections.
 
 ## Reverting
 

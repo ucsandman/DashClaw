@@ -42,7 +42,7 @@ export const AREA_BLURBS: Record<string, string> = {
   auth: 'How every request authenticates: the x-api-key header, agent vs operator/admin keys, OAuth bearer, the pairing flow, and org scoping. Includes the classic 503 SCHEMA_NOT_INITIALIZED trap.',
   setup:
     'Everything needed to run your own instance: required env vars (from .env.example), npx dashclaw up, Vercel deploy, db:migrate, and the /setup readiness page.',
-  other: 'Surfaces that fit no other bucket: the floating widget, webhook destination formats, notification adapters, the livingcode dashboard, /proof, and downloadable bundles.',
+  other: 'Surfaces that fit no other bucket: the floating widget, webhook destination formats, notification adapters, /proof, and downloadable bundles.',
   'api-archive':
     'Legacy platform-era routes preserved under app/api/_archive. The leading underscore makes the folder PRIVATE in the Next.js App Router — none of these routes are reachable at runtime. Documented for completeness; do not build on them.',
 };

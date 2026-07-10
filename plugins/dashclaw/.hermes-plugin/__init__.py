@@ -162,7 +162,7 @@ def _cli_doctor(args):
 
     # Section 3: skills on disk.
     print("\n  Skills:")
-    for name in ("dashclaw-governance", "dashclaw-platform-intelligence"):
+    for name in ("dashclaw-governance",):
         path = SKILLS_ROOT / name / "SKILL.md"
         all_ok &= _check(f"{name}/SKILL.md", path.exists())
 
@@ -188,7 +188,7 @@ def _cli_doctor(args):
 def _cli_skills(args):
     """`hermes dashclaw skills` — list bundled skills with their descriptions."""
     print("DashClaw skills bundled with this plugin:")
-    for name in ("dashclaw-governance", "dashclaw-platform-intelligence"):
+    for name in ("dashclaw-governance",):
         path = SKILLS_ROOT / name / "SKILL.md"
         if not path.exists():
             print(f"  - {name}: MISSING ({path})")
@@ -237,7 +237,6 @@ def register(ctx):
     if hasattr(ctx, "register_skill"):
         for name, rel in (
             ("governance", "dashclaw-governance"),
-            ("platform-intelligence", "dashclaw-platform-intelligence"),
         ):
             skill_path = SKILLS_ROOT / rel
             if skill_path.exists():

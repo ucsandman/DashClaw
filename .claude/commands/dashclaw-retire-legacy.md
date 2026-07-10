@@ -22,7 +22,7 @@ argument-hint: "[deprecate (default) | remove]  — 'remove' is the v5 breaking 
 
 3. **Prove the export still works:** `npm pack --dry-run` (inside `sdk/`) must still list `legacy/dashclaw-v1.js` + `legacy/index-v1.cjs`, and the two legacy regression tests must still pass (a `console.warn` doesn't fail them).
 
-4. **Mirror the reference sources:** `npm run livingcode:refresh` (the deprecation edits touched `public/downloads/.../references/*.md`), then `git status` to see what propagated.
+4. **Mirror the reference sources:** `npm run bundles:refresh` (the deprecation edits touched `public/downloads/dashclaw-governance/references/*.md`), then `git status` to see what propagated.
 
 5. **Full gate, read the output:** `npm run lint` · `npx vitest run` (full) · `npm run build` (webpack) · `npm run version:sync:check` · `npm run version:check` · `npm run openapi:check` · `npm run api:inventory:check`.
 
@@ -51,7 +51,7 @@ argument-hint: "[deprecate (default) | remove]  — 'remove' is the v5 breaking 
 ## Guardrails (both phases)
 
 - **The published contract is the binding constraint.** In `deprecate`, never remove the export or the code. In `remove`, the breaking change rides a **major** only.
-- **Edit reference SOURCES, never mirrors** — `public/downloads/dashclaw-platform-intelligence/references/*.md`; `livingcode:refresh` mirrors them.
+- **Edit reference SOURCES, never mirrors** — `public/downloads/dashclaw-governance/references/*.md`; `bundles:refresh` mirrors them.
 - **Never rewrite historical CHANGELOG entries** — add a new one.
 - **No PRs** — commit to `main` (that's the ship path here).
 - **Git is the archive.** Don't copy the code to a backup folder; deletion is fully recoverable from history.

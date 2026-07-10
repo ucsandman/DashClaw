@@ -1,6 +1,6 @@
 import { Suspense } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Terminal, ArrowRight, Shield, Server, Cloud, Download, Sparkles } from 'lucide-react';
+import { ChevronRight, Terminal, ArrowRight, Shield, Server, Cloud } from 'lucide-react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import CopyMarkdownButton from '../components/CopyMarkdownButton';
@@ -43,14 +43,7 @@ export default function SelfHostPage() {
           </div>
 
           <div className="mt-6 flex flex-wrap items-center gap-3">
-            <a
-              href="/downloads/dashclaw-platform-intelligence.zip"
-              download
-              className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover transition-colors"
-            >
-              <Download size={16} /> Download Skill
-            </a>
-            <Link href="/connect" className="inline-flex items-center gap-2 rounded-lg bg-surface-secondary border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-tertiary hover:text-text-primary hover:border-border-hover transition-colors">
+            <Link href="/connect" className="inline-flex items-center gap-2 rounded-lg bg-brand px-4 py-2 text-sm font-medium text-white hover:bg-brand-hover transition-colors">
               Connect your first agent <ArrowRight size={16} />
             </Link>
             <a href="https://github.com/ucsandman/DashClaw" target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-2 rounded-lg bg-surface-secondary border border-border px-4 py-2 text-sm font-medium text-text-secondary hover:bg-surface-tertiary hover:text-text-primary hover:border-border-hover transition-colors">
@@ -267,76 +260,6 @@ dashclaw doctor`}</pre>
             The governance core (guard, policies, approvals, and action recording) is pure
             runtime logic with no LLM dependency.
           </p>
-        </div>
-
-        {/* DashClaw Platform Skill */}
-        <div className="max-w-5xl mx-auto rounded-2xl p-6 sm:p-8 border border-brand-subtle">
-          <div className="flex items-start gap-3 mb-5">
-            <div className="w-10 h-10 rounded-lg bg-brand-subtle flex items-center justify-center shrink-0">
-              <Sparkles size={20} className="text-brand" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-text-primary">DashClaw Platform Skill</h2>
-              <p className="text-sm text-text-secondary leading-relaxed mt-1">
-                Skills are an open standard for giving agents specialized capabilities. Any agent that supports the skill framework can load this skill and become a DashClaw platform expert -- with searchable knowledge of every route, env var, and schema field in your instance.
-              </p>
-              <p className="text-sm text-text-secondary leading-relaxed mt-2">
-                Works with Claude Code, and the growing ecosystem of skill-compatible agents.
-              </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
-            <div className="rounded-lg bg-surface-primary border border-border p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-2">What it does</h3>
-              <ul className="text-sm text-text-secondary space-y-1.5">
-                <li>Instruments any agent with DashClaw SDKs (Node.js or Python)</li>
-                <li>Designs guard policies for cost ceilings, risk thresholds, and action allowlists</li>
-                <li>Wires human approvals (HITL) so risky actions block until a person clicks approve</li>
-                <li>Tunes the calibrated interruption controller to cut false approvals</li>
-                <li>Verifies enforcement liveness so a governed agent can prove the guard is awake</li>
-                <li>Sets up durable action outcomes and the tamper-evident decision ledger</li>
-                <li>Troubleshoots 401, 403, 429, and 503 errors with guided diagnostics</li>
-              </ul>
-            </div>
-            <div className="rounded-lg bg-surface-primary border border-border p-4">
-              <h3 className="text-sm font-semibold text-text-primary mb-2">What&apos;s inside</h3>
-              <pre className="text-xs text-text-secondary font-mono overflow-x-auto leading-relaxed">
-{`dashclaw-platform-intelligence/
-├── SKILL.md                          # Auto-generated shape snapshot
-├── scripts/
-│   ├── validate-integration.mjs      # End-to-end connectivity test
-│   ├── diagnose.mjs                  # Diagnostic info collector
-│   └── bootstrap-agent-quick.mjs     # Agent workspace importer
-└── references/
-    ├── api-surface.md                # Curated route catalog by domain
-    ├── platform-knowledge.md         # Architecture, auth chain, ID prefixes
-    └── troubleshooting.md            # 401/403/429/503 resolution guide`}</pre>
-            </div>
-          </div>
-
-          <p className="text-xs text-text-secondary mb-6 leading-relaxed">
-            <code className="font-mono text-text-primary">SKILL.md</code> is regenerated from the live shape, so the agent always has the current API surface. When the snapshot might be stale, the skill instructs the agent to run a live query (<code className="font-mono text-text-primary">python -m livingcode query routes</code>, <code className="font-mono text-text-primary">env</code>, <code className="font-mono text-text-primary">tables</code>) against your instance and trust that result.
-          </p>
-
-          <div className="rounded-lg bg-surface-primary border border-border p-4 mb-5">
-            <h3 className="text-sm font-semibold text-text-primary mb-3">Setup</h3>
-            <ol className="list-decimal list-inside text-sm text-text-secondary space-y-2">
-              <li>Download and extract the zip into your project&apos;s skills directory (e.g. <code className="text-text-primary font-mono text-xs">.claude/skills/</code> for Claude Code)</li>
-              <li>Point your agent at the skill directory -- it activates automatically</li>
-              <li>Ask your agent anything DashClaw-related and it routes to the right workflow</li>
-            </ol>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-3">
-            <a
-              href="/downloads/dashclaw-platform-intelligence.zip"
-              download
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-brand text-surface-primary text-sm font-medium hover:bg-brand-hover transition-colors"
-            >
-              <Download size={16} /> Download Skill
-            </a>
-          </div>
         </div>
 
         {/* Divider */}

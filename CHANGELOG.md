@@ -13,6 +13,56 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.3.0] — 2026-07-10
+
+Retired the livingcode subsystem. The Python "organism" that watched the repo
+(shape snapshots, backlog proposals, the generated dashboard) never earned its
+keep — its scheduled routines opened instantly-conflicting PRs daily, its
+snapshot skill rotted between refreshes, and nothing a human used depended on
+it. This release removes it end to end and keeps only the parts that were
+genuinely load-bearing.
+
+### Removed
+- The `livingcode/` Python package (collectors, emitters, orchestrator, immune
+  system, heartbeat, planner, ~40 modules + tests), its `.organism/` state
+  directory, `organism.json`, and the three organism architecture docs.
+- The generated livingcode dashboard (`public/livingcode/index.html`) and the
+  `/proof` page's link to it.
+- The `dashclaw-platform-intelligence` skill everywhere: the website download
+  (zip + source dir), the plugin mirrors (Claude Code / Codex / Hermes), the
+  `.agents`/`.hermes`/`.claude` copies, the `/downloads` card, the `/docs`
+  section, and the `/self-host` skill CTA + section. The skill was emitted by
+  livingcode and could not stay current without it. The `dashclaw-governance`
+  skill (hand-authored) remains the plugin's skill.
+- Doctor `shape` and `drift` check categories, `app/lib/doctor/generated/`
+  (shape.json + generated checks), `app/lib/doctor/shape.mjs`, and the
+  `regenerate_artifacts` fix. The auth/deployment/governance checks that looked
+  table/env names up via the shape now use the literal names; every DB-backed
+  block already fail-safes through its own try/catch. (CLI 0.9.1 drops the two
+  category labels; MCP server 3.0.2 repoints its route-drift check at
+  `docs/api-inventory.json` and drops the livingcode-emitted
+  `routes-inventory.generated.json`.)
+- The `organism` and `livingcode` protected-path groups from the guard's
+  default `protected_path` matcher (their paths no longer exist).
+- `npm run livingcode:refresh` and `scripts/livingcode-refresh.mjs`.
+
+### Added
+- `npm run bundles:refresh` (`scripts/refresh-bundles.mjs`) — the surviving
+  10% of the old refresh script: mirrors the hand-authored governance skill and
+  canonical `hooks/` scripts into `plugins/dashclaw/` and rebuilds the three
+  download bundles (`dashclaw-governance.zip`, `dashclaw-governance-plugin.zip`,
+  `dashclaw-claude-code-hooks.zip`) with the same hash-manifest idempotence.
+  Pre-commit and living-merge's regenerate-all now run this instead; no Python
+  required.
+
+### Fixed
+- `/setup`'s "validate integration" Node command pointed at the retired
+  skill's `validate-integration.mjs`; it is now a self-contained `dashclaw`
+  SDK ping snippet.
+- The living-merge manifest, `.gitattributes` managed block, pre-commit
+  staging list, platform guide dataset, and the doc-count gates no longer
+  reference retired artifacts.
+
 ## [5.2.0] — 2026-07-10
 
 The production-readiness pass: an external review (ChatGPT "work" mode) audited

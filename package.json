@@ -1,6 +1,6 @@
 {
   "name": "dashclaw-platform",
-  "version": "5.2.0",
+  "version": "5.3.0",
   "description": "Decision infrastructure for AI agents — governance runtime with policy enforcement, decision recording, and human-in-the-loop approval.",
   "private": true,
   "license": "MIT",
@@ -30,7 +30,7 @@
     "drill:fresh-windows": "node scripts/drills/fresh-windows.mjs",
     "drill:fresh-linux": "node scripts/drills/fresh-linux.mjs",
     "drill:hosted": "node scripts/drills/hosted-stranger.mjs",
-    "livingcode:refresh": "node scripts/livingcode-refresh.mjs",
+    "bundles:refresh": "node scripts/refresh-bundles.mjs",
     "openapi:generate": "node scripts/generate-openapi.mjs",
     "openapi:check": "node scripts/check-openapi-diff.mjs",
     "api:inventory:generate": "node scripts/generate-api-inventory.mjs",

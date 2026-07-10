@@ -14,35 +14,25 @@ describe('runPreCommitChecks', () => {
     expect(execImpl).toHaveBeenCalledTimes(7);
     expect(execImpl.mock.calls[0][1]).toContain('scripts/generate-api-inventory.mjs');
     expect(execImpl.mock.calls[1][1]).toContain('scripts/generate-openapi.mjs');
-    expect(execImpl.mock.calls[2][1]).toContain('scripts/livingcode-refresh.mjs');
+    expect(execImpl.mock.calls[2][1]).toContain('scripts/refresh-bundles.mjs');
     expect(execImpl.mock.calls[2][1]).toContain('--if-staged');
     expect(execImpl.mock.calls[3][1]).toEqual([
       'add',
       'docs/api-inventory.json',
       'docs/api-inventory.md',
       'docs/openapi/critical-stable.openapi.json',
-      'app/lib/doctor/generated',
-      'public/downloads/dashclaw-platform-intelligence',
-      'public/downloads/dashclaw-platform-intelligence.zip',
-      'public/downloads/dashclaw-platform-intelligence.zip.manifest',
       'public/downloads/dashclaw-claude-code-hooks.zip',
       'public/downloads/dashclaw-claude-code-hooks.zip.manifest',
       'public/downloads/dashclaw-governance.zip',
       'public/downloads/dashclaw-governance.zip.manifest',
       'public/downloads/dashclaw-governance-plugin.zip',
       'public/downloads/dashclaw-governance-plugin.zip.manifest',
-      'plugins/dashclaw/skills/dashclaw-platform-intelligence',
       'plugins/dashclaw/skills/dashclaw-governance',
       'plugins/dashclaw/hooks/dashclaw_pretool.py',
       'plugins/dashclaw/hooks/dashclaw_posttool.py',
       'plugins/dashclaw/hooks/dashclaw_stop.py',
       'plugins/dashclaw/hooks/enforcement_liveness_probe.py',
       'plugins/dashclaw/hooks/dashclaw_agent_intel',
-      '.agents/skills/dashclaw-platform-intelligence',
-      '.claude/skills/dashclaw-platform-intelligence',
-      '.hermes/skills/dashclaw-platform-intelligence',
-      'mcp-server/lib/routes-inventory.generated.json',
-      'public/livingcode/index.html',
     ]);
     expect(execImpl.mock.calls[4][1]).toContain('scripts/check-version-hardcodes.mjs');
     expect(execImpl.mock.calls[5][1]).toContain('scripts/check-version-sync.mjs');

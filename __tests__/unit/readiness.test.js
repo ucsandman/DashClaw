@@ -14,11 +14,12 @@ import { ADVISORY_ENV_VARS } from '@/lib/readiness/constants.mjs';
 import { checkConfiguration } from '@/lib/readiness/configurationCheck.mjs';
 
 describe('readiness projections', () => {
-  it('uses a path-neutral validator command and never suggests dashclaw.io as the agent base URL', () => {
+  it('uses a self-contained SDK validator command and never suggests dashclaw.io as the agent base URL', () => {
     const commands = getSdkCommands('dashclaw.io');
 
     expect(commands.baseUrl).toBe('https://your-dashclaw-instance.example.com');
-    expect(commands.node).toContain('node ./dashclaw-platform-intelligence/scripts/validate-integration.mjs');
+    expect(commands.node).toContain('npm install dashclaw');
+    expect(commands.node).toContain('.ping()');
     expect(commands.node).not.toContain('.claude/skills');
     expect(commands.node).not.toContain('dashclaw.io');
   });

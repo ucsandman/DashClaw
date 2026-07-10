@@ -135,7 +135,6 @@ const navItems = [
   { href: '#hermes-plugin', label: 'Hermes Agent Plugin', indent: true },
   { href: '#openclaw-plugin', label: 'OpenClaw Plugin', indent: true },
   { href: '#governance-skill', label: 'Governance Skill', indent: true },
-  { href: '#platform-intelligence-skill', label: 'Platform Intelligence Skill', indent: true },
   { href: '#constructor', label: 'Constructor' },
   { href: '#behavior-guard', label: 'Behavior Guard' },
   { href: '#guard', label: 'guard', indent: true },
@@ -503,7 +502,7 @@ instance runs its own OAuth (DCR + PKCE). Guide: docs/CLAUDE-DESKTOP-PLUGIN.md`}
             <div id="dashclaw-doctor" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">dashclaw doctor</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, livingcode shape drift, write-path canaries (synthetic self-cleaning writes that prove heartbeat, action-ledger, and guard-audit inserts land) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
+                Diagnoses your instance (database, configuration, auth, deployment, SDK reachability, governance staleness, data hygiene, write-path canaries (synthetic self-cleaning writes that prove heartbeat, action-ledger, and guard-audit inserts land) and this machine (stale compiled mcp-server lib, .gitattributes drift, local schema behind code, stale global CLI shim, broken hook installs, leaked machine-scope env vars). Report-only by default; <code className="font-mono text-text-secondary">--fix</code> applies safe repairs, re-checks, and prints a what-changed report. Invokes <code className="font-mono text-text-secondary">GET /api/doctor</code> and <code className="font-mono text-text-secondary">POST /api/doctor/fix</code> (admin keys). For operators, <code className="font-mono text-text-secondary">npm run doctor -- --fix</code> on the host adds <code className="font-mono text-text-secondary">.env</code> writes, migrations, and default-policy seeding (backs up <code className="font-mono text-text-secondary">.env</code> before any write).
               </p>
               <CodeBlock title="dashclaw doctor">{`npm install -g @dashclaw/cli
 
@@ -541,7 +540,7 @@ node scripts/live-canary.mjs
             <div id="claude-code-plugin" className="scroll-mt-20 mb-10">
               <h3 className="text-lg font-semibold text-text-primary mb-4">Claude Code Plugin</h3>
               <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">plugins/dashclaw/.claude-plugin/plugin.json</code> is the Claude Code plugin manifest. Distributes the DashClaw MCP server (<code className="font-mono text-text-secondary">.mcp-claude.json</code>) plus the <code className="font-mono text-text-secondary">dashclaw-governance</code> and <code className="font-mono text-text-secondary">dashclaw-platform-intelligence</code> skills as one installable bundle. Full step-by-step at <Link href="/guides/claude-code" className="text-brand hover:text-brand-hover">/guides/claude-code</Link>.
+                <code className="font-mono text-text-secondary">plugins/dashclaw/.claude-plugin/plugin.json</code> is the Claude Code plugin manifest. Distributes the DashClaw MCP server (<code className="font-mono text-text-secondary">.mcp-claude.json</code>) plus the <code className="font-mono text-text-secondary">dashclaw-governance</code> skill as one installable bundle. Full step-by-step at <Link href="/guides/claude-code" className="text-brand hover:text-brand-hover">/guides/claude-code</Link>.
               </p>
               <CodeBlock title="Install">{`# No clone required — the CLI downloads the hooks bundle from your instance:
 npm i -g @dashclaw/cli
@@ -601,23 +600,6 @@ cp -r public/downloads/dashclaw-governance ~/.claude/skills/
 # Already auto-installed if you ran one of the plugin installers above.`}</CodeBlock>
             </div>
 
-            <div id="platform-intelligence-skill" className="scroll-mt-20">
-              <h3 className="text-lg font-semibold text-text-primary mb-4">Platform Intelligence Skill</h3>
-              <p className="text-xs text-text-tertiary mb-3">
-                <code className="font-mono text-text-secondary">dashclaw-platform-intelligence</code> gives an agent a live reference to DashClaw&apos;s API surface, governance vocabulary, integration patterns, and troubleshooting playbooks. Regenerated from the codebase via <code className="font-mono text-text-secondary">npm run livingcode:refresh</code> so the skill never drifts from the runtime. Distributed as a zip download, mirrored into <code className="font-mono text-text-secondary">~/.claude/skills/</code> by the refresh, and shipped inside the Claude Code / Codex / Hermes plugin manifests.
-              </p>
-              <CodeBlock title="Download">{`# Zip download (regenerated on every livingcode refresh):
-curl -O ${'`'}https://${'<'}your-deployment${'>'}/downloads/dashclaw-platform-intelligence.zip${'`'}
-
-# Source files:
-ls public/downloads/dashclaw-platform-intelligence/
-#   SKILL.md            (auto-generated from livingcode shape)
-#   references/         (api-surface, platform-knowledge, troubleshooting)
-#   scripts/            (bootstrap-agent-quick, diagnose, validate-integration)
-
-# Or just run the refresh — installs to ~/.claude/skills/ automatically:
-npm run livingcode:refresh`}</CodeBlock>
-            </div>
           </section>
 
           {/* ── Constructor ── */}

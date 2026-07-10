@@ -17,11 +17,8 @@ export function getSdkCommands(host) {
 
   return {
     baseUrl,
-    node: `node ./dashclaw-platform-intelligence/scripts/validate-integration.mjs \\
-  --base-url ${baseUrl} \\
-  --api-key <api-key> \\
-  --full \\
-  --capture-setup-proof`,
+    node: `npm install dashclaw
+node -e "const { DashClaw } = require('dashclaw'); new DashClaw({ baseUrl: '${baseUrl}', apiKey: '<api-key>' }).ping().then((r) => console.log(r));"`,
     python: `pip install dashclaw
 python -c "from dashclaw import DashClaw; dc = DashClaw(base_url='${baseUrl}', api_key='<api-key>'); print(dc.ping())"`,
     pythonCapture: `python - <<'PY'

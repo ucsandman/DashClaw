@@ -8,8 +8,6 @@ const {
   mockDeploymentChecks,
   mockSdkChecks,
   mockGovernanceChecks,
-  mockShapeChecks,
-  mockDriftChecks,
   mockOpenclawPluginChecks,
   mockHostedChecks,
   mockDataHygieneChecks,
@@ -21,8 +19,6 @@ const {
   mockDeploymentChecks: vi.fn(async () => []),
   mockSdkChecks: vi.fn(async () => []),
   mockGovernanceChecks: vi.fn(async () => []),
-  mockShapeChecks: vi.fn(async () => []),
-  mockDriftChecks: vi.fn(async () => []),
   mockOpenclawPluginChecks: vi.fn(async () => []),
   mockHostedChecks: vi.fn(async () => []),
   mockDataHygieneChecks: vi.fn(async () => []),
@@ -35,12 +31,10 @@ vi.mock('@/lib/doctor/checks/auth.mjs', () => ({ runChecks: mockAuthChecks }));
 vi.mock('@/lib/doctor/checks/deployment.mjs', () => ({ runChecks: mockDeploymentChecks }));
 vi.mock('@/lib/doctor/checks/sdk.mjs', () => ({ runChecks: mockSdkChecks }));
 vi.mock('@/lib/doctor/checks/governance.mjs', () => ({ runChecks: mockGovernanceChecks }));
-vi.mock('@/lib/doctor/checks/drift.mjs', () => ({ runChecks: mockDriftChecks }));
 vi.mock('@/lib/doctor/checks/openclawPlugin.mjs', () => ({ runChecks: mockOpenclawPluginChecks }));
 vi.mock('@/lib/doctor/checks/hosted.mjs', () => ({ runChecks: mockHostedChecks }));
 vi.mock('@/lib/doctor/checks/data-hygiene.mjs', () => ({ runChecks: mockDataHygieneChecks }));
 vi.mock('@/lib/doctor/checks/write-canary.mjs', () => ({ runChecks: mockWriteCanaryChecks }));
-vi.mock('@/lib/doctor/generated/checks-from-shape.mjs', () => ({ runShapeChecks: mockShapeChecks }));
 
 import { runDoctor, computeSummary } from '@/lib/doctor/engine.mjs';
 
@@ -52,8 +46,6 @@ beforeEach(() => {
   mockDeploymentChecks.mockResolvedValue([]);
   mockSdkChecks.mockResolvedValue([]);
   mockGovernanceChecks.mockResolvedValue([]);
-  mockShapeChecks.mockResolvedValue([]);
-  mockDriftChecks.mockResolvedValue([]);
   mockOpenclawPluginChecks.mockResolvedValue([]);
   mockHostedChecks.mockResolvedValue([]);
   mockDataHygieneChecks.mockResolvedValue([]);

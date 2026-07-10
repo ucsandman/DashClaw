@@ -108,8 +108,8 @@ const audit = await agent(
     'doc-prose (narrative mentions in docs/, the SDK READMEs, PROJECT_DETAILS.md, CLAUDE.md); ' +
     'doc-codeblock (an executable-looking example such as app/docs/page.tsx that imports dashclaw/legacy); ' +
     'count (a hardcoded legacy method count like "178 methods" / "187 methods" / "224 methods"); ' +
-    'generated-source (the hand-authored reference SOURCES under public/downloads/dashclaw-platform-intelligence/references/*.md — their mirrors under plugins/ and the skill trees are regenerated, do NOT list those); ' +
-    'tooling (allowlists / backlog that name the file path, e.g. livingcode/tests fixtures, .organism); ' +
+    'generated-source (the hand-authored reference SOURCES under public/downloads/dashclaw-governance/references/*.md — their mirrors under plugins/ and the skill trees are regenerated, do NOT list those); ' +
+    'tooling (allowlists / backlog that name the file path, e.g. .organism); ' +
     'changelog (CHANGELOG.md entries — historical, will not be edited). ' +
     'Give file, line range, and a one-line detail per reference. Do NOT edit anything. Return JSON.',
   { phase: 'Audit', schema: REFERENCES_SCHEMA },
@@ -129,11 +129,11 @@ const DEPRECATE_RULES =
   '; do NOT delete code or remove the export/files entry. ' +
   '(b) in every doc-prose and parity surface, mark the legacy SDK Deprecated and state it is removed in v' +
   REMOVAL_VERSION +
-  '. (c) reconcile the drifting hardcoded legacy method counts (178/187/224 disagree) to ONE correct number or drop the number. (d) repoint any doc-codeblock example off dashclaw/legacy onto the canonical dashclaw import. (e) edit the reference SOURCES under public/downloads/dashclaw-platform-intelligence/references/, never their mirrors. (f) close/cancel any .organism backlog item about splitting the 2,900-line legacy file. (g) add a CHANGELOG [Unreleased] "### Deprecated" entry. Never rewrite historical CHANGELOG entries.'
+  '. (c) reconcile the drifting hardcoded legacy method counts (178/187/224 disagree) to ONE correct number or drop the number. (d) repoint any doc-codeblock example off dashclaw/legacy onto the canonical dashclaw import. (e) edit the reference SOURCES under public/downloads/dashclaw-governance/references/, never their mirrors. (f) close/cancel any .organism backlog item about splitting the 2,900-line legacy file. (g) add a CHANGELOG [Unreleased] "### Deprecated" entry. Never rewrite historical CHANGELOG entries.'
 const REMOVE_RULES =
   'REMOVE mode (this is the v' +
   REMOVAL_VERSION +
-  ' BREAKING release). Edits: delete sdk/legacy/ entirely (git rm both files); remove the ./legacy block from sdk/package.json exports AND the "legacy/" entry from its files allowlist; delete the two legacy regression tests under __tests__; scrub legacy from all doc-prose and parity surfaces (drop the Legacy Node columns/sections outright, do not just mark them); update the reference SOURCES (not mirrors); fix any remaining doc-codeblock example; remove the legacy file path from any tooling allowlist (livingcode/tests fixture, .organism); add a CHANGELOG "### Removed" entry flagged BREAKING. Never rewrite historical CHANGELOG entries.'
+  ' BREAKING release). Edits: delete sdk/legacy/ entirely (git rm both files); remove the ./legacy block from sdk/package.json exports AND the "legacy/" entry from its files allowlist; delete the two legacy regression tests under __tests__; scrub legacy from all doc-prose and parity surfaces (drop the Legacy Node columns/sections outright, do not just mark them); update the reference SOURCES (not mirrors); fix any remaining doc-codeblock example; remove the legacy file path from any tooling allowlist (.organism); add a CHANGELOG "### Removed" entry flagged BREAKING. Never rewrite historical CHANGELOG entries.'
 const plan = await agent(
   'Group these legacy references into NON-OVERLAPPING file groups — no file may appear in two groups, because the groups are edited in parallel and must not collide — and specify the exact edits per group for the current mode. References (JSON): ' +
     JSON.stringify(refs) +
@@ -151,7 +151,7 @@ log('Planned ' + groups.length + ' non-overlapping edit groups.')
 // ===== 3. Sweep (parallel, worktree-isolated so concurrent edits cannot collide) =====
 phase('Sweep')
 const GUARDRAILS =
-  'Guardrails: surgical edits only, match repo style. Never edit a generated/mirror copy — edit the SOURCE under public/downloads/dashclaw-platform-intelligence/references/ (livingcode:refresh mirrors it later). Never rewrite historical CHANGELOG entries. Naming "v' +
+  'Guardrails: surgical edits only, match repo style. Never edit a generated/mirror copy — edit the SOURCE under public/downloads/dashclaw-governance/references/ (bundles:refresh mirrors it later). Never rewrite historical CHANGELOG entries. Naming "v' +
   REMOVAL_VERSION +
   '" as a removal target in prose is fine (it is a target, not the current version literal that version:check guards). Build is "npm run build" (webpack), not "npx next build".'
 const swept = (

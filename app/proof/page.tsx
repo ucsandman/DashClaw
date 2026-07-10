@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ChevronRight, ShieldCheck, ArrowRight, FileText, ScrollText, Activity, GitBranch } from 'lucide-react';
+import { ChevronRight, ShieldCheck, ArrowRight, FileText, ScrollText, GitBranch } from 'lucide-react';
 import PublicNavbar from '../components/PublicNavbar';
 import PublicFooter from '../components/PublicFooter';
 import MarketingPageView from '../components/MarketingPageView';
@@ -100,13 +100,6 @@ const TRAIL_LINKS = [
     icon: GitBranch,
     title: 'GitHub releases',
     desc: 'Every governed ship, versioned and published; the CHANGELOG entry rides each release.',
-  },
-  {
-    href: '/livingcode/index.html',
-    external: false,
-    icon: Activity,
-    title: 'Livingcode dashboard',
-    desc: 'A generated, always-current map of the codebase the maintainer works in, derived from the code, not written about it.',
   },
 ];
 

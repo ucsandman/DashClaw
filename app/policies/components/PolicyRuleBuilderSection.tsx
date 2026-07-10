@@ -515,8 +515,7 @@ export default function PolicyRuleBuilderSection({
             Warns or requires approval when an action&apos;s target path matches one of these globs.
             Patterns support <code className="text-secondary">**</code> (any depth) and{' '}
             <code className="text-secondary">*</code> (one segment). The Policy Coach pre-fills these
-            from observed protected-path writes (auth, secrets, billing, middleware, .organism,
-            livingcode, cron/gateway).
+            from observed protected-path writes (auth, secrets, billing, middleware, cron/gateway).
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="sm:col-span-2">

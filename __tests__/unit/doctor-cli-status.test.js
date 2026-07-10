@@ -170,16 +170,16 @@ describe('runDoctorFlow (W4 semantics)', () => {
   });
 
   it('does not promise --fix for remote warn-status fixes (server-side only)', async () => {
-    // Drift checks warn with a local-scope regenerate fix; POST /api/doctor/fix
+    // Warn-status checks can carry a local-scope fix; POST /api/doctor/fix
     // only applies on fail — the hint and tip must not over-promise.
     const deps = makeDeps({
       remoteBody: {
         status: 'needs_attention',
         summary: { pass: 0, warn: 1, fail: 0 },
         checks: [{
-          id: 'drift_status', category: 'drift', status: 'warn', title: 'Drift',
-          message: 'Artifacts drifted',
-          fix: { type: 'auto', description: 'Regenerate doctor artifacts', action: 'regenerate_artifacts' },
+          id: 'deploy_cors', category: 'deployment', status: 'warn', title: 'CORS',
+          message: 'ALLOWED_ORIGIN not set',
+          fix: { type: 'auto', description: 'Set ALLOWED_ORIGIN in .env', action: 'fix_cors' },
         }],
         timestamp: '',
       },

@@ -1,24 +1,22 @@
 {
   "node": {
-    "current_version": "5.2.0",
+    "current_version": "5.3.0",
     "next_bump": "none",
-    "reason": "5.2.0 republishes the Node SDK, carrying everything since the last npm release (5.0.0): the Team Tasks surface (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods, landed in 5.1.0 but never published) and the new default 30s request timeout (timeoutMs constructor option, ETIMEDOUT on expiry). 5.1.0 never reached npm; the registry jumps 5.0.0 -> 5.2.0.",
-    "domains": [
-      "platform",
-      "tasks"
-    ]
-  },
-  "python": {
-    "current_version": "5.2.0",
-    "next_bump": "none",
-    "reason": "5.2.0 is platform-only for Python - no Python SDK source change since the last release; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
+    "reason": "5.3.0 is platform-only for Node - no Node SDK source change (sdk/README.md only, which rides the next real publish); the version advances per the unified model but the SDK is NOT republished; npm stays at 5.2.0.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.2.0 is the production-readiness pass: catastrophe pack auto-seeds for new self-hosted orgs, dashclaw install claude defaults fresh installs to enforce (CLI 0.9.0), SessionStart liveness probe wired, embedded-postgres stdout-drain hang fixed, one authoritative release:check gate, scheduled-ops timeouts, db-only compose, and the Mission Control -> Approvals sweep. Also repairs the v5.1.0 release record (contract drift, missing changelog/tag).",
+  "python": {
+    "current_version": "5.3.0",
+    "next_bump": "none",
+    "reason": "5.3.0 is platform-only for Python - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
+    "domains": [
+      "platform"
+    ]
+  },
+  "reason": "5.3.0 retires the livingcode subsystem: the Python organism package, /livingcode dashboard, doctor shape/drift checks, the platform-intelligence skill + download, and the MCP routes inventory are removed; a trimmed refresh-bundles script keeps the three hand-authored download bundles current. CLI 0.9.1 and MCP server 3.0.2 carry the matching doctor-category and route-drift-check changes.",
   "domains": [
-    "platform",
-    "tasks"
+    "platform"
   ]
 }

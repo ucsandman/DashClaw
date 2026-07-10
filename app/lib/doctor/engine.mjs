@@ -5,12 +5,10 @@ import { runChecks as authChecks } from './checks/auth.mjs';
 import { runChecks as deploymentChecks } from './checks/deployment.mjs';
 import { runChecks as sdkChecks } from './checks/sdk.mjs';
 import { runChecks as governanceChecks } from './checks/governance.mjs';
-import { runChecks as driftChecks } from './checks/drift.mjs';
 import { runChecks as openclawPluginChecks } from './checks/openclawPlugin.mjs';
 import { runChecks as hostedChecks } from './checks/hosted.mjs';
 import { runChecks as dataHygieneChecks } from './checks/data-hygiene.mjs';
 import { runChecks as writeCanaryChecks } from './checks/write-canary.mjs';
-import { runShapeChecks } from './generated/checks-from-shape.mjs';
 
 const CHECK_RUNNERS = {
   database: databaseChecks,
@@ -19,15 +17,13 @@ const CHECK_RUNNERS = {
   deployment: deploymentChecks,
   sdk: sdkChecks,
   governance: governanceChecks,
-  shape: runShapeChecks,
-  drift: driftChecks,
   'openclaw-plugin': openclawPluginChecks,
   hosted: hostedChecks,
   'data-hygiene': dataHygieneChecks,
   'write-canary': writeCanaryChecks,
 };
 
-const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'write-canary', 'shape', 'drift', 'openclaw-plugin', 'hosted', 'data-hygiene'];
+const CATEGORY_ORDER = ['database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'write-canary', 'openclaw-plugin', 'hosted', 'data-hygiene'];
 
 /**
  * @param {Object} [options]

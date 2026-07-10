@@ -23,8 +23,6 @@ const CATEGORY_LABELS = {
   deployment: 'Deployment',
   sdk: 'SDK Connectivity',
   governance: 'Governance',
-  shape: 'Shape (generated)',
-  drift: 'Drift',
   'openclaw-plugin': 'OpenClaw Plugin',
   hosted: 'Hosted',
   'data-hygiene': 'Data Hygiene',
@@ -33,7 +31,7 @@ const CATEGORY_LABELS = {
 };
 
 const CATEGORY_ORDER = [
-  'database', 'config', 'auth', 'deployment', 'sdk', 'governance', 'shape', 'drift',
+  'database', 'config', 'auth', 'deployment', 'sdk', 'governance',
   'openclaw-plugin', 'hosted', 'data-hygiene', 'local-repo', 'local-machine',
 ];
 

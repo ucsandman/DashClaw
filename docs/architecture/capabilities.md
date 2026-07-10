@@ -44,22 +44,6 @@ This document defines the DashClaw product taxonomy. DashClaw is organized into 
 
 ---
 
-## Infrastructure: `livingcode/`
-**Rule:** Internal self-monitoring framework. Not a product feature — DashClaw's immune system for its own codebase.
-
-| Component | Responsibility |
-|-----------|----------------|
-| `collectors/` | 5 sensing collectors (git_stats, test_health, code_quality, dependency_health, ci_health) |
-| `immune/` | 6 checks → verdict (merge / fix_required / needs_discussion) |
-| `planner/` | Tiered work item generation (5 tiers) + backlog persistence |
-| `orchestrator/` | Lifecycle cycle (SENSE → PLAN → REVIEW → REFLECT) + safety systems |
-| `heartbeat/` | Quick (post-commit) and full (scheduled) heartbeat runner |
-| CLI | `python -m livingcode sense|plan|review|cycle|heartbeat|status` |
-
-State persists to `.organism/` at the repo root. Zero external dependencies — stdlib only.
-
----
-
 ## The Category Test
 
 1. **Does it block an agent?** &rarr; **CORE**

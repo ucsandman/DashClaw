@@ -67,7 +67,7 @@ Then open `/decisions` on your instance: the evaluation should be the newest row
 
 ## The plugin alternative
 
-Prefer plugin distribution? [`plugins/dashclaw/`](../../plugins/dashclaw/) ships the same governance as a Claude Code plugin: bundled MCP server, hooks, and the two skills (`dashclaw-governance` protocol + `dashclaw-platform-intelligence` reference). The hooks path above and the plugin land in the same place — pick one, not both.
+Prefer plugin distribution? [`plugins/dashclaw/`](../../plugins/dashclaw/) ships the same governance as a Claude Code plugin: bundled MCP server, hooks, and the `dashclaw-governance` protocol skill. The hooks path above and the plugin land in the same place — pick one, not both.
 
 ## Uninstall
 

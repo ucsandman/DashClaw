@@ -1,14 +1,13 @@
 # DashClaw plugin for Hermes Agent
 
-Governance, integration, troubleshooting, and platform-intelligence skills for [Hermes Agent](https://hermes-agent.nousresearch.com/), plus **eight** shell-hook lifecycle adapters that wire Hermes into DashClaw's governance runtime, secret redactor, and code-session ingest pipeline.
+Governance skill for [Hermes Agent](https://hermes-agent.nousresearch.com/), plus **eight** shell-hook lifecycle adapters that wire Hermes into DashClaw's governance runtime, secret redactor, and code-session ingest pipeline.
 
 Parallels the Codex plugin in `../.codex-plugin/` and the Claude Code installation in `.claude/`. All three share the same MCP server (`mcp-server/bin/dashclaw-mcp.js`) and the same skill directories under `../skills/`.
 
 ## What you get
 
-**Skills** (registered as `dashclaw:governance` and `dashclaw:platform-intelligence`)
+**Skills** (registered as `dashclaw:governance`)
 - `dashclaw-governance` — when to call guard, how to interpret decisions, action recording, session lifecycle.
-- `dashclaw-platform-intelligence` — auto-generated API surface reference plus diagnostic scripts.
 
 **MCP tools** via `../.mcp.json` (same server as Codex and Claude Code) — guard check, action recording, approval wait, governed capability invocation, policy discovery, session tracking, Optimal Files preview/manifest, code-session resources.
 

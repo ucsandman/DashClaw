@@ -74,7 +74,7 @@ Before signing in, open `https://your-app.vercel.app/setup`. That page verifies:
 After the instance looks healthy, open `/connect` for the canonical first-agent path. That page keeps the activation flow short: choose Node or Python, copy the env vars, run the minimal starter snippet, optionally enable verified pairing, then run the validator.
 
 After core checks pass, you can strengthen that view with live SDK proof:
-- Node: add `--capture-setup-proof` to the validator command and open the returned `/setup?proof=...` URL
+- Node: use the `/setup` "Run test" button to capture live proof
 - Python: after a successful ping, run the helper snippet shown on `/setup` or in `docs/client-setup-guide.md` to POST the sanitized success payload to `/api/setup/live-proof`
 
 ### Operational checks for self-host

@@ -6,8 +6,7 @@
  * order, failing LOUD on any error:
  *   1. generate-api-inventory.mjs  -> docs/api-inventory.{json,md}
  *   2. generate-openapi.mjs        -> docs/openapi/critical-stable.openapi.json
- *   3. livingcode-refresh.mjs      -> shape / doctor / dashboard / skills /
- *                                     hook mirrors / bundle zips
+ *   3. refresh-bundles.mjs         -> skill / hook mirrors + bundle zips
  *
  * Invoked by the post-merge & post-rewrite git hooks and by the
  * rebase-onto-main helper, so whatever side a merge driver kept is immediately
@@ -15,9 +14,8 @@
  * second run produces zero diff (verified in STAGE 0).
  *
  * Plain Node + stdlib only (no npm deps, no tsx) so it is safe to run from a
- * git hook. Requires: Node 20+, Python on PATH with the `livingcode` package
- * importable, and PowerShell (Windows) / zip (POSIX) for the bundle steps —
- * the same prerequisites livingcode-refresh.mjs already needs.
+ * git hook. Requires: Node 20+ and PowerShell (Windows) / zip (POSIX) for the
+ * bundle steps — the same prerequisites refresh-bundles.mjs already needs.
  */
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -28,7 +26,7 @@ const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const STEPS = [
   { label: 'api-inventory', command: [process.execPath, 'scripts/generate-api-inventory.mjs'] },
   { label: 'openapi', command: [process.execPath, 'scripts/generate-openapi.mjs'] },
-  { label: 'livingcode', command: [process.execPath, 'scripts/livingcode-refresh.mjs'] },
+  { label: 'bundles', command: [process.execPath, 'scripts/refresh-bundles.mjs'] },
 ];
 
 function main() {

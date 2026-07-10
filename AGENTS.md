@@ -99,7 +99,6 @@ This repository is an end-to-end “governed agent” platform that ingests sour
 - `app/lib/claude-code/rules/index.ts`
 - `scripts/lib/run-pre-commit-checks.mjs`
 - `mcp-server/src/launch/index.ts`
-- `livingcode/__main__.py`
 ### Risk Hotspots
 | File | Churn | 90d Commits | Owner |
 |------|-------|-------------|-------|

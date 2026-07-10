@@ -191,7 +191,7 @@ End-to-end examples per runtime: [`examples/`](examples/).
 
 <br />
 
-**Coding-agent plugins (Claude Code, Codex, Hermes).** One plugin source ([`plugins/dashclaw/`](plugins/dashclaw/)), three ecosystems. Each manifest ships the MCP config, the `dashclaw-governance` protocol skill, the `dashclaw-platform-intelligence` reference skill, and a distinct `agent_id`.
+**Coding-agent plugins (Claude Code, Codex, Hermes).** One plugin source ([`plugins/dashclaw/`](plugins/dashclaw/)), three ecosystems. Each manifest ships the MCP config, the `dashclaw-governance` protocol skill, and a distinct `agent_id`.
 
 ```bash
 npm i -g @dashclaw/cli

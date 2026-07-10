@@ -588,7 +588,7 @@ For operators running a self-hosted DashClaw instance, Doctor is also available 
 npm run doctor                  # can write .env, run migrations, seed default policy
 ```
 
-Doctor check modules are emitted from the livingcode shape (`app/lib/doctor/generated/checks-from-shape.mjs`) and run against `GET /api/doctor` / `POST /api/doctor/fix`. The `.env` is always backed up before any write. Includes a drift guard that flags when shape-derived artifacts are out of sync — fix with `npm run livingcode:refresh`.
+Doctor check modules are hand-authored and run against `GET /api/doctor` / `POST /api/doctor/fix`. The `.env` is always backed up before any write.
 
 ## MCP Server (`@dashclaw/mcp-server`)
 

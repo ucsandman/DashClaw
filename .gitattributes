@@ -6,21 +6,12 @@ docs/openapi/critical-stable.openapi.json text eol=lf
 # >>> living-merge (managed: generated projections) >>>
 # Generated from scripts/living-merge/manifest.ts — do not edit by hand.
 # These paths are projections of source: never hand-merged, always regenerated.
-app/lib/doctor/generated/shape.json merge=regenerate
-app/lib/doctor/generated/last-snapshot.json merge=regenerate
-app/lib/doctor/generated/checks-from-shape.mjs merge=regenerate
-mcp-server/lib/routes-inventory.generated.json merge=regenerate
-public/livingcode/index.html merge=regenerate
-public/downloads/dashclaw-platform-intelligence/SKILL.md merge=regenerate
-public/downloads/dashclaw-platform-intelligence.zip merge=regenerate
-public/downloads/dashclaw-platform-intelligence.zip.manifest merge=regenerate
 public/downloads/dashclaw-governance.zip merge=regenerate
 public/downloads/dashclaw-governance.zip.manifest merge=regenerate
 public/downloads/dashclaw-governance-plugin.zip merge=regenerate
 public/downloads/dashclaw-governance-plugin.zip.manifest merge=regenerate
 public/downloads/dashclaw-claude-code-hooks.zip merge=regenerate
 public/downloads/dashclaw-claude-code-hooks.zip.manifest merge=regenerate
-plugins/dashclaw/skills/dashclaw-platform-intelligence/** merge=regenerate
 plugins/dashclaw/skills/dashclaw-governance/** merge=regenerate
 plugins/dashclaw/hooks/dashclaw_pretool.py merge=regenerate
 plugins/dashclaw/hooks/dashclaw_posttool.py merge=regenerate

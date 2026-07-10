@@ -13,7 +13,6 @@ The exhaustive map for `dashclaw-ship`. Read during Phase 2 (audit) and Phase 3
 | MCP resource count | `mcp-server/lib/resources.js` | count the resource entries |
 | Pre-built guard policies ("N safety switches") | `app/policies/lib/shields.js` | count the entries (drifts silently — the README prose is already behind) |
 | Platform + SDK version (one shared number) | `package.json`, `sdk/package.json`, `sdk-python/pyproject.toml` | `npm run version:check` |
-| Live route / table / MCP-tool shape | livingcode shape | `python -m livingcode query ...` or `app/lib/doctor/generated/shape.json` |
 | Today's date (for freshness stamps) | the clock | `Get-Date -Format yyyy-MM-dd`, or the session current-date context |
 
 These numbers appear on MANY surfaces. When one changes, grep the OLD number
@@ -27,12 +26,9 @@ unified version literal — so this sweep is the sole guard against count/date d
 |---|---|---|
 | `docs/openapi/critical-stable.openapi.json` | `npm run openapi:generate` | `npm run openapi:check` |
 | `docs/api-inventory.json` + `docs/api-inventory.md` | `npm run api:inventory:generate` | `npm run api:inventory:check` |
-| `app/lib/doctor/generated/*` (shape.json, last-snapshot.json, checks-from-shape.mjs) | `npm run livingcode:refresh` | git status after refresh |
-| `public/livingcode/index.html` | `npm run livingcode:refresh` | — |
-| `mcp-server/lib/routes-inventory.generated.json` | `npm run livingcode:refresh` | — |
-| platform-intelligence `SKILL.md` (website + mirrors) | `npm run livingcode:refresh` (`emit skill`) | — |
-| `plugins/dashclaw/hooks/*.py` (mirror of repo-root `hooks/`) | `npm run livingcode:refresh` | — |
-| `public/downloads/*.zip` + `*.manifest` | `npm run livingcode:refresh` | "zip unchanged (hash …)" |
+| `plugins/dashclaw/skills/dashclaw-governance/*` (mirror of `public/downloads/dashclaw-governance/`) | `npm run bundles:refresh` | git status after refresh |
+| `plugins/dashclaw/hooks/*.py` (mirror of repo-root `hooks/`) | `npm run bundles:refresh` | — |
+| `public/downloads/*.zip` + `*.manifest` | `npm run bundles:refresh` | "zip unchanged (hash …)" |
 
 Note: the **critical-stable OpenAPI spec intentionally omits experimental routes** — new experimental routes being absent there is by design, not a gap.
 
@@ -59,11 +55,9 @@ Note: the **critical-stable OpenAPI spec intentionally omits experimental routes
 - `docs/sdk-reference.md` — a pointer/redirect file; add concise method lists + cross-links, don't duplicate the full catalogue.
 - After any SDK method change: `npm run sdk:count` and reconcile every cited count (grep the old number repo-wide first).
 
-### Reference narratives (HAND-AUTHORED SOURCES — mirrored by livingcode:refresh)
-Edit ONLY these source copies; `livingcode:refresh` overwrites the plugin / `.claude` / `~/.claude` mirrors from them:
-- `public/downloads/dashclaw-platform-intelligence/references/api-surface.md` — route catalogue + guard policy types table + the header route count. Add new route sections; add new guard `policy_type` rows; update the count from `docs/api-inventory.md`; add new sections to the Table of Contents.
-- `public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md` — version, SDK counts, Product Surfaces table, Dashboard Navigation table (keep the "N groups" prose in sync with the table), ID-prefix table.
-- `public/downloads/dashclaw-platform-intelligence/references/troubleshooting.md` — if the feature adds a failure mode worth documenting.
+### Reference narratives (HAND-AUTHORED SOURCES — mirrored by bundles:refresh)
+Edit ONLY this source copy; `bundles:refresh` overwrites the plugin / `.claude` / `~/.claude` mirrors from it:
+- `public/downloads/dashclaw-governance/references/governance-patterns.md` — governance protocol patterns and examples. Update when the guard/approval/recording protocol changes.
 
 ### Marketing / landing (in-app — there is NO separate marketing repo; an explicit step EVERY ship)
 Honor `.impeccable.md` (read it): declarative voice, lucide icons, CSS tokens (no hardcoded hex), four anti-references (x402/payments = governed capability spend, never crypto/web3/wallet). For each page, check feature *presence* (grep the feature name), not just counts.
@@ -86,7 +80,6 @@ Pull today's date once (Phase 1) and apply it only to the first list.
 | `last-verified` front-matter | `PROJECT_DETAILS.md` | `last-verified: <date>` |
 | `last-verified` front-matter | `docs/sdk-reference.md` | `last-verified: <date>` |
 | `last-verified` front-matter | `docs/sdk-parity.md` | `last-verified: <date>` |
-| inline "verified" stamp (doubles as the route count) | `public/downloads/dashclaw-platform-intelligence/references/api-surface.md` | `**N active routes** (verified <date> against docs/api-inventory.json)` |
 | "Last updated" footer | `.impeccable.md`, `brand/*` | `_Last updated: <date> …_` (only if the doc itself changed) |
 
 Editing the doc but leaving its stamp behind is itself a stale-date bug — bump the two together.

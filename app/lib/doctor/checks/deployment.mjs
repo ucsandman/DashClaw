@@ -1,11 +1,8 @@
 // app/lib/doctor/checks/deployment.mjs
-import { getEnvVar } from '../shape.mjs';
 
-// Env var names come from the generated shape snapshot so a rename in
-// app/lib/ or middleware.js propagates here — keeping the names aligned with
-// what the codebase actually reads. Both are optional (no fallback → warn).
-const NEXTAUTH_URL_VAR = getEnvVar('NEXTAUTH_URL')?.name || 'NEXTAUTH_URL';
-const ALLOWED_ORIGIN_VAR = getEnvVar('ALLOWED_ORIGIN')?.name || 'ALLOWED_ORIGIN';
+// Both env vars are optional (no fallback → warn).
+const NEXTAUTH_URL_VAR = 'NEXTAUTH_URL';
+const ALLOWED_ORIGIN_VAR = 'ALLOWED_ORIGIN';
 const EXPECTED_NEXTAUTH_URL = (host) => (host ? `https://${host}` : 'the public DashClaw URL');
 
 /**

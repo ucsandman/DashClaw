@@ -17,9 +17,6 @@ The three manifests reference the same shared content:
 - `skills/dashclaw-governance/` — agent-neutral governance protocol skill
   (allow/warn/block/require_approval decision tree, session lifecycle,
   capability invocation patterns).
-- `skills/dashclaw-platform-intelligence/` — DashClaw platform expert skill
-  with API surface, route inventory, and troubleshooting playbooks.
-  Snapshot-based — prefer `python -m livingcode query` for live state.
 
 The MCP configs differ only by the `--agent-id` passed to the bundled
 `@dashclaw/mcp-server`. Keeping the agent identity distinct per ecosystem
@@ -43,7 +40,7 @@ field) plus the Python scripts and the `dashclaw_agent_intel/` module,
 referenced through `${CLAUDE_PLUGIN_ROOT}`. They fire automatically once the
 plugin is enabled (no separate install, no per-folder trust gate) and require
 Python on PATH. The `.py` scripts + module are a generated mirror of the
-canonical `hooks/` tree, kept in sync by `npm run livingcode:refresh`; the
+canonical `hooks/` tree, kept in sync by `npm run bundles:refresh`; the
 authored `hooks.json` is not generated.
 
 The **Codex** manifest does not bundle hooks — Codex hooks are filesystem

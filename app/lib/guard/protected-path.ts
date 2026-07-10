@@ -1,8 +1,8 @@
 /**
  * Protected-path matching for the guard engine's `protected_path` policy type
  * (a catastrophe-pack default: destructive touches to auth/middleware/billing/
- * secrets/livingcode/cron config). Guard-owned so the decide step carries its
- * own matcher independent of any retired behavior-learning tooling.
+ * secrets/cron config). Guard-owned so the decide step carries its own matcher
+ * independent of any retired behavior-learning tooling.
  *
  * Paths are normalized to forward slashes with any leading `./` stripped before
  * matching, so workspace-relative sample paths and absolute live-guard targets
@@ -12,17 +12,15 @@
 
 /**
  * Canonical protected groups. Each group maps a label to a set of globs of
- * high-blast-radius surfaces: auth, middleware, billing, secrets, .organism,
- * livingcode, and cron/gateway config. Globs are intentionally broad (`**`) so
- * a touch anywhere in the tree is caught regardless of the agent's cwd.
+ * high-blast-radius surfaces: auth, middleware, billing, secrets, and
+ * cron/gateway config. Globs are intentionally broad (`**`) so a touch
+ * anywhere in the tree is caught regardless of the agent's cwd.
  */
 export const PROTECTED_PATH_GROUPS: Record<string, string[]> = {
   auth: ['**/auth/**', '**/auth.js', '**/auth.mjs', 'app/login/**', 'app/api/auth/**', '**/authConfig*'],
   middleware: ['middleware.js', 'middleware.ts', '**/middleware.js', '**/middleware.ts'],
   billing: ['**/billing.js', '**/billing/**', 'app/api/billing/**', '**/stripe*'],
   secrets: ['**/secrets/**', '**/.env', '**/.env.*', '**/*.pem', '**/id_rsa*', '**/*.key', 'app/secrets/**'],
-  organism: ['.organism/**', '**/.organism/**', 'organism.json'],
-  livingcode: ['livingcode/**', '**/livingcode/**', 'public/livingcode/**'],
   'cron/gateway': ['**/cron/**', 'vercel.json', '**/gateway*', '**/openclaw.json', 'docker-compose.yml', 'Dockerfile'],
 };
 

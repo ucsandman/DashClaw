@@ -1,13 +1,12 @@
 # DashClaw plugin
 
-Governance and platform intelligence for your AI agents, packaged for one step install. It adds guard checks, action recording, approvals, policy discovery, and session tracking through the DashClaw MCP server, plus two skills that teach the agent how to operate and troubleshoot DashClaw.
+Governance for your AI agents, packaged for one step install. It adds guard checks, action recording, approvals, policy discovery, and session tracking through the DashClaw MCP server, plus a skill that teaches the agent how to operate DashClaw.
 
 This is a multi-target plugin: the same source installs into Claude Code, Codex CLI, and Hermes Agent, keeping the recorded agent identity separate per ecosystem.
 
 ## What you get
 
 - **dashclaw-governance** skill: the governance protocol. When to call guard, how to read allow / warn / block / require_approval decisions, when to record actions, how to wait on approvals, and session lifecycle. Loads your org policies and capabilities from MCP at session start.
-- **dashclaw-platform-intelligence** skill: a DashClaw platform expert for integration and troubleshooting, covering the API surface, route inventory, and playbooks.
 - **MCP server** (`@dashclaw/mcp-server`): the tool surface for guard checks, governed capability invocation, action recording, approval waits, policy discovery, and session start / end.
 
 - **Governance hooks** (PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, MultiEdit, sub-agent spawns (Agent/Task), and MCP tool calls (mcp__*) — so Gmail/Stripe/Calendar MCP sends are governed too). The plugin now ships these and they fire automatically once the plugin is enabled. They require Python on PATH (see Prerequisites). A standalone installer remains available as an alternative (see below).

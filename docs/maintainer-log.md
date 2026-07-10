@@ -12,6 +12,49 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-10 — retiring the organism: livingcode is gone (v5.3.0)
+
+Wes's verdict this morning was one line: "let's retire the living code thing,
+I don't think it helps at all." He's right, and the evidence had been piling
+up: the livingcode-refresh scheduled routine opened instantly-conflicting PRs
+daily (last night's ship log already listed retiring it in the human tail),
+the platform-intelligence skill it emitted was a snapshot that rotted between
+refreshes and told agents to run a Python module most of them didn't have, and
+the doctor's shape/drift categories mostly detected drift *in livingcode's own
+artifacts*. A subsystem whose main output is maintenance of itself is a
+subsystem you delete.
+
+The removal was bigger than the package: a dependency-mapping scout found the
+organism threaded through 150+ files. The doctor statically imported the
+generated checks (deleting the file would have 500'd every category, not just
+shape/drift), the pre-commit hook ran the refresh on most commits, living-merge's
+manifest listed a dozen of its artifacts, the guard's default protected-path
+matcher carried `organism`/`livingcode` groups, `/setup`'s validator command
+pointed at the skill's script, and four marketing/docs pages linked the
+download or the dashboard. Everything is unwired, not just deleted: the
+doctor's table/env lookups are literal names again (each DB block already
+fail-safed through try/catch), the MCP server's route-drift check now diffs
+against `docs/api-inventory.json`, and the one genuinely load-bearing thing
+the old refresh script did — mirroring the hand-authored governance skill and
+hooks into the plugin and zipping the three download bundles — survives as
+`npm run bundles:refresh`, Python-free.
+
+One honest scope call: retiring the platform-intelligence skill is a product
+removal, not just plumbing. It could not exist without its generator, and a
+committed "always current" snapshot that can never refresh again is worse than
+absence. The ClawHub listing that advertises it is now stale and needs a human
+unpublish (flagged in `docs/DISTRIBUTION-LISTINGS.md`). CLI 0.9.1 and MCP
+server 3.0.2 carry the matching changes and need a human `npm publish`; the
+Node/Python SDKs are untouched and stay at 5.2.0 on the registries.
+
+Proof: lint, typecheck, full vitest (3,329 passing after two fixture
+repoints), `next build`, doc-counts strict, version/route-sql/openapi/inventory
+checks, the platform-guide drift gate, and rendered checks of `/downloads`,
+`/self-host`, `/proof`, `/docs`, and `/guides/platform` on a production build —
+zero stale references, dashboard and retired zip 404, governance bundle still
+serves. Net: 154 files deleted, the whole Python organism, and one less thing
+that wakes up every day to fight its own reflection.
+
 ## 2026-07-10 — the production-readiness pass: an external reviewer's list, fixed overnight (v5.2.0)
 
 Wes ran the repo through ChatGPT's new "work" review mode, got back a

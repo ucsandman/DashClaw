@@ -1,18 +1,11 @@
 #!/usr/bin/env node
 /**
- * Refresh all derivative artifacts from the livingcode shape model.
+ * Refresh the hand-authored download bundles and their plugin mirrors.
  *
- * Run manually: `npm run livingcode:refresh`
+ * Run manually: `npm run bundles:refresh`
  * Run automatically: pre-commit hook (via scripts/lib/run-pre-commit-checks.mjs)
  *
  * Outputs:
- *   - app/lib/doctor/generated/shape.json            (committed, JS reads at runtime)
- *   - app/lib/doctor/generated/last-snapshot.json    (drift-check baseline)
- *   - app/lib/doctor/generated/checks-from-shape.mjs (generated doctor checks)
- *   - mcp-server/lib/routes-inventory.generated.json
- *   - public/downloads/dashclaw-platform-intelligence/SKILL.md (website — source of truth)
- *   - public/downloads/dashclaw-platform-intelligence.zip      (website download)
- *   - public/downloads/dashclaw-platform-intelligence.zip.manifest (zip-idempotence marker)
  *   - public/downloads/dashclaw-governance.zip                 (hand-authored skill, zipped)
  *   - public/downloads/dashclaw-governance-plugin.zip          (full plugin bundle — Claude
  *                                                               Code / Codex / Hermes manifests,
@@ -20,25 +13,15 @@
  *   - public/downloads/dashclaw-claude-code-hooks.zip          (PreToolUse / PostToolUse / Stop
  *                                                               hooks + dashclaw_agent_intel/ —
  *                                                               drop into .claude/hooks/)
- *   - ${USERPROFILE}/.claude/skills/dashclaw-platform-intelligence/   (global Claude Code skill)
- *   - .claude/skills/dashclaw-platform-intelligence/                   (project-local, gitignored)
- *   - plugins/dashclaw/skills/dashclaw-platform-intelligence/          (committed plugin distribution)
+ *   - plugins/dashclaw/skills/dashclaw-governance/             (mirror of the canonical skill)
+ *   - plugins/dashclaw/hooks/*.py + dashclaw_agent_intel/      (mirror of canonical hooks/)
  *
- * The website copy is the source of truth. Global, project-local, and plugin
- * copies mirror SKILL.md + references/ + scripts/ via mirrorSubdir
- * (idempotent, prunes deleted files). The plugin copy is committed so users
- * installing the DashClaw plugin from this repo get the latest skill content
- * without a separate publish step.
+ * Everything here is hand-authored source being mirrored/zipped — nothing is
+ * generated from code analysis. (The livingcode organism that used to share
+ * this script was retired in v5.3.0.)
  *
- * Zero new npm deps — relies on Python being on PATH (livingcode) and Node stdlib.
- * Production reads only the committed JSON, so Vercel never needs Python.
- *
- * Idempotence:
- *   - shape.json emitter substitutes a content-hash signature for the
- *     wall-clock timestamp, so re-runs produce byte-identical JSON.
- *   - SKILL.md gets the same signature spliced in place of its live timestamp.
- *   - The zip is only regenerated when the manifest hash disagrees with the
- *     skill directory contents, so git doesn't churn on every refresh.
+ * Idempotence: each zip is only rebuilt when the directory hash disagrees
+ * with the committed `.manifest` sibling, so git doesn't churn on re-runs.
  */
 process.on('unhandledRejection', (reason) => {
   console.error('Unhandled Rejection:', reason);
@@ -57,32 +40,25 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { homedir, platform, tmpdir } from 'node:os';
+import { platform, tmpdir } from 'node:os';
 import { dirname, join, relative, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
 const REPO_ROOT = process.cwd();
-const GENERATED_DIR = resolve(REPO_ROOT, 'app', 'lib', 'doctor', 'generated');
-const WEBSITE_SKILL_DIR = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-platform-intelligence');
-const WEBSITE_SKILL_ZIP = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-platform-intelligence.zip');
-const WEBSITE_SKILL_MANIFEST = `${WEBSITE_SKILL_ZIP}.manifest`;
-// dashclaw-governance is hand-authored (not livingcode-generated) but still
-// gets zipped here so /docs and /downloads have a working download link. The
-// directory itself is the source of truth; this just keeps the zip fresh
-// against directory contents via hash-vs-manifest comparison.
+// dashclaw-governance is hand-authored; the directory is the source of truth
+// and this script keeps the zip fresh against directory contents.
 const GOVERNANCE_SKILL_DIR = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-governance');
 const GOVERNANCE_SKILL_ZIP = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-governance.zip');
 const GOVERNANCE_SKILL_MANIFEST = `${GOVERNANCE_SKILL_ZIP}.manifest`;
 // Plugin bundle — the full plugins/dashclaw/ tree (three plugin manifests for
 // Claude Code / Codex / Hermes, MCP configs, mirrored skills, assets). Zipped
 // for ClawHub / direct distribution so users don't need to clone the whole
-// repo to install the plugin. Hash-vs-manifest idempotent like the skill zips.
+// repo to install the plugin.
 const PLUGIN_BUNDLE_DIR = resolve(REPO_ROOT, 'plugins', 'dashclaw');
 const PLUGIN_BUNDLE_ZIP = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-governance-plugin.zip');
 const PLUGIN_BUNDLE_MANIFEST = `${PLUGIN_BUNDLE_ZIP}.manifest`;
 // Hooks bundle — Claude Code PreToolUse / PostToolUse / Stop hooks plus the
 // dashclaw_agent_intel/ tool-classification module. Drops into .claude/hooks/.
-// Excludes Python bytecode and pytest caches so the bundle is reproducible.
 const HOOKS_BUNDLE_DIR = resolve(REPO_ROOT, 'hooks');
 const HOOKS_BUNDLE_ZIP = resolve(REPO_ROOT, 'public', 'downloads', 'dashclaw-claude-code-hooks.zip');
 const HOOKS_BUNDLE_MANIFEST = `${HOOKS_BUNDLE_ZIP}.manifest`;
@@ -90,24 +66,13 @@ const HOOKS_BUNDLE_MANIFEST = `${HOOKS_BUNDLE_ZIP}.manifest`;
 // .pytest_cache rewrite themselves on every test run, which would otherwise
 // thrash the bundle hash and re-zip on every refresh.
 const BUNDLE_EXCLUDE_RE = /(^|[\\/])(__pycache__|\.pytest_cache)([\\/]|$)/;
-const GLOBAL_SKILL_DIR = resolve(homedir(), '.claude', 'skills', 'dashclaw-platform-intelligence');
-// Project-local skill dir. `.claude/` is gitignored at the repo level, so this
-// stays on the developer's machine — it's the in-repo Claude Code skill that
-// auto-loads when working in this project. Kept in sync with the website copy
-// (public/downloads/...) which is the source of truth.
-const PROJECT_SKILL_DIR = resolve(REPO_ROOT, '.claude', 'skills', 'dashclaw-platform-intelligence');
-// Plugin distribution skill dir. Committed alongside the rest of the
-// plugins/dashclaw/ tree so `dashclaw install` / `hermes plugin install`
-// pick up the live livingcode-derived SKILL.md and companion files. Treated
-// as a regen target — never edit by hand; edit the website source instead.
-const PLUGIN_SKILL_DIR = resolve(REPO_ROOT, 'plugins', 'dashclaw', 'skills', 'dashclaw-platform-intelligence');
 // Governance skill plugin mirror — hand-authored source lives under
-// public/downloads/dashclaw-governance/ (treated as canonical). The plugin
-// copy is kept in lockstep so the committed plugin distribution always
-// carries the latest governance protocol text.
+// public/downloads/dashclaw-governance/ (canonical). The plugin copy is kept
+// in lockstep so the committed plugin distribution always carries the latest
+// governance protocol text.
 const PLUGIN_GOVERNANCE_SKILL_DIR = resolve(REPO_ROOT, 'plugins', 'dashclaw', 'skills', 'dashclaw-governance');
 // Plugin hooks mirror — the canonical Claude Code hook scripts live in
-// hooks/ (HOOKS_BUNDLE_DIR). The plugin now ships firing governance hooks
+// hooks/ (HOOKS_BUNDLE_DIR). The plugin ships firing governance hooks
 // (PreToolUse / PostToolUse / Stop) via plugins/dashclaw/hooks/, so the four
 // .py scripts plus the dashclaw_agent_intel/ module are mirrored from the
 // canonical source here on every refresh. The authored hooks.json (which
@@ -119,25 +84,13 @@ const PLUGIN_HOOK_SCRIPTS = [
   'dashclaw_stop.py',
   'enforcement_liveness_probe.py',
 ];
-const MCP_INVENTORY_PATH = resolve(REPO_ROOT, 'mcp-server', 'lib', 'routes-inventory.generated.json');
-const DASHBOARD_PATH = resolve(REPO_ROOT, 'public', 'livingcode', 'index.html');
 
-const PY = process.env.PYTHON || 'python';
-const SKILL_TIMESTAMP_LINE = /^(\*\*Shape snapshot:\*\*\s+`)[^`]+(`)/m;
-const DASHBOARD_SIG_LINE = /^(<div class="sig" id="sig">Shape signature: )([^<]+)(<\/div>)/m;
-
-// Source file patterns that imply a generated artifact may have changed. If
-// pre-commit (--if-staged) sees none of these staged, it skips the refresh.
-// Hand-authored bundle sources count as source too: edits under
-// `plugins/dashclaw/` (manifests, MCP configs, assets) or `hooks/` (the Python
-// pretool/posttool/stop scripts) re-trigger a refresh so the bundle zips stay
-// in sync. We deliberately do NOT include `plugins/dashclaw/skills/` here —
-// the skill mirrors under that path are themselves generated output and live
-// in GENERATED_PATH_RE below.
-const SOURCE_PATH_RE = /^(app\/api\/|app\/lib\/|schema\/schema\.js$|middleware\.js$|livingcode\/|public\/downloads\/dashclaw-platform-intelligence\/(references|scripts)\/|public\/downloads\/dashclaw-governance\/|plugins\/dashclaw\/(\.claude-plugin|\.codex-plugin|\.hermes-plugin|assets|\.mcp\.json$|\.mcp-claude\.json$|PLUGIN_PARITY\.md$)|hooks\/(?!\.pytest_cache|__pycache__))/;
+// Source file patterns that imply a bundle may have changed. If pre-commit
+// (--if-staged) sees none of these staged, it skips the refresh.
+const SOURCE_PATH_RE = /^(public\/downloads\/dashclaw-governance\/|plugins\/dashclaw\/(\.claude-plugin|\.codex-plugin|\.hermes-plugin|assets|\.mcp\.json$|\.mcp-claude\.json$|PLUGIN_PARITY\.md$)|hooks\/(?!\.pytest_cache|__pycache__))/;
 // Paths that are themselves generated output — staging these doesn't count as
 // a source change that should trigger a refresh.
-const GENERATED_PATH_RE = /^(app\/lib\/doctor\/generated\/|public\/downloads\/dashclaw-platform-intelligence\/SKILL\.md$|public\/downloads\/dashclaw-platform-intelligence\.zip(\.manifest)?$|public\/downloads\/dashclaw-governance\.zip(\.manifest)?$|public\/downloads\/dashclaw-governance-plugin\.zip(\.manifest)?$|public\/downloads\/dashclaw-claude-code-hooks\.zip(\.manifest)?$|plugins\/dashclaw\/skills\/dashclaw-platform-intelligence\/|plugins\/dashclaw\/skills\/dashclaw-governance\/)/;
+const GENERATED_PATH_RE = /^(public\/downloads\/dashclaw-governance\.zip(\.manifest)?$|public\/downloads\/dashclaw-governance-plugin\.zip(\.manifest)?$|public\/downloads\/dashclaw-claude-code-hooks\.zip(\.manifest)?$|plugins\/dashclaw\/skills\/dashclaw-governance\/)/;
 
 function isSourceChange(path) {
   const normalised = path.replace(/\\/g, '/');
@@ -146,99 +99,15 @@ function isSourceChange(path) {
 }
 
 function log(msg) {
-  process.stdout.write(`[livingcode] ${msg}\n`);
+  process.stdout.write(`[bundles] ${msg}\n`);
 }
 
 function warn(msg) {
-  process.stderr.write(`[livingcode] WARN: ${msg}\n`);
+  process.stderr.write(`[bundles] WARN: ${msg}\n`);
 }
 
 function ensureDir(path) {
   if (!existsSync(path)) mkdirSync(path, { recursive: true });
-}
-
-function runPython(args, { cwd = REPO_ROOT } = {}) {
-  const result = spawnSync(PY, ['-m', 'livingcode', ...args], {
-    cwd,
-    stdio: ['ignore', 'inherit', 'inherit'],
-  });
-  if (result.status !== 0) {
-    throw new Error(`livingcode ${args.join(' ')} exited with code ${result.status}`);
-  }
-}
-
-function emitShapeJson() {
-  ensureDir(GENERATED_DIR);
-  const out = join(GENERATED_DIR, 'shape.json');
-  runPython(['emit', 'shape-json', '--output', out]);
-  log(`shape.json -> ${relative(REPO_ROOT, out)}`);
-  return out;
-}
-
-function emitDoctorChecks() {
-  ensureDir(GENERATED_DIR);
-  const out = join(GENERATED_DIR, 'checks-from-shape.mjs');
-  runPython(['emit', 'doctor-checks', '--output', out]);
-  log(`checks-from-shape.mjs -> ${relative(REPO_ROOT, out)}`);
-  return out;
-}
-
-function emitMcpInventory() {
-  // mcp-server/ is optional; only emit if the directory exists.
-  const mcpDir = dirname(MCP_INVENTORY_PATH);
-  if (!existsSync(mcpDir)) {
-    log('mcp-server/ absent — skipping MCP inventory');
-    return null;
-  }
-  runPython(['emit', 'mcp-tools', '--output', MCP_INVENTORY_PATH]);
-  log(`routes-inventory.generated.json -> ${relative(REPO_ROOT, MCP_INVENTORY_PATH)}`);
-  return MCP_INVENTORY_PATH;
-}
-
-function emitDashboard(signature) {
-  ensureDir(dirname(DASHBOARD_PATH));
-  const tempOut = join(tmpdir(), `dashclaw-dashboard-${process.pid}.html`);
-  runPython(['emit', 'dashboard', '--with-context', '--output', tempOut]);
-  const raw = readFileSync(tempOut, 'utf8');
-  rmSync(tempOut, { force: true });
-  const normalised = raw.replace(DASHBOARD_SIG_LINE, `$1${signature} · signature-stable$3`);
-  if (normalised === raw) {
-    warn('dashboard emitter output did not match expected signature line — dashboard may be non-idempotent');
-  }
-  writeIfChanged(DASHBOARD_PATH, normalised, 'dashboard');
-  return DASHBOARD_PATH;
-}
-
-function writeLastSnapshot(shapeJsonPath) {
-  const out = join(GENERATED_DIR, 'last-snapshot.json');
-  copyFileSync(shapeJsonPath, out);
-  log(`last-snapshot.json -> ${relative(REPO_ROOT, out)}`);
-  return out;
-}
-
-function loadShapeSignature(shapeJsonPath) {
-  const parsed = JSON.parse(readFileSync(shapeJsonPath, 'utf8'));
-  if (typeof parsed.timestamp !== 'string' || parsed.timestamp.length === 0) {
-    throw new Error('shape.json is missing a timestamp/signature');
-  }
-  return parsed.timestamp;
-}
-
-/**
- * Emit the livingcode skill and splice in the content-hash signature so the
- * output is byte-identical across runs with unchanged source.
- */
-function emitSkill(signature) {
-  const tempOut = join(tmpdir(), `dashclaw-skill-${process.pid}.md`);
-  runPython(['emit', 'skill', '--output', tempOut]);
-  const raw = readFileSync(tempOut, 'utf8');
-  rmSync(tempOut, { force: true });
-
-  const normalised = raw.replace(SKILL_TIMESTAMP_LINE, `$1${signature}$2`);
-  if (normalised === raw) {
-    warn('skill emitter output did not match expected timestamp line — SKILL.md may be non-idempotent');
-  }
-  return normalised;
 }
 
 function writeIfChanged(path, content, label) {
@@ -253,10 +122,9 @@ function writeIfChanged(path, content, label) {
 }
 
 /**
- * Mirror a source subdirectory into the global skill dir, using writeIfChanged
+ * Mirror a source subdirectory into a destination dir, using writeIfChanged
  * per file so the output is idempotent. Removes stale files in the destination
- * that no longer exist in the source. Skips quietly if the global dir is not
- * writable (CI / non-dev machines).
+ * that no longer exist in the source.
  */
 function mirrorSubdir(srcRoot, dstRoot, subdir, label, excludeRe = null) {
   const src = join(srcRoot, subdir);
@@ -266,7 +134,7 @@ function mirrorSubdir(srcRoot, dstRoot, subdir, label, excludeRe = null) {
   try {
     ensureDir(dst);
   } catch (err) {
-    warn(`could not create ${label} dir (${err.message}) — fine on CI/non-dev machines`);
+    warn(`could not create ${label} dir (${err.message})`);
     return;
   }
 
@@ -293,7 +161,7 @@ function mirrorSubdir(srcRoot, dstRoot, subdir, label, excludeRe = null) {
   try {
     walk();
   } catch (err) {
-    warn(`could not mirror ${label} (${err.message}) — fine on CI/non-dev machines`);
+    warn(`could not mirror ${label} (${err.message})`);
     return;
   }
 
@@ -470,15 +338,11 @@ function refreshBundleZip(srcDir, zipPath, manifestPath, excludeRe = null) {
 
   writeFileSync(
     manifestPath,
-    JSON.stringify({ hash, generatedBy: 'livingcode-refresh' }, null, 2) + '\n',
+    JSON.stringify({ hash, generatedBy: 'refresh-bundles' }, null, 2) + '\n',
     'utf8',
   );
   log(`zip -> ${relative(REPO_ROOT, zipPath)} (manifest updated)`);
 }
-
-// Back-compat alias — older code paths still call refreshSkillZip.
-const refreshSkillZip = (skillDir, zipPath, manifestPath) =>
-  refreshBundleZip(skillDir, zipPath, manifestPath);
 
 function stagedFiles() {
   const result = spawnSync('git', ['diff', '--cached', '--name-only', '--diff-filter=ACMR'], {
@@ -496,59 +360,16 @@ function hasRelevantStagedFiles() {
 async function main() {
   const ifStaged = process.argv.includes('--if-staged');
   if (ifStaged && !hasRelevantStagedFiles()) {
-    log('no staged changes affect shape — skipping refresh');
+    log('no staged changes affect bundles — skipping refresh');
     return;
   }
 
-  log(`refreshing derivative artifacts from livingcode (cwd=${REPO_ROOT})`);
+  log(`refreshing download bundles (cwd=${REPO_ROOT})`);
 
-  const shapeJsonPath = emitShapeJson();
-  writeLastSnapshot(shapeJsonPath);
-  emitDoctorChecks();
-  emitMcpInventory();
-  const signature = loadShapeSignature(shapeJsonPath);
-
-  emitDashboard(signature);
-
-  const skillContent = emitSkill(signature);
-  writeIfChanged(join(WEBSITE_SKILL_DIR, 'SKILL.md'), skillContent, 'skill (website)');
-
-  try {
-    writeIfChanged(join(GLOBAL_SKILL_DIR, 'SKILL.md'), skillContent, 'skill (global)');
-  } catch (err) {
-    warn(`could not write global skill (${err.message}) — fine on CI/non-dev machines`);
-  }
-
-  // Mirror hand-authored companion files (references/, scripts/) from the website
-  // source of truth to the global skill dir. Keeps the global copy in sync
-  // whenever references prose or diagnostic scripts change.
-  mirrorSubdir(WEBSITE_SKILL_DIR, GLOBAL_SKILL_DIR, 'references', 'skill-references (global)');
-  mirrorSubdir(WEBSITE_SKILL_DIR, GLOBAL_SKILL_DIR, 'scripts', 'skill-scripts (global)');
-
-  // Mirror the same content to the project-local .claude/skills/ dir so the
-  // in-repo Claude Code skill stays fresh alongside the global one. This is
-  // gitignored — it's purely for local developer experience.
-  try {
-    writeIfChanged(join(PROJECT_SKILL_DIR, 'SKILL.md'), skillContent, 'skill (project)');
-  } catch (err) {
-    warn(`could not write project skill (${err.message}) — fine on CI`);
-  }
-  mirrorSubdir(WEBSITE_SKILL_DIR, PROJECT_SKILL_DIR, 'references', 'skill-references (project)');
-  mirrorSubdir(WEBSITE_SKILL_DIR, PROJECT_SKILL_DIR, 'scripts', 'skill-scripts (project)');
-
-  // Mirror to plugins/dashclaw/skills/dashclaw-platform-intelligence/ so the
-  // committed plugin distribution stays in lockstep with the website source
-  // of truth. Failures here ARE surfaced (unlike the global/project mirrors)
-  // because the plugin copy is committed — a drift here would land in users'
+  // Mirror dashclaw-governance to plugins/ so the plugin distribution always
+  // carries the latest governance protocol text. Failures ARE surfaced
+  // because the plugin copy is committed — drift here would land in users'
   // installs.
-  writeIfChanged(join(PLUGIN_SKILL_DIR, 'SKILL.md'), skillContent, 'skill (plugin)');
-  mirrorSubdir(WEBSITE_SKILL_DIR, PLUGIN_SKILL_DIR, 'references', 'skill-references (plugin)');
-  mirrorSubdir(WEBSITE_SKILL_DIR, PLUGIN_SKILL_DIR, 'scripts', 'skill-scripts (plugin)');
-
-  // Mirror dashclaw-governance to plugins/ (hand-authored — not livingcode-
-  // generated — but we keep the plugin copy in sync with the website canonical
-  // copy so the plugin distribution always carries the latest governance
-  // protocol text).
   if (existsSync(GOVERNANCE_SKILL_DIR)) {
     const govSkillContent = readFileSync(join(GOVERNANCE_SKILL_DIR, 'SKILL.md'), 'utf8');
     writeIfChanged(
@@ -568,8 +389,7 @@ async function main() {
   // committed plugin distribution ships firing governance hooks. The four
   // top-level .py scripts and the dashclaw_agent_intel/ module are copied
   // from hooks/ (the source of truth); the authored hooks.json is left
-  // untouched. Failures ARE surfaced because the plugin copy is committed —
-  // drift here would land in users' installs.
+  // untouched.
   if (existsSync(HOOKS_BUNDLE_DIR)) {
     ensureDir(PLUGIN_HOOKS_DIR);
     for (const script of PLUGIN_HOOK_SCRIPTS) {
@@ -581,18 +401,15 @@ async function main() {
     mirrorSubdir(HOOKS_BUNDLE_DIR, PLUGIN_HOOKS_DIR, 'dashclaw_agent_intel', 'hook-agent-intel (plugin)', BUNDLE_EXCLUDE_RE);
   }
 
-  refreshBundleZip(WEBSITE_SKILL_DIR, WEBSITE_SKILL_ZIP, WEBSITE_SKILL_MANIFEST);
-
   // Zip the hand-authored governance skill so the /docs and /downloads
-  // download links resolve. Same hash-vs-manifest idempotence as the
-  // platform-intelligence zip — only rebuilds when the directory contents
-  // actually changed.
+  // download links resolve. Hash-vs-manifest idempotent — only rebuilds when
+  // the directory contents actually changed.
   if (existsSync(GOVERNANCE_SKILL_DIR)) {
     refreshBundleZip(GOVERNANCE_SKILL_DIR, GOVERNANCE_SKILL_ZIP, GOVERNANCE_SKILL_MANIFEST);
   }
 
   // Plugin bundle — the entire plugins/dashclaw/ tree as a single uploadable
-  // artifact for ClawHub / direct distribution. Includes both mirrored skills,
+  // artifact for ClawHub / direct distribution. Includes the mirrored skill,
   // so this MUST run after the skill mirroring above to capture the latest
   // SKILL.md content. No excludes; everything under plugins/dashclaw/ is
   // intended to ship.
@@ -609,6 +426,6 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error(`[livingcode] refresh failed: ${err.message}`);
+  console.error(`[bundles] refresh failed: ${err.message}`);
   process.exit(1);
 });

@@ -9,12 +9,12 @@
  *   #2  asserts the merge commit contains ZERO conflict markers in any generated
  *       path (the merge=regenerate driver kept one side, exit 0) — isolated from
  *       the hook by grepping the COMMIT, not the post-hook working tree.
- *   #3  asserts the post-merge hook ran LivingCode (the divergent sentinel is
- *       gone) and that the regenerated working tree equals a fresh regenerate
- *       (idempotent self-heal).
+ *   #3  asserts the post-merge hook ran the regenerators (the divergent
+ *       sentinel is gone) and that the regenerated working tree equals a fresh
+ *       regenerate (idempotent self-heal).
  *
  * Requires: a clean working tree, the installer already run (driver + hooks),
- * Node + Python(livingcode) + PowerShell (for the regenerate the hook triggers).
+ * Node + PowerShell (for the regenerate the hook triggers).
  * Always restores the original branch and deletes the scratch branches.
  */
 import { execFileSync } from 'node:child_process';
@@ -24,7 +24,7 @@ import { dirname, resolve, join } from 'node:path';
 import { GENERATED_PATTERNS } from './manifest';
 
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const GEN_FILE = 'mcp-server/lib/routes-inventory.generated.json';
+const GEN_FILE = 'docs/api-inventory.json';
 const SENTINEL = '_lm_selftest_divergent_marker';
 const PFX = 'lm-selftest';
 
@@ -91,7 +91,7 @@ function main(): void {
     check('#2 zero conflict markers in generated paths of the merge commit', markers === 0, `(found ${markers})`);
     check('#2 a true merge commit was produced (2 parents)', git(['rev-list', '--parents', '-n', '1', mergeCommit]).trim().split(/\s+/).length === 3);
 
-    // ── CHECK #3a: the post-merge hook ran LivingCode -> sentinel regenerated away
+    // ── CHECK #3a: the post-merge hook ran the regenerators -> sentinel regenerated away
     const afterHook = readFileSync(join(REPO_ROOT, GEN_FILE), 'utf8');
     check('#3 post-merge hook regenerated the file (divergent sentinel gone)', !afterHook.includes(SENTINEL));
 

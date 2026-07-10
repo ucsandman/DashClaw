@@ -106,8 +106,6 @@ const COUNT_CHECKS = [
   { file: 'PROJECT_DETAILS.md', label: 'route inventory',
     re: /\*\*(\d+) routes\*\*: \*\*(\d+) stable\*\*, \*\*(\d+) beta\*\*, \*\*(\d+) experimental\*\*/,
     expected: [S.routes.total, S.routes.stable, S.routes.beta, S.routes.experimental] },
-  { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', label: 'active route count',
-    re: /\*\*(\d+) active routes\*\*/, expected: [S.routes.total] },
   // MCP tool count across the peripheral docs that silently drifted to 26/28 while
   // live was 29 (only the root README was gated before). Each checks the FIRST
   // occurrence as a tripwire — a stale tool count now fails the build, not a review.
@@ -131,9 +129,8 @@ const COUNT_CHECKS = [
   { file: 'docs/CLAUDE-DESKTOP-PLUGIN.md', label: 'MCP tool count', re: /\*\*(\d+) governance tools\*\*/, expected: [S.mcpTools] },
   { file: 'examples/managed-agent-mcp/main.py', label: 'MCP tool count', re: /gets (\d+) governance tools/, expected: [S.mcpTools] },
   { file: 'examples/managed-agent-mcp/README.md', label: 'MCP tool count (intro)', re: /(\d+) governance tools and \d+ resources/, expected: [S.mcpTools] },
-  // Second drift ring (same audit): marketing/landing prose, the docs-page SDK
-  // claim, and the platform-intelligence reference SOURCES (public/downloads is
-  // the hand-authored source; plugins/.agents copies are kept lockstep).
+  // Second drift ring (same audit): marketing/landing prose and the docs-page
+  // SDK claim.
   // landingData's dead feature arrays (incl. the "governance tools and N resources"
   // prose) were removed in v2.6d — only the rendered code-sample count remains here.
   { file: 'app/landingData.js', label: 'MCP tool count (code sample)', re: /(\d+) governance tools \+ \d+ resources/, expected: [S.mcpTools] },
@@ -144,10 +141,6 @@ const COUNT_CHECKS = [
   S.sdk && { file: 'PROJECT_DETAILS.md', label: 'SDK method counts', re: /exposes \*\*(\d+) public methods\*\* in `sdk\/dashclaw\.js` and the Python SDK \*\*(\d+)\*\*/, expected: [S.sdk.node, S.sdk.python] },
   S.sdk && { file: 'docs/sdk-reference.md', label: 'Node SDK methods (catalogue)', re: /Full v2 method catalogue \((\d+) methods\)/, expected: [S.sdk.node] },
   S.sdk && { file: 'docs/architecture/runtime-api.md', label: 'Node SDK methods (runtime-api)', re: /exposes (\d+) public methods across the core runtime/, expected: [S.sdk.node] },
-  { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups\.\*\*/, expected: [S.mcpTools] },
-  { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'MCP tool count', re: /\*\*(\d+) tools across \d+ groups:\*\*/, expected: [S.mcpTools] },
-  S.sdk && { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'Node SDK methods', re: /`sdk\/dashclaw\.js`, (\d+) methods/, expected: [S.sdk.node] },
-  S.sdk && { file: 'public/downloads/dashclaw-platform-intelligence/references/platform-knowledge.md', label: 'Python SDK methods', re: /`sdk-python\/dashclaw\/client\.py`, (\d+) methods/, expected: [S.sdk.python] },
 ].filter(Boolean);
 
 // Freshness stamps: the date should be >= the file's last commit date. We never
@@ -156,15 +149,13 @@ const DATE_CHECKS = [
   { file: 'PROJECT_DETAILS.md', re: /last-verified:\s*(\d{4}-\d{2}-\d{2})/ },
   { file: 'docs/sdk-reference.md', re: /last-verified:\s*(\d{4}-\d{2}-\d{2})/ },
   { file: 'docs/sdk-parity.md', re: /last-verified:\s*(\d{4}-\d{2}-\d{2})/ },
-  { file: 'public/downloads/dashclaw-platform-intelligence/references/api-surface.md', re: /\(verified (\d{4}-\d{2}-\d{2})/ },
 ];
 
 // Honesty: surfaces a thorough sweep covers that this script does NOT yet gate.
 const UNCOVERED = [
   'README.md / sdk READMEs / reference docs "N groups" (MCP groups have no machine-readable source in tools.js — verify by hand)',
   'README.md "N new sections" (governance-skill section count)',
-  'platform-knowledge.md / sdk-parity.md route + signal-type counts',
-  'plugins/ + .agents/ copies of the platform-intelligence references (source gated above; copies kept lockstep by livingcode refresh / manual parity)',
+  'sdk-parity.md route + signal-type counts',
 ];
 
 function lastCommitDate(file) {

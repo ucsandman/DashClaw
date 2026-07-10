@@ -20,17 +20,17 @@ describe('computeAuthoredOverlap', () => {
   });
 
   it('reports NOTHING when the only shared file is GENERATED', () => {
-    const shared = 'app/lib/doctor/generated/shape.json';
+    const shared = 'public/downloads/dashclaw-governance.zip';
     const others = [wt('/wt/b', 'feat-b', [shared, 'docs/api-inventory.json'])];
     const hits = computeAuthoredOverlap([shared, 'docs/api-inventory.md'], others, '/wt/a');
     expect(hits).toHaveLength(0);
   });
 
   it('filters generated files but still flags a co-edited authored file', () => {
-    const others = [wt('/wt/b', 'feat-b', ['public/livingcode/index.html', 'middleware.js'])];
-    const hits = computeAuthoredOverlap(['public/livingcode/index.html', 'middleware.js'], others, '/wt/a');
+    const others = [wt('/wt/b', 'feat-b', ['docs/api-inventory.json', 'middleware.js'])];
+    const hits = computeAuthoredOverlap(['docs/api-inventory.json', 'middleware.js'], others, '/wt/a');
     expect(hits).toHaveLength(1);
-    expect(hits[0]!.sharedAuthoredFiles).toEqual(['middleware.js']); // index.html filtered out
+    expect(hits[0]!.sharedAuthoredFiles).toEqual(['middleware.js']); // api-inventory.json filtered out
   });
 
   it("excludes the session's own worktree", () => {

@@ -14,7 +14,9 @@ const SOURCE_FILES = [
 ];
 
 export function findRouteDrift(root = defaultRoot) {
-  const inventoryPath = path.join(root, "lib/routes-inventory.generated.json");
+  // Ground truth is the repo-root API inventory (regenerated pre-commit by
+  // scripts/generate-api-inventory.mjs).
+  const inventoryPath = path.join(root, "..", "docs", "api-inventory.json");
   const inventory = JSON.parse(readFileSync(inventoryPath, "utf8"));
 
   const activeRoutes = new Set();
@@ -38,7 +40,7 @@ export function findRouteDrift(root = defaultRoot) {
 export function main() {
   const { references, missing } = findRouteDrift();
   if (missing.length > 0) {
-    console.error("[dashclaw-mcp] Route drift detected. Referenced MCP routes missing from lib/routes-inventory.generated.json:");
+    console.error("[dashclaw-mcp] Route drift detected. Referenced MCP routes missing from docs/api-inventory.json:");
     for (const ref of missing) {
       console.error(`- ${ref.file}: ${ref.route}`);
     }
@@ -88,5 +90,9 @@ function normalizeRoute(route) {
 }
 
 function normalizeInventoryRoute(route) {
-  return cleanRoute(route).replace(/\[[^\]/]+\]/g, "[param]");
+  // Inventory dynamic segments appear as `[actionId]` (Next.js style) or
+  // `{actionId}` (OpenAPI style, used by docs/api-inventory.json).
+  return cleanRoute(route)
+    .replace(/\[[^\]/]+\]/g, "[param]")
+    .replace(/\{[^}/]+\}/g, "[param]");
 }

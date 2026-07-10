@@ -48,19 +48,14 @@ with urllib.request.urlopen(req) as response:
 
 The `/connect` page renders this same snippet with your instance URL pre-filled — see [`app/lib/readiness/sdkCheck.mjs`](../app/lib/readiness/sdkCheck.mjs) (`getSdkCommands`).
 
-### Node: live proof validator bundle
-
-The Node path uses the bundled validator from [`public/downloads/dashclaw-platform-intelligence.zip`](../public/downloads/dashclaw-platform-intelligence.zip):
+### Node: live proof via the SDK
 
 ```bash
-node ./dashclaw-platform-intelligence/scripts/validate-integration.mjs \
-  --base-url https://your-dashclaw-instance.example.com \
-  --api-key <api-key> \
-  --full \
-  --capture-setup-proof
+npm install dashclaw
+node -e "const { DashClaw } = require('dashclaw'); new DashClaw({ baseUrl: '<base-url>', apiKey: '<api-key>' }).ping().then((r) => console.log(r));"
 ```
 
-Extract the zip next to your working directory before running.
+Capture the live proof via the `/setup` "Run test" button, or the Python live-proof snippet above.
 
 ---
 

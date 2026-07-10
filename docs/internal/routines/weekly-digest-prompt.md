@@ -1,7 +1,7 @@
 # Weekly digest routine prompt
 
 **Version:** 2026-05-12
-**Status:** Active (paste into Anthropic Routines panel)
+**Status:** INACTIVE (2026-07-10) — blocked on the `livingcode/` retirement. The `python -m livingcode sense` step this routine depends on for its state report no longer exists in the repo. Kept below for reference; needs a replacement sensing source before it can be re-activated in the Anthropic Routines panel.
 
 This is the prompt for the weekly DashClaw health digest routine. The routine runs once per week (Mondays) in a cloud session, clones the repo, generates a fresh `python -m livingcode sense` report, diffs it against the prior week's snapshot held at `.organism/digests/last-week-state.json`, writes a markdown digest to `.organism/digests/<YYYY-MM-DD>.md`, opens a PR on a `claude/weekly-digest-<YYYY-MM-DD>` branch, and posts a notification to a Discord webhook. The routine is self-contained: no local cron, no machine-specific state.
 

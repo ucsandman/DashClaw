@@ -3,17 +3,9 @@ import { isGenerated, isAuthored, GENERATED_PATTERNS } from '../../scripts/livin
 
 describe('living-merge manifest — generated projections', () => {
   const generated = [
-    'app/lib/doctor/generated/shape.json',
-    'app/lib/doctor/generated/checks-from-shape.mjs',
-    'mcp-server/lib/routes-inventory.generated.json',
-    'public/livingcode/index.html',
-    'public/downloads/dashclaw-platform-intelligence/SKILL.md',
-    'public/downloads/dashclaw-platform-intelligence.zip',
-    'public/downloads/dashclaw-platform-intelligence.zip.manifest',
     'public/downloads/dashclaw-governance.zip',
     'public/downloads/dashclaw-governance-plugin.zip',
     'public/downloads/dashclaw-claude-code-hooks.zip',
-    'plugins/dashclaw/skills/dashclaw-platform-intelligence/SKILL.md',
     'plugins/dashclaw/skills/dashclaw-governance/SKILL.md',
     'plugins/dashclaw/hooks/dashclaw_pretool.py',
     'plugins/dashclaw/hooks/dashclaw_agent_intel/session_tracker.py',
@@ -26,7 +18,7 @@ describe('living-merge manifest — generated projections', () => {
     expect(isAuthored(p)).toBe(false);
   });
   it('normalizes Windows backslashes', () => {
-    expect(isGenerated('app\\lib\\doctor\\generated\\shape.json')).toBe(true);
+    expect(isGenerated('docs\\api-inventory.json')).toBe(true);
   });
 });
 
@@ -44,9 +36,6 @@ describe('living-merge manifest — AUTHORED files MUST stay protected', () => {
     'plugins/dashclaw/.claude-plugin/plugin.json',
     'plugins/dashclaw/hooks/hooks.json',
     'hooks/dashclaw_pretool.py', // canonical source, NOT the plugin mirror
-    'app/lib/doctor/generated/README.md', // hand-authored README living INSIDE the generated/ dir
-    'public/downloads/dashclaw-platform-intelligence/references/api-surface.md',
-    'public/downloads/dashclaw-platform-intelligence/scripts/query.mjs',
     'public/downloads/dashclaw-governance/SKILL.md',
     'app/api/guard/route.ts',
     'middleware.js',
@@ -63,13 +52,9 @@ describe('living-merge manifest — boundary invariants', () => {
     expect(isGenerated('plugins/dashclaw/hooks/dashclaw_pretool.py')).toBe(true); // mirror = generated
     expect(isGenerated('hooks/dashclaw_pretool.py')).toBe(false); // source = authored
   });
-  it('generates the platform-intelligence SKILL.md but protects its references/', () => {
-    expect(isGenerated('public/downloads/dashclaw-platform-intelligence/SKILL.md')).toBe(true);
-    expect(isGenerated('public/downloads/dashclaw-platform-intelligence/references/x.md')).toBe(false);
-  });
-  it('protects the hand-authored README.md inside the generated/ dir', () => {
-    expect(isGenerated('app/lib/doctor/generated/README.md')).toBe(false);
-    expect(isGenerated('app/lib/doctor/generated/shape.json')).toBe(true);
+  it('generates the plugin governance-skill mirror but protects its canonical source', () => {
+    expect(isGenerated('plugins/dashclaw/skills/dashclaw-governance/SKILL.md')).toBe(true);
+    expect(isGenerated('public/downloads/dashclaw-governance/SKILL.md')).toBe(false);
   });
   it('has no empty patterns', () => {
     expect(GENERATED_PATTERNS.every((p) => p.length > 0)).toBe(true);

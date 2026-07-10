@@ -16,7 +16,7 @@ require Wes's accounts are listed as **accelerants — never gates**.
 | Official MCP Registry | `io.github.ucsandman/dashclaw` **active, latest 2.0.1** (published 2026-06-11 via `npm run release:mcp`) | https://registry.modelcontextprotocol.io/v0/servers?search=dashclaw |
 | PulseMCP | Listed (auto-ingested from the official registry) | https://www.pulsemcp.com/servers/dashclaw |
 | Claude Code plugin marketplace | The repo **is** a marketplace: `/plugin marketplace add ucsandman/DashClaw` → install `dashclaw` | `.claude-plugin/marketplace.json` |
-| ClawHub | Platform-intelligence skill published | https://clawhub.ai/@dashclaw |
+| ClawHub | Platform-intelligence skill published — **STALE: the skill was retired with the livingcode subsystem (v5.3.0, 2026-07-10); the listing should be unpublished or repointed at the governance skill (human act)** | https://clawhub.ai/@dashclaw |
 
 ## Submitted by the maintainer (roadmap v6.2, 2026-07-05)
 

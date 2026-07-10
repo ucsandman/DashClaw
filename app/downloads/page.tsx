@@ -138,10 +138,7 @@ export default function DownloadsPage() {
             <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">Downloads</h1>
           </div>
           <p className="text-text-secondary max-w-2xl leading-relaxed">
-            Every DashClaw governance artifact in one place. Skills and platform-intelligence bundles ship as zips you can drop into <code className="font-mono text-text-secondary text-sm">~/.claude/skills/</code>; plugins, hooks, and the MCP server install from a single command against the source repo.
-          </p>
-          <p className="mt-3 text-xs text-text-tertiary max-w-2xl">
-            All downloads are generated from this DashClaw instance. The two zips below are regenerated on every <code className="font-mono">npm run livingcode:refresh</code> so the SKILL.md content tracks the live runtime shape.
+            Every DashClaw governance artifact in one place. Skills ship as zips you can drop into <code className="font-mono text-text-secondary text-sm">~/.claude/skills/</code>; plugins, hooks, and the MCP server install from a single command against the source repo.
           </p>
         </div>
       </section>
@@ -167,20 +164,6 @@ export default function DownloadsPage() {
                 <div className="mt-4">
                   <CommandBlock label="Unzip to ~/.claude/skills/">
 {`unzip dashclaw-governance.zip -d ~/.claude/skills/`}
-                  </CommandBlock>
-                </div>
-              )}
-            />
-            <DownloadCard
-              name="dashclaw-platform-intelligence"
-              role="Live reference to DashClaw's API surface, governance vocabulary, integration patterns, and troubleshooting playbooks. Regenerated from the codebase on every livingcode refresh: no manual maintenance, no drift from the runtime."
-              sizeLabel="SKILL.md + references + scripts"
-              primaryHref="/downloads/dashclaw-platform-intelligence.zip"
-              primaryLabel="dashclaw-platform-intelligence.zip"
-              secondary={(
-                <div className="mt-4">
-                  <CommandBlock label="Unzip to ~/.claude/skills/">
-{`unzip dashclaw-platform-intelligence.zip -d ~/.claude/skills/`}
                   </CommandBlock>
                 </div>
               )}
@@ -226,7 +209,7 @@ export default function DownloadsPage() {
               ecosystem="Claude Code"
               manifest="plugins/dashclaw/.claude-plugin/plugin.json"
               agentId="claude-code"
-              description="MCP server + governance skill + platform-intelligence skill, plus a hooks installer for PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, and MultiEdit."
+              description="MCP server + governance skill, plus a hooks installer for PreToolUse / PostToolUse / Stop guards over Bash, Edit, Write, and MultiEdit."
               installCommand={`# No clone required:
 npm i -g @dashclaw/cli
 dashclaw install claude            # prompts for endpoint + API key

@@ -6,7 +6,7 @@ description: >-
   Lands feature branches on main (rebase, gate, merge, push so Vercel deploys),
   bumps the unified platform+SDK version, and realigns every *description* of the
   system with the live code: README, PROJECT_DETAILS, SDK READMEs, /docs,
-  generated artifacts (API inventory, OpenAPI, livingcode, the platform skill),
+  generated artifacts (API inventory, OpenAPI, download bundles),
   plugins/skills/hooks/MCP, marketing/landing pages, the drift-prone hardcoded
   counts (routes, SDK methods, MCP tools/resources, guard policies) and stale
   freshness date-stamps. The one step it can't finish itself is the
@@ -67,23 +67,22 @@ Before touching anything, pin down two things:
    - MCP resource count → `mcp-server/lib/resources.js`.
    - Pre-built guard policies (the "N safety switches") → count the entries in `app/policies/lib/shields.js` (this one drifts silently — verify, don't copy the prose).
    - Unified platform+SDK version → the manifests (`package.json`, `sdk/package.json`, `sdk-python/pyproject.toml` share one number); `npm run version:check` confirms no drift.
-   - Live API / table / MCP-tool shape → `python -m livingcode query ...` or `app/lib/doctor/generated/shape.json`.
    - **Today's date** (for the freshness stamps in Phase 3) → `Get-Date -Format yyyy-MM-dd` (PowerShell), or take it from the session's current-date context. You need a *real* current date so stamps advance to today, never to a guessed or remembered one.
 
 ## The workflow
 
 ### Phase 1 — Verify the generated pipeline (regenerate only if stale)
 
-Most derived artifacts self-heal: the pre-commit hook runs `npm run livingcode:refresh` whenever `app/api/`, `app/lib/`, `schema/schema.js`, `middleware.js`, or `livingcode/` change, and `openapi`/`api-inventory` regenerate alongside. So after a normal feature merge they're usually already current. Verify with the read-only checks; regenerate only what fails:
+Most derived artifacts self-heal: the pre-commit hook runs `npm run bundles:refresh` (step id `bundles-refresh`) whenever `hooks/`, `plugins/dashclaw/`, or `public/downloads/dashclaw-governance/` change, and `openapi`/`api-inventory` regenerate alongside. So after a normal feature merge they're usually already current. Verify with the read-only checks; regenerate only what fails:
 
 | Check (read-only) | If it fails, regenerate with |
 |---|---|
 | `npm run openapi:check` | `npm run openapi:generate` |
 | `npm run api:inventory:check` | `npm run api:inventory:generate` |
 | `npm run version:check` | fix the hardcoded version (don't regenerate) |
-| livingcode currency | `npm run livingcode:refresh`, then `git status` — staged generated diffs = it needed it; "unchanged" = already current |
+| bundle currency | `npm run bundles:refresh`, then `git status` — staged generated diffs = it needed it; "unchanged" = already current |
 
-**Generated set — never hand-edit** (regenerate instead): `app/lib/doctor/generated/*`, `public/livingcode/index.html`, the platform-intelligence `SKILL.md`, `mcp-server/lib/routes-inventory.generated.json`, the Python hook mirror under `plugins/dashclaw/hooks/`, and the `.zip`/`.manifest` bundles under `public/downloads/`.
+**Generated set — never hand-edit** (regenerate instead): the Python hook mirror under `plugins/dashclaw/hooks/`, the plugin skill mirror under `plugins/dashclaw/skills/dashclaw-governance/`, and the `.zip`/`.manifest` bundles under `public/downloads/`.
 
 ### Phase 2 — Audit hand-authored surfaces for gaps
 
@@ -174,7 +173,7 @@ optional extra. It drifts in a way the count checker can't see: a shipped featur
 
 The user's standing rule is *no old dates anywhere* — but that means the dates that are **supposed to track now**, not the ones that anchor history. Get this backwards and you corrupt the record.
 
-- **Advance to today** (only if you actually touched the doc this sweep): freshness stamps that assert "current as of." These are `last-verified:` front-matter (`PROJECT_DETAILS.md`, `docs/sdk-reference.md`, `docs/sdk-parity.md`), the `**N active routes** (verified <date>)` line in `references/api-surface.md`, and any "Last updated …" footer on a living doc (`.impeccable.md`, brand files). Pull the date from Phase 1 — a real current date, not a remembered one.
+- **Advance to today** (only if you actually touched the doc this sweep): freshness stamps that assert "current as of." These are `last-verified:` front-matter (`PROJECT_DETAILS.md`, `docs/sdk-reference.md`, `docs/sdk-parity.md`) and any "Last updated …" footer on a living doc (`.impeccable.md`, brand files). Pull the date from Phase 1 — a real current date, not a remembered one.
 - **Never touch — these are historical anchors:** `CHANGELOG.md` release dates (`## [x.y.z] — <date>`), "shipped/landed on <date>" notes, git-history references, dates inside `.supergoal/`, `.organism/`, `docs/archive/AUDIT_FINDINGS.md`, memory, and other scratch/working files. A past date here is *correct*; rewriting it is the bug.
 - **Code-level frozen clocks are a real bug, not a doc stamp:** a hardcoded `new Date('2026-..')` in app code (instead of `new Date()`) freezes countdowns/filters to that day. If your feature touched such a file, flag it — but it's a code fix, not part of the doc sweep.
 
@@ -189,14 +188,14 @@ When in doubt, ask: *does this date claim to describe the present, or to record 
 
 Edit the gaps from Phase 2. `references/surfaces.md` is the file-by-file checklist. Three things that bite if missed:
 
-- **Reference narratives are SOURCES, not generated.** `public/downloads/dashclaw-platform-intelligence/references/{api-surface,platform-knowledge,troubleshooting}.md` are hand-authored. Edit *these* — `livingcode:refresh` mirrors them into the plugin / `.claude` / `~/.claude` skill trees and rebuilds the zips. Editing the mirror copies is pointless (they get overwritten).
+- **Reference narratives are SOURCES, not generated.** `public/downloads/dashclaw-governance/references/governance-patterns.md` is hand-authored. Edit *this* — `bundles:refresh` mirrors it into the plugin / `.claude` / `~/.claude` skill trees and rebuilds the zips. Editing the mirror copies is pointless (they get overwritten).
 - **Marketing/landing copy obeys `.impeccable.md`** (read it first): direct, declarative voice; lucide-react icons; CSS tokens, never hardcoded hex; and the four anti-references. In particular, frame x402 / payments as **governed capability spend**, never crypto / web3 / wallet.
 - **Keep counts sourced.** Write the numbers you read in "First", not numbers you remember.
-- **Advance the stamp when you touch the doc.** If you edit a surface that carries a `last-verified:` / "verified `<date>`" / "Last updated" stamp (`PROJECT_DETAILS.md`, `docs/sdk-reference.md`, `docs/sdk-parity.md`, `references/api-surface.md`), bump that date to today's date from Phase 1 in the same edit — an unchanged stamp on a changed doc is itself a stale-date bug. Leave historical/CHANGELOG dates alone.
+- **Advance the stamp when you touch the doc.** If you edit a surface that carries a `last-verified:` / "verified `<date>`" / "Last updated" stamp (`PROJECT_DETAILS.md`, `docs/sdk-reference.md`, `docs/sdk-parity.md`), bump that date to today's date from Phase 1 in the same edit — an unchanged stamp on a changed doc is itself a stale-date bug. Leave historical/CHANGELOG dates alone.
 
 ### Phase 4 — Mirror + rebuild bundles
 
-After editing any reference source (or any generated-source path), run `npm run livingcode:refresh` to mirror the references into the plugin/project/global skill trees and rebuild the `.zip`/`.manifest` bundles. Then `git status` to see exactly what propagated.
+After editing any reference source (or any generated-source path), run `npm run bundles:refresh` to mirror the references into the plugin/project/global skill trees and rebuild the `.zip`/`.manifest` bundles. Then `git status` to see exactly what propagated.
 
 ### Phase 5 — Bump the unified version (check first, then do it)
 
@@ -266,7 +265,7 @@ A push is its own step — run and **read the output**, don't assert success:
 - `npx next build` — for any change under `app/**`
 - `npm run route-sql:check` — if any route changed
 
-Then commit + push to `main` with an **explicit pathspec — never `git add -A`**. Include the bumped manifests, `package-lock.json`, `contracts/sdk/release-plan.json`, and `CHANGELOG.md` in the same commit as the doc updates. Long-standing other-session files live uncommitted in the working tree (`.impeccable.md`, `DESIGN.md`, `PRODUCT.md`, stray `docs/` specs); sweeping them in is a hygiene violation. The pre-commit hook will re-run `livingcode:refresh` and stage generated artifacts — that's expected; let it ride.
+Then commit + push to `main` with an **explicit pathspec — never `git add -A`**. Include the bumped manifests, `package-lock.json`, `contracts/sdk/release-plan.json`, and `CHANGELOG.md` in the same commit as the doc updates. Long-standing other-session files live uncommitted in the working tree (`.impeccable.md`, `DESIGN.md`, `PRODUCT.md`, stray `docs/` specs); sweeping them in is a hygiene violation. The pre-commit hook will re-run `bundles:refresh` and stage generated artifacts — that's expected; let it ride.
 
 **Then land it on main — this is the point, not a follow-up.** If the commit went onto a feature branch, get it to `main` now: rebase the branch onto the latest `origin/main` (generated files won't conflict once living-merge is installed; resolve any *authored* conflict), re-run the gates if the rebase pulled in new commits, then fast-forward/merge the branch into `main` and `git push origin main`. A push to `main` is what fires the Vercel production build (`vercel.json` buildCommand), so **confirm the deploy goes green** rather than assuming — watch it, or ask the user to — and only then is it live. Never end with a "here's how to land it" checklist; stopping at the branch is the exact failure mode this skill exists to kill.
 
@@ -296,7 +295,7 @@ Drive Phases 2–3 with parallel subagents, the way the reference sweep did:
 
 | User says | Reality |
 |---|---|
-| plugins / skills / hooks / livingcode / MCP server | **Mostly generated** — verify current (Phase 1); the only hand-authored pieces are the `references/*.md` sources (Phase 3) and the curated MCP tool/resource list (rarely changes) |
+| plugins / skills / hooks / MCP server | **Mostly generated** — verify current (Phase 1); the only hand-authored pieces are the `references/*.md` sources (Phase 3) and the curated MCP tool/resource list (rarely changes) |
 | connectors | Plugin manifests / `.mcp.json` / `hooks.json` enumerate no per-feature routes — usually no change; verify |
 | docs | Hand-authored: `PROJECT_DETAILS.md`, `README.md`, `app/docs/page.js`, `docs/sdk-reference.md`, `docs/sdk-parity.md`, `sdk/README.md`, `sdk-python/README.md`. `README.md` is the densest — it hardcodes route, MCP-tool/group/resource, SDK-method, and guard-policy counts; sweep all of them |
 | "no old dates" / "nothing stale" / "make everything accurate" | The two classes CI doesn't catch (Phase 2): every hardcoded **count** (grep the old number repo-wide, reconcile every hit) and every **freshness date-stamp** (advance the living ones to today, never touch CHANGELOG / history dates) |

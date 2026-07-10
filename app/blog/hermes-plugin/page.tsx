@@ -192,12 +192,11 @@ export default function BlogPostPage() {
           <li>
             · The{' '}
             <code className="rounded border border-border bg-surface-secondary px-1.5 py-0.5 font-mono text-sm">
-              dashclaw-platform-intelligence
+              dashclaw-governance
             </code>{' '}
             skill is mirrored into the Hermes plugin from the same
-            livingcode-derived canonical source the Claude Code and
-            global skill installs use, never edited by hand, never
-            drifts.
+            canonical source the Claude Code and global skill installs
+            use, never edited by hand, never drifts.
           </li>
         </ul>
       </section>
