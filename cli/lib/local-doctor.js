@@ -366,12 +366,14 @@ async function checkHooksTrust(ctx) {
 }
 
 /**
- * Standing enforcement-mode surface: `dashclaw install claude` writes
- * DASHCLAW_HOOK_MODE=observe and announces it exactly once in the install
- * output. Nothing else ever mentioned it again, so a deployment can sit in
- * audit-only mode forever while the operator sees "Blocked by policy"-shaped
- * log lines and believes blocks are real (observe prints "[observe] Would
- * block" and lets the tool call proceed).
+ * Standing enforcement-mode surface: fresh `dashclaw install claude` runs
+ * default to DASHCLAW_HOOK_MODE=enforce (since 0.9.0; `--observe` opts out,
+ * re-installs preserve the chosen mode), but observe-mode deployments still
+ * exist — older installs and explicit opt-outs. A deployment can sit in
+ * audit-only mode indefinitely while the operator sees "Blocked by
+ * policy"-shaped log lines and believes blocks are real (observe prints
+ * "[observe] Would block" and lets the tool call proceed), so this check
+ * keeps the mode visible.
  */
 async function checkHookMode(ctx) {
   const envPath = join(ctx.homedir, '.dashclaw', 'claude-hooks', '.env');

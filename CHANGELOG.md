@@ -50,13 +50,28 @@ first-run promise actually true.
 - up-smoke runs on every push to main and every `v*` tag, extends its health
   budget to 20 minutes, and captures the backgrounded `up` output as a
   redacted failure artifact (previously: zero diagnostics, 5/5 failures blind).
+- The launch film plays on the landing page, with the full marketing asset
+  suite (demo, social clips, OG refresh, README hero) from the same run.
 
 ### Fixed
 
-- **The silent cross-platform `dashclaw up` hang, root-caused.** The vendored
+- **Guard: restrictive policies match the declared action type through the
+  evidence-mismatch swap.** Declaring one action type while attaching act
+  evidence that derived another could silently dodge a `require_approval` /
+  `block` / `non_fabrication` rule — attaching *more* evidence weakened
+  governance. Restrictive rules now also match the caller's declared type;
+  permissive surfaces (allow grants, approval reuse) deliberately stay on the
+  effective type so a declaration can't widen a grant. Found live.
+- **One cause of the silent cross-platform `dashclaw up` hang.** The vendored
   embedded-postgres `start()` drains stderr but never stdout; once Postgres
   wrote ~64KB the kernel blocked the server mid-write and every setup
   migration hung forever. One-line stdout drain on the POSIX path (CLI 0.9.0).
+  **Honest status:** the up-smoke workflow on this release still fails on the
+  Windows and macOS CI runners at the same "wait for health" step (Linux
+  passes) — `up` output now shows setup starting but its child output is
+  buffered by `spawnSync` until completion, so the remaining cause is still
+  under investigation via the fresh-Windows drill. Tracked in the maintainer
+  log (2026-07-10).
 - **Main was red for 4 pushes** — two independent v5.1.0 release misses:
   `contracts/sdk/release-plan.json` still said 5.0.2, and the platform guide
   never learned the six Team Tasks routes. Both fixed; this release also

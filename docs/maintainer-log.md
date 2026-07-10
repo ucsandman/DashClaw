@@ -45,7 +45,15 @@ The up-smoke blindness turned into a real root cause once diagnostics existed:
 the vendored embedded-postgres `start()` never drains stdout, so Postgres
 blocks mid-write at ~64KB and every migration hangs forever — macOS silent for
 20 minutes, Linux passing only when boot output stayed under the buffer. One
-line fixes it. The rest of the review's list: one authoritative `release:check`
+line fixes that cause — but honesty requires saying it was not the only one:
+the post-fix up-smoke runs on this very release still fail on the Windows and
+macOS CI runners at the same step (Linux is now reliably green). The next
+layer of blindness is `spawnSync` buffering the setup child's output until it
+exits, so the log shows "Running setup" and then nothing; the fresh-Windows
+drill is the live instrument on that remaining cause, and up-smoke stays red
+on two platforms until it lands. Ship audit (a Fable subagent) caught the
+first draft of these notes implying the hang was fully solved — this
+paragraph is the correction. The rest of the review's list: one authoritative `release:check`
 (19 gates, machine-readable report), hosted-readiness hard-fails on the env
 the runtime actually requires, curl timeouts + skip annotations on the five
 cron workflows (the July 9 hangs), a 30s default timeout in the Node SDK,

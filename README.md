@@ -195,12 +195,12 @@ End-to-end examples per runtime: [`examples/`](examples/).
 
 ```bash
 npm i -g @dashclaw/cli
-dashclaw install claude                          # wires ~/.claude/settings.json, defaults to observe mode
+dashclaw install claude                          # wires ~/.claude/settings.json, fresh installs default to enforce
 dashclaw install codex --project /path/to/repo   # wires manifest, hooks, AGENTS.md protocol
 bash scripts/install-hermes-plugin.sh            # macOS / Linux (.ps1 on Windows)
 ```
 
-Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` call with a fail-closed PreToolUse check. Start in observe mode (logged, nothing blocked), flip with `DASHCLAW_HOOK_MODE=enforce`. Verify the wiring fires:
+Claude Code hooks govern Bash, Edit, Write, MultiEdit, sub-agent spawns, and every `mcp__*` call with a fail-closed PreToolUse check. Fresh installs start in enforce mode (the seeded catastrophe pack holds the irreversible class); pass `--observe` or set `DASHCLAW_HOOK_MODE=observe` to log without blocking, and re-installs keep whichever mode you chose. Verify the wiring fires:
 
 ```bash
 echo '{"tool_name":"Bash","tool_input":{"command":"echo hello"},"tool_use_id":"t1","session_id":"smoke"}' | python .claude/hooks/dashclaw_pretool.py
