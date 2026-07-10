@@ -98,6 +98,8 @@ const TABLES = [
   "shared_docs",
   "skill_scan_results",
   "snippets",
+  "team_task_events",
+  "team_tasks",
   "tightening_proposal_decisions",
   "token_budgets",
   "token_snapshots",

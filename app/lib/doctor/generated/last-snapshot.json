@@ -1,5 +1,5 @@
 {
-  "timestamp": "sha1:390872671fcbc37f2f3156968e7bde78f802b1e2",
+  "timestamp": "sha1:73bc35d260c4340cf5046dcc1914fd0a23646907",
   "routes": [
     {
       "path": "/api/actions",
@@ -1654,15 +1654,6 @@
       "in_env_example": false
     },
     {
-      "name": "DASHCLAW_LOG_STARTUP",
-      "required": false,
-      "files": [
-        "mcp-server/lib/logger.js",
-        "mcp-server/src/logger.ts"
-      ],
-      "in_env_example": false
-    },
-    {
       "name": "DASHCLAW_MEMORY_MAX_ENTRIES",
       "required": false,
       "files": [
@@ -3179,6 +3170,16 @@
       "name": "snippets",
       "file_path": "schema/schema.js",
       "domain": null
+    },
+    {
+      "name": "team_task_events",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
+    },
+    {
+      "name": "team_tasks",
+      "file_path": "schema/schema.js",
+      "domain": "governance"
     },
     {
       "name": "tightening_proposal_decisions",

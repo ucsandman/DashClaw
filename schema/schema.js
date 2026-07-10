@@ -1347,6 +1347,41 @@ export const sessionEvents = pgTable('session_events', {
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+// --- Team Tasks (THESIS.md "Owner amendment — 2026-07-09: fleets and teams") ---
+// Multi-agent task timeline: one row per /team task, events appended by both
+// agents via the clawd team-ledger. Fresh tables — deliberately NOT a revival
+// of the culled work_orders/routing_tasks/message_threads.
+// @domain governance
+export const teamTasks = pgTable('team_tasks', {
+  id: text('id').primaryKey(), // team-YYYYMMDD-HHMM-<slug>, minted by the client ledger
+  org_id: text('org_id').notNull(),
+  instruction: text('instruction').notNull(),
+  origin: text('origin').notNull(),
+  lead_agent: text('lead_agent').notNull(),
+  status: text('status').notNull().default('open'),
+  stop_condition: text('stop_condition'),
+  max_exchanges: integer('max_exchanges').notNull().default(10),
+  claude_session_id: text('claude_session_id'),
+  openclaw_session_key: text('openclaw_session_key'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  updated_at: timestamp('updated_at', { withTimezone: true }).defaultNow(),
+});
+
+// @domain governance
+export const teamTaskEvents = pgTable('team_task_events', {
+  id: serial('id').primaryKey(),
+  org_id: text('org_id').notNull(),
+  task_id: text('task_id').notNull(),
+  ts: timestamp('ts', { withTimezone: true }).defaultNow(),
+  from_agent: text('from_agent').notNull(),
+  to_agent: text('to_agent').notNull(),
+  type: text('type').notNull(),
+  summary: text('summary').notNull(),
+  body: text('body'),
+  action_id: text('action_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
 // --- Code Sessions (AgentLens absorption — Phase 2) ---
 // Distinct from agent_sessions (live agent state) and session_events
 // (event log on agent_sessions). These tables hold ingested Claude Code
