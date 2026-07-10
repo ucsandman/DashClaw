@@ -542,7 +542,7 @@ export default async function SetupPage() {
                   <p className="mt-1 text-sm text-secondary">
                     A synthetic held action is driven through the real pretool hook seam, and this
                     checks that it did not execute. A healthy decision ledger can still hide a dead
-                    hook (v4.72.1); this is the probe that catches that. // version-hardcode-allowed
+                    hook (v4.72.1); this is the probe that catches that.{/* version-hardcode-allowed */}
                   </p>
                 </div>
                 <span className={`text-xs font-semibold uppercase tracking-wide ${checkTone(livenessStatus)}`}>
@@ -573,7 +573,7 @@ export default async function SetupPage() {
                   <>
                     {livenessState === 'stale' ? (
                       <p className="mb-3 rounded-xl border border-status-warning/40 bg-warning-subtle p-3 text-sm text-warning">
-                        No probe run in the last 24h: a silent probe is the v4.72.1 failure shape. // version-hardcode-allowed
+                        No probe run in the last 24h: a silent probe is the v4.72.1 failure shape.{/* version-hardcode-allowed */}
                         Run: <code>npm run liveness:probe</code>
                       </p>
                     ) : livenessState === 'broken' ? (
