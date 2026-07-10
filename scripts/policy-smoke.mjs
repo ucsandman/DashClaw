@@ -35,7 +35,12 @@ try {
   const envFile = readFileSync(resolve(process.cwd(), '.env.local'), 'utf8');
   for (const line of envFile.split(/\r?\n/)) {
     const m = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (m) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+    // Scoped to DASHCLAW_ (matching the delete loop above) — .env.local must
+    // NOT clobber other vars like DATABASE_URL. Otherwise a repo-root
+    // .env.local's dev DB silently overrides whatever DATABASE_URL the
+    // caller (CI, or a scratch-DB run) already put in process.env, breaking
+    // the M2/M3 seeded-backdate checks below.
+    if (m && m[1].startsWith('DASHCLAW_')) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
   }
   envFileKey = process.env.DASHCLAW_API_KEY;
 } catch {
@@ -101,6 +106,47 @@ async function main() {
     });
     if (status === 401) { console.error('FATAL: 401 — operator key rejected. Is DASHCLAW_API_KEY in the server env too?'); process.exit(1); }
     if (status >= 500) { console.error(`FATAL: server error ${status}`); process.exit(1); }
+  }
+
+  // RS1: held -> approved -> resumed (the catastrophe pack's flagship loop).
+  // Pins the SERVER side of the resume contract the pretool poll consumes: a
+  // protected_path Write to `.env` is held for approval; approving it flips the
+  // action out of pending_approval (approved_by set / status running) so the
+  // paused tool call is released. Runs FIRST, before any other section creates
+  // a smoke policy — a later-created block/require_approval smoke policy can
+  // still be active here (agent-scoped policies are isolated by agent_ids, but
+  // this keeps the check honest against the pristine pack-only state rather
+  // than depending on every other section's cleanup) — so this proves the
+  // pack's own policy fires, not a leftover smoke policy racing it.
+  {
+    const agent = agentFor('rs1');
+    const pid = await createPolicy('hold-secret-writes', 'protected_path',
+      { action: 'require_approval', paths: ['**/.env', '**/*.key', '**/secrets/**'] }, [agent]);
+
+    const guarded = await api('POST', '/api/guard?record=true', {
+      action_type: 'security', declared_goal: `Write: .env ${RUN}`,
+      target: '.env', agent_id: agent,
+    });
+    const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
+    check('RS1', 'secret-file Write is held for approval with an action_id',
+      guarded.json?.decision === 'require_approval' &&
+      (guarded.json?.matched_policies || []).includes(pid) && Boolean(actionId),
+      `decision=${guarded.json?.decision} matched=${JSON.stringify(guarded.json?.matched_policies)} action_id=${actionId}`);
+
+    if (actionId) {
+      const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow' });
+      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)',
+        approved.status >= 200 && approved.status < 300, `status=${approved.status}`);
+
+      const after = await api('GET', `/api/actions/${actionId}`);
+      const st = after.json?.action?.status;
+      check('RS1', 'action left pending_approval (approved_by set / status running) so the paused tool call resumes',
+        st !== 'pending_approval' && (Boolean(after.json?.action?.approved_by) || st === 'running' || st === 'approved'),
+        `status=${st} approved_by=${after.json?.action?.approved_by}`);
+    } else {
+      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)', false, 'no action_id to approve');
+      check('RS1', 'action left pending_approval so the paused tool call resumes', false, 'no action_id to poll');
+    }
   }
 
   // A1: decision vocabulary
@@ -1420,43 +1466,6 @@ async function main() {
       second.status === 201 && second.json?.imported === 0 && second.json?.skipped === 1,
       `status=${second.status} imported=${second.json?.imported} skipped=${second.json?.skipped}`);
     createdPolicyIds.push(policyId); // ride the standard cleanup
-  }
-
-  // RS1: held -> approved -> resumed (the catastrophe pack's flagship loop).
-  // Pins the SERVER side of the resume contract the pretool poll consumes: a
-  // protected_path Write to `.env` is held for approval; approving it flips the
-  // action out of pending_approval (approved_by set / status running) so the
-  // paused tool call is released. Scoped to the smoke agent so the section is
-  // self-contained regardless of which packs the target instance has seeded.
-  {
-    const agent = agentFor('rs1');
-    const pid = await createPolicy('hold-secret-writes', 'protected_path',
-      { action: 'require_approval', paths: ['**/.env', '**/*.key', '**/secrets/**'] }, [agent]);
-
-    const guarded = await api('POST', '/api/guard?record=true', {
-      action_type: 'security', declared_goal: `Write: .env ${RUN}`,
-      target: '.env', agent_id: agent,
-    });
-    const actionId = guarded.json?.action_id || guarded.json?.action?.action_id;
-    check('RS1', 'secret-file Write is held for approval with an action_id',
-      guarded.json?.decision === 'require_approval' &&
-      (guarded.json?.matched_policies || []).includes(pid) && Boolean(actionId),
-      `decision=${guarded.json?.decision} matched=${JSON.stringify(guarded.json?.matched_policies)} action_id=${actionId}`);
-
-    if (actionId) {
-      const approved = await api('POST', `/api/approvals/${actionId}`, { decision: 'allow' });
-      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)',
-        approved.status >= 200 && approved.status < 300, `status=${approved.status}`);
-
-      const after = await api('GET', `/api/actions/${actionId}`);
-      const st = after.json?.action?.status;
-      check('RS1', 'action left pending_approval (approved_by set / status running) so the paused tool call resumes',
-        st !== 'pending_approval' && (Boolean(after.json?.action?.approved_by) || st === 'running' || st === 'approved'),
-        `status=${st} approved_by=${after.json?.action?.approved_by}`);
-    } else {
-      check('RS1', 'approval accepted (POST /api/approvals returns 2xx)', false, 'no action_id to approve');
-      check('RS1', 'action left pending_approval so the paused tool call resumes', false, 'no action_id to poll');
-    }
   }
 
   // ------------------------------------------------------------- cleanup ---
