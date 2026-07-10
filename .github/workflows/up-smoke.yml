@@ -17,7 +17,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
+    timeout-minutes: 35
     steps:
       - uses: actions/checkout@v6
 
@@ -52,12 +52,12 @@ jobs:
         shell: bash
 
       - name: Show up.log tail on failure
-        if: failure()
+        if: ${{ failure() || cancelled() }}
         run: tail -n 200 up.log || echo "up.log not found"
         shell: bash
 
       - name: Upload up.log on failure
-        if: failure()
+        if: ${{ failure() || cancelled() }}
         uses: actions/upload-artifact@v4
         with:
           name: up-log-${{ matrix.os }}

@@ -436,6 +436,16 @@ export async function provisionDatabase({
     }
     throw new Error(embeddedFailureMessage(e));
   }
+  // embedded-postgres's start() only drains the postgres server child's
+  // stderr (node_modules/embedded-postgres/dist/index.js) — its stdout pipe
+  // is created (spawn()'s default stdio) but nothing ever reads it. Once
+  // accumulated stdout output crosses the OS pipe buffer (~64KB), the actual
+  // `postgres` process blocks forever on write() and stops servicing every
+  // query — every migration in setup.mjs then hangs indefinitely with no
+  // error. Drain it ourselves so a verbose platform build can't wedge the
+  // server (observed live: `dashclaw up` hanging silently after "Running
+  // setup" on macOS CI, mid-migration, with no timeout or error surfaced).
+  pg.process?.stdout?.on('data', () => {});
   try { await pg.createDatabase('dashclaw'); } catch { /* already exists on resume — fine */ }
   logger.error(`[ok] Embedded Postgres running (port ${port}, data in ${pgDir})`);
   return { databaseUrl: localDbUrlFor(port), stop: () => pg.stop() };
