@@ -71,7 +71,17 @@ async function main() {
 
   // Stage the script + config + generated .wsb
   copyFileSync(drillPs1Src, path.join(stageDir, 'drill.ps1'));
-  writeFileSync(path.join(stageDir, 'drill-config.json'), JSON.stringify({ cliSpec: args.cli }, null, 2));
+
+  // A local tarball path only exists on the host; the sandbox sees just the
+  // mapped share (C:\Shared). Stage the file and point the spec there.
+  let cliSpec = args.cli;
+  if (existsSync(cliSpec) && cliSpec.endsWith('.tgz')) {
+    const staged = path.basename(cliSpec);
+    copyFileSync(cliSpec, path.join(stageDir, staged));
+    cliSpec = `C:\\Shared\\${staged}`;
+    console.log(`[drill] local tarball staged into the share as ${cliSpec}`);
+  }
+  writeFileSync(path.join(stageDir, 'drill-config.json'), JSON.stringify({ cliSpec }, null, 2));
 
   const template = readFileSync(wsbTemplateSrc, 'utf8');
   const wsbContent = template.replace('{{HOST_DIR}}', stageDir);
