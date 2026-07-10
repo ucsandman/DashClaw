@@ -1,22 +1,24 @@
 {
   "node": {
-    "current_version": "5.0.2",
+    "current_version": "5.1.0",
     "next_bump": "none",
-    "reason": "5.0.2 is platform-only (workspace-import idempotency fix) - no Node SDK source change; the version advances per the unified model but the SDK is NOT republished; npm stays at the last SDK release.",
+    "reason": "5.1.0 adds the Team Tasks surface to the Node SDK (createTeamTask/appendTeamTaskEvent/updateTeamTask, +3 methods in sdk/dashclaw.js) - a real SDK source change, so the Node SDK IS republished to npm at 5.1.0.",
     "domains": [
-      "platform"
+      "platform",
+      "tasks"
     ]
   },
   "python": {
-    "current_version": "5.0.2",
+    "current_version": "5.1.0",
     "next_bump": "none",
-    "reason": "5.0.2 is platform-only (workspace-import idempotency fix) - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
+    "reason": "5.1.0 is platform-only for Python (README + version stamp; Team Tasks methods are Node-first) - no Python SDK source change; the version advances per the unified model but the SDK is NOT republished; PyPI stays at the last SDK release.",
     "domains": [
       "platform"
     ]
   },
-  "reason": "5.0.2 fixes the workspace-import 23505: a bundle guard policy arriving under a foreign id but a name the target org already has (the trial default pack case) now skips via an org-scoped (org_id, name) NOT EXISTS alongside ON CONFLICT (id). Found live by drill:hosted the night it shipped v5.0.1.",
+  "reason": "5.1.0 ships the Team Tasks surface: dashclaw_task_* MCP tools (+3), Node SDK team task methods (+3), and the /tasks page. Release-plan realigned after v5.1.0 shipped without updating this contract, which held CI red on main for 4 consecutive pushes.",
   "domains": [
-    "platform"
+    "platform",
+    "tasks"
   ]
 }
