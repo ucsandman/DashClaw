@@ -13,6 +13,16 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+### Fixed
+- **/policies "Always allow" no longer dead-ends on a leftover inactive rule.**
+  When an org already had a policy with the same generated name (e.g. a
+  `[Grant] api` deactivated in an earlier cleanup), re-granting from the
+  triage inbox failed every time with 409 "A rule for this shape already
+  exists" — while the inactive rule kept the warns firing and the group stuck
+  in "Needs your call". The verdict route now revives the same-named policy in
+  place (reactivates it with the fresh rules) for both Always allow and
+  Tighten; the 409 remains only for the pathological can't-find-it case.
+
 ## [5.3.0] — 2026-07-10
 
 Retired the livingcode subsystem. The Python "organism" that watched the repo

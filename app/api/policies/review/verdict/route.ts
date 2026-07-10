@@ -6,14 +6,48 @@ import { randomUUID } from 'node:crypto';
 import { getOrgId, getOrgRole } from '../../../../lib/org';
 import { getSql } from '../../../../lib/db';
 import { apiErrorResponse } from '../../../../lib/apiErrors';
-import { insertPolicy } from '../../../../lib/repositories/guardrails.repository';
+import {
+  insertPolicy,
+  findPolicyByName,
+  reactivateModePolicy,
+} from '../../../../lib/repositories/guardrails.repository';
 import { getSettings, upsertSetting } from '../../../../lib/repositories/settings.repository';
 import { shapeKey } from '../../../../lib/policy-shapes';
+import type { SqlTag } from '../../../../lib/types/db';
 
 const VERDICTS = ['fine', 'always_allow', 'tighten', 'mark_all_reviewed'] as const;
 type Verdict = (typeof VERDICTS)[number];
 
 const gpId = () => `gp_${randomUUID().replace(/-/g, '').slice(0, 24)}`;
+
+/**
+ * Insert a rule, or — when the org already has a policy with this exact name
+ * (commonly an inactive one left behind by an earlier grant or bulk cleanup) —
+ * revive it in place with the fresh rules. Without this, the click dead-ends:
+ * the old rule is inactive so warns keep firing and the group stays in the
+ * inbox, but every re-grant 409s on guard_policies_org_name_unique.
+ */
+async function insertOrRevivePolicy(
+  sql: SqlTag,
+  orgId: string,
+  data: { id: string; name: string; policyType: string; rules: string },
+): Promise<Record<string, unknown> | null> {
+  try {
+    return await insertPolicy(sql, orgId, data);
+  } catch (err) {
+    const e = err as { code?: string; message?: string };
+    const isNameCollision =
+      e.code === '23505' || e.message?.includes('guard_policies_org_name_unique');
+    if (!isNameCollision) throw err;
+    const existing = await findPolicyByName(sql, orgId, data.name);
+    const existingId = existing[0]?.id as string | undefined;
+    if (!existingId) throw err;
+    return reactivateModePolicy(sql, orgId, existingId, {
+      policyType: data.policyType,
+      rules: data.rules,
+    });
+  }
+}
 
 /**
  * POST /api/policies/review/verdict — act on a review-feed group (admin only).
@@ -88,7 +122,7 @@ export async function POST(request: Request) {
     }
 
     if (verdict === 'always_allow') {
-      const policy = await insertPolicy(sql, orgId, {
+      const policy = await insertOrRevivePolicy(sql, orgId, {
         id: gpId(),
         name: `[Grant] ${label}`,
         policyType: 'allow_grant',
@@ -107,7 +141,7 @@ export async function POST(request: Request) {
     // action_type org-wide — that mistake once routed every routine swarm
     // action into approval).
     const isPath = !!prefix && prefix.includes('/');
-    const policy = await insertPolicy(sql, orgId, {
+    const policy = await insertOrRevivePolicy(sql, orgId, {
       id: gpId(),
       name: `[Tightened] ${label}`,
       policyType: isPath ? 'protected_path' : 'require_approval',

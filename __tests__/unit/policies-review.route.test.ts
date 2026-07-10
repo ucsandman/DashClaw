@@ -17,6 +17,8 @@ const {
   mockGetSettings,
   mockUpsertSetting,
   mockInsertPolicy,
+  mockFindPolicyByName,
+  mockReactivateModePolicy,
 } = vi.hoisted(() => ({
   mockSql: Object.assign(vi.fn(async () => []), { query: vi.fn(async () => []) }),
   mockGetWarnDecisionsSince: vi.fn(),
@@ -25,6 +27,8 @@ const {
   mockGetSettings: vi.fn(),
   mockUpsertSetting: vi.fn(),
   mockInsertPolicy: vi.fn(),
+  mockFindPolicyByName: vi.fn(),
+  mockReactivateModePolicy: vi.fn(),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockSql }));
@@ -39,6 +43,8 @@ vi.mock('@/lib/repositories/settings.repository.js', () => ({
 }));
 vi.mock('@/lib/repositories/guardrails.repository.js', () => ({
   insertPolicy: mockInsertPolicy,
+  findPolicyByName: mockFindPolicyByName,
+  reactivateModePolicy: mockReactivateModePolicy,
 }));
 
 import { GET } from '@/api/policies/review/route.js';
@@ -378,10 +384,64 @@ describe('POST /api/policies/review/verdict', () => {
     expect(mockInsertPolicy).not.toHaveBeenCalled();
   });
 
-  it('returns 409 on duplicate policy name conflict', async () => {
+  it('revives an existing same-named policy on name conflict (always_allow)', async () => {
+    // An earlier grant with this name exists but was deactivated — the insert
+    // trips guard_policies_org_name_unique. The route must revive it in place,
+    // not dead-end the operator with a 409.
     mockInsertPolicy.mockRejectedValue(
       Object.assign(new Error('guard_policies_org_name_unique'), { code: '23505' }),
     );
+    mockFindPolicyByName.mockResolvedValue([{ id: 'gp_existing' }]);
+    mockReactivateModePolicy.mockResolvedValue({ id: 'gp_existing', name: '[Grant] bash', active: 1 });
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'always_allow', shape: { action_type: 'bash' } },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.ok).toBe(true);
+    expect(data.policy.id).toBe('gp_existing');
+    expect(mockFindPolicyByName).toHaveBeenCalledWith(mockSql, 'org_1', '[Grant] bash');
+    expect(mockReactivateModePolicy).toHaveBeenCalledWith(
+      mockSql,
+      'org_1',
+      'gp_existing',
+      expect.objectContaining({ policyType: 'allow_grant' }),
+    );
+  });
+
+  it('revives an existing same-named policy on name conflict (tighten)', async () => {
+    mockInsertPolicy.mockRejectedValue(
+      Object.assign(new Error('guard_policies_org_name_unique'), { code: '23505' }),
+    );
+    mockFindPolicyByName.mockResolvedValue([{ id: 'gp_tight' }]);
+    mockReactivateModePolicy.mockResolvedValue({ id: 'gp_tight', name: '[Tightened] bash', active: 1 });
+
+    const res = await POST(
+      makeRequest('http://localhost/api/policies/review/verdict', {
+        headers: { 'x-org-id': 'org_1', 'x-org-role': 'admin' },
+        body: { verdict: 'tighten', shape: { action_type: 'bash' } },
+      }),
+    );
+    expect(res.status).toBe(201);
+    const data = await res.json();
+    expect(data.policy.id).toBe('gp_tight');
+    expect(mockReactivateModePolicy).toHaveBeenCalledWith(
+      mockSql,
+      'org_1',
+      'gp_tight',
+      expect.objectContaining({ policyType: 'require_approval' }),
+    );
+  });
+
+  it('returns 409 on name conflict when the existing policy cannot be found', async () => {
+    mockInsertPolicy.mockRejectedValue(
+      Object.assign(new Error('guard_policies_org_name_unique'), { code: '23505' }),
+    );
+    mockFindPolicyByName.mockResolvedValue([]);
 
     const res = await POST(
       makeRequest('http://localhost/api/policies/review/verdict', {
@@ -390,5 +450,6 @@ describe('POST /api/policies/review/verdict', () => {
       }),
     );
     expect(res.status).toBe(409);
+    expect(mockReactivateModePolicy).not.toHaveBeenCalled();
   });
 });
