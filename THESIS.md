@@ -156,7 +156,9 @@ sessions/optimal-files/CLAUDE.md generation, capabilities registry (the
 prompts library, knowledge/RAG (pgvector), model-strategies/BYOK routing,
 scoring, reputation/leaderboard, evaluations, learning + behavior learning,
 drift engine, compliance cockpit (signed receipts/JWKS export folds into the
-audit layer), messages/threads, handoffs, loops, launch plans, managed
+audit layer), messages/threads, handoffs, loops (the 2026-07-09 owner
+amendment adds a fresh, narrow Team Tasks surface as approval context — it
+does not revive any of these), launch plans, managed
 secrets, the status-widget PWA; x402/FinOps/CostClaw surfaces (a separate
 thesis — spend governance is real but it is not this product; RFC 0002 stays
 gated on Wes and out of this repo's front door); the MCP server's absorbed
@@ -183,6 +185,25 @@ org). The TypeScript migration stays declined. Paid tiers stay gated on Wes.
 (2026-07-06: preflight plan authorization, scoped delegation constraints,
 containment verdicts) extend this exact loop to plans, delegation, and
 containment for unattended autonomy. They remain the post-v5 direction.
+
+## Owner amendment — 2026-07-09: fleets and teams
+
+**Adopted by Wes (owner), full authority.** DashClaw's subject is the fleet
+and the team of agents, not a single agent in isolation — collaboration is a
+necessity for a great team, and *governed* collaboration is approval-layer
+work. "For whom" already said fleets; this amendment makes the multi-agent
+team a first-class subject of the loop rather than an aggregation of solo
+sessions.
+
+Concretely: a **Team Tasks** surface (task + inter-agent event timeline —
+who leads, who delegated what, which governed actions and approvals each
+exchange produced) is in scope as approval context and audit, driven by the
+owner's live Claude Code + OpenClaw two-agent team. It is built fresh and
+small, on the loop; the cull's kills (work-orders/swarm, messages-threads
+product, handoffs, loops, routing) stay dead and are not revived. Its
+surfaces raise the ceilings below in the same commit that adds them, per the
+brake's own rule. Full reasoning and non-reversals:
+[`docs/decisions/2026-07-09-fleets-and-teams.md`](docs/decisions/2026-07-09-fleets-and-teams.md).
 
 ## Falsification — what would prove this thesis wrong
 
