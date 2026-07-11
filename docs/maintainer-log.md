@@ -12,6 +12,36 @@ digests are compiled from these entries and posted by a human.
 
 Entries are newest-first.
 
+## 2026-07-10 — up-smoke goes green on all three platforms, for the first time ever
+
+The v5.2.0 entry below ends with an honest debt: up-smoke still red on
+Windows and macOS, cause unknown behind another layer of output buffering.
+That debt is now paid — run 29131588770 on `cc76a1db` is the first fully
+green matrix in the workflow's history.
+
+Two separate root causes, one per platform. Windows never got past
+`npm install`: the platform had declared `better-sqlite3` as a dependency
+since the initial commit without ever importing it (the absorbed-projects
+audit had already called this out), and the CI runner is exactly the machine
+that punishes dead native dependencies — no prebuilt binary matched its Node
+build, and node-gyp 10 can't recognize Visual Studio 18. Removing the
+dependency had a trap of its own worth recording: `npm uninstall` left the
+package as a stale optional-peer node in the lockfile, which `npm ci` still
+dutifully installs — it took a dry-run against the pruned lockfile to prove
+fresh installs were actually clean.
+
+macOS was the promised blindness fix: `runSetupScriptReal` ran setup via
+`spawnSync`, buffering every byte until an exit that never came. It now
+streams the setup child's progress line by line into the operator's terminal
+and CI's up.log (API keys and password values scrubbed at the source, plus an
+`oc_live_` filter in the workflow redaction), and a 10-minute watchdog kills
+a hung setup naming the exact migration spinner frame that wedged. The
+honest caveat: macOS went green with the instrument in place, so the
+watchdog's diagnosis was never needed — whether the old hang was spawnSync's
+own buffer interplay or something the rework incidentally removed, the
+evidence died with the code that hid it. If the hang ever returns, the log
+will name it this time.
+
 ## 2026-07-10 — retiring the organism: livingcode is gone (v5.3.0)
 
 Wes's verdict this morning was one line: "let's retire the living code thing,
