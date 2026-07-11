@@ -45,6 +45,8 @@ from dashclaw_agent_intel.stop_state import (
     clear_turn_actions as _clear_turn_actions,
     read_posted_assumption_keys as _read_posted_assumption_keys,
     append_posted_assumption_keys as _append_posted_assumption_keys,
+    read_posted_deviation_keys as _read_posted_deviation_keys,
+    append_posted_deviation_keys as _append_posted_deviation_keys,
     count_session_actions as _count_session_actions,
 )
 from dashclaw_agent_intel.stop_transcript import (
@@ -55,6 +57,7 @@ from dashclaw_agent_intel.stop_transcript import (
     is_governed_tool_name as _is_governed_tool_name,
     turn_assistant_text as _turn_assistant_text,
     extract_assumptions as _extract_assumptions,
+    extract_deviations as _extract_deviations,
     distribute as _distribute,
     patch_body_for as _patch_body_for,
     datetime_now_iso,
@@ -439,6 +442,62 @@ def _capture_assumptions(entries, last_uuid, action_ids, session_id):
 
 
 # ---------------------------------------------------------------------------
+# Deviation auto-capture
+#
+# The global working agreement mandates a "DEVIATIONS FROM PLAN" block in
+# post-modification summaries. Deviations are where the plan's model of the
+# code was wrong, so each item ships as a first-class
+# `action_type='deviation'` governance event (POST /api/actions) that lands
+# in the Decisions ledger. Unlike assumptions there is no parent action
+# requirement — summary-only turns still record. The extractor drops "none"
+# items (a held plan). Capped per turn, idempotent across hook re-runs via a
+# per-session posted-keys file, and fail-silent.
+# ---------------------------------------------------------------------------
+
+def _post_deviation(item, session_id, cwd):
+    """POST one deviation event to /api/actions. True on success."""
+    body = {
+        "agent_id": AGENT_ID,
+        "action_type": "deviation",
+        "declared_goal": item,
+        "reasoning": "auto-extracted from DEVIATIONS FROM PLAN block in the session summary",
+        "risk_score": 25,
+        "reversible": True,
+        "systems_touched": [],
+        "status": "completed",
+        "output_summary": "Plan deviation recorded by Stop hook"
+        + ((" (project: " + cwd + ")") if cwd else ""),
+        "timestamp_end": datetime_now_iso(),
+    }
+    if session_id:
+        body["trigger"] = "session:" + session_id
+    return _post_action(body) is not None
+
+
+def _capture_deviations(entries, last_uuid, session_id, cwd):
+    """Extract + ship the turn's DEVIATIONS FROM PLAN items as deviation
+    events. Fail-silent end to end."""
+    try:
+        start = _resolve_turn_start(entries, last_uuid)
+        items = _extract_deviations(_turn_assistant_text(entries, start))
+        if not items:
+            return
+        posted = _read_posted_deviation_keys(session_id)
+        new_keys = []
+        for item in items:
+            key = hashlib.sha1(
+                (session_id + "\x00" + item).encode("utf-8")
+            ).hexdigest()
+            if key in posted:
+                continue
+            if _post_deviation(item, session_id, cwd):
+                new_keys.append(key)
+        _append_posted_deviation_keys(session_id, new_keys)
+    except Exception as e:
+        _log_hook_error("capture_deviations -> " + type(e).__name__ + ": " + str(e))
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
@@ -504,6 +563,11 @@ def main():
     # Assumption auto-capture: ship any "ASSUMPTIONS I'M MAKING:" items from
     # this turn's assistant text to /api/assumptions. Idempotent + fail-silent.
     _capture_assumptions(entries, last_uuid, action_ids, session_id)
+
+    # Deviation auto-capture: ship any "DEVIATIONS FROM PLAN:" items from this
+    # turn's assistant text as first-class deviation events. Idempotent +
+    # fail-silent.
+    _capture_deviations(entries, last_uuid, session_id, data.get("cwd") or "")
 
     # Visible first session: one stderr recap line when this turn governed
     # anything (silent otherwise).

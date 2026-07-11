@@ -222,6 +222,47 @@ def extract_assumptions(text):
 
 
 # ---------------------------------------------------------------------------
+# Deviation extraction (DEVIATIONS FROM PLAN blocks)
+# ---------------------------------------------------------------------------
+
+DEVIATIONS_PER_TURN_CAP = 5
+_DEVIATIONS_HEADER_RE = re.compile(r"^\s*DEVIATIONS FROM PLAN:\s*$", re.MULTILINE)
+_DEVIATION_ITEM_RE = re.compile(r"^\s*(?:[-*]|\d+\.)\s+(.+?)\s*$")
+# The held-plan placeholder ("- none", "- None. The plan held.") records
+# nothing; tolerate leading quote/bracket/emphasis characters before the word.
+_DEVIATION_NONE_RE = re.compile(r'^[\[\("\'`*_]*none\b', re.IGNORECASE)
+
+
+def extract_deviations(text):
+    """Bulleted or numbered items from "DEVIATIONS FROM PLAN:" blocks, in order.
+
+    Same block-walk rules as extract_assumptions (leading blanks after the
+    header are tolerated, blanks after the first item end the block), plus a
+    "none" filter so a held plan records nothing. Deduplicated, capped per
+    turn."""
+    out = []
+    if not text:
+        return out
+    for m in _DEVIATIONS_HEADER_RE.finditer(text):
+        seen_item = False
+        for line in text[m.end():].splitlines():
+            if not line.strip():
+                if seen_item:
+                    break
+                continue
+            item = _DEVIATION_ITEM_RE.match(line)
+            if not item:
+                break
+            seen_item = True
+            val = item.group(1).strip()
+            if val and not _DEVIATION_NONE_RE.match(val) and val not in out:
+                out.append(val)
+            if len(out) >= DEVIATIONS_PER_TURN_CAP:
+                return out
+    return out
+
+
+# ---------------------------------------------------------------------------
 # Distribution + PATCH-body math
 # ---------------------------------------------------------------------------
 

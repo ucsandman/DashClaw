@@ -139,6 +139,35 @@ def append_posted_assumption_keys(session_id, keys):
 
 
 # ---------------------------------------------------------------------------
+# Deviation idempotency keys
+# ---------------------------------------------------------------------------
+
+def deviations_posted_path(session_id):
+    return os.path.join(
+        tempfile.gettempdir(), "dashclaw_deviations_" + safe_session_id(session_id)
+    )
+
+
+def read_posted_deviation_keys(session_id):
+    try:
+        with open(deviations_posted_path(session_id), encoding="utf-8") as f:
+            return {ln.strip() for ln in f if ln.strip()}
+    except Exception:
+        return set()
+
+
+def append_posted_deviation_keys(session_id, keys):
+    if not keys:
+        return
+    try:
+        with open(deviations_posted_path(session_id), "a", encoding="utf-8") as f:
+            for key in keys:
+                f.write(key + "\n")
+    except Exception:
+        pass
+
+
+# ---------------------------------------------------------------------------
 # Push throttle markers + sample-upload offsets
 # ---------------------------------------------------------------------------
 
