@@ -1,0 +1,28 @@
+1
+00:00:05,400 --> 00:00:07,933
+Nothing sensitive runs until you allow it.
+
+2
+00:00:11,600 --> 00:00:19,629
+Every action your unattended agent tries is intercepted and held here, risk scored, and bound to the exact command.
+
+3
+00:00:19,629 --> 00:00:26,541
+One click releases it, and the decision is recorded, chained to every governed action that follows.
+
+4
+00:00:26,541 --> 00:00:30,800
+One ledger, many lenses, every rule that governs your agents.
+
+5
+00:00:38,733 --> 00:00:43,067
+Held before they run. Risk scored. One click to allow or deny.
+
+6
+00:00:44,733 --> 00:00:49,433
+One ledger, chained to the decision. Spend and risk verified, on the record.
+
+7
+00:00:50,733 --> 00:00:53,533
+Govern your agents at dashclaw dot io.
+

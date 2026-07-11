@@ -1,0 +1,3 @@
+Your agent just tried something sensitive. DashClaw asked you first.
+
+Nothing sensitive runs until you allow it

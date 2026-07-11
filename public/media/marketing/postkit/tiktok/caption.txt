@@ -1,0 +1,3 @@
+Your agent works while you are away. DashClaw holds the risky parts.
+
+Nothing sensitive runs until you allow it
