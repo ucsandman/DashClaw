@@ -1,6 +1,6 @@
 1
 00:00:05,400 --> 00:00:07,933
-Nothing sensitive runs until you allow it.
+Catch the dangerous action before it runs.
 
 2
 00:00:11,600 --> 00:00:19,629
