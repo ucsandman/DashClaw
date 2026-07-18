@@ -46,12 +46,12 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         if: steps.gate.outputs.run == 'true'
 
       - name: Setup Node.js
         if: steps.gate.outputs.run == 'true'
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@v7
         with:
           node-version: '24'
           cache: 'npm'
@@ -82,7 +82,7 @@ jobs:
 
       - name: Upload proposal artifact
         if: steps.gate.outputs.run == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: calibration-proposals
           path: |
