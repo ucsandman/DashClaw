@@ -112,6 +112,12 @@ export const VALID_SETTING_KEYS = [
   // Written by the system (login-guard.repository via /api/auth/local);
   // listed here so an admin can inspect/clear a lockout via the settings API.
   'LOCAL_ADMIN_LOGIN_GUARD',
+  // Preflight plan authorization (governed-autonomy feature 1). TTL_MAX is
+  // the server clamp on agent-requested plan TTLs (minutes); MAX_STEPS caps
+  // steps per submitted plan. Read by the /api/plans routes (NOT on the
+  // guard hot path — the consumption query needs no settings).
+  'PLAN_GRANT_TTL_MAX_MINUTES',
+  'PLAN_MAX_STEPS',
 ];
 
 export const VALID_CATEGORIES = ['integration', 'general', 'system'];
