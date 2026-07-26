@@ -19,8 +19,8 @@ interface Plan {
   ttl_minutes: number; created_at: string;
 }
 
-export default function PlanReviewCard({ plan, steps, onResolved }: {
-  plan: Plan; steps: PlanStep[]; onResolved: () => void;
+export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
+  plan: Plan; steps: PlanStep[]; canDecide: boolean; onResolved: () => void;
 }) {
   const [overrides, setOverrides] = useState<Record<string, 'approve' | 'deny'>>({});
   const [busy, setBusy] = useState(false);
@@ -103,8 +103,8 @@ export default function PlanReviewCard({ plan, steps, onResolved }: {
                     <td className="px-3 py-2 text-right">
                       <button
                         onClick={() => toggleStep(step.step_id)}
-                        disabled={busy}
-                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors ${
+                        disabled={busy || !canDecide}
+                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                           denied
                             ? 'border-error/20 bg-error-subtle text-error'
                             : 'border-success/20 bg-success-subtle text-success'
@@ -129,15 +129,15 @@ export default function PlanReviewCard({ plan, steps, onResolved }: {
         <div className="flex items-center gap-2">
           <button
             onClick={() => submit('approve')}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-success/20 bg-success-subtle px-3 py-1.5 text-sm font-medium text-success transition-colors hover:bg-success/10 disabled:opacity-50"
+            disabled={busy || !canDecide}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-success/20 bg-success-subtle px-3 py-1.5 text-sm font-medium text-success transition-colors hover:bg-success/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Check size={16} /> {deniedCount > 0 ? `Approve ${steps.length - deniedCount} of ${steps.length} steps` : 'Approve plan'}
           </button>
           <button
             onClick={() => submit('deny')}
-            disabled={busy}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-error/20 bg-error-subtle px-3 py-1.5 text-sm font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-50"
+            disabled={busy || !canDecide}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-error/20 bg-error-subtle px-3 py-1.5 text-sm font-medium text-error transition-colors hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X size={16} /> Deny plan
           </button>

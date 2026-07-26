@@ -2,6 +2,7 @@
 
 import { HelpCircle, ShieldCheck, Scale } from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../../../components/ui/Card';
+import { Badge } from '../../../components/ui/Badge';
 import { parseJsonArray } from '../../../lib/parseJson';
 import { formatTime } from './helpers';
 
@@ -48,7 +49,16 @@ export default function PoliciesTab({ actionId, action, guardDecision, trace, as
 
               {parseJsonArray(guardDecision.matched_policies).length > 0 && (
                 <div>
-                  <div className="text-xs text-tertiary uppercase tracking-wider mb-3">Enforced Policies</div>
+                  <div className="mb-3 flex items-center gap-2">
+                    <div className="text-xs text-tertiary uppercase tracking-wider">Enforced Policies</div>
+                    {guardDecision.context?._plan_grant && (
+                      <span title={`Step ${guardDecision.context._plan_grant.step_id}`}>
+                        <Badge variant="brand" size="xs">
+                          Plan grant: {guardDecision.context._plan_grant.plan_id} step {guardDecision.context._plan_grant.seq}
+                        </Badge>
+                      </span>
+                    )}
+                  </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {parseJsonArray(guardDecision.matched_policies).map((p: any, i: number) => (
                       <div key={i} className="p-3 rounded-lg border border-white/5 bg-surface-tertiary flex items-center gap-3">

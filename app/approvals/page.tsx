@@ -22,6 +22,7 @@ import { bulkAction } from '../lib/bulkAction';
 import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
 import PlanReviewCard from './_components/PlanReviewCard';
+import LivePlansSection from './_components/LivePlansSection';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -57,6 +58,7 @@ export default function ApprovalsPage() {
   const [pendingActions, setPendingActions] = useState<any[]>([]);
   const [expiredActions, setExpiredActions] = useState<any[]>([]);
   const [pendingPlans, setPendingPlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
+  const [livePlans, setLivePlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [clearingExpired, setClearingExpired] = useState(false);
@@ -85,20 +87,42 @@ export default function ApprovalsPage() {
     }
   }, [agentId]);
 
+  const fetchPlanList = useCallback(async (status: string) => {
+    const res = await fetch(`/api/plans?status=${status}`, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return data.plans ?? [];
+  }, []);
+
+  const fetchPlanDetails = useCallback(async (plans: any[]) => {
+    const detailed = await Promise.all(
+      plans.map(async (p: any) => {
+        const d = await fetch(`/api/plans/${p.plan_id}`, { cache: 'no-store' });
+        return d.ok ? d.json() : null;
+      }),
+    );
+    return detailed.filter(Boolean);
+  }, []);
+
+  // Fetches pending plans (for review) plus the live set (approved,
+  // partially_approved, denied) for the "Live plans" surface — reusing the
+  // same detail fetch pattern rather than adding a second polling pass.
   const fetchPendingPlans = useCallback(async () => {
     try {
-      const res = await fetch('/api/plans?status=pending', { cache: 'no-store' });
-      if (!res.ok) return;
-      const data = await res.json();
-      const detailed = await Promise.all(
-        (data.plans ?? []).map(async (p: any) => {
-          const d = await fetch(`/api/plans/${p.plan_id}`, { cache: 'no-store' });
-          return d.ok ? d.json() : null;
-        }),
-      );
-      setPendingPlans(detailed.filter(Boolean));
-    } catch { /* pending plans are additive; the actions inbox must not break on this */ }
-  }, []);
+      const [pending, approved, partiallyApproved, denied] = await Promise.all([
+        fetchPlanList('pending'),
+        fetchPlanList('approved'),
+        fetchPlanList('partially_approved'),
+        fetchPlanList('denied'),
+      ]);
+      const [pendingDetailed, liveDetailed] = await Promise.all([
+        fetchPlanDetails(pending),
+        fetchPlanDetails([...approved, ...partiallyApproved, ...denied]),
+      ]);
+      setPendingPlans(pendingDetailed);
+      setLivePlans(liveDetailed);
+    } catch { /* pending/live plans are additive; the actions inbox must not break on this */ }
+  }, [fetchPlanList, fetchPlanDetails]);
 
   useEffect(() => {
     fetchPending();
@@ -109,9 +133,13 @@ export default function ApprovalsPage() {
 
   // Realtime: clear instantly when an approval is resolved anywhere (another
   // channel, /approve) rather than waiting up to 10s for the poll.
+  // Plan lists don't change on guard.decision.created — only fetchPending
+  // needs that event; fetchPendingPlans only reacts to action create/update.
   useRealtime((event) => {
     if (event === 'action.created' || event === 'action.updated' || event === 'guard.decision.created') {
       fetchPending({ silent: true });
+    }
+    if (event === 'action.created' || event === 'action.updated') {
       fetchPendingPlans();
     }
   });
@@ -241,11 +269,18 @@ export default function ApprovalsPage() {
                 key={plan.plan_id}
                 plan={plan}
                 steps={steps}
+                canDecide={canDecide}
                 onResolved={() => { fetchPendingPlans(); fetchPending({ silent: true }); }}
               />
             ))}
           </div>
         )}
+
+        <LivePlansSection
+          plans={livePlans}
+          canDecide={canDecide}
+          onResolved={() => { fetchPendingPlans(); fetchPending({ silent: true }); }}
+        />
 
         {pendingActions.length > 0 && isAdmin && (
           <div className="mb-2 flex items-center gap-2 rounded-lg border border-border bg-surface-secondary px-3 py-2 text-xs text-secondary">
