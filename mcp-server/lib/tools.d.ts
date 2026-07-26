@@ -19,6 +19,8 @@ export interface ToolSchemaProperty {
     enum?: string[];
     items?: {
         type?: string;
+        properties?: Record<string, ToolSchemaProperty>;
+        required?: string[];
     };
 }
 export interface ToolInputSchema {

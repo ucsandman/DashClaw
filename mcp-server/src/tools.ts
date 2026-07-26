@@ -20,7 +20,7 @@ export interface ToolSchemaProperty {
   type?: string;
   description?: string;
   enum?: string[];
-  items?: { type?: string };
+  items?: { type?: string; properties?: Record<string, ToolSchemaProperty>; required?: string[] };
 }
 
 export interface ToolInputSchema {
@@ -313,6 +313,50 @@ export const TOOL_DEFINITIONS: ToolDefinition[] = [
         agent_name: { type: 'string', description: 'Human-readable agent name shown to the approving admin.' },
         wait: { type: 'boolean', description: 'Poll the pairing until approved/expired (default false).' },
       },
+    },
+  },
+  {
+    name: 'dashclaw_plan_submit',
+    description:
+      'Submit a preflight plan — an ordered list of intended steps — for one-card operator ' +
+      'review BEFORE executing. Each step is dry-run through the guard pipeline server-side; ' +
+      'approved steps become single-use grants that auto-cover the matching guarded actions, ' +
+      'so a reviewed plan runs without mid-run approval interruptions. Off-plan actions fall ' +
+      'back to normal per-action governance.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        declared_goal: { type: 'string', description: 'The mission-level goal of the plan (required)' },
+        steps: {
+          type: 'array',
+          description: 'Ordered steps: [{ action_type, step_goal, act? }] (required)',
+          items: {
+            type: 'object',
+            properties: {
+              action_type: { type: 'string', description: 'Action category, e.g. deploy, code_change (required)' },
+              step_goal: { type: 'string', description: 'What this step accomplishes (required)' },
+              act: { type: 'object', description: 'Optional literal act ({ kind: shell|http|sql|file, ... }) — act-binds the grant to exactly this act' },
+            },
+            required: ['action_type', 'step_goal'],
+          },
+        },
+        ttl_minutes: { type: 'integer', description: 'Requested grant TTL after approval (server-clamped; default 60)' },
+      },
+      required: ['declared_goal', 'steps'],
+    },
+  },
+  {
+    name: 'dashclaw_plan_status',
+    description:
+      'Check a submitted plan: overall status (pending | approved | partially_approved | denied | ' +
+      'expired | revoked) and per-step grant status (approved / denied / consumed). Poll this ' +
+      'after dashclaw_plan_submit to learn the operator verdict before executing.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        plan_id: { type: 'string', description: 'Plan id from dashclaw_plan_submit, e.g. pa_1234... (required)' },
+      },
+      required: ['plan_id'],
     },
   },
 ];
@@ -831,6 +875,20 @@ export function createToolHandlers(client: DashClawClient): Record<string, ToolH
             ? `Status unconfirmed for part of the wait (${pairPollErrors} failed polls; last: ${lastPairPollError}) — check the DashClaw Identities page.`
             : 'Awaiting admin approval on the DashClaw Identities page.',
       });
+    },
+
+    async dashclaw_plan_submit(input: any) {
+      const result = await client.post('/api/plans', {
+        declared_goal: input.declared_goal,
+        steps: input.steps,
+        ttl_minutes: input.ttl_minutes,
+      }, { timeout: 30000 });
+      return JSON.stringify(result);
+    },
+
+    async dashclaw_plan_status(input: any) {
+      const result = await client.get(`/api/plans/${encodeURIComponent(input.plan_id)}`, {}, { timeout: 10000 });
+      return JSON.stringify(result);
     },
   };
 }
