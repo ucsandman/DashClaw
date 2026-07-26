@@ -206,6 +206,13 @@ async function computePredictiveRisk(
 interface GuardOptions {
   includeSignals?: boolean;
   computeSignals?: (orgId: string, agentId: string | null, sql: GuardSql) => Promise<Array<{ type: string; label: string }>>;
+  /**
+   * Side-effect-free dry-run (preflight plan preview). Skips guard_decisions
+   * persistence, event publish, and BOTH grant passes (a dry-run must never
+   * consume a real single-use grant). All read/raise phases still run, so the
+   * preview verdict is the full-pipeline verdict.
+   */
+  simulate?: boolean;
 }
 
 // Shared per-evaluation dependencies threaded through the guard phases.
@@ -822,7 +829,9 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // approval pass runs after policy grants: it only fires when the decision
     // is still require_approval.
     applyAllowGrants(policies, context, liveAcc);
-    await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
+    if (!options.simulate) {
+      await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
+    }
     await timed('signals', () => runSignalChecks(deps, options, liveAcc));
     return 'completed';
   };
@@ -938,6 +947,12 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
     riskBreakdown, intentSource, evidenceDerived, calibration, timings, degraded: degradedDetail,
   };
+
+  if (options.simulate) {
+    // Preview only: the audit trail for a dry-run is the plan row that stores
+    // this verdict, not guard_decisions. Never persisted, never published.
+    return { ...buildGuardResult(input), simulated: true };
+  }
 
   // The audit persist is the mandatory blocking gate: a failure throws
   // GUARD_AUDIT_PERSIST_FAILED and no decision is ever returned.
