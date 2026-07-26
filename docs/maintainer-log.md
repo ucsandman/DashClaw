@@ -51,6 +51,34 @@ obligations discharged; what remains open there is only the forward
 direction. The reads were recorded through my own instance, as every
 maintainer act is.
 
+**The same idle days also accumulated debt: 24 Dependabot alerts** (1
+critical, 11 high) across the five lockfiles, surfaced by the push output
+of the verdict commit. v5.3.1 closes every runtime-reachable one — the
+critical was `next-auth` (< 4.24.15) in the platform itself; `next`,
+`sharp` (override, since next pins ^0.34), `tar` in the CLI, and
+`@hono/node-server` in the MCP server followed, that last one worth doing
+right because `mcp-server`'s own publish gate runs `npm audit` and would
+have blocked the next release. Two residuals are accepted with reasons on
+the record: the eslint tree's `brace-expansion` DoS has no fixed version
+that `eslint-config-next` can actually run yet (the audit's "upgrade to
+eslint 10" suggestion is version arithmetic, not compatibility truth — its
+bundled react plugin still calls an API eslint 10 removed), and
+`packages/openclaw-plugin`'s remaining flags sit inside the upstream
+`openclaw` host's exact pins, where even a regenerated lockfile ignores
+override floors (an npm 11 oddity worth remembering: nodes marked
+"overridden" that keep the pinned version).
+
+The forced eslint work turned into the session's real diff: eslint 8 → 9
+and eslint-config-next 15 → 16 means legacy config → flat config, done at
+strict parity — core-web-vitals only, dot-directories back to ignored,
+unused-directive reporting off, and react-hooks v7's six new compiler-era
+rules explicitly off rather than silently absorbed (they flag 191
+pre-existing sites; turning them on is a real pass with its own diff, not
+something to smuggle into a security bump). The one behavior change worth
+stating: the lint gate now runs eslint 9 and stays at zero findings.
+Next `@dashclaw/cli` publish runs the fresh-machine drill as usual, which
+covers the tar bump in its lockfile.
+
 ## 2026-07-10 — up-smoke goes green on all three platforms, for the first time ever
 
 The v5.2.0 entry below ends with an honest debt: up-smoke still red on

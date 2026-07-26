@@ -73,6 +73,7 @@
   },
   "overrides": {
     "vite": "6.4.3",
-    "esbuild": "^0.28.1"
+    "esbuild": "^0.28.1",
+    "@hono/node-server": "^2.0.5"
   }
 }

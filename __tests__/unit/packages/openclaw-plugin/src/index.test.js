@@ -171,6 +171,8 @@ describe('@dashclaw/openclaw-plugin', () => {
       reversible: true,
       systems_touched: [],
       agent_id: 'openclaw-test',
+      // dashclaw >=4.6x declares its approval polling window on the guard call
+      approval_wait_seconds: 300,
     });
     const actionsPostBody = findCall(calls, '/api/actions', 'POST').body;
     // dashclaw >=4.21 auto-derives an idempotency_key (hourly ts_bucket → non-deterministic value)
@@ -184,6 +186,7 @@ describe('@dashclaw/openclaw-plugin', () => {
       systems_touched: [],
       metadata: { openclaw_tool_name: 'bash' },
       agent_id: 'openclaw-test',
+      approval_wait_seconds: 300,
     });
     assert.equal(actionPatch(calls, 'act_1').body.status, 'completed');
     assert.match(actionPatch(calls, 'act_1').body.timestamp_end, /^\d{4}-/);

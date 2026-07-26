@@ -13,6 +13,28 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.3.1] — 2026-07-26
+
+### Security
+- **Dependabot triage across all five lockfiles — every runtime-reachable
+  advisory closed.** The 16 idle days accumulated 24 alerts (1 critical,
+  11 high). Fixed: `next-auth` → 4.24.15 (the critical), `next` → 16.2.12,
+  `sharp` → 0.35.3 (override — next pins ^0.34), `dompurify`, `js-yaml`,
+  `postcss` in the root; `tar` in `cli/`; `@hono/node-server` → 2.x in
+  `mcp-server/` (override; its 71-test suite green, `npm audit` clean so the
+  publish-time `verify` gate no longer trips); `fast-uri` in
+  `media/remotion/`. Accepted residuals, both dev-only: the eslint tree's
+  `brace-expansion` v1 DoS (no backport exists; the only fixed major can't
+  run `eslint-config-next` yet) and `packages/openclaw-plugin`'s upstream
+  `openclaw` exact pins (override floors are declared and take effect when
+  npm/upstream cooperate; nothing from that dev host ships to consumers).
+- **eslint 8 → 9 + eslint-config-next 15 → 16, flat config.** `.eslintrc.json`
+  and `.eslintignore` become `eslint.config.mjs` at strict behavior parity:
+  core-web-vitals only, dot-directories ignored, unused-directive reporting
+  off, and react-hooks v7's six new compiler-era rules off (191 pre-existing
+  sites — enabling them is a dedicated pass, not a dependency bump). Lint
+  gate stays green with zero findings.
+
 ### Fixed
 - **up-smoke Windows: fresh installs no longer compile better-sqlite3.** The
   platform declared `better-sqlite3` as a dependency since the initial commit

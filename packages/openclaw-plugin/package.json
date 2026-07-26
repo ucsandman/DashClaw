@@ -67,10 +67,13 @@
   },
   "overrides": {
     "axios": "^1.16.0",
-    "tar": "^7.5.11",
-    "protobufjs": "^7.5.5",
+    "tar": "^7.5.22",
+    "protobufjs": "^7.6.5",
     "gaxios": {
       "uuid": "^11.1.1"
-    }
+    },
+    "brace-expansion": "^5.0.8",
+    "fast-uri": "^3.1.4",
+    "hono": "^4.12.27"
   }
 }
