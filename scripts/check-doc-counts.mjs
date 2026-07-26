@@ -91,6 +91,12 @@ const COUNT_CHECKS = [
   { file: 'README.md', label: 'route inventory',
     re: /\*\*(\d+) routes\*\*: (\d+) stable, (\d+) beta, (\d+) experimental/,
     expected: [S.routes.total, S.routes.stable, S.routes.beta, S.routes.experimental] },
+  // V10: the "Project status" section restates the stable/beta/experimental
+  // split in unbolded prose (no **N routes** header) — that form drifted
+  // silently (67 written as 62) because only the bolded form above was gated.
+  { file: 'README.md', label: 'route inventory (unbolded prose)',
+    re: /(\d+) stable routes pinned in the \[OpenAPI contract\]\([^)]+\), (\d+) beta, (\d+) experimental/,
+    expected: [S.routes.stable, S.routes.beta, S.routes.experimental] },
   { file: 'README.md', label: 'MCP tool count', re: /\*\*(\d+) governance MCP tools\*\*/, expected: [S.mcpTools] },
   { file: 'docs/README.md', label: 'route inventory (docs hub)',
     re: /\*\*(\d+) routes\*\*: (\d+) stable, (\d+) beta, (\d+) experimental/,
@@ -141,6 +147,18 @@ const COUNT_CHECKS = [
   S.sdk && { file: 'PROJECT_DETAILS.md', label: 'SDK method counts', re: /exposes \*\*(\d+) public methods\*\* in `sdk\/dashclaw\.js` and the Python SDK \*\*(\d+)\*\*/, expected: [S.sdk.node, S.sdk.python] },
   S.sdk && { file: 'docs/sdk-reference.md', label: 'Node SDK methods (catalogue)', re: /Full v2 method catalogue \((\d+) methods\)/, expected: [S.sdk.node] },
   S.sdk && { file: 'docs/architecture/runtime-api.md', label: 'Node SDK methods (runtime-api)', re: /exposes (\d+) public methods across the core runtime/, expected: [S.sdk.node] },
+  // V10: platform-guide-data.json's MCP-server package summary restates the
+  // tool count in two ungated prose forms that had drifted to a pre-cull "12"
+  // while live was 17 (fixed by hand, not caught by this script until now).
+  { file: 'public/guides/platform-guide-data.json', label: 'MCP tool count (guide, "tools/3 resources")',
+    re: /\((\d+) tools\/3 resources\)/, expected: [S.mcpTools] },
+  { file: 'public/guides/platform-guide-data.json', label: 'MCP tool count (guide, "MCP tools / 3 resources")',
+    re: /\((\d+) MCP tools \/ 3 resources\)/, expected: [S.mcpTools] },
+  // The Python SDK's guide entry carries its own method_count field (the
+  // Node entry has no equivalent field to gate) — same source of truth as
+  // the README Python SDK method checks above.
+  S.sdk && { file: 'public/guides/platform-guide-data.json', label: 'Python SDK method_count field (guide)',
+    re: /"method_count":(\d+)/, expected: [S.sdk.python] },
 ].filter(Boolean);
 
 // Freshness stamps: the date should be >= the file's last commit date. We never

@@ -301,7 +301,7 @@ Approved actions carry a terminal outcome separate from their lifecycle status. 
 
 Stated plainly, because a security tool that oversells itself is a liability:
 
-- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 38 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 17 beta, 62 experimental. Build against stable; experimental can change without notice.
+- **Young and fast-moving.** First commit February 2026; releases land near-daily. The API surface is tiered for exactly this reason: 38 stable routes pinned in the [OpenAPI contract](docs/openapi/critical-stable.openapi.json), 17 beta, 67 experimental. Build against stable; experimental can change without notice.
 - **Proven by dogfood, not by scale.** The core loop runs continuously against the maintainer's own agent fleet and a CI policy-smoke harness that live-proves the public claims on every push. External production deployments are early. Treat this as young infrastructure that takes correctness seriously, not a battle-tested incumbent.
 - **AI-maintained, human-governed, in public.** Day-to-day maintenance is done by an AI agent under the human-held charter in [MAINTAINER.md](MAINTAINER.md), whose five invariants (above) the maintainer cannot change. Every decision is on the record in the [maintainer log](docs/maintainer-log.md).
 
