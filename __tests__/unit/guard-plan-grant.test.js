@@ -114,6 +114,10 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.decision).toBe('block');
     const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
     expect(consumeUpdates).toHaveLength(0);
+    // Pin the early-return-before-any-query guarantee: block short-circuits
+    // before findDeniedStepMatch's SELECT or consumePlanStepGrant's UPDATE.
+    const planStepQueries = sql.taggedCalls.filter((c) => /plan_authorization_steps/i.test(c.text));
+    expect(planStepQueries).toHaveLength(0);
   });
 
   it('raises to block when a denied step matches, even from allow', async () => {

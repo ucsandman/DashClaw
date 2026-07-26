@@ -240,6 +240,8 @@ export async function consumePlanStepGrant(
 /**
  * Deny-grant lookup (read-only; denied steps raise on EVERY match until the
  * plan TTL — they are not consumed). Same matching rule as consumption.
+ * This lookup runs once per guard evaluation (any non-block decision), so it
+ * must stay a single indexed probe.
  */
 export async function findDeniedStepMatch(
   sql: SqlClient,
@@ -261,6 +263,11 @@ export async function findDeniedStepMatch(
       AND p.status IN ('approved', 'partially_approved', 'denied', 'revoked')
       AND p.expires_at > now()
       AND st.grant_status = 'denied'
+      -- Semantically a no-op (denied steps are never consumed — consumption
+      -- requires grant_status='approved') but it lets the planner prove the
+      -- partial-index predicate, so this per-guard-call probe rides
+      -- idx_plan_authorization_steps_consume instead of scanning the table.
+      AND st.grant_used_at IS NULL
       AND (
         (st.act_content_hash IS NOT NULL AND st.act_content_hash = ${input.actHash})
         OR (st.act_content_hash IS NULL AND st.step_goal = ${input.declaredGoal})

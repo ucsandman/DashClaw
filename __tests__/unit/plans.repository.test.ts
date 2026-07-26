@@ -119,5 +119,6 @@ describe('plans.repository', () => {
     const sql = sqlMock([[]]);
     await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(sql.calls[0]!.text).toContain("'revoked'");
+    expect(sql.calls[0]!.text).toContain('grant_used_at IS NULL');
   });
 });
