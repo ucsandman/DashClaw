@@ -84,9 +84,16 @@ export async function POST(request: Request) {
       ? Math.floor(Number(body.ttl_minutes)) : 60;
 
     const created = await createPlanWithSteps(sql, orgId, {
-      agentId, declaredGoal: body.declared_goal, ttlMinutes,
+      agentId, declaredGoal: body.declared_goal, ttlMinutes, maxPending: MAX_PENDING_PLANS,
       steps: steps.map((s) => ({ action_type: String(s.action_type), step_goal: String(s.step_goal), act: s.act })),
     });
+    if (!created) {
+      // R3: the countPendingPlans read above is a courtesy fast-path; this is
+      // the authoritative SQL-enforced cap catching a race the pre-read missed.
+      return NextResponse.json(
+        { error: `Too many pending plans (${MAX_PENDING_PLANS}); resolve or revoke existing plans first` }, { status: 409 },
+      );
+    }
 
     // Dry-run every step through the REAL guard pipeline, side-effect-free
     // (evaluateGuard's simulate:true skips persistence, event publish, and
@@ -132,7 +139,9 @@ export async function GET(request: Request) {
     const plans = await listPlans(sql, orgId, {
       status: url.searchParams.get('status') || undefined,
       agentId: url.searchParams.get('agent_id') || undefined,
-      limit: Math.min(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 200),
+      // R4: floor at 1 as well as ceiling at 200 — a negative/zero limit must
+      // not reach the SQL LIMIT clause (Postgres rejects LIMIT < 0).
+      limit: Math.min(Math.max(parseInt(url.searchParams.get('limit') || '50', 10) || 50, 1), 200),
     });
     return NextResponse.json({ plans });
   } catch (error) {

@@ -26,14 +26,22 @@ export interface PlanStepInput {
 export async function createPlanWithSteps(
   sql: SqlClient,
   orgId: string,
-  input: { agentId: string; declaredGoal: string; ttlMinutes: number; steps: PlanStepInput[] },
+  input: { agentId: string; declaredGoal: string; ttlMinutes: number; steps: PlanStepInput[]; maxPending: number },
 ) {
   const planId = mintId('pa');
+  // R3: the pending-plan cap is enforced HERE, not only via the route's
+  // countPendingPlans pre-read — that read-then-insert has a TOCTOU window
+  // (two concurrent submissions can both pass the pre-read before either
+  // INSERT lands). Folding the count into the INSERT's WHERE makes the
+  // count-and-insert a single atomic statement: a losing race yields zero
+  // rows instead of writing an (org_id, 'pending') row over the cap.
   const planRows = await sql`
     INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes)
-    VALUES (${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'pending', ${input.ttlMinutes})
+    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'pending', ${input.ttlMinutes}
+    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status = 'pending') < ${input.maxPending}
     RETURNING *
   `;
+  if (!planRows[0]) return null;
   const steps: Record<string, unknown>[] = [];
   let seq = 0;
   for (const step of input.steps) {
@@ -278,21 +286,28 @@ export async function consumePlanStepGrant(
 
 /**
  * Deny-grant lookup (read-only; denied steps raise on EVERY match until the
- * plan TTL — they are not consumed). Same matching rule as consumption.
+ * plan TTL — they are not consumed). Same matching rule as consumption,
+ * EXCEPT scoping: no agent_id predicate. agent_id is self-asserted at guard
+ * time (absent a verified JWT), so scoping a denial lookup to it would let
+ * the denied agent evade the "no" simply by resuming under a different
+ * asserted name. A denial binds the ACT for the whole org, not one claimed
+ * identity — over-matching a denial (raising for more callers than strictly
+ * necessary) is the safe direction; under-matching (letting a denied act
+ * back through) is not. consumePlanStepGrant keeps its agent_id scoping —
+ * grants must fail safe by under-matching, the opposite asymmetry.
  * This lookup runs once per guard evaluation (any non-block decision), so it
  * must stay a single indexed probe.
  */
 export async function findDeniedStepMatch(
   sql: SqlClient,
   orgId: string,
-  input: { agentId: string; actionType: string; declaredGoal: string; actHash: string | null },
+  input: { actionType: string; declaredGoal: string; actHash: string | null },
 ) {
   const rows = await sql`
     SELECT st.step_id, st.plan_id, p.reviewed_by
     FROM plan_authorization_steps st
     JOIN plan_authorizations p ON p.plan_id = st.plan_id AND p.org_id = st.org_id
     WHERE st.org_id = ${orgId}
-      AND p.agent_id = ${input.agentId}
       AND st.action_type = ${input.actionType}
       -- 'revoked' stays in this list as belt-and-braces, but it no longer
       -- does the real work: reviewPlan's revoke branch also sets

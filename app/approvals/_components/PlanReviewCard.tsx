@@ -12,7 +12,17 @@ const PREVIEW_VARIANT: Record<string, string> = {
 interface PlanStep {
   step_id: string; seq: number; action_type: string; step_goal: string;
   preview_decision: string | null; preview_risk_score: number | null;
-  act_content_hash: string | null; grant_status: string;
+  act_content_hash: string | null; grant_status: string; act?: unknown;
+}
+
+// R5: the act hash binds content the operator can't fully see once it's been
+// redacted for display (see S2 in plans.repository.ts createPlanWithSteps).
+// Surface how many values were scrubbed so the operator knows the hash they're
+// approving covers hidden content, not just what's rendered. security.ts's
+// redactAny always stamps `[REDACTED:<pattern>]`, never the bare literal.
+function countRedactions(act: unknown): number {
+  if (act === undefined || act === null) return 0;
+  return (JSON.stringify(act).match(/\[REDACTED:/g) ?? []).length;
 }
 interface Plan {
   plan_id: string; agent_id: string; declared_goal: string; status: string;
@@ -78,13 +88,24 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
             <tbody>
               {steps.map((step) => {
                 const denied = overrides[step.step_id] === 'deny';
+                const redactedCount = countRedactions(step.act);
                 return (
                   <tr key={step.step_id} className="border-t border-border">
                     <td className="px-3 py-2 tabular-nums text-tertiary">{step.seq}</td>
                     <td className="px-3 py-2 text-white">
                       {step.step_goal}
                       {step.act_content_hash && (
-                        <span className="ml-2"><Badge variant="info" size="xs">Act-bound</Badge></span>
+                        <span className="ml-2 inline-flex items-center gap-1.5">
+                          <Badge variant="info" size="xs">Act-bound</Badge>
+                          {redactedCount > 0 && (
+                            <span
+                              className="text-[11px] text-tertiary"
+                              title="The act hash binds content the operator can't fully see"
+                            >
+                              {redactedCount} redacted value{redactedCount > 1 ? 's' : ''}
+                            </span>
+                          )}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-2 text-secondary">{step.action_type}</td>

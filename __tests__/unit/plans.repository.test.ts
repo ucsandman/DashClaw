@@ -48,13 +48,13 @@ describe('plans.repository', () => {
       // step insert #2
       (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
     ]);
-    const { plan, steps } = await createPlanWithSteps(sql as never, 'org_1', {
-      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60,
+    const { plan, steps } = (await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10,
       steps: [
         { action_type: 'code_change', step_goal: 'edit file', act: { kind: 'file', file: { path: 'a.ts' } } },
         { action_type: 'deploy', step_goal: 'deploy it' },
       ],
-    });
+    }))!;
     expect(plan!.plan_id).toMatch(/^pa_[0-9a-f]{16}$/);
     expect(steps[0]!.step_id).toMatch(/^ps_[0-9a-f]{16}$/);
     expect(steps[0]!.seq).toBe(1);
@@ -75,14 +75,29 @@ describe('plans.repository', () => {
       (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4] }],
       (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
     ]);
-    const { steps } = await createPlanWithSteps(sql as never, 'org_1', {
-      agentId: 'agent-a', declaredGoal: 'deploy', ttlMinutes: 60,
+    const { steps } = (await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'deploy', ttlMinutes: 60, maxPending: 10,
       steps: [{ action_type: 'deploy', step_goal: 'deploy it', act: secretAct }],
-    });
+    }))!;
     const storedAct = JSON.parse(steps[0]!.act as string);
     expect(storedAct.command).not.toContain(fakeKey);
     // the hash binds the ORIGINAL act, not the redacted display copy
     expect(steps[0]!.act_content_hash).toBe(computeActContentHash(secretAct));
+  });
+
+  it('R3: createPlanWithSteps returns null when the SQL-enforced pending cap rejects the insert', async () => {
+    // The guarded INSERT ... SELECT ... WHERE returns zero rows when the org
+    // is already at maxPending — this is the authoritative check, not just
+    // the route's countPendingPlans pre-read (which has a TOCTOU window).
+    const sql = sqlMock([[]]);
+    const result = await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10,
+      steps: [{ action_type: 'deploy', step_goal: 'deploy it' }],
+    });
+    expect(result).toBeNull();
+    // No step INSERTs are attempted once the header insert is rejected.
+    expect(sql.calls).toHaveLength(1);
+    expect(sql.calls[0]!.text).toContain('WHERE (SELECT COUNT(*) FROM plan_authorizations');
   });
 
   it('reviewPlan clamps ttl_minutes to ttlClampMinutes', async () => {
@@ -132,6 +147,9 @@ describe('plans.repository', () => {
     const q = sql.calls[0]!.text;
     expect(q).toContain('grant_used_at IS NULL');
     expect(q).toContain('UPDATE plan_authorization_steps');
+    // R1: unlike findDeniedStepMatch, grants must fail safe by UNDER-matching
+    // — a grant is only usable by the agent it was actually issued to.
+    expect(q).toContain('p.agent_id = ?');
     // guard appears twice: once in the subquery WHERE, once in the outer WHERE
     expect(q.split('grant_used_at IS NULL').length - 1).toBe(2);
   });
@@ -147,9 +165,23 @@ describe('plans.repository', () => {
 
   it('findDeniedStepMatch is a read (no UPDATE)', async () => {
     const sql = sqlMock([[]]);
-    const hit = await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
+    const hit = await findDeniedStepMatch(sql as never, 'org_1', { actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(hit).toBeNull();
     expect(sql.calls[0]!.text).not.toContain('UPDATE');
+  });
+
+  it('R1: findDeniedStepMatch does not scope on agent_id — a denial binds the org, not one self-asserted identity', async () => {
+    // agent_id is self-asserted at guard time absent a verified JWT, so a
+    // denial that only matched the original agent_id could be evaded by the
+    // same denied act resuming under a different claimed agent_id. The query
+    // must carry no p.agent_id predicate at all, and must still raise the
+    // match — org + action_type + goal/hash is sufficient.
+    const sql = sqlMock([[{ step_id: 'ps_1', plan_id: 'pa_1', reviewed_by: 'operator' }]]);
+    const hit = await findDeniedStepMatch(sql as never, 'org_1', {
+      actionType: 'deploy', declaredGoal: 'deploy the thing', actHash: null,
+    });
+    expect(hit!.step_id).toBe('ps_1');
+    expect(sql.calls[0]!.text).not.toContain('agent_id');
   });
 
   it('S1b: findDeniedStepMatch raises on act hash OR goal — a denied act-bound step still matches on a goal-only hit with a different act', async () => {
@@ -161,7 +193,7 @@ describe('plans.repository', () => {
     // modes directly so either one alone still raises.
     const sql = sqlMock([[{ step_id: 'ps_1', plan_id: 'pa_1', reviewed_by: 'operator' }]]);
     const hit = await findDeniedStepMatch(sql as never, 'org_1', {
-      agentId: 'a', actionType: 'deploy', declaredGoal: 'deploy the thing', actHash: 'sha256:mutated-act',
+      actionType: 'deploy', declaredGoal: 'deploy the thing', actHash: 'sha256:mutated-act',
     });
     expect(hit!.step_id).toBe('ps_1');
     const q = sql.calls[0]!.text;
@@ -219,7 +251,7 @@ describe('plans.repository', () => {
 
   it('findDeniedStepMatch keeps revoked in the status list (belt-and-braces; revoke expiry is what ends denials)', async () => {
     const sql = sqlMock([[]]);
-    await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
+    await findDeniedStepMatch(sql as never, 'org_1', { actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(sql.calls[0]!.text).toContain("'revoked'");
     expect(sql.calls[0]!.text).toContain('grant_used_at IS NULL');
   });

@@ -200,6 +200,19 @@ describe('POST /api/plans/[planId]', () => {
     );
   });
 
+  it('R2: PLAN_GRANT_TTL_MAX_MINUTES may only tighten the ceiling, never widen it — 99999 clamps to 480', async () => {
+    mockGetSettings.mockResolvedValueOnce([{ key: 'PLAN_GRANT_TTL_MAX_MINUTES', value: '99999' }]);
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    await POST(postReq({ verdict: 'approve' }), { params });
+
+    expect(mockReviewPlan).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', 'pa_1234567890abcdef',
+      expect.objectContaining({ ttlClampMinutes: 480 }),
+    );
+  });
+
   it('rejects an unknown step_overrides value with 400 (fail-closed, never silently approves)', async () => {
     const res = await POST(postReq({ verdict: 'approve', step_overrides: { ps_1: 'yolo' } }), { params });
     const data = await res.json();

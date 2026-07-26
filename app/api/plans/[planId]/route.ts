@@ -66,7 +66,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
 
     const sql = getSql();
     const settings = await getSettings(sql, orgId, { category: 'general' });
-    const ttlClampMinutes = parseInt(String(settings.find((s) => s.key === 'PLAN_GRANT_TTL_MAX_MINUTES')?.value ?? ''), 10) || DEFAULT_TTL_CLAMP_MINUTES;
+    const configuredTtlClampMinutes = parseInt(String(settings.find((s) => s.key === 'PLAN_GRANT_TTL_MAX_MINUTES')?.value ?? ''), 10) || DEFAULT_TTL_CLAMP_MINUTES;
+    // R2: same may-tighten-never-widen guarantee as PLAN_MAX_STEPS (S3 in
+    // app/api/plans/route.ts) — a misconfigured/tampered org setting must not
+    // raise the grant lifetime above the hard ceiling.
+    const ttlClampMinutes = Math.min(configuredTtlClampMinutes, DEFAULT_TTL_CLAMP_MINUTES);
 
     const result = await reviewPlan(sql, orgId, planId, {
       verdict, stepOverrides: stepOverrides ?? {}, reviewedBy: userId, ttlClampMinutes,

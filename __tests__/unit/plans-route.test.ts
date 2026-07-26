@@ -190,6 +190,17 @@ describe('POST /api/plans', () => {
     expect(mockCreatePlanWithSteps).not.toHaveBeenCalled();
   });
 
+  it('R3: returns 409 when createPlanWithSteps returns null (SQL-enforced cap lost a race the pre-read missed)', async () => {
+    mockCreatePlanWithSteps.mockResolvedValueOnce(null);
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(409);
+    expect(data.error).toMatch(/pending plans/i);
+    expect(mockEvaluateGuard).not.toHaveBeenCalled();
+  });
+
   it('happy path: creates the plan, dry-runs every step through evaluateGuard with simulate:true, and stamps previews', async () => {
     const planRow = {
       plan_id: 'pa_1234567890abcdef', org_id: 'org_test', agent_id: 'agent_1',
@@ -267,6 +278,19 @@ describe('GET /api/plans', () => {
     expect(mockListPlans).toHaveBeenCalledWith(
       mockGetSql, 'org_test',
       { status: 'pending', agentId: 'agent_1', limit: 10 },
+    );
+  });
+
+  it('R4: clamps a negative limit to the 1..200 range instead of passing a negative LIMIT to SQL', async () => {
+    mockListPlans.mockResolvedValueOnce([]);
+
+    const res = await GET(getReq('?limit=-5'));
+
+    // -5 is truthy so it survives the `|| 50` fallback; Math.max floors it at 1.
+    expect(res.status).toBe(200);
+    expect(mockListPlans).toHaveBeenCalledWith(
+      mockGetSql, 'org_test',
+      expect.objectContaining({ limit: 1 }),
     );
   });
 });
