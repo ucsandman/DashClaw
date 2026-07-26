@@ -397,6 +397,13 @@ Terminal outcome reporting that is one-shot, retry-safe, and immutable once non-
 - `listSessions(filters)` -- List sessions (`agent_id`, `status`, `limit`).
 - `getSessionEvents(sessionId)` -- Fetch the event stream for a session.
 
+### Plans (preflight authorization)
+- `submitPlan(plan)` -- `POST /api/plans`. Submit an ordered plan of steps for operator review; each step is dry-run through the guard pipeline server-side, and approved steps become single-use grants consumed automatically when the matching action runs. `plan`: `{ declared_goal, ttl_minutes?, steps: [{ action_type, step_goal, act? }] }`.
+- `getPlan(planId)` -- `GET /api/plans/:planId`. Plan detail with per-step grant status.
+- `listPlans(opts?)` -- `GET /api/plans`. List plans. `opts`: `{ status?, agent_id?, limit? }`.
+- `resolvePlan(planId, verdict, opts?)` -- `POST /api/plans/:planId`. Operator verdict (admin credential required). `verdict`: `'approve' | 'deny' | 'revoke'`; `opts`: `{ step_overrides? }`.
+- `waitForPlanReview(planId, opts?)` -- Poll `getPlan()` until the operator reviews it (status leaves `pending`) or the timeout elapses. Same polling shape as `waitForApproval`. `opts`: `{ timeout = 300000, interval = 5000 }`.
+
 ### Team Tasks (fleets-and-teams amendment)
 - `createTeamTask(task)` -- Create a Team Task (one per multi-agent `/team` run). `task`: `{ id, instruction, origin, lead_agent, status?, stop_condition?, max_exchanges? }`.
 - `appendTeamTaskEvent(taskId, event)` -- Append one timeline event. `event`: `{ from_agent, to_agent, type, summary, ts?, body?, action_id? }`.

@@ -665,6 +665,16 @@ Track agent work sessions and their event timeline, at parity with the Node SDK:
 
 - `create_session(workspace=None, branch=None)` (agent id comes from the client), `get_session(session_id)`, `update_session(session_id, **updates)`, `list_sessions(agent_id=None, status=None, limit=50)`, `get_session_events(session_id)`.
 
+## Plans
+
+Preflight plan authorization, at parity with the Node SDK: submit an ordered plan of steps for operator review, each dry-run through the guard pipeline server-side; approved steps become single-use grants consumed automatically when the matching action runs.
+
+- `submit_plan(declared_goal, steps, ttl_minutes=None)` -- Submit a plan. `steps`: list of `{action_type, step_goal, act?}`.
+- `get_plan(plan_id)` -- Fetch a plan with per-step grant status.
+- `list_plans(status=None, agent_id=None, limit=None)` -- List submitted plans.
+- `resolve_plan(plan_id, verdict, step_overrides=None)` -- Operator verdict: `approve`, `deny`, or `revoke` (admin credential required).
+- `wait_for_plan_review(plan_id, timeout=300, interval=5)` -- Poll until the operator reviews the plan (status leaves `pending`).
+
 ## Execution Graph & Finality
 
 A read-only execution graph plus durable-execution finality helpers.

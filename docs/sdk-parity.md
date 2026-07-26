@@ -42,6 +42,8 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 - **Signals**: `getSignals`.
 - **Sessions**: `createSession`, `getSession`, `updateSession`, `listSessions`,
   `getSessionEvents`.
+- **Plans (preflight authorization)**: `submitPlan`, `getPlan`, `listPlans`,
+  `resolvePlan`, `waitForPlanReview`.
 - **Pairing (enrollment)**: `createPairing`, `waitForPairing`.
 - **Security**: `scanPromptInjection`.
 
@@ -64,6 +66,7 @@ The core methods present in **both** SDKs (Node `camelCase` / Python `snake_case
 | Guard / actions / approvals | Yes | Yes | Canonical. Phase 2 JWKS attribution (`authToken` / `auth_token`) at parity; server returns `verification_status`. Non-fabrication (`content` + `sourceOfTruth` / `source_of_truth`) verified server-side with a signed Ed25519 receipt; re-verify at `POST /api/integrity/verify` (`/.well-known/jwks.json`). |
 | Action outcome (durable execution finality) | Yes | Yes | `POST/GET /api/actions/:id/outcome` + cron sweep + `lost_confirmation` signal + SDK wrappers. Full parity. |
 | Sessions / action graph | Yes | Yes | Canonical. |
+| Plans (preflight authorization) | Yes | Yes | `submitPlan`/`submit_plan`, `getPlan`/`get_plan`, `listPlans`/`list_plans`, `resolvePlan`/`resolve_plan`, `waitForPlanReview`/`wait_for_plan_review`. Full parity (5 Node + 5 Python). |
 | Assumptions | Record | Record + read/validate | `recordAssumption` at parity; `get_assumption` / `validate_assumption` are Python-only. Invalidated assumptions surface as the `assumption_drift` signal. |
 | Signals | Yes | Yes | Canonical. |
 | Security (prompt injection) | Yes | Yes | `POST /api/security/prompt-injection`. |
