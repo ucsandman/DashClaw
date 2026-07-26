@@ -118,6 +118,24 @@ describe('GET /api/plans/[planId]', () => {
     expect(data.steps).toEqual(steps);
     expect(mockGetPlanWithSteps).toHaveBeenCalledWith(mockGetSql, 'org_test', 'pa_1234567890abcdef');
   });
+
+  // V7: created_by is a reviewer/creator principal — never leak it to an
+  // agent-facing GET (reviewed_by stays; it's intentional approver
+  // attribution).
+  it('V7: strips created_by from the plan, keeps reviewed_by', async () => {
+    const plan = {
+      plan_id: 'pa_1234567890abcdef', status: 'approved',
+      created_by: 'user_submitter', reviewed_by: 'user_1',
+    };
+    mockGetPlanWithSteps.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await GET(getReq(), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.plan).not.toHaveProperty('created_by');
+    expect(data.plan.reviewed_by).toBe('user_1');
+  });
 });
 
 describe('POST /api/plans/[planId]', () => {

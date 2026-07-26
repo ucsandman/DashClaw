@@ -28,6 +28,7 @@ const {
   mockListPlans,
   mockCountPendingPlans,
   mockMarkPlanPending,
+  mockReviewPlan,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -48,6 +49,7 @@ const {
   mockListPlans: vi.fn(async () => [] as unknown[]),
   mockCountPendingPlans: vi.fn(async () => 0),
   mockMarkPlanPending: vi.fn(async () => null as unknown),
+  mockReviewPlan: vi.fn(async () => null as unknown),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -65,6 +67,7 @@ vi.mock('@/lib/repositories/plans.repository.js', () => ({
   listPlans: mockListPlans,
   countPendingPlans: mockCountPendingPlans,
   markPlanPending: mockMarkPlanPending,
+  reviewPlan: mockReviewPlan,
 }));
 
 const { POST, GET } = await import('@/api/plans/route.js');
@@ -396,6 +399,91 @@ describe('POST /api/plans', () => {
       mockGetSql, 'org_test', expect.objectContaining({ ttlMinutes: 1 }),
     );
   });
+
+  // V4: a plan that dies mid-preview must not sit forever in 'previewing',
+  // silently holding a pending-plan cap slot — a best-effort system-attributed
+  // revoke runs before the original error is rethrown as the route's 500.
+  it('V4: a throwing preview step best-effort revokes the previewing plan before rethrowing', async () => {
+    const planRow = { plan_id: 'pa_1234567890abcdef', status: 'previewing' };
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: planRow,
+      steps: [{ step_id: 'ps_1', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockRejectedValueOnce(new Error('guard blew up'));
+    mockReviewPlan.mockResolvedValueOnce({ plan: { ...planRow, status: 'revoked' }, steps: [] });
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(data.error).toMatch(/internal server error/i);
+    expect(mockReviewPlan).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', planRow.plan_id,
+      { verdict: 'revoke', reviewedBy: 'system:preview-failure', ttlClampMinutes: 480 },
+    );
+    expect(mockMarkPlanPending).not.toHaveBeenCalled();
+  });
+
+  it('V4: if the best-effort revoke itself throws, the original preview error still surfaces as the 500', async () => {
+    const planRow = { plan_id: 'pa_1234567890abcdef', status: 'previewing' };
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: planRow,
+      steps: [{ step_id: 'ps_1', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockRejectedValueOnce(new Error('guard blew up'));
+    mockReviewPlan.mockRejectedValueOnce(new Error('revoke also failed'));
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(data.error).toMatch(/internal server error/i);
+  });
+
+  // V6: bounds the preview loop's whole wall clock, not just each step's own
+  // guard-evaluation deadline — once the budget is spent, remaining steps
+  // ship un-previewed (the review card already renders "no preview" for a
+  // step with no preview_decision) and the route still completes with 201.
+  it('V6: steps beyond the preview budget ship with no preview, and the route still 201s', async () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(1000);
+      const planRow = { plan_id: 'pa_1234567890abcdef', status: 'previewing' };
+      const stepRows = [
+        { step_id: 'ps_1', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'step 1', act: null },
+        { step_id: 'ps_2', plan_id: planRow.plan_id, seq: 2, action_type: 'deploy', step_goal: 'step 2', act: null },
+        { step_id: 'ps_3', plan_id: planRow.plan_id, seq: 3, action_type: 'deploy', step_goal: 'step 3', act: null },
+      ];
+      mockCreatePlanWithSteps.mockResolvedValueOnce({ plan: planRow, steps: stepRows });
+      // The first (and only) evaluateGuard call jumps system time past the
+      // 20s budget before resolving, so the loop's next budget check sees it.
+      mockEvaluateGuard.mockImplementation(async () => {
+        vi.setSystemTime(Date.now() + 25000);
+        return { decision: 'allow', risk_score: 5, reasons: [], simulated: true };
+      });
+      mockMarkPlanPending.mockResolvedValueOnce({ ...planRow, status: 'pending' });
+
+      const res = await POST(postReq({
+        ...validBody,
+        steps: [
+          { action_type: 'deploy', step_goal: 'step 1' },
+          { action_type: 'deploy', step_goal: 'step 2' },
+          { action_type: 'deploy', step_goal: 'step 3' },
+        ],
+      }));
+      const data = await res.json();
+
+      expect(res.status).toBe(201);
+      expect(mockEvaluateGuard).toHaveBeenCalledTimes(1);
+      expect(data.steps).toHaveLength(3);
+      expect(data.steps[0].preview_decision).toBe('allow');
+      expect(data.steps[1].preview_decision).toBeUndefined();
+      expect(data.steps[2].preview_decision).toBeUndefined();
+      expect(mockMarkPlanPending).toHaveBeenCalledWith(mockGetSql, 'org_test', planRow.plan_id);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('GET /api/plans', () => {
@@ -430,5 +518,25 @@ describe('GET /api/plans', () => {
       mockGetSql, 'org_test',
       expect.objectContaining({ limit: 1 }),
     );
+  });
+
+  // V7: created_by is a reviewer/creator principal — never leak it to an
+  // agent-facing GET (reviewed_by stays; it's intentional approver
+  // attribution).
+  it('V7: strips created_by from every plan in the response, keeps reviewed_by', async () => {
+    mockListPlans.mockResolvedValueOnce([
+      { plan_id: 'pa_1', status: 'pending', created_by: 'user_submitter', reviewed_by: null },
+      { plan_id: 'pa_2', status: 'approved', created_by: 'user_other', reviewed_by: 'user_1' },
+    ]);
+
+    const res = await GET(getReq());
+    const data = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(data.plans).toHaveLength(2);
+    for (const plan of data.plans) {
+      expect(plan).not.toHaveProperty('created_by');
+    }
+    expect(data.plans[1].reviewed_by).toBe('user_1');
   });
 });

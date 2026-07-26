@@ -119,6 +119,21 @@ class TestWaitForPlanReview(unittest.TestCase):
             client.wait_for_plan_review("p1", timeout=0.01, interval=0)
         self.assertIn("p1", str(ctx.exception))
 
+    # V5: "previewing" is not terminal — the old `status != "pending"` check
+    # would have returned on the very first poll while the plan was still
+    # dry-running its steps, before an operator ever saw it.
+    def test_keeps_polling_through_previewing_and_returns_on_terminal_status(self):
+        client = WaitPlanClient(
+            plans=[
+                {"plan": {"status": "previewing"}},
+                {"plan": {"status": "pending"}},
+                {"plan": {"status": "approved"}, "steps": []},
+            ]
+        )
+        result = client.wait_for_plan_review("p1", timeout=5, interval=0)
+        self.assertEqual(result["plan"]["status"], "approved")
+        self.assertEqual(client.get_plan_calls, 3)
+
 
 if __name__ == "__main__":
     unittest.main()

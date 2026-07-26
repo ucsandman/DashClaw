@@ -256,7 +256,7 @@ describe('plans.repository', () => {
     expect(sql.calls[0]!.text).not.toContain('agent_id');
   });
 
-  it('S1b: findDeniedStepMatch raises on act hash OR goal — a denied act-bound step still matches on a goal-only hit with a different act', async () => {
+  it('S1b: findDeniedStepMatch raises on act hash OR (action_type AND goal) — a denied act-bound step still matches on a goal-only hit with a different act', async () => {
     // Fail-open regression guard: the old query gated each branch behind
     // its own NOT-NULL check ("act_content_hash IS NOT NULL AND hash = ?"
     // OR "act_content_hash IS NULL AND goal = ?"), so mutating a denied
@@ -271,7 +271,34 @@ describe('plans.repository', () => {
     const q = sql.calls[0]!.text;
     expect(q).not.toContain('act_content_hash IS NOT NULL');
     expect(q).not.toContain('act_content_hash IS NULL AND');
-    expect(q).toContain('(st.act_content_hash = ? OR st.step_goal = ?)');
+    // V2: action_type is now scoped to the goal branch only — the hash
+    // branch matches on the act's content alone, independent of action_type.
+    expect(q).toContain('(st.act_content_hash = ? OR (st.action_type = ? AND st.step_goal = ?))');
+  });
+
+  // V2: a byte-identical denied act blocks regardless of what action_type
+  // the caller declares this time — the hash IS the proof it's the same
+  // payload, so relabeling the action_type must not evade the denial.
+  it('V2: findDeniedStepMatch matches on act hash alone even when actionType is null (no action_type supplied)', async () => {
+    const sql = sqlMock([[{ step_id: 'ps_1', plan_id: 'pa_1', reviewed_by: 'operator' }]]);
+    const hit = await findDeniedStepMatch(sql as never, 'org_1', {
+      actionType: null, declaredGoal: '', actHash: 'sha256:denied-act',
+    });
+    expect(hit!.step_id).toBe('ps_1');
+  });
+
+  // V2: the goal-only branch is NOT relaxed — action_type is interpolated
+  // INSIDE the parenthesized goal clause (proven by the S1b string match
+  // above), so a goal hit alone never matches a differently-typed step; only
+  // the hash branch is action_type-independent. This asserts the query
+  // parameterizes action_type + declaredGoal into that same branch.
+  it('V2: findDeniedStepMatch interpolates actionType and declaredGoal together into the goal branch', async () => {
+    const sql = sqlMock([[]]);
+    await findDeniedStepMatch(sql as never, 'org_1', {
+      actionType: 'code_change', declaredGoal: 'deploy the thing', actHash: null,
+    });
+    expect(sql.calls[0]!.v).toContain('code_change');
+    expect(sql.calls[0]!.v).toContain('deploy the thing');
   });
 
   it('revoke leaves step grant_status untouched and sets expires_at = now()', async () => {

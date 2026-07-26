@@ -109,22 +109,30 @@ export default function ApprovalsPage() {
   // same detail fetch pattern rather than adding a second polling pass.
   const fetchPendingPlans = useCallback(async () => {
     try {
-      const [pending, approved, partiallyApproved, denied] = await Promise.all([
+      const [pending, approved, partiallyApproved, denied, previewing] = await Promise.all([
         fetchPlanList('pending'),
         fetchPlanList('approved'),
         fetchPlanList('partially_approved'),
         fetchPlanList('denied'),
+        // V4: a plan stuck previewing (still dry-running steps, or orphaned
+        // by a preview failure the route couldn't fully clean up) must stay
+        // visible and revokable, not disappear until it reaches 'pending'.
+        fetchPlanList('previewing'),
       ]);
       const [pendingDetailed, liveDetailed] = await Promise.all([
         fetchPlanDetails(pending),
-        fetchPlanDetails([...approved, ...partiallyApproved, ...denied]),
+        fetchPlanDetails([...approved, ...partiallyApproved, ...denied, ...previewing]),
       ]);
       setPendingPlans(pendingDetailed);
       // Dead plans (expires_at already in the past — e.g. a lifted denial or
       // an unrevoked plan that simply timed out) age out of the Live plans
       // section client-side rather than sticking around until the next
-      // status-based refetch drops them.
+      // status-based refetch drops them. A 'previewing' plan has no
+      // expires_at yet (it hasn't been reviewed), so it's exempt from that
+      // filter — it's live by definition until the loop finishes or an
+      // operator revokes it.
       setLivePlans(liveDetailed.filter((p: any) => {
+        if (p?.plan?.status === 'previewing') return true;
         const expiresAt = p?.plan?.expires_at;
         return expiresAt && Date.parse(expiresAt) > Date.now();
       }));

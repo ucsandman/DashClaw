@@ -24,7 +24,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ plan
     const orgId = getOrgId(request);
     const result = await getPlanWithSteps(sql, orgId, planId);
     if (!result) return NextResponse.json({ error: 'Plan not found' }, { status: 404 });
-    return NextResponse.json(result);
+    // V7: created_by is a reviewer/creator principal — never leak it to an
+    // agent-facing GET. reviewed_by stays (it's displayed as approver
+    // attribution in the UI, which is intentional provenance).
+    const { created_by: _createdBy, ...plan } = result.plan as Record<string, unknown>;
+    return NextResponse.json({ plan, steps: result.steps });
   } catch (error) {
     return apiErrorResponse(error, 'PLAN GET');
   }

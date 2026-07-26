@@ -350,14 +350,13 @@ export async function consumePlanStepGrant(
 export async function findDeniedStepMatch(
   sql: SqlClient,
   orgId: string,
-  input: { actionType: string; declaredGoal: string; actHash: string | null },
+  input: { actionType: string | null; declaredGoal: string; actHash: string | null },
 ) {
   const rows = await sql`
     SELECT st.step_id, st.plan_id, p.reviewed_by
     FROM plan_authorization_steps st
     JOIN plan_authorizations p ON p.plan_id = st.plan_id AND p.org_id = st.org_id
     WHERE st.org_id = ${orgId}
-      AND st.action_type = ${input.actionType}
       -- 'revoked' stays in this list as belt-and-braces, but it no longer
       -- does the real work: reviewPlan's revoke branch also sets
       -- expires_at = now(), so a revoked plan's explicit step denials are
@@ -373,16 +372,20 @@ export async function findDeniedStepMatch(
       -- partial-index predicate, so this per-guard-call probe rides
       -- idx_plan_authorization_steps_consume instead of scanning the table.
       AND st.grant_used_at IS NULL
-      -- S1b: denials are fail-closed — a denied step matches on EITHER its
-      -- act hash or its goal, so mutating the act cannot evade an operator's
-      -- "no". (A strict-AND-per-branch match, as consumePlanStepGrant uses,
-      -- is fail-open here: an attacker could tweak the act to change its
-      -- hash and slip past a denial while keeping the same declared goal.)
-      -- NULL act_content_hash never equals a non-null actHash in SQL, so a
+      -- S1b/V2: denials are fail-closed — a denied step matches on EITHER a
+      -- byte-identical act hash (regardless of what action_type the caller
+      -- happens to declare this time) OR the action_type+goal pair. Gating
+      -- the hash branch behind action_type would let an attacker evade a
+      -- denial simply by relabeling the SAME act under a different declared
+      -- action_type — the hash already proves it's the identical payload.
+      -- The goal branch keeps action_type as part of its match: a bare goal
+      -- string is weak evidence on its own, so it only counts alongside the
+      -- action_type the denial was actually recorded against. NULL
+      -- act_content_hash never equals a non-null actHash in SQL, so a
       -- hashless step naturally falls through to the goal branch. Grants
       -- (consumePlanStepGrant) keep the strict match — only denials need to
       -- be fail-closed.
-      AND (st.act_content_hash = ${input.actHash} OR st.step_goal = ${input.declaredGoal})
+      AND (st.act_content_hash = ${input.actHash} OR (st.action_type = ${input.actionType} AND st.step_goal = ${input.declaredGoal}))
     ORDER BY st.seq ASC
     LIMIT 1
   `;

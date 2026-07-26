@@ -427,11 +427,16 @@ export type PlanGrantInfo = { plan_id: string; step_id: string; seq: number; pre
 
 async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<PlanGrantInfo | null> {
   const { context, sql, orgId } = deps;
-  if (!context.action_type) return null;
-  if (acc.highestDecision === 'block') return null;
-
   const declaredGoal = context.declared_goal || '';
   const actHash = computeActContentHash(context.act);
+  // V2: the entry guard used to require context.action_type unconditionally,
+  // which meant a denial could never fire on a hash-only match if the
+  // (self-asserted) caller simply omitted action_type this time. The deny
+  // check only needs SOME matchable binding — action_type or an act hash —
+  // not action_type specifically; findDeniedStepMatch's hash branch doesn't
+  // use action_type at all.
+  if (!context.action_type && !actHash) return null;
+  if (acc.highestDecision === 'block') return null;
 
   // U1: the deny check must not be gated behind the full triple — it runs
   // off action_type plus whichever binding is present (goal and/or act
@@ -441,7 +446,7 @@ async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): 
     try {
       const { findDeniedStepMatch } = await import('../repositories/plans.repository');
       const denied = await findDeniedStepMatch(sql as never, orgId, {
-        actionType: context.action_type,
+        actionType: context.action_type ?? null,
         declaredGoal,
         actHash,
       });
@@ -464,8 +469,10 @@ async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): 
     }
   }
 
-  // Consumption keeps the strict full-triple requirement.
-  if (!context.agent_id || !declaredGoal) return null;
+  // Consumption keeps the strict full-triple requirement — action_type is
+  // no longer guaranteed by the entry guard above (V2 relaxed it to allow a
+  // hash-only deny check), so it must be re-asserted here explicitly.
+  if (!context.agent_id || !context.action_type || !declaredGoal) return null;
   if (acc.highestDecision !== 'require_approval') return null;
 
   try {

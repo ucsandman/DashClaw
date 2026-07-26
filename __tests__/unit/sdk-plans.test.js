@@ -58,4 +58,18 @@ describe('SDK plan methods', () => {
 
     await expect(sdk().waitForPlanReview('p1', { timeout: 10, interval: 5 })).rejects.toThrow(/not reviewed within/);
   });
+
+  // V5: 'previewing' is not terminal — the old `status !== 'pending'` check
+  // would have returned on the very first poll while the plan was still
+  // dry-running its steps, before an operator ever saw it.
+  it('V5: waitForPlanReview keeps polling through previewing and returns on a terminal status', async () => {
+    fetchMock
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ plan: { status: 'previewing' } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ plan: { status: 'pending' } }), { status: 200, headers: { 'Content-Type': 'application/json' } }))
+      .mockImplementationOnce(async () => new Response(JSON.stringify({ plan: { status: 'approved' }, steps: [] }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+
+    const result = await sdk().waitForPlanReview('p1', { interval: 0 });
+    expect(result.plan.status).toBe('approved');
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

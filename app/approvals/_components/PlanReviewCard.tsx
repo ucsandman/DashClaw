@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { Check, X, ListChecks } from 'lucide-react';
 import { Card, CardContent } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
@@ -35,6 +35,13 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
   const [overrides, setOverrides] = useState<Record<string, 'approve' | 'deny'>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // V1: which step rows have their act payload expanded — the operator was
+  // previously approving act-bound steps blind (Act-bound badge, no way to
+  // see the act itself).
+  const [expandedActs, setExpandedActs] = useState<Record<string, boolean>>({});
+  const toggleAct = (stepId: string) => {
+    setExpandedActs((prev) => ({ ...prev, [stepId]: !prev[stepId] }));
+  };
 
   const toggleStep = (stepId: string) => {
     setOverrides((prev) => ({ ...prev, [stepId]: prev[stepId] === 'deny' ? 'approve' : 'deny' }));
@@ -89,52 +96,78 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
               {steps.map((step) => {
                 const denied = overrides[step.step_id] === 'deny';
                 const redactedCount = countRedactions(step.act);
+                const actExpanded = expandedActs[step.step_id] ?? false;
                 return (
-                  <tr key={step.step_id} className="border-t border-border">
-                    <td className="px-3 py-2 tabular-nums text-tertiary">{step.seq}</td>
-                    <td className="px-3 py-2 text-white">
-                      {step.step_goal}
-                      {step.act_content_hash && (
-                        <span className="ml-2 inline-flex items-center gap-1.5">
-                          <Badge variant="info" size="xs">Act-bound</Badge>
+                  <Fragment key={step.step_id}>
+                    <tr className="border-t border-border">
+                      <td className="px-3 py-2 tabular-nums text-tertiary">{step.seq}</td>
+                      <td className="px-3 py-2 text-white">
+                        {step.step_goal}
+                        {step.act_content_hash ? (
+                          <span className="ml-2 inline-flex items-center gap-1.5">
+                            <Badge variant="info" size="xs">Act-bound</Badge>
+                            <button
+                              type="button"
+                              onClick={() => toggleAct(step.step_id)}
+                              className="text-[11px] text-tertiary underline decoration-dotted underline-offset-2 hover:text-secondary"
+                            >
+                              {actExpanded ? 'hide act' : 'view act'}
+                            </button>
+                          </span>
+                        ) : (
+                          <span
+                            className="ml-2 inline-flex items-center"
+                            title="No act was submitted for this step — an approval covers ANY payload matching this declared goal, not one specific act"
+                          >
+                            <Badge size="xs">Goal-bound</Badge>
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-secondary">{step.action_type}</td>
+                      <td className="px-3 py-2">
+                        {step.preview_decision ? (
+                          <span title="Advisory: conditions can change between review and execution">
+                            <Badge variant={PREVIEW_VARIANT[step.preview_decision] ?? 'default'} size="xs">
+                              {step.preview_decision}
+                              {step.preview_risk_score != null ? ` · ${step.preview_risk_score}` : ''}
+                            </Badge>
+                          </span>
+                        ) : (
+                          <Badge size="xs">no preview</Badge>
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right">
+                        <button
+                          onClick={() => toggleStep(step.step_id)}
+                          disabled={busy || !canDecide}
+                          className={`rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                            denied
+                              ? 'border-error/20 bg-error-subtle text-error'
+                              : 'border-success/20 bg-success-subtle text-success'
+                          }`}
+                        >
+                          {denied ? 'Denied' : 'Approved'}
+                        </button>
+                      </td>
+                    </tr>
+                    {actExpanded && step.act_content_hash && (
+                      <tr className="border-t border-border">
+                        <td colSpan={5} className="px-3 py-2 bg-white/5">
+                          <pre className="max-h-64 overflow-x-auto rounded bg-white/5 p-2 font-mono text-xs text-secondary">
+                            {JSON.stringify(step.act, null, 2)}
+                          </pre>
                           {redactedCount > 0 && (
-                            <span
-                              className="text-[11px] text-tertiary"
+                            <p
+                              className="mt-1.5 text-[11px] text-tertiary"
                               title="The act hash binds content the operator can't fully see"
                             >
-                              {redactedCount} redacted value{redactedCount > 1 ? 's' : ''}
-                            </span>
+                              {`${redactedCount} redacted value${redactedCount > 1 ? 's' : ''} hidden — the hash above binds the content, not just what's shown.`}
+                            </p>
                           )}
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-secondary">{step.action_type}</td>
-                    <td className="px-3 py-2">
-                      {step.preview_decision ? (
-                        <span title="Advisory: conditions can change between review and execution">
-                          <Badge variant={PREVIEW_VARIANT[step.preview_decision] ?? 'default'} size="xs">
-                            {step.preview_decision}
-                            {step.preview_risk_score != null ? ` · ${step.preview_risk_score}` : ''}
-                          </Badge>
-                        </span>
-                      ) : (
-                        <Badge size="xs">no preview</Badge>
-                      )}
-                    </td>
-                    <td className="px-3 py-2 text-right">
-                      <button
-                        onClick={() => toggleStep(step.step_id)}
-                        disabled={busy || !canDecide}
-                        className={`rounded border px-2 py-1 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
-                          denied
-                            ? 'border-error/20 bg-error-subtle text-error'
-                            : 'border-success/20 bg-success-subtle text-success'
-                        }`}
-                      >
-                        {denied ? 'Denied' : 'Approved'}
-                      </button>
-                    </td>
-                  </tr>
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
                 );
               })}
             </tbody>

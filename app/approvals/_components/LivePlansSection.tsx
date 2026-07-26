@@ -8,6 +8,8 @@ import { Badge } from '../../components/ui/Badge';
 const STATUS_VARIANT: Record<string, string> = {
   approved: 'success', partially_approved: 'warning', denied: 'error',
 };
+// 'previewing' falls through to the Badge default (muted zinc) — it isn't
+// a verdict yet, so it doesn't earn success/warning/error color.
 
 interface PlanStep { grant_used_at: string | null; }
 interface Plan {
@@ -65,6 +67,7 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
         {plans.map(({ plan, steps }) => {
           const consumed = steps.filter((s) => s.grant_used_at).length;
           const isDenied = plan.status === 'denied';
+          const isPreviewing = plan.status === 'previewing';
           const busy = busyId === plan.plan_id;
           const error = errorId?.planId === plan.plan_id ? errorId.message : null;
           return (
@@ -81,7 +84,12 @@ export default function LivePlansSection({ plans, canDecide, onResolved }: {
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm text-white">{plan.declared_goal}</div>
                     <div className="text-xs text-tertiary">
-                      {plan.agent_id} · {consumed}/{steps.length} steps consumed
+                      {plan.agent_id} ·{' '}
+                      {isPreviewing ? (
+                        <span className="italic">previews running…</span>
+                      ) : (
+                        <>{consumed}/{steps.length} steps consumed</>
+                      )}
                       {isDenied && <> · denials active until {relativeUntil(plan.expires_at)}</>}
                     </div>
                   </div>

@@ -99,6 +99,11 @@ async function readBlockedStreamDecision(res) {
 
 const SCRUB_HEADER_KEYS = new Set(['authorization', 'cookie', 'x-api-key']);
 
+// V5: waitForPlanReview's terminal set. 'pending' and 'previewing' are both
+// non-terminal — a plan dry-running its steps ('previewing') hasn't reached
+// an operator verdict yet, same as 'pending'.
+const PLAN_REVIEW_TERMINAL_STATUSES = new Set(['approved', 'partially_approved', 'denied', 'revoked', 'expired']);
+
 /** Mask secret-looking substrings in a command/body/content excerpt. */
 function scrubActText(text) {
   if (typeof text !== 'string' || !text) return text;
@@ -1016,9 +1021,13 @@ class DashClaw {
   }
 
   /**
-   * Poll GET /api/plans/:planId until the operator reviews it (status leaves
-   * 'pending') or the timeout elapses. Resolves with the final plan+steps —
-   * the caller inspects plan.status. Same polling shape as waitForApproval.
+   * Poll GET /api/plans/:planId until the plan reaches a terminal review
+   * state or the timeout elapses. Resolves with the final plan+steps — the
+   * caller inspects plan.status. Same polling shape as waitForApproval.
+   * V5: 'previewing' (the plan is still dry-running its steps) is NOT
+   * terminal, same as 'pending' — polling on `status !== 'pending'` would
+   * have returned immediately on a 'previewing' plan without ever seeing an
+   * operator's actual verdict.
    * @param {string} planId
    * @param {object} [opts] - { timeout = 300000, interval = 5000 }
    */
@@ -1026,7 +1035,7 @@ class DashClaw {
     const startTime = Date.now();
     for (;;) {
       const result = await this.getPlan(planId);
-      if (result?.plan?.status && result.plan.status !== 'pending') return result;
+      if (result?.plan?.status && PLAN_REVIEW_TERMINAL_STATUSES.has(result.plan.status)) return result;
       if (Date.now() - startTime >= timeout) {
         throw new Error(`Plan ${planId} was not reviewed within ${timeout}ms`);
       }

@@ -20,6 +20,11 @@ from contextlib import contextmanager
 
 _SCRUB_HEADER_KEYS = {"authorization", "cookie", "x-api-key"}
 
+# V5: wait_for_plan_review's terminal set. "pending" and "previewing" are both
+# non-terminal — a plan dry-running its steps ("previewing") hasn't reached an
+# operator verdict yet, same as "pending".
+_PLAN_REVIEW_TERMINAL_STATUSES = {"approved", "partially_approved", "denied", "revoked", "expired"}
+
 _SCRUB_TEXT_PATTERNS = [
     (re.compile(r"oc_live_[A-Za-z0-9_-]+"), "[REDACTED]"),
     (re.compile(r"sk-[A-Za-z0-9_-]{10,}"), "[REDACTED]"),
@@ -1107,12 +1112,18 @@ class DashClaw:
         return self._request(f"/api/plans/{plan_id}", "POST", json=payload)
 
     def wait_for_plan_review(self, plan_id, timeout=300, interval=5):
-        """Poll until the operator reviews the plan (status leaves 'pending')."""
+        """Poll until the plan reaches a terminal review state.
+
+        V5: "previewing" (the plan is still dry-running its steps) is NOT
+        terminal, same as "pending" — polling on status != "pending" would
+        have returned immediately on a "previewing" plan without ever seeing
+        an operator's actual verdict.
+        """
         deadline = time.time() + timeout
         while True:
             result = self.get_plan(plan_id)
             plan = (result or {}).get("plan") or {}
-            if plan.get("status") and plan.get("status") != "pending":
+            if plan.get("status") in _PLAN_REVIEW_TERMINAL_STATUSES:
                 return result
             if time.time() >= deadline:
                 raise TimeoutError(f"Plan {plan_id} was not reviewed within {timeout}s")

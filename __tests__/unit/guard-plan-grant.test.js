@@ -243,6 +243,23 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(result.reasons.some((r) => r.includes('ps_denied_noGoal'))).toBe(true);
   });
 
+  // V2: the entry guard now runs when EITHER action_type or an act hash is
+  // present — it used to require action_type unconditionally, so a step
+  // denied only by its act hash could never even be checked once the
+  // (self-asserted) caller simply omitted action_type on a later call.
+  it('V2: a denied step still blocks on a hash-only match when action_type is absent', async () => {
+    const sql = makeSql({
+      policies: [],
+      deniedRows: [{ step_id: 'ps_denied_hash_noaction', plan_id: 'pa_plan8', reviewed_by: 'wes' }],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', act: { kind: 'shell', command: 'rm -rf /' },
+    }, sql);
+
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some((r) => r.includes('ps_denied_hash_noaction'))).toBe(true);
+  });
+
   // U1(c): consumption keeps the strict full-triple requirement — a matching
   // goal alone (no agent_id) must never consume a grant, even though the
   // deny half no longer requires agent_id.
