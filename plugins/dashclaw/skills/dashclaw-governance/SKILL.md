@@ -179,3 +179,31 @@ Call `dashclaw_decisions_recent` with filters like action_type, decision verdict
 (allow/warn/block/require_approval), or a `since` ISO timestamp. Useful when an
 operator asks "what did the agent do this week?" or before suggesting a follow-up
 to a recent action.
+
+## Preflight Plans
+
+### Before a long run with foreseeable high-risk steps
+Submit the plan up front instead of hitting `require_approval` one step at a time.
+Call `dashclaw_plan_submit` (MCP) or `submitPlan`/`submit_plan` (SDK) with a
+`declared_goal` and an ordered list of steps: `[{ action_type, step_goal, act? }]`.
+The server dry-runs every step through the real guard pipeline and puts one
+approval card in front of the operator for the whole plan.
+
+### Wait for review
+Poll `dashclaw_plan_status` (MCP) or `waitForPlanReview` (SDK) until the plan's
+status leaves `pending`. Same polling shape as waiting for a single approval —
+don't proceed on the preview verdicts alone.
+
+### Executing against an approved plan
+Once reviewed, execute normally — guard, act, record for each step. Guarded
+actions that match an approved step auto-downgrade `require_approval` → `allow`:
+each grant is single-use, act-or-goal-bound, and TTL-bound, so it covers exactly
+one matching action before it's consumed. Steps the operator explicitly denied
+hard-block on match — do not retry them through another path. Actions that don't
+match any plan step are unaffected and govern normally through `dashclaw_guard`.
+
+### Never treat a preview as authorization
+The dry-run verdicts shown at submission are previews, not decisions. Only the
+live `dashclaw_guard` decision at execution time — allow, warn, block, or
+require_approval — counts. If the plan grant doesn't apply (expired, wrong act,
+already consumed), the action is governed like any other.
