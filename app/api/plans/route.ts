@@ -16,11 +16,16 @@ import { resolveAgentIdentity } from '../../lib/identity-resolution';
 import { evaluateGuard } from '../../lib/guard';
 import { getSettings } from '../../lib/repositories/settings.repository';
 import {
-  createPlanWithSteps, stampStepPreview, listPlans, countPendingPlans,
+  createPlanWithSteps, stampStepPreview, listPlans, countPendingPlans, markPlanPending,
 } from '../../lib/repositories/plans.repository';
 
 const DEFAULT_MAX_STEPS = 25;
 const MAX_PENDING_PLANS = 10;
+// U5: same hard ceiling as DEFAULT_TTL_CLAMP_MINUTES in
+// app/api/plans/[planId]/route.ts — ttl_minutes is stored in an int4 column
+// and also bounds a grant's live window, so an unclamped value (e.g. 3e9)
+// must never reach the DB or become the org's effective grant lifetime.
+const DEFAULT_TTL_CLAMP = 480;
 
 interface PlanStepBody {
   action_type?: unknown;
@@ -80,8 +85,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const ttlMinutes = Number.isFinite(Number(body.ttl_minutes)) && Number(body.ttl_minutes) > 0
-      ? Math.floor(Number(body.ttl_minutes)) : 60;
+    // U5: clamp at parse — Math.floor(NaN) is NaN, which is falsy, so a
+    // non-numeric or absent ttl_minutes still falls back to 60 before the
+    // 1..DEFAULT_TTL_CLAMP range clamp runs.
+    const ttlMinutes = Math.min(Math.max(Math.floor(Number(body.ttl_minutes)) || 60, 1), DEFAULT_TTL_CLAMP);
 
     const created = await createPlanWithSteps(sql, orgId, {
       agentId, declaredGoal: body.declared_goal, ttlMinutes, maxPending: MAX_PENDING_PLANS,
@@ -137,9 +144,20 @@ export async function POST(request: Request) {
       });
     }
 
-    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan: created.plan });
+    // U4: the plan was inserted as 'previewing' — flip it to 'pending' now
+    // that every step has a stamped preview verdict. Only then is it
+    // reviewable (reviewPlan requires status='pending') and visible on
+    // /approvals (which fetches ?status=pending only). Guarded in SQL on
+    // status='previewing', so a concurrent revoke wins gracefully — fall
+    // back to created.plan (still status 'previewing') rather than fabricate
+    // a 'pending' row that was never actually reachable.
+    const planId = String((created.plan as { plan_id: string }).plan_id);
+    const pendingPlan = await markPlanPending(sql, orgId, planId);
+    const plan = pendingPlan ?? created.plan;
 
-    return NextResponse.json({ plan: created.plan, steps: previewedSteps }, { status: 201 });
+    void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan });
+
+    return NextResponse.json({ plan, steps: previewedSteps }, { status: 201 });
   } catch (error) {
     return apiErrorResponse(error, 'PLANS POST');
   }

@@ -27,6 +27,7 @@ const {
   mockStampStepPreview,
   mockListPlans,
   mockCountPendingPlans,
+  mockMarkPlanPending,
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
@@ -46,6 +47,7 @@ const {
   mockStampStepPreview: vi.fn(async () => {}),
   mockListPlans: vi.fn(async () => [] as unknown[]),
   mockCountPendingPlans: vi.fn(async () => 0),
+  mockMarkPlanPending: vi.fn(async () => null as unknown),
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
@@ -62,6 +64,7 @@ vi.mock('@/lib/repositories/plans.repository.js', () => ({
   stampStepPreview: mockStampStepPreview,
   listPlans: mockListPlans,
   countPendingPlans: mockCountPendingPlans,
+  markPlanPending: mockMarkPlanPending,
 }));
 
 const { POST, GET } = await import('@/api/plans/route.js');
@@ -105,6 +108,7 @@ describe('POST /api/plans', () => {
     }));
     mockGetSettings.mockResolvedValue([]);
     mockCountPendingPlans.mockResolvedValue(0);
+    mockMarkPlanPending.mockResolvedValue(null);
   });
 
   it('returns 400 when steps is missing', async () => {
@@ -258,6 +262,55 @@ describe('POST /api/plans', () => {
     );
   });
 
+  // U4: the plan is inserted as 'previewing' (createPlanWithSteps) and the
+  // route flips it to 'pending' once every step has a stamped preview — the
+  // 'pending' row markPlanPending returns is what the response/event carry,
+  // not the pre-flip 'previewing' row createPlanWithSteps returned.
+  it('U4: flips the plan to pending via markPlanPending after the preview loop, and returns the flipped row', async () => {
+    const previewingPlan = {
+      plan_id: 'pa_1234567890abcdef', org_id: 'org_test', agent_id: 'agent_1',
+      declared_goal: 'ship the feature', status: 'previewing', ttl_minutes: 60,
+    };
+    const pendingPlan = { ...previewingPlan, status: 'pending' };
+    const stepRows = [
+      { step_id: 'ps_1111111111111111', plan_id: previewingPlan.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null },
+      { step_id: 'ps_2222222222222222', plan_id: previewingPlan.plan_id, seq: 2, action_type: 'code_change', step_goal: 'edit file', act: null },
+    ];
+    mockCreatePlanWithSteps.mockResolvedValueOnce({ plan: previewingPlan, steps: stepRows });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+    mockMarkPlanPending.mockResolvedValueOnce(pendingPlan);
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.plan).toEqual(pendingPlan);
+    expect(mockMarkPlanPending).toHaveBeenCalledWith(mockGetSql, 'org_test', previewingPlan.plan_id);
+    expect(mockPublishOrgEvent).toHaveBeenCalledWith(
+      'action.updated', expect.objectContaining({ orgId: 'org_test', plan: pendingPlan }),
+    );
+  });
+
+  // U4: a concurrent revoke/expiry can beat markPlanPending's SQL-guarded
+  // UPDATE (status='previewing' precondition) — the route must fall back to
+  // the pre-flip row rather than fabricate a 'pending' plan that was never
+  // actually reachable.
+  it('U4: falls back to the previewing plan row when markPlanPending loses its status race', async () => {
+    const previewingPlan = { plan_id: 'pa_1234567890abcdef', status: 'previewing' };
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: previewingPlan,
+      steps: [{ step_id: 'ps_1', seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+    mockMarkPlanPending.mockResolvedValueOnce(null);
+
+    const res = await POST(postReq(validBody));
+    const data = await res.json();
+
+    expect(res.status).toBe(201);
+    expect(data.plan).toEqual(previewingPlan);
+  });
+
   it('T1: createdBy is null when the request carries no attributable principal', async () => {
     mockGetUserId.mockReturnValueOnce('');
     mockCreatePlanWithSteps.mockResolvedValueOnce({
@@ -310,6 +363,38 @@ describe('POST /api/plans', () => {
 
     expect(res.status).toBe(500);
     expect(data.error).toMatch(/internal server error/i);
+  });
+
+  // U5: ttl_minutes must never reach the DB (or become a grant's effective
+  // lifetime) unclamped — an int4 overflow / absurd value clamps to 480.
+  it('U5: clamps an oversized ttl_minutes (3e9) to 480 at parse', async () => {
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'previewing' },
+      steps: [{ step_id: 'ps_1', seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+
+    const res = await POST(postReq({ ...validBody, ttl_minutes: 3e9 }));
+
+    expect(res.status).toBe(201);
+    expect(mockCreatePlanWithSteps).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', expect.objectContaining({ ttlMinutes: 480 }),
+    );
+  });
+
+  it('U5: clamps a zero/negative ttl_minutes up to the 1-minute floor', async () => {
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'previewing' },
+      steps: [{ step_id: 'ps_1', seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+
+    const res = await POST(postReq({ ...validBody, ttl_minutes: -5 }));
+
+    expect(res.status).toBe(201);
+    expect(mockCreatePlanWithSteps).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', expect.objectContaining({ ttlMinutes: 1 }),
+    );
   });
 });
 

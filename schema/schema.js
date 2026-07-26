@@ -1385,7 +1385,7 @@ export const planAuthorizations = pgTable('plan_authorizations', {
   org_id: text('org_id').notNull(),
   agent_id: text('agent_id').notNull(),
   declared_goal: text('declared_goal').notNull(),
-  status: text('status').notNull().default('pending'), // pending|approved|partially_approved|denied|expired|revoked
+  status: text('status').notNull().default('pending'), // previewing|pending|approved|partially_approved|denied|expired|revoked
   ttl_minutes: integer('ttl_minutes').notNull().default(60),
   expires_at: timestamp('expires_at', { withTimezone: true }),
   reviewed_by: text('reviewed_by'),

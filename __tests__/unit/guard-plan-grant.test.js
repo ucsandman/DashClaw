@@ -191,4 +191,107 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
 
     expect(result.decision).toBe('require_approval');
   });
+
+  // U2: the deny lookup fails CLOSED — unlike the fail-soft case above (which
+  // was already require_approval before the throw), a throwing deny lookup
+  // must RAISE an otherwise-allow decision to require_approval instead of
+  // silently letting the action through.
+  it('U2: a throwing deny lookup raises allow to require_approval with the failsafe reason', async () => {
+    const sql = makeSql({
+      policies: [], // no policy raises anything — decision would stay 'allow'
+      throwOnPlansLookup: true,
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    expect(result.reasons.some((r) => r.includes('Plan-denial lookup unavailable'))).toBe(true);
+    expect(result.matched_policies).toContain('builtin:plan_deny_failsafe');
+  });
+
+  // U1(a): the deny check must not be skippable by omitting agent_id — it
+  // never matched on agent_id in the SQL anyway (findDeniedStepMatch is
+  // deliberately org-wide), but the OLD entry guard gated the whole function
+  // (including the deny half) on agent_id being present.
+  it('U1a: a denied step still blocks when agent_id is absent', async () => {
+    const sql = makeSql({
+      policies: [],
+      deniedRows: [{ step_id: 'ps_denied_noagent', plan_id: 'pa_plan5', reviewed_by: 'wes' }],
+    });
+    const result = await evaluateGuard('org_1', {
+      action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some((r) => r.includes('ps_denied_noagent'))).toBe(true);
+  });
+
+  // U1(b): the deny check must not be skippable by omitting declared_goal
+  // when an act-hash binding is present — an empty declaredGoal simply fails
+  // to match the SQL step_goal equality, it does not skip the lookup.
+  it('U1b: a denied step still blocks when declared_goal is absent but the act hash matches', async () => {
+    const sql = makeSql({
+      policies: [],
+      deniedRows: [{ step_id: 'ps_denied_noGoal', plan_id: 'pa_plan6', reviewed_by: 'wes' }],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', act: { kind: 'shell', command: 'rm -rf /' },
+    }, sql);
+
+    expect(result.decision).toBe('block');
+    expect(result.reasons.some((r) => r.includes('ps_denied_noGoal'))).toBe(true);
+  });
+
+  // U1(c): consumption keeps the strict full-triple requirement — a matching
+  // goal alone (no agent_id) must never consume a grant, even though the
+  // deny half no longer requires agent_id.
+  it('U1c: consumption still requires the full triple — no grant when agent_id is missing', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
+      consumeRows: [{
+        step_id: 'ps_step_noagent', plan_id: 'pa_plan7', seq: 1,
+        reviewed_by: 'wes', act_content_hash: null, preview_decision: 'require_approval', total_steps: 1,
+      }],
+    });
+    const result = await evaluateGuard('org_1', {
+      action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    expect(result.decision).toBe('require_approval');
+    const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
+    expect(consumeUpdates).toHaveLength(0);
+  });
+
+  // U3: the provenance object persisted with the decision (_plan_grant)
+  // carries preview_decision and live_reasons_count so an operator can audit
+  // TTL-window drift between what they approved and what the live
+  // evaluation actually raised.
+  it('U3: plan-grant provenance includes preview_decision and live_reasons_count', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] }, { name: 'Needs review' })],
+      consumeRows: [{
+        step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+        reviewed_by: 'wes@example.com', act_content_hash: null, preview_decision: 'allow', total_steps: 2,
+      }],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    expect(result.decision).toBe('allow');
+    const insertCall = sql.taggedCalls.find((c) => /INSERT INTO guard_decisions/i.test(c.text));
+    // The persisted context row is JSON.stringify'd (persistence.ts) before
+    // being interpolated — find it among the insert's values by parsing each
+    // string value and checking for the _plan_grant marker.
+    const contextJson = insertCall?.values.find((v) => {
+      if (typeof v !== 'string') return false;
+      try { return '_plan_grant' in JSON.parse(v); } catch { return false; }
+    });
+    const context = JSON.parse(contextJson);
+    expect(context._plan_grant).toMatchObject({
+      plan_id: 'pa_plan1', step_id: 'ps_step1', seq: 1,
+      preview_decision: 'allow', live_reasons_count: 1,
+    });
+  });
 });

@@ -398,42 +398,83 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
  *  1. Deny-grant: a step the operator EXPLICITLY denied raises any non-block
  *     decision to block on match (applyBlockOverride) for the plan's TTL.
  *     Runs regardless of the current decision — an operator "no" outranks a
- *     policy "yes". Read-only: denied steps are never consumed.
+ *     policy "yes". Read-only: denied steps are never consumed. Requires
+ *     only action_type plus at least one matchable binding (a declared_goal
+ *     or an act hash) — NOT agent_id (findDeniedStepMatch deliberately
+ *     doesn't scope on it, see its docblock) and NOT both goal AND act. A
+ *     deny check must not be skippable by simply omitting one optional
+ *     field — that would let an attacker evade an operator's explicit "no".
  *  2. Consumption: when the decision is require_approval, an approved,
  *     unconsumed, unexpired, act-or-goal-bound step is consumed atomically
  *     (single UPDATE ... WHERE grant_used_at IS NULL RETURNING — the same
  *     race shape as the operator grant above) and the decision downgrades to
- *     allow. Operator grants run FIRST (more specific; they win).
+ *     allow. Operator grants run FIRST (more specific; they win). Requires
+ *     the full triple (agent_id, declared_goal, action_type) — a grant is
+ *     only usable by the agent+goal it was actually issued to, so this half
+ *     stays strict.
  *
  * Never touches block. Never runs in simulate mode (gated at the call site).
- * Fail-soft: any error leaves the decision unchanged (require_approval fails
- * closed), identical posture to applyOperatorApprovalGrant.
+ * Fail-soft/fail-closed split, NOT uniform: the deny lookup fails CLOSED
+ * (an unverifiable denial state raises to require_approval — see the catch
+ * below) because a grant downgrade built on top of a broken deny check would
+ * be unsafe; the consumption lookup fails SOFT (a failed consumption simply
+ * leaves require_approval, which is already the safe state).
  */
-async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<{ plan_id: string; step_id: string; seq: number } | null> {
-  const { context, sql, orgId } = deps;
-  if (!context.agent_id || !context.declared_goal || !context.action_type) return null;
-  if (acc.highestDecision === 'block') return null;
-  try {
-    const { consumePlanStepGrant, findDeniedStepMatch } = await import('../repositories/plans.repository');
-    const actHash = computeActContentHash(context.act);
-    const match = {
-      agentId: context.agent_id,
-      actionType: context.action_type,
-      declaredGoal: context.declared_goal,
-      actHash,
-    };
+// U3: the operator's preview verdict (preview_decision, stamped at plan
+// submission) vs. what the LIVE evaluation just raised (live_reasons_count)
+// is the audit trail for drift inside the grant's TTL window.
+export type PlanGrantInfo = { plan_id: string; step_id: string; seq: number; preview_decision: string | null; live_reasons_count: number };
 
-    const denied = await findDeniedStepMatch(sql as never, orgId, match);
-    if (denied) {
-      applyBlockOverride(acc, `Plan step ${denied.step_id} was explicitly denied by ${denied.reviewed_by || 'operator'}`);
-      acc.matchedPolicies.push('builtin:plan_deny');
+async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<PlanGrantInfo | null> {
+  const { context, sql, orgId } = deps;
+  if (!context.action_type) return null;
+  if (acc.highestDecision === 'block') return null;
+
+  const declaredGoal = context.declared_goal || '';
+  const actHash = computeActContentHash(context.act);
+
+  // U1: the deny check must not be gated behind the full triple — it runs
+  // off action_type plus whichever binding is present (goal and/or act
+  // hash). An empty declaredGoal simply won't match the SQL step_goal
+  // equality, which is correct when only the act-hash binding is present.
+  if (declaredGoal || actHash) {
+    try {
+      const { findDeniedStepMatch } = await import('../repositories/plans.repository');
+      const denied = await findDeniedStepMatch(sql as never, orgId, {
+        actionType: context.action_type,
+        declaredGoal,
+        actHash,
+      });
+      if (denied) {
+        applyBlockOverride(acc, `Plan step ${denied.step_id} was explicitly denied by ${denied.reviewed_by || 'operator'}`);
+        acc.matchedPolicies.push('builtin:plan_deny');
+        return null;
+      }
+    } catch (err) {
+      // U2: fail CLOSED — an unverifiable denial state must not silently let
+      // a grant downgrade proceed. Raise (never lower) to require_approval
+      // and skip consumption entirely; unlike the fail-soft consumption
+      // catch below, a require_approval left in place here could otherwise
+      // still be downgraded by a grant this same call never got to check.
+      console.warn('[Guard] plan-deny lookup failed — failing closed:', (err as Error).message);
+      acc.reasons.push('Plan-denial lookup unavailable — failing closed to human review');
+      acc.matchedPolicies.push('builtin:plan_deny_failsafe');
+      raiseDecision(acc, 'require_approval');
       return null;
     }
+  }
 
-    if (acc.highestDecision !== 'require_approval') return null;
+  // Consumption keeps the strict full-triple requirement.
+  if (!context.agent_id || !declaredGoal) return null;
+  if (acc.highestDecision !== 'require_approval') return null;
 
+  try {
+    const { consumePlanStepGrant } = await import('../repositories/plans.repository');
     const grant = await consumePlanStepGrant(sql as never, orgId, {
-      ...match,
+      agentId: context.agent_id,
+      actionType: context.action_type,
+      declaredGoal,
+      actHash,
       matchedActionId: context.action_id ? String(context.action_id) : '',
     });
     if (!grant) return null;
@@ -442,14 +483,24 @@ async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): 
     );
     acc.matchedPolicies.push('builtin:plan_grant');
     acc.highestDecision = 'allow';
+    // U3: capture BEFORE the reasons are moved to warnings below — this is
+    // the audit trail for TTL-window drift between the operator's preview
+    // verdict (grant.preview_decision, stamped at submission review time)
+    // and what the LIVE evaluation actually raised just now.
+    const liveReasonsCount = acc.reasons.length;
     // T6: parity with applyOperatorApprovalGrant — preserve the gating
     // reasons as warnings instead of discarding them, so the forensic trail
     // (why the action originally needed approval) survives the downgrade.
     acc.warnings.push(...acc.reasons.map((r) => `superseded by grant: ${r}`));
     acc.reasons.length = 0; // gating reasons no longer apply
-    return { plan_id: grant.plan_id, step_id: grant.step_id, seq: grant.seq };
+    return {
+      plan_id: grant.plan_id, step_id: grant.step_id, seq: grant.seq,
+      preview_decision: grant.preview_decision, live_reasons_count: liveReasonsCount,
+    };
   } catch (err) {
-    console.warn('[Guard] plan-grant lookup failed:', (err as Error).message);
+    // Fail-soft: a failed consumption simply leaves require_approval intact
+    // — already the safe state, unlike the deny lookup above.
+    console.warn('[Guard] plan-grant consumption lookup failed:', (err as Error).message);
     return null;
   }
 }
@@ -616,7 +667,7 @@ interface GuardFinalizeInput {
   intentSource: 'evidence' | 'declared';
   evidenceDerived: EvidenceDerivedBreakdown | null;
   calibration: CalibrationAssessment | null;
-  planGrant: { plan_id: string; step_id: string; seq: number } | null;
+  planGrant: PlanGrantInfo | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
 }
@@ -837,7 +888,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       }
     | null = null;
   let calibration: CalibrationAssessment | null = null;
-  let planGrant: { plan_id: string; step_id: string; seq: number } | null = null;
+  let planGrant: PlanGrantInfo | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
     modifiers: syncTerms.modifiers,

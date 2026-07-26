@@ -12,7 +12,13 @@ type SqlClient = {
 // Grants are single-use: consumption is one atomic UPDATE ... WHERE grant_used_at
 // IS NULL RETURNING, the same race-safety shape as applyOperatorApprovalGrant.
 
-export const PLAN_STATUSES = ['pending', 'approved', 'partially_approved', 'denied', 'expired', 'revoked'];
+// U4: 'previewing' is the transient status between submission and the
+// preview loop finishing (POST /api/plans flips it to 'pending' via
+// markPlanPending once every step has a stamped preview verdict) — plans
+// must not be approvable/deniable before their previews exist. revoke is the
+// one verdict that also accepts 'previewing' (an operator can kill a stuck
+// preview run).
+export const PLAN_STATUSES = ['previewing', 'pending', 'approved', 'partially_approved', 'denied', 'expired', 'revoked'];
 export const STEP_GRANT_STATUSES = ['pending', 'approved', 'denied'];
 
 const mintId = (prefix: string) => `${prefix}_${randomUUID().replace(/-/g, '').slice(0, 16)}`;
@@ -46,10 +52,14 @@ export async function createPlanWithSteps(
   // T3: the cap query ignores pending plans older than
   // PENDING_PLAN_CAP_WINDOW_MINUTES — a stale pending plan nobody reviewed
   // must not permanently occupy a slot.
+  // U4: inserted as 'previewing' — the route flips it to 'pending' via
+  // markPlanPending once the preview loop finishes. The cap counts BOTH
+  // 'previewing' and 'pending' (each consumes a slot for the same reason:
+  // an in-flight or unreviewed submission still occupies the org's cap).
   const planRows = await sql`
     INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by)
-    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'pending', ${input.ttlMinutes}, ${input.createdBy ?? null}
-    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status = 'pending'
+    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'previewing', ${input.ttlMinutes}, ${input.createdBy ?? null}
+    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status IN ('previewing', 'pending')
       AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})) < ${input.maxPending}
     RETURNING *
   `;
@@ -124,12 +134,31 @@ export async function countPendingPlans(sql: SqlClient, orgId: string): Promise<
   // T3: same aging-out predicate as the INSERT's guard above — the route's
   // pre-read must agree with the authoritative SQL-enforced cap, or the
   // pre-read would reject submissions the INSERT would actually allow.
+  // U4: counts 'previewing' too — same rationale as the INSERT guard above.
   const rows = await sql`
     SELECT COUNT(*)::int AS n FROM plan_authorizations
-    WHERE org_id = ${orgId} AND status = 'pending'
+    WHERE org_id = ${orgId} AND status IN ('previewing', 'pending')
       AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})
   `;
   return Number(rows[0]?.n ?? 0);
+}
+
+/**
+ * U4: flips a plan from 'previewing' to 'pending' once every step has a
+ * stamped preview verdict — plans must not be reviewable (approve/deny) or
+ * visible on /approvals (which fetches ?status=pending only) before their
+ * previews exist. Guarded on status = 'previewing' in SQL so a losing race
+ * (e.g. a concurrent revoke) returns null instead of clobbering a
+ * transitioned row.
+ */
+export async function markPlanPending(sql: SqlClient, orgId: string, planId: string) {
+  const rows = await sql`
+    UPDATE plan_authorizations
+    SET status = 'pending'
+    WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'previewing'
+    RETURNING *
+  `;
+  return rows[0] ?? null;
 }
 
 /**
@@ -162,7 +191,10 @@ export async function reviewPlan(
   if (!plan) return null;
 
   if (input.verdict === 'revoke') {
-    if (!['pending', 'approved', 'partially_approved', 'denied'].includes(plan.status)) return null;
+    // U4: 'previewing' is included so an operator can kill a stuck preview
+    // run (e.g. the dry-run loop hung mid-plan) before it ever reaches
+    // 'pending'.
+    if (!['previewing', 'pending', 'approved', 'partially_approved', 'denied'].includes(plan.status)) return null;
     // Revoke ends everything about the plan immediately: unconsumed grants
     // via the status exclusion in consumePlanStepGrant (which only matches
     // approved/partially_approved), and explicit step denials via
@@ -176,7 +208,7 @@ export async function reviewPlan(
       UPDATE plan_authorizations
       SET status = 'revoked', reviewed_by = ${input.reviewedBy}, reviewed_at = now(), expires_at = now()
       WHERE org_id = ${orgId} AND plan_id = ${planId}
-        AND status IN ('pending', 'approved', 'partially_approved', 'denied')
+        AND status IN ('previewing', 'pending', 'approved', 'partially_approved', 'denied')
       RETURNING *
     `;
     if (!updated[0]) return null;
@@ -291,13 +323,13 @@ export async function consumePlanStepGrant(
     )
       AND s.org_id = ${orgId}
       AND s.grant_used_at IS NULL
-    RETURNING s.step_id, s.plan_id, s.seq, s.act_content_hash,
+    RETURNING s.step_id, s.plan_id, s.seq, s.act_content_hash, s.preview_decision,
       (SELECT reviewed_by FROM plan_authorizations WHERE plan_id = s.plan_id AND org_id = s.org_id) AS reviewed_by,
       (SELECT COUNT(*)::int FROM plan_authorization_steps WHERE plan_id = s.plan_id AND org_id = s.org_id) AS total_steps
   `;
   return (rows[0] as {
     step_id: string; plan_id: string; seq: number; reviewed_by: string | null;
-    act_content_hash: string | null; total_steps: number;
+    act_content_hash: string | null; preview_decision: string | null; total_steps: number;
   } | undefined) ?? null;
 }
 

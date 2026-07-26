@@ -6,7 +6,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch, countPendingPlans,
-  PENDING_PLAN_CAP_WINDOW_MINUTES,
+  markPlanPending, PENDING_PLAN_CAP_WINDOW_MINUTES,
 } from '../../app/lib/repositories/plans.repository';
 import { computeActContentHash } from '../../app/lib/act-content-hash';
 
@@ -60,6 +60,11 @@ describe('plans.repository', () => {
     expect(steps[0]!.step_id).toMatch(/^ps_[0-9a-f]{16}$/);
     expect(steps[0]!.seq).toBe(1);
     expect(steps[1]!.seq).toBe(2);
+    // U4: inserted as 'previewing', not 'pending' — the route flips it to
+    // 'pending' via markPlanPending once every step has a preview verdict.
+    // The cap subquery counts BOTH statuses (each occupies a cap slot).
+    expect(sql.calls[0]!.text).toContain("'previewing'");
+    expect(sql.calls[0]!.text).toContain("status IN ('previewing', 'pending')");
     // computeActContentHash returns 'sha256:' + base64url digest (canonicalize.ts),
     // not a bare 64-hex sha — the brief's regex assumption doesn't match the real format.
     expect(steps[0]!.act_content_hash).toMatch(/^sha256:[A-Za-z0-9_-]+$/);
@@ -141,6 +146,26 @@ describe('plans.repository', () => {
     const text = sql.calls[0]!.text;
     expect(text).toContain('created_at > now() - make_interval(mins =>');
     expect(sql.calls[0]!.v).toContain(PENDING_PLAN_CAP_WINDOW_MINUTES);
+    // U4: counts both 'previewing' and 'pending' — each occupies a cap slot.
+    expect(text).toContain("status IN ('previewing', 'pending')");
+  });
+
+  it('U4: markPlanPending flips a previewing plan to pending, guarded on status in SQL', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', status: 'pending' }],
+    ]);
+    const result = await markPlanPending(sql as never, 'org_1', 'pa_1');
+    expect(result).toEqual({ plan_id: 'pa_1', status: 'pending' });
+    const text = sql.calls[0]!.text;
+    expect(text).toContain('UPDATE plan_authorizations');
+    expect(text).toContain("SET status = 'pending'");
+    expect(text).toContain("status = 'previewing'");
+  });
+
+  it('U4: markPlanPending returns null when the status precondition loses a race', async () => {
+    const sql = sqlMock([[]]);
+    const result = await markPlanPending(sql as never, 'org_1', 'pa_1');
+    expect(result).toBeNull();
   });
 
   it('reviewPlan clamps ttl_minutes to ttlClampMinutes', async () => {
@@ -195,6 +220,10 @@ describe('plans.repository', () => {
     expect(q).toContain('p.agent_id = ?');
     // guard appears twice: once in the subquery WHERE, once in the outer WHERE
     expect(q.split('grant_used_at IS NULL').length - 1).toBe(2);
+    // U3: preview_decision rides the RETURNING clause — it feeds the
+    // _plan_grant audit provenance (operator's preview verdict vs. the live
+    // evaluation that just consumed the grant).
+    expect(q).toContain('s.preview_decision');
   });
 
   it('S4: consumePlanStepGrant requires step_goal equality on the act-bound branch too (parity with applyOperatorApprovalGrant)', async () => {
@@ -262,6 +291,18 @@ describe('plans.repository', () => {
     const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
     expect(headerUpdate!.text).toContain("status = 'revoked'");
     expect(headerUpdate!.text).toContain('expires_at = now()');
+  });
+
+  it('U4: revoke is allowed from previewing status (kills a stuck preview run)', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'previewing' }], // SELECT plan
+      [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING *
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'revoke', reviewedBy: 'operator', ttlClampMinutes: 480 });
+    expect(result!.plan!.status).toBe('revoked');
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
+    expect(headerUpdate!.text).toContain("'previewing'");
   });
 
   it('revoke is allowed from denied status (kills active denials, not just grants)', async () => {

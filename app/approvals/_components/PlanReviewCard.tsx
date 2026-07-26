@@ -158,6 +158,7 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
           <button
             onClick={() => submit('deny')}
             disabled={busy || !canDecide}
+            title="Denials match on the action itself, org-wide — not just this agent"
             className="inline-flex items-center gap-1.5 rounded-lg border border-error/20 bg-error-subtle px-3 py-1.5 text-sm font-medium text-error transition-colors hover:bg-error/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <X size={16} /> Deny plan

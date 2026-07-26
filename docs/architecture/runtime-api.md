@@ -29,6 +29,20 @@ is consumed atomically and the decision downgrades to `allow` with
 nothing auto-approves, and revocation (`POST /api/plans/:id` verdict
 `revoke`) is instant — the consumption path is uncached.
 
+**Accepted risk — deny binding is org-wide.** A denied step's match is
+deliberately scoped to the org, not to the agent that submitted the plan:
+agent identities are self-asserted at guard time (absent a verified JWT), so
+scoping a denial to `agent_id` would let the denied act evade the operator's
+"no" simply by resuming under a different claimed identity. The tradeoff: a
+hostile org credential could submit a plan step that mirrors legitimate
+work, bait an operator into denying it, and thereby block that act for
+every agent in the org for the grant's TTL — a self-inflicted denial-of-service.
+This is accepted, not mitigated away, because submitting a plan already
+requires an org API key (inside the trust boundary), and three controls
+bound the blast radius: the review card discloses the org-wide match before
+the operator decides, `revoke` lifts a bad denial instantly, and the denial
+expires with the TTL regardless.
+
 ---
 
 ## Core Endpoints
