@@ -15,22 +15,24 @@ brake") is what keeps scope from drifting back.
 This file now carries only what genuinely outlives the cull: two dated
 measurement obligations, and the forward direction.
 
-## Open obligations (time-gated — the dates hold)
+## Obligations — discharged 2026-07-26
 
 The July measurement window was **demoted from steering gate to honesty
 artifact** by the thesis (the thesis is the branch decision), but a product
 built on claims-proven-live does not delete its own instrument days before it
-fires. `scripts/measurement-read.mjs` survives; the reads run as scheduled and
-the verdicts get written against the **old door** (pre-cull hosted funnel),
-becoming the baseline the thesis's new falsifiers are judged against.
+fires. The reads ran as scheduled; the verdicts are written against the
+**old door** (pre-cull hosted funnel) and are the baseline the thesis's
+falsifiers are judged against:
+[`2026-07-26-measurement-reads-v81-v86.md`](../superpowers/specs/2026-07-26-measurement-reads-v81-v86.md).
 
-| # | Obligation | Gate |
+| # | Obligation | Outcome |
 |---|---|---|
-| v8.1 | Cohort read — mint → firstAction, per-channel `bySource`, contract arithmetic unchanged. | Run `node scripts/measurement-read.mjs` on/after **2026-07-19**; write the verdict, append to the maintainer log, record it. |
-| v8.6 | Era-exit read — the full chain mint → firstAction → keyUsed → returned → **graduated**, with the v8.1 cohort read as baseline. | Run the read on/after **2026-07-20**; write the exit verdict, append to the maintainer log, record it. |
+| v8.1 | Cohort read — mint → firstAction, per-channel `bySource`, contract arithmetic unchanged. | Run 2026-07-26: **ACTIVATION** — cohort n=2, firstAction=2, one per door (browser + agent). First non-zero stranger conversion in the funnel's history. |
+| v8.6 | Era-exit read — the full chain mint → firstAction → keyUsed → returned → **graduated**, with the v8.1 cohort read as baseline. | Run 2026-07-26: chain ends at activation — 2 → 2 → returned 1 → retained 0 → graduated 0 (all raw-funnel graduations are drill exports). Baseline recorded. |
 
-Both are carried unchanged from roadmap v8 §v8.1 / §v8.6 (archived). The v8.5
+Both were carried unchanged from roadmap v8 §v8.1 / §v8.6 (archived). The v8.5
 "branch selected by the read" mechanism is retired — the thesis is that branch.
+Nothing time-gated remains open in this file.
 
 ## Forward direction (post-v5)
 
