@@ -1095,7 +1095,7 @@ class DashClaw:
     def resolve_plan(self, plan_id, verdict, step_overrides=None):
         """Operator verdict on a plan: approve, deny, or revoke (admin credential)."""
         payload = {"verdict": verdict}
-        if step_overrides:
+        if step_overrides is not None:
             payload["step_overrides"] = step_overrides
         return self._request(f"/api/plans/{plan_id}", "POST", json=payload)
 
