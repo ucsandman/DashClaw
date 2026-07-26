@@ -616,6 +616,7 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 - **Retrospection (2):** `dashclaw_decisions_recent`, `dashclaw_assumption_record` — recent governed-action ledger; record an assumption an action rests on.
 - **Agent identity (1):** `dashclaw_pair`
 - **Team Tasks (3):** `dashclaw_task_create`, `dashclaw_task_event`, `dashclaw_task_update` — create a Team Task, append an inter-agent timeline event, update task status.
+- **Plans (2):** `dashclaw_plan_submit`, `dashclaw_plan_status` — submit a preflight plan for one-card operator review; poll its verdict.
 
 **3 resources:** `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
