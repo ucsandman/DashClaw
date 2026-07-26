@@ -21,6 +21,7 @@ import { BulkActionBar } from '../components/selection/BulkActionBar';
 import { bulkAction } from '../lib/bulkAction';
 import { EntityLink } from '../components/context-menu/EntityLink';
 import ApprovalFloodBanner from '../components/ApprovalFloodBanner';
+import PlanReviewCard from './_components/PlanReviewCard';
 
 type BannerTone = 'neutral' | 'warning';
 
@@ -55,6 +56,7 @@ export default function ApprovalsPage() {
   const { agentId } = useAgentFilter();
   const [pendingActions, setPendingActions] = useState<any[]>([]);
   const [expiredActions, setExpiredActions] = useState<any[]>([]);
+  const [pendingPlans, setPendingPlans] = useState<Array<{ plan: any; steps: any[] }>>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [clearingExpired, setClearingExpired] = useState(false);
@@ -83,17 +85,34 @@ export default function ApprovalsPage() {
     }
   }, [agentId]);
 
+  const fetchPendingPlans = useCallback(async () => {
+    try {
+      const res = await fetch('/api/plans?status=pending', { cache: 'no-store' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const detailed = await Promise.all(
+        (data.plans ?? []).map(async (p: any) => {
+          const d = await fetch(`/api/plans/${p.plan_id}`, { cache: 'no-store' });
+          return d.ok ? d.json() : null;
+        }),
+      );
+      setPendingPlans(detailed.filter(Boolean));
+    } catch { /* pending plans are additive; the actions inbox must not break on this */ }
+  }, []);
+
   useEffect(() => {
     fetchPending();
-    const interval = setInterval(() => fetchPending({ silent: true }), 10000); // Fallback poll
+    fetchPendingPlans();
+    const interval = setInterval(() => { fetchPending({ silent: true }); fetchPendingPlans(); }, 10000); // Fallback poll
     return () => clearInterval(interval);
-  }, [fetchPending]);
+  }, [fetchPending, fetchPendingPlans]);
 
   // Realtime: clear instantly when an approval is resolved anywhere (another
   // channel, /approve) rather than waiting up to 10s for the poll.
   useRealtime((event) => {
     if (event === 'action.created' || event === 'action.updated' || event === 'guard.decision.created') {
       fetchPending({ silent: true });
+      fetchPendingPlans();
     }
   });
 
@@ -213,6 +232,19 @@ export default function ApprovalsPage() {
           <Banner icon={ShieldAlert} tone="warning" title="Read-only access">
             Only administrators can approve or deny actions. You are currently viewing as a member.
           </Banner>
+        )}
+
+        {pendingPlans.length > 0 && (
+          <div className="mb-4 space-y-4">
+            {pendingPlans.map(({ plan, steps }) => (
+              <PlanReviewCard
+                key={plan.plan_id}
+                plan={plan}
+                steps={steps}
+                onResolved={() => { fetchPendingPlans(); fetchPending({ silent: true }); }}
+              />
+            ))}
+          </div>
         )}
 
         {pendingActions.length > 0 && isAdmin && (
