@@ -1379,6 +1379,39 @@ export const teamTaskEvents = pgTable('team_task_events', {
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
 });
 
+// @domain governance
+export const planAuthorizations = pgTable('plan_authorizations', {
+  plan_id: text('plan_id').primaryKey(), // pa_<16hex>
+  org_id: text('org_id').notNull(),
+  agent_id: text('agent_id').notNull(),
+  declared_goal: text('declared_goal').notNull(),
+  status: text('status').notNull().default('pending'), // pending|approved|partially_approved|denied|expired|revoked
+  ttl_minutes: integer('ttl_minutes').notNull().default(60),
+  expires_at: timestamp('expires_at', { withTimezone: true }),
+  reviewed_by: text('reviewed_by'),
+  reviewed_at: timestamp('reviewed_at', { withTimezone: true }),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
+// @domain governance
+export const planAuthorizationSteps = pgTable('plan_authorization_steps', {
+  step_id: text('step_id').primaryKey(), // ps_<16hex>
+  plan_id: text('plan_id').notNull(),
+  org_id: text('org_id').notNull(),
+  seq: integer('seq').notNull(),
+  action_type: text('action_type').notNull(),
+  step_goal: text('step_goal').notNull(),
+  act: jsonb('act'),
+  act_content_hash: text('act_content_hash'),
+  preview_decision: text('preview_decision'),
+  preview_risk_score: integer('preview_risk_score'),
+  preview_reasons: jsonb('preview_reasons'),
+  grant_status: text('grant_status').notNull().default('pending'), // pending|approved|denied
+  grant_used_at: timestamp('grant_used_at', { withTimezone: true }),
+  matched_action_id: text('matched_action_id'),
+  created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+});
+
 // --- Code Sessions (AgentLens absorption — Phase 2) ---
 // Distinct from agent_sessions (live agent state) and session_events
 // (event log on agent_sessions). These tables hold ingested Claude Code
