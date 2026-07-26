@@ -28,8 +28,10 @@ Cohort = all mints in the 14 days following the reach act (2026-07-05 →
 | direct | 2 | 2 |
 | **cohort total** | **2** | **2** |
 
-- n = 2, firstAction = 2. **Success clause met: ≥1 stranger reached
-  `firstAction` — ACTIVATION. The mechanism converted attention.**
+- n = 2, firstAction = 2 *(corrected same day to firstAction = 1 genuine —
+  see CORRECTION at the end of this document)*. **Success clause met: ≥1
+  stranger reached `firstAction` — ACTIVATION. The mechanism converted
+  attention.**
 - Directional target (≥25% at n≥8): not evaluable at n=2. For what a
   two-mint sample is worth, the observed rate is 2/2.
 - Counter-verdict clause (n≥10 with zero firstActions): nowhere near firing.
@@ -47,6 +49,8 @@ Cohort = all mints in the 14 days following the reach act (2026-07-05 →
 - *Both doors exercised.* `firstActionVia`: 1 browser, 1 agent — one
   stranger took the guided browser first action, one wired an actual agent.
   The two paths the v5 era built each converted at least once.
+  *(RETRACTED same day: the 'agent' event was the homepage demo widget —
+  see CORRECTION.)*
 
 The v5.5 contract's independent-confirmation clause ("a single organic
 `firstAction` at any time confirms the mechanism on its own") is thereby
@@ -92,11 +96,16 @@ session that touches the hosted schema should confirm which credential that
 agent-door action authenticated with before trusting `keyUsed` as a chain
 step. It is recorded here so the question can't silently evaporate.
 
+*(RESOLVED same day, and the pairing hypothesis was wrong — the answer is
+the homepage demo widget writing real rows under the trial cookie. See
+CORRECTION at the end of this document.)*
+
 ### Exit verdict
 
 The era exits with the mechanism confirmed and everything past activation
 unproven. Mint → firstAction now converts organic attention on both doors
-(2/2 where every prior era read zeros). Return (1), retention (0), and
+(2/2 where every prior era read zeros) *(corrected same day: one genuine
+conversion, browser door — see CORRECTION)*. Return (1), retention (0), and
 graduation (0) are the un-earned part of the chain — exactly the territory
 the thesis assigns to falsifiers #4 (value: blocked → approved → continued)
 and #5 (differentiation: blocking vs ledger-only). Nothing in this read
@@ -112,3 +121,43 @@ The v8.5 "branch selected by the read" mechanism is retired; the thesis is
 the branch. No build order changes on this verdict. The forward direction
 remains governed autonomy (the three 2026-07-06 RFCs), gated on maintainer
 judgment and — where money or outward acts are involved — on Wes.
+
+## CORRECTION (2026-07-26, hours after publication)
+
+The `keyUsed = 0` question this document pinned was chased the same day,
+and the answer **changes the headline numbers**. The static case, each step
+verified in code:
+
+1. The cohort's `keyUsed` rests on `api_keys.last_used_at`, stamped on
+   every key-authenticated request since long before this window. Zero
+   means **no API key ever authenticated for either cohort org**.
+2. The only keyless write paths into `guard_decisions`/`action_records`
+   are session/trial-cookie-authenticated calls: the guided browser first
+   action (sentinel agent id, labeled 'browser') and UI components that
+   POST the governance API directly. Pairing mints an identity, not a key
+   — a paired agent still authenticates with a key. No third path.
+3. Exactly one UI component POSTs `/api/guard` with a non-browser agent
+   id: the **homepage LiveDemo** (presets `analytics-agent`,
+   `openai-deployer-1`, `rogue-agent`). It was built for the demo
+   deployment, where demo middleware intercepts it — but the same homepage
+   ships on hosted, where a trial-cookie visitor's "Evaluate" click writes
+   a real guard row. None of those ids were synthetic-excluded.
+
+**Corrected reading: the 'agent'-door first action was a browser click on
+the homepage marketing demo, not a wired agent.** The genuine stranger
+first-action count is **1 of 2** (the guided browser flow — that one's
+provenance is the sentinel id and is solid). The v8.1 verdict is still
+**ACTIVATION** — the contract needs ≥1, and one genuine conversion stands
+— but this document's "2/2, one per door" framing was instrument
+inflation, and the era-exit chain reads mint 2 → firstAction 1 → returned
+≤1 → retained 0 → graduated 0. Whether the demo-click org later performed
+a genuine action is unknowable from the public instrument (per-row
+confirmation needs hosted DB access, which this machine currently lacks —
+`neonctl` unauthenticated, Vercel env sensitive-locked).
+
+The instrument is fixed in the same commit: the three preset ids joined
+`SYNTHETIC_AGENT_LIKE_PATTERNS`/`_RE` (exact matches, pinned by the
+regex↔patterns drift test), which retroactively excludes the demo row from
+every analytics surface — funnel included — without hiding it from the
+visitor's own /decisions ledger, whose display intentionally does not
+filter synthetic rows.

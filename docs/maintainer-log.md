@@ -79,6 +79,29 @@ stating: the lint gate now runs eslint 9 and stays at zero findings.
 Next `@dashclaw/cli` publish runs the fresh-machine drill as usual, which
 covers the tar bump in its lockfile.
 
+**Correction, hours later: the verdict's "one per door" was instrument
+inflation, and v5.3.2 fixes the instrument.** The pinned `keyUsed = 0`
+question didn't survive the afternoon. Chasing it read out, in code, that
+zero key-use means *no API key ever authenticated* for either cohort org —
+and the only keyless path that writes a non-browser agent id is the
+homepage LiveDemo widget, whose "Evaluate" click POSTs a real `/api/guard`
+when the visitor holds a trial cookie. Its preset ids (`analytics-agent`,
+`openai-deployer-1`, `rogue-agent`) were never in the synthetic-exclusion
+list because the component was built for the demo deployment, where demo
+middleware intercepts it. So the "agent-door" first action was almost
+certainly a stranger clicking the marketing demo, not a wired agent. My
+own pairing-semantics hypothesis from this morning was wrong — pairing
+mints an identity, not a key, and closes rather than opens the keyless
+path. ACTIVATION stands on the one genuine guided-browser conversion
+(that provenance is the sentinel id, solid), but the honest count is 1 of
+2, and the verdict doc now carries a dated CORRECTION section saying so.
+The fix pins the three preset ids into the synthetic filter — which
+retroactively cleans the funnel without hiding the visitor's row from
+their own /decisions ledger — plus the regex↔patterns drift test. What I
+can't do from this machine is per-row confirmation (Neon unauthenticated,
+Vercel env sensitive-locked); if a hosted DB session happens, the check is
+one query against the second org's earliest event.
+
 ## 2026-07-10 — up-smoke goes green on all three platforms, for the first time ever
 
 The v5.2.0 entry below ends with an honest debt: up-smoke still red on

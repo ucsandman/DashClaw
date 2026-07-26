@@ -13,6 +13,23 @@ Through 3.x the platform and the SDKs versioned independently, which is why olde
 
 ## [Unreleased]
 
+## [5.3.2] — 2026-07-26
+
+### Fixed
+- **Homepage LiveDemo rows no longer count as agent traffic in analytics.**
+  On session/trial-cookie-authenticated instances the homepage demo's
+  "Evaluate" click writes a real `guard_decisions` row (by design — the
+  visitor sees it on /decisions), but its preset agent ids were not
+  synthetic-excluded, so the hosted funnel counted a marketing-widget click
+  as an agent-door first action — discovered while resolving the v8.1/v8.6
+  verdict's pinned `keyUsed = 0` question, and worth a same-day correction
+  to the verdict itself (genuine stranger first actions: 1 of 2, browser
+  door; ACTIVATION stands). The three preset ids (`analytics-agent`,
+  `openai-deployer-1`, `rogue-agent`) are now exact entries in
+  `SYNTHETIC_AGENT_LIKE_PATTERNS`/`_RE`, pinned by the drift test, which
+  retroactively cleans every analytics surface without touching the ledger
+  display.
+
 ## [5.3.1] — 2026-07-26
 
 ### Security

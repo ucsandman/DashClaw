@@ -27,8 +27,8 @@ falsifiers are judged against:
 
 | # | Obligation | Outcome |
 |---|---|---|
-| v8.1 | Cohort read — mint → firstAction, per-channel `bySource`, contract arithmetic unchanged. | Run 2026-07-26: **ACTIVATION** — cohort n=2, firstAction=2, one per door (browser + agent). First non-zero stranger conversion in the funnel's history. |
-| v8.6 | Era-exit read — the full chain mint → firstAction → keyUsed → returned → **graduated**, with the v8.1 cohort read as baseline. | Run 2026-07-26: chain ends at activation — 2 → 2 → returned 1 → retained 0 → graduated 0 (all raw-funnel graduations are drill exports). Baseline recorded. |
+| v8.1 | Cohort read — mint → firstAction, per-channel `bySource`, contract arithmetic unchanged. | Run 2026-07-26: **ACTIVATION** — cohort n=2, firstAction 1 genuine (guided browser flow; the same-day correction retracted a second "agent-door" event as a homepage-demo click). First non-zero stranger conversion in the funnel's history. |
+| v8.6 | Era-exit read — the full chain mint → firstAction → keyUsed → returned → **graduated**, with the v8.1 cohort read as baseline. | Run 2026-07-26 (corrected same day): chain ends at activation — 2 → 1 → returned ≤1 → retained 0 → graduated 0 (all raw-funnel graduations are drill exports). Baseline recorded. |
 
 Both were carried unchanged from roadmap v8 §v8.1 / §v8.6 (archived). The v8.5
 "branch selected by the read" mechanism is retired — the thesis is that branch.

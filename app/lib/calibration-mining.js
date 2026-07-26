@@ -57,13 +57,20 @@ export function normalizeGoal(goal) {
 //   demo-e2e-verifier    scripts/verify-demo-e2e.mjs
 //   test, test-*         scripts/test-full-api.mjs, scripts/test-actions.mjs, dev suites
 //   loadtest-*           scripts/guard-load.mjs (AGENT = `loadtest-{run}`)
-const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-|loadtest-)/;
+// The last three exact ids are the homepage LiveDemo presets
+// (app/lib/homepageDemoActions.ts): on a session/trial-cookie-authenticated
+// instance the demo's "Evaluate" click POSTs a REAL /api/guard, so its rows
+// exist in the ledger (by design — the visitor sees them on /decisions) but
+// are browser clicks, not agent traffic. Discovered 2026-07-26 when the
+// hosted funnel counted one as an agent-door first action.
+const SYNTHETIC_AGENT_RE = /^(smoke-|ci-smoke$|sdk-live-test-agent|demo-e2e-verifier$|test$|test-|loadtest-|analytics-agent$|openai-deployer-1$|rogue-agent$)/;
 
 // SQL-side mirror of SYNTHETIC_AGENT_RE for consumers that must exclude
 // synthetic rows BEFORE aggregation or LIMIT (posture repository, v3.1).
 // A unit test pins regex↔patterns agreement so the two can't drift.
 export const SYNTHETIC_AGENT_LIKE_PATTERNS = [
   'smoke-%', 'ci-smoke', 'sdk-live-test-agent%', 'demo-e2e-verifier', 'test', 'test-%', 'loadtest-%',
+  'analytics-agent', 'openai-deployer-1', 'rogue-agent',
 ];
 // Synthetic action-type families (v4.1 widened from the single `smoke.%`):
 //   smoke.*     scripts/policy-smoke.mjs (run-unique types)

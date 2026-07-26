@@ -50,6 +50,10 @@ export interface HomepageDemoAction {
 }
 
 // Match LiveDemo PRESETS exactly. If you edit one side, edit both.
+// These agentIds are pinned in SYNTHETIC_AGENT_LIKE_PATTERNS / _RE
+// (app/lib/calibration-mining.js): on session-authenticated instances the
+// demo writes real guard rows, and analytics must not count them as agent
+// traffic. Renaming a preset id here requires adding the new id there.
 export const HOMEPAGE_PRESETS: HomepagePreset[] = [
   {
     id: 'allow',

@@ -181,6 +181,9 @@ describe('synthetic-traffic filter (v2.6)', () => {
       'test', // dev suites
       'test-guard-agent',
       'loadtest-mr6y5eev', // guard-load.mjs (v4.1)
+      'analytics-agent', // homepage LiveDemo presets (real rows under session auth)
+      'openai-deployer-1',
+      'rogue-agent',
     ]) {
       expect(isSyntheticEvent(event({ agent_id }))).toBe(true);
     }
@@ -217,10 +220,11 @@ describe('SQL LIKE mirror of the synthetic filter (v3.1)', () => {
     const corpus = [
       // positives (one per family)
       'smoke-ping-mcgz1x2a', 'ci-smoke', 'sdk-live-test-agent-py', 'demo-e2e-verifier', 'test', 'test-guard-agent',
-      'loadtest-mr6y5eev',
+      'loadtest-mr6y5eev', 'analytics-agent', 'openai-deployer-1', 'rogue-agent',
       // negatives / near-misses
       'claude-code', 'codex', 'hermes', 'codex:test-writer', 'latest-deployer', 'smokey',
       'ci-smoke-extra', 'demo-e2e-verifier-2', 'testing', 'attest', 'loadtester', 'payload-test',
+      'analytics-agent-2', 'rogue-agents', 'openai-deployer-11',
     ];
     for (const agent_id of corpus) {
       const viaSql = SYNTHETIC_AGENT_LIKE_PATTERNS.some((p) => likeMatch(p, agent_id));
