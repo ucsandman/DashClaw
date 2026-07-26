@@ -280,6 +280,89 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(consumeUpdates).toHaveLength(0);
   });
 
+  // W2: an evaluation abandoned by the deadline must not consume a plan-step
+  // grant when it eventually reaches the grants phase in the background —
+  // its result is discarded (the deadline branch returns the degraded
+  // snapshot), so burning the single-use grant only strands the operator's
+  // approval for a result nobody will see.
+  it('W2: an evaluation abandoned by the deadline does not consume a plan-step grant in the background', async () => {
+    const originalDeadline = process.env.DASHCLAW_GUARD_DEADLINE_MS;
+    process.env.DASHCLAW_GUARD_DEADLINE_MS = '10';
+    try {
+      // The webhook resolves (it isn't hung) but only after the deadline has
+      // already fired — the background evaluation keeps running past it and
+      // would reach the grants phase shortly after.
+      mockDeliverGuardWebhook.mockImplementation(
+        () => new Promise((resolve) => setTimeout(
+          () => resolve({ success: true, response: { decision: 'allow', reasons: [], warnings: [] } }), 80,
+        )),
+      );
+      const sql = makeSql({
+        policies: [
+          makePolicy('require_approval', { action_types: ['deploy'] }),
+          makePolicy('webhook_check', { url: 'https://example.com' }, { id: 'gp_hook' }),
+        ],
+        consumeRows: [{
+          step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+          reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
+        }],
+      });
+
+      const result = await evaluateGuard('org_1', {
+        agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+      }, sql);
+
+      expect(result.degraded).toBe(true);
+
+      // Give the abandoned evaluation time to reach (and, pre-fix, consume)
+      // the grant phase in the background before asserting on it.
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      const consumeUpdates = sql.taggedCalls.filter((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
+      expect(consumeUpdates).toHaveLength(0);
+    } finally {
+      if (originalDeadline === undefined) delete process.env.DASHCLAW_GUARD_DEADLINE_MS;
+      else process.env.DASHCLAW_GUARD_DEADLINE_MS = originalDeadline;
+    }
+  });
+
+  // W4: matched_action_id is written as an honest NULL, not '', when the
+  // evaluation context carries no action_id — '' previously read as "matched
+  // but blank" instead of "nothing to match".
+  it('W4: consumePlanStepGrant is called with matchedActionId: null when context.action_id is absent', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
+      consumeRows: [{
+        step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+        reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
+      }],
+    });
+    await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    const consumeUpdate = sql.taggedCalls.find((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
+    expect(consumeUpdate).toBeTruthy();
+    // matched_action_id is the SET clause's only interpolation — first value.
+    expect(consumeUpdate.values[0]).toBeNull();
+  });
+
+  it('W4: consumePlanStepGrant is called with the stringified action_id when context.action_id is present', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] })],
+      consumeRows: [{
+        step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+        reviewed_by: 'wes', act_content_hash: null, total_steps: 1,
+      }],
+    });
+    await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release', action_id: 'act_gd_abc123',
+    }, sql);
+
+    const consumeUpdate = sql.taggedCalls.find((c) => /^\s*UPDATE plan_authorization_steps/i.test(c.text));
+    expect(consumeUpdate.values[0]).toBe('act_gd_abc123');
+  });
+
   // U3: the provenance object persisted with the decision (_plan_grant)
   // carries preview_decision and live_reasons_count so an operator can audit
   // TTL-window drift between what they approved and what the live

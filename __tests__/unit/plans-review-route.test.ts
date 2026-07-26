@@ -228,10 +228,11 @@ describe('POST /api/plans/[planId]', () => {
     expect(mockReviewPlan).toHaveBeenCalled();
   });
 
-  it('T1: revoking your own plan is allowed — the self-approval gate only applies to approve', async () => {
-    // No mockGetPlanWithSteps stub here: verdict 'revoke' skips the gate
-    // entirely, so the route must never call getPlanWithSteps for it (an
-    // unconsumed queued response here would leak into the next test's call).
+  it('T1: revoking your own LIVE (pending) plan is allowed — revoke only closes doors', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      steps: [],
+    });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
     mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
 
@@ -239,11 +240,13 @@ describe('POST /api/plans/[planId]', () => {
 
     expect(res.status).toBe(200);
     expect(mockReviewPlan).toHaveBeenCalled();
-    // revoke never even reads the plan for the gate (gate is approve-only).
-    expect(mockGetPlanWithSteps).not.toHaveBeenCalled();
   });
 
-  it('T1: denying your own plan is allowed — the self-approval gate only applies to approve', async () => {
+  it('T1: denying your own plan is allowed — the self-approval gate only applies to approve (and deny-lift)', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      steps: [],
+    });
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
     mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
 
@@ -251,7 +254,67 @@ describe('POST /api/plans/[planId]', () => {
 
     expect(res.status).toBe(200);
     expect(mockReviewPlan).toHaveBeenCalled();
-    expect(mockGetPlanWithSteps).not.toHaveBeenCalled();
+  });
+
+  // W1: a denied submitter must not lift its own denial via revoke — revoking
+  // a DENIED plan is the same privilege as approving (undoing an operator's
+  // explicit no), so it needs a different principal too.
+  it('W1: rejects the submitter revoking their own DENIED plan with 403 SELF_APPROVAL_FORBIDDEN (deny-lift message)', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_1' },
+      steps: [],
+    });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(data.error).toMatch(/cannot lift its denial/i);
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('W1: a different admin credential may revoke a DENIED plan it did not submit', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'user_submitter' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it("W1: 'operator' is exempt from the deny-lift gate too", async () => {
+    mockGetUserId.mockReturnValueOnce('operator');
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'denied', created_by: 'operator' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it('W1: revoking your own approved plan (not denied) is still allowed — revoke only gates the denied-status case', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'approved', created_by: 'user_1' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
   });
 
   it('rejects an invalid verdict with 400', async () => {

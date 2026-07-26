@@ -75,22 +75,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     // (app/api/approvals/[actionId]/route.ts:~108). 'operator' is exempt: in
     // single-admin self-host the root credential legitimately does both, and
     // if an agent holds root the gate was already forfeit. NULL created_by
-    // (legacy/system rows) is unenforceable and stays approvable. Only
-    // 'approve' is gated — approving mints grants the submitter could draw
-    // down on itself; denying or revoking your own plan only closes doors,
-    // so those verdicts stay open to the submitter.
-    if (verdict === 'approve') {
-      const existing = await getPlanWithSteps(sql, orgId, planId);
-      const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
-      if (userId !== 'operator' && createdBy && createdBy === userId) {
-        return NextResponse.json(
-          {
-            error: 'The credential that submitted this plan cannot approve it. Approve from the dashboard, or use a different admin credential.',
-            code: 'SELF_APPROVAL_FORBIDDEN',
-          },
-          { status: 403 },
-        );
-      }
+    // (legacy/system rows) is unenforceable and stays approvable.
+    //
+    // The pre-read runs for EVERY verdict (not just approve) because the gate
+    // is asymmetric by plan status, not just by verdict: revoking a LIVE plan
+    // (pending/previewing/approved/partially_approved) only closes doors, so
+    // the submitter stays free to do that themselves. But revoking a DENIED
+    // plan lifts an operator's explicit no — that's the same privilege as
+    // approving, just reached via a different verdict, so it needs a
+    // different principal (or the operator) too. Denying your own plan is
+    // still always open to the submitter (deny only closes doors further).
+    const existing = await getPlanWithSteps(sql, orgId, planId);
+    const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
+    const existingStatus = (existing?.plan as { status?: string } | undefined)?.status;
+    if (userId !== 'operator' && createdBy && createdBy === userId && (verdict === 'approve' || existingStatus === 'denied')) {
+      const isDenyLift = verdict !== 'approve';
+      return NextResponse.json(
+        {
+          error: isDenyLift
+            ? 'The credential that submitted this plan cannot lift its denial. Use a different admin credential, or lift it from the dashboard.'
+            : 'The credential that submitted this plan cannot approve it. Approve from the dashboard, or use a different admin credential.',
+          code: 'SELF_APPROVAL_FORBIDDEN',
+        },
+        { status: 403 },
+      );
     }
 
     const settings = await getSettings(sql, orgId, { category: 'general' });
@@ -114,7 +122,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     }, sql));
     void publishOrgEvent(EVENTS.ACTION_UPDATED, { orgId, plan: result.plan });
 
-    return NextResponse.json(result);
+    // W3: created_by is a reviewer/creator principal — never leak it to the
+    // verdict response either (mirrors the GET's V7 strip above).
+    const { created_by: _createdBy, ...plan } = result.plan as Record<string, unknown>;
+    return NextResponse.json({ ...result, plan });
   } catch (error) {
     return apiErrorResponse(error, 'PLAN REVIEW POST');
   }

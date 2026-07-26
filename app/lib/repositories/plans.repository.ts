@@ -294,7 +294,7 @@ export async function reviewPlan(
 export async function consumePlanStepGrant(
   sql: SqlClient,
   orgId: string,
-  input: { agentId: string; actionType: string; declaredGoal: string; actHash: string | null; matchedActionId: string },
+  input: { agentId: string; actionType: string; declaredGoal: string; actHash: string | null; matchedActionId: string | null },
 ) {
   const rows = await sql`
     UPDATE plan_authorization_steps s

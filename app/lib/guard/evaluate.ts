@@ -482,7 +482,9 @@ async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): 
       actionType: context.action_type,
       declaredGoal,
       actHash,
-      matchedActionId: context.action_id ? String(context.action_id) : '',
+      // W4: an honest NULL when there's no action_id, not an empty string —
+      // SQL handles NULL fine, and '' previously read as "matched but blank".
+      matchedActionId: context.action_id ? String(context.action_id) : null,
     });
     if (!grant) return null;
     acc.warnings.push(
@@ -915,6 +917,12 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   // AbortSignal support, so the race abandons (not cancels) the slow phase.
   const deadlineMs = guardDeadlineMs();
   const evalStart = Date.now();
+  // W2: flips true the instant the deadline race resolves against this
+  // evaluation (below). runEvaluation keeps running in the background after
+  // that (it isn't cancelled, only abandoned) and reads this flag via
+  // closure to stop itself short of the grant-consuming phases — its result
+  // is never returned, so there is nothing left for a grant to protect.
+  let evaluationAbandoned = false;
   const runEvaluation = async (): Promise<'completed'> => {
     // Independent lookups (both served from the 30s caches when warm; on a
     // cold instance this halves the lookup round trips). phase_in_flight is
@@ -975,6 +983,13 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     // is still require_approval.
     applyAllowGrants(policies, context, liveAcc);
     if (!options.simulate) {
+      // W2: an evaluation the deadline already abandoned has its result
+      // discarded (the deadline branch below returns a degraded decision
+      // built from the snapshot taken when the race resolved) — consuming a
+      // single-use grant here for a result nobody will see just strands the
+      // operator's approval. Checked immediately before EACH grant call
+      // (evaluationAbandoned can flip true while either call is in flight).
+      if (evaluationAbandoned) return 'completed';
       await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
       // S5 (accepted, not fixed): applyPlanStepGrant consumes the single-use
       // step grant here (grant_used_at set), but replayBlockReason /
@@ -984,7 +999,11 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       // on an action that ends up blocked anyway by replay/act-binding —
       // the agent would need a fresh plan step to retry. This matches
       // applyOperatorApprovalGrant's existing accepted behavior (same
-      // ordering, same exposure); not fixed here.
+      // ordering, same exposure); not fixed here. The deadline variant of
+      // grant-burning (an abandoned evaluation consuming a grant for a
+      // result that's never returned) IS closed, by the evaluationAbandoned
+      // check above and below.
+      if (evaluationAbandoned) return 'completed';
       planGrant = await timed('plan_grant', () => applyPlanStepGrant(deps, liveAcc));
     }
     await timed('signals', () => runSignalChecks(deps, options, liveAcc));
@@ -1017,6 +1036,9 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       }
       deadlineExceeded = winner === 'deadline';
       if (deadlineExceeded) {
+        // W2: mark the still-running evaluation abandoned before it can reach
+        // (and burn) either single-use grant.
+        evaluationAbandoned = true;
         // The abandoned evaluation keeps running in the background; swallow its
         // eventual rejection so it cannot surface as an unhandled rejection.
         evalPromise.catch((err: unknown) => {
