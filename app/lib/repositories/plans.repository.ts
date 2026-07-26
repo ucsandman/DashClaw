@@ -104,11 +104,19 @@ export async function countPendingPlans(sql: SqlClient, orgId: string): Promise<
 /**
  * Operator verdict. 'approve' honors stepOverrides (step_id -> 'approve'|'deny');
  * unlisted steps inherit 'approve'. Any denied step => plan status
- * 'partially_approved' (all denied => 'denied'). 'deny' denies every step.
- * 'revoke' kills all unconsumed grants immediately (status 'revoked').
- * expires_at = now() + min(ttl_minutes, ttlClampMinutes). Only transitions
- * plans whose status is pending (approve/deny) or approved/partially_approved
- * (revoke). Returns null when the plan is missing or not transitionable.
+ * 'partially_approved' (all denied => 'denied'). 'deny' denies every step,
+ * with expires_at = now() + ttlClampMinutes (the org clamp — a denial's
+ * duration is the operator's, never the constrained agent's requested TTL).
+ * 'revoke' is the universal kill switch: it ends everything about the plan
+ * immediately, both unconsumed grants (status exclusion) and explicit
+ * review-time step denials (expires_at forced to now()) — an operator who
+ * wants denials to persist keeps the plan un-revoked. Callable from pending,
+ * approved, partially_approved, or denied. Approve/deny are only callable
+ * from pending. Every header UPDATE carries its status precondition in SQL
+ * (not just the pre-read) so a losing race returns null instead of writing
+ * steps for a plan that already transitioned; per-step grant_status writes
+ * happen only after the guarded header UPDATE succeeds. Returns null when
+ * the plan is missing or not transitionable.
  */
 export async function reviewPlan(
   sql: SqlClient,
@@ -123,20 +131,24 @@ export async function reviewPlan(
   if (!plan) return null;
 
   if (input.verdict === 'revoke') {
-    if (!['pending', 'approved', 'partially_approved'].includes(plan.status)) return null;
-    // Revocation withdraws the fast lane only — consumePlanStepGrant already
-    // excludes non-live plan statuses (approved/partially_approved), so a
-    // revoked plan's unconsumed steps stop being consumable. It does NOT
-    // rewrite step grant_status to 'denied': grant_status records operator
-    // intent (what was explicitly approved/denied at review time), while
-    // plan status controls liveness. Explicit review-time denials keep
-    // blocking via findDeniedStepMatch regardless of plan status.
+    if (!['pending', 'approved', 'partially_approved', 'denied'].includes(plan.status)) return null;
+    // Revoke ends everything about the plan immediately: unconsumed grants
+    // via the status exclusion in consumePlanStepGrant (which only matches
+    // approved/partially_approved), and explicit step denials via
+    // expires_at — forced into the past here so findDeniedStepMatch's
+    // p.expires_at > now() check excludes them the same instant. It does
+    // NOT rewrite step grant_status: grant_status records operator intent
+    // (what was explicitly approved/denied at review time), while status +
+    // expires_at control liveness. An operator who wants denials to persist
+    // simply leaves the plan un-revoked.
     const updated = await sql`
       UPDATE plan_authorizations
-      SET status = 'revoked', reviewed_by = ${input.reviewedBy}, reviewed_at = now()
+      SET status = 'revoked', reviewed_by = ${input.reviewedBy}, reviewed_at = now(), expires_at = now()
       WHERE org_id = ${orgId} AND plan_id = ${planId}
+        AND status IN ('pending', 'approved', 'partially_approved', 'denied')
       RETURNING *
     `;
+    if (!updated[0]) return null;
     const steps = await sql`
       SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
     `;
@@ -147,16 +159,20 @@ export async function reviewPlan(
   const clampedTtl = Math.min(Number(plan.ttl_minutes) || 60, input.ttlClampMinutes);
 
   if (input.verdict === 'deny') {
-    await sql`
-      UPDATE plan_authorization_steps SET grant_status = 'denied'
-      WHERE org_id = ${orgId} AND plan_id = ${planId}
-    `;
+    // expires_at uses the org clamp directly (input.ttlClampMinutes), NOT
+    // min(ttl_minutes, ttlClampMinutes): a denial's duration is set by the
+    // operator, not by the TTL the constrained agent originally requested.
     const updated = await sql`
       UPDATE plan_authorizations
       SET status = 'denied', reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
-          expires_at = now() + make_interval(mins => ${clampedTtl})
-      WHERE org_id = ${orgId} AND plan_id = ${planId}
+          expires_at = now() + make_interval(mins => ${input.ttlClampMinutes})
+      WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
       RETURNING *
+    `;
+    if (!updated[0]) return null;
+    await sql`
+      UPDATE plan_authorization_steps SET grant_status = 'denied'
+      WHERE org_id = ${orgId} AND plan_id = ${planId}
     `;
     const steps = await sql`
       SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
@@ -164,28 +180,36 @@ export async function reviewPlan(
     return { plan: updated[0], steps };
   }
 
-  // approve (with optional per-step overrides)
+  // approve (with optional per-step overrides). Compute verdicts up front
+  // (needed for the header UPDATE's aggregate status), then write the header
+  // row under its 'pending' precondition, and only write per-step
+  // grant_status once that guarded UPDATE actually succeeded — a lost race
+  // writes nothing to plan_authorization_steps.
   const overrides = input.stepOverrides ?? {};
   const stepRows = await sql`
     SELECT step_id FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId}
   `;
   let denied = 0;
-  for (const row of stepRows as Array<{ step_id: string }>) {
+  const stepVerdicts = (stepRows as Array<{ step_id: string }>).map((row) => {
     const verdict = overrides[row.step_id] === 'deny' ? 'denied' : 'approved';
     if (verdict === 'denied') denied += 1;
-    await sql`
-      UPDATE plan_authorization_steps SET grant_status = ${verdict}
-      WHERE org_id = ${orgId} AND step_id = ${row.step_id}
-    `;
-  }
+    return { step_id: row.step_id, verdict };
+  });
   const status = denied === 0 ? 'approved' : denied === stepRows.length ? 'denied' : 'partially_approved';
   const updated = await sql`
     UPDATE plan_authorizations
     SET status = ${status}, reviewed_by = ${input.reviewedBy}, reviewed_at = now(),
         expires_at = now() + make_interval(mins => ${clampedTtl})
-    WHERE org_id = ${orgId} AND plan_id = ${planId}
+    WHERE org_id = ${orgId} AND plan_id = ${planId} AND status = 'pending'
     RETURNING *
   `;
+  if (!updated[0]) return null;
+  for (const v of stepVerdicts) {
+    await sql`
+      UPDATE plan_authorization_steps SET grant_status = ${v.verdict}
+      WHERE org_id = ${orgId} AND step_id = ${v.step_id}
+    `;
+  }
   const steps = await sql`
     SELECT * FROM plan_authorization_steps WHERE org_id = ${orgId} AND plan_id = ${planId} ORDER BY seq ASC
   `;
@@ -255,11 +279,13 @@ export async function findDeniedStepMatch(
     WHERE st.org_id = ${orgId}
       AND p.agent_id = ${input.agentId}
       AND st.action_type = ${input.actionType}
-      -- 'revoked' is included so EXPLICIT review-time step denials
-      -- (grant_status = 'denied') survive plan revocation for the TTL.
-      -- Revoked plans' approved steps never surface here because their
-      -- grant_status stays 'approved' — only st.grant_status = 'denied'
-      -- below (never rewritten to 'denied' by revoke) matches.
+      -- 'revoked' stays in this list as belt-and-braces, but it no longer
+      -- does the real work: reviewPlan's revoke branch also sets
+      -- expires_at = now(), so a revoked plan's explicit step denials are
+      -- excluded by the p.expires_at > now() check below the same instant
+      -- its unconsumed grants are excluded from consumePlanStepGrant.
+      -- Revoke ends everything about the plan immediately; an operator who
+      -- wants denials to persist keeps the plan un-revoked instead.
       AND p.status IN ('approved', 'partially_approved', 'denied', 'revoked')
       AND p.expires_at > now()
       AND st.grant_status = 'denied'

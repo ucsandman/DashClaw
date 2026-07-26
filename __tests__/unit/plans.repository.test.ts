@@ -101,7 +101,7 @@ describe('plans.repository', () => {
     expect(sql.calls[0]!.text).not.toContain('UPDATE');
   });
 
-  it('revoke leaves step grant_status untouched', async () => {
+  it('revoke leaves step grant_status untouched and sets expires_at = now()', async () => {
     const sql = sqlMock([
       [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'approved' }], // SELECT plan
       [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING *
@@ -113,6 +113,39 @@ describe('plans.repository', () => {
       (c) => c.text.includes('UPDATE plan_authorization_steps') && c.text.includes('grant_status'),
     );
     expect(touchedStepGrantStatus).toBe(false);
+    // Revoke is the universal kill switch: it also forces expires_at to now(),
+    // which is what actually ends explicit step denials in findDeniedStepMatch.
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
+    expect(headerUpdate!.text).toContain("status = 'revoked'");
+    expect(headerUpdate!.text).toContain('expires_at = now()');
+  });
+
+  it('revoke is allowed from denied status (kills active denials, not just grants)', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 60, status: 'denied' }], // SELECT plan
+      [{ plan_id: 'pa_1', status: 'revoked' }], // UPDATE plan_authorizations RETURNING * (guarded, still matches 'denied')
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'revoke', reviewedBy: 'operator', ttlClampMinutes: 480 });
+    expect(result!.plan!.status).toBe('revoked');
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations'));
+    expect(headerUpdate!.text).toContain("'denied'");
+  });
+
+  it('reviewPlan deny uses the org ttlClampMinutes directly, never min(ttl_minutes, clamp)', async () => {
+    const sql = sqlMock([
+      [{ plan_id: 'pa_1', ttl_minutes: 10, status: 'pending' }], // SELECT plan (small ttl_minutes)
+      [{ plan_id: 'pa_1', status: 'denied' }], // UPDATE plan_authorizations RETURNING * (header, guarded on status='pending')
+      [], // UPDATE plan_authorization_steps SET grant_status = 'denied'
+      [], // SELECT steps ORDER BY seq ASC
+    ]);
+    const result = await reviewPlan(sql as never, 'org_1', 'pa_1', { verdict: 'deny', reviewedBy: 'operator', ttlClampMinutes: 480 });
+    expect(result!.plan!.status).toBe('denied');
+    const headerUpdate = sql.calls.find((c) => c.text.includes('UPDATE plan_authorizations') && c.text.includes('expires_at'));
+    expect(headerUpdate).toBeTruthy();
+    // Must be the org clamp (480) — never min(plan.ttl_minutes=10, 480) = 10.
+    expect(headerUpdate!.v).toContain(480);
+    expect(headerUpdate!.v).not.toContain(10);
   });
 
   it('findDeniedStepMatch includes revoked plans (explicit denials survive revocation)', async () => {

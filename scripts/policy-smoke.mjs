@@ -1521,6 +1521,44 @@ async function main() {
     check('AF5', 'revoke kills the plan',
       revoked.status === 200 && revoked.json?.plan?.status === 'revoked',
       `status=${revoked.status} plan=${revoked.json?.plan?.status}`);
+
+    // AF6-AF8: act-bound proof. A separate plan/agent/policy so this is
+    // fully independent of AF1-AF5's declared-goal-bound step above.
+    const actAgent = agentFor('plan-act');
+    await createPolicy('af-preflight-act', 'risk_threshold',
+      { threshold: 60, action: 'require_approval' }, [actAgent]);
+    const actGoal = `plan-smoke act-bound deploy ${RUN}`;
+    const actCommand = `echo af-act-${RUN}`;
+    const actSubmit = await api('POST', '/api/plans', {
+      agent_id: actAgent,
+      declared_goal: `plan-smoke act-bound mission ${RUN}`,
+      ttl_minutes: 10,
+      steps: [{ action_type: 'shell', step_goal: actGoal, act: { kind: 'shell', command: actCommand } }],
+    });
+    const actPlanId = actSubmit.json?.plan?.plan_id;
+    await api('POST', `/api/plans/${actPlanId}`, { verdict: 'approve' });
+
+    const sameAct = await api('POST', '/api/guard', {
+      agent_id: actAgent, action_type: 'shell', declared_goal: actGoal, risk_score: 90,
+      act: { kind: 'shell', command: actCommand },
+    });
+    check('AF6', 'act-bound grant: the SAME act consumes the grant (allow + builtin:plan_grant)',
+      sameAct.json?.decision === 'allow'
+        && JSON.stringify(sameAct.json?.matched_policies || []).includes('builtin:plan_grant'),
+      `decision=${sameAct.json?.decision} matched=${JSON.stringify(sameAct.json?.matched_policies)}`);
+
+    const otherAct = await api('POST', '/api/guard', {
+      agent_id: actAgent, action_type: 'shell', declared_goal: actGoal, risk_score: 90,
+      act: { kind: 'shell', command: `echo af-other-${RUN}` },
+    });
+    check('AF7', 'act-bound grant: a DIFFERENT act does not match (require_approval, no grant)',
+      otherAct.json?.decision === 'require_approval',
+      `decision=${otherAct.json?.decision}`);
+
+    const actRevoked = await api('POST', `/api/plans/${actPlanId}`, { verdict: 'revoke' });
+    check('AF8', 'revoke kills the act-bound plan',
+      actRevoked.status === 200 && actRevoked.json?.plan?.status === 'revoked',
+      `status=${actRevoked.status} plan=${actRevoked.json?.plan?.status}`);
   }
 
   // ------------------------------------------------------------- cleanup ---

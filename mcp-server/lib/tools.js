@@ -286,6 +286,7 @@ export const TOOL_DEFINITIONS = [
         inputSchema: {
             type: 'object',
             properties: {
+                agent_id: { type: 'string', description: 'Fallback identity when no server-level agent id is configured (the configured id wins)' },
                 declared_goal: { type: 'string', description: 'The mission-level goal of the plan (required)' },
                 steps: {
                     type: 'array',
@@ -813,6 +814,7 @@ export function createToolHandlers(client) {
         },
         async dashclaw_plan_submit(input) {
             const result = await client.post('/api/plans', {
+                agent_id: agentId(input),
                 declared_goal: input.declared_goal,
                 steps: input.steps,
                 ttl_minutes: input.ttl_minutes,

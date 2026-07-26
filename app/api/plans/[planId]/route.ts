@@ -52,6 +52,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     if (!['approve', 'deny', 'revoke'].includes(verdict)) {
       return NextResponse.json({ error: 'Invalid verdict. Must be approve, deny, or revoke.' }, { status: 400 });
     }
+    // Fail-closed on operator intent: an unrecognized step_overrides value
+    // must not silently fall through to 'approve' in reviewPlan.
+    if (stepOverrides && typeof stepOverrides === 'object') {
+      for (const [stepId, value] of Object.entries(stepOverrides)) {
+        if (value !== 'approve' && value !== 'deny') {
+          return NextResponse.json(
+            { error: `step_overrides.${stepId} must be "approve" or "deny"` }, { status: 400 },
+          );
+        }
+      }
+    }
 
     const sql = getSql();
     const settings = await getSettings(sql, orgId, { category: 'general' });

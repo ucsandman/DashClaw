@@ -32,6 +32,7 @@ describe("plan tools", () => {
     expect(String(url)).toContain("/api/plans");
     expect(opts.method).toBe("POST");
     const body = JSON.parse(opts.body);
+    expect(body.agent_id).toBe("claude-code");
     expect(body.declared_goal).toBe("ship it");
     expect(body.steps).toEqual([{ action_type: "deploy", step_goal: "deploy prod" }]);
     expect(body.ttl_minutes).toBe(30);

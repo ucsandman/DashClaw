@@ -53,6 +53,9 @@ export async function POST(request: Request) {
       if (typeof step.step_goal !== 'string' || !step.step_goal) {
         return NextResponse.json({ error: `steps[${i}] requires step_goal` }, { status: 400 });
       }
+      if (step.act !== undefined && (typeof step.act !== 'object' || step.act === null || Array.isArray(step.act))) {
+        return NextResponse.json({ error: `steps[${i}].act must be an object ({ kind: ... })` }, { status: 400 });
+      }
     }
 
     const settings = await getSettings(sql, orgId, { category: 'general' });
@@ -93,7 +96,7 @@ export async function POST(request: Request) {
         agent_id: agentId,
         action_type: String(step.action_type),
         declared_goal: String(step.step_goal),
-        ...(step.act ? { act: typeof step.act === 'string' ? JSON.parse(String(step.act)) : step.act } : {}),
+        ...(step.act ? { act: step.act } : {}),
       }, sql, { simulate: true });
       await stampStepPreview(sql, orgId, String(step.step_id), {
         decision: String(preview.decision),

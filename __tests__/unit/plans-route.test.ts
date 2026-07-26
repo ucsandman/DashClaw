@@ -144,6 +144,18 @@ describe('POST /api/plans', () => {
     expect(data.error).toMatch(/step_goal/i);
   });
 
+  it('returns 400 when a step act is not a plain object (scalar act), and never creates the plan', async () => {
+    const res = await POST(postReq({
+      ...validBody,
+      steps: [{ action_type: 'deploy', step_goal: 'deploy service', act: 'not-an-object' }],
+    }));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/steps\[0\]\.act must be an object/);
+    expect(mockCreatePlanWithSteps).not.toHaveBeenCalled();
+  });
+
   it('returns 400 when steps.length exceeds PLAN_MAX_STEPS', async () => {
     mockGetSettings.mockResolvedValueOnce([{ key: 'PLAN_MAX_STEPS', value: '1' }]);
 

@@ -200,6 +200,15 @@ describe('POST /api/plans/[planId]', () => {
     );
   });
 
+  it('rejects an unknown step_overrides value with 400 (fail-closed, never silently approves)', async () => {
+    const res = await POST(postReq({ verdict: 'approve', step_overrides: { ps_1: 'yolo' } }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/step_overrides\.ps_1 must be "approve" or "deny"/);
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
   it('passes step_overrides through to reviewPlan', async () => {
     const plan = { plan_id: 'pa_1234567890abcdef', status: 'partially_approved' };
     mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
