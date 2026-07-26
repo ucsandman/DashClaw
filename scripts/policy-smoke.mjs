@@ -1468,6 +1468,61 @@ async function main() {
     createdPolicyIds.push(policyId); // ride the standard cleanup
   }
 
+  // ---------------------------------------------------------------- AF ----
+  // Preflight plan authorization (governed-autonomy feature 1). Live proof:
+  // submit -> approve -> a matching guarded call consumes the grant (allow)
+  // -> the identical second call interrupts again (single-use proven live).
+  //
+  // Self-contained: rather than relying on the org's ambient Production
+  // Safety template to land require_approval for risk 90 (not guaranteed on
+  // every live instance), this creates a temporary agent-scoped
+  // risk_threshold policy the same way section B3 does, so AF3/AF4 hold
+  // regardless of what else is configured on the org. It rides the standard
+  // createPolicy() cleanup — no extra bookkeeping needed.
+  console.log('\nAF. preflight plan authorization...');
+  {
+    const agent = agentFor('plan');
+    await createPolicy('af-preflight', 'risk_threshold',
+      { threshold: 60, action: 'require_approval' }, [agent]);
+    const goal = `plan-smoke deploy ${RUN}`;
+    const submit = await api('POST', '/api/plans', {
+      agent_id: agent,
+      declared_goal: `plan-smoke mission ${RUN}`,
+      ttl_minutes: 10,
+      steps: [{ action_type: 'deploy', step_goal: goal }],
+    });
+    check('AF1', 'plan submits with a preview verdict on the step',
+      submit.status === 201 && submit.json?.plan?.plan_id?.startsWith('pa_')
+        && typeof submit.json?.steps?.[0]?.preview_decision === 'string',
+      `status=${submit.status} preview=${submit.json?.steps?.[0]?.preview_decision}`);
+
+    const planId = submit.json?.plan?.plan_id;
+    const approve = await api('POST', `/api/plans/${planId}`, { verdict: 'approve' });
+    check('AF2', 'operator approves the plan (expires_at set)',
+      approve.status === 200 && approve.json?.plan?.status === 'approved' && !!approve.json?.plan?.expires_at,
+      `status=${approve.status} plan=${approve.json?.plan?.status}`);
+
+    const first = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'deploy', declared_goal: goal, risk_score: 90,
+    });
+    check('AF3', 'matching call consumes the plan grant (allow + builtin:plan_grant)',
+      first.json?.decision === 'allow'
+        && JSON.stringify(first.json?.matched_policies || []).includes('builtin:plan_grant'),
+      `decision=${first.json?.decision} matched=${JSON.stringify(first.json?.matched_policies)}`);
+
+    const second = await api('POST', '/api/guard', {
+      agent_id: agent, action_type: 'deploy', declared_goal: goal, risk_score: 90,
+    });
+    check('AF4', 'identical second call interrupts again (grant was single-use)',
+      second.json?.decision === 'require_approval',
+      `decision=${second.json?.decision}`);
+
+    const revoked = await api('POST', `/api/plans/${planId}`, { verdict: 'revoke' });
+    check('AF5', 'revoke kills the plan',
+      revoked.status === 200 && revoked.json?.plan?.status === 'revoked',
+      `status=${revoked.status} plan=${revoked.json?.plan?.status}`);
+  }
+
   // ------------------------------------------------------------- cleanup ---
   console.log('\ncleanup: deleting smoke policies...');
   for (const id of createdPolicyIds) {
