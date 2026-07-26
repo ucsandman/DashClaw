@@ -24,15 +24,16 @@ At the start of every session, do these three things:
    understand what rules govern you. Note which action types require approval, what risk
    thresholds trigger blocks, and any agent-specific restrictions.
 
-2. **Discover available capabilities** — Read the `dashclaw://capabilities` MCP resource
+2. **Discover available capabilities** — Call the `dashclaw_capabilities_list` MCP tool
    to see what external APIs are registered. Note capability IDs, health status, and risk
    levels. You will use `dashclaw_invoke` (not direct HTTP) for these.
 
 3. **Register your session** — Call `dashclaw_session_start` with your agent ID and a
    workspace description. This groups all your actions for tracking in Approvals.
 
-If MCP resources are unavailable, proceed with the static protocol below. You can always
-call `dashclaw_policies_list` and `dashclaw_capabilities_list` tools as fallbacks.
+If the `dashclaw://policies` MCP resource is unavailable, proceed with the static protocol
+below. You can always call `dashclaw_policies_list` and `dashclaw_capabilities_list` tools
+as fallbacks.
 
 ## Governance Decision Tree
 
