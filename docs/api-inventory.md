@@ -13,10 +13,10 @@ doc-type: architecture
 
 ## Summary
 
-- Total routes: `120`
+- Total routes: `121`
 - Stable routes: `38`
 - Beta routes: `17`
-- Experimental routes: `65`
+- Experimental routes: `66`
 
 ## Routes
 
@@ -95,6 +95,7 @@ doc-type: architecture
 | `/api/pairings` | `GET, POST` | `experimental` | `(default)` | `app/api/pairings/route.ts` |
 | `/api/pairings/{pairingId}` | `GET, PATCH` | `experimental` | `(default)` | `app/api/pairings/[pairingId]/route.ts` |
 | `/api/pairings/{pairingId}/approve` | `POST` | `experimental` | `(default)` | `app/api/pairings/[pairingId]/approve/route.ts` |
+| `/api/plans` | `GET, POST` | `experimental` | `(default)` | `app/api/plans/route.ts` |
 | `/api/policies` | `DELETE, GET, PATCH, POST` | `stable` | `/api/policies` | `app/api/policies/route.ts` |
 | `/api/policies/contract` | `GET` | `stable` | `/api/policies` | `app/api/policies/contract/route.ts` |
 | `/api/policies/generate` | `POST` | `stable` | `/api/policies` | `app/api/policies/generate/route.ts` |
