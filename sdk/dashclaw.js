@@ -975,6 +975,58 @@ class DashClaw {
     return this._patch(`/api/team-tasks/${encodeURIComponent(taskId)}`, patch);
   }
 
+  /**
+   * POST /api/plans — Submit a preflight plan for operator review. Each step
+   * is dry-run through the guard pipeline server-side; approved steps become
+   * single-use grants consumed automatically when the matching action runs.
+   * @param {object} plan - { declared_goal, ttl_minutes?, steps: [{ action_type, step_goal, act? }] }
+   */
+  async submitPlan(plan) {
+    return this._post('/api/plans', { agent_id: this.agentId, ...plan });
+  }
+
+  /** GET /api/plans/:planId — Plan detail with per-step grant status. */
+  async getPlan(planId) {
+    return this._get(`/api/plans/${encodeURIComponent(planId)}`);
+  }
+
+  /**
+   * GET /api/plans — List plans.
+   * @param {object} [opts] - { status?, agent_id?, limit? }
+   */
+  async listPlans(opts = {}) {
+    return this._get('/api/plans', opts);
+  }
+
+  /**
+   * POST /api/plans/:planId — Operator verdict (admin credential required).
+   * @param {string} planId
+   * @param {'approve'|'deny'|'revoke'} verdict
+   * @param {object} [opts] - { step_overrides? }
+   */
+  async resolvePlan(planId, verdict, opts = {}) {
+    return this._post(`/api/plans/${encodeURIComponent(planId)}`, { verdict, ...opts });
+  }
+
+  /**
+   * Poll GET /api/plans/:planId until the operator reviews it (status leaves
+   * 'pending') or the timeout elapses. Resolves with the final plan+steps —
+   * the caller inspects plan.status. Same polling shape as waitForApproval.
+   * @param {string} planId
+   * @param {object} [opts] - { timeout = 300000, interval = 5000 }
+   */
+  async waitForPlanReview(planId, { timeout = 300000, interval = 5000 } = {}) {
+    const startTime = Date.now();
+    for (;;) {
+      const result = await this.getPlan(planId);
+      if (result?.plan?.status && result.plan.status !== 'pending') return result;
+      if (Date.now() - startTime >= timeout) {
+        throw new Error(`Plan ${planId} was not reviewed within ${timeout}ms`);
+      }
+      await new Promise((resolve) => setTimeout(resolve, interval));
+    }
+  }
+
 }
 
 export { DashClaw, ApprovalDeniedError, GuardBlockedError, ApprovalPendingError, scrubAct };

@@ -1076,6 +1076,41 @@ class DashClaw:
         ordered = "|".join(f"{k}={parts.get(k) if parts.get(k) is not None else ''}" for k in sorted(parts))
         return hashlib.sha256(ordered.encode("utf-8")).hexdigest()
 
+    def submit_plan(self, declared_goal, steps, ttl_minutes=None):
+        """Submit a preflight plan for operator review; steps are dry-run server-side."""
+        payload = {"agent_id": self.agent_id, "declared_goal": declared_goal, "steps": steps}
+        if ttl_minutes is not None:
+            payload["ttl_minutes"] = ttl_minutes
+        return self._request("/api/plans", "POST", json=payload)
+
+    def get_plan(self, plan_id):
+        """Fetch a plan with per-step grant status."""
+        return self._request(f"/api/plans/{plan_id}", "GET")
+
+    def list_plans(self, status=None, agent_id=None, limit=None):
+        """List submitted plans."""
+        params = {k: v for k, v in {"status": status, "agent_id": agent_id, "limit": limit}.items() if v is not None}
+        return self._request("/api/plans", "GET", params=params)
+
+    def resolve_plan(self, plan_id, verdict, step_overrides=None):
+        """Operator verdict on a plan: approve, deny, or revoke (admin credential)."""
+        payload = {"verdict": verdict}
+        if step_overrides:
+            payload["step_overrides"] = step_overrides
+        return self._request(f"/api/plans/{plan_id}", "POST", json=payload)
+
+    def wait_for_plan_review(self, plan_id, timeout=300, interval=5):
+        """Poll until the operator reviews the plan (status leaves 'pending')."""
+        deadline = time.time() + timeout
+        while True:
+            result = self.get_plan(plan_id)
+            plan = (result or {}).get("plan") or {}
+            if plan.get("status") and plan.get("status") != "pending":
+                return result
+            if time.time() >= deadline:
+                raise TimeoutError(f"Plan {plan_id} was not reviewed within {timeout}s")
+            time.sleep(interval)
+
 
 # Backward compatibility alias (Legacy)
 OpenClawAgent = DashClaw
