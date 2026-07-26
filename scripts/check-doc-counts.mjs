@@ -110,7 +110,7 @@ const COUNT_CHECKS = [
   // live was 29 (only the root README was gated before). Each checks the FIRST
   // occurrence as a tripwire — a stale tool count now fails the build, not a review.
   { file: 'mcp-server/README.md', label: 'MCP tool count (intro)', re: /Exposes (\d+) governance tools/, expected: [S.mcpTools] },
-  { file: 'mcp-server/README.md', label: 'MCP tool count (section)', re: /^## Tools \((\d+)\)/m, expected: [S.mcpTools] },
+  { file: 'mcp-server/README.md', label: 'MCP tool count (section)', re: /^## Tools \((\d+) governance \+ \d+ stdio support\)/m, expected: [S.mcpTools] },
   { file: 'app/docs/page.tsx', label: 'MCP tool count (intro)', re: /(\d+) governance tools across \d+ groups/, expected: [S.mcpTools] },
   { file: 'app/docs/page.tsx', label: 'MCP tool count (section)', re: /Tools \((\d+)\)<\/h3>/, expected: [S.mcpTools] },
   { file: 'examples/README.md', label: 'MCP tool count', re: /agent (\d+) governance tools/, expected: [S.mcpTools] },

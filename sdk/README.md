@@ -620,17 +620,6 @@ If your agent supports Model Context Protocol (Claude Code, Claude Desktop, Mana
 
 **3 resources:** `dashclaw://policies`, `dashclaw://agent/{agent_id}/history`, `dashclaw://status`.
 
-### Agent runtime endpoints (server-side, no SDK wrapper)
-
-DashClaw 2.17 (platform) added route families that are **agent-runtime infrastructure, not developer SDK methods**. They are called by the MCP server (the tools listed above), by Hermes Agent hooks, and by other governance plumbing — never directly from agent code. By design, they are not exposed on `claw.*`:
-
-| Family | Endpoints | Where called from |
-|---|---|---|
-| Session handoffs | `POST/GET /api/handoffs`, `GET /api/handoffs/latest`, `GET /api/handoffs/{id}`, `POST /api/handoffs/{id}/consume` | Hermes `on_session_end` / `on_session_start` / `pre_llm_call` hooks; MCP `dashclaw_handoff_*` tools |
-| Governance posture | `GET /api/posture`, `GET /api/posture/findings`, `POST /api/posture/findings/[key]/resolve`, `POST /api/posture/scan` | MCP `dashclaw_posture` / `dashclaw_posture_next` tools (read-only); operator `/posture` UI. Experimental; remediation is human-gated (draft-only) |
-
-If you're building a custom integration that needs these without MCP, call them as plain HTTP — see `docs/api-inventory.md` and the OpenAPI spec at `docs/openapi/critical-stable.openapi.json`.
-
 ## OpenClaw Plugin (`@dashclaw/openclaw-plugin`)
 
 For teams using the OpenClaw agent framework, the governance plugin intercepts `PreToolUse` / `PostToolUse` lifecycle hooks and runs guard → record → wait-for-approval automatically. Tool classification vocabulary aligns with DashClaw's guard action types. Install via the openclaw CLI which picks up the bundled `HOOK.md` pack.
