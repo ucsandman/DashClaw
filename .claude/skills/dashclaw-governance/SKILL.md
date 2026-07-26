@@ -24,7 +24,7 @@ At the start of every session, do these three things:
    understand what rules govern you. Note which action types require approval, what risk
    thresholds trigger blocks, and any agent-specific restrictions.
 
-2. **Discover available capabilities** — Read the `dashclaw://capabilities` MCP resource
+2. **Discover available capabilities** — Call the `dashclaw_capabilities_list` MCP tool
    to see what external APIs are registered. Note capability IDs, health status, and risk
    levels. You will use `dashclaw_invoke` (not direct HTTP) for these.
 
