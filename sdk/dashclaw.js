@@ -982,7 +982,14 @@ class DashClaw {
    * @param {object} plan - { declared_goal, ttl_minutes?, steps: [{ action_type, step_goal, act? }] }
    */
   async submitPlan(plan) {
-    return this._post('/api/plans', { agent_id: this.agentId, ...plan });
+    // Hash parity with runGoverned/guard: scrub each step's act the same way
+    // before it leaves the client, so the server-side act_content_hash binds
+    // to what an operator actually reviewed rather than a raw payload the
+    // client could later resend unscrubbed under a mismatched hash.
+    const steps = Array.isArray(plan?.steps)
+      ? plan.steps.map((s) => (s.act ? { ...s, act: scrubAct(s.act) } : s))
+      : plan?.steps;
+    return this._post('/api/plans', { agent_id: this.agentId, ...plan, ...(steps ? { steps } : {}) });
   }
 
   /** GET /api/plans/:planId — Plan detail with per-step grant status. */

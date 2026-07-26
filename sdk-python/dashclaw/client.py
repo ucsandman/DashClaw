@@ -1078,7 +1078,14 @@ class DashClaw:
 
     def submit_plan(self, declared_goal, steps, ttl_minutes=None):
         """Submit a preflight plan for operator review; steps are dry-run server-side."""
-        payload = {"agent_id": self.agent_id, "declared_goal": declared_goal, "steps": steps}
+        # Hash parity with run_governed/guard: scrub each step's act the same
+        # way before it leaves the client, so the server-side
+        # act_content_hash binds to what an operator actually reviewed.
+        scrubbed_steps = [
+            {**step, "act": scrub_act(step["act"])} if isinstance(step, dict) and step.get("act") else step
+            for step in steps
+        ]
+        payload = {"agent_id": self.agent_id, "declared_goal": declared_goal, "steps": scrubbed_steps}
         if ttl_minutes is not None:
             payload["ttl_minutes"] = ttl_minutes
         return self._request("/api/plans", "POST", json=payload)

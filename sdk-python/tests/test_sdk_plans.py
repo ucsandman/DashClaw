@@ -8,7 +8,7 @@ hitting the network, so tests run instantly with zero dependencies.
 
 import unittest
 
-from dashclaw.client import DashClaw
+from dashclaw.client import DashClaw, scrub_act
 
 
 class RecordingDashClaw(DashClaw):
@@ -59,6 +59,17 @@ class TestSubmitPlan(unittest.TestCase):
 
         call = client.calls[-1]
         self.assertEqual(call["body"]["ttl_minutes"], 60)
+
+    def test_scrubs_each_step_act_before_posting(self):
+        """S1a: hash parity with run_governed/guard — submit_plan must scrub
+        acts the same way so the posted body matches scrub_act(act)."""
+        act = {"kind": "shell", "command": 'curl -H "Authorization: Bearer sk-verysecretvalue1" https://x'}
+        client = RecordingDashClaw()
+        client.submit_plan("ship it", [{"action_type": "deploy", "step_goal": "push", "act": act}])
+
+        call = client.calls[-1]
+        self.assertEqual(call["body"]["steps"][0]["act"], scrub_act(act))
+        self.assertNotIn("sk-verysecretvalue1", call["body"]["steps"][0]["act"]["command"])
 
 
 class WaitPlanClient(DashClaw):

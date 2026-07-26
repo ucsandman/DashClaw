@@ -167,6 +167,18 @@ describe('POST /api/plans', () => {
     expect(mockCreatePlanWithSteps).not.toHaveBeenCalled();
   });
 
+  it('S3: a PLAN_MAX_STEPS setting above the hard ceiling still caps at 25, never widens it', async () => {
+    mockGetSettings.mockResolvedValueOnce([{ key: 'PLAN_MAX_STEPS', value: '100' }]);
+    const steps = Array.from({ length: 26 }, (_, i) => ({ action_type: 'deploy', step_goal: `step ${i}` }));
+
+    const res = await POST(postReq({ ...validBody, steps }));
+    const data = await res.json();
+
+    expect(res.status).toBe(400);
+    expect(data.error).toMatch(/25-step cap/);
+    expect(mockCreatePlanWithSteps).not.toHaveBeenCalled();
+  });
+
   it('returns 409 when there are already 10 pending plans', async () => {
     mockCountPendingPlans.mockResolvedValueOnce(10);
 

@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { computeActContentHash } from '../act-content-hash';
+import { redactAny } from '../security';
 
 type SqlClient = {
   (s: TemplateStringsArray, ...v: unknown[]): Promise<Record<string, unknown>[]>;
@@ -38,13 +39,18 @@ export async function createPlanWithSteps(
   for (const step of input.steps) {
     seq += 1;
     const stepId = mintId('ps');
+    // S2: the hash binds the act AS RECEIVED (what the operator's approval
+    // actually attests to), but the persisted/returned copy is redacted —
+    // otherwise a secret-bearing act would sit unredacted in the DB and in
+    // every GET /api/plans response. Same redaction guard decisions use.
     const actHash = computeActContentHash(step.act);
+    const redactedAct = step.act === undefined ? null : JSON.stringify(redactAny(step.act, []));
     const rows = await sql`
       INSERT INTO plan_authorization_steps
         (step_id, plan_id, org_id, seq, action_type, step_goal, act, act_content_hash)
       VALUES
         (${stepId}, ${planId}, ${orgId}, ${seq}, ${step.action_type}, ${step.step_goal},
-         ${step.act === undefined ? null : JSON.stringify(step.act)}, ${actHash})
+         ${redactedAct}, ${actHash})
       RETURNING *
     `;
     steps.push(rows[0]!);
@@ -247,8 +253,12 @@ export async function consumePlanStepGrant(
         AND p.expires_at > now()
         AND st.grant_status = 'approved'
         AND st.grant_used_at IS NULL
+        -- S4: act-bound grants also require declared_goal equality — parity
+        -- with applyOperatorApprovalGrant, which requires goal equality on
+        -- its act-bound branch too. An act hash alone is not sufficient
+        -- proof the running action is the one the operator approved.
         AND (
-          (st.act_content_hash IS NOT NULL AND st.act_content_hash = ${input.actHash})
+          (st.act_content_hash IS NOT NULL AND st.act_content_hash = ${input.actHash} AND st.step_goal = ${input.declaredGoal})
           OR (st.act_content_hash IS NULL AND st.step_goal = ${input.declaredGoal})
         )
       ORDER BY st.seq ASC
@@ -299,10 +309,16 @@ export async function findDeniedStepMatch(
       -- partial-index predicate, so this per-guard-call probe rides
       -- idx_plan_authorization_steps_consume instead of scanning the table.
       AND st.grant_used_at IS NULL
-      AND (
-        (st.act_content_hash IS NOT NULL AND st.act_content_hash = ${input.actHash})
-        OR (st.act_content_hash IS NULL AND st.step_goal = ${input.declaredGoal})
-      )
+      -- S1b: denials are fail-closed — a denied step matches on EITHER its
+      -- act hash or its goal, so mutating the act cannot evade an operator's
+      -- "no". (A strict-AND-per-branch match, as consumePlanStepGrant uses,
+      -- is fail-open here: an attacker could tweak the act to change its
+      -- hash and slip past a denial while keeping the same declared goal.)
+      -- NULL act_content_hash never equals a non-null actHash in SQL, so a
+      -- hashless step naturally falls through to the goal branch. Grants
+      -- (consumePlanStepGrant) keep the strict match — only denials need to
+      -- be fail-closed.
+      AND (st.act_content_hash = ${input.actHash} OR st.step_goal = ${input.declaredGoal})
     ORDER BY st.seq ASC
     LIMIT 1
   `;

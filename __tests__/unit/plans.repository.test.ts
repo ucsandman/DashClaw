@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest';
 import {
   createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch,
 } from '../../app/lib/repositories/plans.repository';
+import { computeActContentHash } from '../../app/lib/act-content-hash';
 
 type SqlCall = { text: string; v: unknown[] };
 type ScriptEntry = unknown[] | ((call: SqlCall) => unknown[]);
@@ -64,6 +65,26 @@ describe('plans.repository', () => {
     expect(steps[1]!.act_content_hash).toBeNull();
   });
 
+  it('S2: stores a redacted act while act_content_hash binds the AS-RECEIVED (unredacted) act', async () => {
+    // Built at runtime (not a literal secret-shaped string in source) so it
+    // still matches security.ts's openai_key pattern (sk-[A-Za-z0-9]{20,})
+    // at test time without tripping secret-scanning on the file itself.
+    const fakeKey = ['sk', 'X'.repeat(24)].join('-');
+    const secretAct = { kind: 'shell', command: `export TOKEN=${fakeKey} && deploy` };
+    const sql = sqlMock([
+      (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4] }],
+      (c) => [{ step_id: c.v[0], plan_id: c.v[1], org_id: c.v[2], seq: c.v[3], action_type: c.v[4], step_goal: c.v[5], act: c.v[6], act_content_hash: c.v[7] }],
+    ]);
+    const { steps } = await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'deploy', ttlMinutes: 60,
+      steps: [{ action_type: 'deploy', step_goal: 'deploy it', act: secretAct }],
+    });
+    const storedAct = JSON.parse(steps[0]!.act as string);
+    expect(storedAct.command).not.toContain(fakeKey);
+    // the hash binds the ORIGINAL act, not the redacted display copy
+    expect(steps[0]!.act_content_hash).toBe(computeActContentHash(secretAct));
+  });
+
   it('reviewPlan clamps ttl_minutes to ttlClampMinutes', async () => {
     const sql = sqlMock([
       [{ plan_id: 'pa_1', ttl_minutes: 99999, status: 'pending' }], // SELECT plan
@@ -115,11 +136,38 @@ describe('plans.repository', () => {
     expect(q.split('grant_used_at IS NULL').length - 1).toBe(2);
   });
 
+  it('S4: consumePlanStepGrant requires step_goal equality on the act-bound branch too (parity with applyOperatorApprovalGrant)', async () => {
+    const sql = sqlMock([[]]);
+    await consumePlanStepGrant(sql as never, 'org_1', {
+      agentId: 'agent-a', actionType: 'deploy', declaredGoal: 'deploy it', actHash: 'sha256:x', matchedActionId: 'act_gd_x',
+    });
+    const q = sql.calls[0]!.text;
+    expect(q).toContain('act_content_hash IS NOT NULL AND st.act_content_hash = ? AND st.step_goal = ?');
+  });
+
   it('findDeniedStepMatch is a read (no UPDATE)', async () => {
     const sql = sqlMock([[]]);
     const hit = await findDeniedStepMatch(sql as never, 'org_1', { agentId: 'a', actionType: 'deploy', declaredGoal: 'g', actHash: null });
     expect(hit).toBeNull();
     expect(sql.calls[0]!.text).not.toContain('UPDATE');
+  });
+
+  it('S1b: findDeniedStepMatch raises on act hash OR goal — a denied act-bound step still matches on a goal-only hit with a different act', async () => {
+    // Fail-open regression guard: the old query gated each branch behind
+    // its own NOT-NULL check ("act_content_hash IS NOT NULL AND hash = ?"
+    // OR "act_content_hash IS NULL AND goal = ?"), so mutating a denied
+    // act-bound step's act (changing its hash) fell through BOTH branches
+    // and silently evaded the denial. The fixed query ORs the two match
+    // modes directly so either one alone still raises.
+    const sql = sqlMock([[{ step_id: 'ps_1', plan_id: 'pa_1', reviewed_by: 'operator' }]]);
+    const hit = await findDeniedStepMatch(sql as never, 'org_1', {
+      agentId: 'a', actionType: 'deploy', declaredGoal: 'deploy the thing', actHash: 'sha256:mutated-act',
+    });
+    expect(hit!.step_id).toBe('ps_1');
+    const q = sql.calls[0]!.text;
+    expect(q).not.toContain('act_content_hash IS NOT NULL');
+    expect(q).not.toContain('act_content_hash IS NULL AND');
+    expect(q).toContain('(st.act_content_hash = ? OR st.step_goal = ?)');
   });
 
   it('revoke leaves step grant_status untouched and sets expires_at = now()', async () => {

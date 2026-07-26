@@ -59,10 +59,15 @@ export async function POST(request: Request) {
     }
 
     const settings = await getSettings(sql, orgId, { category: 'general' });
-    const maxSteps = parseInt(
+    const configuredMaxSteps = parseInt(
       String((settings.find((s) => s.key === 'PLAN_MAX_STEPS') as { value?: string } | undefined)?.value ?? ''),
       10,
     ) || DEFAULT_MAX_STEPS;
+    // S3: the org setting may only tighten the cap, never widen it — each
+    // step costs a full guard evaluation, so a misconfigured/tampered
+    // setting must not raise the fan-out ceiling above the hard code
+    // constant.
+    const maxSteps = Math.min(configuredMaxSteps, DEFAULT_MAX_STEPS);
     if (steps.length > maxSteps) {
       return NextResponse.json(
         { error: `Plan exceeds the ${maxSteps}-step cap (PLAN_MAX_STEPS)` }, { status: 400 },

@@ -897,6 +897,15 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     applyAllowGrants(policies, context, liveAcc);
     if (!options.simulate) {
       await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
+      // S5 (accepted, not fixed): applyPlanStepGrant consumes the single-use
+      // step grant here (grant_used_at set), but replayBlockReason /
+      // actBlockReason (computed earlier, applied via applyBlockOverride
+      // further down near persistGuardDecision) can still override the
+      // decision to block after this point. A grant can therefore be burnt
+      // on an action that ends up blocked anyway by replay/act-binding —
+      // the agent would need a fresh plan step to retry. This matches
+      // applyOperatorApprovalGrant's existing accepted behavior (same
+      // ordering, same exposure); not fixed here.
       planGrant = await timed('plan_grant', () => applyPlanStepGrant(deps, liveAcc));
     }
     await timed('signals', () => runSignalChecks(deps, options, liveAcc));

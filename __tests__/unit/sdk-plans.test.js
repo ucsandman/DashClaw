@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { DashClaw } from '../../sdk/dashclaw.js';
+import { DashClaw, scrubAct } from '../../sdk/dashclaw.js';
 
 describe('SDK plan methods', () => {
   let fetchMock;
@@ -19,6 +19,18 @@ describe('SDK plan methods', () => {
     const body = JSON.parse(opts.body);
     expect(body.agent_id).toBe('claude-code');
     expect(body.declared_goal).toBe('ship it');
+  });
+
+  it('submitPlan scrubs each step act the same way as guard() before posting (S1a)', async () => {
+    const act = { kind: 'shell', command: 'curl -H "Authorization: Bearer sk-verysecretvalue1" https://x' };
+    await sdk().submitPlan({
+      declared_goal: 'ship it',
+      steps: [{ action_type: 'deploy', step_goal: 'push', act }],
+    });
+    const [, opts] = fetchMock.mock.calls[0];
+    const body = JSON.parse(opts.body);
+    expect(body.steps[0].act).toEqual(scrubAct(act));
+    expect(body.steps[0].act.command).not.toContain('sk-verysecretvalue1');
   });
 
   it('resolvePlan posts verdict and step_overrides to /api/plans/:planId', async () => {
