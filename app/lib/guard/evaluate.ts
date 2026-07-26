@@ -211,6 +211,10 @@ interface GuardOptions {
    * persistence, event publish, and BOTH grant passes (a dry-run must never
    * consume a real single-use grant). All read/raise phases still run, so the
    * preview verdict is the full-pipeline verdict.
+   * Do not pass signed contexts (jwt/jti) into simulate evaluations: jti
+   * recording happens in resolveAgentIdentity at the route boundary, outside
+   * this flag's reach — a dry-run with a live jti would consume it and poison
+   * the real call.
    */
   simulate?: boolean;
 }
@@ -377,6 +381,65 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
   }
 }
 
+/**
+ * Preflight plan-authorization post-pass (RFC 2026-07-06, feature 1 of the
+ * governed-autonomy program). Two checks, in tighten-first order:
+ *
+ *  1. Deny-grant: a step the operator EXPLICITLY denied raises any non-block
+ *     decision to block on match (applyBlockOverride) for the plan's TTL.
+ *     Runs regardless of the current decision — an operator "no" outranks a
+ *     policy "yes". Read-only: denied steps are never consumed.
+ *  2. Consumption: when the decision is require_approval, an approved,
+ *     unconsumed, unexpired, act-or-goal-bound step is consumed atomically
+ *     (single UPDATE ... WHERE grant_used_at IS NULL RETURNING — the same
+ *     race shape as the operator grant above) and the decision downgrades to
+ *     allow. Operator grants run FIRST (more specific; they win).
+ *
+ * Never touches block. Never runs in simulate mode (gated at the call site).
+ * Fail-soft: any error leaves the decision unchanged (require_approval fails
+ * closed), identical posture to applyOperatorApprovalGrant.
+ */
+async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): Promise<{ plan_id: string; step_id: string; seq: number } | null> {
+  const { context, sql, orgId } = deps;
+  if (!context.agent_id || !context.declared_goal || !context.action_type) return null;
+  if (acc.highestDecision === 'block') return null;
+  try {
+    const { consumePlanStepGrant, findDeniedStepMatch } = await import('../repositories/plans.repository');
+    const actHash = computeActContentHash(context.act);
+    const match = {
+      agentId: context.agent_id,
+      actionType: context.action_type,
+      declaredGoal: context.declared_goal,
+      actHash,
+    };
+
+    const denied = await findDeniedStepMatch(sql as never, orgId, match);
+    if (denied) {
+      applyBlockOverride(acc, `Plan step ${denied.step_id} was explicitly denied by ${denied.reviewed_by || 'operator'}`);
+      acc.matchedPolicies.push('builtin:plan_deny');
+      return null;
+    }
+
+    if (acc.highestDecision !== 'require_approval') return null;
+
+    const grant = await consumePlanStepGrant(sql as never, orgId, {
+      ...match,
+      matchedActionId: context.action_id ? String(context.action_id) : '',
+    });
+    if (!grant) return null;
+    acc.warnings.push(
+      `Covered by plan ${grant.plan_id} step ${grant.seq}/${grant.total_steps} (approved by ${grant.reviewed_by || 'operator'}${grant.act_content_hash ? ', act-bound' : ''}) — require_approval downgraded to allow`,
+    );
+    acc.matchedPolicies.push('builtin:plan_grant');
+    acc.highestDecision = 'allow';
+    acc.reasons.length = 0; // gating reasons no longer apply
+    return { plan_id: grant.plan_id, step_id: grant.step_id, seq: grant.seq };
+  } catch (err) {
+    console.warn('[Guard] plan-grant lookup failed:', (err as Error).message);
+    return null;
+  }
+}
+
 // Default-on prompt injection scanning (opt-out via DISABLE_PROMPT_INJECTION_SCAN=true).
 function scanPromptInjection(context: GuardEvalContext, acc: GuardAccumulator): void {
   if (process.env.DISABLE_PROMPT_INJECTION_SCAN === 'true') {
@@ -539,6 +602,7 @@ interface GuardFinalizeInput {
   intentSource: 'evidence' | 'declared';
   evidenceDerived: EvidenceDerivedBreakdown | null;
   calibration: CalibrationAssessment | null;
+  planGrant: { plan_id: string; step_id: string; seq: number } | null;
   timings: Record<string, number> | null;
   degraded: { kind: string; deadline_ms: number; action: string; phase_in_flight: string | null } | null;
 }
@@ -574,6 +638,7 @@ function buildGuardDecisionRow(input: GuardFinalizeInput): GuardDecisionInsert {
       // Controller assessment (shadow AND active) — the shadow-mode evidence
       // trail lives here: what the calibrated threshold would have done.
       ...(input.calibration ? { _calibration: input.calibration } : {}),
+      ...(input.planGrant ? { _plan_grant: input.planGrant } : {}),
       ...(input.timings ? { _timings: input.timings } : {}),
       ...(input.degraded ? { _degraded: input.degraded } : {}),
     },
@@ -758,6 +823,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
       }
     | null = null;
   let calibration: CalibrationAssessment | null = null;
+  let planGrant: { plan_id: string; step_id: string; seq: number } | null = null;
   let riskBreakdown: RiskBreakdown = {
     base: syncTerms.base,
     modifiers: syncTerms.modifiers,
@@ -831,6 +897,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     applyAllowGrants(policies, context, liveAcc);
     if (!options.simulate) {
       await timed('grants', () => applyOperatorApprovalGrant(deps, liveAcc));
+      planGrant = await timed('plan_grant', () => applyPlanStepGrant(deps, liveAcc));
     }
     await timed('signals', () => runSignalChecks(deps, options, liveAcc));
     return 'completed';
@@ -945,7 +1012,7 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
   const input: GuardFinalizeInput = {
     decisionId, orgId, context, acc, safeContextForLog, evidenceJson, statuses,
     adjustedRiskScore, agentRiskScore, evaluatedAt, predictiveRisk,
-    riskBreakdown, intentSource, evidenceDerived, calibration, timings, degraded: degradedDetail,
+    riskBreakdown, intentSource, evidenceDerived, calibration, planGrant, timings, degraded: degradedDetail,
   };
 
   if (options.simulate) {
