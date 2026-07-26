@@ -207,10 +207,16 @@ interface GuardOptions {
   includeSignals?: boolean;
   computeSignals?: (orgId: string, agentId: string | null, sql: GuardSql) => Promise<Array<{ type: string; label: string }>>;
   /**
-   * Side-effect-free dry-run (preflight plan preview). Skips guard_decisions
-   * persistence, event publish, and BOTH grant passes (a dry-run must never
-   * consume a real single-use grant). All read/raise phases still run, so the
-   * preview verdict is the full-pipeline verdict.
+   * Side-effect-free dry-run (preflight plan preview). Skips exactly:
+   *  - guard_decisions persistence and the GUARD_DECISION_CREATED event publish
+   *  - BOTH grant passes (applyOperatorApprovalGrant, applyPlanStepGrant) — a
+   *    dry-run must never consume a real single-use grant
+   *  - webhook_check policies (runWebhookPolicies) — a dry-run must not fire
+   *    real outbound HTTP to a customer endpoint or write a webhook_deliveries
+   *    row for a preview the operator hasn't even reviewed yet
+   * All other read/raise phases still run (local policies, prompt-injection
+   * scan, calibration controller, signals), so the preview verdict reflects
+   * everything EXCEPT the side effects above.
    * Do not pass signed contexts (jwt/jti) into simulate evaluations: jti
    * recording happens in resolveAgentIdentity at the route boundary, outside
    * this flag's reach — a dry-run with a live jti would consume it and poison
@@ -375,6 +381,10 @@ async function applyOperatorApprovalGrant(deps: GuardPhaseDeps, acc: GuardAccumu
     );
     acc.matchedPolicies.push('builtin:operator_approval');
     acc.highestDecision = 'allow';
+    // T6: the gating reasons no longer block the decision, but they are
+    // forensic context (WHY the action originally needed approval) — moving
+    // them to warnings keeps that trail visible instead of discarding it.
+    acc.warnings.push(...acc.reasons.map((r) => `superseded by grant: ${r}`));
     acc.reasons.length = 0; // gating reasons no longer apply
   } catch (err) {
     console.warn('[Guard] operator-approval lookup failed:', (err as Error).message);
@@ -432,6 +442,10 @@ async function applyPlanStepGrant(deps: GuardPhaseDeps, acc: GuardAccumulator): 
     );
     acc.matchedPolicies.push('builtin:plan_grant');
     acc.highestDecision = 'allow';
+    // T6: parity with applyOperatorApprovalGrant — preserve the gating
+    // reasons as warnings instead of discarding them, so the forensic trail
+    // (why the action originally needed approval) survives the downgrade.
+    acc.warnings.push(...acc.reasons.map((r) => `superseded by grant: ${r}`));
     acc.reasons.length = 0; // gating reasons no longer apply
     return { plan_id: grant.plan_id, step_id: grant.step_id, seq: grant.seq };
   } catch (err) {
@@ -884,7 +898,14 @@ export async function evaluateGuard(orgId: string, context: GuardEvalContext, sq
     const deps: GuardPhaseDeps = { context, sql, orgId };
     await timed('local_policies', () => runLocalPolicies(policies, deps, adjustedRiskScore, liveAcc));
     scanPromptInjection(context, liveAcc);
-    await timed('webhooks', () => runWebhookPolicies(policies, deps, liveAcc));
+    // T2: webhook_check policies fire real outbound HTTP to a customer
+    // endpoint and write a webhook_deliveries row — a simulate:true dry-run
+    // (preflight plan preview) must never do either for a preview the
+    // operator hasn't reviewed yet. Same gating shape as the grant passes
+    // below (options.simulate short-circuits before any side effect).
+    if (!options.simulate) {
+      await timed('webhooks', () => runWebhookPolicies(policies, deps, liveAcc));
+    }
     // Calibrated interruption controller — after every phase that can raise
     // via policies, before grants (so grants can still cover its raise).
     calibration = await timed('calibration', () => runCalibrationController(deps, adjustedRiskScore, liveAcc));

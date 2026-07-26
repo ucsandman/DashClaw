@@ -16,6 +16,16 @@ vi.mock('@/lib/repositories/settings.repository.js', () => ({ getSettings: vi.fn
 import { evaluateGuard, __resetGuardCaches } from '@/lib/guard.js';
 import { createSqlMock } from '../helpers.js';
 
+function makePolicy(type, rules, overrides = {}) {
+  return {
+    id: `gp_${type}`,
+    name: `Policy ${type}`,
+    policy_type: type,
+    rules: JSON.stringify(rules),
+    ...overrides,
+  };
+}
+
 // createSqlMock records tagged-template calls on `.taggedCalls` and .query()
 // calls on `.queryCalls` (see __tests__/helpers.js) — not a single `.calls`
 // array. Both guard_decisions INSERT and the operator-grant UPDATE go through
@@ -57,5 +67,45 @@ describe('evaluateGuard simulate mode', () => {
     }, sql, { simulate: true });
     const grantUpdates = sql.taggedCalls.filter((c) => /UPDATE action_records/i.test(c.text) && /approval_grant_used_at/i.test(c.text));
     expect(grantUpdates).toHaveLength(0);
+  });
+
+  // T2: a webhook_check policy fires real outbound HTTP to a customer
+  // endpoint and writes a webhook_deliveries row — neither may happen for a
+  // preflight plan preview the operator hasn't reviewed yet.
+  it('T2: never calls deliverGuardWebhook for a webhook_check policy in simulate mode', async () => {
+    mockDeliverGuardWebhook.mockResolvedValue({
+      success: true,
+      response: { decision: 'block', reasons: ['Blocked by webhook'], warnings: [] },
+    });
+    const sql = createSqlMock({
+      taggedResponses: [[makePolicy('webhook_check', { url: 'https://example.com/hook' })]],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'deploy the thing',
+    }, sql, { simulate: true });
+
+    expect(mockDeliverGuardWebhook).not.toHaveBeenCalled();
+    // The webhook would have escalated to block; skipped entirely in
+    // simulate mode, so nothing raises the decision.
+    expect(result.decision).not.toBe('block');
+  });
+
+  // Non-simulate contrast, pinned here so the two behaviors stay visibly
+  // paired: __tests__/unit/guard-engine.test.js "escalates decision on
+  // webhook response" already proves deliverGuardWebhook fires (and is
+  // honored) outside simulate mode.
+  it('T2: still calls deliverGuardWebhook for a webhook_check policy outside simulate mode', async () => {
+    mockDeliverGuardWebhook.mockResolvedValue({
+      success: true,
+      response: { decision: 'allow', reasons: [], warnings: [] },
+    });
+    const sql = createSqlMock({
+      taggedResponses: [[makePolicy('webhook_check', { url: 'https://example.com/hook' })]],
+    });
+    await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'deploy the thing',
+    }, sql);
+
+    expect(mockDeliverGuardWebhook).toHaveBeenCalledTimes(1);
   });
 });

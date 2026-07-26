@@ -151,6 +151,91 @@ describe('POST /api/plans/[planId]', () => {
     expect(mockReviewPlan).not.toHaveBeenCalled();
   });
 
+  // T1: separation of duties — the credential that submitted a plan cannot
+  // approve it (mirrors approvals-route.test.js SELF_APPROVAL_FORBIDDEN).
+  it('T1: rejects self-approval with 403 SELF_APPROVAL_FORBIDDEN when reviewer === created_by', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_1' },
+      steps: [],
+    });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+    const data = await res.json();
+
+    expect(res.status).toBe(403);
+    expect(data.code).toBe('SELF_APPROVAL_FORBIDDEN');
+    expect(mockReviewPlan).not.toHaveBeenCalled();
+  });
+
+  it('T1: a different admin credential may approve a plan it did not submit', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'user_submitter' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it("T1: 'operator' is exempt from the self-approval gate", async () => {
+    mockGetUserId.mockReturnValueOnce('operator');
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: 'operator' },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it('T1: a NULL created_by (legacy/system row) is unenforceable and stays approvable', async () => {
+    mockGetPlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef', status: 'pending', created_by: null },
+      steps: [],
+    });
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'approved' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'approve' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+  });
+
+  it('T1: revoking your own plan is allowed — the self-approval gate only applies to approve', async () => {
+    // No mockGetPlanWithSteps stub here: verdict 'revoke' skips the gate
+    // entirely, so the route must never call getPlanWithSteps for it (an
+    // unconsumed queued response here would leak into the next test's call).
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'revoked' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'revoke' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+    // revoke never even reads the plan for the gate (gate is approve-only).
+    expect(mockGetPlanWithSteps).not.toHaveBeenCalled();
+  });
+
+  it('T1: denying your own plan is allowed — the self-approval gate only applies to approve', async () => {
+    const plan = { plan_id: 'pa_1234567890abcdef', status: 'denied' };
+    mockReviewPlan.mockResolvedValueOnce({ plan, steps: [] });
+
+    const res = await POST(postReq({ verdict: 'deny' }), { params });
+
+    expect(res.status).toBe(200);
+    expect(mockReviewPlan).toHaveBeenCalled();
+    expect(mockGetPlanWithSteps).not.toHaveBeenCalled();
+  });
+
   it('rejects an invalid verdict with 400', async () => {
     const res = await POST(postReq({ verdict: 'maybe' }), { params });
     const data = await res.json();

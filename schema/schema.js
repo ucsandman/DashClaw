@@ -1391,6 +1391,10 @@ export const planAuthorizations = pgTable('plan_authorizations', {
   reviewed_by: text('reviewed_by'),
   reviewed_at: timestamp('reviewed_at', { withTimezone: true }),
   created_at: timestamp('created_at', { withTimezone: true }).defaultNow(),
+  // SoD (drizzle/0063): the middleware-attributed principal that SUBMITTED
+  // the plan — the review route rejects reviewer === created_by, mirroring
+  // action_records.created_by / drizzle/0055.
+  created_by: text('created_by'),
 });
 
 // @domain governance

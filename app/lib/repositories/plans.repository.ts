@@ -23,10 +23,18 @@ export interface PlanStepInput {
   act?: unknown;
 }
 
+// T3: a pending plan older than the max grant TTL ceiling can never matter —
+// aging it out of the cap query prevents an orphaned submission (one the
+// operator never reviewed and that has long since exceeded any TTL a grant
+// could carry) from permanently occupying a pending-cap slot and bricking
+// the org's ability to submit new plans. Same value as the org's hard TTL
+// clamp ceiling (DEFAULT_TTL_CLAMP_MINUTES in app/api/plans/[planId]/route.ts).
+export const PENDING_PLAN_CAP_WINDOW_MINUTES = 480;
+
 export async function createPlanWithSteps(
   sql: SqlClient,
   orgId: string,
-  input: { agentId: string; declaredGoal: string; ttlMinutes: number; steps: PlanStepInput[]; maxPending: number },
+  input: { agentId: string; declaredGoal: string; ttlMinutes: number; steps: PlanStepInput[]; maxPending: number; createdBy?: string | null },
 ) {
   const planId = mintId('pa');
   // R3: the pending-plan cap is enforced HERE, not only via the route's
@@ -35,10 +43,14 @@ export async function createPlanWithSteps(
   // INSERT lands). Folding the count into the INSERT's WHERE makes the
   // count-and-insert a single atomic statement: a losing race yields zero
   // rows instead of writing an (org_id, 'pending') row over the cap.
+  // T3: the cap query ignores pending plans older than
+  // PENDING_PLAN_CAP_WINDOW_MINUTES — a stale pending plan nobody reviewed
+  // must not permanently occupy a slot.
   const planRows = await sql`
-    INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes)
-    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'pending', ${input.ttlMinutes}
-    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status = 'pending') < ${input.maxPending}
+    INSERT INTO plan_authorizations (plan_id, org_id, agent_id, declared_goal, status, ttl_minutes, created_by)
+    SELECT ${planId}, ${orgId}, ${input.agentId}, ${input.declaredGoal}, 'pending', ${input.ttlMinutes}, ${input.createdBy ?? null}
+    WHERE (SELECT COUNT(*) FROM plan_authorizations WHERE org_id = ${orgId} AND status = 'pending'
+      AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})) < ${input.maxPending}
     RETURNING *
   `;
   if (!planRows[0]) return null;
@@ -109,8 +121,13 @@ export async function getPlanWithSteps(sql: SqlClient, orgId: string, planId: st
 }
 
 export async function countPendingPlans(sql: SqlClient, orgId: string): Promise<number> {
+  // T3: same aging-out predicate as the INSERT's guard above — the route's
+  // pre-read must agree with the authoritative SQL-enforced cap, or the
+  // pre-read would reject submissions the INSERT would actually allow.
   const rows = await sql`
-    SELECT COUNT(*)::int AS n FROM plan_authorizations WHERE org_id = ${orgId} AND status = 'pending'
+    SELECT COUNT(*)::int AS n FROM plan_authorizations
+    WHERE org_id = ${orgId} AND status = 'pending'
+      AND created_at > now() - make_interval(mins => ${PENDING_PLAN_CAP_WINDOW_MINUTES})
   `;
   return Number(rows[0]?.n ?? 0);
 }

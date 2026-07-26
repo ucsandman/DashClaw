@@ -18,6 +18,7 @@ function makeRequest(
 const {
   mockGetSql,
   mockGetOrgId,
+  mockGetUserId,
   mockResolveAgentIdentity,
   mockPublishOrgEvent,
   mockEvaluateGuard,
@@ -29,6 +30,7 @@ const {
 } = vi.hoisted(() => ({
   mockGetSql: vi.fn(),
   mockGetOrgId: vi.fn(() => 'org_test'),
+  mockGetUserId: vi.fn(() => 'user_1'),
   mockResolveAgentIdentity: vi.fn(async (_req: unknown, opts: { agentId?: string | null } = {}) => ({
     agent_id: opts.agentId ?? null,
     agent_name: null,
@@ -47,7 +49,7 @@ const {
 }));
 
 vi.mock('@/lib/db.js', () => ({ getSql: () => mockGetSql }));
-vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId }));
+vi.mock('@/lib/org.js', () => ({ getOrgId: mockGetOrgId, getUserId: mockGetUserId }));
 vi.mock('@/lib/identity-resolution.js', () => ({ resolveAgentIdentity: mockResolveAgentIdentity }));
 vi.mock('@/lib/events.js', () => ({
   EVENTS: { ACTION_UPDATED: 'action.updated' },
@@ -92,6 +94,7 @@ describe('POST /api/plans', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetOrgId.mockReturnValue('org_test');
+    mockGetUserId.mockReturnValue('user_1');
     mockResolveAgentIdentity.mockImplementation(async (_req: unknown, opts: { agentId?: string | null } = {}) => ({
       agent_id: opts.agentId ?? null,
       agent_name: null,
@@ -246,6 +249,56 @@ describe('POST /api/plans', () => {
 
     expect(mockPublishOrgEvent).toHaveBeenCalledWith(
       'action.updated', expect.objectContaining({ orgId: 'org_test', plan: planRow }),
+    );
+
+    // T1: SoD — the submitting principal is stamped as created_by so the
+    // review route can reject reviewer === created_by.
+    expect(mockCreatePlanWithSteps).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', expect.objectContaining({ createdBy: 'user_1' }),
+    );
+  });
+
+  it('T1: createdBy is null when the request carries no attributable principal', async () => {
+    mockGetUserId.mockReturnValueOnce('');
+    mockCreatePlanWithSteps.mockResolvedValueOnce({
+      plan: { plan_id: 'pa_1234567890abcdef' },
+      steps: [{ step_id: 'ps_1', seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: null }],
+    });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+
+    await POST(postReq(validBody));
+
+    expect(mockCreatePlanWithSteps).toHaveBeenCalledWith(
+      mockGetSql, 'org_test', expect.objectContaining({ createdBy: null }),
+    );
+  });
+
+  it('T4: dry-runs against the RAW act from the request body, not the stored/redacted step act', async () => {
+    const rawAct = { kind: 'shell', command: 'echo hello' };
+    const redactedAct = { kind: 'shell', command: '[REDACTED:example]' };
+    const planRow = { plan_id: 'pa_1234567890abcdef' };
+    const stepRows = [
+      { step_id: 'ps_1111111111111111', plan_id: planRow.plan_id, seq: 1, action_type: 'deploy', step_goal: 'deploy service', act: redactedAct },
+    ];
+    mockCreatePlanWithSteps.mockResolvedValueOnce({ plan: planRow, steps: stepRows });
+    mockEvaluateGuard.mockResolvedValue({ decision: 'allow', risk_score: 12, reasons: [], simulated: true });
+
+    await POST(postReq({
+      ...validBody,
+      steps: [{ action_type: 'deploy', step_goal: 'deploy service', act: rawAct }],
+    }));
+
+    expect(mockEvaluateGuard).toHaveBeenCalledWith(
+      'org_test',
+      expect.objectContaining({ act: rawAct }),
+      mockGetSql, { simulate: true },
+    );
+    // The stored/displayed step keeps its redacted copy — evaluateGuard never
+    // saw it.
+    expect(mockEvaluateGuard).not.toHaveBeenCalledWith(
+      'org_test',
+      expect.objectContaining({ act: redactedAct }),
+      mockGetSql, { simulate: true },
     );
   });
 

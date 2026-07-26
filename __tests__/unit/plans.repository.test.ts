@@ -5,7 +5,8 @@
 // rather than trusting an arbitrary stub.
 import { describe, it, expect } from 'vitest';
 import {
-  createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch,
+  createPlanWithSteps, reviewPlan, consumePlanStepGrant, findDeniedStepMatch, countPendingPlans,
+  PENDING_PLAN_CAP_WINDOW_MINUTES,
 } from '../../app/lib/repositories/plans.repository';
 import { computeActContentHash } from '../../app/lib/act-content-hash';
 
@@ -98,6 +99,48 @@ describe('plans.repository', () => {
     // No step INSERTs are attempted once the header insert is rejected.
     expect(sql.calls).toHaveLength(1);
     expect(sql.calls[0]!.text).toContain('WHERE (SELECT COUNT(*) FROM plan_authorizations');
+  });
+
+  it('T1: stamps created_by from input.createdBy into the INSERT', async () => {
+    const sql = sqlMock([
+      (c) => [{ plan_id: c.v[0], org_id: c.v[1], agent_id: c.v[2], declared_goal: c.v[3], status: 'pending', ttl_minutes: c.v[4], created_by: c.v[5] }],
+    ]);
+    const { plan } = (await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10,
+      steps: [], createdBy: 'user_submitter',
+    }))!;
+    expect((plan as { created_by?: string }).created_by).toBe('user_submitter');
+    expect(sql.calls[0]!.text).toContain('created_by');
+    expect(sql.calls[0]!.v).toContain('user_submitter');
+  });
+
+  it('T1: createdBy defaults to null when omitted', async () => {
+    const sql = sqlMock([
+      (c) => [{ plan_id: c.v[0], created_by: c.v[5] }],
+    ]);
+    const { plan } = (await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10, steps: [],
+    }))!;
+    expect((plan as { created_by?: unknown }).created_by).toBeNull();
+  });
+
+  it('T3: the pending-cap INSERT ages out plans older than PENDING_PLAN_CAP_WINDOW_MINUTES', async () => {
+    const sql = sqlMock([[]]);
+    await createPlanWithSteps(sql as never, 'org_1', {
+      agentId: 'agent-a', declaredGoal: 'ship the feature', ttlMinutes: 60, maxPending: 10, steps: [],
+    });
+    const text = sql.calls[0]!.text;
+    expect(text).toContain('created_at > now() - make_interval(mins =>');
+    expect(sql.calls[0]!.v).toContain(PENDING_PLAN_CAP_WINDOW_MINUTES);
+  });
+
+  it('T3: countPendingPlans applies the same aging predicate as the INSERT guard', async () => {
+    const sql = sqlMock([[{ n: 3 }]]);
+    const n = await countPendingPlans(sql as never, 'org_1');
+    expect(n).toBe(3);
+    const text = sql.calls[0]!.text;
+    expect(text).toContain('created_at > now() - make_interval(mins =>');
+    expect(sql.calls[0]!.v).toContain(PENDING_PLAN_CAP_WINDOW_MINUTES);
   });
 
   it('reviewPlan clamps ttl_minutes to ttlClampMinutes', async () => {

@@ -143,7 +143,7 @@ export default function PlanReviewCard({ plan, steps, canDecide, onResolved }: {
 
         <p className="text-xs text-tertiary mb-3">
           Previews are advisory — a grant only applies when the live evaluation still requires approval.
-          Denied steps are blocked outright for the plan&apos;s TTL.
+          Denied steps block the matching action for every agent in this workspace until the plan&apos;s TTL expires.
         </p>
         {error && <p className="text-xs text-error mb-3">{error}</p>}
 

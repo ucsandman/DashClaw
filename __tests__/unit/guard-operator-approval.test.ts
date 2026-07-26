@@ -84,6 +84,22 @@ describe('operator-approval post-pass', () => {
     expect(res.warnings.join(' ')).toContain('act_approved_1');
   });
 
+  // T6: the gating reasons are forensic context (why the action originally
+  // needed approval) — a downgrade must preserve them as warnings, not
+  // silently discard them.
+  it('T6: moves the gating reasons into warnings (prefixed) instead of discarding them on downgrade', async () => {
+    const sql = routedSqlMock([
+      { match: 'FROM guard_policies', rows: policyRows([
+        { policy_type: 'require_approval', rules: { action_types: ['apply'] }, name: 'Needs review' },
+      ]) },
+      { match: 'FROM action_records', rows: [APPROVAL_ROW] },
+    ]);
+    const res = await evaluateGuard(freshOrg(), CTX, sql);
+    expect(res.decision).toBe('allow');
+    expect(res.reasons).toHaveLength(0);
+    expect(res.warnings.some((w) => w.startsWith('superseded by grant: ') && w.includes('Needs review'))).toBe(true);
+  });
+
   it('stays require_approval when no approval matches', async () => {
     const sql = routedSqlMock([
       { match: 'FROM guard_policies', rows: policyRows([

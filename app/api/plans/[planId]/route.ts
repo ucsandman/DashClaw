@@ -65,6 +65,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ pla
     }
 
     const sql = getSql();
+
+    // SECURITY: separation of duties (drizzle/0063) — the credential that
+    // submitted a plan may not approve it, mirroring the approvals gate
+    // (app/api/approvals/[actionId]/route.ts:~108). 'operator' is exempt: in
+    // single-admin self-host the root credential legitimately does both, and
+    // if an agent holds root the gate was already forfeit. NULL created_by
+    // (legacy/system rows) is unenforceable and stays approvable. Only
+    // 'approve' is gated — approving mints grants the submitter could draw
+    // down on itself; denying or revoking your own plan only closes doors,
+    // so those verdicts stay open to the submitter.
+    if (verdict === 'approve') {
+      const existing = await getPlanWithSteps(sql, orgId, planId);
+      const createdBy = (existing?.plan as { created_by?: string | null } | undefined)?.created_by;
+      if (userId !== 'operator' && createdBy && createdBy === userId) {
+        return NextResponse.json(
+          {
+            error: 'The credential that submitted this plan cannot approve it. Approve from the dashboard, or use a different admin credential.',
+            code: 'SELF_APPROVAL_FORBIDDEN',
+          },
+          { status: 403 },
+        );
+      }
+    }
+
     const settings = await getSettings(sql, orgId, { category: 'general' });
     const configuredTtlClampMinutes = parseInt(String(settings.find((s) => s.key === 'PLAN_GRANT_TTL_MAX_MINUTES')?.value ?? ''), 10) || DEFAULT_TTL_CLAMP_MINUTES;
     // R2: same may-tighten-never-widen guarantee as PLAN_MAX_STEPS (S3 in

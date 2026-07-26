@@ -98,6 +98,26 @@ describe('applyPlanStepGrant (via evaluateGuard)', () => {
     expect(consumeUpdates).toHaveLength(1);
   });
 
+  // T6: parity with applyOperatorApprovalGrant — the gating reasons (why the
+  // action originally needed approval) survive the downgrade as warnings
+  // instead of being discarded.
+  it('T6: moves the gating reasons into warnings (prefixed) instead of discarding them on downgrade', async () => {
+    const sql = makeSql({
+      policies: [makePolicy('require_approval', { action_types: ['deploy'] }, { name: 'Needs review' })],
+      consumeRows: [{
+        step_id: 'ps_step1', plan_id: 'pa_plan1', seq: 1,
+        reviewed_by: 'wes@example.com', act_content_hash: null, total_steps: 2,
+      }],
+    });
+    const result = await evaluateGuard('org_1', {
+      agent_id: 'agent-a', action_type: 'deploy', declared_goal: 'ship the release',
+    }, sql);
+
+    expect(result.decision).toBe('allow');
+    expect(result.reasons).toHaveLength(0);
+    expect(result.warnings.some((w) => w.startsWith('superseded by grant: ') && w.includes('Needs review'))).toBe(true);
+  });
+
   it('never downgrades block', async () => {
     const sql = makeSql({
       policies: [makePolicy('block_action_type', { action_types: ['deploy'] })],

@@ -9,7 +9,7 @@ export const revalidate = 0;
 
 import { NextResponse } from 'next/server';
 import { getSql } from '../../lib/db';
-import { getOrgId } from '../../lib/org';
+import { getOrgId, getUserId } from '../../lib/org';
 import { apiErrorResponse } from '../../lib/apiErrors';
 import { EVENTS, publishOrgEvent } from '../../lib/events';
 import { resolveAgentIdentity } from '../../lib/identity-resolution';
@@ -86,6 +86,9 @@ export async function POST(request: Request) {
     const created = await createPlanWithSteps(sql, orgId, {
       agentId, declaredGoal: body.declared_goal, ttlMinutes, maxPending: MAX_PENDING_PLANS,
       steps: steps.map((s) => ({ action_type: String(s.action_type), step_goal: String(s.step_goal), act: s.act })),
+      // SoD (drizzle/0063): trusted middleware principal, never the body —
+      // the review route rejects reviewer === created_by.
+      createdBy: getUserId(request) || null,
     });
     if (!created) {
       // R3: the countPendingPlans read above is a courtesy fast-path; this is
@@ -103,12 +106,23 @@ export async function POST(request: Request) {
     // agent_id/action_type/declared_goal(+act) only, never signature/jwt/jti
     // (see GuardOptions.simulate in guard/evaluate.ts).
     const previewedSteps: Array<Record<string, unknown>> = [];
-    for (const step of created.steps as Array<Record<string, unknown>>) {
+    for (const [i, step] of (created.steps as Array<Record<string, unknown>>).entries()) {
+      // T4: preview against the RAW act as submitted (steps[i], index-aligned
+      // — createPlanWithSteps preserves submission order via seq), never
+      // `step.act`, which is the REDACTED display copy persisted by S2 in
+      // createPlanWithSteps. Grading the redacted copy would hide the exact
+      // content (e.g. a secret-bearing shell command) a policy needs to see,
+      // producing a preview softer than the live evaluation the agent will
+      // actually face. The stored/displayed step.act stays redacted, and the
+      // act_content_hash the operator's approval binds to is already
+      // computed over the raw act — only this preview call was reading the
+      // wrong copy.
+      const rawAct = steps[i]?.act;
       const preview = await evaluateGuard(orgId, {
         agent_id: agentId,
         action_type: String(step.action_type),
         declared_goal: String(step.step_goal),
-        ...(step.act ? { act: step.act } : {}),
+        ...(rawAct !== undefined ? { act: rawAct } : {}),
       }, sql, { simulate: true });
       await stampStepPreview(sql, orgId, String(step.step_id), {
         decision: String(preview.decision),
