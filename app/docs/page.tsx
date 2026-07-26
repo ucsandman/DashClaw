@@ -407,6 +407,8 @@ except Exception as e:
                       { group: 'Team Tasks', tool: 'dashclaw_task_create', desc: 'Create a Team Task — one record per multi-agent /team run', inputs: 'task_id, instruction, origin, lead_agent' },
                       { tool: 'dashclaw_task_event', desc: 'Append one event to a Team Task timeline', inputs: 'task_id, from_agent, to_agent, type, summary' },
                       { tool: 'dashclaw_task_update', desc: 'Update a Team Task: status transitions and stored transport session ids', inputs: 'task_id, status' },
+                      { group: 'Plans', tool: 'dashclaw_plan_submit', desc: 'Submit a preflight plan for one-card operator review; steps are dry-run server-side', inputs: 'declared_goal, steps, ttl_minutes' },
+                      { tool: 'dashclaw_plan_status', desc: 'Check a plan\'s verdict and per-step grant status', inputs: 'plan_id' },
                     ] as Array<{ group?: string; tool: string; desc: string; inputs: string }>).map((row) => (
                       <tr key={row.tool} className="border-b border-border">
                         <td className="py-2 pr-4 font-mono text-xs text-brand">
